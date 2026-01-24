@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -50,4 +51,57 @@ export function useStorage() {
     getGarmentSignedUrl,
     deleteGarmentImage,
   };
+}
+
+/**
+ * Hook to fetch a signed URL for a garment image.
+ * Returns the signed URL and loading/error states.
+ */
+export function useGarmentSignedUrl(imagePath: string | undefined) {
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!imagePath) {
+      setSignedUrl(null);
+      return;
+    }
+
+    let isCancelled = false;
+    
+    const fetchSignedUrl = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        const { data, error: urlError } = await supabase.storage
+          .from('garments')
+          .createSignedUrl(imagePath, 3600); // 1 hour
+        
+        if (urlError) throw urlError;
+        
+        if (!isCancelled) {
+          setSignedUrl(data.signedUrl);
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          setError(err instanceof Error ? err : new Error('Failed to get signed URL'));
+          setSignedUrl(null);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchSignedUrl();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [imagePath]);
+
+  return { signedUrl, isLoading, error };
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, Loader2, WashingMachine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { useGarments, type GarmentFilters, type Garment } from '@/hooks/useGarments';
-import { useStorage } from '@/hooks/useStorage';
+import { useGarmentSignedUrl } from '@/hooks/useStorage';
 import { AppLayout } from '@/components/layout/AppLayout';
 
 const categories = [
@@ -44,14 +44,7 @@ const sortOptions = [
 
 function GarmentCard({ garment }: { garment: Garment }) {
   const navigate = useNavigate();
-  const { getGarmentSignedUrl } = useStorage();
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (garment.image_path) {
-      getGarmentSignedUrl(garment.image_path).then(setImageUrl).catch(() => {});
-    }
-  }, [garment.image_path]);
+  const { signedUrl, isLoading: imageLoading } = useGarmentSignedUrl(garment.image_path);
 
   return (
     <Card
@@ -62,15 +55,19 @@ function GarmentCard({ garment }: { garment: Garment }) {
       onClick={() => navigate(`/wardrobe/${garment.id}`)}
     >
       <div className="aspect-square bg-secondary relative">
-        {imageUrl ? (
+        {signedUrl ? (
           <img
-            src={imageUrl}
+            src={signedUrl}
             alt={garment.title}
             className="w-full h-full object-cover"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <div className="w-12 h-12 rounded-full bg-muted" />
+            {imageLoading ? (
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-muted" />
+            )}
           </div>
         )}
         {garment.in_laundry && (
