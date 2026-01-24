@@ -10,12 +10,16 @@ import {
   Download,
   Trash2,
   Loader2,
+  Crown,
+  Infinity,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -39,6 +43,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
+import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
 import { supabase } from '@/integrations/supabase/client';
 
 const colors = [
@@ -62,6 +67,7 @@ export default function SettingsPage() {
   const { user, signOut } = useAuth();
   const { data: profile, isLoading } = useProfile();
   const updateProfile = useUpdateProfile();
+  const { subscription, isPremium, remainingGarments, remainingOutfits, limits } = useSubscription();
   
   const [displayName, setDisplayName] = useState(profile?.display_name || '');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -176,6 +182,84 @@ export default function SettingsPage() {
       </div>
 
       <div className="p-4 space-y-6">
+        {/* Premium Section */}
+        <Card className={cn(
+          isPremium 
+            ? 'bg-gradient-to-br from-amber-500/10 to-orange-500/10 border-amber-500/30'
+            : ''
+        )}>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Crown className={cn("w-5 h-5", isPremium && "text-amber-500")} />
+                <CardTitle className="text-base">
+                  {isPremium ? 'Premium' : 'Free'}
+                </CardTitle>
+              </div>
+              {isPremium && (
+                <Badge className="bg-gradient-to-r from-amber-500 to-orange-500">
+                  Aktiv
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isPremium ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Infinity className="w-4 h-4 text-amber-500" />
+                  <span>Obegränsad garderob</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <span>Obegränsade outfits</span>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Garments usage */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Plagg</span>
+                    <span className="text-muted-foreground">
+                      {subscription?.garments_count || 0} / {limits.maxGarments}
+                    </span>
+                  </div>
+                  <Progress 
+                    value={((subscription?.garments_count || 0) / limits.maxGarments) * 100} 
+                    className="h-2" 
+                  />
+                </div>
+                
+                {/* Outfits usage */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Outfits denna månad</span>
+                    <span className="text-muted-foreground">
+                      {subscription?.outfits_used_month || 0} / {limits.maxOutfitsPerMonth}
+                    </span>
+                  </div>
+                  <Progress 
+                    value={((subscription?.outfits_used_month || 0) / limits.maxOutfitsPerMonth) * 100} 
+                    className="h-2" 
+                  />
+                </div>
+
+                <Button 
+                  className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                  onClick={() => {
+                    // Placeholder for premium upgrade
+                    toast.info('Premium-uppgradering kommer snart!');
+                  }}
+                >
+                  <Crown className="w-4 h-4 mr-2" />
+                  Uppgradera till Premium
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Profile */}
         <Card>
           <CardHeader>

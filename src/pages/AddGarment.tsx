@@ -21,6 +21,8 @@ import { useCreateGarment, useGarmentCount } from '@/hooks/useGarments';
 import { useStorage } from '@/hooks/useStorage';
 import { useAnalyzeGarment, GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/hooks/useSubscription';
+import { PaywallModal } from '@/components/PaywallModal';
 
 const categories = [
   { id: 'top', label: 'Överdel' },
@@ -121,6 +123,7 @@ export default function AddGarmentPage() {
   const { data: garmentCount } = useGarmentCount();
   const { analyzeGarment, isAnalyzing, analysisProgress } = useAnalyzeGarment();
   const { user } = useAuth();
+  const { canAddGarment, remainingGarments, refresh: refreshSubscription } = useSubscription();
 
   const [step, setStep] = useState<'upload' | 'analyzing' | 'form'>('upload');
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -129,6 +132,7 @@ export default function AddGarmentPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [garmentId, setGarmentId] = useState<string | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<GarmentAnalysis | null>(null);
+  const [showPaywall, setShowPaywall] = useState(false);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -142,6 +146,15 @@ export default function AddGarmentPage() {
   const [selectedSeasons, setSelectedSeasons] = useState<string[]>([]);
   const [formality, setFormality] = useState([3]);
   const [inLaundry, setInLaundry] = useState(false);
+
+  // Check limit on mount
+  const handleStartUpload = () => {
+    if (!canAddGarment()) {
+      setShowPaywall(true);
+      return false;
+    }
+    return true;
+  };
 
   const applyAIAnalysis = (analysis: GarmentAnalysis) => {
     setAiAnalysis(analysis);
@@ -187,6 +200,12 @@ export default function AddGarmentPage() {
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
+
+    // Check subscription limit
+    if (!canAddGarment()) {
+      setShowPaywall(true);
+      return;
+    }
 
     setImageFile(file);
     
@@ -644,6 +663,13 @@ export default function AddGarmentPage() {
           )}
         </Button>
       </div>
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        isOpen={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        reason="garments"
+      />
     </div>
   );
 }
