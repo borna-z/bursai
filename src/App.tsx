@@ -16,6 +16,7 @@ import OutfitGenerate from "./pages/OutfitGenerate";
 import Onboarding from "./pages/Onboarding";
 import Insights from "./pages/Insights";
 import Settings from "./pages/Settings";
+import ShareOutfit from "./pages/ShareOutfit";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/outfits/:id" element={<ProtectedRoute><OutfitDetail /></ProtectedRoute>} />
             <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/share/:id" element={<ShareOutfit />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

@@ -141,6 +141,7 @@ export type Database = {
           occasion: string
           rating: number | null
           saved: boolean | null
+          share_enabled: boolean | null
           style_vibe: string | null
           user_id: string
           weather: Json | null
@@ -153,6 +154,7 @@ export type Database = {
           occasion: string
           rating?: number | null
           saved?: boolean | null
+          share_enabled?: boolean | null
           style_vibe?: string | null
           user_id: string
           weather?: Json | null
@@ -165,6 +167,7 @@ export type Database = {
           occasion?: string
           rating?: number | null
           saved?: boolean | null
+          share_enabled?: boolean | null
           style_vibe?: string | null
           user_id?: string
           weather?: Json | null
