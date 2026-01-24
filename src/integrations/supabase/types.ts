@@ -27,11 +27,13 @@ export type Database = {
           formality: number | null
           id: string
           image_path: string
+          imported_via: string | null
           in_laundry: boolean | null
           last_worn_at: string | null
           material: string | null
           pattern: string | null
           season_tags: string[] | null
+          source_url: string | null
           subcategory: string | null
           title: string
           updated_at: string | null
@@ -50,11 +52,13 @@ export type Database = {
           formality?: number | null
           id?: string
           image_path: string
+          imported_via?: string | null
           in_laundry?: boolean | null
           last_worn_at?: string | null
           material?: string | null
           pattern?: string | null
           season_tags?: string[] | null
+          source_url?: string | null
           subcategory?: string | null
           title: string
           updated_at?: string | null
@@ -73,11 +77,13 @@ export type Database = {
           formality?: number | null
           id?: string
           image_path?: string
+          imported_via?: string | null
           in_laundry?: boolean | null
           last_worn_at?: string | null
           material?: string | null
           pattern?: string | null
           season_tags?: string[] | null
+          source_url?: string | null
           subcategory?: string | null
           title?: string
           updated_at?: string | null

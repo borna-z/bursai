@@ -106,15 +106,16 @@ export function LinkImportForm() {
           throw new Error(error.message || 'Import misslyckades');
         }
 
-        if (data?.results?.[0]?.success) {
+        const result = data?.results?.[0];
+        if (result?.status === 'ok') {
           updatedItems[i] = { 
             ...updatedItems[i], 
             status: 'success',
-            garmentTitle: data.results[0].title || 'Plagg importerat',
+            garmentTitle: result.title || 'Plagg importerat',
           };
           successCount++;
         } else {
-          throw new Error(data?.results?.[0]?.error || 'Okänt fel');
+          throw new Error(result?.reason || 'Okänt fel');
         }
       } catch (err: any) {
         updatedItems[i] = { 
