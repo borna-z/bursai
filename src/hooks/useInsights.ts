@@ -5,12 +5,20 @@ import type { Tables } from '@/integrations/supabase/types';
 
 export type Garment = Tables<'garments'>;
 
+export interface InsightsData {
+  totalGarments: number;
+  garmentsUsedLast30Days: number;
+  usageRate: number;
+  topFiveWorn: (Garment & { wearCountLast30: number })[];
+  unusedGarments: Garment[];
+}
+
 export function useInsights() {
   const { user } = useAuth();
   
   return useQuery({
     queryKey: ['insights', user?.id],
-    queryFn: async () => {
+    queryFn: async (): Promise<InsightsData | null> => {
       if (!user) return null;
       
       const thirtyDaysAgo = new Date();
@@ -28,26 +36,29 @@ export function useInsights() {
       // Get wear logs from last 30 days
       const { data: wearLogs, error: logsError } = await supabase
         .from('wear_logs')
-        .select('garment_id')
+        .select('garment_id, worn_at')
         .eq('user_id', user.id)
         .gte('worn_at', thirtyDaysAgoStr);
       
       if (logsError) throw logsError;
       
       const totalGarments = garments?.length || 0;
-      const wornGarmentIds = new Set(wearLogs?.map(log => log.garment_id) || []);
-      const wornCount = wornGarmentIds.size;
-      const usageRate = totalGarments > 0 ? Math.round((wornCount / totalGarments) * 100) : 0;
       
-      // Most worn garments
+      // Count wear per garment in last 30 days
       const wearCountMap: Record<string, number> = {};
       wearLogs?.forEach(log => {
         wearCountMap[log.garment_id] = (wearCountMap[log.garment_id] || 0) + 1;
       });
       
-      const mostWorn = garments
+      const wornGarmentIds = new Set(Object.keys(wearCountMap));
+      const garmentsUsedLast30Days = wornGarmentIds.size;
+      const usageRate = totalGarments > 0 ? Math.round((garmentsUsedLast30Days / totalGarments) * 100) : 0;
+      
+      // Top 5 most worn garments (by wear count in last 30 days)
+      const topFiveWorn = garments
         ?.filter(g => wearCountMap[g.id])
-        .sort((a, b) => (wearCountMap[b.id] || 0) - (wearCountMap[a.id] || 0))
+        .map(g => ({ ...g, wearCountLast30: wearCountMap[g.id] || 0 }))
+        .sort((a, b) => b.wearCountLast30 - a.wearCountLast30)
         .slice(0, 5) || [];
       
       // Unused garments (not worn in last 30 days)
@@ -55,9 +66,10 @@ export function useInsights() {
       
       return {
         totalGarments,
+        garmentsUsedLast30Days,
         usageRate,
-        mostWorn: mostWorn as Garment[],
-        unusedGarments: unusedGarments as Garment[],
+        topFiveWorn,
+        unusedGarments,
       };
     },
     enabled: !!user,

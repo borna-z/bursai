@@ -215,6 +215,7 @@ export type Database = {
           created_at: string | null
           garment_id: string
           id: string
+          occasion: string | null
           outfit_id: string | null
           user_id: string
           worn_at: string
@@ -223,6 +224,7 @@ export type Database = {
           created_at?: string | null
           garment_id: string
           id?: string
+          occasion?: string | null
           outfit_id?: string | null
           user_id: string
           worn_at?: string
@@ -231,6 +233,7 @@ export type Database = {
           created_at?: string | null
           garment_id?: string
           id?: string
+          occasion?: string | null
           outfit_id?: string | null
           user_id?: string
           worn_at?: string

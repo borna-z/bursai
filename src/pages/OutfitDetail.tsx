@@ -10,14 +10,23 @@ import {
   Share2,
   Loader2,
   Sparkles,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { useOutfit, useUpdateOutfit, useMarkOutfitWorn } from '@/hooks/useOutfits';
+import { useOutfit, useUpdateOutfit, useMarkOutfitWorn, type OutfitWithItems } from '@/hooks/useOutfits';
 import { useStorage } from '@/hooks/useStorage';
+import { useSwapGarment, type SwapCandidate } from '@/hooks/useSwapGarment';
 
 const slotLabels: Record<string, string> = {
   top: 'Överdel',
@@ -27,16 +36,125 @@ const slotLabels: Record<string, string> = {
   accessory: 'Accessoar',
 };
 
+interface SwapSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  slot: string;
+  outfitItemId: string;
+  candidates: SwapCandidate[];
+  isLoading: boolean;
+  onSelect: (garmentId: string) => void;
+  isSwapping: boolean;
+}
+
+function SwapSheet({ 
+  isOpen, 
+  onClose, 
+  slot, 
+  candidates, 
+  isLoading, 
+  onSelect,
+  isSwapping 
+}: SwapSheetProps) {
+  const { getGarmentSignedUrl } = useStorage();
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    candidates.forEach((candidate) => {
+      if (candidate.garment.image_path && !imageUrls[candidate.garment.id]) {
+        getGarmentSignedUrl(candidate.garment.image_path)
+          .then((url) => setImageUrls((prev) => ({ ...prev, [candidate.garment.id]: url })))
+          .catch(() => {});
+      }
+    });
+  }, [candidates]);
+
+  return (
+    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent side="bottom" className="h-[70vh]">
+        <SheetHeader>
+          <SheetTitle>Byt {slotLabels[slot] || slot}</SheetTitle>
+        </SheetHeader>
+        
+        <ScrollArea className="h-full mt-4 pb-8">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : candidates.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>Inga alternativ tillgängliga</p>
+              <p className="text-sm mt-1">Lägg till fler plagg i denna kategori</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {candidates.map((candidate) => (
+                <button
+                  key={candidate.garment.id}
+                  onClick={() => onSelect(candidate.garment.id)}
+                  disabled={isSwapping}
+                  className={cn(
+                    "w-full flex items-center gap-3 p-3 rounded-lg transition-colors",
+                    "hover:bg-secondary/80 bg-secondary",
+                    isSwapping && "opacity-50"
+                  )}
+                >
+                  <div className="w-16 h-16 rounded-lg bg-background overflow-hidden flex-shrink-0">
+                    {imageUrls[candidate.garment.id] ? (
+                      <img
+                        src={imageUrls[candidate.garment.id]}
+                        alt={candidate.garment.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-full bg-muted" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="font-medium truncate">{candidate.garment.title}</p>
+                    <p className="text-sm text-muted-foreground capitalize">
+                      {candidate.garment.color_primary}
+                    </p>
+                  </div>
+                  {candidate.score >= 7 && (
+                    <Badge variant="secondary" className="flex-shrink-0">Bra match</Badge>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 export default function OutfitDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { id } = useParams<{ id: string }>();
-  const { data: outfit, isLoading } = useOutfit(id);
+  const { data: outfit, isLoading, refetch } = useOutfit(id);
   const updateOutfit = useUpdateOutfit();
   const markWorn = useMarkOutfitWorn();
   const { getGarmentSignedUrl } = useStorage();
+  const { 
+    candidates, 
+    isLoadingCandidates, 
+    fetchCandidates, 
+    swapGarment, 
+    isSwapping,
+    clearCandidates 
+  } = useSwapGarment();
+  
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [rating, setRating] = useState<number | null>(null);
+  const [swapSheet, setSwapSheet] = useState<{ 
+    isOpen: boolean; 
+    slot: string; 
+    outfitItemId: string;
+  }>({ isOpen: false, slot: '', outfitItemId: '' });
   
   const justGenerated = (location.state as { justGenerated?: boolean })?.justGenerated;
 
@@ -55,6 +173,30 @@ export default function OutfitDetailPage() {
       }
     });
   }, [outfit?.outfit_items]);
+
+  const handleOpenSwap = async (slot: string, outfitItemId: string, currentGarmentId: string) => {
+    // Get colors of other garments in the outfit
+    const otherColors = outfit?.outfit_items
+      .filter(item => item.id !== outfitItemId && item.garment?.color_primary)
+      .map(item => item.garment!.color_primary.toLowerCase()) || [];
+    
+    setSwapSheet({ isOpen: true, slot, outfitItemId });
+    await fetchCandidates(slot, currentGarmentId, otherColors);
+  };
+
+  const handleSwap = async (newGarmentId: string) => {
+    try {
+      await swapGarment({ 
+        outfitItemId: swapSheet.outfitItemId, 
+        newGarmentId 
+      });
+      toast.success('Plagg bytt!');
+      setSwapSheet({ isOpen: false, slot: '', outfitItemId: '' });
+      refetch();
+    } catch {
+      toast.error('Kunde inte byta plagg');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -103,7 +245,11 @@ export default function OutfitDetailPage() {
   const handleMarkWorn = async () => {
     try {
       const garmentIds = outfit.outfit_items.map((item) => item.garment_id);
-      await markWorn.mutateAsync({ outfitId: outfit.id, garmentIds });
+      await markWorn.mutateAsync({ 
+        outfitId: outfit.id, 
+        garmentIds,
+        occasion: outfit.occasion 
+      });
       toast.success('Markerat som använd idag ✓');
     } catch {
       toast.error('Något gick fel');
@@ -169,13 +315,12 @@ export default function OutfitDetailPage() {
         {/* Items */}
         <div className="space-y-3">
           {outfit.outfit_items.map((item) => (
-            <Card
-              key={item.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => navigate(`/wardrobe/${item.garment_id}`)}
-            >
+            <Card key={item.id} className="overflow-hidden">
               <CardContent className="p-3 flex items-center gap-4">
-                <div className="w-20 h-20 rounded-lg bg-secondary overflow-hidden flex-shrink-0">
+                <div 
+                  className="w-20 h-20 rounded-lg bg-secondary overflow-hidden flex-shrink-0 cursor-pointer"
+                  onClick={() => navigate(`/wardrobe/${item.garment_id}`)}
+                >
                   {imageUrls[item.id] ? (
                     <img
                       src={imageUrls[item.id]}
@@ -188,7 +333,10 @@ export default function OutfitDetailPage() {
                     </div>
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
+                <div 
+                  className="flex-1 min-w-0 cursor-pointer"
+                  onClick={() => navigate(`/wardrobe/${item.garment_id}`)}
+                >
                   <p className="text-sm text-muted-foreground">
                     {slotLabels[item.slot] || item.slot}
                   </p>
@@ -197,8 +345,16 @@ export default function OutfitDetailPage() {
                     {item.garment?.color_primary}
                   </p>
                 </div>
-                <Button variant="ghost" size="sm">
-                  <RefreshCw className="w-4 h-4" />
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenSwap(item.slot, item.id, item.garment_id);
+                  }}
+                >
+                  <RefreshCw className="w-4 h-4 mr-1" />
+                  Byt
                 </Button>
               </CardContent>
             </Card>
@@ -254,10 +410,25 @@ export default function OutfitDetailPage() {
             )}
             {outfit.worn_at
               ? `Använd ${new Date(outfit.worn_at).toLocaleDateString('sv-SE')}`
-              : 'Markera som använd'}
+              : 'Markera som använd idag'}
           </Button>
         </div>
       </div>
+
+      {/* Swap Sheet */}
+      <SwapSheet
+        isOpen={swapSheet.isOpen}
+        onClose={() => {
+          setSwapSheet({ isOpen: false, slot: '', outfitItemId: '' });
+          clearCandidates();
+        }}
+        slot={swapSheet.slot}
+        outfitItemId={swapSheet.outfitItemId}
+        candidates={candidates}
+        isLoading={isLoadingCandidates}
+        onSelect={handleSwap}
+        isSwapping={isSwapping}
+      />
     </div>
   );
 }
