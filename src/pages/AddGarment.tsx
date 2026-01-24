@@ -1,12 +1,13 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Image as ImageIcon, ArrowLeft, Loader2, X, Sparkles } from 'lucide-react';
+import { Camera, Image as ImageIcon, ArrowLeft, Loader2, X, Sparkles, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
+import { Progress } from '@/components/ui/progress';
 import {
   Select,
   SelectContent,
@@ -61,7 +62,8 @@ const fits = ['Slim', 'Regular', 'Loose', 'Oversized'];
 const seasons = ['Vår', 'Sommar', 'Höst', 'Vinter'];
 
 // Helper to map AI response values to form values
-function mapColorToFormValue(aiColor: string): string {
+function mapColorToFormValue(aiColor: string | null | undefined): string {
+  if (!aiColor) return '';
   const colorLower = aiColor.toLowerCase();
   const colorMatch = colors.find(c => 
     c.id === colorLower || 
@@ -76,28 +78,28 @@ function mapCategoryToFormValue(aiCategory: string): string {
   return catMatch?.id || '';
 }
 
-function mapSubcategoryToFormValue(aiSubcategory: string, category: string): string {
-  if (!category || !subcategories[category]) return '';
+function mapSubcategoryToFormValue(aiSubcategory: string | null | undefined, category: string): string {
+  if (!aiSubcategory || !category || !subcategories[category]) return '';
   const subLower = aiSubcategory.toLowerCase();
   const subMatch = subcategories[category].find(s => s.toLowerCase() === subLower);
   return subMatch?.toLowerCase() || '';
 }
 
-function mapPatternToFormValue(aiPattern: string | undefined): string {
+function mapPatternToFormValue(aiPattern: string | null | undefined): string {
   if (!aiPattern) return '';
   const patternLower = aiPattern.toLowerCase();
   const patternMatch = patterns.find(p => p.toLowerCase() === patternLower);
   return patternMatch?.toLowerCase() || '';
 }
 
-function mapMaterialToFormValue(aiMaterial: string | undefined): string {
+function mapMaterialToFormValue(aiMaterial: string | null | undefined): string {
   if (!aiMaterial) return '';
   const materialLower = aiMaterial.toLowerCase();
   const materialMatch = materials.find(m => m.toLowerCase() === materialLower);
   return materialMatch?.toLowerCase() || '';
 }
 
-function mapFitToFormValue(aiFit: string | undefined): string {
+function mapFitToFormValue(aiFit: string | null | undefined): string {
   if (!aiFit) return '';
   const fitLower = aiFit.toLowerCase();
   const fitMatch = fits.find(f => f.toLowerCase() === fitLower);
@@ -105,6 +107,7 @@ function mapFitToFormValue(aiFit: string | undefined): string {
 }
 
 function mapSeasonTagsToFormValue(aiSeasons: string[]): string[] {
+  if (!aiSeasons || !Array.isArray(aiSeasons)) return [];
   return aiSeasons
     .map(s => s.toLowerCase())
     .filter(s => seasons.map(ss => ss.toLowerCase()).includes(s));
@@ -116,7 +119,7 @@ export default function AddGarmentPage() {
   const { uploadGarmentImage, getGarmentSignedUrl } = useStorage();
   const createGarment = useCreateGarment();
   const { data: garmentCount } = useGarmentCount();
-  const { analyzeGarment, isAnalyzing } = useAnalyzeGarment();
+  const { analyzeGarment, isAnalyzing, analysisProgress } = useAnalyzeGarment();
   const { user } = useAuth();
 
   const [step, setStep] = useState<'upload' | 'analyzing' | 'form'>('upload');
@@ -125,6 +128,7 @@ export default function AddGarmentPage() {
   const [storagePath, setStoragePath] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [garmentId, setGarmentId] = useState<string | null>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<GarmentAnalysis | null>(null);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -140,6 +144,7 @@ export default function AddGarmentPage() {
   const [inLaundry, setInLaundry] = useState(false);
 
   const applyAIAnalysis = (analysis: GarmentAnalysis) => {
+    setAiAnalysis(analysis);
     setTitle(analysis.title || '');
     
     const mappedCategory = mapCategoryToFormValue(analysis.category);
@@ -147,12 +152,36 @@ export default function AddGarmentPage() {
     setSubcategory(mapSubcategoryToFormValue(analysis.subcategory, mappedCategory));
     
     setColorPrimary(mapColorToFormValue(analysis.color_primary));
-    setColorSecondary(analysis.color_secondary ? mapColorToFormValue(analysis.color_secondary) : '');
+    setColorSecondary(mapColorToFormValue(analysis.color_secondary));
     setPattern(mapPatternToFormValue(analysis.pattern));
     setMaterial(mapMaterialToFormValue(analysis.material));
     setFit(mapFitToFormValue(analysis.fit));
     setSelectedSeasons(mapSeasonTagsToFormValue(analysis.season_tags || []));
     setFormality([analysis.formality || 3]);
+  };
+
+  const runAnalysis = async (path: string) => {
+    setStep('analyzing');
+    
+    const { data: analysisData, error: analysisError } = await analyzeGarment(path);
+    
+    if (analysisError) {
+      toast.error('AI kunde inte analysera – fyll i manuellt.', {
+        description: analysisError,
+      });
+    } else if (analysisData) {
+      applyAIAnalysis(analysisData);
+      toast.success('AI-analys klar!', {
+        description: 'Granska och justera vid behov.',
+      });
+    }
+    
+    setStep('form');
+  };
+
+  const handleReanalyze = async () => {
+    if (!storagePath) return;
+    await runAnalysis(storagePath);
   };
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -186,27 +215,13 @@ export default function AddGarmentPage() {
       const signedUrl = await getGarmentSignedUrl(path);
       setImagePreview(signedUrl);
 
-      // Call AI analysis
-      const { data: analysisData, error: analysisError } = await analyzeGarment(path);
-      
-      if (analysisError) {
-        toast.error('Kunde inte analysera bilden – fyll i manuellt.', {
-          description: 'AI-analysen misslyckades',
-        });
-      } else if (analysisData) {
-        applyAIAnalysis(analysisData);
-        toast.success('AI-analys klar!', {
-          description: 'Granska och justera vid behov.',
-        });
-      }
+      // Run AI analysis
+      await runAnalysis(path);
     } catch (err) {
       console.error('Upload/analysis error:', err);
       toast.error('Kunde inte ladda upp bilden. Försök igen.');
       setStep('upload');
-      return;
     }
-
-    setStep('form');
   };
 
   const toggleSeason = (season: string) => {
@@ -255,6 +270,26 @@ export default function AddGarmentPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const resetForm = () => {
+    setStep('upload');
+    setImageFile(null);
+    setImagePreview(null);
+    setStoragePath(null);
+    setGarmentId(null);
+    setAiAnalysis(null);
+    setTitle('');
+    setCategory('');
+    setSubcategory('');
+    setColorPrimary('');
+    setColorSecondary('');
+    setPattern('');
+    setMaterial('');
+    setFit('');
+    setSelectedSeasons([]);
+    setFormality([3]);
+    setInLaundry(false);
   };
 
   if (step === 'upload') {
@@ -318,7 +353,7 @@ export default function AddGarmentPage() {
   if (step === 'analyzing') {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8">
-        <div className="flex flex-col items-center gap-6">
+        <div className="flex flex-col items-center gap-6 w-full max-w-xs">
           {imagePreview && (
             <div className="relative aspect-square w-48 rounded-xl overflow-hidden bg-secondary">
               <img
@@ -332,7 +367,12 @@ export default function AddGarmentPage() {
             <Sparkles className="w-5 h-5 text-primary animate-pulse" />
             <span className="text-lg font-medium">AI analyserar plagget…</span>
           </div>
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <Progress value={analysisProgress} className="w-full" />
+          <p className="text-sm text-muted-foreground">
+            {analysisProgress < 30 ? 'Laddar upp bild...' : 
+             analysisProgress < 70 ? 'Analyserar färg och stil...' : 
+             'Slutför analys...'}
+          </p>
         </div>
       </div>
     );
@@ -341,17 +381,25 @@ export default function AddGarmentPage() {
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="sticky top-0 z-10 bg-background border-b">
-        <div className="p-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => {
-            setStep('upload');
-            setImageFile(null);
-            setImagePreview(null);
-            setStoragePath(null);
-            setGarmentId(null);
-          }}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="text-lg font-semibold">Granska plagg</h1>
+        <div className="p-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={resetForm}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <h1 className="text-lg font-semibold">Granska plagg</h1>
+          </div>
+          {storagePath && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReanalyze}
+              disabled={isAnalyzing}
+              className="gap-2"
+            >
+              <RefreshCw className={cn("w-4 h-4", isAnalyzing && "animate-spin")} />
+              Analysera igen
+            </Button>
+          )}
         </div>
       </div>
 
@@ -368,16 +416,18 @@ export default function AddGarmentPage() {
               variant="secondary"
               size="icon"
               className="absolute top-2 right-2"
-              onClick={() => {
-                setImageFile(null);
-                setImagePreview(null);
-                setStoragePath(null);
-                setGarmentId(null);
-                setStep('upload');
-              }}
+              onClick={resetForm}
             >
               <X className="w-4 h-4" />
             </Button>
+            {aiAnalysis && (
+              <div className="absolute bottom-2 left-2">
+                <Badge variant="secondary" className="gap-1">
+                  <Sparkles className="w-3 h-3" />
+                  AI-analyserad
+                </Badge>
+              </div>
+            )}
           </div>
         )}
 

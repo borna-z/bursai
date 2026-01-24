@@ -16,6 +16,9 @@ export type Database = {
     Tables: {
       garments: {
         Row: {
+          ai_analyzed_at: string | null
+          ai_provider: string | null
+          ai_raw: Json | null
           category: string
           color_primary: string
           color_secondary: string | null
@@ -36,6 +39,9 @@ export type Database = {
           wear_count: number | null
         }
         Insert: {
+          ai_analyzed_at?: string | null
+          ai_provider?: string | null
+          ai_raw?: Json | null
           category: string
           color_primary: string
           color_secondary?: string | null
@@ -56,6 +62,9 @@ export type Database = {
           wear_count?: number | null
         }
         Update: {
+          ai_analyzed_at?: string | null
+          ai_provider?: string | null
+          ai_raw?: Json | null
           category?: string
           color_primary?: string
           color_secondary?: string | null
