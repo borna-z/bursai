@@ -2,3 +2,6 @@ project_id = "dvrdxjmnydcjzpcwjxgv"
 
 [functions.analyze_garment]
 verify_jwt = false
+
+[functions.import_garments_from_links]
+verify_jwt = false

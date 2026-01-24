@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Image as ImageIcon, ArrowLeft, Loader2, X, Sparkles, RefreshCw } from 'lucide-react';
+import { Camera, Image as ImageIcon, ArrowLeft, Loader2, X, Sparkles, RefreshCw, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -23,6 +24,7 @@ import { useAnalyzeGarment, GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
+import { LinkImportForm } from '@/components/LinkImportForm';
 
 const categories = [
   { id: 'top', label: 'Överdel' },
@@ -320,50 +322,72 @@ export default function AddGarmentPage() {
           </Button>
         </div>
 
-        <div className="flex flex-col items-center justify-center p-8 space-y-8">
+        <div className="flex flex-col items-center p-4 space-y-6">
           <h1 className="text-2xl font-bold">Lägg till plagg</h1>
-          <p className="text-muted-foreground text-center">
-            Ta ett foto eller välj från galleriet
-          </p>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleImageSelect}
-            className="hidden"
-          />
+          <Tabs defaultValue="photo" className="w-full max-w-md">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="photo" className="flex items-center gap-2">
+                <Camera className="w-4 h-4" />
+                Foto
+              </TabsTrigger>
+              <TabsTrigger value="link" className="flex items-center gap-2">
+                <Link2 className="w-4 h-4" />
+                Länk
+              </TabsTrigger>
+            </TabsList>
 
-          <div className="flex gap-4">
-            <Button
-              size="lg"
-              className="h-24 w-32 flex-col gap-2"
-              onClick={() => {
-                if (fileInputRef.current) {
-                  fileInputRef.current.capture = 'environment';
-                  fileInputRef.current.click();
-                }
-              }}
-            >
-              <Camera className="w-8 h-8" />
-              Kamera
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="h-24 w-32 flex-col gap-2"
-              onClick={() => {
-                if (fileInputRef.current) {
-                  fileInputRef.current.removeAttribute('capture');
-                  fileInputRef.current.click();
-                }
-              }}
-            >
-              <ImageIcon className="w-8 h-8" />
-              Galleri
-            </Button>
-          </div>
+            <TabsContent value="photo" className="mt-6">
+              <div className="flex flex-col items-center space-y-6">
+                <p className="text-muted-foreground text-center">
+                  Ta ett foto eller välj från galleriet
+                </p>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleImageSelect}
+                  className="hidden"
+                />
+
+                <div className="flex gap-4">
+                  <Button
+                    size="lg"
+                    className="h-24 w-32 flex-col gap-2"
+                    onClick={() => {
+                      if (fileInputRef.current) {
+                        fileInputRef.current.capture = 'environment';
+                        fileInputRef.current.click();
+                      }
+                    }}
+                  >
+                    <Camera className="w-8 h-8" />
+                    Kamera
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="h-24 w-32 flex-col gap-2"
+                    onClick={() => {
+                      if (fileInputRef.current) {
+                        fileInputRef.current.removeAttribute('capture');
+                        fileInputRef.current.click();
+                      }
+                    }}
+                  >
+                    <ImageIcon className="w-8 h-8" />
+                    Galleri
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="link" className="mt-6">
+              <LinkImportForm />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     );
