@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
   Star,
@@ -9,17 +9,11 @@ import {
   RefreshCw,
   Share2,
   Loader2,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useOutfit, useUpdateOutfit, useMarkOutfitWorn } from '@/hooks/useOutfits';
@@ -35,6 +29,7 @@ const slotLabels: Record<string, string> = {
 
 export default function OutfitDetailPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams<{ id: string }>();
   const { data: outfit, isLoading } = useOutfit(id);
   const updateOutfit = useUpdateOutfit();
@@ -42,6 +37,8 @@ export default function OutfitDetailPage() {
   const { getGarmentSignedUrl } = useStorage();
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [rating, setRating] = useState<number | null>(null);
+  
+  const justGenerated = (location.state as { justGenerated?: boolean })?.justGenerated;
 
   useEffect(() => {
     if (outfit?.rating) {
@@ -154,6 +151,12 @@ export default function OutfitDetailPage() {
       <div className="p-4 space-y-6">
         {/* Title */}
         <div>
+          {justGenerated && (
+            <div className="flex items-center gap-2 text-primary mb-3">
+              <Sparkles className="w-5 h-5" />
+              <span className="font-medium">Ny outfit skapad!</span>
+            </div>
+          )}
           <Badge variant="secondary" className="mb-2 capitalize">
             {outfit.occasion}
           </Badge>
@@ -204,12 +207,12 @@ export default function OutfitDetailPage() {
 
         {/* Explanation */}
         {outfit.explanation && (
-          <Card>
+          <Card className="bg-primary/5 border-primary/20">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">AI:s förklaring</CardTitle>
+              <CardTitle className="text-sm font-medium">Varför detta funkar</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">{outfit.explanation}</p>
+              <p className="text-sm">{outfit.explanation}</p>
             </CardContent>
           </Card>
         )}

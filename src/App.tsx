@@ -12,6 +12,7 @@ import AddGarment from "./pages/AddGarment";
 import GarmentDetail from "./pages/GarmentDetail";
 import Outfits from "./pages/Outfits";
 import OutfitDetail from "./pages/OutfitDetail";
+import OutfitGenerate from "./pages/OutfitGenerate";
 import Insights from "./pages/Insights";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/wardrobe/add" element={<ProtectedRoute><AddGarment /></ProtectedRoute>} />
             <Route path="/wardrobe/:id" element={<ProtectedRoute><GarmentDetail /></ProtectedRoute>} />
             <Route path="/outfits" element={<ProtectedRoute><Outfits /></ProtectedRoute>} />
+            <Route path="/outfits/generate" element={<ProtectedRoute><OutfitGenerate /></ProtectedRoute>} />
             <Route path="/outfits/:id" element={<ProtectedRoute><OutfitDetail /></ProtectedRoute>} />
             <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
