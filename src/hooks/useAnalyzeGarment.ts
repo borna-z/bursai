@@ -7,12 +7,14 @@ export interface GarmentAnalysis {
   category: string;
   subcategory: string;
   color_primary: string;
-  color_secondary?: string;
-  pattern?: string;
-  material?: string;
-  fit?: string;
+  color_secondary?: string | null;
+  pattern?: string | null;
+  material?: string | null;
+  fit?: string | null;
   season_tags: string[];
   formality: number;
+  ai_provider?: string;
+  ai_raw?: Record<string, unknown>;
 }
 
 export interface AnalyzeGarmentResult {
@@ -23,6 +25,7 @@ export interface AnalyzeGarmentResult {
 export function useAnalyzeGarment() {
   const { user } = useAuth();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
 
   const analyzeGarment = async (storagePath: string): Promise<AnalyzeGarmentResult> => {
     if (!user) {
@@ -30,14 +33,28 @@ export function useAnalyzeGarment() {
     }
 
     setIsAnalyzing(true);
+    setAnalysisProgress(10);
+
+    // Simulate progress for UX
+    const progressInterval = setInterval(() => {
+      setAnalysisProgress((prev) => {
+        if (prev >= 90) return prev;
+        return prev + Math.random() * 15;
+      });
+    }, 500);
 
     try {
+      setAnalysisProgress(20);
+
       const { data, error } = await supabase.functions.invoke('analyze_garment', {
         body: {
           userId: user.id,
           storagePath,
         },
       });
+
+      clearInterval(progressInterval);
+      setAnalysisProgress(100);
 
       if (error) {
         console.error('Edge function error:', error);
@@ -51,15 +68,18 @@ export function useAnalyzeGarment() {
 
       return { data: data as GarmentAnalysis, error: null };
     } catch (err) {
+      clearInterval(progressInterval);
       console.error('Analyze garment error:', err);
-      return { data: null, error: 'Ett oväntat fel uppstod' };
+      return { data: null, error: 'Ett oväntat fel uppstod vid AI-analysen' };
     } finally {
       setIsAnalyzing(false);
+      setTimeout(() => setAnalysisProgress(0), 500);
     }
   };
 
   return {
     analyzeGarment,
     isAnalyzing,
+    analysisProgress,
   };
 }

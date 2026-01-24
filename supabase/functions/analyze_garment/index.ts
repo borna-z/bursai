@@ -16,12 +16,101 @@ interface GarmentAnalysis {
   category: string;
   subcategory: string;
   color_primary: string;
-  color_secondary?: string;
-  pattern?: string;
-  material?: string;
-  fit?: string;
+  color_secondary?: string | null;
+  pattern?: string | null;
+  material?: string | null;
+  fit?: string | null;
   season_tags: string[];
   formality: number;
+}
+
+// Standardize category to allowed values
+function normalizeCategory(cat: string): string {
+  const catLower = cat.toLowerCase().trim();
+  const categoryMap: Record<string, string> = {
+    'top': 'top',
+    'överdel': 'top',
+    'tröja': 'top',
+    'skjorta': 'top',
+    't-shirt': 'top',
+    'blus': 'top',
+    'bottom': 'bottom',
+    'underdel': 'bottom',
+    'byxa': 'bottom',
+    'byxor': 'bottom',
+    'jeans': 'bottom',
+    'kjol': 'bottom',
+    'shoes': 'shoes',
+    'skor': 'shoes',
+    'sko': 'shoes',
+    'outerwear': 'outerwear',
+    'ytterkläder': 'outerwear',
+    'jacka': 'outerwear',
+    'kappa': 'outerwear',
+    'accessory': 'accessory',
+    'accessoar': 'accessory',
+    'väska': 'accessory',
+    'dress': 'dress',
+    'klänning': 'dress',
+  };
+  return categoryMap[catLower] || 'top';
+}
+
+// Standardize color to Swedish simple words
+function normalizeColor(color: string): string {
+  const colorLower = color.toLowerCase().trim();
+  const colorMap: Record<string, string> = {
+    'black': 'svart', 'svart': 'svart',
+    'white': 'vit', 'vit': 'vit', 'vitt': 'vit',
+    'gray': 'grå', 'grey': 'grå', 'grå': 'grå', 'grått': 'grå',
+    'blue': 'blå', 'blå': 'blå', 'blått': 'blå',
+    'navy': 'marinblå', 'marinblå': 'marinblå', 'marin': 'marinblå', 'navy blue': 'marinblå',
+    'beige': 'beige', 'cream': 'beige', 'kräm': 'beige',
+    'brown': 'brun', 'brun': 'brun', 'brunt': 'brun',
+    'green': 'grön', 'grön': 'grön', 'grönt': 'grön',
+    'red': 'röd', 'röd': 'röd', 'rött': 'röd',
+    'pink': 'rosa', 'rosa': 'rosa',
+    'purple': 'lila', 'lila': 'lila', 'violet': 'lila',
+    'yellow': 'gul', 'gul': 'gul', 'gult': 'gul',
+    'orange': 'orange',
+  };
+  return colorMap[colorLower] || colorLower;
+}
+
+// Standardize season tags
+function normalizeSeasonTags(tags: string[]): string[] {
+  const normalized: Set<string> = new Set();
+  
+  for (const tag of tags) {
+    const tagLower = tag.toLowerCase().trim();
+    
+    if (tagLower.includes('sommar') || tagLower === 'summer') {
+      normalized.add('sommar');
+    } else if (tagLower.includes('vinter') || tagLower === 'winter') {
+      normalized.add('vinter');
+    } else if (tagLower.includes('vår') || tagLower.includes('höst') || 
+               tagLower === 'spring' || tagLower === 'fall' || tagLower === 'autumn') {
+      normalized.add('vår');
+      normalized.add('höst');
+    } else if (tagLower.includes('året') || tagLower.includes('all') || tagLower.includes('year')) {
+      normalized.add('vår');
+      normalized.add('sommar');
+      normalized.add('höst');
+      normalized.add('vinter');
+    }
+  }
+  
+  // Default to all seasons if none specified
+  if (normalized.size === 0) {
+    return ['vår', 'sommar', 'höst', 'vinter'];
+  }
+  
+  return Array.from(normalized);
+}
+
+// Normalize formality to 1-5
+function normalizeFormality(formality: number): number {
+  return Math.max(1, Math.min(5, Math.round(formality)));
 }
 
 serve(async (req) => {
@@ -80,54 +169,73 @@ serve(async (req) => {
 
     console.log('Created signed URL for image analysis');
 
-    // Call Lovable AI Gateway with vision-capable model
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: `Du är en modeexpert som analyserar klädesplagg från bilder. 
+    // Call Lovable AI Gateway with vision-capable model (with timeout)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+    let aiResponse;
+    try {
+      aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${lovableApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: 'google/gemini-3-flash-preview',
+          messages: [
+            {
+              role: 'system',
+              content: `Du är en modeexpert som analyserar klädesplagg från bilder.
 Svara ENDAST med valid JSON enligt detta schema:
 {
-  "title": "kort beskrivande titel på svenska",
-  "category": "en av: top, bottom, shoes, outerwear, accessory, dress",
-  "subcategory": "specifik typ, t.ex. t-shirt, jeans, sneakers, jacka, etc.",
-  "color_primary": "huvudfärg på svenska (svart, vit, grå, marinblå, blå, röd, grön, beige, brun, rosa, gul, orange, lila)",
-  "color_secondary": "sekundär färg om finns, annars null",
-  "pattern": "mönster om finns (enfärgad, randig, rutig, prickig, blommig, mönstrad, kamouflage), annars null",
-  "material": "material om identifierbart (bomull, polyester, lin, denim, läder, ull, siden, syntet), annars null",
-  "fit": "passform om synlig (slim, regular, loose, oversized), annars null",
-  "season_tags": ["lista av säsonger: vår, sommar, höst, vinter"],
-  "formality": "siffra 1-5 där 1=mycket casual, 5=mycket formellt"
+  "title": "kort beskrivande titel på svenska (max 30 tecken)",
+  "category": "EXAKT en av: top, bottom, shoes, outerwear, accessory, dress",
+  "subcategory": "specifik typ på svenska, t.ex. t-shirt, jeans, sneakers, jacka",
+  "color_primary": "EXAKT en av: svart, vit, grå, blå, marinblå, beige, brun, grön, röd, rosa, lila, gul, orange",
+  "color_secondary": "samma färgval som ovan, eller null om ej tillämpligt",
+  "pattern": "en av: enfärgad, randig, rutig, prickig, blommig, mönstrad, null",
+  "material": "en av: bomull, polyester, lin, denim, läder, ull, siden, syntet, null",
+  "fit": "en av: slim, regular, loose, oversized, null",
+  "season_tags": ["lista med: vår, sommar, höst, vinter"],
+  "formality": 3
 }
-Var noggrann och konsekvent. Svara ENDAST med JSON, ingen annan text.`
-          },
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Analysera detta klädesplagg och returnera strukturerad JSON.'
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: signedUrlData.signedUrl
+Formalitet: 1=mycket casual, 5=mycket formellt.
+Svara ENDAST med JSON, ingen förklarande text.`
+            },
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Analysera detta klädesplagg och returnera strukturerad JSON.'
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: signedUrlData.signedUrl
+                  }
                 }
-              }
-            ]
-          }
-        ],
-        max_tokens: 500,
-        temperature: 0.3,
-      }),
-    });
+              ]
+            }
+          ],
+          max_tokens: 500,
+          temperature: 0.2,
+        }),
+      });
+    } catch (fetchError) {
+      clearTimeout(timeout);
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error('AI request timed out');
+        return new Response(
+          JSON.stringify({ error: "AI-analysen tog för lång tid" }),
+          { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      throw fetchError;
+    }
+    clearTimeout(timeout);
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
@@ -166,7 +274,7 @@ Var noggrann och konsekvent. Svara ENDAST med JSON, ingen annan text.`
     console.log('AI raw response:', content);
 
     // Parse the JSON response
-    let analysis: GarmentAnalysis;
+    let rawAnalysis: GarmentAnalysis;
     try {
       // Clean potential markdown code blocks
       const cleanedContent = content
@@ -174,17 +282,12 @@ Var noggrann och konsekvent. Svara ENDAST med JSON, ingen annan text.`
         .replace(/```\n?/g, '')
         .trim();
       
-      analysis = JSON.parse(cleanedContent);
+      rawAnalysis = JSON.parse(cleanedContent);
       
-      // Validate required fields
-      if (!analysis.title || !analysis.category || !analysis.subcategory || 
-          !analysis.color_primary || !Array.isArray(analysis.season_tags) || 
-          typeof analysis.formality !== 'number') {
+      // Validate required fields exist
+      if (!rawAnalysis.title || !rawAnalysis.category || !rawAnalysis.color_primary) {
         throw new Error('Missing required fields');
       }
-
-      // Ensure formality is in range
-      analysis.formality = Math.max(1, Math.min(5, Math.round(analysis.formality)));
 
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError, content);
@@ -194,10 +297,28 @@ Var noggrann och konsekvent. Svara ENDAST med JSON, ingen annan text.`
       );
     }
 
-    console.log('Successfully analyzed garment:', analysis);
+    // Normalize and standardize the analysis
+    const analysis: GarmentAnalysis = {
+      title: rawAnalysis.title.substring(0, 50),
+      category: normalizeCategory(rawAnalysis.category),
+      subcategory: rawAnalysis.subcategory?.toLowerCase() || '',
+      color_primary: normalizeColor(rawAnalysis.color_primary),
+      color_secondary: rawAnalysis.color_secondary ? normalizeColor(rawAnalysis.color_secondary) : null,
+      pattern: rawAnalysis.pattern?.toLowerCase() || null,
+      material: rawAnalysis.material?.toLowerCase() || null,
+      fit: rawAnalysis.fit?.toLowerCase() || null,
+      season_tags: normalizeSeasonTags(rawAnalysis.season_tags || []),
+      formality: normalizeFormality(rawAnalysis.formality || 3),
+    };
+
+    console.log('Successfully analyzed and normalized garment:', analysis);
 
     return new Response(
-      JSON.stringify(analysis),
+      JSON.stringify({
+        ...analysis,
+        ai_provider: 'lovable_ai',
+        ai_raw: rawAnalysis,
+      }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
