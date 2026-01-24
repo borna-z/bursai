@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils';
 import { useGarmentCount } from '@/hooks/useGarments';
 import { useOutfits } from '@/hooks/useOutfits';
 import { useOnboarding } from '@/hooks/useOnboarding';
+import { useSubscription } from '@/hooks/useSubscription';
+import { PaywallModal } from '@/components/PaywallModal';
 import { AppLayout } from '@/components/layout/AppLayout';
 
 const occasions = [
@@ -53,17 +55,26 @@ export default function HomePage() {
   const { data: garmentCount } = useGarmentCount();
   const { data: outfits } = useOutfits();
   const { needsOnboarding, state, progress } = useOnboarding();
+  const { canCreateOutfit, remainingOutfits } = useSubscription();
   
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
   const [temperature, setTemperature] = useState('');
   const [precipitation, setPrecipitation] = useState('none');
   const [wind, setWind] = useState('low');
+  const [showPaywall, setShowPaywall] = useState(false);
 
   const lastOutfit = outfits?.[0];
 
   const handleGenerateOutfit = () => {
     if (!selectedOccasion) return;
+    
+    // Check subscription limit
+    if (!canCreateOutfit()) {
+      setShowPaywall(true);
+      return;
+    }
+    
     navigate('/outfits/generate', {
       state: {
         occasion: selectedOccasion,
@@ -285,6 +296,13 @@ export default function HomePage() {
           </Card>
         )}
       </div>
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        isOpen={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        reason="outfits"
+      />
     </AppLayout>
   );
 }
