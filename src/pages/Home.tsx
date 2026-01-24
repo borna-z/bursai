@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, Sparkles, Sun, Cloud, Wind, Snowflake, Droplets } from 'lucide-react';
+import { Settings, Sparkles, Sun, Cloud, Wind, Snowflake, Droplets, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { useGarmentCount } from '@/hooks/useGarments';
 import { useOutfits } from '@/hooks/useOutfits';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import { AppLayout } from '@/components/layout/AppLayout';
 
 const occasions = [
@@ -50,6 +52,7 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { data: garmentCount } = useGarmentCount();
   const { data: outfits } = useOutfits();
+  const { needsOnboarding, state, progress } = useOnboarding();
   
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
@@ -61,7 +64,6 @@ export default function HomePage() {
 
   const handleGenerateOutfit = () => {
     if (!selectedOccasion) return;
-    // TODO: Navigate to outfit generation with params
     navigate('/outfits/generate', {
       state: {
         occasion: selectedOccasion,
@@ -74,6 +76,12 @@ export default function HomePage() {
       },
     });
   };
+
+  // Calculate onboarding progress
+  const onboardingProgress = 
+    (state.step1Done ? 33 : (Math.min(progress.garmentCount, 5) / 5) * 33) +
+    (state.step2Done ? 33 : 0) +
+    (state.step3Done ? 34 : 0);
 
   return (
     <AppLayout>
@@ -90,20 +98,45 @@ export default function HomePage() {
           </Button>
         </div>
 
-        {/* Wardrobe Progress */}
-        <Card className="bg-gradient-to-br from-primary/10 to-accent/10 border-0">
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Din garderob</p>
-            <p className="text-2xl font-bold">
-              {garmentCount || 0} <span className="text-base font-normal text-muted-foreground">plagg</span>
-            </p>
-            {(garmentCount || 0) < 5 && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Lägg till fler plagg för bättre outfits!
+        {/* Onboarding Banner */}
+        {needsOnboarding && (
+          <Card 
+            className="bg-gradient-to-br from-primary/10 to-accent/10 border-primary/30 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate('/onboarding')}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-medium">Kom igång</span>
+                <ArrowRight className="w-4 h-4 text-primary" />
+              </div>
+              <Progress value={onboardingProgress} className="h-2 mb-2" />
+              <p className="text-sm text-muted-foreground">
+                {!state.step1Done 
+                  ? `Lägg till ${Math.max(0, 5 - progress.garmentCount)} plagg till`
+                  : !state.step2Done 
+                  ? 'Skapa din första outfit'
+                  : 'Slutför introduktionen'}
               </p>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Wardrobe Progress */}
+        {!needsOnboarding && (
+          <Card className="bg-gradient-to-br from-primary/10 to-accent/10 border-0">
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">Din garderob</p>
+              <p className="text-2xl font-bold">
+                {garmentCount || 0} <span className="text-base font-normal text-muted-foreground">plagg</span>
+              </p>
+              {(garmentCount || 0) < 5 && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Lägg till fler plagg för bättre outfits!
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Occasion Selection */}
         <div className="space-y-3">

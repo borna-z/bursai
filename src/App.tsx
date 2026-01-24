@@ -13,6 +13,7 @@ import GarmentDetail from "./pages/GarmentDetail";
 import Outfits from "./pages/Outfits";
 import OutfitDetail from "./pages/OutfitDetail";
 import OutfitGenerate from "./pages/OutfitGenerate";
+import Onboarding from "./pages/Onboarding";
 import Insights from "./pages/Insights";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -28,6 +29,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
             <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
             <Route path="/wardrobe" element={<ProtectedRoute><Wardrobe /></ProtectedRoute>} />
             <Route path="/wardrobe/add" element={<ProtectedRoute><AddGarment /></ProtectedRoute>} />
