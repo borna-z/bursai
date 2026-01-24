@@ -50,10 +50,10 @@ serve(async (req) => {
       );
     }
 
-    // Get OpenAI API key
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openaiApiKey) {
-      console.error('OPENAI_API_KEY not configured');
+    // Get Lovable AI API key
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!lovableApiKey) {
+      console.error('LOVABLE_API_KEY not configured');
       return new Response(
         JSON.stringify({ error: "AI-tjänsten är inte konfigurerad" }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -80,15 +80,15 @@ serve(async (req) => {
 
     console.log('Created signed URL for image analysis');
 
-    // Call OpenAI Vision API
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Call Lovable AI Gateway with vision-capable model
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
+        'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'google/gemini-2.5-flash',
         messages: [
           {
             role: 'system',
@@ -98,11 +98,11 @@ Svara ENDAST med valid JSON enligt detta schema:
   "title": "kort beskrivande titel på svenska",
   "category": "en av: top, bottom, shoes, outerwear, accessory, dress",
   "subcategory": "specifik typ, t.ex. t-shirt, jeans, sneakers, jacka, etc.",
-  "color_primary": "huvudfärg på svenska",
+  "color_primary": "huvudfärg på svenska (svart, vit, grå, marinblå, blå, röd, grön, beige, brun, rosa, gul, orange, lila)",
   "color_secondary": "sekundär färg om finns, annars null",
-  "pattern": "mönster om finns (t.ex. randig, rutig, blommig), annars null",
-  "material": "material om identifierbart (t.ex. bomull, denim, läder), annars null",
-  "fit": "passform om synlig (loose, regular, slim), annars null",
+  "pattern": "mönster om finns (enfärgad, randig, rutig, prickig, blommig, mönstrad, kamouflage), annars null",
+  "material": "material om identifierbart (bomull, polyester, lin, denim, läder, ull, siden, syntet), annars null",
+  "fit": "passform om synlig (slim, regular, loose, oversized), annars null",
   "season_tags": ["lista av säsonger: vår, sommar, höst, vinter"],
   "formality": "siffra 1-5 där 1=mycket casual, 5=mycket formellt"
 }
@@ -118,8 +118,7 @@ Var noggrann och konsekvent. Svara ENDAST med JSON, ingen annan text.`
               {
                 type: 'image_url',
                 image_url: {
-                  url: signedUrlData.signedUrl,
-                  detail: 'low'
+                  url: signedUrlData.signedUrl
                 }
               }
             ]
@@ -130,27 +129,41 @@ Var noggrann och konsekvent. Svara ENDAST med JSON, ingen annan text.`
       }),
     });
 
-    if (!openaiResponse.ok) {
-      const errorText = await openaiResponse.text();
-      console.error('OpenAI API error:', openaiResponse.status, errorText);
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error('Lovable AI API error:', aiResponse.status, errorText);
+      
+      if (aiResponse.status === 429) {
+        return new Response(
+          JSON.stringify({ error: "För många förfrågningar, försök igen senare" }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (aiResponse.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "AI-krediter slut, kontakta support" }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       return new Response(
         JSON.stringify({ error: "AI-analysen misslyckades" }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const openaiData = await openaiResponse.json();
-    const content = openaiData.choices?.[0]?.message?.content;
+    const aiData = await aiResponse.json();
+    const content = aiData.choices?.[0]?.message?.content;
 
     if (!content) {
-      console.error('No content in OpenAI response');
+      console.error('No content in AI response');
       return new Response(
         JSON.stringify({ error: "Inget svar från AI" }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('OpenAI raw response:', content);
+    console.log('AI raw response:', content);
 
     // Parse the JSON response
     let analysis: GarmentAnalysis;
@@ -174,7 +187,7 @@ Var noggrann och konsekvent. Svara ENDAST med JSON, ingen annan text.`
       analysis.formality = Math.max(1, Math.min(5, Math.round(analysis.formality)));
 
     } catch (parseError) {
-      console.error('Failed to parse OpenAI response:', parseError, content);
+      console.error('Failed to parse AI response:', parseError, content);
       return new Response(
         JSON.stringify({ error: "Kunde inte tolka AI-svaret" }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
