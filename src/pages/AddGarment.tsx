@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Image as ImageIcon, ArrowLeft, Loader2, X } from 'lucide-react';
+import { Camera, Image as ImageIcon, ArrowLeft, Loader2, X, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +18,8 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useCreateGarment, useGarmentCount } from '@/hooks/useGarments';
 import { useStorage } from '@/hooks/useStorage';
+import { useAnalyzeGarment, GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
+import { useAuth } from '@/contexts/AuthContext';
 
 const categories = [
   { id: 'top', label: 'Överdel' },
@@ -58,17 +60,71 @@ const materials = ['Bomull', 'Polyester', 'Lin', 'Denim', 'Läder', 'Ull', 'Side
 const fits = ['Slim', 'Regular', 'Loose', 'Oversized'];
 const seasons = ['Vår', 'Sommar', 'Höst', 'Vinter'];
 
+// Helper to map AI response values to form values
+function mapColorToFormValue(aiColor: string): string {
+  const colorLower = aiColor.toLowerCase();
+  const colorMatch = colors.find(c => 
+    c.id === colorLower || 
+    c.label.toLowerCase() === colorLower
+  );
+  return colorMatch?.id || '';
+}
+
+function mapCategoryToFormValue(aiCategory: string): string {
+  const catLower = aiCategory.toLowerCase();
+  const catMatch = categories.find(c => c.id === catLower);
+  return catMatch?.id || '';
+}
+
+function mapSubcategoryToFormValue(aiSubcategory: string, category: string): string {
+  if (!category || !subcategories[category]) return '';
+  const subLower = aiSubcategory.toLowerCase();
+  const subMatch = subcategories[category].find(s => s.toLowerCase() === subLower);
+  return subMatch?.toLowerCase() || '';
+}
+
+function mapPatternToFormValue(aiPattern: string | undefined): string {
+  if (!aiPattern) return '';
+  const patternLower = aiPattern.toLowerCase();
+  const patternMatch = patterns.find(p => p.toLowerCase() === patternLower);
+  return patternMatch?.toLowerCase() || '';
+}
+
+function mapMaterialToFormValue(aiMaterial: string | undefined): string {
+  if (!aiMaterial) return '';
+  const materialLower = aiMaterial.toLowerCase();
+  const materialMatch = materials.find(m => m.toLowerCase() === materialLower);
+  return materialMatch?.toLowerCase() || '';
+}
+
+function mapFitToFormValue(aiFit: string | undefined): string {
+  if (!aiFit) return '';
+  const fitLower = aiFit.toLowerCase();
+  const fitMatch = fits.find(f => f.toLowerCase() === fitLower);
+  return fitMatch?.toLowerCase() || '';
+}
+
+function mapSeasonTagsToFormValue(aiSeasons: string[]): string[] {
+  return aiSeasons
+    .map(s => s.toLowerCase())
+    .filter(s => seasons.map(ss => ss.toLowerCase()).includes(s));
+}
+
 export default function AddGarmentPage() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { uploadGarmentImage } = useStorage();
+  const { uploadGarmentImage, getGarmentSignedUrl } = useStorage();
   const createGarment = useCreateGarment();
   const { data: garmentCount } = useGarmentCount();
+  const { analyzeGarment, isAnalyzing } = useAnalyzeGarment();
+  const { user } = useAuth();
 
-  const [step, setStep] = useState<'upload' | 'form'>('upload');
+  const [step, setStep] = useState<'upload' | 'analyzing' | 'form'>('upload');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [storagePath, setStoragePath] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [garmentId, setGarmentId] = useState<string | null>(null);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -83,17 +139,74 @@ export default function AddGarmentPage() {
   const [formality, setFormality] = useState([3]);
   const [inLaundry, setInLaundry] = useState(false);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const applyAIAnalysis = (analysis: GarmentAnalysis) => {
+    setTitle(analysis.title || '');
+    
+    const mappedCategory = mapCategoryToFormValue(analysis.category);
+    setCategory(mappedCategory);
+    setSubcategory(mapSubcategoryToFormValue(analysis.subcategory, mappedCategory));
+    
+    setColorPrimary(mapColorToFormValue(analysis.color_primary));
+    setColorSecondary(analysis.color_secondary ? mapColorToFormValue(analysis.color_secondary) : '');
+    setPattern(mapPatternToFormValue(analysis.pattern));
+    setMaterial(mapMaterialToFormValue(analysis.material));
+    setFit(mapFitToFormValue(analysis.fit));
+    setSelectedSeasons(mapSeasonTagsToFormValue(analysis.season_tags || []));
+    setFormality([analysis.formality || 3]);
+  };
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-      setStep('form');
+    if (!file || !user) return;
+
+    setImageFile(file);
+    
+    // Create local preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    // Generate garment ID
+    const newGarmentId = crypto.randomUUID();
+    setGarmentId(newGarmentId);
+
+    // Upload to storage first
+    setStep('analyzing');
+    
+    try {
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const path = `${user.id}/${newGarmentId}.${fileExt}`;
+      
+      await uploadGarmentImage(file, newGarmentId);
+      setStoragePath(path);
+
+      // Fetch signed URL for display
+      const signedUrl = await getGarmentSignedUrl(path);
+      setImagePreview(signedUrl);
+
+      // Call AI analysis
+      const { data: analysisData, error: analysisError } = await analyzeGarment(path);
+      
+      if (analysisError) {
+        toast.error('Kunde inte analysera bilden – fyll i manuellt.', {
+          description: 'AI-analysen misslyckades',
+        });
+      } else if (analysisData) {
+        applyAIAnalysis(analysisData);
+        toast.success('AI-analys klar!', {
+          description: 'Granska och justera vid behov.',
+        });
+      }
+    } catch (err) {
+      console.error('Upload/analysis error:', err);
+      toast.error('Kunde inte ladda upp bilden. Försök igen.');
+      setStep('upload');
+      return;
     }
+
+    setStep('form');
   };
 
   const toggleSeason = (season: string) => {
@@ -103,19 +216,16 @@ export default function AddGarmentPage() {
   };
 
   const handleSave = async () => {
-    if (!imageFile || !title || !category || !colorPrimary) {
+    if (!storagePath || !title || !category || !colorPrimary || !garmentId) {
       toast.error('Vänligen fyll i alla obligatoriska fält');
       return;
     }
 
     setIsLoading(true);
     try {
-      const garmentId = crypto.randomUUID();
-      const imagePath = await uploadGarmentImage(imageFile, garmentId);
-
       await createGarment.mutateAsync({
         id: garmentId,
-        image_path: imagePath,
+        image_path: storagePath,
         title,
         category,
         subcategory: subcategory || null,
@@ -205,11 +315,40 @@ export default function AddGarmentPage() {
     );
   }
 
+  if (step === 'analyzing') {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8">
+        <div className="flex flex-col items-center gap-6">
+          {imagePreview && (
+            <div className="relative aspect-square w-48 rounded-xl overflow-hidden bg-secondary">
+              <img
+                src={imagePreview}
+                alt="Preview"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+          <div className="flex items-center gap-3">
+            <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+            <span className="text-lg font-medium">AI analyserar plagget…</span>
+          </div>
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="sticky top-0 z-10 bg-background border-b">
         <div className="p-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => setStep('upload')}>
+          <Button variant="ghost" size="icon" onClick={() => {
+            setStep('upload');
+            setImageFile(null);
+            setImagePreview(null);
+            setStoragePath(null);
+            setGarmentId(null);
+          }}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h1 className="text-lg font-semibold">Granska plagg</h1>
@@ -232,6 +371,8 @@ export default function AddGarmentPage() {
               onClick={() => {
                 setImageFile(null);
                 setImagePreview(null);
+                setStoragePath(null);
+                setGarmentId(null);
                 setStep('upload');
               }}
             >

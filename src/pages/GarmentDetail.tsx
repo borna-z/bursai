@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Edit, Trash2, WashingMachine, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,7 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { useGarment, useUpdateGarment, useDeleteGarment, useMarkGarmentWorn } from '@/hooks/useGarments';
-import { useStorage } from '@/hooks/useStorage';
+import { useGarmentSignedUrl } from '@/hooks/useStorage';
 
 export default function GarmentDetailPage() {
   const navigate = useNavigate();
@@ -27,14 +26,7 @@ export default function GarmentDetailPage() {
   const updateGarment = useUpdateGarment();
   const deleteGarment = useDeleteGarment();
   const markWorn = useMarkGarmentWorn();
-  const { getGarmentSignedUrl } = useStorage();
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (garment?.image_path) {
-      getGarmentSignedUrl(garment.image_path).then(setImageUrl).catch(() => {});
-    }
-  }, [garment?.image_path]);
+  const { signedUrl: imageUrl, isLoading: imageLoading } = useGarmentSignedUrl(garment?.image_path);
 
   if (isLoading) {
     return (
