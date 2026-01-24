@@ -32,7 +32,7 @@ export function PaywallModal({ isOpen, onClose, reason }: PaywallModalProps) {
           <DialogTitle className="text-2xl">Lås upp Premium</DialogTitle>
           <DialogDescription className="text-base">
             {reason === 'garments' 
-              ? 'Du har nått gränsen på 30 plagg med gratisplanen.'
+              ? 'Du har nått gränsen på 10 plagg med gratisplanen.'
               : 'Du har använt alla 10 outfit-genereringar denna månad.'}
           </DialogDescription>
         </DialogHeader>

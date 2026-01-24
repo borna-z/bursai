@@ -18,7 +18,7 @@ export interface Subscription {
 // Plan limits
 export const PLAN_LIMITS = {
   free: {
-    maxGarments: 30,
+    maxGarments: 10,
     maxOutfitsPerMonth: 10,
   },
   premium: {
