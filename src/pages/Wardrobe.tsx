@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Loader2, WashingMachine } from 'lucide-react';
+import { Plus, Search, Filter, Loader2, WashingMachine, AlertTriangle, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Sheet,
   SheetContent,
@@ -24,6 +25,8 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { useGarments, type GarmentFilters, type Garment } from '@/hooks/useGarments';
 import { useGarmentSignedUrl } from '@/hooks/useStorage';
+import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
+import { PaywallModal } from '@/components/PaywallModal';
 import { AppLayout } from '@/components/layout/AppLayout';
 
 const categories = [
@@ -92,11 +95,13 @@ export default function WardrobePage() {
   const [filters, setFilters] = useState<GarmentFilters>({});
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [showPaywall, setShowPaywall] = useState(false);
   const { data: garments, isLoading } = useGarments({
     ...filters,
     search,
     category: selectedCategory === 'all' ? undefined : selectedCategory,
   });
+  const { canAddGarment, isPremium, subscription } = useSubscription();
 
   const handleFilterChange = (key: keyof GarmentFilters, value: any) => {
     setFilters((prev) => ({
@@ -105,9 +110,43 @@ export default function WardrobePage() {
     }));
   };
 
+  const handleAddGarment = () => {
+    if (canAddGarment()) {
+      navigate('/wardrobe/add');
+    } else {
+      setShowPaywall(true);
+    }
+  };
+
+  // Check if user is over the limit (existing users with >10 garments)
+  const currentCount = subscription?.garments_count || 0;
+  const isOverLimit = !isPremium && currentCount >= PLAN_LIMITS.free.maxGarments;
+
   return (
     <AppLayout>
       <div className="p-4 space-y-4">
+        {/* Over Limit Banner */}
+        {isOverLimit && (
+          <Alert className="border-amber-500/50 bg-amber-500/10">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            <AlertDescription className="flex items-center justify-between">
+              <span>
+                Du har nått gränsen för Free ({PLAN_LIMITS.free.maxGarments} plagg). 
+                Uppgradera för att lägga till fler.
+              </span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="ml-2 shrink-0"
+                onClick={() => setShowPaywall(true)}
+              >
+                <Crown className="w-4 h-4 mr-1" />
+                Uppgradera
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Header */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
@@ -209,12 +248,22 @@ export default function WardrobePage() {
         {/* FAB */}
         <Button
           size="lg"
-          className="fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-lg"
-          onClick={() => navigate('/wardrobe/add')}
+          className={cn(
+            "fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-lg",
+            isOverLimit && "opacity-50"
+          )}
+          onClick={handleAddGarment}
         >
           <Plus className="w-6 h-6" />
         </Button>
       </div>
+
+      {/* Paywall Modal */}
+      <PaywallModal 
+        isOpen={showPaywall} 
+        onClose={() => setShowPaywall(false)} 
+        reason="garments" 
+      />
     </AppLayout>
   );
 }
