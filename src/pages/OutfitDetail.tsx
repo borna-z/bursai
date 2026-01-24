@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -10,7 +10,10 @@ import {
   Share2,
   Loader2,
   Sparkles,
-  X,
+  Copy,
+  Download,
+  Link,
+  Link2Off,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,8 +23,11 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
 } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useOutfit, useUpdateOutfit, useMarkOutfitWorn, type OutfitWithItems } from '@/hooks/useOutfits';
@@ -155,8 +161,13 @@ export default function OutfitDetailPage() {
     slot: string; 
     outfitItemId: string;
   }>({ isOpen: false, slot: '', outfitItemId: '' });
+  const [shareSheetOpen, setShareSheetOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const outfitRef = useRef<HTMLDivElement>(null);
   
   const justGenerated = (location.state as { justGenerated?: boolean })?.justGenerated;
+  const shareUrl = outfit ? `${window.location.origin}/share/${outfit.id}` : '';
 
   useEffect(() => {
     if (outfit?.rating) {
@@ -256,18 +267,59 @@ export default function OutfitDetailPage() {
     }
   };
 
-  const handleShare = async () => {
-    const items = outfit.outfit_items
-      .map((item) => `${slotLabels[item.slot] || item.slot}: ${item.garment?.title || 'Okänt'}`)
-      .join('\n');
-    
-    const text = `Min outfit för ${outfit.occasion}:\n\n${items}\n\n${outfit.explanation || ''}`;
+  const handleOpenShareSheet = () => {
+    setShareSheetOpen(true);
+  };
 
+  const handleToggleShareEnabled = async () => {
     try {
-      await navigator.clipboard.writeText(text);
-      toast.success('Kopierat till urklipp');
+      await updateOutfit.mutateAsync({
+        id: outfit.id,
+        updates: { share_enabled: !outfit.share_enabled },
+      });
+      toast.success(outfit.share_enabled ? 'Delning avstängd' : 'Delning aktiverad');
+      refetch();
     } catch {
-      toast.error('Kunde inte kopiera');
+      toast.error('Något gick fel');
+    }
+  };
+
+  const handleCopyShareLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast.success('Länk kopierad!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error('Kunde inte kopiera länken');
+    }
+  };
+
+  const handleDownloadImage = async () => {
+    if (!outfitRef.current || !outfit) return;
+    
+    setIsDownloading(true);
+    
+    try {
+      const { toPng } = await import('html-to-image');
+      
+      const dataUrl = await toPng(outfitRef.current, {
+        quality: 1.0,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+      });
+      
+      const link = document.createElement('a');
+      link.download = `outfit-${outfit.occasion}.png`;
+      link.href = dataUrl;
+      link.click();
+      
+      toast.success('Bild nedladdad!');
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Kunde inte ladda ner bilden');
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -287,7 +339,7 @@ export default function OutfitDetailPage() {
                 <Bookmark className="w-5 h-5" />
               )}
             </Button>
-            <Button variant="ghost" size="icon" onClick={handleShare}>
+            <Button variant="ghost" size="icon" onClick={handleOpenShareSheet}>
               <Share2 className="w-5 h-5" />
             </Button>
           </div>
@@ -312,8 +364,9 @@ export default function OutfitDetailPage() {
           )}
         </div>
 
-        {/* Items */}
-        <div className="space-y-3">
+        {/* Outfit Content for Screenshot */}
+        <div ref={outfitRef} className="space-y-3 bg-background">
+          {/* Items */}
           {outfit.outfit_items.map((item) => (
             <Card key={item.id} className="overflow-hidden">
               <CardContent className="p-3 flex items-center gap-4">
@@ -326,6 +379,7 @@ export default function OutfitDetailPage() {
                       src={imageUrls[item.id]}
                       alt={item.garment?.title || item.slot}
                       className="w-full h-full object-cover"
+                      crossOrigin="anonymous"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
@@ -429,6 +483,96 @@ export default function OutfitDetailPage() {
         onSelect={handleSwap}
         isSwapping={isSwapping}
       />
+
+      {/* Share Sheet */}
+      <Sheet open={shareSheetOpen} onOpenChange={setShareSheetOpen}>
+        <SheetContent side="bottom" className="h-auto max-h-[80vh]">
+          <SheetHeader>
+            <SheetTitle>Dela outfit</SheetTitle>
+            <SheetDescription>
+              Aktivera delning för att skapa en publik länk
+            </SheetDescription>
+          </SheetHeader>
+          
+          <div className="space-y-6 py-6">
+            {/* Share Toggle */}
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="share-toggle" className="text-base font-medium">
+                  Delning aktiverad
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  {outfit.share_enabled 
+                    ? 'Vem som helst med länken kan se outfiten'
+                    : 'Outfiten är privat'}
+                </p>
+              </div>
+              <Switch
+                id="share-toggle"
+                checked={outfit.share_enabled ?? false}
+                onCheckedChange={handleToggleShareEnabled}
+              />
+            </div>
+
+            {outfit.share_enabled && (
+              <>
+                {/* Share Link */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Delningslänk</Label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 p-3 bg-secondary rounded-lg text-sm truncate">
+                      {shareUrl}
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      onClick={handleCopyShareLink}
+                    >
+                      {copied ? (
+                        <Check className="w-4 h-4 text-primary" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={handleCopyShareLink}
+                  >
+                    <Link className="w-4 h-4 mr-2" />
+                    {copied ? 'Kopierad!' : 'Kopiera länk'}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={handleDownloadImage}
+                    disabled={isDownloading}
+                  >
+                    {isDownloading ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4 mr-2" />
+                    )}
+                    Ladda ner bild
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {!outfit.share_enabled && (
+              <div className="text-center py-4 text-muted-foreground">
+                <Link2Off className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Aktivera delning för att få en länk</p>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
