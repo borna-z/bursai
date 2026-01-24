@@ -1,1 +1,4 @@
 project_id = "dvrdxjmnydcjzpcwjxgv"
+
+[functions.analyze_garment]
+verify_jwt = false
