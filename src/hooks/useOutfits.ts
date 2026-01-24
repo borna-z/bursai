@@ -162,7 +162,15 @@ export function useMarkOutfitWorn() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ outfitId, garmentIds }: { outfitId: string; garmentIds: string[] }) => {
+    mutationFn: async ({ 
+      outfitId, 
+      garmentIds,
+      occasion 
+    }: { 
+      outfitId: string; 
+      garmentIds: string[];
+      occasion?: string;
+    }) => {
       if (!user) throw new Error('Not authenticated');
       
       const today = new Date().toISOString().split('T')[0];
@@ -177,9 +185,19 @@ export function useMarkOutfitWorn() {
       
       // Update each garment and create wear logs
       for (const garmentId of garmentIds) {
+        // Get current wear count
+        const { data: garment } = await supabase
+          .from('garments')
+          .select('wear_count')
+          .eq('id', garmentId)
+          .maybeSingle();
+        
         await supabase
           .from('garments')
-          .update({ last_worn_at: today })
+          .update({ 
+            last_worn_at: today,
+            wear_count: (garment?.wear_count || 0) + 1
+          })
           .eq('id', garmentId);
         
         await supabase
@@ -189,12 +207,14 @@ export function useMarkOutfitWorn() {
             garment_id: garmentId,
             outfit_id: outfitId,
             worn_at: today,
+            occasion: occasion || null,
           });
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['outfits'] });
       queryClient.invalidateQueries({ queryKey: ['garments'] });
+      queryClient.invalidateQueries({ queryKey: ['insights'] });
     },
   });
 }

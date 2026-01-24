@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, TrendingUp, Shirt, AlertCircle, Sparkles } from 'lucide-react';
+import { Loader2, TrendingUp, Shirt, AlertCircle, Sparkles, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { cn } from '@/lib/utils';
 import { useInsights, type Garment } from '@/hooks/useInsights';
 import { useStorage } from '@/hooks/useStorage';
 import { AppLayout } from '@/components/layout/AppLayout';
 
-function GarmentMini({ garment }: { garment: Garment }) {
+function GarmentMini({ garment, wearCount }: { garment: Garment; wearCount?: number }) {
   const navigate = useNavigate();
   const { getGarmentSignedUrl } = useStorage();
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -42,6 +41,11 @@ function GarmentMini({ garment }: { garment: Garment }) {
         <p className="font-medium text-sm truncate">{garment.title}</p>
         <p className="text-xs text-muted-foreground capitalize">{garment.category}</p>
       </div>
+      {wearCount !== undefined && (
+        <span className="text-sm font-medium text-muted-foreground">
+          {wearCount}x
+        </span>
+      )}
     </div>
   );
 }
@@ -88,11 +92,30 @@ export default function InsightsPage() {
       <div className="p-4 space-y-4">
         <h1 className="text-2xl font-bold">Insikter</h1>
 
+        {/* Quick Stats */}
+        <div className="grid grid-cols-2 gap-3">
+          <Card>
+            <CardContent className="p-4 text-center">
+              <p className="text-3xl font-bold">{insights.totalGarments}</p>
+              <p className="text-sm text-muted-foreground">Plagg totalt</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <p className="text-3xl font-bold">{insights.garmentsUsedLast30Days}</p>
+              <p className="text-sm text-muted-foreground">Använda 30 dagar</p>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Usage Rate */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Användningsgrad 30 dagar</CardTitle>
-            <CardDescription>Hur stor del av garderoben du använder</CardDescription>
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-primary" />
+              <CardTitle className="text-base">Användningsgrad</CardTitle>
+            </div>
+            <CardDescription>Senaste 30 dagarna</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -101,22 +124,26 @@ export default function InsightsPage() {
               </div>
               <Progress value={insights.usageRate} className="h-3" />
               <p className="text-sm text-muted-foreground">
-                Du har använt plagg från {insights.usageRate}% av din garderob de senaste 30 dagarna
+                Du använder {insights.garmentsUsedLast30Days} av {insights.totalGarments} plagg
               </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Most Worn */}
-        {insights.mostWorn.length > 0 && (
+        {/* Top 5 Most Worn */}
+        {insights.topFiveWorn.length > 0 && (
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Mest använda plagg</CardTitle>
-              <CardDescription>Dina favoriter</CardDescription>
+              <CardTitle className="text-base">🏆 Topp 5 mest använda</CardTitle>
+              <CardDescription>Dina favoriter senaste 30 dagarna</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
-              {insights.mostWorn.map((garment) => (
-                <GarmentMini key={garment.id} garment={garment} />
+              {insights.topFiveWorn.map((garment) => (
+                <GarmentMini 
+                  key={garment.id} 
+                  garment={garment} 
+                  wearCount={garment.wearCountLast30}
+                />
               ))}
             </CardContent>
           </Card>
@@ -127,11 +154,11 @@ export default function InsightsPage() {
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-warning" />
+                <AlertCircle className="w-5 h-5 text-orange-500" />
                 <CardTitle className="text-base">Oanvända plagg</CardTitle>
               </div>
               <CardDescription>
-                Plagg du inte använt på 30 dagar
+                {insights.unusedGarments.length} plagg ej använda på 30 dagar
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -151,7 +178,7 @@ export default function InsightsPage() {
         {insights.unusedGarments.length > 0 && (
           <Button className="w-full" onClick={() => navigate('/')}>
             <Sparkles className="w-4 h-4 mr-2" />
-            Föreslå outfit med ett oanvänt plagg
+            Skapa outfit med oanvänt plagg
           </Button>
         )}
       </div>
