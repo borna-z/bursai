@@ -157,6 +157,13 @@ export function useDeleteOutfit() {
   });
 }
 
+export interface WornResult {
+  outfitId: string;
+  wornAt: string;
+  wearLogIds: string[];
+  garmentUpdates: { garmentId: string; previousWearCount: number; previousLastWornAt: string | null }[];
+}
+
 export function useMarkOutfitWorn() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -170,10 +177,12 @@ export function useMarkOutfitWorn() {
       outfitId: string; 
       garmentIds: string[];
       occasion?: string;
-    }) => {
+    }): Promise<WornResult> => {
       if (!user) throw new Error('Not authenticated');
       
       const today = new Date().toISOString().split('T')[0];
+      const wearLogIds: string[] = [];
+      const garmentUpdates: WornResult['garmentUpdates'] = [];
       
       // Update outfit
       const { error: outfitError } = await supabase
@@ -185,12 +194,18 @@ export function useMarkOutfitWorn() {
       
       // Update each garment and create wear logs
       for (const garmentId of garmentIds) {
-        // Get current wear count
+        // Get current garment state for potential undo
         const { data: garment } = await supabase
           .from('garments')
-          .select('wear_count')
+          .select('wear_count, last_worn_at')
           .eq('id', garmentId)
           .maybeSingle();
+        
+        garmentUpdates.push({
+          garmentId,
+          previousWearCount: garment?.wear_count || 0,
+          previousLastWornAt: garment?.last_worn_at || null,
+        });
         
         await supabase
           .from('garments')
@@ -200,16 +215,72 @@ export function useMarkOutfitWorn() {
           })
           .eq('id', garmentId);
         
-        await supabase
+        // Use upsert to handle unique constraint gracefully
+        const { data: wearLog, error: wearLogError } = await supabase
           .from('wear_logs')
-          .insert({
+          .upsert({
             user_id: user.id,
             garment_id: garmentId,
             outfit_id: outfitId,
             worn_at: today,
             occasion: occasion || null,
-          });
+          }, { 
+            onConflict: 'user_id,garment_id,worn_at',
+            ignoreDuplicates: false 
+          })
+          .select('id')
+          .single();
+        
+        if (wearLogError) {
+          console.error('Wear log error:', wearLogError);
+        } else if (wearLog) {
+          wearLogIds.push(wearLog.id);
+        }
       }
+      
+      return { outfitId, wornAt: today, wearLogIds, garmentUpdates };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['outfits'] });
+      queryClient.invalidateQueries({ queryKey: ['garments'] });
+      queryClient.invalidateQueries({ queryKey: ['insights'] });
+    },
+  });
+}
+
+export function useUndoMarkWorn() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (wornResult: WornResult) => {
+      // Delete the wear logs we created
+      if (wornResult.wearLogIds.length > 0) {
+        const { error: deleteLogsError } = await supabase
+          .from('wear_logs')
+          .delete()
+          .in('id', wornResult.wearLogIds);
+        
+        if (deleteLogsError) throw deleteLogsError;
+      }
+      
+      // Restore garment states
+      for (const update of wornResult.garmentUpdates) {
+        await supabase
+          .from('garments')
+          .update({
+            wear_count: update.previousWearCount,
+            last_worn_at: update.previousLastWornAt,
+          })
+          .eq('id', update.garmentId);
+      }
+      
+      // Clear outfit worn_at
+      const { error: outfitError } = await supabase
+        .from('outfits')
+        .update({ worn_at: null })
+        .eq('id', wornResult.outfitId);
+      
+      if (outfitError) throw outfitError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['outfits'] });
