@@ -48,7 +48,6 @@ export function useAnalyzeGarment() {
 
       const { data, error } = await supabase.functions.invoke('analyze_garment', {
         body: {
-          userId: user.id,
           storagePath,
         },
       });

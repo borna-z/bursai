@@ -7,7 +7,6 @@ const corsHeaders = {
 };
 
 interface AnalyzeRequest {
-  userId: string;
   storagePath: string;
 }
 
@@ -120,19 +119,52 @@ serve(async (req) => {
   }
 
   try {
-    const { userId, storagePath } = await req.json() as AnalyzeRequest;
+    // SECURITY: Get authenticated user from Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      console.error('Missing or invalid Authorization header');
+      return new Response(
+        JSON.stringify({ error: "Ej auktoriserad" }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    // Create client with user's token to verify identity
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    // Verify user from JWT - this is the ONLY source of truth for user identity
+    const { data: { user }, error: authError } = await userClient.auth.getUser();
+    if (authError || !user) {
+      console.error('Auth error:', authError);
+      return new Response(
+        JSON.stringify({ error: "Ej auktoriserad" }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userId = user.id;
+    console.log(`Authenticated user: ${userId}`);
+
+    // Get storagePath from request body (userId is NO LONGER accepted from client)
+    const { storagePath } = await req.json() as AnalyzeRequest;
 
     // Validate input
-    if (!userId || !storagePath) {
+    if (!storagePath) {
       return new Response(
-        JSON.stringify({ error: "userId och storagePath krävs" }),
+        JSON.stringify({ error: "storagePath krävs" }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Security: Validate storagePath starts with userId
+    // SECURITY: Validate storagePath starts with AUTHENTICATED user's ID
     if (!storagePath.startsWith(`${userId}/`)) {
-      console.error(`Security violation: storagePath ${storagePath} does not start with userId ${userId}`);
+      console.error(`Security violation: User ${userId} tried to access path ${storagePath}`);
       return new Response(
         JSON.stringify({ error: "Åtkomst nekad" }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -150,12 +182,10 @@ serve(async (req) => {
     }
 
     // Create Supabase client with service role for storage access
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // Create signed URL for the image
-    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+    const { data: signedUrlData, error: signedUrlError } = await serviceClient.storage
       .from('garments')
       .createSignedUrl(storagePath, 3600); // 1 hour expiry
 
