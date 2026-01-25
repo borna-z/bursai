@@ -30,7 +30,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { useOutfit, useUpdateOutfit, useMarkOutfitWorn, type OutfitWithItems } from '@/hooks/useOutfits';
+import { useOutfit, useUpdateOutfit, useMarkOutfitWorn, useUndoMarkWorn, type OutfitWithItems, type WornResult } from '@/hooks/useOutfits';
 import { useStorage } from '@/hooks/useStorage';
 import { useSwapGarment, type SwapCandidate } from '@/hooks/useSwapGarment';
 
@@ -144,6 +144,7 @@ export default function OutfitDetailPage() {
   const { data: outfit, isLoading, refetch } = useOutfit(id);
   const updateOutfit = useUpdateOutfit();
   const markWorn = useMarkOutfitWorn();
+  const undoMarkWorn = useUndoMarkWorn();
   const { getGarmentSignedUrl } = useStorage();
   const { 
     candidates, 
@@ -256,12 +257,27 @@ export default function OutfitDetailPage() {
   const handleMarkWorn = async () => {
     try {
       const garmentIds = outfit.outfit_items.map((item) => item.garment_id);
-      await markWorn.mutateAsync({ 
+      const result = await markWorn.mutateAsync({ 
         outfitId: outfit.id, 
         garmentIds,
         occasion: outfit.occasion 
       });
-      toast.success('Markerat som använd idag ✓');
+      
+      // Show toast with undo option
+      toast.success('Markerat som använd ✅', {
+        action: {
+          label: 'Ångra',
+          onClick: async () => {
+            try {
+              await undoMarkWorn.mutateAsync(result);
+              toast.success('Ångrade markeringen');
+            } catch {
+              toast.error('Kunde inte ångra');
+            }
+          },
+        },
+        duration: 10000, // 10 seconds to undo
+      });
     } catch {
       toast.error('Något gick fel');
     }

@@ -138,19 +138,23 @@ export default function SettingsPage() {
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
-      // Delete user data
-      await supabase.from('wear_logs').delete().eq('user_id', user?.id);
-      await supabase.from('outfit_items').delete().match({ outfit_id: { user_id: user?.id } });
-      await supabase.from('outfits').delete().eq('user_id', user?.id);
-      await supabase.from('garments').delete().eq('user_id', user?.id);
-      await supabase.from('profiles').delete().eq('id', user?.id);
+      // Call edge function that handles complete account deletion
+      const { data, error } = await supabase.functions.invoke('delete_user_account');
+      
+      if (error) {
+        console.error('Delete account error:', error);
+        throw error;
+      }
 
-      // Sign out
-      await signOut();
-      toast.success('Konto raderat');
+      if (!data?.success) {
+        throw new Error(data?.error || 'Unknown error');
+      }
+
+      toast.success('Ditt konto och all data har raderats permanent.');
       navigate('/auth');
-    } catch {
-      toast.error('Kunde inte radera kontot');
+    } catch (error) {
+      console.error('Delete account failed:', error);
+      toast.error('Kunde inte radera kontot. Försök igen senare.');
     } finally {
       setIsDeleting(false);
     }
@@ -425,9 +429,17 @@ export default function SettingsPage() {
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Radera konto?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Är du säker på att du vill radera ditt konto? All din data kommer att tas bort permanent. Detta går inte att ångra.
+                  <AlertDialogTitle>Radera konto permanent?</AlertDialogTitle>
+                  <AlertDialogDescription className="space-y-2">
+                    <p>Detta kommer att ta bort:</p>
+                    <ul className="list-disc list-inside text-sm">
+                      <li>Alla dina plagg och bilder</li>
+                      <li>Alla outfits och outfit-historik</li>
+                      <li>All användarhistorik</li>
+                      <li>Din profil och inställningar</li>
+                      <li>Ditt konto</li>
+                    </ul>
+                    <p className="font-medium text-destructive">Detta går inte att ångra!</p>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
