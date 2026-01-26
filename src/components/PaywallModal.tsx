@@ -1,4 +1,5 @@
-import { Crown, Infinity, Sparkles, X } from 'lucide-react';
+import { useState } from 'react';
+import { Crown, Infinity, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -7,6 +8,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface PaywallModalProps {
   isOpen: boolean;
@@ -15,11 +18,33 @@ interface PaywallModalProps {
 }
 
 export function PaywallModal({ isOpen, onClose, reason }: PaywallModalProps) {
-  const handleStartPremium = () => {
-    // Placeholder for premium upgrade flow
-    console.log('Start premium flow');
-    // In future: redirect to Stripe checkout
-    onClose();
+  const [isLoading, setIsLoading] = useState<'monthly' | 'yearly' | null>(null);
+
+  const handleStartPremium = async (plan: 'monthly' | 'yearly') => {
+    setIsLoading(plan);
+    try {
+      const { data, error } = await supabase.functions.invoke('create_checkout_session', {
+        body: { plan },
+      });
+
+      if (error) {
+        console.error('Checkout error:', error);
+        toast.error('Kunde inte starta betalning. Försök igen.');
+        return;
+      }
+
+      if (data?.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+      } else {
+        toast.error('Fick ingen betalningslänk');
+      }
+    } catch (err) {
+      console.error('Checkout error:', err);
+      toast.error('Något gick fel. Försök igen.');
+    } finally {
+      setIsLoading(null);
+    }
   };
 
   return (
@@ -72,15 +97,34 @@ export function PaywallModal({ isOpen, onClose, reason }: PaywallModalProps) {
         <div className="space-y-2">
           <Button 
             className="w-full h-12 text-base bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
-            onClick={handleStartPremium}
+            onClick={() => handleStartPremium('monthly')}
+            disabled={isLoading !== null}
           >
-            <Crown className="w-5 h-5 mr-2" />
-            Starta Premium
+            {isLoading === 'monthly' ? (
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+            ) : (
+              <Crown className="w-5 h-5 mr-2" />
+            )}
+            79 kr/månad
+          </Button>
+          <Button 
+            variant="outline"
+            className="w-full h-12 text-base border-amber-500/50 hover:bg-amber-500/10"
+            onClick={() => handleStartPremium('yearly')}
+            disabled={isLoading !== null}
+          >
+            {isLoading === 'yearly' ? (
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+            ) : (
+              <Sparkles className="w-5 h-5 mr-2 text-amber-500" />
+            )}
+            699 kr/år (spara 26%)
           </Button>
           <Button 
             variant="ghost" 
             className="w-full"
             onClick={onClose}
+            disabled={isLoading !== null}
           >
             Inte nu
           </Button>

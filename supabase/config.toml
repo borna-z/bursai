@@ -5,3 +5,15 @@ verify_jwt = false
 
 [functions.import_garments_from_links]
 verify_jwt = false
+
+[functions.delete_user_account]
+verify_jwt = false
+
+[functions.create_checkout_session]
+verify_jwt = false
+
+[functions.create_portal_session]
+verify_jwt = false
+
+[functions.stripe_webhook]
+verify_jwt = false

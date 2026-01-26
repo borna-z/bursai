@@ -197,6 +197,7 @@ export type Database = {
           id: string
           is_premium: boolean | null
           preferences: Json | null
+          stripe_customer_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -206,6 +207,7 @@ export type Database = {
           id: string
           is_premium?: boolean | null
           preferences?: Json | null
+          stripe_customer_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -215,7 +217,41 @@ export type Database = {
           id?: string
           is_premium?: boolean | null
           preferences?: Json | null
+          stripe_customer_id?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          current_period_end: string | null
+          plan: string | null
+          price_id: string | null
+          status: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          current_period_end?: string | null
+          plan?: string | null
+          price_id?: string | null
+          status?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          current_period_end?: string | null
+          plan?: string | null
+          price_id?: string | null
+          status?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
