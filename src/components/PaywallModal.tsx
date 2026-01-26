@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { prepareExternalNavigation } from '@/lib/externalNavigation';
 
 interface PaywallModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export function PaywallModal({ isOpen, onClose, reason }: PaywallModalProps) {
   const [isLoading, setIsLoading] = useState<'monthly' | 'yearly' | null>(null);
 
   const handleStartPremium = async (plan: 'monthly' | 'yearly') => {
+    const nav = prepareExternalNavigation();
     setIsLoading(plan);
     try {
       const { data, error } = await supabase.functions.invoke('create_checkout_session', {
@@ -29,18 +31,21 @@ export function PaywallModal({ isOpen, onClose, reason }: PaywallModalProps) {
 
       if (error) {
         console.error('Checkout error:', error);
+        nav.closePopup();
         toast.error('Kunde inte starta betalning. Försök igen.');
         return;
       }
 
       if (data?.url) {
-        // Redirect to Stripe Checkout
-        window.location.href = data.url;
+        // Redirect to Stripe Checkout (avoid loading inside preview iframe)
+        nav.go(data.url);
       } else {
+        nav.closePopup();
         toast.error('Fick ingen betalningslänk');
       }
     } catch (err) {
       console.error('Checkout error:', err);
+      nav.closePopup();
       toast.error('Något gick fel. Försök igen.');
     } finally {
       setIsLoading(null);

@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import type { Subscription } from '@/hooks/useSubscription';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
+import { prepareExternalNavigation } from '@/lib/externalNavigation';
 
 interface PremiumSectionProps {
   isPremium: boolean;
@@ -57,6 +58,7 @@ export function PremiumSection({ isPremium, subscription, limits }: PremiumSecti
   const isTestMode = stripeSubscription?.stripeMode === 'test';
 
   const handleUpgrade = async (plan: 'monthly' | 'yearly') => {
+    const nav = prepareExternalNavigation();
     setIsLoadingCheckout(plan);
     try {
       const { data, error } = await supabase.functions.invoke('create_checkout_session', {
@@ -65,17 +67,20 @@ export function PremiumSection({ isPremium, subscription, limits }: PremiumSecti
 
       if (error) {
         console.error('Checkout error:', error);
+        nav.closePopup();
         toast.error('Kunde inte starta betalning');
         return;
       }
 
       if (data?.url) {
-        window.location.href = data.url;
+        nav.go(data.url);
       } else {
+        nav.closePopup();
         toast.error('Fick ingen betalningslänk');
       }
     } catch (err) {
       console.error('Checkout error:', err);
+      nav.closePopup();
       toast.error('Något gick fel');
     } finally {
       setIsLoadingCheckout(null);
@@ -83,23 +88,27 @@ export function PremiumSection({ isPremium, subscription, limits }: PremiumSecti
   };
 
   const handleManageSubscription = async () => {
+    const nav = prepareExternalNavigation();
     setIsLoadingPortal(true);
     try {
       const { data, error } = await supabase.functions.invoke('create_portal_session');
 
       if (error) {
         console.error('Portal error:', error);
+        nav.closePopup();
         toast.error('Kunde inte öppna prenumerationshantering');
         return;
       }
 
       if (data?.url) {
-        window.location.href = data.url;
+        nav.go(data.url);
       } else {
+        nav.closePopup();
         toast.error('Fick ingen länk');
       }
     } catch (err) {
       console.error('Portal error:', err);
+      nav.closePopup();
       toast.error('Något gick fel');
     } finally {
       setIsLoadingPortal(false);
