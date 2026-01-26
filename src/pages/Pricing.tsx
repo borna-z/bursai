@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { prepareExternalNavigation } from '@/lib/externalNavigation';
 
 const faqs = [
   {
@@ -51,6 +52,7 @@ export default function PricingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const handleCheckout = async () => {
+    const nav = prepareExternalNavigation();
     setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('create_checkout_session', {
@@ -59,17 +61,20 @@ export default function PricingPage() {
 
       if (error) {
         console.error('Checkout error:', error);
+        nav.closePopup();
         toast.error('Kunde inte starta betalning');
         return;
       }
 
       if (data?.url) {
-        window.location.href = data.url;
+        nav.go(data.url);
       } else {
+        nav.closePopup();
         toast.error('Fick ingen betalningslänk');
       }
     } catch (err) {
       console.error('Checkout error:', err);
+      nav.closePopup();
       toast.error('Något gick fel');
     } finally {
       setIsLoading(false);
