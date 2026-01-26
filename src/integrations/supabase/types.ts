@@ -184,9 +184,11 @@ export type Database = {
       outfits: {
         Row: {
           explanation: string | null
+          feedback: string[] | null
           generated_at: string | null
           id: string
           occasion: string
+          planned_for: string | null
           rating: number | null
           saved: boolean | null
           share_enabled: boolean | null
@@ -197,9 +199,11 @@ export type Database = {
         }
         Insert: {
           explanation?: string | null
+          feedback?: string[] | null
           generated_at?: string | null
           id?: string
           occasion: string
+          planned_for?: string | null
           rating?: number | null
           saved?: boolean | null
           share_enabled?: boolean | null
@@ -210,9 +214,11 @@ export type Database = {
         }
         Update: {
           explanation?: string | null
+          feedback?: string[] | null
           generated_at?: string | null
           id?: string
           occasion?: string
+          planned_for?: string | null
           rating?: number | null
           saved?: boolean | null
           share_enabled?: boolean | null

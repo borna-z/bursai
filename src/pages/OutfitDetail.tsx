@@ -14,10 +14,17 @@ import {
   Download,
   Link,
   Link2Off,
+  Calendar,
+  Thermometer,
+  ThermometerSnowflake,
+  Shirt,
+  Briefcase,
+  PartyPopper,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Chip } from '@/components/ui/chip';
 import {
   Sheet,
   SheetContent,
@@ -28,11 +35,20 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { useOutfit, useUpdateOutfit, useMarkOutfitWorn, useUndoMarkWorn, type OutfitWithItems, type WornResult } from '@/hooks/useOutfits';
+import { useOutfit, useUpdateOutfit, useMarkOutfitWorn, useUndoMarkWorn, type OutfitWithItems } from '@/hooks/useOutfits';
 import { useStorage } from '@/hooks/useStorage';
 import { useSwapGarment, type SwapCandidate } from '@/hooks/useSwapGarment';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { format } from 'date-fns';
+import { sv } from 'date-fns/locale';
 
 const slotLabels: Record<string, string> = {
   top: 'Överdel',
@@ -41,6 +57,13 @@ const slotLabels: Record<string, string> = {
   outerwear: 'Ytterkläder',
   accessory: 'Accessoar',
 };
+
+const feedbackOptions = [
+  { id: 'too_warm', label: 'För varmt', icon: Thermometer },
+  { id: 'too_cold', label: 'För kallt', icon: ThermometerSnowflake },
+  { id: 'too_formal', label: 'För formellt', icon: Briefcase },
+  { id: 'too_casual', label: 'För casual', icon: Shirt },
+];
 
 interface SwapSheetProps {
   isOpen: boolean;
@@ -163,8 +186,11 @@ export default function OutfitDetailPage() {
     outfitItemId: string;
   }>({ isOpen: false, slot: '', outfitItemId: '' });
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
+  const [plannerOpen, setPlannerOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [copied, setCopied] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [selectedFeedback, setSelectedFeedback] = useState<string[]>([]);
   const outfitRef = useRef<HTMLDivElement>(null);
   
   const justGenerated = (location.state as { justGenerated?: boolean })?.justGenerated;
@@ -174,7 +200,11 @@ export default function OutfitDetailPage() {
     if (outfit?.rating) {
       setRating(outfit.rating);
     }
-  }, [outfit?.rating]);
+    // Load existing feedback
+    if ((outfit as any)?.feedback) {
+      setSelectedFeedback((outfit as any).feedback);
+    }
+  }, [outfit?.rating, (outfit as any)?.feedback]);
 
   useEffect(() => {
     outfit?.outfit_items.forEach((item) => {
@@ -187,7 +217,6 @@ export default function OutfitDetailPage() {
   }, [outfit?.outfit_items]);
 
   const handleOpenSwap = async (slot: string, outfitItemId: string, currentGarmentId: string) => {
-    // Get colors of other garments in the outfit
     const otherColors = outfit?.outfit_items
       .filter(item => item.id !== outfitItemId && item.garment?.color_primary)
       .map(item => item.garment!.color_primary.toLowerCase()) || [];
@@ -210,26 +239,8 @@ export default function OutfitDetailPage() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!outfit) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4">
-        <p className="text-lg font-medium">Outfiten hittades inte</p>
-        <Button variant="link" onClick={() => navigate('/outfits')}>
-          Tillbaka till outfits
-        </Button>
-      </div>
-    );
-  }
-
   const handleToggleSave = async () => {
+    if (!outfit) return;
     try {
       await updateOutfit.mutateAsync({
         id: outfit.id,
@@ -242,6 +253,7 @@ export default function OutfitDetailPage() {
   };
 
   const handleRating = async (value: number) => {
+    if (!outfit) return;
     setRating(value);
     try {
       await updateOutfit.mutateAsync({
@@ -254,7 +266,27 @@ export default function OutfitDetailPage() {
     }
   };
 
+  const handleFeedbackToggle = async (feedbackId: string) => {
+    if (!outfit) return;
+    const newFeedback = selectedFeedback.includes(feedbackId)
+      ? selectedFeedback.filter(f => f !== feedbackId)
+      : [...selectedFeedback, feedbackId];
+    
+    setSelectedFeedback(newFeedback);
+    
+    try {
+      await updateOutfit.mutateAsync({
+        id: outfit.id,
+        updates: { feedback: newFeedback } as any,
+      });
+    } catch {
+      // Revert on error
+      setSelectedFeedback(selectedFeedback);
+    }
+  };
+
   const handleMarkWorn = async () => {
+    if (!outfit) return;
     try {
       const garmentIds = outfit.outfit_items.map((item) => item.garment_id);
       const result = await markWorn.mutateAsync({ 
@@ -263,7 +295,6 @@ export default function OutfitDetailPage() {
         occasion: outfit.occasion 
       });
       
-      // Show toast with undo option
       toast.success('Markerat som använd ✅', {
         action: {
           label: 'Ångra',
@@ -276,18 +307,40 @@ export default function OutfitDetailPage() {
             }
           },
         },
-        duration: 10000, // 10 seconds to undo
+        duration: 10000,
       });
     } catch {
       toast.error('Något gick fel');
     }
   };
 
-  const handleOpenShareSheet = () => {
-    setShareSheetOpen(true);
+  const handlePlanOutfit = async () => {
+    if (!outfit || !selectedDate) return;
+    try {
+      await updateOutfit.mutateAsync({
+        id: outfit.id,
+        updates: { planned_for: selectedDate.toISOString().split('T')[0] } as any,
+      });
+      toast.success(`Planerad för ${format(selectedDate, 'd MMMM', { locale: sv })}`);
+      setPlannerOpen(false);
+      refetch();
+    } catch {
+      toast.error('Kunde inte planera outfit');
+    }
+  };
+
+  const handleCreateSimilar = () => {
+    // Navigate to home with similar vibe params
+    navigate('/', { 
+      state: { 
+        prefillOccasion: outfit?.occasion,
+        prefillStyle: outfit?.style_vibe,
+      }
+    });
   };
 
   const handleToggleShareEnabled = async () => {
+    if (!outfit) return;
     try {
       await updateOutfit.mutateAsync({
         id: outfit.id,
@@ -339,15 +392,40 @@ export default function OutfitDetailPage() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!outfit) {
+    return (
+      <AppLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
+          <p className="text-lg font-medium">Outfiten hittades inte</p>
+          <Button variant="link" onClick={() => navigate('/outfits')}>
+            Tillbaka till outfits
+          </Button>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  const plannedFor = (outfit as any).planned_for;
+
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <AppLayout hideNav>
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b">
         <div className="p-4 flex items-center justify-between">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <div className="flex gap-2">
+          <div className="flex gap-1">
             <Button variant="ghost" size="icon" onClick={handleToggleSave}>
               {outfit.saved ? (
                 <BookmarkCheck className="w-5 h-5 text-primary" />
@@ -355,14 +433,14 @@ export default function OutfitDetailPage() {
                 <Bookmark className="w-5 h-5" />
               )}
             </Button>
-            <Button variant="ghost" size="icon" onClick={handleOpenShareSheet}>
+            <Button variant="ghost" size="icon" onClick={() => setShareSheetOpen(true)}>
               <Share2 className="w-5 h-5" />
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="p-4 space-y-6">
+      <div className="p-4 space-y-6 pb-32">
         {/* Title */}
         <div>
           {justGenerated && (
@@ -371,23 +449,33 @@ export default function OutfitDetailPage() {
               <span className="font-medium">Ny outfit skapad!</span>
             </div>
           )}
-          <Badge variant="secondary" className="mb-2 capitalize">
-            {outfit.occasion}
-          </Badge>
+          <div className="flex items-center gap-2 flex-wrap mb-2">
+            <Badge variant="secondary" className="capitalize">
+              {outfit.occasion}
+            </Badge>
+            {outfit.style_vibe && (
+              <Badge variant="outline" className="capitalize">
+                {outfit.style_vibe}
+              </Badge>
+            )}
+            {plannedFor && (
+              <Badge variant="default" className="bg-primary/10 text-primary hover:bg-primary/20">
+                <Calendar className="w-3 h-3 mr-1" />
+                {format(new Date(plannedFor), 'd MMM', { locale: sv })}
+              </Badge>
+            )}
+          </div>
           <h1 className="text-xl font-bold">Din outfit</h1>
-          {outfit.style_vibe && (
-            <p className="text-muted-foreground capitalize">Stil: {outfit.style_vibe}</p>
-          )}
         </div>
 
         {/* Outfit Content for Screenshot */}
         <div ref={outfitRef} className="space-y-3 bg-background">
-          {/* Items */}
+          {/* Items Grid - Consistent height */}
           {outfit.outfit_items.map((item) => (
             <Card key={item.id} className="overflow-hidden">
-              <CardContent className="p-3 flex items-center gap-4">
+              <CardContent className="p-0 flex">
                 <div 
-                  className="w-20 h-20 rounded-lg bg-secondary overflow-hidden flex-shrink-0 cursor-pointer"
+                  className="w-24 h-24 bg-secondary overflow-hidden flex-shrink-0 cursor-pointer"
                   onClick={() => navigate(`/wardrobe/${item.garment_id}`)}
                 >
                   {imageUrls[item.id] ? (
@@ -399,33 +487,36 @@ export default function OutfitDetailPage() {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <div className="w-8 h-8 rounded-full bg-muted" />
+                      <Shirt className="w-8 h-8 text-muted-foreground/30" />
                     </div>
                   )}
                 </div>
-                <div 
-                  className="flex-1 min-w-0 cursor-pointer"
-                  onClick={() => navigate(`/wardrobe/${item.garment_id}`)}
-                >
-                  <p className="text-sm text-muted-foreground">
-                    {slotLabels[item.slot] || item.slot}
-                  </p>
-                  <p className="font-medium truncate">{item.garment?.title || 'Okänt plagg'}</p>
-                  <p className="text-sm text-muted-foreground capitalize">
-                    {item.garment?.color_primary}
-                  </p>
+                <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
+                  <div 
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/wardrobe/${item.garment_id}`)}
+                  >
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                      {slotLabels[item.slot] || item.slot}
+                    </p>
+                    <p className="font-medium truncate">{item.garment?.title || 'Okänt plagg'}</p>
+                    <p className="text-sm text-muted-foreground capitalize">
+                      {item.garment?.color_primary}
+                    </p>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="self-start mt-1 h-7 px-2 text-xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenSwap(item.slot, item.id, item.garment_id);
+                    }}
+                  >
+                    <RefreshCw className="w-3 h-3 mr-1" />
+                    Byt ut
+                  </Button>
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpenSwap(item.slot, item.id, item.garment_id);
-                  }}
-                >
-                  <RefreshCw className="w-4 h-4 mr-1" />
-                  Byt
-                </Button>
               </CardContent>
             </Card>
           ))}
@@ -434,10 +525,13 @@ export default function OutfitDetailPage() {
         {/* Explanation */}
         {outfit.explanation && (
           <Card className="bg-primary/5 border-primary/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Varför detta funkar</CardTitle>
+            <CardHeader className="pb-2 pt-4">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                Varför detta funkar
+              </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <p className="text-sm">{outfit.explanation}</p>
             </CardContent>
           </Card>
@@ -445,23 +539,40 @@ export default function OutfitDetailPage() {
 
         {/* Rating */}
         <div className="space-y-2">
-          <p className="font-medium">Betygsätt outfiten</p>
-          <div className="flex gap-2">
+          <p className="font-medium text-sm">Betygsätt outfiten</p>
+          <div className="flex gap-1">
             {[1, 2, 3, 4, 5].map((value) => (
               <button
                 key={value}
                 onClick={() => handleRating(value)}
-                className="p-2"
+                className="p-1.5 rounded-lg hover:bg-muted transition-colors"
               >
                 <Star
                   className={cn(
-                    'w-8 h-8 transition-colors',
+                    'w-7 h-7 transition-colors',
                     (rating || 0) >= value
                       ? 'fill-primary text-primary'
-                      : 'text-muted-foreground'
+                      : 'text-muted-foreground/40'
                   )}
                 />
               </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Feedback chips */}
+        <div className="space-y-2">
+          <p className="font-medium text-sm">Hur passade outfiten?</p>
+          <div className="flex flex-wrap gap-2">
+            {feedbackOptions.map(({ id, label, icon: Icon }) => (
+              <Chip
+                key={id}
+                selected={selectedFeedback.includes(id)}
+                onClick={() => handleFeedbackToggle(id)}
+              >
+                <Icon className="w-3.5 h-3.5 mr-1" />
+                {label}
+              </Chip>
             ))}
           </div>
         </div>
@@ -482,6 +593,41 @@ export default function OutfitDetailPage() {
               ? `Använd ${new Date(outfit.worn_at).toLocaleDateString('sv-SE')}`
               : 'Markera som använd idag'}
           </Button>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Popover open={plannerOpen} onOpenChange={setPlannerOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Planera
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  disabled={(date) => date < new Date()}
+                  initialFocus
+                />
+                <div className="p-3 border-t">
+                  <Button 
+                    className="w-full" 
+                    size="sm"
+                    disabled={!selectedDate}
+                    onClick={handlePlanOutfit}
+                  >
+                    Bekräfta
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <Button variant="outline" onClick={handleCreateSimilar}>
+              <PartyPopper className="w-4 h-4 mr-2" />
+              Skapa liknande
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -589,6 +735,6 @@ export default function OutfitDetailPage() {
           </div>
         </SheetContent>
       </Sheet>
-    </div>
+    </AppLayout>
   );
 }
