@@ -3,15 +3,16 @@ import { BottomNav } from './BottomNav';
 
 interface AppLayoutProps {
   children: ReactNode;
+  hideNav?: boolean;
 }
 
-export function AppLayout({ children }: AppLayoutProps) {
+export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
-      <main className="pb-20 max-w-lg mx-auto">
+      <main className={hideNav ? '' : 'pb-20 max-w-lg mx-auto'}>
         {children}
       </main>
-      <BottomNav />
+      {!hideNav && <BottomNav />}
     </div>
   );
 }

@@ -2,98 +2,121 @@
 @tailwind components;
 @tailwind utilities;
 
-/* AI Garderobsassistent Design System - Clean, modern Swedish wardrobe app */
+/* AI Garderobsassistent - Premium Scandinavian Design System */
+/* 8pt Grid System | Clean Typography | Light/Dark Modes */
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 240 10% 10%;
+    /* Scandinavian-inspired color palette - warm neutrals with subtle accent */
+    --background: 40 20% 98%;
+    --foreground: 220 15% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 10%;
+    --card-foreground: 220 15% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 10%;
+    --popover-foreground: 220 15% 12%;
 
-    --primary: 252 85% 60%;
+    /* Warm slate-blue primary */
+    --primary: 220 60% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 10% 10%;
+    /* Warm secondary */
+    --secondary: 40 15% 96%;
+    --secondary-foreground: 220 15% 12%;
 
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 5% 46%;
+    --muted: 40 10% 94%;
+    --muted-foreground: 220 10% 45%;
 
-    --accent: 168 76% 42%;
+    /* Teal accent */
+    --accent: 172 60% 42%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 252 85% 60%;
+    --border: 40 10% 90%;
+    --input: 40 10% 90%;
+    --ring: 220 60% 50%;
 
     --radius: 0.75rem;
 
-    /* App-specific tokens */
-    --success: 142 71% 45%;
+    /* Extended tokens */
+    --success: 152 60% 40%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    --warning-foreground: 220 15% 12%;
+    --premium: 38 90% 55%;
+    --premium-foreground: 220 15% 12%;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 252 85% 60%;
+    /* Sidebar */
+    --sidebar-background: 40 20% 98%;
+    --sidebar-foreground: 220 10% 30%;
+    --sidebar-primary: 220 60% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 40 15% 94%;
+    --sidebar-accent-foreground: 220 15% 12%;
+    --sidebar-border: 40 10% 88%;
+    --sidebar-ring: 220 60% 50%;
+
+    /* Chart colors */
+    --chart-1: 220 60% 50%;
+    --chart-2: 172 60% 42%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 0 72% 51%;
+    --chart-5: 280 60% 50%;
   }
 
   .dark {
-    --background: 240 10% 5%;
-    --foreground: 0 0% 98%;
+    --background: 220 15% 8%;
+    --foreground: 40 10% 94%;
 
-    --card: 240 10% 8%;
-    --card-foreground: 0 0% 98%;
+    --card: 220 15% 10%;
+    --card-foreground: 40 10% 94%;
 
-    --popover: 240 10% 8%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 220 15% 10%;
+    --popover-foreground: 40 10% 94%;
 
-    --primary: 252 85% 65%;
-    --primary-foreground: 240 10% 5%;
+    --primary: 220 60% 60%;
+    --primary-foreground: 220 15% 8%;
 
-    --secondary: 240 5% 18%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 220 12% 16%;
+    --secondary-foreground: 40 10% 94%;
 
-    --muted: 240 5% 18%;
-    --muted-foreground: 240 5% 65%;
+    --muted: 220 12% 16%;
+    --muted-foreground: 40 10% 60%;
 
-    --accent: 168 76% 50%;
-    --accent-foreground: 240 10% 5%;
+    --accent: 172 60% 50%;
+    --accent-foreground: 220 15% 8%;
 
     --destructive: 0 62% 50%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive-foreground: 40 10% 94%;
 
-    --border: 240 5% 18%;
-    --input: 240 5% 18%;
-    --ring: 252 85% 65%;
+    --border: 220 12% 18%;
+    --input: 220 12% 18%;
+    --ring: 220 60% 60%;
 
-    --success: 142 71% 50%;
-    --success-foreground: 240 10% 5%;
+    --success: 152 60% 50%;
+    --success-foreground: 220 15% 8%;
     --warning: 38 92% 55%;
-    --warning-foreground: 240 10% 5%;
+    --warning-foreground: 220 15% 8%;
+    --premium: 38 90% 60%;
+    --premium-foreground: 220 15% 8%;
 
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 252 85% 65%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 252 85% 65%;
+    --sidebar-background: 220 15% 8%;
+    --sidebar-foreground: 40 10% 85%;
+    --sidebar-primary: 220 60% 60%;
+    --sidebar-primary-foreground: 220 15% 8%;
+    --sidebar-accent: 220 12% 14%;
+    --sidebar-accent-foreground: 40 10% 94%;
+    --sidebar-border: 220 12% 16%;
+    --sidebar-ring: 220 60% 60%;
+
+    --chart-1: 220 60% 60%;
+    --chart-2: 172 60% 50%;
+    --chart-3: 38 92% 55%;
+    --chart-4: 0 62% 50%;
+    --chart-5: 280 60% 55%;
   }
 }
 
@@ -102,17 +125,50 @@
     @apply border-border;
   }
 
+  html {
+    @apply scroll-smooth;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Typography Scale - 8pt grid aligned */
+  h1 {
+    @apply text-2xl font-bold tracking-tight leading-tight;
+  }
+
+  h2 {
+    @apply text-xl font-semibold tracking-tight leading-snug;
+  }
+
+  h3 {
+    @apply text-lg font-medium leading-normal;
+  }
+
+  h4 {
+    @apply text-base font-medium leading-normal;
+  }
+
+  .caption {
+    @apply text-xs text-muted-foreground leading-relaxed;
   }
 }
 
 @layer utilities {
+  /* Safe area padding for mobile */
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
   
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+  
+  /* Hide scrollbar but allow scrolling */
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
   }
@@ -121,4 +177,55 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* 8pt spacing helpers */
+  .space-8 { gap: 0.5rem; }   /* 8px */
+  .space-16 { gap: 1rem; }    /* 16px */
+  .space-24 { gap: 1.5rem; }  /* 24px */
+  .space-32 { gap: 2rem; }    /* 32px */
+
+  /* Premium gradient */
+  .gradient-premium {
+    @apply bg-gradient-to-br from-amber-400 to-orange-500;
+  }
+
+  /* Glass effect */
+  .glass {
+    @apply bg-background/80 backdrop-blur-md;
+  }
+
+  /* Skeleton animation override for Scandinavian style */
+  .skeleton-scandi {
+    @apply animate-pulse rounded-lg bg-muted/50;
+  }
+}
+
+/* Custom scrollbar for webkit browsers */
+@media (min-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/30;
+  }
+}
+
+/* Focus visible styles for accessibility */
+:focus-visible {
+  @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+}
+
+/* Selection color */
+::selection {
+  @apply bg-primary/20 text-foreground;
 }

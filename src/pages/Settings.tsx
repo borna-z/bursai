@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
   User,
   Palette,
   Bell,
@@ -10,13 +9,15 @@ import {
   Download,
   Trash2,
   Loader2,
+  Moon,
+  Sun,
+  Monitor,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -39,17 +40,18 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
 import { supabase } from '@/integrations/supabase/client';
 import { PremiumSection } from '@/components/PremiumSection';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { Chip } from '@/components/ui/chip';
 
 const colors = [
   'svart', 'vit', 'grå', 'marinblå', 'blå', 'röd', 'grön', 'beige', 'brun', 'rosa', 'gul', 'orange', 'lila'
 ];
-
-const styleVibes = ['minimal', 'street', 'smart-casual', 'klassisk'];
-const fitPreferences = ['loose', 'regular', 'slim'];
 
 interface Preferences {
   favoriteColors?: string[];
@@ -63,18 +65,24 @@ interface Preferences {
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { theme, setTheme } = useTheme();
   const { data: profile, isLoading } = useProfile();
   const updateProfile = useUpdateProfile();
-  const { subscription, isPremium, remainingGarments, remainingOutfits, limits } = useSubscription();
+  const { subscription, isPremium, limits } = useSubscription();
   
-  const [displayName, setDisplayName] = useState(profile?.display_name || '');
+  const [displayName, setDisplayName] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Get preferences from profile
+  useEffect(() => {
+    if (profile?.display_name) {
+      setDisplayName(profile.display_name);
+    }
+  }, [profile?.display_name]);
+
   const preferences = (profile?.preferences as Preferences) || {};
 
-  const updatePreference = async (key: keyof Preferences, value: any) => {
+  const updatePreference = async (key: keyof Preferences, value: unknown) => {
     const newPrefs = { ...preferences, [key]: value };
     try {
       await updateProfile.mutateAsync({ preferences: newPrefs });
@@ -103,7 +111,6 @@ export default function SettingsPage() {
   const handleExportData = async () => {
     setIsExporting(true);
     try {
-      // Fetch all user data
       const [garmentsRes, outfitsRes, profileRes] = await Promise.all([
         supabase.from('garments').select('*').eq('user_id', user?.id),
         supabase.from('outfits').select('*, outfit_items(*)').eq('user_id', user?.id),
@@ -136,7 +143,6 @@ export default function SettingsPage() {
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
-      // Call edge function that handles complete account deletion
       const { data, error } = await supabase.functions.invoke('delete_user_account');
       
       if (error) {
@@ -165,24 +171,18 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-background border-b">
-        <div className="p-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="text-lg font-semibold">Inställningar</h1>
-        </div>
-      </div>
-
+    <AppLayout>
+      <PageHeader title="Inställningar" />
+      
       <div className="p-4 space-y-6">
         {/* Premium Section */}
         <PremiumSection 
@@ -191,9 +191,50 @@ export default function SettingsPage() {
           limits={limits}
         />
 
+        {/* Theme Toggle */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Moon className="w-5 h-5" />
+              <CardTitle className="text-base">Utseende</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2">
+              <Button
+                variant={theme === 'light' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTheme('light')}
+                className="flex-1"
+              >
+                <Sun className="w-4 h-4 mr-2" />
+                Ljust
+              </Button>
+              <Button
+                variant={theme === 'dark' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTheme('dark')}
+                className="flex-1"
+              >
+                <Moon className="w-4 h-4 mr-2" />
+                Mörkt
+              </Button>
+              <Button
+                variant={theme === 'system' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTheme('system')}
+                className="flex-1"
+              >
+                <Monitor className="w-4 h-4 mr-2" />
+                Auto
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Profile */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <User className="w-5 h-5" />
               <CardTitle className="text-base">Profil</CardTitle>
@@ -221,41 +262,41 @@ export default function SettingsPage() {
 
         {/* Style Preferences */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <Palette className="w-5 h-5" />
               <CardTitle className="text-base">Stilpreferenser</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label>Favoritfärger</Label>
               <div className="flex flex-wrap gap-2">
                 {colors.map((color) => (
-                  <Badge
+                  <Chip
                     key={color}
-                    variant={preferences.favoriteColors?.includes(color) ? 'default' : 'outline'}
-                    className="cursor-pointer capitalize"
+                    selected={preferences.favoriteColors?.includes(color)}
                     onClick={() => toggleColorPreference('favoriteColors', color)}
+                    className="capitalize"
                   >
                     {color}
-                  </Badge>
+                  </Chip>
                 ))}
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label>Ogillade färger</Label>
               <div className="flex flex-wrap gap-2">
                 {colors.map((color) => (
-                  <Badge
+                  <Chip
                     key={color}
-                    variant={preferences.dislikedColors?.includes(color) ? 'destructive' : 'outline'}
-                    className="cursor-pointer capitalize"
+                    selected={preferences.dislikedColors?.includes(color)}
                     onClick={() => toggleColorPreference('dislikedColors', color)}
+                    className="capitalize"
                   >
                     {color}
-                  </Badge>
+                  </Chip>
                 ))}
               </div>
             </div>
@@ -307,7 +348,7 @@ export default function SettingsPage() {
 
         {/* Notifications */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <Bell className="w-5 h-5" />
               <CardTitle className="text-base">Notiser</CardTitle>
@@ -326,13 +367,13 @@ export default function SettingsPage() {
 
         {/* Privacy */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <Shield className="w-5 h-5" />
               <CardTitle className="text-base">Integritet</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             <Button
               variant="outline"
               className="w-full"
@@ -359,14 +400,14 @@ export default function SettingsPage() {
                   <AlertDialogTitle>Radera konto permanent?</AlertDialogTitle>
                   <AlertDialogDescription className="space-y-2">
                     <p>Detta kommer att ta bort:</p>
-                    <ul className="list-disc list-inside text-sm">
+                    <ul className="list-disc list-inside text-sm space-y-1">
                       <li>Alla dina plagg och bilder</li>
                       <li>Alla outfits och outfit-historik</li>
                       <li>All användarhistorik</li>
                       <li>Din profil och inställningar</li>
                       <li>Ditt konto</li>
                     </ul>
-                    <p className="font-medium text-destructive">Detta går inte att ångra!</p>
+                    <p className="font-medium text-destructive pt-2">Detta går inte att ångra!</p>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -376,9 +417,7 @@ export default function SettingsPage() {
                     className="bg-destructive text-destructive-foreground"
                     disabled={isDeleting}
                   >
-                    {isDeleting ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : null}
+                    {isDeleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     Radera permanent
                   </AlertDialogAction>
                 </AlertDialogFooter>
@@ -393,6 +432,6 @@ export default function SettingsPage() {
           Logga ut
         </Button>
       </div>
-    </div>
+    </AppLayout>
   );
 }

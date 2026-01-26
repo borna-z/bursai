@@ -1,4 +1,4 @@
-import { Home, Shirt, Sparkles, BarChart3 } from 'lucide-react';
+import { Home, Shirt, Sparkles, BarChart3, Settings } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
@@ -7,19 +7,20 @@ const tabs = [
   { path: '/wardrobe', label: 'Garderob', icon: Shirt },
   { path: '/outfits', label: 'Outfits', icon: Sparkles },
   { path: '/insights', label: 'Insikter', icon: BarChart3 },
+  { path: '/settings', label: 'Inställningar', icon: Settings },
 ];
 
 export function BottomNav() {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-bottom">
-      <div className="flex justify-around items-center h-16 max-w-lg mx-auto">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t safe-bottom">
+      <div className="flex justify-around items-center h-16 max-w-lg mx-auto px-2">
         {tabs.map((tab) => (
           <NavLink
             key={tab.path}
             to={tab.path}
             className={({ isActive }) =>
               cn(
-                'flex flex-col items-center justify-center w-full h-full gap-1 text-xs transition-colors',
+                'flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[10px] font-medium transition-colors',
                 isActive
                   ? 'text-primary'
                   : 'text-muted-foreground hover:text-foreground'
@@ -28,14 +29,16 @@ export function BottomNav() {
           >
             {({ isActive }) => (
               <>
-                <tab.icon
-                  className={cn(
-                    'w-5 h-5 transition-transform',
-                    isActive && 'scale-110'
-                  )}
-                  strokeWidth={isActive ? 2.5 : 2}
-                />
-                <span className="font-medium">{tab.label}</span>
+                <div className={cn(
+                  'flex items-center justify-center w-10 h-7 rounded-full transition-colors',
+                  isActive && 'bg-primary/10'
+                )}>
+                  <tab.icon
+                    className={cn('w-5 h-5 transition-all', isActive && 'scale-105')}
+                    strokeWidth={isActive ? 2.5 : 2}
+                  />
+                </div>
+                <span>{tab.label}</span>
               </>
             )}
           </NavLink>
