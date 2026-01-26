@@ -12,6 +12,23 @@ const logStep = (step: string, details?: unknown) => {
   console.log(`[CREATE-PORTAL] ${step}${detailsStr}`);
 };
 
+// Inline config
+function getStripeConfig() {
+  const mode = (Deno.env.get('STRIPE_MODE') || 'test') as 'test' | 'live';
+  
+  if (mode === 'live') {
+    return {
+      secretKey: Deno.env.get('STRIPE_SECRET_KEY_LIVE') || '',
+      mode: 'live' as const,
+    };
+  }
+  
+  return {
+    secretKey: Deno.env.get('STRIPE_SECRET_KEY_TEST') || Deno.env.get('STRIPE_SECRET_KEY') || '',
+    mode: 'test' as const,
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -20,8 +37,10 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
+    const stripeConfig = getStripeConfig();
+    logStep("Stripe mode", { mode: stripeConfig.mode });
+
+    if (!stripeConfig.secretKey) throw new Error("Missing Stripe secret key");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -32,7 +51,6 @@ serve(async (req) => {
       throw new Error("No authorization header provided");
     }
 
-    // Create anon client to verify user
     const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -48,8 +66,7 @@ serve(async (req) => {
     
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    // Initialize Stripe
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+    const stripe = new Stripe(stripeConfig.secretKey, { apiVersion: "2025-08-27.basil" });
 
     // Find Stripe customer
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
@@ -61,10 +78,8 @@ serve(async (req) => {
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });
 
-    // Get origin for redirect
     const origin = req.headers.get("origin") || "https://id-preview--33b2a235-7025-49d2-9bf2-b33460a200cf.lovable.app";
 
-    // Create billing portal session
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url: `${origin}/settings`,
@@ -72,7 +87,7 @@ serve(async (req) => {
 
     logStep("Portal session created", { sessionId: portalSession.id, url: portalSession.url });
 
-    return new Response(JSON.stringify({ url: portalSession.url }), {
+    return new Response(JSON.stringify({ url: portalSession.url, mode: stripeConfig.mode }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

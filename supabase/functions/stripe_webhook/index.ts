@@ -12,24 +12,44 @@ const logStep = (step: string, details?: unknown) => {
   console.log(`[STRIPE-WEBHOOK] ${step}${detailsStr}`);
 };
 
+// Inline config
+function getStripeConfig() {
+  const mode = (Deno.env.get('STRIPE_MODE') || 'test') as 'test' | 'live';
+  
+  if (mode === 'live') {
+    return {
+      secretKey: Deno.env.get('STRIPE_SECRET_KEY_LIVE') || '',
+      webhookSecret: Deno.env.get('STRIPE_WEBHOOK_SECRET_LIVE') || '',
+      mode: 'live' as const,
+    };
+  }
+  
+  return {
+    secretKey: Deno.env.get('STRIPE_SECRET_KEY_TEST') || Deno.env.get('STRIPE_SECRET_KEY') || '',
+    webhookSecret: Deno.env.get('STRIPE_WEBHOOK_SECRET_TEST') || Deno.env.get('STRIPE_WEBHOOK_SECRET') || '',
+    mode: 'test' as const,
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+
   try {
     logStep("Webhook received");
 
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const stripeConfig = getStripeConfig();
+    logStep("Stripe mode", { mode: stripeConfig.mode });
 
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
-    if (!webhookSecret) throw new Error("STRIPE_WEBHOOK_SECRET is not set");
+    if (!stripeConfig.secretKey) throw new Error("Missing Stripe secret key");
+    if (!stripeConfig.webhookSecret) throw new Error("Missing webhook secret");
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+    const stripe = new Stripe(stripeConfig.secretKey, { apiVersion: "2025-08-27.basil" });
 
     // Get raw body for signature verification
     const body = await req.text();
@@ -42,7 +62,7 @@ serve(async (req) => {
     // Verify webhook signature
     let event: Stripe.Event;
     try {
-      event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
+      event = await stripe.webhooks.constructEventAsync(body, signature, stripeConfig.webhookSecret);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       logStep("Signature verification failed", { error: message });
@@ -54,136 +74,171 @@ serve(async (req) => {
 
     logStep("Event verified", { type: event.type, id: event.id });
 
-    // Handle different event types
-    switch (event.type) {
-      case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
-        logStep("Checkout session completed", { sessionId: session.id, customerId: session.customer });
+    // Idempotency check: avoid processing same event twice
+    const { data: existingEvent } = await serviceClient
+      .from('stripe_events')
+      .select('id')
+      .eq('id', event.id)
+      .single();
 
-        if (session.mode === "subscription" && session.subscription) {
-          // Get subscription details
-          const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
-          const customerId = session.customer as string;
+    if (existingEvent) {
+      logStep("Event already processed", { eventId: event.id });
+      return new Response(JSON.stringify({ received: true, duplicate: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    // Log event start
+    await serviceClient.from('stripe_events').insert({
+      id: event.id,
+      event_type: event.type,
+      stripe_mode: stripeConfig.mode,
+      processed_ok: false,
+    });
+
+    let processingError: string | null = null;
+
+    try {
+      // Handle different event types
+      switch (event.type) {
+        case "checkout.session.completed": {
+          const session = event.data.object as Stripe.Checkout.Session;
+          logStep("Checkout session completed", { sessionId: session.id, customerId: session.customer });
+
+          if (session.mode === "subscription" && session.subscription) {
+            const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+            const customerId = session.customer as string;
+            
+            // Find user by stripe_customer_id or metadata
+            let userId = session.metadata?.supabase_user_id;
+            
+            if (!userId) {
+              const { data: profile } = await serviceClient
+                .from('profiles')
+                .select('id')
+                .eq('stripe_customer_id', customerId)
+                .single();
+              userId = profile?.id;
+            }
+
+            if (userId) {
+              // Update profile with stripe_customer_id
+              await serviceClient
+                .from('profiles')
+                .update({ stripe_customer_id: customerId })
+                .eq('id', userId);
+
+              await updateSubscription(serviceClient, userId, subscription, customerId, stripeConfig.mode);
+            } else {
+              logStep("Could not find user", { customerId });
+            }
+          }
+          break;
+        }
+
+        case "customer.subscription.updated": {
+          const subscription = event.data.object as Stripe.Subscription;
+          logStep("Subscription updated", { subscriptionId: subscription.id, status: subscription.status });
+
+          const customerId = subscription.customer as string;
           
-          // Find user by stripe_customer_id
-          const { data: profile, error: profileError } = await serviceClient
+          const { data: profile } = await serviceClient
             .from('profiles')
             .select('id')
             .eq('stripe_customer_id', customerId)
             .single();
 
-          if (profileError || !profile) {
-            // Try to find by metadata
-            const userId = session.metadata?.supabase_user_id;
-            if (!userId) {
-              logStep("Could not find user", { customerId });
-              break;
-            }
-
-            // Update profile with stripe_customer_id
-            await serviceClient
-              .from('profiles')
-              .update({ stripe_customer_id: customerId })
-              .eq('id', userId);
-
-            // Update subscriptions table
-            await updateSubscription(serviceClient, userId, subscription, customerId);
+          if (profile) {
+            await updateSubscription(serviceClient, profile.id, subscription, customerId, stripeConfig.mode);
           } else {
-            await updateSubscription(serviceClient, profile.id, subscription, customerId);
+            logStep("Could not find user for subscription update", { customerId });
           }
+          break;
         }
-        break;
-      }
 
-      case "customer.subscription.updated": {
-        const subscription = event.data.object as Stripe.Subscription;
-        logStep("Subscription updated", { subscriptionId: subscription.id, status: subscription.status });
+        case "customer.subscription.deleted": {
+          const subscription = event.data.object as Stripe.Subscription;
+          logStep("Subscription deleted", { subscriptionId: subscription.id });
 
-        const customerId = subscription.customer as string;
-        
-        const { data: profile } = await serviceClient
-          .from('profiles')
-          .select('id')
-          .eq('stripe_customer_id', customerId)
-          .single();
+          const customerId = subscription.customer as string;
+          
+          const { data: profile } = await serviceClient
+            .from('profiles')
+            .select('id')
+            .eq('stripe_customer_id', customerId)
+            .single();
 
-        if (profile) {
-          await updateSubscription(serviceClient, profile.id, subscription, customerId);
-        } else {
-          logStep("Could not find user for subscription update", { customerId });
+          if (profile) {
+            await serviceClient
+              .from('subscriptions')
+              .update({
+                status: 'canceled',
+                plan: 'free',
+                updated_at: new Date().toISOString(),
+              })
+              .eq('user_id', profile.id);
+
+            await serviceClient
+              .from('user_subscriptions')
+              .update({ plan: 'free', updated_at: new Date().toISOString() })
+              .eq('user_id', profile.id);
+
+            logStep("Subscription canceled for user", { userId: profile.id });
+          }
+          break;
         }
-        break;
-      }
 
-      case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription;
-        logStep("Subscription deleted", { subscriptionId: subscription.id });
+        case "invoice.payment_failed": {
+          const invoice = event.data.object as Stripe.Invoice;
+          logStep("Payment failed", { invoiceId: invoice.id, customerId: invoice.customer });
 
-        const customerId = subscription.customer as string;
-        
-        const { data: profile } = await serviceClient
-          .from('profiles')
-          .select('id')
-          .eq('stripe_customer_id', customerId)
-          .single();
+          const customerId = invoice.customer as string;
+          
+          const { data: profile } = await serviceClient
+            .from('profiles')
+            .select('id')
+            .eq('stripe_customer_id', customerId)
+            .single();
 
-        if (profile) {
-          await serviceClient
-            .from('subscriptions')
-            .update({
-              status: 'canceled',
-              plan: 'free',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', profile.id);
+          if (profile) {
+            // REFUND-SAFE: Set plan to free immediately on payment failure
+            await serviceClient
+              .from('subscriptions')
+              .update({
+                status: 'past_due',
+                plan: 'free',
+                updated_at: new Date().toISOString(),
+              })
+              .eq('user_id', profile.id);
 
-          // Also update user_subscriptions for backward compatibility
-          await serviceClient
-            .from('user_subscriptions')
-            .update({ plan: 'free', updated_at: new Date().toISOString() })
-            .eq('user_id', profile.id);
+            await serviceClient
+              .from('user_subscriptions')
+              .update({ plan: 'free', updated_at: new Date().toISOString() })
+              .eq('user_id', profile.id);
 
-          logStep("Subscription canceled for user", { userId: profile.id });
+            logStep("Set user to past_due/free", { userId: profile.id });
+          }
+          break;
         }
-        break;
+
+        default:
+          logStep("Unhandled event type", { type: event.type });
       }
-
-      case "invoice.payment_failed": {
-        const invoice = event.data.object as Stripe.Invoice;
-        logStep("Payment failed", { invoiceId: invoice.id, customerId: invoice.customer });
-
-        const customerId = invoice.customer as string;
-        
-        const { data: profile } = await serviceClient
-          .from('profiles')
-          .select('id')
-          .eq('stripe_customer_id', customerId)
-          .single();
-
-        if (profile) {
-          await serviceClient
-            .from('subscriptions')
-            .update({
-              status: 'past_due',
-              plan: 'free',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', profile.id);
-
-          // Also update user_subscriptions
-          await serviceClient
-            .from('user_subscriptions')
-            .update({ plan: 'free', updated_at: new Date().toISOString() })
-            .eq('user_id', profile.id);
-
-          logStep("Set user to past_due/free", { userId: profile.id });
-        }
-        break;
-      }
-
-      default:
-        logStep("Unhandled event type", { type: event.type });
+    } catch (err) {
+      processingError = err instanceof Error ? err.message : String(err);
+      logStep("Processing error", { error: processingError });
     }
+
+    // Update event log
+    await serviceClient
+      .from('stripe_events')
+      .update({
+        processed_at: new Date().toISOString(),
+        processed_ok: !processingError,
+        error: processingError,
+      })
+      .eq('id', event.id);
 
     return new Response(JSON.stringify({ received: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -204,9 +259,11 @@ async function updateSubscription(
   client: any,
   userId: string,
   subscription: Stripe.Subscription,
-  customerId: string
+  customerId: string,
+  stripeMode: 'test' | 'live'
 ) {
   const status = subscription.status;
+  // REFUND-SAFE: Only active/trialing get premium access
   const isPremium = ['active', 'trialing'].includes(status);
   const plan = isPremium ? 'premium' : 'free';
   const priceId = subscription.items.data[0]?.price.id || null;
@@ -223,6 +280,7 @@ async function updateSubscription(
       price_id: priceId,
       current_period_end: currentPeriodEnd,
       plan,
+      stripe_mode: stripeMode,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' });
 
@@ -236,5 +294,5 @@ async function updateSubscription(
     .update({ plan, updated_at: new Date().toISOString() })
     .eq('user_id', userId);
 
-  logStep("Subscription updated in DB", { userId, plan, status, currentPeriodEnd });
+  logStep("Subscription updated in DB", { userId, plan, status, currentPeriodEnd, stripeMode });
 }

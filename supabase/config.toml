@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.stripe_webhook]
 verify_jwt = false
+
+[functions.restore_subscription]
+verify_jwt = false

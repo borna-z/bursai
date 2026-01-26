@@ -1,13 +1,16 @@
 import { useState } from 'react';
-import { Crown, Infinity, Sparkles, Loader2, Settings } from 'lucide-react';
+import { Crown, Infinity, Sparkles, Loader2, Settings, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Subscription } from '@/hooks/useSubscription';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface PremiumSectionProps {
   isPremium: boolean;
@@ -21,6 +24,37 @@ interface PremiumSectionProps {
 export function PremiumSection({ isPremium, subscription, limits }: PremiumSectionProps) {
   const [isLoadingCheckout, setIsLoadingCheckout] = useState<'monthly' | 'yearly' | null>(null);
   const [isLoadingPortal, setIsLoadingPortal] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  // Check subscription status from new subscriptions table
+  const [stripeSubscription, setStripeSubscription] = useState<{
+    status: string | null;
+    stripeMode: string | null;
+  } | null>(null);
+
+  // Fetch stripe subscription status on mount
+  useState(() => {
+    const fetchStripeStatus = async () => {
+      if (!user?.id) return;
+      const { data } = await supabase
+        .from('subscriptions')
+        .select('status, stripe_mode')
+        .eq('user_id', user.id)
+        .single();
+      if (data) {
+        setStripeSubscription({
+          status: data.status,
+          stripeMode: data.stripe_mode,
+        });
+      }
+    };
+    fetchStripeStatus();
+  });
+
+  const isPastDue = stripeSubscription?.status === 'past_due';
+  const isTestMode = stripeSubscription?.stripeMode === 'test';
 
   const handleUpgrade = async (plan: 'monthly' | 'yearly') => {
     setIsLoadingCheckout(plan);
@@ -72,6 +106,32 @@ export function PremiumSection({ isPremium, subscription, limits }: PremiumSecti
     }
   };
 
+  const handleRestoreSubscription = async () => {
+    setIsRestoring(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('restore_subscription');
+
+      if (error) {
+        console.error('Restore error:', error);
+        toast.error('Kunde inte återställa prenumeration');
+        return;
+      }
+
+      if (data?.success) {
+        toast.success(data.message);
+        // Refresh subscription data
+        queryClient.invalidateQueries({ queryKey: ['subscription', user?.id] });
+      } else {
+        toast.error(data?.error || 'Något gick fel');
+      }
+    } catch (err) {
+      console.error('Restore error:', err);
+      toast.error('Något gick fel');
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
   return (
     <Card className={cn(
       isPremium 
@@ -86,15 +146,32 @@ export function PremiumSection({ isPremium, subscription, limits }: PremiumSecti
               {isPremium ? 'Premium' : 'Free'}
             </CardTitle>
           </div>
-          {isPremium && (
-            <Badge className="bg-gradient-to-r from-amber-500 to-orange-500">
-              Aktiv
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {isTestMode && (
+              <Badge variant="outline" className="text-xs bg-yellow-500/10 text-yellow-600 border-yellow-500/30">
+                Testläge
+              </Badge>
+            )}
+            {isPremium && (
+              <Badge className="bg-gradient-to-r from-amber-500 to-orange-500">
+                Aktiv
+              </Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isPremium ? (
+        {/* Past Due Warning */}
+        {isPastDue && (
+          <Alert className="border-destructive/50 bg-destructive/10">
+            <AlertTriangle className="h-4 w-4 text-destructive" />
+            <AlertDescription>
+              Betalning misslyckades. Uppdatera ditt kort i kundportalen för att behålla Premium.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {isPremium && !isPastDue ? (
           <div className="space-y-4">
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
@@ -177,6 +254,21 @@ export function PremiumSection({ isPremium, subscription, limits }: PremiumSecti
                 699 kr/år (spara 26%)
               </Button>
             </div>
+
+            {/* Restore Purchases */}
+            <Button
+              variant="ghost"
+              className="w-full text-sm text-muted-foreground"
+              onClick={handleRestoreSubscription}
+              disabled={isRestoring}
+            >
+              {isRestoring ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4 mr-2" />
+              )}
+              Jag har redan Premium
+            </Button>
           </div>
         )}
       </CardContent>
