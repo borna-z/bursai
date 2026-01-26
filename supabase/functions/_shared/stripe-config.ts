@@ -9,7 +9,9 @@ export interface StripeConfig {
 }
 
 export function getStripeConfig(): StripeConfig {
-  const mode = (Deno.env.get('STRIPE_MODE') || 'test') as 'test' | 'live';
+  // Normalize mode to avoid accidental mismatches like "Live" vs "live"
+  const rawMode = (Deno.env.get('STRIPE_MODE') || 'test').toLowerCase();
+  const mode: 'test' | 'live' = rawMode === 'live' ? 'live' : 'test';
   
   if (mode === 'live') {
     return {
