@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, Sparkles, Sun, Cloud, Wind, Snowflake, Droplets, ArrowRight } from 'lucide-react';
+import { Sparkles, Sun, Snowflake, Droplets, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Chip } from '@/components/ui/chip';
 import { cn } from '@/lib/utils';
 import { useGarmentCount } from '@/hooks/useGarments';
 import { useOutfits } from '@/hooks/useOutfits';
@@ -14,6 +14,7 @@ import { useOnboarding } from '@/hooks/useOnboarding';
 import { useSubscription } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 const occasions = [
   { id: 'vardag', label: 'Vardag' },
@@ -53,9 +54,9 @@ function getGreeting() {
 export default function HomePage() {
   const navigate = useNavigate();
   const { data: garmentCount } = useGarmentCount();
-  const { data: outfits } = useOutfits();
+  const { data: outfits, isLoading: outfitsLoading } = useOutfits();
   const { needsOnboarding, state, progress } = useOnboarding();
-  const { canCreateOutfit, remainingOutfits } = useSubscription();
+  const { canCreateOutfit } = useSubscription();
   
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
@@ -69,7 +70,6 @@ export default function HomePage() {
   const handleGenerateOutfit = () => {
     if (!selectedOccasion) return;
     
-    // Check subscription limit
     if (!canCreateOutfit()) {
       setShowPaywall(true);
       return;
@@ -88,7 +88,6 @@ export default function HomePage() {
     });
   };
 
-  // Calculate onboarding progress
   const onboardingProgress = 
     (state.step1Done ? 33 : (Math.min(progress.garmentCount, 5) / 5) * 33) +
     (state.step2Done ? 33 : 0) +
@@ -96,31 +95,21 @@ export default function HomePage() {
 
   return (
     <AppLayout>
+      <PageHeader title={`${getGreeting()} 👋`} />
+      
       <div className="p-4 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">{getGreeting()} 👋</h1>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/settings')}
-          >
-            <Settings className="w-5 h-5" />
-          </Button>
-        </div>
-
         {/* Onboarding Banner */}
         {needsOnboarding && (
           <Card 
-            className="bg-gradient-to-br from-primary/10 to-accent/10 border-primary/30 cursor-pointer hover:shadow-md transition-shadow"
+            className="bg-gradient-to-br from-primary/10 to-accent/10 border-primary/20 cursor-pointer hover:shadow-md transition-all"
             onClick={() => navigate('/onboarding')}
           >
             <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium">Kom igång</span>
+              <div className="flex items-center justify-between mb-3">
+                <span className="font-semibold">Kom igång</span>
                 <ArrowRight className="w-4 h-4 text-primary" />
               </div>
-              <Progress value={onboardingProgress} className="h-2 mb-2" />
+              <Progress value={onboardingProgress} className="h-1.5 mb-2" />
               <p className="text-sm text-muted-foreground">
                 {!state.step1Done 
                   ? `Lägg till ${Math.max(0, 5 - progress.garmentCount)} plagg till`
@@ -132,16 +121,17 @@ export default function HomePage() {
           </Card>
         )}
 
-        {/* Wardrobe Progress */}
+        {/* Wardrobe Stats */}
         {!needsOnboarding && (
-          <Card className="bg-gradient-to-br from-primary/10 to-accent/10 border-0">
+          <Card className="bg-gradient-to-br from-primary/5 to-accent/5 border-0 shadow-sm">
             <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">Din garderob</p>
-              <p className="text-2xl font-bold">
-                {garmentCount || 0} <span className="text-base font-normal text-muted-foreground">plagg</span>
+              <p className="text-sm text-muted-foreground mb-1">Din garderob</p>
+              <p className="text-3xl font-bold">
+                {garmentCount || 0}
+                <span className="text-base font-normal text-muted-foreground ml-2">plagg</span>
               </p>
               {(garmentCount || 0) < 5 && (
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-sm text-muted-foreground mt-2">
                   Lägg till fler plagg för bättre outfits!
                 </p>
               )}
@@ -151,47 +141,44 @@ export default function HomePage() {
 
         {/* Occasion Selection */}
         <div className="space-y-3">
-          <Label className="text-base font-medium">Vad ska du göra idag?</Label>
+          <Label className="text-base font-semibold">Vad ska du göra idag?</Label>
           <div className="flex flex-wrap gap-2">
             {occasions.map((occasion) => (
-              <Badge
+              <Chip
                 key={occasion.id}
-                variant={selectedOccasion === occasion.id ? 'default' : 'outline'}
-                className={cn(
-                  'cursor-pointer px-4 py-2 text-sm transition-all',
-                  selectedOccasion === occasion.id && 'ring-2 ring-primary ring-offset-2'
-                )}
+                selected={selectedOccasion === occasion.id}
                 onClick={() => setSelectedOccasion(occasion.id)}
+                size="lg"
               >
                 {occasion.label}
-              </Badge>
+              </Chip>
             ))}
           </div>
         </div>
 
         {/* Weather Inputs */}
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Väder</CardTitle>
             <CardDescription>Hjälper AI:n välja rätt plagg</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Temperatur</Label>
+              <Label className="text-sm">Temperatur</Label>
               <div className="flex items-center gap-2">
                 <Input
                   type="number"
                   placeholder="20"
                   value={temperature}
                   onChange={(e) => setTemperature(e.target.value)}
-                  className="w-24"
+                  className="w-20"
                 />
                 <span className="text-muted-foreground">°C</span>
               </div>
             </div>
             
             <div className="space-y-2">
-              <Label>Nederbörd</Label>
+              <Label className="text-sm">Nederbörd</Label>
               <div className="flex gap-2">
                 {precipitationOptions.map((option) => (
                   <Button
@@ -201,7 +188,7 @@ export default function HomePage() {
                     onClick={() => setPrecipitation(option.id)}
                     className="flex-1"
                   >
-                    <option.icon className="w-4 h-4 mr-1" />
+                    <option.icon className="w-4 h-4 mr-1.5" />
                     {option.label}
                   </Button>
                 ))}
@@ -209,7 +196,7 @@ export default function HomePage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Vind</Label>
+              <Label className="text-sm">Vind</Label>
               <div className="flex gap-2">
                 {windOptions.map((option) => (
                   <Button
@@ -229,20 +216,17 @@ export default function HomePage() {
 
         {/* Style Selection */}
         <div className="space-y-3">
-          <Label className="text-base font-medium">Stil (valfritt)</Label>
+          <Label className="text-base font-semibold">Stil (valfritt)</Label>
           <div className="flex flex-wrap gap-2">
             {styleVibes.map((style) => (
-              <Badge
+              <Chip
                 key={style.id}
-                variant={selectedStyle === style.id ? 'default' : 'outline'}
-                className={cn(
-                  'cursor-pointer px-4 py-2 text-sm transition-all',
-                  selectedStyle === style.id && 'ring-2 ring-primary ring-offset-2'
-                )}
+                selected={selectedStyle === style.id}
                 onClick={() => setSelectedStyle(selectedStyle === style.id ? null : style.id)}
+                size="lg"
               >
                 {style.label}
-              </Badge>
+              </Chip>
             ))}
           </div>
         </div>
@@ -251,7 +235,7 @@ export default function HomePage() {
         <Button
           onClick={handleGenerateOutfit}
           disabled={!selectedOccasion || (garmentCount || 0) < 3}
-          className="w-full h-14 text-lg"
+          className="w-full h-14 text-base font-semibold shadow-lg"
           size="lg"
         >
           <Sparkles className="w-5 h-5 mr-2" />
@@ -265,39 +249,40 @@ export default function HomePage() {
         )}
 
         {/* Last Outfit Preview */}
-        {lastOutfit && (
+        {outfitsLoading ? (
+          <Card className="animate-pulse">
+            <CardContent className="p-4">
+              <div className="h-4 bg-muted rounded w-24 mb-3" />
+              <div className="flex gap-2">
+                {[1,2,3,4].map(i => (
+                  <div key={i} className="w-16 h-16 rounded-lg bg-muted" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ) : lastOutfit && (
           <Card 
-            className="cursor-pointer hover:shadow-md transition-shadow"
+            className="cursor-pointer hover:shadow-md transition-all"
             onClick={() => navigate(`/outfits/${lastOutfit.id}`)}
           >
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Senaste outfit
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="p-4">
+              <p className="text-sm font-medium text-muted-foreground mb-3">Senaste outfit</p>
               <div className="flex gap-2">
                 {lastOutfit.outfit_items.slice(0, 4).map((item) => (
                   <div
                     key={item.id}
-                    className="w-16 h-16 rounded-lg bg-secondary overflow-hidden"
+                    className="w-16 h-16 rounded-lg bg-muted overflow-hidden flex items-center justify-center"
                   >
-                    {/* TODO: Add garment image */}
-                    <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
-                      {item.slot}
-                    </div>
+                    <span className="text-xs text-muted-foreground capitalize">{item.slot}</span>
                   </div>
                 ))}
               </div>
-              <p className="text-sm text-muted-foreground mt-2 capitalize">
-                {lastOutfit.occasion}
-              </p>
+              <p className="text-sm text-muted-foreground mt-3 capitalize">{lastOutfit.occasion}</p>
             </CardContent>
           </Card>
         )}
       </div>
 
-      {/* Paywall Modal */}
       <PaywallModal
         isOpen={showPaywall}
         onClose={() => setShowPaywall(false)}

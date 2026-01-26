@@ -1,9 +1,21 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, WashingMachine, Check, Loader2 } from 'lucide-react';
+import { 
+  Edit, 
+  Trash2, 
+  WashingMachine, 
+  Check, 
+  Loader2, 
+  ExternalLink,
+  // RefreshCw,
+  Calendar,
+  Hash
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,16 +28,20 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { useGarment, useUpdateGarment, useDeleteGarment, useMarkGarmentWorn } from '@/hooks/useGarments';
 import { useGarmentSignedUrl } from '@/hooks/useStorage';
+// import { useAnalyzeGarment } from '@/hooks/useAnalyzeGarment';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 export default function GarmentDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { data: garment, isLoading } = useGarment(id);
+  const { data: garment, isLoading, refetch } = useGarment(id);
   const updateGarment = useUpdateGarment();
   const deleteGarment = useDeleteGarment();
   const markWorn = useMarkGarmentWorn();
+  // Re-analyze feature disabled for now
   const { signedUrl: imageUrl, isLoading: imageLoading } = useGarmentSignedUrl(garment?.image_path);
 
   if (isLoading) {
@@ -39,8 +55,8 @@ export default function GarmentDetailPage() {
   if (!garment) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
-        <p className="text-lg font-medium">Plagget hittades inte</p>
-        <Button variant="link" onClick={() => navigate('/wardrobe')}>
+        <p className="text-lg font-medium mb-4">Plagget hittades inte</p>
+        <Button variant="outline" onClick={() => navigate('/wardrobe')}>
           Tillbaka till garderoben
         </Button>
       </div>
@@ -78,15 +94,16 @@ export default function GarmentDetailPage() {
     }
   };
 
+  // Re-analyze functionality - currently disabled
+  // Would need to pass storage path instead of signed URL
+
   return (
     <div className="min-h-screen bg-background pb-24">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b">
-        <div className="p-4 flex items-center justify-between">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div className="flex gap-2">
+      <PageHeader 
+        title={garment.title}
+        showBack
+        actions={
+          <div className="flex gap-1">
             <Button
               variant="ghost"
               size="icon"
@@ -109,18 +126,21 @@ export default function GarmentDetailPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Avbryt</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+                  <AlertDialogAction 
+                    onClick={handleDelete} 
+                    className="bg-destructive text-destructive-foreground"
+                  >
                     Radera
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Image */}
-      <div className="aspect-square bg-secondary">
+      <div className="aspect-square bg-muted max-w-lg mx-auto">
         {imageUrl ? (
           <img
             src={imageUrl}
@@ -129,28 +149,31 @@ export default function GarmentDetailPage() {
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <div className="w-24 h-24 rounded-full bg-muted" />
+            {imageLoading ? (
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            ) : (
+              <div className="w-24 h-24 rounded-full bg-muted-foreground/10" />
+            )}
           </div>
         )}
       </div>
 
       {/* Details */}
-      <div className="p-4 space-y-6">
+      <div className="p-4 space-y-6 max-w-lg mx-auto">
+        {/* Category & Color */}
         <div>
-          <h1 className="text-2xl font-bold">{garment.title}</h1>
-          <p className="text-muted-foreground capitalize">{garment.category}</p>
+          <p className="text-muted-foreground capitalize text-sm">
+            {garment.subcategory || garment.category}
+          </p>
         </div>
 
         {/* Tags */}
         <div className="flex flex-wrap gap-2">
-          {garment.subcategory && (
-            <Badge variant="secondary">{garment.subcategory}</Badge>
-          )}
           <Badge variant="secondary" className="capitalize">{garment.color_primary}</Badge>
           {garment.color_secondary && (
             <Badge variant="secondary" className="capitalize">{garment.color_secondary}</Badge>
           )}
-          {garment.pattern && (
+          {garment.pattern && garment.pattern !== 'solid' && (
             <Badge variant="secondary" className="capitalize">{garment.pattern}</Badge>
           )}
           {garment.material && (
@@ -164,53 +187,102 @@ export default function GarmentDetailPage() {
               {season}
             </Badge>
           ))}
-          <Badge variant="outline">Formalitet: {garment.formality}/5</Badge>
+          {garment.formality && (
+            <Badge variant="outline">Formalitet: {garment.formality}/5</Badge>
+          )}
         </div>
 
+        {/* Source URL */}
+        {garment.source_url && (
+          <Card>
+            <CardContent className="p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-0">
+                <ExternalLink className="w-4 h-4 shrink-0" />
+                <span className="truncate">Importerat från länk</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+              >
+                <a href={garment.source_url} target="_blank" rel="noopener noreferrer">
+                  Öppna
+                </a>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="p-4 bg-secondary rounded-lg">
-            <p className="text-sm text-muted-foreground">Använt</p>
-            <p className="text-2xl font-bold">{garment.wear_count || 0}</p>
-            <p className="text-sm text-muted-foreground">gånger</p>
-          </div>
-          <div className="p-4 bg-secondary rounded-lg">
-            <p className="text-sm text-muted-foreground">Senast använd</p>
-            <p className="text-lg font-medium">
-              {garment.last_worn_at
-                ? new Date(garment.last_worn_at).toLocaleDateString('sv-SE')
-                : 'Aldrig'}
-            </p>
-          </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <Hash className="w-4 h-4 text-muted-foreground" />
+                <span className="text-2xl font-bold">{garment.wear_count || 0}</span>
+              </div>
+              <p className="text-xs text-muted-foreground">gånger använt</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <Calendar className="w-4 h-4 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium">
+                {garment.last_worn_at
+                  ? new Date(garment.last_worn_at).toLocaleDateString('sv-SE', { 
+                      day: 'numeric', 
+                      month: 'short' 
+                    })
+                  : 'Aldrig'}
+              </p>
+              <p className="text-xs text-muted-foreground">senast använd</p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Laundry Toggle */}
-        <div className="flex items-center justify-between p-4 bg-secondary rounded-lg">
-          <div className="flex items-center gap-2">
-            <WashingMachine className="w-5 h-5 text-muted-foreground" />
-            <Label>I tvätt</Label>
-          </div>
-          <Switch
-            checked={garment.in_laundry || false}
-            onCheckedChange={handleToggleLaundry}
-            disabled={updateGarment.isPending}
-          />
+        <Card>
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <WashingMachine className="w-5 h-5 text-muted-foreground" />
+              <Label className="font-normal">I tvätt</Label>
+            </div>
+            <Switch
+              checked={garment.in_laundry || false}
+              onCheckedChange={handleToggleLaundry}
+              disabled={updateGarment.isPending}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Actions */}
+        <div className="space-y-3">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={handleMarkWorn}
+            disabled={markWorn.isPending}
+          >
+            {markWorn.isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Check className="w-4 h-4 mr-2" />
+            )}
+            Markera som använd idag
+          </Button>
+          
+          {/* Re-analyze button removed - needs storage path implementation */}
         </div>
 
-        {/* Mark as Worn */}
-        <Button
-          variant="outline"
-          className="w-full"
-          onClick={handleMarkWorn}
-          disabled={markWorn.isPending}
-        >
-          {markWorn.isPending ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <Check className="w-4 h-4 mr-2" />
-          )}
-          Markera som använd idag
-        </Button>
+        {/* AI Analysis Info */}
+        {garment.ai_analyzed_at && (
+          <p className="text-xs text-muted-foreground text-center">
+            Analyserat {new Date(garment.ai_analyzed_at).toLocaleDateString('sv-SE')}
+            {garment.ai_provider && ` med ${garment.ai_provider}`}
+          </p>
+        )}
       </div>
     </div>
   );
