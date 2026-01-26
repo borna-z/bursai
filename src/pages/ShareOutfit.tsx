@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
-import { Loader2, Copy, Download, Check } from 'lucide-react';
+import { useParams, Link } from 'react-router-dom';
+import { Loader2, Copy, Download, Check, Crown, Sparkles, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +35,18 @@ interface SharedOutfit {
   outfit_items: OutfitItem[];
 }
 
+// Track analytics event
+async function trackEvent(eventType: string, metadata: object = {}) {
+  try {
+    await supabase.from('analytics_events').insert([{
+      event_type: eventType,
+      metadata: metadata as Record<string, string>,
+    }]);
+  } catch (err) {
+    console.error('Analytics error:', err);
+  }
+}
+
 export default function ShareOutfitPage() {
   const { id } = useParams<{ id: string }>();
   const [outfit, setOutfit] = useState<SharedOutfit | null>(null);
@@ -48,6 +60,9 @@ export default function ShareOutfitPage() {
   useEffect(() => {
     const fetchOutfit = async () => {
       if (!id) return;
+
+      // Track share opened
+      trackEvent('share_opened', { outfit_id: id });
 
       const { data, error } = await supabase
         .from('outfits')
@@ -152,6 +167,10 @@ export default function ShareOutfitPage() {
     }
   };
 
+  const handleUpgradeClick = () => {
+    trackEvent('upgrade_clicked', { source: 'share_page', outfit_id: id });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
@@ -164,9 +183,15 @@ export default function ShareOutfitPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-background">
         <h1 className="text-2xl font-bold mb-2">Outfiten hittades inte</h1>
-        <p className="text-muted-foreground text-center">
+        <p className="text-muted-foreground text-center mb-6">
           Denna outfit finns inte eller är inte delad.
         </p>
+        <Link to="/auth">
+          <Button>
+            Skapa din egen garderob
+            <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+        </Link>
       </div>
     );
   }
@@ -263,6 +288,45 @@ export default function ShareOutfitPage() {
           <div className="mt-6 text-center text-xs text-muted-foreground">
             Skapad med Wardrobe AI
           </div>
+        </div>
+
+        {/* CTA Section - Growth Loop */}
+        <div className="mt-8 space-y-4">
+          {/* Free CTA */}
+          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+            <CardContent className="p-4 text-center space-y-3">
+              <Sparkles className="w-8 h-8 mx-auto text-primary" />
+              <h3 className="font-semibold text-lg">Skapa din egen garderob gratis</h3>
+              <p className="text-sm text-muted-foreground">
+                Få AI-genererade outfits baserat på dina egna kläder
+              </p>
+              <Link to="/auth">
+                <Button className="w-full">
+                  Kom igång gratis
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          {/* Premium CTA */}
+          <Card className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border-amber-500/30">
+            <CardContent className="p-4 text-center space-y-3">
+              <Crown className="w-8 h-8 mx-auto text-amber-500" />
+              <h3 className="font-semibold text-lg">Vill du ha obegränsat?</h3>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>✓ Obegränsad garderob</li>
+                <li>✓ Obegränsade outfit-genereringar</li>
+                <li>✓ Smartare AI-rekommendationer</li>
+              </ul>
+              <Link to="/pricing" onClick={handleUpgradeClick}>
+                <Button className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
+                  <Crown className="w-4 h-4 mr-2" />
+                  Se Premium-planer
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

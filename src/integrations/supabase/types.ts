@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      analytics_events: {
+        Row: {
+          created_at: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      checkout_attempts: {
+        Row: {
+          created_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       garments: {
         Row: {
           ai_analyzed_at: string | null
@@ -222,6 +264,36 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_events: {
+        Row: {
+          created_at: string | null
+          error: string | null
+          event_type: string
+          id: string
+          processed_at: string | null
+          processed_ok: boolean | null
+          stripe_mode: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error?: string | null
+          event_type: string
+          id: string
+          processed_at?: string | null
+          processed_ok?: boolean | null
+          stripe_mode?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error?: string | null
+          event_type?: string
+          id?: string
+          processed_at?: string | null
+          processed_ok?: boolean | null
+          stripe_mode?: string | null
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           current_period_end: string | null
@@ -229,6 +301,7 @@ export type Database = {
           price_id: string | null
           status: string | null
           stripe_customer_id: string | null
+          stripe_mode: string | null
           stripe_subscription_id: string | null
           updated_at: string | null
           user_id: string
@@ -239,6 +312,7 @@ export type Database = {
           price_id?: string | null
           status?: string | null
           stripe_customer_id?: string | null
+          stripe_mode?: string | null
           stripe_subscription_id?: string | null
           updated_at?: string | null
           user_id: string
@@ -249,6 +323,7 @@ export type Database = {
           price_id?: string | null
           status?: string | null
           stripe_customer_id?: string | null
+          stripe_mode?: string | null
           stripe_subscription_id?: string | null
           updated_at?: string | null
           user_id?: string
