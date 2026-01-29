@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { 
   Edit, 
@@ -7,7 +6,6 @@ import {
   Check, 
   Loader2, 
   ExternalLink,
-  // RefreshCw,
   Calendar,
   Hash
 } from 'lucide-react';
@@ -16,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,8 +29,7 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useGarment, useUpdateGarment, useDeleteGarment, useMarkGarmentWorn } from '@/hooks/useGarments';
-import { useGarmentSignedUrl } from '@/hooks/useStorage';
-// import { useAnalyzeGarment } from '@/hooks/useAnalyzeGarment';
+import { LazyImage } from '@/components/ui/lazy-image';
 import { PageHeader } from '@/components/layout/PageHeader';
 
 export default function GarmentDetailPage() {
@@ -41,13 +39,24 @@ export default function GarmentDetailPage() {
   const updateGarment = useUpdateGarment();
   const deleteGarment = useDeleteGarment();
   const markWorn = useMarkGarmentWorn();
-  // Re-analyze feature disabled for now
-  const { signedUrl: imageUrl, isLoading: imageLoading } = useGarmentSignedUrl(garment?.image_path);
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-background pb-24">
+        <div className="sticky top-0 z-10 bg-background border-b">
+          <div className="p-4 flex items-center justify-between">
+            <Skeleton className="w-10 h-10 rounded-lg" />
+            <Skeleton className="w-24 h-10 rounded-lg" />
+          </div>
+        </div>
+        <Skeleton className="aspect-square max-w-lg mx-auto" />
+        <div className="p-4 space-y-4 max-w-lg mx-auto">
+          <Skeleton className="h-6 w-1/2" />
+          <div className="flex gap-2">
+            <Skeleton className="h-6 w-16 rounded-full" />
+            <Skeleton className="h-6 w-16 rounded-full" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -55,9 +64,9 @@ export default function GarmentDetailPage() {
   if (!garment) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
-        <p className="text-lg font-medium mb-4">Plagget hittades inte</p>
+        <p className="text-lg font-medium mb-4">Hittades inte</p>
         <Button variant="outline" onClick={() => navigate('/wardrobe')}>
-          Tillbaka till garderoben
+          Tillbaka
         </Button>
       </div>
     );
@@ -69,7 +78,7 @@ export default function GarmentDetailPage() {
         id: garment.id,
         updates: { in_laundry: !garment.in_laundry },
       });
-      toast.success(garment.in_laundry ? 'Plagget är nu tillgängligt' : 'Plagget är nu i tvätten');
+      toast.success(garment.in_laundry ? 'Tillgängligt' : 'I tvätt');
     } catch {
       toast.error('Något gick fel');
     }
@@ -78,7 +87,7 @@ export default function GarmentDetailPage() {
   const handleMarkWorn = async () => {
     try {
       await markWorn.mutateAsync(garment.id);
-      toast.success('Markerat som använt idag ✓');
+      toast.success('Markerat ✓');
     } catch {
       toast.error('Något gick fel');
     }
@@ -87,7 +96,7 @@ export default function GarmentDetailPage() {
   const handleDelete = async () => {
     try {
       await deleteGarment.mutateAsync(garment.id);
-      toast.success('Plagget har tagits bort');
+      toast.success('Borttaget');
       navigate('/wardrobe');
     } catch {
       toast.error('Något gick fel');
@@ -108,6 +117,7 @@ export default function GarmentDetailPage() {
               variant="ghost"
               size="icon"
               onClick={() => navigate(`/wardrobe/${garment.id}/edit`)}
+              className="active:animate-press"
             >
               <Edit className="w-5 h-5" />
             </Button>
@@ -119,9 +129,9 @@ export default function GarmentDetailPage() {
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Radera plagg?</AlertDialogTitle>
+                  <AlertDialogTitle>Radera?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Är du säker på att du vill radera "{garment.title}"? Detta går inte att ångra.
+                    "{garment.title}" raderas permanent.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -140,22 +150,13 @@ export default function GarmentDetailPage() {
       />
 
       {/* Image */}
-      <div className="aspect-square bg-muted max-w-lg mx-auto">
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={garment.title}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            {imageLoading ? (
-              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-            ) : (
-              <div className="w-24 h-24 rounded-full bg-muted-foreground/10" />
-            )}
-          </div>
-        )}
+      <div className="max-w-lg mx-auto">
+        <LazyImage
+          imagePath={garment.image_path}
+          alt={garment.title}
+          aspectRatio="square"
+          className="w-full"
+        />
       </div>
 
       {/* Details */}
@@ -221,7 +222,7 @@ export default function GarmentDetailPage() {
                 <Hash className="w-4 h-4 text-muted-foreground" />
                 <span className="text-2xl font-bold">{garment.wear_count || 0}</span>
               </div>
-              <p className="text-xs text-muted-foreground">gånger använt</p>
+              <p className="text-xs text-muted-foreground">använd</p>
             </CardContent>
           </Card>
           <Card>
@@ -237,7 +238,7 @@ export default function GarmentDetailPage() {
                     })
                   : 'Aldrig'}
               </p>
-              <p className="text-xs text-muted-foreground">senast använd</p>
+              <p className="text-xs text-muted-foreground">senast</p>
             </CardContent>
           </Card>
         </div>
@@ -261,7 +262,7 @@ export default function GarmentDetailPage() {
         <div className="space-y-3">
           <Button
             variant="outline"
-            className="w-full"
+            className="w-full active:animate-press"
             onClick={handleMarkWorn}
             disabled={markWorn.isPending}
           >
@@ -270,17 +271,14 @@ export default function GarmentDetailPage() {
             ) : (
               <Check className="w-4 h-4 mr-2" />
             )}
-            Markera som använd idag
+            Markera använd
           </Button>
-          
-          {/* Re-analyze button removed - needs storage path implementation */}
         </div>
 
         {/* AI Analysis Info */}
         {garment.ai_analyzed_at && (
           <p className="text-xs text-muted-foreground text-center">
             Analyserat {new Date(garment.ai_analyzed_at).toLocaleDateString('sv-SE')}
-            {garment.ai_provider && ` med ${garment.ai_provider}`}
           </p>
         )}
       </div>

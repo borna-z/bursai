@@ -23,7 +23,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Chip } from '@/components/ui/chip';
 import {
   Sheet,
@@ -35,6 +34,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import {
   Popover,
@@ -43,20 +43,14 @@ import {
 } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { useOutfit, useUpdateOutfit, useMarkOutfitWorn, useUndoMarkWorn, type OutfitWithItems } from '@/hooks/useOutfits';
-import { useStorage } from '@/hooks/useStorage';
+import { useOutfit, useUpdateOutfit, useMarkOutfitWorn, useUndoMarkWorn } from '@/hooks/useOutfits';
 import { useSwapGarment, type SwapCandidate } from '@/hooks/useSwapGarment';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { StylistSummary } from '@/components/outfit/StylistSummary';
+import { OutfitSlotCard, OutfitSlotCardSkeleton } from '@/components/outfit/OutfitSlotCard';
+import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
-
-const slotLabels: Record<string, string> = {
-  top: 'Överdel',
-  bottom: 'Underdel',
-  shoes: 'Skor',
-  outerwear: 'Ytterkläder',
-  accessory: 'Accessoar',
-};
 
 const feedbackOptions = [
   { id: 'too_warm', label: 'För varmt', icon: Thermometer },
@@ -69,12 +63,19 @@ interface SwapSheetProps {
   isOpen: boolean;
   onClose: () => void;
   slot: string;
-  outfitItemId: string;
   candidates: SwapCandidate[];
   isLoading: boolean;
   onSelect: (garmentId: string) => void;
   isSwapping: boolean;
 }
+
+const slotLabels: Record<string, string> = {
+  top: 'Överdel',
+  bottom: 'Underdel',
+  shoes: 'Skor',
+  outerwear: 'Ytterkläder',
+  accessory: 'Accessoar',
+};
 
 function SwapSheet({ 
   isOpen, 
@@ -85,19 +86,6 @@ function SwapSheet({
   onSelect,
   isSwapping 
 }: SwapSheetProps) {
-  const { getGarmentSignedUrl } = useStorage();
-  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    candidates.forEach((candidate) => {
-      if (candidate.garment.image_path && !imageUrls[candidate.garment.id]) {
-        getGarmentSignedUrl(candidate.garment.image_path)
-          .then((url) => setImageUrls((prev) => ({ ...prev, [candidate.garment.id]: url })))
-          .catch(() => {});
-      }
-    });
-  }, [candidates]);
-
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="bottom" className="h-[70vh]">
@@ -112,8 +100,8 @@ function SwapSheet({
             </div>
           ) : candidates.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <p>Inga alternativ tillgängliga</p>
-              <p className="text-sm mt-1">Lägg till fler plagg i denna kategori</p>
+              <p>Inga alternativ</p>
+              <p className="text-sm mt-1">Lägg till fler plagg</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -123,33 +111,22 @@ function SwapSheet({
                   onClick={() => onSelect(candidate.garment.id)}
                   disabled={isSwapping}
                   className={cn(
-                    "w-full flex items-center gap-3 p-3 rounded-lg transition-colors",
-                    "hover:bg-secondary/80 bg-secondary",
+                    "w-full flex items-center gap-3 p-3 rounded-lg transition-all",
+                    "hover:bg-secondary/80 bg-secondary active:scale-[0.99]",
                     isSwapping && "opacity-50"
                   )}
                 >
-                  <div className="w-16 h-16 rounded-lg bg-background overflow-hidden flex-shrink-0">
-                    {imageUrls[candidate.garment.id] ? (
-                      <img
-                        src={imageUrls[candidate.garment.id]}
-                        alt={candidate.garment.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <div className="w-8 h-8 rounded-full bg-muted" />
-                      </div>
-                    )}
-                  </div>
+                  <LazyImageSimple
+                    imagePath={candidate.garment.image_path}
+                    alt={candidate.garment.title}
+                    className="w-16 h-16 rounded-lg flex-shrink-0"
+                  />
                   <div className="flex-1 text-left min-w-0">
                     <p className="font-medium truncate">{candidate.garment.title}</p>
                     <p className="text-sm text-muted-foreground capitalize">
                       {candidate.garment.color_primary}
                     </p>
                   </div>
-                  {candidate.score >= 7 && (
-                    <Badge variant="secondary" className="flex-shrink-0">Bra match</Badge>
-                  )}
                 </button>
               ))}
             </div>
@@ -168,7 +145,6 @@ export default function OutfitDetailPage() {
   const updateOutfit = useUpdateOutfit();
   const markWorn = useMarkOutfitWorn();
   const undoMarkWorn = useUndoMarkWorn();
-  const { getGarmentSignedUrl } = useStorage();
   const { 
     candidates, 
     isLoadingCandidates, 
@@ -178,7 +154,6 @@ export default function OutfitDetailPage() {
     clearCandidates 
   } = useSwapGarment();
   
-  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [rating, setRating] = useState<number | null>(null);
   const [swapSheet, setSwapSheet] = useState<{ 
     isOpen: boolean; 
@@ -200,21 +175,10 @@ export default function OutfitDetailPage() {
     if (outfit?.rating) {
       setRating(outfit.rating);
     }
-    // Load existing feedback
     if ((outfit as any)?.feedback) {
       setSelectedFeedback((outfit as any).feedback);
     }
   }, [outfit?.rating, (outfit as any)?.feedback]);
-
-  useEffect(() => {
-    outfit?.outfit_items.forEach((item) => {
-      if (item.garment?.image_path) {
-        getGarmentSignedUrl(item.garment.image_path)
-          .then((url) => setImageUrls((prev) => ({ ...prev, [item.id]: url })))
-          .catch(() => {});
-      }
-    });
-  }, [outfit?.outfit_items]);
 
   const handleOpenSwap = async (slot: string, outfitItemId: string, currentGarmentId: string) => {
     const otherColors = outfit?.outfit_items
@@ -235,7 +199,7 @@ export default function OutfitDetailPage() {
       setSwapSheet({ isOpen: false, slot: '', outfitItemId: '' });
       refetch();
     } catch {
-      toast.error('Kunde inte byta plagg');
+      toast.error('Kunde inte byta');
     }
   };
 
@@ -246,7 +210,7 @@ export default function OutfitDetailPage() {
         id: outfit.id,
         updates: { saved: !outfit.saved },
       });
-      toast.success(outfit.saved ? 'Borttagen från sparade' : 'Sparad!');
+      toast.success(outfit.saved ? 'Borttagen' : 'Sparad!');
     } catch {
       toast.error('Något gick fel');
     }
@@ -280,7 +244,6 @@ export default function OutfitDetailPage() {
         updates: { feedback: newFeedback } as any,
       });
     } catch {
-      // Revert on error
       setSelectedFeedback(selectedFeedback);
     }
   };
@@ -301,7 +264,7 @@ export default function OutfitDetailPage() {
           onClick: async () => {
             try {
               await undoMarkWorn.mutateAsync(result);
-              toast.success('Ångrade markeringen');
+              toast.success('Ångrade');
             } catch {
               toast.error('Kunde inte ångra');
             }
@@ -321,16 +284,15 @@ export default function OutfitDetailPage() {
         id: outfit.id,
         updates: { planned_for: selectedDate.toISOString().split('T')[0] } as any,
       });
-      toast.success(`Planerad för ${format(selectedDate, 'd MMMM', { locale: sv })}`);
+      toast.success(`Planerad för ${format(selectedDate, 'd MMM', { locale: sv })}`);
       setPlannerOpen(false);
       refetch();
     } catch {
-      toast.error('Kunde inte planera outfit');
+      toast.error('Kunde inte planera');
     }
   };
 
   const handleCreateSimilar = () => {
-    // Navigate to home with similar vibe params
     navigate('/', { 
       state: { 
         prefillOccasion: outfit?.occasion,
@@ -346,7 +308,7 @@ export default function OutfitDetailPage() {
         id: outfit.id,
         updates: { share_enabled: !outfit.share_enabled },
       });
-      toast.success(outfit.share_enabled ? 'Delning avstängd' : 'Delning aktiverad');
+      toast.success(outfit.share_enabled ? 'Delning av' : 'Delning på');
       refetch();
     } catch {
       toast.error('Något gick fel');
@@ -357,10 +319,10 @@ export default function OutfitDetailPage() {
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
-      toast.success('Länk kopierad!');
+      toast.success('Kopierad!');
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error('Kunde inte kopiera länken');
+      toast.error('Kunde inte kopiera');
     }
   };
 
@@ -383,20 +345,35 @@ export default function OutfitDetailPage() {
       link.href = dataUrl;
       link.click();
       
-      toast.success('Bild nedladdad!');
-    } catch (error) {
-      console.error('Download error:', error);
-      toast.error('Kunde inte ladda ner bilden');
+      toast.success('Nedladdad!');
+    } catch {
+      toast.error('Kunde inte ladda ner');
     } finally {
       setIsDownloading(false);
     }
   };
 
+  // Loading state
   if (isLoading) {
     return (
-      <AppLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <AppLayout hideNav>
+        <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b">
+          <div className="p-4 flex items-center justify-between">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div className="flex gap-1">
+              <Skeleton className="w-10 h-10 rounded-lg" />
+              <Skeleton className="w-10 h-10 rounded-lg" />
+            </div>
+          </div>
+        </div>
+        <div className="p-4 space-y-4">
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <OutfitSlotCardSkeleton />
+          <OutfitSlotCardSkeleton />
+          <OutfitSlotCardSkeleton />
+          <Skeleton className="h-20 w-full rounded-xl" />
         </div>
       </AppLayout>
     );
@@ -406,9 +383,9 @@ export default function OutfitDetailPage() {
     return (
       <AppLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
-          <p className="text-lg font-medium">Outfiten hittades inte</p>
+          <p className="text-lg font-medium">Hittades inte</p>
           <Button variant="link" onClick={() => navigate('/outfits')}>
-            Tillbaka till outfits
+            Tillbaka
           </Button>
         </div>
       </AppLayout>
@@ -416,6 +393,7 @@ export default function OutfitDetailPage() {
   }
 
   const plannedFor = (outfit as any).planned_for;
+  const weather = (outfit as any).weather as { temp?: number; condition?: string } | null;
 
   return (
     <AppLayout hideNav>
@@ -426,105 +404,72 @@ export default function OutfitDetailPage() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="flex gap-1">
-            <Button variant="ghost" size="icon" onClick={handleToggleSave}>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleToggleSave}
+              className="active:animate-press"
+            >
               {outfit.saved ? (
                 <BookmarkCheck className="w-5 h-5 text-primary" />
               ) : (
                 <Bookmark className="w-5 h-5" />
               )}
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => setShareSheetOpen(true)}>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setShareSheetOpen(true)}
+              className="active:animate-press"
+            >
               <Share2 className="w-5 h-5" />
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="p-4 space-y-6 pb-32">
-        {/* Title */}
-        <div>
-          {justGenerated && (
-            <div className="flex items-center gap-2 text-primary mb-3">
-              <Sparkles className="w-5 h-5" />
-              <span className="font-medium">Ny outfit skapad!</span>
-            </div>
-          )}
-          <div className="flex items-center gap-2 flex-wrap mb-2">
-            <Badge variant="secondary" className="capitalize">
-              {outfit.occasion}
-            </Badge>
-            {outfit.style_vibe && (
-              <Badge variant="outline" className="capitalize">
-                {outfit.style_vibe}
-              </Badge>
-            )}
-            {plannedFor && (
-              <Badge variant="default" className="bg-primary/10 text-primary hover:bg-primary/20">
-                <Calendar className="w-3 h-3 mr-1" />
-                {format(new Date(plannedFor), 'd MMM', { locale: sv })}
-              </Badge>
-            )}
+      <div className="p-4 space-y-4 pb-32">
+        {/* Just Generated Badge */}
+        {justGenerated && (
+          <div className="flex items-center gap-2 text-primary animate-fade-in">
+            <Sparkles className="w-5 h-5" />
+            <span className="font-medium">Ny outfit skapad!</span>
           </div>
-          <h1 className="text-xl font-bold">Din outfit</h1>
-        </div>
+        )}
+
+        {/* Stylist Summary Card */}
+        <StylistSummary 
+          occasion={outfit.occasion}
+          styleVibe={outfit.style_vibe}
+          weather={weather}
+          explanation={outfit.explanation}
+        />
 
         {/* Outfit Content for Screenshot */}
         <div ref={outfitRef} className="space-y-3 bg-background">
-          {/* Items Grid - Consistent height */}
-          {outfit.outfit_items.map((item) => (
-            <Card key={item.id} className="overflow-hidden">
-              <CardContent className="p-0 flex">
-                <div 
-                  className="w-24 h-24 bg-secondary overflow-hidden flex-shrink-0 cursor-pointer"
-                  onClick={() => navigate(`/wardrobe/${item.garment_id}`)}
-                >
-                  {imageUrls[item.id] ? (
-                    <img
-                      src={imageUrls[item.id]}
-                      alt={item.garment?.title || item.slot}
-                      className="w-full h-full object-cover"
-                      crossOrigin="anonymous"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Shirt className="w-8 h-8 text-muted-foreground/30" />
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
-                  <div 
-                    className="cursor-pointer"
-                    onClick={() => navigate(`/wardrobe/${item.garment_id}`)}
-                  >
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                      {slotLabels[item.slot] || item.slot}
-                    </p>
-                    <p className="font-medium truncate">{item.garment?.title || 'Okänt plagg'}</p>
-                    <p className="text-sm text-muted-foreground capitalize">
-                      {item.garment?.color_primary}
-                    </p>
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    className="self-start mt-1 h-7 px-2 text-xs"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenSwap(item.slot, item.id, item.garment_id);
-                    }}
-                  >
-                    <RefreshCw className="w-3 h-3 mr-1" />
-                    Byt ut
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Slot Cards */}
+          {outfit.outfit_items.map((item, index) => (
+            <div 
+              key={item.id} 
+              className="animate-fade-in"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <OutfitSlotCard
+                slot={item.slot}
+                garmentId={item.garment_id}
+                garmentTitle={item.garment?.title}
+                garmentColor={item.garment?.color_primary}
+                garmentCategory={item.garment?.category}
+                imagePath={item.garment?.image_path}
+                onSwap={() => handleOpenSwap(item.slot, item.id, item.garment_id)}
+              />
+            </div>
           ))}
         </div>
 
-        {/* Explanation */}
+        {/* Explanation Card */}
         {outfit.explanation && (
-          <Card className="bg-primary/5 border-primary/20">
+          <Card className="bg-primary/5 border-primary/20 animate-fade-in">
             <CardHeader className="pb-2 pt-4">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-primary" />
@@ -539,13 +484,13 @@ export default function OutfitDetailPage() {
 
         {/* Rating */}
         <div className="space-y-2">
-          <p className="font-medium text-sm">Betygsätt outfiten</p>
+          <p className="font-medium text-sm">Betyg</p>
           <div className="flex gap-1">
             {[1, 2, 3, 4, 5].map((value) => (
               <button
                 key={value}
                 onClick={() => handleRating(value)}
-                className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                className="p-1.5 rounded-lg hover:bg-muted transition-colors active:animate-press"
               >
                 <Star
                   className={cn(
@@ -562,13 +507,14 @@ export default function OutfitDetailPage() {
 
         {/* Feedback chips */}
         <div className="space-y-2">
-          <p className="font-medium text-sm">Hur passade outfiten?</p>
+          <p className="font-medium text-sm">Feedback</p>
           <div className="flex flex-wrap gap-2">
             {feedbackOptions.map(({ id, label, icon: Icon }) => (
               <Chip
                 key={id}
                 selected={selectedFeedback.includes(id)}
                 onClick={() => handleFeedbackToggle(id)}
+                className="active:animate-chip-select"
               >
                 <Icon className="w-3.5 h-3.5 mr-1" />
                 {label}
@@ -580,7 +526,7 @@ export default function OutfitDetailPage() {
         {/* Actions */}
         <div className="space-y-3">
           <Button
-            className="w-full"
+            className="w-full active:animate-press"
             onClick={handleMarkWorn}
             disabled={markWorn.isPending || !!outfit.worn_at}
           >
@@ -589,15 +535,13 @@ export default function OutfitDetailPage() {
             ) : (
               <Check className="w-4 h-4 mr-2" />
             )}
-            {outfit.worn_at
-              ? `Använd ${new Date(outfit.worn_at).toLocaleDateString('sv-SE')}`
-              : 'Markera som använd idag'}
+            {outfit.worn_at ? 'Använd' : 'Markera använd'}
           </Button>
 
           <div className="grid grid-cols-2 gap-3">
             <Popover open={plannerOpen} onOpenChange={setPlannerOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full active:animate-press">
                   <Calendar className="w-4 h-4 mr-2" />
                   Planera
                 </Button>
@@ -623,9 +567,13 @@ export default function OutfitDetailPage() {
               </PopoverContent>
             </Popover>
 
-            <Button variant="outline" onClick={handleCreateSimilar}>
+            <Button 
+              variant="outline" 
+              onClick={handleCreateSimilar}
+              className="active:animate-press"
+            >
               <PartyPopper className="w-4 h-4 mr-2" />
-              Skapa liknande
+              Liknande
             </Button>
           </div>
         </div>
@@ -639,7 +587,6 @@ export default function OutfitDetailPage() {
           clearCandidates();
         }}
         slot={swapSheet.slot}
-        outfitItemId={swapSheet.outfitItemId}
         candidates={candidates}
         isLoading={isLoadingCandidates}
         onSelect={handleSwap}
@@ -650,23 +597,20 @@ export default function OutfitDetailPage() {
       <Sheet open={shareSheetOpen} onOpenChange={setShareSheetOpen}>
         <SheetContent side="bottom" className="h-auto max-h-[80vh]">
           <SheetHeader>
-            <SheetTitle>Dela outfit</SheetTitle>
+            <SheetTitle>Dela</SheetTitle>
             <SheetDescription>
-              Aktivera delning för att skapa en publik länk
+              Aktivera för publik länk
             </SheetDescription>
           </SheetHeader>
           
           <div className="space-y-6 py-6">
-            {/* Share Toggle */}
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label htmlFor="share-toggle" className="text-base font-medium">
-                  Delning aktiverad
+                  Delning
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  {outfit.share_enabled 
-                    ? 'Vem som helst med länken kan se outfiten'
-                    : 'Outfiten är privat'}
+                  {outfit.share_enabled ? 'Publik länk aktiv' : 'Privat'}
                 </p>
               </div>
               <Switch
@@ -678,9 +622,8 @@ export default function OutfitDetailPage() {
 
             {outfit.share_enabled && (
               <>
-                {/* Share Link */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Delningslänk</Label>
+                  <Label className="text-sm font-medium">Länk</Label>
                   <div className="flex gap-2">
                     <div className="flex-1 p-3 bg-secondary rounded-lg text-sm truncate">
                       {shareUrl}
@@ -689,6 +632,7 @@ export default function OutfitDetailPage() {
                       variant="outline" 
                       size="icon"
                       onClick={handleCopyShareLink}
+                      className="active:animate-press"
                     >
                       {copied ? (
                         <Check className="w-4 h-4 text-primary" />
@@ -699,19 +643,18 @@ export default function OutfitDetailPage() {
                   </div>
                 </div>
 
-                {/* Action Buttons */}
                 <div className="flex gap-2">
                   <Button 
                     variant="outline" 
-                    className="flex-1"
+                    className="flex-1 active:animate-press"
                     onClick={handleCopyShareLink}
                   >
                     <Link className="w-4 h-4 mr-2" />
-                    {copied ? 'Kopierad!' : 'Kopiera länk'}
+                    {copied ? 'Kopierad!' : 'Kopiera'}
                   </Button>
                   <Button 
                     variant="outline" 
-                    className="flex-1"
+                    className="flex-1 active:animate-press"
                     onClick={handleDownloadImage}
                     disabled={isDownloading}
                   >
@@ -720,7 +663,7 @@ export default function OutfitDetailPage() {
                     ) : (
                       <Download className="w-4 h-4 mr-2" />
                     )}
-                    Ladda ner bild
+                    Ladda ner
                   </Button>
                 </div>
               </>
@@ -729,7 +672,7 @@ export default function OutfitDetailPage() {
             {!outfit.share_enabled && (
               <div className="text-center py-4 text-muted-foreground">
                 <Link2Off className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Aktivera delning för att få en länk</p>
+                <p className="text-sm">Aktivera för länk</p>
               </div>
             )}
           </div>

@@ -13,46 +13,32 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useInsights, type Garment, type InsightsData } from '@/hooks/useInsights';
-import { useStorage } from '@/hooks/useStorage';
 import { useSubscription } from '@/hooks/useSubscription';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { AISuggestions } from '@/components/insights/AISuggestions';
+import { MiniBar, ColorBar } from '@/components/insights/MiniBar';
+import { UnusedGemCard } from '@/components/insights/UnusedGemCard';
+import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { cn } from '@/lib/utils';
 
 function GarmentMini({ garment, wearCount }: { garment: Garment; wearCount?: number }) {
   const navigate = useNavigate();
-  const { getGarmentSignedUrl } = useStorage();
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (garment.image_path) {
-      getGarmentSignedUrl(garment.image_path).then(setImageUrl).catch(() => {});
-    }
-  }, [garment.image_path]);
 
   return (
     <div
-      className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl cursor-pointer hover:bg-muted transition-colors"
+      className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl cursor-pointer hover:bg-muted transition-colors active:scale-[0.99]"
       onClick={() => navigate(`/wardrobe/${garment.id}`)}
     >
-      <div className="w-12 h-12 rounded-lg bg-background overflow-hidden flex-shrink-0 shadow-sm">
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={garment.title}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Shirt className="w-5 h-5 text-muted-foreground/50" />
-          </div>
-        )}
-      </div>
+      <LazyImageSimple
+        imagePath={garment.image_path}
+        alt={garment.title}
+        className="w-12 h-12 rounded-lg flex-shrink-0 shadow-sm"
+        fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/50" />}
+      />
       <div className="flex-1 min-w-0">
         <p className="font-medium text-sm truncate">{garment.title}</p>
         <p className="text-xs text-muted-foreground capitalize">{garment.category}</p>
@@ -72,57 +58,64 @@ interface ColorDistributionProps {
 }
 
 function ColorDistribution({ garments, isPremium }: ColorDistributionProps) {
-  const colorCounts = useMemo(() => {
+  const { colorCounts, colorBars, total } = useMemo(() => {
     const counts: Record<string, number> = {};
     garments.forEach(g => {
       const color = g.color_primary?.toLowerCase() || 'okänd';
       counts[color] = (counts[color] || 0) + 1;
     });
-    return Object.entries(counts)
+    
+    const colorMap: Record<string, string> = {
+      svart: 'bg-gray-900',
+      vit: 'bg-gray-100',
+      grå: 'bg-gray-400',
+      marinblå: 'bg-blue-900',
+      blå: 'bg-blue-500',
+      röd: 'bg-red-500',
+      grön: 'bg-green-600',
+      beige: 'bg-amber-100',
+      brun: 'bg-amber-800',
+      rosa: 'bg-pink-400',
+      lila: 'bg-purple-500',
+      gul: 'bg-yellow-400',
+      orange: 'bg-orange-500',
+    };
+    
+    const sorted = Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 6);
+    
+    const bars = sorted.map(([color, count]) => ({
+      color,
+      count,
+      colorClass: colorMap[color] || 'bg-muted',
+    }));
+    
+    return { colorCounts: sorted, colorBars: bars, total: garments.length };
   }, [garments]);
-
-  const total = garments.length;
-
-  // Color mapping for display
-  const colorMap: Record<string, string> = {
-    svart: 'bg-gray-900',
-    vit: 'bg-gray-100 border',
-    grå: 'bg-gray-400',
-    marinblå: 'bg-blue-900',
-    blå: 'bg-blue-500',
-    röd: 'bg-red-500',
-    grön: 'bg-green-600',
-    beige: 'bg-amber-100',
-    brun: 'bg-amber-800',
-    rosa: 'bg-pink-400',
-    lila: 'bg-purple-500',
-    gul: 'bg-yellow-400',
-    orange: 'bg-orange-500',
-  };
 
   return (
     <Card className={cn(!isPremium && "relative overflow-hidden")}>
       <CardHeader className="pb-2">
         <div className="flex items-center gap-2">
           <Palette className="w-5 h-5 text-primary" />
-          <CardTitle className="text-base">Färgfördelning</CardTitle>
+          <CardTitle className="text-base">Färger</CardTitle>
         </div>
-        <CardDescription>Dina vanligaste färger</CardDescription>
+        <CardDescription>Dina vanligaste</CardDescription>
       </CardHeader>
       <CardContent className={cn(!isPremium && "blur-sm select-none")}>
-        <div className="space-y-3">
+        {/* Color bar visualization */}
+        <ColorBar colors={colorBars} total={total} />
+        
+        <div className="mt-4 space-y-2">
           {colorCounts.map(([color, count]) => {
             const percentage = Math.round((count / total) * 100);
-            const colorClass = colorMap[color] || 'bg-muted';
             
             return (
               <div key={color} className="flex items-center gap-3">
-                <div className={cn("w-4 h-4 rounded-full flex-shrink-0", colorClass)} />
                 <span className="text-sm capitalize flex-1">{color}</span>
-                <span className="text-sm text-muted-foreground">{count} st</span>
-                <span className="text-sm font-medium w-10 text-right">{percentage}%</span>
+                <MiniBar value={percentage} className="flex-1" />
+                <span className="text-xs text-muted-foreground w-8 text-right">{count}</span>
               </div>
             );
           })}
@@ -133,7 +126,7 @@ function ColorDistribution({ garments, isPremium }: ColorDistributionProps) {
         <div className="absolute inset-0 flex items-center justify-center bg-background/50">
           <div className="text-center p-4">
             <Lock className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-            <p className="font-medium">Premium-funktion</p>
+            <p className="font-medium">Premium</p>
           </div>
         </div>
       )}
@@ -149,7 +142,6 @@ interface UnusedGemsProps {
 function UnusedGems({ garments, isPremium }: UnusedGemsProps) {
   const navigate = useNavigate();
   
-  // Filter garments not worn in 60+ days
   const unusedGems = useMemo(() => {
     const sixtyDaysAgo = new Date();
     sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
@@ -157,10 +149,19 @@ function UnusedGems({ garments, isPremium }: UnusedGemsProps) {
     return garments.filter(g => {
       if (!g.last_worn_at) return true;
       return new Date(g.last_worn_at) < sixtyDaysAgo;
+    }).map(g => {
+      const daysUnused = g.last_worn_at 
+        ? Math.floor((Date.now() - new Date(g.last_worn_at).getTime()) / (1000 * 60 * 60 * 24))
+        : 999;
+      return { ...g, daysUnused };
     });
   }, [garments]);
 
   if (unusedGems.length === 0) return null;
+
+  const handleCreateOutfit = (garmentId: string) => {
+    navigate('/', { state: { includeGarmentId: garmentId } });
+  };
 
   return (
     <Card className={cn(!isPremium && "relative overflow-hidden")}>
@@ -170,12 +171,17 @@ function UnusedGems({ garments, isPremium }: UnusedGemsProps) {
           <CardTitle className="text-base">Oanvända pärlor</CardTitle>
         </div>
         <CardDescription>
-          {unusedGems.length} plagg ej använda på 60+ dagar
+          {unusedGems.length} plagg ej använda 60+ dagar
         </CardDescription>
       </CardHeader>
       <CardContent className={cn("space-y-2", !isPremium && "blur-sm select-none")}>
         {unusedGems.slice(0, 4).map((garment) => (
-          <GarmentMini key={garment.id} garment={garment} />
+          <UnusedGemCard 
+            key={garment.id} 
+            garment={garment}
+            daysUnused={garment.daysUnused}
+            onCreateOutfit={() => handleCreateOutfit(garment.id)}
+          />
         ))}
         {unusedGems.length > 4 && (
           <Button 
@@ -183,7 +189,7 @@ function UnusedGems({ garments, isPremium }: UnusedGemsProps) {
             className="w-full text-sm"
             onClick={() => navigate('/wardrobe')}
           >
-            Visa alla {unusedGems.length} plagg
+            Visa alla {unusedGems.length}
           </Button>
         )}
       </CardContent>
@@ -192,7 +198,7 @@ function UnusedGems({ garments, isPremium }: UnusedGemsProps) {
         <div className="absolute inset-0 flex items-center justify-center bg-background/50">
           <div className="text-center p-4">
             <Lock className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-            <p className="font-medium">Premium-funktion</p>
+            <p className="font-medium">Premium</p>
           </div>
         </div>
       )}
@@ -223,9 +229,9 @@ export default function InsightsPage() {
         <EmptyState
           icon={BarChart3}
           title="Inga insikter ännu"
-          description="Lägg till plagg i din garderob för att börja se statistik och användningsmönster."
+          description="Lägg till plagg för att se statistik."
           action={{
-            label: 'Lägg till plagg',
+            label: 'Lägg till',
             onClick: () => navigate('/wardrobe/add'),
             icon: Shirt
           }}
@@ -234,7 +240,6 @@ export default function InsightsPage() {
     );
   }
 
-  // Get all garments for color distribution (from topFiveWorn + unusedGarments)
   const allGarments = [
     ...insights.topFiveWorn,
     ...insights.unusedGarments,
@@ -247,7 +252,7 @@ export default function InsightsPage() {
       <div className="p-4 space-y-4">
         {/* Premium CTA for free users */}
         {!isPremium && (
-          <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/20">
+          <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/20 animate-fade-in">
             <CardContent className="p-4 flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
                 <Sparkles className="w-6 h-6 text-primary" />
@@ -255,17 +260,17 @@ export default function InsightsPage() {
               <div className="flex-1">
                 <p className="font-semibold">Lås upp alla insikter</p>
                 <p className="text-sm text-muted-foreground">
-                  Se färgfördelning, oanvända pärlor och mer
+                  AI-förslag, färger, statistik
                 </p>
               </div>
-              <Button size="sm" onClick={() => navigate('/settings')}>
+              <Button size="sm" onClick={() => navigate('/settings')} className="active:animate-press">
                 Premium
               </Button>
             </CardContent>
           </Card>
         )}
 
-        {/* Quick Stats */}
+        {/* Quick Stats - consistent card grid */}
         <div className="grid grid-cols-2 gap-3">
           <Card className="bg-gradient-to-br from-muted/50 to-background">
             <CardContent className="p-4 text-center">
@@ -276,19 +281,19 @@ export default function InsightsPage() {
           <Card className="bg-gradient-to-br from-primary/5 to-background">
             <CardContent className="p-4 text-center">
               <p className="text-4xl font-bold tracking-tight text-primary">{insights.garmentsUsedLast30Days}</p>
-              <p className="text-xs text-muted-foreground mt-1">Använda (30 dagar)</p>
+              <p className="text-xs text-muted-foreground mt-1">Använda (30d)</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Usage Rate Card */}
+        {/* Usage Rate Card with mini-bar */}
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-primary" />
               <CardTitle className="text-base">Utnyttjande</CardTitle>
             </div>
-            <CardDescription>Andel plagg använda senaste 30 dagarna</CardDescription>
+            <CardDescription>Senaste 30 dagarna</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -296,7 +301,11 @@ export default function InsightsPage() {
                 <span className="text-5xl font-bold tracking-tight">{insights.usageRate}</span>
                 <span className="text-2xl text-muted-foreground">%</span>
               </div>
-              <Progress value={insights.usageRate} className="h-3" />
+              <MiniBar 
+                value={insights.usageRate} 
+                color={insights.usageRate >= 50 ? 'success' : insights.usageRate >= 25 ? 'primary' : 'warning'}
+                showLabel 
+              />
               <p className="text-sm text-muted-foreground">
                 {insights.garmentsUsedLast30Days} av {insights.totalGarments} plagg
               </p>
@@ -311,11 +320,11 @@ export default function InsightsPage() {
               <CardTitle className="text-base flex items-center gap-2">
                 🏆 Topplagg
               </CardTitle>
-              <CardDescription>Mest använda senaste 30 dagarna</CardDescription>
+              <CardDescription>Mest använda (30d)</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
               {insights.topFiveWorn.map((garment, index) => (
-                <div key={garment.id} className="flex items-center gap-2">
+                <div key={garment.id} className="flex items-center gap-2 animate-fade-in" style={{ animationDelay: `${index * 50}ms` }}>
                   <span className="w-5 text-center font-bold text-muted-foreground">
                     {index + 1}
                   </span>
@@ -331,16 +340,16 @@ export default function InsightsPage() {
           </Card>
         )}
 
-        {/* Unused garments (free version - limited) */}
+        {/* Unused garments */}
         {insights.unusedGarments.length > 0 && (
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 text-amber-500" />
-                <CardTitle className="text-base">Oanvända plagg</CardTitle>
+                <CardTitle className="text-base">Oanvända</CardTitle>
               </div>
               <CardDescription>
-                {insights.unusedGarments.length} plagg ej använda på 30 dagar
+                {insights.unusedGarments.length} plagg (30d)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -350,35 +359,30 @@ export default function InsightsPage() {
               {!isPremium && insights.unusedGarments.length > 3 && (
                 <div className="text-center py-2">
                   <p className="text-sm text-muted-foreground mb-2">
-                    +{insights.unusedGarments.length - 3} fler plagg
+                    +{insights.unusedGarments.length - 3} fler
                   </p>
-                  <Button variant="outline" size="sm" onClick={() => navigate('/settings')}>
+                  <Button variant="outline" size="sm" onClick={() => navigate('/settings')} className="active:animate-press">
                     <Lock className="w-3 h-3 mr-1.5" />
-                    Lås upp med Premium
+                    Premium
                   </Button>
                 </div>
-              )}
-              {isPremium && insights.unusedGarments.length > 5 && (
-                <p className="text-sm text-muted-foreground text-center pt-2">
-                  +{insights.unusedGarments.length - 5} fler
-                </p>
               )}
             </CardContent>
           </Card>
         )}
 
-        {/* AI Suggestions - Premium only */}
+        {/* AI Suggestions */}
         <AISuggestions isPremium={isPremium} />
 
-        {/* Color Distribution - Premium only */}
+        {/* Color Distribution */}
         <ColorDistribution garments={allGarments} isPremium={isPremium} />
 
-        {/* Unused Gems (60+ days) - Premium only */}
+        {/* Unused Gems (60+ days) */}
         <UnusedGems garments={insights.unusedGarments} isPremium={isPremium} />
 
         {/* CTA */}
         <Button 
-          className="w-full" 
+          className="w-full active:animate-press" 
           size="lg"
           onClick={() => navigate('/')}
         >
