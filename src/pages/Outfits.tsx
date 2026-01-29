@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Loader2, Star, Calendar, Trash2, Clock } from 'lucide-react';
+import { Sparkles, Loader2, Star, Calendar, Trash2, Clock, Bell, BellOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -17,12 +17,14 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
-import { useOutfits, useDeleteOutfit, type OutfitWithItems } from '@/hooks/useOutfits';
-import { useStorage } from '@/hooks/useStorage';
+import { useOutfits, useDeleteOutfit, useUpdateOutfit, type OutfitWithItems } from '@/hooks/useOutfits';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
+import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { toast } from 'sonner';
+import { format, isToday, isTomorrow, addDays, startOfDay } from 'date-fns';
+import { sv } from 'date-fns/locale';
 
 function OutfitCard({ outfit, onDelete, showPlannedDate }: { 
   outfit: OutfitWithItems; 
@@ -30,18 +32,6 @@ function OutfitCard({ outfit, onDelete, showPlannedDate }: {
   showPlannedDate?: boolean;
 }) {
   const navigate = useNavigate();
-  const { getGarmentSignedUrl } = useStorage();
-  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    outfit.outfit_items.forEach((item) => {
-      if (item.garment?.image_path) {
-        getGarmentSignedUrl(item.garment.image_path)
-          .then((url) => setImageUrls((prev) => ({ ...prev, [item.id]: url })))
-          .catch(() => {});
-      }
-    });
-  }, [outfit.outfit_items]);
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -51,7 +41,7 @@ function OutfitCard({ outfit, onDelete, showPlannedDate }: {
 
   return (
     <Card
-      className="cursor-pointer hover:shadow-md transition-all overflow-hidden"
+      className="cursor-pointer hover:shadow-md transition-all overflow-hidden active:scale-[0.99] animate-fade-in"
       onClick={() => navigate(`/outfits/${outfit.id}`)}
     >
       {/* Preview images row */}
@@ -64,17 +54,11 @@ function OutfitCard({ outfit, onDelete, showPlannedDate }: {
               index < outfit.outfit_items.slice(0, 4).length - 1 && "border-r border-background"
             )}
           >
-            {imageUrls[item.id] ? (
-              <img
-                src={imageUrls[item.id]}
-                alt={item.garment?.title || item.slot}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-muted">
-                <span className="text-[10px] text-muted-foreground capitalize">{item.slot}</span>
-              </div>
-            )}
+            <LazyImageSimple
+              imagePath={item.garment?.image_path}
+              alt={item.garment?.title || item.slot}
+              className="w-full h-full"
+            />
           </div>
         ))}
         {outfit.outfit_items.length > 4 && (
@@ -99,25 +83,23 @@ function OutfitCard({ outfit, onDelete, showPlannedDate }: {
               )}
             </div>
             
-            {/* Short explanation */}
             {outfit.explanation && (
               <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">
                 {outfit.explanation}
               </p>
             )}
 
-            {/* Date info */}
             <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
               {showPlannedDate && plannedFor && (
                 <span className="flex items-center gap-1">
                   <Calendar className="w-3 h-3" />
-                  {new Date(plannedFor).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' })}
+                  {format(new Date(plannedFor), 'd MMM', { locale: sv })}
                 </span>
               )}
               {!showPlannedDate && outfit.worn_at && (
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3" />
-                  Använd {new Date(outfit.worn_at).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' })}
+                  {format(new Date(outfit.worn_at), 'd MMM', { locale: sv })}
                 </span>
               )}
             </div>
@@ -128,7 +110,7 @@ function OutfitCard({ outfit, onDelete, showPlannedDate }: {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive flex-shrink-0"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive flex-shrink-0 active:animate-press"
                 onClick={handleDelete}
               >
                 <Trash2 className="w-4 h-4" />
@@ -136,9 +118,9 @@ function OutfitCard({ outfit, onDelete, showPlannedDate }: {
             </AlertDialogTrigger>
             <AlertDialogContent onClick={(e) => e.stopPropagation()}>
               <AlertDialogHeader>
-                <AlertDialogTitle>Radera outfit?</AlertDialogTitle>
+                <AlertDialogTitle>Radera?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Denna åtgärd kan inte ångras. Outfiten och dess kopplingar till plagg kommer att tas bort permanent.
+                  Kan inte ångras.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -158,37 +140,130 @@ function OutfitCard({ outfit, onDelete, showPlannedDate }: {
   );
 }
 
+// Group planned outfits by date
+interface PlannedGroup {
+  label: string;
+  date: string;
+  outfits: OutfitWithItems[];
+}
+
+function PlannedOutfitsList({ outfits, onDelete }: { 
+  outfits: OutfitWithItems[]; 
+  onDelete: (id: string) => void;
+}) {
+  const updateOutfit = useUpdateOutfit();
+  
+  const groupedByDate = useMemo(() => {
+    const groups: PlannedGroup[] = [];
+    const sorted = [...outfits].sort((a, b) => {
+      const dateA = (a as any).planned_for;
+      const dateB = (b as any).planned_for;
+      return dateA.localeCompare(dateB);
+    });
+    
+    sorted.forEach((outfit) => {
+      const dateStr = (outfit as any).planned_for;
+      const date = new Date(dateStr);
+      
+      let label = format(date, 'EEEE d MMMM', { locale: sv });
+      if (isToday(date)) {
+        label = 'Idag';
+      } else if (isTomorrow(date)) {
+        label = 'Imorgon';
+      }
+      
+      const existing = groups.find(g => g.date === dateStr);
+      if (existing) {
+        existing.outfits.push(outfit);
+      } else {
+        groups.push({ label, date: dateStr, outfits: [outfit] });
+      }
+    });
+    
+    return groups;
+  }, [outfits]);
+
+  const handleToggleReminder = async (outfit: OutfitWithItems) => {
+    const hasReminder = (outfit as any).planned_reminder;
+    try {
+      await updateOutfit.mutateAsync({
+        id: outfit.id,
+        updates: { planned_reminder: !hasReminder } as any,
+      });
+      toast.success(hasReminder ? 'Påminnelse av' : 'Påminnelse på');
+    } catch {
+      toast.error('Kunde inte uppdatera');
+    }
+  };
+
+  if (outfits.length === 0) {
+    return (
+      <EmptyState
+        icon={Calendar}
+        title="Inga planerade"
+        description="Planera outfits via datumväljaren."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {groupedByDate.map((group) => (
+        <div key={group.date} className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-primary" />
+            <h3 className="font-semibold text-sm capitalize">{group.label}</h3>
+          </div>
+          <div className="space-y-3 pl-6">
+            {group.outfits.map((outfit) => (
+              <div key={outfit.id} className="relative">
+                <OutfitCard outfit={outfit} onDelete={onDelete} />
+                {/* Reminder toggle - Coming soon */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-14 right-2 h-6 w-6 opacity-60 hover:opacity-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toast.info('Påminnelser kommer snart!');
+                  }}
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function OutfitsPage() {
   const navigate = useNavigate();
-  const { data: outfits, isLoading } = useOutfits(false); // Get all outfits
+  const { data: outfits, isLoading } = useOutfits(false);
   const deleteOutfit = useDeleteOutfit();
   const [activeTab, setActiveTab] = useState('recent');
 
   const handleDeleteOutfit = (id: string) => {
     deleteOutfit.mutate(id, {
       onSuccess: () => {
-        toast.success('Outfit raderad');
+        toast.success('Raderad');
       },
       onError: () => {
-        toast.error('Kunde inte radera outfit');
+        toast.error('Kunde inte radera');
       },
     });
   };
 
-  // Categorize outfits
   const { recentOutfits, savedOutfits, plannedOutfits } = useMemo(() => {
     if (!outfits) return { recentOutfits: [], savedOutfits: [], plannedOutfits: [] };
     
     const now = new Date();
     const today = now.toISOString().split('T')[0];
     
-    // Planned: has planned_for date in the future
     const planned = outfits.filter((o: any) => o.planned_for && o.planned_for >= today);
-    
-    // Saved: explicitly saved
     const saved = outfits.filter(o => o.saved);
-    
-    // Recent: last 10 outfits by generated_at
     const recent = [...outfits]
       .sort((a, b) => new Date(b.generated_at || 0).getTime() - new Date(a.generated_at || 0).getTime())
       .slice(0, 10);
@@ -205,9 +280,9 @@ export default function OutfitsPage() {
       <PageHeader 
         title="Outfits"
         actions={
-          <Button size="sm" onClick={() => navigate('/')}>
+          <Button size="sm" onClick={() => navigate('/')} className="active:animate-press">
             <Sparkles className="w-4 h-4 mr-1.5" />
-            Ny outfit
+            Ny
           </Button>
         }
       />
@@ -239,10 +314,10 @@ export default function OutfitsPage() {
               ) : (
                 <EmptyState
                   icon={Sparkles}
-                  title="Inga outfits ännu"
-                  description="Generera din första outfit!"
+                  title="Inga outfits"
+                  description="Skapa din första!"
                   action={{
-                    label: 'Skapa outfit',
+                    label: 'Skapa',
                     onClick: () => navigate('/'),
                     icon: Sparkles
                   }}
@@ -258,38 +333,26 @@ export default function OutfitsPage() {
               ) : (
                 <EmptyState
                   icon={Star}
-                  title="Inga sparade outfits"
-                  description="Spara dina favoritoutfits genom att trycka på bokmärkes-ikonen."
+                  title="Inga sparade"
+                  description="Spara favoriter med bokmärket."
                 />
               )}
             </TabsContent>
 
-            <TabsContent value="planned" className="space-y-3 mt-0">
-              {plannedOutfits.length > 0 ? (
-                plannedOutfits.map((outfit) => (
-                  <OutfitCard 
-                    key={outfit.id} 
-                    outfit={outfit} 
-                    onDelete={handleDeleteOutfit}
-                    showPlannedDate
-                  />
-                ))
-              ) : (
-                <EmptyState
-                  icon={Calendar}
-                  title="Inga planerade outfits"
-                  description="Planera outfits för kommande dagar genom att välja ett datum."
-                />
-              )}
+            <TabsContent value="planned" className="mt-0">
+              <PlannedOutfitsList 
+                outfits={plannedOutfits} 
+                onDelete={handleDeleteOutfit} 
+              />
             </TabsContent>
           </Tabs>
         ) : (
           <EmptyState
             icon={Sparkles}
-            title="Inga outfits sparade ännu"
-            description="Generera din första outfit och låt AI:n hjälpa dig att matcha dina plagg!"
+            title="Inga outfits"
+            description="Låt AI:n matcha dina plagg!"
             action={{
-              label: 'Skapa outfit',
+              label: 'Skapa',
               onClick: () => navigate('/'),
               icon: Sparkles
             }}

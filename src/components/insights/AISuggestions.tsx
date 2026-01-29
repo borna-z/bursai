@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Sparkles, 
@@ -7,24 +7,33 @@ import {
   Lock,
   Shirt,
   ChevronRight,
-  Wand2
+  ChevronDown,
+  Wand2,
+  Calendar,
+  Bookmark
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useAISuggestions, type AISuggestion } from '@/hooks/useAISuggestions';
-import { useStorage } from '@/hooks/useStorage';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useRef, useEffect } from 'react';
 
 const LOADING_STEPS = [
-  { text: 'Analyserar din garderob...', duration: 1500 },
-  { text: 'Identifierar oanvända plagg...', duration: 1500 },
-  { text: 'Matchar färger och stilar...', duration: 1500 },
-  { text: 'Skapar personliga förslag...', duration: 2000 },
+  { text: 'Analyserar garderoben...', duration: 1500 },
+  { text: 'Identifierar plagg...', duration: 1500 },
+  { text: 'Matchar stilar...', duration: 1500 },
+  { text: 'Skapar förslag...', duration: 2000 },
   { text: 'Nästan klar...', duration: 3000 },
 ];
 
@@ -73,67 +82,14 @@ function LoadingIndicator() {
         
         <div className="text-center space-y-1">
           <p className="font-medium text-sm">{LOADING_STEPS[currentStep]?.text}</p>
-          <p className="text-xs text-muted-foreground">
-            Din personliga stylist arbetar
-          </p>
+          <p className="text-xs text-muted-foreground">Din stylist arbetar</p>
         </div>
       </div>
       
       <div className="space-y-2 px-4">
         <Progress value={progress} className="h-2" />
-        <p className="text-xs text-center text-muted-foreground">
-          {Math.round(progress)}%
-        </p>
+        <p className="text-xs text-center text-muted-foreground">{Math.round(progress)}%</p>
       </div>
-      
-      <div className="flex justify-center gap-1.5 pt-2">
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className="w-2 h-2 rounded-full bg-primary/40 animate-pulse"
-            style={{ animationDelay: `${i * 200}ms` }}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-interface GarmentPreviewProps {
-  garment: AISuggestion['garments'][0];
-}
-
-function GarmentPreview({ garment }: GarmentPreviewProps) {
-  const { getGarmentSignedUrl } = useStorage();
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (garment.image_path) {
-      getGarmentSignedUrl(garment.image_path)
-        .then(url => {
-          setImageUrl(url);
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
-  }, [garment.image_path, getGarmentSignedUrl]);
-
-  return (
-    <div className="w-14 h-14 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 shadow-sm border border-border/50 overflow-hidden">
-      {loading ? (
-        <div className="w-full h-full bg-muted animate-pulse" />
-      ) : imageUrl ? (
-        <img
-          src={imageUrl}
-          alt={garment.title}
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        <Shirt className="w-5 h-5 text-muted-foreground/60" />
-      )}
     </div>
   );
 }
@@ -141,12 +97,16 @@ function GarmentPreview({ garment }: GarmentPreviewProps) {
 interface SuggestionCardProps {
   suggestion: AISuggestion;
   onTryIt: () => void;
+  onPlan: () => void;
   isCreating: boolean;
 }
 
-function SuggestionCard({ suggestion, onTryIt, isCreating }: SuggestionCardProps) {
+function SuggestionCard({ suggestion, onTryIt, onPlan, isCreating }: SuggestionCardProps) {
+  const [isOpen, setIsOpen] = useState(false);
+
   return (
-    <div className="p-4 bg-muted/30 rounded-xl space-y-3 border border-border/50">
+    <div className="p-4 bg-muted/30 rounded-xl space-y-3 border border-border/50 animate-fade-in">
+      {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <h4 className="font-semibold text-sm truncate">{suggestion.title}</h4>
@@ -154,45 +114,75 @@ function SuggestionCard({ suggestion, onTryIt, isCreating }: SuggestionCardProps
             {suggestion.occasion}
           </Badge>
         </div>
-        <Button 
-          size="sm" 
-          onClick={onTryIt}
-          disabled={isCreating}
-          className="flex-shrink-0"
-        >
-          {isCreating ? (
-            <Loader2 className="w-3 h-3 animate-spin" />
-          ) : (
-            <>
-              Prova
-              <ChevronRight className="w-3 h-3 ml-1" />
-            </>
-          )}
-        </Button>
+        <div className="flex gap-1.5">
+          <Button 
+            size="sm" 
+            variant="outline"
+            onClick={onPlan}
+            className="h-8 px-2 active:animate-press"
+          >
+            <Calendar className="w-3.5 h-3.5" />
+          </Button>
+          <Button 
+            size="sm" 
+            onClick={onTryIt}
+            disabled={isCreating}
+            className="h-8 active:animate-press"
+          >
+            {isCreating ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <>
+                Prova
+                <ChevronRight className="w-3 h-3 ml-1" />
+              </>
+            )}
+          </Button>
+        </div>
       </div>
       
-      <p className="text-sm text-muted-foreground line-clamp-2">
-        {suggestion.explanation}
-      </p>
-      
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {suggestion.garments.map((garment) => (
-          <div key={garment.id} className="flex-shrink-0">
-            <GarmentPreview garment={garment} />
+      {/* Garment thumbnails - horizontal row */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        {suggestion.garments.slice(0, 5).map((garment) => (
+          <div 
+            key={garment.id} 
+            className="flex-shrink-0 group relative"
+          >
+            <LazyImageSimple
+              imagePath={garment.image_path}
+              alt={garment.title}
+              className="w-16 h-16 rounded-lg shadow-sm border border-border/50"
+              fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/60" />}
+            />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent rounded-b-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <p className="text-[10px] text-white truncate">{garment.title}</p>
+            </div>
           </div>
         ))}
+        {suggestion.garments.length > 5 && (
+          <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">
+            +{suggestion.garments.length - 5}
+          </div>
+        )}
       </div>
       
-      <div className="flex flex-wrap gap-1.5">
-        {suggestion.garments.map((garment) => (
-          <span 
-            key={garment.id}
-            className="text-xs text-muted-foreground bg-background px-2 py-0.5 rounded-full"
-          >
-            {garment.title}
-          </span>
-        ))}
-      </div>
+      {/* Collapsible explanation */}
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger asChild>
+          <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-full">
+            <ChevronDown className={cn(
+              "w-3 h-3 transition-transform",
+              isOpen && "rotate-180"
+            )} />
+            {isOpen ? 'Dölj' : 'Varför detta funkar'}
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-2">
+          <p className="text-sm text-muted-foreground bg-background/50 p-2 rounded-lg">
+            {suggestion.explanation}
+          </p>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }
@@ -220,7 +210,6 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
     setCreatingOutfitId(index);
     
     try {
-      // Create a new outfit with the suggested garments
       const { data: outfit, error: outfitError } = await supabase
         .from('outfits')
         .insert({
@@ -235,7 +224,6 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
 
       if (outfitError) throw outfitError;
 
-      // Map categories to slots
       const categoryToSlot: Record<string, string> = {
         top: 'top',
         bottom: 'bottom',
@@ -246,7 +234,6 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
         fullbody: 'fullbody',
       };
 
-      // Create outfit items for each garment
       const outfitItems = suggestion.garments.map((garment) => ({
         outfit_id: outfit.id,
         garment_id: garment.id,
@@ -259,23 +246,19 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
 
       if (itemsError) throw itemsError;
 
-      toast({
-        title: 'Outfit skapad!',
-        description: `"${suggestion.title}" har lagts till i dina outfits.`,
-      });
-
-      // Navigate to the new outfit
+      toast.success('Outfit skapad!');
       navigate(`/outfits/${outfit.id}`);
     } catch (err) {
       console.error('Failed to create outfit:', err);
-      toast({
-        title: 'Kunde inte skapa outfit',
-        description: 'Något gick fel. Försök igen.',
-        variant: 'destructive',
-      });
+      toast.error('Kunde inte skapa');
     } finally {
       setCreatingOutfitId(null);
     }
+  };
+
+  const handlePlan = (suggestion: AISuggestion) => {
+    // For now, create outfit and navigate - planning handled in detail page
+    handleTryIt(suggestion, -1);
   };
 
   if (!isPremium) {
@@ -287,7 +270,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
             <CardTitle className="text-base">AI-förslag</CardTitle>
           </div>
           <CardDescription>
-            Personliga outfit-kombinationer baserat på din stil
+            Personliga kombinationer
           </CardDescription>
         </CardHeader>
         <CardContent className="blur-sm select-none">
@@ -297,9 +280,9 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
                 <div className="h-5 bg-muted rounded w-2/3" />
                 <div className="h-4 bg-muted rounded w-full" />
                 <div className="flex gap-2">
-                  <div className="w-14 h-14 bg-muted rounded-lg" />
-                  <div className="w-14 h-14 bg-muted rounded-lg" />
-                  <div className="w-14 h-14 bg-muted rounded-lg" />
+                  {[1, 2, 3].map((j) => (
+                    <div key={j} className="w-16 h-16 bg-muted rounded-lg" />
+                  ))}
                 </div>
               </div>
             ))}
@@ -309,11 +292,11 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
         <div className="absolute inset-0 flex items-center justify-center bg-background/50">
           <div className="text-center p-4">
             <Lock className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-            <p className="font-medium">Premium-funktion</p>
+            <p className="font-medium">Premium</p>
             <Button 
               variant="outline" 
               size="sm" 
-              className="mt-2"
+              className="mt-2 active:animate-press"
               onClick={() => navigate('/settings')}
             >
               Lås upp
@@ -337,7 +320,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
             size="icon"
             onClick={() => refetch()}
             disabled={isFetching}
-            className="h-8 w-8"
+            className="h-8 w-8 active:animate-press"
           >
             <RefreshCw className={cn(
               "w-4 h-4",
@@ -346,7 +329,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
           </Button>
         </div>
         <CardDescription>
-          Prova dessa kombinationer med dina oanvända plagg
+          Prova med oanvända plagg
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -355,12 +338,13 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
         ) : error ? (
           <div className="text-center py-6">
             <p className="text-sm text-muted-foreground mb-3">
-              Kunde inte ladda förslag just nu
+              Kunde inte ladda
             </p>
             <Button 
               variant="outline" 
               size="sm"
               onClick={() => refetch()}
+              className="active:animate-press"
             >
               <RefreshCw className="w-3 h-3 mr-1.5" />
               Försök igen
@@ -370,7 +354,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
           <div className="text-center py-6">
             <Shirt className="w-10 h-10 mx-auto mb-2 text-muted-foreground/50" />
             <p className="text-sm text-muted-foreground">
-              Lägg till fler plagg för att få AI-förslag
+              Lägg till fler plagg
             </p>
           </div>
         ) : (
@@ -380,6 +364,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
                 key={index}
                 suggestion={suggestion}
                 onTryIt={() => handleTryIt(suggestion, index)}
+                onPlan={() => handlePlan(suggestion)}
                 isCreating={creatingOutfitId === index}
               />
             ))}
