@@ -10,6 +10,7 @@ export interface AISuggestion {
     title: string;
     category: string;
     color_primary: string;
+    image_path: string;
   }[];
   explanation: string;
   occasion: string;

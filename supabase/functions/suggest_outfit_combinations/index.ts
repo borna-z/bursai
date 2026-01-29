@@ -18,6 +18,7 @@ interface Garment {
   season_tags?: string[];
   last_worn_at?: string;
   wear_count?: number;
+  image_path: string;
 }
 
 interface StylePreferences {
@@ -73,7 +74,7 @@ serve(async (req) => {
 
     const { data: garments, error: garmentsError } = await supabase
       .from("garments")
-      .select("id, title, category, color_primary, color_secondary, material, pattern, formality, season_tags, last_worn_at, wear_count")
+      .select("id, title, category, color_primary, color_secondary, material, pattern, formality, season_tags, last_worn_at, wear_count, image_path")
       .eq("user_id", user.id)
       .or(`last_worn_at.is.null,last_worn_at.lt.${thirtyDaysAgoStr}`)
       .eq("in_laundry", false);

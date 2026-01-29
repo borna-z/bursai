@@ -15,6 +15,9 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useAISuggestions, type AISuggestion } from '@/hooks/useAISuggestions';
 import { useStorage } from '@/hooks/useStorage';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 const LOADING_STEPS = [
@@ -31,17 +34,14 @@ function LoadingIndicator() {
   const startTimeRef = useRef(Date.now());
 
   useEffect(() => {
-    // Calculate total duration for progress
     const totalDuration = LOADING_STEPS.reduce((sum, step) => sum + step.duration, 0);
     
-    // Update progress smoothly
     const progressInterval = setInterval(() => {
       const elapsed = Date.now() - startTimeRef.current;
       const newProgress = Math.min((elapsed / totalDuration) * 100, 95);
       setProgress(newProgress);
     }, 100);
 
-    // Update step text
     let stepTimeout: NodeJS.Timeout;
     const updateStep = (stepIndex: number) => {
       if (stepIndex < LOADING_STEPS.length) {
@@ -86,7 +86,6 @@ function LoadingIndicator() {
         </p>
       </div>
       
-      {/* Animated dots */}
       <div className="flex justify-center gap-1.5 pt-2">
         {[0, 1, 2].map((i) => (
           <div
@@ -107,15 +106,34 @@ interface GarmentPreviewProps {
 function GarmentPreview({ garment }: GarmentPreviewProps) {
   const { getGarmentSignedUrl } = useStorage();
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // We need the full image_path to get signed URL
-    // For now, show placeholder with color
-  }, []);
+    if (garment.image_path) {
+      getGarmentSignedUrl(garment.image_path)
+        .then(url => {
+          setImageUrl(url);
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
+  }, [garment.image_path, getGarmentSignedUrl]);
 
   return (
-    <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 shadow-sm border border-border/50">
-      <Shirt className="w-5 h-5 text-muted-foreground/60" />
+    <div className="w-14 h-14 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 shadow-sm border border-border/50 overflow-hidden">
+      {loading ? (
+        <div className="w-full h-full bg-muted animate-pulse" />
+      ) : imageUrl ? (
+        <img
+          src={imageUrl}
+          alt={garment.title}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <Shirt className="w-5 h-5 text-muted-foreground/60" />
+      )}
     </div>
   );
 }
@@ -123,9 +141,10 @@ function GarmentPreview({ garment }: GarmentPreviewProps) {
 interface SuggestionCardProps {
   suggestion: AISuggestion;
   onTryIt: () => void;
+  isCreating: boolean;
 }
 
-function SuggestionCard({ suggestion, onTryIt }: SuggestionCardProps) {
+function SuggestionCard({ suggestion, onTryIt, isCreating }: SuggestionCardProps) {
   return (
     <div className="p-4 bg-muted/30 rounded-xl space-y-3 border border-border/50">
       <div className="flex items-start justify-between gap-3">
@@ -137,12 +156,18 @@ function SuggestionCard({ suggestion, onTryIt }: SuggestionCardProps) {
         </div>
         <Button 
           size="sm" 
-          variant="secondary"
           onClick={onTryIt}
+          disabled={isCreating}
           className="flex-shrink-0"
         >
-          Prova
-          <ChevronRight className="w-3 h-3 ml-1" />
+          {isCreating ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : (
+            <>
+              Prova
+              <ChevronRight className="w-3 h-3 ml-1" />
+            </>
+          )}
         </Button>
       </div>
       
@@ -178,6 +203,9 @@ interface AISuggestionsProps {
 
 export function AISuggestions({ isPremium }: AISuggestionsProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [creatingOutfitId, setCreatingOutfitId] = useState<number | null>(null);
+  
   const { 
     data: suggestions, 
     isLoading, 
@@ -186,10 +214,68 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
     isFetching 
   } = useAISuggestions();
 
-  const handleTryIt = (suggestion: AISuggestion) => {
-    // Navigate to outfit generator with pre-selected context
-    // For now, just go to home to generate new outfit
-    navigate('/');
+  const handleTryIt = async (suggestion: AISuggestion, index: number) => {
+    if (!user) return;
+    
+    setCreatingOutfitId(index);
+    
+    try {
+      // Create a new outfit with the suggested garments
+      const { data: outfit, error: outfitError } = await supabase
+        .from('outfits')
+        .insert({
+          user_id: user.id,
+          occasion: suggestion.occasion,
+          explanation: suggestion.explanation,
+          style_vibe: suggestion.title,
+          saved: true,
+        })
+        .select()
+        .single();
+
+      if (outfitError) throw outfitError;
+
+      // Map categories to slots
+      const categoryToSlot: Record<string, string> = {
+        top: 'top',
+        bottom: 'bottom',
+        shoes: 'shoes',
+        outerwear: 'outerwear',
+        accessory: 'accessory',
+        dress: 'dress',
+        fullbody: 'fullbody',
+      };
+
+      // Create outfit items for each garment
+      const outfitItems = suggestion.garments.map((garment) => ({
+        outfit_id: outfit.id,
+        garment_id: garment.id,
+        slot: categoryToSlot[garment.category] || garment.category,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('outfit_items')
+        .insert(outfitItems);
+
+      if (itemsError) throw itemsError;
+
+      toast({
+        title: 'Outfit skapad!',
+        description: `"${suggestion.title}" har lagts till i dina outfits.`,
+      });
+
+      // Navigate to the new outfit
+      navigate(`/outfits/${outfit.id}`);
+    } catch (err) {
+      console.error('Failed to create outfit:', err);
+      toast({
+        title: 'Kunde inte skapa outfit',
+        description: 'Något gick fel. Försök igen.',
+        variant: 'destructive',
+      });
+    } finally {
+      setCreatingOutfitId(null);
+    }
   };
 
   if (!isPremium) {
@@ -211,9 +297,9 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
                 <div className="h-5 bg-muted rounded w-2/3" />
                 <div className="h-4 bg-muted rounded w-full" />
                 <div className="flex gap-2">
-                  <div className="w-12 h-12 bg-muted rounded-lg" />
-                  <div className="w-12 h-12 bg-muted rounded-lg" />
-                  <div className="w-12 h-12 bg-muted rounded-lg" />
+                  <div className="w-14 h-14 bg-muted rounded-lg" />
+                  <div className="w-14 h-14 bg-muted rounded-lg" />
+                  <div className="w-14 h-14 bg-muted rounded-lg" />
                 </div>
               </div>
             ))}
@@ -293,7 +379,8 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
               <SuggestionCard 
                 key={index}
                 suggestion={suggestion}
-                onTryIt={() => handleTryIt(suggestion)}
+                onTryIt={() => handleTryIt(suggestion, index)}
+                isCreating={creatingOutfitId === index}
               />
             ))}
           </div>
