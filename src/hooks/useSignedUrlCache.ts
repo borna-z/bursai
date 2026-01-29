@@ -44,27 +44,26 @@ export async function getCachedSignedUrl(imagePath: string): Promise<string | nu
  * Hook to get a signed URL with caching, lazy loading, and retry logic
  */
 export function useCachedSignedUrl(imagePath: string | undefined) {
-  const [signedUrl, setSignedUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasError, setHasError] = useState(false);
-  const retryCount = useRef(0);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const elementRef = useRef<HTMLDivElement | null>(null);
-  const [isVisible, setIsVisible] = useState(false);
-
-  // Check cache immediately
-  useEffect(() => {
+  const [signedUrl, setSignedUrl] = useState<string | null>(() => {
+    // Check cache immediately on mount
     if (imagePath) {
       const cached = urlCache.get(imagePath);
       if (cached && cached.expiresAt > Date.now()) {
-        setSignedUrl(cached.url);
+        return cached.url;
       }
     }
-  }, [imagePath]);
+    return null;
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const retryCount = useRef(0);
+  const elementRef = useRef<HTMLDivElement | null>(null);
+  const hasStartedFetch = useRef(false);
 
   const fetchUrl = useCallback(async () => {
-    if (!imagePath) return;
+    if (!imagePath || hasStartedFetch.current) return;
     
+    hasStartedFetch.current = true;
     setIsLoading(true);
     setHasError(false);
     
@@ -77,6 +76,7 @@ export function useCachedSignedUrl(imagePath: string | undefined) {
     } else if (retryCount.current < 1) {
       // Retry once
       retryCount.current++;
+      hasStartedFetch.current = false;
       const retryUrl = await getCachedSignedUrl(imagePath);
       if (retryUrl) {
         setSignedUrl(retryUrl);
@@ -91,43 +91,56 @@ export function useCachedSignedUrl(imagePath: string | undefined) {
     setIsLoading(false);
   }, [imagePath]);
 
+  // Reset when imagePath changes
+  useEffect(() => {
+    if (imagePath) {
+      const cached = urlCache.get(imagePath);
+      if (cached && cached.expiresAt > Date.now()) {
+        setSignedUrl(cached.url);
+        hasStartedFetch.current = true;
+      } else {
+        hasStartedFetch.current = false;
+        setSignedUrl(null);
+      }
+    } else {
+      setSignedUrl(null);
+      hasStartedFetch.current = false;
+    }
+  }, [imagePath]);
+
   // Lazy load with IntersectionObserver
   useEffect(() => {
-    if (!imagePath || signedUrl) return;
+    if (!imagePath || signedUrl || !elementRef.current) return;
 
-    observerRef.current = new IntersectionObserver(
+    const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
-          setIsVisible(true);
-          observerRef.current?.disconnect();
+          fetchUrl();
+          observer.disconnect();
         }
       },
       { rootMargin: '100px' }
     );
 
-    return () => {
-      observerRef.current?.disconnect();
-    };
-  }, [imagePath, signedUrl]);
+    observer.observe(elementRef.current);
 
-  // Fetch when visible
-  useEffect(() => {
-    if (isVisible && imagePath && !signedUrl) {
-      fetchUrl();
-    }
-  }, [isVisible, imagePath, signedUrl, fetchUrl]);
+    return () => {
+      observer.disconnect();
+    };
+  }, [imagePath, signedUrl, fetchUrl]);
 
   const setRef = useCallback((node: HTMLDivElement | null) => {
-    if (elementRef.current) {
-      observerRef.current?.unobserve(elementRef.current);
-    }
-    
     elementRef.current = node;
     
-    if (node && observerRef.current) {
-      observerRef.current.observe(node);
+    // If element is already in view and we haven't fetched yet, fetch immediately
+    if (node && imagePath && !signedUrl && !hasStartedFetch.current) {
+      const rect = node.getBoundingClientRect();
+      const isInViewport = rect.top < window.innerHeight + 100 && rect.bottom > -100;
+      if (isInViewport) {
+        fetchUrl();
+      }
     }
-  }, []);
+  }, [imagePath, signedUrl, fetchUrl]);
 
   return { signedUrl, isLoading, hasError, setRef, refetch: fetchUrl };
 }
