@@ -1,17 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Sun, Snowflake, Droplets, ArrowRight, Loader2 } from 'lucide-react';
+import { Sparkles, Sun, Snowflake, Droplets, ArrowRight, Loader2, MapPin, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Chip } from '@/components/ui/chip';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useGarmentCount } from '@/hooks/useGarments';
 import { useOutfits } from '@/hooks/useOutfits';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useWeather } from '@/hooks/useWeather';
 import { PaywallModal } from '@/components/PaywallModal';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -57,6 +59,7 @@ export default function HomePage() {
   const { data: outfits, isLoading: outfitsLoading } = useOutfits();
   const { needsOnboarding, state, progress } = useOnboarding();
   const { canCreateOutfit } = useSubscription();
+  const { weather, isLoading: weatherLoading, error: weatherError, refetch: refetchWeather } = useWeather();
   
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
@@ -64,8 +67,18 @@ export default function HomePage() {
   const [precipitation, setPrecipitation] = useState('none');
   const [wind, setWind] = useState('low');
   const [showPaywall, setShowPaywall] = useState(false);
+  const [useAutoWeather, setUseAutoWeather] = useState(true);
 
   const lastOutfit = outfits?.[0];
+
+  // Sync auto weather data
+  useEffect(() => {
+    if (weather && useAutoWeather) {
+      setTemperature(weather.temperature.toString());
+      setPrecipitation(weather.precipitation);
+      setWind(weather.wind);
+    }
+  }, [weather, useAutoWeather]);
 
   const handleGenerateOutfit = () => {
     if (!selectedOccasion) return;
@@ -159,59 +172,111 @@ export default function HomePage() {
         {/* Weather Inputs */}
         <Card className="shadow-sm">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Väder</CardTitle>
-            <CardDescription>Hjälper AI:n välja rätt plagg</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-sm">Temperatur</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  placeholder="20"
-                  value={temperature}
-                  onChange={(e) => setTemperature(e.target.value)}
-                  className="w-20"
-                />
-                <span className="text-muted-foreground">°C</span>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base">Väder</CardTitle>
+                <CardDescription>Hjälper AI:n välja rätt plagg</CardDescription>
               </div>
+              {weather && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2"
+                  onClick={refetchWeather}
+                  disabled={weatherLoading}
+                >
+                  <RefreshCw className={cn("w-4 h-4", weatherLoading && "animate-spin")} />
+                </Button>
+              )}
             </div>
             
-            <div className="space-y-2">
-              <Label className="text-sm">Nederbörd</Label>
-              <div className="flex gap-2">
-                {precipitationOptions.map((option) => (
-                  <Button
-                    key={option.id}
-                    variant={precipitation === option.id ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setPrecipitation(option.id)}
-                    className="flex-1"
-                  >
-                    <option.icon className="w-4 h-4 mr-1.5" />
-                    {option.label}
-                  </Button>
-                ))}
+            {/* Auto Weather Display */}
+            {weatherLoading ? (
+              <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Hämtar väder...</span>
               </div>
-            </div>
+            ) : weather ? (
+              <div className="flex items-center gap-2 mt-3">
+                <Badge variant="secondary" className="flex items-center gap-1.5">
+                  <MapPin className="w-3 h-3" />
+                  {weather.location}
+                </Badge>
+                <Badge variant="outline" className="flex items-center gap-1">
+                  {weather.temperature}°C · {weather.condition}
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs px-2 ml-auto"
+                  onClick={() => setUseAutoWeather(!useAutoWeather)}
+                >
+                  {useAutoWeather ? 'Redigera' : 'Använd auto'}
+                </Button>
+              </div>
+            ) : weatherError ? (
+              <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
+                <span>{weatherError}</span>
+                <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={refetchWeather}>
+                  Försök igen
+                </Button>
+              </div>
+            ) : null}
+          </CardHeader>
+          
+          {/* Manual Weather Controls - show when not using auto or no weather data */}
+          {(!useAutoWeather || !weather) && (
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm">Temperatur</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    placeholder="20"
+                    value={temperature}
+                    onChange={(e) => setTemperature(e.target.value)}
+                    className="w-20"
+                  />
+                  <span className="text-muted-foreground">°C</span>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm">Nederbörd</Label>
+                <div className="flex gap-2">
+                  {precipitationOptions.map((option) => (
+                    <Button
+                      key={option.id}
+                      variant={precipitation === option.id ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setPrecipitation(option.id)}
+                      className="flex-1"
+                    >
+                      <option.icon className="w-4 h-4 mr-1.5" />
+                      {option.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm">Vind</Label>
-              <div className="flex gap-2">
-                {windOptions.map((option) => (
-                  <Button
-                    key={option.id}
-                    variant={wind === option.id ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setWind(option.id)}
-                    className="flex-1"
-                  >
-                    {option.label}
-                  </Button>
-                ))}
+              <div className="space-y-2">
+                <Label className="text-sm">Vind</Label>
+                <div className="flex gap-2">
+                  {windOptions.map((option) => (
+                    <Button
+                      key={option.id}
+                      variant={wind === option.id ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setWind(option.id)}
+                      className="flex-1"
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
+                </div>
               </div>
-            </div>
-          </CardContent>
+            </CardContent>
+          )}
         </Card>
 
         {/* Style Selection */}
