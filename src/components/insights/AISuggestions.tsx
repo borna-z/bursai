@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Sparkles, 
@@ -6,14 +6,99 @@ import {
   RefreshCw, 
   Lock,
   Shirt,
-  ChevronRight
+  ChevronRight,
+  Wand2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { useAISuggestions, type AISuggestion } from '@/hooks/useAISuggestions';
 import { useStorage } from '@/hooks/useStorage';
 import { cn } from '@/lib/utils';
+
+const LOADING_STEPS = [
+  { text: 'Analyserar din garderob...', duration: 1500 },
+  { text: 'Identifierar oanvända plagg...', duration: 1500 },
+  { text: 'Matchar färger och stilar...', duration: 1500 },
+  { text: 'Skapar personliga förslag...', duration: 2000 },
+  { text: 'Nästan klar...', duration: 3000 },
+];
+
+function LoadingIndicator() {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const startTimeRef = useRef(Date.now());
+
+  useEffect(() => {
+    // Calculate total duration for progress
+    const totalDuration = LOADING_STEPS.reduce((sum, step) => sum + step.duration, 0);
+    
+    // Update progress smoothly
+    const progressInterval = setInterval(() => {
+      const elapsed = Date.now() - startTimeRef.current;
+      const newProgress = Math.min((elapsed / totalDuration) * 100, 95);
+      setProgress(newProgress);
+    }, 100);
+
+    // Update step text
+    let stepTimeout: NodeJS.Timeout;
+    const updateStep = (stepIndex: number) => {
+      if (stepIndex < LOADING_STEPS.length) {
+        setCurrentStep(stepIndex);
+        stepTimeout = setTimeout(() => {
+          updateStep(stepIndex + 1);
+        }, LOADING_STEPS[stepIndex].duration);
+      }
+    };
+    updateStep(0);
+
+    return () => {
+      clearInterval(progressInterval);
+      clearTimeout(stepTimeout);
+    };
+  }, []);
+
+  return (
+    <div className="py-8 space-y-4">
+      <div className="flex flex-col items-center gap-3">
+        <div className="relative">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <Wand2 className="w-7 h-7 text-primary animate-pulse" />
+          </div>
+          <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-background border-2 border-primary/20 flex items-center justify-center">
+            <Loader2 className="w-3 h-3 animate-spin text-primary" />
+          </div>
+        </div>
+        
+        <div className="text-center space-y-1">
+          <p className="font-medium text-sm">{LOADING_STEPS[currentStep]?.text}</p>
+          <p className="text-xs text-muted-foreground">
+            Din personliga stylist arbetar
+          </p>
+        </div>
+      </div>
+      
+      <div className="space-y-2 px-4">
+        <Progress value={progress} className="h-2" />
+        <p className="text-xs text-center text-muted-foreground">
+          {Math.round(progress)}%
+        </p>
+      </div>
+      
+      {/* Animated dots */}
+      <div className="flex justify-center gap-1.5 pt-2">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="w-2 h-2 rounded-full bg-primary/40 animate-pulse"
+            style={{ animationDelay: `${i * 200}ms` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 interface GarmentPreviewProps {
   garment: AISuggestion['garments'][0];
@@ -179,13 +264,8 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
-            <span className="ml-2 text-sm text-muted-foreground">
-              Analyserar din garderob...
-            </span>
-          </div>
+        {(isLoading || isFetching) ? (
+          <LoadingIndicator />
         ) : error ? (
           <div className="text-center py-6">
             <p className="text-sm text-muted-foreground mb-3">
