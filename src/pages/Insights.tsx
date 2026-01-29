@@ -21,6 +21,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
+import { AISuggestions } from '@/components/insights/AISuggestions';
 import { cn } from '@/lib/utils';
 
 function GarmentMini({ garment, wearCount }: { garment: Garment; wearCount?: number }) {
@@ -365,6 +366,9 @@ export default function InsightsPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* AI Suggestions - Premium only */}
+        <AISuggestions isPremium={isPremium} />
 
         {/* Color Distribution - Premium only */}
         <ColorDistribution garments={allGarments} isPremium={isPremium} />
