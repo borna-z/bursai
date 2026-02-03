@@ -41,6 +41,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { ForecastPreview } from '@/components/outfit/WeatherForecastBadge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useOutfit, useUpdateOutfit, useMarkOutfitWorn, useUndoMarkWorn } from '@/hooks/useOutfits';
@@ -554,6 +555,15 @@ export default function OutfitDetailPage() {
                   disabled={(date) => date < new Date()}
                   initialFocus
                 />
+                {/* Weather forecast for selected date */}
+                {selectedDate && (
+                  <div className="px-3 border-t">
+                    <ForecastPreview 
+                      date={selectedDate.toISOString().split('T')[0]}
+                      originalTemp={weather?.temp}
+                    />
+                  </div>
+                )}
                 <div className="p-3 border-t">
                   <Button 
                     className="w-full" 
