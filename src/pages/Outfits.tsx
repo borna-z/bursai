@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Loader2, Star, Calendar, Trash2, Clock, Bell, BellOff } from 'lucide-react';
+import { Sparkles, Loader2, Star, Calendar, Trash2, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -17,13 +17,14 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
-import { useOutfits, useDeleteOutfit, useUpdateOutfit, type OutfitWithItems } from '@/hooks/useOutfits';
+import { useOutfits, useDeleteOutfit, type OutfitWithItems } from '@/hooks/useOutfits';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
+import { PlannedOutfitsList } from '@/components/outfit/PlannedOutfitsList';
 import { toast } from 'sonner';
-import { format, isToday, isTomorrow, addDays, startOfDay } from 'date-fns';
+import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
 
 function OutfitCard({ outfit, onDelete, showPlannedDate }: { 
@@ -140,104 +141,7 @@ function OutfitCard({ outfit, onDelete, showPlannedDate }: {
   );
 }
 
-// Group planned outfits by date
-interface PlannedGroup {
-  label: string;
-  date: string;
-  outfits: OutfitWithItems[];
-}
-
-function PlannedOutfitsList({ outfits, onDelete }: { 
-  outfits: OutfitWithItems[]; 
-  onDelete: (id: string) => void;
-}) {
-  const updateOutfit = useUpdateOutfit();
-  
-  const groupedByDate = useMemo(() => {
-    const groups: PlannedGroup[] = [];
-    const sorted = [...outfits].sort((a, b) => {
-      const dateA = (a as any).planned_for;
-      const dateB = (b as any).planned_for;
-      return dateA.localeCompare(dateB);
-    });
-    
-    sorted.forEach((outfit) => {
-      const dateStr = (outfit as any).planned_for;
-      const date = new Date(dateStr);
-      
-      let label = format(date, 'EEEE d MMMM', { locale: sv });
-      if (isToday(date)) {
-        label = 'Idag';
-      } else if (isTomorrow(date)) {
-        label = 'Imorgon';
-      }
-      
-      const existing = groups.find(g => g.date === dateStr);
-      if (existing) {
-        existing.outfits.push(outfit);
-      } else {
-        groups.push({ label, date: dateStr, outfits: [outfit] });
-      }
-    });
-    
-    return groups;
-  }, [outfits]);
-
-  const handleToggleReminder = async (outfit: OutfitWithItems) => {
-    const hasReminder = (outfit as any).planned_reminder;
-    try {
-      await updateOutfit.mutateAsync({
-        id: outfit.id,
-        updates: { planned_reminder: !hasReminder } as any,
-      });
-      toast.success(hasReminder ? 'Påminnelse av' : 'Påminnelse på');
-    } catch {
-      toast.error('Kunde inte uppdatera');
-    }
-  };
-
-  if (outfits.length === 0) {
-    return (
-      <EmptyState
-        icon={Calendar}
-        title="Inga planerade"
-        description="Planera outfits via datumväljaren."
-      />
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {groupedByDate.map((group) => (
-        <div key={group.date} className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-primary" />
-            <h3 className="font-semibold text-sm capitalize">{group.label}</h3>
-          </div>
-          <div className="space-y-3 pl-6">
-            {group.outfits.map((outfit) => (
-              <div key={outfit.id} className="relative">
-                <OutfitCard outfit={outfit} onDelete={onDelete} />
-                {/* Reminder toggle - Coming soon */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute top-14 right-2 h-6 w-6 opacity-60 hover:opacity-100"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toast.info('Påminnelser kommer snart!');
-                  }}
-                >
-                  <Bell className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+// PlannedOutfitsList is now imported from components/outfit/PlannedOutfitsList
 
 export default function OutfitsPage() {
   const navigate = useNavigate();
