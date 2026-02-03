@@ -1,142 +1,214 @@
 
-# Plan: Spara hemstad i profilen för snabbare väderhämtning
+# Plan: Visa väderprognos för planerade outfits
 
 ## Översikt
-Implementera funktionalitet för att spara användarens hemstad i profilen, vilket gör att väder kan hämtas direkt utan att behöva använda geolokalisering varje gång.
+Implementera väderprognos för planerade outfits så användare kan se förväntat väder för det datum de har planerat sin outfit. Open-Meteo API stödjer prognoser upp till 16 dagar framåt.
 
-## Nuläge
-- `profiles`-tabellen har redan en `home_city`-kolumn (default: 'Stockholm')
-- Väder hämtas via Open-Meteo API med geolokalisering
-- Om geolokalisering misslyckas används Stockholm som fallback
-- Ingen UI för att ställa in hemstad finns
-
-## Flöde efter implementation
+## Flöde
 
 ```text
-┌─────────────────────────────────────────────────────────┐
-│                    Startar appen                        │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  ┌─ Har sparad hemstad? ─────────────────────────────┐  │
-│  │                                                    │  │
-│  │  JA → Hämta koordinater för staden               │  │
-│  │       → Hämta väder direkt (snabbt!)             │  │
-│  │                                                    │  │
-│  │  NEJ → Försök geolokalisering                    │  │
-│  │        → Om OK: Visa "Spara som hemstad?"        │  │
-│  │        → Om nekad: Fallback Stockholm            │  │
-│  │                                                    │  │
-│  └────────────────────────────────────────────────────┘  │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│              Planerade outfits med väder                    │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  📅 Imorgon                                                 │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  [Outfit-kort]                      ☀️ 14°C Klart  │   │
+│  │  Vardag · Avslappnad                                │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  📅 Fredag 7 februari                                       │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  [Outfit-kort]                      🌧️ 8°C Regn   │   │
+│  │  Jobb · Professionell     ⚠️ Ta med regnkläder!   │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  📅 Måndag 10 februari                                      │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  [Outfit-kort]              ❄️ -2°C Snö           │   │
+│  │  Dejt · Romantisk          ⚠️ Kallt! Klä dig varmt │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  📅 Tisdag 18 februari (>16 dagar)                          │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  [Outfit-kort]              📊 Prognos ej tillgänglig │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Implementation
 
-### 1. Uppdatera useWeather-hooken
+### 1. Skapa useForecast hook
 
-**Fil:** `src/hooks/useWeather.ts`
+**Ny fil:** `src/hooks/useForecast.ts`
 
-Ändringar:
-- Lägg till `getCoordinatesFromCity()` funktion som använder OpenStreetMap Nominatim för geocoding (stad → koordinater)
-- Acceptera `homeCity` som parameter
-- Ny logik:
-  1. Om `homeCity` finns → geocoda och hämta väder direkt
-  2. Annars → använd geolokalisering som nu
-- Exponera `detectedLocation` för att kunna visa förslag om att spara
+Hook för att hämta flerdagarsprognos från Open-Meteo:
 
 ```typescript
-interface UseWeatherOptions {
-  homeCity?: string | null;
+interface ForecastDay {
+  date: string; // YYYY-MM-DD
+  temperature_max: number;
+  temperature_min: number;
+  weather_code: number;
+  condition: string;
+  precipitation_probability: number;
 }
 
-interface UseWeatherResult {
-  weather: WeatherData | null;
+interface UseForecastResult {
+  forecast: ForecastDay[];
   isLoading: boolean;
   error: string | null;
-  refetch: () => void;
-  detectedLocation: string | null; // För "spara som hemstad"
+  getForecastForDate: (date: string) => ForecastDay | null;
 }
 ```
 
-### 2. Lägg till hemstads-inställning i Settings
+Funktionalitet:
+- Hämtar 16-dagars prognos från Open-Meteo med parametern `daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max`
+- Använder hemstad från profilen eller geolokalisering
+- Cachar prognos i 1 timme (uppdateras sällan)
+- Exponerar `getForecastForDate()` för att hämta väder för specifikt datum
 
-**Fil:** `src/pages/Settings.tsx`
+### 2. Skapa WeatherForecastBadge komponent
 
-Ändringar:
-- Ny sektion "Plats" med MapPin-ikon
-- Input-fält för hemstad med "Spara"-knapp
-- Visa nuvarande sparad stad
-- Populära svenska städer som snabbval (chips)
+**Ny fil:** `src/components/outfit/WeatherForecastBadge.tsx`
 
-```text
-┌─────────────────────────────────────────┐
-│ 📍 Plats                                │
-├─────────────────────────────────────────┤
-│ Hemstad                                 │
-│ ┌──────────────────────┐ ┌───────┐     │
-│ │ Göteborg             │ │ Spara │     │
-│ └──────────────────────┘ └───────┘     │
-│                                         │
-│ Vanliga städer:                         │
-│ ┌──────────┐ ┌───────────┐ ┌───────┐   │
-│ │Stockholm │ │ Göteborg  │ │ Malmö │   │
-│ └──────────┘ └───────────┘ └───────┘   │
-└─────────────────────────────────────────┘
+En kompakt vädervisning för outfit-kort:
+
+```typescript
+interface WeatherForecastBadgeProps {
+  date: string; // YYYY-MM-DD
+  compact?: boolean;
+}
 ```
 
-### 3. Uppdatera Home.tsx att använda hemstad
+Visar:
+- Väderikon (sol, moln, regn, snö)
+- Temperatur (medel av max/min)
+- Kort beskrivning ("Klart", "Regn", etc.)
+- Varning vid extremt väder:
+  - Om regn > 50%: "Ta med paraply!"
+  - Om temp < 0: "Kallt! Klä dig varmt"
+  - Om temp > 30: "Varmt! Tänk på solen"
+- "Prognos ej tillgänglig" för datum > 16 dagar
 
-**Fil:** `src/pages/Home.tsx`
+### 3. Uppdatera PlannedOutfitsList
 
-Ändringar:
-- Hämta profil med `useProfile()`
-- Skicka `homeCity` till `useWeather({ homeCity: profile?.home_city })`
-- Visa "Spara som hemstad"-knapp om:
-  - Ingen hemstad är sparad
-  - Geolokalisering lyckades hitta en plats
-- Knappen sparar platsen via `updateProfile()`
+**Fil:** `src/pages/Outfits.tsx`
 
+Integrera väderprognos i listan med planerade outfits:
+
+- Importera `useForecast` och `WeatherForecastBadge`
+- För varje datumgrupp, visa vädret för det datumet i headern
+- I outfit-korten, visa kompakt väder-badge
+
+Ändringar i `PlannedOutfitsList`:
+```tsx
+function PlannedOutfitsList({ outfits, onDelete }) {
+  const { profile } = useProfile();
+  const { forecast, getForecastForDate, isLoading: forecastLoading } = useForecast({
+    homeCity: profile?.home_city
+  });
+  
+  // ...i grupperingen:
+  <div className="flex items-center justify-between gap-2">
+    <div className="flex items-center gap-2">
+      <Calendar className="w-4 h-4 text-primary" />
+      <h3 className="font-semibold text-sm capitalize">{group.label}</h3>
+    </div>
+    <WeatherForecastBadge date={group.date} compact />
+  </div>
+}
+```
+
+### 4. Uppdatera OutfitCard för planerade outfits
+
+**Fil:** `src/pages/Outfits.tsx` (OutfitCard)
+
+Lägg till väder-info för planerade outfits:
+- Visa temperatur och väderikon bredvid datumet
+- Visa varning om vädret inte matchar outfitens sparade väder
+
+### 5. Visa väderprognos i OutfitDetail vid planering
+
+**Fil:** `src/pages/OutfitDetail.tsx`
+
+I datumväljaren (Popover för planering):
+- Visa väderprognos för valt datum
+- Varning om vädret skiljer sig mycket från outfitens originalväder
+
+Exempel:
 ```text
-┌─────────────────────────────────────────┐
-│ Väder                                   │
-├─────────────────────────────────────────┤
-│ 📍 Göteborg    12°C · Molnigt    🔄     │
-│                                         │
-│ ┌─────────────────────────────────────┐ │
-│ │ 💾 Spara som hemstad               │ │
-│ └─────────────────────────────────────┘ │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────┐
+│ 📅 Välj datum                       │
+├─────────────────────────────────────┤
+│        Februari 2025                │
+│  M  T  O  T  F  L  S               │
+│  ...                                │
+│                                     │
+│ ☀️ Lördag 8 feb: 12°C, Klart       │
+│ ⚠️ Outfiten skapades för 5°C       │
+│                                     │
+│ [Planera för detta datum]           │
+└─────────────────────────────────────┘
 ```
 
 ---
 
 ## Tekniska detaljer
 
-### Geocoding API (OpenStreetMap Nominatim)
+### Open-Meteo API för daglig prognos
+
 ```typescript
-async function getCoordinatesFromCity(city: string): Promise<{lat: number, lon: number} | null> {
-  const response = await fetch(
-    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1&countrycodes=se`
-  );
-  const data = await response.json();
-  if (data[0]) {
-    return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+const url = `https://api.open-meteo.com/v1/forecast?` + new URLSearchParams({
+  latitude: lat.toString(),
+  longitude: lon.toString(),
+  daily: 'temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max',
+  timezone: 'auto',
+  forecast_days: '16'
+});
+```
+
+Response:
+```json
+{
+  "daily": {
+    "time": ["2025-02-03", "2025-02-04", ...],
+    "temperature_2m_max": [8.2, 6.5, ...],
+    "temperature_2m_min": [2.1, 0.8, ...],
+    "weather_code": [3, 61, ...],
+    "precipitation_probability_max": [10, 85, ...]
   }
-  return null;
 }
 ```
 
-### Fördelar med denna lösning
-- **Snabbare:** Ingen geolokaliserings-popup varje gång
-- **Bättre UX:** Användaren kan välja sin stad manuellt
-- **Fallback:** Om hemstad inte kan geocodas, används geolokalisering
-- **Gratis API:** Nominatim kräver ingen API-nyckel
+### Cachning
+- Prognos cachas i minne med React Query (staleTime: 60 min)
+- Undviker överdrivna API-anrop
 
-### Filer som ändras
-1. `src/hooks/useWeather.ts` - Lägg till geocoding och hemstadsstöd
-2. `src/pages/Settings.tsx` - Lägg till hemstads-sektion
-3. `src/pages/Home.tsx` - Integrera med profil och visa "spara"-alternativ
+### Felhantering
+- Om geocoding misslyckas → Stockholm som fallback
+- Om API misslyckas → Visa "Väder ej tillgängligt"
+- Om datum > 16 dagar → Visa "Prognos ej tillgänglig ännu"
+
+---
+
+## Filer som ändras
+
+| Fil | Ändring |
+|-----|---------|
+| `src/hooks/useForecast.ts` | Ny hook för väderprognos |
+| `src/components/outfit/WeatherForecastBadge.tsx` | Ny komponent för väderbadge |
+| `src/pages/Outfits.tsx` | Integrera väder i PlannedOutfitsList |
+| `src/pages/OutfitDetail.tsx` | Visa prognos vid datumval |
+| `src/hooks/useWeather.ts` | Extrahera geocoding-funktioner för återanvändning |
 
 ### Ingen databasändring krävs
-`home_city`-kolumnen finns redan i `profiles`-tabellen med default 'Stockholm'.
+All data hämtas från externa API:er baserat på `planned_for`-datumet som redan finns i outfits-tabellen.
+
+---
+
+## Begränsningar
+- Open-Meteo ger max 16 dagars prognos
+- Prognos blir mindre pålitlig ju längre fram i tiden
+- Kräver användarens hemstad eller geolokalisering
