@@ -46,6 +46,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useOutfit, useUpdateOutfit, useMarkOutfitWorn, useUndoMarkWorn } from '@/hooks/useOutfits';
 import { useSwapGarment, type SwapCandidate } from '@/hooks/useSwapGarment';
+import { useWeather } from '@/hooks/useWeather';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { StylistSummary } from '@/components/outfit/StylistSummary';
 import { OutfitSlotCard, OutfitSlotCardSkeleton } from '@/components/outfit/OutfitSlotCard';
@@ -143,6 +144,7 @@ export default function OutfitDetailPage() {
   const location = useLocation();
   const { id } = useParams<{ id: string }>();
   const { data: outfit, isLoading, refetch } = useOutfit(id);
+  const { weather: currentWeather } = useWeather();
   const updateOutfit = useUpdateOutfit();
   const markWorn = useMarkOutfitWorn();
   const undoMarkWorn = useUndoMarkWorn();
@@ -394,7 +396,13 @@ export default function OutfitDetailPage() {
   }
 
   const plannedFor = (outfit as any).planned_for;
-  const weather = (outfit as any).weather as { temp?: number; condition?: string } | null;
+  const weather = (outfit as any).weather as { temp?: number; condition?: string; precipitation?: 'none' | 'rain' | 'snow'; wind?: 'low' | 'medium' | 'high' } | null;
+  
+  // Map outfit items with garments for weather analysis
+  const outfitItemsForAnalysis = outfit.outfit_items.map(item => ({
+    slot: item.slot,
+    garment: item.garment,
+  }));
 
   return (
     <AppLayout hideNav>
@@ -438,12 +446,18 @@ export default function OutfitDetailPage() {
           </div>
         )}
 
-        {/* Stylist Summary Card */}
+        {/* Stylist Summary Card with Weather Warnings */}
         <StylistSummary 
           occasion={outfit.occasion}
           styleVibe={outfit.style_vibe}
           weather={weather}
+          currentWeather={currentWeather ? {
+            temp: currentWeather.temperature,
+            precipitation: currentWeather.precipitation,
+            wind: currentWeather.wind,
+          } : null}
           explanation={outfit.explanation}
+          outfitItems={outfitItemsForAnalysis}
         />
 
         {/* Outfit Content for Screenshot */}
