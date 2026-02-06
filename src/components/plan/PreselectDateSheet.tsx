@@ -1,0 +1,77 @@
+import { format, addDays, isToday, isTomorrow } from 'date-fns';
+import { sv } from 'date-fns/locale';
+import { Calendar, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import { cn } from '@/lib/utils';
+import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
+
+interface PreselectDateSheetProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSelectDate: (date: Date) => void;
+  isLoading?: boolean;
+}
+
+export function PreselectDateSheet({
+  open,
+  onOpenChange,
+  onSelectDate,
+  isLoading,
+}: PreselectDateSheetProps) {
+  const days = Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
+
+  const getDateLabel = (date: Date): string => {
+    if (isToday(date)) return 'Idag';
+    if (isTomorrow(date)) return 'Imorgon';
+    return format(date, 'EEEE d MMMM', { locale: sv });
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="h-auto max-h-[70vh] rounded-t-2xl">
+        <SheetHeader className="text-left pb-4">
+          <SheetTitle>Planera outfit</SheetTitle>
+          <SheetDescription>
+            Välj vilken dag du vill använda denna outfit
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="space-y-2 pb-6">
+          {days.map((date) => {
+            const dateStr = format(date, 'yyyy-MM-dd');
+            return (
+              <button
+                key={dateStr}
+                onClick={() => onSelectDate(date)}
+                disabled={isLoading}
+                className={cn(
+                  'w-full flex items-center justify-between p-3 rounded-lg',
+                  'border bg-card hover:bg-muted/50 transition-colors active:scale-[0.99]',
+                  isLoading && 'opacity-50'
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    'w-10 h-10 rounded-full flex items-center justify-center',
+                    isToday(date) ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                  )}>
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                  <span className="font-medium capitalize">{getDateLabel(date)}</span>
+                </div>
+                <WeatherForecastBadge date={dateStr} compact />
+              </button>
+            );
+          })}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}

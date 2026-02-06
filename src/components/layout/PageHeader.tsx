@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 
 interface PageHeaderProps {
   title: string;
+  subtitle?: string;
   showBack?: boolean;
   actions?: ReactNode;
   className?: string;
@@ -14,6 +15,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ 
   title, 
+  subtitle,
   showBack = false, 
   actions, 
   className,
@@ -29,7 +31,10 @@ export function PageHeader({
         className
       )}
     >
-      <div className="flex items-center justify-between h-14 px-4 max-w-lg mx-auto">
+      <div className={cn(
+        'flex items-center justify-between px-4 max-w-lg mx-auto',
+        subtitle ? 'h-16 py-2' : 'h-14'
+      )}>
         <div className="flex items-center gap-3">
           {showBack && (
             <Button 
@@ -41,7 +46,12 @@ export function PageHeader({
               <ArrowLeft className="w-5 h-5" />
             </Button>
           )}
-          <h1 className="text-lg font-semibold truncate">{title}</h1>
+          <div>
+            <h1 className="text-lg font-semibold truncate">{title}</h1>
+            {subtitle && (
+              <p className="text-xs text-muted-foreground">{subtitle}</p>
+            )}
+          </div>
         </div>
         {actions && (
           <div className="flex items-center gap-2 shrink-0">

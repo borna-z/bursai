@@ -12,16 +12,17 @@
  import Wardrobe from "./pages/Wardrobe";
  import AddGarment from "./pages/AddGarment";
  import GarmentDetail from "./pages/GarmentDetail";
- import Outfits from "./pages/Outfits";
- import OutfitDetail from "./pages/OutfitDetail";
- import OutfitGenerate from "./pages/OutfitGenerate";
- import Onboarding from "./pages/Onboarding";
- import Insights from "./pages/Insights";
- import Settings from "./pages/Settings";
- import ShareOutfit from "./pages/ShareOutfit";
- import BillingSuccess from "./pages/BillingSuccess";
- import BillingCancel from "./pages/BillingCancel";
- import Pricing from "./pages/Pricing";
+import Outfits from "./pages/Outfits";
+import OutfitDetail from "./pages/OutfitDetail";
+import OutfitGenerate from "./pages/OutfitGenerate";
+import Plan from "./pages/Plan";
+import Onboarding from "./pages/Onboarding";
+import Insights from "./pages/Insights";
+import Settings from "./pages/Settings";
+import ShareOutfit from "./pages/ShareOutfit";
+import BillingSuccess from "./pages/BillingSuccess";
+import BillingCancel from "./pages/BillingCancel";
+import Pricing from "./pages/Pricing";
  import NotFound from "./pages/NotFound";
  // Marketing pages
  import MarketingHome from "./pages/marketing/MarketingHome";
@@ -56,10 +57,11 @@ const queryClient = new QueryClient();
                  <Route path="/wardrobe" element={<ProtectedRoute><Wardrobe /></ProtectedRoute>} />
                  <Route path="/wardrobe/add" element={<ProtectedRoute><AddGarment /></ProtectedRoute>} />
                  <Route path="/wardrobe/:id" element={<ProtectedRoute><GarmentDetail /></ProtectedRoute>} />
-                 <Route path="/outfits" element={<ProtectedRoute><Outfits /></ProtectedRoute>} />
-                 <Route path="/outfits/generate" element={<ProtectedRoute><OutfitGenerate /></ProtectedRoute>} />
-                 <Route path="/outfits/:id" element={<ProtectedRoute><OutfitDetail /></ProtectedRoute>} />
-                 <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
+                  <Route path="/outfits" element={<ProtectedRoute><Outfits /></ProtectedRoute>} />
+                  <Route path="/outfits/generate" element={<ProtectedRoute><OutfitGenerate /></ProtectedRoute>} />
+                  <Route path="/outfits/:id" element={<ProtectedRoute><OutfitDetail /></ProtectedRoute>} />
+                  <Route path="/plan" element={<ProtectedRoute><Plan /></ProtectedRoute>} />
+                  <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
                  <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                  <Route path="/pricing" element={<Pricing />} />
                  <Route path="/billing/success" element={<ProtectedRoute><BillingSuccess /></ProtectedRoute>} />

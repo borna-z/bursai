@@ -19,7 +19,6 @@ import {
   ThermometerSnowflake,
   Shirt,
   Briefcase,
-  PartyPopper,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,13 +34,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { ForecastPreview } from '@/components/outfit/WeatherForecastBadge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useOutfit, useUpdateOutfit, useMarkOutfitWorn, useUndoMarkWorn } from '@/hooks/useOutfits';
@@ -164,8 +156,6 @@ export default function OutfitDetailPage() {
     outfitItemId: string;
   }>({ isOpen: false, slot: '', outfitItemId: '' });
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
-  const [plannerOpen, setPlannerOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [copied, setCopied] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [selectedFeedback, setSelectedFeedback] = useState<string[]>([]);
@@ -280,20 +270,6 @@ export default function OutfitDetailPage() {
     }
   };
 
-  const handlePlanOutfit = async () => {
-    if (!outfit || !selectedDate) return;
-    try {
-      await updateOutfit.mutateAsync({
-        id: outfit.id,
-        updates: { planned_for: selectedDate.toISOString().split('T')[0] } as any,
-      });
-      toast.success(`Planerad för ${format(selectedDate, 'd MMM', { locale: sv })}`);
-      setPlannerOpen(false);
-      refetch();
-    } catch {
-      toast.error('Kunde inte planera');
-    }
-  };
 
   const handleCreateSimilar = () => {
     navigate('/', { 
@@ -554,49 +530,21 @@ export default function OutfitDetailPage() {
           </Button>
 
           <div className="grid grid-cols-2 gap-3">
-            <Popover open={plannerOpen} onOpenChange={setPlannerOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full active:animate-press">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Planera
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarComponent
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  disabled={(date) => date < new Date()}
-                  initialFocus
-                />
-                {/* Weather forecast for selected date */}
-                {selectedDate && (
-                  <div className="px-3 border-t">
-                    <ForecastPreview 
-                      date={selectedDate.toISOString().split('T')[0]}
-                      originalTemp={weather?.temp}
-                    />
-                  </div>
-                )}
-                <div className="p-3 border-t">
-                  <Button 
-                    className="w-full" 
-                    size="sm"
-                    disabled={!selectedDate}
-                    onClick={handlePlanOutfit}
-                  >
-                    Bekräfta
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/plan', { state: { preselectedOutfitId: outfit.id } })}
+              className="w-full active:animate-press"
+            >
+              <Calendar className="w-4 h-4 mr-2" />
+              Planera
+            </Button>
 
             <Button 
               variant="outline" 
               onClick={handleCreateSimilar}
               className="active:animate-press"
             >
-              <PartyPopper className="w-4 h-4 mr-2" />
+              <RefreshCw className="w-4 h-4 mr-2" />
               Liknande
             </Button>
           </div>
