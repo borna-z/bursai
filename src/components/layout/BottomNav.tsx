@@ -1,11 +1,11 @@
-import { Home, Shirt, Sparkles, BarChart3, Settings } from 'lucide-react';
+import { Home, Shirt, CalendarDays, BarChart3, Settings } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 const tabs = [
   { path: '/', label: 'Idag', icon: Home },
   { path: '/wardrobe', label: 'Garderob', icon: Shirt },
-  { path: '/outfits', label: 'Outfits', icon: Sparkles },
+  { path: '/plan', label: 'Plan', icon: CalendarDays },
   { path: '/insights', label: 'Insikter', icon: BarChart3 },
   { path: '/settings', label: 'Inställningar', icon: Settings },
 ];
