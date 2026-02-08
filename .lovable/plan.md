@@ -1,214 +1,148 @@
 
-# Plan: Visa väderprognos för planerade outfits
 
-## Översikt
-Implementera väderprognos för planerade outfits så användare kan se förväntat väder för det datum de har planerat sin outfit. Open-Meteo API stödjer prognoser upp till 16 dagar framåt.
+# Universell Kalendersynk – ICS/iCal Import
 
-## Flöde
+## Sammanfattning
+Implementerar en universell kalenderlösning via ICS-URL import som fungerar med **alla kalendertjänster** (Google Calendar, Outlook, Apple Calendar, m.fl.). Användare klistrar in sin ICS-länk och systemet synkar automatiskt i bakgrunden.
+
+---
+
+## Användarflöde
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│              Planerade outfits med väder                    │
+│  Inställningar → Kalender                                   │
 ├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  📅 Imorgon                                                 │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │  [Outfit-kort]                      ☀️ 14°C Klart  │   │
-│  │  Vardag · Avslappnad                                │   │
+│  │  📅 Kalendersynk                                     │   │
+│  │                                                      │   │
+│  │  Klistra in din ICS-länk för att synka              │   │
+│  │  kalenderhändelser automatiskt.                     │   │
+│  │                                                      │   │
+│  │  ┌────────────────────────────────────────────┐     │   │
+│  │  │ https://calendar.google.com/calendar/ical/...│     │   │
+│  │  └────────────────────────────────────────────┘     │   │
+│  │  [Synka kalender]                                   │   │
+│  │                                                      │   │
+│  │  ─────────────────────────────────────────────      │   │
+│  │  ℹ️ Så hittar du din ICS-länk:                      │   │
+│  │  • Google Calendar: Inställningar → Kalender →      │   │
+│  │    Hemlig adress i iCal-format                      │   │
+│  │  • Outlook: Inställningar → Delad kalender →        │   │
+│  │    Publicera kalender → ICS                         │   │
+│  │  • Apple: Dela → Offentlig kalender                 │   │
 │  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-│  📅 Fredag 7 februari                                       │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  [Outfit-kort]                      🌧️ 8°C Regn   │   │
-│  │  Jobb · Professionell     ⚠️ Ta med regnkläder!   │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-│  📅 Måndag 10 februari                                      │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  [Outfit-kort]              ❄️ -2°C Snö           │   │
-│  │  Dejt · Romantisk          ⚠️ Kallt! Klä dig varmt │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-│  📅 Tisdag 18 februari (>16 dagar)                          │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  [Outfit-kort]              📊 Prognos ej tillgänglig │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Implementation
+---
 
-### 1. Skapa useForecast hook
+## Plan-sidan med kalenderhändelser
 
-**Ny fil:** `src/hooks/useForecast.ts`
-
-Hook för att hämta flerdagarsprognos från Open-Meteo:
-
-```typescript
-interface ForecastDay {
-  date: string; // YYYY-MM-DD
-  temperature_max: number;
-  temperature_min: number;
-  weather_code: number;
-  condition: string;
-  precipitation_probability: number;
-}
-
-interface UseForecastResult {
-  forecast: ForecastDay[];
-  isLoading: boolean;
-  error: string | null;
-  getForecastForDate: (date: string) => ForecastDay | null;
-}
-```
-
-Funktionalitet:
-- Hämtar 16-dagars prognos från Open-Meteo med parametern `daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max`
-- Använder hemstad från profilen eller geolokalisering
-- Cachar prognos i 1 timme (uppdateras sällan)
-- Exponerar `getForecastForDate()` för att hämta väder för specifikt datum
-
-### 2. Skapa WeatherForecastBadge komponent
-
-**Ny fil:** `src/components/outfit/WeatherForecastBadge.tsx`
-
-En kompakt vädervisning för outfit-kort:
-
-```typescript
-interface WeatherForecastBadgeProps {
-  date: string; // YYYY-MM-DD
-  compact?: boolean;
-}
-```
-
-Visar:
-- Väderikon (sol, moln, regn, snö)
-- Temperatur (medel av max/min)
-- Kort beskrivning ("Klart", "Regn", etc.)
-- Varning vid extremt väder:
-  - Om regn > 50%: "Ta med paraply!"
-  - Om temp < 0: "Kallt! Klä dig varmt"
-  - Om temp > 30: "Varmt! Tänk på solen"
-- "Prognos ej tillgänglig" för datum > 16 dagar
-
-### 3. Uppdatera PlannedOutfitsList
-
-**Fil:** `src/pages/Outfits.tsx`
-
-Integrera väderprognos i listan med planerade outfits:
-
-- Importera `useForecast` och `WeatherForecastBadge`
-- För varje datumgrupp, visa vädret för det datumet i headern
-- I outfit-korten, visa kompakt väder-badge
-
-Ändringar i `PlannedOutfitsList`:
-```tsx
-function PlannedOutfitsList({ outfits, onDelete }) {
-  const { profile } = useProfile();
-  const { forecast, getForecastForDate, isLoading: forecastLoading } = useForecast({
-    homeCity: profile?.home_city
-  });
-  
-  // ...i grupperingen:
-  <div className="flex items-center justify-between gap-2">
-    <div className="flex items-center gap-2">
-      <Calendar className="w-4 h-4 text-primary" />
-      <h3 className="font-semibold text-sm capitalize">{group.label}</h3>
-    </div>
-    <WeatherForecastBadge date={group.date} compact />
-  </div>
-}
-```
-
-### 4. Uppdatera OutfitCard för planerade outfits
-
-**Fil:** `src/pages/Outfits.tsx` (OutfitCard)
-
-Lägg till väder-info för planerade outfits:
-- Visa temperatur och väderikon bredvid datumet
-- Visa varning om vädret inte matchar outfitens sparade väder
-
-### 5. Visa väderprognos i OutfitDetail vid planering
-
-**Fil:** `src/pages/OutfitDetail.tsx`
-
-I datumväljaren (Popover för planering):
-- Visa väderprognos för valt datum
-- Varning om vädret skiljer sig mycket från outfitens originalväder
-
-Exempel:
 ```text
-┌─────────────────────────────────────┐
-│ 📅 Välj datum                       │
-├─────────────────────────────────────┤
-│        Februari 2025                │
-│  M  T  O  T  F  L  S               │
-│  ...                                │
-│                                     │
-│ ☀️ Lördag 8 feb: 12°C, Klart       │
-│ ⚠️ Outfiten skapades för 5°C       │
-│                                     │
-│ [Planera för detta datum]           │
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  Idag                                         ☀️ 12°        │
+├─────────────────────────────────────────────────────────────┤
+│  📅 Möte med kund 09:00                                    │
+│  📅 Lunch med teamet 12:00                                 │
+│                                                             │
+│  [Outfit preview - 4 plagg]                                │
+│  🏢 jobb • smart casual                                    │
+│  "Perfekt för jobbet med harmoniska färger."               │
+│                                                             │
+│  [Byt]  [Detaljer]                                         │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Tekniska detaljer
+## Teknisk Implementation
 
-### Open-Meteo API för daglig prognos
-
-```typescript
-const url = `https://api.open-meteo.com/v1/forecast?` + new URLSearchParams({
-  latitude: lat.toString(),
-  longitude: lon.toString(),
-  daily: 'temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max',
-  timezone: 'auto',
-  forecast_days: '16'
-});
+### Steg 1: Databas – Uppdatera profiles
+Lägg till `ics_url`-fält för att spara användarens kalender-URL:
+```sql
+ALTER TABLE profiles ADD COLUMN ics_url text;
 ```
+
+### Steg 2: Edge Function – sync_calendar
+Ny edge function som:
+1. Hämtar ICS-data från användarens URL
+2. Parsar ICS-formatet (VEVENT-komponenter)
+3. Upserts till `calendar_events`-tabellen
+4. Returnerar antal synkade händelser
+
+```text
+POST /sync_calendar
+Authorization: Bearer <token>
 
 Response:
-```json
-{
-  "daily": {
-    "time": ["2025-02-03", "2025-02-04", ...],
-    "temperature_2m_max": [8.2, 6.5, ...],
-    "temperature_2m_min": [2.1, 0.8, ...],
-    "weather_code": [3, 61, ...],
-    "precipitation_probability_max": [10, 85, ...]
-  }
+{ "synced": 12, "upcoming": 5 }
+```
+
+### Steg 3: Hook – useCalendarSync
+```typescript
+// Hanterar synkning och visning
+export function useCalendarSync() {
+  // synkCalendar() - manuell synk
+  // useCalendarEvents(date) - hämta händelser för datum
+  // lastSynced - senaste synktid
 }
 ```
 
-### Cachning
-- Prognos cachas i minne med React Query (staleTime: 60 min)
-- Undviker överdrivna API-anrop
+### Steg 4: UI – Inställningar
+Ny sektion i Settings.tsx:
+- Input för ICS-URL
+- Synka-knapp med laddningsindikator
+- Hjälptext för hur man hittar sin ICS-länk
+- Visa senaste synktid
 
-### Felhantering
-- Om geocoding misslyckas → Stockholm som fallback
-- Om API misslyckas → Visa "Väder ej tillgängligt"
-- Om datum > 16 dagar → Visa "Prognos ej tillgänglig ännu"
+### Steg 5: DayCard – Visa händelser
+Uppdatera DayCard.tsx:
+- Visa dagens kalenderhändelser som chips/badges
+- Klickbara för att se mer info
+- Påverkar outfit-förslag (t.ex. "Möte" → jobb-occasion)
 
----
-
-## Filer som ändras
-
-| Fil | Ändring |
-|-----|---------|
-| `src/hooks/useForecast.ts` | Ny hook för väderprognos |
-| `src/components/outfit/WeatherForecastBadge.tsx` | Ny komponent för väderbadge |
-| `src/pages/Outfits.tsx` | Integrera väder i PlannedOutfitsList |
-| `src/pages/OutfitDetail.tsx` | Visa prognos vid datumval |
-| `src/hooks/useWeather.ts` | Extrahera geocoding-funktioner för återanvändning |
-
-### Ingen databasändring krävs
-All data hämtas från externa API:er baserat på `planned_for`-datumet som redan finns i outfits-tabellen.
+### Steg 6: Auto-förslag baserat på händelser
+Uppdatera outfit-generering:
+- Om händelse innehåller "möte", "presentation" → occasion: "jobb", formality: 4
+- Om händelse innehåller "fest", "middag" → occasion: "fest", formality: 5
+- Om händelse innehåller "dejt" → occasion: "dejt", formality: 4
+- Default: vardag
 
 ---
 
-## Begränsningar
-- Open-Meteo ger max 16 dagars prognos
-- Prognos blir mindre pålitlig ju längre fram i tiden
-- Kräver användarens hemstad eller geolokalisering
+## Filstruktur
+
+```text
+Nya filer:
+├── supabase/functions/sync_calendar/index.ts  (ICS-parsing + sync)
+├── src/hooks/useCalendarSync.ts               (React hooks)
+├── src/components/plan/CalendarEventBadge.tsx (Event visning)
+└── src/components/settings/CalendarSection.tsx (Inställningar)
+
+Uppdaterade filer:
+├── src/pages/Settings.tsx                     (Lägg till CalendarSection)
+├── src/components/plan/DayCard.tsx            (Visa händelser)
+└── src/hooks/useOutfitGenerator.ts            (Occasion från händelser)
+```
+
+---
+
+## Säkerhet
+- ICS-URL sparas krypterat i profiles (RLS skyddar)
+- Edge function validerar auth + ägandeskap
+- Endast events 7 dagar fram synkas (begränsar data)
+- Rate limiting på sync-endpoint
+
+---
+
+## Alternativa kalendertjänster
+ICS/iCal är en öppen standard som stöds av:
+- ✅ Google Calendar
+- ✅ Microsoft Outlook/Office 365
+- ✅ Apple Calendar
+- ✅ Fastmail
+- ✅ Proton Calendar
+- ✅ Nextcloud Calendar
+- ✅ De flesta andra kalenderappar
+
