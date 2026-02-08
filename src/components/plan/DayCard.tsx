@@ -1,13 +1,15 @@
 import { useNavigate } from 'react-router-dom';
 import { format, isToday, isTomorrow } from 'date-fns';
 import { sv } from 'date-fns/locale';
-import { Calendar, Repeat, Info, Check, Trash2, Plus, Sparkles, CloudRain, Briefcase, PartyPopper, Heart } from 'lucide-react';
+import { Calendar, Repeat, Info, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
+import { CalendarEventsList } from '@/components/plan/CalendarEventBadge';
+import { useCalendarEvents } from '@/hooks/useCalendarSync';
 import type { PlannedOutfit } from '@/hooks/usePlannedOutfits';
 
 interface DayCardProps {
@@ -42,6 +44,9 @@ export function DayCard({
   const outfit = plannedOutfit?.outfit;
   const hasOutfit = !!outfit;
   const isWorn = plannedOutfit?.status === 'worn';
+
+  // Fetch calendar events for this date
+  const { data: calendarEvents } = useCalendarEvents(dateStr);
 
   // Format date label
   let dateLabel = format(date, 'EEEE d MMMM', { locale: sv });
@@ -81,6 +86,11 @@ export function DayCard({
           </div>
           <WeatherForecastBadge date={dateStr} compact />
         </div>
+
+        {/* Calendar Events */}
+        {calendarEvents && calendarEvents.length > 0 && (
+          <CalendarEventsList events={calendarEvents} className="mb-3" />
+        )}
 
         {hasOutfit ? (
           <>

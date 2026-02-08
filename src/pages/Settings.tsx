@@ -48,6 +48,7 @@ import { PremiumSection } from '@/components/PremiumSection';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Chip } from '@/components/ui/chip';
+import { CalendarSection } from '@/components/settings/CalendarSection';
 
 const colors = [
   'svart', 'vit', 'grå', 'marinblå', 'blå', 'röd', 'grön', 'beige', 'brun', 'rosa', 'gul', 'orange', 'lila'
@@ -231,6 +232,9 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Calendar Sync */}
+        <CalendarSection />
 
         {/* Profile */}
         <Card>

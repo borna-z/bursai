@@ -382,8 +382,10 @@ export type Database = {
           created_at: string | null
           display_name: string | null
           home_city: string | null
+          ics_url: string | null
           id: string
           is_premium: boolean | null
+          last_calendar_sync: string | null
           preferences: Json | null
           stripe_customer_id: string | null
           updated_at: string | null
@@ -392,8 +394,10 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           home_city?: string | null
+          ics_url?: string | null
           id: string
           is_premium?: boolean | null
+          last_calendar_sync?: string | null
           preferences?: Json | null
           stripe_customer_id?: string | null
           updated_at?: string | null
@@ -402,8 +406,10 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           home_city?: string | null
+          ics_url?: string | null
           id?: string
           is_premium?: boolean | null
+          last_calendar_sync?: string | null
           preferences?: Json | null
           stripe_customer_id?: string | null
           updated_at?: string | null
