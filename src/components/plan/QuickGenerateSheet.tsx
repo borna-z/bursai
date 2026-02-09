@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
-import { Sparkles, Loader2, Thermometer } from 'lucide-react';
+import { Sparkles, Loader2, Thermometer, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +16,7 @@ import {
 import { useWeather } from '@/hooks/useWeather';
 import { useProfile } from '@/hooks/useProfile';
 import { useForecast } from '@/hooks/useForecast';
+import { useCalendarEvents, inferOccasionFromEvent } from '@/hooks/useCalendarSync';
 
 const OCCASIONS = [
   { id: 'vardag', label: 'Vardag' },
@@ -47,6 +48,25 @@ interface QuickGenerateSheetProps {
   isGenerating: boolean;
 }
 
+// Get suggested occasion from calendar events
+function getSuggestedOccasion(events: { title: string }[]): { occasion: string; source: string } | null {
+  // Find the most formal event (higher formality = takes priority)
+  let bestMatch: { occasion: string; formality: number; source: string } | null = null;
+  
+  for (const event of events) {
+    const inferred = inferOccasionFromEvent(event.title);
+    if (inferred && (!bestMatch || inferred.formality > bestMatch.formality)) {
+      bestMatch = {
+        occasion: inferred.occasion,
+        formality: inferred.formality,
+        source: event.title,
+      };
+    }
+  }
+  
+  return bestMatch ? { occasion: bestMatch.occasion, source: bestMatch.source } : null;
+}
+
 export function QuickGenerateSheet({
   open,
   onOpenChange,
@@ -58,12 +78,30 @@ export function QuickGenerateSheet({
   const { weather } = useWeather();
   const { getForecastForDate } = useForecast({ homeCity: profile?.home_city });
   
+  const dateStr = format(date, 'yyyy-MM-dd');
+  const { data: calendarEvents } = useCalendarEvents(dateStr);
+  
   const [occasion, setOccasion] = useState('vardag');
   const [styleVibe, setStyleVibe] = useState<string | null>(null);
   const [useAutoWeather, setUseAutoWeather] = useState(true);
   const [customTemp, setCustomTemp] = useState('');
+  const [calendarSuggestion, setCalendarSuggestion] = useState<{ occasion: string; source: string } | null>(null);
 
-  const dateStr = format(date, 'yyyy-MM-dd');
+  // Auto-suggest occasion based on calendar events
+  useEffect(() => {
+    if (calendarEvents && calendarEvents.length > 0) {
+      const suggestion = getSuggestedOccasion(calendarEvents);
+      if (suggestion) {
+        setCalendarSuggestion(suggestion);
+        setOccasion(suggestion.occasion);
+      } else {
+        setCalendarSuggestion(null);
+      }
+    } else {
+      setCalendarSuggestion(null);
+    }
+  }, [calendarEvents]);
+
   const forecast = getForecastForDate(dateStr);
   
   // Use forecast for future dates, current weather for today
@@ -93,6 +131,21 @@ export function QuickGenerateSheet({
         </SheetHeader>
 
         <div className="space-y-6 pb-6">
+          {/* Calendar suggestion banner */}
+          {calendarSuggestion && (
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
+              <CalendarDays className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium">
+                  Föreslagen outfit: {OCCASIONS.find(o => o.id === calendarSuggestion.occasion)?.label}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Baserat på "{calendarSuggestion.source}"
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Occasion */}
           <div className="space-y-3">
             <Label className="text-sm font-medium">Tillfälle</Label>
