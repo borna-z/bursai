@@ -144,6 +144,31 @@ export function useCalendarEvents(date: string) {
   });
 }
 
+// Hook to get calendar events for a date range (e.g. a week)
+export function useCalendarEventsRange(startDate: string, endDate: string) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['calendar-events-range', startDate, endDate, user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      const { data, error } = await supabase
+        .from('calendar_events')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: true });
+      
+      if (error) throw error;
+      return (data || []) as CalendarEvent[];
+    },
+    enabled: !!user && !!startDate && !!endDate,
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
 // Utility to infer occasion from event title
 export function inferOccasionFromEvent(title: string): { occasion: string; formality: number } | null {
   const lowerTitle = title.toLowerCase();
