@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
-import { Sparkles, Loader2, Thermometer, CalendarDays } from 'lucide-react';
+import { Sparkles, Loader2, Thermometer, CalendarDays, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/sheet';
 import { useWeather } from '@/hooks/useWeather';
 import { useProfile } from '@/hooks/useProfile';
-import { useForecast } from '@/hooks/useForecast';
+import { useForecast, getCoordinatesFromCity, fetchForecast, type ForecastDay } from '@/hooks/useForecast';
 import { useCalendarEvents, inferOccasionFromEvent } from '@/hooks/useCalendarSync';
 
 const OCCASIONS = [
@@ -87,6 +87,63 @@ export function QuickGenerateSheet({
   const [customTemp, setCustomTemp] = useState('');
   const [calendarSuggestion, setCalendarSuggestion] = useState<{ occasion: string; source: string } | null>(null);
 
+  // Travel location state
+  const [travelCity, setTravelCity] = useState('');
+  const [travelForecast, setTravelForecast] = useState<ForecastDay | null>(null);
+  const [isFetchingTravel, setIsFetchingTravel] = useState(false);
+  const [travelError, setTravelError] = useState<string | null>(null);
+
+  const isTravel = occasion === 'resa';
+
+  // Debounced travel weather lookup
+  const lookupTravelWeather = useCallback(async (city: string, targetDate: string) => {
+    if (!city || city.length < 2) {
+      setTravelForecast(null);
+      setTravelError(null);
+      return;
+    }
+    setIsFetchingTravel(true);
+    setTravelError(null);
+    try {
+      const coords = await getCoordinatesFromCity(city);
+      if (!coords) {
+        setTravelError('Kunde inte hitta platsen');
+        setTravelForecast(null);
+        return;
+      }
+      const days = await fetchForecast(coords.lat, coords.lon);
+      const match = days.find(d => d.date === targetDate) || null;
+      setTravelForecast(match);
+      if (!match) setTravelError('Ingen prognos tillgänglig för datumet');
+    } catch {
+      setTravelError('Kunde inte hämta väder');
+      setTravelForecast(null);
+    } finally {
+      setIsFetchingTravel(false);
+    }
+  }, []);
+
+  // Trigger travel weather lookup with debounce
+  useEffect(() => {
+    if (!isTravel || !travelCity) {
+      setTravelForecast(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      lookupTravelWeather(travelCity, dateStr);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [travelCity, dateStr, isTravel, lookupTravelWeather]);
+
+  // Reset travel state when switching away from resa
+  useEffect(() => {
+    if (!isTravel) {
+      setTravelCity('');
+      setTravelForecast(null);
+      setTravelError(null);
+    }
+  }, [isTravel]);
+
   // Auto-suggest occasion based on calendar events
   useEffect(() => {
     if (calendarEvents && calendarEvents.length > 0) {
@@ -104,9 +161,10 @@ export function QuickGenerateSheet({
 
   const forecast = getForecastForDate(dateStr);
   
-  // Use forecast for future dates, current weather for today
-  const autoTemp = forecast 
-    ? Math.round((forecast.temperature_max + forecast.temperature_min) / 2)
+  // Use travel forecast when traveling, otherwise home forecast
+  const activeForecast = isTravel && travelForecast ? travelForecast : forecast;
+  const autoTemp = activeForecast
+    ? Math.round((activeForecast.temperature_max + activeForecast.temperature_min) / 2)
     : weather?.temperature;
 
   const handleGenerate = () => {
@@ -161,6 +219,39 @@ export function QuickGenerateSheet({
               ))}
             </div>
           </div>
+
+          {/* Travel location (only when Resa is selected) */}
+          {isTravel && (
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Destination</Label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Ange stad, t.ex. Barcelona"
+                  value={travelCity}
+                  onChange={(e) => setTravelCity(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              {isFetchingTravel && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Hämtar väder…
+                </p>
+              )}
+              {travelError && (
+                <p className="text-xs text-destructive">{travelError}</p>
+              )}
+              {travelForecast && !isFetchingTravel && (
+                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50 text-sm">
+                  <Thermometer className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <span>
+                    {travelForecast.temperature_min}–{travelForecast.temperature_max}°C, {travelForecast.condition.toLowerCase()}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Style vibe */}
           <div className="space-y-3">
