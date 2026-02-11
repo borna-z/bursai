@@ -171,53 +171,32 @@ export function useCalendarEventsRange(startDate: string, endDate: string) {
 
 // Utility to infer occasion from event title
 export function inferOccasionFromEvent(title: string): { occasion: string; formality: number } | null {
-  const lowerTitle = title.toLowerCase();
-  
-  // Work/meeting keywords
-  if (
-    lowerTitle.includes('möte') ||
-    lowerTitle.includes('meeting') ||
-    lowerTitle.includes('presentation') ||
-    lowerTitle.includes('konferens') ||
-    lowerTitle.includes('intervju') ||
-    lowerTitle.includes('arbete') ||
-    lowerTitle.includes('jobb')
-  ) {
-    return { occasion: 'jobb', formality: 4 };
+  const t = title.toLowerCase();
+
+  const rules: { occasion: string; formality: number; keywords: string[] }[] = [
+    { occasion: 'fest', formality: 5, keywords: [
+      'fest', 'party', 'gala', 'bröllop', 'wedding', 'AW', 'afterwork', 'after work',
+      'middag', 'dinner', 'bankett', 'mingel', 'release', 'invigning',
+    ]},
+    { occasion: 'jobb', formality: 4, keywords: [
+      'möte', 'meeting', 'presentation', 'konferens', 'intervju', 'arbete', 'jobb',
+      'workshop', 'standup', 'stand-up', 'retrospektiv', 'sprint', 'demo',
+      'lunch', 'brunch', 'fika', 'kundmöte', 'boardmöte',
+    ]},
+    { occasion: 'dejt', formality: 4, keywords: [
+      'dejt', 'date', 'romantisk', 'anniversary', 'årsdag',
+    ]},
+    { occasion: 'traning', formality: 1, keywords: [
+      'träning', 'gym', 'yoga', 'löpning', 'sport', 'padel', 'tennis',
+      'fotboll', 'basket', 'simning', 'crossfit', 'spinning', 'promenad', 'vandring',
+    ]},
+  ];
+
+  for (const rule of rules) {
+    if (rule.keywords.some(kw => t.includes(kw.toLowerCase()))) {
+      return { occasion: rule.occasion, formality: rule.formality };
+    }
   }
-  
-  // Party/dinner keywords
-  if (
-    lowerTitle.includes('fest') ||
-    lowerTitle.includes('party') ||
-    lowerTitle.includes('middag') ||
-    lowerTitle.includes('dinner') ||
-    lowerTitle.includes('gala') ||
-    lowerTitle.includes('bröllop') ||
-    lowerTitle.includes('wedding')
-  ) {
-    return { occasion: 'fest', formality: 5 };
-  }
-  
-  // Date keywords
-  if (
-    lowerTitle.includes('dejt') ||
-    lowerTitle.includes('date') ||
-    lowerTitle.includes('romantisk')
-  ) {
-    return { occasion: 'dejt', formality: 4 };
-  }
-  
-  // Training/gym keywords
-  if (
-    lowerTitle.includes('träning') ||
-    lowerTitle.includes('gym') ||
-    lowerTitle.includes('yoga') ||
-    lowerTitle.includes('löpning') ||
-    lowerTitle.includes('sport')
-  ) {
-    return { occasion: 'traning', formality: 1 };
-  }
-  
+
   return null;
 }
