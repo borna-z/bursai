@@ -36,10 +36,10 @@ function getConditionFromCode(code: number): string {
 }
 
 // Get coordinates from city name using OpenStreetMap Nominatim
-async function getCoordinatesFromCity(city: string): Promise<{ lat: number; lon: number } | null> {
+export async function getCoordinatesFromCity(city: string): Promise<{ lat: number; lon: number } | null> {
   try {
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1&countrycodes=se`
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`
     );
     if (!response.ok) return null;
     const data = await response.json();
@@ -53,7 +53,7 @@ async function getCoordinatesFromCity(city: string): Promise<{ lat: number; lon:
 }
 
 // Fetch 16-day forecast from Open-Meteo
-async function fetchForecast(lat: number, lon: number): Promise<ForecastDay[]> {
+export async function fetchForecast(lat: number, lon: number): Promise<ForecastDay[]> {
   const response = await fetch(
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=16`
   );
