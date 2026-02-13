@@ -1,113 +1,114 @@
 
 
-# Universell Kalendersynk – ICS/iCal Import
+# OAuth Kalendersynk -- Google och Outlook
 
 ## Sammanfattning
-Implementerar en universell kalenderlösning via ICS-URL import som fungerar med **alla kalendertjänster** (Google Calendar, Outlook, Apple Calendar, m.fl.). Användare klistrar in sin ICS-länk och systemet synkar automatiskt i bakgrunden.
+Ersatter manuell ICS-lankinmatning med OAuth-baserade knappar: **"Koppla Google"** och **"Koppla Outlook"**. Anvandaren trycker pa en knapp, loggar in, och kalendern synkas automatiskt. Apple Calendar saknar webb-API och erbjuds som ICS-fallback.
 
 ---
 
-## Användarflöde
+## Anvandardflode
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│  Inställningar → Kalender                                   │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  📅 Kalendersynk                                     │   │
-│  │                                                      │   │
-│  │  Klistra in din ICS-länk för att synka              │   │
-│  │  kalenderhändelser automatiskt.                     │   │
-│  │                                                      │   │
-│  │  ┌────────────────────────────────────────────┐     │   │
-│  │  │ https://calendar.google.com/calendar/ical/...│     │   │
-│  │  └────────────────────────────────────────────┘     │   │
-│  │  [Synka kalender]                                   │   │
-│  │                                                      │   │
-│  │  ─────────────────────────────────────────────      │   │
-│  │  ℹ️ Så hittar du din ICS-länk:                      │   │
-│  │  • Google Calendar: Inställningar → Kalender →      │   │
-│  │    Hemlig adress i iCal-format                      │   │
-│  │  • Outlook: Inställningar → Delad kalender →        │   │
-│  │    Publicera kalender → ICS                         │   │
-│  │  • Apple: Dela → Offentlig kalender                 │   │
-│  └─────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-```
+Plan-sidan (CalendarConnectBanner)
+┌──────────────────────────────────────────┐
+│  Koppla din kalender                      │
+│                                           │
+│  [Google-ikon]  Koppla Google Calendar     │
+│  [Outlook-ikon] Koppla Outlook            │
+│  [Apple-ikon]   Koppla via ICS-lank       │
+│                                           │
+└──────────────────────────────────────────┘
 
----
-
-## Plan-sidan med kalenderhändelser
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  Idag                                         ☀️ 12°        │
-├─────────────────────────────────────────────────────────────┤
-│  📅 Möte med kund 09:00                                    │
-│  📅 Lunch med teamet 12:00                                 │
-│                                                             │
-│  [Outfit preview - 4 plagg]                                │
-│  🏢 jobb • smart casual                                    │
-│  "Perfekt för jobbet med harmoniska färger."               │
-│                                                             │
-│  [Byt]  [Detaljer]                                         │
-└─────────────────────────────────────────────────────────────┘
+Efter koppling:
+┌──────────────────────────────────────────┐
+│  Kalender kopplad (Google)  [Synkad]     │
+│  Senast synkad: 2 min sedan              │
+│  [Synka nu]  [Koppla bort]              │
+└──────────────────────────────────────────┘
 ```
 
 ---
 
 ## Teknisk Implementation
 
-### Steg 1: Databas – Uppdatera profiles
-Lägg till `ics_url`-fält för att spara användarens kalender-URL:
+### Steg 1: Databas -- Ny tabell for OAuth-tokens
+
+En ny tabell `calendar_connections` lagrar providerns OAuth-tokens (krypterade i databasen, skyddade av RLS).
+
 ```sql
-ALTER TABLE profiles ADD COLUMN ics_url text;
+CREATE TABLE calendar_connections (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  provider text NOT NULL,           -- 'google' | 'outlook'
+  access_token text NOT NULL,
+  refresh_token text,
+  token_expires_at timestamptz,
+  calendar_id text,                 -- optional: specific calendar
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(user_id, provider)
+);
+
+ALTER TABLE calendar_connections ENABLE ROW LEVEL SECURITY;
+-- RLS: users can only see/manage their own connections
 ```
 
-### Steg 2: Edge Function – sync_calendar
-Ny edge function som:
-1. Hämtar ICS-data från användarens URL
-2. Parsar ICS-formatet (VEVENT-komponenter)
-3. Upserts till `calendar_events`-tabellen
-4. Returnerar antal synkade händelser
+### Steg 2: API-nycklar som behovs
+
+Dessa secrets maste konfigureras:
+
+- **GOOGLE_CLIENT_ID** -- fran Google Cloud Console (Calendar API aktiverat)
+- **GOOGLE_CLIENT_SECRET** -- fran Google Cloud Console
+- **MICROSOFT_CLIENT_ID** -- fran Azure App Registrations
+- **MICROSOFT_CLIENT_SECRET** -- fran Azure App Registrations
+
+### Steg 3: Edge Functions (3 nya)
+
+**a) `calendar_oauth_start`** -- Genererar OAuth-redirect URL
+- Tar emot `provider` (google/outlook)
+- Bygger OAuth URL med ratt scopes:
+  - Google: `https://www.googleapis.com/auth/calendar.readonly`
+  - Outlook: `https://graph.microsoft.com/Calendars.Read`
+- Returnerar redirect URL till klienten
+- Inkluderar `state`-parameter med user_id for sakerhet
+
+**b) `calendar_oauth_callback`** -- Hanterar OAuth callback
+- Tar emot `code` och `state` fran OAuth-providern
+- Vaxlar auth code mot access/refresh tokens
+- Sparar tokens i `calendar_connections`
+- Triggar en omedelbar kalendersynk
+- Redirectar tillbaka till appen (`/plan?calendar=connected`)
+
+**c) `sync_calendar` uppdateras** -- Stodjer bade ICS och OAuth
+- Om anvandaren har en `calendar_connection`:
+  - Google: Hamtar events via Google Calendar API (`/calendars/primary/events`)
+  - Outlook: Hamtar events via Microsoft Graph (`/me/calendarview`)
+  - Refreshar access_token automatiskt om utgangen
+- Om anvandaren bara har `ics_url`: Behalter nuvarande ICS-logik
+- Allt sparas till `calendar_events` som vanligt
+
+### Steg 4: Uppdatera sync_all_calendars
+
+Den befintliga cron-funktionen utvidgas att aven synka OAuth-anslutna anvandare (inte bara ICS).
+
+### Steg 5: Frontend -- Ny CalendarConnectBanner
+
+Ersatter nuvarande ICS-input med tre knappar:
 
 ```text
-POST /sync_calendar
-Authorization: Bearer <token>
-
-Response:
-{ "synced": 12, "upcoming": 5 }
+CalendarConnectBanner.tsx:
+- Om ingen anslutning: Visa 3 provider-knappar
+- Google/Outlook: Oppnar popup/redirect for OAuth
+- Apple: Expanderar ICS-lankinput (nuvarande flow)
+- Om ansluten: Visa status + synka/koppla-bort-knappar
 ```
 
-### Steg 3: Hook – useCalendarSync
-```typescript
-// Hanterar synkning och visning
-export function useCalendarSync() {
-  // synkCalendar() - manuell synk
-  // useCalendarEvents(date) - hämta händelser för datum
-  // lastSynced - senaste synktid
-}
-```
+Nytt hook: `useCalendarConnections` -- hamtar anvandarens aktiva anslutningar fran `calendar_connections`.
 
-### Steg 4: UI – Inställningar
-Ny sektion i Settings.tsx:
-- Input för ICS-URL
-- Synka-knapp med laddningsindikator
-- Hjälptext för hur man hittar sin ICS-länk
-- Visa senaste synktid
+### Steg 6: Uppdatera CalendarSection (Installningar)
 
-### Steg 5: DayCard – Visa händelser
-Uppdatera DayCard.tsx:
-- Visa dagens kalenderhändelser som chips/badges
-- Klickbara för att se mer info
-- Påverkar outfit-förslag (t.ex. "Möte" → jobb-occasion)
-
-### Steg 6: Auto-förslag baserat på händelser
-Uppdatera outfit-generering:
-- Om händelse innehåller "möte", "presentation" → occasion: "jobb", formality: 4
-- Om händelse innehåller "fest", "middag" → occasion: "fest", formality: 5
-- Om händelse innehåller "dejt" → occasion: "dejt", formality: 4
-- Default: vardag
+Visa kopplad provider, synkstatus, och mojlighet att koppla bort.
 
 ---
 
@@ -115,34 +116,33 @@ Uppdatera outfit-generering:
 
 ```text
 Nya filer:
-├── supabase/functions/sync_calendar/index.ts  (ICS-parsing + sync)
-├── src/hooks/useCalendarSync.ts               (React hooks)
-├── src/components/plan/CalendarEventBadge.tsx (Event visning)
-└── src/components/settings/CalendarSection.tsx (Inställningar)
+├── supabase/functions/calendar_oauth_start/index.ts
+├── supabase/functions/calendar_oauth_callback/index.ts
+├── src/hooks/useCalendarConnections.ts
 
 Uppdaterade filer:
-├── src/pages/Settings.tsx                     (Lägg till CalendarSection)
-├── src/components/plan/DayCard.tsx            (Visa händelser)
-└── src/hooks/useOutfitGenerator.ts            (Occasion från händelser)
+├── supabase/functions/sync_calendar/index.ts       (+ OAuth-logik)
+├── supabase/functions/sync_all_calendars/index.ts  (+ OAuth-stod)
+├── src/components/plan/CalendarConnectBanner.tsx    (OAuth-knappar)
+├── src/components/settings/CalendarSection.tsx      (visa OAuth-status)
+├── src/hooks/useCalendarSync.ts                     (ny connection-query)
 ```
 
 ---
 
-## Säkerhet
-- ICS-URL sparas krypterat i profiles (RLS skyddar)
-- Edge function validerar auth + ägandeskap
-- Endast events 7 dagar fram synkas (begränsar data)
-- Rate limiting på sync-endpoint
+## Sakerhet
+
+- OAuth-tokens lagras i `calendar_connections` (RLS: user_id = auth.uid())
+- Refresh tokens anvands for att fornya access tokens utan anvandaren
+- `state`-parameter i OAuth forhindrar CSRF
+- Edge functions validerar auth pa varje request
+- Tokens raderas nar anvandare kopplar bort eller raderar konto
 
 ---
 
-## Alternativa kalendertjänster
-ICS/iCal är en öppen standard som stöds av:
-- ✅ Google Calendar
-- ✅ Microsoft Outlook/Office 365
-- ✅ Apple Calendar
-- ✅ Fastmail
-- ✅ Proton Calendar
-- ✅ Nextcloud Calendar
-- ✅ De flesta andra kalenderappar
+## Begransningar
+
+- **Apple Calendar** har inget webb-baserat calendar API. Erbjuds via ICS-lank som fallback.
+- **Google och Microsoft** kraver att du registrerar en OAuth-app och anger API-nycklar.
+- Anvandaren maste godkanna calendar-scopet vid inloggning.
 
