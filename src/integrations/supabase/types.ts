@@ -38,42 +38,6 @@ export type Database = {
         }
         Relationships: []
       }
-      calendar_connections: {
-        Row: {
-          access_token: string
-          calendar_id: string | null
-          created_at: string | null
-          id: string
-          provider: string
-          refresh_token: string | null
-          token_expires_at: string | null
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          access_token: string
-          calendar_id?: string | null
-          created_at?: string | null
-          id?: string
-          provider: string
-          refresh_token?: string | null
-          token_expires_at?: string | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          access_token?: string
-          calendar_id?: string | null
-          created_at?: string | null
-          id?: string
-          provider?: string
-          refresh_token?: string | null
-          token_expires_at?: string | null
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       calendar_events: {
         Row: {
           created_at: string | null
