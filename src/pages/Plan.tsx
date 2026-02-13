@@ -16,6 +16,7 @@ import { QuickGenerateSheet } from '@/components/plan/QuickGenerateSheet';
 import { SwapSheet } from '@/components/plan/SwapSheet';
 import { QuickPlanSheet } from '@/components/plan/QuickPlanSheet';
 import { PreselectDateSheet } from '@/components/plan/PreselectDateSheet';
+import { CalendarConnectBanner } from '@/components/plan/CalendarConnectBanner';
 import { 
   usePlannedOutfits, 
   useUpsertPlannedOutfit, 
@@ -292,6 +293,9 @@ export default function PlanPage() {
             <TabsTrigger value="outfits">Outfits</TabsTrigger>
           </TabsList>
         </Tabs>
+
+        {/* Calendar connect banner */}
+        <CalendarConnectBanner />
 
         {/* Week strip */}
         <WeekStrip 
