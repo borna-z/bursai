@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ["Inter", "system-ui", "sans-serif"],
+        heading: ["Sora", "Inter", "sans-serif"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -100,9 +104,14 @@ export default {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
         },
-        "press": {
-          "0%, 100%": { transform: "scale(1)" },
-          "50%": { transform: "scale(0.97)" },
+        "drape-in": {
+          "0%": { opacity: "0", transform: "translateY(12px) scale(0.97)" },
+          "60%": { opacity: "1", transform: "translateY(-2px) scale(1.005)" },
+          "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
+        "drape-out": {
+          "0%": { opacity: "1", transform: "translateY(0)" },
+          "100%": { opacity: "0", transform: "translateY(8px) scale(0.97)" },
         },
         "chip-select": {
           "0%": { transform: "scale(1)" },
@@ -120,7 +129,8 @@ export default {
         "slide-in-bottom": "slide-in-bottom 0.3s ease-out",
         "pulse-subtle": "pulse-subtle 2s ease-in-out infinite",
         "shimmer": "shimmer 2s linear infinite",
-        "press": "press 0.15s ease-out",
+        "drape-in": "drape-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "drape-out": "drape-out 0.25s ease-in",
         "chip-select": "chip-select 0.15s ease-out",
       },
     },
