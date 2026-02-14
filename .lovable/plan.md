@@ -1,148 +1,119 @@
 
 
-# Universell Kalendersynk – ICS/iCal Import
+# Drape Design System Overhaul
 
-## Sammanfattning
-Implementerar en universell kalenderlösning via ICS-URL import som fungerar med **alla kalendertjänster** (Google Calendar, Outlook, Apple Calendar, m.fl.). Användare klistrar in sin ICS-länk och systemet synkar automatiskt i bakgrunden.
-
----
-
-## Användarflöde
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  Inställningar → Kalender                                   │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  📅 Kalendersynk                                     │   │
-│  │                                                      │   │
-│  │  Klistra in din ICS-länk för att synka              │   │
-│  │  kalenderhändelser automatiskt.                     │   │
-│  │                                                      │   │
-│  │  ┌────────────────────────────────────────────┐     │   │
-│  │  │ https://calendar.google.com/calendar/ical/...│     │   │
-│  │  └────────────────────────────────────────────┘     │   │
-│  │  [Synka kalender]                                   │   │
-│  │                                                      │   │
-│  │  ─────────────────────────────────────────────      │   │
-│  │  ℹ️ Så hittar du din ICS-länk:                      │   │
-│  │  • Google Calendar: Inställningar → Kalender →      │   │
-│  │    Hemlig adress i iCal-format                      │   │
-│  │  • Outlook: Inställningar → Delad kalender →        │   │
-│  │    Publicera kalender → ICS                         │   │
-│  │  • Apple: Dela → Offentlig kalender                 │   │
-│  └─────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-```
+A comprehensive visual refresh to establish a premium Scandinavian minimalist identity for Drape.
 
 ---
 
-## Plan-sidan med kalenderhändelser
+## 1. Typography: Inter + Sora
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  Idag                                         ☀️ 12°        │
-├─────────────────────────────────────────────────────────────┤
-│  📅 Möte med kund 09:00                                    │
-│  📅 Lunch med teamet 12:00                                 │
-│                                                             │
-│  [Outfit preview - 4 plagg]                                │
-│  🏢 jobb • smart casual                                    │
-│  "Perfekt för jobbet med harmoniska färger."               │
-│                                                             │
-│  [Byt]  [Detaljer]                                         │
-└─────────────────────────────────────────────────────────────┘
+Load **Inter** (body) and **Sora** (headings) via Google Fonts in `index.html`. Configure Tailwind's `fontFamily` to use `Sora` for headings and `Inter` as the default sans-serif body font. Update the base layer heading styles in `index.css` to apply the heading font.
+
+## 2. Color Palette Overhaul
+
+Replace the current warm slate-blue/teal palette with the new Drape identity in `src/index.css`:
+
+**Light mode:**
+- Background: warm off-white (`#F8F7F4` approx `42 30% 97%`)
+- Cards: pure white with visible 1px border, minimal shadow
+- Primary (Petrol): `#0D5C63` -- used sparingly for active states, selected chips, primary buttons
+- Muted tones: warm grays for text hierarchy
+- Ring/focus: petrol accent
+
+**Dark mode:**
+- Background: deep warm charcoal
+- Cards: slightly lighter surface
+- Primary: lighter petrol for contrast
+
+Update `--primary`, `--accent`, `--border`, `--card`, `--background`, `--muted` tokens in both `:root` and `.dark`.
+
+## 3. Card Styling
+
+Update the `Card` component to use a crisp 1px border with near-zero shadow:
+
+```
+rounded-xl border border-border/80 bg-card text-card-foreground shadow-[0_1px_2px_0_rgb(0_0_0/0.03)]
 ```
 
----
+This gives the "floating paper" Scandinavian look without heavy drop shadows.
 
-## Teknisk Implementation
+## 4. Button Refinements
 
-### Steg 1: Databas – Uppdatera profiles
-Lägg till `ics_url`-fält för att spara användarens kalender-URL:
-```sql
-ALTER TABLE profiles ADD COLUMN ics_url text;
+Update `buttonVariants` in `button.tsx`:
+- Default: petrol background, white text, rounded-lg, `active:scale-[0.97]` built-in press
+- Outline: 1px border, transparent bg, petrol text on hover
+- Ensure minimum `h-11` on mobile for 44px touch targets on `default` and `lg` sizes
+
+## 5. Chip Refinements
+
+Update `chipVariants` in `chip.tsx`:
+- Selected state uses petrol accent instead of generic primary fill
+- Add `active:scale-[0.96]` micro-interaction
+- Minimum touch target: `min-h-[44px]` on `lg` size
+
+## 6. Signature "Drape" Transition
+
+Add a new spring-like keyframe animation in `tailwind.config.ts`:
+
 ```
-
-### Steg 2: Edge Function – sync_calendar
-Ny edge function som:
-1. Hämtar ICS-data från användarens URL
-2. Parsar ICS-formatet (VEVENT-komponenter)
-3. Upserts till `calendar_events`-tabellen
-4. Returnerar antal synkade händelser
-
-```text
-POST /sync_calendar
-Authorization: Bearer <token>
-
-Response:
-{ "synced": 12, "upcoming": 5 }
-```
-
-### Steg 3: Hook – useCalendarSync
-```typescript
-// Hanterar synkning och visning
-export function useCalendarSync() {
-  // synkCalendar() - manuell synk
-  // useCalendarEvents(date) - hämta händelser för datum
-  // lastSynced - senaste synktid
+"drape-in": {
+  "0%": { opacity: "0", transform: "translateY(12px) scale(0.97)" },
+  "60%": { opacity: "1", transform: "translateY(-2px) scale(1.005)" },
+  "100%": { opacity: "1", transform: "translateY(0) scale(1)" }
+},
+"drape-out": {
+  "0%": { opacity: "1", transform: "translateY(0)" },
+  "100%": { opacity: "0", transform: "translateY(8px) scale(0.97)" }
 }
 ```
 
-### Steg 4: UI – Inställningar
-Ny sektion i Settings.tsx:
-- Input för ICS-URL
-- Synka-knapp med laddningsindikator
-- Hjälptext för hur man hittar sin ICS-länk
-- Visa senaste synktid
+With animation utilities:
+- `animate-drape-in`: `drape-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)`
+- `animate-drape-out`: `drape-out 0.25s ease-in`
 
-### Steg 5: DayCard – Visa händelser
-Uppdatera DayCard.tsx:
-- Visa dagens kalenderhändelser som chips/badges
-- Klickbara för att se mer info
-- Påverkar outfit-förslag (t.ex. "Möte" → jobb-occasion)
+Apply `animate-drape-in` to `OutfitSlotCard` when swapping garments, and as the default card entrance on outfit detail/generate pages.
 
-### Steg 6: Auto-förslag baserat på händelser
-Uppdatera outfit-generering:
-- Om händelse innehåller "möte", "presentation" → occasion: "jobb", formality: 4
-- Om händelse innehåller "fest", "middag" → occasion: "fest", formality: 5
-- Om händelse innehåller "dejt" → occasion: "dejt", formality: 4
-- Default: vardag
+## 7. Skeleton Refinements
 
----
+Update `skeleton.tsx` to use the shimmer gradient instead of plain pulse:
 
-## Filstruktur
-
-```text
-Nya filer:
-├── supabase/functions/sync_calendar/index.ts  (ICS-parsing + sync)
-├── src/hooks/useCalendarSync.ts               (React hooks)
-├── src/components/plan/CalendarEventBadge.tsx (Event visning)
-└── src/components/settings/CalendarSection.tsx (Inställningar)
-
-Uppdaterade filer:
-├── src/pages/Settings.tsx                     (Lägg till CalendarSection)
-├── src/components/plan/DayCard.tsx            (Visa händelser)
-└── src/hooks/useOutfitGenerator.ts            (Occasion från händelser)
+```
+bg-muted skeleton-shimmer rounded-lg
 ```
 
+This gives a calmer, more polished loading state.
+
+## 8. Micro-interactions in index.css
+
+- Consolidate `active:scale-[0.97]` as a utility class `.press` for consistent press feedback
+- Add `.lift` hover utility: `transition-shadow hover:shadow-md` for cards that respond to touch/hover
+- Ensure toast styles remain calm (already using Sonner, no changes needed beyond color token updates)
+
+## 9. Bottom Nav Polish
+
+Update `BottomNav.tsx`:
+- Active indicator uses petrol accent pill
+- Slightly larger icon area for comfortable touch targets
+- Active state: filled icon variant via `strokeWidth` change (already in place, just color update)
+
+## 10. Page Simplification Principle
+
+No structural page changes in this pass -- this is a design token + component skin update. The "max 2 primary actions per screen" rule is already mostly followed. Document it as a guideline for future work.
+
 ---
 
-## Säkerhet
-- ICS-URL sparas krypterat i profiles (RLS skyddar)
-- Edge function validerar auth + ägandeskap
-- Endast events 7 dagar fram synkas (begränsar data)
-- Rate limiting på sync-endpoint
+## Files Modified
 
----
-
-## Alternativa kalendertjänster
-ICS/iCal är en öppen standard som stöds av:
-- ✅ Google Calendar
-- ✅ Microsoft Outlook/Office 365
-- ✅ Apple Calendar
-- ✅ Fastmail
-- ✅ Proton Calendar
-- ✅ Nextcloud Calendar
-- ✅ De flesta andra kalenderappar
+| File | Change |
+|------|--------|
+| `index.html` | Add Inter + Sora font imports |
+| `tailwind.config.ts` | Add `fontFamily`, drape keyframes/animations |
+| `src/index.css` | New color tokens (light + dark), heading font, utility classes |
+| `src/components/ui/card.tsx` | Crisp border, minimal shadow |
+| `src/components/ui/button.tsx` | Active press scale, touch target sizing |
+| `src/components/ui/chip.tsx` | Press micro-interaction, touch target |
+| `src/components/ui/skeleton.tsx` | Shimmer instead of pulse |
+| `src/components/layout/BottomNav.tsx` | Petrol accent active state |
+| `src/components/outfit/OutfitSlotCard.tsx` | Apply `animate-drape-in` |
 
