@@ -2,42 +2,41 @@
 @tailwind components;
 @tailwind utilities;
 
-/* AI Garderobsassistent - Premium Scandinavian Design System */
-/* 8pt Grid System | Clean Typography | Light/Dark Modes */
+/* Drape – Premium Scandinavian Design System */
+/* 8pt Grid | Inter + Sora | Petrol Accent */
 
 @layer base {
   :root {
-    /* Scandinavian-inspired color palette - warm neutrals with subtle accent */
-    --background: 40 20% 98%;
+    /* Warm off-white background */
+    --background: 42 30% 97%;
     --foreground: 220 15% 12%;
 
+    /* Pure white cards */
     --card: 0 0% 100%;
     --card-foreground: 220 15% 12%;
 
     --popover: 0 0% 100%;
     --popover-foreground: 220 15% 12%;
 
-    /* Warm slate-blue primary */
-    --primary: 220 60% 50%;
+    /* Petrol primary – used sparingly */
+    --primary: 184 78% 22%;
     --primary-foreground: 0 0% 100%;
 
-    /* Warm secondary */
-    --secondary: 40 15% 96%;
+    --secondary: 42 20% 96%;
     --secondary-foreground: 220 15% 12%;
 
-    --muted: 40 10% 94%;
-    --muted-foreground: 220 10% 45%;
+    --muted: 42 12% 93%;
+    --muted-foreground: 220 8% 46%;
 
-    /* Teal accent */
-    --accent: 172 60% 42%;
+    --accent: 184 78% 22%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 40 10% 90%;
-    --input: 40 10% 90%;
-    --ring: 220 60% 50%;
+    --border: 42 12% 88%;
+    --input: 42 12% 88%;
+    --ring: 184 78% 22%;
 
     --radius: 0.75rem;
 
@@ -50,17 +49,17 @@
     --premium-foreground: 220 15% 12%;
 
     /* Sidebar */
-    --sidebar-background: 40 20% 98%;
+    --sidebar-background: 42 30% 97%;
     --sidebar-foreground: 220 10% 30%;
-    --sidebar-primary: 220 60% 50%;
+    --sidebar-primary: 184 78% 22%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 40 15% 94%;
+    --sidebar-accent: 42 15% 94%;
     --sidebar-accent-foreground: 220 15% 12%;
-    --sidebar-border: 40 10% 88%;
-    --sidebar-ring: 220 60% 50%;
+    --sidebar-border: 42 12% 88%;
+    --sidebar-ring: 184 78% 22%;
 
     /* Chart colors */
-    --chart-1: 220 60% 50%;
+    --chart-1: 184 78% 22%;
     --chart-2: 172 60% 42%;
     --chart-3: 38 92% 50%;
     --chart-4: 0 72% 51%;
@@ -68,51 +67,51 @@
   }
 
   .dark {
-    --background: 220 15% 8%;
-    --foreground: 40 10% 94%;
+    --background: 220 16% 8%;
+    --foreground: 42 12% 93%;
 
-    --card: 220 15% 10%;
-    --card-foreground: 40 10% 94%;
+    --card: 220 14% 11%;
+    --card-foreground: 42 12% 93%;
 
-    --popover: 220 15% 10%;
-    --popover-foreground: 40 10% 94%;
+    --popover: 220 14% 11%;
+    --popover-foreground: 42 12% 93%;
 
-    --primary: 220 60% 60%;
-    --primary-foreground: 220 15% 8%;
+    --primary: 184 60% 40%;
+    --primary-foreground: 220 16% 8%;
 
     --secondary: 220 12% 16%;
-    --secondary-foreground: 40 10% 94%;
+    --secondary-foreground: 42 12% 93%;
 
     --muted: 220 12% 16%;
-    --muted-foreground: 40 10% 60%;
+    --muted-foreground: 42 10% 58%;
 
-    --accent: 172 60% 50%;
-    --accent-foreground: 220 15% 8%;
+    --accent: 184 60% 40%;
+    --accent-foreground: 220 16% 8%;
 
     --destructive: 0 62% 50%;
-    --destructive-foreground: 40 10% 94%;
+    --destructive-foreground: 42 12% 93%;
 
     --border: 220 12% 18%;
     --input: 220 12% 18%;
-    --ring: 220 60% 60%;
+    --ring: 184 60% 40%;
 
     --success: 152 60% 50%;
-    --success-foreground: 220 15% 8%;
+    --success-foreground: 220 16% 8%;
     --warning: 38 92% 55%;
-    --warning-foreground: 220 15% 8%;
+    --warning-foreground: 220 16% 8%;
     --premium: 38 90% 60%;
-    --premium-foreground: 220 15% 8%;
+    --premium-foreground: 220 16% 8%;
 
-    --sidebar-background: 220 15% 8%;
-    --sidebar-foreground: 40 10% 85%;
-    --sidebar-primary: 220 60% 60%;
-    --sidebar-primary-foreground: 220 15% 8%;
+    --sidebar-background: 220 16% 8%;
+    --sidebar-foreground: 42 10% 85%;
+    --sidebar-primary: 184 60% 40%;
+    --sidebar-primary-foreground: 220 16% 8%;
     --sidebar-accent: 220 12% 14%;
-    --sidebar-accent-foreground: 40 10% 94%;
+    --sidebar-accent-foreground: 42 12% 93%;
     --sidebar-border: 220 12% 16%;
-    --sidebar-ring: 220 60% 60%;
+    --sidebar-ring: 184 60% 40%;
 
-    --chart-1: 220 60% 60%;
+    --chart-1: 184 60% 40%;
     --chart-2: 172 60% 50%;
     --chart-3: 38 92% 55%;
     --chart-4: 0 62% 50%;
@@ -136,21 +135,25 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Typography Scale - 8pt grid aligned */
+  /* Typography – Sora headings, Inter body */
   h1 {
     @apply text-2xl font-bold tracking-tight leading-tight;
+    font-family: 'Sora', sans-serif;
   }
 
   h2 {
     @apply text-xl font-semibold tracking-tight leading-snug;
+    font-family: 'Sora', sans-serif;
   }
 
   h3 {
     @apply text-lg font-medium leading-normal;
+    font-family: 'Sora', sans-serif;
   }
 
   h4 {
     @apply text-base font-medium leading-normal;
+    font-family: 'Sora', sans-serif;
   }
 
   .caption {
@@ -163,30 +166,30 @@
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
-  
+
   .safe-top {
     padding-top: env(safe-area-inset-top, 0);
   }
-  
+
   /* Hide scrollbar but allow scrolling */
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
   }
-  
+
   .hide-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
 
   /* 8pt spacing helpers */
-  .space-8 { gap: 0.5rem; }   /* 8px */
-  .space-16 { gap: 1rem; }    /* 16px */
-  .space-24 { gap: 1.5rem; }  /* 24px */
-  .space-32 { gap: 2rem; }    /* 32px */
+  .space-8 { gap: 0.5rem; }
+  .space-16 { gap: 1rem; }
+  .space-24 { gap: 1.5rem; }
+  .space-32 { gap: 2rem; }
 
   /* Premium gradient */
   .gradient-premium {
-    @apply bg-gradient-to-br from-amber-400 to-orange-500;
+    background: linear-gradient(135deg, hsl(var(--premium)), hsl(38 85% 48%));
   }
 
   /* Glass effect */
@@ -194,7 +197,7 @@
     @apply bg-background/80 backdrop-blur-md;
   }
 
-  /* Skeleton shimmer animation */
+  /* Skeleton shimmer */
   .skeleton-shimmer {
     background: linear-gradient(
       90deg,
@@ -206,50 +209,26 @@
     animation: shimmer 1.5s infinite;
   }
 
-  @keyframes shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+  /* Press micro-interaction */
+  .press {
+    @apply transition-transform active:scale-[0.97];
   }
 
-  /* Button press animation utility */
-  .animate-press-active:active {
-    animation: press 0.15s ease-out;
+  /* Lift hover effect */
+  .lift {
+    @apply transition-shadow hover:shadow-md;
   }
 
- @keyframes press {
-     0%, 100% { transform: scale(1); }
-     50% { transform: scale(0.97); }
-   }
- 
-   /* Fade in animation for marketing site */
-   .animate-fade-in {
-     animation: fadeIn 0.6s ease-out forwards;
-     opacity: 0;
-   }
- 
-   @keyframes fadeIn {
-     from {
-       opacity: 0;
-       transform: translateY(12px);
-     }
-     to {
-       opacity: 1;
-       transform: translateY(0);
-     }
-   }
- 
-   .animation-delay-100 {
-     animation-delay: 100ms;
-   }
- 
-   .animation-delay-200 {
-     animation-delay: 200ms;
-   }
- 
-   .animation-delay-300 {
-     animation-delay: 300ms;
-   }
- }
+  /* Fade in animation for marketing site */
+  .animate-fade-in {
+    animation: fadeIn 0.6s ease-out forwards;
+    opacity: 0;
+  }
+
+  .animation-delay-100 { animation-delay: 100ms; }
+  .animation-delay-200 { animation-delay: 200ms; }
+  .animation-delay-300 { animation-delay: 300ms; }
+}
 
 /* Custom scrollbar for webkit browsers */
 @media (min-width: 768px) {
@@ -279,4 +258,14 @@
 /* Selection color */
 ::selection {
   @apply bg-primary/20 text-foreground;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }

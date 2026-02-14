@@ -58,7 +58,7 @@ export function OutfitSlotCard({
   }
 
   return (
-    <Card className="overflow-hidden group transition-all hover:shadow-md active:scale-[0.99]">
+    <Card className="overflow-hidden group animate-drape-in lift press">
       <CardContent className="p-0 flex">
         {/* Image with 4:5 ratio */}
         <div 

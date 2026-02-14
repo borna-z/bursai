@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { X } from 'lucide-react';
 
 const chipVariants = cva(
-  'inline-flex items-center gap-1.5 rounded-full text-sm font-medium transition-all cursor-pointer select-none',
+  'inline-flex items-center gap-1.5 rounded-full text-sm font-medium transition-all cursor-pointer select-none active:scale-[0.96]',
   {
     variants: {
       variant: {
@@ -16,7 +16,7 @@ const chipVariants = cva(
       size: {
         sm: 'px-2.5 py-1 text-xs',
         md: 'px-3 py-1.5 text-sm',
-        lg: 'px-4 py-2 text-sm',
+        lg: 'px-4 py-2 text-sm min-h-[44px]',
       },
     },
     defaultVariants: {
