@@ -249,7 +249,7 @@ export default function InsightsPage() {
     <AppLayout>
       <PageHeader title="Insikter" />
       
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-4 stagger-drape [&>*]:animate-drape-in [&>*]:opacity-0 [&>*]:[animation-fill-mode:both]">
         {/* Premium CTA for free users */}
         {!isPremium && (
           <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/20 animate-fade-in">

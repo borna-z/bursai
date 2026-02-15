@@ -550,8 +550,8 @@ export default function WardrobePage() {
             {displayGarments.map((garment, index) => (
               <div 
                 key={garment.id} 
-                className="animate-fade-in"
-                style={{ animationDelay: `${Math.min(index, 10) * 30}ms` }}
+                className="animate-drape-in"
+                style={{ animationDelay: `${Math.min(index, 12) * 40}ms`, animationFillMode: 'both' }}
               >
                 <GarmentCard 
                   garment={garment}
