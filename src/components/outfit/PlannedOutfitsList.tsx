@@ -48,7 +48,7 @@ function PlannedOutfitCard({ outfit, onDelete }: PlannedOutfitCardProps) {
 
   return (
     <Card
-      className="cursor-pointer hover:shadow-md transition-all overflow-hidden active:scale-[0.99] animate-fade-in"
+      className="cursor-pointer hover:shadow-md transition-all overflow-hidden active:scale-[0.99] animate-drape-in opacity-0 [animation-fill-mode:both]"
       onClick={() => navigate(`/outfits/${outfit.id}`)}
     >
       {/* Preview images row */}
@@ -207,7 +207,7 @@ export function PlannedOutfitsList({ outfits, onDelete }: PlannedOutfitsListProp
               {/* Weather in group header */}
               <WeatherForecastBadge date={group.date} compact />
             </div>
-            <div className="space-y-3 pl-6">
+            <div className="space-y-3 pl-6 stagger-drape">
               {group.outfits.map((outfit) => (
                 <PlannedOutfitCard 
                   key={outfit.id} 
