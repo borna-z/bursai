@@ -60,7 +60,7 @@ export function DayCard({
 
   return (
     <Card className={cn(
-      'transition-all animate-fade-in',
+      'transition-all animate-drape-in opacity-0 [animation-fill-mode:both]',
       isWorn && 'opacity-60',
       !hasOutfit && 'border-dashed'
     )}>

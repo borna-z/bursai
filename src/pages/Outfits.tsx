@@ -42,7 +42,7 @@ function OutfitCard({ outfit, onDelete, showPlannedDate }: {
 
   return (
     <Card
-      className="cursor-pointer hover:shadow-md transition-all overflow-hidden active:scale-[0.99] animate-fade-in"
+      className="cursor-pointer hover:shadow-md transition-all overflow-hidden active:scale-[0.99] animate-drape-in opacity-0 [animation-fill-mode:both]"
       onClick={() => navigate(`/outfits/${outfit.id}`)}
     >
       {/* Preview images row */}
@@ -210,7 +210,7 @@ export default function OutfitsPage() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="recent" className="space-y-3 mt-0">
+            <TabsContent value="recent" className="space-y-3 mt-0 stagger-drape">
               {recentOutfits.length > 0 ? (
                 recentOutfits.map((outfit) => (
                   <OutfitCard key={outfit.id} outfit={outfit} onDelete={handleDeleteOutfit} />
@@ -229,7 +229,7 @@ export default function OutfitsPage() {
               )}
             </TabsContent>
 
-            <TabsContent value="saved" className="space-y-3 mt-0">
+            <TabsContent value="saved" className="space-y-3 mt-0 stagger-drape">
               {savedOutfits.length > 0 ? (
                 savedOutfits.map((outfit) => (
                   <OutfitCard key={outfit.id} outfit={outfit} onDelete={handleDeleteOutfit} />
