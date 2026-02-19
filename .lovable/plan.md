@@ -1,108 +1,58 @@
 
-# Settings -- Apple-stil med 5 navigeringsknappar
 
-## Vad som andras
+# Apply accent color to all interactive elements across 4 pages
 
-Ta bort tabs helt. Huvudsidan `/settings` visar bara 5 rena knappar (som Apple Settings). Varje knapp oppnar en egen undersida med tillbaka-pil.
+## What changes
 
-## Ny layout
+Replace all `text-primary`, `bg-primary`, and related primary color classes on clickable/interactive elements with `text-accent` / `bg-accent` across the Stylist (AI Chat), Plan, Wardrobe, and Home (Today) pages. This ensures the user-selected accent color is consistently applied everywhere -- just like it was done in Settings.
 
-```text
-/settings (huvudsida)
-+----------------------------------+
-|          Installningar           |
-+----------------------------------+
-|                                  |
-|  +----------------------------+  |
-|  | Utseende               >  |  |
-|  +----------------------------+  |
-|                                  |
-|  +----------------------------+  |
-|  | Stil                   >  |  |
-|  +----------------------------+  |
-|                                  |
-|  +----------------------------+  |
-|  | Notiser & Kalender     >  |  |
-|  +----------------------------+  |
-|                                  |
-|  +----------------------------+  |
-|  | Profil & Konto         >  |  |
-|  +----------------------------+  |
-|                                  |
-|  +----------------------------+  |
-|  | Data & Integritet      >  |  |
-|  +----------------------------+  |
-|                                  |
-|  +----------------------------+  |
-|  | Logga ut                   |  |
-|  +----------------------------+  |
-|                                  |
-+----------------------------------+
-```
+## Pages and specific changes
 
-Varje knapp navigerar till en undersida:
+### 1. AI Chat (`src/pages/AIChat.tsx`)
+- **Send button** (line 246): `bg-primary` -> `bg-accent text-accent-foreground`
+- **AI avatar circle** (line 303): `bg-primary/10` -> `bg-accent/10`
+- **AI avatar Sparkles icon** (line 304): `text-primary` -> `text-accent`
+- **User message bubble** (line 307): `bg-primary text-primary-foreground` -> `bg-accent text-accent-foreground`
+- **Header icons** (BarChart3, Trash2): add `text-accent` where clickable
 
-- `/settings/appearance` -- Tema, accentfarg, sprak
-- `/settings/style` -- Kroppsmatt, farger, passform, stil
-- `/settings/notifications` -- Notiser, kalendersynk
-- `/settings/account` -- Premium, namn, e-post
-- `/settings/privacy` -- Exportera data, radera konto
+### 2. Plan (`src/pages/Plan.tsx`)
+- **CalendarDays icon** in header (line 207): `text-muted-foreground` -> `text-accent`
+- **Wand2 button** icon (line 227): add `text-accent`
+- **"Anvand" badge** (line 247-249): `bg-primary/10 text-primary` -> `bg-accent/10 text-accent`
+- **DaySummaryCard** Sparkles icon and accent colors: update `text-primary` -> `text-accent` and `border-primary/20 bg-primary/5` -> `border-accent/20 bg-accent/5` in `DaySummaryCard.tsx`
+- **Action buttons** ("Planera", "Skapa at mig"): use accent color
+- **"Markera som anvand"** text button: `hover:text-foreground` -> `hover:text-accent`
 
-## De 5 undersidorna
+### 3. Wardrobe (`src/pages/Wardrobe.tsx`)
+- **Loading spinner** (line 326): `text-primary` -> `text-accent`
+- **New garments banner** (line 231-234): `bg-primary/5 border-primary/20` -> `bg-accent/5 border-accent/20`, Sparkles `text-primary` -> `text-accent`
+- **New badge on grid** (line 87): `bg-primary text-primary-foreground` -> `bg-accent text-accent-foreground`
+- **FAB buttons** (line 348): primary FAB should use `bg-accent`
+- **Laundry icon active** (line 95): `text-primary` -> `text-accent`
+- **Selected card ring** (lines 59, 83): `ring-primary` -> `ring-accent`
 
-Varje undersida anvander `PageHeader` med `showBack` och listar sina installningar med `SettingsGroup` / `SettingsRow` -- ren iOS-stil.
+### 4. Home (`src/pages/Home.tsx`)
+- **Onboarding card** (line 123): `from-accent/10 to-accent/5 border-accent/20` -- already uses accent (good)
+- **ArrowRight icon** (line 129): `text-primary` -> `text-accent`
+- **Generate button** (line 307): already uses `bg-accent` (good)
+- **Wardrobe stats card** (line 145): already uses accent (good)
 
-### 1. Utseende
-- Tema (ljus/mork/auto)
-- Accentfarg
-- Sprak
+### 5. DaySummaryCard (`src/components/plan/DaySummaryCard.tsx`)
+- **Border and background** (line): `border-primary/20 bg-primary/5` -> `border-accent/20 bg-accent/5`
+- **Sparkles icon** and label: `text-primary` -> `text-accent`
+- **CTA link**: `text-primary` -> `text-accent`
 
-### 2. Stil
-- Kroppsmatt (langd, vikt, spara-knapp)
-- Favoritfarger (chips)
-- Ogillade farger (chips)
-- Passform, standardstil, konsneutralt
+### 6. Button component consideration
+- The default button variant uses `bg-primary`. Primary action buttons like "Planera" and "Skapa at mig" on the Plan page should explicitly use `bg-accent text-accent-foreground` classes.
 
-### 3. Notiser & Kalender
-- Morgonpaminnelse (switch)
-- CalendarSection
+## Files to modify
 
-### 4. Profil & Konto
-- PremiumSection
-- Visningsnamn
-- E-post
+| File | Changes |
+|------|---------|
+| `src/pages/AIChat.tsx` | Swap primary -> accent on send button, avatar, user bubbles, header icons |
+| `src/pages/Plan.tsx` | Swap primary -> accent on header icon, badges, action buttons, text links |
+| `src/pages/Wardrobe.tsx` | Swap primary -> accent on spinner, banners, FABs, badges, rings |
+| `src/pages/Home.tsx` | ArrowRight icon color |
+| `src/components/plan/DaySummaryCard.tsx` | Border, bg, icon, CTA colors |
 
-### 5. Data & Integritet
-- Exportera data
-- Radera konto
-
-## Tekniska steg
-
-### 1. Skapa 5 nya sidkomponenter
-- `src/pages/settings/SettingsAppearance.tsx`
-- `src/pages/settings/SettingsStyle.tsx`
-- `src/pages/settings/SettingsNotifications.tsx`
-- `src/pages/settings/SettingsAccount.tsx`
-- `src/pages/settings/SettingsPrivacy.tsx`
-
-Varje sida flyttar relevant logik fran nuvarande `Settings.tsx`.
-
-### 2. Forenkla `src/pages/Settings.tsx`
-- Ta bort alla tabs, all logik
-- Visa bara `PageHeader` + 5 `SettingsRow`-knappar med `ChevronRight` och `onClick={() => navigate('/settings/xxx')}`
-- Plus en "Logga ut"-knapp langst ner
-
-### 3. Lagg till routes i `src/App.tsx`
-- 5 nya `<Route>` under `/settings/*`
-
-### Filer som andras / skapas
-
-| Fil | Andring |
-|-----|---------|
-| `src/pages/Settings.tsx` | Total forenkling -- bara 5 knappar |
-| `src/pages/settings/SettingsAppearance.tsx` | Ny -- tema, farg, sprak |
-| `src/pages/settings/SettingsStyle.tsx` | Ny -- kropp, farger, passform |
-| `src/pages/settings/SettingsNotifications.tsx` | Ny -- notiser, kalender |
-| `src/pages/settings/SettingsAccount.tsx` | Ny -- premium, profil |
-| `src/pages/settings/SettingsPrivacy.tsx` | Ny -- export, radera |
-| `src/App.tsx` | 5 nya routes |
+No new files needed. No backend changes.
