@@ -47,7 +47,7 @@ serve(async (req) => {
 
     // Fetch user profile + garment summary for context
     const [profileRes, garmentsRes] = await Promise.all([
-      supabase.from("profiles").select("display_name, preferences, home_city").eq("id", user.id).single(),
+      supabase.from("profiles").select("display_name, preferences, home_city, height_cm, weight_kg").eq("id", user.id).single(),
       supabase.from("garments").select("category, color_primary, formality, season_tags").eq("user_id", user.id).limit(50),
     ]);
 
@@ -72,27 +72,68 @@ serve(async (req) => {
       .map(k => `${k.replace("ai_learned_", "")}: ${preferences[k]}`)
       .join(", ");
 
-    const systemPrompt = `Du är en personlig stylingassistent som heter "Stylisten" i appen Garderobsassist. Du kommunicerar på svenska med en varm, professionell och personlig ton.
+    // Body measurements context
+    const heightCm = profile?.height_cm;
+    const weightKg = profile?.weight_kg;
+
+    // Build body proportions guidance when we have at least height
+    let bodyContext = "";
+    if (heightCm) {
+      const bmi = weightKg ? (weightKg / ((heightCm / 100) ** 2)).toFixed(1) : null;
+
+      let silhouetteHints = "";
+      if (heightCm < 165) {
+        silhouetteHints = "Korta snitt, högmjörtade byxor och monokromt skapar längd. Undvik oversize och horisontella mönster.";
+      } else if (heightCm >= 165 && heightCm <= 180) {
+        silhouetteHints = "Mellanlång proportioner – de flesta snitt fungerar. Balanserade proportioner är nyckeln.";
+      } else {
+        silhouetteHints = "Lång silhuett – kan bära lagerläggning och horisontella detaljer bra. Längre jackor och wide-leg byxor fungerar utmärkt.";
+      }
+
+      bodyContext = `\nAnvändarens kroppsmått:
+- Längd: ${heightCm} cm
+${weightKg ? `- Vikt: ${weightKg} kg` : ""}
+${bmi ? `- BMI: ${bmi}` : ""}
+Passformtips baserat på längd: ${silhouetteHints}`;
+    }
+
+    // Style preferences from profile
+    const favColors = preferences?.favoriteColors as string[] | undefined;
+    const dislikedColors = preferences?.dislikedColors as string[] | undefined;
+    const fitPref = preferences?.fitPreference as string | undefined;
+    const styleVibe = preferences?.styleVibe as string | undefined;
+
+    const stylePrefsContext = [
+      favColors?.length ? `Favoritfärger: ${favColors.join(", ")}` : "",
+      dislikedColors?.length ? `Ogillar färger: ${dislikedColors.join(", ")}` : "",
+      fitPref ? `Passformpreferens: ${fitPref}` : "",
+      styleVibe ? `Stilkänsla: ${styleVibe}` : "",
+    ].filter(Boolean).join("\n");
+
+    const systemPrompt = `Du är DRAPE Stylisten – en personlig AI-stylingassistent i appen DRAPE. Du kommunicerar på svenska med en varm, professionell och personlig ton.
 
 Ditt uppdrag:
-- Lär känna användaren för att ge bättre outfit-rekommendationer
-- Ställ frågor om ålder, yrke, livsstil, stilpreferenser, tillfällen de klär sig för (jobb, fest, träning, daglig)
-- Basera råd på deras faktiska garderob
+- Ge personliga stil- och outfitråd baserade på användarens garderob, mått och preferenser
+- Ställ frågor om ålder, yrke, livsstil och tillfällen (jobb, fest, träning, vardag) om du inte vet
+- Anpassa råd kring passform och proportioner utifrån användarens längd och vikt när det finns
 - Var konkret, kortfattad och inspirerande
 
 ${profile?.display_name ? `Användarens namn: ${profile.display_name}` : ""}
 ${profile?.home_city ? `Stad: ${profile.home_city}` : ""}
+${bodyContext}
+${stylePrefsContext ? `\nStilpreferenser:\n${stylePrefsContext}` : ""}
 ${garmentSummary}
-${learnedContext ? `Tidigare känd info om användaren: ${learnedContext}` : ""}
+${learnedContext ? `Tidigare känd info: ${learnedContext}` : ""}
 
 Viktiga regler:
 - Skriv alltid på svenska
 - Håll svaren kortfattade (max 3-4 meningar)
 - Ställ BARA ÉN fråga i taget om du vill veta mer
+- Använd kroppsmåtten aktivt när du ger råd om snitt, passform och proportioner
 - Ge konkreta förslag baserat på garderoben när möjligt
 - Undvik tekniskt språk
 
-Om användaren svarar med personlig info (ålder, yrke, stilpreferenser etc.), integrera det i dina svar.`;
+Om användaren inte har angett mått, kan du bjuda in dem att göra det i Inställningar för mer personliga råd.`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
