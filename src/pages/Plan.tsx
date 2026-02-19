@@ -18,12 +18,10 @@ import { SwapSheet } from '@/components/plan/SwapSheet';
 import { QuickPlanSheet } from '@/components/plan/QuickPlanSheet';
 import { PreselectDateSheet } from '@/components/plan/PreselectDateSheet';
 import { CalendarConnectBanner } from '@/components/plan/CalendarConnectBanner';
-import { CalendarEventsList } from '@/components/plan/CalendarEventBadge';
-import { SmartDayBanner } from '@/components/plan/SmartDayBanner';
+import { DaySummaryCard } from '@/components/plan/DaySummaryCard';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
-import { useCalendarEvents } from '@/hooks/useCalendarSync';
-import { useSmartDayRecommendation } from '@/hooks/useSmartDayRecommendation';
+import { useDaySummary } from '@/hooks/useDaySummary';
 import { 
   usePlannedOutfits, 
   useUpsertPlannedOutfit, 
@@ -71,8 +69,7 @@ export default function PlanPage() {
   
   // Selected day data
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
-  const { data: calendarEvents } = useCalendarEvents(selectedDateStr);
-  const { slots: smartSlots } = useSmartDayRecommendation(calendarEvents);
+  const { data: daySummary, isLoading: isSummaryLoading } = useDaySummary(selectedDateStr);
   
   // Mutation hooks
   const upsertPlanned = useUpsertPlannedOutfit();
@@ -254,10 +251,14 @@ export default function PlanPage() {
           )}
         </div>
 
-        {/* Calendar Events for selected day */}
-        {calendarEvents && calendarEvents.length > 0 && (
-          <CalendarEventsList events={calendarEvents} />
-        )}
+        {/* AI Day Summary */}
+        <DaySummaryCard
+          summary={daySummary}
+          isLoading={isSummaryLoading}
+          onGenerateFromHint={(occasion) => {
+            setQuickGenerateSheetOpen(true);
+          }}
+        />
 
         {/* Loading state */}
         {isLoading ? (
@@ -355,12 +356,7 @@ export default function PlanPage() {
         ) : (
           /* ── Empty day ── */
           <div className="space-y-4 animate-drape-in">
-            {smartSlots.length > 0 && (
-              <SmartDayBanner
-                slots={smartSlots}
-                onGenerate={() => setQuickGenerateSheetOpen(true)}
-              />
-            )}
+            {/* Day summary already shown above */}
 
             <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
               <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center">
