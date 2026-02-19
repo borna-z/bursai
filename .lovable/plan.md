@@ -1,99 +1,21 @@
 
 
-# Shopping Mode -- Shoppingsassistent i Stylist AI
+# Fix Stylist AI header layout and Insights back navigation
 
-## Oversikt
+## Problem 1: Insights page has no back button
+The Insights page (`/insights`) uses `PageHeader` without `showBack`, so users get stuck with no way to navigate back.
 
-En ny "Shopping Mode" laggs till i Stylist AI-sidan. Langst upp visas en segmenterad kontroll (Stylist / Shopping) som byter mellan det vanliga stylist-chattet och ett nytt shopping-optimerat chat-lage. Shopping Mode anvander en separat edge function med en anpassad AI-prompt som ar specialiserad pa shopping-beslut.
+**Fix**: Add `showBack` to the `PageHeader` in `src/pages/Insights.tsx` (lines 124, 133, 143).
 
-## Anvandningsflode
+## Problem 2: Stylist AI header placement
+The `PageHeader` + mode switcher take up too much vertical space and the layout feels off. The mode switcher floats separately below the header with extra padding.
 
-```text
-+----------------------------------+
-|     DRAPE Stylisten              |
-+----------------------------------+
-| [  Stylist  ] [ Shopping ]       |
-+----------------------------------+
-|                                  |
-|  (Shopping Mode aktiv)           |
-|                                  |
-|  AI: Hej! Jag ar din shopping-  |
-|  assistent. Ta en bild pa det    |
-|  plagget du overagar att kopa    |
-|  sa hjalper jag dig!             |
-|                                  |
-|  [Bild pa jacka i butik]         |
-|  "Overagar att kopa denna"       |
-|                                  |
-|  AI: Fin jacka! Den matchar      |
-|  perfekt med din marinbla        |
-|  Oxford-skjorta [[garment:xx]]   |
-|  och dina beige chinos           |
-|  [[garment:yy]]. Du saknar en    |
-|  brun skinnrem -- kop en till!   |
-|  Betyg: 8/10 -- Kop den!        |
-|                                  |
-+----------------------------------+
-|  [Foto] [Skriv...]    [Skicka]  |
-+----------------------------------+
-```
+**Fix**: Integrate the mode switcher directly into the `PageHeader` as part of the `actions` area (right side), or move it into the header area itself so it feels like one cohesive bar instead of two separate blocks. This saves vertical space and looks cleaner.
 
-## Vad Shopping Mode gor
+## Technical changes
 
-1. **Analysera plagg i butik** -- Anvandaren tar en bild pa klader i butiken, AI identifierar vad det ar
-2. **Matcha med garderob hemma** -- AI jamfor med befintliga plagg och visar vad som matchar (med GarmentInlineCard)
-3. **Foreslà kompletterande kop** -- AI foreslar vad man mer kan kopa for att maximera plaggets anvandbarhet
-4. **Hjalpa besluta** -- Om anvandaren jämför tva plagg, ge ett tydligt rad med betyg/motivering
-5. **Budget-medvetenhet** -- AI fragar om budget och ger rad baserat pa det
-
-## Tekniska detaljer
-
-### 1. Ny Edge Function: `shopping_chat`
-
-Fil: `supabase/functions/shopping_chat/index.ts`
-
-- Kopierar strukturen fran `style_chat` (auth, garderobs-kontext, vader)
-- Har en helt ny system-prompt optimerad for shopping:
-  - "Du ar DRAPE Shopping-assistenten"
-  - Fokus pa: "Ska jag kopa detta?", matchning med befintlig garderob, kompletterande kop
-  - Ger betyg (1-10) pa varje potentiellt kop
-  - Foreslàr konkreta matchningar fran garderoben med [[garment:ID]]-taggar
-  - Varnar om plagget overlapper med nàgot som redan finns hemma
-- Anvander samma Lovable AI gateway och garderobs-/vader-kontext
-
-### 2. Uppdatera `src/pages/AIChat.tsx`
-
-- Lagg till state: `mode: 'stylist' | 'shopping'`
-- Segmenterad kontroll langst upp under PageHeader (tvà knappar med accent-farg pa aktiv)
-- Varje mode har sin egen meddelandehistorik (`messages` vs `shoppingMessages`)
-- Varje mode har sitt eget valkomstmeddelande
-- Send-funktionen valjer ratt URL baserat pa mode:
-  - Stylist: `/functions/v1/style_chat`
-  - Shopping: `/functions/v1/shopping_chat`
-- Separat persistering: anvander `mode`-kolumn i `chat_messages` (eller separat tabell)
-- Kameran oppnas direkt i shopping mode for snabb bild-tagning
-
-### 3. Databas-andringar
-
-Lagg till `mode`-kolumn i `chat_messages`-tabellen:
-- `mode TEXT DEFAULT 'stylist'` -- skiljer vilken modes meddelanden tillhor
-- Ladda/spara meddelanden filtrerat pa mode
-
-### 4. Oversattningar
-
-Lagg till i `src/i18n/translations.ts`:
-- `chat.mode_stylist`: "Stylist" / "Stylist"
-- `chat.mode_shopping`: "Shopping" / "Shopping"
-- `chat.shopping_welcome`: Valkomstmeddelande for shopping mode
-- `chat.shopping_placeholder`: "Beskriv plagget du overagar..."
-
-### Filer som skapas / andras
-
-| Fil | Andring |
-|-----|---------|
-| `supabase/functions/shopping_chat/index.ts` | Ny -- shopping-optimerad AI-chat |
-| `src/pages/AIChat.tsx` | Mode-vaxlare, dubbla meddelandelistor, ratt URL per mode |
-| `src/i18n/translations.ts` | Shopping mode-strängar (sv + en + ovriga) |
-| Databasmigration | Lagg till `mode`-kolumn i `chat_messages` |
-| `supabase/config.toml` | Lagg till `shopping_chat` function config |
+| File | Change |
+|------|--------|
+| `src/pages/Insights.tsx` | Add `showBack` to all 3 `PageHeader` usages (lines 124, 133, 143) |
+| `src/pages/AIChat.tsx` | Move the mode switcher into the PageHeader row (embed it as a child or in the actions area), remove the separate `div` block below the header |
 
