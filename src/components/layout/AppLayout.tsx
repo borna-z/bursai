@@ -8,7 +8,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-[100dvh] overflow-hidden bg-background">
       <main className={hideNav ? '' : 'pb-20 max-w-lg mx-auto'}>
         {children}
       </main>

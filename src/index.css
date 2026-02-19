@@ -143,6 +143,12 @@
 
   html {
     @apply scroll-smooth;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  html::-webkit-scrollbar {
+    display: none;
   }
 
   body {
