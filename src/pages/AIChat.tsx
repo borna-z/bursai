@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Send, Loader2, BarChart3, Trash2, ImagePlus } from 'lucide-react';
 import { DrapeLogo } from '@/components/ui/DrapeLogo';
 import { Link } from 'react-router-dom';
@@ -11,6 +11,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
+import { GarmentInlineCard } from '@/components/chat/GarmentInlineCard';
 
 type MultimodalPart =
   | { type: 'text'; text: string }
@@ -85,6 +87,15 @@ export default function AIChat() {
       setIsLoading(false);
     }).catch(() => setIsLoading(false));
   }, [user]);
+
+  // Fetch garment data for inline cards
+  const garmentIds = useMemo(() => extractGarmentIds(messages), [messages]);
+  const { data: garmentsList } = useGarmentsByIds(garmentIds);
+  const garmentMap = useMemo(() => {
+    const map = new Map<string, import('@/hooks/useGarmentsByIds').GarmentBasic>();
+    garmentsList?.forEach(g => map.set(g.id, g));
+    return map;
+  }, [garmentsList]);
 
   const scrollToBottom = useCallback(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, []);
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
@@ -215,7 +226,7 @@ export default function AIChat() {
             <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
           ) : (
             messages.map((msg, idx) => (
-              <MessageBubble key={idx} message={msg} isStreaming={isStreaming && idx === messages.length - 1 && msg.role === 'assistant' && getTextContent(msg.content) === ''} />
+              <MessageBubble key={idx} message={msg} isStreaming={isStreaming && idx === messages.length - 1 && msg.role === 'assistant' && getTextContent(msg.content) === ''} garmentMap={garmentMap} />
             ))
           )}
           <div ref={messagesEndRef} />
@@ -244,10 +255,48 @@ export default function AIChat() {
   );
 }
 
-function MessageBubble({ message, isStreaming }: { message: Message; isStreaming: boolean }) {
+const GARMENT_TAG_RE = /\[\[garment:([a-f0-9-]+)\]\]/gi;
+
+function extractGarmentIds(messages: Message[]): string[] {
+  const ids = new Set<string>();
+  for (const m of messages) {
+    const text = getTextContent(m.content);
+    let match: RegExpExecArray | null;
+    GARMENT_TAG_RE.lastIndex = 0;
+    while ((match = GARMENT_TAG_RE.exec(text)) !== null) {
+      ids.add(match[1]);
+    }
+  }
+  return Array.from(ids);
+}
+
+function MessageBubble({ message, isStreaming, garmentMap }: { message: Message; isStreaming: boolean; garmentMap: Map<string, import('@/hooks/useGarmentsByIds').GarmentBasic> }) {
   const isUser = message.role === 'user';
   const text = getTextContent(message.content);
   const images = getImageUrls(message.content);
+
+  // Split text by garment tags
+  const renderContent = useMemo(() => {
+    if (!text) return null;
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    const re = /\[\[garment:([a-f0-9-]+)\]\]/gi;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(<span key={`t-${lastIndex}`} className="whitespace-pre-wrap leading-relaxed">{text.slice(lastIndex, match.index)}</span>);
+      }
+      const garment = garmentMap.get(match[1]);
+      if (garment) {
+        parts.push(<GarmentInlineCard key={`g-${match[1]}-${match.index}`} garment={garment} />);
+      }
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < text.length) {
+      parts.push(<span key={`t-${lastIndex}`} className="whitespace-pre-wrap leading-relaxed">{text.slice(lastIndex)}</span>);
+    }
+    return parts;
+  }, [text, garmentMap]);
 
   return (
     <div className={cn('flex items-end gap-2', isUser ? 'flex-row-reverse' : 'flex-row')}>
@@ -269,7 +318,7 @@ function MessageBubble({ message, isStreaming }: { message: Message; isStreaming
             <span className="w-1.5 h-1.5 bg-current rounded-full animate-bounce [animation-delay:300ms]" />
           </span>
         ) : (
-          text && <p className="whitespace-pre-wrap leading-relaxed">{text}</p>
+          renderContent
         )}
       </div>
     </div>

@@ -54,7 +54,7 @@ async function getCalendarContext(supabase: ReturnType<typeof createClient>, use
 async function getWardrobeContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
   const { data: garments } = await supabase
     .from("garments")
-    .select("title, category, color_primary, formality, season_tags, image_path")
+    .select("id, title, category, color_primary, formality, season_tags, image_path")
     .eq("user_id", userId)
     .limit(50);
   if (!garments?.length) return "Användaren har inga plagg i garderoben ännu.";
@@ -68,9 +68,9 @@ async function getWardrobeContext(supabase: ReturnType<typeof createClient>, use
 
   // Pick up to 15 specific garments for the AI to reference by name
   const details = garments.slice(0, 15).map((g: {
-    title: string; category: string; color_primary: string; formality: number | null; season_tags: string[] | null
+    id: string; title: string; category: string; color_primary: string; formality: number | null; season_tags: string[] | null
   }) =>
-    `• ${g.title} (${g.category}, ${g.color_primary}${g.formality ? `, formalitet ${g.formality}` : ""}${g.season_tags?.length ? `, ${g.season_tags.join("/")}` : ""})`
+    `• ${g.title} [ID:${g.id}] (${g.category}, ${g.color_primary}${g.formality ? `, formalitet ${g.formality}` : ""}${g.season_tags?.length ? `, ${g.season_tags.join("/")}` : ""})`
   ).join("\n");
 
   return `Garderob (${garments.length} plagg: ${summary}):\n${details}`;
@@ -168,7 +168,14 @@ Regler:
 - Max 4-5 meningar per svar
 - Ställ max EN fråga i taget
 - Ge konkreta förslag med plaggens namn från garderoben
-- Undvik tekniskt språk`;
+- Undvik tekniskt språk
+
+VIKTIGT – Bildvisning av plagg:
+- Varje plagg i garderoben har ett unikt ID markerat med [ID:xxx].
+- När du rekommenderar ett specifikt plagg, MÅSTE du inkludera taggen [[garment:ID]] direkt efter plaggnamnet.
+- Exempel: "Jag föreslår din marinblå Oxford-skjorta [[garment:abc-123]] med beige chinos [[garment:def-456]]."
+- Användaren ser då en bild på plagget direkt i chatten.
+- Använd ALLTID dessa taggar när du nämner plagg från garderoben.`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
