@@ -121,7 +121,7 @@ export default function InsightsPage() {
   if (isLoading || subLoading) {
     return (
       <AppLayout>
-        <PageHeader title={t('insights.title')} />
+        <PageHeader title={t('insights.title')} showBack />
         <div className="flex items-center justify-center py-24"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
       </AppLayout>
     );
@@ -130,7 +130,7 @@ export default function InsightsPage() {
   if (!insights || insights.totalGarments === 0) {
     return (
       <AppLayout>
-        <PageHeader title={t('insights.title')} />
+        <PageHeader title={t('insights.title')} showBack />
         <EmptyState icon={BarChart3} title={t('insights.no_insights')} description={t('insights.add_garments')} action={{ label: t('wardrobe.add'), onClick: () => navigate('/wardrobe/add'), icon: Shirt }} />
       </AppLayout>
     );
@@ -140,7 +140,7 @@ export default function InsightsPage() {
 
   return (
     <AppLayout>
-      <PageHeader title={t('insights.title')} />
+      <PageHeader title={t('insights.title')} showBack />
       <div className="p-4 space-y-4 stagger-drape [&>*]:animate-drape-in [&>*]:opacity-0 [&>*]:[animation-fill-mode:both]">
         {!isPremium && (
           <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/20 animate-fade-in">
