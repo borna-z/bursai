@@ -47,13 +47,13 @@ export function DaySummaryCard({
 
   return (
     <div className={cn(
-      'rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3',
+      'rounded-xl border border-accent/20 bg-accent/5 p-4 space-y-3',
       className
     )}>
       {/* Header */}
       <div className="flex items-center gap-2">
-        <Sparkles className="w-4 h-4 text-primary" />
-        <span className="text-xs font-semibold text-primary">Din dag</span>
+        <Sparkles className="w-4 h-4 text-accent" />
+        <span className="text-xs font-semibold text-accent">Din dag</span>
       </div>
 
       {/* Summary text */}
@@ -93,7 +93,7 @@ export function DaySummaryCard({
       {!compact && onGenerateFromHint && summary.outfit_hints.length > 0 && (
         <button
           onClick={() => onGenerateFromHint(summary.outfit_hints[0].occasion)}
-          className="flex items-center gap-1 text-xs text-primary font-medium hover:underline active:opacity-70 transition-opacity pt-1"
+          className="flex items-center gap-1 text-xs text-accent font-medium hover:underline active:opacity-70 transition-opacity pt-1"
         >
           Planera utifrån detta
           <ChevronRight className="w-3.5 h-3.5" />

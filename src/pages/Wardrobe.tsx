@@ -56,7 +56,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, isNew, onSe
 
   if (!isGridView) {
     return (
-      <Card className={cn('cursor-pointer hover:shadow-md transition-all overflow-hidden active:scale-[0.99]', garment.in_laundry && 'opacity-60', isSelected && 'ring-2 ring-primary')} onClick={handleClick}>
+      <Card className={cn('cursor-pointer hover:shadow-md transition-all overflow-hidden active:scale-[0.99]', garment.in_laundry && 'opacity-60', isSelected && 'ring-2 ring-accent')} onClick={handleClick}>
         <div className="flex items-center gap-3 p-3">
           {isSelecting && <Checkbox checked={isSelected} className="shrink-0" />}
           <LazyImageSimple imagePath={garment.image_path} alt={garment.title} className="w-16 h-16 rounded-lg shrink-0" fallbackIcon={<Shirt className="w-6 h-6 text-muted-foreground/30" />} />
@@ -80,11 +80,11 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, isNew, onSe
   }
 
   return (
-    <Card className={cn('cursor-pointer hover:shadow-md transition-all overflow-hidden group active:scale-[0.98]', garment.in_laundry && 'opacity-60', isSelected && 'ring-2 ring-primary')} onClick={handleClick}>
+    <Card className={cn('cursor-pointer hover:shadow-md transition-all overflow-hidden group active:scale-[0.98]', garment.in_laundry && 'opacity-60', isSelected && 'ring-2 ring-accent')} onClick={handleClick}>
       <div className="aspect-square bg-muted relative">
         <LazyImageSimple imagePath={garment.image_path} alt={garment.title} className="w-full h-full" fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/50" />} />
         {isNew && !isSelecting && (
-          <Badge variant="secondary" className="absolute top-2 left-2 text-[10px] px-1.5 py-0 h-5 bg-primary text-primary-foreground">
+          <Badge variant="secondary" className="absolute top-2 left-2 text-[10px] px-1.5 py-0 h-5 bg-accent text-accent-foreground">
             <Sparkles className="w-2.5 h-2.5 mr-0.5" />{t('wardrobe.new_badge')}
           </Badge>
         )}
@@ -92,7 +92,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, isNew, onSe
         {!isSelecting && (
           <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button size="icon" variant="secondary" className="w-7 h-7 bg-background/80 hover:bg-background active:animate-press" onClick={(e) => { e.stopPropagation(); onLaundry(); }}>
-              <WashingMachine className={cn('w-3.5 h-3.5', garment.in_laundry && 'text-primary')} />
+              <WashingMachine className={cn('w-3.5 h-3.5', garment.in_laundry && 'text-accent')} />
             </Button>
           </div>
         )}
@@ -228,10 +228,10 @@ export default function WardrobePage() {
         )}
 
         {newGarments.length > 0 && !showQuickEdit && (
-          <Card className="bg-primary/5 border-primary/20 animate-fade-in">
+          <Card className="bg-accent/5 border-accent/20 animate-fade-in">
             <CardContent className="p-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-primary" />
+                <Sparkles className="w-5 h-5 text-accent" />
                 <span className="text-sm font-medium">{newGarments.length} {t('wardrobe.new_garments')}</span>
               </div>
               <Button size="sm" variant="outline" onClick={() => setShowQuickEdit(true)} className="active:animate-press">
@@ -323,7 +323,7 @@ export default function WardrobePage() {
         )}
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+          <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-accent" /></div>
         ) : displayGarments.length > 0 ? (
           <div className={cn(isGridView ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2')}>
             {displayGarments.map((garment, index) => (
@@ -345,7 +345,7 @@ export default function WardrobePage() {
           <Button size="lg" variant="outline" className="h-14 w-14 rounded-full shadow-lg active:animate-press bg-card border-border" onClick={() => navigate('/wardrobe/scan')} aria-label="Live Scan">
             <ScanLine className="w-6 h-6" />
           </Button>
-          <Button size="lg" className={cn("h-14 w-14 rounded-full shadow-lg active:animate-press", isOverLimit && "opacity-50")} onClick={handleAddGarment}>
+          <Button size="lg" className={cn("h-14 w-14 rounded-full shadow-lg active:animate-press bg-accent text-accent-foreground hover:bg-accent/90", isOverLimit && "opacity-50")} onClick={handleAddGarment}>
             <Plus className="w-6 h-6" />
           </Button>
         </div>

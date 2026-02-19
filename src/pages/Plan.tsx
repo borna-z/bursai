@@ -204,7 +204,7 @@ export default function PlanPage() {
             <PopoverTrigger asChild>
               <button className="flex items-center gap-2 hover:opacity-70 transition-opacity">
                 <h1 className="text-lg font-semibold capitalize">{dateLabel}</h1>
-                <CalendarDays className="w-4 h-4 text-muted-foreground" />
+                <CalendarDays className="w-4 h-4 text-accent" />
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -224,7 +224,7 @@ export default function PlanPage() {
             disabled={!hasGarments}
             className="active:animate-press"
           >
-            <Wand2 className="w-4 h-4" />
+            <Wand2 className="w-4 h-4 text-accent" />
           </Button>
         </div>
       </header>
@@ -244,7 +244,7 @@ export default function PlanPage() {
         <div className="flex items-center justify-between">
           <WeatherForecastBadge date={selectedDateStr} compact={false} />
           {isWorn && (
-            <Badge variant="secondary" className="text-xs bg-primary/10 text-primary">
+            <Badge variant="secondary" className="text-xs bg-accent/10 text-accent">
               <Check className="w-3 h-3 mr-1" />
               Använd
             </Badge>
@@ -338,7 +338,7 @@ export default function PlanPage() {
               {!isWorn && (
                 <button 
                   onClick={handleMarkWorn}
-                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"
+                  className="text-xs text-muted-foreground hover:text-accent flex items-center gap-1.5 transition-colors"
                 >
                   <Check className="w-3.5 h-3.5" />
                   Markera som använd
@@ -368,7 +368,7 @@ export default function PlanPage() {
                   size="sm"
                   onClick={() => setPlanningSheetOpen(true)}
                   disabled={isGenerating || upsertPlanned.isPending}
-                  className="active:animate-press"
+                  className="active:animate-press bg-accent text-accent-foreground hover:bg-accent/90"
                 >
                   <Plus className="w-4 h-4 mr-1.5" />
                   Planera
