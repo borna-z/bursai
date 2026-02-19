@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { translations, type Locale, SUPPORTED_LOCALES } from '@/i18n/translations';
+
+const RTL_LOCALES = new Set<Locale>(['ar', 'fa']);
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 
 interface LanguageContextType {
@@ -35,6 +37,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('drape-locale', savedLocale);
     }
   }, [profile?.preferences]);
+
+  // Set dir and lang on <html> whenever locale changes
+  useEffect(() => {
+    document.documentElement.dir = RTL_LOCALES.has(locale) ? 'rtl' : 'ltr';
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   const setLocale = useCallback(async (newLocale: Locale) => {
     setLocaleState(newLocale);
