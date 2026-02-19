@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Sun, Snowflake, Droplets, MapPin, RefreshCw, Loader2, Wind, Thermometer, ChevronRight } from 'lucide-react';
+import { Sparkles, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useGarmentCount } from '@/hooks/useGarments';
 import { useOnboarding } from '@/hooks/useOnboarding';
@@ -13,6 +11,7 @@ import { PaywallModal } from '@/components/PaywallModal';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { SettingsGroup } from '@/components/settings/SettingsGroup';
+import { WeatherWidget } from '@/components/weather/WeatherWidget';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function HomePage() {
@@ -21,7 +20,7 @@ export default function HomePage() {
   const { data: garmentCount } = useGarmentCount();
   const { needsOnboarding } = useOnboarding();
   const { canCreateOutfit } = useSubscription();
-  const { weather, isLoading: weatherLoading, error: weatherError, refetch: refetchWeather } = useWeather();
+  const { weather } = useWeather();
   
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
@@ -30,7 +29,6 @@ export default function HomePage() {
   const [wind, setWind] = useState('low');
   const [showPaywall, setShowPaywall] = useState(false);
   const [useAutoWeather, setUseAutoWeather] = useState(true);
-  const [showWeatherEdit, setShowWeatherEdit] = useState(false);
 
   const occasions = [
     { id: 'vardag', label: t('home.occasion.vardag') },
@@ -82,8 +80,6 @@ export default function HomePage() {
     });
   };
 
-  const precipitationIcon = precipitation === 'snow' ? Snowflake : precipitation === 'rain' ? Droplets : Sun;
-  const PrecipIcon = precipitationIcon;
 
   return (
     <AppLayout>
@@ -107,83 +103,17 @@ export default function HomePage() {
           </button>
         )}
 
-        {/* Weather card — compact single row */}
-        <SettingsGroup>
-          <button
-            className="w-full flex items-center justify-between px-4 py-3 active:bg-muted/60 transition-colors"
-            onClick={() => setShowWeatherEdit(!showWeatherEdit)}
-          >
-            <div className="flex items-center gap-3">
-              <span className="flex-shrink-0 text-accent">
-                {weatherLoading ? (
-                  <Loader2 className="w-[18px] h-[18px] animate-spin" />
-                ) : (
-                  <PrecipIcon className="w-[18px] h-[18px]" />
-                )}
-              </span>
-              <div className="text-left">
-                <span className="text-sm font-medium">
-                  {weather ? `${weather.temperature}°C · ${weather.condition}` : t('home.weather_title')}
-                </span>
-                {weather && (
-                  <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                    <MapPin className="w-3 h-3" />
-                    {weather.location}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {weather && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); refetchWeather(); }}
-                  className="p-1 rounded-full hover:bg-muted/60"
-                >
-                  <RefreshCw className={cn("w-3.5 h-3.5 text-muted-foreground", weatherLoading && "animate-spin")} />
-                </button>
-              )}
-              <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform", showWeatherEdit && "rotate-90")} />
-            </div>
-          </button>
-
-          {/* Expandable weather edit */}
-          {showWeatherEdit && (
-            <div className="px-4 pb-4 pt-1 space-y-3 border-t border-border/50">
-              <div className="flex items-center gap-3">
-                <Thermometer className="w-4 h-4 text-muted-foreground" />
-                <Input
-                  type="number"
-                  placeholder="20"
-                  value={temperature}
-                  onChange={(e) => { setTemperature(e.target.value); setUseAutoWeather(false); }}
-                  className="w-20 h-9"
-                />
-                <span className="text-sm text-muted-foreground">°C</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Wind className="w-4 h-4 text-muted-foreground mr-1" />
-                {[
-                  { id: 'none', label: t('home.weather.none'), Icon: Sun },
-                  { id: 'rain', label: t('home.weather.rain'), Icon: Droplets },
-                  { id: 'snow', label: t('home.weather.snow'), Icon: Snowflake },
-                ].map((opt) => (
-                  <Badge
-                    key={opt.id}
-                    variant={precipitation === opt.id ? 'default' : 'outline'}
-                    className={cn(
-                      "cursor-pointer transition-all",
-                      precipitation === opt.id && "bg-accent text-accent-foreground"
-                    )}
-                    onClick={() => { setPrecipitation(opt.id); setUseAutoWeather(false); }}
-                  >
-                    <opt.Icon className="w-3 h-3 mr-1" />
-                    {opt.label}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-        </SettingsGroup>
+        {/* Weather widget */}
+        <WeatherWidget
+          temperature={temperature}
+          precipitation={precipitation}
+          wind={wind}
+          useAutoWeather={useAutoWeather}
+          onTemperatureChange={setTemperature}
+          onPrecipitationChange={setPrecipitation}
+          onWindChange={setWind}
+          onDisableAuto={() => setUseAutoWeather(false)}
+        />
 
         {/* Occasion */}
         <div className="space-y-2.5">
