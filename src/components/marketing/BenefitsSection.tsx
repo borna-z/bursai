@@ -1,14 +1,16 @@
- import { Zap, Sparkles, Calendar, Lightbulb, Wand2 } from 'lucide-react';
- import { MARKETING_CONFIG } from '@/config/marketing';
- import { cn } from '@/lib/utils';
- 
- const iconMap = {
-   zap: Zap,
-   sparkles: Sparkles,
-   calendar: Calendar,
-   lightbulb: Lightbulb,
-   wand: Wand2,
- };
+import { Zap, Sparkles, Calendar, Lightbulb, Wand2, Bot, Ruler } from 'lucide-react';
+import { MARKETING_CONFIG } from '@/config/marketing';
+import { cn } from '@/lib/utils';
+
+const iconMap = {
+  zap: Zap,
+  sparkles: Sparkles,
+  calendar: Calendar,
+  lightbulb: Lightbulb,
+  wand: Wand2,
+  bot: Bot,
+  ruler: Ruler,
+};
  
  export function BenefitsSection() {
    const { benefits } = MARKETING_CONFIG;
