@@ -21,6 +21,7 @@ import { LanguageStep } from '@/components/onboarding/LanguageStep';
 import { AccentColorStep } from '@/components/onboarding/AccentColorStep';
 import { BodyMeasurementsStep } from '@/components/onboarding/BodyMeasurementsStep';
 import { StylePreferencesStep, type StylePreferences } from '@/components/onboarding/StylePreferencesStep';
+import { AppTutorialStep } from '@/components/onboarding/AppTutorialStep';
 import { toast } from 'sonner';
 
 export default function OnboardingPage() {
@@ -47,6 +48,7 @@ export default function OnboardingPage() {
   const [isSavingBody, setIsSavingBody] = useState(false);
   const [styleStepDone, setStyleStepDone] = useState(false);
   const [isSavingStyle, setIsSavingStyle] = useState(false);
+  const [tutorialDone, setTutorialDone] = useState(false);
 
   const handleSaveBodyMeasurements = async (data: { height_cm: number | null; weight_kg: number | null }) => {
     setIsSavingBody(true);
@@ -178,6 +180,10 @@ export default function OnboardingPage() {
         isSaving={isSavingStyle}
       />
     );
+  }
+  // Step 2: App tutorial
+  if (!tutorialDone) {
+    return <AppTutorialStep onComplete={() => setTutorialDone(true)} />;
   }
 
   return (
