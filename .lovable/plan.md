@@ -1,5 +1,4 @@
 
-
 # Rebrand: DRAPE to BURS
 
 ## Overview
@@ -40,15 +39,16 @@ Files that import or reference `DrapeLogo`:
 - `src/config/marketing.ts` -- replace all "DRAPE" references with "BURS" (title, footer copyright, terms content, etc.)
 
 ### 8. Update translations (i18n)
-- `src/i18n/translations.ts` -- replace "DRAPE AB" with "BURS AB", "privacy@drape.se" with "privacy@burs.se" in GDPR sections across all locales
+- `src/i18n/translations.ts` -- replace "DRAPE AB" with "BURS AB", "privacy@drape.se" with "privacy@burs.se", "DRAPE Stylisten" with "BURS Stylisten", all tutorial references, and chat welcome messages across all locales (sv, en, no, da, fi, de, fr, es, it, pt, nl, pl, ar, fa)
 
 ### 9. Update privacy settings page
 - `src/pages/settings/SettingsPrivacy.tsx` -- change `drape-export-` filename to `burs-export-`, update `mailto:privacy@drape.se` to `privacy@burs.se`
 
-### 10. Update structured data
+### 10. Update structured data & marketing pages
 - `src/pages/marketing/MarketingHome.tsx` -- change JSON-LD `name` from "DRAPE" to "BURS"
 - `src/pages/marketing/Admin.tsx` -- update Helmet title
 - `src/pages/marketing/Terms.tsx` -- update Helmet title/meta
+- `src/pages/marketing/PrivacyPolicy.tsx` -- update Helmet title/meta
 
 ### 11. CSS and animation names (keep as-is)
 The animation names `drape-in`, `drape-out`, `stagger-drape` in `tailwind.config.ts` and `src/index.css` are internal CSS identifiers. Renaming them is optional and carries risk of missing references. They will be kept as-is since they are not user-facing.
@@ -64,9 +64,9 @@ The animation names `drape-in`, `drape-out`, `stagger-drape` in `tailwind.config
 | `public/manifest.json` | Name and short_name |
 | `index.html` | All meta tags |
 | `src/config/marketing.ts` | All "DRAPE" references |
-| `src/i18n/translations.ts` | GDPR section references |
+| `src/i18n/translations.ts` | All DRAPE references across all locales |
 | `src/pages/settings/SettingsPrivacy.tsx` | Export filename, email |
 | `src/pages/marketing/MarketingHome.tsx` | JSON-LD name |
 | `src/pages/marketing/Admin.tsx` | Helmet title |
 | `src/pages/marketing/Terms.tsx` | Helmet title/meta |
-
+| `src/pages/marketing/PrivacyPolicy.tsx` | Helmet title/meta |
