@@ -317,7 +317,7 @@ export default function PlanPage() {
                 variant="outline" 
                 size="sm" 
                 onClick={() => { setCurrentOutfitId(outfit.id); setSwapSheetOpen(true); }}
-                className="flex-1 active:animate-press"
+                className="flex-1 rounded-xl active:animate-press"
               >
                 <Repeat className="w-4 h-4 mr-1.5" />
                 Byt
@@ -326,7 +326,7 @@ export default function PlanPage() {
                 variant="outline" 
                 size="sm" 
                 onClick={() => navigate(`/outfits/${outfit.id}`)}
-                className="flex-1 active:animate-press"
+                className="flex-1 rounded-xl active:animate-press"
               >
                 <Info className="w-4 h-4 mr-1.5" />
                 Detaljer
@@ -368,7 +368,7 @@ export default function PlanPage() {
                   size="sm"
                   onClick={() => setPlanningSheetOpen(true)}
                   disabled={isGenerating || upsertPlanned.isPending}
-                  className="active:animate-press bg-accent text-accent-foreground hover:bg-accent/90"
+                  className="rounded-xl active:animate-press bg-accent text-accent-foreground hover:bg-accent/90"
                 >
                   <Plus className="w-4 h-4 mr-1.5" />
                   Planera
@@ -378,7 +378,7 @@ export default function PlanPage() {
                   size="sm"
                   onClick={() => setQuickGenerateSheetOpen(true)}
                   disabled={isGenerating || upsertPlanned.isPending}
-                  className="active:animate-press"
+                  className="rounded-xl active:animate-press"
                 >
                   <Sparkles className="w-4 h-4 mr-1.5" />
                   Skapa åt mig
