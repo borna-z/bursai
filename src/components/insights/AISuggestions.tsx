@@ -142,11 +142,11 @@ function SuggestionCard({ suggestion, onTryIt, onPlan, isCreating }: SuggestionC
       </div>
       
       {/* Garment thumbnails - horizontal row */}
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+      <div className="flex gap-2 flex-wrap">
         {suggestion.garments.slice(0, 5).map((garment) => (
           <div 
             key={garment.id} 
-            className="flex-shrink-0 group relative"
+            className="group relative"
           >
             <LazyImageSimple
               imagePath={garment.image_path}
@@ -160,7 +160,7 @@ function SuggestionCard({ suggestion, onTryIt, onPlan, isCreating }: SuggestionC
           </div>
         ))}
         {suggestion.garments.length > 5 && (
-          <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">
+          <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center text-xs text-muted-foreground">
             +{suggestion.garments.length - 5}
           </div>
         )}
