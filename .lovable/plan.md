@@ -1,61 +1,68 @@
 
 
-# Add Language Selector to Settings Page
+# AI Stylist med bildförslag på dina kläder
 
-## What changes
+## Vad ändras
 
-Add a new "Language" card to the Settings page, placed right after the Theme/Appearance card. It will show the currently selected language with its flag emoji and allow switching via a dropdown (Select component).
+Idag svarar AI-stylisten bara med text som "Ta din marinblå Oxford-skjorta med beige chinos". Med denna ändring kommer stylisten att visa **bilder på plaggen** inline i chatmeddelandet, så du ser exakt vilka plagg den menar.
 
-## UI Design
+## Hur det fungerar
+
+1. AI:n får instruktioner att markera specifika plagg med en speciell tagg: `[[garment:abc-123]]`
+2. Edge-funktionen skickar garment-ID:n som kontext till AI:n
+3. Frontend-koden hittar dessa taggar i svaret och ersätter dem med klickbara kort med bild, titel och kategori
+
+## Visuellt resultat
 
 ```text
-+---------------------------------------------+
-| Globe  Sprak                                |
-|                                              |
-|  [ SE Svenska              v ]              |
-|                                              |
-+---------------------------------------------+
++-----------------------------------------------+
+| DRAPE Stylisten                                |
+|                                                |
+| "Till morgondagens möte rekommenderar jag:"    |
+|                                                |
+| +------------------------------------------+  |
+| | [bild] Marinblå Oxford  |  [bild] Beige  |  |
+| |        Skjorta          |   Chinos        |  |
+| +------------------------------------------+  |
+|                                                |
+| "Kombinationen ger en smart casual-look som    |
+|  passar perfekt för kontoret."                 |
++-----------------------------------------------+
 ```
 
-Uses the existing `Select` component with `SUPPORTED_LOCALES` data. Each option shows flag + native name (e.g. "SE Svenska", "GB English").
+Varje plagkort är klickbart och tar dig till plaggdetaljer.
 
-## Technical Details
+## Tekniska steg
 
-### File: `src/pages/Settings.tsx`
+### 1. Uppdatera edge-funktionen `style_chat/index.ts`
 
-1. Add imports:
-   - `Globe` from lucide-react
-   - `useLanguage` from `@/contexts/LanguageContext`
-   - `SUPPORTED_LOCALES` and `Locale` from `@/i18n/translations`
+- I `getWardrobeContext()`: inkludera garment-ID i varje plaggbeskrivning så AI:n kan referera dem
+- Uppdatera system-prompten: instruera AI:n att använda `[[garment:ID]]` syntax när den rekommenderar specifika plagg
+- Exempel i prompten: "När du föreslår ett plagg, inkludera taggen [[garment:UUID]] direkt efter plaggnamnet"
 
-2. Inside the component, destructure `{ locale, setLocale }` from `useLanguage()`
+### 2. Skapa en `GarmentInlineCard` komponent
 
-3. Add a new `<Card>` block between the Theme card (line ~272) and the CalendarSection (line ~275):
+- Liten komponent som visar plaggets bild, titel och kategori i en kompakt rad
+- Använder `LazyImageSimple` för att ladda bilder via signed URLs
+- Klickbar - navigerar till `/wardrobe/{id}`
 
-```tsx
-<Card>
-  <CardHeader className="pb-3">
-    <div className="flex items-center gap-2">
-      <Globe className="w-5 h-5" />
-      <CardTitle className="text-base">Sprak</CardTitle>
-    </div>
-  </CardHeader>
-  <CardContent>
-    <Select value={locale} onValueChange={(v) => setLocale(v as Locale)}>
-      <SelectTrigger>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {SUPPORTED_LOCALES.map((loc) => (
-          <SelectItem key={loc.code} value={loc.code}>
-            {loc.flag} {loc.name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  </CardContent>
-</Card>
-```
+### 3. Uppdatera `MessageBubble` i `AIChat.tsx`
 
-That is the only file that needs to change. The `LanguageContext` already handles persistence (localStorage + profile preferences), so the selection is saved automatically.
+- Parse AI-svaret och dela upp texten vid `[[garment:...]]` taggar
+- Rendera text-delar som vanlig text och garment-taggar som `GarmentInlineCard`
+- Hämta garment-data via en hook som laddar de refererade plaggen
+
+### 4. Skapa en `useGarmentsByIds` hook
+
+- Tar en lista med garment-IDs
+- Returnerar garment-data inklusive `image_path` för varje plagg
+- Cachar resultat med React Query
+
+### Filer som ändras
+
+| Fil | Ändring |
+|-----|---------|
+| `supabase/functions/style_chat/index.ts` | Lägg till ID i garderobskontext + uppdatera systemprompt |
+| `src/pages/AIChat.tsx` | Parse `[[garment:ID]]` i MessageBubble, rendera inline-kort |
+| `src/hooks/useGarmentsByIds.ts` | Ny hook för att hämta plagg via ID-lista |
 
