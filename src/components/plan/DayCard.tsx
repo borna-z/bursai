@@ -9,7 +9,9 @@ import { cn } from '@/lib/utils';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
 import { CalendarEventsList } from '@/components/plan/CalendarEventBadge';
+import { SmartDayBanner } from '@/components/plan/SmartDayBanner';
 import { useCalendarEvents } from '@/hooks/useCalendarSync';
+import { useSmartDayRecommendation } from '@/hooks/useSmartDayRecommendation';
 import type { PlannedOutfit } from '@/hooks/usePlannedOutfits';
 
 interface DayCardProps {
@@ -47,6 +49,7 @@ export function DayCard({
 
   // Fetch calendar events for this date
   const { data: calendarEvents } = useCalendarEvents(dateStr);
+  const { slots: smartSlots } = useSmartDayRecommendation(calendarEvents);
 
   // Format date label
   let dateLabel = format(date, 'EEEE d MMMM', { locale: sv });
@@ -179,11 +182,22 @@ export function DayCard({
             </div>
           </>
         ) : (
-          <>
+        <>
+            {/* Smart recommendations when no outfit planned */}
+            {smartSlots.length > 0 && (
+              <SmartDayBanner
+                slots={smartSlots}
+                onGenerate={onQuickGenerate}
+                className="mb-3"
+              />
+            )}
+
             {/* Empty state */}
-            <p className="text-sm text-muted-foreground mb-4">
-              Ingen outfit planerad.
-            </p>
+            {smartSlots.length === 0 && (
+              <p className="text-sm text-muted-foreground mb-4">
+                Ingen outfit planerad.
+              </p>
+            )}
 
             <div className="flex items-center gap-2">
               <Button 
