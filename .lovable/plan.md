@@ -1,50 +1,41 @@
 
 
-# Redesign Wardrobe + Update Plan Buttons
+# Remove All Scroll Lists
 
-## Wardrobe -- Full Minimal Redesign
+## What Changes
 
-Replace the current busy layout (scrolling chip bar, search bar + filter icon, badges, alerts) with a clean, card-based design matching the Today page.
+Replace every scrolling list container across all pages with simple, flat layouts that show content directly without scroll containers.
 
-### New layout (top to bottom):
+### 1. LinkImportForm -- Remove ScrollArea
 
-1. **PageHeader** -- "Garderob" title with grid/list toggle and select button (keep as-is)
+Replace the `ScrollArea` (fixed 200px height) with a simple `div` that shows all items inline. Remove the `h-[200px]` constraint so items just stack naturally.
 
-2. **Search row** -- Clean search input inside a `SettingsGroup` card (expandable, tap to open), no separate filter icon button
+### 2. OutfitDetail -- SwapSheet candidates
 
-3. **Category selector** -- Replace the horizontal scrolling chip bar with a `SettingsGroup` card containing a **grid layout** (like Today's occasion grid). Categories displayed as tappable cells in a 4x2 grid with subtle borders between them. Selected category gets accent highlight.
+Replace the `ScrollArea` inside the swap sheet with a plain `div space-y-2` layout. The sheet itself already scrolls via its built-in behavior, so the nested ScrollArea is redundant.
 
-4. **Filter row** -- Sort, color, season filters inside a collapsible `SettingsGroup` card (tap "Filters" row to expand/collapse), replacing the bottom sheet. Clean inline approach.
+### 3. PlanningSheet -- Outfit selection
 
-5. **Garment count** -- Small muted text showing "12 plagg" count, no alerts or banners for limits (paywall triggers on action instead)
+Replace `overflow-y-auto` on the outfit list container with a plain stacking layout. The sheet content handles its own scroll.
 
-6. **Garment grid** -- Keep the 2-column grid but simplify cards: remove hover overlays, remove badges. Just image + title + subtitle. Cleaner rounded-xl cards.
+### 4. Insights page -- Garment lists
 
-7. **FABs** -- Keep the floating action buttons (scan + add) but style them to match Today's button aesthetic (rounded-xl, same shadow style)
+The "Top 5 worn" and "Unused garments" sections already show limited items (max 5), so they are just vertical stacks -- no scroll container. These are fine as-is, no changes needed.
 
-8. **Bulk select bar** -- When selecting, show a minimal bottom bar (keep existing logic, just cleaner styling)
+### 5. Outfits page -- Outfit cards
 
-### What gets removed:
-- Horizontal scrolling chip bar for categories
-- Bottom sheet for filters (replaced with inline collapsible)
-- "New garments" alert card
-- QuickEditPanel banner
-- Over-limit alert banner (paywall still triggers on action)
-- Hover-reveal laundry buttons on cards
+Already uses `space-y-3` stacking with no scroll container. Fine as-is.
 
-### Plan Page -- Button Style Update
+### 6. WeekStrip -- Keep as-is
 
-Keep the entire Plan page layout as-is. Only update button styling to match Today:
-- "Planera" and "Skapa at mig" buttons: use rounded-xl, same font weight
-- "Byt" and "Detaljer" buttons: match the outline style from Today
-- Secondary text links (mark as worn, remove): keep minimal
+The horizontal day strip is navigation, not a list. Keeping `overflow-x-auto` for the 7-day strip is standard mobile UX and not a "scroll list".
 
 ## Technical Details
 
 | File | Change |
 |------|--------|
-| `src/pages/Wardrobe.tsx` | Full rewrite -- replace chip bar with SettingsGroup grid, inline collapsible filters, simplified garment cards, remove alerts/banners |
-| `src/pages/Plan.tsx` | Update button classNames to use rounded-xl and match Today's accent styling |
+| `src/components/LinkImportForm.tsx` | Replace `ScrollArea` with plain `div`, remove fixed height |
+| `src/pages/OutfitDetail.tsx` | Replace `ScrollArea` with plain `div` in SwapSheet |
+| `src/components/plan/PlanningSheet.tsx` | Remove `overflow-y-auto` from outfit list container |
 
-No new files needed. The `SettingsGroup` component is already imported in Today and works perfectly for this pattern.
-
+Three small edits. No new files. No logic changes.
