@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -279,8 +278,7 @@ export function LinkImportForm() {
             </div>
           )}
 
-          <ScrollArea className="h-[200px] rounded-md border p-3">
-            <div className="space-y-2">
+          <div className="rounded-md border p-3 space-y-2">
               {linkItems.map((item, index) => (
                 <div 
                   key={index} 
@@ -297,8 +295,7 @@ export function LinkImportForm() {
                   </Badge>
                 </div>
               ))}
-            </div>
-          </ScrollArea>
+          </div>
         </div>
       )}
 

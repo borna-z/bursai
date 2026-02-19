@@ -127,7 +127,7 @@ export function PlanningSheet({
             </div>
 
             {/* Outfit list */}
-            <div className="flex-1 overflow-y-auto space-y-2 -mx-6 px-6">
+            <div className="flex-1 space-y-2 -mx-6 px-6">
               {isLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
