@@ -1,20 +1,23 @@
 import { Home, Shirt, CalendarDays, Bot, Settings } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 
-const tabs = [
-  { path: '/', label: 'Idag', icon: Home },
-  { path: '/wardrobe', label: 'Garderob', icon: Shirt },
-  { path: '/plan', label: 'Plan', icon: CalendarDays },
-  { path: '/ai', label: 'Stylisten', icon: Bot },
-  { path: '/settings', label: 'Inställningar', icon: Settings },
+const tabKeys = [
+  { path: '/', labelKey: 'nav.today', icon: Home },
+  { path: '/wardrobe', labelKey: 'nav.wardrobe', icon: Shirt },
+  { path: '/plan', labelKey: 'nav.plan', icon: CalendarDays },
+  { path: '/ai', labelKey: 'nav.stylist', icon: Bot },
+  { path: '/settings', labelKey: 'nav.settings', icon: Settings },
 ];
 
 export function BottomNav() {
+  const { t } = useLanguage();
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t safe-bottom">
       <div className="flex justify-around items-center h-16 max-w-lg mx-auto px-2">
-        {tabs.map((tab) => (
+        {tabKeys.map((tab) => (
           <NavLink
             key={tab.path}
             to={tab.path}
@@ -38,7 +41,7 @@ export function BottomNav() {
                     strokeWidth={isActive ? 2.5 : 2}
                   />
                 </div>
-                <span>{tab.label}</span>
+                <span>{t(tab.labelKey)}</span>
               </>
             )}
           </NavLink>

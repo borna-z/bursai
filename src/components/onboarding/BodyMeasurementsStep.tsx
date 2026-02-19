@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface BodyMeasurementsStepProps {
   onComplete: (data: { height_cm: number | null; weight_kg: number | null }) => Promise<void>;
@@ -12,6 +13,7 @@ interface BodyMeasurementsStepProps {
 }
 
 export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasurementsStepProps) {
+  const { t } = useLanguage();
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
   const [heightError, setHeightError] = useState('');
@@ -19,7 +21,7 @@ export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasu
   const validateHeight = (val: string) => {
     const n = parseInt(val, 10);
     if (val && (isNaN(n) || n < 100 || n > 250)) {
-      setHeightError('Ange en längd mellan 100 och 250 cm');
+      setHeightError(t('onboarding.body.height_error'));
       return false;
     }
     setHeightError('');
@@ -28,7 +30,6 @@ export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasu
 
   const handleContinue = async () => {
     if (height && !validateHeight(height)) return;
-
     const heightNum = height ? parseInt(height, 10) : null;
     const weightNum = weight ? parseInt(weight, 10) : null;
     await onComplete({ height_cm: heightNum, weight_kg: weightNum });
@@ -41,9 +42,9 @@ export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasu
         <div className="w-20 h-20 rounded-2xl bg-primary/15 flex items-center justify-center mb-6">
           <Brain className="w-10 h-10 text-primary" />
         </div>
-        <h1 className="text-2xl font-bold mb-3 tracking-tight">Din kropp, din stil</h1>
+        <h1 className="text-2xl font-bold mb-3 tracking-tight">{t('onboarding.body.title')}</h1>
         <p className="text-muted-foreground text-sm leading-relaxed max-w-xs">
-          Din AI-stylist använder dina mått för att ge råd om passform, proportioner och stilval – precis som en personlig stylist.
+          {t('onboarding.body.subtitle')}
         </p>
       </div>
 
@@ -53,7 +54,7 @@ export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasu
         <div className="space-y-2">
           <Label htmlFor="height" className="flex items-center gap-2 text-sm font-medium">
             <Ruler className="w-4 h-4 text-primary" />
-            Längd
+            {t('onboarding.body.height')}
           </Label>
           <div className="relative">
             <Input
@@ -87,8 +88,8 @@ export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasu
         <div className="space-y-2">
           <Label htmlFor="weight" className="flex items-center gap-2 text-sm font-medium">
             <Weight className="w-4 h-4 text-primary" />
-            Vikt
-            <span className="text-muted-foreground font-normal">(valfritt)</span>
+            {t('onboarding.body.weight')}
+            <span className="text-muted-foreground font-normal">{t('onboarding.body.weight_optional')}</span>
           </Label>
           <div className="relative">
             <Input
@@ -112,7 +113,7 @@ export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasu
         <div className="flex items-start gap-3 bg-secondary/60 rounded-xl p-4">
           <Lock className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Dina mått är privata och delas aldrig. De används bara lokalt av din AI-stylist för att ge personliga stilråd.
+            {t('onboarding.body.privacy')}
           </p>
         </div>
 
@@ -128,7 +129,7 @@ export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasu
             ) : (
               <ChevronRight className="w-5 h-5 mr-2" />
             )}
-            Fortsätt
+            {t('onboarding.body.continue')}
           </Button>
           <Button
             variant="ghost"
@@ -136,7 +137,7 @@ export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasu
             onClick={onSkip}
             disabled={isSaving}
           >
-            Hoppa över nu
+            {t('onboarding.body.skip')}
           </Button>
         </div>
       </div>

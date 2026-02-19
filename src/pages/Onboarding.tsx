@@ -16,32 +16,14 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useUpdateProfile } from '@/hooks/useProfile';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { LanguageStep } from '@/components/onboarding/LanguageStep';
 import { BodyMeasurementsStep } from '@/components/onboarding/BodyMeasurementsStep';
 import { toast } from 'sonner';
 
-const steps = [
-  {
-    id: 1,
-    title: 'Bygg din garderob',
-    description: 'Lägg till 5 plagg (minst 1 överdel, 1 underdel, 1 par skor)',
-    icon: Shirt,
-  },
-  {
-    id: 2,
-    title: 'Skapa din första outfit',
-    description: 'Låt appen föreslå en outfit baserat på dina plagg',
-    icon: Sparkles,
-  },
-  {
-    id: 3,
-    title: 'Daglig påminnelse',
-    description: 'Få inspiration varje morgon (valfritt)',
-    icon: Bell,
-  },
-];
-
 export default function OnboardingPage() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { 
     state, 
     progress, 
@@ -55,7 +37,8 @@ export default function OnboardingPage() {
   const updateProfile = useUpdateProfile();
   const [isCreatingDemo, setIsCreatingDemo] = useState(false);
   const [isEnablingReminder, setIsEnablingReminder] = useState(false);
-  // steg 0: kroppsmått – visas tills användaren slutfört eller hoppat
+  // Pre-steps: 0 = language, 1 = body measurements
+  const [languageStepDone, setLanguageStepDone] = useState(false);
   const [bodyStepDone, setBodyStepDone] = useState(false);
   const [isSavingBody, setIsSavingBody] = useState(false);
 
@@ -70,7 +53,7 @@ export default function OnboardingPage() {
       }
       setBodyStepDone(true);
     } catch {
-      toast.error('Kunde inte spara. Försök igen.');
+      toast.error(t('onboarding.body_save_error'));
     } finally {
       setIsSavingBody(false);
     }
@@ -80,11 +63,11 @@ export default function OnboardingPage() {
     setIsCreatingDemo(true);
     try {
       await createDemoGarments();
-      toast.success('6 exempelplagg tillagda!', {
-        description: 'Nu kan du testa att skapa outfits',
+      toast.success(t('onboarding.demo_success'), {
+        description: t('onboarding.demo_success_desc'),
       });
-    } catch (error) {
-      toast.error('Kunde inte skapa exempelplagg');
+    } catch {
+      toast.error(t('onboarding.demo_error'));
     } finally {
       setIsCreatingDemo(false);
     }
@@ -94,9 +77,9 @@ export default function OnboardingPage() {
     setIsEnablingReminder(true);
     try {
       await enableReminder();
-      toast.success('Daglig påminnelse aktiverad!');
+      toast.success(t('onboarding.reminder_success'));
     } catch {
-      toast.error('Något gick fel');
+      toast.error(t('onboarding.error'));
     } finally {
       setIsEnablingReminder(false);
     }
@@ -106,7 +89,7 @@ export default function OnboardingPage() {
     try {
       await skipReminder();
     } catch {
-      toast.error('Något gick fel');
+      toast.error(t('onboarding.error'));
     }
   };
 
@@ -115,18 +98,22 @@ export default function OnboardingPage() {
       await completeOnboarding();
       navigate('/');
     } catch {
-      toast.error('Något gick fel');
+      toast.error(t('onboarding.error'));
     }
   };
 
-  // Calculate overall progress percentage
   const progressPercent = 
     (state.step1Done ? 33 : (Math.min(progress.garmentCount, 5) / 5) * 33) +
     (state.step2Done ? 33 : 0) +
     (state.step3Done ? 34 : 0);
 
-  // Check if all steps are done
   const allDone = state.step1Done && state.step2Done && state.step3Done;
+
+  const steps = [
+    { id: 1, titleKey: 'onboarding.step1.title', descKey: 'onboarding.step1.desc', icon: Shirt },
+    { id: 2, titleKey: 'onboarding.step2.title', descKey: 'onboarding.step2.desc', icon: Sparkles },
+    { id: 3, titleKey: 'onboarding.step3.title', descKey: 'onboarding.step3.desc', icon: Bell },
+  ];
 
   if (isLoading) {
     return (
@@ -136,7 +123,12 @@ export default function OnboardingPage() {
     );
   }
 
-  // Steg 0: Kroppsmått – visas direkt när onboarding startar
+  // Step 0: Language picker
+  if (!languageStepDone) {
+    return <LanguageStep onComplete={() => setLanguageStepDone(true)} />;
+  }
+
+  // Step 0.5: Body measurements
   if (!bodyStepDone) {
     return (
       <BodyMeasurementsStep
@@ -151,16 +143,14 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-background p-4 pb-24">
       {/* Header */}
       <div className="text-center mb-8 pt-8">
-        <h1 className="text-3xl font-bold mb-2">Välkommen! 👋</h1>
-        <p className="text-muted-foreground">
-          Låt oss komma igång med din digitala garderob
-        </p>
+        <h1 className="text-3xl font-bold mb-2">{t('onboarding.welcome')}</h1>
+        <p className="text-muted-foreground">{t('onboarding.welcome_sub')}</p>
       </div>
 
       {/* Progress Bar */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium">Din framgång</span>
+          <span className="text-sm font-medium">{t('onboarding.progress')}</span>
           <span className="text-sm text-muted-foreground">{Math.round(progressPercent)}%</span>
         </div>
         <Progress value={progressPercent} className="h-3" />
@@ -191,114 +181,76 @@ export default function OnboardingPage() {
                     'w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0',
                     isDone ? 'bg-primary text-primary-foreground' : 'bg-secondary'
                   )}>
-                    {isDone ? (
-                      <Check className="w-6 h-6" />
-                    ) : (
-                      <Icon className="w-6 h-6" />
-                    )}
+                    {isDone ? <Check className="w-6 h-6" /> : <Icon className="w-6 h-6" />}
                   </div>
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold">{step.title}</h3>
-                      {isDone && (
-                        <Badge variant="secondary" className="text-xs">Klart!</Badge>
-                      )}
+                      <h3 className="font-semibold">{t(step.titleKey)}</h3>
+                      {isDone && <Badge variant="secondary" className="text-xs">{t('onboarding.done_badge')}</Badge>}
                     </div>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      {step.description}
-                    </p>
+                    <p className="text-sm text-muted-foreground mb-3">{t(step.descKey)}</p>
 
-                    {/* Step-specific content */}
+                    {/* Step 1 content */}
                     {step.id === 1 && !isDone && (
                       <div className="space-y-3">
-                        {/* Progress indicators */}
                         <div className="flex flex-wrap gap-2">
                           <Badge variant={progress.garmentCount >= 5 ? 'default' : 'outline'}>
-                            {Math.min(progress.garmentCount, 5)}/5 plagg
+                            {Math.min(progress.garmentCount, 5)}/5 {t('onboarding.step1.garments')}
                           </Badge>
                           <Badge variant={progress.hasTop ? 'default' : 'outline'}>
-                            {progress.hasTop ? '✓' : '○'} Överdel
+                            {progress.hasTop ? '✓' : '○'} {t('onboarding.step1.top')}
                           </Badge>
                           <Badge variant={progress.hasBottom ? 'default' : 'outline'}>
-                            {progress.hasBottom ? '✓' : '○'} Underdel
+                            {progress.hasBottom ? '✓' : '○'} {t('onboarding.step1.bottom')}
                           </Badge>
                           <Badge variant={progress.hasShoes ? 'default' : 'outline'}>
-                            {progress.hasShoes ? '✓' : '○'} Skor
+                            {progress.hasShoes ? '✓' : '○'} {t('onboarding.step1.shoes')}
                           </Badge>
                         </div>
-                        
-                        {/* Actions */}
                         <div className="flex flex-wrap gap-2">
-                          <Button 
-                            size="sm" 
-                            onClick={() => navigate('/wardrobe/add')}
-                          >
+                          <Button size="sm" onClick={() => navigate('/wardrobe/add')}>
                             <Shirt className="w-4 h-4 mr-1" />
-                            Lägg till plagg
+                            {t('onboarding.step1.add')}
                           </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={handleCreateDemo}
-                            disabled={isCreatingDemo}
-                          >
-                            {isCreatingDemo ? (
-                              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                            ) : (
-                              <Wand2 className="w-4 h-4 mr-1" />
-                            )}
-                            Demo-läge
+                          <Button size="sm" variant="outline" onClick={handleCreateDemo} disabled={isCreatingDemo}>
+                            {isCreatingDemo ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Wand2 className="w-4 h-4 mr-1" />}
+                            {t('onboarding.step1.demo')}
                           </Button>
                         </div>
-                        
-                        {/* Tip */}
                         <p className="text-xs text-muted-foreground bg-secondary/50 p-2 rounded">
-                          💡 Tips: Använd kameran för att snabbt lägga till plagg, AI:n taggar automatiskt!
+                          {t('onboarding.step1.tip')}
                         </p>
                       </div>
                     )}
 
+                    {/* Step 2 content */}
                     {step.id === 2 && !isDone && state.step1Done && (
                       <div className="space-y-3">
-                        <Button 
-                          size="sm" 
-                          onClick={() => navigate('/')}
-                        >
+                        <Button size="sm" onClick={() => navigate('/')}>
                           <Sparkles className="w-4 h-4 mr-1" />
-                          Skapa outfit
+                          {t('onboarding.step2.create')}
                         </Button>
                         <p className="text-xs text-muted-foreground bg-secondary/50 p-2 rounded">
-                          💡 Tips: Välj ett tillfälle och väder så matchar appen plagg automatiskt!
+                          {t('onboarding.step2.tip')}
                         </p>
                       </div>
                     )}
 
+                    {/* Step 3 content */}
                     {step.id === 3 && !isDone && state.step2Done && (
                       <div className="space-y-3">
                         <div className="flex gap-2">
-                          <Button 
-                            size="sm" 
-                            onClick={handleEnableReminder}
-                            disabled={isEnablingReminder}
-                          >
-                            {isEnablingReminder ? (
-                              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                            ) : (
-                              <Bell className="w-4 h-4 mr-1" />
-                            )}
-                            Aktivera påminnelse
+                          <Button size="sm" onClick={handleEnableReminder} disabled={isEnablingReminder}>
+                            {isEnablingReminder ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Bell className="w-4 h-4 mr-1" />}
+                            {t('onboarding.step3.enable')}
                           </Button>
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                            onClick={handleSkipReminder}
-                          >
-                            Hoppa över
+                          <Button size="sm" variant="ghost" onClick={handleSkipReminder}>
+                            {t('onboarding.step3.skip')}
                           </Button>
                         </div>
                         <p className="text-xs text-muted-foreground bg-secondary/50 p-2 rounded">
-                          💡 Tips: En daglig påminnelse hjälper dig använda hela garderoben!
+                          {t('onboarding.step3.tip')}
                         </p>
                       </div>
                     )}
@@ -317,12 +269,10 @@ export default function OnboardingPage() {
             <div className="w-16 h-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center mx-auto mb-4">
               <Check className="w-8 h-8" />
             </div>
-            <h2 className="text-xl font-bold mb-2">Du är redo! ✅</h2>
-            <p className="text-muted-foreground mb-4">
-              Grattis! Nu kan du börja använda din digitala garderob.
-            </p>
+            <h2 className="text-xl font-bold mb-2">{t('onboarding.complete.title')}</h2>
+            <p className="text-muted-foreground mb-4">{t('onboarding.complete.desc')}</p>
             <Button size="lg" onClick={handleComplete}>
-              Börja använda appen
+              {t('onboarding.complete.cta')}
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
           </CardContent>
@@ -332,12 +282,8 @@ export default function OnboardingPage() {
       {/* Skip link */}
       {!allDone && (
         <div className="text-center mt-8">
-          <Button 
-            variant="link" 
-            onClick={handleComplete}
-            className="text-muted-foreground"
-          >
-            Hoppa över introduktionen
+          <Button variant="link" onClick={handleComplete} className="text-muted-foreground">
+            {t('onboarding.skip_all')}
           </Button>
         </div>
       )}
