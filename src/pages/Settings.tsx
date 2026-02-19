@@ -31,6 +31,7 @@ import { Chip } from '@/components/ui/chip';
 import { CalendarSection } from '@/components/settings/CalendarSection';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { SUPPORTED_LOCALES, Locale } from '@/i18n/translations';
+import { AccentColorPicker } from '@/components/settings/AccentColorPicker';
 
 const colors = [
   'svart', 'vit', 'grå', 'marinblå', 'blå', 'röd', 'grön', 'beige', 'brun', 'rosa', 'gul', 'orange', 'lila'
@@ -203,7 +204,7 @@ export default function SettingsPage() {
               <CardTitle className="text-base">{t('settings.appearance')}</CardTitle>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-5">
             <div className="flex gap-2">
               <Button variant={theme === 'light' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('light')} className="flex-1">
                 <Sun className="w-4 h-4 mr-2" />{t('settings.theme.light')}
@@ -215,6 +216,7 @@ export default function SettingsPage() {
                 <Monitor className="w-4 h-4 mr-2" />Auto
               </Button>
             </div>
+            <AccentColorPicker />
           </CardContent>
         </Card>
 
