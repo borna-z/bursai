@@ -8,6 +8,7 @@ export interface WeatherData {
   wind: 'low' | 'medium' | 'high';
   condition: string;
   weather_code: number;
+  is_day: boolean;
   location: string;
 }
 
@@ -86,7 +87,7 @@ async function fetchWeather(city?: string | null, homeCity?: string | null): Pro
   const coords = await getCoordinates(city || homeCity);
 
   const response = await fetch(
-    `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto`
+    `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,weather_code,wind_speed_10m,is_day&timezone=auto`
   );
 
   if (!response.ok) throw new Error('Kunde inte hämta väderdata');
@@ -102,6 +103,7 @@ async function fetchWeather(city?: string | null, homeCity?: string | null): Pro
     wind: getWindCategory(current.wind_speed_10m),
     condition: getConditionFromCode(current.weather_code),
     weather_code: current.weather_code,
+    is_day: current.is_day === 1,
     location,
   };
 }

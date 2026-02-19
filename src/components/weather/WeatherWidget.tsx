@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { format, parseISO } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import {
-  Sun, Cloud, CloudFog, CloudRain, CloudDrizzle, CloudSnow, CloudLightning,
+  Sun, Moon, Cloud, CloudFog, CloudRain, CloudDrizzle, CloudSnow, CloudLightning,
   MapPin, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -15,8 +15,8 @@ interface WeatherWidgetProps {
   onWeatherChange?: (weather: { temperature: number; precipitation: string; wind: string }) => void;
 }
 
-function getWeatherIcon(code: number) {
-  if (code === 0) return Sun;
+function getWeatherIcon(code: number, isDay = true) {
+  if (code === 0) return isDay ? Sun : Moon;
   if (code <= 3) return Cloud;
   if (code === 45 || code === 48) return CloudFog;
   if (code >= 51 && code <= 57) return CloudDrizzle;
@@ -79,7 +79,7 @@ export function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
     }
   }, [editingLocation]);
 
-  const HeroIcon = weather ? getWeatherIcon(weather.weather_code) : Cloud;
+  const HeroIcon = weather ? getWeatherIcon(weather.weather_code, weather.is_day) : Cloud;
   const next5 = forecast.slice(1, 6);
 
   const handleCitySubmit = () => {
