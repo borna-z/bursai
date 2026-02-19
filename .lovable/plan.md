@@ -1,53 +1,60 @@
 
 
-# Accentfärg-steget: Visa UI-preview istället för logga
+# Onboarding som del av kontoskapandet
 
 ## Vad ändras
 
-Tar bort loggan från accentfärg-steget i onboarding. Istället visas en **live UI-preview** med knappar, badges och kort som uppdateras i realtid när användaren väljer en färg. Så ser man direkt hur appen kommer att se ut.
+Idag är onboarding en separat sida (`/onboarding`) som man kan nå från hemskärmen. Med denna ändring blir onboarding **automatiskt** en del av flödet direkt efter att man skapar ett konto. Nya användare ser onboarding-stegen innan de kommer till appen.
 
-## Visuellt resultat
+## Hur det fungerar
+
+1. Efter signup/login kollar `ProtectedRoute` om användaren har slutfört onboarding
+2. Om inte -- omdirigeras de automatiskt till `/onboarding`
+3. Användaren kan inte komma till appen förrän onboarding är klar (eller hoppas över)
+4. Befintliga användare som redan har profiler påverkas inte
 
 ```text
-+---------------------------------------------+
-|                                              |
-|   Välj din accentfärg                        |
-|   Färgen används på knappar och detaljer     |
-|                                              |
-|   +---------------------------------------+  |
-|   |  [Knapp i vald färg]   [Badge]  [Badge]| |
-|   |                                       |  |
-|   |  [Outline-knapp]    [Liten knapp]     |  |
-|   +---------------------------------------+  |
-|                                              |
-|   (o)(o)(o)(o)                               |
-|   (o)(o)(o)(o)    <-- färgrutnät             |
-|   (o)(o)(o)(o)                               |
-|                                              |
-|   [ Fortsätt ]   <-- knapp i vald färg      |
-+---------------------------------------------+
+Signup/Login
+     |
+     v
+ProtectedRoute kollar profil
+     |
+     +-- Ny användare (onboarding ej klar) --> /onboarding
+     |
+     +-- Befintlig användare --> Appen (/)
 ```
 
-## Tekniska detaljer
+## Tekniska steg
 
-### Fil: `src/components/onboarding/AccentColorStep.tsx`
+### 1. Uppdatera `ProtectedRoute.tsx`
 
-1. **Ta bort** logga-importen (`drapeLogoSrc`) och hela logga-preview-blocket (rad 21-53)
-2. **Ersätt med en UI-preview** som visar:
-   - En fylld knapp med `backgroundColor: accentColor.hex` och vit text
-   - Ett par badges/chips i accentfärgen
-   - En outline-knapp med `borderColor: accentColor.hex`
-   - Alla element har `transition-colors duration-300` för mjuk animation
-3. **Fortsätt-knappen** (rad 101) ändras till att använda accentfärgen med inline-style istället för standard primary (charcoal)
-4. Behåll titel, undertitel och färgrutnätet som det är
+- Importera `useProfile` för att hämta användarens profil
+- Kolla om `preferences.onboarding.completed === true` i profilen
+- Om inte: `<Navigate to="/onboarding" />` (utom om man redan är på `/onboarding`)
+- Skapa en wrapper-variant eller lägg till en prop `skipOnboardingCheck` för onboarding-routen själv (annars blir det en oändlig loop)
 
-### Andra filer (valfritt, men rekommenderat)
+### 2. Uppdatera `Auth.tsx`
 
-Användaren sa "det ska inte finnas någon logga i appen". Det innebär att vi även bör:
+- Efter lyckad signup: navigera till `/onboarding` istället för `/` (redan hanterat av ProtectedRoute, men byt redirect)
+- Ta bort redirect till `/` för nya användare
 
-- **`src/pages/Home.tsx`** (rad 116): Ta bort `DrapeLogo` från PageHeader actions
-- **`src/pages/AIChat.tsx`** (rad 305): Ersätt `DrapeLogo` med en enkel ikon (t.ex. `Sparkles`) i chattbubblan
-- **`src/pages/Auth.tsx`** (rad 85-87): Ersätt loggan med enbart text "DRAPE" i accentfärg
-- **`src/components/marketing/MarketingLayout.tsx`**: Behåll loggan här (marknadsföringssidan är separat)
+### 3. Uppdatera `App.tsx` routing
 
-Totalt ändras 4-5 filer. Inga databasändringar behövs.
+- Behåll `/onboarding` routen men gör den till en ProtectedRoute **utan** onboarding-check (prop `skipOnboardingCheck`)
+- Se till att alla andra skyddade routes har onboarding-check
+
+### 4. Uppdatera `Onboarding.tsx`
+
+- Behåll befintligt flöde (språk, accent, mått, steg 1-3)
+- Vid "Slutför" navigera till `/`
+- Ta bort "Hoppa över allt"-länken eller behåll den som "Slutför och börja" (markerar onboarding som klar)
+
+### Filer som ändras
+
+| Fil | Ändring |
+|-----|---------|
+| `src/components/auth/ProtectedRoute.tsx` | Lägg till profil-check + redirect till onboarding |
+| `src/pages/Auth.tsx` | Redirect nya användare till onboarding |
+| `src/App.tsx` | Uppdatera onboarding-routen med skipOnboardingCheck |
+| `src/pages/Onboarding.tsx` | Justera "hoppa över"-beteende |
+
