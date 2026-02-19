@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  User, Palette, Bell, Shield, LogOut, Download, Trash2, Loader2,
-  Moon, Sun, Monitor, Ruler, Weight, Lock, CheckCircle2, Globe,
+  User, Palette, Bell, LogOut, Download, Trash2, Loader2,
+  Moon, Sun, Monitor, Ruler, Weight, Lock, CheckCircle2, Globe, ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -17,8 +15,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
@@ -32,6 +30,8 @@ import { CalendarSection } from '@/components/settings/CalendarSection';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { SUPPORTED_LOCALES, Locale } from '@/i18n/translations';
 import { AccentColorPicker } from '@/components/settings/AccentColorPicker';
+import { SettingsRow } from '@/components/settings/SettingsRow';
+import { SettingsGroup } from '@/components/settings/SettingsGroup';
 
 const colors = [
   'svart', 'vit', 'grå', 'marinblå', 'blå', 'röd', 'grön', 'beige', 'brun', 'rosa', 'gul', 'orange', 'lila'
@@ -54,7 +54,7 @@ export default function SettingsPage() {
   const updateProfile = useUpdateProfile();
   const { subscription, isPremium, limits } = useSubscription();
   const { locale, setLocale, t } = useLanguage();
-  
+
   const [displayName, setDisplayName] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -64,9 +64,7 @@ export default function SettingsPage() {
   const [bodySaved, setBodySaved] = useState(false);
 
   useEffect(() => {
-    if (profile?.display_name) {
-      setDisplayName(profile.display_name);
-    }
+    if (profile?.display_name) setDisplayName(profile.display_name);
     const p = profile as (typeof profile & { height_cm?: number | null; weight_kg?: number | null });
     if (p?.height_cm) setHeightCm(String(p.height_cm));
     if (p?.weight_kg) setWeightKg(String(p.weight_kg));
@@ -76,11 +74,8 @@ export default function SettingsPage() {
 
   const updatePreference = async (key: keyof Preferences, value: unknown) => {
     const newPrefs = { ...preferences, [key]: value };
-    try {
-      await updateProfile.mutateAsync({ preferences: newPrefs });
-    } catch {
-      toast.error(t('settings.pref_error'));
-    }
+    try { await updateProfile.mutateAsync({ preferences: newPrefs }); }
+    catch { toast.error(t('settings.pref_error')); }
   };
 
   const toggleColorPreference = async (type: 'favoriteColors' | 'dislikedColors', color: string) => {
@@ -92,38 +87,26 @@ export default function SettingsPage() {
   };
 
   const handleSaveDisplayName = async () => {
-    try {
-      await updateProfile.mutateAsync({ display_name: displayName });
-      toast.success(t('settings.name_saved'));
-    } catch {
-      toast.error(t('settings.name_error'));
-    }
+    try { await updateProfile.mutateAsync({ display_name: displayName }); toast.success(t('settings.name_saved')); }
+    catch { toast.error(t('settings.name_error')); }
   };
 
   const validateHeight = (val: string) => {
     const n = parseInt(val, 10);
-    if (val && (isNaN(n) || n < 100 || n > 250)) {
-      setHeightError(t('settings.height_error'));
-      return false;
-    }
-    setHeightError('');
-    return true;
+    if (val && (isNaN(n) || n < 100 || n > 250)) { setHeightError(t('settings.height_error')); return false; }
+    setHeightError(''); return true;
   };
 
   const handleSaveBodyData = async () => {
     if (heightCm && !validateHeight(heightCm)) return;
     try {
       const updates: Record<string, unknown> = {};
-      if (heightCm) updates.height_cm = parseInt(heightCm, 10);
-      else updates.height_cm = null;
-      if (weightKg) updates.weight_kg = parseInt(weightKg, 10);
-      else updates.weight_kg = null;
+      updates.height_cm = heightCm ? parseInt(heightCm, 10) : null;
+      updates.weight_kg = weightKg ? parseInt(weightKg, 10) : null;
       await updateProfile.mutateAsync(updates as Parameters<typeof updateProfile.mutateAsync>[0]);
       setBodySaved(true);
       setTimeout(() => setBodySaved(false), 2500);
-    } catch {
-      toast.error(t('settings.body_save_error'));
-    }
+    } catch { toast.error(t('settings.body_save_error')); }
   };
 
   const handleExportData = async () => {
@@ -134,14 +117,7 @@ export default function SettingsPage() {
         supabase.from('outfits').select('*, outfit_items(*)').eq('user_id', user?.id),
         supabase.from('profiles').select('*').eq('id', user?.id).single(),
       ]);
-
-      const data = {
-        profile: profileRes.data,
-        garments: garmentsRes.data,
-        outfits: outfitsRes.data,
-        exportedAt: new Date().toISOString(),
-      };
-
+      const data = { profile: profileRes.data, garments: garmentsRes.data, outfits: outfitsRes.data, exportedAt: new Date().toISOString() };
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -149,13 +125,9 @@ export default function SettingsPage() {
       a.download = `garderobsassistent-export-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
       URL.revokeObjectURL(url);
-
       toast.success(t('settings.export_success'));
-    } catch {
-      toast.error(t('settings.export_error'));
-    } finally {
-      setIsExporting(false);
-    }
+    } catch { toast.error(t('settings.export_error')); }
+    finally { setIsExporting(false); }
   };
 
   const handleDeleteAccount = async () => {
@@ -166,24 +138,17 @@ export default function SettingsPage() {
       if (!data?.success) throw new Error(data?.error || 'Unknown error');
       toast.success(t('settings.delete_success'));
       navigate('/auth');
-    } catch (error) {
-      console.error('Delete account failed:', error);
-      toast.error(t('settings.delete_error'));
-    } finally {
-      setIsDeleting(false);
-    }
+    } catch (error) { console.error('Delete account failed:', error); toast.error(t('settings.delete_error')); }
+    finally { setIsDeleting(false); }
   };
 
-  const handleSignOut = async () => {
-    await signOut();
-    navigate('/auth');
-  };
+  const handleSignOut = async () => { await signOut(); navigate('/auth'); };
 
   if (isLoading) {
     return (
       <AppLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <Loader2 className="w-8 h-8 animate-spin text-accent" />
         </div>
       </AppLayout>
     );
@@ -192,91 +157,73 @@ export default function SettingsPage() {
   return (
     <AppLayout>
       <PageHeader title={t('settings.title')} />
-      
-      <div className="p-4 space-y-6">
-        <PremiumSection isPremium={isPremium} subscription={subscription} limits={limits} />
 
-        {/* Theme Toggle */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Moon className="w-5 h-5" />
-              <CardTitle className="text-base">{t('settings.appearance')}</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="flex gap-2">
-              <Button variant={theme === 'light' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('light')} className="flex-1">
-                <Sun className="w-4 h-4 mr-2" />{t('settings.theme.light')}
-              </Button>
-              <Button variant={theme === 'dark' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('dark')} className="flex-1">
-                <Moon className="w-4 h-4 mr-2" />{t('settings.theme.dark')}
-              </Button>
-              <Button variant={theme === 'system' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('system')} className="flex-1">
-                <Monitor className="w-4 h-4 mr-2" />Auto
-              </Button>
-            </div>
-            <AccentColorPicker />
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="general" className="flex flex-col flex-1">
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm px-4 pb-2 pt-1">
+          <TabsList className="w-full h-10 bg-muted/60 p-0.5 rounded-lg">
+            <TabsTrigger value="general" className="flex-1 text-xs data-[state=active]:bg-accent data-[state=active]:text-accent-foreground rounded-md">
+              {t('settings.appearance').split(' ')[0] || 'Allmänt'}
+            </TabsTrigger>
+            <TabsTrigger value="style" className="flex-1 text-xs data-[state=active]:bg-accent data-[state=active]:text-accent-foreground rounded-md">
+              {t('settings.style')}
+            </TabsTrigger>
+            <TabsTrigger value="account" className="flex-1 text-xs data-[state=active]:bg-accent data-[state=active]:text-accent-foreground rounded-md">
+              {t('settings.profile')}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-        {/* Language Selector */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Globe className="w-5 h-5" />
-              <CardTitle className="text-base">{t('settings.language')}</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Select value={locale} onValueChange={(v) => setLocale(v as Locale)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {SUPPORTED_LOCALES.map((loc) => (
-                  <SelectItem key={loc.code} value={loc.code}>{loc.flag} {loc.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </CardContent>
-        </Card>
-
-        <CalendarSection />
-
-        {/* Profile */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <User className="w-5 h-5" />
-              <CardTitle className="text-base">{t('settings.profile')}</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>{t('settings.display_name')}</Label>
-              <div className="flex gap-2">
-                <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={t('settings.your_name')} />
-                <Button onClick={handleSaveDisplayName} disabled={updateProfile.isPending}>{t('settings.save')}</Button>
+        {/* ── General Tab ── */}
+        <TabsContent value="general" className="px-4 pt-2 pb-6">
+          <SettingsGroup title={t('settings.appearance')}>
+            <div className="px-4 py-3 border-b border-border/50">
+              <div className="flex gap-1.5">
+                <Button variant={theme === 'light' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('light')} className={`flex-1 h-9 text-xs ${theme === 'light' ? 'bg-accent text-accent-foreground' : ''}`}>
+                  <Sun className="w-3.5 h-3.5 mr-1.5" />{t('settings.theme.light')}
+                </Button>
+                <Button variant={theme === 'dark' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('dark')} className={`flex-1 h-9 text-xs ${theme === 'dark' ? 'bg-accent text-accent-foreground' : ''}`}>
+                  <Moon className="w-3.5 h-3.5 mr-1.5" />{t('settings.theme.dark')}
+                </Button>
+                <Button variant={theme === 'system' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('system')} className={`flex-1 h-9 text-xs ${theme === 'system' ? 'bg-accent text-accent-foreground' : ''}`}>
+                  <Monitor className="w-3.5 h-3.5 mr-1.5" />Auto
+                </Button>
               </div>
             </div>
-            <div className="text-sm text-muted-foreground">{t('settings.email')} {user?.email}</div>
-          </CardContent>
-        </Card>
-
-        {/* Body Data */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Ruler className="w-5 h-5" />
-              <div>
-                <CardTitle className="text-base">{t('settings.body_data')}</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">{t('settings.body_help')}</p>
-              </div>
+            <div className="px-4 py-3">
+              <AccentColorPicker />
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 text-sm font-medium">
-                <Ruler className="w-3.5 h-3.5 text-primary" />{t('settings.height')}
+          </SettingsGroup>
+
+          <SettingsGroup title={t('settings.language')}>
+            <SettingsRow icon={<Globe />} label={t('settings.language')} last>
+              <Select value={locale} onValueChange={(v) => setLocale(v as Locale)}>
+                <SelectTrigger className="w-[130px] h-8 text-xs border-0 bg-muted/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUPPORTED_LOCALES.map((loc) => (
+                    <SelectItem key={loc.code} value={loc.code}>{loc.flag} {loc.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+          </SettingsGroup>
+
+          <SettingsGroup title={t('settings.notifications_title')}>
+            <SettingsRow icon={<Bell />} label={t('settings.morning_reminder')} last>
+              <Switch checked={preferences.morningReminder || false} onCheckedChange={(v) => updatePreference('morningReminder', v)} />
+            </SettingsRow>
+          </SettingsGroup>
+
+          <CalendarSection />
+        </TabsContent>
+
+        {/* ── Style Tab ── */}
+        <TabsContent value="style" className="px-4 pt-2 pb-6">
+          <SettingsGroup title={t('settings.body_data')}>
+            <div className="px-4 py-3 border-b border-border/50 space-y-1.5">
+              <Label className="flex items-center gap-1.5 text-xs font-medium">
+                <Ruler className="w-3.5 h-3.5 text-accent" />{t('settings.height')}
               </Label>
               <div className="relative">
                 <Input
@@ -284,80 +231,71 @@ export default function SettingsPage() {
                   onChange={(e) => { setHeightCm(e.target.value); if (heightError) validateHeight(e.target.value); }}
                   onBlur={() => validateHeight(heightCm)}
                   placeholder="175"
-                  className={`pr-12 h-12${heightError ? ' border-destructive focus-visible:ring-destructive' : ''}`}
+                  className={`pr-12 h-10 text-sm${heightError ? ' border-destructive focus-visible:ring-destructive' : ''}`}
                   min={100} max={250}
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">cm</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">cm</span>
               </div>
               {heightError && <p className="text-xs text-destructive">{heightError}</p>}
             </div>
-
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 text-sm font-medium">
-                <Weight className="w-3.5 h-3.5 text-primary" />{t('settings.weight')}
+            <div className="px-4 py-3 border-b border-border/50 space-y-1.5">
+              <Label className="flex items-center gap-1.5 text-xs font-medium">
+                <Weight className="w-3.5 h-3.5 text-accent" />{t('settings.weight')}
                 <span className="text-muted-foreground font-normal">{t('settings.optional')}</span>
               </Label>
               <div className="relative">
-                <Input type="number" inputMode="numeric" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} placeholder="70" className="pr-12 h-12" min={30} max={300} />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">kg</span>
+                <Input type="number" inputMode="numeric" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} placeholder="70" className="pr-12 h-10 text-sm" min={30} max={300} />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">kg</span>
               </div>
             </div>
-
-            <div className="flex items-start gap-2.5 bg-muted/50 rounded-lg p-3">
-              <Lock className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-muted-foreground leading-relaxed">{t('settings.body_privacy')}</p>
+            <div className="px-4 py-2.5 border-b border-border/50">
+              <div className="flex items-start gap-2 text-muted-foreground">
+                <Lock className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                <p className="text-[11px] leading-relaxed">{t('settings.body_privacy')}</p>
+              </div>
             </div>
-
-            <Button onClick={handleSaveBodyData} disabled={updateProfile.isPending} className="w-full">
-              {updateProfile.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : bodySaved ? <CheckCircle2 className="w-4 h-4 mr-2 text-primary" /> : null}
-              {bodySaved ? t('settings.saved') : t('settings.save_measurements')}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Style Preferences */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Palette className="w-5 h-5" />
-              <CardTitle className="text-base">{t('settings.style')}</CardTitle>
+            <div className="px-4 py-3">
+              <Button onClick={handleSaveBodyData} disabled={updateProfile.isPending} size="sm" className="w-full bg-accent text-accent-foreground hover:bg-accent/90 h-9 text-xs">
+                {updateProfile.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : bodySaved ? <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> : null}
+                {bodySaved ? t('settings.saved') : t('settings.save_measurements')}
+              </Button>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-3">
-              <Label>{t('settings.favorite_colors')}</Label>
-              <div className="flex flex-wrap gap-2">
+          </SettingsGroup>
+
+          <SettingsGroup title={t('settings.favorite_colors')}>
+            <div className="px-4 py-3 border-b border-border/50">
+              <div className="flex flex-wrap gap-1.5">
                 {colors.map((color) => (
-                  <Chip key={color} selected={preferences.favoriteColors?.includes(color)} onClick={() => toggleColorPreference('favoriteColors', color)} className="capitalize">{color}</Chip>
+                  <Chip key={color} selected={preferences.favoriteColors?.includes(color)} onClick={() => toggleColorPreference('favoriteColors', color)} className="capitalize text-xs">{color}</Chip>
                 ))}
               </div>
             </div>
+          </SettingsGroup>
 
-            <div className="space-y-3">
-              <Label>{t('settings.disliked_colors')}</Label>
-              <div className="flex flex-wrap gap-2">
+          <SettingsGroup title={t('settings.disliked_colors')}>
+            <div className="px-4 py-3">
+              <div className="flex flex-wrap gap-1.5">
                 {colors.map((color) => (
-                  <Chip key={color} selected={preferences.dislikedColors?.includes(color)} onClick={() => toggleColorPreference('dislikedColors', color)} className="capitalize">{color}</Chip>
+                  <Chip key={color} selected={preferences.dislikedColors?.includes(color)} onClick={() => toggleColorPreference('dislikedColors', color)} className="capitalize text-xs">{color}</Chip>
                 ))}
               </div>
             </div>
+          </SettingsGroup>
 
-            <div className="space-y-2">
-              <Label>{t('settings.fit')}</Label>
+          <SettingsGroup title={t('settings.fit')}>
+            <SettingsRow icon={<Palette />} label={t('settings.fit')}>
               <Select value={preferences.fitPreference || 'regular'} onValueChange={(v) => updatePreference('fitPreference', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-[110px] h-8 text-xs border-0 bg-muted/50"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="loose">Loose</SelectItem>
                   <SelectItem value="regular">Regular</SelectItem>
                   <SelectItem value="slim">Slim</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>{t('settings.default_style')}</Label>
+            </SettingsRow>
+            <SettingsRow icon={<Palette />} label={t('settings.default_style')}>
               <Select value={preferences.styleVibe || 'smart-casual'} onValueChange={(v) => updatePreference('styleVibe', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-[130px] h-8 text-xs border-0 bg-muted/50"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="minimal">Minimal</SelectItem>
                   <SelectItem value="street">Street</SelectItem>
@@ -365,50 +303,45 @@ export default function SettingsPage() {
                   <SelectItem value="klassisk">Klassisk</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <Label>{t('settings.gender_neutral')}</Label>
+            </SettingsRow>
+            <SettingsRow icon={<Palette />} label={t('settings.gender_neutral')} last>
               <Switch checked={preferences.genderNeutral || false} onCheckedChange={(v) => updatePreference('genderNeutral', v)} />
-            </div>
-          </CardContent>
-        </Card>
+            </SettingsRow>
+          </SettingsGroup>
+        </TabsContent>
 
-        {/* Notifications */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Bell className="w-5 h-5" />
-              <CardTitle className="text-base">{t('settings.notifications_title')}</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <Label>{t('settings.morning_reminder')}</Label>
-              <Switch checked={preferences.morningReminder || false} onCheckedChange={(v) => updatePreference('morningReminder', v)} />
-            </div>
-          </CardContent>
-        </Card>
+        {/* ── Account Tab ── */}
+        <TabsContent value="account" className="px-4 pt-2 pb-6">
+          <div className="mb-6">
+            <PremiumSection isPremium={isPremium} subscription={subscription} limits={limits} />
+          </div>
 
-        {/* Privacy */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Shield className="w-5 h-5" />
-              <CardTitle className="text-base">{t('settings.privacy')}</CardTitle>
+          <SettingsGroup title={t('settings.profile')}>
+            <div className="px-4 py-3 border-b border-border/50 space-y-2">
+              <Label className="text-xs font-medium">{t('settings.display_name')}</Label>
+              <div className="flex gap-2">
+                <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={t('settings.your_name')} className="h-9 text-sm" />
+                <Button onClick={handleSaveDisplayName} disabled={updateProfile.isPending} size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 h-9 text-xs px-4">
+                  {t('settings.save')}
+                </Button>
+              </div>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Button variant="outline" className="w-full" onClick={handleExportData} disabled={isExporting}>
-              {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
-              {t('settings.export')}
-            </Button>
+            <SettingsRow icon={<User />} label={t('settings.email')} last>
+              <span className="text-xs text-muted-foreground truncate max-w-[180px]">{user?.email}</span>
+            </SettingsRow>
+          </SettingsGroup>
 
+          <SettingsGroup title={t('settings.privacy')}>
+            <SettingsRow icon={<Download />} label={t('settings.export')} onClick={isExporting ? undefined : handleExportData}>
+              {isExporting ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+            </SettingsRow>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="w-full">
-                  <Trash2 className="w-4 h-4 mr-2" />{t('settings.delete_account')}
-                </Button>
+                <div>
+                  <SettingsRow icon={<Trash2 />} label={t('settings.delete_account')} last className="text-destructive [&_span]:text-destructive">
+                    <ChevronRight className="w-4 h-4 text-destructive/60" />
+                  </SettingsRow>
+                </div>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
@@ -434,13 +367,15 @@ export default function SettingsPage() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-          </CardContent>
-        </Card>
+          </SettingsGroup>
 
-        <Button variant="outline" className="w-full" onClick={handleSignOut}>
-          <LogOut className="w-4 h-4 mr-2" />{t('settings.sign_out')}
-        </Button>
-      </div>
+          <SettingsGroup>
+            <SettingsRow icon={<LogOut />} label={t('settings.sign_out')} onClick={handleSignOut} last>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            </SettingsRow>
+          </SettingsGroup>
+        </TabsContent>
+      </Tabs>
     </AppLayout>
   );
 }
