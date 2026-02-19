@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Send, Loader2, BarChart3, Trash2, ImagePlus } from 'lucide-react';
-import { DrapeLogo } from '@/components/ui/DrapeLogo';
+import { Send, Loader2, BarChart3, Trash2, ImagePlus, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -301,8 +300,8 @@ function MessageBubble({ message, isStreaming, garmentMap }: { message: Message;
   return (
     <div className={cn('flex items-end gap-2', isUser ? 'flex-row-reverse' : 'flex-row')}>
       {!isUser && (
-        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 shrink-0 overflow-hidden">
-          <DrapeLogo variant="icon" size="sm" />
+        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 shrink-0">
+          <Sparkles className="w-4 h-4 text-primary" />
         </div>
       )}
       <div className={cn('max-w-[80%] rounded-2xl px-4 py-3 text-sm', isUser ? 'bg-primary text-primary-foreground rounded-br-sm' : 'bg-muted text-foreground rounded-bl-sm')}>
