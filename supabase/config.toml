@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.style_chat]
 verify_jwt = false
+
+[functions.summarize_day]
+verify_jwt = false

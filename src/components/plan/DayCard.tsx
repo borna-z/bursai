@@ -8,10 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
-import { CalendarEventsList } from '@/components/plan/CalendarEventBadge';
-import { SmartDayBanner } from '@/components/plan/SmartDayBanner';
-import { useCalendarEvents } from '@/hooks/useCalendarSync';
-import { useSmartDayRecommendation } from '@/hooks/useSmartDayRecommendation';
+import { DaySummaryCard } from '@/components/plan/DaySummaryCard';
+import { useDaySummary } from '@/hooks/useDaySummary';
 import type { PlannedOutfit } from '@/hooks/usePlannedOutfits';
 
 interface DayCardProps {
@@ -47,9 +45,8 @@ export function DayCard({
   const hasOutfit = !!outfit;
   const isWorn = plannedOutfit?.status === 'worn';
 
-  // Fetch calendar events for this date
-  const { data: calendarEvents } = useCalendarEvents(dateStr);
-  const { slots: smartSlots } = useSmartDayRecommendation(calendarEvents);
+  // Fetch AI day summary
+  const { data: daySummary, isLoading: isSummaryLoading } = useDaySummary(dateStr);
 
   // Format date label
   let dateLabel = format(date, 'EEEE d MMMM', { locale: sv });
@@ -90,10 +87,14 @@ export function DayCard({
           <WeatherForecastBadge date={dateStr} compact />
         </div>
 
-        {/* Calendar Events */}
-        {calendarEvents && calendarEvents.length > 0 && (
-          <CalendarEventsList events={calendarEvents} className="mb-3" />
-        )}
+        {/* AI Day Summary */}
+        <DaySummaryCard
+          summary={daySummary}
+          isLoading={isSummaryLoading}
+          onGenerateFromHint={() => onQuickGenerate()}
+          compact
+          className="mb-3"
+        />
 
         {hasOutfit ? (
           <>
@@ -183,17 +184,8 @@ export function DayCard({
           </>
         ) : (
         <>
-            {/* Smart recommendations when no outfit planned */}
-            {smartSlots.length > 0 && (
-              <SmartDayBanner
-                slots={smartSlots}
-                onGenerate={onQuickGenerate}
-                className="mb-3"
-              />
-            )}
-
             {/* Empty state */}
-            {smartSlots.length === 0 && (
+            {!daySummary && (
               <p className="text-sm text-muted-foreground mb-4">
                 Ingen outfit planerad.
               </p>
