@@ -31,7 +31,7 @@ export function LanguageStep({ onComplete }: LanguageStepProps) {
       </div>
 
       {/* Language grid */}
-      <div className="flex-1 px-6 pt-6 pb-10">
+      <div className="flex-1 px-6 pt-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
         <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
           {SUPPORTED_LOCALES.map((loc) => {
             const isSelected = locale === loc.code;

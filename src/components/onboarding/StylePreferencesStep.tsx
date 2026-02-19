@@ -45,15 +45,17 @@ export function StylePreferencesStep({ onComplete, isSaving }: StylePreferencesS
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <div className="flex-1 p-6 pb-32 max-w-lg mx-auto w-full">
-        {/* Header */}
-        <div className="text-center mb-8 pt-8">
-          <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-4">
-            <Palette className="w-8 h-8 text-accent" />
-          </div>
-          <h1 className="text-2xl font-bold mb-2">{t('onboarding.style.title')}</h1>
-          <p className="text-muted-foreground text-sm">{t('onboarding.style.subtitle')}</p>
+      {/* Gradient header */}
+      <div className="bg-gradient-to-br from-accent/10 via-accent/5 to-background pt-16 pb-10 px-6 flex flex-col items-center text-center">
+        <div className="w-20 h-20 rounded-2xl bg-accent/15 flex items-center justify-center mb-6">
+          <Palette className="w-10 h-10 text-accent" />
         </div>
+        <h1 className="text-2xl font-bold mb-3 tracking-tight">{t('onboarding.style.title')}</h1>
+        <p className="text-muted-foreground text-sm leading-relaxed max-w-xs">{t('onboarding.style.subtitle')}</p>
+      </div>
+
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto px-6 pt-6 pb-32">
 
         <div className="space-y-6">
           {/* Favorite Colors */}
@@ -141,12 +143,12 @@ export function StylePreferencesStep({ onComplete, isSaving }: StylePreferencesS
       </div>
 
       {/* Fixed bottom button */}
-      <div className="fixed bottom-0 left-0 right-0 p-6 bg-background/80 backdrop-blur-sm border-t border-border">
+      <div className="fixed bottom-0 left-0 right-0 p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] bg-background/80 backdrop-blur-sm border-t border-border">
         <div className="max-w-lg mx-auto">
           <Button
             onClick={handleContinue}
             disabled={isSaving}
-            className="w-full bg-accent text-accent-foreground hover:bg-accent/90 h-12 text-base"
+            className="w-full bg-accent text-accent-foreground hover:bg-accent/90 h-14 text-base"
           >
             {isSaving ? (
               <Loader2 className="w-5 h-5 animate-spin mr-2" />
