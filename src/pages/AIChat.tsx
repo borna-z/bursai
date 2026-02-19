@@ -206,7 +206,7 @@ export default function AIChat() {
   const headerActions = (
     <div className="flex items-center gap-2">
       <Link to="/insights">
-        <Button variant="ghost" size="icon" className="h-9 w-9" title={t('chat.insights')}>
+        <Button variant="ghost" size="icon" className="h-9 w-9 text-accent" title={t('chat.insights')}>
           <BarChart3 className="w-5 h-5" />
         </Button>
       </Link>
@@ -243,7 +243,7 @@ export default function AIChat() {
               {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImagePlus className="w-5 h-5" />}
             </Button>
             <Textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder={pendingImage ? t('chat.image_placeholder') : t('chat.placeholder')} className="min-h-[44px] max-h-32 resize-none text-sm" disabled={isStreaming} rows={1} />
-            <Button onClick={sendMessage} disabled={(!input.trim() && !pendingImage) || isStreaming} size="icon" className="h-11 w-11 shrink-0">
+            <Button onClick={sendMessage} disabled={(!input.trim() && !pendingImage) || isStreaming} size="icon" className="h-11 w-11 shrink-0 bg-accent text-accent-foreground hover:bg-accent/90">
               {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>
           </div>
@@ -300,11 +300,11 @@ function MessageBubble({ message, isStreaming, garmentMap }: { message: Message;
   return (
     <div className={cn('flex items-end gap-2', isUser ? 'flex-row-reverse' : 'flex-row')}>
       {!isUser && (
-        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 shrink-0">
-          <Sparkles className="w-4 h-4 text-primary" />
+        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-accent/10 shrink-0">
+          <Sparkles className="w-4 h-4 text-accent" />
         </div>
       )}
-      <div className={cn('max-w-[80%] rounded-2xl px-4 py-3 text-sm', isUser ? 'bg-primary text-primary-foreground rounded-br-sm' : 'bg-muted text-foreground rounded-bl-sm')}>
+      <div className={cn('max-w-[80%] rounded-2xl px-4 py-3 text-sm', isUser ? 'bg-accent text-accent-foreground rounded-br-sm' : 'bg-muted text-foreground rounded-bl-sm')}>
         {images.length > 0 && (
           <div className="mb-2 flex gap-2 flex-wrap">
             {images.map((url, i) => <img key={i} src={url} alt="Outfit" className="h-32 w-32 object-cover rounded-lg" />)}

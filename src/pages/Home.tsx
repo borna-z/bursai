@@ -126,7 +126,7 @@ export default function HomePage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <span className="font-semibold">{t('home.get_started')}</span>
-                <ArrowRight className="w-4 h-4 text-primary" />
+                <ArrowRight className="w-4 h-4 text-accent" />
               </div>
               <Progress value={onboardingProgress} className="h-1.5 mb-2" />
               <p className="text-sm text-muted-foreground">
