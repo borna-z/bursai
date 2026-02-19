@@ -1,72 +1,173 @@
 
-# Visual Audit Report + New Logo Update
 
-## Visual Audit Findings
+# DRAPE Major Update Plan
 
-After reviewing all key screens in both light and dark mode, here is what was found:
-
-### Issues Identified
-
-**1. "Skapa outfit" button — wrong background color (both modes)**
-The primary CTA button renders as a flat dark grey instead of true charcoal `#111111` in light mode, and as washed-out grey instead of off-white in dark mode. The issue is that the `bg-primary` token resolves correctly but the button component's hover state (`hover:bg-primary/90`) uses opacity on the HSL variable, which can look muddy when the background is close to the same tone. A small fix to ensure the button stays crisp.
-
-**2. The current logo icon is a placeholder PNG — the new "D" monogram must replace it**
-The user has provided the production-ready logo: a refined "D" monogram inside a rounded square container (`Gemini_Generated_Image_pqwabxpqwabxpqwa.png`). This must replace:
-- `src/assets/drape-logo.png` (used by `DrapeLogo.tsx` in all app headers)
-- `public/favicon.png`
-- `public/icons/icon-192.png`
-- `public/icons/icon-512.png`
-
-**3. Marketing nav logo** — Currently shows the old placeholder icon. Will be fixed automatically once the asset is replaced.
-
-**4. Minor: "Synka nu" button** — Uses `bg-secondary` which renders as a grey that blends into both backgrounds. This is acceptable for a secondary action but could be slightly crisper. No change needed unless requested.
-
-### What looks correct
-- Off-white background `#F6F4F1` is rendering correctly in light mode
-- Dark mode background `#0A0A0A` is deep and clean
-- Border colors (`#E9E6E1`) are subtle and correct
-- Typography (Sora headings, Inter body) renders well
-- BottomNav active state indicator (`bg-primary/10`) looks correct
-- Chips/filter pills in both modes look consistent
-- Card surfaces have correct contrast in both modes
+This is a large update covering 5 distinct features. Given the scope, I recommend implementing them in phases across multiple messages to avoid errors.
 
 ---
 
-## Changes to Implement
+## Phase 1: Fix Apple and Android Icons on Marketing Page
 
-### 1. Replace logo asset with new "D" monogram
-Copy the uploaded image to all asset locations:
-- `src/assets/drape-logo.png` — main app logo used by `DrapeLogo.tsx`
-- `public/favicon.png` — browser tab favicon
-- `public/icons/icon-192.png` — PWA home screen icon (192×192)
-- `public/icons/icon-512.png` — PWA splash / store icon (512×512)
+**Problem:** The PWA install section uses generic Lucide icons (`Apple` and `Chrome`) instead of the real Apple and Android brand logos.
 
-### 2. Update `DrapeLogo.tsx` for better icon sizing
-The new logo has a rounded square container that looks best with slightly more padding-aware sizing. Update the size map to ensure the icon renders crisply at each breakpoint. Also add `dark:invert` class to handle dark mode — since the new logo is black-on-white, in dark mode it should invert to white-on-black automatically.
+**Solution:** Replace the Lucide icons with inline SVG components that render the actual Apple logo and Google Play / Android logo. These are well-known SVG paths that are freely available.
 
-```typescript
-// src/components/ui/DrapeLogo.tsx
-// Add dark:invert to the img className for automatic dark mode support
-className="object-contain flex-shrink-0 dark:invert"
+**Files to change:**
+- `src/components/marketing/PWAInstallSection.tsx` -- Replace `<Apple>` with an inline Apple SVG and `<Chrome>` with an inline Android/Play Store SVG
+
+---
+
+## Phase 2: User-Selectable Accent Color (Logo Tint)
+
+**Problem:** The logo is black and white, which feels flat. Users should be able to pick a favorite color during onboarding that tints the logo and acts as their personal accent.
+
+**Solution:**
+1. Add a new onboarding step (before body measurements) where users pick from 12 colors
+2. Store the chosen color in the `preferences` JSONB column on `profiles` (as `accentColor`)
+3. Create a React context (`AccentColorContext`) that reads the user's saved color and applies it as a CSS custom property (`--user-accent`)
+4. Update `DrapeLogo.tsx` to apply a CSS filter or use the accent color as a background tint on the logo icon (using CSS `mix-blend-mode` or a colored overlay behind the transparent logo areas)
+
+**12 color palette:**
+
+| Name | Hex |
+|------|-----|
+| Crimson | #DC2626 |
+| Coral | #F97316 |
+| Amber | #F59E0B |
+| Emerald | #10B981 |
+| Teal | #14B8A6 |
+| Sky | #0EA5E9 |
+| Indigo | #6366F1 |
+| Violet | #8B5CF6 |
+| Fuchsia | #D946EF |
+| Rose | #F43F5E |
+| Slate | #64748B |
+| Charcoal | #111111 (default) |
+
+**Files to create/change:**
+- `src/contexts/AccentColorContext.tsx` -- New context provider
+- `src/components/onboarding/ColorPickerStep.tsx` -- New onboarding step
+- `src/pages/Onboarding.tsx` -- Add color picker step before body measurements
+- `src/pages/Settings.tsx` -- Add accent color picker in settings
+- `src/components/ui/DrapeLogo.tsx` -- Apply accent color tint
+- `src/App.tsx` -- Wrap with AccentColorProvider
+- No database migration needed (uses existing `preferences` JSONB)
+
+---
+
+## Phase 3: Multi-Language Support (10 Languages)
+
+**Problem:** The app is hardcoded in Swedish. Users should be able to choose from 10 languages at signup.
+
+**Solution:**
+1. Create an i18n system with translation files for each language
+2. Add a language selector during onboarding (after color picker)
+3. Store language preference in `preferences` JSONB as `language`
+4. Create a `useTranslation` hook that returns translated strings
+5. Marketing site stays in English (translate `marketing.ts` config)
+
+**Supported languages:**
+Swedish (sv), Norwegian (no), Finnish (fi), Danish (da), English (en), Spanish (es), French (fr), Mandarin (zh), Arabic (ar), Persian (fa), German (de), Portuguese (pt)
+
+**Files to create/change:**
+- `src/i18n/translations/` -- Translation files for each language
+- `src/i18n/index.ts` -- Translation lookup system
+- `src/hooks/useTranslation.ts` -- Hook for accessing translations
+- `src/contexts/LanguageContext.tsx` -- Language context provider
+- `src/components/onboarding/LanguagePickerStep.tsx` -- Onboarding step
+- `src/config/marketing.ts` -- Convert to English
+- All UI components -- Replace hardcoded Swedish strings with `t('key')` calls
+
+**Note:** This is the largest change and will touch many files. The marketing page (`/marketing`) will be converted to English. The in-app experience defaults to the user's chosen language.
+
+---
+
+## Phase 4: Marketing Page to English
+
+**Problem:** The marketing site is in Swedish but should be in English since it's the public-facing website.
+
+**Solution:** Translate all strings in `src/config/marketing.ts` to English. This is a content-only change -- no structural code changes needed.
+
+**Files to change:**
+- `src/config/marketing.ts` -- Translate all Swedish text to English
+
+---
+
+## Phase 5: Plan Page Redesign (Premium Minimalist)
+
+**Problem:** The Plan page feels cluttered with calendar events always visible, and tapping a day in the WeekStrip doesn't expand into a rich day view.
+
+**Design principles:**
+- Minimalist: hide information until requested
+- Calendar events behind a small icon (tap to reveal in a popover)
+- Tapping a day in WeekStrip opens an expanded "day detail" view
+- Show outfit recommendation with explanation
+- Beautiful, spacious layout with plenty of whitespace
+
+**New Plan page UX flow:**
+
+```text
++------------------------------------------+
+|  Plan         [Hela veckan]              |
++------------------------------------------+
+|  [Mon] [Tue] [Wed] [THU] [Fri] [Sat] [Sun]
+|                     ^^^^                  
+|                   selected                
++------------------------------------------+
+|                                          |
+|  Thursday, 20 February                   |
+|  ~~~~~~~~~~~~~~~~~~~~~~~~                |
+|  [Calendar icon]  2 events     [Weather] |
+|                                          |
+|  +------------------------------------+ |
+|  |  Recommended Outfit                 | |
+|  |  [4 garment images in a row]       | |
+|  |                                     | |
+|  |  "Perfect for your meeting at 10.   | |
+|  |   Smart casual with navy tones."    | |
+|  |                                     | |
+|  |  [Swap]  [Details]                  | |
+|  +------------------------------------+ |
+|                                          |
+|  [Mark as worn]        [Remove]          |
+|                                          |
++------------------------------------------+
 ```
 
-### 3. Update `index.html` favicon reference
-Ensure the `<link rel="icon">` tag points to `favicon.png` and add a correct `sizes` attribute.
+**Key changes:**
+- `WeekStrip` stays but becomes the primary navigation
+- Remove the vertical list of `DayCard` components -- only show the selected day
+- Calendar events hidden behind a small calendar icon badge; tap opens a Popover showing the event list
+- Selected day shows a single, beautiful expanded card with:
+  - Date header with weather badge
+  - Calendar event count (tap for details)
+  - Outfit preview (large garment images)
+  - AI explanation of why this outfit was chosen
+  - Action buttons (Swap, Details, Mark worn, Remove)
+- Empty state for unplanned days: two CTA buttons (Plan / Generate)
+
+**Files to change:**
+- `src/pages/Plan.tsx` -- Major restructure: single selected day view instead of day card list
+- `src/components/plan/DayCard.tsx` -- Redesign as expanded "DayDetailView" with more space, better typography
+- `src/components/plan/WeekStrip.tsx` -- Minor polish
+- `src/components/plan/CalendarEventBadge.tsx` -- Wrap in Popover instead of always-visible badges
 
 ---
 
-## Technical Implementation Plan
+## Implementation Order
 
-### Files to modify
-| File | Change |
-|------|--------|
-| `src/assets/drape-logo.png` | Replace with new "D" monogram image |
-| `public/favicon.png` | Replace with new "D" monogram image |
-| `public/icons/icon-192.png` | Replace with new "D" monogram image |
-| `public/icons/icon-512.png` | Replace with new "D" monogram image |
-| `src/components/ui/DrapeLogo.tsx` | Add `dark:invert` to img tag for automatic dark mode logo inversion |
+Given the scope, I recommend this order across multiple messages:
 
-### Why `dark:invert` on the logo?
-The new logo is a black mark on a near-white background. In dark mode the app background becomes near-black (`#0A0A0A`), so the white canvas of the logo image would create an ugly white rectangle. CSS `dark:invert` flips the image colors — turning the black "D" mark white and the white background transparent-looking against the dark surface. This is the standard technique used by apps like Linear and Vercel for their monochrome logos.
+1. **Phase 1** (small) + **Phase 4** (content only) -- Fix icons + translate marketing to English
+2. **Phase 5** -- Plan page redesign (standalone, no dependencies)
+3. **Phase 2** -- Accent color system (onboarding + logo)
+4. **Phase 3** -- i18n system (largest change, touches many files)
 
-No database changes, no edge function changes, no new dependencies required.
+---
+
+## Technical Notes
+
+- **No database migrations needed** -- all new preferences (accent color, language) fit in the existing `preferences` JSONB column on `profiles`
+- **RTL support** -- Arabic and Persian are RTL languages; the i18n system will need to set `dir="rtl"` on the root element when these languages are active
+- **Marketing stays static** -- The marketing page is not translated dynamically; it's always in English
+- **Accent color** -- Applied via CSS custom property so it cascades through the entire app without prop drilling
