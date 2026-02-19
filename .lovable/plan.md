@@ -1,82 +1,108 @@
 
-# Settings -- iPhone-inspirerad redesign med flikar
+# Settings -- Apple-stil med 5 navigeringsknappar
 
 ## Vad som andras
 
-Den nuvarande settings-sidan ar en lang scrollbar lista med cards. Den nya designen grupperar allt i tre rena flikar med ett iOS-liknande utseende: listor med rader istallet for separata cards.
+Ta bort tabs helt. Huvudsidan `/settings` visar bara 5 rena knappar (som Apple Settings). Varje knapp oppnar en egen undersida med tillbaka-pil.
 
 ## Ny layout
 
 ```text
+/settings (huvudsida)
 +----------------------------------+
 |          Installningar           |
 +----------------------------------+
-|  [Allmant]  [Stil]  [Konto]      |  <-- TabsList (sticky under header)
-+----------------------------------+
 |                                  |
-|  Tab content (no cards, just     |
-|  grouped list rows like iOS)     |
+|  +----------------------------+  |
+|  | Utseende               >  |  |
+|  +----------------------------+  |
+|                                  |
+|  +----------------------------+  |
+|  | Stil                   >  |  |
+|  +----------------------------+  |
+|                                  |
+|  +----------------------------+  |
+|  | Notiser & Kalender     >  |  |
+|  +----------------------------+  |
+|                                  |
+|  +----------------------------+  |
+|  | Profil & Konto         >  |  |
+|  +----------------------------+  |
+|                                  |
+|  +----------------------------+  |
+|  | Data & Integritet      >  |  |
+|  +----------------------------+  |
+|                                  |
+|  +----------------------------+  |
+|  | Logga ut                   |  |
+|  +----------------------------+  |
 |                                  |
 +----------------------------------+
 ```
 
-### Flik 1: Allmant (General)
-- Utseende (ljust/morkt/auto) -- segmented control
-- Accentfarg -- fargvaljare
-- Sprak -- valj sprak
-- Notiser -- morning reminder switch
-- Kalendersynk
+Varje knapp navigerar till en undersida:
 
-### Flik 2: Stil (Style)
-- Kroppsmatt (langd, vikt)
+- `/settings/appearance` -- Tema, accentfarg, sprak
+- `/settings/style` -- Kroppsmatt, farger, passform, stil
+- `/settings/notifications` -- Notiser, kalendersynk
+- `/settings/account` -- Premium, namn, e-post
+- `/settings/privacy` -- Exportera data, radera konto
+
+## De 5 undersidorna
+
+Varje undersida anvander `PageHeader` med `showBack` och listar sina installningar med `SettingsGroup` / `SettingsRow` -- ren iOS-stil.
+
+### 1. Utseende
+- Tema (ljus/mork/auto)
+- Accentfarg
+- Sprak
+
+### 2. Stil
+- Kroppsmatt (langd, vikt, spara-knapp)
 - Favoritfarger (chips)
 - Ogillade farger (chips)
-- Passform (select)
-- Standardstil (select)
-- Kosneutrala forslag (switch)
+- Passform, standardstil, konsneutralt
 
-### Flik 3: Konto (Account)
-- Premium/Plan-sektion
-- Profil (namn, e-post)
+### 3. Notiser & Kalender
+- Morgonpaminnelse (switch)
+- CalendarSection
+
+### 4. Profil & Konto
+- PremiumSection
+- Visningsnamn
+- E-post
+
+### 5. Data & Integritet
 - Exportera data
 - Radera konto
-- Logga ut
-
-## iOS-stil design
-
-Istallet for separata `Card`-komponenter anvands grupperade listor med tunn separator-linje mellan rader, liknande iOS Settings:
-
-- Rader med etikett till vanster och kontroll/varde till hoger
-- Grupperade sektioner med rubrik ovanfor
-- Rundade horn pa grupper, inte individuella rader
-- Rent, avskalat, mycket whitespace
 
 ## Tekniska steg
 
-### 1. Omstrukturera `src/pages/Settings.tsx`
-- Importera `Tabs, TabsList, TabsTrigger, TabsContent` fran `@/components/ui/tabs`
-- Skapa tre TabsContent-sektioner: "general", "style", "account"
-- Flytta befintlig logik till respektive flik
-- Byt fran Card-per-sektion till grupperade div-listor med iOS-stil
+### 1. Skapa 5 nya sidkomponenter
+- `src/pages/settings/SettingsAppearance.tsx`
+- `src/pages/settings/SettingsStyle.tsx`
+- `src/pages/settings/SettingsNotifications.tsx`
+- `src/pages/settings/SettingsAccount.tsx`
+- `src/pages/settings/SettingsPrivacy.tsx`
 
-### 2. Skapa `src/components/settings/SettingsRow.tsx` (ny komponent)
-- En aterkommande rad-komponent: ikon + etikett till vanster, kontroll till hoger
-- Separator mellan rader (utom sista i grupp)
-- Anvands av alla tre flikar
+Varje sida flyttar relevant logik fran nuvarande `Settings.tsx`.
 
-### 3. Skapa `src/components/settings/SettingsGroup.tsx` (ny komponent)
-- En grupp-wrapper med rubrik, rundade horn, bg-card
-- Automatisk separator mellan barn-rader
+### 2. Forenkla `src/pages/Settings.tsx`
+- Ta bort alla tabs, all logik
+- Visa bara `PageHeader` + 5 `SettingsRow`-knappar med `ChevronRight` och `onClick={() => navigate('/settings/xxx')}`
+- Plus en "Logga ut"-knapp langst ner
 
-### 4. Uppdatera TabsList-stil
-- Sticky under PageHeader
-- Anvand accent-farg for aktiv flik-indikator
-- Full bredd, jamt fordelad
+### 3. Lagg till routes i `src/App.tsx`
+- 5 nya `<Route>` under `/settings/*`
 
 ### Filer som andras / skapas
 
 | Fil | Andring |
 |-----|---------|
-| `src/components/settings/SettingsRow.tsx` | Ny -- atervandbar iOS-stilrad |
-| `src/components/settings/SettingsGroup.tsx` | Ny -- gruppwrapper med rubrik |
-| `src/pages/Settings.tsx` | Total omstrukturering med Tabs + nya komponenter |
+| `src/pages/Settings.tsx` | Total forenkling -- bara 5 knappar |
+| `src/pages/settings/SettingsAppearance.tsx` | Ny -- tema, farg, sprak |
+| `src/pages/settings/SettingsStyle.tsx` | Ny -- kropp, farger, passform |
+| `src/pages/settings/SettingsNotifications.tsx` | Ny -- notiser, kalender |
+| `src/pages/settings/SettingsAccount.tsx` | Ny -- premium, profil |
+| `src/pages/settings/SettingsPrivacy.tsx` | Ny -- export, radera |
+| `src/App.tsx` | 5 nya routes |
