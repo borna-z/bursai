@@ -1,90 +1,72 @@
 
 
-# GDPR-komplett: Data & Integritet-sidan
+# Rebrand: DRAPE to BURS
 
-## Oversikt
-Bygga ut sidan "Data & Integritet" med alla verktyg som krävs enligt GDPR (EU:s dataskyddsforordning). Idag finns bara "Exportera data" och "Radera konto". Vi lagger till allt som saknas.
+## Overview
+Full rebrand of the application from "DRAPE" to "BURS". This includes replacing the logo image with the uploaded one, updating all text references across the codebase, and renaming the PWA manifest.
 
-## Vad som laggs till
+## Logo Usage
+From the uploaded image:
+- **Left version** (icon only, no text): Used on the marketing website
+- **Right version** (icon + "BURS" wordmark): Used in the PWA app (auth page, etc.)
 
-### 1. Om oss-sektion
-Kort information om vem som ar personuppgiftsansvarig (DRAPE), kontaktuppgifter, och hoja transparensen.
+The uploaded image will be copied to `src/assets/burs-logo.png` and used as the new logo source.
 
-### 2. Samtyckes-hantering (Consent management)
-- Mojlighet att slå pa/av valfria databehandlingar:
-  - **Analysdata** (anonym anvandningsstatistik)
-  - **AI-stilist**: tillat att konversationer sparas for personalisering
-  - **Kroppsdata**: tillat att kroppsmatt anvands for stilrad
-- Varje val sparas i profilens `preferences`-falt (redan jsonb)
+## Changes
 
-### 3. Rattigheter enligt GDPR
-- **Exportera data** (redan implementerat -- behalls)
-- **Radera konto** (redan implementerat -- behalls)
-- **Ratt till ratifiering**: lank till Profil & Konto for att andra sina uppgifter
-- **Integritetspolicy**: lank till /privacy
-- **Anvandarvillkor**: lank till /terms
+### 1. Copy logo asset
+- Copy `user-uploads://Gemini_Generated_Image_qeunkmqeunkmqeun_1.png` to `src/assets/burs-logo.png`
 
-### 4. Dataoverblick
-En kort lista som visar vilka kategorier av data som lagras:
-- Profildata (namn, e-post)
-- Garderobsbilder
-- Outfits & planeringshistorik
-- AI-konversationer
-- Kroppsmatt (om angivet)
-- Kalenderdata (om synkad)
+### 2. Rename and update logo component
+- Rename `src/components/ui/DrapeLogo.tsx` content to `BursLogo`
+- Update import to use `burs-logo.png`
+- Change all alt text and wordmark text from "DRAPE" to "BURS"
+- The component will still support `icon`, `wordmark`, and `horizontal` variants
 
-## Layout-struktur
+### 3. Update all consuming files
+Files that import or reference `DrapeLogo`:
+- `src/components/marketing/MarketingLayout.tsx` -- update import to `BursLogo`
 
-Collapsible sektioner (samma monster som nya stilsidan):
+### 4. Update Auth page
+- `src/pages/Auth.tsx` -- change the "DRAPE" heading text to "BURS"
 
-```text
-+-----------------------------+
-|  < Data & Integritet        |
-+-----------------------------+
-|                             |
-|  [ Om DRAPE            v ]  |  <- collapsible
-|    Ansvarig, kontakt, syfte |
-|                             |
-|  [ Din data             v ]  |  <- collapsible
-|    Lista over datakategorier|
-|                             |
-|  [ Samtycken            v ]  |  <- collapsible
-|    Analysdata       [toggle]|
-|    AI-konversationer [toggle]|
-|    Kroppsdata       [toggle]|
-|                             |
-|  [ Dina rattigheter     v ]  |  <- collapsible
-|    Exportera data           |
-|    Andra dina uppgifter     |
-|    Integritetspolicy        |
-|    Anvandarvillkor          |
-|                             |
-|  [  Radera konto  ]         |  <- standalone, destructive
-|                             |
-+-----------------------------+
-```
+### 5. Update PWA manifest
+- `public/manifest.json` -- change `name` and `short_name` from "DRAPE" to "BURS"
 
-## Tekniska detaljer
+### 6. Update index.html
+- Change all `<title>`, `<meta>` tags from "DRAPE" to "BURS"
 
-| Fil | Andring |
-|-----|---------|
-| `src/pages/settings/SettingsPrivacy.tsx` | Full omskrivning: 4 collapsible sektioner, samtyckes-toggles, datalista, Om oss, lankar. "Radera konto" kvar som sista element. |
-| `src/i18n/translations.ts` | Lagg till ~25 nya nycklar for GDPR-texterna (sv, en, ar, fa) |
+### 7. Update marketing config
+- `src/config/marketing.ts` -- replace all "DRAPE" references with "BURS" (title, footer copyright, terms content, etc.)
 
-### Samtycken lagras i profilen
-Befintliga `profiles.preferences` (jsonb) utvidgas med:
-```json
-{
-  "consent": {
-    "analytics": true,
-    "ai_conversations": true,
-    "body_data": true,
-    "updated_at": "2025-02-19T..."
-  }
-}
-```
-Ingen databasmigration behövs -- `preferences` ar redan en flexibel jsonb-kolumn.
+### 8. Update translations (i18n)
+- `src/i18n/translations.ts` -- replace "DRAPE AB" with "BURS AB", "privacy@drape.se" with "privacy@burs.se" in GDPR sections across all locales
 
-### Inga nya rutter
-Allt byggs inom den befintliga `/settings/privacy`-sidan.
+### 9. Update privacy settings page
+- `src/pages/settings/SettingsPrivacy.tsx` -- change `drape-export-` filename to `burs-export-`, update `mailto:privacy@drape.se` to `privacy@burs.se`
+
+### 10. Update structured data
+- `src/pages/marketing/MarketingHome.tsx` -- change JSON-LD `name` from "DRAPE" to "BURS"
+- `src/pages/marketing/Admin.tsx` -- update Helmet title
+- `src/pages/marketing/Terms.tsx` -- update Helmet title/meta
+
+### 11. CSS and animation names (keep as-is)
+The animation names `drape-in`, `drape-out`, `stagger-drape` in `tailwind.config.ts` and `src/index.css` are internal CSS identifiers. Renaming them is optional and carries risk of missing references. They will be kept as-is since they are not user-facing.
+
+## Technical Summary
+
+| File | Change |
+|------|--------|
+| `src/assets/burs-logo.png` | New logo file (copied from upload) |
+| `src/components/ui/DrapeLogo.tsx` | Rename export to `BursLogo`, update image source and text |
+| `src/components/marketing/MarketingLayout.tsx` | Update import |
+| `src/pages/Auth.tsx` | "DRAPE" to "BURS" |
+| `public/manifest.json` | Name and short_name |
+| `index.html` | All meta tags |
+| `src/config/marketing.ts` | All "DRAPE" references |
+| `src/i18n/translations.ts` | GDPR section references |
+| `src/pages/settings/SettingsPrivacy.tsx` | Export filename, email |
+| `src/pages/marketing/MarketingHome.tsx` | JSON-LD name |
+| `src/pages/marketing/Admin.tsx` | Helmet title |
+| `src/pages/marketing/Terms.tsx` | Helmet title/meta |
 
