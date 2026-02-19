@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.summarize_day]
 verify_jwt = false
+
+[functions.shopping_chat]
+verify_jwt = false

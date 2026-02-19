@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Send, Loader2, BarChart3, Trash2, ImagePlus, Sparkles } from 'lucide-react';
+import { Send, Loader2, BarChart3, Trash2, ImagePlus, Sparkles, ShoppingBag } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -22,7 +22,10 @@ type Message = {
   content: string | MultimodalPart[];
 };
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/style_chat`;
+type ChatMode = 'stylist' | 'shopping';
+
+const STYLE_CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/style_chat`;
+const SHOPPING_CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shopping_chat`;
 
 function getTextContent(content: string | MultimodalPart[]): string {
   if (typeof content === 'string') return content;
@@ -34,9 +37,9 @@ function getImageUrls(content: string | MultimodalPart[]): string[] {
   return content.filter(p => p.type === 'image_url').map(p => (p as { type: 'image_url'; image_url: { url: string } }).image_url.url);
 }
 
-async function loadMessages(userId: string): Promise<Message[]> {
+async function loadMessages(userId: string, mode: ChatMode): Promise<Message[]> {
   const res = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/chat_messages?user_id=eq.${userId}&order=created_at.asc&limit=100`,
+    `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/chat_messages?user_id=eq.${userId}&mode=eq.${mode}&order=created_at.asc&limit=100`,
     { headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}` } }
   );
   if (!res.ok) return [];
@@ -49,16 +52,16 @@ async function loadMessages(userId: string): Promise<Message[]> {
   });
 }
 
-async function persistMessages(userId: string, msgs: Message[], accessToken: string) {
+async function persistMessages(userId: string, msgs: Message[], accessToken: string, mode: ChatMode) {
   await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/chat_messages`, {
     method: 'POST',
     headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-    body: JSON.stringify(msgs.map(m => ({ user_id: userId, role: m.role, content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) }))),
+    body: JSON.stringify(msgs.map(m => ({ user_id: userId, role: m.role, content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content), mode }))),
   });
 }
 
-async function deleteAllMessages(userId: string, accessToken: string) {
-  await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/chat_messages?user_id=eq.${userId}`, {
+async function deleteMessagesByMode(userId: string, accessToken: string, mode: ChatMode) {
+  await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/chat_messages?user_id=eq.${userId}&mode=eq.${mode}`, {
     method: 'DELETE',
     headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${accessToken}` },
   });
@@ -68,9 +71,13 @@ export default function AIChat() {
   const { user } = useAuth();
   const { t } = useLanguage();
 
-  const welcomeMessage: Message = { role: 'assistant', content: t('chat.welcome') };
+  const [mode, setMode] = useState<ChatMode>('stylist');
 
-  const [messages, setMessages] = useState<Message[]>([welcomeMessage]);
+  const stylistWelcome: Message = { role: 'assistant', content: t('chat.welcome') };
+  const shoppingWelcome: Message = { role: 'assistant', content: t('chat.shopping_welcome') };
+
+  const [stylistMessages, setStylistMessages] = useState<Message[]>([stylistWelcome]);
+  const [shoppingMessages, setShoppingMessages] = useState<Message[]>([shoppingWelcome]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -79,10 +86,20 @@ export default function AIChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const messages = mode === 'stylist' ? stylistMessages : shoppingMessages;
+  const setMessages = mode === 'stylist' ? setStylistMessages : setShoppingMessages;
+  const welcomeMessage = mode === 'stylist' ? stylistWelcome : shoppingWelcome;
+  const chatUrl = mode === 'stylist' ? STYLE_CHAT_URL : SHOPPING_CHAT_URL;
+
+  // Load messages for both modes on mount
   useEffect(() => {
     if (!user) { setIsLoading(false); return; }
-    loadMessages(user.id).then(msgs => {
-      if (msgs.length > 0) setMessages(msgs);
+    Promise.all([
+      loadMessages(user.id, 'stylist'),
+      loadMessages(user.id, 'shopping'),
+    ]).then(([sMsgs, shMsgs]) => {
+      if (sMsgs.length > 0) setStylistMessages(sMsgs);
+      if (shMsgs.length > 0) setShoppingMessages(shMsgs);
       setIsLoading(false);
     }).catch(() => setIsLoading(false));
   }, [user]);
@@ -124,23 +141,25 @@ export default function AIChat() {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+    const welcomeText = mode === 'stylist' ? t('chat.welcome') : t('chat.shopping_welcome');
+
     let userContent: string | MultimodalPart[];
     if (pendingImage) {
       const parts: MultimodalPart[] = [{ type: 'image_url', image_url: { url: pendingImage.url } }];
       if (trimmed) parts.push({ type: 'text', text: trimmed });
-      else parts.push({ type: 'text', text: t('chat.image_default') });
+      else parts.push({ type: 'text', text: mode === 'shopping' ? t('chat.shopping_placeholder') : t('chat.image_default') });
       userContent = parts;
     } else { userContent = trimmed; }
 
     const userMsg: Message = { role: 'user', content: userContent };
     setInput(''); setPendingImage(null); setIsStreaming(true);
 
-    const newMessages = [...messages.filter((m, i) => !(i === 0 && getTextContent(m.content) === t('chat.welcome'))), userMsg];
+    const newMessages = [...messages.filter((m, i) => !(i === 0 && getTextContent(m.content) === welcomeText)), userMsg];
     setMessages([...newMessages, { role: 'assistant', content: '' }]);
 
     let assistantContent = '';
     try {
-      const resp = await fetch(CHAT_URL, {
+      const resp = await fetch(chatUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ messages: newMessages }),
@@ -180,7 +199,7 @@ export default function AIChat() {
         }
       }
       const assistantMsg: Message = { role: 'assistant', content: assistantContent };
-      if (user && session) await persistMessages(user.id, [userMsg, assistantMsg], session.access_token);
+      if (user && session) await persistMessages(user.id, [userMsg, assistantMsg], session.access_token, mode);
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('chat.unknown_error');
       toast.error(`${t('chat.error')} ${msg}`);
@@ -193,7 +212,7 @@ export default function AIChat() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     try {
-      await deleteAllMessages(user.id, session.access_token);
+      await deleteMessagesByMode(user.id, session.access_token, mode);
       setMessages([welcomeMessage]);
       toast.success(t('chat.history_cleared'));
     } catch { toast.error(t('chat.history_error')); }
@@ -216,16 +235,51 @@ export default function AIChat() {
     </div>
   );
 
+  const placeholder = mode === 'shopping'
+    ? (pendingImage ? t('chat.image_placeholder') : t('chat.shopping_placeholder'))
+    : (pendingImage ? t('chat.image_placeholder') : t('chat.placeholder'));
+
   return (
     <AppLayout>
       <div className="flex flex-col" style={{ height: 'calc(100dvh - 4rem)' }}>
         <PageHeader title={t('chat.title')} actions={headerActions} />
+
+        {/* Mode Switcher */}
+        <div className="px-4 pb-3">
+          <div className="flex bg-muted rounded-xl p-1 max-w-xs mx-auto">
+            <button
+              onClick={() => setMode('stylist')}
+              className={cn(
+                'flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-all',
+                mode === 'stylist'
+                  ? 'bg-accent text-accent-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Sparkles className="w-4 h-4" />
+              {t('chat.mode_stylist')}
+            </button>
+            <button
+              onClick={() => setMode('shopping')}
+              className={cn(
+                'flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-all',
+                mode === 'shopping'
+                  ? 'bg-accent text-accent-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <ShoppingBag className="w-4 h-4" />
+              {t('chat.mode_shopping')}
+            </button>
+          </div>
+        </div>
+
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 pb-36">
           {isLoading ? (
             <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
           ) : (
             messages.map((msg, idx) => (
-              <MessageBubble key={idx} message={msg} isStreaming={isStreaming && idx === messages.length - 1 && msg.role === 'assistant' && getTextContent(msg.content) === ''} garmentMap={garmentMap} />
+              <MessageBubble key={`${mode}-${idx}`} message={msg} isStreaming={isStreaming && idx === messages.length - 1 && msg.role === 'assistant' && getTextContent(msg.content) === ''} garmentMap={garmentMap} isShopping={mode === 'shopping'} />
             ))
           )}
           <div ref={messagesEndRef} />
@@ -242,7 +296,7 @@ export default function AIChat() {
             <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => fileInputRef.current?.click()} disabled={isStreaming || isUploading} title={t('chat.upload_image')}>
               {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImagePlus className="w-5 h-5" />}
             </Button>
-            <Textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder={pendingImage ? t('chat.image_placeholder') : t('chat.placeholder')} className="min-h-[44px] max-h-32 resize-none text-sm" disabled={isStreaming} rows={1} />
+            <Textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder={placeholder} className="min-h-[44px] max-h-32 resize-none text-sm" disabled={isStreaming} rows={1} />
             <Button onClick={sendMessage} disabled={(!input.trim() && !pendingImage) || isStreaming} size="icon" className="h-11 w-11 shrink-0 bg-accent text-accent-foreground hover:bg-accent/90">
               {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>
@@ -269,12 +323,11 @@ function extractGarmentIds(messages: Message[]): string[] {
   return Array.from(ids);
 }
 
-function MessageBubble({ message, isStreaming, garmentMap }: { message: Message; isStreaming: boolean; garmentMap: Map<string, import('@/hooks/useGarmentsByIds').GarmentBasic> }) {
+function MessageBubble({ message, isStreaming, garmentMap, isShopping }: { message: Message; isStreaming: boolean; garmentMap: Map<string, import('@/hooks/useGarmentsByIds').GarmentBasic>; isShopping?: boolean }) {
   const isUser = message.role === 'user';
   const text = getTextContent(message.content);
   const images = getImageUrls(message.content);
 
-  // Split text by garment tags
   const renderContent = useMemo(() => {
     if (!text) return null;
     const parts: React.ReactNode[] = [];
@@ -301,7 +354,7 @@ function MessageBubble({ message, isStreaming, garmentMap }: { message: Message;
     <div className={cn('flex items-end gap-2', isUser ? 'flex-row-reverse' : 'flex-row')}>
       {!isUser && (
         <div className="flex items-center justify-center w-8 h-8 rounded-full bg-accent/10 shrink-0">
-          <Sparkles className="w-4 h-4 text-accent" />
+          {isShopping ? <ShoppingBag className="w-4 h-4 text-accent" /> : <Sparkles className="w-4 h-4 text-accent" />}
         </div>
       )}
       <div className={cn('max-w-[80%] rounded-2xl px-4 py-3 text-sm', isUser ? 'bg-accent text-accent-foreground rounded-br-sm' : 'bg-muted text-foreground rounded-bl-sm')}>

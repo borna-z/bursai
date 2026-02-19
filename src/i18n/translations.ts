@@ -382,6 +382,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'chat.clear_history': 'Rensa historik',
     'chat.insights': 'Insikter',
     'chat.upload_image': 'Ladda upp bild',
+    'chat.mode_stylist': 'Stylist',
+    'chat.mode_shopping': 'Shopping',
+    'chat.shopping_welcome': 'Hej! Jag är din shopping-assistent 🛍️ Ta en bild på plagget du överväger att köpa så hjälper jag dig avgöra om det matchar din garderob!',
+    'chat.shopping_placeholder': 'Beskriv plagget du överväger...',
 
     // Live Scan
     'scan.auto': 'Auto',
@@ -809,6 +813,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'chat.clear_history': 'Clear history',
     'chat.insights': 'Insights',
     'chat.upload_image': 'Upload image',
+    'chat.mode_stylist': 'Stylist',
+    'chat.mode_shopping': 'Shopping',
+    'chat.shopping_welcome': 'Hi! I\'m your shopping assistant 🛍️ Take a photo of the item you\'re considering and I\'ll help you decide if it matches your wardrobe!',
+    'chat.shopping_placeholder': 'Describe the item you\'re considering...',
     'scan.auto': 'Auto',
     'scan.scanned': 'scanned',
     'scan.done': 'Done',
