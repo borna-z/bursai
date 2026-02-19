@@ -36,19 +36,19 @@ export default function SettingsPage() {
       <div className="px-4 pb-6 pt-4 space-y-6 max-w-lg mx-auto">
         <SettingsGroup>
           <SettingsRow icon={<Palette />} label="Utseende" sublabel="Tema, accentfärg, språk" onClick={() => navigate('/settings/appearance')}>
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            <ChevronRight className="w-4 h-4 text-accent" />
           </SettingsRow>
           <SettingsRow icon={<Shirt />} label="Stil" sublabel="Kroppsmått, färger, passform" onClick={() => navigate('/settings/style')}>
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            <ChevronRight className="w-4 h-4 text-accent" />
           </SettingsRow>
           <SettingsRow icon={<Bell />} label="Notiser & Kalender" sublabel="Påminnelser, kalendersynk" onClick={() => navigate('/settings/notifications')}>
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            <ChevronRight className="w-4 h-4 text-accent" />
           </SettingsRow>
           <SettingsRow icon={<User />} label="Profil & Konto" sublabel="Premium, namn, e-post" onClick={() => navigate('/settings/account')}>
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            <ChevronRight className="w-4 h-4 text-accent" />
           </SettingsRow>
           <SettingsRow icon={<Shield />} label="Data & Integritet" sublabel="Exportera, radera konto" onClick={() => navigate('/settings/privacy')} last>
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            <ChevronRight className="w-4 h-4 text-accent" />
           </SettingsRow>
         </SettingsGroup>
 
