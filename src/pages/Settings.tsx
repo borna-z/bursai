@@ -16,6 +16,7 @@ import {
   Weight,
   Lock,
   CheckCircle2,
+  Globe,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,6 +54,8 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Chip } from '@/components/ui/chip';
 import { CalendarSection } from '@/components/settings/CalendarSection';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { SUPPORTED_LOCALES, Locale } from '@/i18n/translations';
 
 const colors = [
   'svart', 'vit', 'grå', 'marinblå', 'blå', 'röd', 'grön', 'beige', 'brun', 'rosa', 'gul', 'orange', 'lila'
@@ -74,6 +77,7 @@ export default function SettingsPage() {
   const { data: profile, isLoading } = useProfile();
   const updateProfile = useUpdateProfile();
   const { subscription, isPremium, limits } = useSubscription();
+  const { locale, setLocale } = useLanguage();
   
   const [displayName, setDisplayName] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -268,6 +272,30 @@ export default function SettingsPage() {
                 Auto
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Language Selector */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Globe className="w-5 h-5" />
+              <CardTitle className="text-base">Språk</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Select value={locale} onValueChange={(v) => setLocale(v as Locale)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SUPPORTED_LOCALES.map((loc) => (
+                  <SelectItem key={loc.code} value={loc.code}>
+                    {loc.flag} {loc.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </CardContent>
         </Card>
 
