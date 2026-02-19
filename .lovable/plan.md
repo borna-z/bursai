@@ -1,41 +1,30 @@
 
 
-# Remove All Scroll Lists
+# Fix Visible Scrollbars Across All Pages
 
-## What Changes
+## Problem
 
-Replace every scrolling list container across all pages with simple, flat layouts that show content directly without scroll containers.
+The WeekStrip on the Plan page shows a visible scrollbar because it uses `scrollbar-hide` (a class that doesn't exist). The CSS only defines `.hide-scrollbar`. The AISuggestions component also has a horizontal scroll list without hidden scrollbars.
 
-### 1. LinkImportForm -- Remove ScrollArea
+## Changes
 
-Replace the `ScrollArea` (fixed 200px height) with a simple `div` that shows all items inline. Remove the `h-[200px]` constraint so items just stack naturally.
+### 1. Add `scrollbar-hide` utility to CSS (`src/index.css`)
 
-### 2. OutfitDetail -- SwapSheet candidates
+Add `.scrollbar-hide` as an alias alongside the existing `.hide-scrollbar` class so both names work. This is the simplest fix that prevents future confusion.
 
-Replace the `ScrollArea` inside the swap sheet with a plain `div space-y-2` layout. The sheet itself already scrolls via its built-in behavior, so the nested ScrollArea is redundant.
+### 2. AISuggestions -- Remove horizontal scroll (`src/components/insights/AISuggestions.tsx`)
 
-### 3. PlanningSheet -- Outfit selection
+Replace the `overflow-x-auto` horizontal scroll row of garment thumbnails with a `flex-wrap` layout so thumbnails just wrap to the next line instead of scrolling.
 
-Replace `overflow-y-auto` on the outfit list container with a plain stacking layout. The sheet content handles its own scroll.
+### 3. WeekStrip -- Keep as navigation
 
-### 4. Insights page -- Garment lists
-
-The "Top 5 worn" and "Unused garments" sections already show limited items (max 5), so they are just vertical stacks -- no scroll container. These are fine as-is, no changes needed.
-
-### 5. Outfits page -- Outfit cards
-
-Already uses `space-y-3` stacking with no scroll container. Fine as-is.
-
-### 6. WeekStrip -- Keep as-is
-
-The horizontal day strip is navigation, not a list. Keeping `overflow-x-auto` for the 7-day strip is standard mobile UX and not a "scroll list".
+The 7-day horizontal strip is navigation, not a list. Keep `overflow-x-auto` but it will now be properly hidden thanks to the CSS fix in step 1.
 
 ## Technical Details
 
 | File | Change |
 |------|--------|
-| `src/components/LinkImportForm.tsx` | Replace `ScrollArea` with plain `div`, remove fixed height |
-| `src/pages/OutfitDetail.tsx` | Replace `ScrollArea` with plain `div` in SwapSheet |
-| `src/components/plan/PlanningSheet.tsx` | Remove `overflow-y-auto` from outfit list container |
+| `src/index.css` | Add `.scrollbar-hide` utility class (mirrors `.hide-scrollbar`) |
+| `src/components/insights/AISuggestions.tsx` | Replace `overflow-x-auto` with `flex-wrap` on garment thumbnails row |
 
-Three small edits. No new files. No logic changes.
+Two small edits. No logic changes.
