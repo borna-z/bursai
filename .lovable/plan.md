@@ -1,119 +1,156 @@
 
+# Plan: "Smart Plan" – Fyra stora uppdateringar
 
-# Drape Design System Overhaul
-
-A comprehensive visual refresh to establish a premium Scandinavian minimalist identity for Drape.
-
----
-
-## 1. Typography: Inter + Sora
-
-Load **Inter** (body) and **Sora** (headings) via Google Fonts in `index.html`. Configure Tailwind's `fontFamily` to use `Sora` for headings and `Inter` as the default sans-serif body font. Update the base layer heading styles in `index.css` to apply the heading font.
-
-## 2. Color Palette Overhaul
-
-Replace the current warm slate-blue/teal palette with the new Drape identity in `src/index.css`:
-
-**Light mode:**
-- Background: warm off-white (`#F8F7F4` approx `42 30% 97%`)
-- Cards: pure white with visible 1px border, minimal shadow
-- Primary (Petrol): `#0D5C63` -- used sparingly for active states, selected chips, primary buttons
-- Muted tones: warm grays for text hierarchy
-- Ring/focus: petrol accent
-
-**Dark mode:**
-- Background: deep warm charcoal
-- Cards: slightly lighter surface
-- Primary: lighter petrol for contrast
-
-Update `--primary`, `--accent`, `--border`, `--card`, `--background`, `--muted` tokens in both `:root` and `.dark`.
-
-## 3. Card Styling
-
-Update the `Card` component to use a crisp 1px border with near-zero shadow:
-
-```
-rounded-xl border border-border/80 bg-card text-card-foreground shadow-[0_1px_2px_0_rgb(0_0_0/0.03)]
-```
-
-This gives the "floating paper" Scandinavian look without heavy drop shadows.
-
-## 4. Button Refinements
-
-Update `buttonVariants` in `button.tsx`:
-- Default: petrol background, white text, rounded-lg, `active:scale-[0.97]` built-in press
-- Outline: 1px border, transparent bg, petrol text on hover
-- Ensure minimum `h-11` on mobile for 44px touch targets on `default` and `lg` sizes
-
-## 5. Chip Refinements
-
-Update `chipVariants` in `chip.tsx`:
-- Selected state uses petrol accent instead of generic primary fill
-- Add `active:scale-[0.96]` micro-interaction
-- Minimum touch target: `min-h-[44px]` on `lg` size
-
-## 6. Signature "Drape" Transition
-
-Add a new spring-like keyframe animation in `tailwind.config.ts`:
-
-```
-"drape-in": {
-  "0%": { opacity: "0", transform: "translateY(12px) scale(0.97)" },
-  "60%": { opacity: "1", transform: "translateY(-2px) scale(1.005)" },
-  "100%": { opacity: "1", transform: "translateY(0) scale(1)" }
-},
-"drape-out": {
-  "0%": { opacity: "1", transform: "translateY(0)" },
-  "100%": { opacity: "0", transform: "translateY(8px) scale(0.97)" }
-}
-```
-
-With animation utilities:
-- `animate-drape-in`: `drape-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)`
-- `animate-drape-out`: `drape-out 0.25s ease-in`
-
-Apply `animate-drape-in` to `OutfitSlotCard` when swapping garments, and as the default card entrance on outfit detail/generate pages.
-
-## 7. Skeleton Refinements
-
-Update `skeleton.tsx` to use the shimmer gradient instead of plain pulse:
-
-```
-bg-muted skeleton-shimmer rounded-lg
-```
-
-This gives a calmer, more polished loading state.
-
-## 8. Micro-interactions in index.css
-
-- Consolidate `active:scale-[0.97]` as a utility class `.press` for consistent press feedback
-- Add `.lift` hover utility: `transition-shadow hover:shadow-md` for cards that respond to touch/hover
-- Ensure toast styles remain calm (already using Sonner, no changes needed beyond color token updates)
-
-## 9. Bottom Nav Polish
-
-Update `BottomNav.tsx`:
-- Active indicator uses petrol accent pill
-- Slightly larger icon area for comfortable touch targets
-- Active state: filled icon variant via `strokeWidth` change (already in place, just color update)
-
-## 10. Page Simplification Principle
-
-No structural page changes in this pass -- this is a design token + component skin update. The "max 2 primary actions per screen" rule is already mostly followed. Document it as a guideline for future work.
+Denna plan täcker fyra sammanhängande uppgraderingar för att göra Plan-sidan och appen i helhet markant smartare och mer personlig.
 
 ---
 
-## Files Modified
+## Del 1: Bättre ICS-instruktioner i CalendarConnectBanner & CalendarSection
 
-| File | Change |
-|------|--------|
-| `index.html` | Add Inter + Sora font imports |
-| `tailwind.config.ts` | Add `fontFamily`, drape keyframes/animations |
-| `src/index.css` | New color tokens (light + dark), heading font, utility classes |
-| `src/components/ui/card.tsx` | Crisp border, minimal shadow |
-| `src/components/ui/button.tsx` | Active press scale, touch target sizing |
-| `src/components/ui/chip.tsx` | Press micro-interaction, touch target |
-| `src/components/ui/skeleton.tsx` | Shimmer instead of pulse |
-| `src/components/layout/BottomNav.tsx` | Petrol accent active state |
-| `src/components/outfit/OutfitSlotCard.tsx` | Apply `animate-drape-in` |
+**Vad ändras:**
+Ersätt de nuvarande kortfattade instruktionerna med fullständiga steg-för-steg-guider för Google Calendar, Outlook och Apple Calendar – exakt som de beskrivs i dina instruktioner.
 
+**Filer som ändras:**
+- `src/components/plan/CalendarConnectBanner.tsx` – utökat hjälp-avsnitt med detaljerade steg
+- `src/components/settings/CalendarSection.tsx` – samma detaljerade instruktioner i inställningssidan
+
+**Innehåll per kalender:**
+
+Google Calendar:
+1. Öppna Google Calendar i webbläsaren
+2. I vänster kolumn under "Mina kalendrar", hovra över den kalender du vill dela
+3. Klicka på ⋮ och välj "Inställningar och delning"
+4. Scrolla ner till avsnittet "Integrera kalender"
+5. Kopiera URL:en under "Hemlig adress i iCal-format"
+
+Outlook / Microsoft 365:
+1. Logga in på Outlook på webben, klicka på kugghjulet ⚙️ uppe till höger
+2. Välj "Visa alla Outlook-inställningar" → Kalender → Delade kalendrar
+3. Under "Publicera en kalender", välj kalender och behörighet (t.ex. "Kan se alla detaljer")
+4. Klicka "Publicera"
+5. Kopiera ICS-länken som visas
+
+Apple Calendar (Mac):
+1. Öppna Kalender-appen och hovra över kalendernamnet i listan
+2. Klicka på delningsikonen (personikonen)
+3. Markera "Offentlig kalender"
+4. Kopiera den URL som börjar med webcal://
+
+**Viktiga noteringar att visa:**
+- Offentliga ICS-adresser kräver att kalendern är publik
+- Om du inte hittar "Publicera" i Outlook kan IT-administratören ha blockerat funktionen
+
+---
+
+## Del 2: Smart kalenderbaserad outfit-rekommendation per dag i Plan
+
+**Idé:** När en dag har kalenderevents som är synkade, ska Plan-vyn visa ett smart outfit-förslag kopplat till eventen – t.ex. "Du har möte + gym idag – vi rekommenderar jobb-outfit på morgonen och dessa träningsplagg eftermiddagen."
+
+**Ny komponent:** `src/components/plan/SmartDayBanner.tsx`
+- Tar in datum + kalenderhändelser
+- Mappar händelser via `inferOccasionFromEvent()` (befintlig logik)
+- Hittar matchande plagg per tillfälle från garderoben
+- Renderar ett kompakt banner i DayCard med förslag på 1–3 plagg per occasion
+
+**Ny hook:** `src/hooks/useSmartDayRecommendation.ts`
+- Tar emot datum och events
+- Fetchar plagg med rätt formality/kategori-matchning
+- Returnerar upp till 2 "occasionslots" med rekommenderade plagg (t.ex. Jobb AM + Träning PM)
+
+**Integration i DayCard:**
+- Om händelser finns OCH inga outfits är planerade → visa SmartDayBanner med direkt knapp "Planera den här outfiten"
+- Om outfit redan är planerad → visa en diskret "tips"-rad om händelserna avviker från outfit-typen
+
+**Logik för plagg-matchning:**
+```
+Jobb/Möte    → formality 3-4, kategori överdel/underdel/skor
+Fest/Middag  → formality 4-5, exkludera sportkläder
+Träning/Gym  → formality 1-2, kategori sportkläder
+Dejt         → formality 3-4, välj plagg med hög wear-popularity
+```
+
+---
+
+## Del 3: Ny AI-chattflik i BottomNav
+
+**Ny sida:** `src/pages/AIChat.tsx`
+**Ny route:** `/ai` (skyddad med ProtectedRoute)
+**Ny bottennavs-ikon:** `MessageCircle` eller `Bot` – placeras **mellan Insikter och Inställningar**
+
+**Uppdatera BottomNav:**
+```
+Idag | Garderob | Plan | Insikter | AI | Inställningar
+```
+Eftersom 6 tabs är trångt på mobil → byt ut "Inställningar" till en ikon i sidhuvedet (PageHeader) istället, eller minska label-texten. Alternativt behålla 5 tabs och kombinera Insikter + AI (AI som tab i Insikter). Den renaste lösningen: **5 tabs totalt**, byt ut "Insikter" mot "AI" och flytta Insikter till en sub-vy inuti AI-sidan, eller lättare – **behåll 5 tabs, ersätt ingenting, lägg AI som ett plus-flöde**. 
+
+Bästa val för minimal disruption: AI-ikonen **ersätter Insikter i bottennavigationen**, och Insikter nås istället via en länk i AI-sidan, ELLER vi lägger till en 6:e tab och gör den kompaktare med bara ikoner (inga labels) på mobil.
+
+**Beslut i planen:** Lägg AI som tab nr 5 (sist, ersätter Inställningar i bottennavet) och flytta Inställningar-åtkomst till ett gear-ikon i PageHeader som finns på alla sidor. Alternativt håll 5 tabs men gör: Idag | Garderob | Plan | AI | Inställningar (ta bort Insikter från botten, nå via Idag/Home-sidan).
+
+**Renaste lösningen:** Behåll alla 5 befintliga tabs + lägg till AI som 6:e fast med komprimerade labels (inga text-labels, bara ikoner + active-state). Eller – enklast: Ersätt "Insikter"-tabben med "AI", och nå Insikter via en knapp inne i AI-sidan.
+
+**Slutbeslut för planen:** Håll 5 tabs. Lägg till AI-tabben och ta bort Insikter-tabben från botten; Insikter nås via en "Statistik"-knapp i AI-sidan.
+
+**AI-chattens funktioner:**
+- Välkomsthälsning: "Hej! Jag är din personliga stylist. Berätta om dig själv så kan jag ge bättre outfitförslag."
+- Konversation om: ålder, stilpreferenser, vad man arbetar med, livsstil, occasions man besöker
+- AI sparar svar i `profiles.preferences` (JSONB) under nycklar som `ai_learned_age`, `ai_learned_style`, osv.
+- Konversationshistorik sparas i en ny `chat_messages`-tabell
+- Använder befintlig `LOVABLE_API_KEY` via Lovable AI Gateway
+- Edge function: `src/supabase/functions/style_chat/index.ts`
+
+**Ny databas-migration:**
+```sql
+CREATE TABLE public.chat_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  role TEXT NOT NULL, -- 'user' | 'assistant'
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
+-- RLS: user ser bara egna meddelanden
+```
+
+---
+
+## Del 4: Kroppsmått i onboarding + profil
+
+**Vad läggs till:**
+- Nytt steg i Onboarding (steg 0 eller steg 4 "Personlig profil")
+- Fält: Längd (cm), Vikt (kg), valfri kropps-silhuett/typ
+- Valfri bilduppladdning för kropp (sparas i Supabase Storage, privat bucket)
+
+**Databas-migration:**
+```sql
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS height_cm INTEGER,
+  ADD COLUMN IF NOT EXISTS weight_kg INTEGER,
+  ADD COLUMN IF NOT EXISTS body_image_path TEXT;
+```
+
+**Uppdaterade filer:**
+- `src/pages/Onboarding.tsx` – nytt steg "Din kropp" med längd/vikt-inputs + valfri bilduppladdning
+- `src/pages/Settings.tsx` – nytt avsnitt "Kroppsdata" under Profil-sektionen med samma fält
+- `src/hooks/useProfile.ts` – typen uppdateras automatiskt via `types.ts`
+
+**UI-design för kroppsmåtten:**
+- Diskret, premium-känsla: "Hjälp din AI förstå din kropp för bättre passform-förslag"
+- Längd: numerisk input med "cm"-suffix
+- Vikt: numerisk input med "kg"-suffix (ej obligatorisk)
+- Bilduppladdning: dold bakom "Valfritt – ladda upp en bild" expandable section
+- Tydlig privacy-förklaring: "Bilden delas aldrig och används bara av din AI-stylist"
+
+---
+
+## Teknisk genomförandeordning
+
+1. Databas-migrationer (chat_messages + profiles-kolumner)
+2. Edge function `style_chat`
+3. BottomNav + App.tsx (ny AI-route)
+4. Ny `src/pages/AIChat.tsx`
+5. ICS-instruktioner uppdateras i CalendarConnectBanner + CalendarSection
+6. `SmartDayBanner` + `useSmartDayRecommendation`
+7. DayCard integreras med SmartDayBanner
+8. Onboarding-uppdatering med kroppsmått-steg
+9. Settings-uppdatering med kroppsmått-sektion
