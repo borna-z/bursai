@@ -27,11 +27,13 @@ interface UseForecastOptions {
 function getConditionFromCode(code: number): string {
   if (code === 0) return 'Klart';
   if (code <= 3) return 'Molnigt';
-  if (code <= 49) return 'Dimma';
-  if (code <= 59) return 'Duggregn';
-  if (code <= 69) return 'Regn';
-  if (code <= 79) return 'Snö';
-  if (code <= 99) return 'Åska';
+  if (code === 45 || code === 48) return 'Dimma';
+  if (code >= 51 && code <= 57) return 'Duggregn';
+  if (code >= 61 && code <= 67) return 'Regn';
+  if (code >= 71 && code <= 77) return 'Snö';
+  if (code >= 80 && code <= 82) return 'Regnskurar';
+  if (code >= 85 && code <= 86) return 'Snöbyar';
+  if (code >= 95 && code <= 99) return 'Åska';
   return 'Okänt';
 }
 

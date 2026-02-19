@@ -1,4 +1,4 @@
-import { Cloud, CloudRain, CloudSnow, Sun, CloudLightning, CloudFog, Loader2, AlertTriangle, Droplets } from 'lucide-react';
+import { Cloud, CloudRain, CloudSnow, CloudDrizzle, Sun, CloudLightning, CloudFog, Loader2, AlertTriangle, Droplets } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useForecast, type ForecastDay } from '@/hooks/useForecast';
 
@@ -14,10 +14,13 @@ interface WeatherForecastBadgeProps {
 function getWeatherIcon(code: number) {
   if (code === 0) return Sun;
   if (code <= 3) return Cloud;
-  if (code <= 49) return CloudFog;
-  if (code <= 69) return CloudRain;
-  if (code <= 79) return CloudSnow;
-  if (code >= 80) return CloudLightning;
+  if (code === 45 || code === 48) return CloudFog;
+  if (code >= 51 && code <= 57) return CloudDrizzle;
+  if (code >= 61 && code <= 67) return CloudRain;
+  if (code >= 71 && code <= 77) return CloudSnow;
+  if (code >= 80 && code <= 82) return CloudRain;
+  if (code >= 85 && code <= 86) return CloudSnow;
+  if (code >= 95 && code <= 99) return CloudLightning;
   return Cloud;
 }
 
