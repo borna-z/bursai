@@ -304,7 +304,7 @@ export default function HomePage() {
         <Button
           onClick={handleGenerateOutfit}
           disabled={!selectedOccasion || (garmentCount || 0) < 3}
-          className="w-full h-14 text-base font-semibold shadow-lg"
+          className="w-full h-14 text-base font-semibold shadow-lg bg-accent text-accent-foreground hover:bg-accent/90"
           size="lg"
         >
           <Sparkles className="w-5 h-5 mr-2" />

@@ -25,7 +25,7 @@ export function BottomNav() {
               cn(
                 'flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[10px] font-medium transition-colors',
                 isActive
-                  ? 'text-primary'
+                  ? 'text-accent'
                   : 'text-muted-foreground hover:text-foreground'
               )
             }
@@ -34,7 +34,7 @@ export function BottomNav() {
               <>
                 <div className={cn(
                   'flex items-center justify-center w-10 h-7 rounded-full transition-colors',
-                  isActive && 'bg-primary/10'
+                  isActive && 'bg-accent/10'
                 )}>
                   <tab.icon
                     className={cn('w-5 h-5 transition-all', isActive && 'scale-105')}
