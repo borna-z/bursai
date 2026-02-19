@@ -1,68 +1,53 @@
 
 
-# AI Stylist med bildförslag på dina kläder
+# Accentfärg-steget: Visa UI-preview istället för logga
 
 ## Vad ändras
 
-Idag svarar AI-stylisten bara med text som "Ta din marinblå Oxford-skjorta med beige chinos". Med denna ändring kommer stylisten att visa **bilder på plaggen** inline i chatmeddelandet, så du ser exakt vilka plagg den menar.
-
-## Hur det fungerar
-
-1. AI:n får instruktioner att markera specifika plagg med en speciell tagg: `[[garment:abc-123]]`
-2. Edge-funktionen skickar garment-ID:n som kontext till AI:n
-3. Frontend-koden hittar dessa taggar i svaret och ersätter dem med klickbara kort med bild, titel och kategori
+Tar bort loggan från accentfärg-steget i onboarding. Istället visas en **live UI-preview** med knappar, badges och kort som uppdateras i realtid när användaren väljer en färg. Så ser man direkt hur appen kommer att se ut.
 
 ## Visuellt resultat
 
 ```text
-+-----------------------------------------------+
-| DRAPE Stylisten                                |
-|                                                |
-| "Till morgondagens möte rekommenderar jag:"    |
-|                                                |
-| +------------------------------------------+  |
-| | [bild] Marinblå Oxford  |  [bild] Beige  |  |
-| |        Skjorta          |   Chinos        |  |
-| +------------------------------------------+  |
-|                                                |
-| "Kombinationen ger en smart casual-look som    |
-|  passar perfekt för kontoret."                 |
-+-----------------------------------------------+
++---------------------------------------------+
+|                                              |
+|   Välj din accentfärg                        |
+|   Färgen används på knappar och detaljer     |
+|                                              |
+|   +---------------------------------------+  |
+|   |  [Knapp i vald färg]   [Badge]  [Badge]| |
+|   |                                       |  |
+|   |  [Outline-knapp]    [Liten knapp]     |  |
+|   +---------------------------------------+  |
+|                                              |
+|   (o)(o)(o)(o)                               |
+|   (o)(o)(o)(o)    <-- färgrutnät             |
+|   (o)(o)(o)(o)                               |
+|                                              |
+|   [ Fortsätt ]   <-- knapp i vald färg      |
++---------------------------------------------+
 ```
 
-Varje plagkort är klickbart och tar dig till plaggdetaljer.
+## Tekniska detaljer
 
-## Tekniska steg
+### Fil: `src/components/onboarding/AccentColorStep.tsx`
 
-### 1. Uppdatera edge-funktionen `style_chat/index.ts`
+1. **Ta bort** logga-importen (`drapeLogoSrc`) och hela logga-preview-blocket (rad 21-53)
+2. **Ersätt med en UI-preview** som visar:
+   - En fylld knapp med `backgroundColor: accentColor.hex` och vit text
+   - Ett par badges/chips i accentfärgen
+   - En outline-knapp med `borderColor: accentColor.hex`
+   - Alla element har `transition-colors duration-300` för mjuk animation
+3. **Fortsätt-knappen** (rad 101) ändras till att använda accentfärgen med inline-style istället för standard primary (charcoal)
+4. Behåll titel, undertitel och färgrutnätet som det är
 
-- I `getWardrobeContext()`: inkludera garment-ID i varje plaggbeskrivning så AI:n kan referera dem
-- Uppdatera system-prompten: instruera AI:n att använda `[[garment:ID]]` syntax när den rekommenderar specifika plagg
-- Exempel i prompten: "När du föreslår ett plagg, inkludera taggen [[garment:UUID]] direkt efter plaggnamnet"
+### Andra filer (valfritt, men rekommenderat)
 
-### 2. Skapa en `GarmentInlineCard` komponent
+Användaren sa "det ska inte finnas någon logga i appen". Det innebär att vi även bör:
 
-- Liten komponent som visar plaggets bild, titel och kategori i en kompakt rad
-- Använder `LazyImageSimple` för att ladda bilder via signed URLs
-- Klickbar - navigerar till `/wardrobe/{id}`
+- **`src/pages/Home.tsx`** (rad 116): Ta bort `DrapeLogo` från PageHeader actions
+- **`src/pages/AIChat.tsx`** (rad 305): Ersätt `DrapeLogo` med en enkel ikon (t.ex. `Sparkles`) i chattbubblan
+- **`src/pages/Auth.tsx`** (rad 85-87): Ersätt loggan med enbart text "DRAPE" i accentfärg
+- **`src/components/marketing/MarketingLayout.tsx`**: Behåll loggan här (marknadsföringssidan är separat)
 
-### 3. Uppdatera `MessageBubble` i `AIChat.tsx`
-
-- Parse AI-svaret och dela upp texten vid `[[garment:...]]` taggar
-- Rendera text-delar som vanlig text och garment-taggar som `GarmentInlineCard`
-- Hämta garment-data via en hook som laddar de refererade plaggen
-
-### 4. Skapa en `useGarmentsByIds` hook
-
-- Tar en lista med garment-IDs
-- Returnerar garment-data inklusive `image_path` för varje plagg
-- Cachar resultat med React Query
-
-### Filer som ändras
-
-| Fil | Ändring |
-|-----|---------|
-| `supabase/functions/style_chat/index.ts` | Lägg till ID i garderobskontext + uppdatera systemprompt |
-| `src/pages/AIChat.tsx` | Parse `[[garment:ID]]` i MessageBubble, rendera inline-kort |
-| `src/hooks/useGarmentsByIds.ts` | Ny hook för att hämta plagg via ID-lista |
-
+Totalt ändras 4-5 filer. Inga databasändringar behövs.
