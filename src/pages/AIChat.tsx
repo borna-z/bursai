@@ -274,7 +274,7 @@ export default function AIChat() {
       <div className="flex flex-col" style={{ height: 'calc(100dvh - 4rem)' }}>
         <PageHeader title={t('chat.title')} actions={headerActions} />
 
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 pb-36">
+        <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-4 space-y-4 pb-36">
           {isLoading ? (
             <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
           ) : (
