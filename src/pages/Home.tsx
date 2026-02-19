@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,11 +24,7 @@ export default function HomePage() {
   
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
-  const [temperature, setTemperature] = useState('');
-  const [precipitation, setPrecipitation] = useState('none');
-  const [wind, setWind] = useState('low');
   const [showPaywall, setShowPaywall] = useState(false);
-  const [useAutoWeather, setUseAutoWeather] = useState(true);
 
   const occasions = [
     { id: 'vardag', label: t('home.occasion.vardag') },
@@ -53,14 +49,6 @@ export default function HomePage() {
     return t('home.greeting_evening');
   }
 
-  useEffect(() => {
-    if (weather && useAutoWeather) {
-      setTemperature(weather.temperature.toString());
-      setPrecipitation(weather.precipitation);
-      setWind(weather.wind);
-    }
-  }, [weather, useAutoWeather]);
-
   const handleGenerateOutfit = () => {
     if (!selectedOccasion) return;
     if (!canCreateOutfit()) {
@@ -71,15 +59,14 @@ export default function HomePage() {
       state: {
         occasion: selectedOccasion,
         style: selectedStyle,
-        weather: {
-          temperature: temperature ? parseInt(temperature) : undefined,
-          precipitation,
-          wind,
-        },
+        weather: weather ? {
+          temperature: weather.temperature,
+          precipitation: weather.precipitation,
+          wind: weather.wind,
+        } : undefined,
       },
     });
   };
-
 
   return (
     <AppLayout>
@@ -104,16 +91,7 @@ export default function HomePage() {
         )}
 
         {/* Weather widget */}
-        <WeatherWidget
-          temperature={temperature}
-          precipitation={precipitation}
-          wind={wind}
-          useAutoWeather={useAutoWeather}
-          onTemperatureChange={setTemperature}
-          onPrecipitationChange={setPrecipitation}
-          onWindChange={setWind}
-          onDisableAuto={() => setUseAutoWeather(false)}
-        />
+        <WeatherWidget />
 
         {/* Occasion */}
         <div className="space-y-2.5">
@@ -131,7 +109,6 @@ export default function HomePage() {
                     selectedOccasion === occ.id
                       ? "text-accent bg-accent/5"
                       : "text-foreground active:bg-muted/60",
-                    // borders: right on first two cols, bottom on first row
                     i % 3 !== 2 && "border-r border-border/50",
                     i < 3 && "border-b border-border/50",
                   )}

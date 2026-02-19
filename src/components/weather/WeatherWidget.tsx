@@ -1,37 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { format, parseISO } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import {
-  Sun, Cloud, CloudFog, CloudRain, CloudSnow, CloudLightning,
-  MapPin, RefreshCw, Loader2, Thermometer, Wind, Droplets, Snowflake,
-  ChevronDown,
+  Sun, Cloud, CloudFog, CloudRain, CloudDrizzle, CloudSnow, CloudLightning,
+  MapPin, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useWeather } from '@/hooks/useWeather';
 import { useForecast, type ForecastDay } from '@/hooks/useForecast';
-import { useLanguage } from '@/contexts/LanguageContext';
 
 interface WeatherWidgetProps {
-  temperature: string;
-  precipitation: string;
-  wind: string;
-  useAutoWeather: boolean;
-  onTemperatureChange: (val: string) => void;
-  onPrecipitationChange: (val: string) => void;
-  onWindChange: (val: string) => void;
-  onDisableAuto: () => void;
+  onWeatherChange?: (weather: { temperature: number; precipitation: string; wind: string }) => void;
 }
 
 function getWeatherIcon(code: number) {
   if (code === 0) return Sun;
   if (code <= 3) return Cloud;
-  if (code <= 49) return CloudFog;
-  if (code <= 69) return CloudRain;
-  if (code <= 79) return CloudSnow;
-  if (code >= 80) return CloudLightning;
+  if (code === 45 || code === 48) return CloudFog;
+  if (code >= 51 && code <= 57) return CloudDrizzle;
+  if (code >= 61 && code <= 67) return CloudRain;
+  if (code >= 71 && code <= 77) return CloudSnow;
+  if (code >= 80 && code <= 82) return CloudRain;
+  if (code >= 85 && code <= 86) return CloudSnow;
+  if (code >= 95 && code <= 99) return CloudLightning;
   return Cloud;
 }
 
@@ -59,43 +52,53 @@ function ForecastDayColumn({ day }: { day: ForecastDay }) {
   );
 }
 
-export function WeatherWidget({
-  temperature,
-  precipitation,
-  wind,
-  useAutoWeather,
-  onTemperatureChange,
-  onPrecipitationChange,
-  onWindChange,
-  onDisableAuto,
-}: WeatherWidgetProps) {
-  const { t } = useLanguage();
-  const { weather, isLoading: weatherLoading, refetch: refetchWeather } = useWeather();
+export function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
+  const [manualCity, setManualCity] = useState<string | null>(null);
+  const [editingLocation, setEditingLocation] = useState(false);
+  const [cityInput, setCityInput] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const { weather, isLoading } = useWeather({ city: manualCity });
   const { forecast, isLoading: forecastLoading } = useForecast();
-  const [showEdit, setShowEdit] = useState(false);
 
-  // Get the weather code from useWeather's condition text (reverse map)
-  const weatherCode = weather
-    ? (() => {
-        const c = weather.condition;
-        if (c === 'Klart') return 0;
-        if (c === 'Molnigt') return 2;
-        if (c === 'Dimma') return 45;
-        if (c === 'Duggregn') return 53;
-        if (c === 'Regn') return 63;
-        if (c === 'Snö') return 73;
-        if (c === 'Åska') return 95;
-        return 2;
-      })()
-    : 2;
+  // Notify parent of weather changes
+  useEffect(() => {
+    if (weather && onWeatherChange) {
+      onWeatherChange({
+        temperature: weather.temperature,
+        precipitation: weather.precipitation,
+        wind: weather.wind,
+      });
+    }
+  }, [weather, onWeatherChange]);
 
-  const HeroIcon = getWeatherIcon(weatherCode);
+  // Focus input when editing
+  useEffect(() => {
+    if (editingLocation) {
+      inputRef.current?.focus();
+    }
+  }, [editingLocation]);
 
-  // Next 5 days from forecast (skip today)
+  const HeroIcon = weather ? getWeatherIcon(weather.weather_code) : Cloud;
   const next5 = forecast.slice(1, 6);
 
-  // Loading skeleton
-  if (weatherLoading && !weather) {
+  const handleCitySubmit = () => {
+    const trimmed = cityInput.trim();
+    if (trimmed) {
+      setManualCity(trimmed);
+    }
+    setEditingLocation(false);
+    setCityInput('');
+  };
+
+  const handleResetToAuto = () => {
+    setManualCity(null);
+    setEditingLocation(false);
+    setCityInput('');
+  };
+
+  // Loading skeleton (first load only)
+  if (isLoading) {
     return (
       <div className="bg-card rounded-2xl border border-border p-5 space-y-4">
         <div className="flex items-center gap-4">
@@ -139,20 +142,44 @@ export function WeatherWidget({
               </p>
             </div>
           </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); refetchWeather(); }}
-            className="p-1.5 rounded-full hover:bg-muted/60 transition-colors mt-1"
-          >
-            <RefreshCw className={cn("w-4 h-4 text-muted-foreground", weatherLoading && "animate-spin")} />
-          </button>
         </div>
 
         {/* Location & time */}
         <div className="flex items-center justify-between mt-3">
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <MapPin className="w-3.5 h-3.5" />
-            <span className="text-sm">{weather?.location ?? 'Stockholm'}</span>
-          </div>
+          {editingLocation ? (
+            <div className="flex items-center gap-2 flex-1 mr-3">
+              <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <Input
+                ref={inputRef}
+                type="text"
+                placeholder="Skriv en stad..."
+                value={cityInput}
+                onChange={(e) => setCityInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCitySubmit();
+                  if (e.key === 'Escape') { setEditingLocation(false); setCityInput(''); }
+                }}
+                onBlur={handleCitySubmit}
+                className="h-7 text-sm px-2 py-0 flex-1"
+              />
+            </div>
+          ) : (
+            <button
+              onClick={() => setEditingLocation(true)}
+              className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              <span className="text-sm">{weather?.location ?? 'Stockholm'}</span>
+              {manualCity && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleResetToAuto(); }}
+                  className="ml-1 p-0.5 rounded-full hover:bg-muted/60"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </button>
+          )}
           <CurrentTime />
         </div>
       </div>
@@ -182,54 +209,6 @@ export function WeatherWidget({
           </div>
         </div>
       )}
-
-      {/* Manual override toggle */}
-      <div className="border-t border-border/50">
-        <button
-          onClick={() => setShowEdit(!showEdit)}
-          className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <span>{t('home.weather.customize') || 'Anpassa'}</span>
-          <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", showEdit && "rotate-180")} />
-        </button>
-
-        {showEdit && (
-          <div className="px-5 pb-4 space-y-3">
-            <div className="flex items-center gap-3">
-              <Thermometer className="w-4 h-4 text-muted-foreground" />
-              <Input
-                type="number"
-                placeholder="20"
-                value={temperature}
-                onChange={(e) => { onTemperatureChange(e.target.value); onDisableAuto(); }}
-                className="w-20 h-9"
-              />
-              <span className="text-sm text-muted-foreground">°C</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Wind className="w-4 h-4 text-muted-foreground mr-1" />
-              {[
-                { id: 'none', label: t('home.weather.none'), Icon: Sun },
-                { id: 'rain', label: t('home.weather.rain'), Icon: Droplets },
-                { id: 'snow', label: t('home.weather.snow'), Icon: Snowflake },
-              ].map((opt) => (
-                <Badge
-                  key={opt.id}
-                  variant={precipitation === opt.id ? 'default' : 'outline'}
-                  className={cn(
-                    "cursor-pointer transition-all",
-                    precipitation === opt.id && "bg-accent text-accent-foreground"
-                  )}
-                  onClick={() => { onPrecipitationChange(opt.id); onDisableAuto(); }}
-                >
-                  <opt.Icon className="w-3 h-3 mr-1" />
-                  {opt.label}
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
