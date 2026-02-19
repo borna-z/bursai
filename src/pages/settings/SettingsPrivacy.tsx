@@ -61,7 +61,7 @@ export default function SettingsPrivacy() {
       <div className="px-4 pb-6 pt-4 space-y-6 max-w-lg mx-auto">
         <SettingsGroup title={t('settings.privacy')}>
           <SettingsRow icon={<Download />} label={t('settings.export')} onClick={isExporting ? undefined : handleExportData}>
-            {isExporting ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+            {isExporting ? <Loader2 className="w-4 h-4 animate-spin text-accent" /> : <ChevronRight className="w-4 h-4 text-accent" />}
           </SettingsRow>
           <AlertDialog>
             <AlertDialogTrigger asChild>

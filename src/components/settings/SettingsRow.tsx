@@ -24,7 +24,7 @@ export function SettingsRow({ icon, label, sublabel, children, last, onClick, cl
       )}
     >
       <div className="flex items-center gap-3 min-w-0 flex-1">
-        {icon && <span className="text-muted-foreground flex-shrink-0 [&>svg]:w-[18px] [&>svg]:h-[18px]">{icon}</span>}
+        {icon && <span className={cn('flex-shrink-0 [&>svg]:w-[18px] [&>svg]:h-[18px]', onClick ? 'text-accent' : 'text-muted-foreground')}>{icon}</span>}
         <div className="min-w-0">
           <span className="text-sm font-medium text-foreground">{label}</span>
           {sublabel && <p className="text-xs text-muted-foreground mt-0.5">{sublabel}</p>}
