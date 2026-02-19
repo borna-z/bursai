@@ -1,45 +1,33 @@
 
 
-# Fix Persistent Scrollbar and Scroll-to-Top on Navigation
+# Fix: Restore Scrolling on All Pages
 
-## Problems
+## Problem
 
-1. **Vertical scrollbar still visible on the right**: The browser's native scrollbar on the `html`/`body` element is still showing when content overflows. The previous `scrollbar-hide` fixes only targeted inner containers, not the root scrollable element.
+The recent change made `AppLayout`'s outer div `h-[100dvh] overflow-hidden`, which correctly prevents the browser scrollbar. But the `<main>` element inside it has no `overflow-y-auto`, so **all page content is clipped and cannot be scrolled**. This affects Wardrobe, Insights, Settings, Plan, and every other page with content taller than the viewport.
 
-2. **Pages don't start from the top when navigating**: When switching between pages via the bottom nav (e.g., Plan to AI Stylist), the scroll position carries over, making it look like you've already scrolled down.
+Only AIChat works because it has its own internal `overflow-y-auto` container.
 
 ## Solution
 
-### Fix 1: Hide the body/html scrollbar globally
+Make `AppLayout` use a flex column layout so the `<main>` element fills the remaining space and scrolls internally.
 
-Add `scrollbar-hide` styles directly to `html` and `body` in `src/index.css`. This removes the visible scrollbar while keeping scroll functionality.
+### File: `src/components/layout/AppLayout.tsx`
 
-| File | Change |
-|------|--------|
-| `src/index.css` | Add `scrollbar-hide` equivalent styles to `html` in the base layer (lines 144-146) |
+Change the layout to:
 
-Specifically, add these properties to `html`:
-- `-ms-overflow-style: none`
-- `scrollbar-width: none`
+```
+<div className="h-[100dvh] overflow-hidden bg-background flex flex-col">
+  <main className="flex-1 overflow-y-auto scrollbar-hide {other classes}">
+    {children}
+  </main>
+  {!hideNav && <BottomNav />}
+</div>
+```
 
-And add a CSS rule for `html::-webkit-scrollbar { display: none; }`.
+Key changes:
+- Add `flex flex-col` to the outer div so children stack vertically
+- Add `flex-1 overflow-y-auto scrollbar-hide` to `<main>` so it fills available space and scrolls internally (without a visible scrollbar)
+- The `BottomNav` is `fixed` so it doesn't affect the flex layout, but the `pb-20` on main already accounts for it
 
-### Fix 2: Scroll to top on route change
-
-Create a small `ScrollToTop` component that listens to route changes and scrolls the window to the top. Then add it inside the `BrowserRouter` in `App.tsx`.
-
-| File | Change |
-|------|--------|
-| `src/components/layout/ScrollToTop.tsx` | New file: a component using `useLocation` + `useEffect` to call `window.scrollTo(0, 0)` on pathname change |
-| `src/App.tsx` | Import and add `<ScrollToTop />` inside `<BrowserRouter>`, before `<Routes>` |
-
-### Fix 3: Make AppLayout not contribute to body scroll on full-screen pages
-
-For pages like AI Chat that manage their own scroll internally (using `overflow-y-auto` on an inner container with `height: calc(100dvh - 4rem)`), the outer `AppLayout` div should use `h-screen overflow-hidden` to prevent the body from scrolling at all. This ensures only the inner chat container scrolls.
-
-| File | Change |
-|------|--------|
-| `src/components/layout/AppLayout.tsx` | Change outer div from `min-h-screen` to `h-[100dvh] overflow-hidden` so the body never overflows |
-
-This is a total of 4 small changes across 3 files (1 new, 2 edited).
-
+This is a single-file, single-line class change. No logic changes. All pages regain scrolling while the browser scrollbar stays hidden.
