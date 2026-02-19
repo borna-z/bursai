@@ -96,7 +96,7 @@ export function AppTutorialStep({ onComplete }: AppTutorialStepProps) {
       </div>
 
       {/* Dots + Button */}
-      <div className="pb-12 px-6 space-y-6">
+      <div className="pb-[calc(3rem+env(safe-area-inset-bottom))] px-6 space-y-6">
         {/* Dot indicator */}
         <div className="flex justify-center gap-2">
           {SLIDES.map((_, i) => (
