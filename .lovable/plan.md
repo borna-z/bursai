@@ -1,30 +1,18 @@
 
-
-# Fix Visible Scrollbars Across All Pages
+# Fix Global Horizontal Scrollbar on All Pages
 
 ## Problem
 
-The WeekStrip on the Plan page shows a visible scrollbar because it uses `scrollbar-hide` (a class that doesn't exist). The CSS only defines `.hide-scrollbar`. The AISuggestions component also has a horizontal scroll list without hidden scrollbars.
+A horizontal scrollbar is visible at the bottom of multiple pages (Insights, AI Stylist, and potentially others) on mobile. This happens because no `overflow-x: hidden` is set on the body or root layout, so any element that overflows even slightly causes the browser to show a horizontal scrollbar.
 
-## Changes
+## Solution
 
-### 1. Add `scrollbar-hide` utility to CSS (`src/index.css`)
-
-Add `.scrollbar-hide` as an alias alongside the existing `.hide-scrollbar` class so both names work. This is the simplest fix that prevents future confusion.
-
-### 2. AISuggestions -- Remove horizontal scroll (`src/components/insights/AISuggestions.tsx`)
-
-Replace the `overflow-x-auto` horizontal scroll row of garment thumbnails with a `flex-wrap` layout so thumbnails just wrap to the next line instead of scrolling.
-
-### 3. WeekStrip -- Keep as navigation
-
-The 7-day horizontal strip is navigation, not a list. Keep `overflow-x-auto` but it will now be properly hidden thanks to the CSS fix in step 1.
+Add `overflow-x: hidden` to the `body` element in `src/index.css`. This is a single-line fix that eliminates horizontal scrollbars globally across all pages.
 
 ## Technical Details
 
 | File | Change |
 |------|--------|
-| `src/index.css` | Add `.scrollbar-hide` utility class (mirrors `.hide-scrollbar`) |
-| `src/components/insights/AISuggestions.tsx` | Replace `overflow-x-auto` with `flex-wrap` on garment thumbnails row |
+| `src/index.css` | Add `overflow-x: hidden` to the `body` rule (line ~148) |
 
-Two small edits. No logic changes.
+This is a one-line CSS change. No component changes needed.
