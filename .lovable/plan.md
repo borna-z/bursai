@@ -1,86 +1,78 @@
 
-# Beautiful Weather Widget for Today Page
 
-## What Changes
+# Fix: Onboarding Runs Only Once + Mobile-Responsive Layout
 
-Replace the current compact weather row on the Today page with a premium, visually rich weather widget that feels like a mini weather app embedded in DRAPE.
+## Problems Found
 
-## Design
+### 1. Onboarding repeats on every login
+Two bugs cause this:
 
-The widget will be a single card with two sections:
+**Bug A -- Auth.tsx line 30**: When a logged-in user visits `/auth`, they are *always* redirected to `/onboarding` regardless of whether onboarding was completed. It should go to `/` instead and let `ProtectedRoute` decide.
 
-1. **Current weather hero** -- Large temperature display, weather icon, condition text, city name, and current time
-2. **5-day mini forecast strip** -- Horizontal row showing the next 5 days with day name, weather icon, and high/low temps
+**Bug B -- Onboarding.tsx local state**: All the pre-steps (language, accent color, body, style, tutorial) use `useState(false)` which resets on every page load. Even if the user completed onboarding, visiting `/onboarding` restarts everything visually. The page should check `profile.preferences.onboarding.completed` and redirect to `/` immediately if already done.
 
-The design will be clean and Scandinavian-minimal, matching the existing DRAPE aesthetic: rounded card, subtle borders, no gradients or heavy shadows.
+### 2. Mobile layout inconsistency
+The Language, Body Measurements, and Accent Color steps use a nice full-screen layout with a gradient header and centered content. But the Style Preferences step uses a different layout (`p-6 pb-32 max-w-lg`), and the main onboarding steps page (garments/outfit/reminder) has no consistent layout at all. All steps should match the same clean full-screen pattern used by `AppTutorialStep` and `BodyMeasurementsStep`.
 
-## New Component
+## Solution
 
-**`src/components/weather/WeatherWidget.tsx`**
+### File 1: `src/pages/Auth.tsx`
+Change line 30 from `Navigate to="/onboarding"` to `Navigate to="/"`. The `ProtectedRoute` on `/` already checks onboarding status and redirects new users to `/onboarding` if needed.
 
-A self-contained widget that:
-- Uses `useWeather()` for current conditions (temperature, condition, location)
-- Uses `useForecast()` for the 5-day forecast strip
-- Shows a large weather icon (Sun, Cloud, CloudRain, etc.) mapped from weather code
-- Displays current temp in large font (e.g. "-10deg")
-- Shows condition text + city below
-- Renders a horizontal 5-day forecast row at the bottom with day abbreviation, small icon, and high/low range
-- Has a loading skeleton state
-- Tapping the expand chevron still opens the manual weather edit (temperature/precipitation overrides)
+### File 2: `src/pages/Onboarding.tsx`
+- Add a check at the top: if `profile.preferences.onboarding.completed === true`, immediately `Navigate to="/"`. This prevents the onboarding from re-running for returning users.
+- Redesign the main steps section (lines 189-337) to use the same full-screen layout pattern as the tutorial step: gradient header area with icon, centered content, and a fixed bottom button area.
+- Apply consistent spacing and `max-w-lg mx-auto` content constraints.
+- Use `safe-area-inset` padding for mobile notch/bottom bar compatibility.
 
-## Changes to Home Page
+### File 3: `src/components/onboarding/StylePreferencesStep.tsx`
+- Restructure to match the same layout pattern as BodyMeasurementsStep: gradient header with icon at top, scrollable content area in the middle, fixed button at bottom.
+- Ensure the fixed bottom button uses proper safe-area padding.
+- Keep all existing functionality (color chips, fit options, vibe options, gender neutral switch).
 
-**`src/pages/Home.tsx`**
+### File 4: `src/components/onboarding/AppTutorialStep.tsx`
+- Add safe-area padding at the bottom for mobile devices.
+- Ensure the button area has consistent height and spacing with other steps.
 
-- Import the new `WeatherWidget` component
-- Replace the current `SettingsGroup` weather button (lines 111-186) with `<WeatherWidget />` that passes weather state and callbacks for manual override
-- Keep the manual weather edit functionality (temperature input, precipitation badges) inside the widget as a collapsible section
+### File 5: `src/components/onboarding/LanguageStep.tsx`
+- Add safe-area padding at the bottom.
+- Ensure consistent button height (`h-14`) matching other steps.
 
 ## Technical Details
 
-| File | Action |
-|------|--------|
-| `src/components/weather/WeatherWidget.tsx` | **Create** -- New weather widget component |
-| `src/pages/Home.tsx` | **Edit** -- Replace weather card section with WeatherWidget |
+### Auth redirect fix
+```
+// Auth.tsx line 30 - before:
+if (user) return <Navigate to="/onboarding" replace />;
 
-### WeatherWidget Structure
-
-```text
-+------------------------------------------+
-|  [Sun icon]     -10deg                    |
-|                 Klart                     |
-|  [pin] Stockholm         21:56           |
-+------------------------------------------+
-|  Thu   Fri   Sat   Sun   Mon             |
-|  [ic]  [ic]  [ic]  [ic]  [ic]           |
-|  -8    -5    -3    0     2               |
-|  -12   -9    -7    -4    -2              |
-+------------------------------------------+
+// After:
+if (user) return <Navigate to="/" replace />;
 ```
 
-- Large icon: 40x40px, mapped from weather code (same logic as WeatherForecastBadge)
-- Temperature: text-4xl font-bold
-- Condition: text-sm text-muted-foreground
-- Location row: MapPin icon + city name, right-aligned current time
-- Forecast strip: 5 columns, each with day abbreviation (Mon/Tue...), small icon, high temp (font-medium), low temp (text-muted-foreground)
-- Card uses `bg-card rounded-2xl border` with generous padding
-- Loading state uses Skeleton placeholders
-- Responsive: fills full width on mobile, stays within max-w-lg on larger screens (handled by parent)
+### Onboarding completion guard
+```
+// Onboarding.tsx - add after loading check:
+const prefs = profile?.preferences as Record<string, any> | null;
+const onboardingCompleted = prefs?.onboarding?.completed === true;
+if (onboardingCompleted) {
+  return <Navigate to="/" replace />;
+}
+```
 
-### Weather Icon Mapping
+### Consistent layout pattern for all steps
+Every step will follow this structure:
+- Full-screen flex column container (`min-h-screen bg-background flex flex-col`)
+- Gradient header area with icon, title, and subtitle
+- Scrollable content area (`flex-1 overflow-y-auto px-6`)
+- Fixed or sticky bottom area with the Continue button and safe-area padding
 
-Reuse the same weather code to icon mapping from `WeatherForecastBadge.tsx`:
-- Code 0: Sun
-- Code 1-3: Cloud  
-- Code 4-49: CloudFog
-- Code 50-69: CloudRain
-- Code 70-79: CloudSnow
-- Code 80+: CloudLightning
+### Files changed summary
 
-### Forecast Day Labels
+| File | Change |
+|------|--------|
+| `src/pages/Auth.tsx` | Redirect to `/` instead of `/onboarding` |
+| `src/pages/Onboarding.tsx` | Add completion guard + redesign main steps layout |
+| `src/components/onboarding/StylePreferencesStep.tsx` | Match consistent gradient-header layout |
+| `src/components/onboarding/AppTutorialStep.tsx` | Add safe-area padding |
+| `src/components/onboarding/LanguageStep.tsx` | Add safe-area padding |
 
-Use `date-fns` `format(date, 'EEE', { locale: sv })` for Swedish day abbreviations (Mån, Tis, Ons...).
-
-### Manual Override
-
-The expand/collapse for manual weather input stays as a small "Anpassa" link at the bottom of the card. When expanded, shows the temperature input and precipitation badges below the forecast strip.
