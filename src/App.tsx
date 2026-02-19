@@ -5,7 +5,8 @@
  import { BrowserRouter, Routes, Route } from "react-router-dom";
  import { HelmetProvider } from "react-helmet-async";
  import { AuthProvider } from "@/contexts/AuthContext";
- import { ThemeProvider } from "@/contexts/ThemeContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+import { LanguageProvider } from "@/contexts/LanguageContext";
  import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
  import Auth from "./pages/Auth";
  import Home from "./pages/Home";
@@ -38,8 +39,9 @@ const queryClient = new QueryClient();
  const App = () => (
    <HelmetProvider>
      <QueryClientProvider client={queryClient}>
-       <ThemeProvider>
-         <AuthProvider>
+      <ThemeProvider>
+          <AuthProvider>
+            <LanguageProvider>
            <TooltipProvider>
              <Toaster />
              <Sonner />
@@ -75,8 +77,9 @@ const queryClient = new QueryClient();
                </Routes>
              </BrowserRouter>
            </TooltipProvider>
-         </AuthProvider>
-       </ThemeProvider>
+            </LanguageProvider>
+          </AuthProvider>
+        </ThemeProvider>
      </QueryClientProvider>
    </HelmetProvider>
  );
