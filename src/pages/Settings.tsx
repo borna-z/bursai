@@ -14,8 +14,8 @@ import {
   Monitor,
   Ruler,
   Weight,
-  ChevronDown,
-  ChevronUp,
+  Lock,
+  CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,7 +80,8 @@ export default function SettingsPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [heightCm, setHeightCm] = useState<string>('');
   const [weightKg, setWeightKg] = useState<string>('');
-  const [showBodySection, setShowBodySection] = useState(false);
+  const [heightError, setHeightError] = useState('');
+  const [bodySaved, setBodySaved] = useState(false);
 
   useEffect(() => {
     if (profile?.display_name) {
@@ -120,13 +121,27 @@ export default function SettingsPage() {
     }
   };
 
+  const validateHeight = (val: string) => {
+    const n = parseInt(val, 10);
+    if (val && (isNaN(n) || n < 100 || n > 250)) {
+      setHeightError('Ange en längd mellan 100 och 250 cm');
+      return false;
+    }
+    setHeightError('');
+    return true;
+  };
+
   const handleSaveBodyData = async () => {
+    if (heightCm && !validateHeight(heightCm)) return;
     try {
       const updates: Record<string, unknown> = {};
       if (heightCm) updates.height_cm = parseInt(heightCm, 10);
+      else updates.height_cm = null;
       if (weightKg) updates.weight_kg = parseInt(weightKg, 10);
+      else updates.weight_kg = null;
       await updateProfile.mutateAsync(updates as Parameters<typeof updateProfile.mutateAsync>[0]);
-      toast.success('Kroppsdata sparat');
+      setBodySaved(true);
+      setTimeout(() => setBodySaved(false), 2500);
     } catch {
       toast.error('Kunde inte spara kroppsdata');
     }
@@ -285,67 +300,97 @@ export default function SettingsPage() {
               E-post: {user?.email}
             </div>
 
-            {/* Body measurements collapsible */}
-            <div className="pt-2 border-t">
-              <button
-                onClick={() => setShowBodySection(!showBodySection)}
-                className="flex items-center justify-between w-full py-1 text-sm font-medium"
-              >
-                <div className="flex items-center gap-2">
-                  <Ruler className="w-4 h-4 text-muted-foreground" />
-                  <span>Kroppsdata för AI-styling</span>
-                </div>
-                {showBodySection ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-              </button>
+          </CardContent>
+        </Card>
 
-              {showBodySection && (
-                <div className="mt-3 space-y-3">
-                  <p className="text-xs text-muted-foreground">
-                    Hjälp din AI-stylist förstå din kropp för bättre passform-förslag. Datan delas aldrig med tredje part.
-                  </p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Längd</Label>
-                      <div className="relative">
-                        <Input
-                          type="number"
-                          value={heightCm}
-                          onChange={(e) => setHeightCm(e.target.value)}
-                          placeholder="175"
-                          className="pr-10 text-sm"
-                          min={100}
-                          max={250}
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">cm</span>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Vikt (valfritt)</Label>
-                      <div className="relative">
-                        <Input
-                          type="number"
-                          value={weightKg}
-                          onChange={(e) => setWeightKg(e.target.value)}
-                          placeholder="70"
-                          className="pr-10 text-sm"
-                          min={30}
-                          max={300}
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">kg</span>
-                      </div>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={handleSaveBodyData}
-                    disabled={updateProfile.isPending}
-                    className="w-full"
-                  >
-                    Spara kroppsdata
-                  </Button>
-                </div>
+        {/* Kroppsdata */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Ruler className="w-5 h-5" />
+              <div>
+                <CardTitle className="text-base">Kroppsdata</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Hjälper din AI-stylist ge råd om passform och proportioner
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Height */}
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 text-sm font-medium">
+                <Ruler className="w-3.5 h-3.5 text-primary" />
+                Längd
+              </Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  value={heightCm}
+                  onChange={(e) => {
+                    setHeightCm(e.target.value);
+                    if (heightError) validateHeight(e.target.value);
+                  }}
+                  onBlur={() => validateHeight(heightCm)}
+                  placeholder="175"
+                  className={`pr-12 h-12${heightError ? ' border-destructive focus-visible:ring-destructive' : ''}`}
+                  min={100}
+                  max={250}
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">
+                  cm
+                </span>
+              </div>
+              {heightError && (
+                <p className="text-xs text-destructive">{heightError}</p>
               )}
             </div>
+
+            {/* Weight */}
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 text-sm font-medium">
+                <Weight className="w-3.5 h-3.5 text-primary" />
+                Vikt
+                <span className="text-muted-foreground font-normal">(valfritt)</span>
+              </Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  value={weightKg}
+                  onChange={(e) => setWeightKg(e.target.value)}
+                  placeholder="70"
+                  className="pr-12 h-12"
+                  min={30}
+                  max={300}
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">
+                  kg
+                </span>
+              </div>
+            </div>
+
+            {/* Privacy note */}
+            <div className="flex items-start gap-2.5 bg-muted/50 rounded-lg p-3">
+              <Lock className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Dina mått är privata och används bara av din AI-stylist för personliga stilråd.
+              </p>
+            </div>
+
+            <Button
+              onClick={handleSaveBodyData}
+              disabled={updateProfile.isPending}
+              className="w-full"
+            >
+              {updateProfile.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : bodySaved ? (
+                <CheckCircle2 className="w-4 h-4 mr-2 text-primary" />
+              ) : null}
+              {bodySaved ? 'Sparat!' : 'Spara mått'}
+            </Button>
           </CardContent>
         </Card>
 
