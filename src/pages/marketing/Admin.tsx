@@ -130,7 +130,7 @@
    return (
      <>
        <Helmet>
-         <title>Admin | AI Garderobsassistent</title>
+         <title>Admin | DRAPE</title>
          <meta name="robots" content="noindex, nofollow" />
        </Helmet>
        

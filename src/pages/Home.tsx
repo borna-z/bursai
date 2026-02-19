@@ -17,6 +17,7 @@ import { useWeather } from '@/hooks/useWeather';
 import { PaywallModal } from '@/components/PaywallModal';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { DrapeLogo } from '@/components/ui/DrapeLogo';
 
 const occasions = [
   { id: 'vardag', label: 'Vardag' },
@@ -108,7 +109,10 @@ export default function HomePage() {
 
   return (
     <AppLayout>
-      <PageHeader title={`${getGreeting()} 👋`} />
+      <PageHeader 
+        title={`${getGreeting()} 👋`}
+        actions={<DrapeLogo variant="icon" size="sm" className="opacity-70" />}
+      />
       
       <div className="p-4 space-y-6">
         {/* Onboarding Banner */}
