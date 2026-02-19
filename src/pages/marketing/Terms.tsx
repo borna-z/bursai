@@ -8,8 +8,8 @@
    return (
      <>
        <Helmet>
-          <title>{terms.title} | DRAPE</title>
-          <meta name="description" content="Användarvillkor för DRAPE." />
+           <title>{terms.title} | BURS</title>
+           <meta name="description" content="Användarvillkor för BURS." />
        </Helmet>
        
        <MarketingLayout>
