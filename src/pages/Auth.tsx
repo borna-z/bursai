@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { lovable } from '@/integrations/lovable/index';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -76,6 +77,23 @@ export default function AuthPage() {
       }
     } else {
       toast.success(t('auth.account_created'));
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      toast.error(t('auth.enter_email_first'));
+      return;
+    }
+    setIsLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setIsLoading(false);
+    if (error) {
+      toast.error(t('auth.something_wrong'));
+    } else {
+      toast.success(t('auth.reset_email_sent'));
     }
   };
 
@@ -175,6 +193,13 @@ export default function AuthPage() {
                       t('auth.login')
                     )}
                   </Button>
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors text-center pt-1"
+                  >
+                    {t('auth.forgot_password')}
+                  </button>
                 </form>
               </TabsContent>
               <TabsContent value="signup" className="mt-0">

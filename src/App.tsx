@@ -33,6 +33,7 @@ import BillingCancel from "./pages/BillingCancel";
 import Pricing from "./pages/Pricing";
 import NotFound from "./pages/NotFound";
 import LiveScan from "./pages/LiveScan";
+import ResetPassword from "./pages/ResetPassword";
  // Marketing pages
  import MarketingHome from "./pages/marketing/MarketingHome";
  import PrivacyPolicy from "./pages/marketing/PrivacyPolicy";
@@ -63,6 +64,7 @@ const queryClient = new QueryClient();
                  
                  {/* App routes */}
                  <Route path="/auth" element={<Auth />} />
+                 <Route path="/reset-password" element={<ResetPassword />} />
                  <Route path="/onboarding" element={<ProtectedRoute skipOnboardingCheck><Onboarding /></ProtectedRoute>} />
                  <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
                  <Route path="/wardrobe" element={<ProtectedRoute><Wardrobe /></ProtectedRoute>} />
