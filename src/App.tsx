@@ -7,7 +7,8 @@
  import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
- import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { ScrollToTop } from "@/components/layout/ScrollToTop";
  import Auth from "./pages/Auth";
  import Home from "./pages/Home";
  import Wardrobe from "./pages/Wardrobe";
@@ -50,8 +51,9 @@ const queryClient = new QueryClient();
            <TooltipProvider>
              <Toaster />
              <Sonner />
-             <BrowserRouter>
-               <Routes>
+              <BrowserRouter>
+                <ScrollToTop />
+                <Routes>
                  {/* Marketing site */}
                  <Route path="/marketing" element={<MarketingHome />} />
                  <Route path="/privacy" element={<PrivacyPolicy />} />
