@@ -8,8 +8,8 @@ interface AppLayoutProps {
 
 export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
   return (
-    <div className="h-[100dvh] overflow-hidden bg-background">
-      <main className={hideNav ? '' : 'pb-20 max-w-lg mx-auto'}>
+    <div className="h-[100dvh] overflow-hidden bg-background flex flex-col">
+      <main className={`flex-1 overflow-y-auto scrollbar-hide ${hideNav ? '' : 'pb-20 max-w-lg mx-auto'}`}>
         {children}
       </main>
       {!hideNav && <BottomNav />}
