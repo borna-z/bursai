@@ -27,7 +27,7 @@ export default function AuthPage() {
   }
 
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/onboarding" replace />;
   }
 
   const handleSignIn = async (e: React.FormEvent) => {
