@@ -67,56 +67,11 @@ Regler:
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "google/gemini-2.5-flash",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
-          tools: [
-            {
-              type: "function",
-              function: {
-                name: "day_summary",
-                description: "Return a structured day summary with priorities and outfit hints",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    summary: { type: "string", description: "2-3 sentence summary of the day" },
-                    priorities: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          title: { type: "string" },
-                          occasion: { type: "string", enum: ["jobb", "fest", "dejt", "träning", "vardag"] },
-                          formality: { type: "number" },
-                          time: { type: "string" },
-                        },
-                        required: ["title", "occasion", "formality", "time"],
-                        additionalProperties: false,
-                      },
-                    },
-                    outfit_hints: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          occasion: { type: "string", enum: ["jobb", "fest", "dejt", "träning", "vardag"] },
-                          style: { type: "string" },
-                          note: { type: "string" },
-                        },
-                        required: ["occasion", "style", "note"],
-                        additionalProperties: false,
-                      },
-                    },
-                  },
-                  required: ["summary", "priorities", "outfit_hints"],
-                  additionalProperties: false,
-                },
-              },
-            },
-          ],
-          tool_choice: { type: "function", function: { name: "day_summary" } },
         }),
       }
     );
@@ -141,19 +96,16 @@ Regler:
 
     const data = await response.json();
     
-    // Extract tool call result
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    // Parse JSON from content
+    const content = data.choices?.[0]?.message?.content || "";
     let result;
     
-    if (toolCall?.function?.arguments) {
-      result = typeof toolCall.function.arguments === "string"
-        ? JSON.parse(toolCall.function.arguments)
-        : toolCall.function.arguments;
+    // Try to extract JSON from the response
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      result = JSON.parse(jsonMatch[0]);
     } else {
-      // Fallback: try to parse content as JSON
-      const content = data.choices?.[0]?.message?.content || "";
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      result = jsonMatch ? JSON.parse(jsonMatch[0]) : { summary: content, priorities: [], outfit_hints: [] };
+      result = { summary: content, priorities: [], outfit_hints: [] };
     }
 
     return new Response(JSON.stringify(result), {
