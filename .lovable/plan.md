@@ -1,65 +1,90 @@
 
 
-# Redesign: Settings Style Page
+# GDPR-komplett: Data & Integritet-sidan
 
-## Problem
-The current style settings page shows all content at once -- body measurements, two separate color grids, fit/vibe selectors -- creating a dense, overwhelming layout that doesn't match the app's minimalist philosophy.
+## Oversikt
+Bygga ut sidan "Data & Integritet" med alla verktyg som krävs enligt GDPR (EU:s dataskyddsforordning). Idag finns bara "Exportera data" och "Radera konto". Vi lagger till allt som saknas.
 
-## Solution
-Restructure into collapsible accordion sections using Radix Collapsible, and expand the color palette from 13 to 38+ colors with visual color swatches (small colored dots next to each name).
+## Vad som laggs till
 
-## Layout Structure
+### 1. Om oss-sektion
+Kort information om vem som ar personuppgiftsansvarig (DRAPE), kontaktuppgifter, och hoja transparensen.
+
+### 2. Samtyckes-hantering (Consent management)
+- Mojlighet att slå pa/av valfria databehandlingar:
+  - **Analysdata** (anonym anvandningsstatistik)
+  - **AI-stilist**: tillat att konversationer sparas for personalisering
+  - **Kroppsdata**: tillat att kroppsmatt anvands for stilrad
+- Varje val sparas i profilens `preferences`-falt (redan jsonb)
+
+### 3. Rattigheter enligt GDPR
+- **Exportera data** (redan implementerat -- behalls)
+- **Radera konto** (redan implementerat -- behalls)
+- **Ratt till ratifiering**: lank till Profil & Konto for att andra sina uppgifter
+- **Integritetspolicy**: lank till /privacy
+- **Anvandarvillkor**: lank till /terms
+
+### 4. Dataoverblick
+En kort lista som visar vilka kategorier av data som lagras:
+- Profildata (namn, e-post)
+- Garderobsbilder
+- Outfits & planeringshistorik
+- AI-konversationer
+- Kroppsmatt (om angivet)
+- Kalenderdata (om synkad)
+
+## Layout-struktur
+
+Collapsible sektioner (samma monster som nya stilsidan):
 
 ```text
 +-----------------------------+
-|  < Stil                     |
+|  < Data & Integritet        |
 +-----------------------------+
 |                             |
-|  [ Kroppsmatt         v ]   |  <- collapsible
-|    height / weight / save   |
+|  [ Om DRAPE            v ]  |  <- collapsible
+|    Ansvarig, kontakt, syfte |
 |                             |
-|  [ Favoritfarger      v ]   |  <- collapsible
-|    38 color chips           |
+|  [ Din data             v ]  |  <- collapsible
+|    Lista over datakategorier|
 |                             |
-|  [ Ogillade farger     v ]  |  <- collapsible
-|    38 color chips           |
+|  [ Samtycken            v ]  |  <- collapsible
+|    Analysdata       [toggle]|
+|    AI-konversationer [toggle]|
+|    Kroppsdata       [toggle]|
 |                             |
-|  [ Passform & Stil    v ]   |  <- collapsible
-|    fit / vibe / gender      |
+|  [ Dina rattigheter     v ]  |  <- collapsible
+|    Exportera data           |
+|    Andra dina uppgifter     |
+|    Integritetspolicy        |
+|    Anvandarvillkor          |
+|                             |
+|  [  Radera konto  ]         |  <- standalone, destructive
 |                             |
 +-----------------------------+
 ```
 
-## Changes
+## Tekniska detaljer
 
-### File: `src/pages/settings/SettingsStyle.tsx`
+| Fil | Andring |
+|-----|---------|
+| `src/pages/settings/SettingsPrivacy.tsx` | Full omskrivning: 4 collapsible sektioner, samtyckes-toggles, datalista, Om oss, lankar. "Radera konto" kvar som sista element. |
+| `src/i18n/translations.ts` | Lagg till ~25 nya nycklar for GDPR-texterna (sv, en, ar, fa) |
 
-1. **Replace flat layout with 4 collapsible sections** using Radix `Collapsible` (already installed). Each section has a header row that toggles open/closed with a chevron icon.
+### Samtycken lagras i profilen
+Befintliga `profiles.preferences` (jsonb) utvidgas med:
+```json
+{
+  "consent": {
+    "analytics": true,
+    "ai_conversations": true,
+    "body_data": true,
+    "updated_at": "2025-02-19T..."
+  }
+}
+```
+Ingen databasmigration behövs -- `preferences` ar redan en flexibel jsonb-kolumn.
 
-2. **Expand color palette** from 13 to 38+ colors. Add colors like:
-   - Neutrals: ivory, kräm, sand, khaki, kolgrå, antracit
-   - Blues: himmelsblå, turkos, petrol, indigo, kobolt
-   - Greens: olivgrön, skogsgrön, mint, salviagrön
-   - Reds/Pinks: vinröd, korall, aprikos, fuchsia, lavendel
-   - Earths: kamel, rost, cognac, choklad, terrakotta
-   - Others: guld, silver, kricka, plommon, senapsgul
-
-3. **Add color dot swatches** next to each chip -- a small 10px circle showing the actual color, making selection more intuitive.
-
-4. **Visual polish**:
-   - Only one section open at a time (optional, could allow multiple)
-   - Smooth height animation on expand/collapse
-   - Chevron rotates on open
-   - Selected count badge shown in the collapsed header (e.g., "Favoritfarger (3)")
-
-### Color Map
-A `COLOR_MAP` object will provide hex values for each color name, used to render the small dot swatch inside each `Chip`.
-
-## Technical Details
-
-| File | Change |
-|------|--------|
-| `src/pages/settings/SettingsStyle.tsx` | Full rewrite: 4 collapsible sections, expanded 38-color palette with hex dot swatches, count badges in headers |
-
-No new components needed -- uses existing `Collapsible` from Radix, existing `Chip`, `SettingsGroup`, `SettingsRow`, `Select`, `Switch`.
+### Inga nya rutter
+Allt byggs inom den befintliga `/settings/privacy`-sidan.
 
