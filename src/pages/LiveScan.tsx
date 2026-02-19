@@ -9,6 +9,52 @@ import { useLiveScan } from '@/hooks/useLiveScan';
 import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 
+function AcceptedOverlay({ onDone }: { onDone: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 1200);
+    return () => clearTimeout(t);
+  }, [onDone]);
+
+  return (
+    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
+      <div className="flex flex-col items-center gap-3">
+        {/* Animated circle + check */}
+        <div className="relative w-24 h-24">
+          {/* Ring drawing animation */}
+          <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96">
+            <circle
+              cx="48" cy="48" r="40"
+              fill="none"
+              stroke="rgba(255,255,255,0.15)"
+              strokeWidth="4"
+            />
+            <circle
+              cx="48" cy="48" r="40"
+              fill="none"
+              stroke="#22c55e"
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeDasharray="251.3"
+              strokeDashoffset="251.3"
+              className="animate-[draw-ring_0.5s_ease-out_forwards]"
+            />
+          </svg>
+          {/* Check icon */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Check
+              className="w-10 h-10 text-emerald-400 animate-[pop-check_0.3s_ease-out_0.4s_both]"
+              strokeWidth={3}
+            />
+          </div>
+        </div>
+        <p className="text-white text-sm font-medium animate-[pop-check_0.3s_ease-out_0.5s_both]">
+          Tillagt!
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function LiveScan() {
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -16,6 +62,7 @@ export default function LiveScan() {
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showAccepted, setShowAccepted] = useState(false);
 
   const { scanCount, isProcessing, lastResult, error, capture, accept, retake, finish } = useLiveScan();
   const { canAddGarment, subscription, isPremium } = useSubscription();
@@ -61,7 +108,6 @@ export default function LiveScan() {
   const handleCapture = useCallback(() => {
     if (!videoRef.current || isProcessing || lastResult) return;
 
-    // Check subscription limit
     if (!isPremium && remainingSlots <= 0) {
       setShowPaywall(true);
       return;
@@ -69,6 +115,15 @@ export default function LiveScan() {
 
     capture(videoRef.current);
   }, [capture, isProcessing, lastResult, isPremium, remainingSlots]);
+
+  const handleAccept = useCallback(() => {
+    accept();
+    setShowAccepted(true);
+  }, [accept]);
+
+  const handleAcceptedDone = useCallback(() => {
+    setShowAccepted(false);
+  }, []);
 
   const handleDone = useCallback(async () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -138,7 +193,7 @@ export default function LiveScan() {
         )}
 
         {/* Scanning overlay lines */}
-        {cameraReady && !lastResult && !isProcessing && (
+        {cameraReady && !lastResult && !isProcessing && !showAccepted && (
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute inset-8 border-2 border-white/20 rounded-2xl" />
             <div className="absolute inset-0 flex items-center justify-center">
@@ -158,6 +213,9 @@ export default function LiveScan() {
             </div>
           </div>
         )}
+
+        {/* Accepted overlay with animated checkmark */}
+        {showAccepted && <AcceptedOverlay onDone={handleAcceptedDone} />}
 
         {/* Error message */}
         {error && !isProcessing && (
@@ -207,7 +265,7 @@ export default function LiveScan() {
                   </Button>
                   <Button
                     className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                    onClick={accept}
+                    onClick={handleAccept}
                   >
                     <Check className="w-4 h-4 mr-2" />
                     Godkänn
