@@ -7,7 +7,8 @@ const corsHeaders = {
 };
 
 interface AnalyzeRequest {
-  storagePath: string;
+  storagePath?: string;
+  base64Image?: string;
 }
 
 interface GarmentAnalysis {
@@ -151,23 +152,31 @@ serve(async (req) => {
     const userId = user.id;
     console.log(`Authenticated user: ${userId}`);
 
-    // Get storagePath from request body (userId is NO LONGER accepted from client)
-    const { storagePath } = await req.json() as AnalyzeRequest;
+    // Get storagePath or base64Image from request body
+    const { storagePath, base64Image } = await req.json() as AnalyzeRequest;
 
-    // Validate input
-    if (!storagePath) {
+    // Validate input - need either storagePath or base64Image
+    if (!storagePath && !base64Image) {
       return new Response(
-        JSON.stringify({ error: "storagePath krävs" }),
+        JSON.stringify({ error: "storagePath eller base64Image krävs" }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // SECURITY: Validate storagePath starts with AUTHENTICATED user's ID
-    if (!storagePath.startsWith(`${userId}/`)) {
+    // SECURITY: Validate storagePath starts with AUTHENTICATED user's ID (only if storagePath provided)
+    if (storagePath && !storagePath.startsWith(`${userId}/`)) {
       console.error(`Security violation: User ${userId} tried to access path ${storagePath}`);
       return new Response(
         JSON.stringify({ error: "Åtkomst nekad" }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate base64Image size (max ~5MB base64 ≈ ~3.75MB image)
+    if (base64Image && base64Image.length > 5 * 1024 * 1024) {
+      return new Response(
+        JSON.stringify({ error: "Bilden är för stor" }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -181,23 +190,32 @@ serve(async (req) => {
       );
     }
 
-    // Create Supabase client with service role for storage access
-    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+    // Determine image URL for AI analysis
+    let imageUrl: string;
 
-    // Create signed URL for the image
-    const { data: signedUrlData, error: signedUrlError } = await serviceClient.storage
-      .from('garments')
-      .createSignedUrl(storagePath, 3600); // 1 hour expiry
+    if (base64Image) {
+      // Use base64 directly as data URL
+      const prefix = base64Image.startsWith('data:') ? '' : 'data:image/jpeg;base64,';
+      imageUrl = `${prefix}${base64Image}`;
+      console.log('Using base64 image for analysis (Live Scan mode)');
+    } else {
+      // Create Supabase client with service role for storage access
+      const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    if (signedUrlError || !signedUrlData?.signedUrl) {
-      console.error('Failed to create signed URL:', signedUrlError);
-      return new Response(
-        JSON.stringify({ error: "Kunde inte hämta bilden" }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      const { data: signedUrlData, error: signedUrlError } = await serviceClient.storage
+        .from('garments')
+        .createSignedUrl(storagePath!, 3600);
+
+      if (signedUrlError || !signedUrlData?.signedUrl) {
+        console.error('Failed to create signed URL:', signedUrlError);
+        return new Response(
+          JSON.stringify({ error: "Kunde inte hämta bilden" }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      imageUrl = signedUrlData.signedUrl;
+      console.log('Created signed URL for image analysis');
     }
-
-    console.log('Created signed URL for image analysis');
 
     // Call Lovable AI Gateway with vision-capable model (with timeout)
     const controller = new AbortController();
@@ -244,7 +262,7 @@ Svara ENDAST med JSON, ingen förklarande text.`
                 {
                   type: 'image_url',
                   image_url: {
-                    url: signedUrlData.signedUrl
+                    url: imageUrl
                   }
                 }
               ]

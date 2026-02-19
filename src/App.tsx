@@ -24,7 +24,8 @@ import ShareOutfit from "./pages/ShareOutfit";
 import BillingSuccess from "./pages/BillingSuccess";
 import BillingCancel from "./pages/BillingCancel";
 import Pricing from "./pages/Pricing";
- import NotFound from "./pages/NotFound";
+import NotFound from "./pages/NotFound";
+import LiveScan from "./pages/LiveScan";
  // Marketing pages
  import MarketingHome from "./pages/marketing/MarketingHome";
  import PrivacyPolicy from "./pages/marketing/PrivacyPolicy";
@@ -56,8 +57,9 @@ const queryClient = new QueryClient();
                  <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
                  <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
                  <Route path="/wardrobe" element={<ProtectedRoute><Wardrobe /></ProtectedRoute>} />
-                 <Route path="/wardrobe/add" element={<ProtectedRoute><AddGarment /></ProtectedRoute>} />
-                 <Route path="/wardrobe/:id" element={<ProtectedRoute><GarmentDetail /></ProtectedRoute>} />
+                  <Route path="/wardrobe/add" element={<ProtectedRoute><AddGarment /></ProtectedRoute>} />
+                  <Route path="/wardrobe/scan" element={<ProtectedRoute><LiveScan /></ProtectedRoute>} />
+                  <Route path="/wardrobe/:id" element={<ProtectedRoute><GarmentDetail /></ProtectedRoute>} />
                   <Route path="/outfits" element={<ProtectedRoute><Outfits /></ProtectedRoute>} />
                   <Route path="/outfits/generate" element={<ProtectedRoute><OutfitGenerate /></ProtectedRoute>} />
                   <Route path="/outfits/:id" element={<ProtectedRoute><OutfitDetail /></ProtectedRoute>} />
