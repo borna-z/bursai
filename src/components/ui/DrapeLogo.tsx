@@ -23,7 +23,7 @@ export function DrapeLogo({ variant = 'horizontal', className, size = 'md' }: Dr
       alt="DRAPE"
       width={iconSize}
       height={iconSize}
-      className="object-contain flex-shrink-0"
+      className="object-contain flex-shrink-0 dark:invert"
       style={{ imageRendering: 'auto' }}
     />
   );
