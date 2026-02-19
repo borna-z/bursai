@@ -222,8 +222,38 @@ export default function AIChat() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
+  const modeSwitcher = (
+    <div className="flex bg-muted rounded-lg p-0.5">
+      <button
+        onClick={() => setMode('stylist')}
+        className={cn(
+          'flex items-center gap-1 py-1.5 px-2.5 rounded-md text-xs font-medium transition-all',
+          mode === 'stylist'
+            ? 'bg-accent text-accent-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground'
+        )}
+      >
+        <Sparkles className="w-3.5 h-3.5" />
+        {t('chat.mode_stylist')}
+      </button>
+      <button
+        onClick={() => setMode('shopping')}
+        className={cn(
+          'flex items-center gap-1 py-1.5 px-2.5 rounded-md text-xs font-medium transition-all',
+          mode === 'shopping'
+            ? 'bg-accent text-accent-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground'
+        )}
+      >
+        <ShoppingBag className="w-3.5 h-3.5" />
+        {t('chat.mode_shopping')}
+      </button>
+    </div>
+  );
+
   const headerActions = (
     <div className="flex items-center gap-2">
+      {modeSwitcher}
       <Link to="/insights">
         <Button variant="ghost" size="icon" className="h-9 w-9 text-accent" title={t('chat.insights')}>
           <BarChart3 className="w-5 h-5" />
@@ -243,36 +273,6 @@ export default function AIChat() {
     <AppLayout>
       <div className="flex flex-col" style={{ height: 'calc(100dvh - 4rem)' }}>
         <PageHeader title={t('chat.title')} actions={headerActions} />
-
-        {/* Mode Switcher */}
-        <div className="px-4 pb-3">
-          <div className="flex bg-muted rounded-xl p-1 max-w-xs mx-auto">
-            <button
-              onClick={() => setMode('stylist')}
-              className={cn(
-                'flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-all',
-                mode === 'stylist'
-                  ? 'bg-accent text-accent-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <Sparkles className="w-4 h-4" />
-              {t('chat.mode_stylist')}
-            </button>
-            <button
-              onClick={() => setMode('shopping')}
-              className={cn(
-                'flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-all',
-                mode === 'shopping'
-                  ? 'bg-accent text-accent-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <ShoppingBag className="w-4 h-4" />
-              {t('chat.mode_shopping')}
-            </button>
-          </div>
-        </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 pb-36">
           {isLoading ? (
