@@ -15,11 +15,12 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useOnboarding } from '@/hooks/useOnboarding';
-import { useUpdateProfile } from '@/hooks/useProfile';
+import { useUpdateProfile, useProfile } from '@/hooks/useProfile';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageStep } from '@/components/onboarding/LanguageStep';
 import { AccentColorStep } from '@/components/onboarding/AccentColorStep';
 import { BodyMeasurementsStep } from '@/components/onboarding/BodyMeasurementsStep';
+import { StylePreferencesStep, type StylePreferences } from '@/components/onboarding/StylePreferencesStep';
 import { toast } from 'sonner';
 
 export default function OnboardingPage() {
@@ -36,6 +37,7 @@ export default function OnboardingPage() {
     isLoading 
   } = useOnboarding();
   const updateProfile = useUpdateProfile();
+  const { data: profile } = useProfile();
   const [isCreatingDemo, setIsCreatingDemo] = useState(false);
   const [isEnablingReminder, setIsEnablingReminder] = useState(false);
   // Pre-steps: 0 = language, 1 = body measurements
@@ -43,6 +45,8 @@ export default function OnboardingPage() {
   const [accentStepDone, setAccentStepDone] = useState(false);
   const [bodyStepDone, setBodyStepDone] = useState(false);
   const [isSavingBody, setIsSavingBody] = useState(false);
+  const [styleStepDone, setStyleStepDone] = useState(false);
+  const [isSavingStyle, setIsSavingStyle] = useState(false);
 
   const handleSaveBodyMeasurements = async (data: { height_cm: number | null; weight_kg: number | null }) => {
     setIsSavingBody(true);
@@ -142,6 +146,36 @@ export default function OnboardingPage() {
         onComplete={handleSaveBodyMeasurements}
         onSkip={() => setBodyStepDone(true)}
         isSaving={isSavingBody}
+      />
+    );
+  }
+
+  // Step 1.5: Style preferences
+  if (!styleStepDone) {
+    return (
+      <StylePreferencesStep
+        onComplete={async (prefs: StylePreferences) => {
+          setIsSavingStyle(true);
+          try {
+            const currentPrefs = (profile?.preferences as Record<string, unknown>) || {};
+            await updateProfile.mutateAsync({
+              preferences: {
+                ...currentPrefs,
+                favoriteColors: prefs.favoriteColors,
+                dislikedColors: prefs.dislikedColors,
+                fitPreference: prefs.fitPreference,
+                styleVibe: prefs.styleVibe,
+                genderNeutral: prefs.genderNeutral,
+              },
+            });
+            setStyleStepDone(true);
+          } catch {
+            toast.error(t('onboarding.error'));
+          } finally {
+            setIsSavingStyle(false);
+          }
+        }}
+        isSaving={isSavingStyle}
       />
     );
   }
