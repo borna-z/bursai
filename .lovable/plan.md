@@ -1,60 +1,43 @@
 
+# Fix: Accentfärger syns i hela appen
 
-# Onboarding som del av kontoskapandet
+## Problem
 
-## Vad ändras
+Accentfärgen uppdaterar CSS-variabeln `--accent` korrekt, men appens viktigaste UI-element (knappar, chips, bottom nav) använder `bg-primary` (charcoal/vit) istället för `bg-accent`. Därför syns ingen skillnad när man byter färg.
 
-Idag är onboarding en separat sida (`/onboarding`) som man kan nå från hemskärmen. Med denna ändring blir onboarding **automatiskt** en del av flödet direkt efter att man skapar ett konto. Nya användare ser onboarding-stegen innan de kommer till appen.
+## Lösning
 
-## Hur det fungerar
+Uppdatera de viktigaste interaktiva elementen så att de använder accentfärgen istället för primary-färgen. Detta ger användaren en tydlig visuell förändring direkt.
 
-1. Efter signup/login kollar `ProtectedRoute` om användaren har slutfört onboarding
-2. Om inte -- omdirigeras de automatiskt till `/onboarding`
-3. Användaren kan inte komma till appen förrän onboarding är klar (eller hoppas över)
-4. Befintliga användare som redan har profiler påverkas inte
+## Vad som ändras
 
-```text
-Signup/Login
-     |
-     v
-ProtectedRoute kollar profil
-     |
-     +-- Ny användare (onboarding ej klar) --> /onboarding
-     |
-     +-- Befintlig användare --> Appen (/)
-```
+### 1. Chip-komponenten (`src/components/ui/chip.tsx`)
+- Ändra `selected`-varianten från `bg-primary text-primary-foreground` till `bg-accent text-accent-foreground`
+- Valda chips (occasion, stil) visar nu accentfärgen
 
-## Tekniska steg
+### 2. Bottom navigation (`src/components/layout/BottomNav.tsx`)
+- Ändra aktiv ikon-färg från `text-primary` till `text-accent`
+- Ändra aktiv bakgrund från `bg-primary/10` till `bg-accent/10`
+- Aktiv tab färgas i vald accentfärg
 
-### 1. Uppdatera `ProtectedRoute.tsx`
+### 3. CTA-knappen "Skapa outfit" på Home (`src/pages/Home.tsx`)
+- Lägg till `bg-accent text-accent-foreground hover:bg-accent/90` på huvudknappen
+- Knappen visar accentfärgen istället för charcoal
 
-- Importera `useProfile` för att hämta användarens profil
-- Kolla om `preferences.onboarding.completed === true` i profilen
-- Om inte: `<Navigate to="/onboarding" />` (utom om man redan är på `/onboarding`)
-- Skapa en wrapper-variant eller lägg till en prop `skipOnboardingCheck` för onboarding-routen själv (annars blir det en oändlig loop)
+### 4. Progress bar (`src/components/ui/progress.tsx`)
+- Ändra indikator-färg från `bg-primary` till `bg-accent`
+- Framstegsfältet visar accentfärgen
 
-### 2. Uppdatera `Auth.tsx`
+### 5. Subtexten i AccentColorPicker
+- Ta bort "logotyp" ur texten (referens till borttagen logga)
+- Ny text: "Ge din app en personlig touch -- färgen syns i knappar och detaljer."
 
-- Efter lyckad signup: navigera till `/onboarding` istället för `/` (redan hanterat av ProtectedRoute, men byt redirect)
-- Ta bort redirect till `/` för nya användare
-
-### 3. Uppdatera `App.tsx` routing
-
-- Behåll `/onboarding` routen men gör den till en ProtectedRoute **utan** onboarding-check (prop `skipOnboardingCheck`)
-- Se till att alla andra skyddade routes har onboarding-check
-
-### 4. Uppdatera `Onboarding.tsx`
-
-- Behåll befintligt flöde (språk, accent, mått, steg 1-3)
-- Vid "Slutför" navigera till `/`
-- Ta bort "Hoppa över allt"-länken eller behåll den som "Slutför och börja" (markerar onboarding som klar)
-
-### Filer som ändras
+## Filer som ändras
 
 | Fil | Ändring |
 |-----|---------|
-| `src/components/auth/ProtectedRoute.tsx` | Lägg till profil-check + redirect till onboarding |
-| `src/pages/Auth.tsx` | Redirect nya användare till onboarding |
-| `src/App.tsx` | Uppdatera onboarding-routen med skipOnboardingCheck |
-| `src/pages/Onboarding.tsx` | Justera "hoppa över"-beteende |
-
+| `src/components/ui/chip.tsx` | `selected`-variant: primary -> accent |
+| `src/components/layout/BottomNav.tsx` | Aktiv tab: primary -> accent |
+| `src/pages/Home.tsx` | CTA-knapp: primary -> accent |
+| `src/components/ui/progress.tsx` | Indicator: primary -> accent |
+| `src/i18n/translations.ts` | Uppdatera subtexten (ta bort "logotyp") |
