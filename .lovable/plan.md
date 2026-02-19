@@ -1,40 +1,65 @@
 
-# Add Arabic and Farsi (Persian) Languages
 
-## Overview
-Add Arabic (ar) and Farsi/Persian (fa) as new language options. Both are **right-to-left (RTL)** languages, which requires layout handling beyond just adding translations.
+# Redesign: Settings Style Page
+
+## Problem
+The current style settings page shows all content at once -- body measurements, two separate color grids, fit/vibe selectors -- creating a dense, overwhelming layout that doesn't match the app's minimalist philosophy.
+
+## Solution
+Restructure into collapsible accordion sections using Radix Collapsible, and expand the color palette from 13 to 38+ colors with visual color swatches (small colored dots next to each name).
+
+## Layout Structure
+
+```text
++-----------------------------+
+|  < Stil                     |
++-----------------------------+
+|                             |
+|  [ Kroppsmatt         v ]   |  <- collapsible
+|    height / weight / save   |
+|                             |
+|  [ Favoritfarger      v ]   |  <- collapsible
+|    38 color chips           |
+|                             |
+|  [ Ogillade farger     v ]  |  <- collapsible
+|    38 color chips           |
+|                             |
+|  [ Passform & Stil    v ]   |  <- collapsible
+|    fit / vibe / gender      |
+|                             |
++-----------------------------+
+```
 
 ## Changes
 
-### 1. Update Locale type and supported locales (`src/i18n/translations.ts`)
-- Extend the `Locale` type to include `'ar' | 'fa'`
-- Add entries to `SUPPORTED_LOCALES`:
-  - `{ code: 'ar', name: 'العربية', flag: '🇸🇦' }`
-  - `{ code: 'fa', name: 'فارسی', flag: '🇮🇷' }`
-- Add full translation blocks for both languages with all keys (matching the same keys as `sv` and `en`)
+### File: `src/pages/settings/SettingsStyle.tsx`
 
-### 2. Add RTL support (`src/contexts/LanguageContext.tsx`)
-- Define an `RTL_LOCALES` set containing `'ar'` and `'fa'`
-- When locale changes, set `document.documentElement.dir` to `'rtl'` or `'ltr'`
-- Set `document.documentElement.lang` to the current locale code
+1. **Replace flat layout with 4 collapsible sections** using Radix `Collapsible` (already installed). Each section has a header row that toggles open/closed with a chevron icon.
 
-### 3. Add base RTL CSS (`src/index.css`)
-- Add a small block of RTL-aware utility overrides:
-  ```css
-  [dir="rtl"] { text-align: right; }
-  ```
-- This ensures text alignment flips automatically. Tailwind's flexbox/grid layouts mostly adapt, but a few spots may need `rtl:` variants.
+2. **Expand color palette** from 13 to 38+ colors. Add colors like:
+   - Neutrals: ivory, kräm, sand, khaki, kolgrå, antracit
+   - Blues: himmelsblå, turkos, petrol, indigo, kobolt
+   - Greens: olivgrön, skogsgrön, mint, salviagrön
+   - Reds/Pinks: vinröd, korall, aprikos, fuchsia, lavendel
+   - Earths: kamel, rost, cognac, choklad, terrakotta
+   - Others: guld, silver, kricka, plommon, senapsgul
 
-### 4. Minor layout adjustments
-- Review `BottomNav`, `PageHeader`, and `SettingsRow` for any hardcoded `left`/`right` styles that need mirroring in RTL mode. Tailwind's logical properties (`ms-`, `me-`, `ps-`, `pe-`) handle most cases, but icons with explicit `mr-` may need `rtl:ml-` counterparts.
+3. **Add color dot swatches** next to each chip -- a small 10px circle showing the actual color, making selection more intuitive.
+
+4. **Visual polish**:
+   - Only one section open at a time (optional, could allow multiple)
+   - Smooth height animation on expand/collapse
+   - Chevron rotates on open
+   - Selected count badge shown in the collapsed header (e.g., "Favoritfarger (3)")
+
+### Color Map
+A `COLOR_MAP` object will provide hex values for each color name, used to render the small dot swatch inside each `Chip`.
 
 ## Technical Details
 
 | File | Change |
 |------|--------|
-| `src/i18n/translations.ts` | Add `'ar'` and `'fa'` to `Locale` type, `SUPPORTED_LOCALES`, and `translations` object |
-| `src/contexts/LanguageContext.tsx` | Set `dir` and `lang` on `<html>` when locale changes |
-| `src/index.css` | Add `[dir="rtl"]` base rule |
+| `src/pages/settings/SettingsStyle.tsx` | Full rewrite: 4 collapsible sections, expanded 38-color palette with hex dot swatches, count badges in headers |
 
-## Translation scope
-Both `ar` and `fa` will include all ~120 translation keys covering navigation, onboarding, settings, wardrobe, outfits, plan, insights, and general UI strings.
+No new components needed -- uses existing `Collapsible` from Radix, existing `Chip`, `SettingsGroup`, `SettingsRow`, `Select`, `Switch`.
+
