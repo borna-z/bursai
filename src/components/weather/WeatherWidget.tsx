@@ -1,0 +1,235 @@
+import { useState, useEffect } from 'react';
+import { format, parseISO } from 'date-fns';
+import { sv } from 'date-fns/locale';
+import {
+  Sun, Cloud, CloudFog, CloudRain, CloudSnow, CloudLightning,
+  MapPin, RefreshCw, Loader2, Thermometer, Wind, Droplets, Snowflake,
+  ChevronDown,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useWeather } from '@/hooks/useWeather';
+import { useForecast, type ForecastDay } from '@/hooks/useForecast';
+import { useLanguage } from '@/contexts/LanguageContext';
+
+interface WeatherWidgetProps {
+  temperature: string;
+  precipitation: string;
+  wind: string;
+  useAutoWeather: boolean;
+  onTemperatureChange: (val: string) => void;
+  onPrecipitationChange: (val: string) => void;
+  onWindChange: (val: string) => void;
+  onDisableAuto: () => void;
+}
+
+function getWeatherIcon(code: number) {
+  if (code === 0) return Sun;
+  if (code <= 3) return Cloud;
+  if (code <= 49) return CloudFog;
+  if (code <= 69) return CloudRain;
+  if (code <= 79) return CloudSnow;
+  if (code >= 80) return CloudLightning;
+  return Cloud;
+}
+
+function CurrentTime() {
+  const [time, setTime] = useState(format(new Date(), 'HH:mm'));
+  useEffect(() => {
+    const interval = setInterval(() => setTime(format(new Date(), 'HH:mm')), 60_000);
+    return () => clearInterval(interval);
+  }, []);
+  return <span className="text-sm text-muted-foreground tabular-nums">{time}</span>;
+}
+
+function ForecastDayColumn({ day }: { day: ForecastDay }) {
+  const Icon = getWeatherIcon(day.weather_code);
+  const label = format(parseISO(day.date), 'EEE', { locale: sv });
+  const capitalised = label.charAt(0).toUpperCase() + label.slice(1);
+
+  return (
+    <div className="flex flex-col items-center gap-1.5 min-w-0">
+      <span className="text-xs text-muted-foreground">{capitalised}</span>
+      <Icon className="w-5 h-5 text-foreground/70" />
+      <span className="text-xs font-medium">{day.temperature_max}°</span>
+      <span className="text-[11px] text-muted-foreground">{day.temperature_min}°</span>
+    </div>
+  );
+}
+
+export function WeatherWidget({
+  temperature,
+  precipitation,
+  wind,
+  useAutoWeather,
+  onTemperatureChange,
+  onPrecipitationChange,
+  onWindChange,
+  onDisableAuto,
+}: WeatherWidgetProps) {
+  const { t } = useLanguage();
+  const { weather, isLoading: weatherLoading, refetch: refetchWeather } = useWeather();
+  const { forecast, isLoading: forecastLoading } = useForecast();
+  const [showEdit, setShowEdit] = useState(false);
+
+  // Get the weather code from useWeather's condition text (reverse map)
+  const weatherCode = weather
+    ? (() => {
+        const c = weather.condition;
+        if (c === 'Klart') return 0;
+        if (c === 'Molnigt') return 2;
+        if (c === 'Dimma') return 45;
+        if (c === 'Duggregn') return 53;
+        if (c === 'Regn') return 63;
+        if (c === 'Snö') return 73;
+        if (c === 'Åska') return 95;
+        return 2;
+      })()
+    : 2;
+
+  const HeroIcon = getWeatherIcon(weatherCode);
+
+  // Next 5 days from forecast (skip today)
+  const next5 = forecast.slice(1, 6);
+
+  // Loading skeleton
+  if (weatherLoading && !weather) {
+    return (
+      <div className="bg-card rounded-2xl border border-border p-5 space-y-4">
+        <div className="flex items-center gap-4">
+          <Skeleton className="w-12 h-12 rounded-xl" />
+          <div className="space-y-2 flex-1">
+            <Skeleton className="h-8 w-20" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+        </div>
+        <div className="flex justify-between pt-3 border-t border-border/50">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex flex-col items-center gap-1.5">
+              <Skeleton className="h-3 w-8" />
+              <Skeleton className="h-5 w-5 rounded-full" />
+              <Skeleton className="h-3 w-6" />
+              <Skeleton className="h-3 w-6" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-card rounded-2xl border border-border overflow-hidden">
+      {/* Current weather hero */}
+      <div className="px-5 pt-5 pb-4">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center">
+              <HeroIcon className="w-7 h-7 text-foreground/80" />
+            </div>
+            <div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-4xl font-bold tracking-tight">
+                  {weather?.temperature ?? '--'}°
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {weather?.condition ?? '...'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); refetchWeather(); }}
+            className="p-1.5 rounded-full hover:bg-muted/60 transition-colors mt-1"
+          >
+            <RefreshCw className={cn("w-4 h-4 text-muted-foreground", weatherLoading && "animate-spin")} />
+          </button>
+        </div>
+
+        {/* Location & time */}
+        <div className="flex items-center justify-between mt-3">
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <MapPin className="w-3.5 h-3.5" />
+            <span className="text-sm">{weather?.location ?? 'Stockholm'}</span>
+          </div>
+          <CurrentTime />
+        </div>
+      </div>
+
+      {/* 5-day forecast strip */}
+      {next5.length > 0 && (
+        <div className="border-t border-border/50 px-5 py-4">
+          <div className="flex justify-between">
+            {next5.map((day) => (
+              <ForecastDayColumn key={day.date} day={day} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {forecastLoading && next5.length === 0 && (
+        <div className="border-t border-border/50 px-5 py-4">
+          <div className="flex justify-between">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex flex-col items-center gap-1.5">
+                <Skeleton className="h-3 w-8" />
+                <Skeleton className="h-5 w-5 rounded-full" />
+                <Skeleton className="h-3 w-6" />
+                <Skeleton className="h-3 w-6" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Manual override toggle */}
+      <div className="border-t border-border/50">
+        <button
+          onClick={() => setShowEdit(!showEdit)}
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <span>{t('home.weather.customize') || 'Anpassa'}</span>
+          <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", showEdit && "rotate-180")} />
+        </button>
+
+        {showEdit && (
+          <div className="px-5 pb-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <Thermometer className="w-4 h-4 text-muted-foreground" />
+              <Input
+                type="number"
+                placeholder="20"
+                value={temperature}
+                onChange={(e) => { onTemperatureChange(e.target.value); onDisableAuto(); }}
+                className="w-20 h-9"
+              />
+              <span className="text-sm text-muted-foreground">°C</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Wind className="w-4 h-4 text-muted-foreground mr-1" />
+              {[
+                { id: 'none', label: t('home.weather.none'), Icon: Sun },
+                { id: 'rain', label: t('home.weather.rain'), Icon: Droplets },
+                { id: 'snow', label: t('home.weather.snow'), Icon: Snowflake },
+              ].map((opt) => (
+                <Badge
+                  key={opt.id}
+                  variant={precipitation === opt.id ? 'default' : 'outline'}
+                  className={cn(
+                    "cursor-pointer transition-all",
+                    precipitation === opt.id && "bg-accent text-accent-foreground"
+                  )}
+                  onClick={() => { onPrecipitationChange(opt.id); onDisableAuto(); }}
+                >
+                  <opt.Icon className="w-3 h-3 mr-1" />
+                  {opt.label}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
