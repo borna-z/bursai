@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Check, RotateCcw, Camera, Loader2, ScanLine } from 'lucide-react';
+import { X, Check, RotateCcw, Camera, Loader2, ScanLine, Zap, ZapOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useLiveScan } from '@/hooks/useLiveScan';
+import { useAutoDetect } from '@/hooks/useAutoDetect';
 import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 
+/* ── Accepted overlay ── */
 function AcceptedOverlay({ onDone }: { onDone: () => void }) {
   useEffect(() => {
     const t = setTimeout(onDone, 1200);
@@ -18,40 +20,49 @@ function AcceptedOverlay({ onDone }: { onDone: () => void }) {
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
       <div className="flex flex-col items-center gap-3">
-        {/* Animated circle + check */}
         <div className="relative w-24 h-24">
-          {/* Ring drawing animation */}
           <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96">
+            <circle cx="48" cy="48" r="40" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="4" />
             <circle
-              cx="48" cy="48" r="40"
-              fill="none"
-              stroke="rgba(255,255,255,0.15)"
-              strokeWidth="4"
-            />
-            <circle
-              cx="48" cy="48" r="40"
-              fill="none"
-              stroke="#22c55e"
-              strokeWidth="4"
-              strokeLinecap="round"
-              strokeDasharray="251.3"
-              strokeDashoffset="251.3"
+              cx="48" cy="48" r="40" fill="none" stroke="#22c55e" strokeWidth="4"
+              strokeLinecap="round" strokeDasharray="251.3" strokeDashoffset="251.3"
               className="animate-[draw-ring_0.5s_ease-out_forwards]"
             />
           </svg>
-          {/* Check icon */}
           <div className="absolute inset-0 flex items-center justify-center">
-            <Check
-              className="w-10 h-10 text-emerald-400 animate-[pop-check_0.3s_ease-out_0.4s_both]"
-              strokeWidth={3}
-            />
+            <Check className="w-10 h-10 text-emerald-400 animate-[pop-check_0.3s_ease-out_0.4s_both]" strokeWidth={3} />
           </div>
         </div>
-        <p className="text-white text-sm font-medium animate-[pop-check_0.3s_ease-out_0.5s_both]">
-          Tillagt!
-        </p>
+        <p className="text-white text-sm font-medium animate-[pop-check_0.3s_ease-out_0.5s_both]">Tillagt!</p>
       </div>
     </div>
+  );
+}
+
+/* ── Auto-detect progress ring around capture button ── */
+function AutoProgressRing({ progress }: { progress: number }) {
+  const circumference = 2 * Math.PI * 44; // r=44
+  const offset = circumference * (1 - progress);
+
+  return (
+    <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 96 96">
+      <circle
+        cx="48" cy="48" r="44"
+        fill="none"
+        stroke="rgba(34,197,94,0.3)"
+        strokeWidth="3"
+      />
+      <circle
+        cx="48" cy="48" r="44"
+        fill="none"
+        stroke="#22c55e"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        style={{ transition: 'stroke-dashoffset 200ms ease-out' }}
+      />
+    </svg>
   );
 }
 
@@ -63,28 +74,43 @@ export default function LiveScan() {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
   const [showAccepted, setShowAccepted] = useState(false);
+  const [autoMode, setAutoMode] = useState(true);
 
   const { scanCount, isProcessing, lastResult, error, capture, accept, retake, finish } = useLiveScan();
-  const { canAddGarment, subscription, isPremium } = useSubscription();
+  const { subscription, isPremium } = useSubscription();
 
   const remainingSlots = isPremium
     ? Infinity
     : PLAN_LIMITS.free.maxGarments - (subscription?.garments_count || 0) - scanCount;
 
+  const canCapture = cameraReady && !isProcessing && !lastResult && !showAccepted;
+  const hasSlots = isPremium || remainingSlots > 0;
+
+  // Auto-capture callback
+  const handleAutoCapture = useCallback(() => {
+    if (!videoRef.current || !canCapture) return;
+    if (!hasSlots) return;
+    capture(videoRef.current);
+    if (navigator.vibrate) navigator.vibrate(30);
+  }, [capture, canCapture, hasSlots]);
+
+  const { progress: autoProgress } = useAutoDetect({
+    enabled: autoMode && canCapture && hasSlots,
+    videoEl: videoRef.current,
+    busy: isProcessing || !!lastResult || showAccepted,
+    onStable: handleAutoCapture,
+  });
+
   // Start camera
   useEffect(() => {
     let cancelled = false;
-
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
           audio: false,
         });
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
+        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -96,34 +122,18 @@ export default function LiveScan() {
         setCameraError('Kunde inte öppna kameran. Kontrollera att du gett behörighet.');
       }
     }
-
     startCamera();
-
-    return () => {
-      cancelled = true;
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-    };
+    return () => { cancelled = true; streamRef.current?.getTracks().forEach((t) => t.stop()); };
   }, []);
 
   const handleCapture = useCallback(() => {
     if (!videoRef.current || isProcessing || lastResult) return;
-
-    if (!isPremium && remainingSlots <= 0) {
-      setShowPaywall(true);
-      return;
-    }
-
+    if (!isPremium && remainingSlots <= 0) { setShowPaywall(true); return; }
     capture(videoRef.current);
   }, [capture, isProcessing, lastResult, isPremium, remainingSlots]);
 
-  const handleAccept = useCallback(() => {
-    accept();
-    setShowAccepted(true);
-  }, [accept]);
-
-  const handleAcceptedDone = useCallback(() => {
-    setShowAccepted(false);
-  }, []);
+  const handleAccept = useCallback(() => { accept(); setShowAccepted(true); }, [accept]);
+  const handleAcceptedDone = useCallback(() => { setShowAccepted(false); }, []);
 
   const handleDone = useCallback(async () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -141,33 +151,38 @@ export default function LiveScan() {
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
       {/* Top bar */}
       <div className="relative z-10 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/70 to-transparent">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-white hover:bg-white/20"
-          onClick={handleClose}
-        >
+        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={handleClose}>
           <X className="w-6 h-6" />
         </Button>
 
-        {scanCount > 0 && (
-          <Badge className="bg-white/20 text-white border-0 text-sm px-3 py-1 backdrop-blur-sm">
-            <ScanLine className="w-4 h-4 mr-1.5" />
-            {scanCount} skannade
-          </Badge>
-        )}
-
-        {scanCount > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-white hover:bg-white/20 font-medium"
-            onClick={handleDone}
+        <div className="flex items-center gap-2">
+          {/* Auto-mode toggle */}
+          <button
+            onClick={() => setAutoMode((v) => !v)}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm transition-all',
+              autoMode
+                ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-400/30'
+                : 'bg-white/10 text-white/60 border border-white/10'
+            )}
           >
+            {autoMode ? <Zap className="w-3.5 h-3.5" /> : <ZapOff className="w-3.5 h-3.5" />}
+            Auto
+          </button>
+
+          {scanCount > 0 && (
+            <Badge className="bg-white/20 text-white border-0 text-sm px-3 py-1 backdrop-blur-sm">
+              <ScanLine className="w-4 h-4 mr-1.5" />
+              {scanCount} skannade
+            </Badge>
+          )}
+        </div>
+
+        {scanCount > 0 ? (
+          <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 font-medium" onClick={handleDone}>
             Klar
           </Button>
-        )}
-        {scanCount === 0 && <div />}
+        ) : <div className="w-12" />}
       </div>
 
       {/* Camera feed */}
@@ -177,28 +192,23 @@ export default function LiveScan() {
             <div className="space-y-4">
               <Camera className="w-16 h-16 text-white/40 mx-auto" />
               <p className="text-white/80 text-sm">{cameraError}</p>
-              <Button variant="outline" className="text-white border-white/30" onClick={handleClose}>
-                Tillbaka
-              </Button>
+              <Button variant="outline" className="text-white border-white/30" onClick={handleClose}>Tillbaka</Button>
             </div>
           </div>
         ) : (
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="absolute inset-0 w-full h-full object-cover"
-          />
+          <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
         )}
 
-        {/* Scanning overlay lines */}
+        {/* Scanning overlay */}
         {cameraReady && !lastResult && !isProcessing && !showAccepted && (
           <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute inset-8 border-2 border-white/20 rounded-2xl" />
+            <div className={cn(
+              'absolute inset-8 border-2 rounded-2xl transition-colors duration-300',
+              autoMode && autoProgress > 0 ? 'border-emerald-400/50' : 'border-white/20'
+            )} />
             <div className="absolute inset-0 flex items-center justify-center">
               <p className="text-white/50 text-sm font-medium bg-black/30 px-4 py-2 rounded-full backdrop-blur-sm">
-                Rikta mot ett plagg
+                {autoMode ? 'Håll plagget stilla…' : 'Rikta mot ett plagg'}
               </p>
             </div>
           </div>
@@ -214,7 +224,7 @@ export default function LiveScan() {
           </div>
         )}
 
-        {/* Accepted overlay with animated checkmark */}
+        {/* Accepted overlay */}
         {showAccepted && <AcceptedOverlay onDone={handleAcceptedDone} />}
 
         {/* Error message */}
@@ -234,11 +244,7 @@ export default function LiveScan() {
             <Card className="bg-card/95 backdrop-blur-md border-border/50 shadow-2xl">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3 mb-3">
-                  <img
-                    src={lastResult.thumbnailUrl}
-                    alt="Skannat plagg"
-                    className="w-16 h-16 rounded-lg object-cover shrink-0"
-                  />
+                  <img src={lastResult.thumbnailUrl} alt="Skannat plagg" className="w-16 h-16 rounded-lg object-cover shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm truncate">{lastResult.analysis.title}</p>
                     <p className="text-xs text-muted-foreground capitalize">
@@ -247,28 +253,17 @@ export default function LiveScan() {
                     {lastResult.analysis.material && (
                       <p className="text-xs text-muted-foreground capitalize">
                         {lastResult.analysis.material}
-                        {lastResult.analysis.pattern && lastResult.analysis.pattern !== 'enfärgad'
-                          ? ` • ${lastResult.analysis.pattern}`
-                          : ''}
+                        {lastResult.analysis.pattern && lastResult.analysis.pattern !== 'enfärgad' ? ` • ${lastResult.analysis.pattern}` : ''}
                       </p>
                     )}
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={retake}
-                  >
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    Ta om
+                  <Button variant="outline" className="flex-1" onClick={retake}>
+                    <RotateCcw className="w-4 h-4 mr-2" />Ta om
                   </Button>
-                  <Button
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                    onClick={handleAccept}
-                  >
-                    <Check className="w-4 h-4 mr-2" />
-                    Godkänn
+                  <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleAccept}>
+                    <Check className="w-4 h-4 mr-2" />Godkänn
                   </Button>
                 </div>
               </CardContent>
@@ -279,19 +274,25 @@ export default function LiveScan() {
 
       {/* Bottom capture bar */}
       <div className="relative z-10 flex items-center justify-center py-6 bg-gradient-to-t from-black/70 to-transparent">
-        <button
-          disabled={!cameraReady || isProcessing || !!lastResult}
-          onClick={handleCapture}
-          className={cn(
-            'w-20 h-20 rounded-full border-4 border-white flex items-center justify-center transition-all active:scale-90',
-            (!cameraReady || isProcessing || !!lastResult)
-              ? 'opacity-30'
-              : 'opacity-100 hover:bg-white/10'
-          )}
-          aria-label="Skanna plagg"
-        >
-          <div className="w-16 h-16 rounded-full bg-white/90" />
-        </button>
+        <div className="relative w-20 h-20">
+          {/* Auto-detect progress ring */}
+          {autoMode && autoProgress > 0 && <AutoProgressRing progress={autoProgress} />}
+
+          <button
+            disabled={!canCapture}
+            onClick={handleCapture}
+            className={cn(
+              'w-20 h-20 rounded-full border-4 border-white flex items-center justify-center transition-all active:scale-90',
+              !canCapture ? 'opacity-30' : 'opacity-100 hover:bg-white/10'
+            )}
+            aria-label="Skanna plagg"
+          >
+            <div className={cn(
+              'w-16 h-16 rounded-full transition-colors',
+              autoMode && autoProgress > 0.5 ? 'bg-emerald-400/80' : 'bg-white/90'
+            )} />
+          </button>
+        </div>
       </div>
 
       {/* Remaining slots indicator */}
@@ -303,11 +304,7 @@ export default function LiveScan() {
         </div>
       )}
 
-      <PaywallModal
-        isOpen={showPaywall}
-        onClose={() => setShowPaywall(false)}
-        reason="garments"
-      />
+      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="garments" />
     </div>
   );
 }
