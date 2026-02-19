@@ -13,7 +13,8 @@ import {
   X,
   Trash2,
   Shirt,
-  Sparkles
+  Sparkles,
+  ScanLine
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -582,17 +583,28 @@ export default function WardrobePage() {
           />
         )}
 
-        {/* FAB */}
-        <Button
-          size="lg"
-          className={cn(
-            "fixed bottom-24 right-4 h-14 w-14 rounded-full shadow-lg z-30 active:animate-press",
-            isOverLimit && "opacity-50"
-          )}
-          onClick={handleAddGarment}
-        >
-          <Plus className="w-6 h-6" />
-        </Button>
+        {/* FABs */}
+        <div className="fixed bottom-24 right-4 z-30 flex flex-col gap-3">
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-14 w-14 rounded-full shadow-lg active:animate-press bg-card border-border"
+            onClick={() => navigate('/wardrobe/scan')}
+            aria-label="Live Scan"
+          >
+            <ScanLine className="w-6 h-6" />
+          </Button>
+          <Button
+            size="lg"
+            className={cn(
+              "h-14 w-14 rounded-full shadow-lg active:animate-press",
+              isOverLimit && "opacity-50"
+            )}
+            onClick={handleAddGarment}
+          >
+            <Plus className="w-6 h-6" />
+          </Button>
+        </div>
       </div>
 
       <PaywallModal 
