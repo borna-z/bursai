@@ -136,6 +136,15 @@ export default {
           "50%": { transform: "scale(0.95)" },
           "100%": { transform: "scale(1)" },
         },
+        "draw-ring": {
+          "0%": { strokeDashoffset: "251.3" },
+          "100%": { strokeDashoffset: "0" },
+        },
+        "pop-check": {
+          "0%": { opacity: "0", transform: "scale(0.5)" },
+          "60%": { opacity: "1", transform: "scale(1.15)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
