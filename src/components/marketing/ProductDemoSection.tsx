@@ -1,15 +1,16 @@
- import { useState } from 'react';
- import { Camera, Sparkles, Calendar, BarChart3 } from 'lucide-react';
- import { MARKETING_CONFIG } from '@/config/marketing';
- import { trackMarketingEvent } from '@/lib/marketingAnalytics';
- import { cn } from '@/lib/utils';
- 
- const iconMap = {
-   camera: Camera,
-   sparkles: Sparkles,
-   calendar: Calendar,
-   chart: BarChart3,
- };
+import { useState } from 'react';
+import { Camera, Sparkles, Calendar, BarChart3, Bot } from 'lucide-react';
+import { MARKETING_CONFIG } from '@/config/marketing';
+import { trackMarketingEvent } from '@/lib/marketingAnalytics';
+import { cn } from '@/lib/utils';
+
+const iconMap = {
+  camera: Camera,
+  sparkles: Sparkles,
+  calendar: Calendar,
+  chart: BarChart3,
+  bot: Bot,
+};
  
  export function ProductDemoSection() {
    const { demo } = MARKETING_CONFIG;
