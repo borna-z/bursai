@@ -78,7 +78,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'onboarding.error': 'Något gick fel',
     'onboarding.body_save_error': 'Kunde inte spara. Försök igen.',
     'onboarding.accent.title': 'Välj accentfärg',
-    'onboarding.accent.subtitle': 'Ge din app en personlig touch – färgen syns i logotyp, knappar och detaljer.',
+    'onboarding.accent.subtitle': 'Ge din app en personlig touch – färgen syns i knappar och detaljer.',
 
     // Settings
     'settings.title': 'Inställningar',
