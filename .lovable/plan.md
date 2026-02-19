@@ -1,86 +1,50 @@
 
 
-# App Tutorial -- Guidad introduktion till appens funktioner
+# Redesign Wardrobe + Update Plan Buttons
 
-## Oversikt
+## Wardrobe -- Full Minimal Redesign
 
-Efter att anvandaren har fyllt i sina stilpreferenser (och innan garderobs-/outfit-stegen) visas en swipebar app-guide som forklarar de fyra huvudflikarna: Today, Wardrobe, Plan och Stylist. Varje steg visar fliken ikon, namn, och en kort beskrivning av vad man kan gora dar. Anvandaren sveper igenom alla fyra och trycker sedan "Borja anvanda DRAPE" for att ga vidare.
+Replace the current busy layout (scrolling chip bar, search bar + filter icon, badges, alerts) with a clean, card-based design matching the Today page.
 
-## Design
+### New layout (top to bottom):
 
-Fullskarms-slides som anvandaren sveper horisontellt (eller trycker "Nasta"). Varje slide visar:
-- Stor ikon (samma som i bottom nav)
-- Flikens namn
-- 2-3 korta punkter om vad fliken gor
-- Prickrad indikator langst ner (1/4, 2/4, etc.)
+1. **PageHeader** -- "Garderob" title with grid/list toggle and select button (keep as-is)
 
-Pa sista sliden byts "Nasta"-knappen mot "Borja anvanda DRAPE".
+2. **Search row** -- Clean search input inside a `SettingsGroup` card (expandable, tap to open), no separate filter icon button
 
-```text
-+----------------------------------+
-|                                  |
-|         [Home icon]              |
-|                                  |
-|          Idag                    |
-|                                  |
-|  - Se dagens vader och generera  |
-|    en outfit baserat pa det      |
-|  - Snabb oversikt av din         |
-|    garderob och senaste outfit   |
-|  - Valj tillfalle och stil       |
-|                                  |
-|                                  |
-|          o . . .                 |
-|                                  |
-|      [ Nasta  -->  ]             |
-+----------------------------------+
-```
+3. **Category selector** -- Replace the horizontal scrolling chip bar with a `SettingsGroup` card containing a **grid layout** (like Today's occasion grid). Categories displayed as tappable cells in a 4x2 grid with subtle borders between them. Selected category gets accent highlight.
 
-## Steg i guiden
+4. **Filter row** -- Sort, color, season filters inside a collapsible `SettingsGroup` card (tap "Filters" row to expand/collapse), replacing the bottom sheet. Clean inline approach.
 
-1. **Today** (Home) -- Generera dagliga outfits, se vader, valj tillfalle
-2. **Wardrobe** (Shirt) -- Alla dina plagg, lagg till nya, filtrera och sok
-3. **Plan** (CalendarDays) -- Planera outfits for hela veckan, se kalender
-4. **Stylist** (Bot) -- AI-stylist och shopping-assistent, skicka bilder
+5. **Garment count** -- Small muted text showing "12 plagg" count, no alerts or banners for limits (paywall triggers on action instead)
 
-## Tekniska detaljer
+6. **Garment grid** -- Keep the 2-column grid but simplify cards: remove hover overlays, remove badges. Just image + title + subtitle. Cleaner rounded-xl cards.
 
-### 1. Ny komponent: `src/components/onboarding/AppTutorialStep.tsx`
+7. **FABs** -- Keep the floating action buttons (scan + add) but style them to match Today's button aesthetic (rounded-xl, same shadow style)
 
-- Tar emot `onComplete` callback (samma monster som LanguageStep)
-- Anvander Embla Carousel (redan installerat) for horisontell swipe
-- 4 slides med ikon, rubrik och beskrivningspunkter
-- Dot-indikator visar aktuell slide
-- "Nasta"-knapp scrollar till nasta slide
-- Pa sista sliden: "Borja anvanda DRAPE"-knapp som anropar `onComplete`
+8. **Bulk select bar** -- When selecting, show a minimal bottom bar (keep existing logic, just cleaner styling)
 
-### 2. Uppdatera `src/pages/Onboarding.tsx`
+### What gets removed:
+- Horizontal scrolling chip bar for categories
+- Bottom sheet for filters (replaced with inline collapsible)
+- "New garments" alert card
+- QuickEditPanel banner
+- Over-limit alert banner (paywall still triggers on action)
+- Hover-reveal laundry buttons on cards
 
-- Lagg till state `tutorialDone` (boolean, default false)
-- Infoga AppTutorialStep efter styleStepDone-checken och innan garderobs-stegen:
-  - Nuvarande flode: Language -> Accent -> Body -> Style -> Garments/Outfit/Reminder
-  - Nytt flode: Language -> Accent -> Body -> Style -> **App Tutorial** -> Garments/Outfit/Reminder
+### Plan Page -- Button Style Update
 
-### 3. Oversattningar i `src/i18n/translations.ts`
+Keep the entire Plan page layout as-is. Only update button styling to match Today:
+- "Planera" and "Skapa at mig" buttons: use rounded-xl, same font weight
+- "Byt" and "Detaljer" buttons: match the outline style from Today
+- Secondary text links (mark as worn, remove): keep minimal
 
-Nya nycklar (sv + en):
-- `onboarding.tutorial.title` -- "Sa anvander du DRAPE" / "How to use DRAPE"
-- `onboarding.tutorial.next` -- "Nasta" / "Next"
-- `onboarding.tutorial.start` -- "Borja anvanda DRAPE" / "Start using DRAPE"
-- `onboarding.tutorial.today.title` -- "Idag" / "Today"
-- `onboarding.tutorial.today.desc` -- Beskrivning av Today-fliken
-- `onboarding.tutorial.wardrobe.title` -- "Garderob" / "Wardrobe"
-- `onboarding.tutorial.wardrobe.desc` -- Beskrivning
-- `onboarding.tutorial.plan.title` -- "Planera" / "Plan"
-- `onboarding.tutorial.plan.desc` -- Beskrivning
-- `onboarding.tutorial.stylist.title` -- "Stylisten" / "Stylist"
-- `onboarding.tutorial.stylist.desc` -- Beskrivning
+## Technical Details
 
-### Filer som skapas / andras
-
-| Fil | Andring |
+| File | Change |
 |------|--------|
-| `src/components/onboarding/AppTutorialStep.tsx` | Ny -- 4-stegs swipebar guide for appens flikar |
-| `src/pages/Onboarding.tsx` | Lagg till tutorialDone-state och rendera AppTutorialStep efter style-steget |
-| `src/i18n/translations.ts` | Lagg till tutorial-oversattningar (sv + en) |
+| `src/pages/Wardrobe.tsx` | Full rewrite -- replace chip bar with SettingsGroup grid, inline collapsible filters, simplified garment cards, remove alerts/banners |
+| `src/pages/Plan.tsx` | Update button classNames to use rounded-xl and match Today's accent styling |
+
+No new files needed. The `SettingsGroup` component is already imported in Today and works perfectly for this pattern.
 
