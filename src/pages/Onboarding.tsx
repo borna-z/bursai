@@ -5,17 +5,18 @@ import {
   Sparkles, 
   Bell, 
   Check, 
-  ChevronRight,
   Loader2,
   Wand2,
   ArrowRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useOnboarding } from '@/hooks/useOnboarding';
+import { useUpdateProfile } from '@/hooks/useProfile';
+import { BodyMeasurementsStep } from '@/components/onboarding/BodyMeasurementsStep';
 import { toast } from 'sonner';
 
 const steps = [
@@ -51,8 +52,29 @@ export default function OnboardingPage() {
     createDemoGarments,
     isLoading 
   } = useOnboarding();
+  const updateProfile = useUpdateProfile();
   const [isCreatingDemo, setIsCreatingDemo] = useState(false);
   const [isEnablingReminder, setIsEnablingReminder] = useState(false);
+  // steg 0: kroppsmått – visas tills användaren slutfört eller hoppat
+  const [bodyStepDone, setBodyStepDone] = useState(false);
+  const [isSavingBody, setIsSavingBody] = useState(false);
+
+  const handleSaveBodyMeasurements = async (data: { height_cm: number | null; weight_kg: number | null }) => {
+    setIsSavingBody(true);
+    try {
+      const updates: Record<string, number | null> = {};
+      if (data.height_cm !== null) updates.height_cm = data.height_cm;
+      if (data.weight_kg !== null) updates.weight_kg = data.weight_kg;
+      if (Object.keys(updates).length > 0) {
+        await updateProfile.mutateAsync(updates);
+      }
+      setBodyStepDone(true);
+    } catch {
+      toast.error('Kunde inte spara. Försök igen.');
+    } finally {
+      setIsSavingBody(false);
+    }
+  };
 
   const handleCreateDemo = async () => {
     setIsCreatingDemo(true);
@@ -111,6 +133,17 @@ export default function OnboardingPage() {
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
+    );
+  }
+
+  // Steg 0: Kroppsmått – visas direkt när onboarding startar
+  if (!bodyStepDone) {
+    return (
+      <BodyMeasurementsStep
+        onComplete={handleSaveBodyMeasurements}
+        onSkip={() => setBodyStepDone(true)}
+        isSaving={isSavingBody}
+      />
     );
   }
 
