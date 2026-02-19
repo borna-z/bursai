@@ -189,9 +189,17 @@ export default function OnboardingPage() {
       />
     );
   }
-  // Step 2: App tutorial
+  // Step 2: App tutorial — completing this finishes onboarding
   if (!tutorialDone) {
-    return <AppTutorialStep onComplete={() => setTutorialDone(true)} />;
+    return <AppTutorialStep onComplete={async () => {
+      setTutorialDone(true);
+      try {
+        await completeOnboarding();
+      } catch {
+        // ignore — worst case they see the checklist
+      }
+      navigate('/');
+    }} />;
   }
 
   return (
