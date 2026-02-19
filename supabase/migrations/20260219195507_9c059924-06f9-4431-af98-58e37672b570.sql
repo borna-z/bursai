@@ -1,0 +1,1 @@
+ALTER TABLE public.chat_messages ADD COLUMN mode TEXT NOT NULL DEFAULT 'stylist';
