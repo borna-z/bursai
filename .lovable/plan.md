@@ -1,78 +1,86 @@
 
 
-# Fix: Onboarding Runs Only Once + Mobile-Responsive Layout
+# Weather Widget: Silent Auto-Refresh + Location Picker
 
-## Problems Found
+## Changes
 
-### 1. Onboarding repeats on every login
-Two bugs cause this:
+### 1. `src/hooks/useWeather.ts` -- Silent 3-second polling
 
-**Bug A -- Auth.tsx line 30**: When a logged-in user visits `/auth`, they are *always* redirected to `/onboarding` regardless of whether onboarding was completed. It should go to `/` instead and let `ProtectedRoute` decide.
+Rewrite to use `useQuery` with `refetchInterval: 3000` instead of manual `useState`/`useEffect`. This gives silent background updates with no loading indicator after the first fetch.
 
-**Bug B -- Onboarding.tsx local state**: All the pre-steps (language, accent color, body, style, tutorial) use `useState(false)` which resets on every page load. Even if the user completed onboarding, visiting `/onboarding` restarts everything visually. The page should check `profile.preferences.onboarding.completed` and redirect to `/` immediately if already done.
+- Return `weather_code` directly alongside condition text so the widget doesn't need reverse-mapping
+- Add support for an optional `city` parameter: when provided, geocode the city instead of using browser geolocation
+- On first load: show skeleton. After that: `refetchInterval: 3000` silently updates data in place (no `isLoading` flash)
 
-### 2. Mobile layout inconsistency
-The Language, Body Measurements, and Accent Color steps use a nice full-screen layout with a gradient header and centered content. But the Style Preferences step uses a different layout (`p-6 pb-32 max-w-lg`), and the main onboarding steps page (garments/outfit/reminder) has no consistent layout at all. All steps should match the same clean full-screen pattern used by `AppTutorialStep` and `BodyMeasurementsStep`.
+### 2. `src/components/weather/WeatherWidget.tsx` -- Replace "Anpassa" with location picker
 
-## Solution
+Remove the entire "Anpassa" section (temperature/precipitation manual override, lines 186-232) and replace with a simple location feature:
 
-### File 1: `src/pages/Auth.tsx`
-Change line 30 from `Navigate to="/onboarding"` to `Navigate to="/"`. The `ProtectedRoute` on `/` already checks onboarding status and redirects new users to `/onboarding` if needed.
+- Tapping the location name (e.g. "Stockholm") opens a small inline input field
+- User can type a city name and press Enter to switch location
+- A small "Auto" button resets to automatic geolocation
+- No more temperature/precipitation/wind manual inputs
 
-### File 2: `src/pages/Onboarding.tsx`
-- Add a check at the top: if `profile.preferences.onboarding.completed === true`, immediately `Navigate to="/"`. This prevents the onboarding from re-running for returning users.
-- Redesign the main steps section (lines 189-337) to use the same full-screen layout pattern as the tutorial step: gradient header area with icon, centered content, and a fixed bottom button area.
-- Apply consistent spacing and `max-w-lg mx-auto` content constraints.
-- Use `safe-area-inset` padding for mobile notch/bottom bar compatibility.
+Also:
+- Remove the reverse weather-code mapping hack (lines 77-90) since `useWeather` will now return the code directly
+- Remove the `RefreshCw` button since data refreshes automatically every 3 seconds
 
-### File 3: `src/components/onboarding/StylePreferencesStep.tsx`
-- Restructure to match the same layout pattern as BodyMeasurementsStep: gradient header with icon at top, scrollable content area in the middle, fixed button at bottom.
-- Ensure the fixed bottom button uses proper safe-area padding.
-- Keep all existing functionality (color chips, fit options, vibe options, gender neutral switch).
+### 3. `src/pages/Home.tsx` -- Simplify props
 
-### File 4: `src/components/onboarding/AppTutorialStep.tsx`
-- Add safe-area padding at the bottom for mobile devices.
-- Ensure the button area has consistent height and spacing with other steps.
+Remove all the manual weather override state (`temperature`, `precipitation`, `wind`, `useAutoWeather`, and their setters) since the widget is now self-contained. The `WeatherWidget` no longer needs those props -- it manages everything internally. The outfit generator will read weather directly from the hook instead.
 
-### File 5: `src/components/onboarding/LanguageStep.tsx`
-- Add safe-area padding at the bottom.
-- Ensure consistent button height (`h-14`) matching other steps.
+### 4. Weather icon mapping fix
+
+The current mapping has a gap: codes 4-48 are not actually fog in Open-Meteo. Correct mapping:
+- 0: Sun (clear sky)
+- 1-3: Cloud (partly cloudy / overcast)
+- 45, 48: CloudFog (fog)
+- 51-57: CloudDrizzle (drizzle)
+- 61-67: CloudRain (rain)
+- 71-77: CloudSnow (snow)
+- 80-82: CloudRain (rain showers)
+- 85-86: CloudSnow (snow showers)
+- 95-99: CloudLightning (thunderstorm)
 
 ## Technical Details
 
-### Auth redirect fix
-```
-// Auth.tsx line 30 - before:
-if (user) return <Navigate to="/onboarding" replace />;
+### useWeather refactor
 
-// After:
-if (user) return <Navigate to="/" replace />;
-```
+```typescript
+// New signature
+interface UseWeatherOptions {
+  city?: string | null; // manual city override
+}
 
-### Onboarding completion guard
-```
-// Onboarding.tsx - add after loading check:
-const prefs = profile?.preferences as Record<string, any> | null;
-const onboardingCompleted = prefs?.onboarding?.completed === true;
-if (onboardingCompleted) {
-  return <Navigate to="/" replace />;
+export function useWeather(options?: UseWeatherOptions) {
+  // Uses useQuery with refetchInterval: 3000
+  // First fetch: isLoading=true (skeleton shown)
+  // Subsequent: silent background refresh, no loading state
+  // Returns weather_code in the data object
 }
 ```
 
-### Consistent layout pattern for all steps
-Every step will follow this structure:
-- Full-screen flex column container (`min-h-screen bg-background flex flex-col`)
-- Gradient header area with icon, title, and subtitle
-- Scrollable content area (`flex-1 overflow-y-auto px-6`)
-- Fixed or sticky bottom area with the Continue button and safe-area padding
+Key: `useQuery` has `refetchInterval: 3000` and the skeleton only shows when `!data` (first load). After that, stale data stays visible while fresh data loads in background.
 
-### Files changed summary
+### WeatherWidget new props
+
+```typescript
+// Simplified -- no more manual override props
+interface WeatherWidgetProps {
+  // Only needs to expose weather data upward for outfit generation
+  onWeatherChange?: (weather: { temperature: number; precipitation: string; wind: string }) => void;
+}
+```
+
+### Location picker UX
+
+Tapping MapPin + city name toggles an inline text input. Type a city, press Enter. The widget geocodes it and refetches weather for that location. A small "x" button clears the manual city and returns to auto-detect.
+
+### Files changed
 
 | File | Change |
 |------|--------|
-| `src/pages/Auth.tsx` | Redirect to `/` instead of `/onboarding` |
-| `src/pages/Onboarding.tsx` | Add completion guard + redesign main steps layout |
-| `src/components/onboarding/StylePreferencesStep.tsx` | Match consistent gradient-header layout |
-| `src/components/onboarding/AppTutorialStep.tsx` | Add safe-area padding |
-| `src/components/onboarding/LanguageStep.tsx` | Add safe-area padding |
+| `src/hooks/useWeather.ts` | Rewrite with useQuery, 3s refetch, city param, return weather_code |
+| `src/components/weather/WeatherWidget.tsx` | Remove "Anpassa" section, add location picker, fix icon mapping, remove RefreshCw |
+| `src/pages/Home.tsx` | Remove manual weather state, simplify WeatherWidget usage |
 
