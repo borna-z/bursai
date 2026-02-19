@@ -1,58 +1,99 @@
 
 
-# Apply accent color to all interactive elements across 4 pages
+# Shopping Mode -- Shoppingsassistent i Stylist AI
 
-## What changes
+## Oversikt
 
-Replace all `text-primary`, `bg-primary`, and related primary color classes on clickable/interactive elements with `text-accent` / `bg-accent` across the Stylist (AI Chat), Plan, Wardrobe, and Home (Today) pages. This ensures the user-selected accent color is consistently applied everywhere -- just like it was done in Settings.
+En ny "Shopping Mode" laggs till i Stylist AI-sidan. Langst upp visas en segmenterad kontroll (Stylist / Shopping) som byter mellan det vanliga stylist-chattet och ett nytt shopping-optimerat chat-lage. Shopping Mode anvander en separat edge function med en anpassad AI-prompt som ar specialiserad pa shopping-beslut.
 
-## Pages and specific changes
+## Anvandningsflode
 
-### 1. AI Chat (`src/pages/AIChat.tsx`)
-- **Send button** (line 246): `bg-primary` -> `bg-accent text-accent-foreground`
-- **AI avatar circle** (line 303): `bg-primary/10` -> `bg-accent/10`
-- **AI avatar Sparkles icon** (line 304): `text-primary` -> `text-accent`
-- **User message bubble** (line 307): `bg-primary text-primary-foreground` -> `bg-accent text-accent-foreground`
-- **Header icons** (BarChart3, Trash2): add `text-accent` where clickable
+```text
++----------------------------------+
+|     DRAPE Stylisten              |
++----------------------------------+
+| [  Stylist  ] [ Shopping ]       |
++----------------------------------+
+|                                  |
+|  (Shopping Mode aktiv)           |
+|                                  |
+|  AI: Hej! Jag ar din shopping-  |
+|  assistent. Ta en bild pa det    |
+|  plagget du overagar att kopa    |
+|  sa hjalper jag dig!             |
+|                                  |
+|  [Bild pa jacka i butik]         |
+|  "Overagar att kopa denna"       |
+|                                  |
+|  AI: Fin jacka! Den matchar      |
+|  perfekt med din marinbla        |
+|  Oxford-skjorta [[garment:xx]]   |
+|  och dina beige chinos           |
+|  [[garment:yy]]. Du saknar en    |
+|  brun skinnrem -- kop en till!   |
+|  Betyg: 8/10 -- Kop den!        |
+|                                  |
++----------------------------------+
+|  [Foto] [Skriv...]    [Skicka]  |
++----------------------------------+
+```
 
-### 2. Plan (`src/pages/Plan.tsx`)
-- **CalendarDays icon** in header (line 207): `text-muted-foreground` -> `text-accent`
-- **Wand2 button** icon (line 227): add `text-accent`
-- **"Anvand" badge** (line 247-249): `bg-primary/10 text-primary` -> `bg-accent/10 text-accent`
-- **DaySummaryCard** Sparkles icon and accent colors: update `text-primary` -> `text-accent` and `border-primary/20 bg-primary/5` -> `border-accent/20 bg-accent/5` in `DaySummaryCard.tsx`
-- **Action buttons** ("Planera", "Skapa at mig"): use accent color
-- **"Markera som anvand"** text button: `hover:text-foreground` -> `hover:text-accent`
+## Vad Shopping Mode gor
 
-### 3. Wardrobe (`src/pages/Wardrobe.tsx`)
-- **Loading spinner** (line 326): `text-primary` -> `text-accent`
-- **New garments banner** (line 231-234): `bg-primary/5 border-primary/20` -> `bg-accent/5 border-accent/20`, Sparkles `text-primary` -> `text-accent`
-- **New badge on grid** (line 87): `bg-primary text-primary-foreground` -> `bg-accent text-accent-foreground`
-- **FAB buttons** (line 348): primary FAB should use `bg-accent`
-- **Laundry icon active** (line 95): `text-primary` -> `text-accent`
-- **Selected card ring** (lines 59, 83): `ring-primary` -> `ring-accent`
+1. **Analysera plagg i butik** -- Anvandaren tar en bild pa klader i butiken, AI identifierar vad det ar
+2. **Matcha med garderob hemma** -- AI jamfor med befintliga plagg och visar vad som matchar (med GarmentInlineCard)
+3. **Foreslà kompletterande kop** -- AI foreslar vad man mer kan kopa for att maximera plaggets anvandbarhet
+4. **Hjalpa besluta** -- Om anvandaren jämför tva plagg, ge ett tydligt rad med betyg/motivering
+5. **Budget-medvetenhet** -- AI fragar om budget och ger rad baserat pa det
 
-### 4. Home (`src/pages/Home.tsx`)
-- **Onboarding card** (line 123): `from-accent/10 to-accent/5 border-accent/20` -- already uses accent (good)
-- **ArrowRight icon** (line 129): `text-primary` -> `text-accent`
-- **Generate button** (line 307): already uses `bg-accent` (good)
-- **Wardrobe stats card** (line 145): already uses accent (good)
+## Tekniska detaljer
 
-### 5. DaySummaryCard (`src/components/plan/DaySummaryCard.tsx`)
-- **Border and background** (line): `border-primary/20 bg-primary/5` -> `border-accent/20 bg-accent/5`
-- **Sparkles icon** and label: `text-primary` -> `text-accent`
-- **CTA link**: `text-primary` -> `text-accent`
+### 1. Ny Edge Function: `shopping_chat`
 
-### 6. Button component consideration
-- The default button variant uses `bg-primary`. Primary action buttons like "Planera" and "Skapa at mig" on the Plan page should explicitly use `bg-accent text-accent-foreground` classes.
+Fil: `supabase/functions/shopping_chat/index.ts`
 
-## Files to modify
+- Kopierar strukturen fran `style_chat` (auth, garderobs-kontext, vader)
+- Har en helt ny system-prompt optimerad for shopping:
+  - "Du ar DRAPE Shopping-assistenten"
+  - Fokus pa: "Ska jag kopa detta?", matchning med befintlig garderob, kompletterande kop
+  - Ger betyg (1-10) pa varje potentiellt kop
+  - Foreslàr konkreta matchningar fran garderoben med [[garment:ID]]-taggar
+  - Varnar om plagget overlapper med nàgot som redan finns hemma
+- Anvander samma Lovable AI gateway och garderobs-/vader-kontext
 
-| File | Changes |
-|------|---------|
-| `src/pages/AIChat.tsx` | Swap primary -> accent on send button, avatar, user bubbles, header icons |
-| `src/pages/Plan.tsx` | Swap primary -> accent on header icon, badges, action buttons, text links |
-| `src/pages/Wardrobe.tsx` | Swap primary -> accent on spinner, banners, FABs, badges, rings |
-| `src/pages/Home.tsx` | ArrowRight icon color |
-| `src/components/plan/DaySummaryCard.tsx` | Border, bg, icon, CTA colors |
+### 2. Uppdatera `src/pages/AIChat.tsx`
 
-No new files needed. No backend changes.
+- Lagg till state: `mode: 'stylist' | 'shopping'`
+- Segmenterad kontroll langst upp under PageHeader (tvà knappar med accent-farg pa aktiv)
+- Varje mode har sin egen meddelandehistorik (`messages` vs `shoppingMessages`)
+- Varje mode har sitt eget valkomstmeddelande
+- Send-funktionen valjer ratt URL baserat pa mode:
+  - Stylist: `/functions/v1/style_chat`
+  - Shopping: `/functions/v1/shopping_chat`
+- Separat persistering: anvander `mode`-kolumn i `chat_messages` (eller separat tabell)
+- Kameran oppnas direkt i shopping mode for snabb bild-tagning
+
+### 3. Databas-andringar
+
+Lagg till `mode`-kolumn i `chat_messages`-tabellen:
+- `mode TEXT DEFAULT 'stylist'` -- skiljer vilken modes meddelanden tillhor
+- Ladda/spara meddelanden filtrerat pa mode
+
+### 4. Oversattningar
+
+Lagg till i `src/i18n/translations.ts`:
+- `chat.mode_stylist`: "Stylist" / "Stylist"
+- `chat.mode_shopping`: "Shopping" / "Shopping"
+- `chat.shopping_welcome`: Valkomstmeddelande for shopping mode
+- `chat.shopping_placeholder`: "Beskriv plagget du overagar..."
+
+### Filer som skapas / andras
+
+| Fil | Andring |
+|-----|---------|
+| `supabase/functions/shopping_chat/index.ts` | Ny -- shopping-optimerad AI-chat |
+| `src/pages/AIChat.tsx` | Mode-vaxlare, dubbla meddelandelistor, ratt URL per mode |
+| `src/i18n/translations.ts` | Shopping mode-strängar (sv + en + ovriga) |
+| Databasmigration | Lagg till `mode`-kolumn i `chat_messages` |
+| `supabase/config.toml` | Lagg till `shopping_chat` function config |
+
