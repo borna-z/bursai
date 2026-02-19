@@ -7,40 +7,40 @@ export const MARKETING_CONFIG = {
   
   // Site metadata
   meta: {
-    title: 'DRAPE | Din personliga stylist',
-    description: 'Din AI-stylist lär känna din kropp, stil och kalender – och föreslår outfits som passar exakt din dag. Privat, smart och byggd för vardagen.',
+    title: 'DRAPE | Your Personal Stylist',
+    description: 'Your AI stylist learns your body, style, and calendar – and suggests outfits perfectly suited for your day. Private, smart, and built for everyday life.',
     ogImage: '/og-image.png',
   },
   
   // Hero section
   hero: {
-    headline: 'Din personliga stylist. Alltid tillgänglig.',
-    subheadline: 'AI som lär sig din stil, läser din kalender och föreslår rätt outfit för varje tillfälle – morgon, möte och middag.',
-    primaryCta: 'Kom igång gratis',
-    secondaryCta: 'Installera som app',
+    headline: 'Your personal stylist. Always available.',
+    subheadline: 'AI that learns your style, reads your calendar, and suggests the right outfit for every occasion – morning, meeting, and dinner.',
+    primaryCta: 'Get started free',
+    secondaryCta: 'Install as app',
     trustItems: [
-      'Privat lagring',
-      'Inga krångliga steg',
-      'Personlig AI-stylist',
+      'Private storage',
+      'No complicated steps',
+      'Personal AI stylist',
     ],
   },
   
   // Social proof section
   socialProof: {
-    headline: 'Mer stil, mindre stress – varje morgon',
+    headline: 'More style, less stress – every morning',
     testimonials: [
       {
-        quote: 'AI-stylisten lärde sig min stil efter bara några dagar. Inte en enda felaktig outfit sedan dess.',
+        quote: 'The AI stylist learned my style after just a few days. Not a single wrong outfit since.',
         author: 'Emma S.',
         location: 'Stockholm',
       },
       {
-        quote: 'Kalenderintegrationen är helt magisk. Den föreslår automatiskt rätt outfit beroende på om jag har möte eller träning.',
+        quote: 'The calendar integration is pure magic. It automatically suggests the right outfit depending on whether I have a meeting or workout.',
         author: 'Marcus L.',
-        location: 'Göteborg',
+        location: 'Gothenburg',
       },
       {
-        quote: 'Äntligen vet jag vad jag har. AI-stylisten ger råd om passform baserat på mina mått.',
+        quote: 'Finally I know what I have. The AI stylist gives advice on fit based on my measurements.',
         author: 'Sofia N.',
         location: 'Malmö',
       },
@@ -49,30 +49,30 @@ export const MARKETING_CONFIG = {
   
   // Product demo section
   demo: {
-    headline: 'Fyra steg till din perfekta outfit',
+    headline: 'Four steps to your perfect outfit',
     steps: [
       {
         id: 'add',
-        title: 'Bygg din garderob',
-        description: 'Fota, importera via länk eller batch-ladda upp. AI taggar automatiskt färg, material och stil.',
+        title: 'Build your wardrobe',
+        description: 'Snap a photo, import via link, or batch upload. AI automatically tags color, material, and style.',
         icon: 'camera',
       },
       {
         id: 'chat',
-        title: 'Chatta med din stylist',
-        description: 'Din AI-stylist lär sig din ålder, livsstil och preferenser för att ge personliga råd om passform och stil.',
+        title: 'Chat with your stylist',
+        description: 'Your AI stylist learns your age, lifestyle, and preferences to give personalized advice on fit and style.',
         icon: 'bot',
       },
       {
         id: 'plan',
-        title: 'Smart kalenderplanering',
-        description: 'Synka din kalender och få outfit-förslag anpassade för varje händelse – möte, träning eller fest.',
+        title: 'Smart calendar planning',
+        description: 'Sync your calendar and get outfit suggestions tailored for every event – meeting, workout, or party.',
         icon: 'calendar',
       },
       {
         id: 'outfit',
-        title: 'Rätt outfit varje dag',
-        description: 'Välj, planera och markera outfits som använda. Byt ut enskilda plagg med ett tryck.',
+        title: 'The right outfit every day',
+        description: 'Choose, plan, and mark outfits as worn. Swap individual garments with a single tap.',
         icon: 'sparkles',
       },
     ],
@@ -80,36 +80,36 @@ export const MARKETING_CONFIG = {
   
   // Benefits section
   benefits: {
-    headline: 'Mer än en digital garderob',
+    headline: 'More than a digital wardrobe',
     items: [
       {
-        title: 'AI-stylist som lär sig dig',
-        description: 'Chatta om din stil, ditt yrke och din livsstil. Stylisten minns och ger alltmer personliga råd.',
+        title: 'AI stylist that learns you',
+        description: 'Chat about your style, career, and lifestyle. The stylist remembers and gives increasingly personal advice.',
         icon: 'bot',
       },
       {
-        title: 'Smart kalenderintegration',
-        description: 'Synka Google, Outlook eller Apple Calendar. Få outfit-förslag baserade på dina dagliga händelser.',
+        title: 'Smart calendar integration',
+        description: 'Sync Google, Outlook, or Apple Calendar. Get outfit suggestions based on your daily events.',
         icon: 'calendar',
       },
       {
-        title: 'Passform-anpassade råd',
-        description: 'Ange din längd och vikt så ger AI:n råd om proportioner, snitt och stilval för just din kropp.',
+        title: 'Fit-adjusted advice',
+        description: 'Enter your height and weight so the AI can advise on proportions, cuts, and style choices for your body.',
         icon: 'ruler',
       },
       {
-        title: 'Outfits för varje tillfälle',
-        description: 'Möte på morgonen, träning på lunchen och middag på kvällen – appen föreslår rätt plagg för allt.',
+        title: 'Outfits for every occasion',
+        description: 'Meeting in the morning, workout at lunch, dinner in the evening – the app suggests the right garments for everything.',
         icon: 'sparkles',
       },
       {
-        title: 'Planera hela veckan',
-        description: 'Schemalägg outfits och se väderprognoser för planerade datum. Aldrig mer stress på morgonen.',
+        title: 'Plan your whole week',
+        description: 'Schedule outfits and see weather forecasts for planned dates. Never stress in the morning again.',
         icon: 'zap',
       },
       {
-        title: 'Insikter som förändrar',
-        description: 'Upptäck vilka plagg du verkligen använder och vilka som bara tar plats i garderoben.',
+        title: 'Insights that matter',
+        description: 'Discover which garments you actually wear and which ones are just taking up space.',
         icon: 'lightbulb',
       },
     ],
@@ -117,192 +117,192 @@ export const MARKETING_CONFIG = {
   
   // Features accordion
   features: {
-    headline: 'Alla funktioner',
+    headline: 'All features',
     items: [
       {
-        title: 'AI-stylist (nytt)',
-        content: 'Chatta direkt med din personliga AI-stylist. Den lär sig ditt yrke, din ålder, livsstil och stilpreferenser. Ju mer du berättar, desto bättre och mer personliga råd. Konversationshistoriken sparas och stylisten minns er dialog.',
+        title: 'AI Stylist (new)',
+        content: 'Chat directly with your personal AI stylist. It learns your career, age, lifestyle, and style preferences. The more you share, the better and more personalized the advice. Conversation history is saved and the stylist remembers your dialogue.',
       },
       {
-        title: 'Smart kalenderplanering (nytt)',
-        content: 'Synka din Google, Outlook eller Apple-kalender via ICS-länk. Appen läser dina händelser och föreslår automatiskt outfit-kombinationer anpassade för varje tillfälle – jobbmöte, gympass eller middagsbjudning. Hela processen är steg-för-steg förklarad i appen.',
+        title: 'Smart Calendar Planning (new)',
+        content: 'Sync your Google, Outlook, or Apple calendar via ICS link. The app reads your events and automatically suggests outfit combinations tailored for every occasion – work meeting, gym session, or dinner party. The entire process is explained step by step in the app.',
       },
       {
-        title: 'Personlig passform (nytt)',
-        content: 'Ange din längd och vikt vid registreringen. AI-stylisten använder dina mått för att ge råd om proportioner, snitt och vilka stilar som passar din kropp. Informationen är privat och används aldrig för annat.',
+        title: 'Personal Fit (new)',
+        content: 'Enter your height and weight during registration. The AI stylist uses your measurements to advise on proportions, cuts, and which styles suit your body. This information is private and never used for anything else.',
       },
       {
-        title: 'Digital garderob',
-        content: 'Lägg till plagg via foto, batch-uppladdning eller importera från webblänkar. AI analyserar färg, material, stil och säsong automatiskt. Alla bilder lagras privat och är bara tillgängliga för dig.',
+        title: 'Digital Wardrobe',
+        content: 'Add garments via photo, batch upload, or import from web links. AI analyzes color, material, style, and season automatically. All images are stored privately and only accessible to you.',
       },
       {
-        title: 'Outfit-generator',
-        content: 'Skapa outfits baserat på väder och tillfälle. Byt ut enskilda plagg, skapa liknande outfits, planera för framtida datum och markera som använd med ångra-funktion.',
+        title: 'Outfit Generator',
+        content: 'Create outfits based on weather and occasion. Swap individual garments, create similar outfits, plan for future dates, and mark as worn with an undo feature.',
       },
       {
-        title: 'Delning & insikter',
-        content: 'Dela outfits via länk eller ladda ner som bild. Se statistik över vilka plagg du bär mest och vad som glöms i garderoben. Radera ditt konto och all data helt när du vill.',
+        title: 'Sharing & Insights',
+        content: 'Share outfits via link or download as image. See statistics on which garments you wear most and what gets forgotten in the wardrobe. Delete your account and all data completely whenever you want.',
       },
     ],
   },
   
   // PWA install section
   pwaInstall: {
-    headline: 'Installera appen',
-    subheadline: 'Få fullständig app-upplevelse direkt från hemskärmen.',
+    headline: 'Install the app',
+    subheadline: 'Get the full app experience directly from your home screen.',
     iphoneTitle: 'iPhone / iPad',
     iphoneSteps: [
-      'Öppna i Safari',
-      'Tryck på Dela-ikonen',
-      'Välj "Lägg till på hemskärmen"',
+      'Open in Safari',
+      'Tap the Share icon',
+      'Select "Add to Home Screen"',
     ],
     androidTitle: 'Android',
-    androidButton: 'Installera appen',
+    androidButton: 'Install the app',
     androidFallbackSteps: [
-      'Öppna i Chrome',
-      'Tryck på menyn (⋮)',
-      'Välj "Installera app" eller "Lägg till på hemskärmen"',
+      'Open in Chrome',
+      'Tap the menu (⋮)',
+      'Select "Install app" or "Add to Home Screen"',
     ],
   },
   
   // Email capture section
   emailCapture: {
-    headline: 'Få tidig access och uppdateringar',
-    placeholder: 'Din e-postadress',
-    button: 'Skriv upp mig',
-    successMessage: 'Klart. Vi hör av oss.',
-    errorMessage: 'Något gick fel. Försök igen.',
-    duplicateMessage: 'Den här e-postadressen är redan registrerad.',
+    headline: 'Get early access and updates',
+    placeholder: 'Your email address',
+    button: 'Sign me up',
+    successMessage: 'Done. We\'ll be in touch.',
+    errorMessage: 'Something went wrong. Please try again.',
+    duplicateMessage: 'This email address is already registered.',
   },
   
   // FAQ section
   faq: {
-    headline: 'Vanliga frågor',
+    headline: 'Frequently asked questions',
     items: [
       {
-        question: 'Hur fungerar AI-stylisten?',
-        answer: 'Du chattar med din personliga AI-stylist om din stil, ditt yrke och dina preferenser. Stylisten lär sig dig och ger alltmer personliga råd. Konversationshistoriken sparas så att den alltid kommer ihåg er dialog.',
+        question: 'How does the AI stylist work?',
+        answer: 'You chat with your personal AI stylist about your style, career, and preferences. The stylist learns about you and gives increasingly personalized advice. Conversation history is saved so it always remembers your dialogue.',
       },
       {
-        question: 'Hur synkar jag min kalender?',
-        answer: 'Appen stöder Google Calendar, Outlook och Apple Calendar via ICS-länk. I inställningarna finns en steg-för-steg-guide för varje kalendertyp. Ingen extra app-installation krävs – det räcker med en länk.',
+        question: 'How do I sync my calendar?',
+        answer: 'The app supports Google Calendar, Outlook, and Apple Calendar via ICS link. In settings you\'ll find a step-by-step guide for each calendar type. No extra app installation needed – just a link.',
       },
       {
-        question: 'Varför behöver AI:n mina kroppsmått?',
-        answer: 'Längd och vikt (valfritt) hjälper AI-stylisten ge råd om proportioner, snitt och passform. Informationen är strikt privat, krypterad och används aldrig för annat. Du kan hoppa över det om du vill.',
+        question: 'Why does the AI need my body measurements?',
+        answer: 'Height and weight (optional) help the AI stylist advise on proportions, cuts, and fit. This information is strictly private, encrypted, and never used for anything else. You can skip it if you prefer.',
       },
       {
-        question: 'Behöver jag fota allt?',
-        answer: 'Nej, du kan även importera plagg via webblänkar eller batch-ladda upp bilder från din kamerarulle.',
+        question: 'Do I need to photograph everything?',
+        answer: 'No, you can also import garments via web links or batch upload images from your camera roll.',
       },
       {
-        question: 'Är mina bilder och data privata?',
-        answer: 'Ja. Alla bilder och personuppgifter lagras privat och är endast tillgängliga för dig. Vi delar aldrig data med tredje part för marknadsföring.',
+        question: 'Are my images and data private?',
+        answer: 'Yes. All images and personal data are stored privately and only accessible to you. We never share data with third parties for marketing.',
       },
       {
-        question: 'Kan jag radera allt?',
-        answer: 'Ja, du kan radera ditt konto och all data – bilder, chattar och plagg – helt och hållet från inställningarna i appen.',
+        question: 'Can I delete everything?',
+        answer: 'Yes, you can delete your account and all data – images, chats, and garments – completely from the settings in the app.',
       },
       {
-        question: 'Fungerar det på iPhone?',
-        answer: 'Ja, appen fungerar som en PWA (Progressive Web App) som du enkelt installerar via Safari på iPhone och iPad.',
+        question: 'Does it work on iPhone?',
+        answer: 'Yes, the app works as a PWA (Progressive Web App) that you can easily install via Safari on iPhone and iPad.',
       },
     ],
   },
   
   // Final CTA section
   finalCta: {
-    headline: 'Redo att träffa din personliga stylist?',
-    primaryCta: 'Kom igång gratis',
-    secondaryCta: 'Installera som app',
+    headline: 'Ready to meet your personal stylist?',
+    primaryCta: 'Get started free',
+    secondaryCta: 'Install as app',
   },
   
   // Footer
   footer: {
     copyright: '© 2025 DRAPE',
     links: [
-      { label: 'Integritetspolicy', href: '/privacy' },
-      { label: 'Villkor', href: '/terms' },
-      { label: 'Kontakt', href: '/contact' },
+      { label: 'Privacy Policy', href: '/privacy' },
+      { label: 'Terms', href: '/terms' },
+      { label: 'Contact', href: '/contact' },
     ],
   },
   
   // Privacy policy
   privacy: {
-    title: 'Integritetspolicy',
+    title: 'Privacy Policy',
     lastUpdated: '2025-02-19',
     contactEmail: 'privacy@example.com',
     sections: [
       {
-        title: 'Data vi samlar in',
-        content: 'Vi samlar in information du ger oss direkt, såsom e-postadress vid registrering, bilder på plagg du laddar upp, konversationer med AI-stylisten, och eventuella kroppsmått (längd och vikt) som du frivilligt uppger. Vi samlar även teknisk data som enhetstyp och användningsmönster för att förbättra tjänsten.',
+        title: 'Data we collect',
+        content: 'We collect information you provide directly, such as your email address at registration, images of garments you upload, conversations with the AI stylist, and optional body measurements (height and weight). We also collect technical data such as device type and usage patterns to improve the service.',
       },
       {
-        title: 'Lagring',
-        content: 'All data lagras säkert i molnet med stark kryptering. Bilder på plagg, kropp och konversationshistorik lagras privat och är endast tillgängliga för ditt konto. Kroppsmått lagras krypterat och delas aldrig.',
+        title: 'Storage',
+        content: 'All data is stored securely in the cloud with strong encryption. Images of garments, body, and conversation history are stored privately and only accessible to your account. Body measurements are stored encrypted and never shared.',
       },
       {
-        title: 'Kalenderdata',
-        content: 'Om du väljer att ansluta din kalender via ICS-länk läser appen händelsetitlar och datum för att ge smarta outfit-förslag. Kalenderdata lagras lokalt och synkroniseras inte med tredje part.',
+        title: 'Calendar data',
+        content: 'If you choose to connect your calendar via ICS link, the app reads event titles and dates to provide smart outfit suggestions. Calendar data is stored locally and not synchronized with third parties.',
       },
       {
-        title: 'AI-stylisten',
-        content: 'Konversationer med AI-stylisten sparas krypterat för att stylisten ska kunna minnas dina preferenser. Innehållet i konversationerna delas inte med tredje part och används inte för träning av AI-modeller.',
+        title: 'AI Stylist',
+        content: 'Conversations with the AI stylist are saved encrypted so the stylist can remember your preferences. The content of conversations is not shared with third parties and is not used for AI model training.',
       },
       {
-        title: 'Analys',
-        content: 'Vi använder anonym analytik för att förstå hur tjänsten används och förbättra upplevelsen. Ingen personlig data delas med tredje part för marknadsföring.',
+        title: 'Analytics',
+        content: 'We use anonymous analytics to understand how the service is used and improve the experience. No personal data is shared with third parties for marketing.',
       },
       {
-        title: 'Radering',
-        content: 'Du kan när som helst radera ditt konto och all tillhörande data – inklusive bilder, plagg, chattar och kroppsmått – via inställningarna i appen. Radering är permanent och oåterkallelig.',
+        title: 'Deletion',
+        content: 'You can delete your account and all associated data at any time – including images, garments, chats, and body measurements – from the settings in the app. Deletion is permanent and irreversible.',
       },
     ],
   },
   
   // Terms of service
   terms: {
-    title: 'Användarvillkor',
+    title: 'Terms of Service',
     lastUpdated: '2025-02-19',
     sections: [
       {
-        title: 'Acceptans',
-        content: 'Genom att använda DRAPE accepterar du dessa villkor. Om du inte accepterar, vänligen använd inte tjänsten.',
+        title: 'Acceptance',
+        content: 'By using DRAPE you accept these terms. If you do not accept, please do not use the service.',
       },
       {
-        title: 'Tjänsten',
-        content: 'DRAPE är en digital garderobshanterare och personlig AI-stylist som hjälper dig organisera plagg, skapa outfits och planera din klädsel. Tjänsten tillhandahålls "som den är" utan garantier.',
+        title: 'The Service',
+        content: 'DRAPE is a digital wardrobe manager and personal AI stylist that helps you organize garments, create outfits, and plan your wardrobe. The service is provided "as is" without warranties.',
       },
       {
-        title: 'Ditt innehåll',
-        content: 'Du behåller äganderätten till bilder och innehåll du laddar upp. Du ger oss rätt att använda detta för att tillhandahålla tjänsten till dig.',
+        title: 'Your Content',
+        content: 'You retain ownership of images and content you upload. You grant us the right to use this to provide the service to you.',
       },
       {
-        title: 'Kroppsmått och personuppgifter',
-        content: 'Kroppsmått (längd och vikt) är frivilliga och används uteslutande för att förbättra AI-stylistens råd. Dessa uppgifter lagras krypterat och raderas om du begär det.',
+        title: 'Body measurements and personal data',
+        content: 'Body measurements (height and weight) are optional and used exclusively to improve the AI stylist\'s advice. This data is stored encrypted and deleted upon your request.',
       },
       {
-        title: 'Begränsningar',
-        content: 'Vi ansvarar inte för eventuella skador som uppstår från användning av tjänsten. Maximalt ansvar begränsas till avgifter du betalat de senaste 12 månaderna.',
+        title: 'Limitations',
+        content: 'We are not liable for any damages arising from use of the service. Maximum liability is limited to fees you have paid in the last 12 months.',
       },
       {
-        title: 'Ändringar',
-        content: 'Vi kan uppdatera dessa villkor. Väsentliga ändringar meddelas via e-post eller i appen.',
+        title: 'Changes',
+        content: 'We may update these terms. Material changes will be communicated via email or in the app.',
       },
     ],
   },
   
   // Contact page
   contact: {
-    title: 'Kontakt',
-    subtitle: 'Har du frågor? Vi hjälper gärna till.',
+    title: 'Contact',
+    subtitle: 'Have questions? We\'re happy to help.',
     email: 'hello@example.com',
     form: {
-      namePlaceholder: 'Ditt namn',
-      emailPlaceholder: 'Din e-postadress',
-      messagePlaceholder: 'Ditt meddelande',
-      button: 'Skicka meddelande',
-      successMessage: 'Tack för ditt meddelande. Vi återkommer inom kort.',
+      namePlaceholder: 'Your name',
+      emailPlaceholder: 'Your email address',
+      messagePlaceholder: 'Your message',
+      button: 'Send message',
+      successMessage: 'Thank you for your message. We\'ll get back to you shortly.',
     },
   },
 };
