@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
-import { DrapeLogo } from '@/components/ui/DrapeLogo';
+
 import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function AuthPage() {
@@ -81,10 +81,12 @@ export default function AuthPage() {
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-b from-background to-secondary/30">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center space-y-3">
-          <div className="flex justify-center mb-4">
-            <DrapeLogo variant="icon" size="xl" />
-          </div>
-          <DrapeLogo variant="wordmark" size="lg" className="justify-center" />
+          <h1
+            className="text-3xl font-bold tracking-[0.12em]"
+            style={{ fontFamily: "'Sora', sans-serif" }}
+          >
+            DRAPE
+          </h1>
           <p className="text-muted-foreground text-sm">
             {t('auth.tagline')}
           </p>

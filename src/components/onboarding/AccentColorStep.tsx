@@ -1,9 +1,8 @@
-import { Check } from 'lucide-react';
+import { Check, Heart, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useTheme, ACCENT_COLORS } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import drapeLogoSrc from '@/assets/drape-logo.png';
 
 interface AccentColorStepProps {
   onComplete: () => void;
@@ -15,49 +14,51 @@ export function AccentColorStep({ onComplete }: AccentColorStepProps) {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header with tinted logo preview */}
       <div className="pt-16 pb-8 px-6 flex flex-col items-center text-center">
-        {/* Logo preview with accent tint */}
-        <div className="relative mb-8">
-          <div
-            className="w-24 h-24 rounded-3xl flex items-center justify-center transition-colors duration-500"
-            style={{ backgroundColor: accentColor.hex + '12' }}
-          >
-            <div className="relative">
-              <img
-                src={drapeLogoSrc}
-                alt="DRAPE"
-                width={48}
-                height={48}
-                className="object-contain dark:invert transition-all duration-300"
-              />
-              {/* Accent tint overlay on logo */}
-              <div
-                className="absolute inset-0 mix-blend-color transition-colors duration-500"
-                style={{ backgroundColor: accentColor.hex }}
-              />
-            </div>
-          </div>
-          {/* Floating accent dot */}
-          <div
-            className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-background transition-colors duration-300"
-            style={{ backgroundColor: accentColor.hex }}
-          />
-        </div>
-
-        <span
-          className="text-2xl font-bold tracking-[0.12em] mb-2 transition-colors duration-500"
-          style={{ fontFamily: "'Sora', sans-serif", color: accentColor.hex }}
-        >
-          DRAPE
-        </span>
-
         <h1 className="text-xl font-bold mb-2 tracking-tight">
           {t('onboarding.accent.title')}
         </h1>
-        <p className="text-muted-foreground text-sm leading-relaxed max-w-xs">
+        <p className="text-muted-foreground text-sm leading-relaxed max-w-xs mb-8">
           {t('onboarding.accent.subtitle')}
         </p>
+
+        {/* Live UI preview */}
+        <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-5 space-y-4 transition-all duration-300">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors duration-300"
+              style={{ backgroundColor: accentColor.hex }}
+            >
+              {t('onboarding.body.continue')}
+            </button>
+            <button
+              className="px-4 py-2 rounded-lg text-sm font-medium border-2 bg-transparent transition-colors duration-300"
+              style={{ borderColor: accentColor.hex, color: accentColor.hex }}
+            >
+              Outline
+            </button>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium text-white transition-colors duration-300"
+              style={{ backgroundColor: accentColor.hex }}
+            >
+              <Heart className="w-3 h-3" /> Favorit
+            </span>
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors duration-300"
+              style={{ backgroundColor: accentColor.hex + '18', color: accentColor.hex }}
+            >
+              <Star className="w-3 h-3" /> Premium
+            </span>
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium border transition-colors duration-300"
+              style={{ borderColor: accentColor.hex + '40', color: accentColor.hex }}
+            >
+              Casual
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Color grid */}
@@ -98,7 +99,11 @@ export function AccentColorStep({ onComplete }: AccentColorStepProps) {
 
         {/* Continue */}
         <div className="mt-8 max-w-sm mx-auto">
-          <Button className="w-full h-14 text-base font-medium" onClick={onComplete}>
+          <Button
+            className="w-full h-14 text-base font-medium text-white transition-colors duration-300"
+            style={{ backgroundColor: accentColor.hex }}
+            onClick={onComplete}
+          >
             {t('onboarding.body.continue')}
           </Button>
         </div>

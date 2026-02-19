@@ -17,7 +17,7 @@ import { useWeather } from '@/hooks/useWeather';
 import { PaywallModal } from '@/components/PaywallModal';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { DrapeLogo } from '@/components/ui/DrapeLogo';
+
 import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function HomePage() {
@@ -113,7 +113,7 @@ export default function HomePage() {
     <AppLayout>
       <PageHeader 
         title={`${getGreeting()} 👋`}
-        actions={<DrapeLogo variant="icon" size="sm" className="opacity-70" />}
+        actions={null}
       />
       
       <div className="p-4 space-y-6">
