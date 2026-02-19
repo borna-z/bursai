@@ -1,43 +1,82 @@
 
-# Fix: Accentfärger syns i hela appen
+# Settings -- iPhone-inspirerad redesign med flikar
 
-## Problem
+## Vad som andras
 
-Accentfärgen uppdaterar CSS-variabeln `--accent` korrekt, men appens viktigaste UI-element (knappar, chips, bottom nav) använder `bg-primary` (charcoal/vit) istället för `bg-accent`. Därför syns ingen skillnad när man byter färg.
+Den nuvarande settings-sidan ar en lang scrollbar lista med cards. Den nya designen grupperar allt i tre rena flikar med ett iOS-liknande utseende: listor med rader istallet for separata cards.
 
-## Lösning
+## Ny layout
 
-Uppdatera de viktigaste interaktiva elementen så att de använder accentfärgen istället för primary-färgen. Detta ger användaren en tydlig visuell förändring direkt.
+```text
++----------------------------------+
+|          Installningar           |
++----------------------------------+
+|  [Allmant]  [Stil]  [Konto]      |  <-- TabsList (sticky under header)
++----------------------------------+
+|                                  |
+|  Tab content (no cards, just     |
+|  grouped list rows like iOS)     |
+|                                  |
++----------------------------------+
+```
 
-## Vad som ändras
+### Flik 1: Allmant (General)
+- Utseende (ljust/morkt/auto) -- segmented control
+- Accentfarg -- fargvaljare
+- Sprak -- valj sprak
+- Notiser -- morning reminder switch
+- Kalendersynk
 
-### 1. Chip-komponenten (`src/components/ui/chip.tsx`)
-- Ändra `selected`-varianten från `bg-primary text-primary-foreground` till `bg-accent text-accent-foreground`
-- Valda chips (occasion, stil) visar nu accentfärgen
+### Flik 2: Stil (Style)
+- Kroppsmatt (langd, vikt)
+- Favoritfarger (chips)
+- Ogillade farger (chips)
+- Passform (select)
+- Standardstil (select)
+- Kosneutrala forslag (switch)
 
-### 2. Bottom navigation (`src/components/layout/BottomNav.tsx`)
-- Ändra aktiv ikon-färg från `text-primary` till `text-accent`
-- Ändra aktiv bakgrund från `bg-primary/10` till `bg-accent/10`
-- Aktiv tab färgas i vald accentfärg
+### Flik 3: Konto (Account)
+- Premium/Plan-sektion
+- Profil (namn, e-post)
+- Exportera data
+- Radera konto
+- Logga ut
 
-### 3. CTA-knappen "Skapa outfit" på Home (`src/pages/Home.tsx`)
-- Lägg till `bg-accent text-accent-foreground hover:bg-accent/90` på huvudknappen
-- Knappen visar accentfärgen istället för charcoal
+## iOS-stil design
 
-### 4. Progress bar (`src/components/ui/progress.tsx`)
-- Ändra indikator-färg från `bg-primary` till `bg-accent`
-- Framstegsfältet visar accentfärgen
+Istallet for separata `Card`-komponenter anvands grupperade listor med tunn separator-linje mellan rader, liknande iOS Settings:
 
-### 5. Subtexten i AccentColorPicker
-- Ta bort "logotyp" ur texten (referens till borttagen logga)
-- Ny text: "Ge din app en personlig touch -- färgen syns i knappar och detaljer."
+- Rader med etikett till vanster och kontroll/varde till hoger
+- Grupperade sektioner med rubrik ovanfor
+- Rundade horn pa grupper, inte individuella rader
+- Rent, avskalat, mycket whitespace
 
-## Filer som ändras
+## Tekniska steg
 
-| Fil | Ändring |
+### 1. Omstrukturera `src/pages/Settings.tsx`
+- Importera `Tabs, TabsList, TabsTrigger, TabsContent` fran `@/components/ui/tabs`
+- Skapa tre TabsContent-sektioner: "general", "style", "account"
+- Flytta befintlig logik till respektive flik
+- Byt fran Card-per-sektion till grupperade div-listor med iOS-stil
+
+### 2. Skapa `src/components/settings/SettingsRow.tsx` (ny komponent)
+- En aterkommande rad-komponent: ikon + etikett till vanster, kontroll till hoger
+- Separator mellan rader (utom sista i grupp)
+- Anvands av alla tre flikar
+
+### 3. Skapa `src/components/settings/SettingsGroup.tsx` (ny komponent)
+- En grupp-wrapper med rubrik, rundade horn, bg-card
+- Automatisk separator mellan barn-rader
+
+### 4. Uppdatera TabsList-stil
+- Sticky under PageHeader
+- Anvand accent-farg for aktiv flik-indikator
+- Full bredd, jamt fordelad
+
+### Filer som andras / skapas
+
+| Fil | Andring |
 |-----|---------|
-| `src/components/ui/chip.tsx` | `selected`-variant: primary -> accent |
-| `src/components/layout/BottomNav.tsx` | Aktiv tab: primary -> accent |
-| `src/pages/Home.tsx` | CTA-knapp: primary -> accent |
-| `src/components/ui/progress.tsx` | Indicator: primary -> accent |
-| `src/i18n/translations.ts` | Uppdatera subtexten (ta bort "logotyp") |
+| `src/components/settings/SettingsRow.tsx` | Ny -- atervandbar iOS-stilrad |
+| `src/components/settings/SettingsGroup.tsx` | Ny -- gruppwrapper med rubrik |
+| `src/pages/Settings.tsx` | Total omstrukturering med Tabs + nya komponenter |
