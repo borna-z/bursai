@@ -18,6 +18,7 @@ import { useOnboarding } from '@/hooks/useOnboarding';
 import { useUpdateProfile } from '@/hooks/useProfile';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageStep } from '@/components/onboarding/LanguageStep';
+import { AccentColorStep } from '@/components/onboarding/AccentColorStep';
 import { BodyMeasurementsStep } from '@/components/onboarding/BodyMeasurementsStep';
 import { toast } from 'sonner';
 
@@ -39,6 +40,7 @@ export default function OnboardingPage() {
   const [isEnablingReminder, setIsEnablingReminder] = useState(false);
   // Pre-steps: 0 = language, 1 = body measurements
   const [languageStepDone, setLanguageStepDone] = useState(false);
+  const [accentStepDone, setAccentStepDone] = useState(false);
   const [bodyStepDone, setBodyStepDone] = useState(false);
   const [isSavingBody, setIsSavingBody] = useState(false);
 
@@ -128,7 +130,12 @@ export default function OnboardingPage() {
     return <LanguageStep onComplete={() => setLanguageStepDone(true)} />;
   }
 
-  // Step 0.5: Body measurements
+  // Step 0.5: Accent color picker
+  if (!accentStepDone) {
+    return <AccentColorStep onComplete={() => setAccentStepDone(true)} />;
+  }
+
+  // Step 1: Body measurements
   if (!bodyStepDone) {
     return (
       <BodyMeasurementsStep
