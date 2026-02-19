@@ -9,13 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useCreateGarment, useGarmentCount } from '@/hooks/useGarments';
@@ -25,6 +19,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { LinkImportForm } from '@/components/LinkImportForm';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const categories = [
   { id: 'top', label: 'Överdel' },
@@ -119,6 +114,7 @@ function mapSeasonTagsToFormValue(aiSeasons: string[]): string[] {
 
 export default function AddGarmentPage() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadGarmentImage, getGarmentSignedUrl } = useStorage();
   const createGarment = useCreateGarment();
@@ -181,13 +177,13 @@ export default function AddGarmentPage() {
     const { data: analysisData, error: analysisError } = await analyzeGarment(path);
     
     if (analysisError) {
-      toast.error('AI kunde inte analysera – fyll i manuellt.', {
+      toast.error(t('addgarment.ai_error'), {
         description: analysisError,
       });
     } else if (analysisData) {
       applyAIAnalysis(analysisData);
-      toast.success('AI-analys klar!', {
-        description: 'Granska och justera vid behov.',
+      toast.success(t('addgarment.ai_success'), {
+        description: t('addgarment.ai_review'),
       });
     }
     
@@ -240,7 +236,7 @@ export default function AddGarmentPage() {
       await runAnalysis(path);
     } catch (err) {
       console.error('Upload/analysis error:', err);
-      toast.error('Kunde inte ladda upp bilden. Försök igen.');
+      toast.error(t('addgarment.upload_error'));
       setStep('upload');
     }
   };
@@ -253,7 +249,7 @@ export default function AddGarmentPage() {
 
   const handleSave = async () => {
     if (!storagePath || !title || !category || !colorPrimary || !garmentId) {
-      toast.error('Vänligen fyll i alla obligatoriska fält');
+      toast.error(t('addgarment.fill_required'));
       return;
     }
 
@@ -277,17 +273,17 @@ export default function AddGarmentPage() {
 
       const newCount = (garmentCount || 0) + 1;
       if (newCount === 10) {
-        toast.success('Nice! 10 plagg inlagda 🎉', {
-          description: 'Du har nu tillräckligt för att skapa outfits!',
+        toast.success(t('addgarment.milestone'), {
+          description: t('addgarment.milestone_desc'),
         });
       } else {
-        toast.success('Plagg sparat ✅');
+        toast.success(t('addgarment.saved'));
       }
 
       navigate('/wardrobe');
     } catch (error) {
       console.error('Error saving garment:', error);
-      toast.error('Något gick fel. Försök igen.');
+      toast.error(t('common.something_wrong'));
     } finally {
       setIsLoading(false);
     }
@@ -323,24 +319,24 @@ export default function AddGarmentPage() {
         </div>
 
         <div className="flex flex-col items-center p-4 space-y-6">
-          <h1 className="text-2xl font-bold">Lägg till plagg</h1>
+          <h1 className="text-2xl font-bold">{t('addgarment.title')}</h1>
 
           <Tabs defaultValue="photo" className="w-full max-w-md">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="photo" className="flex items-center gap-2">
                 <Camera className="w-4 h-4" />
-                Foto
+                {t('addgarment.photo')}
               </TabsTrigger>
               <TabsTrigger value="link" className="flex items-center gap-2">
                 <Link2 className="w-4 h-4" />
-                Länk
+                {t('addgarment.link')}
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="photo" className="mt-6">
               <div className="flex flex-col items-center space-y-6">
                 <p className="text-muted-foreground text-center">
-                  Ta ett foto eller välj från galleriet
+                  {t('addgarment.photo_prompt')}
                 </p>
 
                 <input
@@ -364,7 +360,7 @@ export default function AddGarmentPage() {
                     }}
                   >
                     <Camera className="w-8 h-8" />
-                    Kamera
+                    {t('addgarment.camera')}
                   </Button>
                   <Button
                     size="lg"
@@ -378,7 +374,7 @@ export default function AddGarmentPage() {
                     }}
                   >
                     <ImageIcon className="w-8 h-8" />
-                    Galleri
+                    {t('addgarment.gallery')}
                   </Button>
                 </div>
               </div>
@@ -408,13 +404,13 @@ export default function AddGarmentPage() {
           )}
           <div className="flex items-center gap-3">
             <Sparkles className="w-5 h-5 text-primary animate-pulse" />
-            <span className="text-lg font-medium">AI analyserar plagget…</span>
+            <span className="text-lg font-medium">{t('addgarment.analyzing')}</span>
           </div>
           <Progress value={analysisProgress} className="w-full" />
           <p className="text-sm text-muted-foreground">
-            {analysisProgress < 30 ? 'Laddar upp bild...' : 
-             analysisProgress < 70 ? 'Analyserar färg och stil...' : 
-             'Slutför analys...'}
+            {analysisProgress < 30 ? t('addgarment.uploading') : 
+             analysisProgress < 70 ? t('addgarment.analyzing_style') : 
+             t('addgarment.finishing')}
           </p>
         </div>
       </div>
@@ -429,7 +425,7 @@ export default function AddGarmentPage() {
             <Button variant="ghost" size="icon" onClick={resetForm}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <h1 className="text-lg font-semibold">Granska plagg</h1>
+            <h1 className="text-lg font-semibold">{t('addgarment.review')}</h1>
           </div>
           {storagePath && (
             <Button
@@ -440,7 +436,7 @@ export default function AddGarmentPage() {
               className="gap-2"
             >
               <RefreshCw className={cn("w-4 h-4", isAnalyzing && "animate-spin")} />
-              Analysera igen
+              {t('addgarment.reanalyze')}
             </Button>
           )}
         </div>
@@ -467,7 +463,7 @@ export default function AddGarmentPage() {
               <div className="absolute bottom-2 left-2">
                 <Badge variant="secondary" className="gap-1">
                   <Sparkles className="w-3 h-3" />
-                  AI-analyserad
+                  {t('addgarment.ai_analyzed')}
                 </Badge>
               </div>
             )}
@@ -477,19 +473,19 @@ export default function AddGarmentPage() {
         {/* Form */}
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Titel *</Label>
+            <Label>{t('addgarment.form.title')} *</Label>
             <Input
-              placeholder="T.ex. Vit linneskjorta"
+              placeholder={t('addgarment.form.title_placeholder')}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Kategori *</Label>
+            <Label>{t('addgarment.form.category')} *</Label>
             <Select value={category} onValueChange={(v) => { setCategory(v); setSubcategory(''); }}>
               <SelectTrigger>
-                <SelectValue placeholder="Välj kategori" />
+                <SelectValue placeholder={t('addgarment.form.select_category')} />
               </SelectTrigger>
               <SelectContent>
                 {categories.map((cat) => (
@@ -503,10 +499,10 @@ export default function AddGarmentPage() {
 
           {category && subcategories[category] && (
             <div className="space-y-2">
-              <Label>Underkategori</Label>
+              <Label>{t('addgarment.form.subcategory')}</Label>
               <Select value={subcategory} onValueChange={setSubcategory}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Välj underkategori" />
+                  <SelectValue placeholder={t('addgarment.form.select_subcategory')} />
                 </SelectTrigger>
                 <SelectContent>
                   {subcategories[category].map((sub) => (
@@ -520,7 +516,7 @@ export default function AddGarmentPage() {
           )}
 
           <div className="space-y-2">
-            <Label>Primär färg *</Label>
+            <Label>{t('addgarment.form.primary_color')} *</Label>
             <div className="flex flex-wrap gap-2">
               {colors.map((c) => (
                 <button
@@ -541,7 +537,7 @@ export default function AddGarmentPage() {
           </div>
 
           <div className="space-y-2">
-            <Label>Sekundär färg (valfri)</Label>
+            <Label>{t('addgarment.form.secondary_color')}</Label>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -572,10 +568,10 @@ export default function AddGarmentPage() {
           </div>
 
           <div className="space-y-2">
-            <Label>Mönster (valfritt)</Label>
+            <Label>{t('addgarment.form.pattern')}</Label>
             <Select value={pattern} onValueChange={setPattern}>
               <SelectTrigger>
-                <SelectValue placeholder="Välj mönster" />
+                <SelectValue placeholder={t('addgarment.form.select_pattern')} />
               </SelectTrigger>
               <SelectContent>
                 {patterns.map((p) => (
@@ -588,10 +584,10 @@ export default function AddGarmentPage() {
           </div>
 
           <div className="space-y-2">
-            <Label>Material (valfritt)</Label>
+            <Label>{t('addgarment.form.material')}</Label>
             <Select value={material} onValueChange={setMaterial}>
               <SelectTrigger>
-                <SelectValue placeholder="Välj material" />
+                <SelectValue placeholder={t('addgarment.form.select_material')} />
               </SelectTrigger>
               <SelectContent>
                 {materials.map((m) => (
@@ -604,10 +600,10 @@ export default function AddGarmentPage() {
           </div>
 
           <div className="space-y-2">
-            <Label>Passform (valfritt)</Label>
+            <Label>{t('addgarment.form.fit')}</Label>
             <Select value={fit} onValueChange={setFit}>
               <SelectTrigger>
-                <SelectValue placeholder="Välj passform" />
+                <SelectValue placeholder={t('addgarment.form.select_fit')} />
               </SelectTrigger>
               <SelectContent>
                 {fits.map((f) => (
@@ -620,7 +616,7 @@ export default function AddGarmentPage() {
           </div>
 
           <div className="space-y-2">
-            <Label>Säsong</Label>
+            <Label>{t('addgarment.form.season')}</Label>
             <div className="flex flex-wrap gap-2">
               {seasons.map((season) => (
                 <Badge
@@ -637,7 +633,7 @@ export default function AddGarmentPage() {
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>Formalitet</Label>
+              <Label>{t('addgarment.form.formality')}</Label>
               <span className="text-sm text-muted-foreground">
                 {formality[0]} / 5
               </span>
@@ -650,13 +646,13 @@ export default function AddGarmentPage() {
               step={1}
             />
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Casual</span>
-              <span>Formellt</span>
+              <span>{t('addgarment.form.casual')}</span>
+              <span>{t('addgarment.form.formal')}</span>
             </div>
           </div>
 
           <div className="flex items-center justify-between p-4 bg-secondary rounded-lg">
-            <Label>I tvätt</Label>
+            <Label>{t('addgarment.form.in_laundry')}</Label>
             <Switch checked={inLaundry} onCheckedChange={setInLaundry} />
           </div>
         </div>
@@ -670,7 +666,7 @@ export default function AddGarmentPage() {
           onClick={() => navigate('/wardrobe')}
           disabled={isLoading}
         >
-          Avbryt
+          {t('common.cancel')}
         </Button>
         <Button
           className="flex-1"
@@ -680,10 +676,10 @@ export default function AddGarmentPage() {
           {isLoading ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Sparar...
+              {t('addgarment.saving')}
             </>
           ) : (
-            'Spara plagg'
+            t('addgarment.save')
           )}
         </Button>
       </div>

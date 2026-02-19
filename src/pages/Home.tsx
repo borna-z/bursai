@@ -18,44 +18,11 @@ import { PaywallModal } from '@/components/PaywallModal';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { DrapeLogo } from '@/components/ui/DrapeLogo';
-
-const occasions = [
-  { id: 'vardag', label: 'Vardag' },
-  { id: 'jobb', label: 'Jobb' },
-  { id: 'fest', label: 'Fest' },
-  { id: 'dejt', label: 'Dejt' },
-  { id: 'traning', label: 'Träning' },
-  { id: 'resa', label: 'Resa' },
-];
-
-const styleVibes = [
-  { id: 'minimal', label: 'Minimal' },
-  { id: 'street', label: 'Street' },
-  { id: 'smart-casual', label: 'Smart casual' },
-  { id: 'klassisk', label: 'Klassisk' },
-];
-
-const precipitationOptions = [
-  { id: 'none', label: 'Ingen', icon: Sun },
-  { id: 'rain', label: 'Regn', icon: Droplets },
-  { id: 'snow', label: 'Snö', icon: Snowflake },
-];
-
-const windOptions = [
-  { id: 'low', label: 'Låg' },
-  { id: 'medium', label: 'Medel' },
-  { id: 'high', label: 'Hög' },
-];
-
-function getGreeting() {
-  const hour = new Date().getHours();
-  if (hour < 10) return 'God morgon';
-  if (hour < 18) return 'God dag';
-  return 'God kväll';
-}
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { data: garmentCount } = useGarmentCount();
   const { data: outfits, isLoading: outfitsLoading } = useOutfits();
   const { needsOnboarding, state, progress } = useOnboarding();
@@ -69,6 +36,41 @@ export default function HomePage() {
   const [wind, setWind] = useState('low');
   const [showPaywall, setShowPaywall] = useState(false);
   const [useAutoWeather, setUseAutoWeather] = useState(true);
+
+  const occasions = [
+    { id: 'vardag', label: t('home.occasion.vardag') },
+    { id: 'jobb', label: t('home.occasion.jobb') },
+    { id: 'fest', label: t('home.occasion.fest') },
+    { id: 'dejt', label: t('home.occasion.dejt') },
+    { id: 'traning', label: t('home.occasion.traning') },
+    { id: 'resa', label: t('home.occasion.resa') },
+  ];
+
+  const styleVibes = [
+    { id: 'minimal', label: t('home.style.minimal') },
+    { id: 'street', label: t('home.style.street') },
+    { id: 'smart-casual', label: t('home.style.smart_casual') },
+    { id: 'klassisk', label: t('home.style.klassisk') },
+  ];
+
+  const precipitationOptions = [
+    { id: 'none', label: t('home.weather.none'), icon: Sun },
+    { id: 'rain', label: t('home.weather.rain'), icon: Droplets },
+    { id: 'snow', label: t('home.weather.snow'), icon: Snowflake },
+  ];
+
+  const windOptions = [
+    { id: 'low', label: t('home.wind.low') },
+    { id: 'medium', label: t('home.wind.medium') },
+    { id: 'high', label: t('home.wind.high') },
+  ];
+
+  function getGreeting() {
+    const hour = new Date().getHours();
+    if (hour < 10) return t('home.greeting_morning');
+    if (hour < 18) return t('home.greeting_afternoon');
+    return t('home.greeting_evening');
+  }
 
   const lastOutfit = outfits?.[0];
 
@@ -123,16 +125,16 @@ export default function HomePage() {
           >
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-3">
-                <span className="font-semibold">Kom igång</span>
+                <span className="font-semibold">{t('home.get_started')}</span>
                 <ArrowRight className="w-4 h-4 text-primary" />
               </div>
               <Progress value={onboardingProgress} className="h-1.5 mb-2" />
               <p className="text-sm text-muted-foreground">
                 {!state.step1Done 
-                  ? `Lägg till ${Math.max(0, 5 - progress.garmentCount)} plagg till`
+                  ? `${t('home.add_more')} ${Math.max(0, 5 - progress.garmentCount)} ${t('home.garments_more')}`
                   : !state.step2Done 
-                  ? 'Skapa din första outfit'
-                  : 'Slutför introduktionen'}
+                  ? t('home.create_first')
+                  : t('home.finish_intro')}
               </p>
             </CardContent>
           </Card>
@@ -142,14 +144,14 @@ export default function HomePage() {
         {!needsOnboarding && (
           <Card className="bg-gradient-to-br from-primary/5 to-accent/5 border-0 shadow-sm">
             <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground mb-1">Din garderob</p>
+              <p className="text-sm text-muted-foreground mb-1">{t('home.your_wardrobe')}</p>
               <p className="text-3xl font-bold">
                 {garmentCount || 0}
-                <span className="text-base font-normal text-muted-foreground ml-2">plagg</span>
+                <span className="text-base font-normal text-muted-foreground ml-2">{t('home.garments_count')}</span>
               </p>
               {(garmentCount || 0) < 5 && (
                 <p className="text-sm text-muted-foreground mt-2">
-                  Lägg till fler plagg för bättre outfits!
+                  {t('home.add_more')}
                 </p>
               )}
             </CardContent>
@@ -158,7 +160,7 @@ export default function HomePage() {
 
         {/* Occasion Selection */}
         <div className="space-y-3">
-          <Label className="text-base font-semibold">Vad ska du göra idag?</Label>
+          <Label className="text-base font-semibold">{t('home.what_today')}</Label>
           <div className="flex flex-wrap gap-2">
             {occasions.map((occasion) => (
               <Chip
@@ -178,8 +180,8 @@ export default function HomePage() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-base">Väder</CardTitle>
-                <CardDescription>Hjälper AI:n välja rätt plagg</CardDescription>
+                <CardTitle className="text-base">{t('home.weather_title')}</CardTitle>
+                <CardDescription>{t('home.weather_help')}</CardDescription>
               </div>
               {weather && (
                 <Button
@@ -194,11 +196,10 @@ export default function HomePage() {
               )}
             </div>
             
-            {/* Auto Weather Display */}
             {weatherLoading ? (
               <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Hämtar väder...</span>
+                <span>{t('home.fetching_weather')}</span>
               </div>
             ) : weather ? (
               <div className="flex items-center gap-2 mt-3">
@@ -215,24 +216,23 @@ export default function HomePage() {
                   className="h-6 text-xs px-2 ml-auto"
                   onClick={() => setUseAutoWeather(!useAutoWeather)}
                 >
-                  {useAutoWeather ? 'Redigera' : 'Använd auto'}
+                  {useAutoWeather ? t('home.edit_weather') : t('home.use_auto')}
                 </Button>
               </div>
             ) : weatherError ? (
               <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
                 <span>{weatherError}</span>
                 <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={refetchWeather}>
-                  Försök igen
+                  {t('home.try_again')}
                 </Button>
               </div>
             ) : null}
           </CardHeader>
           
-          {/* Manual Weather Controls - show when not using auto or no weather data */}
           {(!useAutoWeather || !weather) && (
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-sm">Temperatur</Label>
+                <Label className="text-sm">{t('home.temperature')}</Label>
                 <div className="flex items-center gap-2">
                   <Input
                     type="number"
@@ -246,7 +246,7 @@ export default function HomePage() {
               </div>
               
               <div className="space-y-2">
-                <Label className="text-sm">Nederbörd</Label>
+                <Label className="text-sm">{t('home.precipitation')}</Label>
                 <div className="flex gap-2">
                   {precipitationOptions.map((option) => (
                     <Button
@@ -264,7 +264,7 @@ export default function HomePage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm">Vind</Label>
+                <Label className="text-sm">{t('home.wind')}</Label>
                 <div className="flex gap-2">
                   {windOptions.map((option) => (
                     <Button
@@ -285,7 +285,7 @@ export default function HomePage() {
 
         {/* Style Selection */}
         <div className="space-y-3">
-          <Label className="text-base font-semibold">Stil (valfritt)</Label>
+          <Label className="text-base font-semibold">{t('home.style_optional')}</Label>
           <div className="flex flex-wrap gap-2">
             {styleVibes.map((style) => (
               <Chip
@@ -308,12 +308,12 @@ export default function HomePage() {
           size="lg"
         >
           <Sparkles className="w-5 h-5 mr-2" />
-          Skapa outfit
+          {t('home.create_outfit')}
         </Button>
 
         {(garmentCount || 0) < 3 && (
           <p className="text-sm text-center text-muted-foreground">
-            Lägg till minst 3 plagg för att generera outfits
+            {t('home.min_garments')}
           </p>
         )}
 
@@ -335,7 +335,7 @@ export default function HomePage() {
             onClick={() => navigate(`/outfits/${lastOutfit.id}`)}
           >
             <CardContent className="p-4">
-              <p className="text-sm font-medium text-muted-foreground mb-3">Senaste outfit</p>
+              <p className="text-sm font-medium text-muted-foreground mb-3">{t('home.latest_outfit')}</p>
               <div className="flex gap-2">
                 {lastOutfit.outfit_items.slice(0, 4).map((item) => (
                   <div

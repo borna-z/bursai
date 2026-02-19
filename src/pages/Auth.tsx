@@ -9,12 +9,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { DrapeLogo } from '@/components/ui/DrapeLogo';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function AuthPage() {
   const { user, loading, signIn, signUp } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const { t } = useLanguage();
 
   if (loading) {
     return (
@@ -31,7 +33,7 @@ export default function AuthPage() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      toast.error('Vänligen fyll i alla fält');
+      toast.error(t('auth.fill_all'));
       return;
     }
 
@@ -41,9 +43,9 @@ export default function AuthPage() {
 
     if (error) {
       if (error.message.includes('Invalid login credentials')) {
-        toast.error('Fel e-post eller lösenord');
+        toast.error(t('auth.wrong_credentials'));
       } else {
-        toast.error('Något gick fel. Försök igen.');
+        toast.error(t('auth.something_wrong'));
       }
     }
   };
@@ -51,12 +53,12 @@ export default function AuthPage() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      toast.error('Vänligen fyll i alla fält');
+      toast.error(t('auth.fill_all'));
       return;
     }
 
     if (password.length < 6) {
-      toast.error('Lösenordet måste vara minst 6 tecken');
+      toast.error(t('auth.password_too_short'));
       return;
     }
 
@@ -66,12 +68,12 @@ export default function AuthPage() {
 
     if (error) {
       if (error.message.includes('already registered')) {
-        toast.error('Ett konto med denna e-post finns redan');
+        toast.error(t('auth.already_exists'));
       } else {
-        toast.error('Något gick fel. Försök igen.');
+        toast.error(t('auth.something_wrong'));
       }
     } else {
-      toast.success('Konto skapat! Du är nu inloggad.');
+      toast.success(t('auth.account_created'));
     }
   };
 
@@ -84,7 +86,7 @@ export default function AuthPage() {
           </div>
           <DrapeLogo variant="wordmark" size="lg" className="justify-center" />
           <p className="text-muted-foreground text-sm">
-            Din personliga stylist.
+            {t('auth.tagline')}
           </p>
         </div>
 
@@ -92,15 +94,15 @@ export default function AuthPage() {
           <Tabs defaultValue="login" className="w-full">
             <CardHeader className="pb-4">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login">Logga in</TabsTrigger>
-                <TabsTrigger value="signup">Skapa konto</TabsTrigger>
+                <TabsTrigger value="login">{t('auth.login')}</TabsTrigger>
+                <TabsTrigger value="signup">{t('auth.signup')}</TabsTrigger>
               </TabsList>
             </CardHeader>
             <CardContent>
               <TabsContent value="login" className="mt-0">
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="login-email">E-post</Label>
+                    <Label htmlFor="login-email">{t('auth.email')}</Label>
                     <Input
                       id="login-email"
                       type="email"
@@ -111,7 +113,7 @@ export default function AuthPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="login-password">Lösenord</Label>
+                    <Label htmlFor="login-password">{t('auth.password')}</Label>
                     <Input
                       id="login-password"
                       type="password"
@@ -125,10 +127,10 @@ export default function AuthPage() {
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Loggar in...
+                        {t('auth.logging_in')}
                       </>
                     ) : (
-                      'Logga in'
+                      t('auth.login')
                     )}
                   </Button>
                 </form>
@@ -136,7 +138,7 @@ export default function AuthPage() {
               <TabsContent value="signup" className="mt-0">
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signup-email">E-post</Label>
+                    <Label htmlFor="signup-email">{t('auth.email')}</Label>
                     <Input
                       id="signup-email"
                       type="email"
@@ -147,11 +149,11 @@ export default function AuthPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-password">Lösenord</Label>
+                    <Label htmlFor="signup-password">{t('auth.password')}</Label>
                     <Input
                       id="signup-password"
                       type="password"
-                      placeholder="Minst 6 tecken"
+                      placeholder={t('auth.min_password')}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       disabled={isLoading}
@@ -161,10 +163,10 @@ export default function AuthPage() {
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Skapar konto...
+                        {t('auth.creating')}
                       </>
                     ) : (
-                      'Skapa konto'
+                      t('auth.signup')
                     )}
                   </Button>
                 </form>
