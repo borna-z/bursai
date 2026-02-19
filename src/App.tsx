@@ -21,6 +21,11 @@ import AIChat from "./pages/AIChat";
 import Onboarding from "./pages/Onboarding";
 import Insights from "./pages/Insights";
 import Settings from "./pages/Settings";
+import SettingsAppearance from "./pages/settings/SettingsAppearance";
+import SettingsStyle from "./pages/settings/SettingsStyle";
+import SettingsNotifications from "./pages/settings/SettingsNotifications";
+import SettingsAccount from "./pages/settings/SettingsAccount";
+import SettingsPrivacy from "./pages/settings/SettingsPrivacy";
 import ShareOutfit from "./pages/ShareOutfit";
 import BillingSuccess from "./pages/BillingSuccess";
 import BillingCancel from "./pages/BillingCancel";
@@ -69,6 +74,11 @@ const queryClient = new QueryClient();
                    <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
                   <Route path="/ai" element={<ProtectedRoute><AIChat /></ProtectedRoute>} />
                   <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                  <Route path="/settings/appearance" element={<ProtectedRoute><SettingsAppearance /></ProtectedRoute>} />
+                  <Route path="/settings/style" element={<ProtectedRoute><SettingsStyle /></ProtectedRoute>} />
+                  <Route path="/settings/notifications" element={<ProtectedRoute><SettingsNotifications /></ProtectedRoute>} />
+                  <Route path="/settings/account" element={<ProtectedRoute><SettingsAccount /></ProtectedRoute>} />
+                  <Route path="/settings/privacy" element={<ProtectedRoute><SettingsPrivacy /></ProtectedRoute>} />
                  <Route path="/pricing" element={<Pricing />} />
                  <Route path="/billing/success" element={<ProtectedRoute><BillingSuccess /></ProtectedRoute>} />
                  <Route path="/billing/cancel" element={<ProtectedRoute><BillingCancel /></ProtectedRoute>} />
