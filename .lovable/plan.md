@@ -1,83 +1,79 @@
-# Rebrand: DRAPE to BURS
+
+
+# Desktop-Optimized Planner
 
 ## Overview
+Transform the Plan page into a responsive two-panel layout on desktop (768px+) while keeping the existing mobile experience untouched. The desktop version uses a master-detail pattern: a scrollable week overview on the left, and the selected day's full detail on the right -- with seamless transitions between days.
 
-Full rebrand of the application from "DRAPE" to "BURS". This includes replacing the logo image with the uploaded one, updating all text references across the codebase, and renaming the PWA manifest.
+## Desktop Layout
 
-## Logo Usage
-
-From the uploaded image:
-
-- **Right version** (icon + "BURS" wordmark): Used on the marketing website
-- **Left version** (icon only, no text): Used in the PWA app (auth page, etc.)
+```text
++----------------------------------------------------------+
+|  Header: "Planera din vecka"        [Auto-plan week btn]  |
++----------------------------------------------------------+
+|  WEEK OVERVIEW (left, ~380px)  |  SELECTED DAY (right)   |
+|                                |                          |
+|  [Mon 19 - card summary]      |  "Idag" + Weather        |
+|  [Tue 20 - card summary] <--  |  AI Day Summary          |
+|  [Wed 21 - card summary]      |  Outfit preview (large)  |
+|  [Thu 22 - empty dashed]      |  Tags + Explanation      |
+|  [Fri 23 - empty dashed]      |  Actions (Swap/Details)  |
+|  [Sat 24 - card summary]      |  Mark worn / Remove      |
+|  [Sun 25 - empty dashed]      |                          |
++----------------------------------------------------------+
+```
 
 ## Changes
 
-### 1. Copy logo asset
+### 1. Update Plan page layout (`src/pages/Plan.tsx`)
+- Import `useIsMobile` hook
+- On desktop: render a two-column grid layout (`grid grid-cols-[380px_1fr]`) instead of the single-column mobile view
+- Left panel: scrollable list of 7 compact `DayCard` components showing mini outfit previews
+- Right panel: the full selected-day detail (weather, AI summary, outfit grid, actions) -- same content as current mobile view
+- Remove `max-w-lg` constraint on desktop; use `max-w-5xl` instead
+- Keep entire mobile layout as-is when `isMobile` is true
 
-Copy `user-uploads://Gemini_Generated_Image_qeunkmqeunkmqeun_1.png` to `src/assets/burs-logo.png`
+### 2. Enhance WeekStrip for desktop (`src/components/plan/WeekStrip.tsx`)
+- On desktop, hide the horizontal strip (it's replaced by the left-panel day cards)
+- Only render on mobile
 
-### 2. Update logo component
+### 3. Create desktop day list items
+- Reuse the existing `DayCard` component in a more compact "mini" variant for the left panel
+- Each mini card shows: date label, weather badge, occasion icon, tiny outfit thumbnails (or "empty" state)
+- Selected card gets a highlighted border with accent color
+- Clicking a card updates `selectedDate` with a smooth crossfade on the right panel
 
-- Rename the export in `src/components/ui/DrapeLogo.tsx` to `BursLogo`
-- Update image source to `burs-logo.png`
-- Change alt text and wordmark from "DRAPE" to "BURS"
-- Keep backward-compatible alias for safety
+### 4. Add animations
+- Right panel content: `animate-fade-in` on date change (keyed by `selectedDateStr`) for a smooth crossfade
+- Left panel day cards: staggered `animate-drape-in` on mount
+- Selected card: `ring-2 ring-accent` transition with `transition-all duration-200`
+- Outfit image grid on desktop: slightly larger aspect ratio for better visual impact
+- Hover effects on day cards: subtle `hover:shadow-md hover:border-accent/30` with `transition-all`
 
-### 3. Update consuming files
+### 5. Update AppLayout/header for desktop
+- Widen the header's `max-w` to match the new layout (`max-w-5xl`)
+- Calendar popover and auto-plan button remain in the header
 
-- `src/components/marketing/MarketingLayout.tsx` -- import `BursLogo`
+### 6. Responsive breakpoints
+- Mobile (< 768px): Current layout, completely unchanged
+- Desktop (>= 768px): Two-panel master-detail layout
 
-### 4. Update Auth page
+## Technical Details
 
-- `src/pages/Auth.tsx` -- heading "DRAPE" becomes "BURS"
+### Files to modify:
+| File | Change |
+|------|--------|
+| `src/pages/Plan.tsx` | Add `useIsMobile`, conditionally render two-panel desktop layout vs current mobile layout. Right panel uses a `key={selectedDateStr}` wrapper with `animate-fade-in` for crossfade. |
+| `src/components/plan/WeekStrip.tsx` | No changes needed -- hidden on desktop via parent conditional rendering |
+| `src/components/plan/DayCard.tsx` | Add optional `mini` prop for compact left-panel rendering. When `mini=true`: shorter height, no AI summary, inline actions hidden, just date + weather + outfit thumbnails. |
 
-### 5. Update PWA manifest
+### Animation details:
+- Day selection crossfade: wrap right panel in `<div key={selectedDateStr} className="animate-fade-in">` so React re-mounts with fade on each date change
+- Left panel cards: `stagger-drape` class on container for staggered entrance
+- Card hover: `transition-all duration-200 hover:shadow-md`
+- Selected card: `ring-2 ring-accent shadow-md` with smooth `transition-all duration-200`
 
-- `public/manifest.json` -- name and short_name
-
-### 6. Update index.html
-
-- All title and meta tags: "DRAPE" becomes "BURS"
-
-### 7. Update marketing config
-
-- `src/config/marketing.ts` -- footer copyright, terms content, all brand references
-
-### 8. Update translations (i18n)
-
-- `src/i18n/translations.ts` -- "DRAPE AB" to "BURS AB", email addresses, chat titles, tutorial text, welcome messages across all 14 locales
-
-### 9. Update privacy settings
-
-- `src/pages/settings/SettingsPrivacy.tsx` -- export filename prefix, mailto link
-
-### 10. Update marketing pages
-
-- `MarketingHome.tsx` -- JSON-LD structured data name
-- `Admin.tsx` -- Helmet title
-- `Terms.tsx` -- Helmet title/meta
-- `PrivacyPolicy.tsx` -- Helmet title/meta
-
-### 11. CSS animation names (kept as-is)
-
-Internal identifiers like `drape-in`, `drape-out`, `stagger-drape` are not user-facing and will remain unchanged.
-
-## Technical Summary
-
-
-| File                                           | Change                                         |
-| ---------------------------------------------- | ---------------------------------------------- |
-| `src/assets/burs-logo.png`                     | New logo file                                  |
-| `src/components/ui/DrapeLogo.tsx`              | Export renamed to `BursLogo`, new image + text |
-| `src/components/marketing/MarketingLayout.tsx` | Import update                                  |
-| `src/pages/Auth.tsx`                           | Brand name                                     |
-| `public/manifest.json`                         | PWA name                                       |
-| `index.html`                                   | Meta tags                                      |
-| `src/config/marketing.ts`                      | All brand references                           |
-| `src/i18n/translations.ts`                     | All locales updated                            |
-| `src/pages/settings/SettingsPrivacy.tsx`       | Export filename, email                         |
-| `src/pages/marketing/MarketingHome.tsx`        | JSON-LD                                        |
-| `src/pages/marketing/Admin.tsx`                | Helmet title                                   |
-| `src/pages/marketing/Terms.tsx`                | Helmet title/meta                              |
-| `src/pages/marketing/PrivacyPolicy.tsx`        | Helmet title/meta                              |
+### No breaking changes:
+- Mobile experience is completely unchanged
+- All existing sheets (PlanningSheet, QuickGenerateSheet, SwapSheet, etc.) continue to work as bottom sheets on both mobile and desktop
+- All hooks and data flow remain identical
