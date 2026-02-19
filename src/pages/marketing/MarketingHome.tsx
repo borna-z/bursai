@@ -34,19 +34,19 @@
          
          {/* Structured Data */}
          <script type="application/ld+json">
-           {JSON.stringify({
-             "@context": "https://schema.org",
-             "@type": "SoftwareApplication",
-             "name": "AI Garderobsassistent",
-             "applicationCategory": "LifestyleApplication",
-             "operatingSystem": "Web",
-             "offers": {
-               "@type": "Offer",
-               "price": "0",
-               "priceCurrency": "SEK"
-             },
-             "description": MARKETING_CONFIG.meta.description,
-           })}
+          {JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              "name": "DRAPE",
+              "applicationCategory": "LifestyleApplication",
+              "operatingSystem": "Web",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "SEK"
+              },
+              "description": MARKETING_CONFIG.meta.description,
+            })}
          </script>
        </Helmet>
        

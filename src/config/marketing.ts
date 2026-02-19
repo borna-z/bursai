@@ -7,7 +7,7 @@ export const MARKETING_CONFIG = {
   
   // Site metadata
   meta: {
-    title: 'AI Garderobsassistent | Din personliga stylist',
+    title: 'DRAPE | Din personliga stylist',
     description: 'Din AI-stylist lär känna din kropp, stil och kalender – och föreslår outfits som passar exakt din dag. Privat, smart och byggd för vardagen.',
     ogImage: '/og-image.png',
   },
@@ -219,7 +219,7 @@ export const MARKETING_CONFIG = {
   
   // Footer
   footer: {
-    copyright: '© 2025 AI Garderobsassistent',
+    copyright: '© 2025 DRAPE',
     links: [
       { label: 'Integritetspolicy', href: '/privacy' },
       { label: 'Villkor', href: '/terms' },
@@ -267,11 +267,11 @@ export const MARKETING_CONFIG = {
     sections: [
       {
         title: 'Acceptans',
-        content: 'Genom att använda AI Garderobsassistent accepterar du dessa villkor. Om du inte accepterar, vänligen använd inte tjänsten.',
+        content: 'Genom att använda DRAPE accepterar du dessa villkor. Om du inte accepterar, vänligen använd inte tjänsten.',
       },
       {
         title: 'Tjänsten',
-        content: 'AI Garderobsassistent är en digital garderobshanterare och personlig AI-stylist som hjälper dig organisera plagg, skapa outfits och planera din klädsel. Tjänsten tillhandahålls "som den är" utan garantier.',
+        content: 'DRAPE är en digital garderobshanterare och personlig AI-stylist som hjälper dig organisera plagg, skapa outfits och planera din klädsel. Tjänsten tillhandahålls "som den är" utan garantier.',
       },
       {
         title: 'Ditt innehåll',

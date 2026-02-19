@@ -1,8 +1,9 @@
- import { useEffect } from 'react';
- import { Link } from 'react-router-dom';
- import { MARKETING_CONFIG } from '@/config/marketing';
- import { trackMarketingEvent } from '@/lib/marketingAnalytics';
- import { cn } from '@/lib/utils';
+import { useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { MARKETING_CONFIG } from '@/config/marketing';
+import { trackMarketingEvent } from '@/lib/marketingAnalytics';
+import { cn } from '@/lib/utils';
+import { DrapeLogo } from '@/components/ui/DrapeLogo';
  
  interface MarketingLayoutProps {
    children: React.ReactNode;
@@ -19,12 +20,12 @@
        {/* Navigation */}
        <header className="fixed top-0 left-0 right-0 z-50 glass border-b border-border/50">
          <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-           <Link 
-             to="/marketing" 
-             className="text-lg font-semibold tracking-tight hover:opacity-80 transition-opacity"
-           >
-             AI Garderobsassistent
-           </Link>
+          <Link 
+            to="/marketing" 
+            className="hover:opacity-80 transition-opacity"
+          >
+            <DrapeLogo variant="horizontal" size="sm" />
+          </Link>
            <nav className="flex items-center gap-4">
              <Link
                to={MARKETING_CONFIG.appUrl}

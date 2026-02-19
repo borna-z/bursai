@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Bot, Send, Loader2, BarChart3, Trash2 } from 'lucide-react';
+import { Send, Loader2, BarChart3, Trash2 } from 'lucide-react';
+import { DrapeLogo } from '@/components/ui/DrapeLogo';
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -19,7 +20,7 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/style_chat`;
 
 const WELCOME_MESSAGE: Message = {
   role: 'assistant',
-  content: 'Hej! Jag är din personliga stylist. Jag är här för att hjälpa dig klä dig med stil och självförtroende. Berätta lite om dig själv – vad jobbar du med, och vilka tillfällen klär du dig för oftast?',
+  content: 'Hej! Jag är DRAPE Stylisten – din personliga AI-stylist. Jag är här för att hjälpa dig klä dig med stil och självförtroende. Berätta lite om dig själv – vad jobbar du med, och vilka tillfällen klär du dig för oftast?',
 };
 
 async function loadMessages(userId: string): Promise<Message[]> {
@@ -226,7 +227,7 @@ export default function AIChat() {
   return (
     <AppLayout>
       <div className="flex flex-col" style={{ height: 'calc(100dvh - 4rem)' }}>
-        <PageHeader title="Stylisten" actions={headerActions} />
+        <PageHeader title="DRAPE Stylisten" actions={headerActions} />
 
         {/* Messages area */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 pb-36">
@@ -286,8 +287,8 @@ function MessageBubble({ message, isStreaming }: { message: Message; isStreaming
   return (
     <div className={cn('flex items-end gap-2', isUser ? 'flex-row-reverse' : 'flex-row')}>
       {!isUser && (
-        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 shrink-0">
-          <Bot className="w-4 h-4 text-primary" />
+        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 shrink-0 overflow-hidden">
+          <DrapeLogo variant="icon" size="sm" />
         </div>
       )}
       <div
