@@ -1,28 +1,40 @@
 
+# Add Arabic and Farsi (Persian) Languages
 
-# Fix: Show Moon at Night Instead of Sun
+## Overview
+Add Arabic (ar) and Farsi/Persian (fa) as new language options. Both are **right-to-left (RTL)** languages, which requires layout handling beyond just adding translations.
 
-## Problem
-Weather code `0` (clear sky) always renders the `Sun` icon, even at nighttime. At 22:15 in Sweden it should show a moon.
+## Changes
 
-## Solution
-Open-Meteo provides an `is_day` field (1 = day, 0 = night) in its current weather response. We'll fetch it and pass it through so the icon mapper can choose between Sun/Moon.
+### 1. Update Locale type and supported locales (`src/i18n/translations.ts`)
+- Extend the `Locale` type to include `'ar' | 'fa'`
+- Add entries to `SUPPORTED_LOCALES`:
+  - `{ code: 'ar', name: 'العربية', flag: '🇸🇦' }`
+  - `{ code: 'fa', name: 'فارسی', flag: '🇮🇷' }`
+- Add full translation blocks for both languages with all keys (matching the same keys as `sv` and `en`)
 
-### File 1: `src/hooks/useWeather.ts`
-- Add `is_day` to the API request URL: `&current=temperature_2m,weather_code,wind_speed_10m,is_day`
-- Add `is_day: boolean` to the `WeatherData` interface
-- Return `is_day: current.is_day === 1` in the response object
+### 2. Add RTL support (`src/contexts/LanguageContext.tsx`)
+- Define an `RTL_LOCALES` set containing `'ar'` and `'fa'`
+- When locale changes, set `document.documentElement.dir` to `'rtl'` or `'ltr'`
+- Set `document.documentElement.lang` to the current locale code
 
-### File 2: `src/components/weather/WeatherWidget.tsx`
-- Import `Moon` from `lucide-react`
-- Update `getWeatherIcon` to accept a second parameter `isDay: boolean`
-- When `code === 0`: return `Sun` if day, `Moon` if night
-- When `code <= 3` (partly cloudy): could optionally keep `Cloud` for both (clouds look the same day/night)
-- Pass `weather.is_day` when calling `getWeatherIcon` for the hero icon
+### 3. Add base RTL CSS (`src/index.css`)
+- Add a small block of RTL-aware utility overrides:
+  ```css
+  [dir="rtl"] { text-align: right; }
+  ```
+- This ensures text alignment flips automatically. Tailwind's flexbox/grid layouts mostly adapt, but a few spots may need `rtl:` variants.
 
-### Files changed
+### 4. Minor layout adjustments
+- Review `BottomNav`, `PageHeader`, and `SettingsRow` for any hardcoded `left`/`right` styles that need mirroring in RTL mode. Tailwind's logical properties (`ms-`, `me-`, `ps-`, `pe-`) handle most cases, but icons with explicit `mr-` may need `rtl:ml-` counterparts.
+
+## Technical Details
 
 | File | Change |
 |------|--------|
-| `src/hooks/useWeather.ts` | Fetch `is_day` from API, add to WeatherData |
-| `src/components/weather/WeatherWidget.tsx` | Import Moon, use `is_day` to pick Sun vs Moon |
+| `src/i18n/translations.ts` | Add `'ar'` and `'fa'` to `Locale` type, `SUPPORTED_LOCALES`, and `translations` object |
+| `src/contexts/LanguageContext.tsx` | Set `dir` and `lang` on `<html>` when locale changes |
+| `src/index.css` | Add `[dir="rtl"]` base rule |
+
+## Translation scope
+Both `ar` and `fa` will include all ~120 translation keys covering navigation, onboarding, settings, wardrobe, outfits, plan, insights, and general UI strings.
