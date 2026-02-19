@@ -41,7 +41,7 @@ export function PageHeader({
               variant="ghost" 
               size="icon" 
               onClick={() => navigate(-1)}
-              className="shrink-0 -ml-2"
+              className="shrink-0 -ml-2 rtl:-ml-0 rtl:-mr-2 rtl:rotate-180"
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>

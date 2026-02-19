@@ -298,6 +298,16 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* RTL support */
+[dir="rtl"] {
+  text-align: right;
+}
+
+[dir="rtl"] .flex-row-reverse {
+  flex-direction: row;
+}
+
+
 /* Stagger children with drape-in animation */
 .stagger-drape > *:nth-child(1) { animation-delay: 0ms; }
 .stagger-drape > *:nth-child(2) { animation-delay: 50ms; }
