@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Loader2, BarChart3, Trash2 } from 'lucide-react';
+import { Send, Loader2, BarChart3, Trash2, ImagePlus } from 'lucide-react';
 import { DrapeLogo } from '@/components/ui/DrapeLogo';
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -11,24 +11,35 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
+type MultimodalPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } };
+
 type Message = {
   role: 'user' | 'assistant';
-  content: string;
+  content: string | MultimodalPart[];
 };
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/style_chat`;
 
 const WELCOME_MESSAGE: Message = {
   role: 'assistant',
-  content: 'Hej! Jag är DRAPE Stylisten – din personliga AI-stylist. Jag är här för att hjälpa dig klä dig med stil och självförtroende. Berätta lite om dig själv – vad jobbar du med, och vilka tillfällen klär du dig för oftast?',
+  content: 'Hej! Jag är DRAPE Stylisten – din personliga AI-stylist. Jag är här för att hjälpa dig klä dig med stil och självförtroende. Du kan skicka mig bilder på dina outfits så ger jag dig feedback! 📸',
 };
 
+function getTextContent(content: string | MultimodalPart[]): string {
+  if (typeof content === 'string') return content;
+  return content.filter(p => p.type === 'text').map(p => (p as { type: 'text'; text: string }).text).join(' ');
+}
+
+function getImageUrls(content: string | MultimodalPart[]): string[] {
+  if (typeof content === 'string') return [];
+  return content
+    .filter(p => p.type === 'image_url')
+    .map(p => (p as { type: 'image_url'; image_url: { url: string } }).image_url.url);
+}
+
 async function loadMessages(userId: string): Promise<Message[]> {
-  const { data, error } = await supabase
-    .rpc('has_role' as never, {} as never) // dummy call to satisfy TS, real call below
-    .then(() => ({ data: null, error: null }));
-  
-  // Directly query via REST-style since types don't include chat_messages yet
   const res = await fetch(
     `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/chat_messages?user_id=eq.${userId}&order=created_at.asc&limit=100`,
     {
@@ -40,7 +51,16 @@ async function loadMessages(userId: string): Promise<Message[]> {
   );
   if (!res.ok) return [];
   const rows = await res.json() as { role: 'user' | 'assistant'; content: string }[];
-  return rows.map(r => ({ role: r.role, content: r.content }));
+  return rows.map(r => {
+    // Try to parse multimodal JSON content
+    if (r.content.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(r.content);
+        if (Array.isArray(parsed)) return { role: r.role, content: parsed };
+      } catch { /* fallback to string */ }
+    }
+    return { role: r.role, content: r.content };
+  });
 }
 
 async function persistMessages(userId: string, msgs: Message[], accessToken: string) {
@@ -54,7 +74,11 @@ async function persistMessages(userId: string, msgs: Message[], accessToken: str
         'Content-Type': 'application/json',
         Prefer: 'return=minimal',
       },
-      body: JSON.stringify(msgs.map(m => ({ user_id: userId, role: m.role, content: m.content }))),
+      body: JSON.stringify(msgs.map(m => ({
+        user_id: userId,
+        role: m.role,
+        content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+      }))),
     }
   );
 }
@@ -78,7 +102,10 @@ export default function AIChat() {
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [pendingImage, setPendingImage] = useState<{ url: string; path: string } | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!user) { setIsLoading(false); return; }
@@ -96,18 +123,59 @@ export default function AIChat() {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    e.target.value = ''; // reset input
+
+    setIsUploading(true);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const storagePath = `${user.id}/chat/${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('garments')
+        .upload(storagePath, file, { upsert: false });
+      if (uploadError) throw uploadError;
+
+      const { data: signedData } = await supabase.storage
+        .from('garments')
+        .createSignedUrl(storagePath, 3600);
+      if (!signedData?.signedUrl) throw new Error('Could not create signed URL');
+
+      setPendingImage({ url: signedData.signedUrl, path: storagePath });
+    } catch (err) {
+      toast.error('Kunde inte ladda upp bilden');
+      console.error(err);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const sendMessage = async () => {
     const trimmed = input.trim();
-    if (!trimmed || isStreaming) return;
-
-    const userMsg: Message = { role: 'user', content: trimmed };
-    setInput('');
-    setIsStreaming(true);
+    if ((!trimmed && !pendingImage) || isStreaming) return;
 
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-    // Optimistically add user message
+    // Build multimodal content if image is attached
+    let userContent: string | MultimodalPart[];
+    if (pendingImage) {
+      const parts: MultimodalPart[] = [
+        { type: 'image_url', image_url: { url: pendingImage.url } },
+      ];
+      if (trimmed) parts.push({ type: 'text', text: trimmed });
+      else parts.push({ type: 'text', text: 'Vad tycker du om denna outfit?' });
+      userContent = parts;
+    } else {
+      userContent = trimmed;
+    }
+
+    const userMsg: Message = { role: 'user', content: userContent };
+    setInput('');
+    setPendingImage(null);
+    setIsStreaming(true);
+
     const newMessages = [...messages.filter(m => m !== WELCOME_MESSAGE || messages.length > 1), userMsg];
     setMessages([...newMessages, { role: 'assistant', content: '' }]);
 
@@ -171,7 +239,6 @@ export default function AIChat() {
         }
       }
 
-      // Save to backend
       const assistantMsg: Message = { role: 'assistant', content: assistantContent };
       if (user && session) {
         await persistMessages(user.id, [userMsg, assistantMsg], session.access_token);
@@ -179,7 +246,7 @@ export default function AIChat() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Okänt fel';
       toast.error(`Stylisten svarade inte. ${msg}`);
-      setMessages(prev => prev.filter((m, i) => !(i === prev.length - 1 && m.role === 'assistant' && m.content === '')));
+      setMessages(prev => prev.filter((m, i) => !(i === prev.length - 1 && m.role === 'assistant' && getTextContent(m.content) === '')));
     } finally {
       setIsStreaming(false);
     }
@@ -240,7 +307,7 @@ export default function AIChat() {
               <MessageBubble
                 key={idx}
                 message={msg}
-                isStreaming={isStreaming && idx === messages.length - 1 && msg.role === 'assistant' && msg.content === ''}
+                isStreaming={isStreaming && idx === messages.length - 1 && msg.role === 'assistant' && getTextContent(msg.content) === ''}
               />
             ))
           )}
@@ -249,19 +316,57 @@ export default function AIChat() {
 
         {/* Input area */}
         <div className="fixed bottom-16 left-0 right-0 border-t bg-background/95 backdrop-blur-md px-4 py-3">
+          {/* Pending image preview */}
+          {pendingImage && (
+            <div className="max-w-lg mx-auto mb-2 relative inline-block">
+              <img
+                src={pendingImage.url}
+                alt="Uppladdad bild"
+                className="h-20 w-20 object-cover rounded-lg border border-border"
+              />
+              <button
+                onClick={() => setPendingImage(null)}
+                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs font-bold"
+              >
+                ×
+              </button>
+            </div>
+          )}
           <div className="flex items-end gap-2 max-w-lg mx-auto">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleImageSelect}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-11 w-11 shrink-0"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isStreaming || isUploading}
+              title="Ladda upp bild"
+            >
+              {isUploading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <ImagePlus className="w-5 h-5" />
+              )}
+            </Button>
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Skriv till din stylist..."
+              placeholder={pendingImage ? "Beskriv din outfit (valfritt)..." : "Skriv till din stylist..."}
               className="min-h-[44px] max-h-32 resize-none text-sm"
               disabled={isStreaming}
               rows={1}
             />
             <Button
               onClick={sendMessage}
-              disabled={!input.trim() || isStreaming}
+              disabled={(!input.trim() && !pendingImage) || isStreaming}
               size="icon"
               className="h-11 w-11 shrink-0"
             >
@@ -283,6 +388,8 @@ export default function AIChat() {
 
 function MessageBubble({ message, isStreaming }: { message: Message; isStreaming: boolean }) {
   const isUser = message.role === 'user';
+  const text = getTextContent(message.content);
+  const images = getImageUrls(message.content);
 
   return (
     <div className={cn('flex items-end gap-2', isUser ? 'flex-row-reverse' : 'flex-row')}>
@@ -299,6 +406,19 @@ function MessageBubble({ message, isStreaming }: { message: Message; isStreaming
             : 'bg-muted text-foreground rounded-bl-sm'
         )}
       >
+        {/* Inline images */}
+        {images.length > 0 && (
+          <div className="mb-2 flex gap-2 flex-wrap">
+            {images.map((url, i) => (
+              <img
+                key={i}
+                src={url}
+                alt="Outfit"
+                className="h-32 w-32 object-cover rounded-lg"
+              />
+            ))}
+          </div>
+        )}
         {isStreaming ? (
           <span className="inline-flex gap-1 items-center h-4">
             <span className="w-1.5 h-1.5 bg-current rounded-full animate-bounce [animation-delay:0ms]" />
@@ -306,7 +426,7 @@ function MessageBubble({ message, isStreaming }: { message: Message; isStreaming
             <span className="w-1.5 h-1.5 bg-current rounded-full animate-bounce [animation-delay:300ms]" />
           </span>
         ) : (
-          <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+          text && <p className="whitespace-pre-wrap leading-relaxed">{text}</p>
         )}
       </div>
     </div>
