@@ -1,101 +1,147 @@
 
 
-# Smart AI Stylist with Image Upload
+# Live Scan -- Rapid Wardrobe Scanner
 
-## Overview
+## The Vision
 
-Upgrade the DRAPE AI chat to support image uploads. Users can photograph themselves in an outfit and get instant feedback: swap suggestions from their wardrobe, fit analysis based on body measurements, occasion matching from their calendar, and weather-appropriate recommendations.
+A dedicated "Live Scan" mode where users open their phone camera and rapidly scan garments one after another. Each garment is detected, analyzed by AI, and added to the wardrobe automatically. The goal: **50 garments in 30 seconds**.
 
-## What Changes
+## How It Works
 
-### 1. Frontend: Image Upload in Chat (AIChat.tsx)
-
-- Add a camera/gallery button next to the text input (using the `ImagePlus` icon from Lucide)
-- When tapped, open a file picker (`accept="image/*"`) with camera capture support on mobile
-- Upload the selected image to the existing `garments` storage bucket under a `chat/` prefix (e.g., `{userId}/chat/{timestamp}.jpg`)
-- Create a signed URL for the uploaded image
-- Send the message to the edge function with a multimodal content array (text + image_url) instead of plain text
-- Display uploaded images inline in the chat as thumbnails above the user's message bubble
-
-**Message format change:**
-```typescript
-// Before: { role: 'user', content: 'string' }
-// After:  { role: 'user', content: [{ type: 'text', text: '...' }, { type: 'image_url', image_url: { url: '...' } }] }
+```text
+User taps "Live Scan" button
+  -> Full-screen camera opens
+  -> User holds up a garment
+  -> AI detects + analyzes in real-time
+  -> A result card slides up: garment name, category, color
+  -> User taps "Accept" or "Retake"
+  -> On accept: saved to wardrobe instantly
+  -> Camera stays open, ready for the next garment
+  -> Counter shows "12 garments scanned"
+  -> User taps "Done" when finished
 ```
 
-- The `MessageBubble` component will be updated to detect multimodal content and render images alongside text
-- Chat persistence will store a JSON-serialized version of multimodal messages in the existing `content` column (the edge function will handle parsing)
+## User Experience
 
-### 2. Backend: Enhanced style_chat Edge Function
+1. From the Wardrobe page (or a new bottom nav entry), user taps a prominent "Live Scan" button
+2. Full-screen camera view opens with a clean, minimal overlay
+3. A "Capture" button at the bottom -- user frames a garment and taps to capture (or holds garment in front of camera)
+4. The captured frame is sent to AI for analysis (takes 2-3 seconds)
+5. A small result card slides up from the bottom showing: thumbnail, title, category, primary color
+6. Two buttons: "Accept" (green checkmark) and "Retake" (retry icon)
+7. On accept: the garment is uploaded to storage, saved to DB, and the card animates away
+8. A running counter at the top shows "7 garments added"
+9. Camera immediately ready for the next scan
+10. "Done" button closes the scanner and returns to wardrobe
 
-- Accept multimodal messages (content can be string or array of text/image parts)
-- Forward image URLs directly to the AI gateway (Gemini 3 Flash supports vision natively)
-- Enrich the system prompt with additional context:
-  - **Wardrobe details**: Fetch full garment list (title, category, color, image signed URLs for up to 10 items) so the AI can suggest specific swaps
-  - **Calendar events**: Fetch today's and tomorrow's events from `calendar_events` table
-  - **Weather**: Fetch current weather from Open-Meteo using the user's `home_city` coordinates
-- Update system prompt to instruct the AI to:
-  - Analyze uploaded outfit photos
-  - Suggest specific garment swaps from the user's wardrobe (by name)
-  - Consider body proportions (height/weight already available)
-  - Match recommendations to calendar events and weather
-  - Give actionable feedback ("That t-shirt would work better with your navy chinos for tomorrow's meeting")
+## Technical Architecture
 
-### 3. System Prompt Enhancement
+### New Files
 
-Add these capabilities to the existing system prompt:
+| File | Purpose |
+|------|---------|
+| `src/pages/LiveScan.tsx` | Full-screen camera scanner page |
+| `src/hooks/useLiveScan.ts` | Orchestrates capture, upload, analyze, save pipeline |
 
-```
-When the user uploads a photo:
-- Analyze what they're wearing (colors, fit, style, occasion suitability)
-- Compare against their wardrobe and suggest specific swaps by garment name
-- Consider their body measurements for fit advice
-- Check today's calendar events and suggest if the outfit matches
-- Check current weather and warn if inappropriate
-- Be specific: "Byt ut den vita t-shirten mot din marinblå Oxford-skjorta för morgondagens möte"
-```
-
-### 4. Storage
-
-No new bucket needed. Reuse the existing private `garments` bucket with a `chat/` path prefix. Images are temporary chat attachments -- they use signed URLs that expire.
-
-## Files to Create/Modify
+### Modified Files
 
 | File | Change |
 |------|--------|
-| `src/pages/AIChat.tsx` | Add image upload button, multimodal message handling, image preview in bubbles |
-| `supabase/functions/style_chat/index.ts` | Accept multimodal messages, add calendar + weather context, enrich garment data with titles |
+| `src/App.tsx` | Add route `/wardrobe/scan` |
+| `src/pages/Wardrobe.tsx` | Add "Live Scan" button next to the existing "+" FAB |
+| `supabase/functions/analyze_garment/index.ts` | Add support for base64 image input (skip storage path requirement for speed) |
 
-## Technical Details
+### Camera Implementation
 
-### Image Flow
+Using the browser `getUserMedia` API with `<video>` element for the live camera feed. When user taps capture:
+
+1. Draw current video frame to an off-screen `<canvas>`
+2. Export as JPEG blob (`canvas.toBlob('image/jpeg', 0.85)`)
+3. Show the captured frame as a preview thumbnail
+4. Upload to storage in the background while AI analyzes
+
+### Scan Pipeline (useLiveScan hook)
+
+The hook manages a queue-based pipeline:
 
 ```text
-User taps camera icon
-  -> File picker opens (camera or gallery)
-  -> Image uploaded to storage bucket (garments/{userId}/chat/{timestamp}.jpg)
-  -> Signed URL generated (1 hour expiry)
-  -> Message sent as multimodal content to edge function
-  -> Edge function forwards image URL to Gemini 3 Flash (vision-capable)
-  -> AI analyzes outfit + cross-references wardrobe/calendar/weather
-  -> Streaming response with specific swap suggestions
+[Capture frame] -> [Upload to storage] -> [Call analyze_garment] -> [Show result card]
+                                                                         |
+                                                              [Accept] -> [Save to DB]
+                                                              [Retake] -> [Discard]
 ```
 
-### AI Model
+Key state:
+- `scanCount`: number of garments successfully added
+- `currentScan`: the garment currently being analyzed (thumbnail + loading state)
+- `lastResult`: the AI analysis result waiting for user confirmation
+- `isProcessing`: whether the pipeline is busy
 
-Using `google/gemini-3-flash-preview` (already in use) which supports vision/multimodal input natively. No model change needed.
+### Edge Function Update
 
-### Weather Integration in Edge Function
+The existing `analyze_garment` function currently requires a `storagePath`. For Live Scan speed, we add an alternative input: the function can also accept a `base64Image` string directly (the captured frame). This avoids a round-trip to storage before analysis.
 
-The edge function will geocode the user's `home_city` using Nominatim (same as the frontend `useWeather` hook) and fetch current conditions from Open-Meteo. This adds ~200ms latency but provides critical context for outfit advice.
+Flow:
+1. If `base64Image` is provided: use it directly as a data URL for the AI vision call
+2. If `storagePath` is provided: use existing signed URL flow (backwards compatible)
 
-### Calendar Integration in Edge Function
+After the user accepts, the frontend uploads the image to storage and saves the garment record -- this happens after AI analysis, not before, so the user sees results faster.
 
-Query `calendar_events` for the authenticated user for today and tomorrow, then include event titles in the system prompt so the AI knows what the user has planned.
+### LiveScan.tsx Page Structure
 
-### No Database Migration Needed
+```text
++------------------------------------------+
+|  [X Close]           [7 scanned]         |
++------------------------------------------+
+|                                          |
+|                                          |
+|          Live Camera Feed                |
+|          (full screen video)             |
+|                                          |
+|                                          |
++------------------------------------------+
+|  +------------------------------------+ |
+|  |  [thumb] Navy T-shirt   Overdel    | |  <-- Result card (slides up)
+|  |          Marinbla | Bomull         | |
+|  |   [Retake]           [Accept]      | |
+|  +------------------------------------+ |
++------------------------------------------+
+|         [ Capture Button ]               |
++------------------------------------------+
+```
 
-- Chat images stored in existing `garments` bucket under `chat/` prefix
-- Multimodal message content stored as JSON string in existing `content` text column
-- All new data fits existing schema
+### Speed Optimizations
+
+- **Base64 direct analysis**: Send captured frame directly to AI without uploading to storage first
+- **Background upload**: Upload image to storage only after user accepts, in parallel with showing the next capture view
+- **Queue system**: While upload + save runs in background, camera is already ready for next scan
+- **Compressed captures**: JPEG at 85% quality, resized to max 1024px on the longest side before sending to AI
+- **Batch invalidation**: Only invalidate the garments query cache once when user taps "Done", not after each save
+
+### Image Compression
+
+Before sending to AI, the captured frame is resized on a canvas:
+- Max dimension: 1024px (preserving aspect ratio)
+- Format: JPEG at 85% quality
+- This keeps the payload small (~100-200KB) for fast AI analysis
+
+### Subscription Check
+
+Before starting Live Scan, check the user's remaining garment slots. Show the counter during scanning. If limit is reached mid-scan, show the paywall modal and stop scanning.
+
+### Accessibility
+
+- Camera permission prompt handled gracefully with a fallback message
+- Works on devices without LiDAR (standard camera only -- LiDAR is not accessible via web APIs)
+- Portrait orientation optimized
+- Haptic feedback on successful scan (using `navigator.vibrate` where supported)
+
+## Summary of Changes
+
+1. **New page** `LiveScan.tsx` -- Full-screen camera with capture, AI analysis, accept/retake flow, running counter
+2. **New hook** `useLiveScan.ts` -- Pipeline orchestration: capture -> compress -> analyze -> upload -> save
+3. **Updated edge function** `analyze_garment` -- Accept base64 images alongside storage paths for faster analysis
+4. **Updated routing** in `App.tsx` -- Add `/wardrobe/scan` route
+5. **Updated Wardrobe page** -- Add "Live Scan" entry point button
+6. No database changes needed -- uses existing `garments` table and `garments` storage bucket
 
