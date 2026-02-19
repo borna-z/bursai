@@ -37,7 +37,7 @@
           {JSON.stringify({
               "@context": "https://schema.org",
               "@type": "SoftwareApplication",
-              "name": "DRAPE",
+              "name": "BURS",
               "applicationCategory": "LifestyleApplication",
               "operatingSystem": "Web",
               "offers": {

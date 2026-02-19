@@ -65,7 +65,7 @@ export default function SettingsPrivacy() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `drape-export-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `burs-export-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success(t('settings.export_success'));
@@ -126,7 +126,7 @@ export default function SettingsPrivacy() {
 
       <div className="px-4 pb-6 pt-4 space-y-3 max-w-lg mx-auto">
 
-        {/* About DRAPE */}
+        {/* About BURS */}
         <Collapsible open={openSection === 'about'} className="bg-card rounded-xl overflow-hidden">
           <SectionHeader id="about" title={t('settings.gdpr.about_title')} icon={Shield} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
@@ -137,7 +137,7 @@ export default function SettingsPrivacy() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">{t('settings.gdpr.about_contact')}</span>
-                <a href="mailto:privacy@drape.se" className="font-medium text-accent">{t('settings.gdpr.about_contact_value')}</a>
+                <a href="mailto:privacy@burs.se" className="font-medium text-accent">{t('settings.gdpr.about_contact_value')}</a>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed pt-1">
                 {t('settings.gdpr.about_purpose')}

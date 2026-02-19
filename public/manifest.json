@@ -1,6 +1,6 @@
 {
-  "name": "DRAPE",
-  "short_name": "DRAPE",
+  "name": "BURS",
+  "short_name": "BURS",
   "description": "Din personliga AI-stylist",
   "start_url": "/",
   "display": "standalone",
