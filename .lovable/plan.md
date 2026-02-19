@@ -1,173 +1,101 @@
 
 
-# DRAPE Major Update Plan
+# Smart AI Stylist with Image Upload
 
-This is a large update covering 5 distinct features. Given the scope, I recommend implementing them in phases across multiple messages to avoid errors.
+## Overview
 
----
+Upgrade the DRAPE AI chat to support image uploads. Users can photograph themselves in an outfit and get instant feedback: swap suggestions from their wardrobe, fit analysis based on body measurements, occasion matching from their calendar, and weather-appropriate recommendations.
 
-## Phase 1: Fix Apple and Android Icons on Marketing Page
+## What Changes
 
-**Problem:** The PWA install section uses generic Lucide icons (`Apple` and `Chrome`) instead of the real Apple and Android brand logos.
+### 1. Frontend: Image Upload in Chat (AIChat.tsx)
 
-**Solution:** Replace the Lucide icons with inline SVG components that render the actual Apple logo and Google Play / Android logo. These are well-known SVG paths that are freely available.
+- Add a camera/gallery button next to the text input (using the `ImagePlus` icon from Lucide)
+- When tapped, open a file picker (`accept="image/*"`) with camera capture support on mobile
+- Upload the selected image to the existing `garments` storage bucket under a `chat/` prefix (e.g., `{userId}/chat/{timestamp}.jpg`)
+- Create a signed URL for the uploaded image
+- Send the message to the edge function with a multimodal content array (text + image_url) instead of plain text
+- Display uploaded images inline in the chat as thumbnails above the user's message bubble
 
-**Files to change:**
-- `src/components/marketing/PWAInstallSection.tsx` -- Replace `<Apple>` with an inline Apple SVG and `<Chrome>` with an inline Android/Play Store SVG
-
----
-
-## Phase 2: User-Selectable Accent Color (Logo Tint)
-
-**Problem:** The logo is black and white, which feels flat. Users should be able to pick a favorite color during onboarding that tints the logo and acts as their personal accent.
-
-**Solution:**
-1. Add a new onboarding step (before body measurements) where users pick from 12 colors
-2. Store the chosen color in the `preferences` JSONB column on `profiles` (as `accentColor`)
-3. Create a React context (`AccentColorContext`) that reads the user's saved color and applies it as a CSS custom property (`--user-accent`)
-4. Update `DrapeLogo.tsx` to apply a CSS filter or use the accent color as a background tint on the logo icon (using CSS `mix-blend-mode` or a colored overlay behind the transparent logo areas)
-
-**12 color palette:**
-
-| Name | Hex |
-|------|-----|
-| Crimson | #DC2626 |
-| Coral | #F97316 |
-| Amber | #F59E0B |
-| Emerald | #10B981 |
-| Teal | #14B8A6 |
-| Sky | #0EA5E9 |
-| Indigo | #6366F1 |
-| Violet | #8B5CF6 |
-| Fuchsia | #D946EF |
-| Rose | #F43F5E |
-| Slate | #64748B |
-| Charcoal | #111111 (default) |
-
-**Files to create/change:**
-- `src/contexts/AccentColorContext.tsx` -- New context provider
-- `src/components/onboarding/ColorPickerStep.tsx` -- New onboarding step
-- `src/pages/Onboarding.tsx` -- Add color picker step before body measurements
-- `src/pages/Settings.tsx` -- Add accent color picker in settings
-- `src/components/ui/DrapeLogo.tsx` -- Apply accent color tint
-- `src/App.tsx` -- Wrap with AccentColorProvider
-- No database migration needed (uses existing `preferences` JSONB)
-
----
-
-## Phase 3: Multi-Language Support (10 Languages)
-
-**Problem:** The app is hardcoded in Swedish. Users should be able to choose from 10 languages at signup.
-
-**Solution:**
-1. Create an i18n system with translation files for each language
-2. Add a language selector during onboarding (after color picker)
-3. Store language preference in `preferences` JSONB as `language`
-4. Create a `useTranslation` hook that returns translated strings
-5. Marketing site stays in English (translate `marketing.ts` config)
-
-**Supported languages:**
-Swedish (sv), Norwegian (no), Finnish (fi), Danish (da), English (en), Spanish (es), French (fr), Mandarin (zh), Arabic (ar), Persian (fa), German (de), Portuguese (pt)
-
-**Files to create/change:**
-- `src/i18n/translations/` -- Translation files for each language
-- `src/i18n/index.ts` -- Translation lookup system
-- `src/hooks/useTranslation.ts` -- Hook for accessing translations
-- `src/contexts/LanguageContext.tsx` -- Language context provider
-- `src/components/onboarding/LanguagePickerStep.tsx` -- Onboarding step
-- `src/config/marketing.ts` -- Convert to English
-- All UI components -- Replace hardcoded Swedish strings with `t('key')` calls
-
-**Note:** This is the largest change and will touch many files. The marketing page (`/marketing`) will be converted to English. The in-app experience defaults to the user's chosen language.
-
----
-
-## Phase 4: Marketing Page to English
-
-**Problem:** The marketing site is in Swedish but should be in English since it's the public-facing website.
-
-**Solution:** Translate all strings in `src/config/marketing.ts` to English. This is a content-only change -- no structural code changes needed.
-
-**Files to change:**
-- `src/config/marketing.ts` -- Translate all Swedish text to English
-
----
-
-## Phase 5: Plan Page Redesign (Premium Minimalist)
-
-**Problem:** The Plan page feels cluttered with calendar events always visible, and tapping a day in the WeekStrip doesn't expand into a rich day view.
-
-**Design principles:**
-- Minimalist: hide information until requested
-- Calendar events behind a small icon (tap to reveal in a popover)
-- Tapping a day in WeekStrip opens an expanded "day detail" view
-- Show outfit recommendation with explanation
-- Beautiful, spacious layout with plenty of whitespace
-
-**New Plan page UX flow:**
-
-```text
-+------------------------------------------+
-|  Plan         [Hela veckan]              |
-+------------------------------------------+
-|  [Mon] [Tue] [Wed] [THU] [Fri] [Sat] [Sun]
-|                     ^^^^                  
-|                   selected                
-+------------------------------------------+
-|                                          |
-|  Thursday, 20 February                   |
-|  ~~~~~~~~~~~~~~~~~~~~~~~~                |
-|  [Calendar icon]  2 events     [Weather] |
-|                                          |
-|  +------------------------------------+ |
-|  |  Recommended Outfit                 | |
-|  |  [4 garment images in a row]       | |
-|  |                                     | |
-|  |  "Perfect for your meeting at 10.   | |
-|  |   Smart casual with navy tones."    | |
-|  |                                     | |
-|  |  [Swap]  [Details]                  | |
-|  +------------------------------------+ |
-|                                          |
-|  [Mark as worn]        [Remove]          |
-|                                          |
-+------------------------------------------+
+**Message format change:**
+```typescript
+// Before: { role: 'user', content: 'string' }
+// After:  { role: 'user', content: [{ type: 'text', text: '...' }, { type: 'image_url', image_url: { url: '...' } }] }
 ```
 
-**Key changes:**
-- `WeekStrip` stays but becomes the primary navigation
-- Remove the vertical list of `DayCard` components -- only show the selected day
-- Calendar events hidden behind a small calendar icon badge; tap opens a Popover showing the event list
-- Selected day shows a single, beautiful expanded card with:
-  - Date header with weather badge
-  - Calendar event count (tap for details)
-  - Outfit preview (large garment images)
-  - AI explanation of why this outfit was chosen
-  - Action buttons (Swap, Details, Mark worn, Remove)
-- Empty state for unplanned days: two CTA buttons (Plan / Generate)
+- The `MessageBubble` component will be updated to detect multimodal content and render images alongside text
+- Chat persistence will store a JSON-serialized version of multimodal messages in the existing `content` column (the edge function will handle parsing)
 
-**Files to change:**
-- `src/pages/Plan.tsx` -- Major restructure: single selected day view instead of day card list
-- `src/components/plan/DayCard.tsx` -- Redesign as expanded "DayDetailView" with more space, better typography
-- `src/components/plan/WeekStrip.tsx` -- Minor polish
-- `src/components/plan/CalendarEventBadge.tsx` -- Wrap in Popover instead of always-visible badges
+### 2. Backend: Enhanced style_chat Edge Function
 
----
+- Accept multimodal messages (content can be string or array of text/image parts)
+- Forward image URLs directly to the AI gateway (Gemini 3 Flash supports vision natively)
+- Enrich the system prompt with additional context:
+  - **Wardrobe details**: Fetch full garment list (title, category, color, image signed URLs for up to 10 items) so the AI can suggest specific swaps
+  - **Calendar events**: Fetch today's and tomorrow's events from `calendar_events` table
+  - **Weather**: Fetch current weather from Open-Meteo using the user's `home_city` coordinates
+- Update system prompt to instruct the AI to:
+  - Analyze uploaded outfit photos
+  - Suggest specific garment swaps from the user's wardrobe (by name)
+  - Consider body proportions (height/weight already available)
+  - Match recommendations to calendar events and weather
+  - Give actionable feedback ("That t-shirt would work better with your navy chinos for tomorrow's meeting")
 
-## Implementation Order
+### 3. System Prompt Enhancement
 
-Given the scope, I recommend this order across multiple messages:
+Add these capabilities to the existing system prompt:
 
-1. **Phase 1** (small) + **Phase 4** (content only) -- Fix icons + translate marketing to English
-2. **Phase 5** -- Plan page redesign (standalone, no dependencies)
-3. **Phase 2** -- Accent color system (onboarding + logo)
-4. **Phase 3** -- i18n system (largest change, touches many files)
+```
+When the user uploads a photo:
+- Analyze what they're wearing (colors, fit, style, occasion suitability)
+- Compare against their wardrobe and suggest specific swaps by garment name
+- Consider their body measurements for fit advice
+- Check today's calendar events and suggest if the outfit matches
+- Check current weather and warn if inappropriate
+- Be specific: "Byt ut den vita t-shirten mot din marinblå Oxford-skjorta för morgondagens möte"
+```
 
----
+### 4. Storage
 
-## Technical Notes
+No new bucket needed. Reuse the existing private `garments` bucket with a `chat/` path prefix. Images are temporary chat attachments -- they use signed URLs that expire.
 
-- **No database migrations needed** -- all new preferences (accent color, language) fit in the existing `preferences` JSONB column on `profiles`
-- **RTL support** -- Arabic and Persian are RTL languages; the i18n system will need to set `dir="rtl"` on the root element when these languages are active
-- **Marketing stays static** -- The marketing page is not translated dynamically; it's always in English
-- **Accent color** -- Applied via CSS custom property so it cascades through the entire app without prop drilling
+## Files to Create/Modify
+
+| File | Change |
+|------|--------|
+| `src/pages/AIChat.tsx` | Add image upload button, multimodal message handling, image preview in bubbles |
+| `supabase/functions/style_chat/index.ts` | Accept multimodal messages, add calendar + weather context, enrich garment data with titles |
+
+## Technical Details
+
+### Image Flow
+
+```text
+User taps camera icon
+  -> File picker opens (camera or gallery)
+  -> Image uploaded to storage bucket (garments/{userId}/chat/{timestamp}.jpg)
+  -> Signed URL generated (1 hour expiry)
+  -> Message sent as multimodal content to edge function
+  -> Edge function forwards image URL to Gemini 3 Flash (vision-capable)
+  -> AI analyzes outfit + cross-references wardrobe/calendar/weather
+  -> Streaming response with specific swap suggestions
+```
+
+### AI Model
+
+Using `google/gemini-3-flash-preview` (already in use) which supports vision/multimodal input natively. No model change needed.
+
+### Weather Integration in Edge Function
+
+The edge function will geocode the user's `home_city` using Nominatim (same as the frontend `useWeather` hook) and fetch current conditions from Open-Meteo. This adds ~200ms latency but provides critical context for outfit advice.
+
+### Calendar Integration in Edge Function
+
+Query `calendar_events` for the authenticated user for today and tomorrow, then include event titles in the system prompt so the AI knows what the user has planned.
+
+### No Database Migration Needed
+
+- Chat images stored in existing `garments` bucket under `chat/` prefix
+- Multimodal message content stored as JSON string in existing `content` text column
+- All new data fits existing schema
+
