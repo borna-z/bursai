@@ -120,7 +120,7 @@ export default function HomePage() {
         {/* Onboarding Banner */}
         {needsOnboarding && (
           <Card 
-            className="bg-gradient-to-br from-primary/10 to-accent/10 border-primary/20 cursor-pointer hover:shadow-md transition-all"
+            className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20 cursor-pointer hover:shadow-md transition-all"
             onClick={() => navigate('/onboarding')}
           >
             <CardContent className="p-4">
@@ -142,7 +142,7 @@ export default function HomePage() {
 
         {/* Wardrobe Stats */}
         {!needsOnboarding && (
-          <Card className="bg-gradient-to-br from-primary/5 to-accent/5 border-0 shadow-sm">
+          <Card className="bg-gradient-to-br from-accent/5 to-accent/[0.02] border-0 shadow-sm">
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground mb-1">{t('home.your_wardrobe')}</p>
               <p className="text-3xl font-bold">

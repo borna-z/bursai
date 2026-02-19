@@ -120,7 +120,7 @@ export default function OnboardingPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <Loader2 className="w-8 h-8 animate-spin text-accent" />
       </div>
     );
   }
@@ -178,15 +178,15 @@ export default function OnboardingPage() {
               key={step.id}
               className={cn(
                 'transition-all',
-                isActive && 'ring-2 ring-primary shadow-md',
-                isDone && 'bg-primary/5 border-primary/30'
+                isActive && 'ring-2 ring-accent shadow-md',
+                isDone && 'bg-accent/5 border-accent/30'
               )}
             >
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">
                   <div className={cn(
                     'w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0',
-                    isDone ? 'bg-primary text-primary-foreground' : 'bg-secondary'
+                    isDone ? 'bg-accent text-accent-foreground' : 'bg-secondary'
                   )}>
                     {isDone ? <Check className="w-6 h-6" /> : <Icon className="w-6 h-6" />}
                   </div>
@@ -216,7 +216,7 @@ export default function OnboardingPage() {
                           </Badge>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          <Button size="sm" onClick={() => navigate('/wardrobe/add')}>
+                          <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => navigate('/wardrobe/add')}>
                             <Shirt className="w-4 h-4 mr-1" />
                             {t('onboarding.step1.add')}
                           </Button>
@@ -234,7 +234,7 @@ export default function OnboardingPage() {
                     {/* Step 2 content */}
                     {step.id === 2 && !isDone && state.step1Done && (
                       <div className="space-y-3">
-                        <Button size="sm" onClick={() => navigate('/')}>
+                        <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => navigate('/')}>
                           <Sparkles className="w-4 h-4 mr-1" />
                           {t('onboarding.step2.create')}
                         </Button>
@@ -248,7 +248,7 @@ export default function OnboardingPage() {
                     {step.id === 3 && !isDone && state.step2Done && (
                       <div className="space-y-3">
                         <div className="flex gap-2">
-                          <Button size="sm" onClick={handleEnableReminder} disabled={isEnablingReminder}>
+                          <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleEnableReminder} disabled={isEnablingReminder}>
                             {isEnablingReminder ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Bell className="w-4 h-4 mr-1" />}
                             {t('onboarding.step3.enable')}
                           </Button>
@@ -271,14 +271,14 @@ export default function OnboardingPage() {
 
       {/* Completion */}
       {allDone && (
-        <Card className="bg-gradient-to-br from-primary/10 to-accent/10 border-primary/30">
+        <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/30">
           <CardContent className="p-6 text-center">
-            <div className="w-16 h-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 rounded-full bg-accent text-accent-foreground flex items-center justify-center mx-auto mb-4">
               <Check className="w-8 h-8" />
             </div>
             <h2 className="text-xl font-bold mb-2">{t('onboarding.complete.title')}</h2>
             <p className="text-muted-foreground mb-4">{t('onboarding.complete.desc')}</p>
-            <Button size="lg" onClick={handleComplete}>
+            <Button size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleComplete}>
               {t('onboarding.complete.cta')}
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>

@@ -38,9 +38,9 @@ export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasu
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Top visual area */}
-      <div className="bg-gradient-to-br from-primary/10 via-accent/5 to-background pt-16 pb-10 px-6 flex flex-col items-center text-center">
-        <div className="w-20 h-20 rounded-2xl bg-primary/15 flex items-center justify-center mb-6">
-          <Brain className="w-10 h-10 text-primary" />
+      <div className="bg-gradient-to-br from-accent/10 via-accent/5 to-background pt-16 pb-10 px-6 flex flex-col items-center text-center">
+        <div className="w-20 h-20 rounded-2xl bg-accent/15 flex items-center justify-center mb-6">
+          <Brain className="w-10 h-10 text-accent" />
         </div>
         <h1 className="text-2xl font-bold mb-3 tracking-tight">{t('onboarding.body.title')}</h1>
         <p className="text-muted-foreground text-sm leading-relaxed max-w-xs">
@@ -53,7 +53,7 @@ export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasu
         {/* Height input */}
         <div className="space-y-2">
           <Label htmlFor="height" className="flex items-center gap-2 text-sm font-medium">
-            <Ruler className="w-4 h-4 text-primary" />
+            <Ruler className="w-4 h-4 text-accent" />
             {t('onboarding.body.height')}
           </Label>
           <div className="relative">
@@ -87,7 +87,7 @@ export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasu
         {/* Weight input */}
         <div className="space-y-2">
           <Label htmlFor="weight" className="flex items-center gap-2 text-sm font-medium">
-            <Weight className="w-4 h-4 text-primary" />
+            <Weight className="w-4 h-4 text-accent" />
             {t('onboarding.body.weight')}
             <span className="text-muted-foreground font-normal">{t('onboarding.body.weight_optional')}</span>
           </Label>
