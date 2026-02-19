@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.sync_all_calendars]
 verify_jwt = false
+
+[functions.style_chat]
+verify_jwt = false

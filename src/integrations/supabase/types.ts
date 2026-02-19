@@ -107,6 +107,30 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_messages: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       checkout_attempts: {
         Row: {
           created_at: string | null
@@ -415,8 +439,10 @@ export type Database = {
       }
       profiles: {
         Row: {
+          body_image_path: string | null
           created_at: string | null
           display_name: string | null
+          height_cm: number | null
           home_city: string | null
           ics_url: string | null
           id: string
@@ -425,10 +451,13 @@ export type Database = {
           preferences: Json | null
           stripe_customer_id: string | null
           updated_at: string | null
+          weight_kg: number | null
         }
         Insert: {
+          body_image_path?: string | null
           created_at?: string | null
           display_name?: string | null
+          height_cm?: number | null
           home_city?: string | null
           ics_url?: string | null
           id: string
@@ -437,10 +466,13 @@ export type Database = {
           preferences?: Json | null
           stripe_customer_id?: string | null
           updated_at?: string | null
+          weight_kg?: number | null
         }
         Update: {
+          body_image_path?: string | null
           created_at?: string | null
           display_name?: string | null
+          height_cm?: number | null
           home_city?: string | null
           ics_url?: string | null
           id?: string
@@ -449,6 +481,7 @@ export type Database = {
           preferences?: Json | null
           stripe_customer_id?: string | null
           updated_at?: string | null
+          weight_kg?: number | null
         }
         Relationships: []
       }

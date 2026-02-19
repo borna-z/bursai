@@ -12,6 +12,10 @@ import {
   Moon,
   Sun,
   Monitor,
+  Ruler,
+  Weight,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -74,12 +78,19 @@ export default function SettingsPage() {
   const [displayName, setDisplayName] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [heightCm, setHeightCm] = useState<string>('');
+  const [weightKg, setWeightKg] = useState<string>('');
+  const [showBodySection, setShowBodySection] = useState(false);
 
   useEffect(() => {
     if (profile?.display_name) {
       setDisplayName(profile.display_name);
     }
-  }, [profile?.display_name]);
+    // Load body measurements from profile
+    const p = profile as (typeof profile & { height_cm?: number | null; weight_kg?: number | null });
+    if (p?.height_cm) setHeightCm(String(p.height_cm));
+    if (p?.weight_kg) setWeightKg(String(p.weight_kg));
+  }, [profile]);
 
   const preferences = (profile?.preferences as Preferences) || {};
 
@@ -106,6 +117,18 @@ export default function SettingsPage() {
       toast.success('Namn sparat');
     } catch {
       toast.error('Kunde inte spara namnet');
+    }
+  };
+
+  const handleSaveBodyData = async () => {
+    try {
+      const updates: Record<string, unknown> = {};
+      if (heightCm) updates.height_cm = parseInt(heightCm, 10);
+      if (weightKg) updates.weight_kg = parseInt(weightKg, 10);
+      await updateProfile.mutateAsync(updates as Parameters<typeof updateProfile.mutateAsync>[0]);
+      toast.success('Kroppsdata sparat');
+    } catch {
+      toast.error('Kunde inte spara kroppsdata');
     }
   };
 
@@ -260,6 +283,68 @@ export default function SettingsPage() {
             </div>
             <div className="text-sm text-muted-foreground">
               E-post: {user?.email}
+            </div>
+
+            {/* Body measurements collapsible */}
+            <div className="pt-2 border-t">
+              <button
+                onClick={() => setShowBodySection(!showBodySection)}
+                className="flex items-center justify-between w-full py-1 text-sm font-medium"
+              >
+                <div className="flex items-center gap-2">
+                  <Ruler className="w-4 h-4 text-muted-foreground" />
+                  <span>Kroppsdata för AI-styling</span>
+                </div>
+                {showBodySection ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+              </button>
+
+              {showBodySection && (
+                <div className="mt-3 space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Hjälp din AI-stylist förstå din kropp för bättre passform-förslag. Datan delas aldrig med tredje part.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Längd</Label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          value={heightCm}
+                          onChange={(e) => setHeightCm(e.target.value)}
+                          placeholder="175"
+                          className="pr-10 text-sm"
+                          min={100}
+                          max={250}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">cm</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Vikt (valfritt)</Label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          value={weightKg}
+                          onChange={(e) => setWeightKg(e.target.value)}
+                          placeholder="70"
+                          className="pr-10 text-sm"
+                          min={30}
+                          max={300}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">kg</span>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveBodyData}
+                    disabled={updateProfile.isPending}
+                    className="w-full"
+                  >
+                    Spara kroppsdata
+                  </Button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

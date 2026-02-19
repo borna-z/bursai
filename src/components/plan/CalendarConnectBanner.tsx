@@ -97,24 +97,39 @@ export function CalendarConnectBanner() {
         </button>
 
         {showHelp && (
-          <div className="rounded-lg bg-muted/50 p-3 text-xs space-y-2">
-            <div>
-              <p className="font-medium">Outlook / Office 365</p>
-              <p className="text-muted-foreground">
-                Inställningar → Delad kalender → Publicera kalender → ICS
-              </p>
+          <div className="rounded-lg bg-muted/50 p-3 text-xs space-y-3">
+            <div className="space-y-1">
+              <p className="font-semibold">Google Calendar</p>
+              <ol className="text-muted-foreground space-y-0.5 list-none">
+                <li>1. Öppna Google Calendar i webbläsaren</li>
+                <li>2. Hovra över en kalender under "Mina kalendrar" till vänster</li>
+                <li>3. Klicka på ⋮ → "Inställningar och delning"</li>
+                <li>4. Scrolla till "Integrera kalender"</li>
+                <li>5. Kopiera URL:en under "Hemlig adress i iCal-format"</li>
+              </ol>
             </div>
-            <div>
-              <p className="font-medium">Google Calendar</p>
-              <p className="text-muted-foreground">
-                Inställningar → Kalender → Hemlig adress i iCal-format
-              </p>
+            <div className="space-y-1">
+              <p className="font-semibold">Outlook / Microsoft 365</p>
+              <ol className="text-muted-foreground space-y-0.5 list-none">
+                <li>1. Logga in på Outlook på webben, klicka på ⚙️ uppe till höger</li>
+                <li>2. Välj "Visa alla Outlook-inställningar" → Kalender → Delade kalendrar</li>
+                <li>3. Under "Publicera en kalender", välj kalender och behörighet</li>
+                <li>4. Klicka "Publicera"</li>
+                <li>5. Kopiera ICS-länken som visas</li>
+              </ol>
             </div>
-            <div>
-              <p className="font-medium">Apple Calendar</p>
-              <p className="text-muted-foreground">
-                Högerklicka → Dela → Offentlig kalender
-              </p>
+            <div className="space-y-1">
+              <p className="font-semibold">Apple Calendar (Mac)</p>
+              <ol className="text-muted-foreground space-y-0.5 list-none">
+                <li>1. Öppna Kalender-appen och hovra över ett kalendernamn</li>
+                <li>2. Klicka på delningsikonen (personikonen)</li>
+                <li>3. Markera "Offentlig kalender"</li>
+                <li>4. Kopiera URL:en som börjar med webcal://</li>
+              </ol>
+            </div>
+            <div className="pt-1 border-t border-border/50 text-muted-foreground space-y-0.5">
+              <p>⚠️ Offentliga ICS-adresser kräver att kalendern är publik.</p>
+              <p>⚠️ Hittar du inte "Publicera" i Outlook kan IT-admin ha blockerat funktionen.</p>
             </div>
           </div>
         )}

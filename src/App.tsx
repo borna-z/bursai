@@ -16,6 +16,7 @@ import Outfits from "./pages/Outfits";
 import OutfitDetail from "./pages/OutfitDetail";
 import OutfitGenerate from "./pages/OutfitGenerate";
 import Plan from "./pages/Plan";
+import AIChat from "./pages/AIChat";
 import Onboarding from "./pages/Onboarding";
 import Insights from "./pages/Insights";
 import Settings from "./pages/Settings";
@@ -61,8 +62,9 @@ const queryClient = new QueryClient();
                   <Route path="/outfits/generate" element={<ProtectedRoute><OutfitGenerate /></ProtectedRoute>} />
                   <Route path="/outfits/:id" element={<ProtectedRoute><OutfitDetail /></ProtectedRoute>} />
                   <Route path="/plan" element={<ProtectedRoute><Plan /></ProtectedRoute>} />
-                  <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
-                 <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                   <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
+                  <Route path="/ai" element={<ProtectedRoute><AIChat /></ProtectedRoute>} />
+                  <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                  <Route path="/pricing" element={<Pricing />} />
                  <Route path="/billing/success" element={<ProtectedRoute><BillingSuccess /></ProtectedRoute>} />
                  <Route path="/billing/cancel" element={<ProtectedRoute><BillingCancel /></ProtectedRoute>} />
