@@ -52,7 +52,7 @@ export default function Landing() {
           <header className="fixed top-0 w-full z-50 border-b border-border bg-background/80 backdrop-blur-md">
             <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
               <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-                <BursMonogram size={40} />
+                <BursMonogram size={40} className="!brightness-100" />
                 <span className="text-xl font-medium tracking-widest hidden sm:block" style={{ fontFamily: "'Sora', sans-serif" }}>BURS</span>
               </div>
 
@@ -94,7 +94,7 @@ export default function Landing() {
 
             <div className="max-w-3xl mx-auto w-full flex flex-col items-center text-center gap-8 relative z-10 animate-fade-in">
                 <div className="animate-scale-in" style={{ animationDuration: '0.8s', animationTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)' }}>
-                  <BursMonogram size={120} className="drop-shadow-lg" />
+                  <BursMonogram size={120} className="drop-shadow-lg !brightness-100" />
                 </div>
 
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-border bg-muted/30 text-xs tracking-wide text-muted-foreground backdrop-blur-sm">
@@ -269,7 +269,7 @@ export default function Landing() {
           {/* ── Final CTA ── */}
           <section className="px-6 py-28 md:py-40">
             <div className="max-w-lg mx-auto text-center space-y-8 scroll-reveal" style={{ '--delay': '0ms' } as React.CSSProperties}>
-              <BursMonogram size={56} className="mx-auto" />
+              <BursMonogram size={56} className="mx-auto !brightness-100" />
               <h2 className="text-3xl md:text-4xl font-bold tracking-tight" style={{ fontFamily: "'Sora', sans-serif" }}>
                 Join the movement.
               </h2>
@@ -349,7 +349,7 @@ export default function Landing() {
           <footer className="border-t border-border px-6 py-10">
             <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-muted-foreground tracking-wide">
               <div className="flex items-center gap-2">
-                <BursMonogram size={20} />
+                <BursMonogram size={20} className="!brightness-100" />
                 <span className="text-foreground font-medium tracking-[0.12em]" style={{ fontFamily: "'Sora', sans-serif" }}>BURS</span>
               </div>
               <div className="flex gap-6">
