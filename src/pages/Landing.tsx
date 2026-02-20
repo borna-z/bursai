@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { Menu, X, Sparkles, Shirt, Heart, Leaf, Shield, ArrowRight, Smartphone, Instagram, Twitter } from 'lucide-react';
 import bursLandingLogo from '@/assets/burs-landing-logo.png';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
+import appScreenshot from '@/assets/app-screenshot-home.png';
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -102,10 +103,7 @@ export default function Landing() {
             <div className="w-full md:w-1/2 flex justify-center md:justify-end relative animate-fade-in" style={{ animationDelay: '200ms' }}>
               <div className="relative w-[280px] h-[580px] md:w-[320px] md:h-[650px] bg-[#121212] rounded-[3rem] border-[6px] border-[#1e1e1e] overflow-hidden shadow-2xl shadow-black/50 transform md:rotate-[-2deg] hover:rotate-0 transition-transform duration-500">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-7 bg-[#1e1e1e] rounded-b-3xl z-20" />
-                <img src={bursLandingLogo} alt="Burs App Interface" className="w-full h-full object-cover bg-gray-900" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 -z-10 bg-[#0f0f0f]">
-                  <p className="text-gray-600 text-sm font-light">App Screenshot</p>
-                </div>
+                <img src={appScreenshot} alt="Burs App Interface" className="w-full h-full object-cover object-top bg-[#0a0a0a]" />
               </div>
             </div>
           </div>
