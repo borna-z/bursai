@@ -73,7 +73,20 @@ Deno.serve(async (req) => {
     }
 
     // 3. Delete database records in correct order (respecting foreign keys)
-    
+
+    // Delete chat_messages
+    await adminClient.from("chat_messages").delete().eq("user_id", userId);
+    console.log("Deleted chat_messages");
+
+    // Delete calendar data
+    await adminClient.from("calendar_events").delete().eq("user_id", userId);
+    await adminClient.from("calendar_connections").delete().eq("user_id", userId);
+    console.log("Deleted calendar data");
+
+    // Delete planned_outfits
+    await adminClient.from("planned_outfits").delete().eq("user_id", userId);
+    console.log("Deleted planned_outfits");
+
     // Delete wear_logs
     const { error: wearLogsError } = await adminClient
       .from("wear_logs")
@@ -130,17 +143,12 @@ Deno.serve(async (req) => {
     }
     console.log("Deleted garments");
 
-    // Delete user_subscriptions
-    const { error: subsError } = await adminClient
-      .from("user_subscriptions")
-      .delete()
-      .eq("user_id", userId);
-
-    if (subsError) {
-      console.error("Error deleting user_subscriptions:", subsError);
-      // Non-critical, continue
-    }
-    console.log("Deleted user_subscriptions");
+    // Delete subscriptions data
+    await adminClient.from("subscriptions").delete().eq("user_id", userId);
+    await adminClient.from("user_subscriptions").delete().eq("user_id", userId);
+    await adminClient.from("checkout_attempts").delete().eq("user_id", userId);
+    await adminClient.from("user_roles").delete().eq("user_id", userId);
+    console.log("Deleted subscriptions & roles");
 
     // Delete profile
     const { error: profileError } = await adminClient
