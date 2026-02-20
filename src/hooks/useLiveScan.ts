@@ -13,7 +13,7 @@ export interface ScanResult {
 /**
  * Compress a video frame captured from canvas to a max-dimension JPEG.
  */
-function compressFrame(canvas: HTMLCanvasElement, video: HTMLVideoElement, maxDim = 1024, quality = 0.85): Promise<{ blob: Blob; base64: string }> {
+function compressFrame(canvas: HTMLCanvasElement, video: HTMLVideoElement, maxDim = 640, quality = 0.7): Promise<{ blob: Blob; base64: string }> {
   return new Promise((resolve, reject) => {
     const vw = video.videoWidth;
     const vh = video.videoHeight;

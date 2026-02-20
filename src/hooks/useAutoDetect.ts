@@ -10,9 +10,9 @@ import { useRef, useCallback, useEffect, useState } from 'react';
 
 const SAMPLE_SIZE = 64; // downscale to 64×64 for diffing
 const DIFF_THRESHOLD = 0.04; // max avg pixel diff to count as "stable" (0–1)
-const SAMPLE_INTERVAL = 200; // ms between samples
-const STABLE_DURATION = 1200; // ms of stability before firing
-const COOLDOWN = 2000; // ms after firing before re-arming
+const SAMPLE_INTERVAL = 150; // ms between samples
+const STABLE_DURATION = 600; // ms of stability before firing
+const COOLDOWN = 800; // ms after firing before re-arming
 
 interface UseAutoDetectOptions {
   enabled: boolean;
