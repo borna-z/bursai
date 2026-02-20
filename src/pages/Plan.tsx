@@ -38,6 +38,7 @@ import { useMarkOutfitWorn, useUndoMarkWorn } from '@/hooks/useOutfits';
 import { useFlatGarments } from '@/hooks/useGarments';
 import { useProfile } from '@/hooks/useProfile';
 import { useForecast } from '@/hooks/useForecast';
+import { useBackgroundSyncNotification } from '@/hooks/useCalendarSync';
 
 const occasionIcons: Record<string, React.ElementType> = {
   jobb: Briefcase,
@@ -46,6 +47,7 @@ const occasionIcons: Record<string, React.ElementType> = {
 };
 
 export default function PlanPage() {
+  useBackgroundSyncNotification();
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
