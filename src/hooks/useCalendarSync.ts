@@ -274,7 +274,7 @@ export function useBackgroundSyncNotification() {
   useEffect(() => {
     if (hasShown.current || !profile?.last_calendar_sync) return;
 
-    const stored = localStorage.getItem('drape_last_known_sync');
+    const stored = localStorage.getItem('burs_last_known_sync');
     const dbTime = profile.last_calendar_sync;
 
     if (stored && new Date(dbTime) > new Date(stored)) {
@@ -285,7 +285,7 @@ export function useBackgroundSyncNotification() {
       });
     }
 
-    localStorage.setItem('drape_last_known_sync', dbTime);
+    localStorage.setItem('burs_last_known_sync', dbTime);
     hasShown.current = true;
   }, [profile?.last_calendar_sync]);
 }

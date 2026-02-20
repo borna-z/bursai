@@ -13,7 +13,7 @@ async function geocodeCity(city: string): Promise<{ lat: number; lon: number } |
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`,
-      { headers: { "User-Agent": "DRAPE-App/1.0" } }
+      { headers: { "User-Agent": "BURS-App/1.0" } }
     );
     const data = await res.json();
     if (data?.[0]) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
@@ -119,7 +119,7 @@ serve(async (req) => {
       preferences.styleVibe ? `Stil: ${preferences.styleVibe}` : "",
     ].filter(Boolean).join(". ");
 
-    const systemPrompt = `Du är DRAPE Shopping-assistenten – en smart shoppingrådgivare som hjälper användaren fatta bra köpbeslut baserat på deras befintliga garderob.
+    const systemPrompt = `Du är BURS Shopping-assistenten – en smart shoppingrådgivare som hjälper användaren fatta bra köpbeslut baserat på deras befintliga garderob.
 
 ${profile?.display_name ? `Användare: ${profile.display_name}` : ""}${profile?.home_city ? ` (${profile.home_city})` : ""}
 ${styleLines ? `Stilpreferenser: ${styleLines}` : ""}

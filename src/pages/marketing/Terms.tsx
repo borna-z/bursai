@@ -6,8 +6,8 @@ const TERMS = {
   title: 'Terms of Service',
   lastUpdated: '2025-02-19',
   sections: [
-    { title: 'Acceptance', content: 'By using DRAPE you accept these terms. If you do not accept, please do not use the service.' },
-    { title: 'The Service', content: 'DRAPE is a digital wardrobe manager and personal AI stylist that helps you organize garments, create outfits, and plan your wardrobe. The service is provided "as is" without warranties.' },
+    { title: 'Acceptance', content: 'By using BURS you accept these terms. If you do not accept, please do not use the service.' },
+    { title: 'The Service', content: 'BURS is a digital wardrobe manager and personal AI stylist that helps you organize garments, create outfits, and plan your wardrobe. The service is provided "as is" without warranties.' },
     { title: 'Your Content', content: 'You retain ownership of images and content you upload. You grant us the right to use this to provide the service to you.' },
     { title: 'Body measurements and personal data', content: "Body measurements (height and weight) are optional and used exclusively to improve the AI stylist's advice. This data is stored encrypted and deleted upon your request." },
     { title: 'Limitations', content: 'We are not liable for any damages arising from use of the service. Maximum liability is limited to fees you have paid in the last 12 months.' },
@@ -19,8 +19,8 @@ export default function Terms() {
   return (
     <>
       <Helmet>
-        <title>{TERMS.title} | DRAPE</title>
-        <meta name="description" content="Användarvillkor för DRAPE." />
+        <title>{TERMS.title} | BURS</title>
+        <meta name="description" content="Användarvillkor för BURS." />
       </Helmet>
 
       <div className="min-h-screen bg-background text-foreground">

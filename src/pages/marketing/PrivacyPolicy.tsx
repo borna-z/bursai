@@ -20,8 +20,8 @@ export default function PrivacyPolicy() {
   return (
     <>
       <Helmet>
-        <title>{PRIVACY.title} | DRAPE</title>
-        <meta name="description" content="Integritetspolicy för DRAPE – hur vi hanterar din data." />
+        <title>{PRIVACY.title} | BURS</title>
+        <meta name="description" content="Integritetspolicy för BURS – hur vi hanterar din data." />
       </Helmet>
 
       <div className="min-h-screen bg-background text-foreground">
