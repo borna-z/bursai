@@ -107,7 +107,7 @@ function mapColorToFormValue(aiColor: string | null | undefined): string {
   const colorLower = aiColor.toLowerCase();
   const colorMatch = colors.find(c => 
     c.id === colorLower || 
-    c.label.toLowerCase() === colorLower
+    c.id === colorLower
   );
   return colorMatch?.id || '';
 }
@@ -571,7 +571,7 @@ export default function AddGarmentPage() {
                       : 'border-border hover:scale-110'
                   )}
                   style={{ backgroundColor: c.color }}
-                  title={c.label}
+                  title={t(COLOR_I18N[c.id] || c.id)}
                 />
               ))}
             </div>
@@ -602,7 +602,7 @@ export default function AddGarmentPage() {
                       : 'border-border hover:scale-110'
                   )}
                   style={{ backgroundColor: c.color }}
-                  title={c.label}
+                  title={t(COLOR_I18N[c.id] || c.id)}
                 />
               ))}
             </div>
