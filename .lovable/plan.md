@@ -1,106 +1,121 @@
 
+## Remove All Remaining Hardcoded Language Strings
 
-## Remove All Hardcoded Language Strings
-
-A thorough audit found hardcoded Swedish (and some English) strings in **10+ files** across the frontend. Here is every file and what needs to change.
+A deep audit found hardcoded Swedish strings in **13 more files** beyond what was previously addressed. Here is every file and what needs to change.
 
 ---
 
-### 1. `src/components/plan/MiniDayCard.tsx`
-- Line 30: `'Idag'` and `'Imorgon'` hardcoded instead of `t('plan.today')` / `t('plan.tomorrow')`
+### Files with hardcoded strings to fix
 
-### 2. `src/components/plan/PreselectDateSheet.tsx`
-- Line 30-31: `'Idag'` and `'Imorgon'` hardcoded instead of `t('plan.today')` / `t('plan.tomorrow')`
-- Needs `useLanguage` import and hook call
+#### 1. `src/components/outfit/StylistSummary.tsx`
+- **Line 43-50**: `occasionLabels` map with Swedish labels (`'Jobb'`, `'Vardag'`, `'Fest'`, `'Resa'`, `'Traning'`, `'Dejt'`)
+- **Line 60-89**: `generateSummary()` function with fully hardcoded Swedish sentences like `'Perfekt valt!'`, `'En proffsig look som funkar hela dagen.'`, `'Kl\u00e4tt f\u00f6r kylan!'` etc.
+- **Line 150**: `'Stylistens sammanfattning'` hardcoded title
+- **Line 174**: `'Passar v\u00e4dret'` badge text
+- Needs `useLanguage` hook import
 
-### 3. `src/hooks/useWeather.ts`
-- Line 51: `accept-language=sv` hardcoded -- should use the current locale dynamically
-- Lines 53, 55, 57: `'Din plats'` hardcoded -- should return a translation key or use locale
+#### 2. `src/components/outfit/WeatherWarnings.tsx`
+- **Line 32-33**: `WARM_SEASONS = ['Vinter', 'H\u00f6st']` and `COLD_SEASONS = ['Sommar']` -- season matching strings in Swedish
+- **Lines 91-98**: `'Det \u00e4r ${n}\u00b0 varmare/kallare \u00e4n n\u00e4r outfiten skapades'`
+- **Lines 108-116**: `'Kyla! \u00d6verv\u00e4g att l\u00e4gga till ytterpl\u00e4gg'`, `'Outfiten saknar vinterplagg'`
+- **Line 126**: `'Kan vara kyligt -- ta med en jacka'`
+- **Lines 137-145**: `'Varmt v\u00e4der! Ytterpl\u00e4gg kan bli f\u00f6r varmt'`, `'\u00d6verv\u00e4g l\u00e4ttare plagg f\u00f6r v\u00e4rmen'`
+- **Lines 155-161**: Rain warnings in Swedish
+- **Line 172**: `'Sn\u00f6! Kl\u00e4 dig varmt och vattent\u00e4tt'`
+- **Line 182**: `'Bl\u00e5sigt -- v\u00e4lj vindt\u00e4ta kl\u00e4der'`
+- **Line 239**: `'varning' / 'varningar'` in badge text
+- Cannot use hooks directly (exported pure function `analyzeOutfitWeather`). Solution: Pass `t` function as parameter, or move warnings generation into a hook/component.
 
-### 4. `src/hooks/useCalendarSync.ts`
-- Line 7: `import { sv } from 'date-fns/locale'` -- remove
-- Line 77: `Synkade ${data.synced} handelser` -- use translation key with interpolation
-- Line 80: `'Kunde inte synka kalendern'` -- use `t()` key
-- Line 97: `Synkade ${data.synced} handelser fran Google` -- use translation key
-- Line 100: `'Kunde inte synka Google Calendar'` -- use `t()` key
-- Line 108: `'Ej inloggad'` -- use translation key
-- Line 119: `'Kunde inte spara kalender-URL'` -- use translation key
-- Line 141: `'Kalendersynk borttagen'` -- use translation key
-- Line 144: `'Kunde inte ta bort kalendersynk'` -- use translation key
-- Line 156, 162: `'Kunde inte starta Google-koppling'` -- use translation key
-- Line 178: `'Google Calendar bortkopplad'` -- use translation key
-- Line 181: `'Kunde inte koppla bort Google Calendar'` -- use translation key
-- Line 281-282: `{ locale: sv }` and `'Kalendern synkades automatiskt'` -- use current locale and translation key
+#### 3. `src/components/plan/SmartDayBanner.tsx`
+- **Line 13-18**: `occasionConfig` with Swedish labels (`'Jobb'`, `'Tr\u00e4ning'`, `'Fest'`, `'Dejt'`)
 
-**Challenge**: `useCalendarSync` is a hook, not a component. It cannot call `useLanguage()` directly since it's already a hook. Solution: Accept a `t` function parameter, or import `useLanguage` (hooks can call other hooks).
+#### 4. `src/components/plan/DaySummaryCard.tsx`
+- **Line 15-21**: `occasionConfig` with Swedish labels (`'Jobb'`, `'Tr\u00e4ning'`, `'Fest'`, `'Dejt'`, `'Vardag'`)
 
-### 5. `src/components/wardrobe/QuickEditPanel.tsx`
-- Line 13: `colorOptions` array with Swedish color names (`'svart'`, `'vit'`, `'gra'`, etc.)
-- Line 49: `'Uppdaterat!'` toast
-- Line 52: `'Kunde inte spara'` toast
-- Line 76: `'Ny'` badge text
-- Lines 104-108: `'Overdel'`, `'Underdel'`, `'Skor'`, `'Ytter'`, `'Acc.'` -- category labels
-- Line 130: `'Formalitet:'` label
-- Line 177: `'Snabbredigera'` title
-- Lines 183-184: `'Justera kategori, farg och formalitet for dina nya plagg'` description
-- Line 197: `'+{n} fler plagg'` text
+#### 5. `src/contexts/ThemeContext.tsx`
+- **Lines 14-27**: `ACCENT_COLORS` array with Swedish `name` properties (`'Skog'`, `'Salvia'`, `'Marin'`, `'Skiffer'`, `'Vinr\u00f6d'`, `'Ros'`, `'Terrakotta'`, `'B\u00e4rnsten'`, `'Plommon'`, `'Kol'`)
+- These are used as display labels in the accent color picker.
 
-### 6. `src/components/LinkImportForm.tsx`
-- Lines 105, 113, 117, 123: Error/fallback strings (`'Import misslyckades'`, `'Plagg importerat'`, `'Okant fel'`, `'Kunde inte importera'`)
-- Line 140: `'Importerade ${n} plagg'` toast
-- Line 142: `'Visa garderob'` action label
-- Line 149: `'${n} misslyckades'` toast
-- Lines 150-151, 153: `'Tryck for att se detaljer'`, `'Visa detaljer'`
-- Lines 172-183: Status labels (`'Vantar'`, `'Importerar...'`, `'Klar'`, `'Misslyckades'`)
-- Line 211: `'Klistra in produktlankar (en per rad)'` label
-- Line 214: `'lankar'` text
-- Lines 228-236: Limit/error messages in Swedish
-- Line 244: `'Vissa sajter kan blockera...'` info text
-- Lines 258, 263, 274: Button/progress text in Swedish
-- Lines 308, 322: `'Misslyckade importeringar:'`, `'Stang'`
+#### 6. `src/hooks/useAnalyzeGarment.ts`
+- **Line 32**: `'Inte inloggad'`
+- **Line 60**: `'AI-analys misslyckades'`
+- **Line 72**: `'Ett ov\u00e4ntat fel uppstod vid AI-analysen'`
 
-### 7. `src/pages/GoogleCalendarCallback.tsx`
-- Line 18: `'Du nekade atkomst till Google Calendar.'`
-- Line 24: `'Ingen auktoriseringskod mottagen.'`
-- Line 50: `'Kunde inte koppla Google Calendar. Forsok igen.'`
-- Line 63: `'Kopplar Google Calendar...'`
-- Line 64: `'Vanta medan vi synkar dina handelser'`
-- Line 70: `'Google Calendar kopplad!'`
-- Line 71: `'Omdirigerar till installningar...'`
-- Line 77: `'Nagot gick fel'`
-- Line 83: `'Tillbaka till installningar'`
+#### 7. `src/components/onboarding/StylePreferencesStep.tsx`
+- **Lines 10-12**: `COLORS` array with Swedish color names (`'svart'`, `'vit'`, `'gr\u00e5'`, etc.) displayed directly without translation
+- **Line 110**: `'Loose'`, `'Regular'`, `'Slim'` -- English but not going through `t()`
 
-### 8. `src/pages/marketing/Admin.tsx`
-- Lines 147, 159, 171: `'Sidvisningar'`, `'Leads'`, `'App-klick'`
-- Line 183: `'Handelser'`
-- Line 206: `'Sok email...'`
-- Line 225-227: Table headers `'Email'`, `'Kalla'`, `'UTM'`, `'Datum'`
-- Line 239: `toLocaleDateString('sv-SE')` hardcoded
-- Line 248: `'Inga leads hittades'`
+#### 8. `src/components/insights/UnusedGemCard.tsx`
+- **Line 43**: `'{daysUnused} dagar sedan'` -- hardcoded Swedish
+- **Line 62**: `'Outfit'` button text (English, but should go through `t()`)
 
-### 9. `src/pages/AddGarment.tsx`
-- Lines 52-58: `subcategories` arrays with Swedish names (`'T-shirt'`, `'Skjorta'`, `'Jacka'`, etc.) -- these need translation keys
-- Lines 62-75: `colors` array with Swedish labels (`'Svart'`, `'Vit'`, etc.)
-- Lines 77-80: `patterns`, `materials`, `fits`, `seasons` arrays with Swedish display names
-- Line 529: Subcategory items rendered without `t()` call
+#### 9. `src/components/insights/WeeklySummary.tsx`
+- **Line 68**: `'Veckosammanfattning'` title
+- **Line 70**: `'Din stil denna vecka'` description
+- **Line 79**: `'{streak} dagar'`
+- **Line 80**: `'Anv\u00e4ndningsstreak'`
+- **Line 101**: `'Mest anv\u00e4nd denna vecka'`
 
-### 10. `src/pages/Landing.tsx`
-- The entire landing page has English strings hardcoded directly in JSX (not going through `t()`). This is acceptable if the landing page is intentionally English-only, but if it should be translatable, all strings need keys.
+#### 10. `src/pages/Insights.tsx`
+- **Line 38**: `'ok\u00e4nd'` in colorCounts fallback
+- **Line 39**: `colorMap` keys are Swedish color names -- this is data matching, not display, but should align with whatever is stored in the database
+
+#### 11. `src/pages/OutfitDetail.tsx`
+- **Line 25**: `import { sv } from 'date-fns/locale'` -- unused import, should be removed
+
+#### 12. `src/pages/marketing/Admin.tsx`
+- **Lines 147-171**: `'Sidvisningar'`, `'Leads'`, `'App-klick'`
+- **Line 183**: `'H\u00e4ndelser'`
+- **Lines 206, 225-227, 239, 248**: Various Swedish labels and hardcoded `'sv-SE'` locale
+
+#### 13. `src/pages/AddGarment.tsx`
+- Subcategory arrays (lines 68-74) use Swedish values as both IDs and display -- the values serve as database keys AND display labels. The `SUBCATEGORY_I18N` map exists but the rendering likely still shows the raw Swedish value in some places.
 
 ---
 
 ### Implementation approach
 
-1. **Add ~80-100 new translation keys** to `src/i18n/translations.ts` for sv, en, and no (other languages fall back to English/Swedish).
+1. **Add ~60 new translation keys** to `src/i18n/translations.ts`:
+   - `occasion.*` keys for all occasion labels (jobb, vardag, fest, etc.)
+   - `weather.warning.*` keys for all weather warning messages
+   - `stylist.*` keys for the stylist summary component
+   - `weekly.*` keys for weekly summary
+   - `gem.*` keys for unused gem card
+   - `accent.*` keys for accent color names
+   - `analyze.*` keys for garment analysis errors
+   - `admin.*` keys for the admin page
 
-2. **Update each file** to import `useLanguage` and wrap hardcoded strings in `t()`.
+2. **Refactor `analyzeOutfitWeather` in WeatherWarnings.tsx**: Change the function signature to accept a `t` function parameter. All callers (`StylistSummary`, `WeatherWarnings`, `WeatherWarningBadge`) will pass `t` from `useLanguage()`.
 
-3. **For hooks** (`useCalendarSync`, `useWeather`): Since hooks can call other hooks, add `useLanguage()` inside these hooks. For `useWeather`'s `getCityName`, pass the locale to the `accept-language` header.
+3. **Refactor occasion configs**: Create a shared `OCCASION_I18N` mapping (similar to `CATEGORY_I18N`) and use `t()` for display labels in `SmartDayBanner`, `DaySummaryCard`, `StylistSummary`.
 
-4. **For data arrays** (colors, subcategories, patterns in AddGarment and QuickEditPanel): Create translation key maps similar to the existing `CATEGORY_I18N` pattern and wrap display labels in `t()`.
+4. **Accent color names**: Add translation keys like `accent.forest`, `accent.sage`, etc. and use `t()` when displaying color names in the picker.
 
-5. **Admin page**: Add translation keys for admin-specific labels (lower priority since it's internal).
+5. **StylePreferencesStep colors**: Use the existing `COLOR_I18N` map and `t()` to translate the color chip labels.
 
-### Scope note
-- Edge functions (Supabase) contain Swedish strings too (e.g., `style_chat`, `shopping_chat`, `summarize_day`), but these are AI system prompts that intentionally respond in Swedish. These should remain as-is unless multi-language AI responses are desired.
-- The Landing page uses English strings directly in JSX. These could be left as-is if the landing page is English-only by design.
+6. **useAnalyzeGarment**: Import `useLanguage` and use `t()` for error strings.
+
+7. **Remove `import { sv } from 'date-fns/locale'`** from `OutfitDetail.tsx`.
+
+8. **Admin.tsx**: Add translation keys and remove hardcoded `'sv-SE'`.
+
+### Files to modify (in order)
+1. `src/i18n/translations.ts` -- add ~60 keys
+2. `src/components/outfit/WeatherWarnings.tsx` -- pass `t` to `analyzeOutfitWeather`
+3. `src/components/outfit/StylistSummary.tsx` -- use `t()` for occasion labels, summary, badge
+4. `src/components/plan/SmartDayBanner.tsx` -- use `t()` for occasion labels
+5. `src/components/plan/DaySummaryCard.tsx` -- use `t()` for occasion labels
+6. `src/contexts/ThemeContext.tsx` -- add i18n keys to accent color names
+7. `src/hooks/useAnalyzeGarment.ts` -- use `t()` for error messages
+8. `src/components/onboarding/StylePreferencesStep.tsx` -- use `COLOR_I18N` + `t()`
+9. `src/components/insights/UnusedGemCard.tsx` -- use `t()`
+10. `src/components/insights/WeeklySummary.tsx` -- use `t()`
+11. `src/pages/OutfitDetail.tsx` -- remove unused `sv` import
+12. `src/pages/marketing/Admin.tsx` -- use `t()`
+13. `src/pages/Insights.tsx` -- fix fallback color key
+14. `src/components/settings/AccentColorPicker.tsx` -- use translated accent names
+
+### Notes
+- Season matching in `WeatherWarnings.tsx` (`WARM_SEASONS`, `COLD_SEASONS`) compares against data stored in the database. These must match the database values, which are in Swedish. So the arrays stay as-is for matching, but the *display* strings get translated.
+- `colorMap` keys in `Insights.tsx` match against database values (Swedish color names stored in `color_primary`). These stay as-is for data matching purposes.
+- The Landing page remains English-only by design and is not changed.
