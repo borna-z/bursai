@@ -11,6 +11,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
  import Auth from "./pages/Auth";
  import Landing from "./pages/Landing";
+ import Index from "./pages/Index";
  import Home from "./pages/Home";
  import Wardrobe from "./pages/Wardrobe";
  import AddGarment from "./pages/AddGarment";
@@ -67,7 +68,7 @@ const queryClient = new QueryClient();
                  <Route path="/welcome" element={<Landing />} />
                  <Route path="/reset-password" element={<ResetPassword />} />
                  <Route path="/onboarding" element={<ProtectedRoute skipOnboardingCheck><Onboarding /></ProtectedRoute>} />
-                 <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+                 <Route path="/" element={<Index />} />
                  <Route path="/wardrobe" element={<ProtectedRoute><Wardrobe /></ProtectedRoute>} />
                   <Route path="/wardrobe/add" element={<ProtectedRoute><AddGarment /></ProtectedRoute>} />
                   <Route path="/wardrobe/scan" element={<ProtectedRoute><LiveScan /></ProtectedRoute>} />
