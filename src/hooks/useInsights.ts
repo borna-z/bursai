@@ -73,5 +73,6 @@ export function useInsights() {
       };
     },
     enabled: !!user,
+    staleTime: 5 * 60 * 1000,
   });
 }

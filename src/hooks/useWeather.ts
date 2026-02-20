@@ -116,9 +116,9 @@ export function useWeather(options?: UseWeatherOptions) {
   const { data: weather, isLoading, error } = useQuery({
     queryKey: ['weather', city, homeCity],
     queryFn: () => fetchWeather(city, homeCity),
-    refetchInterval: 3000,
-    staleTime: 2000,
-    gcTime: 60000,
+    refetchInterval: 5 * 60 * 1000,
+    staleTime: 3 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 
   return {

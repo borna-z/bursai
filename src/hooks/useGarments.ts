@@ -70,6 +70,7 @@ export function useGarments(filters?: GarmentFilters) {
       return results;
     },
     enabled: !!user,
+    staleTime: 2 * 60 * 1000,
   });
 }
 
@@ -220,5 +221,6 @@ export function useGarmentCount() {
       return count || 0;
     },
     enabled: !!user,
+    staleTime: 5 * 60 * 1000,
   });
 }

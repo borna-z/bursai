@@ -30,7 +30,8 @@ export function useOutfits(savedOnly = true) {
           )
         `)
         .eq('user_id', user.id)
-        .order('generated_at', { ascending: false });
+        .order('generated_at', { ascending: false })
+        .limit(50);
       
       if (savedOnly) {
         query = query.eq('saved', true);
@@ -42,6 +43,7 @@ export function useOutfits(savedOnly = true) {
       return data as unknown as OutfitWithItems[];
     },
     enabled: !!user,
+    staleTime: 2 * 60 * 1000,
   });
 }
 
@@ -70,6 +72,7 @@ export function useOutfit(id: string | undefined) {
       return data as unknown as OutfitWithItems;
     },
     enabled: !!id && !!user,
+    staleTime: 60 * 1000,
   });
 }
 
@@ -192,50 +195,50 @@ export function useMarkOutfitWorn() {
       
       if (outfitError) throw outfitError;
       
-      // Update each garment and create wear logs
+      // Batch: get all garment states at once
+      const { data: garmentStates } = await supabase
+        .from('garments')
+        .select('id, wear_count, last_worn_at')
+        .in('id', garmentIds);
+      
+      const stateMap = new Map(garmentStates?.map(g => [g.id, g]) || []);
+      
       for (const garmentId of garmentIds) {
-        // Get current garment state for potential undo
-        const { data: garment } = await supabase
-          .from('garments')
-          .select('wear_count, last_worn_at')
-          .eq('id', garmentId)
-          .maybeSingle();
-        
+        const g = stateMap.get(garmentId);
         garmentUpdates.push({
           garmentId,
-          previousWearCount: garment?.wear_count || 0,
-          previousLastWornAt: garment?.last_worn_at || null,
+          previousWearCount: g?.wear_count || 0,
+          previousLastWornAt: g?.last_worn_at || null,
         });
-        
-        await supabase
+      }
+      
+      // Batch: update all garments in parallel
+      await Promise.all(garmentIds.map(garmentId => {
+        const prev = stateMap.get(garmentId);
+        return supabase
           .from('garments')
-          .update({ 
-            last_worn_at: today,
-            wear_count: (garment?.wear_count || 0) + 1
-          })
+          .update({ last_worn_at: today, wear_count: (prev?.wear_count || 0) + 1 })
           .eq('id', garmentId);
-        
-        // Use upsert to handle unique constraint gracefully
-        const { data: wearLog, error: wearLogError } = await supabase
-          .from('wear_logs')
-          .upsert({
-            user_id: user.id,
-            garment_id: garmentId,
-            outfit_id: outfitId,
-            worn_at: today,
-            occasion: occasion || null,
-          }, { 
-            onConflict: 'user_id,garment_id,worn_at',
-            ignoreDuplicates: false 
-          })
-          .select('id')
-          .single();
-        
-        if (wearLogError) {
-          console.error('Wear log error:', wearLogError);
-        } else if (wearLog) {
-          wearLogIds.push(wearLog.id);
-        }
+      }));
+      
+      // Batch: upsert all wear logs
+      const wearLogRows = garmentIds.map(garmentId => ({
+        user_id: user.id,
+        garment_id: garmentId,
+        outfit_id: outfitId,
+        worn_at: today,
+        occasion: occasion || null,
+      }));
+      
+      const { data: wearLogs, error: wearLogError } = await supabase
+        .from('wear_logs')
+        .upsert(wearLogRows, { onConflict: 'user_id,garment_id,worn_at', ignoreDuplicates: false })
+        .select('id');
+      
+      if (wearLogError) {
+        console.error('Wear log error:', wearLogError);
+      } else if (wearLogs) {
+        wearLogIds.push(...wearLogs.map(l => l.id));
       }
       
       return { outfitId, wornAt: today, wearLogIds, garmentUpdates };
