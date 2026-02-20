@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useGarments, useUpdateGarment, useDeleteGarment, useGarmentCount, type GarmentFilters, type Garment } from '@/hooks/useGarments';
 import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
@@ -392,9 +393,31 @@ export default function WardrobePage() {
             {/* Infinite scroll sentinel */}
             <div ref={sentinelRef} className="h-1" />
             {isFetchingNextPage && (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-              </div>
+              isGridView ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="bg-card rounded-xl overflow-hidden">
+                      <Skeleton className="aspect-square w-full" />
+                      <div className="p-2.5 space-y-1.5">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-3 w-1/2" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="flex items-center gap-3 p-3 bg-card rounded-xl">
+                      <Skeleton className="w-14 h-14 rounded-lg shrink-0" />
+                      <div className="flex-1 space-y-1.5">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-3 w-1/2" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
             )}
           </>
         ) : (
