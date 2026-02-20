@@ -1,6 +1,6 @@
-import bursLogoSrc from '@/assets/burs-logo.png';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
+import { BursMonogram } from './BursMonogram';
 
 interface DrapeLogoProps {
   variant?: 'icon' | 'wordmark' | 'horizontal';
@@ -20,18 +20,7 @@ export function DrapeLogo({ variant = 'horizontal', className, size = 'md', tint
   const { accentColor } = useTheme();
   const { icon: iconSize, text: textSize } = sizeMap[size];
 
-  const Icon = (
-    <span className="relative inline-block flex-shrink-0" style={{ width: iconSize, height: iconSize }}>
-      <img
-        alt="BURS"
-        width={iconSize}
-        height={iconSize}
-        className="object-contain rounded-lg"
-        style={{ imageRendering: 'auto' }}
-        src={bursLogoSrc}
-      />
-    </span>
-  );
+  const Icon = <BursMonogram size={iconSize} />;
 
   const Wordmark = (
     <span

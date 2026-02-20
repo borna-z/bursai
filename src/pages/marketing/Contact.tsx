@@ -5,7 +5,7 @@ import { ArrowLeft, Mail, Send, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import bursLogo from '@/assets/burs-landing-logo.png';
+import { BursMonogram } from '@/components/ui/BursMonogram';
 
 export default function Contact() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle');
@@ -31,7 +31,7 @@ export default function Contact() {
         <header className="w-full border-b border-border/60">
           <div className="max-w-xl mx-auto px-4 py-4 flex items-center justify-between">
             <Link to="/welcome" className="flex items-center gap-2">
-              <img src={bursLogo} alt="BURS" className="h-7 w-7 rounded-lg" />
+              <BursMonogram size={28} />
               <span className="font-bold tracking-[0.12em] text-sm" style={{ fontFamily: "'Sora', sans-serif" }}>BURS</span>
             </Link>
             <Link to="/welcome" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
