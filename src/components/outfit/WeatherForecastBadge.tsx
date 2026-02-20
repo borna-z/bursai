@@ -1,16 +1,16 @@
 import { Cloud, CloudRain, CloudSnow, CloudDrizzle, Sun, CloudLightning, CloudFog, Loader2, AlertTriangle, Droplets } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useForecast, type ForecastDay } from '@/hooks/useForecast';
 
 interface WeatherForecastBadgeProps {
-  date: string; // YYYY-MM-DD
+  date: string;
   compact?: boolean;
   className?: string;
   showWarning?: boolean;
-  originalTemp?: number; // For comparison with outfit's original weather
+  originalTemp?: number;
 }
 
-// Get weather icon based on weather code
 function getWeatherIcon(code: number) {
   if (code === 0) return Sun;
   if (code <= 3) return Cloud;
@@ -24,17 +24,12 @@ function getWeatherIcon(code: number) {
   return Cloud;
 }
 
-// Get weather warning based on conditions
-function getWeatherWarning(forecast: ForecastDay): string | null {
-  if (forecast.precipitation_probability > 50) {
-    return 'Ta med paraply!';
-  }
-  if (forecast.temperature_avg < 0) {
-    return 'Kallt! Klä dig varmt';
-  }
-  if (forecast.temperature_avg > 28) {
-    return 'Varmt! Tänk på solen';
-  }
+function useWeatherWarning(forecast: ForecastDay | undefined) {
+  const { t } = useLanguage();
+  if (!forecast) return null;
+  if (forecast.precipitation_probability > 50) return t('weather.bring_umbrella');
+  if (forecast.temperature_avg < 0) return t('weather.cold_warning');
+  if (forecast.temperature_avg > 28) return t('weather.hot_warning');
   return null;
 }
 
@@ -45,34 +40,30 @@ export function WeatherForecastBadge({
   showWarning = true,
   originalTemp,
 }: WeatherForecastBadgeProps) {
+  const { t } = useLanguage();
   const { getForecastForDate, isLoading } = useForecast();
-  
   const forecast = getForecastForDate(date);
+  const warning = showWarning ? useWeatherWarning(forecast) : null;
 
-  // Loading state
   if (isLoading) {
     return (
       <div className={cn("flex items-center gap-1 text-muted-foreground", className)}>
         <Loader2 className="w-3 h-3 animate-spin" />
-        {!compact && <span className="text-xs">Laddar...</span>}
+        {!compact && <span className="text-xs">{t('common.loading')}</span>}
       </div>
     );
   }
 
-  // No forecast available (date > 16 days or API error)
   if (!forecast) {
     return (
       <div className={cn("flex items-center gap-1 text-muted-foreground", className)}>
         <Cloud className="w-3.5 h-3.5 opacity-50" />
-        {!compact && <span className="text-xs">Prognos ej tillgänglig</span>}
+        {!compact && <span className="text-xs">{t('weather.unavailable')}</span>}
       </div>
     );
   }
 
   const WeatherIcon = getWeatherIcon(forecast.weather_code);
-  const warning = showWarning ? getWeatherWarning(forecast) : null;
-  
-  // Check if temperature differs significantly from original
   const tempDiff = originalTemp !== undefined ? Math.abs(forecast.temperature_avg - originalTemp) : 0;
   const significantTempDiff = tempDiff > 10;
 
@@ -104,29 +95,29 @@ export function WeatherForecastBadge({
       </div>
       
       {warning && (
-        <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
+        <div className="flex items-center gap-1 text-xs text-warning">
           <AlertTriangle className="w-3 h-3" />
           {warning}
         </div>
       )}
       
       {significantTempDiff && originalTemp !== undefined && (
-        <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
+        <div className="flex items-center gap-1 text-xs text-warning">
           <AlertTriangle className="w-3 h-3" />
-          Outfiten skapades för {originalTemp}°C
+          {t('weather.outfit_created_for')} {originalTemp}°C
         </div>
       )}
     </div>
   );
 }
 
-// Standalone component for showing forecast in a date picker
 interface ForecastPreviewProps {
   date: string;
   originalTemp?: number;
 }
 
 export function ForecastPreview({ date, originalTemp }: ForecastPreviewProps) {
+  const { t } = useLanguage();
   const { getForecastForDate, isLoading } = useForecast();
   const forecast = getForecastForDate(date);
 
@@ -134,7 +125,7 @@ export function ForecastPreview({ date, originalTemp }: ForecastPreviewProps) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
         <Loader2 className="w-4 h-4 animate-spin" />
-        Hämtar prognos...
+        {t('weather.fetching')}
       </div>
     );
   }
@@ -142,7 +133,7 @@ export function ForecastPreview({ date, originalTemp }: ForecastPreviewProps) {
   if (!forecast) {
     return (
       <div className="text-sm text-muted-foreground py-2">
-        Prognos ej tillgänglig för detta datum
+        {t('weather.unavailable')}
       </div>
     );
   }
@@ -165,9 +156,9 @@ export function ForecastPreview({ date, originalTemp }: ForecastPreviewProps) {
       </div>
       
       {tempDiff > 10 && originalTemp !== undefined && (
-        <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-950/30 px-2 py-1 rounded">
+        <div className="flex items-center gap-1.5 text-xs text-warning bg-warning/10 px-2 py-1 rounded">
           <AlertTriangle className="w-3 h-3" />
-          Outfiten skapades för {originalTemp}°C - vädret skiljer sig {tempDiff}°
+          {t('weather.outfit_created_for')} {originalTemp}°C — {t('weather.differs')} {tempDiff}°
         </div>
       )}
     </div>

@@ -703,6 +703,23 @@ export const translations: Record<Locale, Record<string, string>> = {
     'calendar.apple_help_title': 'Apple Calendar',
     'calendar.apple_help_1': '1. Kalender → delningsikon → Offentlig kalender',
     'calendar.apple_help_2': '2. Kopiera webcal://-länken',
+    'calendar.connect_title': 'Koppla din kalender',
+    'calendar.connect_subtitle': 'Smartare outfit-förslag baserat på dina händelser',
+    'calendar.or_ics': 'Eller koppla med ICS-länk (Apple, Outlook)',
+    'calendar.sync': 'Synka kalender',
+
+    // Weather
+    'weather.bring_umbrella': 'Ta med paraply!',
+    'weather.cold_warning': 'Kallt! Klä dig varmt',
+    'weather.hot_warning': 'Varmt! Tänk på solen',
+    'weather.unavailable': 'Prognos ej tillgänglig',
+    'weather.outfit_created_for': 'Outfiten skapades för',
+    'weather.differs': 'vädret skiljer sig',
+    'weather.fetching': 'Hämtar prognos...',
+
+    // Smart suggestions
+    'smart.title': 'Smart förslag baserat på dina händelser',
+    'smart.create_from': 'Skapa outfit utifrån detta',
 
     // Premium / Paywall / Billing
     'premium.test_mode': 'Testläge',
@@ -1454,6 +1471,23 @@ export const translations: Record<Locale, Record<string, string>> = {
     'calendar.apple_help_title': 'Apple Calendar',
     'calendar.apple_help_1': '1. Calendar → share icon → Public calendar',
     'calendar.apple_help_2': '2. Copy the webcal:// link',
+    'calendar.connect_title': 'Connect your calendar',
+    'calendar.connect_subtitle': 'Smarter outfit suggestions based on your events',
+    'calendar.or_ics': 'Or connect with ICS link (Apple, Outlook)',
+    'calendar.sync': 'Sync calendar',
+
+    // Weather
+    'weather.bring_umbrella': 'Bring an umbrella!',
+    'weather.cold_warning': 'Cold! Dress warmly',
+    'weather.hot_warning': 'Hot! Mind the sun',
+    'weather.unavailable': 'Forecast unavailable',
+    'weather.outfit_created_for': 'Outfit was created for',
+    'weather.differs': 'weather differs by',
+    'weather.fetching': 'Fetching forecast...',
+
+    // Smart suggestions
+    'smart.title': 'Smart suggestion based on your events',
+    'smart.create_from': 'Create outfit from this',
 
     // Premium / Paywall / Billing
     'premium.test_mode': 'Test mode',
@@ -1837,6 +1871,13 @@ export const translations: Record<Locale, Record<string, string>> = {
     'calendar.outlook_help_2': '2. Publiser kalender → Kopier ICS-lenken',
     'calendar.apple_help_title': 'Apple Calendar', 'calendar.apple_help_1': '1. Kalender → delingsikon → Offentlig kalender',
     'calendar.apple_help_2': '2. Kopier webcal://-lenken',
+    'calendar.connect_title': 'Koble til kalenderen din', 'calendar.connect_subtitle': 'Smartere antrekksforslag basert på hendelsene dine',
+    'calendar.or_ics': 'Eller koble med ICS-lenke (Apple, Outlook)', 'calendar.sync': 'Synk kalender',
+    'weather.bring_umbrella': 'Ta med paraply!', 'weather.cold_warning': 'Kaldt! Kle deg varmt',
+    'weather.hot_warning': 'Varmt! Tenk på solen', 'weather.unavailable': 'Prognose ikke tilgjengelig',
+    'weather.outfit_created_for': 'Antrekket ble laget for', 'weather.differs': 'været avviker med',
+    'weather.fetching': 'Henter prognose...', 'smart.title': 'Smart forslag basert på hendelsene dine',
+    'smart.create_from': 'Lag antrekk fra dette',
     'premium.test_mode': 'Testmodus', 'premium.active': 'Aktiv',
     'premium.past_due': 'Betaling mislyktes. Oppdater kortet i kundeportalen for å beholde Premium.',
     'premium.unlimited_wardrobe': 'Ubegrenset garderobe', 'premium.unlimited_outfits': 'Ubegrensede antrekk',
