@@ -135,8 +135,8 @@ export default function AIChat() {
     } finally { setIsUploading(false); }
   };
 
-  const sendMessage = async () => {
-    const trimmed = input.trim();
+  const sendMessage = async (overrideText?: string) => {
+    const trimmed = (overrideText ?? input).trim();
     if ((!trimmed && !pendingImage) || isStreaming) return;
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -278,9 +278,25 @@ export default function AIChat() {
           {isLoading ? (
             <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
           ) : (
-            messages.map((msg, idx) => (
-              <MessageBubble key={`${mode}-${idx}`} message={msg} isStreaming={isStreaming && idx === messages.length - 1 && msg.role === 'assistant' && getTextContent(msg.content) === ''} garmentMap={garmentMap} isShopping={mode === 'shopping'} />
-            ))
+            <>
+              {messages.map((msg, idx) => (
+                <MessageBubble key={`${mode}-${idx}`} message={msg} isStreaming={isStreaming && idx === messages.length - 1 && msg.role === 'assistant' && getTextContent(msg.content) === ''} garmentMap={garmentMap} isShopping={mode === 'shopping'} />
+              ))}
+              {/* Quick-start suggestion chips */}
+              {messages.length === 1 && messages[0].role === 'assistant' && !isStreaming && (
+                <div className="flex flex-wrap gap-2 justify-center pt-2">
+                  {[t('chat.suggestion_1'), t('chat.suggestion_2'), t('chat.suggestion_3')].map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      onClick={() => sendMessage(suggestion)}
+                      className="px-3 py-2 text-sm rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
           <div ref={messagesEndRef} />
         </div>
@@ -297,7 +313,7 @@ export default function AIChat() {
               {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImagePlus className="w-5 h-5" />}
             </Button>
             <Textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder={placeholder} className="min-h-[44px] max-h-32 resize-none text-sm" disabled={isStreaming} rows={1} />
-            <Button onClick={sendMessage} disabled={(!input.trim() && !pendingImage) || isStreaming} size="icon" className="h-11 w-11 shrink-0 bg-accent text-accent-foreground hover:bg-accent/90">
+            <Button onClick={() => sendMessage()} disabled={(!input.trim() && !pendingImage) || isStreaming} size="icon" className="h-11 w-11 shrink-0 bg-accent text-accent-foreground hover:bg-accent/90">
               {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>
           </div>
