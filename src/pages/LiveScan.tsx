@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Check, RotateCcw, Camera, Loader2, ScanLine, Zap, ZapOff } from 'lucide-react';
+import { X, Check, RotateCcw, Camera, ScanLine, Zap, ZapOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +12,7 @@ import { PaywallModal } from '@/components/PaywallModal';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 function AcceptedOverlay({ onDone, label }: { onDone: () => void; label: string }) {
-  useEffect(() => { const t = setTimeout(onDone, 1200); return () => clearTimeout(t); }, [onDone]);
+  useEffect(() => { const t = setTimeout(onDone, 700); return () => clearTimeout(t); }, [onDone]);
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
       <div className="flex flex-col items-center gap-3">
@@ -156,10 +156,21 @@ export default function LiveScan() {
         )}
 
         {isProcessing && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-            <div className="flex flex-col items-center gap-3">
-              <Loader2 className="w-10 h-10 text-white animate-spin" />
-              <p className="text-white text-sm font-medium">{t('scan.analyzing')}</p>
+          <div className="absolute inset-0 z-20">
+            {/* Scan line sweep */}
+            <div className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent opacity-80 animate-[scan-line_1.5s_ease-in-out_infinite]" />
+            {/* Corner brackets */}
+            <div className="absolute inset-12 pointer-events-none animate-[pulse-bracket_2s_ease-in-out_infinite]">
+              <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-emerald-400 rounded-tl-lg" />
+              <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-emerald-400 rounded-tr-lg" />
+              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-emerald-400 rounded-bl-lg" />
+              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-emerald-400 rounded-br-lg" />
+            </div>
+            {/* Label */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-white text-sm font-medium bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm animate-pulse">
+                {t('scan.analyzing')}
+              </span>
             </div>
           </div>
         )}
