@@ -1,85 +1,44 @@
 
 
-## Fix Landing Page: Light Theme, Working Animations, Pricing Section
+## Make Legal Pages Match Landing Page Design
 
-### Problems Found
+### What's Already Working
+- Privacy Policy (`/privacy`), Terms (`/terms`), and Contact (`/contact`) routes exist and are public (no login required)
+- Footer on the landing page already links to all three pages
 
-1. **Dark mode on landing page**: The page uses `bg-background` which follows the user's theme (dark). The landing page should always be light to match the Scandinavian brand identity.
+### Problems to Fix
 
-2. **Scroll-reveal animations are broken**: The `useScrollReveal` hook adds `.visible` to the **section wrapper** (the element with `ref`), but the `.scroll-reveal` CSS class is on **child elements** inside those sections. Since `.scroll-reveal.visible` requires both classes on the same element, children never become visible -- they stay at `opacity: 0` permanently. This is why only the header and footer show after scrolling.
+1. **"Back" link goes to `/`** -- which is a protected route. Visitors from the landing page who click "Back" get redirected to login. Should go to `/welcome` instead.
 
-3. **No pricing information**: The landing page has no section explaining Free vs Premium plans, monthly (79 kr) and yearly (699 kr) costs, or what features are included.
+2. **No forced light theme** -- These pages follow the user's system theme, so they can appear dark while the landing page is always light. They should use the same `force-light` CSS class.
 
-4. **No "Pricing" nav link**: The header nav has "How it works", "Sustainability", "Our Mission" but no link to pricing.
+3. **No consistent header/footer** -- The legal pages are plain text with a back arrow. They should share the landing page's header (with logo + nav) and footer (with legal links + GDPR note) for a cohesive marketing site feel.
 
----
+### Changes
 
-### Plan
+#### `src/pages/marketing/Terms.tsx`
+- Wrap content in `force-light` class (same as landing page)
+- Change back link from `/` to `/welcome`
+- Add the landing page header (logo + BURS wordmark) and footer (legal links, copyright, GDPR note)
 
-#### 1. Force light theme on the landing page
+#### `src/pages/marketing/PrivacyPolicy.tsx`
+- Same treatment: `force-light` wrapper, back link to `/welcome`, shared header and footer
 
-Wrap the entire landing page content in a container with `class="light"` and override CSS variables inline so it always renders in light mode regardless of the user's app theme. This avoids touching the ThemeContext.
-
-```text
-<div className="light" style={{ colorScheme: 'light' }}>
-  <div className="min-h-screen bg-background text-foreground ...">
-    ...
-  </div>
-</div>
-```
-
-#### 2. Fix scroll-reveal animations
-
-Replace `useScrollReveal` (which only observes one parent node) with a new approach inside Landing.tsx: a single `useEffect` that creates one IntersectionObserver targeting all `.scroll-reveal` elements directly. Each element gets `.visible` added individually when it enters the viewport.
-
-```text
-useEffect(() => {
-  const els = document.querySelectorAll('.scroll-reveal');
-  const observer = new IntersectionObserver(
-    (entries) => entries.forEach(e => {
-      if (e.isIntersecting) {
-        e.target.classList.add('visible');
-        observer.unobserve(e.target);
-      }
-    }),
-    { threshold: 0.15 }
-  );
-  els.forEach(el => observer.observe(el));
-  return () => observer.disconnect();
-}, []);
-```
-
-Remove the four individual `useScrollReveal()` hook calls and their `ref={}` attributes from the sections. Keep the existing `.scroll-reveal` / `.scroll-reveal.visible` CSS unchanged.
-
-#### 3. Add a Pricing section
-
-Insert a new section (id="pricing") between the Trust/Mission section and the Final CTA. Content:
-
-- Section header: "Simple, transparent pricing"
-- Two side-by-side cards (Free / Premium)
-- **Free card**: 0 kr, 10 garments, 10 outfits/month, basic AI styling
-- **Premium card** (highlighted): 79 kr/month or 699 kr/year (save ~26%), unlimited garments, unlimited outfits, smarter AI, priority support
-- A "Get Started" CTA button below
-
-This is static content -- no checkout logic needed on the landing page (users sign up first then hit the in-app paywall/pricing page).
-
-#### 4. Add "Pricing" to the nav
-
-Add a fourth nav link "Pricing" in both desktop and mobile nav that scrolls to `#pricing`.
-
----
-
-### Files Modified
-
-| File | Changes |
-|------|---------|
-| `src/pages/Landing.tsx` | Wrap in `.light` container; replace `useScrollReveal` hooks with a single `useEffect` observer; add Pricing section; add Pricing nav link |
-
-No other files need changes. The existing CSS animation classes, assets, and routes remain untouched.
+#### `src/pages/marketing/Contact.tsx`
+- Same treatment: `force-light` wrapper, back link to `/welcome`, shared header and footer
 
 ### Technical Details
 
-- The `.light` wrapper class triggers the `:root` CSS variables (warm off-white `#F6F4F1` background) regardless of the `<html>` dark class
-- The pricing section uses plain HTML/Tailwind -- no Stripe integration or i18n needed (landing page is English-only)
-- Scroll-reveal fix targets all `.scroll-reveal` elements in one observer pass, which is more efficient than 4 separate hooks
+Each page will:
+- Import `burs-landing-logo.png` for the header
+- Wrap everything in `<div className="force-light">` to enforce light theme
+- Replace `<Link to="/">` with `<Link to="/welcome">` for the back button
+- Add a minimal header with the BURS logo linking to `/welcome`
+- Add the same footer as the landing page with Privacy Policy, Terms, Contact links, copyright, and GDPR note
+- Keep all existing content unchanged
 
+| File | Changes |
+|------|---------|
+| `src/pages/marketing/Terms.tsx` | Force light theme, back link to `/welcome`, add header + footer |
+| `src/pages/marketing/PrivacyPolicy.tsx` | Force light theme, back link to `/welcome`, add header + footer |
+| `src/pages/marketing/Contact.tsx` | Force light theme, back link to `/welcome`, add header + footer |
