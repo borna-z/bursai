@@ -16,8 +16,7 @@ import { EmptyState } from '@/components/layout/EmptyState';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { format, isToday, isTomorrow } from 'date-fns';
-import { sv } from 'date-fns/locale';
+import { isToday, isTomorrow } from 'date-fns';
 
 interface PlannedGroup {
   label: string;
@@ -118,7 +117,7 @@ export function PlannedOutfitsList({ outfits, onDelete }: PlannedOutfitsListProp
       const dateStr = (outfit as any).planned_for;
       const date = new Date(dateStr);
       
-      let label = format(date, 'EEEE d MMMM', { locale: sv });
+      let label = date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
       if (isToday(date)) { label = t('plan.today'); }
       else if (isTomorrow(date)) { label = t('plan.tomorrow'); }
       

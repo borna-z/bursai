@@ -6,8 +6,7 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { format, addDays } from 'date-fns';
-import { sv } from 'date-fns/locale';
+import { addDays } from 'date-fns';
 
 interface QuickPlanSheetProps {
   open: boolean;
@@ -31,7 +30,7 @@ export function QuickPlanSheet({ open, onOpenChange, onAutoGenerate, isGeneratin
 
   const getDayLabel = (dayIndex: number) => {
     const date = addDays(new Date(), dayIndex);
-    return format(date, 'EEEE', { locale: sv });
+    return date.toLocaleDateString(undefined, { weekday: 'long' });
   };
 
   return (
