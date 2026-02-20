@@ -20,14 +20,6 @@ export function useStorage() {
     return filePath;
   };
   
-  const getGarmentImageUrl = (imagePath: string) => {
-    const { data } = supabase.storage
-      .from('garments')
-      .getPublicUrl(imagePath);
-    
-    return data.publicUrl;
-  };
-  
   const getGarmentSignedUrl = async (imagePath: string) => {
     const { data, error } = await supabase.storage
       .from('garments')
@@ -47,7 +39,6 @@ export function useStorage() {
   
   return {
     uploadGarmentImage,
-    getGarmentImageUrl,
     getGarmentSignedUrl,
     deleteGarmentImage,
   };
