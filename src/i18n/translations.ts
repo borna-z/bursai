@@ -2653,6 +2653,12 @@ export const translations: Record<Locale, Record<string, string>> = {
     'garment.material.silk': 'Seda', 'garment.material.synthetic': 'Sintético',
     'garment.fit.slim': 'Slim', 'garment.fit.regular': 'Regular', 'garment.fit.loose': 'Holgado', 'garment.fit.oversized': 'Oversized',
     'garment.season.spring': 'Primavera', 'garment.season.summer': 'Verano', 'garment.season.autumn': 'Otoño', 'garment.season.winter': 'Invierno',
+    'scan.auto': 'Auto', 'scan.scanned': 'escaneados', 'scan.done': 'Listo',
+    'scan.hold_still': 'Mantén la prenda quieta…', 'scan.point_garment': 'Apunta a una prenda',
+    'scan.analyzing': 'Analizando…', 'scan.added': '¡Añadido!', 'scan.retake': 'Repetir', 'scan.accept': 'Aceptar',
+    'scan.slots_remaining': 'escaneos restantes', 'scan.limit_reached': 'Límite alcanzado',
+    'scan.camera_error': 'No se pudo abrir la cámara. Comprueba los permisos.',
+    'scan.move_closer': 'Acércate más', 'scan.move_back': 'Aléjate un poco', 'scan.more_light': 'Se necesita mejor iluminación', 'scan.ready': 'Mantén quieto para escanear…',
   },
 
   it: {
@@ -2701,6 +2707,12 @@ export const translations: Record<Locale, Record<string, string>> = {
     'garment.material.silk': 'Seta', 'garment.material.synthetic': 'Sintetico',
     'garment.fit.slim': 'Slim', 'garment.fit.regular': 'Regular', 'garment.fit.loose': 'Largo', 'garment.fit.oversized': 'Oversized',
     'garment.season.spring': 'Primavera', 'garment.season.summer': 'Estate', 'garment.season.autumn': 'Autunno', 'garment.season.winter': 'Inverno',
+    'scan.auto': 'Auto', 'scan.scanned': 'scansionati', 'scan.done': 'Fatto',
+    'scan.hold_still': 'Tieni fermo il capo…', 'scan.point_garment': 'Punta verso un capo',
+    'scan.analyzing': 'Analisi…', 'scan.added': 'Aggiunto!', 'scan.retake': 'Riprendi', 'scan.accept': 'Accetta',
+    'scan.slots_remaining': 'scansioni rimanenti', 'scan.limit_reached': 'Limite raggiunto',
+    'scan.camera_error': 'Impossibile aprire la fotocamera. Controlla i permessi.',
+    'scan.move_closer': 'Avvicinati', 'scan.move_back': 'Allontanati', 'scan.more_light': 'Serve più luce', 'scan.ready': 'Tieni fermo per scansionare…',
   },
 
   pt: {
@@ -2749,6 +2761,12 @@ export const translations: Record<Locale, Record<string, string>> = {
     'garment.material.silk': 'Seda', 'garment.material.synthetic': 'Sintético',
     'garment.fit.slim': 'Slim', 'garment.fit.regular': 'Regular', 'garment.fit.loose': 'Largo', 'garment.fit.oversized': 'Oversized',
     'garment.season.spring': 'Primavera', 'garment.season.summer': 'Verão', 'garment.season.autumn': 'Outono', 'garment.season.winter': 'Inverno',
+    'scan.auto': 'Auto', 'scan.scanned': 'digitalizados', 'scan.done': 'Feito',
+    'scan.hold_still': 'Mantenha a peça parada…', 'scan.point_garment': 'Aponte para uma peça',
+    'scan.analyzing': 'A analisar…', 'scan.added': 'Adicionado!', 'scan.retake': 'Repetir', 'scan.accept': 'Aceitar',
+    'scan.slots_remaining': 'digitalizações restantes', 'scan.limit_reached': 'Limite atingido',
+    'scan.camera_error': 'Não foi possível abrir a câmara. Verifique as permissões.',
+    'scan.move_closer': 'Aproxime-se', 'scan.move_back': 'Afaste-se', 'scan.more_light': 'Melhor iluminação necessária', 'scan.ready': 'Mantenha parado para digitalizar…',
   },
 
   nl: {
@@ -2797,6 +2815,12 @@ export const translations: Record<Locale, Record<string, string>> = {
     'garment.material.silk': 'Zijde', 'garment.material.synthetic': 'Synthetisch',
     'garment.fit.slim': 'Slim', 'garment.fit.regular': 'Regular', 'garment.fit.loose': 'Ruim', 'garment.fit.oversized': 'Oversized',
     'garment.season.spring': 'Lente', 'garment.season.summer': 'Zomer', 'garment.season.autumn': 'Herfst', 'garment.season.winter': 'Winter',
+    'scan.auto': 'Auto', 'scan.scanned': 'gescand', 'scan.done': 'Klaar',
+    'scan.hold_still': 'Houd het kledingstuk stil…', 'scan.point_garment': 'Richt op een kledingstuk',
+    'scan.analyzing': 'Analyseren…', 'scan.added': 'Toegevoegd!', 'scan.retake': 'Opnieuw', 'scan.accept': 'Accepteren',
+    'scan.slots_remaining': 'scans over', 'scan.limit_reached': 'Limiet bereikt',
+    'scan.camera_error': 'Kan de camera niet openen. Controleer de machtigingen.',
+    'scan.move_closer': 'Kom dichterbij', 'scan.move_back': 'Ga verder weg', 'scan.more_light': 'Betere verlichting nodig', 'scan.ready': 'Houd stil om te scannen…',
   },
 
   pl: {
@@ -2845,6 +2869,12 @@ export const translations: Record<Locale, Record<string, string>> = {
     'garment.material.silk': 'Jedwab', 'garment.material.synthetic': 'Syntetyczny',
     'garment.fit.slim': 'Slim', 'garment.fit.regular': 'Regular', 'garment.fit.loose': 'Luźny', 'garment.fit.oversized': 'Oversized',
     'garment.season.spring': 'Wiosna', 'garment.season.summer': 'Lato', 'garment.season.autumn': 'Jesień', 'garment.season.winter': 'Zima',
+    'scan.auto': 'Auto', 'scan.scanned': 'zeskanowane', 'scan.done': 'Gotowe',
+    'scan.hold_still': 'Trzymaj ubranie nieruchomo…', 'scan.point_garment': 'Skieruj na ubranie',
+    'scan.analyzing': 'Analizowanie…', 'scan.added': 'Dodano!', 'scan.retake': 'Ponów', 'scan.accept': 'Akceptuj',
+    'scan.slots_remaining': 'skanów pozostało', 'scan.limit_reached': 'Limit osiągnięty',
+    'scan.camera_error': 'Nie można otworzyć kamery. Sprawdź uprawnienia.',
+    'scan.move_closer': 'Podejdź bliżej', 'scan.move_back': 'Odsuń się', 'scan.more_light': 'Potrzeba lepszego oświetlenia', 'scan.ready': 'Trzymaj nieruchomo, aby skanować…',
   },
 
   ar: {
