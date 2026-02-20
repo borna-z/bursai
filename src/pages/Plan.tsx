@@ -35,7 +35,7 @@ import {
 } from '@/hooks/usePlannedOutfits';
 import { useOutfitGenerator } from '@/hooks/useOutfitGenerator';
 import { useMarkOutfitWorn, useUndoMarkWorn } from '@/hooks/useOutfits';
-import { useGarments } from '@/hooks/useGarments';
+import { useFlatGarments } from '@/hooks/useGarments';
 import { useProfile } from '@/hooks/useProfile';
 import { useForecast } from '@/hooks/useForecast';
 
@@ -69,7 +69,7 @@ export default function PlanPage() {
   
   // Data hooks
   const { data: plannedOutfits = [], isLoading } = usePlannedOutfits();
-  const { data: garments = [] } = useGarments();
+  const { data: garments = [] } = useFlatGarments();
   const { data: profile } = useProfile();
   const { getForecastForDate } = useForecast({ homeCity: profile?.home_city });
   

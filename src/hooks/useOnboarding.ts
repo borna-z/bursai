@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useGarments } from './useGarments';
+import { useFlatGarments } from './useGarments';
 import { useOutfits } from './useOutfits';
 import { useProfile, useUpdateProfile } from './useProfile';
 
@@ -26,7 +26,7 @@ export function useOnboarding() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { data: profile, isLoading: profileLoading } = useProfile();
-  const { data: garments, isLoading: garmentsLoading } = useGarments();
+  const { data: garments, isLoading: garmentsLoading } = useFlatGarments();
   const { data: outfits, isLoading: outfitsLoading } = useOutfits(false); // all outfits
   const updateProfile = useUpdateProfile();
 

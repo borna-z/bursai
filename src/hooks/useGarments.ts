@@ -87,6 +87,16 @@ export function useGarments(filters?: GarmentFilters) {
   });
 }
 
+/** Flattens InfiniteData pages into a plain Garment[] for consumers that need all items */
+export function useFlatGarments(filters?: GarmentFilters) {
+  const query = useGarments(filters);
+  const garments = useMemo(
+    () => query.data?.pages.flatMap(p => p.items) ?? [],
+    [query.data]
+  );
+  return { ...query, data: garments };
+}
+
 export function useGarment(id: string | undefined) {
   const { user } = useAuth();
   
