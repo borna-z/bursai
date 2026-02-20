@@ -84,7 +84,7 @@ export function WeatherForecastBadge({
       <div className="flex items-center gap-2">
         <WeatherIcon className="w-4 h-4 text-muted-foreground" />
         <span className="text-sm">
-          {forecast.temperature_avg}°C · {forecast.condition}
+          {forecast.temperature_avg}°C · {t(forecast.condition)}
         </span>
         {forecast.precipitation_probability > 30 && (
           <span className="text-xs text-muted-foreground flex items-center gap-0.5">
@@ -146,7 +146,7 @@ export function ForecastPreview({ date, originalTemp }: ForecastPreviewProps) {
       <div className="flex items-center gap-2 text-sm">
         <WeatherIcon className="w-5 h-5 text-muted-foreground" />
         <span className="font-medium">{forecast.temperature_avg}°C</span>
-        <span className="text-muted-foreground">{forecast.condition}</span>
+        <span className="text-muted-foreground">{t(forecast.condition)}</span>
         {forecast.precipitation_probability > 30 && (
           <span className="text-xs text-muted-foreground flex items-center gap-0.5">
             <Droplets className="w-3 h-3" />

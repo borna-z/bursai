@@ -16,18 +16,18 @@ interface UseWeatherOptions {
   city?: string | null;
 }
 
-// Map Open-Meteo weather codes to Swedish conditions
+// Map Open-Meteo weather codes to translation keys
 function getConditionFromCode(code: number): string {
-  if (code === 0) return 'Klart';
-  if (code <= 3) return 'Molnigt';
-  if (code === 45 || code === 48) return 'Dimma';
-  if (code >= 51 && code <= 57) return 'Duggregn';
-  if (code >= 61 && code <= 67) return 'Regn';
-  if (code >= 71 && code <= 77) return 'Snö';
-  if (code >= 80 && code <= 82) return 'Regn';
-  if (code >= 85 && code <= 86) return 'Snö';
-  if (code >= 95 && code <= 99) return 'Åska';
-  return 'Okänt';
+  if (code === 0) return 'weather.condition.clear';
+  if (code <= 3) return 'weather.condition.cloudy';
+  if (code === 45 || code === 48) return 'weather.condition.fog';
+  if (code >= 51 && code <= 57) return 'weather.condition.drizzle';
+  if (code >= 61 && code <= 67) return 'weather.condition.rain';
+  if (code >= 71 && code <= 77) return 'weather.condition.snow';
+  if (code >= 80 && code <= 82) return 'weather.condition.rain_showers';
+  if (code >= 85 && code <= 86) return 'weather.condition.snow_showers';
+  if (code >= 95 && code <= 99) return 'weather.condition.thunder';
+  return 'weather.condition.unknown';
 }
 
 function getPrecipitationFromCode(code: number): 'none' | 'rain' | 'snow' {
