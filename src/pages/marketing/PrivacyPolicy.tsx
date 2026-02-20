@@ -6,7 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 const PRIVACY = {
   title: 'Privacy Policy',
   lastUpdated: '2025-02-19',
-  contactEmail: 'privacy@example.com',
+  contactEmail: 'privacy@burs.se',
   sections: [
     { title: 'Data we collect', content: 'We collect information you provide directly, such as your email address at registration, images of garments you upload, conversations with the AI stylist, and optional body measurements (height and weight). We also collect technical data such as device type and usage patterns to improve the service.' },
     { title: 'Storage', content: 'All data is stored securely in the cloud with strong encryption. Images of garments, body, and conversation history are stored privately and only accessible to your account. Body measurements are stored encrypted and never shared.' },
@@ -23,7 +23,7 @@ export default function PrivacyPolicy() {
     <>
       <Helmet>
         <title>{PRIVACY.title} | BURS</title>
-        <meta name="description" content="Privacy Policy for BURS." />
+        <meta name="description" content="Privacy Policy for BURS. Learn how we handle your data." />
       </Helmet>
 
       <div className="min-h-screen bg-background text-foreground">
@@ -45,9 +45,9 @@ export default function PrivacyPolicy() {
             ))}
 
             <section>
-              <h2 className="text-xl font-semibold mb-3">Kontakt</h2>
+              <h2 className="text-xl font-semibold mb-3">Contact</h2>
               <p className="text-muted-foreground leading-relaxed">
-                För frågor om integritet, kontakta oss på{' '}
+                For questions about privacy, contact us at{' '}
                 <a href={`mailto:${PRIVACY.contactEmail}`} className="text-primary hover:underline">
                   {PRIVACY.contactEmail}
                 </a>
