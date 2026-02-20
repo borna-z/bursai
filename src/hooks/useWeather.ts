@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useProfile } from './useProfile';
 import { getCoordinatesFromCity } from './useForecast';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export interface WeatherData {
   temperature: number;
@@ -16,7 +17,6 @@ interface UseWeatherOptions {
   city?: string | null;
 }
 
-// Map Open-Meteo weather codes to translation keys
 function getConditionFromCode(code: number): string {
   if (code === 0) return 'weather.condition.clear';
   if (code <= 3) return 'weather.condition.cloudy';
@@ -45,16 +45,17 @@ function getWindCategory(windSpeed: number): 'low' | 'medium' | 'high' {
   return 'high';
 }
 
-async function getCityName(lat: number, lon: number): Promise<string> {
+async function getCityName(lat: number, lon: number, locale: string, fallback: string): Promise<string> {
   try {
+    const lang = locale === 'sv' ? 'sv' : locale === 'no' ? 'no' : locale === 'da' ? 'da' : locale === 'fi' ? 'fi' : locale === 'de' ? 'de' : locale === 'fr' ? 'fr' : locale === 'es' ? 'es' : locale === 'it' ? 'it' : locale === 'pt' ? 'pt' : locale === 'nl' ? 'nl' : locale === 'pl' ? 'pl' : locale === 'ar' ? 'ar' : locale === 'fa' ? 'fa' : 'en';
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=sv`
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=${lang}`
     );
-    if (!response.ok) return 'Din plats';
+    if (!response.ok) return fallback;
     const data = await response.json();
-    return data.address?.city || data.address?.town || data.address?.village || data.address?.municipality || 'Din plats';
+    return data.address?.city || data.address?.town || data.address?.village || data.address?.municipality || fallback;
   } catch {
-    return 'Din plats';
+    return fallback;
   }
 }
 
@@ -64,7 +65,6 @@ async function getCoordinates(city?: string | null): Promise<{ lat: number; lon:
     if (coords) return coords;
   }
 
-  // Try browser geolocation
   if (navigator.geolocation) {
     try {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -83,19 +83,19 @@ async function getCoordinates(city?: string | null): Promise<{ lat: number; lon:
   return { lat: 59.3293, lon: 18.0686 };
 }
 
-async function fetchWeather(city?: string | null, homeCity?: string | null): Promise<WeatherData> {
+async function fetchWeather(city?: string | null, homeCity?: string | null, locale?: string, locationFallback?: string): Promise<WeatherData> {
   const coords = await getCoordinates(city || homeCity);
 
   const response = await fetch(
     `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,weather_code,wind_speed_10m,is_day&timezone=auto`
   );
 
-  if (!response.ok) throw new Error('Kunde inte hämta väderdata');
+  if (!response.ok) throw new Error('Could not fetch weather data');
 
   const data = await response.json();
   const current = data.current;
 
-  const location = city || (await getCityName(coords.lat, coords.lon));
+  const location = city || (await getCityName(coords.lat, coords.lon, locale || 'en', locationFallback || 'Your location'));
 
   return {
     temperature: Math.round(current.temperature_2m),
@@ -110,12 +110,14 @@ async function fetchWeather(city?: string | null, homeCity?: string | null): Pro
 
 export function useWeather(options?: UseWeatherOptions) {
   const { data: profile } = useProfile();
+  const { locale, t } = useLanguage();
   const homeCity = profile?.home_city;
   const city = options?.city;
+  const locationFallback = t('weather.your_location');
 
   const { data: weather, isLoading, error } = useQuery({
-    queryKey: ['weather', city, homeCity],
-    queryFn: () => fetchWeather(city, homeCity),
+    queryKey: ['weather', city, homeCity, locale],
+    queryFn: () => fetchWeather(city, homeCity, locale, locationFallback),
     refetchInterval: 5 * 60 * 1000,
     staleTime: 3 * 60 * 1000,
     gcTime: 10 * 60 * 1000,

@@ -13,6 +13,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const MAX_LINKS = 30;
 
@@ -28,6 +29,7 @@ interface LinkItem {
 export function LinkImportForm() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const { canAddGarment, remainingGarments, subscription, isPremium } = useSubscription();
   
@@ -38,7 +40,6 @@ export function LinkImportForm() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [showFailedDetails, setShowFailedDetails] = useState(false);
 
-  // Parse links from text
   const parseLinks = (text: string): string[] => {
     return text
       .split('\n')
@@ -50,7 +51,6 @@ export function LinkImportForm() {
   const linkCount = parsedLinks.length;
   const isOverMax = linkCount > MAX_LINKS;
 
-  // Check subscription limits
   const currentCount = subscription?.garments_count || 0;
   const maxAllowed = isPremium ? Infinity : PLAN_LIMITS.free.maxGarments;
   const canAddCount = Math.max(0, maxAllowed - currentCount);
@@ -59,13 +59,11 @@ export function LinkImportForm() {
   const handleImport = async () => {
     if (!user || linkCount === 0 || isOverMax) return;
 
-    // Check if user can add any garments
     if (!canAddGarment()) {
       setShowPaywall(true);
       return;
     }
 
-    // Limit to what the user can add
     const linksToImport = isPremium 
       ? parsedLinks.slice(0, MAX_LINKS) 
       : parsedLinks.slice(0, Math.min(canAddCount, MAX_LINKS));
@@ -75,7 +73,6 @@ export function LinkImportForm() {
       return;
     }
 
-    // Initialize link items
     const initialItems: LinkItem[] = linksToImport.map(url => ({
       url,
       status: 'waiting' as LinkStatus,
@@ -102,7 +99,7 @@ export function LinkImportForm() {
         });
 
         if (error) {
-          throw new Error(error.message || 'Import misslyckades');
+          throw new Error(error.message || t('import.failed'));
         }
 
         const result = data?.results?.[0];
@@ -110,17 +107,17 @@ export function LinkImportForm() {
           updatedItems[i] = { 
             ...updatedItems[i], 
             status: 'success',
-            garmentTitle: result.title || 'Plagg importerat',
+            garmentTitle: result.title || t('import.garment_imported'),
           };
           successCount++;
         } else {
-          throw new Error(result?.reason || 'Okänt fel');
+          throw new Error(result?.reason || t('import.unknown_error'));
         }
       } catch (err: any) {
         updatedItems[i] = { 
           ...updatedItems[i], 
           status: 'failed',
-          error: err.message || 'Kunde inte importera',
+          error: err.message || t('import.could_not_import'),
         };
         failedCount++;
       }
@@ -130,26 +127,24 @@ export function LinkImportForm() {
 
     setIsImporting(false);
 
-    // Invalidate queries to refresh wardrobe
     queryClient.invalidateQueries({ queryKey: ['garments'] });
     queryClient.invalidateQueries({ queryKey: ['garment-count'] });
     queryClient.invalidateQueries({ queryKey: ['subscription'] });
 
-    // Show result toasts
     if (successCount > 0) {
-      toast.success(`Importerade ${successCount} plagg ✅`, {
+      toast.success(t('import.success').replace('{count}', String(successCount)), {
         action: {
-          label: 'Visa garderob',
+          label: t('import.show_wardrobe'),
           onClick: () => navigate('/wardrobe'),
         },
       });
     }
 
     if (failedCount > 0) {
-      toast.error(`${failedCount} misslyckades`, {
-        description: 'Tryck för att se detaljer',
+      toast.error(t('import.failed_count').replace('{count}', String(failedCount)), {
+        description: t('import.tap_details'),
         action: {
-          label: 'Visa detaljer',
+          label: t('import.show_details'),
           onClick: () => setShowFailedDetails(true),
         },
       });
@@ -171,27 +166,19 @@ export function LinkImportForm() {
 
   const getStatusLabel = (status: LinkStatus) => {
     switch (status) {
-      case 'waiting':
-        return 'Väntar';
-      case 'importing':
-        return 'Importerar…';
-      case 'success':
-        return 'Klar ✅';
-      case 'failed':
-        return 'Misslyckades';
+      case 'waiting': return t('import.status.waiting');
+      case 'importing': return t('import.status.importing');
+      case 'success': return t('import.status.success');
+      case 'failed': return t('import.status.failed');
     }
   };
 
   const getStatusVariant = (status: LinkStatus): 'default' | 'secondary' | 'destructive' | 'outline' => {
     switch (status) {
-      case 'waiting':
-        return 'outline';
-      case 'importing':
-        return 'secondary';
-      case 'success':
-        return 'default';
-      case 'failed':
-        return 'destructive';
+      case 'waiting': return 'outline';
+      case 'importing': return 'secondary';
+      case 'success': return 'default';
+      case 'failed': return 'destructive';
     }
   };
 
@@ -200,6 +187,7 @@ export function LinkImportForm() {
     : 0;
 
   const failedItems = linkItems.filter(item => item.status === 'failed');
+  const importCount = Math.min(linkCount, isPremium ? MAX_LINKS : canAddCount);
 
   return (
     <div className="space-y-6">
@@ -208,10 +196,10 @@ export function LinkImportForm() {
         <div className="flex items-center justify-between">
           <Label htmlFor="links-input" className="flex items-center gap-2">
             <Link2 className="w-4 h-4" />
-            Klistra in produktlänkar (en per rad)
+            {t('import.paste_links')}
           </Label>
           <span className={`text-sm ${isOverMax ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
-            {linkCount}/{MAX_LINKS} länkar
+            {linkCount}/{MAX_LINKS} {t('import.links_count')}
           </span>
         </div>
         <Textarea
@@ -225,14 +213,14 @@ export function LinkImportForm() {
         {isOverMax && (
           <p className="text-sm text-destructive flex items-center gap-1">
             <AlertCircle className="w-4 h-4" />
-            Max {MAX_LINKS} länkar per import
+            {t('import.max_links').replace('{max}', String(MAX_LINKS))}
           </p>
         )}
         {wouldExceedLimit && !isOverMax && (
           <p className="text-sm text-amber-600 flex items-center gap-1">
             <AlertCircle className="w-4 h-4" />
-            Du kan bara lägga till {canAddCount} plagg till med Free-planen. 
-            {linkCount > canAddCount && ` Endast de första ${canAddCount} länkarna kommer importeras.`}
+            {t('import.free_limit').replace('{count}', String(canAddCount))}
+            {linkCount > canAddCount && ` ${t('import.free_limit_only').replace('{count}', String(canAddCount))}`}
           </p>
         )}
       </div>
@@ -241,7 +229,7 @@ export function LinkImportForm() {
       <Alert className="border-blue-500/30 bg-blue-500/5">
         <Info className="h-4 w-4 text-blue-500" />
         <AlertDescription className="text-sm text-muted-foreground">
-          Vissa sajter kan blockera automatiska hämtningar. Då kan du istället ladda upp en bild.
+          {t('import.site_block')}
         </AlertDescription>
       </Alert>
 
@@ -255,12 +243,12 @@ export function LinkImportForm() {
         {isImporting ? (
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Importerar {currentIndex + 1} av {linkItems.length}…
+            {t('import.importing_progress').replace('{current}', String(currentIndex + 1)).replace('{total}', String(linkItems.length))}
           </>
         ) : (
           <>
             <Link2 className="w-4 h-4 mr-2" />
-            Importera {linkCount > 0 ? `${Math.min(linkCount, isPremium ? MAX_LINKS : canAddCount)} länkar` : 'länkar'}
+            {linkCount > 0 ? t('import.import_links').replace('{count}', String(importCount)) : t('import.import_button')}
           </>
         )}
       </Button>
@@ -271,7 +259,7 @@ export function LinkImportForm() {
           {isImporting && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span>Importerar…</span>
+                <span>{t('import.importing')}</span>
                 <span className="text-muted-foreground">{progressPercent}%</span>
               </div>
               <Progress value={progressPercent} />
@@ -305,7 +293,7 @@ export function LinkImportForm() {
           <XCircle className="h-4 w-4 text-destructive" />
           <AlertDescription>
             <div className="space-y-2">
-              <p className="font-medium">Misslyckade importeringar:</p>
+              <p className="font-medium">{t('import.failed_imports')}</p>
               <ul className="text-sm space-y-1">
                 {failedItems.map((item, index) => (
                   <li key={index} className="flex flex-col">
@@ -319,14 +307,13 @@ export function LinkImportForm() {
                 size="sm" 
                 onClick={() => setShowFailedDetails(false)}
               >
-                Stäng
+                {t('common.close')}
               </Button>
             </div>
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Paywall Modal */}
       <PaywallModal
         isOpen={showPaywall}
         onClose={() => setShowPaywall(false)}

@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface PreselectDateSheetProps {
   open: boolean;
@@ -24,11 +25,12 @@ export function PreselectDateSheet({
   onSelectDate,
   isLoading,
 }: PreselectDateSheetProps) {
+  const { t } = useLanguage();
   const days = Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
 
   const getDateLabel = (date: Date): string => {
-    if (isToday(date)) return 'Idag';
-    if (isTomorrow(date)) return 'Imorgon';
+    if (isToday(date)) return t('plan.today');
+    if (isTomorrow(date)) return t('plan.tomorrow');
     return date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
   };
 
@@ -36,9 +38,9 @@ export function PreselectDateSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="h-auto max-h-[70vh] rounded-t-2xl">
         <SheetHeader className="text-left pb-4">
-          <SheetTitle>Planera outfit</SheetTitle>
+          <SheetTitle>{t('plan.plan_outfit')}</SheetTitle>
           <SheetDescription>
-            Välj vilken dag du vill använda denna outfit
+            {t('plan.choose_day')}
           </SheetDescription>
         </SheetHeader>
 

@@ -49,6 +49,22 @@ const SEASON_I18N: Record<string, string> = {
 // Keep categories/patterns etc. as arrays of { id, label } for backward-compat mapping
 const categories = CATEGORY_IDS.map(id => ({ id, label: id }));
 
+const SUBCATEGORY_I18N: Record<string, string> = {
+  't-shirt': 'subcategory.tshirt', 'skjorta': 'subcategory.shirt', 'blus': 'subcategory.blouse',
+  'tröja': 'subcategory.sweater', 'hoodie': 'subcategory.hoodie', 'polo': 'subcategory.polo',
+  'linne': 'subcategory.tank', 'cardigan': 'subcategory.cardigan',
+  'jeans': 'subcategory.jeans', 'chinos': 'subcategory.chinos', 'shorts': 'subcategory.shorts',
+  'kjol': 'subcategory.skirt', 'kostymbyxor': 'subcategory.dress_pants', 'joggers': 'subcategory.joggers', 'leggings': 'subcategory.leggings',
+  'sneakers': 'subcategory.sneakers', 'loafers': 'subcategory.loafers', 'boots': 'subcategory.boots',
+  'sandaler': 'subcategory.sandals', 'klackar': 'subcategory.heels', 'träningsskor': 'subcategory.trainers',
+  'jacka': 'subcategory.jacket', 'kappa': 'subcategory.coat', 'blazer': 'subcategory.blazer',
+  'väst': 'subcategory.vest', 'regnjacka': 'subcategory.rain_jacket', 'dunjacka': 'subcategory.down_jacket',
+  'väska': 'subcategory.bag', 'scarf': 'subcategory.scarf', 'mössa': 'subcategory.beanie',
+  'bälte': 'subcategory.belt', 'smycke': 'subcategory.jewelry', 'solglasögon': 'subcategory.sunglasses',
+  'vardagsklänning': 'subcategory.casual_dress', 'festklänning': 'subcategory.party_dress',
+  'maxiklänning': 'subcategory.maxi_dress', 'miniklänning': 'subcategory.mini_dress',
+};
+
 const subcategories: Record<string, string[]> = {
   top: ['T-shirt', 'Skjorta', 'Blus', 'Tröja', 'Hoodie', 'Polo', 'Linne', 'Cardigan'],
   bottom: ['Jeans', 'Chinos', 'Shorts', 'Kjol', 'Kostymbyxor', 'Joggers', 'Leggings'],
@@ -58,26 +74,32 @@ const subcategories: Record<string, string[]> = {
   dress: ['Vardagsklänning', 'Festklänning', 'Maxiklänning', 'Miniklänning'],
 };
 
+const COLOR_I18N: Record<string, string> = {
+  svart: 'color.svart', vit: 'color.vit', 'grå': 'color.grå', 'marinblå': 'color.marinblå',
+  'blå': 'color.blå', 'röd': 'color.röd', 'grön': 'color.grön', beige: 'color.beige',
+  brun: 'color.brun', rosa: 'color.rosa', gul: 'color.gul', orange: 'color.orange', lila: 'color.lila',
+};
+
 const colors = [
-  { id: 'svart', label: 'Svart', color: 'hsl(0 0% 0%)' },
-  { id: 'vit', label: 'Vit', color: 'hsl(0 0% 100%)' },
-  { id: 'grå', label: 'Grå', color: 'hsl(0 0% 50%)' },
-  { id: 'marinblå', label: 'Marinblå', color: 'hsl(220 70% 25%)' },
-  { id: 'blå', label: 'Blå', color: 'hsl(210 100% 50%)' },
-  { id: 'röd', label: 'Röd', color: 'hsl(0 100% 50%)' },
-  { id: 'grön', label: 'Grön', color: 'hsl(120 60% 40%)' },
-  { id: 'beige', label: 'Beige', color: 'hsl(40 40% 75%)' },
-  { id: 'brun', label: 'Brun', color: 'hsl(30 50% 30%)' },
-  { id: 'rosa', label: 'Rosa', color: 'hsl(350 80% 70%)' },
-  { id: 'gul', label: 'Gul', color: 'hsl(50 100% 50%)' },
-  { id: 'orange', label: 'Orange', color: 'hsl(30 100% 50%)' },
-  { id: 'lila', label: 'Lila', color: 'hsl(280 60% 50%)' },
+  { id: 'svart', color: 'hsl(0 0% 0%)' },
+  { id: 'vit', color: 'hsl(0 0% 100%)' },
+  { id: 'grå', color: 'hsl(0 0% 50%)' },
+  { id: 'marinblå', color: 'hsl(220 70% 25%)' },
+  { id: 'blå', color: 'hsl(210 100% 50%)' },
+  { id: 'röd', color: 'hsl(0 100% 50%)' },
+  { id: 'grön', color: 'hsl(120 60% 40%)' },
+  { id: 'beige', color: 'hsl(40 40% 75%)' },
+  { id: 'brun', color: 'hsl(30 50% 30%)' },
+  { id: 'rosa', color: 'hsl(350 80% 70%)' },
+  { id: 'gul', color: 'hsl(50 100% 50%)' },
+  { id: 'orange', color: 'hsl(30 100% 50%)' },
+  { id: 'lila', color: 'hsl(280 60% 50%)' },
 ];
 
-const patterns = ['Enfärgad', 'Randig', 'Rutig', 'Prickig', 'Blommig', 'Mönstrad', 'Kamouflage'];
-const materials = ['Bomull', 'Polyester', 'Lin', 'Denim', 'Läder', 'Ull', 'Siden', 'Syntet'];
-const fits = ['Slim', 'Regular', 'Loose', 'Oversized'];
-const seasons = ['Vår', 'Sommar', 'Höst', 'Vinter'];
+const patterns = PATTERN_IDS.map(id => id);
+const materials = MATERIAL_IDS.map(id => id);
+const fits = FIT_IDS.map(id => id);
+const seasons = SEASON_IDS.map(id => id);
 
 // Helper to map AI response values to form values
 function mapColorToFormValue(aiColor: string | null | undefined): string {
@@ -526,7 +548,7 @@ export default function AddGarmentPage() {
                 <SelectContent>
                   {subcategories[category].map((sub) => (
                     <SelectItem key={sub} value={sub.toLowerCase()}>
-                      {sub}
+                      {t(SUBCATEGORY_I18N[sub.toLowerCase()] || sub)}
                     </SelectItem>
                   ))}
                 </SelectContent>
