@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Menu, X, Sparkles, Shirt, Heart, Leaf, Shield, ArrowRight, Smartphone, Instagram, Twitter, Check } from 'lucide-react';
 import { BursMonogram } from '@/components/ui/BursMonogram';
-import appScreenshot from '@/assets/app-screenshot-home.png';
+
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -92,8 +92,7 @@ export default function Landing() {
           <section className="relative w-full min-h-[90vh] flex items-center justify-center overflow-hidden px-6 md:px-12 pt-20 pb-16">
             <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-accent/5 rounded-full blur-[120px] pointer-events-none" />
 
-            <div className="max-w-7xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-16 relative z-10">
-              <div className="w-full md:w-1/2 flex flex-col items-start gap-8 animate-fade-in">
+            <div className="max-w-3xl mx-auto w-full flex flex-col items-center text-center gap-8 relative z-10 animate-fade-in">
                 <BursMonogram size={80} className="animate-fade-in" />
 
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-border bg-muted/30 text-xs tracking-wide text-muted-foreground backdrop-blur-sm">
@@ -119,13 +118,6 @@ export default function Landing() {
                     See How It Works
                   </button>
                 </div>
-              </div>
-
-              <div className="w-full md:w-1/2 flex justify-center md:justify-end relative animate-fade-in" style={{ animationDelay: '200ms' }}>
-                <div className="relative w-[300px] md:w-[360px] aspect-[9/19.5] bg-background rounded-[2.5rem] border-[5px] border-border overflow-hidden shadow-2xl shadow-foreground/5 transform md:rotate-[-2deg] hover:rotate-0 transition-transform duration-500">
-                  <img src={appScreenshot} alt="Burs App Interface" className="w-full h-full object-contain bg-background" />
-                </div>
-              </div>
             </div>
           </section>
 
