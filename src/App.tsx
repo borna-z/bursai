@@ -10,6 +10,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
  import Auth from "./pages/Auth";
+ import Landing from "./pages/Landing";
  import Home from "./pages/Home";
  import Wardrobe from "./pages/Wardrobe";
  import AddGarment from "./pages/AddGarment";
@@ -63,6 +64,7 @@ const queryClient = new QueryClient();
                  
                  {/* App routes */}
                  <Route path="/auth" element={<Auth />} />
+                 <Route path="/welcome" element={<Landing />} />
                  <Route path="/reset-password" element={<ResetPassword />} />
                  <Route path="/onboarding" element={<ProtectedRoute skipOnboardingCheck><Onboarding /></ProtectedRoute>} />
                  <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />

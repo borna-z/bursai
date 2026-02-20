@@ -14,7 +14,7 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 function getInitialLocale(): Locale {
   // Check localStorage first
-  const stored = localStorage.getItem('drape-locale') as Locale | null;
+  const stored = localStorage.getItem('burs-locale') as Locale | null;
   if (stored && translations[stored]) return stored;
 
   // Try browser language
@@ -34,7 +34,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     const savedLocale = (profile?.preferences as Record<string, unknown>)?.locale as Locale | undefined;
     if (savedLocale && translations[savedLocale]) {
       setLocaleState(savedLocale);
-      localStorage.setItem('drape-locale', savedLocale);
+      localStorage.setItem('burs-locale', savedLocale);
     }
   }, [profile?.preferences]);
 
@@ -46,7 +46,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const setLocale = useCallback(async (newLocale: Locale) => {
     setLocaleState(newLocale);
-    localStorage.setItem('drape-locale', newLocale);
+    localStorage.setItem('burs-locale', newLocale);
 
     // Save to profile if available
     if (profile) {

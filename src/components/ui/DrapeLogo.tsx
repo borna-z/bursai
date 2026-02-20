@@ -24,7 +24,7 @@ export function DrapeLogo({ variant = 'horizontal', className, size = 'md', tint
     <span className="relative inline-block flex-shrink-0" style={{ width: iconSize, height: iconSize }}>
       <img
         src={drapeLogoSrc}
-        alt="DRAPE"
+        alt="BURS"
         width={iconSize}
         height={iconSize}
         className="object-contain dark:invert"
@@ -50,7 +50,7 @@ export function DrapeLogo({ variant = 'horizontal', className, size = 'md', tint
         color: tinted ? accentColor.hex : undefined,
       }}
     >
-      DRAPE
+      BURS
     </span>
   );
 

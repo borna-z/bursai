@@ -23,8 +23,8 @@ export default function HomePage() {
   const { canCreateOutfit } = useSubscription();
   const { weather } = useWeather();
   
-  const [selectedOccasion, setSelectedOccasion] = useState<string | null>(() => localStorage.getItem('drape_last_occasion'));
-  const [selectedStyle, setSelectedStyle] = useState<string | null>(() => localStorage.getItem('drape_last_style'));
+  const [selectedOccasion, setSelectedOccasion] = useState<string | null>(() => localStorage.getItem('burs_last_occasion'));
+  const [selectedStyle, setSelectedStyle] = useState<string | null>(() => localStorage.getItem('burs_last_style'));
   const [showPaywall, setShowPaywall] = useState(false);
 
   const occasions = [
@@ -56,8 +56,8 @@ export default function HomePage() {
       setShowPaywall(true);
       return;
     }
-    localStorage.setItem('drape_last_occasion', selectedOccasion);
-    if (selectedStyle) localStorage.setItem('drape_last_style', selectedStyle);
+    localStorage.setItem('burs_last_occasion', selectedOccasion);
+    if (selectedStyle) localStorage.setItem('burs_last_style', selectedStyle);
     navigate('/outfits/generate', {
       state: {
         occasion: selectedOccasion,

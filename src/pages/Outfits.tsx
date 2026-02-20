@@ -32,7 +32,7 @@ function OutfitCard({ outfit, onDelete, showPlannedDate, t }: {
   const plannedFor = (outfit as any).planned_for;
 
   return (
-    <Card className="cursor-pointer hover:shadow-md transition-all overflow-hidden active:scale-[0.99] animate-drape-in opacity-0 [animation-fill-mode:both]" onClick={() => navigate(`/outfits/${outfit.id}`)}>
+    <Card className="cursor-pointer hover:shadow-md transition-all overflow-hidden active:scale-[0.99] animate-burs-in opacity-0 [animation-fill-mode:both]" onClick={() => navigate(`/outfits/${outfit.id}`)}>
       <div className="flex h-24 bg-muted/30">
         {outfit.outfit_items.slice(0, 4).map((item, index) => (
           <div key={item.id} className={cn("flex-1 overflow-hidden", index < outfit.outfit_items.slice(0, 4).length - 1 && "border-r border-background")}>
@@ -131,14 +131,14 @@ export default function OutfitsPage() {
               <TabsTrigger value="saved" className="text-sm">{t('outfits.saved')} ({savedOutfits.length})</TabsTrigger>
               <TabsTrigger value="planned" className="text-sm">{t('outfits.planned')} ({plannedOutfits.length})</TabsTrigger>
             </TabsList>
-            <TabsContent value="recent" className="space-y-3 mt-0 stagger-drape">
+            <TabsContent value="recent" className="space-y-3 mt-0 stagger-burs">
               {recentOutfits.length > 0 ? recentOutfits.map((outfit) => (
                 <OutfitCard key={outfit.id} outfit={outfit} onDelete={handleDeleteOutfit} t={t} />
               )) : (
                 <EmptyState icon={Sparkles} title={t('outfits.no_outfits')} description={t('outfits.create_first')} action={{ label: t('outfits.create'), onClick: () => navigate('/'), icon: Sparkles }} />
               )}
             </TabsContent>
-            <TabsContent value="saved" className="space-y-3 mt-0 stagger-drape">
+            <TabsContent value="saved" className="space-y-3 mt-0 stagger-burs">
               {savedOutfits.length > 0 ? savedOutfits.map((outfit) => (
                 <OutfitCard key={outfit.id} outfit={outfit} onDelete={handleDeleteOutfit} t={t} />
               )) : (

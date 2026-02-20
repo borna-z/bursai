@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* DRAPE – Premium Scandinavian Design System */
+/* BURS – Premium Scandinavian Design System */
 /* 8pt Grid | Inter + Sora | Charcoal + Off-white + Indigo accent */
 
 @layer base {
@@ -308,15 +308,15 @@
 }
 
 
-/* Stagger children with drape-in animation */
-.stagger-drape > *:nth-child(1) { animation-delay: 0ms; }
-.stagger-drape > *:nth-child(2) { animation-delay: 50ms; }
-.stagger-drape > *:nth-child(3) { animation-delay: 100ms; }
-.stagger-drape > *:nth-child(4) { animation-delay: 150ms; }
-.stagger-drape > *:nth-child(5) { animation-delay: 200ms; }
-.stagger-drape > *:nth-child(6) { animation-delay: 250ms; }
-.stagger-drape > *:nth-child(7) { animation-delay: 300ms; }
-.stagger-drape > *:nth-child(8) { animation-delay: 350ms; }
-.stagger-drape > *:nth-child(9) { animation-delay: 400ms; }
-.stagger-drape > *:nth-child(10) { animation-delay: 450ms; }
-.stagger-drape > *:nth-child(n+11) { animation-delay: 500ms; }
+/* Stagger children with burs-in animation */
+.stagger-burs > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-burs > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-burs > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-burs > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-burs > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-burs > *:nth-child(6) { animation-delay: 250ms; }
+.stagger-burs > *:nth-child(7) { animation-delay: 300ms; }
+.stagger-burs > *:nth-child(8) { animation-delay: 350ms; }
+.stagger-burs > *:nth-child(9) { animation-delay: 400ms; }
+.stagger-burs > *:nth-child(10) { animation-delay: 450ms; }
+.stagger-burs > *:nth-child(n+11) { animation-delay: 500ms; }
