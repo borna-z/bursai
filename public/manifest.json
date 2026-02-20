@@ -3,6 +3,7 @@
   "short_name": "BURS",
   "description": "Din personliga AI-stylist",
   "start_url": "/auth",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#F6F4F1",
