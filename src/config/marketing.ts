@@ -7,7 +7,7 @@ export const MARKETING_CONFIG = {
   
   // Site metadata
   meta: {
-    title: 'BURS | Your Personal Stylist',
+    title: 'DRAPE | Your Personal Stylist',
     description: 'Your AI stylist learns your body, style, and calendar – and suggests outfits perfectly suited for your day. Private, smart, and built for everyday life.',
     ogImage: '/og-image.png',
   },
@@ -219,7 +219,7 @@ export const MARKETING_CONFIG = {
   
   // Footer
   footer: {
-    copyright: '© 2025 BURS',
+    copyright: '© 2025 DRAPE',
     links: [
       { label: 'Privacy Policy', href: '/privacy' },
       { label: 'Terms', href: '/terms' },
@@ -267,11 +267,11 @@ export const MARKETING_CONFIG = {
     sections: [
       {
         title: 'Acceptance',
-        content: 'By using BURS you accept these terms. If you do not accept, please do not use the service.',
+        content: 'By using DRAPE you accept these terms. If you do not accept, please do not use the service.',
       },
       {
         title: 'The Service',
-        content: 'BURS is a digital wardrobe manager and personal AI stylist that helps you organize garments, create outfits, and plan your wardrobe. The service is provided "as is" without warranties.',
+        content: 'DRAPE is a digital wardrobe manager and personal AI stylist that helps you organize garments, create outfits, and plan your wardrobe. The service is provided "as is" without warranties.',
       },
       {
         title: 'Your Content',

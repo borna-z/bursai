@@ -30,8 +30,8 @@
    return (
      <>
        <Helmet>
-           <title>{contact.title} | BURS</title>
-           <meta name="description" content="Kontakta oss för frågor om BURS." />
+            <title>{contact.title} | DRAPE</title>
+            <meta name="description" content="Kontakta oss för frågor om DRAPE." />
        </Helmet>
        
        <MarketingLayout>

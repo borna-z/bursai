@@ -1,8 +1,8 @@
-import bursLogoSrc from '@/assets/burs-logo.png';
+import drapeLogoSrc from '@/assets/drape-logo.png';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 
-interface BursLogoProps {
+interface DrapeLogoProps {
   variant?: 'icon' | 'wordmark' | 'horizontal';
   className?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -16,15 +16,15 @@ const sizeMap = {
   xl: { icon: 56, text: 'text-2xl' },
 };
 
-export function BursLogo({ variant = 'horizontal', className, size = 'md', tinted = true }: BursLogoProps) {
+export function DrapeLogo({ variant = 'horizontal', className, size = 'md', tinted = true }: DrapeLogoProps) {
   const { accentColor } = useTheme();
   const { icon: iconSize, text: textSize } = sizeMap[size];
 
   const Icon = (
     <span className="relative inline-block flex-shrink-0" style={{ width: iconSize, height: iconSize }}>
       <img
-        src={bursLogoSrc}
-        alt="BURS"
+        src={drapeLogoSrc}
+        alt="DRAPE"
         width={iconSize}
         height={iconSize}
         className="object-contain dark:invert"
@@ -50,7 +50,7 @@ export function BursLogo({ variant = 'horizontal', className, size = 'md', tinte
         color: tinted ? accentColor.hex : undefined,
       }}
     >
-      BURS
+      DRAPE
     </span>
   );
 
@@ -71,4 +71,4 @@ export function BursLogo({ variant = 'horizontal', className, size = 'md', tinte
 }
 
 // Backward-compatible alias
-export const DrapeLogo = BursLogo;
+export const BursLogo = DrapeLogo;
