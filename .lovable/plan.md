@@ -1,21 +1,33 @@
 
 
-## Rename all "DRAPE" branding to "BURS"
+## Fix: PWA Still Opens to Website
 
-There are a few leftover references to "DRAPE" in the codebase. Here's exactly what will change:
+The manifest file already has `start_url: "/auth"` set correctly. The most likely reason the PWA still opens the website is that **the old version is cached on your device**. When you first added the app, the manifest said `start_url: "/"`, and that gets baked into the installed app.
 
-### 1. ResetPassword page -- text says "DRAPE"
-**`src/pages/ResetPassword.tsx`** (line 114): Change `DRAPE` to `BURS`
+### What you need to do
 
-### 2. Tailwind config -- comment says "DRAPE"
-**`tailwind.config.ts`** (line 64): Update comment from `// DRAPE extended semantic tokens` to `// BURS extended semantic tokens`
+**Remove the app from your home screen, then re-add it.** This forces your phone to read the updated manifest with the new `/auth` start URL.
 
-### 3. DrapeLogo component -- rename to BursLogo
-**`src/components/ui/DrapeLogo.tsx`**: Rename the component and interface from `DrapeLogo`/`DrapeLogoProps` to `BursLogo`/`BursLogoProps`. The file itself can stay (it's not imported anywhere currently), but the naming will be consistent.
+- **iPhone**: Long-press the app icon > Remove App
+- **Android**: Long-press the app icon > Remove/Uninstall
 
-### Not changing (animation names)
-The CSS animation names `drape-in` and `drape-out` in tailwind config and their usage across components (`animate-drape-in`, `stagger-drape`) are internal animation names, not user-facing branding. These are fine to leave as-is since renaming them would touch many files for zero user impact.
+Then go back to the website in your browser and "Add to Home Screen" again.
 
-### Not changing (asset file)
-`src/assets/drape-logo.png` exists but is not imported or used anywhere. It can be left or removed -- no user impact.
+### Code change (small improvement)
+
+To make the PWA scope explicit, I'll add a `scope` field to the manifest. This tells the browser exactly which URLs belong to the app:
+
+**`public/manifest.json`** -- Add `"scope": "/"` so the entire site is within the PWA scope, but the start point is `/auth`:
+
+```json
+{
+  "name": "BURS",
+  "short_name": "BURS",
+  "start_url": "/auth",
+  "scope": "/",
+  ...
+}
+```
+
+This is a minor best-practice addition. The main fix is re-adding the app to your home screen.
 
