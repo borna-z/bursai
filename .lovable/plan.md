@@ -1,28 +1,26 @@
 
 
-## Fix Forgot Password
+## Remove Phone Screenshot and Improve Logo Quality
 
-### The Problem
-When a user clicks the password reset link from their email, they land on `/reset-password` but see "Invalid reset link" instead of the password form. This happens because:
+### 1. Remove the Phone Screenshot from Hero
+The hero section currently shows a phone mockup with `app-screenshot-home.png` on the right side (lines 124-129). This entire block will be removed, and the left-side content (headline, description, buttons) will be centered full-width instead of split 50/50.
 
-1. The recovery link contains a token in the URL hash (`#type=recovery&access_token=...`)
-2. The `AuthContext` (parent provider) processes this token first and fires the `PASSWORD_RECOVERY` event
-3. By the time `ResetPassword` component mounts and subscribes to `onAuthStateChange`, the event has already passed
-4. The hash has been consumed, so the fallback hash check also fails
-5. Result: `isRecovery` stays `false` and the user sees the error screen
+- Remove the `appScreenshot` import
+- Remove the phone mockup `div` (lines 124-129)
+- Change the hero layout from side-by-side (`md:flex-row`) to centered single-column
+- Update the text container from `md:w-1/2` to full-width centered
 
-### The Fix
-Update `ResetPassword.tsx` to be more robust:
+### 2. Higher Quality Logo
+The current `BursMonogram` component uses a raster PNG image (`burs-hanger-logo.png`), which loses quality at larger sizes. It will be replaced with an inline SVG version of the hanger logo, ensuring crisp rendering at any size.
 
-1. **Check for an existing session on mount** -- after the hash is consumed, there's still a valid session. Call `supabase.auth.getSession()` and if a session exists, show the reset form.
-2. **Keep the `PASSWORD_RECOVERY` listener** as a belt-and-suspenders approach
-3. **Keep the hash check** as an additional fallback
+- Update `BursMonogram.tsx` to render an SVG hanger icon instead of a PNG image
+- Remove the PNG import dependency
+- The SVG will use `currentColor` so it adapts to light/dark themes automatically
 
 ### Technical Details
 
 | File | Change |
 |------|--------|
-| `src/pages/ResetPassword.tsx` | In the `useEffect`, also call `supabase.auth.getSession()` and set `isRecovery = true` if a valid session exists (since the user can only reach this page from the recovery email link). Also check URL search params for `type=recovery` in addition to the hash. |
-
-The key insight: if a user arrives at `/reset-password` with an active session, they got there via the recovery email -- so we can safely show the password form.
+| `src/pages/Landing.tsx` | Remove `appScreenshot` import. Remove the phone mockup div (lines 124-129). Change hero layout to centered single-column. Update text container width classes. |
+| `src/components/ui/BursMonogram.tsx` | Replace PNG `<img>` with an inline SVG hanger/coat-hook monogram that scales crisply at any size. |
 
