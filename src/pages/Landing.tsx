@@ -67,7 +67,7 @@ export default function Landing() {
             <img
               src={bursLogo}
               alt="BURS"
-              className="w-28 h-28 md:w-40 md:h-40 object-contain dark:invert"
+              className="w-28 h-28 md:w-40 md:h-40 object-contain rounded-2xl"
             />
           </div>
 
@@ -186,7 +186,7 @@ export default function Landing() {
             <img
               src={bursLogo}
               alt="BURS"
-              className="w-12 h-12 mx-auto object-contain dark:invert"
+              className="w-12 h-12 mx-auto object-contain rounded-lg"
             />
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
               Ready to upgrade<br />your routine?
@@ -209,7 +209,7 @@ export default function Landing() {
         <footer className="px-6 py-10 border-t border-border">
           <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-muted-foreground tracking-wide">
             <div className="flex items-center gap-2">
-              <img src={bursLogo} alt="BURS" className="w-5 h-5 object-contain dark:invert" />
+              <img src={bursLogo} alt="BURS" className="w-5 h-5 object-contain rounded-sm" />
               <span className="font-semibold text-foreground tracking-[0.12em]" style={{ fontFamily: "'Sora', sans-serif" }}>BURS</span>
             </div>
             <div className="flex gap-6">

@@ -1,4 +1,4 @@
-import drapeLogoSrc from '@/assets/drape-logo.png';
+import bursLogoSrc from '@/assets/burs-logo.png';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -20,39 +20,33 @@ export function DrapeLogo({ variant = 'horizontal', className, size = 'md', tint
   const { accentColor } = useTheme();
   const { icon: iconSize, text: textSize } = sizeMap[size];
 
-  const Icon =
-  <span className="relative inline-block flex-shrink-0" style={{ width: iconSize, height: iconSize }}>
+  const Icon = (
+    <span className="relative inline-block flex-shrink-0" style={{ width: iconSize, height: iconSize }}>
       <img
+        alt="BURS"
+        width={iconSize}
+        height={iconSize}
+        className="object-contain rounded-lg"
+        style={{ imageRendering: 'auto' }}
+        src={bursLogoSrc}
+      />
+    </span>
+  );
 
-      alt="DRAPE"
-      width={iconSize}
-      height={iconSize}
-      className="object-contain dark:invert"
-      style={{ imageRendering: 'auto' }} src="/lovable-uploads/8d54dd15-c932-492f-bf3e-b1165bc0d516.png" />
-
-      {tinted &&
+  const Wordmark = (
     <span
-      className="absolute inset-0 mix-blend-color pointer-events-none"
-      style={{ backgroundColor: accentColor.hex }} />
-
-    }
-    </span>;
-
-
-  const Wordmark =
-  <span
-    className={cn(
-      'font-heading font-bold tracking-[0.12em] leading-none',
-      textSize
-    )}
-    style={{
-      fontFamily: "'Sora', sans-serif",
-      color: tinted ? accentColor.hex : undefined
-    }}>
-
-      DRAPE
-    </span>;
-
+      className={cn(
+        'font-heading font-bold tracking-[0.12em] leading-none',
+        textSize
+      )}
+      style={{
+        fontFamily: "'Sora', sans-serif",
+        color: tinted ? accentColor.hex : undefined
+      }}
+    >
+      BURS
+    </span>
+  );
 
   if (variant === 'icon') {
     return <span className={cn('inline-flex', className)}>{Icon}</span>;
@@ -66,8 +60,8 @@ export function DrapeLogo({ variant = 'horizontal', className, size = 'md', tint
     <span className={cn('inline-flex items-center gap-2', className)}>
       {Icon}
       {Wordmark}
-    </span>);
-
+    </span>
+  );
 }
 
 // Backward-compatible alias
