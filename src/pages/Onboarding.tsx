@@ -50,15 +50,19 @@ export default function OnboardingPage() {
   const [isSavingStyle, setIsSavingStyle] = useState(false);
   const [tutorialDone, setTutorialDone] = useState(false);
 
-  const handleSaveBodyMeasurements = async (data: { height_cm: number | null; weight_kg: number | null; gender: string | null }) => {
+  const handleSaveBodyMeasurements = async (data: { height_cm: number | null; weight_kg: number | null; gender: string | null; age: number | null }) => {
     setIsSavingBody(true);
     try {
       const updates: Record<string, unknown> = {};
       if (data.height_cm !== null) updates.height_cm = data.height_cm;
       if (data.weight_kg !== null) updates.weight_kg = data.weight_kg;
-      if (data.gender !== null) {
+      const hasPrefsUpdate = data.gender !== null || data.age !== null;
+      if (hasPrefsUpdate) {
         const currentPrefs = (profile?.preferences as Record<string, unknown>) || {};
-        updates.preferences = { ...currentPrefs, gender: data.gender };
+        const prefUpdates: Record<string, unknown> = { ...currentPrefs };
+        if (data.gender !== null) prefUpdates.gender = data.gender;
+        if (data.age !== null) prefUpdates.age = data.age;
+        updates.preferences = prefUpdates;
       }
       if (Object.keys(updates).length > 0) {
         await updateProfile.mutateAsync(updates);

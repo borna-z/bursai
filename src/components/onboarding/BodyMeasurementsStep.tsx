@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Ruler, Weight, Lock, ChevronRight, Loader2, Brain, User } from 'lucide-react';
+import { Ruler, Weight, Lock, ChevronRight, Loader2, Brain, User, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface BodyMeasurementsStepProps {
-  onComplete: (data: { height_cm: number | null; weight_kg: number | null; gender: string | null }) => Promise<void>;
+  onComplete: (data: { height_cm: number | null; weight_kg: number | null; gender: string | null; age: number | null }) => Promise<void>;
   onSkip: () => void;
   isSaving: boolean;
 }
@@ -17,6 +17,7 @@ const GENDER_OPTIONS = ['male', 'female', 'nonbinary'] as const;
 export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasurementsStepProps) {
   const { t } = useLanguage();
   const [gender, setGender] = useState<string | null>(null);
+  const [age, setAge] = useState('');
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
   const [heightError, setHeightError] = useState('');
@@ -35,7 +36,8 @@ export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasu
     if (height && !validateHeight(height)) return;
     const heightNum = height ? parseInt(height, 10) : null;
     const weightNum = weight ? parseInt(weight, 10) : null;
-    await onComplete({ height_cm: heightNum, weight_kg: weightNum, gender });
+    const ageNum = age ? parseInt(age, 10) : null;
+    await onComplete({ height_cm: heightNum, weight_kg: weightNum, gender, age: ageNum });
   };
 
   return (
@@ -76,6 +78,31 @@ export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasu
                 {t(`onboarding.body.${opt}`)}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Age input */}
+        <div className="space-y-2">
+          <Label htmlFor="age" className="flex items-center gap-2 text-sm font-medium">
+            <Calendar className="w-4 h-4 text-accent" />
+            {t('onboarding.body.age')}
+            <span className="text-muted-foreground font-normal">{t('onboarding.body.age_optional')}</span>
+          </Label>
+          <div className="relative">
+            <Input
+              id="age"
+              type="number"
+              inputMode="numeric"
+              placeholder="25"
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
+              className="pr-12 h-14 text-lg"
+              min={13}
+              max={120}
+            />
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">
+              {t('onboarding.body.age_suffix')}
+            </span>
           </div>
         </div>
 
