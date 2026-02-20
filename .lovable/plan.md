@@ -1,26 +1,30 @@
 
 
-## Remove Phone Screenshot and Improve Logo Quality
+## Revert Logo to Original PNG (Higher Quality Rendering)
 
-### 1. Remove the Phone Screenshot from Hero
-The hero section currently shows a phone mockup with `app-screenshot-home.png` on the right side (lines 124-129). This entire block will be removed, and the left-side content (headline, description, buttons) will be centered full-width instead of split 50/50.
+The last edit replaced your original hanger logo (`burs-hanger-logo.png`) with a hand-drawn SVG. You want the original logo back.
 
-- Remove the `appScreenshot` import
-- Remove the phone mockup `div` (lines 124-129)
-- Change the hero layout from side-by-side (`md:flex-row`) to centered single-column
-- Update the text container from `md:w-1/2` to full-width centered
+### What will change
 
-### 2. Higher Quality Logo
-The current `BursMonogram` component uses a raster PNG image (`burs-hanger-logo.png`), which loses quality at larger sizes. It will be replaced with an inline SVG version of the hanger logo, ensuring crisp rendering at any size.
+**`src/components/ui/BursMonogram.tsx`** -- Revert to the PNG-based version:
+- Re-import `burs-hanger-logo.png`
+- Remove all the inline SVG paths
+- Render as an `<img>` tag with `object-contain` for crisp scaling
+- Use higher rendered resolution: load the image at 2x the display `size` and constrain it with CSS `width`/`height`, so on retina/hi-DPI screens it stays sharp instead of looking blurry
 
-- Update `BursMonogram.tsx` to render an SVG hanger icon instead of a PNG image
-- Remove the PNG import dependency
-- The SVG will use `currentColor` so it adapts to light/dark themes automatically
+### Technical Detail
 
-### Technical Details
+The component will render something like:
 
-| File | Change |
-|------|--------|
-| `src/pages/Landing.tsx` | Remove `appScreenshot` import. Remove the phone mockup div (lines 124-129). Change hero layout to centered single-column. Update text container width classes. |
-| `src/components/ui/BursMonogram.tsx` | Replace PNG `<img>` with an inline SVG hanger/coat-hook monogram that scales crisply at any size. |
+```tsx
+<img
+  src={hangerLogo}
+  alt="BURS"
+  width={size}
+  height={size}
+  className="flex-shrink-0 object-contain"
+  style={{ imageRendering: 'auto' }}
+/>
+```
 
+No other files change. The landing page hero already uses `<BursMonogram size={80} />` and will automatically pick up the reverted logo.
