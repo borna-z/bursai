@@ -1,20 +1,17 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { format, addDays, isSameDay, isToday, isTomorrow } from 'date-fns';
-import { sv } from 'date-fns/locale';
 import { Wand2, Shirt, Loader2, CalendarDays, Repeat, Info, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { WeekStrip } from '@/components/plan/WeekStrip';
-import { MiniDayCard } from '@/components/plan/MiniDayCard';
 import { PlanningSheet } from '@/components/plan/PlanningSheet';
 import { QuickGenerateSheet } from '@/components/plan/QuickGenerateSheet';
 import { SwapSheet } from '@/components/plan/SwapSheet';
@@ -25,7 +22,6 @@ import { DaySummaryCard } from '@/components/plan/DaySummaryCard';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useDaySummary } from '@/hooks/useDaySummary';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { 
   usePlannedOutfits, 
   useUpsertPlannedOutfit, 
@@ -50,7 +46,6 @@ export default function PlanPage() {
   useBackgroundSyncNotification();
   const navigate = useNavigate();
   const location = useLocation();
-  const isMobile = useIsMobile();
   const { t } = useLanguage();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -87,10 +82,6 @@ export default function PlanPage() {
   const markWorn = useMarkOutfitWorn();
   const undoMarkWorn = useUndoMarkWorn();
 
-  const weekDays = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
-  }, []);
-
   const getPlannedForDate = useCallback((date: Date): PlannedOutfit | null => {
     const dateStr = format(date, 'yyyy-MM-dd');
     return plannedOutfits.find(p => p.date === dateStr) || null;
@@ -102,7 +93,7 @@ export default function PlanPage() {
   const isWorn = plannedOutfit?.status === 'worn';
 
   // Date label
-  let dateLabel = format(selectedDate, 'EEEE d MMMM', { locale: sv });
+  let dateLabel = format(selectedDate, 'EEEE d MMMM');
   if (isToday(selectedDate)) dateLabel = t('plan.today');
   else if (isTomorrow(selectedDate)) dateLabel = t('plan.tomorrow');
 
@@ -203,160 +194,200 @@ export default function PlanPage() {
 
   const hasGarments = garments.length > 0;
 
-  // ── Shared detail content (used in both mobile and desktop) ──
-  const renderDayDetail = () => (
-    <>
-      {/* Weather badge */}
-      <div className="flex items-center justify-between">
-        <WeatherForecastBadge date={selectedDateStr} compact={false} />
-        {isWorn && (
-          <Badge variant="secondary" className="text-xs bg-accent/10 text-accent">
-            <Check className="w-3 h-3 mr-1" />
-            {t('plan.worn')}
-          </Badge>
-        )}
+  return (
+    <AppLayout>
+      {/* ─── Sticky header ─── */}
+      <header className="sticky top-0 bg-background/95 backdrop-blur-sm border-b z-20">
+        <div className="flex items-center justify-between px-4 h-14 max-w-lg mx-auto">
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
+              <button className="flex items-center gap-2 hover:opacity-70 transition-opacity press">
+                <h1 className="text-lg font-semibold capitalize">{dateLabel}</h1>
+                <CalendarDays className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(d) => { if (d) { setSelectedDate(d); setCalendarOpen(false); } }}
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+
+          <Button 
+            size="sm" 
+            variant="ghost"
+            onClick={() => setQuickPlanSheetOpen(true)}
+            disabled={!hasGarments}
+            className="press"
+          >
+            <Wand2 className="w-4 h-4 text-accent" />
+          </Button>
+        </div>
+      </header>
+
+      {/* ─── Single-column content ─── */}
+      <div className="max-w-lg mx-auto px-4 py-4 space-y-5">
+        {/* Calendar connect nudge */}
+        <CalendarConnectBanner />
+
+        {/* Week navigation */}
+        <WeekStrip 
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+          plannedOutfits={plannedOutfits}
+        />
+
+        {/* Day content – animate on day switch */}
+        <div 
+          key={selectedDateStr} 
+          className="space-y-5 animate-drape-in"
+        >
+          {/* Weather line */}
+          <div className="flex items-center justify-between">
+            <WeatherForecastBadge date={selectedDateStr} compact={false} />
+            {isWorn && (
+              <Badge variant="secondary" className="text-xs bg-success/10 text-success">
+                <Check className="w-3 h-3 mr-1" />
+                {t('plan.worn')}
+              </Badge>
+            )}
+          </div>
+
+          {/* AI Day Summary */}
+          <DaySummaryCard
+            summary={daySummary}
+            isLoading={isSummaryLoading}
+            onGenerateFromHint={() => setQuickGenerateSheetOpen(true)}
+          />
+
+          {/* Outfit section */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : !hasGarments ? (
+            <EmptyState
+              icon={Shirt}
+              title={t('plan.add_garments_first')}
+              description={t('plan.need_garments')}
+              action={{ label: t('wardrobe.add'), onClick: () => navigate('/wardrobe/add'), icon: Shirt }}
+            />
+          ) : hasOutfit ? (
+            <div className="space-y-4">
+              {/* Outfit image grid */}
+              <div 
+                className="rounded-2xl overflow-hidden bg-muted/20 cursor-pointer press"
+                onClick={() => navigate(`/outfits/${outfit.id}`)}
+              >
+                <div className="grid grid-cols-2 gap-px bg-border">
+                  {outfit.outfit_items.slice(0, 4).map((item) => (
+                    <div key={item.id} className="bg-card aspect-[4/5]">
+                      <LazyImageSimple
+                        imagePath={item.garment?.image_path}
+                        alt={item.garment?.title || item.slot}
+                        className="w-full h-full"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tags */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="secondary" className="capitalize text-xs">
+                  <OccasionIcon className="w-3 h-3 mr-1" />
+                  {outfit.occasion}
+                </Badge>
+                {outfit.style_vibe && (
+                  <Badge variant="outline" className="text-xs">{outfit.style_vibe}</Badge>
+                )}
+              </div>
+
+              {/* Explanation */}
+              {outfit.explanation && (
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {outfit.explanation}
+                </p>
+              )}
+
+              {/* Primary actions */}
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => { setCurrentOutfitId(outfit.id); setSwapSheetOpen(true); }}
+                  className="flex-1 rounded-xl press"
+                >
+                  <Repeat className="w-4 h-4 mr-1.5" />
+                  {t('plan.swap')}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => navigate(`/outfits/${outfit.id}`)}
+                  className="flex-1 rounded-xl press"
+                >
+                  <Info className="w-4 h-4 mr-1.5" />
+                  {t('plan.details')}
+                </Button>
+              </div>
+
+              {/* Secondary actions */}
+              <div className="flex items-center gap-4 pt-2 border-t">
+                {!isWorn && (
+                  <button 
+                    onClick={handleMarkWorn}
+                    className="text-xs text-muted-foreground hover:text-success flex items-center gap-1.5 transition-colors press"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    {t('plan.mark_worn')}
+                  </button>
+                )}
+                <button 
+                  onClick={handleRemove}
+                  className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1.5 transition-colors ml-auto press"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  {t('plan.remove')}
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Empty state */
+            <div className="flex flex-col items-center justify-center py-16 text-center space-y-5">
+              <div className="w-16 h-16 rounded-2xl bg-muted/40 flex items-center justify-center">
+                <CalendarDays className="w-7 h-7 text-muted-foreground/40" />
+              </div>
+              <p className="text-sm text-muted-foreground">{t('plan.no_outfit')}</p>
+              <div className="flex flex-col items-center gap-2 w-full max-w-xs">
+                <Button 
+                  onClick={() => setQuickGenerateSheetOpen(true)}
+                  disabled={isGenerating || upsertPlanned.isPending}
+                  className="w-full rounded-xl press"
+                >
+                  <Sparkles className="w-4 h-4 mr-1.5" />
+                  {t('plan.generate')}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setPlanningSheetOpen(true)}
+                  disabled={isGenerating || upsertPlanned.isPending}
+                  className="text-muted-foreground press"
+                >
+                  <Plus className="w-4 h-4 mr-1.5" />
+                  {t('plan.plan')}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* AI Day Summary */}
-      <DaySummaryCard
-        summary={daySummary}
-        isLoading={isSummaryLoading}
-        onGenerateFromHint={() => setQuickGenerateSheetOpen(true)}
-      />
-
-      {/* Loading state */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-        </div>
-      ) : !hasGarments ? (
-        <EmptyState
-          icon={Shirt}
-          title={t('plan.add_garments_first')}
-          description={t('plan.need_garments')}
-          action={{ label: t('wardrobe.add'), onClick: () => navigate('/wardrobe/add'), icon: Shirt }}
-        />
-      ) : hasOutfit ? (
-        <div className="space-y-4">
-          {/* Outfit image grid */}
-          <div 
-            className="rounded-2xl overflow-hidden bg-muted/20 cursor-pointer active:scale-[0.99] transition-transform"
-            onClick={() => navigate(`/outfits/${outfit.id}`)}
-          >
-            <div className={cn(
-              "grid grid-cols-2 gap-px bg-border",
-            )}>
-              {outfit.outfit_items.slice(0, 4).map((item) => (
-                <div key={item.id} className={cn(
-                  "bg-card",
-                  isMobile ? "aspect-[4/5]" : "aspect-[3/4]"
-                )}>
-                  <LazyImageSimple
-                    imagePath={item.garment?.image_path}
-                    alt={item.garment?.title || item.slot}
-                    className="w-full h-full"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Tags */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="secondary" className="capitalize text-xs">
-              <OccasionIcon className="w-3 h-3 mr-1" />
-              {outfit.occasion}
-            </Badge>
-            {outfit.style_vibe && (
-              <Badge variant="outline" className="text-xs">{outfit.style_vibe}</Badge>
-            )}
-          </div>
-
-          {/* Explanation */}
-          {outfit.explanation && (
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              {outfit.explanation}
-            </p>
-          )}
-
-          {/* Primary actions */}
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => { setCurrentOutfitId(outfit.id); setSwapSheetOpen(true); }}
-              className="flex-1 rounded-xl"
-            >
-              <Repeat className="w-4 h-4 mr-1.5" />
-              {t('plan.swap')}
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => navigate(`/outfits/${outfit.id}`)}
-              className="flex-1 rounded-xl"
-            >
-              <Info className="w-4 h-4 mr-1.5" />
-              {t('plan.details')}
-            </Button>
-          </div>
-
-          {/* Secondary actions */}
-          <div className="flex items-center gap-4 pt-2 border-t">
-            {!isWorn && (
-              <button 
-                onClick={handleMarkWorn}
-                className="text-xs text-muted-foreground hover:text-accent flex items-center gap-1.5 transition-colors"
-              >
-                <Check className="w-3.5 h-3.5" />
-                {t('plan.mark_worn')}
-              </button>
-            )}
-            <button 
-              onClick={handleRemove}
-              className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1.5 transition-colors ml-auto"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              {t('plan.remove')}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center">
-              <CalendarDays className="w-7 h-7 text-muted-foreground/50" />
-            </div>
-            <p className="text-sm text-muted-foreground">{t('plan.no_outfit')}</p>
-            <div className="flex flex-col items-center gap-2 w-full max-w-xs">
-              <Button 
-                onClick={() => setQuickGenerateSheetOpen(true)}
-                disabled={isGenerating || upsertPlanned.isPending}
-                className="w-full rounded-xl bg-accent text-accent-foreground hover:bg-accent/90"
-              >
-                <Sparkles className="w-4 h-4 mr-1.5" />
-                {t('plan.generate')}
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setPlanningSheetOpen(true)}
-                disabled={isGenerating || upsertPlanned.isPending}
-                className="rounded-xl"
-              >
-                <Plus className="w-4 h-4 mr-1.5" />
-                {t('plan.plan')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-
-  // ── Shared sheets ──
-  const renderSheets = () => (
-    <>
+      {/* ─── Sheets ─── */}
       <PlanningSheet
         open={planningSheetOpen}
         onOpenChange={setPlanningSheetOpen}
@@ -399,7 +430,7 @@ export default function PlanPage() {
             const dateStr = format(date, 'yyyy-MM-dd');
             try {
               await upsertPlanned.mutateAsync({ date: dateStr, outfitId: preselectedOutfitId });
-              toast.success(`${t('plan.planned')} ${format(date, 'd MMM', { locale: sv })}`);
+              toast.success(t('plan.planned'));
               setPreselectSheetOpen(false);
               window.history.replaceState({}, document.title);
             } catch {
@@ -409,93 +440,6 @@ export default function PlanPage() {
         }}
         isLoading={upsertPlanned.isPending}
       />
-    </>
-  );
-
-  return (
-    <AppLayout>
-      {/* Header */}
-      <header className="sticky top-0 bg-background/95 backdrop-blur-sm border-b z-20">
-        <div className={cn(
-          "flex items-center justify-between px-4 h-14 mx-auto",
-          isMobile ? "max-w-lg" : "max-w-5xl"
-        )}>
-          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-            <PopoverTrigger asChild>
-              <button className="flex items-center gap-2 hover:opacity-70 transition-opacity">
-                <h1 className="text-lg font-semibold capitalize">{isMobile ? dateLabel : t('plan.plan_week')}</h1>
-                <CalendarDays className="w-4 h-4 text-accent" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(d) => { if (d) { setSelectedDate(d); setCalendarOpen(false); } }}
-                className="p-3 pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
-
-          <Button 
-            size="sm" 
-            variant="ghost"
-            onClick={() => setQuickPlanSheetOpen(true)}
-            disabled={!hasGarments}
-            className=""
-          >
-            <Wand2 className="w-4 h-4 text-accent" />
-          </Button>
-        </div>
-      </header>
-
-      {isMobile ? (
-        /* ═══════ MOBILE LAYOUT (unchanged) ═══════ */
-        <div className="p-4 space-y-5">
-          <CalendarConnectBanner />
-          <WeekStrip 
-            selectedDate={selectedDate}
-            onSelectDate={setSelectedDate}
-            plannedOutfits={plannedOutfits}
-          />
-          <div className="animate-drape-in">
-            {renderDayDetail()}
-          </div>
-        </div>
-      ) : (
-        /* ═══════ DESKTOP LAYOUT ═══════ */
-        <div className="max-w-5xl mx-auto p-6">
-          <CalendarConnectBanner />
-          <div className="grid grid-cols-[380px_1fr] gap-6 mt-4">
-            {/* Left panel: week overview */}
-            <div className="space-y-2 stagger-drape">
-              {weekDays.map((day) => (
-                <MiniDayCard
-                  key={day.toISOString()}
-                  date={day}
-                  plannedOutfit={getPlannedForDate(day)}
-                  isSelected={isSameDay(day, selectedDate)}
-                  onClick={() => setSelectedDate(day)}
-                />
-              ))}
-            </div>
-
-            {/* Right panel: selected day detail */}
-            <div 
-              key={selectedDateStr} 
-              className="space-y-5 animate-fade-in"
-            >
-              {/* Desktop date heading */}
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-semibold capitalize">{dateLabel}</h2>
-              </div>
-              {renderDayDetail()}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {renderSheets()}
     </AppLayout>
   );
 }

@@ -1,6 +1,7 @@
 import { Briefcase, Dumbbell, PartyPopper, Heart, Sparkles, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
+import { useLanguage } from '@/contexts/LanguageContext';
 import type { OccasionSlot } from '@/hooks/useSmartDayRecommendation';
 
 interface SmartDayBannerProps {
@@ -9,24 +10,26 @@ interface SmartDayBannerProps {
   className?: string;
 }
 
-const occasionConfig: Record<string, { icon: React.ElementType; label: string; colorClass: string }> = {
-  jobb:     { icon: Briefcase,   label: 'Jobbet',    colorClass: 'text-blue-600 dark:text-blue-400 bg-blue-500/10' },
-  träning:  { icon: Dumbbell,    label: 'Träning',   colorClass: 'text-green-600 dark:text-green-400 bg-green-500/10' },
-  fest:     { icon: PartyPopper, label: 'Fest',      colorClass: 'text-purple-600 dark:text-purple-400 bg-purple-500/10' },
-  dejt:     { icon: Heart,       label: 'Dejt',      colorClass: 'text-rose-600 dark:text-rose-400 bg-rose-500/10' },
+const occasionConfig: Record<string, { icon: React.ElementType; label: string }> = {
+  jobb:     { icon: Briefcase,   label: 'Jobb' },
+  träning:  { icon: Dumbbell,    label: 'Träning' },
+  fest:     { icon: PartyPopper, label: 'Fest' },
+  dejt:     { icon: Heart,       label: 'Dejt' },
 };
 
 export function SmartDayBanner({ slots, onGenerate, className }: SmartDayBannerProps) {
+  const { t } = useLanguage();
+
   if (slots.length === 0) return null;
 
   return (
     <div className={cn(
-      'rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-3',
+      'rounded-xl bg-muted/40 p-3 space-y-3',
       className
     )}>
       <div className="flex items-center gap-2">
-        <Sparkles className="w-4 h-4 text-primary" />
-        <p className="text-xs font-semibold text-primary">Smart förslag baserat på dina händelser</p>
+        <Sparkles className="w-4 h-4 text-muted-foreground" />
+        <p className="text-xs font-medium text-muted-foreground">{t('smart.title')}</p>
       </div>
 
       <div className="space-y-2">
@@ -34,14 +37,13 @@ export function SmartDayBanner({ slots, onGenerate, className }: SmartDayBannerP
           const config = occasionConfig[slot.occasion] || {
             icon: Sparkles,
             label: slot.occasion,
-            colorClass: 'text-muted-foreground bg-muted',
           };
           const Icon = config.icon;
 
           return (
             <div key={idx} className="space-y-1.5">
               <div className="flex items-center gap-1.5">
-                <div className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium', config.colorClass)}>
+                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border border-border text-foreground/70">
                   <Icon className="w-3 h-3" />
                   <span>{config.label}</span>
                 </div>
@@ -72,9 +74,9 @@ export function SmartDayBanner({ slots, onGenerate, className }: SmartDayBannerP
 
       <button
         onClick={onGenerate}
-        className="flex items-center gap-1 text-xs text-primary font-medium hover:underline active:opacity-70 transition-opacity"
+        className="flex items-center gap-1 text-xs text-foreground/70 font-medium hover:text-foreground active:opacity-70 transition-all press"
       >
-        Skapa outfit utifrån detta
+        {t('smart.create_from')}
         <ChevronRight className="w-3.5 h-3.5" />
       </button>
     </div>

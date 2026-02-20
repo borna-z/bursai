@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Calendar, ChevronDown, ChevronUp, Loader2, RefreshCw, ExternalLink } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 
 function GoogleIcon({ className }: { className?: string }) {
@@ -18,6 +19,7 @@ function GoogleIcon({ className }: { className?: string }) {
 }
 
 export function CalendarConnectBanner() {
+  const { t } = useLanguage();
   const { connectedProvider, connectGoogle, isSyncing } = useCalendarSync();
   const [expanded, setExpanded] = useState(false);
   const [inputUrl, setInputUrl] = useState('');
@@ -25,7 +27,6 @@ export function CalendarConnectBanner() {
   const [showIcs, setShowIcs] = useState(false);
   const { saveIcsUrl, syncCalendar } = useCalendarSync();
 
-  // Don't show if already connected
   if (connectedProvider) return null;
 
   const handleIcsConnect = async () => {
@@ -48,15 +49,15 @@ export function CalendarConnectBanner() {
         onClick={() => setExpanded(true)}
         className={cn(
           'w-full flex items-center gap-3 rounded-xl border border-dashed p-3',
-          'bg-muted/30 hover:bg-muted/50 transition-colors text-left'
+          'bg-muted/30 hover:bg-muted/50 transition-colors text-left press'
         )}
       >
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
-          <Calendar className="w-4 h-4 text-primary" />
+        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-muted">
+          <Calendar className="w-4 h-4 text-muted-foreground" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium">Koppla din kalender</p>
-          <p className="text-xs text-muted-foreground">Smartare outfit-förslag baserat på dina händelser</p>
+          <p className="text-sm font-medium">{t('calendar.connect_title')}</p>
+          <p className="text-xs text-muted-foreground">{t('calendar.connect_subtitle')}</p>
         </div>
         <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
       </button>
@@ -64,19 +65,18 @@ export function CalendarConnectBanner() {
   }
 
   return (
-    <Card className="border-primary/20">
+    <Card className="border-border">
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium">Koppla kalender</span>
+            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium">{t('calendar.connect_title')}</span>
           </div>
-          <button onClick={() => setExpanded(false)} className="text-muted-foreground">
+          <button onClick={() => setExpanded(false)} className="text-muted-foreground press">
             <ChevronUp className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Google Calendar option */}
         <Button
           onClick={connectGoogle}
           disabled={isLoading}
@@ -89,13 +89,12 @@ export function CalendarConnectBanner() {
           </div>
         </Button>
 
-        {/* ICS fallback */}
         {!showIcs ? (
           <button
             onClick={() => setShowIcs(true)}
             className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors py-1"
           >
-            Eller koppla med ICS-länk (Apple, Outlook)
+            {t('calendar.or_ics')}
           </button>
         ) : (
           <div className="space-y-2">
@@ -103,7 +102,7 @@ export function CalendarConnectBanner() {
               type="url"
               value={inputUrl}
               onChange={(e) => setInputUrl(e.target.value)}
-              placeholder="Klistra in din ICS-länk"
+              placeholder={t('calendar.paste_ics')}
               disabled={isLoading}
               className="text-sm"
             />
@@ -118,7 +117,7 @@ export function CalendarConnectBanner() {
               ) : (
                 <RefreshCw className="w-4 h-4 mr-2" />
               )}
-              Synka kalender
+              {t('calendar.sync')}
             </Button>
           </div>
         )}
