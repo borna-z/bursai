@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
@@ -15,13 +16,15 @@ export interface GarmentFilters {
   sortBy?: 'last_worn_at' | 'created_at' | 'wear_count';
 }
 
+const PAGE_SIZE = 30;
+
 export function useGarments(filters?: GarmentFilters) {
   const { user } = useAuth();
   
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['garments', user?.id, filters],
-    queryFn: async () => {
-      if (!user) return [];
+    queryFn: async ({ pageParam = 0 }) => {
+      if (!user) return { items: [] as Garment[], nextPage: undefined };
       
       let query = supabase
         .from('garments')
@@ -52,6 +55,11 @@ export function useGarments(filters?: GarmentFilters) {
       const sortBy = filters?.sortBy || 'created_at';
       query = query.order(sortBy, { ascending: false, nullsFirst: false });
       
+      // Pagination
+      const from = pageParam * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      query = query.range(from, to);
+      
       const { data, error } = await query;
       
       if (error) throw error;
@@ -67,8 +75,13 @@ export function useGarments(filters?: GarmentFilters) {
         );
       }
       
-      return results;
+      return {
+        items: results,
+        nextPage: data.length === PAGE_SIZE ? pageParam + 1 : undefined,
+      };
     },
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    initialPageParam: 0,
     enabled: !!user,
     staleTime: 2 * 60 * 1000,
   });
