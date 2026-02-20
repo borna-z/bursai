@@ -34,7 +34,7 @@ export default function Landing() {
     { id: 'how-it-works', label: 'How it works' },
     { id: 'sustainability', label: 'Sustainability' },
     { id: 'pricing', label: 'Pricing' },
-    { id: 'mission', label: 'Our Mission' },
+    { id: 'download', label: 'Download' },
   ];
 
   return (
@@ -67,7 +67,7 @@ export default function Landing() {
                   onClick={() => navigate('/auth')}
                   className="hidden md:block bg-foreground text-background px-6 py-2.5 rounded-full text-sm font-medium hover:opacity-90 transition-all duration-300 hover:scale-105"
                 >
-                  Get Early Access
+                  Log In
                 </button>
                 <button className="md:hidden text-muted-foreground hover:text-foreground p-2" onClick={() => setMobileOpen(!mobileOpen)}>
                   {mobileOpen ? <X size={24} strokeWidth={1.5} /> : <Menu size={24} strokeWidth={1.5} />}
@@ -82,7 +82,7 @@ export default function Landing() {
                   {navLinks.map(l => (
                     <button key={l.id} onClick={() => scrollTo(l.id)} className="py-3 text-left hover:text-foreground transition-colors">{l.label}</button>
                   ))}
-                  <button onClick={() => { setMobileOpen(false); navigate('/auth'); }} className="mt-2 bg-foreground text-background py-3 rounded-full text-center font-medium">Get Early Access</button>
+                  <button onClick={() => { setMobileOpen(false); navigate('/auth'); }} className="mt-2 bg-foreground text-background py-3 rounded-full text-center font-medium">Log In</button>
                 </div>
               </div>
             )}
@@ -286,9 +286,68 @@ export default function Landing() {
                 onClick={() => navigate('/auth')}
                 className="inline-flex items-center gap-2 bg-foreground text-background h-14 px-12 rounded-full text-sm font-semibold tracking-widest uppercase hover:opacity-90 transition-all hover:scale-105"
               >
-                Get Early Access
+                Log In
                 <ArrowRight className="w-4 h-4" />
               </button>
+            </div>
+          </section>
+
+          {/* ── How to Download ── */}
+          <section id="download" className="px-6 py-28 md:py-40 bg-muted/30">
+            <div className="max-w-4xl mx-auto">
+              <p className="text-[10px] tracking-[0.4em] uppercase text-muted-foreground text-center mb-4 scroll-reveal" style={{ '--delay': '0ms' } as React.CSSProperties}>Download</p>
+              <h2 className="text-3xl md:text-4xl font-bold text-center tracking-tight mb-6 scroll-reveal" style={{ fontFamily: "'Sora', sans-serif", '--delay': '80ms' } as React.CSSProperties}>
+                Install BURS on your phone.
+              </h2>
+              <p className="text-center text-muted-foreground text-sm mb-16 scroll-reveal" style={{ '--delay': '120ms' } as React.CSSProperties}>
+                No app store needed. Add it directly from your browser.
+              </p>
+
+              <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+                {/* iPhone */}
+                <div className="bg-background border border-border rounded-2xl p-8 md:p-10 scroll-reveal" style={{ '--delay': '160ms' } as React.CSSProperties}>
+                  <div className="flex items-center gap-3 mb-6">
+                    <svg className="w-7 h-7 text-foreground" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" /></svg>
+                    <h3 className="text-lg font-semibold tracking-tight" style={{ fontFamily: "'Sora', sans-serif" }}>iPhone</h3>
+                  </div>
+                  <ol className="space-y-4 text-sm text-muted-foreground">
+                    <li className="flex items-start gap-3">
+                      <span className="shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-foreground">1</span>
+                      <span>Open <strong className="text-foreground">bursai.lovable.app</strong> in Safari</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-foreground">2</span>
+                      <span>Tap the <strong className="text-foreground">Share</strong> button (square with arrow)</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-foreground">3</span>
+                      <span>Tap <strong className="text-foreground">"Add to Home Screen"</strong></span>
+                    </li>
+                  </ol>
+                </div>
+
+                {/* Android */}
+                <div className="bg-background border border-border rounded-2xl p-8 md:p-10 scroll-reveal" style={{ '--delay': '240ms' } as React.CSSProperties}>
+                  <div className="flex items-center gap-3 mb-6">
+                    <svg className="w-7 h-7 text-foreground" viewBox="0 0 24 24" fill="currentColor"><path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.463 11.463 0 00-8.94 0L5.65 5.67c-.19-.29-.54-.38-.84-.22-.3.16-.42.54-.26.85L6.4 9.48A10.78 10.78 0 002 18h20a10.78 10.78 0 00-4.4-8.52zM7 15.25a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5zm10 0a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5z" /></svg>
+                    <h3 className="text-lg font-semibold tracking-tight" style={{ fontFamily: "'Sora', sans-serif" }}>Android</h3>
+                  </div>
+                  <ol className="space-y-4 text-sm text-muted-foreground">
+                    <li className="flex items-start gap-3">
+                      <span className="shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-foreground">1</span>
+                      <span>Open <strong className="text-foreground">bursai.lovable.app</strong> in Chrome</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-foreground">2</span>
+                      <span>Tap the <strong className="text-foreground">three-dot menu</strong> (top right)</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-foreground">3</span>
+                      <span>Tap <strong className="text-foreground">"Install App"</strong> or "Add to Home Screen"</span>
+                    </li>
+                  </ol>
+                </div>
+              </div>
             </div>
           </section>
 
