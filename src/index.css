@@ -322,6 +322,12 @@
   50% { opacity: 1; transform: scale(1.03); }
 }
 
+@keyframes badge-pop {
+  0% { transform: scale(1.35); opacity: 0.6; }
+  50% { transform: scale(0.95); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 /* RTL support */
 [dir="rtl"] {
   text-align: right;

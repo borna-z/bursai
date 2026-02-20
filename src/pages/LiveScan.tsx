@@ -150,7 +150,7 @@ export default function LiveScan() {
             {t('scan.auto')}
           </button>
           {scanCount > 0 && (
-            <Badge className="bg-white/20 text-white border-0 text-sm px-3 py-1 backdrop-blur-sm">
+            <Badge key={scanCount} className="bg-white/20 text-white border-0 text-sm px-3 py-1 backdrop-blur-sm animate-[badge-pop_0.4s_ease-out]">
               <ScanLine className="w-4 h-4 mr-1.5" />{scanCount} {t('scan.scanned')}
             </Badge>
           )}
