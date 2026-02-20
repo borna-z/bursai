@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Ruler, Weight, Lock, ChevronRight, Loader2, Brain } from 'lucide-react';
+import { Ruler, Weight, Lock, ChevronRight, Loader2, Brain, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,13 +7,16 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface BodyMeasurementsStepProps {
-  onComplete: (data: { height_cm: number | null; weight_kg: number | null }) => Promise<void>;
+  onComplete: (data: { height_cm: number | null; weight_kg: number | null; gender: string | null }) => Promise<void>;
   onSkip: () => void;
   isSaving: boolean;
 }
 
+const GENDER_OPTIONS = ['male', 'female', 'nonbinary'] as const;
+
 export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasurementsStepProps) {
   const { t } = useLanguage();
+  const [gender, setGender] = useState<string | null>(null);
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
   const [heightError, setHeightError] = useState('');
@@ -32,7 +35,7 @@ export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasu
     if (height && !validateHeight(height)) return;
     const heightNum = height ? parseInt(height, 10) : null;
     const weightNum = weight ? parseInt(weight, 10) : null;
-    await onComplete({ height_cm: heightNum, weight_kg: weightNum });
+    await onComplete({ height_cm: heightNum, weight_kg: weightNum, gender });
   };
 
   return (
@@ -50,6 +53,32 @@ export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasu
 
       {/* Form area */}
       <div className="flex-1 px-6 pt-8 pb-10 space-y-8">
+        {/* Gender selection */}
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2 text-sm font-medium">
+            <User className="w-4 h-4 text-accent" />
+            {t('onboarding.body.gender')}
+            <span className="text-muted-foreground font-normal">{t('onboarding.body.gender_optional')}</span>
+          </Label>
+          <div className="grid grid-cols-3 gap-2">
+            {GENDER_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => setGender(gender === opt ? null : opt)}
+                className={cn(
+                  'h-12 rounded-xl border text-sm font-medium transition-all',
+                  gender === opt
+                    ? 'bg-accent text-accent-foreground border-accent shadow-sm'
+                    : 'bg-secondary/60 text-foreground border-border hover:border-accent/40'
+                )}
+              >
+                {t(`onboarding.body.${opt}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Height input */}
         <div className="space-y-2">
           <Label htmlFor="height" className="flex items-center gap-2 text-sm font-medium">
