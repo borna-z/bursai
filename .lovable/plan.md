@@ -1,33 +1,23 @@
 
 
-## Fix: PWA Still Opens to Website
+## Make Logo Black and Hero Much Bigger on Landing Page
 
-The manifest file already has `start_url: "/auth"` set correctly. The most likely reason the PWA still opens the website is that **the old version is cached on your device**. When you first added the app, the manifest said `start_url: "/"`, and that gets baked into the installed app.
+### 1. Make the logo black everywhere on the landing page
 
-### What you need to do
+Currently the `BursMonogram` component defaults to black (`brightness-0`), but the landing page overrides this with `!brightness-100` to make it white. I'll remove that override so the logo displays in black.
 
-**Remove the app from your home screen, then re-add it.** This forces your phone to read the updated manifest with the new `/auth` start URL.
+**Three places in `src/pages/Landing.tsx`:**
+- **Header** (line 55): Remove `!brightness-100` from the `BursMonogram` className
+- **Hero** (line 97): Remove `!brightness-100` from the `BursMonogram` className
+- **Final CTA** (line 272): Remove `!brightness-100` from the `BursMonogram` className
 
-- **iPhone**: Long-press the app icon > Remove App
-- **Android**: Long-press the app icon > Remove/Uninstall
+### 2. Make the hero logo much bigger
 
-Then go back to the website in your browser and "Add to Home Screen" again.
+Currently the hero logo is `size={120}`. I'll increase it to `size={220}` so it becomes a dominant visual element in the hero section.
 
-### Code change (small improvement)
+**`src/pages/Landing.tsx`** (line 97): Change `size={120}` to `size={220}`
 
-To make the PWA scope explicit, I'll add a `scope` field to the manifest. This tells the browser exactly which URLs belong to the app:
+### Summary of changes
 
-**`public/manifest.json`** -- Add `"scope": "/"` so the entire site is within the PWA scope, but the start point is `/auth`:
-
-```json
-{
-  "name": "BURS",
-  "short_name": "BURS",
-  "start_url": "/auth",
-  "scope": "/",
-  ...
-}
-```
-
-This is a minor best-practice addition. The main fix is re-adding the app to your home screen.
+Only one file changes: `src/pages/Landing.tsx` -- four small edits to make the logo black and the hero version significantly larger.
 
