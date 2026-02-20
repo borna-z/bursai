@@ -313,7 +313,7 @@ export default function Landing() {
                   <ol className="space-y-4 text-sm text-muted-foreground">
                     <li className="flex items-start gap-3">
                       <span className="shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-foreground">1</span>
-                      <span>Open <strong className="text-foreground">bursai.lovable.app</strong> in Safari</span>
+                      <span>Open <strong className="text-foreground">burse.me/auth</strong> in Safari</span>
                     </li>
                     <li className="flex items-start gap-3">
                       <span className="shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-foreground">2</span>
@@ -335,7 +335,7 @@ export default function Landing() {
                   <ol className="space-y-4 text-sm text-muted-foreground">
                     <li className="flex items-start gap-3">
                       <span className="shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-foreground">1</span>
-                      <span>Open <strong className="text-foreground">bursai.lovable.app</strong> in Chrome</span>
+                      <span>Open <strong className="text-foreground">burse.me/auth</strong> in Chrome</span>
                     </li>
                     <li className="flex items-start gap-3">
                       <span className="shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-foreground">2</span>
