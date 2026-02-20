@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Menu, X, Sparkles, Shirt, Heart, Leaf, Shield, ArrowRight, Smartphone, Instagram, Twitter } from 'lucide-react';
-import bursLogo from '@/assets/burs-logo.png';
+import bursLandingLogo from '@/assets/burs-landing-logo.png';
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -26,7 +26,7 @@ export default function Landing() {
         <header className="fixed top-0 w-full z-50 border-b border-white/5 bg-[#0a0a0a]/80 backdrop-blur-md">
           <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-              <img src={bursLogo} alt="Burs" className="h-9 w-9 rounded-xl object-contain" />
+              <img src={bursLandingLogo} alt="Burs" className="h-9 w-9 rounded-xl object-contain" />
               <span className="text-white text-lg font-medium tracking-[0.2em] hidden sm:block" style={{ fontFamily: "'Sora', sans-serif" }}>BURS</span>
             </div>
 
@@ -99,7 +99,7 @@ export default function Landing() {
             <div className="w-full md:w-1/2 flex justify-center md:justify-end relative animate-fade-in" style={{ animationDelay: '200ms' }}>
               <div className="relative w-[280px] h-[580px] md:w-[320px] md:h-[650px] bg-[#121212] rounded-[3rem] border-[6px] border-[#1e1e1e] overflow-hidden shadow-2xl shadow-black/50 transform md:rotate-[-2deg] hover:rotate-0 transition-transform duration-500">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-7 bg-[#1e1e1e] rounded-b-3xl z-20" />
-                <img src={bursLogo} alt="Burs App Interface" className="w-full h-full object-cover bg-gray-900" />
+                <img src={bursLandingLogo} alt="Burs App Interface" className="w-full h-full object-cover bg-gray-900" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 -z-10 bg-[#0f0f0f]">
                   <p className="text-gray-600 text-sm font-light">App Screenshot</p>
                 </div>
@@ -187,7 +187,7 @@ export default function Landing() {
         {/* ── Final CTA ── */}
         <section className="px-6 py-28 md:py-40">
           <div className="max-w-lg mx-auto text-center space-y-8 animate-fade-in">
-            <img src={bursLogo} alt="Burs" className="w-14 h-14 mx-auto rounded-xl object-contain" />
+            <img src={bursLandingLogo} alt="Burs" className="w-14 h-14 mx-auto rounded-xl object-contain" />
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight" style={{ fontFamily: "'Sora', sans-serif" }}>
               Join the movement.
             </h2>
@@ -208,7 +208,7 @@ export default function Landing() {
         <footer className="border-t border-white/5 px-6 py-10">
           <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-gray-500 tracking-wide">
             <div className="flex items-center gap-2">
-              <img src={bursLogo} alt="Burs" className="w-5 h-5 rounded-sm object-contain" />
+              <img src={bursLandingLogo} alt="Burs" className="w-5 h-5 rounded-sm object-contain" />
               <span className="text-white font-medium tracking-[0.12em]" style={{ fontFamily: "'Sora', sans-serif" }}>BURS</span>
             </div>
             <div className="flex gap-6">
