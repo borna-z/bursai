@@ -222,9 +222,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Found ${profiles.length} users with calendar configured`);
+    console.log(`Found ${profiles.length} users with ICS calendar configured`);
 
-    // Sync each user's calendar
+    // Sync ICS users
     let syncedUsers = 0;
     let totalEvents = 0;
     const errors: string[] = [];
@@ -242,7 +242,143 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`Sync complete: ${syncedUsers}/${profiles.length} users, ${totalEvents} events`);
+    // --- Sync Google Calendar connections ---
+    const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
+    const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
+
+    if (clientId && clientSecret) {
+      const { data: googleConns, error: gError } = await supabase
+        .from('calendar_connections')
+        .select('id, user_id, access_token, refresh_token, token_expires_at')
+        .eq('provider', 'google');
+
+      if (!gError && googleConns && googleConns.length > 0) {
+        console.log(`Found ${googleConns.length} Google Calendar connections`);
+
+        for (const conn of googleConns) {
+          try {
+            let currentToken = conn.access_token;
+
+            // Refresh token if expired
+            if (conn.token_expires_at && new Date(conn.token_expires_at) < new Date() && conn.refresh_token) {
+              const refreshResp = await fetch('https://oauth2.googleapis.com/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                  refresh_token: conn.refresh_token,
+                  client_id: clientId,
+                  client_secret: clientSecret,
+                  grant_type: 'refresh_token',
+                }),
+              });
+
+              if (refreshResp.ok) {
+                const tokenData = await refreshResp.json();
+                currentToken = tokenData.access_token;
+                const newExpiry = new Date(Date.now() + tokenData.expires_in * 1000).toISOString();
+                await supabase
+                  .from('calendar_connections')
+                  .update({ access_token: currentToken, token_expires_at: newExpiry })
+                  .eq('id', conn.id);
+              } else {
+                errors.push(`Google user ${conn.user_id.substring(0, 8)}: Token refresh failed`);
+                continue;
+              }
+            }
+
+            // Fetch Google Calendar events
+            const now = new Date();
+            const maxDate = new Date(now);
+            maxDate.setDate(maxDate.getDate() + 14);
+
+            const params = new URLSearchParams({
+              timeMin: now.toISOString(),
+              timeMax: maxDate.toISOString(),
+              singleEvents: 'true',
+              orderBy: 'startTime',
+              maxResults: '100',
+            });
+
+            const apiResp = await fetch(
+              `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
+              { headers: { Authorization: `Bearer ${currentToken}` } }
+            );
+
+            if (!apiResp.ok) {
+              errors.push(`Google user ${conn.user_id.substring(0, 8)}: API ${apiResp.status}`);
+              continue;
+            }
+
+            const apiData = await apiResp.json();
+            const events = (apiData.items || []) as Array<{
+              summary?: string;
+              description?: string;
+              start?: { dateTime?: string; date?: string };
+              end?: { dateTime?: string; date?: string };
+            }>;
+
+            // Parse events
+            const today = now.toISOString().split('T')[0];
+            const parsedEvents = events
+              .filter(e => e.summary)
+              .map(e => {
+                let date: string;
+                let startTime: string | null = null;
+                let endTime: string | null = null;
+
+                if (e.start?.dateTime) {
+                  const dt = new Date(e.start.dateTime);
+                  date = dt.toISOString().split('T')[0];
+                  startTime = dt.toTimeString().slice(0, 5);
+                } else if (e.start?.date) {
+                  date = e.start.date;
+                } else {
+                  return null;
+                }
+
+                if (e.end?.dateTime) {
+                  endTime = new Date(e.end.dateTime).toTimeString().slice(0, 5);
+                }
+
+                return {
+                  user_id: conn.user_id,
+                  title: e.summary!,
+                  description: e.description || null,
+                  date,
+                  start_time: startTime,
+                  end_time: endTime,
+                  provider: 'google',
+                };
+              })
+              .filter((e): e is NonNullable<typeof e> => e !== null);
+
+            // Delete and re-insert
+            await supabase
+              .from('calendar_events')
+              .delete()
+              .eq('user_id', conn.user_id)
+              .eq('provider', 'google')
+              .gte('date', today);
+
+            if (parsedEvents.length > 0) {
+              await supabase.from('calendar_events').insert(parsedEvents);
+            }
+
+            await supabase
+              .from('profiles')
+              .update({ last_calendar_sync: new Date().toISOString() })
+              .eq('id', conn.user_id);
+
+            syncedUsers++;
+            totalEvents += parsedEvents.length;
+          } catch (err) {
+            errors.push(`Google user ${conn.user_id.substring(0, 8)}: ${String(err)}`);
+          }
+        }
+      }
+    }
+
+    console.log(`Sync complete: ${syncedUsers} users, ${totalEvents} events`);
 
     return new Response(
       JSON.stringify({

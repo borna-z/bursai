@@ -7,11 +7,14 @@ import { toast } from 'sonner';
 export interface CalendarEvent {
   id: string;
   title: string;
+  description?: string | null;
   date: string;
   start_time: string | null;
   end_time: string | null;
   provider: string | null;
 }
+
+export type CalendarProvider = 'ics' | 'google' | null;
 
 export function useCalendarSync() {
   const { user } = useAuth();
@@ -34,15 +37,36 @@ export function useCalendarSync() {
     enabled: !!user,
   });
 
-  // Sync calendar mutation
+  // Check for Google Calendar connection
+  const { data: googleConnection } = useQuery({
+    queryKey: ['google-calendar-connection', user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data, error } = await supabase
+        .from('calendar_connections')
+        .select('id, provider, token_expires_at, created_at')
+        .eq('user_id', user.id)
+        .eq('provider', 'google')
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const connectedProvider: CalendarProvider = googleConnection
+    ? 'google'
+    : profile?.ics_url
+    ? 'ics'
+    : null;
+
+  // Sync calendar mutation (ICS)
   const syncMutation = useMutation({
     mutationFn: async () => {
       setIsSyncing(true);
       const { data, error } = await supabase.functions.invoke('sync_calendar');
-      
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      
       return data;
     },
     onSuccess: (data) => {
@@ -53,21 +77,37 @@ export function useCalendarSync() {
     onError: (error: Error) => {
       toast.error(error.message || 'Kunde inte synka kalendern');
     },
-    onSettled: () => {
-      setIsSyncing(false);
+    onSettled: () => setIsSyncing(false),
+  });
+
+  // Sync Google Calendar
+  const syncGoogleMutation = useMutation({
+    mutationFn: async () => {
+      setIsSyncing(true);
+      const { data, error } = await supabase.functions.invoke('sync_google_calendar');
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
     },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+      queryClient.invalidateQueries({ queryKey: ['profile-calendar'] });
+      toast.success(`Synkade ${data.synced} händelser från Google`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Kunde inte synka Google Calendar');
+    },
+    onSettled: () => setIsSyncing(false),
   });
 
   // Save ICS URL
   const saveIcsUrl = useMutation({
     mutationFn: async (icsUrl: string) => {
       if (!user) throw new Error('Ej inloggad');
-      
       const { error } = await supabase
         .from('profiles')
         .update({ ics_url: icsUrl })
         .eq('id', user.id);
-      
       if (error) throw error;
     },
     onSuccess: () => {
@@ -82,21 +122,15 @@ export function useCalendarSync() {
   const removeIcsUrl = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('Ej inloggad');
-      
-      // Clear URL from profile
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ ics_url: null, last_calendar_sync: null })
         .eq('id', user.id);
-      
       if (profileError) throw profileError;
-
-      // Delete all calendar events for user
       const { error: eventsError } = await supabase
         .from('calendar_events')
         .delete()
         .eq('user_id', user.id);
-      
       if (eventsError) throw eventsError;
     },
     onSuccess: () => {
@@ -109,14 +143,64 @@ export function useCalendarSync() {
     },
   });
 
+  // Connect Google Calendar (opens OAuth popup)
+  const connectGoogle = async () => {
+    try {
+      const redirectUri = `${window.location.origin}/calendar/callback`;
+      const { data, error } = await supabase.functions.invoke('google_calendar_auth', {
+        body: { action: 'get_auth_url', redirect_uri: redirectUri },
+      });
+      if (error || data?.error) {
+        toast.error('Kunde inte starta Google-koppling');
+        return;
+      }
+      // Redirect to Google OAuth
+      window.location.href = data.url;
+    } catch {
+      toast.error('Kunde inte starta Google-koppling');
+    }
+  };
+
+  // Disconnect Google Calendar
+  const disconnectGoogle = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('google_calendar_auth', {
+        body: { action: 'disconnect' },
+      });
+      if (error || data?.error) throw new Error(data?.error || 'Disconnect failed');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['google-calendar-connection'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+      queryClient.invalidateQueries({ queryKey: ['profile-calendar'] });
+      toast.success('Google Calendar bortkopplad');
+    },
+    onError: () => {
+      toast.error('Kunde inte koppla bort Google Calendar');
+    },
+  });
+
+  // Smart sync: uses whichever provider is connected
+  const syncCalendar = async () => {
+    if (googleConnection) {
+      return syncGoogleMutation.mutateAsync();
+    }
+    return syncMutation.mutateAsync();
+  };
+
   return {
     icsUrl: profile?.ics_url || null,
     lastSynced: profile?.last_calendar_sync || null,
     isSyncing,
-    syncCalendar: syncMutation.mutateAsync,
+    connectedProvider,
+    googleConnection,
+    syncCalendar,
     saveIcsUrl: saveIcsUrl.mutateAsync,
     removeIcsUrl: removeIcsUrl.mutateAsync,
     isRemoving: removeIcsUrl.isPending,
+    connectGoogle,
+    disconnectGoogle: disconnectGoogle.mutateAsync,
+    isDisconnectingGoogle: disconnectGoogle.isPending,
   };
 }
 
@@ -128,23 +212,21 @@ export function useCalendarEvents(date: string) {
     queryKey: ['calendar-events', date, user?.id],
     queryFn: async () => {
       if (!user) return [];
-      
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*')
         .eq('user_id', user.id)
         .eq('date', date)
         .order('start_time', { ascending: true, nullsFirst: false });
-      
       if (error) throw error;
       return (data || []) as CalendarEvent[];
     },
     enabled: !!user && !!date,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
   });
 }
 
-// Hook to get calendar events for a date range (e.g. a week)
+// Hook to get calendar events for a date range
 export function useCalendarEventsRange(startDate: string, endDate: string) {
   const { user } = useAuth();
 
@@ -152,7 +234,6 @@ export function useCalendarEventsRange(startDate: string, endDate: string) {
     queryKey: ['calendar-events-range', startDate, endDate, user?.id],
     queryFn: async () => {
       if (!user) return [];
-      
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*')
@@ -160,7 +241,6 @@ export function useCalendarEventsRange(startDate: string, endDate: string) {
         .gte('date', startDate)
         .lte('date', endDate)
         .order('date', { ascending: true });
-      
       if (error) throw error;
       return (data || []) as CalendarEvent[];
     },

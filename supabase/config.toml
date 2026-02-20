@@ -38,3 +38,9 @@ verify_jwt = false
 
 [functions.shopping_chat]
 verify_jwt = false
+
+[functions.google_calendar_auth]
+verify_jwt = false
+
+[functions.sync_google_calendar]
+verify_jwt = false
