@@ -1,4 +1,4 @@
-import drapeLogoSrc from '@/assets/drape-logo.png';
+import bursLogoSrc from '@/assets/burs-logo.png';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -23,7 +23,7 @@ export function DrapeLogo({ variant = 'horizontal', className, size = 'md', tint
   const Icon = (
     <span className="relative inline-block flex-shrink-0" style={{ width: iconSize, height: iconSize }}>
       <img
-        src={drapeLogoSrc}
+        src={bursLogoSrc}
         alt="BURS"
         width={iconSize}
         height={iconSize}

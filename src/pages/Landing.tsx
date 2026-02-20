@@ -48,7 +48,7 @@ export default function Landing() {
         {/* Hero */}
         <section className="relative flex flex-col items-center justify-center min-h-[85vh] px-6 text-center">
           <div className="animate-fade-in">
-            <DrapeLogo variant="wordmark" size="xl" tinted={false} className="mb-6" />
+            <DrapeLogo variant="horizontal" size="xl" tinted={false} className="mb-6" />
           </div>
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-[1.1] max-w-2xl animate-fade-in animation-delay-100" style={{ fontFamily: "'Sora', sans-serif" }}>
             Your AI-powered<br />personal stylist
