@@ -1,46 +1,25 @@
 
 
-## Remove Background from BURS Logo
+## Replace SVG Monogram with Uploaded Hanger Logo
 
-### Problem
-The BURS logo PNG (`burs-landing-logo.png`) has a visible background (appears as a gray/checkered square on the page). This looks unprofessional -- the logo mark should float cleanly on the page background without any container shape.
-
-### Solution
-
-Create an inline SVG component for the BURS "B" monogram that renders with a transparent background. This replaces all `<img src={bursLandingLogo}>` instances on the landing page and marketing pages.
+### What Happens
+The current auto-generated SVG "B" monogram gets replaced with your actual hanger logo (the uploaded PNG with transparent background).
 
 ### Changes
 
-**1. New file: `src/components/ui/BursMonogram.tsx`**
+**1. Copy the uploaded logo into the project**
+- Copy `user-uploads://Gemini_Generated_Image_tnfimntnfimntnfi-2.png` to `src/assets/burs-hanger-logo.png`
 
-A simple SVG component that renders the BURS "B" mark in pure charcoal (#111111) with no background. It accepts `size` and `className` props. The monogram will be a clean, geometric "B" inspired by the existing logo shape -- a stylized letter with a subtle fabric-fold aesthetic.
+**2. Update `src/components/ui/BursMonogram.tsx`**
+- Replace the inline SVG with an `<img>` tag that imports the new hanger logo PNG
+- Keep the same `size` and `className` props so all existing usage works without changes
+- Use `object-contain` to scale properly at all sizes (20px to 80px)
 
-**2. Update `src/pages/Landing.tsx`**
+No other files need to change -- Landing.tsx, Terms.tsx, PrivacyPolicy.tsx, Contact.tsx, and DrapeLogo.tsx all import `BursMonogram` and will automatically use the new image.
 
-Replace all 4 instances of `<img src={bursLandingLogo}>` with `<BursMonogram>`:
-- Header logo (size 36)
-- Hero logo (size 80)
-- Final CTA logo (size 56)
-- Footer logo (size 20)
-
-Remove the `rounded-xl` / `rounded-2xl` classes since SVG needs no border-radius clipping.
-
-**3. Update `src/pages/marketing/Terms.tsx`, `PrivacyPolicy.tsx`, `Contact.tsx`**
-
-Replace `<img src={bursLogo}>` with `<BursMonogram>` in the header of each page.
-
-**4. Update `src/components/ui/DrapeLogo.tsx`**
-
-Replace `<img src={bursLogoSrc}>` with `<BursMonogram>` for the icon variant, so the in-app logo also renders without a background.
-
-### Files Modified
+### Files
 
 | File | Change |
 |------|--------|
-| `src/components/ui/BursMonogram.tsx` | New SVG component for the BURS "B" mark |
-| `src/pages/Landing.tsx` | Replace 4 img tags with BursMonogram |
-| `src/pages/marketing/Terms.tsx` | Replace img with BursMonogram |
-| `src/pages/marketing/PrivacyPolicy.tsx` | Replace img with BursMonogram |
-| `src/pages/marketing/Contact.tsx` | Replace img with BursMonogram |
-| `src/components/ui/DrapeLogo.tsx` | Replace img with BursMonogram |
-
+| `src/assets/burs-hanger-logo.png` | New file -- your uploaded logo |
+| `src/components/ui/BursMonogram.tsx` | Replace SVG with img using the new PNG asset |
