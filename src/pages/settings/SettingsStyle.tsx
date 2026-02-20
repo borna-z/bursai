@@ -150,7 +150,7 @@ export default function SettingsStyle() {
 
   return (
     <AppLayout>
-      <PageHeader title="Stil" showBack />
+      <PageHeader title={t('settings.row.style')} showBack />
 
       <div className="px-4 pb-6 pt-4 space-y-3 max-w-lg mx-auto">
 
@@ -224,9 +224,9 @@ export default function SettingsStyle() {
                 <Select value={preferences.fitPreference || 'regular'} onValueChange={(v) => updatePreference('fitPreference', v)}>
                   <SelectTrigger className="w-[110px] h-8 text-xs border-0 bg-muted/50"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="loose">Loose</SelectItem>
-                    <SelectItem value="regular">Regular</SelectItem>
-                    <SelectItem value="slim">Slim</SelectItem>
+                    <SelectItem value="loose">{t('style.loose')}</SelectItem>
+                    <SelectItem value="regular">{t('style.regular')}</SelectItem>
+                    <SelectItem value="slim">{t('style.slim')}</SelectItem>
                   </SelectContent>
                 </Select>
               </SettingsRow>
@@ -234,10 +234,10 @@ export default function SettingsStyle() {
                 <Select value={preferences.styleVibe || 'smart-casual'} onValueChange={(v) => updatePreference('styleVibe', v)}>
                   <SelectTrigger className="w-[130px] h-8 text-xs border-0 bg-muted/50"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="minimal">Minimal</SelectItem>
-                    <SelectItem value="street">Street</SelectItem>
-                    <SelectItem value="smart-casual">Smart casual</SelectItem>
-                    <SelectItem value="klassisk">Klassisk</SelectItem>
+                    <SelectItem value="minimal">{t('style.minimal')}</SelectItem>
+                    <SelectItem value="street">{t('style.street')}</SelectItem>
+                    <SelectItem value="smart-casual">{t('style.smart_casual')}</SelectItem>
+                    <SelectItem value="klassisk">{t('style.klassisk')}</SelectItem>
                   </SelectContent>
                 </Select>
               </SettingsRow>

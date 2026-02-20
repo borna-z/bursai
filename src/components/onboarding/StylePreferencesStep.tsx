@@ -128,7 +128,7 @@ export function StylePreferencesStep({ onComplete, isSaving }: StylePreferencesS
                       : 'bg-secondary/50 border-border text-foreground hover:bg-secondary'
                   )}
                 >
-                  {vibe === 'smart-casual' ? 'Smart casual' : vibe === 'klassisk' ? 'Klassisk' : vibe}
+                  {vibe === 'smart-casual' ? t('style.smart_casual') : vibe === 'klassisk' ? t('style.klassisk') : vibe === 'minimal' ? t('style.minimal') : t('style.street')}
                 </button>
               ))}
             </div>

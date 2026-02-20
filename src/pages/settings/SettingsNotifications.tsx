@@ -29,7 +29,7 @@ export default function SettingsNotifications() {
 
   return (
     <AppLayout>
-      <PageHeader title="Notiser & Kalender" showBack />
+      <PageHeader title={t('settings.row.notifications')} showBack />
 
       <div className="px-4 pb-6 pt-4 space-y-6 max-w-lg mx-auto">
         <SettingsGroup title={t('settings.notifications_title')}>

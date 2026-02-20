@@ -1,20 +1,20 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle, Loader2, Crown } from 'lucide-react';
+import { CheckCircle, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function BillingSuccess() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const sessionId = searchParams.get('session_id');
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   useEffect(() => {
-    // Refresh subscription data after successful payment
     if (user?.id) {
       queryClient.invalidateQueries({ queryKey: ['subscription', user.id] });
       queryClient.invalidateQueries({ queryKey: ['stripe-subscription', user.id] });
@@ -30,42 +30,18 @@ export default function BillingSuccess() {
           </div>
           <CardTitle className="text-2xl flex items-center justify-center gap-2">
             <Crown className="w-6 h-6 text-amber-500" />
-            Premium aktiverat!
+            {t('billing.success_title')}
           </CardTitle>
-          <CardDescription>
-            Tack för din prenumeration. Du har nu tillgång till alla premium-funktioner.
-          </CardDescription>
+          <CardDescription>{t('billing.success_desc')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="bg-secondary/50 rounded-lg p-4 space-y-2">
-            <div className="flex items-center gap-2 text-sm">
-              <CheckCircle className="w-4 h-4 text-green-500" />
-              <span>Obegränsad garderob</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <CheckCircle className="w-4 h-4 text-green-500" />
-              <span>Obegränsade outfit-genereringar</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <CheckCircle className="w-4 h-4 text-green-500" />
-              <span>Smartare AI-rekommendationer</span>
-            </div>
+            <div className="flex items-center gap-2 text-sm"><CheckCircle className="w-4 h-4 text-green-500" /><span>{t('premium.unlimited_wardrobe')}</span></div>
+            <div className="flex items-center gap-2 text-sm"><CheckCircle className="w-4 h-4 text-green-500" /><span>{t('pricing.unlimited_outfits')}</span></div>
+            <div className="flex items-center gap-2 text-sm"><CheckCircle className="w-4 h-4 text-green-500" /><span>{t('premium.smarter_ai')}</span></div>
           </div>
-
-          <Button 
-            className="w-full" 
-            onClick={() => navigate('/')}
-          >
-            Börja använda Premium
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            className="w-full"
-            onClick={() => navigate('/settings')}
-          >
-            Hantera prenumeration
-          </Button>
+          <Button className="w-full" onClick={() => navigate('/')}>{t('billing.start_using')}</Button>
+          <Button variant="outline" className="w-full" onClick={() => navigate('/settings')}>{t('billing.manage')}</Button>
         </CardContent>
       </Card>
     </div>

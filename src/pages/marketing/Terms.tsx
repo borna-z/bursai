@@ -1,6 +1,7 @@
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const TERMS = {
   title: 'Terms of Service',
@@ -16,22 +17,23 @@ const TERMS = {
 };
 
 export default function Terms() {
+  const { t } = useLanguage();
   return (
     <>
       <Helmet>
         <title>{TERMS.title} | BURS</title>
-        <meta name="description" content="Användarvillkor för BURS." />
+        <meta name="description" content="Terms of Service for BURS." />
       </Helmet>
 
       <div className="min-h-screen bg-background text-foreground">
         <div className="max-w-3xl mx-auto px-4 py-12 md:py-20">
           <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-8">
             <ArrowLeft className="w-4 h-4" />
-            Tillbaka
+            {t('common.back')}
           </Link>
 
           <h1 className="text-3xl md:text-4xl font-bold mb-4">{TERMS.title}</h1>
-          <p className="text-muted-foreground mb-12">Senast uppdaterad: {TERMS.lastUpdated}</p>
+          <p className="text-muted-foreground mb-12">{t('common.last_updated')} {TERMS.lastUpdated}</p>
 
           <div className="space-y-8">
             {TERMS.sections.map((section, i) => (

@@ -30,7 +30,7 @@ export default function SettingsAccount() {
 
   return (
     <AppLayout>
-      <PageHeader title="Profil & Konto" showBack />
+      <PageHeader title={t('settings.row.account')} showBack />
 
       <div className="px-4 pb-6 pt-4 space-y-6 max-w-lg mx-auto">
         <div>

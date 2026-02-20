@@ -151,7 +151,7 @@ export default function GarmentDetailPage() {
               </div>
               <p className="text-sm font-medium">
                 {garment.last_worn_at
-                  ? new Date(garment.last_worn_at).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' })
+                  ? new Date(garment.last_worn_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
                   : t('garment.never_worn')}
               </p>
               <p className="text-xs text-muted-foreground">{t('garment.last_worn')}</p>
@@ -178,7 +178,7 @@ export default function GarmentDetailPage() {
 
         {garment.ai_analyzed_at && (
           <p className="text-xs text-muted-foreground text-center">
-            {t('garment.analyzed_at')} {new Date(garment.ai_analyzed_at).toLocaleDateString('sv-SE')}
+            {t('garment.analyzed_at')} {new Date(garment.ai_analyzed_at).toLocaleDateString(undefined)}
           </p>
         )}
       </div>

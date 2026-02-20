@@ -16,7 +16,7 @@ export default function SettingsAppearance() {
 
   return (
     <AppLayout>
-      <PageHeader title="Utseende" showBack />
+      <PageHeader title={t('settings.row.appearance')} showBack />
 
       <div className="px-4 pb-6 pt-4 space-y-6 max-w-lg mx-auto">
         <SettingsGroup title={t('settings.appearance')}>
@@ -29,7 +29,7 @@ export default function SettingsAppearance() {
                 <Moon className="w-3.5 h-3.5 mr-1.5" />{t('settings.theme.dark')}
               </Button>
               <Button variant={theme === 'system' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('system')} className={`flex-1 h-9 text-xs ${theme === 'system' ? 'bg-accent text-accent-foreground' : ''}`}>
-                <Monitor className="w-3.5 h-3.5 mr-1.5" />Auto
+                <Monitor className="w-3.5 h-3.5 mr-1.5" />{t('settings.theme.auto')}
               </Button>
             </div>
           </div>
