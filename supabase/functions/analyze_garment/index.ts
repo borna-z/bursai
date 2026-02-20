@@ -217,9 +217,17 @@ serve(async (req) => {
       console.log('Created signed URL for image analysis');
     }
 
+    // Determine model and settings based on scan mode
+    const isLiveScan = !!base64Image;
+    const aiModel = isLiveScan ? 'google/gemini-2.5-flash-lite' : 'google/gemini-3-flash-preview';
+    const aiMaxTokens = isLiveScan ? 300 : 500;
+    const aiTimeout = isLiveScan ? 15000 : 30000;
+
+    console.log(`Using model: ${aiModel}, max_tokens: ${aiMaxTokens}, timeout: ${aiTimeout}ms`);
+
     // Call Lovable AI Gateway with vision-capable model (with timeout)
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    const timeout = setTimeout(() => controller.abort(), aiTimeout);
 
     let aiResponse;
     try {
@@ -231,7 +239,7 @@ serve(async (req) => {
         },
         signal: controller.signal,
         body: JSON.stringify({
-          model: 'google/gemini-3-flash-preview',
+          model: aiModel,
           messages: [
             {
               role: 'system',
@@ -268,7 +276,7 @@ Svara ENDAST med JSON, ingen förklarande text.`
               ]
             }
           ],
-          max_tokens: 500,
+          max_tokens: aiMaxTokens,
           temperature: 0.2,
         }),
       });
