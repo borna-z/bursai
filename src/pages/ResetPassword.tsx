@@ -26,11 +26,24 @@ export default function ResetPassword() {
       }
     });
 
-    // Also check hash for type=recovery
+    // Check hash for type=recovery
     const hash = window.location.hash;
     if (hash.includes('type=recovery')) {
       setIsRecovery(true);
     }
+
+    // Check search params for type=recovery
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('type') === 'recovery') {
+      setIsRecovery(true);
+    }
+
+    // If a session already exists, the recovery token was already consumed by AuthContext
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setIsRecovery(true);
+      }
+    });
 
     return () => subscription.unsubscribe();
   }, []);
