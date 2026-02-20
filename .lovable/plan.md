@@ -1,162 +1,157 @@
 
+# DRAPE Deep Audit — Step 4/4: Bugs, Performance & Data Efficiency
 
-# DRAPE UX Polish Plan — Step 3/4
+## Critical Bugs Found
 
-## Friction Points Identified
+| # | Area | Issue | Severity |
+|---|------|-------|----------|
+| 1 | **Weather polling** | `useWeather` uses `refetchInterval: 3000` (every 3 seconds!) and `staleTime: 2000`. This fires a network request to Open-Meteo API every 3s on every screen that uses weather. Massive waste, potential rate-limiting. | **Critical** |
+| 2 | **N+1 in useMarkOutfitWorn** | Loops over `garmentIds` sequentially, making 3 DB calls per garment (SELECT + UPDATE garment + UPSERT wear_log). For 5 garments = 15 sequential queries. | **High** |
+| 3 | **GarmentDetail.tsx** | Still has `active:animate-press` on 2 buttons (missed in Steps 2-3) | **Low** |
+| 4 | **Wardrobe search** | No debounce on search input — each keystroke triggers a full re-render + query recomputation with client-side filter | **Medium** |
+| 5 | **useGarments** | No `staleTime` configured — refetches on every mount/focus. With 300+ garments this is heavy | **Medium** |
+| 6 | **useInsights** | Fetches ALL garments (`select *`) + ALL wear logs without pagination. For large wardrobes (300+) this is inefficient | **Medium** |
+| 7 | **useOutfits** | Fetches ALL outfits with nested joins (outfit_items + garments) without limit. Could be 100+ outfits with 500+ items | **Medium** |
+| 8 | **OutfitGenerate** | Weather condition strings in `useWeather.ts` are hardcoded Swedish ("Klart", "Molnigt", "Regn", etc.) and never i18n'd | **Low** |
 
-| # | Journey | Issue | Severity | Fix |
-|---|---------|-------|----------|-----|
-| 1 | Create outfit (Home) | No preselection of last used occasion/style -- user must re-pick every time | High | Store last occasion + style in localStorage, preselect on mount |
-| 2 | Create outfit (Home) | Disabled CTA with no clear explanation when occasion not selected yet | Medium | Change CTA text to "Välj tillfälle" when nothing selected, vs "Skapa outfit" when ready |
-| 3 | Add garment | Category/subcategory/pattern/material/fit/season labels all hardcoded Swedish (line 24-61) -- not using i18n | Medium | Move to t() calls |
-| 4 | Add garment | WeatherWidget city input placeholder hardcoded "Skriv en stad..." (line 155) | Low | Move to t() |
-| 5 | Outfit generator | Error messages hardcoded Swedish: "Inga plagg tillgängliga", "Inte tillräckligt med plagg" (lines 264, 291) | Medium | Move to t() or keep as thrown errors but catch + translate in UI layer |
-| 6 | Create outfit | No outerwear suggestion hint when weather is cold -- user doesn't know AI will auto-include it | Low | Add subtle hint text below weather widget when temp <= 10°C |
-| 7 | Plan day | Empty state for no-outfit is minimal but CTA buttons are small `size="sm"` -- not obvious enough | Medium | Make primary "Planera" button full-width and prominent |
-| 8 | Stylist chat | No quick-start suggestions for first message -- blank chat after welcome message | Medium | Add 3 tappable suggestion chips below welcome message |
-| 9 | Outfits page | Loading spinner uses `text-primary` instead of standardized `text-muted-foreground` | Low | Fix spinner color |
-| 10 | Outfits page | Delete button still has `active:animate-press` (missed in Step 2) | Low | Remove it |
-| 11 | Outfits page | Empty state doesn't differentiate between "no garments yet" and "no outfits yet" | Low | Keep as-is; EmptyState already has good copy |
-| 12 | Add garment | Form fields for category dropdown items still hardcoded Swedish (not using i18n) -- "Överdel", "Underdel", etc. | Medium | These are data labels matching DB values; keep Swedish as they map to actual stored values. Add display-only i18n mapping. |
-| 13 | Plan | "Planera" and "Skapa åt mig" buttons in empty state are equally weighted -- unclear which is primary | Medium | Make "Skapa åt mig" the primary CTA (accent bg), "Planera" secondary |
+## Performance Optimizations
 
-## Implementation Changes
+### 1. Fix weather polling (Critical)
 
-### 1. Smart defaults: Remember last occasion + style (Home.tsx)
+**File: `src/hooks/useWeather.ts`**
 
-Save to `localStorage` when generating, restore on mount:
-
+Change from:
 ```
-// On mount:
-const savedOccasion = localStorage.getItem('drape_last_occasion');
-const savedStyle = localStorage.getItem('drape_last_style');
-if (savedOccasion) setSelectedOccasion(savedOccasion);
-if (savedStyle) setSelectedStyle(savedStyle);
-
-// On generate:
-localStorage.setItem('drape_last_occasion', selectedOccasion);
-if (selectedStyle) localStorage.setItem('drape_last_style', selectedStyle);
+refetchInterval: 3000,    // every 3 seconds!
+staleTime: 2000,
+```
+To:
+```
+refetchInterval: 5 * 60 * 1000,   // every 5 minutes
+staleTime: 3 * 60 * 1000,         // 3 minutes
 ```
 
-### 2. Dynamic CTA label (Home.tsx)
+Weather doesn't change every 3 seconds. 5-minute polling is more than sufficient and reduces API calls by 100x.
 
-When no occasion is selected, show a gentler label:
-- No occasion: "Välj tillfälle ovan" (disabled, but with clear text)
-- Occasion selected: "Skapa outfit" (enabled)
+### 2. Fix N+1 in useMarkOutfitWorn
 
-Add new i18n key: `home.select_occasion_hint` = "Välj tillfälle ovan" / "Select occasion above"
+**File: `src/hooks/useOutfits.ts`**
 
-### 3. Cold weather hint (Home.tsx)
+Replace the sequential `for` loop (lines 196-239) with batch operations:
+- Single SELECT to get all garment wear_counts at once
+- Single batch UPDATE for all garments using individual updates in Promise.all
+- Single batch INSERT for all wear_logs
 
-When weather temperature <= 10°C, show a subtle line below the weather widget:
-`"Kallt ute — ytterkläder läggs till automatiskt"` / `"Cold outside — outerwear added automatically"`
+This reduces ~15 sequential queries to ~3 parallel ones.
 
-New i18n key: `home.cold_hint`
+### 3. Add debounce to Wardrobe search
 
-### 4. Chat quick-start suggestions (AIChat.tsx)
+**File: `src/pages/Wardrobe.tsx`**
 
-After the welcome message, when there are no other messages, show 3 tappable suggestion chips:
-- "Vad ska jag ha på mig idag?" / "What should I wear today?"
-- "Analysera min stil" / "Analyze my style"
-- "Hjälp mig välja till jobbet" / "Help me choose for work"
+Add a debounced search value using a simple `useEffect` with `setTimeout`:
+- `search` state for immediate input display
+- `debouncedSearch` state (300ms delay) passed to `useGarments` as the actual filter
+- This prevents the garment list from recomputing on every keystroke
 
-Clicking a chip sends it as the user's first message. These disappear once the user sends any message.
+### 4. Add staleTime to heavy queries
 
-New i18n keys: `chat.suggestion_1`, `chat.suggestion_2`, `chat.suggestion_3`
+**File: `src/hooks/useGarments.ts`**
+- Add `staleTime: 2 * 60 * 1000` (2 minutes) to `useGarments` query
+- Add `staleTime: 5 * 60 * 1000` (5 minutes) to `useGarmentCount` query
 
-### 5. WeatherWidget hardcoded string (WeatherWidget.tsx)
+**File: `src/hooks/useOutfits.ts`**
+- Add `staleTime: 2 * 60 * 1000` to `useOutfits` query
+- Add `staleTime: 60 * 1000` to `useOutfit` query
 
-Line 155: `placeholder="Skriv en stad..."` to `placeholder={t('weather.enter_city')}`
+**File: `src/hooks/useInsights.ts`**
+- Add `staleTime: 5 * 60 * 1000` to insights query (data is aggregated, doesn't need to be live)
 
-Add `useLanguage` import and new key.
+**File: `src/hooks/useProfile.ts`**
+- Add `staleTime: 10 * 60 * 1000` (profile rarely changes)
 
-### 6. Plan empty state: clearer primary action (Plan.tsx)
+### 5. Remove remaining `active:animate-press`
 
-In `renderDayDetail()` when `!hasOutfit`:
-- Make "Skapa åt mig" (generate) the primary button: full accent bg, slightly larger
-- Make "Planera" (from saved) the secondary outline button
-- Swap their order so primary action comes first
+**File: `src/pages/GarmentDetail.tsx`**
+- Line 84: Remove from edit button
+- Line 173: Remove from mark worn button
 
-### 7. Outfits page cleanup (Outfits.tsx)
+### 6. Add pagination to useOutfits
 
-- Line 69: Remove `active:animate-press` from delete button
-- Line 126: Change spinner from `text-primary` to `text-muted-foreground`
+**File: `src/hooks/useOutfits.ts`**
+- Add `.limit(50)` to the outfits query to prevent loading hundreds of outfits with full nested joins
+- The Outfits page already only shows 10 recent ones, so 50 is a safe ceiling
 
-### 8. AddGarment form label i18n (AddGarment.tsx)
+### 7. Weather condition i18n
 
-The category labels ("Överdel", "Underdel", etc.) at lines 24-61 are hardcoded. Since these map to DB values, create a display mapping:
+**File: `src/hooks/useWeather.ts`**
+- Keep the hardcoded Swedish condition names as-is (they're used internally, not displayed directly in most places)
+- The `WeatherWidget` already handles display logic
+- This is low priority and can be deferred
 
-```tsx
-const categoryLabels: Record<string, string> = {
-  top: t('garment.category.top'),
-  bottom: t('garment.category.bottom'),
-  // etc.
-};
+## Security Sanity Check (all pass)
+
+| Check | Status |
+|-------|--------|
+| RLS on all user tables (garments, outfits, profiles, etc.) | All have `auth.uid() = user_id` policies |
+| Storage bucket `garments` is private | Yes, signed URLs only |
+| Edge functions verify auth header | Yes, all check `authorization` header |
+| `stripe_events` table locked down | Yes, deny-all policy |
+| `subscriptions` table read-only for clients | Yes, deny insert/update/delete |
+| Marketing tables (leads, events) allow public INSERT only | Intentional, acceptable |
+| No raw SQL execution in edge functions | Confirmed |
+
+## Implementation Summary
+
+| Change | File(s) | Impact |
+|--------|---------|--------|
+| Weather polling: 3s to 5min | `useWeather.ts` | 100x fewer API calls |
+| Batch mark-worn queries | `useOutfits.ts` | 15 queries to ~3 |
+| Debounced search | `Wardrobe.tsx` | Fewer re-renders on type |
+| Add staleTime to 5 hooks | 5 hook files | Fewer unnecessary refetches |
+| Remove animate-press | `GarmentDetail.tsx` | Consistent motion |
+| Limit outfits query | `useOutfits.ts` | Prevent large payload |
+
+## Technical Details
+
+### Weather fix (useWeather.ts, lines 119-121)
+```typescript
+refetchInterval: 5 * 60 * 1000,  // 5 minutes
+staleTime: 3 * 60 * 1000,        // 3 minutes
+gcTime: 10 * 60 * 1000,          // 10 minutes
 ```
 
-Same for patterns, materials, fits, seasons -- create i18n display keys while keeping the stored values as-is.
+### Debounced search (Wardrobe.tsx)
+```typescript
+const [search, setSearch] = useState('');
+const [debouncedSearch, setDebouncedSearch] = useState('');
 
-New i18n keys (~25):
-- `garment.category.top` = "Överdel" / "Top"
-- `garment.category.bottom` = "Underdel" / "Bottom"
-- `garment.category.shoes` = "Skor" / "Shoes"
-- `garment.category.outerwear` = "Ytterkläder" / "Outerwear"
-- `garment.category.accessory` = "Accessoar" / "Accessory"
-- `garment.category.dress` = "Klänning" / "Dress"
-- `garment.pattern.*` (7 patterns)
-- `garment.material.*` (8 materials)
-- `garment.fit.*` (4 fits)
-- `garment.season.*` (4 seasons)
+useEffect(() => {
+  const timer = setTimeout(() => setDebouncedSearch(search), 300);
+  return () => clearTimeout(timer);
+}, [search]);
 
-### 9. Add new translation keys to translations.ts
-
-All new keys for SV and EN:
-
-```
-home.select_occasion_hint: "Välj tillfälle ovan" / "Select occasion above"
-home.cold_hint: "Kallt — ytterkläder läggs till automatiskt" / "Cold — outerwear included automatically"
-weather.enter_city: "Skriv en stad..." / "Enter a city..."
-chat.suggestion_1: "Vad ska jag ha på mig idag?" / "What should I wear today?"
-chat.suggestion_2: "Analysera min stil" / "Analyze my style"  
-chat.suggestion_3: "Hjälp mig välja till jobbet" / "Help me choose for work"
-garment.category.top: "Överdel" / "Top"
-garment.category.bottom: "Underdel" / "Bottom"
-garment.category.shoes: "Skor" / "Shoes"
-garment.category.outerwear: "Ytterkläder" / "Outerwear"
-garment.category.accessory: "Accessoar" / "Accessory"
-garment.category.dress: "Klänning" / "Dress"
-garment.pattern.solid: "Enfärgad" / "Solid"
-garment.pattern.striped: "Randig" / "Striped"
-garment.pattern.checked: "Rutig" / "Checked"
-garment.pattern.dotted: "Prickig" / "Dotted"
-garment.pattern.floral: "Blommig" / "Floral"
-garment.pattern.patterned: "Mönstrad" / "Patterned"
-garment.pattern.camo: "Kamouflage" / "Camouflage"
-garment.material.cotton: "Bomull" / "Cotton"
-garment.material.polyester: "Polyester" / "Polyester"
-garment.material.linen: "Lin" / "Linen"
-garment.material.denim: "Denim" / "Denim"
-garment.material.leather: "Läder" / "Leather"
-garment.material.wool: "Ull" / "Wool"
-garment.material.silk: "Siden" / "Silk"
-garment.material.synthetic: "Syntet" / "Synthetic"
-garment.fit.slim: "Slim" / "Slim"
-garment.fit.regular: "Regular" / "Regular"
-garment.fit.loose: "Loose" / "Loose"
-garment.fit.oversized: "Oversized" / "Oversized"
-garment.season.spring: "Vår" / "Spring"
-garment.season.summer: "Sommar" / "Summer"
-garment.season.autumn: "Höst" / "Autumn"
-garment.season.winter: "Vinter" / "Winter"
+// Pass debouncedSearch to useGarments instead of search
 ```
 
-## Files Modified (summary)
+### Batch mark-worn (useOutfits.ts)
+Replace sequential for-loop with:
+1. `Promise.all` for garment SELECT queries
+2. `Promise.all` for garment UPDATE queries  
+3. Single batch INSERT for wear_logs
 
-1. `src/pages/Home.tsx` -- Smart defaults, dynamic CTA, cold weather hint
-2. `src/pages/AIChat.tsx` -- Quick-start suggestion chips
-3. `src/components/weather/WeatherWidget.tsx` -- i18n placeholder
-4. `src/pages/Plan.tsx` -- Clearer primary action in empty state
-5. `src/pages/Outfits.tsx` -- Remove animate-press, fix spinner color
-6. `src/pages/AddGarment.tsx` -- i18n for form labels (categories, patterns, materials, fits, seasons)
-7. `src/i18n/translations.ts` -- ~35 new keys (SV + EN)
+### staleTime additions
+```typescript
+// useGarments: staleTime: 2 * 60 * 1000
+// useGarmentCount: staleTime: 5 * 60 * 1000
+// useOutfits: staleTime: 2 * 60 * 1000
+// useOutfit: staleTime: 60 * 1000
+// useInsights: staleTime: 5 * 60 * 1000
+// useProfile: staleTime: 10 * 60 * 1000
+```
 
+### Outfits query limit
+```typescript
+// Add .limit(50) to useOutfits query
+```
+
+Total: ~8 files modified, 0 new dependencies, 0 schema changes.
