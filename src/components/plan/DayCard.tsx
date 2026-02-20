@@ -10,6 +10,7 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
 import { DaySummaryCard } from '@/components/plan/DaySummaryCard';
 import { useDaySummary } from '@/hooks/useDaySummary';
+import { useLanguage } from '@/contexts/LanguageContext';
 import type { PlannedOutfit } from '@/hooks/usePlannedOutfits';
 
 interface DayCardProps {
@@ -40,20 +41,19 @@ export function DayCard({
   isLoading,
 }: DayCardProps) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const dateStr = format(date, 'yyyy-MM-dd');
   const outfit = plannedOutfit?.outfit;
   const hasOutfit = !!outfit;
   const isWorn = plannedOutfit?.status === 'worn';
 
-  // Fetch AI day summary
   const { data: daySummary, isLoading: isSummaryLoading } = useDaySummary(dateStr);
 
-  // Format date label
   let dateLabel = format(date, 'EEEE d MMMM', { locale: sv });
   if (isToday(date)) {
-    dateLabel = 'Idag';
+    dateLabel = t('plan.today');
   } else if (isTomorrow(date)) {
-    dateLabel = 'Imorgon';
+    dateLabel = t('plan.tomorrow');
   }
 
   const OccasionIcon = outfit?.occasion ? occasionIcons[outfit.occasion] || Calendar : Calendar;
@@ -68,148 +68,72 @@ export function DayCard({
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Calendar className={cn(
-              'w-4 h-4',
-              isToday(date) ? 'text-primary' : 'text-muted-foreground'
-            )} />
-            <h3 className={cn(
-              'font-semibold text-sm capitalize',
-              isToday(date) && 'text-primary'
-            )}>
+            <Calendar className={cn('w-4 h-4', isToday(date) ? 'text-primary' : 'text-muted-foreground')} />
+            <h3 className={cn('font-semibold text-sm capitalize', isToday(date) && 'text-primary')}>
               {dateLabel}
             </h3>
             {isWorn && (
               <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary">
-                Använd
+                {t('plan.worn')}
               </Badge>
             )}
           </div>
           <WeatherForecastBadge date={dateStr} compact />
         </div>
 
-        {/* AI Day Summary */}
-        <DaySummaryCard
-          summary={daySummary}
-          isLoading={isSummaryLoading}
-          onGenerateFromHint={() => onQuickGenerate()}
-          compact
-          className="mb-3"
-        />
+        <DaySummaryCard summary={daySummary} isLoading={isSummaryLoading} onGenerateFromHint={() => onQuickGenerate()} compact className="mb-3" />
 
         {hasOutfit ? (
           <>
-            {/* Outfit preview */}
             <div 
               className="flex h-16 rounded-lg overflow-hidden bg-muted/30 cursor-pointer mb-3 active:scale-[0.99] transition-transform"
               onClick={() => navigate(`/outfits/${outfit.id}`)}
             >
               {outfit.outfit_items.slice(0, 4).map((item, index) => (
-                <div
-                  key={item.id}
-                  className={cn(
-                    "flex-1 overflow-hidden",
-                    index < outfit.outfit_items.slice(0, 4).length - 1 && "border-r border-background"
-                  )}
-                >
-                  <LazyImageSimple
-                    imagePath={item.garment?.image_path}
-                    alt={item.garment?.title || item.slot}
-                    className="w-full h-full"
-                  />
+                <div key={item.id} className={cn("flex-1 overflow-hidden", index < outfit.outfit_items.slice(0, 4).length - 1 && "border-r border-background")}>
+                  <LazyImageSimple imagePath={item.garment?.image_path} alt={item.garment?.title || item.slot} className="w-full h-full" />
                 </div>
               ))}
             </div>
 
-            {/* Tags row */}
             <div className="flex items-center gap-2 mb-3 flex-wrap">
               <Badge variant="secondary" className="capitalize text-xs">
-                <OccasionIcon className="w-3 h-3 mr-1" />
-                {outfit.occasion}
+                <OccasionIcon className="w-3 h-3 mr-1" />{outfit.occasion}
               </Badge>
-              {outfit.style_vibe && (
-                <Badge variant="outline" className="text-xs">
-                  {outfit.style_vibe}
-                </Badge>
-              )}
+              {outfit.style_vibe && (<Badge variant="outline" className="text-xs">{outfit.style_vibe}</Badge>)}
             </div>
 
-            {/* Explanation */}
-            {outfit.explanation && (
-              <p className="text-xs text-muted-foreground line-clamp-1 mb-3">
-                {outfit.explanation}
-              </p>
-            )}
+            {outfit.explanation && (<p className="text-xs text-muted-foreground line-clamp-1 mb-3">{outfit.explanation}</p>)}
 
-            {/* Actions */}
             <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={onSwap}
-                className="flex-1 active:animate-press"
-              >
-                <Repeat className="w-3.5 h-3.5 mr-1.5" />
-                Byt
+              <Button variant="outline" size="sm" onClick={onSwap} className="flex-1">
+                <Repeat className="w-3.5 h-3.5 mr-1.5" />{t('plan.swap')}
               </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => navigate(`/outfits/${outfit.id}`)}
-                className="active:animate-press"
-              >
-                <Info className="w-3.5 h-3.5 mr-1.5" />
-                Detaljer
+              <Button variant="ghost" size="sm" onClick={() => navigate(`/outfits/${outfit.id}`)}>
+                <Info className="w-3.5 h-3.5 mr-1.5" />{t('plan.details')}
               </Button>
             </div>
 
-            {/* Secondary actions */}
             <div className="flex items-center gap-3 mt-2 pt-2 border-t">
               {!isWorn && (
-                <button 
-                  onClick={onMarkWorn}
-                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                >
-                  <Check className="w-3 h-3" />
-                  Markera som använd
+                <button onClick={onMarkWorn} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
+                  <Check className="w-3 h-3" />{t('plan.mark_worn')}
                 </button>
               )}
-              <button 
-                onClick={onRemove}
-                className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1 transition-colors ml-auto"
-              >
-                <Trash2 className="w-3 h-3" />
-                Ta bort
+              <button onClick={onRemove} className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1 transition-colors ml-auto">
+                <Trash2 className="w-3 h-3" />{t('plan.remove')}
               </button>
             </div>
           </>
         ) : (
-        <>
-            {/* Empty state */}
-            {!daySummary && (
-              <p className="text-sm text-muted-foreground mb-4">
-                Ingen outfit planerad.
-              </p>
-            )}
-
+          <>
+            {!daySummary && (<p className="text-sm text-muted-foreground mb-4">{t('plan.no_outfit')}</p>)}
             <div className="flex items-center gap-2">
-              <Button 
-                size="sm" 
-                onClick={onPlan}
-                disabled={isLoading}
-                className="flex-1 active:animate-press"
-              >
-                <Plus className="w-3.5 h-3.5 mr-1.5" />
-                Planera
+              <Button size="sm" onClick={onPlan} disabled={isLoading} className="flex-1">
+                <Plus className="w-3.5 h-3.5 mr-1.5" />{t('plan.plan')}
               </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={onQuickGenerate}
-                disabled={isLoading}
-                className="flex-1 active:animate-press"
-              >
-                <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                Skapa åt mig
+              <Button variant="outline" size="sm" onClick={onQuickGenerate} disabled={isLoading} className="flex-1">
+                <Sparkles className="w-3.5 h-3.5 mr-1.5" />{t('plan.generate')}
               </Button>
             </div>
           </>
