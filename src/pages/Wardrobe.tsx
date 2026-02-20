@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { useGarments, useUpdateGarment, useDeleteGarment, type GarmentFilters, type Garment } from '@/hooks/useGarments';
+import { useGarments, useUpdateGarment, useDeleteGarment, useGarmentCount, type GarmentFilters, type Garment } from '@/hooks/useGarments';
 import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -126,6 +126,7 @@ export default function WardrobePage() {
   });
   const { data: infiniteData, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = queryResult;
   const { canAddGarment, isPremium } = useSubscription();
+  const { data: totalCount } = useGarmentCount();
 
   const displayGarments = useMemo(() => {
     return infiniteData?.pages.flatMap(p => p.items) ?? [];
@@ -348,7 +349,9 @@ export default function WardrobePage() {
 
         {/* Count */}
         <p className="text-xs text-muted-foreground px-1">
-          {displayGarments.length} {t('wardrobe.garments_count_label')}
+          {hasNextPage && totalCount
+            ? `${displayGarments.length} av ${totalCount} ${t('wardrobe.garments_count_label')}`
+            : `${displayGarments.length} ${t('wardrobe.garments_count_label')}`}
         </p>
 
         {/* Bulk select bar */}
