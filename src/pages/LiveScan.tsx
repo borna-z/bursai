@@ -1,62 +1,67 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Check, RotateCcw, Camera, ScanLine, Zap, ZapOff } from 'lucide-react';
+import { X, Check, RotateCcw, Camera, ScanLine, Zap, ZapOff, Sun, MoveHorizontal, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useLiveScan } from '@/hooks/useLiveScan';
-import { useAutoDetect } from '@/hooks/useAutoDetect';
+import { useAutoDetect, type FramingHint } from '@/hooks/useAutoDetect';
 import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { useLanguage } from '@/contexts/LanguageContext';
 
+/* ─── Accepted overlay with fast ring + check ─── */
 function AcceptedOverlay({ onDone, label }: { onDone: () => void; label: string }) {
-  useEffect(() => { const t = setTimeout(onDone, 700); return () => clearTimeout(t); }, [onDone]);
+  useEffect(() => { const t = setTimeout(onDone, 600); return () => clearTimeout(t); }, [onDone]);
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
       <div className="flex flex-col items-center gap-3">
         <div className="relative w-24 h-24">
           <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96">
             <circle cx="48" cy="48" r="40" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="4" />
-            <circle cx="48" cy="48" r="40" fill="none" stroke="#22c55e" strokeWidth="4" strokeLinecap="round" strokeDasharray="251.3" strokeDashoffset="251.3" className="animate-[draw-ring_0.5s_ease-out_forwards]" />
+            <circle cx="48" cy="48" r="40" fill="none" stroke="#22c55e" strokeWidth="4" strokeLinecap="round" strokeDasharray="251.3" strokeDashoffset="251.3" className="animate-[draw-ring_0.35s_ease-out_forwards]" />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
-            <Check className="w-10 h-10 text-emerald-400 animate-[pop-check_0.3s_ease-out_0.4s_both]" strokeWidth={3} />
+            <Check className="w-10 h-10 text-emerald-400 animate-[pop-check_0.25s_ease-out_0.3s_both]" strokeWidth={3} />
           </div>
         </div>
-        <p className="text-white text-sm font-medium animate-[pop-check_0.3s_ease-out_0.5s_both]">{label}</p>
+        <p className="text-white text-sm font-medium animate-[pop-check_0.25s_ease-out_0.4s_both]">{label}</p>
       </div>
     </div>
   );
 }
 
+/* ─── Auto-progress ring around shutter ─── */
 function AutoProgressRing({ progress }: { progress: number }) {
   const circumference = 2 * Math.PI * 44;
   const offset = circumference * (1 - progress);
   return (
     <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 96 96">
       <circle cx="48" cy="48" r="44" fill="none" stroke="rgba(34,197,94,0.3)" strokeWidth="3" />
-      <circle cx="48" cy="48" r="44" fill="none" stroke="#22c55e" strokeWidth="3" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} style={{ transition: 'stroke-dashoffset 200ms ease-out' }} />
+      <circle cx="48" cy="48" r="44" fill="none" stroke="#22c55e" strokeWidth="3" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} style={{ transition: 'stroke-dashoffset 100ms ease-out' }} />
     </svg>
   );
 }
 
-/** Scan overlay with haptic pulse synced to scan-line sweep */
+/* ─── Scan overlay with haptic + fast laser sweep ─── */
 function ScanOverlay({ label }: { label: string }) {
   useEffect(() => {
     if (!navigator.vibrate) return;
-    // Gentle haptic pulse every 750ms (half the 1.5s scan-line cycle)
-    const id = setInterval(() => {
-      navigator.vibrate([8, 120, 8]);
-    }, 750);
+    const id = setInterval(() => { navigator.vibrate([6, 80, 6]); }, 400);
     return () => { clearInterval(id); navigator.vibrate(0); };
   }, []);
 
   return (
     <div className="absolute inset-0 z-20">
-      <div className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent opacity-80 animate-[scan-line_1.5s_ease-in-out_infinite]" />
-      <div className="absolute inset-12 pointer-events-none animate-[pulse-bracket_2s_ease-in-out_infinite]">
+      {/* Fast horizontal laser sweep */}
+      <div className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent opacity-90 animate-[scan-line_0.8s_ease-in-out_infinite]" />
+      {/* Radial pulse on capture */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="w-32 h-32 rounded-full border-2 border-emerald-400/40 animate-[radial-pulse_0.8s_ease-out_forwards]" />
+      </div>
+      {/* Corner brackets */}
+      <div className="absolute inset-12 pointer-events-none animate-[pulse-bracket_1.2s_ease-in-out_infinite]">
         <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-emerald-400 rounded-tl-lg" />
         <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-emerald-400 rounded-tr-lg" />
         <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-emerald-400 rounded-bl-lg" />
@@ -66,6 +71,37 @@ function ScanOverlay({ label }: { label: string }) {
         <span className="text-white text-sm font-medium bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm animate-pulse">
           {label}
         </span>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Real-time framing guidance pill ─── */
+function ScanGuidance({ hint, autoMode }: { hint: FramingHint; autoMode: boolean }) {
+  const { t } = useLanguage();
+
+  const config: Record<string, { icon: React.ReactNode; label: string }> = {
+    more_light: { icon: <Sun className="w-3.5 h-3.5" />, label: t('scan.more_light') },
+    too_close: { icon: <ZoomOut className="w-3.5 h-3.5" />, label: t('scan.move_back') },
+    too_far: { icon: <ZoomIn className="w-3.5 h-3.5" />, label: t('scan.move_closer') },
+    ready: { icon: <MoveHorizontal className="w-3.5 h-3.5" />, label: autoMode ? t('scan.ready') : t('scan.point_garment') },
+  };
+
+  const current = hint && config[hint] ? config[hint] : config.ready;
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+      <div
+        key={hint}
+        className={cn(
+          'flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-sm text-sm font-medium transition-all duration-300',
+          hint === 'ready' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/20' :
+          hint === 'more_light' ? 'bg-amber-500/20 text-amber-300 border border-amber-400/20' :
+          'bg-white/10 text-white/80 border border-white/10'
+        )}
+      >
+        {current.icon}
+        {current.label}
       </div>
     </div>
   );
@@ -95,7 +131,7 @@ export default function LiveScan() {
     if (navigator.vibrate) navigator.vibrate(30);
   }, [capture, canCapture, hasSlots]);
 
-  const { progress: autoProgress } = useAutoDetect({
+  const { progress: autoProgress, framingHint } = useAutoDetect({
     enabled: autoMode && canCapture && hasSlots,
     videoEl: videoRef.current,
     busy: isProcessing || !!lastResult || showAccepted,
@@ -140,6 +176,7 @@ export default function LiveScan() {
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
+      {/* Top bar */}
       <div className="relative z-10 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/70 to-transparent">
         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={handleClose}>
           <X className="w-6 h-6" />
@@ -150,7 +187,7 @@ export default function LiveScan() {
             {t('scan.auto')}
           </button>
           {scanCount > 0 && (
-            <Badge key={scanCount} className="bg-white/20 text-white border-0 text-sm px-3 py-1 backdrop-blur-sm animate-[badge-pop_0.4s_ease-out]">
+            <Badge key={scanCount} className="bg-white/20 text-white border-0 text-sm px-3 py-1 backdrop-blur-sm animate-[badge-pop_0.3s_ease-out]">
               <ScanLine className="w-4 h-4 mr-1.5" />{scanCount} {t('scan.scanned')}
             </Badge>
           )}
@@ -160,6 +197,7 @@ export default function LiveScan() {
         ) : <div className="w-12" />}
       </div>
 
+      {/* Camera view */}
       <div className="flex-1 relative overflow-hidden">
         {cameraError ? (
           <div className="absolute inset-0 flex items-center justify-center p-8 text-center">
@@ -173,19 +211,20 @@ export default function LiveScan() {
           <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
         )}
 
+        {/* Idle state: framing guide + guidance pill */}
         {cameraReady && !lastResult && !isProcessing && !showAccepted && (
           <div className="absolute inset-0 pointer-events-none">
-            <div className={cn('absolute inset-8 border-2 rounded-2xl transition-colors duration-300', autoMode && autoProgress > 0 ? 'border-emerald-400/50' : 'border-white/20')} />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <p className="text-white/50 text-sm font-medium bg-black/30 px-4 py-2 rounded-full backdrop-blur-sm">
-                {autoMode ? t('scan.hold_still') : t('scan.point_garment')}
-              </p>
-            </div>
+            <div className={cn(
+              'absolute inset-8 border-2 rounded-2xl transition-all duration-200',
+              autoMode && autoProgress > 0
+                ? 'border-emerald-400/60 shadow-[0_0_20px_rgba(34,197,94,0.15)]'
+                : 'border-white/20'
+            )} />
+            <ScanGuidance hint={framingHint} autoMode={autoMode} />
           </div>
         )}
 
         {isProcessing && <ScanOverlay label={t('scan.analyzing')} />}
-
         {showAccepted && <AcceptedOverlay onDone={handleAcceptedDone} label={t('scan.added')} />}
 
         {error && !isProcessing && (
@@ -196,6 +235,7 @@ export default function LiveScan() {
           </div>
         )}
 
+        {/* Result card */}
         {lastResult && (
           <div className="absolute bottom-0 left-0 right-0 z-20 p-4 animate-slide-in-bottom">
             <Card className="bg-card/95 backdrop-blur-md border-border/50 shadow-2xl">
@@ -226,6 +266,7 @@ export default function LiveScan() {
         )}
       </div>
 
+      {/* Shutter button */}
       <div className="relative z-10 flex items-center justify-center py-6 bg-gradient-to-t from-black/70 to-transparent">
         <div className="relative w-20 h-20">
           {autoMode && autoProgress > 0 && <AutoProgressRing progress={autoProgress} />}
@@ -235,6 +276,7 @@ export default function LiveScan() {
         </div>
       </div>
 
+      {/* Free tier remaining slots */}
       {!isPremium && cameraReady && (
         <div className="absolute bottom-28 left-0 right-0 flex justify-center z-10">
           <span className="text-white/60 text-xs bg-black/40 px-3 py-1 rounded-full backdrop-blur-sm">
