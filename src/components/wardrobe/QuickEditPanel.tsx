@@ -8,10 +8,19 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useUpdateGarment, type Garment } from '@/hooks/useGarments';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const categoryOptions = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'];
-const colorOptions = ['svart', 'vit', 'grå', 'marinblå', 'blå', 'röd', 'grön', 'beige', 'brun'];
+const colorOptionIds = ['svart', 'vit', 'grå', 'marinblå', 'blå', 'röd', 'grön', 'beige', 'brun'];
 const formalityOptions = [1, 2, 3, 4, 5];
+
+const CATEGORY_LABEL_KEYS: Record<string, string> = {
+  top: 'quickedit.cat.top',
+  bottom: 'quickedit.cat.bottom',
+  shoes: 'quickedit.cat.shoes',
+  outerwear: 'quickedit.cat.outerwear',
+  accessory: 'quickedit.cat.accessory',
+};
 
 interface QuickEditItemProps {
   garment: Garment;
@@ -19,6 +28,7 @@ interface QuickEditItemProps {
 }
 
 function QuickEditItem({ garment, onDone }: QuickEditItemProps) {
+  const { t } = useLanguage();
   const updateGarment = useUpdateGarment();
   const [category, setCategory] = useState(garment.category);
   const [color, setColor] = useState(garment.color_primary);
@@ -46,10 +56,10 @@ function QuickEditItem({ garment, onDone }: QuickEditItemProps) {
           formality,
         },
       });
-      toast.success('Uppdaterat!');
+      toast.success(t('quickedit.updated'));
       onDone();
     } catch {
-      toast.error('Kunde inte spara');
+      toast.error(t('quickedit.save_error'));
     } finally {
       setIsSaving(false);
     }
@@ -59,21 +69,19 @@ function QuickEditItem({ garment, onDone }: QuickEditItemProps) {
     <Card className="overflow-hidden">
       <CardContent className="p-3">
         <div className="flex gap-3">
-          {/* Image */}
           <LazyImageSimple
             imagePath={garment.image_path}
             alt={garment.title}
             className="w-20 h-20 rounded-lg flex-shrink-0"
           />
           
-          {/* Content */}
           <div className="flex-1 min-w-0 space-y-2">
             <div className="flex items-start justify-between">
               <div>
                 <p className="font-medium text-sm truncate">{garment.title}</p>
                 <Badge variant="outline" className="mt-1 text-xs">
                   <Sparkles className="w-3 h-3 mr-1" />
-                  Ny
+                  {t('quickedit.new_badge')}
                 </Badge>
               </div>
               <Button 
@@ -101,18 +109,14 @@ function QuickEditItem({ garment, onDone }: QuickEditItemProps) {
                   onClick={() => setCategory(cat)}
                   className="capitalize text-xs"
                 >
-                  {cat === 'top' ? 'Överdel' : 
-                   cat === 'bottom' ? 'Underdel' : 
-                   cat === 'shoes' ? 'Skor' : 
-                   cat === 'outerwear' ? 'Ytter' : 
-                   cat === 'accessory' ? 'Acc.' : cat}
+                  {t(CATEGORY_LABEL_KEYS[cat] || cat)}
                 </Chip>
               ))}
             </div>
             
             {/* Color chips */}
             <div className="flex flex-wrap gap-1">
-              {colorOptions.slice(0, 5).map((c) => (
+              {colorOptionIds.slice(0, 5).map((c) => (
                 <Chip
                   key={c}
                   size="sm"
@@ -120,14 +124,14 @@ function QuickEditItem({ garment, onDone }: QuickEditItemProps) {
                   onClick={() => setColor(c)}
                   className="capitalize text-xs"
                 >
-                  {c}
+                  {t(`color.${c}`)}
                 </Chip>
               ))}
             </div>
             
             {/* Formality */}
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Formalitet:</span>
+              <span className="text-xs text-muted-foreground">{t('quickedit.formality')}</span>
               <div className="flex gap-1">
                 {formalityOptions.map((f) => (
                   <button
@@ -158,6 +162,7 @@ interface QuickEditPanelProps {
 }
 
 export function QuickEditPanel({ garments, onClose }: QuickEditPanelProps) {
+  const { t } = useLanguage();
   const [remainingGarments, setRemainingGarments] = useState(garments);
 
   const handleDone = (garmentId: string) => {
@@ -174,14 +179,14 @@ export function QuickEditPanel({ garments, onClose }: QuickEditPanelProps) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
-            Snabbredigera ({remainingGarments.length})
+            {t('quickedit.title')} ({remainingGarments.length})
           </CardTitle>
           <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
             <X className="w-4 h-4" />
           </Button>
         </div>
         <p className="text-sm text-muted-foreground">
-          Justera kategori, färg och formalitet för dina nya plagg
+          {t('quickedit.desc')}
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -194,7 +199,7 @@ export function QuickEditPanel({ garments, onClose }: QuickEditPanelProps) {
         ))}
         {remainingGarments.length > 5 && (
           <p className="text-sm text-center text-muted-foreground">
-            +{remainingGarments.length - 5} fler plagg
+            {t('quickedit.more_garments').replace('{count}', String(remainingGarments.length - 5))}
           </p>
         )}
       </CardContent>

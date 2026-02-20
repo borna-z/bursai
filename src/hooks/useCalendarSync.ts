@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
-import { sv } from 'date-fns/locale';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export interface CalendarEvent {
   id: string;
@@ -20,10 +20,10 @@ export type CalendarProvider = 'ics' | 'google' | null;
 
 export function useCalendarSync() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Get profile with ics_url and last_calendar_sync
   const { data: profile } = useQuery({
     queryKey: ['profile-calendar', user?.id],
     queryFn: async () => {
@@ -39,7 +39,6 @@ export function useCalendarSync() {
     enabled: !!user,
   });
 
-  // Check for Google Calendar connection
   const { data: googleConnection } = useQuery({
     queryKey: ['google-calendar-connection', user?.id],
     queryFn: async () => {
@@ -62,7 +61,6 @@ export function useCalendarSync() {
     ? 'ics'
     : null;
 
-  // Sync calendar mutation (ICS)
   const syncMutation = useMutation({
     mutationFn: async () => {
       setIsSyncing(true);
@@ -74,15 +72,14 @@ export function useCalendarSync() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       queryClient.invalidateQueries({ queryKey: ['profile-calendar'] });
-      toast.success(`Synkade ${data.synced} händelser`);
+      toast.success(t('calsync.synced_events').replace('{count}', String(data.synced)));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Kunde inte synka kalendern');
+      toast.error(error.message || t('calsync.sync_error'));
     },
     onSettled: () => setIsSyncing(false),
   });
 
-  // Sync Google Calendar
   const syncGoogleMutation = useMutation({
     mutationFn: async () => {
       setIsSyncing(true);
@@ -94,18 +91,17 @@ export function useCalendarSync() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       queryClient.invalidateQueries({ queryKey: ['profile-calendar'] });
-      toast.success(`Synkade ${data.synced} händelser från Google`);
+      toast.success(t('calsync.synced_google').replace('{count}', String(data.synced)));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Kunde inte synka Google Calendar');
+      toast.error(error.message || t('calsync.sync_google_error'));
     },
     onSettled: () => setIsSyncing(false),
   });
 
-  // Save ICS URL
   const saveIcsUrl = useMutation({
     mutationFn: async (icsUrl: string) => {
-      if (!user) throw new Error('Ej inloggad');
+      if (!user) throw new Error(t('calsync.not_logged_in'));
       const { error } = await supabase
         .from('profiles')
         .update({ ics_url: icsUrl })
@@ -116,14 +112,13 @@ export function useCalendarSync() {
       queryClient.invalidateQueries({ queryKey: ['profile-calendar'] });
     },
     onError: () => {
-      toast.error('Kunde inte spara kalender-URL');
+      toast.error(t('calsync.save_url_error'));
     },
   });
 
-  // Remove ICS URL
   const removeIcsUrl = useMutation({
     mutationFn: async () => {
-      if (!user) throw new Error('Ej inloggad');
+      if (!user) throw new Error(t('calsync.not_logged_in'));
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ ics_url: null, last_calendar_sync: null })
@@ -138,14 +133,13 @@ export function useCalendarSync() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile-calendar'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
-      toast.success('Kalendersynk borttagen');
+      toast.success(t('calsync.removed'));
     },
     onError: () => {
-      toast.error('Kunde inte ta bort kalendersynk');
+      toast.error(t('calsync.remove_error'));
     },
   });
 
-  // Connect Google Calendar (opens OAuth popup)
   const connectGoogle = async () => {
     try {
       const redirectUri = `${window.location.origin}/calendar/callback`;
@@ -153,17 +147,15 @@ export function useCalendarSync() {
         body: { action: 'get_auth_url', redirect_uri: redirectUri },
       });
       if (error || data?.error) {
-        toast.error('Kunde inte starta Google-koppling');
+        toast.error(t('calsync.connect_error'));
         return;
       }
-      // Redirect to Google OAuth
       window.location.href = data.url;
     } catch {
-      toast.error('Kunde inte starta Google-koppling');
+      toast.error(t('calsync.connect_error'));
     }
   };
 
-  // Disconnect Google Calendar
   const disconnectGoogle = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke('google_calendar_auth', {
@@ -175,14 +167,13 @@ export function useCalendarSync() {
       queryClient.invalidateQueries({ queryKey: ['google-calendar-connection'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       queryClient.invalidateQueries({ queryKey: ['profile-calendar'] });
-      toast.success('Google Calendar bortkopplad');
+      toast.success(t('calsync.disconnected'));
     },
     onError: () => {
-      toast.error('Kunde inte koppla bort Google Calendar');
+      toast.error(t('calsync.disconnect_error'));
     },
   });
 
-  // Smart sync: uses whichever provider is connected
   const syncCalendar = async () => {
     if (googleConnection) {
       return syncGoogleMutation.mutateAsync();
@@ -206,7 +197,6 @@ export function useCalendarSync() {
   };
 }
 
-// Hook to get calendar events for a specific date
 export function useCalendarEvents(date: string) {
   const { user } = useAuth();
 
@@ -228,7 +218,6 @@ export function useCalendarEvents(date: string) {
   });
 }
 
-// Hook to get calendar events for a date range
 export function useCalendarEventsRange(startDate: string, endDate: string) {
   const { user } = useAuth();
 
@@ -251,9 +240,9 @@ export function useCalendarEventsRange(startDate: string, endDate: string) {
   });
 }
 
-// Hook: background sync notification
 export function useBackgroundSyncNotification() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const hasShown = useRef(false);
 
   const { data: profile } = useQuery({
@@ -278,8 +267,8 @@ export function useBackgroundSyncNotification() {
     const dbTime = profile.last_calendar_sync;
 
     if (stored && new Date(dbTime) > new Date(stored)) {
-      const ago = formatDistanceToNow(new Date(dbTime), { addSuffix: true, locale: sv });
-      toast.info(`Kalendern synkades automatiskt`, {
+      const ago = formatDistanceToNow(new Date(dbTime), { addSuffix: true });
+      toast.info(t('calsync.auto_synced'), {
         description: ago,
         duration: 4000,
       });
@@ -290,7 +279,6 @@ export function useBackgroundSyncNotification() {
   }, [profile?.last_calendar_sync]);
 }
 
-// Utility to infer occasion from event title
 export function inferOccasionFromEvent(title: string): { occasion: string; formality: number } | null {
   const t = title.toLowerCase();
 

@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
+import { useLanguage } from '@/contexts/LanguageContext';
 import type { PlannedOutfit } from '@/hooks/usePlannedOutfits';
 
 const occasionIcons: Record<string, React.ElementType> = {
@@ -21,14 +22,15 @@ interface MiniDayCardProps {
 }
 
 export function MiniDayCard({ date, plannedOutfit, isSelected, onClick }: MiniDayCardProps) {
+  const { t } = useLanguage();
   const dateStr = format(date, 'yyyy-MM-dd');
   const outfit = plannedOutfit?.outfit;
   const hasOutfit = !!outfit;
   const isWorn = plannedOutfit?.status === 'worn';
 
   let dateLabel = date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
-  if (isToday(date)) dateLabel = 'Idag';
-  else if (isTomorrow(date)) dateLabel = 'Imorgon';
+  if (isToday(date)) dateLabel = t('plan.today');
+  else if (isTomorrow(date)) dateLabel = t('plan.tomorrow');
 
   const OccasionIcon = outfit?.occasion ? occasionIcons[outfit.occasion] || Calendar : null;
 
@@ -58,7 +60,7 @@ export function MiniDayCard({ date, plannedOutfit, isSelected, onClick }: MiniDa
           </span>
           {isWorn && (
             <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent">
-              Använd
+              {t('plan.used_badge')}
             </Badge>
           )}
         </div>
@@ -96,7 +98,7 @@ export function MiniDayCard({ date, plannedOutfit, isSelected, onClick }: MiniDa
         <div className="flex items-center gap-2 text-muted-foreground">
           <div className="h-10 flex-1 rounded-md border border-dashed flex items-center justify-center">
             <Plus className="w-3.5 h-3.5 mr-1" />
-            <span className="text-xs">Ingen outfit</span>
+            <span className="text-xs">{t('plan.no_outfit_label')}</span>
           </div>
         </div>
       )}
