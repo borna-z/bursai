@@ -42,6 +42,35 @@ function AutoProgressRing({ progress }: { progress: number }) {
   );
 }
 
+/** Scan overlay with haptic pulse synced to scan-line sweep */
+function ScanOverlay({ label }: { label: string }) {
+  useEffect(() => {
+    if (!navigator.vibrate) return;
+    // Gentle haptic pulse every 750ms (half the 1.5s scan-line cycle)
+    const id = setInterval(() => {
+      navigator.vibrate([8, 120, 8]);
+    }, 750);
+    return () => { clearInterval(id); navigator.vibrate(0); };
+  }, []);
+
+  return (
+    <div className="absolute inset-0 z-20">
+      <div className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent opacity-80 animate-[scan-line_1.5s_ease-in-out_infinite]" />
+      <div className="absolute inset-12 pointer-events-none animate-[pulse-bracket_2s_ease-in-out_infinite]">
+        <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-emerald-400 rounded-tl-lg" />
+        <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-emerald-400 rounded-tr-lg" />
+        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-emerald-400 rounded-bl-lg" />
+        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-emerald-400 rounded-br-lg" />
+      </div>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-white text-sm font-medium bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm animate-pulse">
+          {label}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function LiveScan() {
   const navigate = useNavigate();
   const { t } = useLanguage();
@@ -155,25 +184,7 @@ export default function LiveScan() {
           </div>
         )}
 
-        {isProcessing && (
-          <div className="absolute inset-0 z-20">
-            {/* Scan line sweep */}
-            <div className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent opacity-80 animate-[scan-line_1.5s_ease-in-out_infinite]" />
-            {/* Corner brackets */}
-            <div className="absolute inset-12 pointer-events-none animate-[pulse-bracket_2s_ease-in-out_infinite]">
-              <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-emerald-400 rounded-tl-lg" />
-              <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-emerald-400 rounded-tr-lg" />
-              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-emerald-400 rounded-bl-lg" />
-              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-emerald-400 rounded-br-lg" />
-            </div>
-            {/* Label */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-white text-sm font-medium bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm animate-pulse">
-                {t('scan.analyzing')}
-              </span>
-            </div>
-          </div>
-        )}
+        {isProcessing && <ScanOverlay label={t('scan.analyzing')} />}
 
         {showAccepted && <AcceptedOverlay onDone={handleAcceptedDone} label={t('scan.added')} />}
 
