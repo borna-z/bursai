@@ -1,26 +1,28 @@
 
 
-## Changes to the Landing Page
+## Fix Forgot Password
 
-### 1. Replace "Get Early Access" with "Log In"
-All buttons currently labeled "Get Early Access" will be changed to "Log In" -- this applies to:
-- The header CTA button
-- The mobile drawer button
-- The final CTA section at the bottom
+### The Problem
+When a user clicks the password reset link from their email, they land on `/reset-password` but see "Invalid reset link" instead of the password form. This happens because:
 
-### 2. Add "How to Download" Section
-A new section will be added between the final CTA and the footer, showing users how to install BURS on their devices:
+1. The recovery link contains a token in the URL hash (`#type=recovery&access_token=...`)
+2. The `AuthContext` (parent provider) processes this token first and fires the `PASSWORD_RECOVERY` event
+3. By the time `ResetPassword` component mounts and subscribes to `onAuthStateChange`, the event has already passed
+4. The hash has been consumed, so the fallback hash check also fails
+5. Result: `isRecovery` stays `false` and the user sees the error screen
 
-- **iPhone card**: Apple logo icon + step-by-step instructions (Open in Safari, tap Share, tap "Add to Home Screen")
-- **Android card**: Android logo icon (from lucide's `Smartphone` or a custom SVG) + instructions (Open in Chrome, tap menu, tap "Install App" or "Add to Home Screen")
-- Both cards will be displayed side by side on desktop, stacked on mobile
+### The Fix
+Update `ResetPassword.tsx` to be more robust:
 
-Since lucide-react does not include Apple/Android brand icons, inline SVG paths for the Apple logo and Android logo (simple, recognizable silhouettes) will be used directly in the component.
+1. **Check for an existing session on mount** -- after the hash is consumed, there's still a valid session. Call `supabase.auth.getSession()` and if a session exists, show the reset form.
+2. **Keep the `PASSWORD_RECOVERY` listener** as a belt-and-suspenders approach
+3. **Keep the hash check** as an additional fallback
 
 ### Technical Details
 
 | File | Change |
 |------|--------|
-| `src/pages/Landing.tsx` | Replace all "Get Early Access" text with "Log In". Add a new "Download" section with Apple and Android install instructions using inline SVG brand icons. Update the nav links array to include the new download section. |
+| `src/pages/ResetPassword.tsx` | In the `useEffect`, also call `supabase.auth.getSession()` and set `isRecovery = true` if a valid session exists (since the user can only reach this page from the recovery email link). Also check URL search params for `type=recovery` in addition to the hash. |
 
-The new section will follow the same Scandinavian minimal design system: `scroll-reveal` animations, Sora font headings, `border-border` cards, and muted color palette.
+The key insight: if a user arrives at `/reset-password` with an active session, they got there via the recovery email -- so we can safely show the password form.
+
