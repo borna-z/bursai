@@ -60,13 +60,13 @@ export default function AuthPage() {
       return;
     }
 
-    if (password.length < 6) {
+    if (password.length < 8) {
       toast.error(t('auth.password_too_short'));
       return;
     }
 
     setIsLoading(true);
-    const { error } = await signUp(email, password);
+    const { data, error } = await signUp(email, password);
     setIsLoading(false);
 
     if (error) {
@@ -75,6 +75,10 @@ export default function AuthPage() {
       } else {
         toast.error(t('auth.something_wrong'));
       }
+    } else if (data?.user?.identities?.length === 0) {
+      toast.error(t('auth.already_exists'));
+    } else if (data?.user && !data.session) {
+      toast.success(t('auth.check_email'));
     } else {
       toast.success(t('auth.account_created'));
     }

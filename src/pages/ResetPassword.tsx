@@ -38,7 +38,7 @@ export default function ResetPassword() {
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (password.length < 6) {
+    if (password.length < 8) {
       toast.error(t('auth.password_too_short'));
       return;
     }
