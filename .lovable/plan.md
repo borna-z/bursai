@@ -1,74 +1,105 @@
 
 
-## Supercharge the Live Scanner
+## Remove All Hardcoded Swedish -- Full i18n Coverage
 
 ### Problem
-The current scanner feels sluggish: 600ms stability wait + slow scan-line animation + no real-time guidance for the user. The AI analysis also takes longer than needed because the edge function uses a heavier model. Users don't get feedback about framing (too close, too far, etc.).
+Many pages and components still contain hardcoded Swedish strings instead of using the `t()` translation function. This means switching language in settings has no effect on large parts of the UI.
 
-### What Changes
+### Scope
+After a thorough audit, the following files contain hardcoded Swedish text that must be replaced with `t()` calls. New translation keys will be added to `src/i18n/translations.ts` for all 12+ supported locales.
 
-**1. Faster auto-detect (600ms -> 400ms stability, 800ms -> 500ms cooldown)**
-- `useAutoDetect.ts`: Reduce `STABLE_DURATION` from 600 to 400ms and `COOLDOWN` from 800 to 500ms
-- Lower `SAMPLE_INTERVAL` from 150 to 100ms for more responsive detection
-- Result: scan triggers ~40% faster
+---
 
-**2. Real-time framing guidance**
-- Add a new component `ScanGuidance` in `LiveScan.tsx` that analyzes the video frame brightness/contrast to detect:
-  - **Too dark**: "Move to better light"
-  - **Too close / too far**: Simple edge-density heuristic -- many edges near borders = too close, very few features = too far
-  - **Good framing**: "Hold still to scan"
-- Show as a floating pill overlay replacing the current static "Hold still" / "Point at garment" text
-- Update with smooth transitions (no flickering)
+### Files to Update (14 files)
 
-**3. Much snappier scan animations**
-- Replace the slow vertical scan-line (1.5s cycle) with a faster, more dynamic animation:
-  - Horizontal laser sweep: 0.8s cycle instead of 1.5s
-  - Corner brackets pulse faster (1.2s instead of 2s)
-  - Add a subtle radial pulse from center on capture
-  - Green glow effect on the border when stability is building
-- Smoother accepted overlay: faster ring draw (0.35s instead of 0.5s)
-- Badge pop animation tightened to 0.3s
+**Settings pages (5 files):**
 
-**4. Faster AI analysis (switch to lighter model)**
-- `analyze_garment/index.ts`: Switch from `google/gemini-3-flash-preview` to `google/gemini-2.5-flash-lite` for live scan mode (when `base64Image` is provided)
-- Keep `gemini-3-flash-preview` for the standard upload flow (when `storagePath` is provided) since quality matters more there
-- Reduce `max_tokens` from 500 to 300 for live scan (the JSON response is small)
-- Reduce timeout from 30s to 15s for live scan
-- This should bring analysis from ~4-5s down to ~2-3s
+| File | Hardcoded strings |
+|------|------------------|
+| `src/pages/Settings.tsx` | "Utseende", "Tema, accentfarg, sprak", "Stil", "Kroppsmatt, farger, passform", "Notiser & Kalender", "Paminnelser, kalendersynk", "Profil & Konto", "Premium, namn, e-post", "Data & Integritet", "Exportera, radera konto" |
+| `src/pages/settings/SettingsAppearance.tsx` | PageHeader title "Utseende", "Auto" button label |
+| `src/pages/settings/SettingsNotifications.tsx` | PageHeader title "Notiser & Kalender" |
+| `src/pages/settings/SettingsAccount.tsx` | PageHeader title "Profil & Konto" |
+| `src/pages/settings/SettingsStyle.tsx` | PageHeader title "Stil", SelectItem values "Loose", "Regular", "Slim", "Klassisk" |
 
-**5. New i18n keys for guidance**
-- Add translation keys for the framing hints: `scan.move_closer`, `scan.move_back`, `scan.more_light`, `scan.ready`
+**Calendar section (1 file):**
 
-### Files Modified
+| File | Hardcoded strings |
+|------|------------------|
+| `src/components/settings/CalendarSection.tsx` | "Synkad", "Behover synkas", "Ej synkad", "Senast synkad...", "Automatisk var 6:e timme", "Synka nu", "Koppla Google Calendar", "ICS-lank", "Koppla Apple Calendar...", "Lagg till ICS-lank", "Klistra in din ICS-lank", "Synka kalender", "Hur hittar jag min ICS-lank?", all Google/Outlook/Apple help text, "Kalendersynk" section title |
 
-| File | Change |
-|------|--------|
-| `src/hooks/useAutoDetect.ts` | Faster constants, add brightness/edge analysis export |
-| `src/pages/LiveScan.tsx` | New `ScanGuidance` component, faster animations, better UX flow |
-| `src/index.css` | Updated keyframes: faster scan-line, new pulse/glow animations |
-| `supabase/functions/analyze_garment/index.ts` | Conditional model selection (lite for live scan), lower max_tokens/timeout |
-| `src/i18n/translations.ts` | Add guidance translation keys (sv, en + other locales) |
+**Premium/billing pages (4 files):**
 
-### Technical Details
+| File | Hardcoded strings |
+|------|------------------|
+| `src/components/PremiumSection.tsx` | "Testlage", "Aktiv", "Betalning misslyckades...", "Obegransad garderob", "Obegransade outfits", "Hantera prenumeration", "Plagg", "Outfits denna manad", "79 kr/manad", "699 kr/ar (spara 26%)", "Jag har redan Premium", toast messages |
+| `src/components/PaywallModal.tsx` | "Las upp Premium", limit messages, "Obegransad garderob", "Lagg till hur manga plagg...", "Obegransade outfits", "Smartare rekommendationer", "79 kr/manad", "699 kr/ar", "Inte nu", toast messages |
+| `src/pages/Pricing.tsx` | All FAQ questions/answers, trust bullets, "Las upp din fulla garderob", "Manadsvis", "Arsvis", feature names, "Starta Premium", "Vanliga fragor", "Free-planen inkluderar" list |
+| `src/pages/BillingSuccess.tsx` | "Premium aktiverat!", description, feature list, "Borja anvanda Premium", "Hantera prenumeration" |
+| `src/pages/BillingCancel.tsx` | "Avbrutet", description, contact message, "Tillbaka till appen" |
 
-**Framing heuristic (lightweight, runs on existing sampled canvas)**:
-```text
-1. Sample center region brightness -> if avg < 60 -> "more light"
-2. Run simple Sobel edge count on 64x64 canvas:
-   - edge_ratio > 0.6 near borders -> "too close"
-   - edge_ratio < 0.05 overall -> "too far / no garment"
-   - otherwise -> "ready, hold still"
-3. Debounce guidance changes by 300ms to prevent flickering
-```
+**Share/public pages (1 file):**
 
-**Animation timing summary**:
-```text
-Before -> After
-scan-line cycle:     1.5s -> 0.8s
-bracket pulse:       2.0s -> 1.2s
-accepted ring draw:  0.5s -> 0.35s
-badge pop:           0.4s -> 0.3s
-stability duration:  600ms -> 400ms
-cooldown:            800ms -> 500ms
-```
+| File | Hardcoded strings |
+|------|------------------|
+| `src/pages/ShareOutfit.tsx` | slotLabels map ("Overdel", "Underdel", etc.), "Delad outfit", "Kopierad!", "Kopiera lank", "Ladda ner", "Stil:", "Okant plagg", "Skapad med Wardrobe AI", CTA section text, toast messages |
+
+**Marketing pages (3 files -- kept English-only as per existing pattern):**
+
+| File | Note |
+|------|------|
+| `src/pages/marketing/Terms.tsx` | "Tillbaka" and "Senast uppdaterad:" are Swedish UI chrome on an English page -- replace with `t()` |
+| `src/pages/marketing/PrivacyPolicy.tsx` | Same: "Tillbaka" and "Senast uppdaterad:" |
+| `src/pages/marketing/Admin.tsx` | "Laddar..." |
+
+**Onboarding (1 file):**
+
+| File | Hardcoded strings |
+|------|------------------|
+| `src/components/onboarding/StylePreferencesStep.tsx` | "Klassisk" label, color names displayed as raw Swedish |
+
+**Other:**
+
+| File | Hardcoded strings |
+|------|------------------|
+| `src/pages/Outfits.tsx` | `date-fns` locale hardcoded to `sv` |
+| `src/pages/GarmentDetail.tsx` | `toLocaleDateString('sv-SE')` |
+
+---
+
+### Translation keys to add (~120 new keys)
+
+All keys will be added to `src/i18n/translations.ts` under a structured namespace:
+
+- `settings.row.*` -- settings page row labels/sublabels
+- `calendar.*` -- all calendar section strings
+- `premium.*` -- premium/paywall/billing strings
+- `pricing.*` -- pricing page strings
+- `billing.*` -- billing success/cancel strings
+- `share.*` -- share outfit page strings
+- `common.back`, `common.loading` -- reusable strings
+
+Each key gets translations for: `sv`, `en`, `no`, `da`, `fi`, `de`, `fr`, `es`, `it`, `pt`, `nl`, `pl`, `ar`, `fa`
+
+---
+
+### Technical approach
+
+1. **Add all new translation keys** to `src/i18n/translations.ts` (bulk addition for all locales)
+2. **Update each file** to import `useLanguage` (if not already) and replace hardcoded strings with `t('key')` calls
+3. **Date formatting**: Replace hardcoded `locale: sv` and `'sv-SE'` with a locale-aware helper that maps the app locale to the correct `date-fns` locale
+4. **Color names in filters/chips**: These are database values (stored as Swedish), so they stay as-is in filters but get display-mapped via `t()` where shown to users
+5. **Marketing/Landing page**: Stays English (international audience). Only fix the "Tillbaka" / "Senast uppdaterad" UI chrome
+
+### Implementation order
+
+1. Add all translation keys to `translations.ts`
+2. Update Settings hub + sub-pages (5 files)
+3. Update CalendarSection
+4. Update PremiumSection + PaywallModal
+5. Update Pricing, BillingSuccess, BillingCancel
+6. Update ShareOutfit
+7. Update StylePreferencesStep
+8. Fix date-fns locale mapping in Outfits + GarmentDetail
+9. Fix marketing page chrome (Terms, Privacy, Admin)
 
