@@ -34,6 +34,7 @@ import Pricing from "./pages/Pricing";
 import NotFound from "./pages/NotFound";
 import LiveScan from "./pages/LiveScan";
 import ResetPassword from "./pages/ResetPassword";
+import GoogleCalendarCallback from "./pages/GoogleCalendarCallback";
  // Standalone pages
  import PrivacyPolicy from "./pages/marketing/PrivacyPolicy";
  import Terms from "./pages/marketing/Terms";
@@ -85,6 +86,7 @@ const queryClient = new QueryClient();
                  <Route path="/billing/success" element={<ProtectedRoute><BillingSuccess /></ProtectedRoute>} />
                  <Route path="/billing/cancel" element={<ProtectedRoute><BillingCancel /></ProtectedRoute>} />
                  <Route path="/share/:id" element={<ShareOutfit />} />
+                 <Route path="/calendar/callback" element={<ProtectedRoute><GoogleCalendarCallback /></ProtectedRoute>} />
                  <Route path="*" element={<NotFound />} />
                </Routes>
              </BrowserRouter>
