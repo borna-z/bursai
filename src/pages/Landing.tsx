@@ -63,42 +63,48 @@ export default function Landing() {
         </header>
 
         {/* ── Hero ── */}
-        <section className="relative flex flex-col items-center justify-center min-h-screen px-6 pt-20 text-center overflow-hidden">
-          {/* Radial glow */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-[500px] h-[500px] rounded-full bg-white/[0.02] blur-[100px]" />
-          </div>
-          {/* Grid overlay */}
-          <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.4) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
+        <section className="relative w-full min-h-[90vh] flex items-center justify-center overflow-hidden px-6 md:px-12 pt-20 pb-16">
+          {/* Subtle background glow */}
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-white/5 rounded-full blur-[120px] pointer-events-none" />
 
-          <div className="relative z-10 flex flex-col items-center max-w-3xl animate-fade-in">
-            <img src={bursLogo} alt="Burs" className="w-28 h-28 md:w-40 md:h-40 rounded-3xl object-contain mb-8" />
+          <div className="max-w-7xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-16 relative z-10">
+            {/* Left Column */}
+            <div className="w-full md:w-1/2 flex flex-col items-start gap-8 animate-fade-in">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs tracking-wide text-gray-300 backdrop-blur-sm">
+                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                Sustainable AI Styling
+              </div>
 
-            <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-[-0.03em] leading-[1.05]" style={{ fontFamily: "'Sora', sans-serif" }}>
-              Rediscover Your<br />
-              <span className="text-gray-500">Wardrobe with AI.</span>
-            </h1>
+              <h1 className="text-5xl md:text-7xl font-semibold tracking-tight text-white leading-[1.1]" style={{ fontFamily: "'Sora', sans-serif" }}>
+                Rediscover <br className="hidden md:block" /> your wardrobe.
+              </h1>
 
-            <p className="mt-6 text-base md:text-lg text-gray-400 max-w-lg leading-relaxed animate-fade-in" style={{ animationDelay: '100ms' }}>
-              Upload your closet. Let Burs style you. Save the planet by wearing what you already own.
-            </p>
+              <p className="text-lg md:text-xl text-gray-400 font-light max-w-lg leading-relaxed">
+                Upload your clothes. Let Burs' AI generate daily outfit combinations from what you already own. Look great, save time, and reduce fast fashion.
+              </p>
 
-            <div className="mt-10 flex flex-col sm:flex-row gap-4 animate-fade-in" style={{ animationDelay: '200ms' }}>
-              <button onClick={() => navigate('/auth')} className="flex items-center justify-center gap-2 bg-white text-black h-14 px-8 rounded-full text-sm font-semibold tracking-wide hover:bg-gray-200 transition-all hover:scale-105">
-                <Smartphone className="w-4 h-4" />
-                Download for iOS
-              </button>
-              <button onClick={() => navigate('/auth')} className="flex items-center justify-center gap-2 border border-white/20 text-white h-14 px-8 rounded-full text-sm font-semibold tracking-wide hover:border-white/40 hover:bg-white/5 transition-all">
-                <Smartphone className="w-4 h-4" />
-                Download for Android
-              </button>
+              <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto pt-4 animate-fade-in" style={{ animationDelay: '150ms' }}>
+                <button onClick={() => navigate('/auth')} className="w-full sm:w-auto px-8 py-4 bg-white text-black rounded-full font-medium hover:scale-105 transition-transform duration-300 flex items-center justify-center gap-2">
+                  Get Early Access
+                  <ArrowRight size={18} strokeWidth={2} />
+                </button>
+                <button onClick={() => navigate('/auth')} className="w-full sm:w-auto px-8 py-4 border border-white/20 text-white rounded-full font-medium hover:bg-white/10 transition-colors duration-300 flex items-center justify-center gap-2">
+                  <Smartphone size={18} strokeWidth={1.5} />
+                  See The App
+                </button>
+              </div>
             </div>
-          </div>
 
-          {/* Scroll indicator */}
-          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-gray-600 animate-fade-in" style={{ animationDelay: '400ms' }}>
-            <span className="text-[10px] tracking-[0.3em] uppercase">Scroll</span>
-            <div className="w-px h-8 bg-gradient-to-b from-gray-600 to-transparent" />
+            {/* Right Column: Phone Mockup */}
+            <div className="w-full md:w-1/2 flex justify-center md:justify-end relative animate-fade-in" style={{ animationDelay: '200ms' }}>
+              <div className="relative w-[280px] h-[580px] md:w-[320px] md:h-[650px] bg-[#121212] rounded-[3rem] border-[6px] border-[#1e1e1e] overflow-hidden shadow-2xl shadow-black/50 transform md:rotate-[-2deg] hover:rotate-0 transition-transform duration-500">
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-7 bg-[#1e1e1e] rounded-b-3xl z-20" />
+                <img src={bursLogo} alt="Burs App Interface" className="w-full h-full object-cover bg-gray-900" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 -z-10 bg-[#0f0f0f]">
+                  <p className="text-gray-600 text-sm font-light">App Screenshot</p>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
