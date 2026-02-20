@@ -233,7 +233,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
         </CardHeader>
         <CardContent className="blur-sm select-none">
           <div className="space-y-3">
-            {[1, 2].map((i) => (
+            {[1].map((i) => (
               <div key={i} className="p-4 bg-muted/30 rounded-xl space-y-3">
                 <div className="h-5 bg-muted rounded w-2/3" />
                 <div className="h-4 bg-muted rounded w-full" />
@@ -288,7 +288,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
           </div>
         ) : (
           <div className="space-y-3">
-            {suggestions.map((suggestion, index) => (
+            {suggestions.slice(0, 1).map((suggestion, index) => (
               <SuggestionCard 
                 key={index}
                 suggestion={suggestion}
