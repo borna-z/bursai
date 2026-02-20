@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 import { BursMonogram } from './BursMonogram';
 
-interface DrapeLogoProps {
+interface BursLogoProps {
   variant?: 'icon' | 'wordmark' | 'horizontal';
   className?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -16,7 +16,7 @@ const sizeMap = {
   xl: { icon: 56, text: 'text-2xl' }
 };
 
-export function DrapeLogo({ variant = 'horizontal', className, size = 'md', tinted = true }: DrapeLogoProps) {
+export function BursLogo({ variant = 'horizontal', className, size = 'md', tinted = true }: BursLogoProps) {
   const { accentColor } = useTheme();
   const { icon: iconSize, text: textSize } = sizeMap[size];
 
@@ -54,4 +54,4 @@ export function DrapeLogo({ variant = 'horizontal', className, size = 'md', tint
 }
 
 // Backward-compatible alias
-export const BursLogo = DrapeLogo;
+export const DrapeLogo = BursLogo;

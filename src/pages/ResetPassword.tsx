@@ -111,7 +111,7 @@ export default function ResetPassword() {
             className="text-3xl font-bold tracking-[0.12em]"
             style={{ fontFamily: "'Sora', sans-serif" }}
           >
-            DRAPE
+            BURS
           </h1>
         </div>
 
