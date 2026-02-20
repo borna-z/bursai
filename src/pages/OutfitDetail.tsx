@@ -40,7 +40,7 @@ function SwapSheet({ isOpen, onClose, slot, candidates, isLoading, onSelect, isS
         <SheetHeader><SheetTitle>{t('outfit.swap')} {slotLabel}</SheetTitle></SheetHeader>
         <div className="mt-4 pb-8 space-y-2">
           {isLoading ? (
-            <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+            <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>
           ) : candidates.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <p>{t('outfit.no_alternatives')}</p>
@@ -205,10 +205,10 @@ export default function OutfitDetailPage() {
         <div className="p-4 flex items-center justify-between">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="w-5 h-5" /></Button>
           <div className="flex gap-1">
-            <Button variant="ghost" size="icon" onClick={handleToggleSave} className="active:animate-press">
+            <Button variant="ghost" size="icon" onClick={handleToggleSave}>
               {outfit.saved ? <BookmarkCheck className="w-5 h-5 text-primary" /> : <Bookmark className="w-5 h-5" />}
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => setShareSheetOpen(true)} className="active:animate-press"><Share2 className="w-5 h-5" /></Button>
+            <Button variant="ghost" size="icon" onClick={() => setShareSheetOpen(true)}><Share2 className="w-5 h-5" /></Button>
           </div>
         </div>
       </div>
@@ -241,7 +241,7 @@ export default function OutfitDetailPage() {
           <p className="font-medium text-sm">{t('outfit.rating')}</p>
           <div className="flex gap-1">
             {[1, 2, 3, 4, 5].map((value) => (
-              <button key={value} onClick={() => handleRating(value)} className="p-1.5 rounded-lg hover:bg-muted transition-colors active:animate-press">
+              <button key={value} onClick={() => handleRating(value)} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
                 <Star className={cn('w-7 h-7 transition-colors', (rating || 0) >= value ? 'fill-primary text-primary' : 'text-muted-foreground/40')} />
               </button>
             ))}
@@ -252,7 +252,7 @@ export default function OutfitDetailPage() {
           <p className="font-medium text-sm">{t('outfit.feedback')}</p>
           <div className="flex flex-wrap gap-2">
             {feedbackOptions.map(({ id, label, icon: Icon }) => (
-              <Chip key={id} selected={selectedFeedback.includes(id)} onClick={() => handleFeedbackToggle(id)} className="active:animate-chip-select">
+              <Chip key={id} selected={selectedFeedback.includes(id)} onClick={() => handleFeedbackToggle(id)}>
                 <Icon className="w-3.5 h-3.5 mr-1" />{label}
               </Chip>
             ))}
@@ -260,15 +260,15 @@ export default function OutfitDetailPage() {
         </div>
 
         <div className="space-y-3">
-          <Button className="w-full active:animate-press" onClick={handleMarkWorn} disabled={markWorn.isPending || !!outfit.worn_at}>
+          <Button className="w-full" onClick={handleMarkWorn} disabled={markWorn.isPending || !!outfit.worn_at}>
             {markWorn.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
             {outfit.worn_at ? t('outfit.worn') : t('outfit.mark_worn')}
           </Button>
           <div className="grid grid-cols-2 gap-3">
-            <Button variant="outline" onClick={() => navigate('/plan', { state: { preselectedOutfitId: outfit.id } })} className="w-full active:animate-press">
+            <Button variant="outline" onClick={() => navigate('/plan', { state: { preselectedOutfitId: outfit.id } })} className="w-full">
               <Calendar className="w-4 h-4 mr-2" />{t('outfit.plan')}
             </Button>
-            <Button variant="outline" onClick={handleCreateSimilar} className="active:animate-press">
+            <Button variant="outline" onClick={handleCreateSimilar}>
               <RefreshCw className="w-4 h-4 mr-2" />{t('outfit.similar')}
             </Button>
           </div>
@@ -297,16 +297,16 @@ export default function OutfitDetailPage() {
                   <Label className="text-sm font-medium">{t('outfit.link')}</Label>
                   <div className="flex gap-2">
                     <div className="flex-1 p-3 bg-secondary rounded-lg text-sm truncate">{shareUrl}</div>
-                    <Button variant="outline" size="icon" onClick={handleCopyShareLink} className="active:animate-press">
+                    <Button variant="outline" size="icon" onClick={handleCopyShareLink}>
                       {copied ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
                     </Button>
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1 active:animate-press" onClick={handleCopyShareLink}>
+                  <Button variant="outline" className="flex-1" onClick={handleCopyShareLink}>
                     <Link className="w-4 h-4 mr-2" />{copied ? t('outfit.copied') : t('outfit.copy')}
                   </Button>
-                  <Button variant="outline" className="flex-1 active:animate-press" onClick={handleDownloadImage} disabled={isDownloading}>
+                  <Button variant="outline" className="flex-1" onClick={handleDownloadImage} disabled={isDownloading}>
                     {isDownloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
                     {t('outfit.download')}
                   </Button>

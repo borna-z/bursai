@@ -1,28 +1,21 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Trash2, Star, Clock, Bell } from 'lucide-react';
+import { Calendar, Trash2, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
-import { useUpdateOutfit, type OutfitWithItems } from '@/hooks/useOutfits';
+import { type OutfitWithItems } from '@/hooks/useOutfits';
 import { useProfile } from '@/hooks/useProfile';
 import { useForecast } from '@/hooks/useForecast';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
-import { toast } from 'sonner';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { format, isToday, isTomorrow } from 'date-fns';
 import { sv } from 'date-fns/locale';
 
@@ -39,39 +32,25 @@ interface PlannedOutfitCardProps {
 
 function PlannedOutfitCard({ outfit, onDelete }: PlannedOutfitCardProps) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const plannedFor = (outfit as any).planned_for;
   const weather = (outfit as any).weather as { temp?: number } | null;
 
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
-  };
+  const handleDelete = (e: React.MouseEvent) => { e.stopPropagation(); };
 
   return (
     <Card
       className="cursor-pointer hover:shadow-md transition-all overflow-hidden active:scale-[0.99] animate-drape-in opacity-0 [animation-fill-mode:both]"
       onClick={() => navigate(`/outfits/${outfit.id}`)}
     >
-      {/* Preview images row */}
       <div className="flex h-20 bg-muted/30">
         {outfit.outfit_items.slice(0, 4).map((item, index) => (
-          <div
-            key={item.id}
-            className={cn(
-              "flex-1 overflow-hidden",
-              index < outfit.outfit_items.slice(0, 4).length - 1 && "border-r border-background"
-            )}
-          >
-            <LazyImageSimple
-              imagePath={item.garment?.image_path}
-              alt={item.garment?.title || item.slot}
-              className="w-full h-full"
-            />
+          <div key={item.id} className={cn("flex-1 overflow-hidden", index < outfit.outfit_items.slice(0, 4).length - 1 && "border-r border-background")}>
+            <LazyImageSimple imagePath={item.garment?.image_path} alt={item.garment?.title || item.slot} className="w-full h-full" />
           </div>
         ))}
         {outfit.outfit_items.length > 4 && (
-          <div className="w-10 flex items-center justify-center bg-muted/50 text-xs text-muted-foreground">
-            +{outfit.outfit_items.length - 4}
-          </div>
+          <div className="w-10 flex items-center justify-center bg-muted/50 text-xs text-muted-foreground">+{outfit.outfit_items.length - 4}</div>
         )}
       </div>
 
@@ -79,60 +58,34 @@ function PlannedOutfitCard({ outfit, onDelete }: PlannedOutfitCardProps) {
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="secondary" className="capitalize text-xs">
-                {outfit.occasion}
-              </Badge>
+              <Badge variant="secondary" className="capitalize text-xs">{outfit.occasion}</Badge>
               {outfit.rating && (
                 <div className="flex items-center gap-0.5 text-sm text-muted-foreground">
-                  <Star className="w-3 h-3 fill-primary text-primary" />
-                  {outfit.rating}
+                  <Star className="w-3 h-3 fill-primary text-primary" />{outfit.rating}
                 </div>
               )}
             </div>
-            
-            {outfit.explanation && (
-              <p className="text-xs text-muted-foreground mt-1.5 line-clamp-1">
-                {outfit.explanation}
-              </p>
-            )}
-
-            {/* Weather forecast for planned date */}
+            {outfit.explanation && (<p className="text-xs text-muted-foreground mt-1.5 line-clamp-1">{outfit.explanation}</p>)}
             {plannedFor && (
-              <div className="mt-2">
-                <WeatherForecastBadge 
-                  date={plannedFor} 
-                  compact 
-                  originalTemp={weather?.temp}
-                />
-              </div>
+              <div className="mt-2"><WeatherForecastBadge date={plannedFor} compact originalTemp={weather?.temp} /></div>
             )}
           </div>
 
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive flex-shrink-0 active:animate-press"
-                onClick={handleDelete}
-              >
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive flex-shrink-0" onClick={handleDelete}>
                 <Trash2 className="w-4 h-4" />
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent onClick={(e) => e.stopPropagation()}>
               <AlertDialogHeader>
-                <AlertDialogTitle>Radera?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Kan inte ångras.
-                </AlertDialogDescription>
+                <AlertDialogTitle>{t('outfits.delete_confirm')}</AlertDialogTitle>
+                <AlertDialogDescription>{t('outfits.delete_warning')}</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Avbryt</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  onClick={() => onDelete(outfit.id)}
-                >
-                  Radera
+                <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => onDelete(outfit.id)}>
+                  {t('common.delete')}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -150,6 +103,7 @@ interface PlannedOutfitsListProps {
 
 export function PlannedOutfitsList({ outfits, onDelete }: PlannedOutfitsListProps) {
   const { data: profile } = useProfile();
+  const { t } = useLanguage();
   const { getForecastForDate } = useForecast({ homeCity: profile?.home_city });
   
   const groupedByDate = useMemo(() => {
@@ -165,60 +119,45 @@ export function PlannedOutfitsList({ outfits, onDelete }: PlannedOutfitsListProp
       const date = new Date(dateStr);
       
       let label = format(date, 'EEEE d MMMM', { locale: sv });
-      if (isToday(date)) {
-        label = 'Idag';
-      } else if (isTomorrow(date)) {
-        label = 'Imorgon';
-      }
+      if (isToday(date)) { label = t('plan.today'); }
+      else if (isTomorrow(date)) { label = t('plan.tomorrow'); }
       
       const existing = groups.find(g => g.date === dateStr);
-      if (existing) {
-        existing.outfits.push(outfit);
-      } else {
-        groups.push({ label, date: dateStr, outfits: [outfit] });
-      }
+      if (existing) { existing.outfits.push(outfit); }
+      else { groups.push({ label, date: dateStr, outfits: [outfit] }); }
     });
     
     return groups;
-  }, [outfits]);
+  }, [outfits, t]);
 
   if (outfits.length === 0) {
     return (
       <EmptyState
         icon={Calendar}
-        title="Inga planerade"
-        description="Planera outfits via datumväljaren."
+        title={t('plan.no_planned')}
+        description={t('plan.plan_via_calendar')}
       />
     );
   }
 
   return (
     <div className="space-y-6">
-      {groupedByDate.map((group) => {
-        const forecast = getForecastForDate(group.date);
-        
-        return (
-          <div key={group.date} className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-primary" />
-                <h3 className="font-semibold text-sm capitalize">{group.label}</h3>
-              </div>
-              {/* Weather in group header */}
-              <WeatherForecastBadge date={group.date} compact />
+      {groupedByDate.map((group) => (
+        <div key={group.date} className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-primary" />
+              <h3 className="font-semibold text-sm capitalize">{group.label}</h3>
             </div>
-            <div className="space-y-3 pl-6 stagger-drape">
-              {group.outfits.map((outfit) => (
-                <PlannedOutfitCard 
-                  key={outfit.id} 
-                  outfit={outfit} 
-                  onDelete={onDelete}
-                />
-              ))}
-            </div>
+            <WeatherForecastBadge date={group.date} compact />
           </div>
-        );
-      })}
+          <div className="space-y-3 pl-6 stagger-drape">
+            {group.outfits.map((outfit) => (
+              <PlannedOutfitCard key={outfit.id} outfit={outfit} onDelete={onDelete} />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
