@@ -1,23 +1,17 @@
 
 
-# Update Hero Section
+# Use New Logo for Landing Page Only
 
-## What changes
-Replace the current centered hero (lines 66-103) with the new two-column layout featuring:
-- **Left column**: Status badge ("Sustainable AI Styling"), headline, subtext, and two CTA buttons ("Get Early Access" + "See The App")
-- **Right column**: Minimalist phone mockup frame with app screenshot placeholder and fallback text
-- Background glow repositioned to top-left quarter
+## Overview
+Save the uploaded hanger+B monogram logo as a separate asset (`burs-landing-logo.png`) and use it exclusively on the Landing page, while keeping the existing `burs-logo.png` unchanged for the rest of the app.
 
-## Technical details
+## Steps
 
-### File: `src/pages/Landing.tsx`
-- Replace lines 66-103 (the current hero section) with the provided two-column hero layout
-- Wire up button `onClick` handlers to `navigate('/auth')` to match existing behavior
-- Use `bursLogo` as the phone screenshot image source (since no separate app screenshot exists yet) -- this gives the mockup real content instead of a broken image
-- Keep all other sections (header, how-it-works, sustainability, mission, CTA, footer) unchanged
+1. **Copy the uploaded image** to `src/assets/burs-landing-logo.png`
 
-### Key adaptations from the provided code
-- Convert plain `<button>` elements to use `onClick={() => navigate('/auth')}` for routing
-- Replace the hardcoded `/burs-app-screenshot.png` with the imported `bursLogo` asset as a placeholder
-- Maintain the existing `animate-fade-in` classes for consistency with the rest of the page
+2. **Update `src/pages/Landing.tsx`**:
+   - Add a new import: `import bursLandingLogo from '@/assets/burs-landing-logo.png'`
+   - Replace all references to `bursLogo` with `bursLandingLogo` throughout the landing page (header, hero phone mockup, final CTA, and footer)
+
+No other files are affected -- the app logo (`DrapeLogo` component, PWA icons, etc.) continues using the existing `burs-logo.png`.
 
