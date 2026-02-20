@@ -52,8 +52,7 @@ export default function Landing() {
           <header className="fixed top-0 w-full z-50 border-b border-border bg-background/80 backdrop-blur-md">
             <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
               <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-                <BursMonogram size={36} />
-                <span className="text-foreground text-lg font-medium tracking-[0.2em] hidden sm:block" style={{ fontFamily: "'Sora', sans-serif" }}>BURS</span>
+                <span className="text-foreground text-lg font-medium tracking-[0.2em]" style={{ fontFamily: "'Sora', sans-serif" }}>BURS</span>
               </div>
 
               <nav className="hidden md:flex items-center gap-10 text-sm font-light tracking-wide text-muted-foreground">
