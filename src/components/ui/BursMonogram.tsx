@@ -13,7 +13,7 @@ export function BursMonogram({ size = 32, className }: BursMonogramProps) {
       alt="BURS"
       width={size}
       height={size}
-      className={cn("flex-shrink-0 object-fill", className)} src="/lovable-uploads/27d60588-0ae0-4a11-b8f6-ad5063b34899.png" />);
+      className={cn("flex-shrink-0 border-black shadow-none rounded-none object-fill", className)} src="/lovable-uploads/cf845de2-f083-487e-89a4-320be1284aaf.png" />);
 
 
 }
