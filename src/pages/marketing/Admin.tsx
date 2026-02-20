@@ -118,7 +118,7 @@
    if (!isAuthorized || isLoading) {
      return (
        <div className="min-h-screen flex items-center justify-center bg-background">
-         <div className="animate-pulse text-muted-foreground">Laddar...</div>
+          <div className="animate-pulse text-muted-foreground">Loading...</div>
        </div>
      );
    }

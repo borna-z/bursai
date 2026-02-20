@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Calendar, RefreshCw, Loader2, Trash2, ExternalLink, CheckCircle2, Clock, AlertCircle, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Collapsible,
@@ -11,9 +10,9 @@ import {
 } from '@/components/ui/collapsible';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
 import { formatDistanceToNow, differenceInHours } from 'date-fns';
-import { sv } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { SectionHeader } from '@/components/ui/section-header';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 type SyncStatus = 'synced' | 'stale' | 'never';
 
@@ -23,21 +22,21 @@ function getSyncStatus(lastSynced: string | null): SyncStatus {
   return hoursSinceSync > 12 ? 'stale' : 'synced';
 }
 
-function SyncStatusBadge({ status, lastSynced }: { status: SyncStatus; lastSynced: string | null }) {
+function SyncStatusBadge({ status, t }: { status: SyncStatus; lastSynced: string | null; t: (key: string) => string }) {
   const config = {
     synced: {
       icon: CheckCircle2,
-      label: 'Synkad',
+      label: t('calendar.synced'),
       className: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
     },
     stale: {
       icon: AlertCircle,
-      label: 'Behöver synkas',
+      label: t('calendar.needs_sync'),
       className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
     },
     never: {
       icon: Clock,
-      label: 'Ej synkad',
+      label: t('calendar.never_synced'),
       className: 'bg-muted text-muted-foreground border-border',
     },
   };
@@ -66,21 +65,11 @@ function GoogleIcon({ className }: { className?: string }) {
 
 /* ─── Google Calendar Section ─── */
 function GoogleCalendarCard({
-  isConnected,
-  isSyncing,
-  isDisconnecting,
-  lastSynced,
-  onConnect,
-  onSync,
-  onDisconnect,
+  isConnected, isSyncing, isDisconnecting, lastSynced, onConnect, onSync, onDisconnect, t,
 }: {
-  isConnected: boolean;
-  isSyncing: boolean;
-  isDisconnecting: boolean;
-  lastSynced: string | null;
-  onConnect: () => void;
-  onSync: () => Promise<void>;
-  onDisconnect: () => Promise<void>;
+  isConnected: boolean; isSyncing: boolean; isDisconnecting: boolean; lastSynced: string | null;
+  onConnect: () => void; onSync: () => Promise<void>; onDisconnect: () => Promise<void>;
+  t: (key: string) => string;
 }) {
   const isLoading = isSyncing || isDisconnecting;
   const syncStatus = isConnected ? getSyncStatus(lastSynced) : 'never';
@@ -93,20 +82,20 @@ function GoogleCalendarCard({
             <GoogleIcon className="w-5 h-5" />
             <span className="text-sm font-medium">Google Calendar</span>
           </div>
-          {isConnected && <SyncStatusBadge status={syncStatus} lastSynced={lastSynced} />}
+          {isConnected && <SyncStatusBadge status={syncStatus} lastSynced={lastSynced} t={t} />}
         </div>
 
         {isConnected ? (
           <>
             {lastSynced && (
               <p className="text-xs text-muted-foreground">
-                Senast synkad {formatDistanceToNow(new Date(lastSynced), { addSuffix: true, locale: sv })} · Automatisk var 6:e timme
+                {t('calendar.last_synced')} {formatDistanceToNow(new Date(lastSynced), { addSuffix: true })} · {t('calendar.auto_every_6h')}
               </p>
             )}
             <div className="flex gap-2">
               <Button size="sm" onClick={() => onSync()} disabled={isLoading} className="flex-1">
                 {isSyncing ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
-                Synka nu
+                {t('calendar.sync_now')}
               </Button>
               <Button variant="outline" size="sm" onClick={() => onDisconnect()} disabled={isLoading}>
                 <Trash2 className="w-3.5 h-3.5" />
@@ -115,7 +104,7 @@ function GoogleCalendarCard({
           </>
         ) : (
           <Button onClick={onConnect} variant="outline" size="sm" className="w-full justify-start gap-2">
-            Koppla Google Calendar
+            {t('calendar.connect_google')}
           </Button>
         )}
       </CardContent>
@@ -125,23 +114,11 @@ function GoogleCalendarCard({
 
 /* ─── ICS Link Section ─── */
 function IcsCalendarCard({
-  isConnected,
-  currentUrl,
-  isSyncing,
-  isRemoving,
-  lastSynced,
-  onSave: onSaveAndSync,
-  onRemove,
-  onSync,
+  isConnected, currentUrl, isSyncing, isRemoving, lastSynced, onSave: onSaveAndSync, onRemove, onSync, t,
 }: {
-  isConnected: boolean;
-  currentUrl: string | null;
-  isSyncing: boolean;
-  isRemoving: boolean;
-  lastSynced: string | null;
-  onSave: (url: string) => Promise<void>;
-  onRemove: () => Promise<void>;
-  onSync: () => Promise<void>;
+  isConnected: boolean; currentUrl: string | null; isSyncing: boolean; isRemoving: boolean; lastSynced: string | null;
+  onSave: (url: string) => Promise<void>; onRemove: () => Promise<void>; onSync: () => Promise<void>;
+  t: (key: string) => string;
 }) {
   const [inputUrl, setInputUrl] = useState(currentUrl || '');
   const [isSaving, setIsSaving] = useState(false);
@@ -154,17 +131,10 @@ function IcsCalendarCard({
   const handleSave = async () => {
     if (!inputUrl.trim() || (!inputUrl.startsWith('http://') && !inputUrl.startsWith('https://'))) return;
     setIsSaving(true);
-    try {
-      await onSaveAndSync(inputUrl.trim());
-    } finally {
-      setIsSaving(false);
-    }
+    try { await onSaveAndSync(inputUrl.trim()); } finally { setIsSaving(false); }
   };
 
-  const handleRemove = async () => {
-    await onRemove();
-    setInputUrl('');
-  };
+  const handleRemove = async () => { await onRemove(); setInputUrl(''); };
 
   return (
     <Card>
@@ -172,34 +142,27 @@ function IcsCalendarCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Link2 className="w-5 h-5 text-muted-foreground" />
-            <span className="text-sm font-medium">ICS-länk</span>
+            <span className="text-sm font-medium">{t('calendar.ics_label')}</span>
           </div>
-          {isConnected && <SyncStatusBadge status={syncStatus} lastSynced={lastSynced} />}
+          {isConnected && <SyncStatusBadge status={syncStatus} lastSynced={lastSynced} t={t} />}
         </div>
 
         <p className="text-xs text-muted-foreground">
           {isConnected
-            ? `Senast synkad ${lastSynced ? formatDistanceToNow(new Date(lastSynced), { addSuffix: true, locale: sv }) : '–'} · Automatisk var 6:e timme`
-            : 'Koppla Apple Calendar, Outlook eller annan ICS-källa'
+            ? `${t('calendar.last_synced')} ${lastSynced ? formatDistanceToNow(new Date(lastSynced), { addSuffix: true }) : '–'} · ${t('calendar.auto_every_6h')}`
+            : t('calendar.connect_apple_desc')
           }
         </p>
 
         {isConnected ? (
           <>
             <div className="space-y-2">
-              <Input
-                type="url"
-                value={inputUrl}
-                onChange={(e) => setInputUrl(e.target.value)}
-                placeholder="https://..."
-                disabled={isLoading}
-                className="text-xs"
-              />
+              <Input type="url" value={inputUrl} onChange={(e) => setInputUrl(e.target.value)} placeholder="https://..." disabled={isLoading} className="text-xs" />
             </div>
             <div className="flex gap-2">
               <Button size="sm" onClick={handleSave} disabled={isLoading || !inputUrl.trim()} className="flex-1">
                 {isLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
-                Synka nu
+                {t('calendar.sync_now')}
               </Button>
               <Button variant="outline" size="sm" onClick={handleRemove} disabled={isLoading}>
                 <Trash2 className="w-3.5 h-3.5" />
@@ -210,21 +173,14 @@ function IcsCalendarCard({
           !showInput ? (
             <Button variant="outline" size="sm" onClick={() => setShowInput(true)} className="w-full justify-start gap-2">
               <Link2 className="w-4 h-4" />
-              Lägg till ICS-länk
+              {t('calendar.connect_ics')}
             </Button>
           ) : (
             <div className="space-y-2">
-              <Input
-                type="url"
-                value={inputUrl}
-                onChange={(e) => setInputUrl(e.target.value)}
-                placeholder="Klistra in din ICS-länk"
-                disabled={isLoading}
-                className="text-xs"
-              />
+              <Input type="url" value={inputUrl} onChange={(e) => setInputUrl(e.target.value)} placeholder={t('calendar.paste_ics')} disabled={isLoading} className="text-xs" />
               <Button size="sm" onClick={handleSave} disabled={isLoading || !inputUrl.trim()} className="w-full">
                 {isLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
-                Synka kalender
+                {t('calendar.sync_calendar')}
               </Button>
             </div>
           )
@@ -236,31 +192,31 @@ function IcsCalendarCard({
             <CollapsibleTrigger asChild>
               <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground text-xs h-8">
                 <ExternalLink className="w-3 h-3 mr-1.5" />
-                Hur hittar jag min ICS-länk?
+                {t('calendar.how_to')}
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="pt-1">
               <div className="rounded-lg bg-muted/50 p-3 text-xs space-y-3">
                 <div className="space-y-1">
-                  <p className="font-semibold">Google Calendar</p>
+                  <p className="font-semibold">{t('calendar.google_help_title')}</p>
                   <ol className="text-muted-foreground space-y-0.5 list-none">
-                    <li>1. Öppna Google Calendar i webbläsaren</li>
-                    <li>2. Hovra över en kalender → ⋮ → Inställningar</li>
-                    <li>3. Kopiera "Hemlig adress i iCal-format"</li>
+                    <li>{t('calendar.google_help_1')}</li>
+                    <li>{t('calendar.google_help_2')}</li>
+                    <li>{t('calendar.google_help_3')}</li>
                   </ol>
                 </div>
                 <div className="space-y-1">
-                  <p className="font-semibold">Outlook / Microsoft 365</p>
+                  <p className="font-semibold">{t('calendar.outlook_help_title')}</p>
                   <ol className="text-muted-foreground space-y-0.5 list-none">
-                    <li>1. Inställningar → Kalender → Delade kalendrar</li>
-                    <li>2. Publicera kalender → Kopiera ICS-länken</li>
+                    <li>{t('calendar.outlook_help_1')}</li>
+                    <li>{t('calendar.outlook_help_2')}</li>
                   </ol>
                 </div>
                 <div className="space-y-1">
-                  <p className="font-semibold">Apple Calendar</p>
+                  <p className="font-semibold">{t('calendar.apple_help_title')}</p>
                   <ol className="text-muted-foreground space-y-0.5 list-none">
-                    <li>1. Kalender → delningsikon → Offentlig kalender</li>
-                    <li>2. Kopiera webcal://-länken</li>
+                    <li>{t('calendar.apple_help_1')}</li>
+                    <li>{t('calendar.apple_help_2')}</li>
                   </ol>
                 </div>
               </div>
@@ -274,6 +230,7 @@ function IcsCalendarCard({
 
 /* ─── Main Export ─── */
 export function CalendarSection() {
+  const { t } = useLanguage();
   const {
     icsUrl, lastSynced, isSyncing, syncCalendar, saveIcsUrl,
     removeIcsUrl, isRemoving, connectedProvider,
@@ -285,7 +242,7 @@ export function CalendarSection() {
 
   return (
     <div className="space-y-3">
-      <SectionHeader title="Kalendersynk" />
+      <SectionHeader title={t('calendar.title')} />
 
       <GoogleCalendarCard
         isConnected={isGoogleConnected}
@@ -295,6 +252,7 @@ export function CalendarSection() {
         onConnect={connectGoogle}
         onSync={syncCalendar}
         onDisconnect={disconnectGoogle}
+        t={t}
       />
 
       <IcsCalendarCard
@@ -306,6 +264,7 @@ export function CalendarSection() {
         onSave={async (url) => { await saveIcsUrl(url); await syncCalendar(); }}
         onRemove={removeIcsUrl}
         onSync={syncCalendar}
+        t={t}
       />
     </div>
   );

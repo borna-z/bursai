@@ -18,7 +18,6 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { PlannedOutfitsList } from '@/components/outfit/PlannedOutfitsList';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { sv } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 function OutfitCard({ outfit, onDelete, showPlannedDate, t }: { 
@@ -57,10 +56,10 @@ function OutfitCard({ outfit, onDelete, showPlannedDate, t }: {
             {outfit.explanation && <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{outfit.explanation}</p>}
             <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
               {showPlannedDate && plannedFor && (
-                <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{format(new Date(plannedFor), 'd MMM', { locale: sv })}</span>
+                <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{format(new Date(plannedFor), 'd MMM')}</span>
               )}
               {!showPlannedDate && outfit.worn_at && (
-                <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{format(new Date(outfit.worn_at), 'd MMM', { locale: sv })}</span>
+                <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{format(new Date(outfit.worn_at), 'd MMM')}</span>
               )}
             </div>
           </div>

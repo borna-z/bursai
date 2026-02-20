@@ -1,17 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Crown, 
-  Check, 
-  Sparkles, 
-  Infinity, 
-  Shield, 
-  Lock, 
-  ArrowLeft,
-  Loader2,
-  ChevronDown,
-  ChevronUp,
-} from 'lucide-react';
+import { Crown, Check, Sparkles, Infinity, Shield, Lock, ArrowLeft, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,66 +8,37 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { prepareExternalNavigation } from '@/lib/externalNavigation';
-
-const faqs = [
-  {
-    question: 'Kan jag säga upp när som helst?',
-    answer: 'Ja! Du kan säga upp din prenumeration när som helst via Inställningar → Hantera prenumeration. Du behåller Premium-tillgång till slutet av betalningsperioden.',
-  },
-  {
-    question: 'Hur funkar portalen?',
-    answer: 'I kundportalen kan du uppdatera betalningsuppgifter, byta plan (månad/år), se fakturor och säga upp prenumerationen.',
-  },
-  {
-    question: 'Vad händer med min data om jag säger upp?',
-    answer: 'Din data sparas kvar! Du behåller tillgång till dina första 10 plagg och kan fortsätta använda appen gratis.',
-  },
-  {
-    question: 'Finns det bindningstid?',
-    answer: 'Nej, ingen bindningstid. Betala månadsvis och säg upp när du vill, eller spara 26% med årsplan.',
-  },
-];
-
-const trustBullets = [
-  { icon: Lock, text: 'Privat lagring – endast du ser dina plagg' },
-  { icon: Shield, text: 'Du äger din data – exportera eller radera när som helst' },
-  { icon: Check, text: 'Säg upp när som helst – ingen bindningstid' },
-];
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function PricingPage() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [isLoading, setIsLoading] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const faqs = [
+    { question: t('pricing.faq1_q'), answer: t('pricing.faq1_a') },
+    { question: t('pricing.faq2_q'), answer: t('pricing.faq2_a') },
+    { question: t('pricing.faq3_q'), answer: t('pricing.faq3_a') },
+    { question: t('pricing.faq4_q'), answer: t('pricing.faq4_a') },
+  ];
+
+  const trustBullets = [
+    { icon: Lock, text: t('pricing.trust_private') },
+    { icon: Shield, text: t('pricing.trust_own_data') },
+    { icon: Check, text: t('pricing.trust_cancel') },
+  ];
 
   const handleCheckout = async () => {
     const nav = prepareExternalNavigation();
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create_checkout_session', {
-        body: { plan: billingCycle },
-      });
-
-      if (error) {
-        console.error('Checkout error:', error);
-        nav.closePopup();
-        toast.error('Kunde inte starta betalning');
-        return;
-      }
-
-      if (data?.url) {
-        nav.go(data.url);
-      } else {
-        nav.closePopup();
-        toast.error('Fick ingen betalningslänk');
-      }
-    } catch (err) {
-      console.error('Checkout error:', err);
-      nav.closePopup();
-      toast.error('Något gick fel');
-    } finally {
-      setIsLoading(false);
-    }
+      const { data, error } = await supabase.functions.invoke('create_checkout_session', { body: { plan: billingCycle } });
+      if (error) { console.error('Checkout error:', error); nav.closePopup(); toast.error(t('premium.checkout_error')); return; }
+      if (data?.url) { nav.go(data.url); } else { nav.closePopup(); toast.error(t('premium.no_link')); }
+    } catch (err) { console.error('Checkout error:', err); nav.closePopup(); toast.error(t('premium.error')); }
+    finally { setIsLoading(false); }
   };
 
   const monthlyPrice = 79;
@@ -88,163 +48,87 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <div className="sticky top-0 z-10 bg-background border-b">
         <div className="p-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="text-lg font-semibold">Premium</h1>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="w-5 h-5" /></Button>
+          <h1 className="text-lg font-semibold">{t('pricing.title')}</h1>
         </div>
       </div>
 
       <div className="p-4 space-y-6 pb-24">
-        {/* Hero */}
         <div className="text-center space-y-4 pt-4">
           <div className="mx-auto w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
             <Crown className="w-10 h-10 text-white" />
           </div>
-          <h2 className="text-2xl font-bold">Lås upp din fulla garderob</h2>
-          <p className="text-muted-foreground">
-            Obegränsade plagg, obegränsade outfits, smartare AI
-          </p>
+          <h2 className="text-2xl font-bold">{t('pricing.hero')}</h2>
+          <p className="text-muted-foreground">{t('pricing.hero_desc')}</p>
         </div>
 
-        {/* Billing Toggle */}
         <div className="flex items-center justify-center gap-2 p-1 bg-secondary rounded-lg">
-          <button
-            className={cn(
-              'flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all',
-              billingCycle === 'monthly' 
-                ? 'bg-background shadow-sm' 
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-            onClick={() => setBillingCycle('monthly')}
-          >
-            Månadsvis
+          <button className={cn('flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all', billingCycle === 'monthly' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')} onClick={() => setBillingCycle('monthly')}>
+            {t('pricing.monthly_label')}
           </button>
-          <button
-            className={cn(
-              'flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all relative',
-              billingCycle === 'yearly' 
-                ? 'bg-background shadow-sm' 
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-            onClick={() => setBillingCycle('yearly')}
-          >
-            Årsvis
-            <Badge className="absolute -top-2 -right-2 bg-green-500 text-xs px-1.5">
-              -{savingsPercent}%
-            </Badge>
+          <button className={cn('flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all relative', billingCycle === 'yearly' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')} onClick={() => setBillingCycle('yearly')}>
+            {t('pricing.yearly_label')}
+            <Badge className="absolute -top-2 -right-2 bg-green-500 text-xs px-1.5">-{savingsPercent}%</Badge>
           </button>
         </div>
 
-        {/* Pricing Card */}
         <Card className="border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-orange-500/5">
           <CardHeader className="text-center pb-2">
             <CardTitle className="flex items-center justify-center gap-2">
-              <Crown className="w-5 h-5 text-amber-500" />
-              Premium
+              <Crown className="w-5 h-5 text-amber-500" />Premium
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="text-center">
               {billingCycle === 'monthly' ? (
-                <>
-                  <span className="text-4xl font-bold">{monthlyPrice} kr</span>
-                  <span className="text-muted-foreground">/månad</span>
-                </>
+                <><span className="text-4xl font-bold">{monthlyPrice} kr</span><span className="text-muted-foreground">{t('pricing.per_month')}</span></>
               ) : (
-                <>
-                  <span className="text-4xl font-bold">{yearlyPrice} kr</span>
-                  <span className="text-muted-foreground">/år</span>
-                  <p className="text-sm text-green-600 mt-1">
-                    ≈ {yearlyMonthlyEquivalent} kr/månad • Spara {savingsPercent}%
-                  </p>
-                </>
+                <><span className="text-4xl font-bold">{yearlyPrice} kr</span><span className="text-muted-foreground">{t('pricing.per_year')}</span>
+                <p className="text-sm text-green-600 mt-1">≈ {yearlyMonthlyEquivalent} kr{t('pricing.per_month')} • {t('common.save') || 'Save'} {savingsPercent}%</p></>
               )}
             </div>
-
-            {/* Features */}
             <div className="space-y-3 pt-2">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center">
-                  <Infinity className="w-4 h-4 text-amber-500" />
-                </div>
-                <span className="text-sm">Obegränsad garderob</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-amber-500" />
-                </div>
-                <span className="text-sm">Obegränsade outfit-genereringar</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center">
-                  <Crown className="w-4 h-4 text-amber-500" />
-                </div>
-                <span className="text-sm">Smartare AI-rekommendationer</span>
-              </div>
+              <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center"><Infinity className="w-4 h-4 text-amber-500" /></div><span className="text-sm">{t('pricing.unlimited_wardrobe')}</span></div>
+              <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center"><Sparkles className="w-4 h-4 text-amber-500" /></div><span className="text-sm">{t('pricing.unlimited_outfits')}</span></div>
+              <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center"><Crown className="w-4 h-4 text-amber-500" /></div><span className="text-sm">{t('pricing.smarter_ai')}</span></div>
             </div>
-
-            <Button 
-              className="w-full h-12 text-base bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
-              onClick={handleCheckout}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-              ) : (
-                <Crown className="w-5 h-5 mr-2" />
-              )}
-              Starta Premium
+            <Button className="w-full h-12 text-base bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600" onClick={handleCheckout} disabled={isLoading}>
+              {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Crown className="w-5 h-5 mr-2" />}
+              {t('pricing.start_premium')}
             </Button>
           </CardContent>
         </Card>
 
-        {/* Trust Bullets */}
         <div className="space-y-3">
           {trustBullets.map((bullet, index) => (
             <div key={index} className="flex items-center gap-3 text-sm text-muted-foreground">
-              <bullet.icon className="w-4 h-4 text-green-500 flex-shrink-0" />
-              <span>{bullet.text}</span>
+              <bullet.icon className="w-4 h-4 text-green-500 flex-shrink-0" /><span>{bullet.text}</span>
             </div>
           ))}
         </div>
 
-        {/* FAQs */}
         <div className="space-y-3">
-          <h3 className="font-semibold text-lg">Vanliga frågor</h3>
+          <h3 className="font-semibold text-lg">{t('pricing.faq_title')}</h3>
           {faqs.map((faq, index) => (
             <Card key={index} className="overflow-hidden">
-              <button
-                className="w-full p-4 text-left flex items-center justify-between"
-                onClick={() => setOpenFaq(openFaq === index ? null : index)}
-              >
+              <button className="w-full p-4 text-left flex items-center justify-between" onClick={() => setOpenFaq(openFaq === index ? null : index)}>
                 <span className="font-medium text-sm">{faq.question}</span>
-                {openFaq === index ? (
-                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                )}
+                {openFaq === index ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
               </button>
-              {openFaq === index && (
-                <div className="px-4 pb-4 text-sm text-muted-foreground">
-                  {faq.answer}
-                </div>
-              )}
+              {openFaq === index && <div className="px-4 pb-4 text-sm text-muted-foreground">{faq.answer}</div>}
             </Card>
           ))}
         </div>
 
-        {/* Free Plan Comparison */}
         <Card className="bg-secondary/50">
           <CardContent className="p-4">
-            <h4 className="font-medium mb-2">Free-planen inkluderar:</h4>
+            <h4 className="font-medium mb-2">{t('pricing.free_title')}</h4>
             <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• Upp till 10 plagg</li>
-              <li>• 10 outfit-genereringar per månad</li>
-              <li>• Grundläggande AI-analys</li>
+              <li>• {t('pricing.free_1')}</li>
+              <li>• {t('pricing.free_2')}</li>
+              <li>• {t('pricing.free_3')}</li>
             </ul>
           </CardContent>
         </Card>
