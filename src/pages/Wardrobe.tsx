@@ -128,7 +128,7 @@ export default function WardrobePage() {
     { id: 'outerwear', label: t('wardrobe.outerwear') },
     { id: 'accessory', label: t('wardrobe.accessory') },
     { id: 'dress', label: t('wardrobe.dress') },
-    { id: 'underwear', label: 'Underkläder' },
+    { id: 'underwear', label: t('wardrobe.underwear') },
   ];
 
   const sortOptions = [
@@ -185,7 +185,7 @@ export default function WardrobePage() {
         title={t('wardrobe.title')} 
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => setIsGridView(!isGridView)} className="active:animate-press">
+            <Button variant="ghost" size="icon" onClick={() => setIsGridView(!isGridView)}>
               {isGridView ? <List className="w-5 h-5" /> : <Grid3X3 className="w-5 h-5" />}
             </Button>
             {!isSelecting ? (
@@ -197,7 +197,7 @@ export default function WardrobePage() {
         }
       />
       
-      <div className="p-4 space-y-4">
+      <div className="px-4 pb-36 pt-4 space-y-5 max-w-lg mx-auto">
         {/* Search */}
         <SettingsGroup>
           <Collapsible open={searchOpen} onOpenChange={setSearchOpen}>
@@ -223,7 +223,7 @@ export default function WardrobePage() {
         </SettingsGroup>
 
         {/* Category grid */}
-        <SettingsGroup title={t('wardrobe.category') || 'Kategori'}>
+        <SettingsGroup title={t('wardrobe.category')}>
           <div className="grid grid-cols-4">
             {categories.map((cat, index) => (
               <button
@@ -235,8 +235,8 @@ export default function WardrobePage() {
                     ? 'text-accent bg-accent/5'
                     : 'text-foreground hover:bg-muted/50',
                   // borders
-                  index % 4 !== 3 && 'border-r border-border',
-                  index < 4 && 'border-b border-border',
+                  index % 4 !== 3 && 'border-r border-border/50',
+                  index < 4 && 'border-b border-border/50',
                 )}
               >
                 {cat.label}
@@ -325,7 +325,7 @@ export default function WardrobePage() {
 
         {/* Count */}
         <p className="text-xs text-muted-foreground px-1">
-          {displayGarments.length} plagg
+          {displayGarments.length} {t('wardrobe.garments_count_label')}
         </p>
 
         {/* Bulk select bar */}
@@ -333,10 +333,10 @@ export default function WardrobePage() {
           <div className="flex items-center justify-between p-3 bg-card rounded-xl">
             <span className="text-sm font-medium">{selectedIds.size} {t('wardrobe.selected')}</span>
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={handleBulkLaundry} className="rounded-xl active:animate-press">
+              <Button size="sm" variant="outline" onClick={handleBulkLaundry} className="rounded-xl">
                 <WashingMachine className="w-4 h-4 mr-1" />{t('wardrobe.laundry')}
               </Button>
-              <Button size="sm" variant="destructive" onClick={handleBulkDelete} className="rounded-xl active:animate-press">
+              <Button size="sm" variant="destructive" onClick={handleBulkDelete} className="rounded-xl">
                 <Trash2 className="w-4 h-4 mr-1" />{t('wardrobe.remove')}
               </Button>
             </div>
@@ -346,7 +346,7 @@ export default function WardrobePage() {
         {/* Garment grid */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-accent" />
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
         ) : displayGarments.length > 0 ? (
           <div className={cn(isGridView ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2')}>
@@ -376,7 +376,7 @@ export default function WardrobePage() {
           <Button
             size="lg"
             variant="outline"
-            className="h-14 w-14 rounded-xl shadow-lg active:animate-press bg-card border-border"
+            className="h-14 w-14 rounded-xl shadow-lg bg-card border-border"
             onClick={() => navigate('/wardrobe/scan')}
             aria-label="Live Scan"
           >
@@ -385,7 +385,7 @@ export default function WardrobePage() {
           <Button
             size="lg"
             className={cn(
-              "h-14 w-14 rounded-xl shadow-lg active:animate-press bg-accent text-accent-foreground hover:bg-accent/90",
+              "h-14 w-14 rounded-xl shadow-lg bg-accent text-accent-foreground hover:bg-accent/90",
               isOverLimit && "opacity-50"
             )}
             onClick={handleAddGarment}

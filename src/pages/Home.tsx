@@ -11,6 +11,7 @@ import { PaywallModal } from '@/components/PaywallModal';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { SettingsGroup } from '@/components/settings/SettingsGroup';
+import { SectionHeader } from '@/components/ui/section-header';
 import { WeatherWidget } from '@/components/weather/WeatherWidget';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -95,9 +96,7 @@ export default function HomePage() {
 
         {/* Occasion */}
         <div className="space-y-2.5">
-          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1">
-            {t('home.what_today')}
-          </h3>
+          <SectionHeader title={t('home.what_today')} />
           <SettingsGroup>
             <div className="grid grid-cols-3">
               {occasions.map((occ, i) => (
@@ -122,9 +121,7 @@ export default function HomePage() {
 
         {/* Style */}
         <div className="space-y-2.5">
-          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1">
-            {t('home.style_optional')}
-          </h3>
+          <SectionHeader title={t('home.style_optional')} />
           <SettingsGroup>
             <div className="grid grid-cols-2">
               {styleVibes.map((style, i) => (
