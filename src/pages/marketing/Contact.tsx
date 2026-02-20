@@ -21,8 +21,8 @@ export default function Contact() {
   return (
     <>
       <Helmet>
-        <title>Contact | DRAPE</title>
-        <meta name="description" content="Kontakta oss för frågor om DRAPE." />
+        <title>Contact | BURS</title>
+        <meta name="description" content="Get in touch with the BURS team." />
       </Helmet>
 
       <div className="min-h-screen bg-background text-foreground">
@@ -41,8 +41,8 @@ export default function Contact() {
           </div>
 
           <div className="text-center mb-10">
-            <a href="mailto:hello@example.com" className="text-primary hover:underline font-medium">
-              hello@example.com
+            <a href="mailto:hello@burs.se" className="text-primary hover:underline font-medium">
+              hello@burs.se
             </a>
           </div>
 
