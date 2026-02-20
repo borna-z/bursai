@@ -23,6 +23,7 @@ export function useProfile() {
       return data as Profile;
     },
     enabled: !!user,
+    staleTime: 10 * 60 * 1000,
   });
 }
 

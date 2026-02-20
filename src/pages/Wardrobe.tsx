@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Plus, Search, Loader2, WashingMachine,
@@ -108,12 +108,18 @@ export default function WardrobePage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
   
   const updateGarment = useUpdateGarment();
   const deleteGarment = useDeleteGarment();
   
   const { data: garments, isLoading } = useGarments({
-    ...filters, search,
+    ...filters, search: debouncedSearch,
     category: selectedCategory === 'all' ? undefined : selectedCategory,
     color: selectedColor || undefined,
     season: selectedSeason || undefined,

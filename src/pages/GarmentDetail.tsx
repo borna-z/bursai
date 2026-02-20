@@ -81,7 +81,7 @@ export default function GarmentDetailPage() {
         title={garment.title} showBack
         actions={
           <div className="flex gap-1">
-            <Button variant="ghost" size="icon" onClick={() => navigate(`/wardrobe/${garment.id}/edit`)} className="active:animate-press">
+            <Button variant="ghost" size="icon" onClick={() => navigate(`/wardrobe/${garment.id}/edit`)}>
               <Edit className="w-5 h-5" />
             </Button>
             <AlertDialog>
@@ -170,7 +170,7 @@ export default function GarmentDetailPage() {
         </Card>
 
         <div className="space-y-3">
-          <Button variant="outline" className="w-full active:animate-press" onClick={handleMarkWorn} disabled={markWorn.isPending}>
+          <Button variant="outline" className="w-full" onClick={handleMarkWorn} disabled={markWorn.isPending}>
             {markWorn.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
             {t('garment.mark_worn')}
           </Button>
