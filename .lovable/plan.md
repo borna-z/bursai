@@ -1,34 +1,22 @@
 
 
-## Spara accentfärg permanent i databasen
+## Update Link Preview Text from Swedish to English
 
-### Problemet
-Just nu sparas din valda accentfärg bara i webbläsarens lokala minne (localStorage). Det betyder att om du loggar in från en annan enhet eller rensar webbläsardata, försvinner ditt val.
+When you share the BURS link (e.g. on iMessage, WhatsApp, Slack), the preview currently shows Swedish text like "Din personliga stylist". This needs to be changed to English.
 
-### Lösningen
-Accentfärgen (och temat ljus/mörk) sparas i din profil i databasen, under `preferences.theme` och `preferences.accentColor`. Då följer inställningarna med ditt konto oavsett vilken enhet du använder.
+### What will change
 
-### Hur det fungerar
+**`index.html`** -- Update all Swedish meta tags to English:
 
-1. **Vid inloggning**: Appen läser din sparade accentfärg och tema från profilen och applicerar dem direkt.
-2. **Vid ändring**: När du väljer en ny färg i inställningar sparas den både lokalt (för snabb respons) och till databasen (för permanens).
-3. **Prioritet**: Databasvärdet vinner alltid over localStorage -- localStorage fungerar som snabb cache.
+| Tag | Current (Swedish) | New (English) |
+|---|---|---|
+| `html lang` | `sv` | `en` |
+| `title` | BURS \| Din personliga stylist | BURS \| Your Personal Stylist |
+| `description` | BURS -- din AI-stylist som lar kanna din kropp... | BURS -- your AI stylist that learns your body, style and calendar to suggest outfits that fit your day. |
+| `og:title` | BURS \| Din personliga stylist | BURS \| Your Personal Stylist |
+| `og:description` | BURS -- din AI-stylist som lar kanna din stil... | BURS -- your AI stylist that learns your style and calendar to suggest the right outfit every day. |
+| `og:locale` | sv_SE | en_US |
+| `twitter:title` | BURS \| Din personliga stylist | BURS \| Your Personal Stylist |
+| `twitter:description` | Swedish | Same English as og:description |
 
-### Tekniska ändringar
-
-| Fil | Ändring |
-|-----|---------|
-| `src/contexts/ThemeContext.tsx` | Importera `supabase` och `useAuth`. Vid mount: hämta `preferences.accentColor` och `preferences.theme` från profilen. Vid ändring: spara till både localStorage och `profiles.preferences` i databasen. |
-| `src/components/settings/AccentColorPicker.tsx` | Ingen ändring behövs -- den anropar redan `setAccentColor` från ThemeContext. |
-| `src/pages/settings/SettingsAppearance.tsx` | Ingen ändring behövs -- den anropar redan `setTheme` från ThemeContext. |
-
-### Detaljerad implementation
-
-**ThemeProvider** uppdateras med:
-- En effekt som lyssnar på auth-state och vid inloggning hämtar profilen for att läsa `preferences.accentColor` och `preferences.theme`
-- `setAccentColor` uppdateras att också köra `supabase.from('profiles').update(...)` med den nya färgen under `preferences.accentColor`
-- `setTheme` uppdateras att också spara till `preferences.theme` i databasen
-- Databaseskrivningar sker "fire-and-forget" i bakgrunden för att inte fördröja UI-responsen
-
-Ingen databasändring behövs -- `profiles.preferences` är redan en flexibel JSONB-kolumn.
-
+Only one file changes. After publishing, link previews may take some time to update due to caching by iMessage, WhatsApp, etc.
