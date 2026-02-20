@@ -1,174 +1,162 @@
 
 
-# DRAPE Theme & Polish Plan — Step 2/4
+# DRAPE UX Polish Plan — Step 3/4
 
-## Theme Rules Summary
+## Friction Points Identified
 
-These rules codify the existing design system for consistency going forward:
-
-### Surface Hierarchy
-- **Background** (`--background`): Page canvas. Warm off-white / deep noir.
-- **Card** (`--card`): Primary surface. Pure white / lifted dark. Used for all content containers.
-- **Secondary** (`--secondary`): Recessed surface. Used for muted backgrounds, chip unselected state, input fills.
-- **Muted** (`--muted`): Skeleton/shimmer/empty placeholders only.
-
-### Border Rules
-- Card borders: `border-border/80` (already set in Card component -- good)
-- Grid dividers inside cards: `border-border/50` (lighter, interior)
-- No double-border stacking (card border + inner divider at same edge)
-
-### Text Hierarchy
-- **Primary**: `text-foreground` -- headings, labels, body
-- **Secondary**: `text-muted-foreground` -- descriptions, captions, timestamps
-- **Tertiary**: `text-muted-foreground/60` -- placeholder, disabled hints
-- **Never** use `text-primary` for body text (it flips in dark mode)
-
-### Accent Usage Rules
-- Accent color on: selected states (chips, nav, grid cells), primary CTA background, badges for active status
-- Accent color NOT on: body text, borders (use `border-border`), section headers
-- Accent opacity: `bg-accent/5` for selected cell tint, `bg-accent/10` for icon pill backgrounds
-
-### Button System
-- **Primary CTA**: One per screen. `bg-accent text-accent-foreground`. Full width or prominent.
-- **Secondary**: `variant="outline"` or `variant="secondary"`. Supporting actions.
-- **Ghost**: `variant="ghost"`. Icon buttons, subtle nav.
-- **Destructive**: `variant="destructive"`. Only for delete/remove confirmations.
-- **All buttons**: Already have `active:scale-[0.97]` via buttonVariants. Remove all redundant `active:animate-press`.
-- **Disabled**: `opacity-50 pointer-events-none` (already set).
-- **Loading**: Use `<Loader2 className="w-4 h-4 animate-spin" />` inline, no separate spinner color.
-
-### Chip System
-- **Unselected**: `bg-secondary text-secondary-foreground` (current default -- good)
-- **Selected**: `bg-accent text-accent-foreground shadow-sm` (current -- good)
-- No outline variant chips in selection contexts (too much border noise)
-
-### Motion Rules
-- Press: `active:scale-[0.97]` (buttons) / `active:scale-[0.96]` (chips) -- already in component base
-- Transitions: `transition-all` with default 150ms
-- Page enter: `animate-drape-in` with stagger (50ms per child)
-- Loading: `skeleton-shimmer` utility class
-- No `active:animate-press` anywhere (redundant with scale)
-
-### Typography Rules
-- Headings: Sora font, sentence case (not ALL CAPS)
-- Section eyebrow labels: `text-xs font-medium text-muted-foreground uppercase tracking-wide` via `SectionHeader`
-- Body: Inter font, `text-sm`
-- Caption: `text-xs text-muted-foreground`
-
-### Accessibility
-- All interactive elements: min `h-11` (44px) for buttons, `min-h-[44px]` for chips (lg size)
-- Chip sm/md sizes used only in dense contexts (inline badges), never as primary tap targets
-- Focus: `ring-2 ring-ring ring-offset-2` (already global)
-
----
+| # | Journey | Issue | Severity | Fix |
+|---|---------|-------|----------|-----|
+| 1 | Create outfit (Home) | No preselection of last used occasion/style -- user must re-pick every time | High | Store last occasion + style in localStorage, preselect on mount |
+| 2 | Create outfit (Home) | Disabled CTA with no clear explanation when occasion not selected yet | Medium | Change CTA text to "Välj tillfälle" when nothing selected, vs "Skapa outfit" when ready |
+| 3 | Add garment | Category/subcategory/pattern/material/fit/season labels all hardcoded Swedish (line 24-61) -- not using i18n | Medium | Move to t() calls |
+| 4 | Add garment | WeatherWidget city input placeholder hardcoded "Skriv en stad..." (line 155) | Low | Move to t() |
+| 5 | Outfit generator | Error messages hardcoded Swedish: "Inga plagg tillgängliga", "Inte tillräckligt med plagg" (lines 264, 291) | Medium | Move to t() or keep as thrown errors but catch + translate in UI layer |
+| 6 | Create outfit | No outerwear suggestion hint when weather is cold -- user doesn't know AI will auto-include it | Low | Add subtle hint text below weather widget when temp <= 10°C |
+| 7 | Plan day | Empty state for no-outfit is minimal but CTA buttons are small `size="sm"` -- not obvious enough | Medium | Make primary "Planera" button full-width and prominent |
+| 8 | Stylist chat | No quick-start suggestions for first message -- blank chat after welcome message | Medium | Add 3 tappable suggestion chips below welcome message |
+| 9 | Outfits page | Loading spinner uses `text-primary` instead of standardized `text-muted-foreground` | Low | Fix spinner color |
+| 10 | Outfits page | Delete button still has `active:animate-press` (missed in Step 2) | Low | Remove it |
+| 11 | Outfits page | Empty state doesn't differentiate between "no garments yet" and "no outfits yet" | Low | Keep as-is; EmptyState already has good copy |
+| 12 | Add garment | Form fields for category dropdown items still hardcoded Swedish (not using i18n) -- "Överdel", "Underdel", etc. | Medium | These are data labels matching DB values; keep Swedish as they map to actual stored values. Add display-only i18n mapping. |
+| 13 | Plan | "Planera" and "Skapa åt mig" buttons in empty state are equally weighted -- unclear which is primary | Medium | Make "Skapa åt mig" the primary CTA (accent bg), "Planera" secondary |
 
 ## Implementation Changes
 
-### 1. Remove ALL remaining `active:animate-press` (8 files)
+### 1. Smart defaults: Remember last occasion + style (Home.tsx)
 
-Buttons already have `active:scale-[0.97]` baked into `buttonVariants`. The redundant `active:animate-press` class adds a competing animation. Remove it everywhere:
+Save to `localStorage` when generating, restore on mount:
 
-**Files:**
-- `src/pages/OutfitDetail.tsx` -- ~10 instances
-- `src/components/insights/AISuggestions.tsx` -- ~6 instances
-- `src/components/plan/DayCard.tsx` -- ~5 instances
-- `src/components/plan/QuickPlanSheet.tsx` -- 1 instance
-- `src/components/plan/QuickGenerateSheet.tsx` -- 1 instance
-- `src/components/outfit/PlannedOutfitsList.tsx` -- 1 instance
-- `src/components/plan/SwapSheet.tsx` -- check and clean
-- `src/components/plan/PlanningSheet.tsx` -- check and clean
+```
+// On mount:
+const savedOccasion = localStorage.getItem('drape_last_occasion');
+const savedStyle = localStorage.getItem('drape_last_style');
+if (savedOccasion) setSelectedOccasion(savedOccasion);
+if (savedStyle) setSelectedStyle(savedStyle);
 
-### 2. Fix outline button hover state
+// On generate:
+localStorage.setItem('drape_last_occasion', selectedOccasion);
+if (selectedStyle) localStorage.setItem('drape_last_style', selectedStyle);
+```
 
-The outline button currently hovers to `bg-accent text-accent-foreground` which is jarring (jumps to full accent color on hover). Change to a subtler hover:
+### 2. Dynamic CTA label (Home.tsx)
 
-**File: `src/components/ui/button.tsx`**
-- Change outline variant from: `hover:bg-accent hover:text-accent-foreground`
-- To: `hover:bg-secondary hover:text-foreground`
+When no occasion is selected, show a gentler label:
+- No occasion: "Välj tillfälle ovan" (disabled, but with clear text)
+- Occasion selected: "Skapa outfit" (enabled)
 
-Same for ghost variant:
-- From: `hover:bg-accent hover:text-accent-foreground`
-- To: `hover:bg-secondary hover:text-foreground`
+Add new i18n key: `home.select_occasion_hint` = "Välj tillfälle ovan" / "Select occasion above"
 
-This makes hover states calmer and consistent with the Scandinavian theme.
+### 3. Cold weather hint (Home.tsx)
 
-### 3. Standardize loading spinner color
+When weather temperature <= 10°C, show a subtle line below the weather widget:
+`"Kallt ute — ytterkläder läggs till automatiskt"` / `"Cold outside — outerwear added automatically"`
 
-Multiple spinner color variants exist across the codebase. Standardize all to `text-muted-foreground`:
+New i18n key: `home.cold_hint`
 
-**Files to update:**
-- `src/pages/OutfitDetail.tsx` line 43: `text-primary` to `text-muted-foreground`
-- `src/components/insights/AISuggestions.tsx` line 64, 79: `text-primary` to `text-muted-foreground`
-- `src/components/plan/QuickPlanSheet.tsx` line 64: `text-primary` to `text-muted-foreground`
-- `src/components/plan/QuickGenerateSheet.tsx` line 315: keep inline (already inside button)
-- `src/components/insights/AISuggestions.tsx` LoadingIndicator: change the large spinner icon from `text-primary animate-pulse` to `text-muted-foreground animate-pulse`
+### 4. Chat quick-start suggestions (AIChat.tsx)
 
-### 4. Fix DayCard hardcoded strings (missed in Step 1)
+After the welcome message, when there are no other messages, show 3 tappable suggestion chips:
+- "Vad ska jag ha på mig idag?" / "What should I wear today?"
+- "Analysera min stil" / "Analyze my style"
+- "Hjälp mig välja till jobbet" / "Help me choose for work"
 
-**File: `src/components/plan/DayCard.tsx`**
-- Line 54: `'Idag'` to `t('plan.today')`
-- Line 56: `'Imorgon'` to `t('plan.tomorrow')`
-- Line 84: `'Använd'` to `t('plan.used')`
-- Line 152: `'Byt'` to `t('plan.swap')`
-- Line 161: `'Detaljer'` to `t('plan.details')`
-- Line 173: `'Markera som använd'` to `t('plan.mark_worn')`
-- Line 181: `'Ta bort'` to `t('plan.remove')`
-- Line 190: `'Ingen outfit planerad.'` to `t('plan.no_outfit')`
-- Line 202: `'Planera'` to `t('plan.plan')`
-- Line 212: `'Skapa åt mig'` to `t('plan.generate')`
-- Add `useLanguage` import and `t` destructure
+Clicking a chip sends it as the user's first message. These disappear once the user sends any message.
 
-### 5. Fix AISuggestions hardcoded strings
+New i18n keys: `chat.suggestion_1`, `chat.suggestion_2`, `chat.suggestion_3`
 
-**File: `src/components/insights/AISuggestions.tsx`**
-- All loading steps, labels ("Prova", "Dölj", "Varför detta funkar", "AI-förslag", "Personliga kombinationer", etc.) are hardcoded Swedish
-- Add `useLanguage` import and move strings to i18n keys
+### 5. WeatherWidget hardcoded string (WeatherWidget.tsx)
 
-### 6. Fix PlannedOutfitsList hardcoded strings
+Line 155: `placeholder="Skriv en stad..."` to `placeholder={t('weather.enter_city')}`
 
-**File: `src/components/outfit/PlannedOutfitsList.tsx`**
-- Line 169: `'Idag'` / `'Imorgon'` hardcoded
-- Line 189: `'Inga planerade'` / `'Planera outfits via datumväljaren.'`
-- Line 124-135: Dialog strings "Radera?", "Kan inte ångras.", "Avbryt"
+Add `useLanguage` import and new key.
 
-### 7. Fix QuickPlanSheet and QuickGenerateSheet hardcoded strings
+### 6. Plan empty state: clearer primary action (Plan.tsx)
 
-Both sheets have extensive hardcoded Swedish UI text. Add i18n.
+In `renderDayDetail()` when `!hasOutfit`:
+- Make "Skapa åt mig" (generate) the primary button: full accent bg, slightly larger
+- Make "Planera" (from saved) the secondary outline button
+- Swap their order so primary action comes first
 
-### 8. Add new i18n keys for components above
+### 7. Outfits page cleanup (Outfits.tsx)
 
-Add translation keys for all the component-level strings found in DayCard, AISuggestions, PlannedOutfitsList, QuickPlanSheet, QuickGenerateSheet, and SwapSheet.
+- Line 69: Remove `active:animate-press` from delete button
+- Line 126: Change spinner from `text-primary` to `text-muted-foreground`
 
-### 9. Chip tap target size
+### 8. AddGarment form label i18n (AddGarment.tsx)
 
-Ensure chips used as primary selection controls use `size="lg"` (which gives `min-h-[44px]`). Currently the occasion/style chips in QuickGenerateSheet use default `size="md"` (`py-1.5`). These are primary tap targets and should be `size="lg"`.
+The category labels ("Överdel", "Underdel", etc.) at lines 24-61 are hardcoded. Since these map to DB values, create a display mapping:
 
-### 10. Card shadow consistency
+```tsx
+const categoryLabels: Record<string, string> = {
+  top: t('garment.category.top'),
+  bottom: t('garment.category.bottom'),
+  // etc.
+};
+```
 
-The Card component currently has `shadow-[0_1px_2px_0_rgb(0_0_0/0.03)]` which is barely visible. This is correct for the calm aesthetic. No change needed, but document as intentional.
+Same for patterns, materials, fits, seasons -- create i18n display keys while keeping the stored values as-is.
 
-### 11. Input field height
+New i18n keys (~25):
+- `garment.category.top` = "Överdel" / "Top"
+- `garment.category.bottom` = "Underdel" / "Bottom"
+- `garment.category.shoes` = "Skor" / "Shoes"
+- `garment.category.outerwear` = "Ytterkläder" / "Outerwear"
+- `garment.category.accessory` = "Accessoar" / "Accessory"
+- `garment.category.dress` = "Klänning" / "Dress"
+- `garment.pattern.*` (7 patterns)
+- `garment.material.*` (8 materials)
+- `garment.fit.*` (4 fits)
+- `garment.season.*` (4 seasons)
 
-Input fields are `h-10` (40px). For mobile tap targets, bump to `h-11` (44px) to meet the 44px minimum.
+### 9. Add new translation keys to translations.ts
 
-**File: `src/components/ui/input.tsx`**
-- Change `h-10` to `h-11`
+All new keys for SV and EN:
 
----
+```
+home.select_occasion_hint: "Välj tillfälle ovan" / "Select occasion above"
+home.cold_hint: "Kallt — ytterkläder läggs till automatiskt" / "Cold — outerwear included automatically"
+weather.enter_city: "Skriv en stad..." / "Enter a city..."
+chat.suggestion_1: "Vad ska jag ha på mig idag?" / "What should I wear today?"
+chat.suggestion_2: "Analysera min stil" / "Analyze my style"  
+chat.suggestion_3: "Hjälp mig välja till jobbet" / "Help me choose for work"
+garment.category.top: "Överdel" / "Top"
+garment.category.bottom: "Underdel" / "Bottom"
+garment.category.shoes: "Skor" / "Shoes"
+garment.category.outerwear: "Ytterkläder" / "Outerwear"
+garment.category.accessory: "Accessoar" / "Accessory"
+garment.category.dress: "Klänning" / "Dress"
+garment.pattern.solid: "Enfärgad" / "Solid"
+garment.pattern.striped: "Randig" / "Striped"
+garment.pattern.checked: "Rutig" / "Checked"
+garment.pattern.dotted: "Prickig" / "Dotted"
+garment.pattern.floral: "Blommig" / "Floral"
+garment.pattern.patterned: "Mönstrad" / "Patterned"
+garment.pattern.camo: "Kamouflage" / "Camouflage"
+garment.material.cotton: "Bomull" / "Cotton"
+garment.material.polyester: "Polyester" / "Polyester"
+garment.material.linen: "Lin" / "Linen"
+garment.material.denim: "Denim" / "Denim"
+garment.material.leather: "Läder" / "Leather"
+garment.material.wool: "Ull" / "Wool"
+garment.material.silk: "Siden" / "Silk"
+garment.material.synthetic: "Syntet" / "Synthetic"
+garment.fit.slim: "Slim" / "Slim"
+garment.fit.regular: "Regular" / "Regular"
+garment.fit.loose: "Loose" / "Loose"
+garment.fit.oversized: "Oversized" / "Oversized"
+garment.season.spring: "Vår" / "Spring"
+garment.season.summer: "Sommar" / "Summer"
+garment.season.autumn: "Höst" / "Autumn"
+garment.season.winter: "Vinter" / "Winter"
+```
 
-## Technical Summary
+## Files Modified (summary)
 
-| Change | Files | Impact |
-|--------|-------|--------|
-| Remove `active:animate-press` | 8 files | Cleaner motion, no competing animations |
-| Calm button hover states | 1 file (button.tsx) | Subtler outline/ghost hover |
-| Standardize spinners | 4 files | Consistent loading feel |
-| DayCard i18n | 1 file + translations | Full localization |
-| AISuggestions i18n | 1 file + translations | Full localization |
-| PlannedOutfitsList i18n | 1 file + translations | Full localization |
-| QuickPlanSheet i18n | 1 file + translations | Full localization |
-| QuickGenerateSheet i18n | 1 file + translations | Full localization |
-| Input height 44px | 1 file (input.tsx) | Accessibility compliance |
-| Chip size for tap targets | 2 files | Accessibility compliance |
+1. `src/pages/Home.tsx` -- Smart defaults, dynamic CTA, cold weather hint
+2. `src/pages/AIChat.tsx` -- Quick-start suggestion chips
+3. `src/components/weather/WeatherWidget.tsx` -- i18n placeholder
+4. `src/pages/Plan.tsx` -- Clearer primary action in empty state
+5. `src/pages/Outfits.tsx` -- Remove animate-press, fix spinner color
+6. `src/pages/AddGarment.tsx` -- i18n for form labels (categories, patterns, materials, fits, seasons)
+7. `src/i18n/translations.ts` -- ~35 new keys (SV + EN)
 
-Total: ~15 files modified, ~50 new i18n keys added.
