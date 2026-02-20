@@ -126,7 +126,7 @@ export default function SettingsPrivacy() {
 
       <div className="px-4 pb-6 pt-4 space-y-3 max-w-lg mx-auto">
 
-        {/* About BURS */}
+        {/* About DRAPE */}
         <Collapsible open={openSection === 'about'} className="bg-card rounded-xl overflow-hidden">
           <SectionHeader id="about" title={t('settings.gdpr.about_title')} icon={Shield} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">

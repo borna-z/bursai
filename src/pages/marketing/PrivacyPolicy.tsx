@@ -8,8 +8,8 @@
    return (
      <>
        <Helmet>
-           <title>{privacy.title} | BURS</title>
-           <meta name="description" content="Integritetspolicy för BURS – hur vi hanterar din data." />
+            <title>{privacy.title} | DRAPE</title>
+            <meta name="description" content="Integritetspolicy för DRAPE – hur vi hanterar din data." />
        </Helmet>
        
        <MarketingLayout>

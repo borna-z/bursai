@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { MARKETING_CONFIG } from '@/config/marketing';
 import { trackMarketingEvent } from '@/lib/marketingAnalytics';
 import { cn } from '@/lib/utils';
-import { BursLogo } from '@/components/ui/DrapeLogo';
+import { DrapeLogo } from '@/components/ui/DrapeLogo';
  
  interface MarketingLayoutProps {
    children: React.ReactNode;
@@ -24,7 +24,7 @@ import { BursLogo } from '@/components/ui/DrapeLogo';
             to="/marketing" 
             className="hover:opacity-80 transition-opacity"
           >
-            <BursLogo variant="horizontal" size="sm" />
+            <DrapeLogo variant="horizontal" size="sm" />
           </Link>
            <nav className="flex items-center gap-4">
              <Link

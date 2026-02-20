@@ -130,7 +130,7 @@
    return (
      <>
        <Helmet>
-         <title>Admin | BURS</title>
+         <title>Admin | DRAPE</title>
          <meta name="robots" content="noindex, nofollow" />
        </Helmet>
        
