@@ -115,7 +115,6 @@ function GoogleCalendarCard({
           </>
         ) : (
           <Button onClick={onConnect} variant="outline" size="sm" className="w-full justify-start gap-2">
-            <GoogleIcon className="w-4 h-4" />
             Koppla Google Calendar
           </Button>
         )}
