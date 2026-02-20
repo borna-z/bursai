@@ -92,7 +92,9 @@ export default function Landing() {
             <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-accent/5 rounded-full blur-[120px] pointer-events-none" />
 
             <div className="max-w-3xl mx-auto w-full flex flex-col items-center text-center gap-8 relative z-10 animate-fade-in">
-                <BursMonogram size={80} className="animate-fade-in" />
+                <div className="animate-scale-in" style={{ animationDuration: '0.8s', animationTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)' }}>
+                  <BursMonogram size={120} className="drop-shadow-lg" />
+                </div>
 
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-border bg-muted/30 text-xs tracking-wide text-muted-foreground backdrop-blur-sm">
                   <span className="w-2 h-2 rounded-full bg-foreground animate-pulse" />
