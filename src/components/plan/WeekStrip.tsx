@@ -152,9 +152,12 @@ export function WeekStrip({ selectedDate, onSelectDate, plannedOutfits }: WeekSt
             return (
               <Tooltip key={date.toISOString()}>
                 <TooltipTrigger asChild>{button}</TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs max-w-[200px]">
+                <TooltipContent side="bottom" className="text-xs max-w-[220px]">
                   {events.slice(0, 3).map(e => (
-                    <div key={e.id} className="truncate">{e.start_time?.slice(0, 5)} {e.title}</div>
+                    <div key={e.id} className="truncate flex items-center gap-1">
+                      <span className="opacity-60">{e.provider === 'google' ? 'G' : 'ICS'}</span>
+                      {e.start_time?.slice(0, 5)} {e.title}
+                    </div>
                   ))}
                   {events.length > 3 && <div className="text-muted-foreground">+{events.length - 3} till</div>}
                 </TooltipContent>
