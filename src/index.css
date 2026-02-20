@@ -136,6 +136,28 @@
   }
 }
 
+/* Force light theme on specific containers (e.g. landing page) */
+.force-light {
+  --background: 36 22% 95%;
+  --foreground: 0 0% 7%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 7%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 7%;
+  --primary: 0 0% 7%;
+  --primary-foreground: 36 22% 95%;
+  --secondary: 36 15% 93%;
+  --secondary-foreground: 0 0% 7%;
+  --muted: 36 12% 90%;
+  --muted-foreground: 0 0% 42%;
+  --accent: 234 51% 37%;
+  --accent-foreground: 0 0% 100%;
+  --border: 36 14% 88%;
+  --input: 36 14% 88%;
+  --ring: 0 0% 7%;
+  color-scheme: light;
+}
+
 @layer base {
   * {
     @apply border-border;
