@@ -1,32 +1,30 @@
 
 
-# Lagg till alder i onboarding kroppssteg
+## Automatisk synk-notifikation
 
-Lagga till ett aldersfalt i samma steg som langd, vikt och kon. Aldern sparas som `birth_year` i `preferences` JSONB-faltet (inte som alder direkt, utan fodelsearet -- sa att det forblir korrekt over tid).
+Denna plan lagger till en subtil notifikation som informerar anvandaren nar kalendern senast synkades i bakgrunden. Notifikationen visas som en liten "toast" nar appen upptacker att en bakgrundssynk har skett sedan senaste besok.
 
-## Andringar
+### Hur det fungerar
 
-### 1. `src/components/onboarding/BodyMeasurementsStep.tsx`
-- Lagg till ett nytt nummerfalt for alder (placerat mellan konval och langd)
-- Anvander `Calendar`-ikon fran lucide-react
-- Placeholder "25", min 13, max 120
-- Valfritt falt -- man kan fortsatta utan att fylla i
-- Utvidga `onComplete`-callbacken till att aven skicka `age: number | null`
+1. **Spara senaste kanda synk-tid lokalt** -- Nar anvandaren oppnar appen sparas `last_calendar_sync` i `localStorage`.
+2. **Jamfor vid nasta besok** -- Nar profilen laddas jamfors `last_calendar_sync` fran databasen med det sparade vardet. Om databasens tid ar nyare visas en diskret toast-notifikation.
+3. **Visa pa Plan-sidan** -- Notifikationen visas nar Plan-sidan laddas, dar kalenderhandelser ar mest relevanta.
 
-### 2. `src/pages/Onboarding.tsx`
-- Uppdatera `handleSaveBodyMeasurements` sa att `age` sparas som `preferences.age` i profilen
-- Samma monster som for gender (laggs in i JSONB-faltet)
+### Tekniska andringar
 
-### 3. `src/i18n/translations.ts`
-- Lagga till oversattningsnycklar for alla 14 sprak:
-  - `onboarding.body.age` -- "Alder"
-  - `onboarding.body.age_optional` -- "(valfritt)"
-  - `onboarding.body.age_suffix` -- "ar"
+**1. `src/hooks/useCalendarSync.ts`**
+- Lagg till en ny hook `useBackgroundSyncNotification()` som:
+  - Laser `last_calendar_sync` fran profil-queryn
+  - Jamfor med `localStorage`-nyckeln `drape_last_known_sync`
+  - Om databasens tid ar nyare: visa en sonner-toast med meddelandet "Kalendern synkades automatiskt" och uppdatera localStorage
+  - Kors bara en gang per session via en `useEffect` med `useRef`-guard
 
-## Tekniska detaljer
+**2. `src/pages/Plan.tsx`**
+- Importera och anropa `useBackgroundSyncNotification()` i `PlanPage`-komponenten
+- Ingen UI-andring behvs -- toasten visas automatiskt
 
-- Ingen databasmigrering kravs -- sparas i `profiles.preferences` JSONB
-- Interfacet utvidgas: `{ height_cm, weight_kg, gender, age }`
-- Nytt state: `const [age, setAge] = useState('')`
-- Renderas som ett `Input type="number"` med suffix "ar", identiskt med langd/vikt-faltens styling
+### Toast-design
+- Anvander befintlig `sonner` toast med `toast.info()`
+- Meddelande: "Kalendern synkades automatiskt" med tidsstampel (t.ex. "for 2 timmar sedan")
+- Visas i 4 sekunder, icke-blockerande
 
