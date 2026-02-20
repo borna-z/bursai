@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
-import { sv } from 'date-fns/locale';
 import { Sparkles, Loader2, Thermometer, CalendarDays, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -117,7 +116,7 @@ export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGen
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="h-auto max-h-[85vh] rounded-t-2xl">
         <SheetHeader className="text-left pb-4">
-          <SheetTitle>{t('qgen.create_for')} {format(date, 'd MMMM', { locale: sv })}</SheetTitle>
+          <SheetTitle>{t('qgen.create_for')} {date.toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}</SheetTitle>
           <SheetDescription>{t('qgen.choose_occasion')}</SheetDescription>
         </SheetHeader>
 
@@ -153,7 +152,7 @@ export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGen
               {travelForecast && !isFetchingTravel && (
                 <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50 text-sm">
                   <Thermometer className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <span>{travelForecast.temperature_min}–{travelForecast.temperature_max}°C, {travelForecast.condition.toLowerCase()}</span>
+                  <span>{travelForecast.temperature_min}–{travelForecast.temperature_max}°C, {t(travelForecast.condition).toLowerCase()}</span>
                 </div>
               )}
             </div>

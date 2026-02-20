@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { format, parseISO } from 'date-fns';
-import { sv } from 'date-fns/locale';
 import {
   Sun, Moon, Cloud, CloudFog, CloudRain, CloudDrizzle, CloudSnow, CloudLightning,
   MapPin, X,
@@ -40,7 +39,8 @@ function CurrentTime() {
 
 function ForecastDayColumn({ day }: { day: ForecastDay }) {
   const Icon = getWeatherIcon(day.weather_code);
-  const label = format(parseISO(day.date), 'EEE', { locale: sv });
+  const dayDate = parseISO(day.date);
+  const label = dayDate.toLocaleDateString(undefined, { weekday: 'short' });
   const capitalised = label.charAt(0).toUpperCase() + label.slice(1);
 
   return (
@@ -139,8 +139,8 @@ export function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
                   {weather?.temperature ?? '--'}°
                 </span>
               </div>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {weather?.condition ?? '...'}
+               <p className="text-sm text-muted-foreground mt-0.5">
+                 {weather ? t(weather.condition) : '...'}
               </p>
             </div>
           </div>
