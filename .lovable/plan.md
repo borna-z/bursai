@@ -1,34 +1,26 @@
 
 
-## Spara accentfärg permanent i databasen
+## Changes to the Landing Page
 
-### Problemet
-Just nu sparas din valda accentfärg bara i webbläsarens lokala minne (localStorage). Det betyder att om du loggar in från en annan enhet eller rensar webbläsardata, försvinner ditt val.
+### 1. Replace "Get Early Access" with "Log In"
+All buttons currently labeled "Get Early Access" will be changed to "Log In" -- this applies to:
+- The header CTA button
+- The mobile drawer button
+- The final CTA section at the bottom
 
-### Lösningen
-Accentfärgen (och temat ljus/mörk) sparas i din profil i databasen, under `preferences.theme` och `preferences.accentColor`. Då följer inställningarna med ditt konto oavsett vilken enhet du använder.
+### 2. Add "How to Download" Section
+A new section will be added between the final CTA and the footer, showing users how to install BURS on their devices:
 
-### Hur det fungerar
+- **iPhone card**: Apple logo icon + step-by-step instructions (Open in Safari, tap Share, tap "Add to Home Screen")
+- **Android card**: Android logo icon (from lucide's `Smartphone` or a custom SVG) + instructions (Open in Chrome, tap menu, tap "Install App" or "Add to Home Screen")
+- Both cards will be displayed side by side on desktop, stacked on mobile
 
-1. **Vid inloggning**: Appen läser din sparade accentfärg och tema från profilen och applicerar dem direkt.
-2. **Vid ändring**: När du väljer en ny färg i inställningar sparas den både lokalt (för snabb respons) och till databasen (för permanens).
-3. **Prioritet**: Databasvärdet vinner alltid over localStorage -- localStorage fungerar som snabb cache.
+Since lucide-react does not include Apple/Android brand icons, inline SVG paths for the Apple logo and Android logo (simple, recognizable silhouettes) will be used directly in the component.
 
-### Tekniska ändringar
+### Technical Details
 
-| Fil | Ändring |
-|-----|---------|
-| `src/contexts/ThemeContext.tsx` | Importera `supabase` och `useAuth`. Vid mount: hämta `preferences.accentColor` och `preferences.theme` från profilen. Vid ändring: spara till både localStorage och `profiles.preferences` i databasen. |
-| `src/components/settings/AccentColorPicker.tsx` | Ingen ändring behövs -- den anropar redan `setAccentColor` från ThemeContext. |
-| `src/pages/settings/SettingsAppearance.tsx` | Ingen ändring behövs -- den anropar redan `setTheme` från ThemeContext. |
+| File | Change |
+|------|--------|
+| `src/pages/Landing.tsx` | Replace all "Get Early Access" text with "Log In". Add a new "Download" section with Apple and Android install instructions using inline SVG brand icons. Update the nav links array to include the new download section. |
 
-### Detaljerad implementation
-
-**ThemeProvider** uppdateras med:
-- En effekt som lyssnar på auth-state och vid inloggning hämtar profilen for att läsa `preferences.accentColor` och `preferences.theme`
-- `setAccentColor` uppdateras att också köra `supabase.from('profiles').update(...)` med den nya färgen under `preferences.accentColor`
-- `setTheme` uppdateras att också spara till `preferences.theme` i databasen
-- Databaseskrivningar sker "fire-and-forget" i bakgrunden för att inte fördröja UI-responsen
-
-Ingen databasändring behövs -- `profiles.preferences` är redan en flexibel JSONB-kolumn.
-
+The new section will follow the same Scandinavian minimal design system: `scroll-reveal` animations, Sora font headings, `border-border` cards, and muted color palette.
