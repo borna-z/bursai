@@ -1,123 +1,85 @@
 
 
-## Redesign Landing Page -- Light, Minimal, App-Matched
+## Fix Landing Page: Light Theme, Working Animations, Pricing Section
 
-### Vision
+### Problems Found
 
-Replace the current dark-mode landing page with a light, warm design that matches the app's Scandinavian aesthetic (#F6F4F1 background, #111111 charcoal text, Sora + Inter fonts). The BURS logo takes center stage as the hero element. App screenshots showcase features. The footer includes all required legal links (Privacy Policy, Terms of Service, Contact) for GDPR compliance and Google API verification.
+1. **Dark mode on landing page**: The page uses `bg-background` which follows the user's theme (dark). The landing page should always be light to match the Scandinavian brand identity.
 
-### Current Problems
-- Landing page uses a completely different dark theme (`bg-[#0a0a0a]`) that clashes with the app's warm off-white identity
-- No clear legal footer structure for GDPR/Google compliance
-- Hero focuses on text, not on the brand logo
-- Only one app screenshot shown; no feature walkthrough
+2. **Scroll-reveal animations are broken**: The `useScrollReveal` hook adds `.visible` to the **section wrapper** (the element with `ref`), but the `.scroll-reveal` CSS class is on **child elements** inside those sections. Since `.scroll-reveal.visible` requires both classes on the same element, children never become visible -- they stay at `opacity: 0` permanently. This is why only the header and footer show after scrolling.
 
-### New Layout
+3. **No pricing information**: The landing page has no section explaining Free vs Premium plans, monthly (79 kr) and yearly (699 kr) costs, or what features are included.
+
+4. **No "Pricing" nav link**: The header nav has "How it works", "Sustainability", "Our Mission" but no link to pricing.
+
+---
+
+### Plan
+
+#### 1. Force light theme on the landing page
+
+Wrap the entire landing page content in a container with `class="light"` and override CSS variables inline so it always renders in light mode regardless of the user's app theme. This avoids touching the ThemeContext.
 
 ```text
-+------------------------------------------+
-|  Sticky Header: Logo + Nav + CTA         |
-+------------------------------------------+
-|                                          |
-|  HERO: Large BURS logo centered          |
-|  Tagline: "Rediscover your wardrobe."    |
-|  Subtitle (one line)                     |
-|  [Get Started] button                    |
-|                                          |
-+------------------------------------------+
-|                                          |
-|  HOW IT WORKS (3 steps)                  |
-|  Each step: number + icon + text         |
-|  + phone mockup with app screenshot      |
-|                                          |
-+------------------------------------------+
-|                                          |
-|  SUSTAINABILITY quote + stats            |
-|  (bg-muted/30 tinted section)            |
-|                                          |
-+------------------------------------------+
-|                                          |
-|  TRUST section (3 cards: privacy,        |
-|  zero lock-in, always on)               |
-|                                          |
-+------------------------------------------+
-|                                          |
-|  FINAL CTA: logo + "Join the movement"  |
-|  [Get Started]                           |
-|                                          |
-+------------------------------------------+
-|  FOOTER:                                 |
-|  Logo | Privacy Policy | Terms of        |
-|  Service | Contact | Social icons        |
-|  (C) 2026 BURS AB                        |
-|  "All data processed per GDPR."          |
-+------------------------------------------+
+<div className="light" style={{ colorScheme: 'light' }}>
+  <div className="min-h-screen bg-background text-foreground ...">
+    ...
+  </div>
+</div>
 ```
 
-### Specific Changes
+#### 2. Fix scroll-reveal animations
 
-**1. `src/pages/Landing.tsx` -- Complete visual overhaul**
+Replace `useScrollReveal` (which only observes one parent node) with a new approach inside Landing.tsx: a single `useEffect` that creates one IntersectionObserver targeting all `.scroll-reveal` elements directly. Each element gets `.visible` added individually when it enters the viewport.
 
-- Switch from `bg-[#0a0a0a] text-gray-100` to `bg-background text-foreground` (uses the app's CSS variables: warm off-white in light mode, dark in dark mode)
-- Header: `bg-background/80 backdrop-blur-md border-b border-border` instead of dark hardcoded colors
-- Hero section:
-  - Center the BURS logo large (80px icon) as the primary visual element
-  - Below it: "Rediscover your wardrobe." headline in Sora font
-  - One-liner subtitle
-  - Single CTA button: `bg-foreground text-background` (ink/paper inversion) with rounded-full
-  - Subtle radial gradient glow behind the logo using `bg-accent/5`
-- Phone mockup: keep the existing screenshot but style the phone frame to match light theme (`border-border` instead of dark borders)
-- How It Works: use `text-foreground` and `text-muted-foreground` instead of hardcoded grays; step numbers in `text-muted/10` for watermark effect
-- Sustainability section: `bg-muted/30` background instead of `bg-white/[0.02]`; stats grid with `bg-background` cells and `border border-border`
-- Mission/Trust section: cards with `bg-card border border-border rounded-2xl` instead of dark backgrounds
-- Final CTA: same ink/paper button style
-- Footer: comprehensive legal links row with Privacy Policy, Terms of Service, Contact, social icons, copyright with "BURS AB", and a small GDPR compliance note
+```text
+useEffect(() => {
+  const els = document.querySelectorAll('.scroll-reveal');
+  const observer = new IntersectionObserver(
+    (entries) => entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    }),
+    { threshold: 0.15 }
+  );
+  els.forEach(el => observer.observe(el));
+  return () => observer.disconnect();
+}, []);
+```
 
-**2. Footer legal compliance for Google API verification**
+Remove the four individual `useScrollReveal()` hook calls and their `ref={}` attributes from the sections. Keep the existing `.scroll-reveal` / `.scroll-reveal.visible` CSS unchanged.
 
-The footer will include:
-- Link to `/privacy` (Privacy Policy page -- already exists)
-- Link to `/terms` (Terms of Service page -- already exists)
-- Link to `/contact` (Contact page -- already exists)
-- Copyright: "(C) 2026 BURS AB"
-- Small note: "Your data is processed in accordance with GDPR."
-- These are the standard requirements for Google API/OAuth consent screen verification
+#### 3. Add a Pricing section
 
-**3. `src/pages/marketing/Terms.tsx` and `src/pages/marketing/PrivacyPolicy.tsx` -- Minor branding fix**
+Insert a new section (id="pricing") between the Trust/Mission section and the Final CTA. Content:
 
-- Change Helmet titles from "BURS" to match consistently (already correct)
-- Ensure the contact section in PrivacyPolicy uses `privacy@burs.se` instead of `privacy@example.com`
-- Translate the Swedish "Kontakt" / "For fragor om integritet" section to English in PrivacyPolicy.tsx for consistency with the English landing page
+- Section header: "Simple, transparent pricing"
+- Two side-by-side cards (Free / Premium)
+- **Free card**: 0 kr, 10 garments, 10 outfits/month, basic AI styling
+- **Premium card** (highlighted): 79 kr/month or 699 kr/year (save ~26%), unlimited garments, unlimited outfits, smarter AI, priority support
+- A "Get Started" CTA button below
 
-**4. `src/pages/marketing/Contact.tsx` -- Fix placeholder email**
+This is static content -- no checkout logic needed on the landing page (users sign up first then hit the in-app paywall/pricing page).
 
-- Change `hello@example.com` to `hello@burs.se`
-- Change `<title>Contact | DRAPE</title>` to `Contact | BURS`
-- Fix Swedish meta description to English
+#### 4. Add "Pricing" to the nav
 
-**5. Animation approach**
+Add a fourth nav link "Pricing" in both desktop and mobile nav that scrolls to `#pricing`.
 
-- Keep existing `useScrollReveal` hook for all sections
-- Hero logo gets a subtle `animate-fade-in` with slight scale-up on load
-- Sections use staggered `scroll-reveal` with CSS `--delay` variables (existing pattern)
-- CTA buttons use the existing `hover:scale-105` pattern
-- Phone mockup keeps the subtle `hover:rotate-0` tilt effect
-
-**6. Route change**
-
-- In `App.tsx`, change the Landing route from `/welcome` to be the public-facing root, or keep `/welcome` but ensure the landing page link structure is clear. Since `/` is already the protected Home route, keep Landing at `/welcome` but ensure footer links point back correctly.
+---
 
 ### Files Modified
 
-| File | What changes |
-|------|-------------|
-| `src/pages/Landing.tsx` | Full visual overhaul: light theme, logo-first hero, app-matched colors, legal footer |
-| `src/pages/marketing/PrivacyPolicy.tsx` | Fix contact email, translate Swedish contact section to English |
-| `src/pages/marketing/Contact.tsx` | Fix DRAPE to BURS in title, fix placeholder email, fix Swedish meta |
-| `src/pages/marketing/Terms.tsx` | No changes needed (already correct) |
+| File | Changes |
+|------|---------|
+| `src/pages/Landing.tsx` | Wrap in `.light` container; replace `useScrollReveal` hooks with a single `useEffect` observer; add Pricing section; add Pricing nav link |
 
-### What stays the same
-- All routes (`/privacy`, `/terms`, `/contact`, `/welcome`)
-- `useScrollReveal` hook
-- App screenshots and logo assets
-- All existing legal page content and structure
+No other files need changes. The existing CSS animation classes, assets, and routes remain untouched.
+
+### Technical Details
+
+- The `.light` wrapper class triggers the `:root` CSS variables (warm off-white `#F6F4F1` background) regardless of the `<html>` dark class
+- The pricing section uses plain HTML/Tailwind -- no Stripe integration or i18n needed (landing page is English-only)
+- Scroll-reveal fix targets all `.scroll-reveal` elements in one observer pass, which is more efficient than 4 separate hooks
+
