@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom';
 import { format, isToday, isTomorrow } from 'date-fns';
-import { sv } from 'date-fns/locale';
 import { Calendar, Repeat, Info, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -49,7 +48,7 @@ export function DayCard({
 
   const { data: daySummary, isLoading: isSummaryLoading } = useDaySummary(dateStr);
 
-  let dateLabel = format(date, 'EEEE d MMMM', { locale: sv });
+  let dateLabel = date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
   if (isToday(date)) {
     dateLabel = t('plan.today');
   } else if (isTomorrow(date)) {

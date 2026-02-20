@@ -1,5 +1,4 @@
 import { format, addDays, isToday, isTomorrow } from 'date-fns';
-import { sv } from 'date-fns/locale';
 import { Calendar, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,7 +29,7 @@ export function PreselectDateSheet({
   const getDateLabel = (date: Date): string => {
     if (isToday(date)) return 'Idag';
     if (isTomorrow(date)) return 'Imorgon';
-    return format(date, 'EEEE d MMMM', { locale: sv });
+    return date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
   };
 
   return (

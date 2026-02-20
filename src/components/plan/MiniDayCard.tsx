@@ -1,5 +1,4 @@
 import { format, isToday, isTomorrow } from 'date-fns';
-import { sv } from 'date-fns/locale';
 import { Calendar, Check, Briefcase, PartyPopper, Heart, Plus } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -27,7 +26,7 @@ export function MiniDayCard({ date, plannedOutfit, isSelected, onClick }: MiniDa
   const hasOutfit = !!outfit;
   const isWorn = plannedOutfit?.status === 'worn';
 
-  let dateLabel = format(date, 'EEEE d MMM', { locale: sv });
+  let dateLabel = date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
   if (isToday(date)) dateLabel = 'Idag';
   else if (isTomorrow(date)) dateLabel = 'Imorgon';
 

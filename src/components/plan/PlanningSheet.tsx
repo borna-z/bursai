@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { sv } from 'date-fns/locale';
 import { List, Sparkles, Loader2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,7 +39,7 @@ export function PlanningSheet({ open, onOpenChange, date, onSelectOutfit, onCrea
     <Sheet open={open} onOpenChange={handleClose}>
       <SheetContent side="bottom" className="h-[85vh] rounded-t-2xl">
         <SheetHeader className="text-left pb-4">
-          <SheetTitle>{t('plan.plan')} {format(date, 'd MMMM', { locale: sv })}</SheetTitle>
+          <SheetTitle>{t('plan.plan')} {date.toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}</SheetTitle>
           <SheetDescription>
             {mode === 'choose' ? t('planning.choose_how') : t('planning.choose_saved')}
           </SheetDescription>
