@@ -31,7 +31,7 @@ export default function Contact() {
         <header className="w-full border-b border-border/60">
           <div className="max-w-xl mx-auto px-4 py-4 flex items-center justify-between">
             <Link to="/welcome" className="flex items-center gap-2">
-              <BursMonogram size={28} className="!brightness-100" />
+              <BursMonogram size={28} />
               <span className="font-bold tracking-[0.12em] text-sm" style={{ fontFamily: "'Sora', sans-serif" }}>BURS</span>
             </Link>
             <Link to="/welcome" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">

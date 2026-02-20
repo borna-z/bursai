@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import bursLogo from '@/assets/burs-logo-white.png';
+import hangerLogo from '@/assets/burs-hanger-logo.png';
 
 interface BursMonogramProps {
   size?: number;
@@ -9,14 +9,12 @@ interface BursMonogramProps {
 export function BursMonogram({ size = 32, className }: BursMonogramProps) {
   return (
     <img
-      src={bursLogo}
+      src={hangerLogo}
       alt="BURS"
-      className={cn(
-        'object-contain brightness-0',
-        className
-      )}
-      style={{ width: size, height: 'auto' }}
-      draggable={false}
+      width={size}
+      height={size}
+      className={cn('flex-shrink-0 object-contain', className)}
+      style={{ imageRendering: 'auto' }}
     />
   );
 }

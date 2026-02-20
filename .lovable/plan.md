@@ -1,23 +1,30 @@
 
 
-## Make Logo Black and Hero Much Bigger on Landing Page
+## Revert Logo to Original PNG (Higher Quality Rendering)
 
-### 1. Make the logo black everywhere on the landing page
+The last edit replaced your original hanger logo (`burs-hanger-logo.png`) with a hand-drawn SVG. You want the original logo back.
 
-Currently the `BursMonogram` component defaults to black (`brightness-0`), but the landing page overrides this with `!brightness-100` to make it white. I'll remove that override so the logo displays in black.
+### What will change
 
-**Three places in `src/pages/Landing.tsx`:**
-- **Header** (line 55): Remove `!brightness-100` from the `BursMonogram` className
-- **Hero** (line 97): Remove `!brightness-100` from the `BursMonogram` className
-- **Final CTA** (line 272): Remove `!brightness-100` from the `BursMonogram` className
+**`src/components/ui/BursMonogram.tsx`** -- Revert to the PNG-based version:
+- Re-import `burs-hanger-logo.png`
+- Remove all the inline SVG paths
+- Render as an `<img>` tag with `object-contain` for crisp scaling
+- Use higher rendered resolution: load the image at 2x the display `size` and constrain it with CSS `width`/`height`, so on retina/hi-DPI screens it stays sharp instead of looking blurry
 
-### 2. Make the hero logo much bigger
+### Technical Detail
 
-Currently the hero logo is `size={120}`. I'll increase it to `size={220}` so it becomes a dominant visual element in the hero section.
+The component will render something like:
 
-**`src/pages/Landing.tsx`** (line 97): Change `size={120}` to `size={220}`
+```tsx
+<img
+  src={hangerLogo}
+  alt="BURS"
+  width={size}
+  height={size}
+  className="flex-shrink-0 object-contain"
+  style={{ imageRendering: 'auto' }}
+/>
+```
 
-### Summary of changes
-
-Only one file changes: `src/pages/Landing.tsx` -- four small edits to make the logo black and the hero version significantly larger.
-
+No other files change. The landing page hero already uses `<BursMonogram size={80} />` and will automatically pick up the reverted logo.
