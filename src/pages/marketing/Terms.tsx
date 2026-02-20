@@ -1,36 +1,48 @@
- import { Helmet } from 'react-helmet-async';
- import { MarketingLayout } from '@/components/marketing/MarketingLayout';
- import { MARKETING_CONFIG } from '@/config/marketing';
- 
- export default function Terms() {
-   const { terms } = MARKETING_CONFIG;
- 
-   return (
-     <>
-       <Helmet>
-            <title>{terms.title} | DRAPE</title>
-            <meta name="description" content="Användarvillkor för DRAPE." />
-       </Helmet>
-       
-       <MarketingLayout>
-         <div className="max-w-3xl mx-auto px-4 py-16 md:py-24">
-           <h1 className="text-3xl md:text-4xl font-bold mb-4">{terms.title}</h1>
-           <p className="text-muted-foreground mb-12">
-             Senast uppdaterad: {terms.lastUpdated}
-           </p>
-           
-           <div className="space-y-8">
-             {terms.sections.map((section, index) => (
-               <section key={index}>
-                 <h2 className="text-xl font-semibold mb-3">{section.title}</h2>
-                 <p className="text-muted-foreground leading-relaxed">
-                   {section.content}
-                 </p>
-               </section>
-             ))}
-           </div>
-         </div>
-       </MarketingLayout>
-     </>
-   );
- }
+import { Helmet } from 'react-helmet-async';
+import { Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
+
+const TERMS = {
+  title: 'Terms of Service',
+  lastUpdated: '2025-02-19',
+  sections: [
+    { title: 'Acceptance', content: 'By using DRAPE you accept these terms. If you do not accept, please do not use the service.' },
+    { title: 'The Service', content: 'DRAPE is a digital wardrobe manager and personal AI stylist that helps you organize garments, create outfits, and plan your wardrobe. The service is provided "as is" without warranties.' },
+    { title: 'Your Content', content: 'You retain ownership of images and content you upload. You grant us the right to use this to provide the service to you.' },
+    { title: 'Body measurements and personal data', content: "Body measurements (height and weight) are optional and used exclusively to improve the AI stylist's advice. This data is stored encrypted and deleted upon your request." },
+    { title: 'Limitations', content: 'We are not liable for any damages arising from use of the service. Maximum liability is limited to fees you have paid in the last 12 months.' },
+    { title: 'Changes', content: 'We may update these terms. Material changes will be communicated via email or in the app.' },
+  ],
+};
+
+export default function Terms() {
+  return (
+    <>
+      <Helmet>
+        <title>{TERMS.title} | DRAPE</title>
+        <meta name="description" content="Användarvillkor för DRAPE." />
+      </Helmet>
+
+      <div className="min-h-screen bg-background text-foreground">
+        <div className="max-w-3xl mx-auto px-4 py-12 md:py-20">
+          <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-8">
+            <ArrowLeft className="w-4 h-4" />
+            Tillbaka
+          </Link>
+
+          <h1 className="text-3xl md:text-4xl font-bold mb-4">{TERMS.title}</h1>
+          <p className="text-muted-foreground mb-12">Senast uppdaterad: {TERMS.lastUpdated}</p>
+
+          <div className="space-y-8">
+            {TERMS.sections.map((section, i) => (
+              <section key={i}>
+                <h2 className="text-xl font-semibold mb-3">{section.title}</h2>
+                <p className="text-muted-foreground leading-relaxed">{section.content}</p>
+              </section>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
