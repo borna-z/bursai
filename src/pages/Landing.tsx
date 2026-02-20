@@ -101,8 +101,8 @@ export default function Landing() {
             </div>
 
             <div className="w-full md:w-1/2 flex justify-center md:justify-end relative animate-fade-in" style={{ animationDelay: '200ms' }}>
-              <div className="relative w-[300px] h-[620px] md:w-[360px] md:h-[740px] bg-[#0a0a0a] rounded-[2.5rem] border-[5px] border-[#1e1e1e] overflow-hidden shadow-2xl shadow-black/50 transform md:rotate-[-2deg] hover:rotate-0 transition-transform duration-500">
-                <img src={appScreenshot} alt="Burs App Interface" className="w-full h-full object-cover object-top bg-[#0a0a0a]" />
+              <div className="relative w-[300px] md:w-[360px] aspect-[9/19.5] bg-[#0a0a0a] rounded-[2.5rem] border-[5px] border-[#1e1e1e] overflow-hidden shadow-2xl shadow-black/50 transform md:rotate-[-2deg] hover:rotate-0 transition-transform duration-500">
+                <img src={appScreenshot} alt="Burs App Interface" className="w-full h-full object-contain bg-[#0a0a0a]" />
               </div>
             </div>
           </div>
