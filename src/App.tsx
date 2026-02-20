@@ -34,8 +34,7 @@ import Pricing from "./pages/Pricing";
 import NotFound from "./pages/NotFound";
 import LiveScan from "./pages/LiveScan";
 import ResetPassword from "./pages/ResetPassword";
- // Marketing pages
- import MarketingHome from "./pages/marketing/MarketingHome";
+ // Standalone pages
  import PrivacyPolicy from "./pages/marketing/PrivacyPolicy";
  import Terms from "./pages/marketing/Terms";
  import Contact from "./pages/marketing/Contact";
@@ -55,8 +54,7 @@ const queryClient = new QueryClient();
               <BrowserRouter>
                 <ScrollToTop />
                 <Routes>
-                 {/* Marketing site */}
-                 <Route path="/marketing" element={<MarketingHome />} />
+                 {/* Legal & admin */}
                  <Route path="/privacy" element={<PrivacyPolicy />} />
                  <Route path="/terms" element={<Terms />} />
                  <Route path="/contact" element={<Contact />} />
