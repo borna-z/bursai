@@ -1,40 +1,34 @@
 
 
-## Make `/welcome` the Default Landing Page
+## Spara accentfärg permanent i databasen
 
-### What Happens
-When someone visits `burs.me` (the root `/` path) without being logged in, they will be redirected to `/welcome` (the Landing page) instead of being sent to the login-protected Home page.
+### Problemet
+Just nu sparas din valda accentfärg bara i webbläsarens lokala minne (localStorage). Det betyder att om du loggar in från en annan enhet eller rensar webbläsardata, försvinner ditt val.
 
-Currently, `/` points to the protected `<Home />` component -- if a user isn't logged in, `ProtectedRoute` likely redirects them to `/auth`. We want unauthenticated visitors to see `/welcome` instead.
+### Lösningen
+Accentfärgen (och temat ljus/mörk) sparas i din profil i databasen, under `preferences.theme` och `preferences.accentColor`. Då följer inställningarna med ditt konto oavsett vilken enhet du använder.
 
-### Changes
+### Hur det fungerar
 
-**1. Update `src/App.tsx`**
-- Change the root route (`/`) from the protected Home to a new `IndexRedirect` component
-- This component checks if the user is logged in:
-  - **Logged in** --> show `<Home />` (the dashboard)
-  - **Not logged in** --> redirect to `/welcome`
+1. **Vid inloggning**: Appen läser din sparade accentfärg och tema från profilen och applicerar dem direkt.
+2. **Vid ändring**: När du väljer en ny färg i inställningar sparas den både lokalt (för snabb respons) och till databasen (för permanens).
+3. **Prioritet**: Databasvärdet vinner alltid over localStorage -- localStorage fungerar som snabb cache.
 
-**2. Alternatively (simpler approach)**
-- Add a redirect: make `/` render a small component that uses `useAuth()` to check session state and navigates accordingly
-- Keep `/welcome` as the Landing page route (already exists)
+### Tekniska ändringar
 
-### Technical Detail
+| Fil | Ändring |
+|-----|---------|
+| `src/contexts/ThemeContext.tsx` | Importera `supabase` och `useAuth`. Vid mount: hämta `preferences.accentColor` och `preferences.theme` från profilen. Vid ändring: spara till både localStorage och `profiles.preferences` i databasen. |
+| `src/components/settings/AccentColorPicker.tsx` | Ingen ändring behövs -- den anropar redan `setAccentColor` från ThemeContext. |
+| `src/pages/settings/SettingsAppearance.tsx` | Ingen ändring behövs -- den anropar redan `setTheme` från ThemeContext. |
 
-```
-/ (root)
-  |-- logged in?  --> <Home />
-  |-- not logged in? --> redirect to /welcome
-```
+### Detaljerad implementation
 
-This way, when someone types `burs.me` in their browser:
-- New visitors see the welcome/landing page
-- Returning logged-in users go straight to their dashboard
+**ThemeProvider** uppdateras med:
+- En effekt som lyssnar på auth-state och vid inloggning hämtar profilen for att läsa `preferences.accentColor` och `preferences.theme`
+- `setAccentColor` uppdateras att också köra `supabase.from('profiles').update(...)` med den nya färgen under `preferences.accentColor`
+- `setTheme` uppdateras att också spara till `preferences.theme` i databasen
+- Databaseskrivningar sker "fire-and-forget" i bakgrunden för att inte fördröja UI-responsen
 
-### Files
-
-| File | Change |
-|------|--------|
-| `src/App.tsx` | Replace the `/` route with a conditional redirect component |
-| `src/pages/Index.tsx` | Update or repurpose as the redirect logic (or create inline) |
+Ingen databasändring behövs -- `profiles.preferences` är redan en flexibel JSONB-kolumn.
 
