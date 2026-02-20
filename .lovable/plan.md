@@ -1,69 +1,27 @@
 
 
-# Rebrand to BURS + New Landing Page
+# Replace BURS Logo with New Brand Mark
 
-## Overview
-Rename the app from "DRAPE" to "BURS" everywhere and create a premium Scandinavian minimalist landing page at the root marketing route.
+## What will change
 
----
+The uploaded logo image will be copied into the project and the `DrapeLogo` component will be updated to use it instead of the old `drape-logo.png`.
 
-## Part 1: Global Rebrand DRAPE --> BURS
+## Steps
 
-All occurrences of "DRAPE" will be replaced with "BURS" across these files:
+### 1. Copy the uploaded logo image
+- Copy `user-uploads://Gemini_Generated_Image_qeunkmqeunkmqeun_1-2.png` to `src/assets/burs-logo.png`
 
-- **`src/components/ui/DrapeLogo.tsx`** -- Update wordmark text from "DRAPE" to "BURS", alt text, and rename file export
-- **`src/pages/Auth.tsx`** -- Title text "DRAPE" to "BURS"
-- **`index.html`** -- Page title, meta tags, OG tags, Twitter tags
-- **`public/manifest.json`** -- App name and short_name
-- **`src/i18n/translations.ts`** -- All translation strings referencing "DRAPE" (tutorial titles, chat welcome, GDPR info, etc.) across all languages
-- **`src/index.css`** -- Comment text
-- **`supabase/functions/shopping_chat/index.ts`** -- User-Agent and system prompt
-- **`supabase/functions/style_chat/index.ts`** -- Any references
-- **Other edge functions** -- Scan and update any remaining mentions
+### 2. Update `src/components/ui/DrapeLogo.tsx`
+- Change the import from `drape-logo.png` to `burs-logo.png`
+- The component already supports `icon` and `horizontal` variants, so it will work as-is with the new image
 
----
+### 3. Update `Landing.tsx` logo usage
+- Hero: Change from `variant="wordmark"` (text-only) to `variant="horizontal"` (icon + wordmark) since the right side of the uploaded image shows the icon with "BURS" text below
+- Footer: Already uses `variant="horizontal"` -- no change needed
 
-## Part 2: Landing Page
+### How it maps to your request
+- **Left logo (icon only)** -- Used in the app via `variant="icon"` (e.g., bottom nav, headers)
+- **Right logo (icon + BURS wordmark)** -- Used on the landing page via `variant="horizontal"`
 
-Create a new **`src/pages/Landing.tsx`** -- a high-conversion, English-language marketing page with these sections:
-
-1. **Hero** -- "BURS" wordmark, tagline ("Your AI-powered personal stylist"), CTA button ("Get Started" links to /auth)
-2. **Features** -- 3-column grid: AI Outfit Generator, Smart Calendar Planning, Digital Wardrobe
-3. **How it Works** -- 3-step visual flow: Add clothes, Set your day, Get styled
-4. **Social Proof / Trust** -- Privacy-first, no data sharing, cancel anytime
-5. **CTA Footer** -- Final call-to-action with download/signup prompt
-6. **Footer** -- Links to /privacy, /terms, /contact
-
-Design:
-- Scandinavian minimalist: lots of whitespace, charcoal on off-white
-- Smooth scroll-reveal animations using the existing `animate-fade-in` utility
-- Fully responsive (mobile-first)
-- Dark mode support via existing theme tokens
-
----
-
-## Part 3: Routing Update
-
-- **`src/App.tsx`** -- Add a new public route for the landing page (e.g., `/welcome` or update the Index route)
-- Unauthenticated users visiting `/` will see the landing page; authenticated users go straight to Home
-
----
-
-## Technical Details
-
-**Files to create:**
-- `src/pages/Landing.tsx`
-
-**Files to modify:**
-- `src/components/ui/DrapeLogo.tsx`
-- `src/pages/Auth.tsx`
-- `src/App.tsx`
-- `index.html`
-- `public/manifest.json`
-- `src/i18n/translations.ts`
-- `src/index.css`
-- `src/pages/Home.tsx` (localStorage keys `drape_last_*` to `burs_last_*`)
-- Edge functions with "DRAPE" references
-
-**No database changes needed.**
-
+### Technical note
+The current component renders the icon as an `<img>` tag with the "BURS" wordmark as separate text. This means the icon portion of the uploaded image will be used for the mark, and the text "BURS" is rendered by the component in Sora font. The uploaded image serves as the new icon/mark asset.
