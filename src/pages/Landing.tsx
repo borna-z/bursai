@@ -3,10 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Menu, X, Sparkles, Shirt, Heart, Leaf, Shield, ArrowRight, Smartphone, Instagram, Twitter } from 'lucide-react';
 import bursLandingLogo from '@/assets/burs-landing-logo.png';
+import { useScrollReveal } from '@/hooks/useScrollReveal';
 
 export default function Landing() {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const howRef = useScrollReveal();
+  const sustainRef = useScrollReveal();
+  const missionRef = useScrollReveal();
+  const ctaRef = useScrollReveal();
 
   const scrollTo = (id: string) => {
     setMobileOpen(false);
@@ -62,13 +68,11 @@ export default function Landing() {
           )}
         </header>
 
-        {/* ── Hero ── */}
+        {/* ── Hero (animates immediately on load) ── */}
         <section className="relative w-full min-h-[90vh] flex items-center justify-center overflow-hidden px-6 md:px-12 pt-20 pb-16">
-          {/* Subtle background glow */}
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-white/5 rounded-full blur-[120px] pointer-events-none" />
 
           <div className="max-w-7xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-16 relative z-10">
-            {/* Left Column */}
             <div className="w-full md:w-1/2 flex flex-col items-start gap-8 animate-fade-in">
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs tracking-wide text-gray-300 backdrop-blur-sm">
                 <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
@@ -95,7 +99,6 @@ export default function Landing() {
               </div>
             </div>
 
-            {/* Right Column: Phone Mockup */}
             <div className="w-full md:w-1/2 flex justify-center md:justify-end relative animate-fade-in" style={{ animationDelay: '200ms' }}>
               <div className="relative w-[280px] h-[580px] md:w-[320px] md:h-[650px] bg-[#121212] rounded-[3rem] border-[6px] border-[#1e1e1e] overflow-hidden shadow-2xl shadow-black/50 transform md:rotate-[-2deg] hover:rotate-0 transition-transform duration-500">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-7 bg-[#1e1e1e] rounded-b-3xl z-20" />
@@ -109,10 +112,10 @@ export default function Landing() {
         </section>
 
         {/* ── How It Works ── */}
-        <section id="how-it-works" className="px-6 py-28 md:py-40">
+        <section id="how-it-works" className="px-6 py-28 md:py-40" ref={howRef}>
           <div className="max-w-4xl mx-auto">
-            <p className="text-[10px] tracking-[0.4em] uppercase text-gray-500 text-center mb-4 animate-fade-in">How It Works</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-center tracking-tight mb-20 animate-fade-in" style={{ fontFamily: "'Sora', sans-serif" }}>
+            <p className="text-[10px] tracking-[0.4em] uppercase text-gray-500 text-center mb-4 scroll-reveal" style={{ '--delay': '0ms' } as React.CSSProperties}>How It Works</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-center tracking-tight mb-20 scroll-reveal" style={{ fontFamily: "'Sora', sans-serif", '--delay': '80ms' } as React.CSSProperties}>
               Three steps. Zero effort.
             </h2>
 
@@ -121,7 +124,7 @@ export default function Landing() {
               { num: '02', icon: Sparkles, title: 'AI works its magic', desc: 'Our neural styling engine learns your taste, checks weather and calendar, then generates perfect outfit combinations from pieces you own.' },
               { num: '03', icon: Heart, title: 'Wear & Care', desc: 'Breathe life into forgotten garments. Track what you wear, discover hidden gems, and fall in love with your wardrobe again.' },
             ].map((s, i) => (
-              <div key={s.num} className="flex items-start gap-6 md:gap-10 py-10 border-t border-white/5 animate-fade-in" style={{ animationDelay: `${(i + 1) * 100}ms` }}>
+              <div key={s.num} className="flex items-start gap-6 md:gap-10 py-10 border-t border-white/5 scroll-reveal" style={{ '--delay': `${(i + 1) * 120}ms` } as React.CSSProperties}>
                 <span className="text-6xl md:text-7xl font-bold text-white/[0.06] leading-none select-none shrink-0" style={{ fontFamily: "'Sora', sans-serif" }}>{s.num}</span>
                 <div className="pt-2 space-y-2">
                   <div className="flex items-center gap-3">
@@ -136,8 +139,8 @@ export default function Landing() {
         </section>
 
         {/* ── Sustainability ── */}
-        <section id="sustainability" className="px-6 py-28 md:py-40 bg-white/[0.02]">
-          <div className="max-w-3xl mx-auto text-center animate-fade-in">
+        <section id="sustainability" className="px-6 py-28 md:py-40 bg-white/[0.02]" ref={sustainRef}>
+          <div className="max-w-3xl mx-auto text-center scroll-reveal">
             <Leaf className="w-8 h-8 mx-auto mb-8 text-gray-500" strokeWidth={1} />
             <blockquote className="text-2xl md:text-4xl font-bold tracking-tight leading-snug" style={{ fontFamily: "'Sora', sans-serif" }}>
               "The most sustainable garment<br className="hidden sm:block" /> is the one already in your closet."
@@ -151,8 +154,8 @@ export default function Landing() {
                 { stat: '80%', label: 'of clothes are under-worn' },
                 { stat: '92M', label: 'tons of textile waste yearly' },
                 { stat: '∞', label: 'outfits from your closet' },
-              ].map(s => (
-                <div key={s.label} className="bg-[#0a0a0a] p-6 md:p-10">
+              ].map((s, i) => (
+                <div key={s.label} className="bg-[#0a0a0a] p-6 md:p-10 scroll-reveal" style={{ '--delay': `${(i + 1) * 120}ms` } as React.CSSProperties}>
                   <div className="text-2xl md:text-3xl font-bold mb-2" style={{ fontFamily: "'Sora', sans-serif" }}>{s.stat}</div>
                   <div className="text-xs text-gray-500 tracking-wide">{s.label}</div>
                 </div>
@@ -162,10 +165,10 @@ export default function Landing() {
         </section>
 
         {/* ── Mission / Trust ── */}
-        <section id="mission" className="px-6 py-28 md:py-40">
+        <section id="mission" className="px-6 py-28 md:py-40" ref={missionRef}>
           <div className="max-w-4xl mx-auto text-center">
-            <p className="text-[10px] tracking-[0.4em] uppercase text-gray-500 mb-4 animate-fade-in">Our Mission</p>
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-20 animate-fade-in" style={{ fontFamily: "'Sora', sans-serif" }}>
+            <p className="text-[10px] tracking-[0.4em] uppercase text-gray-500 mb-4 scroll-reveal">Our Mission</p>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-20 scroll-reveal" style={{ fontFamily: "'Sora', sans-serif", '--delay': '80ms' } as React.CSSProperties}>
               Built on trust.
             </h2>
             <div className="grid md:grid-cols-3 gap-px bg-white/5 rounded-2xl overflow-hidden">
@@ -174,7 +177,7 @@ export default function Landing() {
                 { icon: Shield, title: 'Zero lock-in', desc: 'Export everything. Cancel anytime. No questions asked.' },
                 { icon: Smartphone, title: 'Always on', desc: 'Offline-ready PWA. Your wardrobe is accessible anywhere, anytime.' },
               ].map((t, i) => (
-                <div key={t.title} className="bg-[#0a0a0a] p-8 md:p-10 space-y-4 animate-fade-in" style={{ animationDelay: `${(i + 1) * 100}ms` }}>
+                <div key={t.title} className="bg-[#0a0a0a] p-8 md:p-10 space-y-4 scroll-reveal" style={{ '--delay': `${(i + 1) * 120}ms` } as React.CSSProperties}>
                   <t.icon className="w-5 h-5 mx-auto text-gray-500" strokeWidth={1.5} />
                   <h3 className="font-semibold tracking-tight">{t.title}</h3>
                   <p className="text-sm text-gray-400 leading-relaxed">{t.desc}</p>
@@ -185,8 +188,8 @@ export default function Landing() {
         </section>
 
         {/* ── Final CTA ── */}
-        <section className="px-6 py-28 md:py-40">
-          <div className="max-w-lg mx-auto text-center space-y-8 animate-fade-in">
+        <section className="px-6 py-28 md:py-40" ref={ctaRef}>
+          <div className="max-w-lg mx-auto text-center space-y-8 scroll-reveal">
             <img src={bursLandingLogo} alt="Burs" className="w-14 h-14 mx-auto rounded-xl object-contain" />
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight" style={{ fontFamily: "'Sora', sans-serif" }}>
               Join the movement.
