@@ -1,105 +1,114 @@
 
 
-## Remove All Hardcoded Swedish -- Full i18n Coverage
+## Redesign the Planner Page -- Clean, Minimal, Fun
 
-### Problem
-Many pages and components still contain hardcoded Swedish strings instead of using the `t()` translation function. This means switching language in settings has no effect on large parts of the UI.
+### Design Philosophy
 
-### Scope
-After a thorough audit, the following files contain hardcoded Swedish text that must be replaced with `t()` calls. New translation keys will be added to `src/i18n/translations.ts` for all 12+ supported locales.
+Match the Home page's calm, spacious aesthetic: flat card containers, generous whitespace, subtle animations, and zero visual noise. The planner becomes a single scrollable view focused on **one day at a time**, with the week navigation as a compact strip at the top.
 
----
+### Current Problems
+- Too many borders, badges, and nested cards competing for attention
+- DaySummaryCard, WeatherBadge, CalendarConnectBanner, outfit grid, action buttons all stacked vertically with no breathing room
+- Desktop layout has a heavy sidebar with 7 MiniDayCards that look cluttered
+- Hardcoded Swedish still present in several planner sub-components
 
-### Files to Update (14 files)
+### New Layout (Mobile)
 
-**Settings pages (5 files):**
+```text
++---------------------------------------+
+|  Header: "Today" + calendar icon      |
++---------------------------------------+
+|  Week Strip (7 day pills, cleaner)    |
++---------------------------------------+
+|                                       |
+|  Weather + Temperature (subtle line)  |
+|                                       |
+|  AI Summary Card (if events exist)    |
+|   "Work-focused day with evening      |
+|    social. Smart casual recommended." |
+|   [Jobb chip] [Fest chip]             |
+|                                       |
+|  Outfit Section:                      |
+|   Either:                             |
+|     2x2 image grid (tap to detail)    |
+|     Occasion + style badges           |
+|     One-line explanation              |
+|     [Swap] [Details] row              |
+|     Worn / Remove (tiny footer)       |
+|   Or:                                 |
+|     Empty state with Generate CTA     |
+|                                       |
++---------------------------------------+
+```
 
-| File | Hardcoded strings |
-|------|------------------|
-| `src/pages/Settings.tsx` | "Utseende", "Tema, accentfarg, sprak", "Stil", "Kroppsmatt, farger, passform", "Notiser & Kalender", "Paminnelser, kalendersynk", "Profil & Konto", "Premium, namn, e-post", "Data & Integritet", "Exportera, radera konto" |
-| `src/pages/settings/SettingsAppearance.tsx` | PageHeader title "Utseende", "Auto" button label |
-| `src/pages/settings/SettingsNotifications.tsx` | PageHeader title "Notiser & Kalender" |
-| `src/pages/settings/SettingsAccount.tsx` | PageHeader title "Profil & Konto" |
-| `src/pages/settings/SettingsStyle.tsx` | PageHeader title "Stil", SelectItem values "Loose", "Regular", "Slim", "Klassisk" |
+### New Layout (Desktop)
 
-**Calendar section (1 file):**
+Same vertical flow in a centered `max-w-lg` column -- no more split panel. The WeekStrip works identically on desktop. This is simpler, cleaner, and matches the Home page pattern.
 
-| File | Hardcoded strings |
-|------|------------------|
-| `src/components/settings/CalendarSection.tsx` | "Synkad", "Behover synkas", "Ej synkad", "Senast synkad...", "Automatisk var 6:e timme", "Synka nu", "Koppla Google Calendar", "ICS-lank", "Koppla Apple Calendar...", "Lagg till ICS-lank", "Klistra in din ICS-lank", "Synka kalender", "Hur hittar jag min ICS-lank?", all Google/Outlook/Apple help text, "Kalendersynk" section title |
+### Specific Changes
 
-**Premium/billing pages (4 files):**
+**1. `src/pages/Plan.tsx` -- Complete rewrite of layout**
+- Remove the desktop two-panel `grid` layout entirely; use single-column `max-w-lg mx-auto` for both mobile and desktop (same as Home page)
+- Remove `MiniDayCard` imports and usage (desktop sidebar gone)
+- Simplify header: just the date label + calendar popover + magic wand button
+- Add stagger animation on day switch using React `key` on the content wrapper
+- Remove `CalendarConnectBanner` from inline flow -- move it to a subtle bottom-sheet nudge or keep as a single-line prompt
+- Fix remaining hardcoded `sv` locale in date formatting (use dynamic locale)
 
-| File | Hardcoded strings |
-|------|------------------|
-| `src/components/PremiumSection.tsx` | "Testlage", "Aktiv", "Betalning misslyckades...", "Obegransad garderob", "Obegransade outfits", "Hantera prenumeration", "Plagg", "Outfits denna manad", "79 kr/manad", "699 kr/ar (spara 26%)", "Jag har redan Premium", toast messages |
-| `src/components/PaywallModal.tsx` | "Las upp Premium", limit messages, "Obegransad garderob", "Lagg till hur manga plagg...", "Obegransade outfits", "Smartare rekommendationer", "79 kr/manad", "699 kr/ar", "Inte nu", toast messages |
-| `src/pages/Pricing.tsx` | All FAQ questions/answers, trust bullets, "Las upp din fulla garderob", "Manadsvis", "Arsvis", feature names, "Starta Premium", "Vanliga fragor", "Free-planen inkluderar" list |
-| `src/pages/BillingSuccess.tsx` | "Premium aktiverat!", description, feature list, "Borja anvanda Premium", "Hantera prenumeration" |
-| `src/pages/BillingCancel.tsx` | "Avbrutet", description, contact message, "Tillbaka till appen" |
+**2. `src/components/plan/WeekStrip.tsx` -- Visual refinement**
+- Make pills taller with more padding for easier touch targets
+- Selected state: filled pill with `bg-foreground text-background` (ink/paper inversion) instead of `bg-primary`
+- Unselected: transparent with just the day letter + number
+- Remove the bottom indicator dots/icons row -- too noisy. Instead, show a tiny colored dot only for days with a planned outfit (green=worn, accent=planned)
+- Remove tooltip wrapping -- events are shown in the detail area, not on hover
+- Use dynamic date-fns locale instead of hardcoded `sv`
 
-**Share/public pages (1 file):**
+**3. `src/components/plan/DaySummaryCard.tsx` -- Cleaner card**
+- Remove border entirely; use a soft background tint only (`bg-muted/40 rounded-xl`)
+- Remove the "Din dag" header with Sparkles icon -- let the summary speak for itself
+- Occasion hint chips: keep them but make them subtler (outline style, no background color)
+- Remove the "Planera utifrån detta" CTA link -- tapping a chip already triggers generate
+- Fix hardcoded Swedish "Din dag" and "Planera utifrån detta" with `t()` keys
 
-| File | Hardcoded strings |
-|------|------------------|
-| `src/pages/ShareOutfit.tsx` | slotLabels map ("Overdel", "Underdel", etc.), "Delad outfit", "Kopierad!", "Kopiera lank", "Ladda ner", "Stil:", "Okant plagg", "Skapad med Wardrobe AI", CTA section text, toast messages |
+**4. `src/components/plan/MiniDayCard.tsx` -- Keep file but stop importing in Plan.tsx**
+- No changes needed; it just won't be used in the planner anymore (may still be used elsewhere)
 
-**Marketing pages (3 files -- kept English-only as per existing pattern):**
+**5. `src/components/plan/CalendarConnectBanner.tsx` -- i18n fix**
+- Replace all hardcoded Swedish strings with `t()` calls
+- Already has translation keys from the previous bulk i18n work -- just wire them up
 
-| File | Note |
-|------|------|
-| `src/pages/marketing/Terms.tsx` | "Tillbaka" and "Senast uppdaterad:" are Swedish UI chrome on an English page -- replace with `t()` |
-| `src/pages/marketing/PrivacyPolicy.tsx` | Same: "Tillbaka" and "Senast uppdaterad:" |
-| `src/pages/marketing/Admin.tsx` | "Laddar..." |
+**6. `src/components/outfit/WeatherForecastBadge.tsx` -- i18n fix**
+- Replace "Laddar...", "Prognos ej tillgänglig", "Ta med paraply!", "Kallt! Klä dig varmt", etc. with `t()` calls
+- Add new translation keys for weather warnings
 
-**Onboarding (1 file):**
+**7. `src/components/plan/SmartDayBanner.tsx` -- i18n fix**
+- Replace "Smart förslag baserat på dina händelser" and "Skapa outfit utifrån detta" with `t()` calls
 
-| File | Hardcoded strings |
-|------|------------------|
-| `src/components/onboarding/StylePreferencesStep.tsx` | "Klassisk" label, color names displayed as raw Swedish |
+**8. `src/i18n/translations.ts` -- New keys**
+- Add keys: `plan.your_day`, `plan.plan_from_hint`, `weather.loading`, `weather.unavailable`, `weather.bring_umbrella`, `weather.cold_warning`, `weather.hot_warning`, `weather.outfit_created_for`, `weather.differs`, `smart.title`, `smart.create_from`, `calendar.connect_title`, `calendar.connect_subtitle`, `calendar.connect_calendar`, `calendar.or_ics`, `calendar.paste_ics`, `calendar.sync`
+- Translations for sv, en, no, da, fi, de, fr, es, it, pt, nl, pl, ar, fa
 
-**Other:**
+**9. Animation improvements**
+- Day content transitions with `key={selectedDateStr}` and `animate-drape-in` for smooth day switching
+- WeekStrip pill selection uses CSS `transition-all duration-200` for color/scale changes
+- Outfit image grid has a subtle `hover:scale-[1.01]` lift effect
+- Action buttons use `press` class for tactile feedback
 
-| File | Hardcoded strings |
-|------|------------------|
-| `src/pages/Outfits.tsx` | `date-fns` locale hardcoded to `sv` |
-| `src/pages/GarmentDetail.tsx` | `toLocaleDateString('sv-SE')` |
+### Files Modified
 
----
+| File | What changes |
+|------|-------------|
+| `src/pages/Plan.tsx` | Single-column layout, remove desktop split, cleaner spacing, dynamic locale |
+| `src/components/plan/WeekStrip.tsx` | Visual refresh: ink/paper selected state, remove dots/tooltips, dynamic locale |
+| `src/components/plan/DaySummaryCard.tsx` | Remove border, simpler header, i18n |
+| `src/components/plan/CalendarConnectBanner.tsx` | Wire up existing i18n keys |
+| `src/components/outfit/WeatherForecastBadge.tsx` | i18n all strings |
+| `src/components/plan/SmartDayBanner.tsx` | i18n all strings |
+| `src/i18n/translations.ts` | ~20 new translation keys across all locales |
 
-### Translation keys to add (~120 new keys)
-
-All keys will be added to `src/i18n/translations.ts` under a structured namespace:
-
-- `settings.row.*` -- settings page row labels/sublabels
-- `calendar.*` -- all calendar section strings
-- `premium.*` -- premium/paywall/billing strings
-- `pricing.*` -- pricing page strings
-- `billing.*` -- billing success/cancel strings
-- `share.*` -- share outfit page strings
-- `common.back`, `common.loading` -- reusable strings
-
-Each key gets translations for: `sv`, `en`, `no`, `da`, `fi`, `de`, `fr`, `es`, `it`, `pt`, `nl`, `pl`, `ar`, `fa`
-
----
-
-### Technical approach
-
-1. **Add all new translation keys** to `src/i18n/translations.ts` (bulk addition for all locales)
-2. **Update each file** to import `useLanguage` (if not already) and replace hardcoded strings with `t('key')` calls
-3. **Date formatting**: Replace hardcoded `locale: sv` and `'sv-SE'` with a locale-aware helper that maps the app locale to the correct `date-fns` locale
-4. **Color names in filters/chips**: These are database values (stored as Swedish), so they stay as-is in filters but get display-mapped via `t()` where shown to users
-5. **Marketing/Landing page**: Stays English (international audience). Only fix the "Tillbaka" / "Senast uppdaterad" UI chrome
-
-### Implementation order
-
-1. Add all translation keys to `translations.ts`
-2. Update Settings hub + sub-pages (5 files)
-3. Update CalendarSection
-4. Update PremiumSection + PaywallModal
-5. Update Pricing, BillingSuccess, BillingCancel
-6. Update ShareOutfit
-7. Update StylePreferencesStep
-8. Fix date-fns locale mapping in Outfits + GarmentDetail
-9. Fix marketing page chrome (Terms, Privacy, Admin)
+### What stays the same
+- All sheet components (PlanningSheet, QuickGenerateSheet, SwapSheet, QuickPlanSheet, PreselectDateSheet) -- they work well as bottom sheets
+- All data hooks (usePlannedOutfits, useDaySummary, useOutfitGenerator, etc.)
+- The DayCard component file stays but is no longer used by the Plan page
+- Core functionality: plan, generate, swap, mark worn, remove
 
