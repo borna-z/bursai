@@ -1,30 +1,34 @@
 
 
-## Revert Logo to Original PNG (Higher Quality Rendering)
+## Spara accentfärg permanent i databasen
 
-The last edit replaced your original hanger logo (`burs-hanger-logo.png`) with a hand-drawn SVG. You want the original logo back.
+### Problemet
+Just nu sparas din valda accentfärg bara i webbläsarens lokala minne (localStorage). Det betyder att om du loggar in från en annan enhet eller rensar webbläsardata, försvinner ditt val.
 
-### What will change
+### Lösningen
+Accentfärgen (och temat ljus/mörk) sparas i din profil i databasen, under `preferences.theme` och `preferences.accentColor`. Då följer inställningarna med ditt konto oavsett vilken enhet du använder.
 
-**`src/components/ui/BursMonogram.tsx`** -- Revert to the PNG-based version:
-- Re-import `burs-hanger-logo.png`
-- Remove all the inline SVG paths
-- Render as an `<img>` tag with `object-contain` for crisp scaling
-- Use higher rendered resolution: load the image at 2x the display `size` and constrain it with CSS `width`/`height`, so on retina/hi-DPI screens it stays sharp instead of looking blurry
+### Hur det fungerar
 
-### Technical Detail
+1. **Vid inloggning**: Appen läser din sparade accentfärg och tema från profilen och applicerar dem direkt.
+2. **Vid ändring**: När du väljer en ny färg i inställningar sparas den både lokalt (för snabb respons) och till databasen (för permanens).
+3. **Prioritet**: Databasvärdet vinner alltid over localStorage -- localStorage fungerar som snabb cache.
 
-The component will render something like:
+### Tekniska ändringar
 
-```tsx
-<img
-  src={hangerLogo}
-  alt="BURS"
-  width={size}
-  height={size}
-  className="flex-shrink-0 object-contain"
-  style={{ imageRendering: 'auto' }}
-/>
-```
+| Fil | Ändring |
+|-----|---------|
+| `src/contexts/ThemeContext.tsx` | Importera `supabase` och `useAuth`. Vid mount: hämta `preferences.accentColor` och `preferences.theme` från profilen. Vid ändring: spara till både localStorage och `profiles.preferences` i databasen. |
+| `src/components/settings/AccentColorPicker.tsx` | Ingen ändring behövs -- den anropar redan `setAccentColor` från ThemeContext. |
+| `src/pages/settings/SettingsAppearance.tsx` | Ingen ändring behövs -- den anropar redan `setTheme` från ThemeContext. |
 
-No other files change. The landing page hero already uses `<BursMonogram size={80} />` and will automatically pick up the reverted logo.
+### Detaljerad implementation
+
+**ThemeProvider** uppdateras med:
+- En effekt som lyssnar på auth-state och vid inloggning hämtar profilen for att läsa `preferences.accentColor` och `preferences.theme`
+- `setAccentColor` uppdateras att också köra `supabase.from('profiles').update(...)` med den nya färgen under `preferences.accentColor`
+- `setTheme` uppdateras att också spara till `preferences.theme` i databasen
+- Databaseskrivningar sker "fire-and-forget" i bakgrunden för att inte fördröja UI-responsen
+
+Ingen databasändring behövs -- `profiles.preferences` är redan en flexibel JSONB-kolumn.
+
