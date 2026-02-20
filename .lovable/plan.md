@@ -1,30 +1,28 @@
 
 
-## Revert Logo to Original PNG (Higher Quality Rendering)
+## Change PWA Start URL to /auth
 
-The last edit replaced your original hanger logo (`burs-hanger-logo.png`) with a hand-drawn SVG. You want the original logo back.
+When users add the app to their home screen, it currently opens at `/` (the landing/website page). You want it to open at `/auth` instead, so home screen users go straight to the login screen.
+
+Visitors who find the site via a web browser will still land on the website as normal -- this only affects the "Add to Home Screen" behavior.
 
 ### What will change
 
-**`src/components/ui/BursMonogram.tsx`** -- Revert to the PNG-based version:
-- Re-import `burs-hanger-logo.png`
-- Remove all the inline SVG paths
-- Render as an `<img>` tag with `object-contain` for crisp scaling
-- Use higher rendered resolution: load the image at 2x the display `size` and constrain it with CSS `width`/`height`, so on retina/hi-DPI screens it stays sharp instead of looking blurry
+**`public/manifest.json`** -- Change `start_url` from `"/"` to `"/auth"`:
 
-### Technical Detail
-
-The component will render something like:
-
-```tsx
-<img
-  src={hangerLogo}
-  alt="BURS"
-  width={size}
-  height={size}
-  className="flex-shrink-0 object-contain"
-  style={{ imageRendering: 'auto' }}
-/>
+```json
+"start_url": "/auth",
 ```
 
-No other files change. The landing page hero already uses `<BursMonogram size={80} />` and will automatically pick up the reverted logo.
+This single change tells the browser that when the PWA is launched from the home screen, it should navigate to `/auth` (the login/signup page) instead of the marketing landing page.
+
+### How it works
+
+- **Browser visit** (typing burs.me): Opens `/` which shows the Landing page as usual
+- **Home screen launch**: The PWA manifest tells the browser to open `/auth`, taking the user straight to login
+- If the user is already logged in, your existing auth logic can redirect them to the app home
+
+### Technical note
+
+No code changes are needed beyond the manifest file. The `start_url` property in the web app manifest is what controls where the app opens when launched from the home screen.
+
