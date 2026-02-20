@@ -4,16 +4,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 
-const slotLabels: Record<string, string> = {
-  top: 'Överdel',
-  bottom: 'Underdel',
-  shoes: 'Skor',
-  outerwear: 'Ytterkläder',
-  accessory: 'Accessoar',
-  dress: 'Klänning',
-  fullbody: 'Helkropp',
+const slotLabelKeys: Record<string, string> = {
+  top: 'outfit.slot.top',
+  bottom: 'outfit.slot.bottom',
+  shoes: 'outfit.slot.shoes',
+  outerwear: 'outfit.slot.outerwear',
+  accessory: 'outfit.slot.accessory',
+  dress: 'outfit.slot.dress',
+  fullbody: 'outfit.slot.fullbody',
 };
 
 interface OutfitSlotCardProps {
@@ -38,7 +39,7 @@ export function OutfitSlotCard({
   isLoading,
 }: OutfitSlotCardProps) {
   const navigate = useNavigate();
-
+  const { t } = useLanguage();
   if (isLoading) {
     return (
       <Card className="overflow-hidden">
@@ -81,11 +82,11 @@ export function OutfitSlotCard({
           >
             {/* Slot name */}
             <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
-              {slotLabels[slot] || slot}
+              {t(slotLabelKeys[slot] || slot)}
             </p>
             {/* Item title */}
             <p className="font-semibold text-sm truncate mt-0.5">
-              {garmentTitle || 'Okänt plagg'}
+              {garmentTitle || t('outfit.unknown')}
             </p>
             {/* Meta: color + category */}
             <p className="text-xs text-muted-foreground capitalize mt-0.5">
@@ -108,7 +109,7 @@ export function OutfitSlotCard({
             }}
           >
             <RefreshCw className="w-3 h-3 mr-1.5" />
-            Byt ut
+            {t('outfit.swap_out')}
           </Button>
         </div>
       </CardContent>

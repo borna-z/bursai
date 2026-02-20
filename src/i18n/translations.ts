@@ -231,6 +231,7 @@ export const translations: Record<Locale, Record<string, string>> = {
 
     // Auth
     'auth.tagline': 'Din personliga stylist.',
+    'auth.or': 'eller',
     'auth.login': 'Logga in',
     'auth.signup': 'Skapa konto',
     'auth.email': 'E-post',
@@ -298,6 +299,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'wardrobe.available': 'Tillgängligt',
     'wardrobe.in_laundry_toast': 'I tvätt',
     'wardrobe.removed': 'borttagna',
+    'wardrobe.underwear': 'Underkläder',
+    'wardrobe.category': 'Kategori',
+    'wardrobe.garments_count_label': 'plagg',
 
     // Outfits
     'outfits.title': 'Outfits',
@@ -510,6 +514,17 @@ export const translations: Record<Locale, Record<string, string>> = {
     'plan.removed': 'Borttagen',
     'plan.remove_error': 'Kunde inte ta bort',
     'plan.undone': 'Ångrad',
+    'plan.plan_week': 'Planera din vecka',
+    'plan.undo': 'Ångra',
+
+    // Generate
+    'generate.creating': 'Skapar din outfit...',
+    'generate.matching_for': 'Matchar plagg för',
+    'generate.error_title': 'Kunde inte skapa outfit',
+    'generate.error_desc': 'Ett fel uppstod',
+    'generate.back': 'Tillbaka',
+    'generate.retry': 'Försök igen',
+    'generate.error_toast': 'Kunde inte skapa outfit',
 
     // Calendar Section
     'calendar.title': 'Kalendersynk',
@@ -735,6 +750,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'home.use_auto': 'Use auto',
     'home.try_again': 'Try again',
     'auth.tagline': 'Your personal stylist.',
+    'auth.or': 'or',
     'auth.login': 'Log in',
     'auth.signup': 'Create account',
     'auth.email': 'Email',
@@ -800,6 +816,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'wardrobe.available': 'Available',
     'wardrobe.in_laundry_toast': 'In laundry',
     'wardrobe.removed': 'removed',
+    'wardrobe.underwear': 'Underwear',
+    'wardrobe.category': 'Category',
+    'wardrobe.garments_count_label': 'garments',
     'outfits.title': 'Outfits',
     'outfits.new': 'New',
     'outfits.recent': 'Recent',
@@ -996,6 +1015,15 @@ export const translations: Record<Locale, Record<string, string>> = {
     'plan.removed': 'Removed',
     'plan.remove_error': 'Could not remove',
     'plan.undone': 'Undone',
+    'plan.plan_week': 'Plan your week',
+    'plan.undo': 'Undo',
+    'generate.creating': 'Creating your outfit...',
+    'generate.matching_for': 'Matching garments for',
+    'generate.error_title': 'Could not create outfit',
+    'generate.error_desc': 'An error occurred',
+    'generate.back': 'Back',
+    'generate.retry': 'Try again',
+    'generate.error_toast': 'Could not create outfit',
     'calendar.title': 'Calendar sync',
     'calendar.desc': 'Sync your calendar events for smarter outfit suggestions',
     'calendar.synced': 'Synced',

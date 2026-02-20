@@ -122,7 +122,7 @@ export default function InsightsPage() {
     return (
       <AppLayout>
         <PageHeader title={t('insights.title')} showBack />
-        <div className="flex items-center justify-center py-24"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+        <div className="flex items-center justify-center py-24"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>
       </AppLayout>
     );
   }
@@ -141,7 +141,7 @@ export default function InsightsPage() {
   return (
     <AppLayout>
       <PageHeader title={t('insights.title')} showBack />
-      <div className="p-4 space-y-4 stagger-drape [&>*]:animate-drape-in [&>*]:opacity-0 [&>*]:[animation-fill-mode:both]">
+      <div className="px-4 pb-6 pt-4 space-y-5 max-w-lg mx-auto stagger-drape [&>*]:animate-drape-in [&>*]:opacity-0 [&>*]:[animation-fill-mode:both]">
         {!isPremium && (
           <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/20 animate-fade-in">
             <CardContent className="p-4 flex items-center gap-4">
@@ -150,7 +150,7 @@ export default function InsightsPage() {
                 <p className="font-semibold">{t('insights.unlock')}</p>
                 <p className="text-sm text-muted-foreground">{t('insights.ai_suggestions')}</p>
               </div>
-              <Button size="sm" onClick={() => navigate('/settings')} className="active:animate-press">{t('common.premium')}</Button>
+              <Button size="sm" onClick={() => navigate('/settings')}>{t('common.premium')}</Button>
             </CardContent>
           </Card>
         )}
@@ -217,7 +217,7 @@ export default function InsightsPage() {
               {!isPremium && insights.unusedGarments.length > 3 && (
                 <div className="text-center py-2">
                   <p className="text-sm text-muted-foreground mb-2">+{insights.unusedGarments.length - 3} {t('insights.more')}</p>
-                  <Button variant="outline" size="sm" onClick={() => navigate('/settings')} className="active:animate-press">
+                  <Button variant="outline" size="sm" onClick={() => navigate('/settings')}>
                     <Lock className="w-3 h-3 mr-1.5" />{t('common.premium')}
                   </Button>
                 </div>
@@ -230,7 +230,7 @@ export default function InsightsPage() {
         <ColorDistribution garments={allGarments} isPremium={isPremium} t={t} />
         <UnusedGems garments={insights.unusedGarments} isPremium={isPremium} t={t} />
 
-        <Button className="w-full active:animate-press" size="lg" onClick={() => navigate('/')}>
+        <Button className="w-full" size="lg" onClick={() => navigate('/')}>
           <Sparkles className="w-5 h-5 mr-2" />{t('insights.get_outfits')}
         </Button>
       </div>

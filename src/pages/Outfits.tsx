@@ -116,12 +116,12 @@ export default function OutfitsPage() {
   return (
     <AppLayout>
       <PageHeader title={t('outfits.title')} actions={
-        <Button size="sm" onClick={() => navigate('/')} className="active:animate-press">
+        <Button size="sm" onClick={() => navigate('/')}>
           <Sparkles className="w-4 h-4 mr-1.5" />{t('outfits.new')}
         </Button>
       } />
       
-      <div className="p-4">
+      <div className="px-4 pb-6 pt-4 max-w-lg mx-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
         ) : outfits && outfits.length > 0 ? (

@@ -5,11 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useOutfitGenerator, type OutfitRequest } from '@/hooks/useOutfitGenerator';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 
 export default function OutfitGeneratePage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useLanguage();
   const { generateOutfit, isGenerating, error } = useOutfitGenerator();
   
   const state = location.state as OutfitRequest | null;
@@ -38,8 +40,8 @@ export default function OutfitGeneratePage() {
       });
     } catch (err) {
       console.error('Outfit generation failed:', err);
-      toast.error('Kunde inte skapa outfit', {
-        description: err instanceof Error ? err.message : 'Försök igen',
+      toast.error(t('generate.error_toast'), {
+        description: err instanceof Error ? err.message : t('generate.retry'),
       });
     }
   };
@@ -51,9 +53,9 @@ export default function OutfitGeneratePage() {
           <Card className="max-w-sm w-full">
             <CardContent className="p-6 text-center">
               <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-              <h2 className="text-lg font-semibold mb-2">Kunde inte skapa outfit</h2>
+              <h2 className="text-lg font-semibold mb-2">{t('generate.error_title')}</h2>
               <p className="text-muted-foreground mb-4">
-                {error instanceof Error ? error.message : 'Ett fel uppstod'}
+                {error instanceof Error ? error.message : t('generate.error_desc')}
               </p>
               <div className="flex gap-2">
                 <Button 
@@ -61,7 +63,7 @@ export default function OutfitGeneratePage() {
                   onClick={() => navigate('/')}
                   className="flex-1"
                 >
-                  Tillbaka
+                  {t('generate.back')}
                 </Button>
                 <Button 
                   onClick={handleGenerate}
@@ -69,7 +71,7 @@ export default function OutfitGeneratePage() {
                   className="flex-1"
                 >
                   <Sparkles className="w-4 h-4 mr-2" />
-                  Försök igen
+                  {t('generate.retry')}
                 </Button>
               </div>
             </CardContent>
@@ -91,9 +93,9 @@ export default function OutfitGeneratePage() {
           </div>
           
           <div className="space-y-2">
-            <h2 className="text-xl font-semibold">Skapar din outfit...</h2>
+            <h2 className="text-xl font-semibold">{t('generate.creating')}</h2>
             <p className="text-muted-foreground">
-              Matchar plagg för {state?.occasion || 'tillfället'}
+              {t('generate.matching_for')} {state?.occasion || ''}
             </p>
           </div>
           

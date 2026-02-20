@@ -167,7 +167,7 @@ export default function AuthPage() {
                 <Separator className="w-full" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">eller</span>
+                <span className="bg-card px-2 text-muted-foreground">{t('auth.or')}</span>
               </div>
             </div>
           </div>

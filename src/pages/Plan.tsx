@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { format, addDays, isSameDay, isToday, isTomorrow } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import { Wand2, Shirt, Loader2, CalendarDays, Repeat, Info, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
@@ -48,6 +49,7 @@ export default function PlanPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
+  const { t } = useLanguage();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   
@@ -99,8 +101,8 @@ export default function PlanPage() {
 
   // Date label
   let dateLabel = format(selectedDate, 'EEEE d MMMM', { locale: sv });
-  if (isToday(selectedDate)) dateLabel = 'Idag';
-  else if (isTomorrow(selectedDate)) dateLabel = 'Imorgon';
+  if (isToday(selectedDate)) dateLabel = t('plan.today');
+  else if (isTomorrow(selectedDate)) dateLabel = t('plan.tomorrow');
 
   const OccasionIcon = outfit?.occasion ? occasionIcons[outfit.occasion] || CalendarDays : CalendarDays;
 
@@ -109,9 +111,9 @@ export default function PlanPage() {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     try {
       await upsertPlanned.mutateAsync({ date: dateStr, outfitId });
-      toast.success('Planerad');
+      toast.success(t('plan.planned'));
     } catch {
-      toast.error('Kunde inte planera outfit');
+      toast.error(t('plan.plan_error'));
     }
   };
 
@@ -129,9 +131,9 @@ export default function PlanPage() {
       });
       await upsertPlanned.mutateAsync({ date: dateStr, outfitId: o.id });
       setQuickGenerateSheetOpen(false);
-      toast.success('Outfit skapad');
+      toast.success(t('plan.outfit_created'));
     } catch {
-      toast.error('Kunde inte skapa outfit');
+      toast.error(t('plan.create_error'));
     }
   };
 
@@ -145,18 +147,18 @@ export default function PlanPage() {
         occasion: plannedOutfit.outfit.occasion,
       });
       await updateStatus.mutateAsync({ id: plannedOutfit.id, status: 'worn' });
-      toast.success('Markerat som använd', {
+      toast.success(t('plan.worn'), {
         action: {
-          label: 'Ångra',
+          label: t('plan.undo'),
           onClick: async () => {
             await undoMarkWorn.mutateAsync(result);
             await updateStatus.mutateAsync({ id: plannedOutfit.id, status: 'planned' });
-            toast.success('Ångrad');
+            toast.success(t('plan.undone'));
           },
         },
       });
     } catch {
-      toast.error('Kunde inte markera som använd');
+      toast.error(t('plan.worn_error'));
     }
   };
 
@@ -164,9 +166,9 @@ export default function PlanPage() {
     if (!plannedOutfit) return;
     try {
       await deletePlanned.mutateAsync(plannedOutfit.id);
-      toast.success('Borttagen');
+      toast.success(t('plan.removed'));
     } catch {
-      toast.error('Kunde inte ta bort');
+      toast.error(t('plan.remove_error'));
     }
   };
 
@@ -208,7 +210,7 @@ export default function PlanPage() {
         {isWorn && (
           <Badge variant="secondary" className="text-xs bg-accent/10 text-accent">
             <Check className="w-3 h-3 mr-1" />
-            Använd
+            {t('plan.worn')}
           </Badge>
         )}
       </div>
@@ -228,9 +230,9 @@ export default function PlanPage() {
       ) : !hasGarments ? (
         <EmptyState
           icon={Shirt}
-          title="Lägg till plagg först"
-          description="Du behöver plagg i garderoben."
-          action={{ label: 'Lägg till', onClick: () => navigate('/wardrobe/add'), icon: Shirt }}
+          title={t('plan.add_garments_first')}
+          description={t('plan.need_garments')}
+          action={{ label: t('wardrobe.add'), onClick: () => navigate('/wardrobe/add'), icon: Shirt }}
         />
       ) : hasOutfit ? (
         <div className="space-y-4">
@@ -281,19 +283,19 @@ export default function PlanPage() {
               variant="outline" 
               size="sm" 
               onClick={() => { setCurrentOutfitId(outfit.id); setSwapSheetOpen(true); }}
-              className="flex-1 rounded-xl active:animate-press"
+              className="flex-1 rounded-xl"
             >
               <Repeat className="w-4 h-4 mr-1.5" />
-              Byt
+              {t('plan.swap')}
             </Button>
             <Button 
               variant="outline" 
               size="sm" 
               onClick={() => navigate(`/outfits/${outfit.id}`)}
-              className="flex-1 rounded-xl active:animate-press"
+              className="flex-1 rounded-xl"
             >
               <Info className="w-4 h-4 mr-1.5" />
-              Detaljer
+              {t('plan.details')}
             </Button>
           </div>
 
@@ -305,7 +307,7 @@ export default function PlanPage() {
                 className="text-xs text-muted-foreground hover:text-accent flex items-center gap-1.5 transition-colors"
               >
                 <Check className="w-3.5 h-3.5" />
-                Markera som använd
+                {t('plan.mark_worn')}
               </button>
             )}
             <button 
@@ -313,7 +315,7 @@ export default function PlanPage() {
               className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1.5 transition-colors ml-auto"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              Ta bort
+              {t('plan.remove')}
             </button>
           </div>
         </div>
@@ -323,26 +325,26 @@ export default function PlanPage() {
             <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center">
               <CalendarDays className="w-7 h-7 text-muted-foreground/50" />
             </div>
-            <p className="text-sm text-muted-foreground">Ingen outfit planerad</p>
+            <p className="text-sm text-muted-foreground">{t('plan.no_outfit')}</p>
             <div className="flex items-center gap-2">
               <Button 
                 size="sm"
                 onClick={() => setPlanningSheetOpen(true)}
                 disabled={isGenerating || upsertPlanned.isPending}
-                className="rounded-xl active:animate-press bg-accent text-accent-foreground hover:bg-accent/90"
+                className="rounded-xl bg-accent text-accent-foreground hover:bg-accent/90"
               >
                 <Plus className="w-4 h-4 mr-1.5" />
-                Planera
+                {t('plan.plan')}
               </Button>
               <Button 
                 variant="outline" 
                 size="sm"
                 onClick={() => setQuickGenerateSheetOpen(true)}
                 disabled={isGenerating || upsertPlanned.isPending}
-                className="rounded-xl active:animate-press"
+                className="rounded-xl"
               >
                 <Sparkles className="w-4 h-4 mr-1.5" />
-                Skapa åt mig
+                {t('plan.generate')}
               </Button>
             </div>
           </div>
@@ -396,11 +398,11 @@ export default function PlanPage() {
             const dateStr = format(date, 'yyyy-MM-dd');
             try {
               await upsertPlanned.mutateAsync({ date: dateStr, outfitId: preselectedOutfitId });
-              toast.success(`Planerad för ${format(date, 'd MMM', { locale: sv })}`);
+              toast.success(`${t('plan.planned')} ${format(date, 'd MMM', { locale: sv })}`);
               setPreselectSheetOpen(false);
               window.history.replaceState({}, document.title);
             } catch {
-              toast.error('Kunde inte planera outfit');
+              toast.error(t('plan.plan_error'));
             }
           }
         }}
@@ -420,7 +422,7 @@ export default function PlanPage() {
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
               <button className="flex items-center gap-2 hover:opacity-70 transition-opacity">
-                <h1 className="text-lg font-semibold capitalize">{isMobile ? dateLabel : 'Planera din vecka'}</h1>
+                <h1 className="text-lg font-semibold capitalize">{isMobile ? dateLabel : t('plan.plan_week')}</h1>
                 <CalendarDays className="w-4 h-4 text-accent" />
               </button>
             </PopoverTrigger>
@@ -439,7 +441,7 @@ export default function PlanPage() {
             variant="ghost"
             onClick={() => setQuickPlanSheetOpen(true)}
             disabled={!hasGarments}
-            className="active:animate-press"
+            className=""
           >
             <Wand2 className="w-4 h-4 text-accent" />
           </Button>
