@@ -1,28 +1,21 @@
 
 
-## Change PWA Start URL to /auth
+## Rename all "DRAPE" branding to "BURS"
 
-When users add the app to their home screen, it currently opens at `/` (the landing/website page). You want it to open at `/auth` instead, so home screen users go straight to the login screen.
+There are a few leftover references to "DRAPE" in the codebase. Here's exactly what will change:
 
-Visitors who find the site via a web browser will still land on the website as normal -- this only affects the "Add to Home Screen" behavior.
+### 1. ResetPassword page -- text says "DRAPE"
+**`src/pages/ResetPassword.tsx`** (line 114): Change `DRAPE` to `BURS`
 
-### What will change
+### 2. Tailwind config -- comment says "DRAPE"
+**`tailwind.config.ts`** (line 64): Update comment from `// DRAPE extended semantic tokens` to `// BURS extended semantic tokens`
 
-**`public/manifest.json`** -- Change `start_url` from `"/"` to `"/auth"`:
+### 3. DrapeLogo component -- rename to BursLogo
+**`src/components/ui/DrapeLogo.tsx`**: Rename the component and interface from `DrapeLogo`/`DrapeLogoProps` to `BursLogo`/`BursLogoProps`. The file itself can stay (it's not imported anywhere currently), but the naming will be consistent.
 
-```json
-"start_url": "/auth",
-```
+### Not changing (animation names)
+The CSS animation names `drape-in` and `drape-out` in tailwind config and their usage across components (`animate-drape-in`, `stagger-drape`) are internal animation names, not user-facing branding. These are fine to leave as-is since renaming them would touch many files for zero user impact.
 
-This single change tells the browser that when the PWA is launched from the home screen, it should navigate to `/auth` (the login/signup page) instead of the marketing landing page.
-
-### How it works
-
-- **Browser visit** (typing burs.me): Opens `/` which shows the Landing page as usual
-- **Home screen launch**: The PWA manifest tells the browser to open `/auth`, taking the user straight to login
-- If the user is already logged in, your existing auth logic can redirect them to the app home
-
-### Technical note
-
-No code changes are needed beyond the manifest file. The `start_url` property in the web app manifest is what controls where the app opens when launched from the home screen.
+### Not changing (asset file)
+`src/assets/drape-logo.png` exists but is not imported or used anywhere. It can be left or removed -- no user impact.
 
