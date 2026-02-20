@@ -74,6 +74,14 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
 export function useLanguage() {
   const ctx = useContext(LanguageContext);
-  if (!ctx) throw new Error('useLanguage must be used within LanguageProvider');
+  if (!ctx) {
+    const fallbackLocale = getInitialLocale();
+    return {
+      locale: fallbackLocale,
+      setLocale: () => {},
+      t: (key: string) =>
+        translations[fallbackLocale]?.[key] ?? translations['sv']?.[key] ?? key,
+    };
+  }
   return ctx;
 }
