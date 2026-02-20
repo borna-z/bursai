@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,8 +23,8 @@ export default function HomePage() {
   const { canCreateOutfit } = useSubscription();
   const { weather } = useWeather();
   
-  const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
-  const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
+  const [selectedOccasion, setSelectedOccasion] = useState<string | null>(() => localStorage.getItem('drape_last_occasion'));
+  const [selectedStyle, setSelectedStyle] = useState<string | null>(() => localStorage.getItem('drape_last_style'));
   const [showPaywall, setShowPaywall] = useState(false);
 
   const occasions = [
@@ -56,6 +56,8 @@ export default function HomePage() {
       setShowPaywall(true);
       return;
     }
+    localStorage.setItem('drape_last_occasion', selectedOccasion);
+    if (selectedStyle) localStorage.setItem('drape_last_style', selectedStyle);
     navigate('/outfits/generate', {
       state: {
         occasion: selectedOccasion,
@@ -93,6 +95,13 @@ export default function HomePage() {
 
         {/* Weather widget */}
         <WeatherWidget />
+
+        {/* Cold weather hint */}
+        {weather && weather.temperature <= 10 && (
+          <p className="text-xs text-muted-foreground text-center -mt-2">
+            {t('home.cold_hint')}
+          </p>
+        )}
 
         {/* Occasion */}
         <div className="space-y-2.5">
@@ -152,7 +161,7 @@ export default function HomePage() {
           size="lg"
         >
           <Sparkles className="w-5 h-5 mr-2" />
-          {t('home.create_outfit')}
+          {selectedOccasion ? t('home.create_outfit') : t('home.select_occasion_hint')}
         </Button>
 
         {(garmentCount || 0) < 3 && (

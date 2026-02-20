@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useWeather } from '@/hooks/useWeather';
 import { useForecast, type ForecastDay } from '@/hooks/useForecast';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface WeatherWidgetProps {
   onWeatherChange?: (weather: { temperature: number; precipitation: string; wind: string }) => void;
@@ -53,6 +54,7 @@ function ForecastDayColumn({ day }: { day: ForecastDay }) {
 }
 
 export function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
+  const { t } = useLanguage();
   const [manualCity, setManualCity] = useState<string | null>(null);
   const [editingLocation, setEditingLocation] = useState(false);
   const [cityInput, setCityInput] = useState('');
@@ -152,7 +154,7 @@ export function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
               <Input
                 ref={inputRef}
                 type="text"
-                placeholder="Skriv en stad..."
+                placeholder={t('weather.enter_city')}
                 value={cityInput}
                 onChange={(e) => setCityInput(e.target.value)}
                 onKeyDown={(e) => {

@@ -21,14 +21,33 @@ import { PaywallModal } from '@/components/PaywallModal';
 import { LinkImportForm } from '@/components/LinkImportForm';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-const categories = [
-  { id: 'top', label: 'Överdel' },
-  { id: 'bottom', label: 'Underdel' },
-  { id: 'shoes', label: 'Skor' },
-  { id: 'outerwear', label: 'Ytterkläder' },
-  { id: 'accessory', label: 'Accessoar' },
-  { id: 'dress', label: 'Klänning' },
-];
+const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
+const PATTERN_IDS = ['enfärgad', 'randig', 'rutig', 'prickig', 'blommig', 'mönstrad', 'kamouflage'] as const;
+const MATERIAL_IDS = ['bomull', 'polyester', 'lin', 'denim', 'läder', 'ull', 'siden', 'syntet'] as const;
+const FIT_IDS = ['slim', 'regular', 'loose', 'oversized'] as const;
+const SEASON_IDS = ['vår', 'sommar', 'höst', 'vinter'] as const;
+
+const CATEGORY_I18N: Record<string, string> = {
+  top: 'garment.category.top', bottom: 'garment.category.bottom', shoes: 'garment.category.shoes',
+  outerwear: 'garment.category.outerwear', accessory: 'garment.category.accessory', dress: 'garment.category.dress',
+};
+const PATTERN_I18N: Record<string, string> = {
+  enfärgad: 'garment.pattern.solid', randig: 'garment.pattern.striped', rutig: 'garment.pattern.checked',
+  prickig: 'garment.pattern.dotted', blommig: 'garment.pattern.floral', mönstrad: 'garment.pattern.patterned', kamouflage: 'garment.pattern.camo',
+};
+const MATERIAL_I18N: Record<string, string> = {
+  bomull: 'garment.material.cotton', polyester: 'garment.material.polyester', lin: 'garment.material.linen',
+  denim: 'garment.material.denim', 'läder': 'garment.material.leather', ull: 'garment.material.wool', siden: 'garment.material.silk', syntet: 'garment.material.synthetic',
+};
+const FIT_I18N: Record<string, string> = {
+  slim: 'garment.fit.slim', regular: 'garment.fit.regular', loose: 'garment.fit.loose', oversized: 'garment.fit.oversized',
+};
+const SEASON_I18N: Record<string, string> = {
+  'vår': 'garment.season.spring', sommar: 'garment.season.summer', 'höst': 'garment.season.autumn', vinter: 'garment.season.winter',
+};
+
+// Keep categories/patterns etc. as arrays of { id, label } for backward-compat mapping
+const categories = CATEGORY_IDS.map(id => ({ id, label: id }));
 
 const subcategories: Record<string, string[]> = {
   top: ['T-shirt', 'Skjorta', 'Blus', 'Tröja', 'Hoodie', 'Polo', 'Linne', 'Cardigan'],
@@ -490,7 +509,7 @@ export default function AddGarmentPage() {
               <SelectContent>
                 {categories.map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>
-                    {cat.label}
+                    {t(CATEGORY_I18N[cat.id] || cat.id)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -576,7 +595,7 @@ export default function AddGarmentPage() {
               <SelectContent>
                 {patterns.map((p) => (
                   <SelectItem key={p} value={p.toLowerCase()}>
-                    {p}
+                    {t(PATTERN_I18N[p.toLowerCase()] || p)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -592,7 +611,7 @@ export default function AddGarmentPage() {
               <SelectContent>
                 {materials.map((m) => (
                   <SelectItem key={m} value={m.toLowerCase()}>
-                    {m}
+                    {t(MATERIAL_I18N[m.toLowerCase()] || m)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -608,7 +627,7 @@ export default function AddGarmentPage() {
               <SelectContent>
                 {fits.map((f) => (
                   <SelectItem key={f} value={f.toLowerCase()}>
-                    {f}
+                    {t(FIT_I18N[f.toLowerCase()] || f)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -625,7 +644,7 @@ export default function AddGarmentPage() {
                   className="cursor-pointer px-4 py-2"
                   onClick={() => toggleSeason(season.toLowerCase())}
                 >
-                  {season}
+                  {t(SEASON_I18N[season.toLowerCase()] || season)}
                 </Badge>
               ))}
             </div>

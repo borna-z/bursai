@@ -326,25 +326,24 @@ export default function PlanPage() {
               <CalendarDays className="w-7 h-7 text-muted-foreground/50" />
             </div>
             <p className="text-sm text-muted-foreground">{t('plan.no_outfit')}</p>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col items-center gap-2 w-full max-w-xs">
               <Button 
-                size="sm"
-                onClick={() => setPlanningSheetOpen(true)}
+                onClick={() => setQuickGenerateSheetOpen(true)}
                 disabled={isGenerating || upsertPlanned.isPending}
-                className="rounded-xl bg-accent text-accent-foreground hover:bg-accent/90"
+                className="w-full rounded-xl bg-accent text-accent-foreground hover:bg-accent/90"
               >
-                <Plus className="w-4 h-4 mr-1.5" />
-                {t('plan.plan')}
+                <Sparkles className="w-4 h-4 mr-1.5" />
+                {t('plan.generate')}
               </Button>
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => setQuickGenerateSheetOpen(true)}
+                onClick={() => setPlanningSheetOpen(true)}
                 disabled={isGenerating || upsertPlanned.isPending}
                 className="rounded-xl"
               >
-                <Sparkles className="w-4 h-4 mr-1.5" />
-                {t('plan.generate')}
+                <Plus className="w-4 h-4 mr-1.5" />
+                {t('plan.plan')}
               </Button>
             </div>
           </div>
