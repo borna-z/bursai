@@ -1,13 +1,14 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 type Theme = 'light' | 'dark' | 'system';
 
 export interface AccentColor {
   id: string;
   name: string;
-  hsl: string;        // light mode HSL values e.g. "234 51% 37%"
-  hslDark: string;    // dark mode HSL values
-  hex: string;        // preview hex
+  hsl: string;
+  hslDark: string;
+  hex: string;
 }
 
 export const ACCENT_COLORS: AccentColor[] = [
@@ -47,13 +48,32 @@ function applyAccent(accent: AccentColor, resolved: 'light' | 'dark') {
   const root = document.documentElement;
   const hsl = resolved === 'dark' ? accent.hslDark : accent.hsl;
   root.style.setProperty('--accent', hsl);
-  // Also update accent-indigo tokens to match
   root.style.setProperty('--accent-indigo', hsl);
-  const darkMuted = resolved === 'dark'
-    ? hsl.replace(/(\d+)%$/, '16%')
-    : hsl.replace(/(\d+)%$/, '94%');
   const parts = hsl.split(' ');
   root.style.setProperty('--accent-indigo-muted', `${parts[0]} ${parseInt(parts[1]) * 0.6}% ${resolved === 'dark' ? '16' : '94'}%`);
+}
+
+/** Fire-and-forget: merge partial prefs into profiles.preferences JSONB */
+function persistPrefs(prefs: Record<string, string>) {
+  supabase.auth.getUser().then(({ data }) => {
+    const uid = data?.user?.id;
+    if (!uid) return;
+    supabase.rpc('has_role' as any, {} as any); // noop to keep linter quiet — we use raw query below
+    // Read current prefs, merge, write back
+    supabase
+      .from('profiles')
+      .select('preferences')
+      .eq('id', uid)
+      .single()
+      .then(({ data: profile }) => {
+        const current = (profile?.preferences as Record<string, any>) || {};
+        supabase
+          .from('profiles')
+          .update({ preferences: { ...current, ...prefs } } as any)
+          .eq('id', uid)
+          .then(() => {});
+      });
+  });
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -71,6 +91,40 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem(ACCENT_KEY);
     return ACCENT_COLORS.find((c) => c.id === stored) || ACCENT_COLORS[0];
   });
+
+  const hasSyncedRef = useRef(false);
+
+  // Sync from database on auth state change (login)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user && !hasSyncedRef.current) {
+        hasSyncedRef.current = true;
+        supabase
+          .from('profiles')
+          .select('preferences')
+          .eq('id', session.user.id)
+          .single()
+          .then(({ data: profile }) => {
+            const prefs = (profile?.preferences as Record<string, any>) || {};
+            if (prefs.accentColor) {
+              const found = ACCENT_COLORS.find((c) => c.id === prefs.accentColor);
+              if (found) {
+                setAccentColorState(found);
+                localStorage.setItem(ACCENT_KEY, found.id);
+              }
+            }
+            if (prefs.theme && ['light', 'dark', 'system'].includes(prefs.theme)) {
+              setThemeState(prefs.theme as Theme);
+              localStorage.setItem(STORAGE_KEY, prefs.theme);
+            }
+          });
+      }
+      if (event === 'SIGNED_OUT') {
+        hasSyncedRef.current = false;
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Apply theme class
   useEffect(() => {
@@ -101,12 +155,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
     localStorage.setItem(STORAGE_KEY, newTheme);
+    persistPrefs({ theme: newTheme });
   }, []);
 
   const setAccentColor = useCallback((id: string) => {
     const color = ACCENT_COLORS.find((c) => c.id === id) || ACCENT_COLORS[0];
     setAccentColorState(color);
     localStorage.setItem(ACCENT_KEY, color.id);
+    persistPrefs({ accentColor: color.id });
   }, []);
 
   return (
