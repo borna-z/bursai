@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { formatDistanceToNow } from 'date-fns';
+import { sv } from 'date-fns/locale';
 
 export interface CalendarEvent {
   id: string;
@@ -247,6 +249,45 @@ export function useCalendarEventsRange(startDate: string, endDate: string) {
     enabled: !!user && !!startDate && !!endDate,
     staleTime: 1000 * 60 * 5,
   });
+}
+
+// Hook: background sync notification
+export function useBackgroundSyncNotification() {
+  const { user } = useAuth();
+  const hasShown = useRef(false);
+
+  const { data: profile } = useQuery({
+    queryKey: ['profile-calendar', user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('last_calendar_sync')
+        .eq('id', user.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  useEffect(() => {
+    if (hasShown.current || !profile?.last_calendar_sync) return;
+
+    const stored = localStorage.getItem('drape_last_known_sync');
+    const dbTime = profile.last_calendar_sync;
+
+    if (stored && new Date(dbTime) > new Date(stored)) {
+      const ago = formatDistanceToNow(new Date(dbTime), { addSuffix: true, locale: sv });
+      toast.info(`Kalendern synkades automatiskt`, {
+        description: ago,
+        duration: 4000,
+      });
+    }
+
+    localStorage.setItem('drape_last_known_sync', dbTime);
+    hasShown.current = true;
+  }, [profile?.last_calendar_sync]);
 }
 
 // Utility to infer occasion from event title
