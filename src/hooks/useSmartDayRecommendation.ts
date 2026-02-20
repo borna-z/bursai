@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useGarments } from '@/hooks/useGarments';
+import { useFlatGarments } from '@/hooks/useGarments';
 import { inferOccasionFromEvent } from '@/hooks/useCalendarSync';
 import type { CalendarEvent } from '@/hooks/useCalendarSync';
 import type { Garment } from '@/hooks/useGarments';
@@ -42,7 +42,7 @@ function formalityRange(occasion: string): [number, number] {
 }
 
 export function useSmartDayRecommendation(events: CalendarEvent[] | null | undefined): SmartRecommendation {
-  const { data: garments } = useGarments();
+  const { data: garments } = useFlatGarments();
 
   return useMemo(() => {
     if (!events || events.length === 0 || !garments || garments.length === 0) {

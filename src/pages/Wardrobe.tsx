@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Plus, Search, Loader2, WashingMachine,
@@ -118,13 +118,35 @@ export default function WardrobePage() {
   const updateGarment = useUpdateGarment();
   const deleteGarment = useDeleteGarment();
   
-  const { data: garments, isLoading } = useGarments({
+  const queryResult = useGarments({
     ...filters, search: debouncedSearch,
     category: selectedCategory === 'all' ? undefined : selectedCategory,
     color: selectedColor || undefined,
     season: selectedSeason || undefined,
   });
+  const { data: infiniteData, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = queryResult;
   const { canAddGarment, isPremium } = useSubscription();
+
+  const displayGarments = useMemo(() => {
+    return infiniteData?.pages.flatMap(p => p.items) ?? [];
+  }, [infiniteData]);
+
+  // Intersection observer for infinite scroll
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const categories = [
     { id: 'all', label: t('wardrobe.all') },
@@ -142,11 +164,6 @@ export default function WardrobePage() {
     { id: 'wear_count', label: t('wardrobe.sort.most_used') },
     { id: 'last_worn_at', label: t('wardrobe.sort.least_used') },
   ];
-
-  const displayGarments = useMemo(() => {
-    if (!garments) return [];
-    return garments;
-  }, [garments]);
 
   const handleFilterChange = (key: keyof GarmentFilters, value: unknown) => {
     setFilters((prev) => ({ ...prev, [key]: value === 'all' ? undefined : value }));
@@ -180,7 +197,7 @@ export default function WardrobePage() {
     } catch { toast.error(t('common.something_wrong')); }
   };
 
-  const isOverLimit = !isPremium && (garments?.length || 0) >= PLAN_LIMITS.free.maxGarments;
+  const isOverLimit = !isPremium && (displayGarments?.length || 0) >= PLAN_LIMITS.free.maxGarments;
 
   const clearFilters = () => { setSelectedCategory('all'); setSelectedColor(null); setSelectedSeason(null); setFilters({}); setSearch(''); };
   const hasActiveFilters = selectedCategory !== 'all' || selectedColor || selectedSeason || search;
@@ -355,19 +372,28 @@ export default function WardrobePage() {
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
         ) : displayGarments.length > 0 ? (
-          <div className={cn(isGridView ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2')}>
-            {displayGarments.map((garment, index) => (
-              <div key={garment.id} className="animate-drape-in" style={{ animationDelay: `${Math.min(index, 12) * 40}ms`, animationFillMode: 'both' }}>
-                <GarmentCard
-                  garment={garment}
-                  isGridView={isGridView}
-                  isSelecting={isSelecting}
-                  isSelected={selectedIds.has(garment.id)}
-                  onSelect={() => toggleSelect(garment.id)}
-                />
+          <>
+            <div className={cn(isGridView ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2')}>
+              {displayGarments.map((garment, index) => (
+                <div key={garment.id} className="animate-drape-in" style={{ animationDelay: `${Math.min(index, 12) * 40}ms`, animationFillMode: 'both' }}>
+                  <GarmentCard
+                    garment={garment}
+                    isGridView={isGridView}
+                    isSelecting={isSelecting}
+                    isSelected={selectedIds.has(garment.id)}
+                    onSelect={() => toggleSelect(garment.id)}
+                  />
+                </div>
+              ))}
+            </div>
+            {/* Infinite scroll sentinel */}
+            <div ref={sentinelRef} className="h-1" />
+            {isFetchingNextPage && (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
-            ))}
-          </div>
+            )}
+          </>
         ) : (
           <EmptyState
             icon={Shirt}
