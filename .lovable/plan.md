@@ -1,44 +1,46 @@
 
 
-## Make Legal Pages Match Landing Page Design
+## Remove Background from BURS Logo
 
-### What's Already Working
-- Privacy Policy (`/privacy`), Terms (`/terms`), and Contact (`/contact`) routes exist and are public (no login required)
-- Footer on the landing page already links to all three pages
+### Problem
+The BURS logo PNG (`burs-landing-logo.png`) has a visible background (appears as a gray/checkered square on the page). This looks unprofessional -- the logo mark should float cleanly on the page background without any container shape.
 
-### Problems to Fix
+### Solution
 
-1. **"Back" link goes to `/`** -- which is a protected route. Visitors from the landing page who click "Back" get redirected to login. Should go to `/welcome` instead.
-
-2. **No forced light theme** -- These pages follow the user's system theme, so they can appear dark while the landing page is always light. They should use the same `force-light` CSS class.
-
-3. **No consistent header/footer** -- The legal pages are plain text with a back arrow. They should share the landing page's header (with logo + nav) and footer (with legal links + GDPR note) for a cohesive marketing site feel.
+Create an inline SVG component for the BURS "B" monogram that renders with a transparent background. This replaces all `<img src={bursLandingLogo}>` instances on the landing page and marketing pages.
 
 ### Changes
 
-#### `src/pages/marketing/Terms.tsx`
-- Wrap content in `force-light` class (same as landing page)
-- Change back link from `/` to `/welcome`
-- Add the landing page header (logo + BURS wordmark) and footer (legal links, copyright, GDPR note)
+**1. New file: `src/components/ui/BursMonogram.tsx`**
 
-#### `src/pages/marketing/PrivacyPolicy.tsx`
-- Same treatment: `force-light` wrapper, back link to `/welcome`, shared header and footer
+A simple SVG component that renders the BURS "B" mark in pure charcoal (#111111) with no background. It accepts `size` and `className` props. The monogram will be a clean, geometric "B" inspired by the existing logo shape -- a stylized letter with a subtle fabric-fold aesthetic.
 
-#### `src/pages/marketing/Contact.tsx`
-- Same treatment: `force-light` wrapper, back link to `/welcome`, shared header and footer
+**2. Update `src/pages/Landing.tsx`**
 
-### Technical Details
+Replace all 4 instances of `<img src={bursLandingLogo}>` with `<BursMonogram>`:
+- Header logo (size 36)
+- Hero logo (size 80)
+- Final CTA logo (size 56)
+- Footer logo (size 20)
 
-Each page will:
-- Import `burs-landing-logo.png` for the header
-- Wrap everything in `<div className="force-light">` to enforce light theme
-- Replace `<Link to="/">` with `<Link to="/welcome">` for the back button
-- Add a minimal header with the BURS logo linking to `/welcome`
-- Add the same footer as the landing page with Privacy Policy, Terms, Contact links, copyright, and GDPR note
-- Keep all existing content unchanged
+Remove the `rounded-xl` / `rounded-2xl` classes since SVG needs no border-radius clipping.
 
-| File | Changes |
-|------|---------|
-| `src/pages/marketing/Terms.tsx` | Force light theme, back link to `/welcome`, add header + footer |
-| `src/pages/marketing/PrivacyPolicy.tsx` | Force light theme, back link to `/welcome`, add header + footer |
-| `src/pages/marketing/Contact.tsx` | Force light theme, back link to `/welcome`, add header + footer |
+**3. Update `src/pages/marketing/Terms.tsx`, `PrivacyPolicy.tsx`, `Contact.tsx`**
+
+Replace `<img src={bursLogo}>` with `<BursMonogram>` in the header of each page.
+
+**4. Update `src/components/ui/DrapeLogo.tsx`**
+
+Replace `<img src={bursLogoSrc}>` with `<BursMonogram>` for the icon variant, so the in-app logo also renders without a background.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `src/components/ui/BursMonogram.tsx` | New SVG component for the BURS "B" mark |
+| `src/pages/Landing.tsx` | Replace 4 img tags with BursMonogram |
+| `src/pages/marketing/Terms.tsx` | Replace img with BursMonogram |
+| `src/pages/marketing/PrivacyPolicy.tsx` | Replace img with BursMonogram |
+| `src/pages/marketing/Contact.tsx` | Replace img with BursMonogram |
+| `src/components/ui/DrapeLogo.tsx` | Replace img with BursMonogram |
+
