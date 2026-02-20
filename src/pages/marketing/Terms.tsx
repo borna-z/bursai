@@ -2,7 +2,7 @@ import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import bursLogo from '@/assets/burs-landing-logo.png';
+import { BursMonogram } from '@/components/ui/BursMonogram';
 
 const TERMS = {
   title: 'Terms of Service',
@@ -31,7 +31,7 @@ export default function Terms() {
         <header className="w-full border-b border-border/60">
           <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
             <Link to="/welcome" className="flex items-center gap-2">
-              <img src={bursLogo} alt="BURS" className="h-7 w-7 rounded-lg" />
+              <BursMonogram size={28} />
               <span className="font-bold tracking-[0.12em] text-sm" style={{ fontFamily: "'Sora', sans-serif" }}>BURS</span>
             </Link>
             <Link to="/welcome" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">

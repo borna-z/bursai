@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Menu, X, Sparkles, Shirt, Heart, Leaf, Shield, ArrowRight, Smartphone, Instagram, Twitter, Check } from 'lucide-react';
-import bursLandingLogo from '@/assets/burs-landing-logo.png';
+import { BursMonogram } from '@/components/ui/BursMonogram';
 import appScreenshot from '@/assets/app-screenshot-home.png';
 
 export default function Landing() {
@@ -52,7 +52,7 @@ export default function Landing() {
           <header className="fixed top-0 w-full z-50 border-b border-border bg-background/80 backdrop-blur-md">
             <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
               <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-                <img src={bursLandingLogo} alt="Burs" className="h-9 w-9 rounded-xl object-contain" />
+                <BursMonogram size={36} />
                 <span className="text-foreground text-lg font-medium tracking-[0.2em] hidden sm:block" style={{ fontFamily: "'Sora', sans-serif" }}>BURS</span>
               </div>
 
@@ -94,7 +94,7 @@ export default function Landing() {
 
             <div className="max-w-7xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-16 relative z-10">
               <div className="w-full md:w-1/2 flex flex-col items-start gap-8 animate-fade-in">
-                <img src={bursLandingLogo} alt="BURS" className="w-20 h-20 rounded-2xl object-contain animate-fade-in" style={{ animationDelay: '100ms' }} />
+                <BursMonogram size={80} className="animate-fade-in" />
 
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-border bg-muted/30 text-xs tracking-wide text-muted-foreground backdrop-blur-sm">
                   <span className="w-2 h-2 rounded-full bg-foreground animate-pulse" />
@@ -275,7 +275,7 @@ export default function Landing() {
           {/* ── Final CTA ── */}
           <section className="px-6 py-28 md:py-40">
             <div className="max-w-lg mx-auto text-center space-y-8 scroll-reveal" style={{ '--delay': '0ms' } as React.CSSProperties}>
-              <img src={bursLandingLogo} alt="Burs" className="w-14 h-14 mx-auto rounded-xl object-contain" />
+              <BursMonogram size={56} className="mx-auto" />
               <h2 className="text-3xl md:text-4xl font-bold tracking-tight" style={{ fontFamily: "'Sora', sans-serif" }}>
                 Join the movement.
               </h2>
@@ -296,7 +296,7 @@ export default function Landing() {
           <footer className="border-t border-border px-6 py-10">
             <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-muted-foreground tracking-wide">
               <div className="flex items-center gap-2">
-                <img src={bursLandingLogo} alt="Burs" className="w-5 h-5 rounded-sm object-contain" />
+                <BursMonogram size={20} />
                 <span className="text-foreground font-medium tracking-[0.12em]" style={{ fontFamily: "'Sora', sans-serif" }}>BURS</span>
               </div>
               <div className="flex gap-6">
