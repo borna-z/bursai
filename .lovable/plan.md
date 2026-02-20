@@ -1,25 +1,21 @@
 
 
-## Replace SVG Monogram with Uploaded Hanger Logo
+## Replace Hanger Logo with New B-Hanger Logo
 
 ### What Happens
-The current auto-generated SVG "B" monogram gets replaced with your actual hanger logo (the uploaded PNG with transparent background).
+The current hanger logo PNG gets replaced with your new B-hanger monogram (the stylized B integrated with a hanger shape).
 
 ### Changes
 
-**1. Copy the uploaded logo into the project**
-- Copy `user-uploads://Gemini_Generated_Image_tnfimntnfimntnfi-2.png` to `src/assets/burs-hanger-logo.png`
+**1. Replace the logo asset**
+- Copy `user-uploads://Gemini_Generated_Image_w3ckqyw3ckqyw3ck.png` to `src/assets/burs-hanger-logo.png`, overwriting the previous file.
 
-**2. Update `src/components/ui/BursMonogram.tsx`**
-- Replace the inline SVG with an `<img>` tag that imports the new hanger logo PNG
-- Keep the same `size` and `className` props so all existing usage works without changes
-- Use `object-contain` to scale properly at all sizes (20px to 80px)
-
-No other files need to change -- Landing.tsx, Terms.tsx, PrivacyPolicy.tsx, Contact.tsx, and DrapeLogo.tsx all import `BursMonogram` and will automatically use the new image.
+**2. No code changes needed**
+`BursMonogram.tsx` already imports from `src/assets/burs-hanger-logo.png`, so the new logo will automatically appear everywhere: Landing page, Terms, Privacy, Contact, and in-app via DrapeLogo.
 
 ### Files
 
 | File | Change |
 |------|--------|
-| `src/assets/burs-hanger-logo.png` | New file -- your uploaded logo |
-| `src/components/ui/BursMonogram.tsx` | Replace SVG with img using the new PNG asset |
+| `src/assets/burs-hanger-logo.png` | Replaced with new B-hanger monogram |
+
