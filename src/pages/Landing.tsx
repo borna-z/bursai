@@ -76,6 +76,15 @@ export default function Landing() {
       <Helmet>
         <title>{t('landing.title')}</title>
         <meta name="description" content={t('landing.meta')} />
+        <meta property="og:title" content="BURS | Your Personal Stylist" />
+        <meta property="og:description" content="Upload your closet. Let BURS style you. Save the planet by wearing what you already own." />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://burs.me" />
+        <meta property="og:image" content="https://burs.me/og-image.png" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="BURS | Your Personal Stylist" />
+        <meta name="twitter:description" content="Upload your closet. Let BURS style you. Save the planet by wearing what you already own." />
+        <meta name="twitter:image" content="https://burs.me/og-image.png" />
       </Helmet>
 
       <div className="dark-landing" ref={scrollRef} style={{ height: '100vh', overflowY: 'auto' }}>

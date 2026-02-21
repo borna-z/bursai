@@ -31,8 +31,8 @@ The Landing page is 434 lines with scroll observers. Split into lazy-loaded sect
 
 **Files:** `src/pages/Landing.tsx` → extract `HeroSection`, `FeaturesSection`, `TestimonialsSection`, `CTASection`
 
-### 2.2 Add OG meta tags for social sharing
-Ensure every public page (Landing, Pricing, Share Outfit) has proper Open Graph and Twitter Card meta tags via `react-helmet-async`.
+### ✅ 2.2 Add OG meta tags for social sharing
+Added page-specific Open Graph and Twitter Card meta tags via `react-helmet-async` to Landing (brand), Pricing (conversion), and ShareOutfit (dynamic outfit title/explanation).
 
 **Files:** `src/pages/Landing.tsx`, `src/pages/Pricing.tsx`, `src/pages/ShareOutfit.tsx`
 

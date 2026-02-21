@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 import { Crown, Check, Sparkles, Infinity, Shield, Lock, ArrowLeft, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -47,6 +48,19 @@ export default function PricingPage() {
   const savingsPercent = Math.round((1 - yearlyPrice / (monthlyPrice * 12)) * 100);
 
   return (
+    <>
+      <Helmet>
+        <title>BURS Premium | Unlock Your Full Wardrobe</title>
+        <meta name="description" content="Unlimited garments, unlimited outfits, smarter AI recommendations. Try BURS Premium free for 30 days." />
+        <meta property="og:title" content="BURS Premium | Unlock Your Full Wardrobe" />
+        <meta property="og:description" content="Unlimited garments, unlimited outfits, smarter AI recommendations. Try free for 30 days." />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://burs.me/pricing" />
+        <meta property="og:image" content="https://burs.me/og-image.png" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="BURS Premium | Unlock Your Full Wardrobe" />
+        <meta name="twitter:description" content="Unlimited garments, unlimited outfits, smarter AI recommendations. Try free for 30 days." />
+      </Helmet>
     <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-10 bg-background border-b">
         <div className="p-4 flex items-center gap-4">
@@ -144,5 +158,6 @@ export default function PricingPage() {
         </Card>
       </div>
     </div>
+    </>
   );
 }

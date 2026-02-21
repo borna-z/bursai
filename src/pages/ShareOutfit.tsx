@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useParams, Link } from 'react-router-dom';
 import { Loader2, Copy, Download, Check, Crown, Sparkles, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -122,6 +123,18 @@ export default function ShareOutfitPage() {
   }
 
   return (
+    <>
+      <Helmet>
+        <title>{`${outfit.occasion} Outfit | Styled by BURS`}</title>
+        <meta name="description" content={outfit.explanation || 'Check out this outfit styled by BURS — your personal AI stylist.'} />
+        <meta property="og:title" content={`${outfit.occasion} Outfit | Styled by BURS`} />
+        <meta property="og:description" content={outfit.explanation || 'Check out this outfit styled by BURS.'} />
+        <meta property="og:type" content="article" />
+        <meta property="og:image" content="https://burs.me/og-image.png" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={`${outfit.occasion} Outfit | Styled by BURS`} />
+        <meta name="twitter:description" content={outfit.explanation || 'Check out this outfit styled by BURS.'} />
+      </Helmet>
     <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b">
         <div className="max-w-lg mx-auto p-4 flex items-center justify-between">
@@ -196,5 +209,6 @@ export default function ShareOutfitPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }
