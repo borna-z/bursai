@@ -52,8 +52,7 @@ export function useSwapGarment() {
     
     setIsLoadingCandidates(true);
     try {
-      const categories = SLOT_CATEGORIES[slot];
-      if (!categories) return [];
+      const categories = SLOT_CATEGORIES[slot] || [slot];
       
       // Fetch available garments for this slot
       const { data: garments, error } = await supabase
@@ -117,12 +116,16 @@ export function useSwapGarment() {
       outfitItemId: string; 
       newGarmentId: string;
     }) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('outfit_items')
         .update({ garment_id: newGarmentId })
-        .eq('id', outfitItemId);
+        .eq('id', outfitItemId)
+        .select('id');
       
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('Swap failed — no row was updated. Please try again.');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['outfit'] });
