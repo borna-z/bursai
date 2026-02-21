@@ -110,8 +110,10 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
 }
 
 // ── Virtualized garment list ──
-const GRID_ROW_HEIGHT = 220; // aspect-square + padding
-const LIST_ROW_HEIGHT = 74;  // p-3 + h-14 image + gaps
+// Only kicks in above this threshold; below it we render normally
+const VIRTUALIZE_THRESHOLD = 30;
+const GRID_ROW_HEIGHT = 220;
+const LIST_ROW_HEIGHT = 74;
 const GAP = 12;
 
 interface VirtualizedGarmentListProps {
@@ -124,41 +126,144 @@ interface VirtualizedGarmentListProps {
   onLaundry: (garment: Garment) => void;
   onDelete: (id: string) => void;
   onLoadMore: () => void;
+  hasNextPage: boolean;
   isFetchingNextPage: boolean;
 }
 
-function VirtualizedGarmentList({
+function GarmentListContent({
   garments, isGridView, isSelecting, selectedIds,
-  onSelect, onEdit, onLaundry, onDelete, onLoadMore, isFetchingNextPage,
+  onSelect, onEdit, onLaundry, onDelete, onLoadMore, hasNextPage, isFetchingNextPage,
 }: VirtualizedGarmentListProps) {
-  const navigate = useNavigate();
-  const parentRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  // In grid mode we render 2 items per row
+  // Simple intersection observer for infinite scroll
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          onLoadMore();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, onLoadMore]);
+
+  const useVirtual = garments.length >= VIRTUALIZE_THRESHOLD;
+
+  if (useVirtual) {
+    return (
+      <VirtualGarmentGrid
+        garments={garments}
+        isGridView={isGridView}
+        isSelecting={isSelecting}
+        selectedIds={selectedIds}
+        onSelect={onSelect}
+        onEdit={onEdit}
+        onLaundry={onLaundry}
+        onDelete={onDelete}
+        isFetchingNextPage={isFetchingNextPage}
+        sentinelRef={sentinelRef}
+      />
+    );
+  }
+
+  // Non-virtualized render for smaller collections
+  return (
+    <>
+      <div className={cn(isGridView ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2')}>
+        {garments.map((garment, index) => (
+          <div key={garment.id} className="animate-drape-in" style={{ animationDelay: `${Math.min(index, 12) * 40}ms`, animationFillMode: 'both' }}>
+            {!isGridView && !isSelecting ? (
+              <SwipeableGarmentCard
+                garment={garment}
+                onEdit={() => onEdit(garment.id)}
+                onLaundry={() => onLaundry(garment)}
+                onDelete={() => onDelete(garment.id)}
+              />
+            ) : (
+              <GarmentCard
+                garment={garment}
+                isGridView={isGridView}
+                isSelecting={isSelecting}
+                isSelected={selectedIds.has(garment.id)}
+                onSelect={() => onSelect(garment.id)}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+      <div ref={sentinelRef} className="h-1" />
+      {isFetchingNextPage && <LoadingSkeletons isGridView={isGridView} />}
+    </>
+  );
+}
+
+function LoadingSkeletons({ isGridView }: { isGridView: boolean }) {
+  return isGridView ? (
+    <div className="grid grid-cols-2 gap-3">
+      {[1, 2].map(i => (
+        <div key={i} className="glass-card rounded-xl overflow-hidden">
+          <Skeleton className="aspect-square w-full" />
+          <div className="p-2.5 space-y-1.5">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <div className="flex flex-col gap-2">
+      {[1, 2].map(i => (
+        <div key={i} className="flex items-center gap-3 p-3 glass-card rounded-xl">
+          <Skeleton className="w-14 h-14 rounded-lg shrink-0" />
+          <div className="flex-1 space-y-1.5">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+interface VirtualGarmentGridProps {
+  garments: Garment[];
+  isGridView: boolean;
+  isSelecting: boolean;
+  selectedIds: Set<string>;
+  onSelect: (id: string) => void;
+  onEdit: (id: string) => void;
+  onLaundry: (garment: Garment) => void;
+  onDelete: (id: string) => void;
+  isFetchingNextPage: boolean;
+  sentinelRef: React.RefObject<HTMLDivElement | null>;
+}
+
+function VirtualGarmentGrid({
+  garments, isGridView, isSelecting, selectedIds,
+  onSelect, onEdit, onLaundry, onDelete, isFetchingNextPage, sentinelRef,
+}: VirtualGarmentGridProps) {
+  const parentRef = useRef<HTMLDivElement>(null);
   const cols = isGridView ? 2 : 1;
   const rowCount = Math.ceil(garments.length / cols);
   const estimateSize = isGridView ? GRID_ROW_HEIGHT : LIST_ROW_HEIGHT;
 
   const virtualizer = useVirtualizer({
-    count: rowCount + 1, // +1 for sentinel / loading row
+    count: rowCount,
     getScrollElement: () => parentRef.current,
     estimateSize: () => estimateSize + GAP,
     overscan: 5,
   });
 
-  // Load more when we reach the sentinel row
-  useEffect(() => {
-    const lastItem = virtualizer.getVirtualItems().at(-1);
-    if (lastItem && lastItem.index >= rowCount) {
-      onLoadMore();
-    }
-  }, [virtualizer.getVirtualItems(), rowCount, onLoadMore]);
-
   return (
     <div
       ref={parentRef}
-      className="w-full"
-      style={{ height: Math.min(rowCount * (estimateSize + GAP), 600), overflow: 'auto' }}
+      className="w-full overflow-auto"
+      style={{ maxHeight: 'calc(100vh - 200px)' }}
     >
       <div
         style={{
@@ -168,50 +273,6 @@ function VirtualizedGarmentList({
         }}
       >
         {virtualizer.getVirtualItems().map((virtualRow) => {
-          // Sentinel / loading row
-          if (virtualRow.index >= rowCount) {
-            return (
-              <div
-                key="sentinel"
-                style={{
-                  position: 'absolute',
-                  top: virtualRow.start,
-                  left: 0,
-                  width: '100%',
-                  height: virtualRow.size,
-                }}
-              >
-                {isFetchingNextPage && (
-                  isGridView ? (
-                    <div className="grid grid-cols-2 gap-3">
-                      {[1, 2].map(i => (
-                        <div key={i} className="glass-card rounded-xl overflow-hidden">
-                          <Skeleton className="aspect-square w-full" />
-                          <div className="p-2.5 space-y-1.5">
-                            <Skeleton className="h-4 w-3/4" />
-                            <Skeleton className="h-3 w-1/2" />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {[1, 2].map(i => (
-                        <div key={i} className="flex items-center gap-3 p-3 glass-card rounded-xl">
-                          <Skeleton className="w-14 h-14 rounded-lg shrink-0" />
-                          <div className="flex-1 space-y-1.5">
-                            <Skeleton className="h-4 w-3/4" />
-                            <Skeleton className="h-3 w-1/2" />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )
-                )}
-              </div>
-            );
-          }
-
           const startIdx = virtualRow.index * cols;
           const rowGarments = garments.slice(startIdx, startIdx + cols);
 
@@ -253,6 +314,8 @@ function VirtualizedGarmentList({
           );
         })}
       </div>
+      <div ref={sentinelRef} className="h-1" />
+      {isFetchingNextPage && <LoadingSkeletons isGridView={isGridView} />}
     </div>
   );
 }
@@ -549,7 +612,7 @@ export default function WardrobePage() {
             {isLoading ? (
               <GarmentGridSkeleton count={6} grid={isGridView} />
             ) : displayGarments.length > 0 ? (
-              <VirtualizedGarmentList
+              <GarmentListContent
                 garments={displayGarments}
                 isGridView={isGridView}
                 isSelecting={isSelecting}
@@ -559,6 +622,7 @@ export default function WardrobePage() {
                 onLaundry={(garment) => updateGarment.mutate({ id: garment.id, updates: { in_laundry: !garment.in_laundry } })}
                 onDelete={(id) => deleteGarment.mutate(id)}
                 onLoadMore={() => { if (hasNextPage && !isFetchingNextPage) fetchNextPage(); }}
+                hasNextPage={!!hasNextPage}
                 isFetchingNextPage={isFetchingNextPage}
               />
             ) : (
