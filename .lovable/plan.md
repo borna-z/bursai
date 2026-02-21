@@ -40,12 +40,10 @@ Added page-specific Open Graph and Twitter Card meta tags via `react-helmet-asyn
 
 ## ⚡ Phase 3 — Performance Optimizations
 
-### 3.1 Code-split heavy pages with React.lazy
-Pages like `AIChat`, `OutfitGenerate`, `LiveScan`, `Plan`, and `Insights` are heavy. Wrap them in `React.lazy` + `Suspense` with a branded loading skeleton.
+### ✅ 3.1 Code-split heavy pages with React.lazy
+All 30+ non-critical pages (AIChat, OutfitGenerate, LiveScan, Plan, Insights, Settings, etc.) are already lazy-loaded via `React.lazy` in `AnimatedRoutes.tsx` with a branded `PageSkeleton` shimmer fallback. Critical-path pages (Landing, Home, Auth, Index) remain eagerly loaded.
 
-**Files:** `src/App.tsx`
-- Convert direct imports to `const AIChat = lazy(() => import('./pages/AIChat'))`
-- Add `<Suspense fallback={<PageSkeleton />}>` wrapper
+**Files:** `src/components/layout/AnimatedRoutes.tsx`, `src/components/layout/PageSkeleton.tsx`
 
 ### ✅ 3.2 Optimize QueryClient defaults
 Configured `staleTime: 2min`, `gcTime: 10min`, `refetchOnWindowFocus: false`, `retry: 1` on the global QueryClient to reduce redundant refetches and improve perceived performance.
