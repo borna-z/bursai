@@ -31,7 +31,7 @@ function OutfitCard({ outfit, onDelete, showPlannedDate, t }: {
   const plannedFor = (outfit as any).planned_for;
 
   return (
-    <Card className="cursor-pointer hover:shadow-md transition-all overflow-hidden active:scale-[0.99] animate-burs-in opacity-0 [animation-fill-mode:both]" onClick={() => navigate(`/outfits/${outfit.id}`)}>
+    <Card className="glass-card cursor-pointer hover:shadow-md transition-all overflow-hidden active:scale-[0.99] animate-burs-in opacity-0 [animation-fill-mode:both]" onClick={() => navigate(`/outfits/${outfit.id}`)}>
       <div className="flex h-24 bg-muted/30">
         {outfit.outfit_items.slice(0, 4).map((item, index) => (
           <div key={item.id} className={cn("flex-1 overflow-hidden", index < outfit.outfit_items.slice(0, 4).length - 1 && "border-r border-background")}>

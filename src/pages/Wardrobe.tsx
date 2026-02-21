@@ -45,7 +45,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
       <button
         onClick={handleClick}
         className={cn(
-          'w-full flex items-center gap-3 p-3 bg-card rounded-xl transition-all active:scale-[0.99] text-left',
+          'w-full flex items-center gap-3 p-3 glass-card rounded-xl transition-all active:scale-[0.99] text-left',
           garment.in_laundry && 'opacity-60',
           isSelected && 'ring-2 ring-accent'
         )}
@@ -69,7 +69,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
     <button
       onClick={handleClick}
       className={cn(
-        'w-full bg-card rounded-xl overflow-hidden transition-all active:scale-[0.98] text-left',
+        'w-full glass-card rounded-xl overflow-hidden transition-all active:scale-[0.98] text-left',
         garment.in_laundry && 'opacity-60',
         isSelected && 'ring-2 ring-accent'
       )}
