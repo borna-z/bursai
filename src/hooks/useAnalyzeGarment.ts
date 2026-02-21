@@ -25,7 +25,7 @@ export interface AnalyzeGarmentResult {
 
 export function useAnalyzeGarment() {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
 
@@ -48,7 +48,7 @@ export function useAnalyzeGarment() {
       setAnalysisProgress(20);
 
       const { data, error } = await supabase.functions.invoke('analyze_garment', {
-        body: { storagePath },
+        body: { storagePath, locale },
       });
 
       clearInterval(progressInterval);
