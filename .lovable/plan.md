@@ -1,47 +1,71 @@
 
 
-## Fix Garment Swapping -- RLS Policy + Bug Fixes
+## Fix Swedish Texts in Plan Page -- Locale-Aware AI + Translated Labels
 
-### Root Cause
-The `outfit_items` table is missing an **UPDATE** RLS policy. When the swap button is pressed, the code calls `supabase.from('outfit_items').update(...)` which silently fails because there's no policy allowing updates. The toast still fires "Garment swapped!" because the Supabase client doesn't throw an error for zero-row updates -- it just updates nothing.
+### Problem
+Three sources of hardcoded Swedish text on the Plan page:
 
-### What changes
+1. **Outfit explanations** are always in Swedish because `generate_outfit` edge function doesn't receive the user's locale and instructs AI to always write in Swedish
+2. **Day summaries** from `summarize_day` -- receives locale but its prompt template still has Swedish-only format examples
+3. **Occasion badges** ("jobb", "vardag", etc.) shown raw without going through the translation system
 
-#### 1. Add UPDATE RLS policy on `outfit_items`
-Create a migration that adds an UPDATE policy so users can update their own outfit items (same pattern as the existing DELETE/INSERT policies -- check that the parent outfit belongs to the user).
+### Changes
 
-```sql
-CREATE POLICY "Users can update own outfit items"
-  ON public.outfit_items FOR UPDATE
-  USING (EXISTS (
-    SELECT 1 FROM outfits
-    WHERE outfits.id = outfit_items.outfit_id
-    AND outfits.user_id = auth.uid()
-  ));
-```
+#### 1. `src/hooks/useOutfitGenerator.ts`
+- Accept `locale` parameter in the `OutfitRequest` interface
+- Pass `locale` in the body when invoking `generate_outfit`
 
-#### 2. Fix swap mutation error handling
-Update `useSwapGarment.ts` so the mutation checks if the update actually affected a row. If not, throw an error so the toast shows the correct message.
+#### 2. `supabase/functions/generate_outfit/index.ts`
+- Read `locale` from the request body (default: `"sv"`)
+- Update the system prompt: replace "Ge en personlig forklaring... pa svenska" with a dynamic language instruction based on locale
+- Update fallback explanation text from hardcoded Swedish to locale-aware
 
-#### 3. Fix `fetchCandidates` to not return empty silently
-When `SLOT_CATEGORIES[slot]` returns undefined (e.g. if a future slot like "dress" is used), fall back to using the slot name as the category directly instead of returning an empty array.
+#### 3. `supabase/functions/summarize_day/index.ts`
+- Translate the JSON format example labels and weather terms dynamically based on locale so the AI returns content in the correct language
 
-#### 4. Fix console warnings in `OutfitSuggestionCard`
-The `LazyImageSimple` and `Popover` components are getting ref warnings. Wrap with `forwardRef` or remove unnecessary ref passing.
+#### 4. `src/pages/Plan.tsx`
+- Line 302: Translate `outfit.occasion` using the `OCCASION_I18N` map (same pattern already used in `StylistSummary.tsx`)
+- Pass the user's locale when calling `generateOutfit` (via the request object)
+
+#### 5. `src/components/plan/DayCard.tsx`
+- Line 100: Same fix -- translate `outfit.occasion` using `OCCASION_I18N` map instead of showing raw value
+
+#### 6. Caller sites that invoke `generateOutfit`
+- `src/pages/Plan.tsx` (handleGenerateForDate, handleAutoGenerateWeek) -- add locale from `useLanguage()`
+- `src/pages/Home.tsx` or wherever else `generateOutfit` is called -- add locale
+- `src/components/insights/AISuggestions.tsx` -- if it generates outfits, add locale
 
 ### Technical details
 
-**Database migration:**
-- Add UPDATE policy on `outfit_items` matching the existing ownership pattern (join to `outfits` table to verify `user_id = auth.uid()`)
+**Edge function prompt change (generate_outfit):**
+```
+// Before:
+"Ge en personlig forklaring (2-3 meningar) pa svenska"
 
-**Modified: `src/hooks/useSwapGarment.ts`**
-- Add fallback in `fetchCandidates`: if `SLOT_CATEGORIES[slot]` is undefined, use `[slot]` as the category array
-- In the swap mutation, check `data` count or use `.select()` to verify the update went through
+// After (dynamic):
+"Ge en personlig forklaring (2-3 meningar) pa ${localeName}"
+// where localeName maps: sv->svenska, en->English, no->norsk, etc.
+```
 
-**Modified: `src/components/chat/OutfitSuggestionCard.tsx`**
-- Fix `LazyImageSimple` ref warning by not passing ref-dependent props through Popover
+**Occasion translation in Plan.tsx and DayCard.tsx:**
+```typescript
+const OCCASION_I18N: Record<string, string> = {
+  jobb: 'occasion.jobb',
+  vardag: 'occasion.vardag',
+  fest: 'occasion.fest',
+  resa: 'occasion.resa',
+  traning: 'occasion.traning',
+  dejt: 'occasion.dejt',
+};
+
+// Usage:
+const occasionKey = OCCASION_I18N[outfit.occasion?.toLowerCase()] || `occasion.${outfit.occasion}`;
+const occasionLabel = t(occasionKey);
+```
 
 ### Files summary
-1. **Database migration** -- add UPDATE RLS policy on `outfit_items`
-2. `src/hooks/useSwapGarment.ts` -- fix fallback for unknown slots, better error handling
-3. `src/components/chat/OutfitSuggestionCard.tsx` -- fix console ref warnings
+1. `src/hooks/useOutfitGenerator.ts` -- add locale to request interface and API call
+2. `supabase/functions/generate_outfit/index.ts` -- dynamic locale in AI prompt
+3. `supabase/functions/summarize_day/index.ts` -- improve locale handling in prompt
+4. `src/pages/Plan.tsx` -- translate occasion labels, pass locale to generator
+5. `src/components/plan/DayCard.tsx` -- translate occasion labels
