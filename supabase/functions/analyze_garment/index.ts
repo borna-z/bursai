@@ -9,7 +9,26 @@ const corsHeaders = {
 interface AnalyzeRequest {
   storagePath?: string;
   base64Image?: string;
+  locale?: string;
 }
+
+// Map locale to title language instruction
+const TITLE_LANG_MAP: Record<string, string> = {
+  sv: 'kort beskrivande titel på svenska (max 30 tecken)',
+  en: 'short descriptive title in English (max 30 characters)',
+  no: 'kort beskrivende tittel på norsk (maks 30 tegn)',
+  da: 'kort beskrivende titel på dansk (maks 30 tegn)',
+  fi: 'lyhyt kuvaava otsikko suomeksi (enintään 30 merkkiä)',
+  de: 'kurzer beschreibender Titel auf Deutsch (max 30 Zeichen)',
+  fr: 'titre descriptif court en français (max 30 caractères)',
+  es: 'título descriptivo corto en español (máx. 30 caracteres)',
+  pt: 'título descritivo curto em português (máx. 30 caracteres)',
+  it: 'titolo descrittivo breve in italiano (max 30 caratteri)',
+  nl: 'korte beschrijvende titel in het Nederlands (max 30 tekens)',
+  ar: 'عنوان وصفي قصير بالعربية (بحد أقصى 30 حرفًا)',
+  fa: 'عنوان توصیفی کوتاه به فارسی (حداکثر ۳۰ نویسه)',
+  ja: '日本語の短い説明タイトル（最大30文字）',
+};
 
 interface GarmentAnalysis {
   title: string;
@@ -152,8 +171,9 @@ serve(async (req) => {
     const userId = user.id;
     console.log(`Authenticated user: ${userId}`);
 
-    // Get storagePath or base64Image from request body
-    const { storagePath, base64Image } = await req.json() as AnalyzeRequest;
+    // Get storagePath, base64Image, and locale from request body
+    const { storagePath, base64Image, locale } = await req.json() as AnalyzeRequest;
+    const titleInstruction = TITLE_LANG_MAP[locale || 'sv'] || TITLE_LANG_MAP['sv'];
 
     // Validate input - need either storagePath or base64Image
     if (!storagePath && !base64Image) {
@@ -246,7 +266,7 @@ serve(async (req) => {
               content: `Du är en modeexpert som analyserar klädesplagg från bilder.
 Svara ENDAST med valid JSON enligt detta schema:
 {
-  "title": "kort beskrivande titel på svenska (max 30 tecken)",
+  "title": "${titleInstruction}",
   "category": "EXAKT en av: top, bottom, shoes, outerwear, accessory, dress",
   "subcategory": "specifik typ på svenska, t.ex. t-shirt, jeans, sneakers, jacka",
   "color_primary": "EXAKT en av: svart, vit, grå, blå, marinblå, beige, brun, grön, röd, rosa, lila, gul, orange",
