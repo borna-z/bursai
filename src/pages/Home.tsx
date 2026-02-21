@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Sparkles, ChevronRight, BarChart3, TrendingUp, Shirt, Palette, Gem, AlertCircle, Lock, RefreshCw, ChevronDown, Sun, Briefcase, PartyPopper, Heart, Dumbbell, Plane, Trophy } from 'lucide-react';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -16,6 +17,7 @@ import { useWeather } from '@/hooks/useWeather';
 import { useInsights, type Garment } from '@/hooks/useInsights';
 import { PaywallModal } from '@/components/PaywallModal';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { WeatherWidget } from '@/components/weather/WeatherWidget';
 import { AISuggestions } from '@/components/insights/AISuggestions';
@@ -212,6 +214,13 @@ export default function HomePage() {
   const { needsOnboarding } = useOnboarding();
   const { canCreateOutfit, isPremium } = useSubscription();
   const { weather } = useWeather();
+  const queryClient = useQueryClient();
+
+  const handleRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['garments-count'] });
+    await queryClient.invalidateQueries({ queryKey: ['insights'] });
+    await queryClient.invalidateQueries({ queryKey: ['weather'] });
+  }, [queryClient]);
 
   const [activeTab, setActiveTab] = useState<'create' | 'insights'>('create');
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(() => localStorage.getItem('burs_last_occasion'));
@@ -264,7 +273,7 @@ export default function HomePage() {
   return (
     <AppLayout>
       <PageHeader title={getGreeting()} actions={null} />
-
+      <PullToRefresh onRefresh={handleRefresh}>
       <AnimatedPage className="px-4 pb-6 pt-2 space-y-5 max-w-lg mx-auto">
 
         {/* Onboarding nudge */}
@@ -427,6 +436,7 @@ export default function HomePage() {
         )}
         </AnimatedTab>
       </AnimatedPage>
+      </PullToRefresh>
 
       <PaywallModal
         isOpen={showPaywall}
