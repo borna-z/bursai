@@ -4,26 +4,23 @@ import { ArrowLeft } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { BursMonogram } from '@/components/ui/BursMonogram';
 
-const TERMS = {
-  title: 'Terms of Service',
-  lastUpdated: '2025-02-19',
-  sections: [
-    { title: 'Acceptance', content: 'By using BURS you accept these terms. If you do not accept, please do not use the service.' },
-    { title: 'The Service', content: 'BURS is a digital wardrobe manager and personal AI stylist that helps you organize garments, create outfits, and plan your wardrobe. The service is provided "as is" without warranties.' },
-    { title: 'Your Content', content: 'You retain ownership of images and content you upload. You grant us the right to use this to provide the service to you.' },
-    { title: 'Body measurements and personal data', content: "Body measurements (height and weight) are optional and used exclusively to improve the AI stylist's advice. This data is stored encrypted and deleted upon your request." },
-    { title: 'Limitations', content: 'We are not liable for any damages arising from use of the service. Maximum liability is limited to fees you have paid in the last 12 months.' },
-    { title: 'Changes', content: 'We may update these terms. Material changes will be communicated via email or in the app.' },
-  ],
-};
-
 export default function Terms() {
   const { t } = useLanguage();
+
+  const sections = [
+    { title: t('terms.s1_title'), content: t('terms.s1_content') },
+    { title: t('terms.s2_title'), content: t('terms.s2_content') },
+    { title: t('terms.s3_title'), content: t('terms.s3_content') },
+    { title: t('terms.s4_title'), content: t('terms.s4_content') },
+    { title: t('terms.s5_title'), content: t('terms.s5_content') },
+    { title: t('terms.s6_title'), content: t('terms.s6_content') },
+  ];
+
   return (
     <div className="force-light">
       <Helmet>
-        <title>{TERMS.title} | BURS</title>
-        <meta name="description" content="Terms of Service for BURS." />
+        <title>{t('terms.title')} | BURS</title>
+        <meta name="description" content={t('terms.title')} />
       </Helmet>
 
       <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -43,11 +40,11 @@ export default function Terms() {
 
         {/* Content */}
         <main className="flex-1 max-w-3xl mx-auto px-4 py-12 md:py-20 w-full">
-          <h1 className="text-3xl md:text-4xl font-bold mb-4">{TERMS.title}</h1>
-          <p className="text-muted-foreground mb-12">{t('common.last_updated')} {TERMS.lastUpdated}</p>
+          <h1 className="text-3xl md:text-4xl font-bold mb-4">{t('terms.title')}</h1>
+          <p className="text-muted-foreground mb-12">{t('common.last_updated')} 2025-02-19</p>
 
           <div className="space-y-8">
-            {TERMS.sections.map((section, i) => (
+            {sections.map((section, i) => (
               <section key={i}>
                 <h2 className="text-xl font-semibold mb-3">{section.title}</h2>
                 <p className="text-muted-foreground leading-relaxed">{section.content}</p>
@@ -60,12 +57,12 @@ export default function Terms() {
         <footer className="border-t border-border/60">
           <div className="max-w-3xl mx-auto px-4 py-8 flex flex-col items-center gap-4 text-xs text-muted-foreground">
             <div className="flex gap-6">
-              <Link to="/privacy" className="hover:text-foreground">Privacy Policy</Link>
-              <Link to="/terms" className="hover:text-foreground font-medium text-foreground">Terms</Link>
-              <Link to="/contact" className="hover:text-foreground">Contact</Link>
+              <Link to="/privacy" className="hover:text-foreground">{t('landing.footer_privacy')}</Link>
+              <Link to="/terms" className="hover:text-foreground font-medium text-foreground">{t('terms.title')}</Link>
+              <Link to="/contact" className="hover:text-foreground">{t('landing.footer_contact')}</Link>
             </div>
             <p>© {new Date().getFullYear()} BURS. All rights reserved.</p>
-            <p className="text-center max-w-md">BURS complies with GDPR. Your data is stored securely and never shared with third parties.</p>
+            <p className="text-center max-w-md">{t('privacy.gdpr_note')}</p>
           </div>
         </footer>
       </div>
