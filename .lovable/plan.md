@@ -17,12 +17,10 @@ Wrapped `<Routes>` in `AnimatePresence mode="wait"` with a `motion.div` keyed by
 
 **Files:** `src/App.tsx`, `src/components/layout/AnimatedRoutes.tsx`
 
-### 1.2 Bottom nav active indicator animation
-Add a sliding pill indicator under the active tab in `BottomNav` that glides between tabs using `motion.div layoutId="nav-pill"`.
+### ✅ 1.2 Bottom nav active indicator animation
+Added a sliding pill indicator using `motion.div` with `layoutId="nav-pill"` that glides between tabs with spring physics (stiffness: 400, damping: 30). The pill renders behind the active icon with `bg-accent/10 rounded-2xl`.
 
 **Files:** `src/components/layout/BottomNav.tsx`
-- Add `motion.div` with `layoutId="activeTab"` inside the active tab
-- Pill style: `bg-accent/10 rounded-2xl` sliding behind the icon
 
 ---
 

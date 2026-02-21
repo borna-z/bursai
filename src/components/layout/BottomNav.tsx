@@ -1,5 +1,6 @@
 import { Home, Shirt, CalendarDays, Bot, Settings } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -23,7 +24,7 @@ export function BottomNav() {
             to={tab.path}
             className={({ isActive }) =>
               cn(
-                'flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[10px] font-medium transition-all duration-300',
+                'relative flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[10px] font-medium transition-colors duration-200',
                 isActive
                   ? 'text-accent'
                   : 'text-muted-foreground hover:text-foreground'
@@ -32,12 +33,16 @@ export function BottomNav() {
           >
             {({ isActive }) => (
               <>
-                <div className={cn(
-                  'flex items-center justify-center w-10 h-7 rounded-2xl transition-all duration-300',
-                  isActive && 'bg-accent/8 backdrop-blur-sm'
-                )}>
+                <div className="relative flex items-center justify-center w-10 h-7 rounded-2xl">
+                  {isActive && (
+                    <motion.div
+                      layoutId="nav-pill"
+                      className="absolute inset-0 bg-accent/10 rounded-2xl"
+                      transition={{ type: 'spring', stiffness: 400, damping: 30, mass: 0.8 }}
+                    />
+                  )}
                   <tab.icon
-                    className={cn('w-5 h-5 transition-all duration-300', isActive && 'scale-105')}
+                    className={cn('relative z-10 w-5 h-5 transition-transform duration-200', isActive && 'scale-105')}
                     strokeWidth={isActive ? 2.5 : 2}
                   />
                 </div>
