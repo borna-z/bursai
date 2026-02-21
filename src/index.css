@@ -438,3 +438,32 @@
   50% { transform: translateY(-20px); }
   100% { transform: translateY(0px); }
 }
+
+/* Star-field particles */
+@keyframes twinkle {
+  0%, 100% { opacity: var(--particle-opacity); }
+  50% { opacity: 0.02; }
+}
+
+@keyframes drift {
+  0% { transform: translateY(0) translateX(0); }
+  50% { transform: translateY(-30px) translateX(8px); }
+  100% { transform: translateY(-60px) translateX(-4px); }
+}
+
+.particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.particle {
+  position: absolute;
+  border-radius: 9999px;
+  background: white;
+  animation: twinkle var(--tw-dur) ease-in-out infinite, drift var(--dr-dur) ease-in-out infinite;
+  animation-delay: var(--delay);
+  opacity: var(--particle-opacity);
+}

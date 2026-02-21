@@ -90,6 +90,30 @@ export default function Landing() {
           <section className="relative w-full min-h-[90vh] flex items-center justify-center overflow-hidden px-6 md:px-12 pt-20 pb-16">
             <div className="aurora-glow" />
 
+            {/* Star-field particles */}
+            <div className="particles">
+              {Array.from({ length: 22 }).map((_, i) => {
+                const size = 1 + (i % 3);
+                const opacity = 0.04 + (i % 5) * 0.03;
+                return (
+                  <div
+                    key={i}
+                    className="particle"
+                    style={{
+                      width: size,
+                      height: size,
+                      top: `${(i * 37) % 100}%`,
+                      left: `${(i * 53 + 11) % 100}%`,
+                      '--particle-opacity': opacity,
+                      '--tw-dur': `${3 + (i % 4) * 1.5}s`,
+                      '--dr-dur': `${8 + (i % 5) * 3}s`,
+                      '--delay': `${(i * 0.4) % 4}s`,
+                    } as React.CSSProperties}
+                  />
+                );
+              })}
+            </div>
+
             {/* Floating decorative elements */}
             <div className="absolute top-1/4 left-[15%] w-2 h-2 rounded-full bg-white/10 anti-gravity" />
             <div className="absolute top-1/3 right-[20%] w-3 h-3 rounded-full bg-white/5 anti-gravity-delayed" />
