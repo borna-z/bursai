@@ -1,42 +1,63 @@
 
-# Extract Shared Easing Curve Constant
 
-## Problem
-The easing curve `[0.25, 0.1, 0.25, 1]` is duplicated across 12 files (75 occurrences). Any future change requires updating every file manually.
+# Premium Spacing Refinement
 
-## Solution
-Create a single shared motion constants file and update all 12 files to import from it.
+## Goal
+Increase breathing room across all app pages by bumping the core spacing tokens up one notch. This creates a calmer, more luxurious feel -- the same technique used by apps like Arc, Linear, and Apple's native iOS apps.
 
-### 1. Create `src/lib/motion.ts`
+## What Changes
 
-```typescript
-/** App-wide cubic-bezier easing curve (equivalent to CSS ease) */
-export const EASE_CURVE: [number, number, number, number] = [0.25, 0.1, 0.25, 1];
-```
+### 1. Page-level vertical rhythm: `space-y-5` --> `space-y-6`
+Every main page container currently uses `space-y-5` (20px) between sections. Bumping to `space-y-6` (24px) adds exactly 4px more air between every section -- subtle but noticeable.
 
-### 2. Update all 12 files to import `EASE_CURVE`
+**Files:** `Home.tsx`, `Wardrobe.tsx`, `Plan.tsx`, `Settings.tsx`, `Insights.tsx`, `Outfits.tsx`, `GarmentDetail.tsx`, `OutfitDetail.tsx`
 
-Each file replaces its inline `[0.25, 0.1, 0.25, 1]` with the imported constant:
+### 2. Page top padding: `pt-2`/`pt-4` --> `pt-6`
+Add more air between the sticky header and the first content block. Currently some pages use `pt-2` (Home) and others `pt-4` (Wardrobe, Settings). Normalizing to `pt-6` (24px) across the board.
 
-| File | Occurrences |
-|------|-------------|
-| `src/components/ui/animated-page.tsx` | 1 |
-| `src/components/ui/animated-tab.tsx` | 1 |
-| `src/components/ui/pressable.tsx` | 1 |
-| `src/components/ui/stagger.tsx` | 1 |
-| `src/components/layout/AnimatedRoutes.tsx` | 2 |
-| `src/components/onboarding/AccentColorStep.tsx` | 1 |
-| `src/components/onboarding/BodyMeasurementsStep.tsx` | 1 |
-| `src/components/onboarding/LanguageStep.tsx` | 1 |
-| `src/components/onboarding/AppTutorialStep.tsx` | 1 |
-| `src/components/chat/ChatWelcome.tsx` | 1 |
-| `src/pages/Onboarding.tsx` | 2 |
-| `src/pages/Auth.tsx` | 2 |
+**Files:** Same as above
 
-## Technical Details
+### 3. Section-internal spacing: `space-y-2` / `space-y-2.5` --> `space-y-3`
+Inside each section (e.g. occasion chips, style chips, filter groups), bump from tight 8-10px to 12px.
 
-- The constant is typed as a tuple `[number, number, number, number]` so it satisfies framer-motion's `Easing` type directly -- no more `as const` or `as [number, ...]` casts needed at usage sites.
-- Placing it in `src/lib/motion.ts` follows the existing pattern of shared utilities in `src/lib/` (like `utils.ts`, `haptics.ts`).
-- Zero runtime impact -- it's just a reference to the same array.
+**Files:** `Home.tsx` (occasion/style sections), `Wardrobe.tsx` (filter sections)
 
-**Total: 1 new file, 12 files updated**
+### 4. Card internal padding: `p-3` --> `p-4`, `p-2.5` --> `p-3`
+Give card content more room to breathe. This affects stat cards, garment grid cards, insight cards, and settings rows.
+
+**Files:** `Home.tsx` (stat cards, insight cards), `Wardrobe.tsx` (garment cards), `GarmentDetail.tsx`
+
+### 5. Grid gaps: `gap-2` --> `gap-3` (stat grid), `gap-3` --> `gap-4` (garment grid)
+Widen the space between grid items for a less cramped layout.
+
+**Files:** `Home.tsx` (stats grid), `Wardrobe.tsx` (garment grid)
+
+### 6. PageHeader height: `h-14` --> `h-16`
+The shared header is the frame for every page. Adding 8px makes it feel more substantial and gives the title text more vertical breathing room.
+
+**File:** `PageHeader.tsx`
+
+### 7. Section label spacing: tighter tracking --> `mb-3`
+Section labels like "What's on today?" currently sit close to their content. Adding a `mb-3` (or bumping `space-y-2.5` to `space-y-3`) under each label creates clearer visual hierarchy.
+
+**Files:** `Home.tsx`, `Wardrobe.tsx`
+
+## Summary of changes
+
+| Token | Before | After | Delta |
+|-------|--------|-------|-------|
+| Page section gap | `space-y-5` (20px) | `space-y-6` (24px) | +4px |
+| Page top padding | `pt-2` / `pt-4` | `pt-6` (24px) | +8-16px |
+| Section inner gap | `space-y-2.5` | `space-y-3` (12px) | +2px |
+| Card padding | `p-3` (12px) | `p-4` (16px) | +4px |
+| Stat grid gap | `gap-2` (8px) | `gap-3` (12px) | +4px |
+| Garment grid gap | `gap-3` (12px) | `gap-4` (16px) | +4px |
+| PageHeader height | `h-14` (56px) | `h-16` (64px) | +8px |
+
+## Technical Notes
+
+- All changes are Tailwind class swaps -- no logic changes, no new components
+- The 8pt grid alignment is preserved (all values are multiples of 4px)
+- Bottom nav padding (`pb-20` / `pb-36`) remains unchanged since the nav height hasn't changed
+- Estimated ~10 files modified with simple class replacements
+
