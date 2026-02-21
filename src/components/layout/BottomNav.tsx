@@ -16,7 +16,7 @@ export function BottomNav() {
   const { t } = useLanguage();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#030305]/80 backdrop-blur-xl backdrop-saturate-150 border-t border-white/[0.06] safe-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/60 dark:bg-[#030305]/80 backdrop-blur-xl backdrop-saturate-150 shadow-[0_-1px_0_0_hsl(var(--border)/0.4)] dark:shadow-none dark:border-t dark:border-white/[0.06] safe-bottom">
       <div className="flex justify-around items-center h-16 max-w-lg mx-auto px-2">
         {tabKeys.map((tab) => (
           <NavLink
