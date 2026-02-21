@@ -329,7 +329,7 @@ export default function WardrobePage() {
                               'py-2 text-xs rounded-lg capitalize transition-colors',
                               selectedColor === color
                                 ? 'bg-accent/10 text-accent font-medium'
-                                : 'bg-muted/50 text-foreground hover:bg-muted'
+                                : 'bg-muted/30 backdrop-blur-sm text-foreground hover:bg-muted/50'
                             )}
                           >
                             {t(`color.${color}`)}
@@ -350,7 +350,7 @@ export default function WardrobePage() {
                               'py-2 text-xs rounded-lg capitalize transition-colors',
                               selectedSeason === season
                                 ? 'bg-accent/10 text-accent font-medium'
-                                : 'bg-muted/50 text-foreground hover:bg-muted'
+                                : 'bg-muted/30 backdrop-blur-sm text-foreground hover:bg-muted/50'
                             )}
                           >
                             {t(`garment.season.${season === 'vår' ? 'spring' : season === 'sommar' ? 'summer' : season === 'höst' ? 'autumn' : 'winter'}`)}
@@ -379,7 +379,7 @@ export default function WardrobePage() {
 
             {/* Bulk select bar */}
             {isSelecting && selectedIds.size > 0 && (
-              <div className="flex items-center justify-between p-3 bg-card rounded-xl">
+              <div className="flex items-center justify-between p-3 glass-card rounded-xl">
                 <span className="text-sm font-medium">{selectedIds.size} {t('wardrobe.selected')}</span>
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={handleBulkLaundry} className="rounded-xl">

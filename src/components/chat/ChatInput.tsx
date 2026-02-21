@@ -42,7 +42,7 @@ export function ChatInput({
   return (
     <div className="px-4 pb-3 pt-2 shrink-0 animate-fade-in">
       <div className="max-w-lg mx-auto">
-        <div className="relative rounded-2xl border border-border/80 bg-background shadow-sm">
+        <div className="relative rounded-2xl border border-border/50 bg-background/60 backdrop-blur-md shadow-sm">
           {pendingImage && (
             <div className="px-3 pt-3">
               <div className="relative inline-block">

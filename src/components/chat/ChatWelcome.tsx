@@ -14,7 +14,7 @@ export function ChatWelcome({ mode, onSuggestion }: ChatWelcomeProps) {
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center">
-      <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-5 animate-scale-in">
+      <div className="w-14 h-14 rounded-2xl bg-accent/[0.08] backdrop-blur-sm flex items-center justify-center mb-5 animate-scale-in">
         <Icon className="w-7 h-7 text-accent" />
       </div>
       <p className="text-sm leading-relaxed text-muted-foreground max-w-xs whitespace-pre-wrap animate-fade-in" style={{ animationDelay: '100ms', animationFillMode: 'both' }}>
@@ -25,7 +25,7 @@ export function ChatWelcome({ mode, onSuggestion }: ChatWelcomeProps) {
           <button
             key={s}
             onClick={() => onSuggestion(s)}
-            className="px-3.5 py-2 text-xs rounded-xl border border-border bg-background hover:bg-muted/60 text-foreground transition-colors animate-fade-in"
+            className="px-3.5 py-2 text-xs rounded-xl border border-border/40 bg-background/50 backdrop-blur-sm hover:bg-muted/60 text-foreground transition-colors animate-fade-in"
             style={{ animationDelay: `${200 + i * 80}ms`, animationFillMode: 'both' }}
           >
             {s}
