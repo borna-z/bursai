@@ -68,10 +68,10 @@ Added reusable `PullToRefresh` component with touch gesture detection, damped pu
 
 **Files:** `src/components/layout/PullToRefresh.tsx`, `src/pages/Home.tsx`, `src/pages/Wardrobe.tsx`
 
-### 4.2 Haptic feedback for key interactions
-Use the `navigator.vibrate` API (where supported) for save confirmations, outfit generation completion, and delete actions.
+### ✅ 4.2 Haptic feedback for key interactions
+Created `src/lib/haptics.ts` utility with light/medium/heavy/success patterns using `navigator.vibrate`. Integrated into garment create/update/delete and outfit create/delete/mark-worn hooks.
 
-**Files:** Create `src/lib/haptics.ts` utility, integrate into key flows
+**Files:** `src/lib/haptics.ts`, `src/hooks/useGarments.ts`, `src/hooks/useOutfits.ts`
 
 ### ✅ 4.3 Offline indicator banner
 Added `OfflineBanner` component using `navigator.onLine` + window events. Shows a red banner with spring animation when connectivity is lost, auto-hides when back online. Integrated into `AppLayout`.

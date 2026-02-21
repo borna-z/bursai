@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { hapticSuccess, hapticHeavy } from '@/lib/haptics';
 import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
 export type Outfit = Tables<'outfits'>;
@@ -117,6 +118,7 @@ export function useCreateOutfit() {
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     onSuccess: () => {
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['outfits'] });
     },
   });
@@ -161,6 +163,7 @@ export function useDeleteOutfit() {
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     onSuccess: () => {
+      hapticHeavy();
       queryClient.invalidateQueries({ queryKey: ['outfits'] });
     },
   });
@@ -250,6 +253,7 @@ export function useMarkOutfitWorn() {
       return { outfitId, wornAt: today, wearLogIds, garmentUpdates };
     },
     onSuccess: () => {
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['outfits'] });
       queryClient.invalidateQueries({ queryKey: ['garments'] });
       queryClient.invalidateQueries({ queryKey: ['insights'] });
