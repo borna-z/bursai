@@ -20,7 +20,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageStep } from '@/components/onboarding/LanguageStep';
 import { AccentColorStep } from '@/components/onboarding/AccentColorStep';
 import { BodyMeasurementsStep } from '@/components/onboarding/BodyMeasurementsStep';
-import { StylePreferencesStep, type StylePreferences } from '@/components/onboarding/StylePreferencesStep';
+import { StyleQuizStep, type StyleProfile } from '@/components/onboarding/StyleQuizStep';
 import { AppTutorialStep } from '@/components/onboarding/AppTutorialStep';
 import { toast } from 'sonner';
 
@@ -171,19 +171,22 @@ export default function OnboardingPage() {
   // Step 1.5: Style preferences
   if (!styleStepDone) {
     return (
-      <StylePreferencesStep
-        onComplete={async (prefs: StylePreferences) => {
+      <StyleQuizStep
+        onComplete={async (sp: StyleProfile) => {
           setIsSavingStyle(true);
           try {
             const currentPrefs = (profile?.preferences as Record<string, unknown>) || {};
             await updateProfile.mutateAsync({
               preferences: {
                 ...currentPrefs,
-                favoriteColors: prefs.favoriteColors,
-                dislikedColors: prefs.dislikedColors,
-                fitPreference: prefs.fitPreference,
-                styleVibe: prefs.styleVibe,
-                genderNeutral: prefs.genderNeutral,
+                // Backward compat
+                favoriteColors: sp.favoriteColors,
+                dislikedColors: sp.dislikedColors,
+                fitPreference: sp.fit,
+                styleVibe: sp.styleWords[0] || 'smart-casual',
+                genderNeutral: sp.genderNeutral,
+                // Full profile
+                styleProfile: { ...sp },
               },
             });
             setStyleStepDone(true);
@@ -193,6 +196,7 @@ export default function OnboardingPage() {
             setIsSavingStyle(false);
           }
         }}
+        onSkip={() => setStyleStepDone(true)}
         isSaving={isSavingStyle}
       />
     );
