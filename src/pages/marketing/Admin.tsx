@@ -7,6 +7,7 @@
  import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
  import { supabase } from '@/integrations/supabase/client';
  import { useAuth } from '@/contexts/AuthContext';
+ import { useLanguage } from '@/contexts/LanguageContext';
  
  interface Lead {
    id: string;
@@ -25,6 +26,7 @@
  export default function Admin() {
    const navigate = useNavigate();
    const { user } = useAuth();
+   const { t } = useLanguage();
    const [isAuthorized, setIsAuthorized] = useState(false);
    const [leads, setLeads] = useState<Lead[]>([]);
    const [eventCounts, setEventCounts] = useState<EventCount[]>([]);
@@ -40,25 +42,24 @@
        navigate('/auth');
        return;
      }
- 
-     // Check if user is admin
+
      const { data } = await supabase
        .from('user_roles')
        .select('role')
        .eq('user_id', user.id)
        .eq('role', 'admin')
        .single();
- 
+
      if (!data) {
        navigate('/');
        return;
      }
- 
+
      setIsAuthorized(true);
      await Promise.all([fetchLeads(), fetchEventCounts()]);
      setIsLoading(false);
    };
- 
+
    const fetchLeads = async () => {
      const { data } = await (supabase
        .from('marketing_leads') as any)
@@ -67,9 +68,8 @@
      
      if (data) setLeads(data);
    };
- 
+
    const fetchEventCounts = async () => {
-     // Get event counts by grouping
      const { data } = await (supabase
        .from('marketing_events') as any)
        .select('event_name');
@@ -88,11 +88,11 @@
        );
      }
    };
- 
+
    const filteredLeads = leads.filter(lead =>
      lead.email.toLowerCase().includes(searchQuery.toLowerCase())
    );
- 
+
    const exportCSV = () => {
      const headers = ['Email', 'Source', 'UTM Source', 'UTM Campaign', 'Created At'];
      const rows = filteredLeads.map(lead => [
@@ -114,7 +114,7 @@
      a.download = `leads-${new Date().toISOString().split('T')[0]}.csv`;
      a.click();
    };
- 
+
    if (!isAuthorized || isLoading) {
      return (
        <div className="min-h-screen flex items-center justify-center bg-background">
@@ -122,15 +122,15 @@
        </div>
      );
    }
- 
+
    const totalPageViews = eventCounts.find(e => e.event_name === 'page_view')?.count || 0;
    const totalLeads = leads.length;
    const totalClicks = eventCounts.find(e => e.event_name === 'cta_open_app_click')?.count || 0;
- 
+
    return (
      <>
        <Helmet>
-         <title>Admin | BURS</title>
+         <title>Admin | DRAPE</title>
          <meta name="robots" content="noindex, nofollow" />
        </Helmet>
        
@@ -138,13 +138,12 @@
          <div className="max-w-6xl mx-auto">
            <h1 className="text-2xl font-bold mb-8">Marketing Admin</h1>
            
-           {/* Stats cards */}
            <div className="grid sm:grid-cols-3 gap-4 mb-8">
              <Card>
                <CardHeader className="pb-2">
                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                    <Eye className="w-4 h-4" />
-                   Sidvisningar
+                   {t('admin.page_views')}
                  </CardTitle>
                </CardHeader>
                <CardContent>
@@ -156,7 +155,7 @@
                <CardHeader className="pb-2">
                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                    <Users className="w-4 h-4" />
-                   Leads
+                   {t('admin.leads')}
                  </CardTitle>
                </CardHeader>
                <CardContent>
@@ -168,7 +167,7 @@
                <CardHeader className="pb-2">
                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                    <BarChart3 className="w-4 h-4" />
-                   App-klick
+                   {t('admin.app_clicks')}
                  </CardTitle>
                </CardHeader>
                <CardContent>
@@ -177,10 +176,9 @@
              </Card>
            </div>
            
-           {/* Event breakdown */}
            <Card className="mb-8">
              <CardHeader>
-               <CardTitle className="text-base">Händelser</CardTitle>
+               <CardTitle className="text-base">{t('admin.events')}</CardTitle>
              </CardHeader>
              <CardContent>
                <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -194,16 +192,15 @@
              </CardContent>
            </Card>
            
-           {/* Leads table */}
            <Card>
              <CardHeader>
                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                 <CardTitle className="text-base">Leads ({filteredLeads.length})</CardTitle>
+                 <CardTitle className="text-base">{t('admin.leads')} ({filteredLeads.length})</CardTitle>
                  <div className="flex gap-2">
                    <div className="relative flex-1 sm:w-64">
                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                      <Input
-                       placeholder="Sök email..."
+                       placeholder={t('admin.search_email')}
                        value={searchQuery}
                        onChange={(e) => setSearchQuery(e.target.value)}
                        className="pl-9"
@@ -221,10 +218,10 @@
                  <table className="w-full text-sm">
                    <thead>
                      <tr className="border-b">
-                       <th className="text-left py-3 px-2 font-medium">Email</th>
-                       <th className="text-left py-3 px-2 font-medium">Källa</th>
-                       <th className="text-left py-3 px-2 font-medium">UTM</th>
-                       <th className="text-left py-3 px-2 font-medium">Datum</th>
+                       <th className="text-left py-3 px-2 font-medium">{t('admin.email')}</th>
+                       <th className="text-left py-3 px-2 font-medium">{t('admin.source')}</th>
+                       <th className="text-left py-3 px-2 font-medium">{t('admin.utm')}</th>
+                       <th className="text-left py-3 px-2 font-medium">{t('admin.date')}</th>
                      </tr>
                    </thead>
                    <tbody>
@@ -236,7 +233,7 @@
                            {lead.utm_source || '-'}
                          </td>
                          <td className="py-3 px-2 text-muted-foreground">
-                           {new Date(lead.created_at).toLocaleDateString('sv-SE')}
+                           {new Date(lead.created_at).toLocaleDateString(undefined)}
                          </td>
                        </tr>
                      ))}
@@ -245,7 +242,7 @@
                  
                  {filteredLeads.length === 0 && (
                    <p className="text-center py-8 text-muted-foreground">
-                     Inga leads hittades
+                     {t('admin.no_leads')}
                    </p>
                  )}
                </div>

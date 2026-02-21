@@ -22,7 +22,6 @@ import { StylistSummary } from '@/components/outfit/StylistSummary';
 import { OutfitSlotCard, OutfitSlotCardSkeleton } from '@/components/outfit/OutfitSlotCard';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { format } from 'date-fns';
-import { sv } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface SwapSheetProps {

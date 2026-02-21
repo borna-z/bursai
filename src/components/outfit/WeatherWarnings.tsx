@@ -1,5 +1,6 @@
 import { AlertTriangle, Thermometer, ThermometerSnowflake, ThermometerSun, Droplets, Wind, Shirt, Snowflake } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 import type { Garment } from '@/hooks/useGarments';
 
 interface OutfitItem {
@@ -28,39 +29,32 @@ interface WeatherWarningsProps {
   className?: string;
 }
 
-// Season tags that indicate warm clothing
+// Season tags that indicate warm clothing (match DB values)
 const WARM_SEASONS = ['Vinter', 'Höst'];
 const COLD_SEASONS = ['Sommar'];
 
-// Categories that provide warmth
 const WARM_CATEGORIES = ['outerwear'];
 const LIGHT_CATEGORIES = ['t-shirt', 'shorts', 'linne'];
 
-// Check if outfit has outerwear
 function hasOuterwear(items: OutfitItem[]): boolean {
   return items.some(item => item.slot === 'outerwear' && item.garment);
 }
 
-// Check if outfit has winter-appropriate clothing
 function hasWarmClothing(items: OutfitItem[]): boolean {
   return items.some(item => {
     const garment = item.garment;
     if (!garment) return false;
-    
     const seasons = garment.season_tags || [];
     const hasWarmSeason = seasons.some(s => WARM_SEASONS.includes(s));
     const isWarmCategory = WARM_CATEGORIES.includes(garment.category);
-    
     return hasWarmSeason || isWarmCategory;
   });
 }
 
-// Check if outfit has light summer clothing
 function hasLightClothing(items: OutfitItem[]): boolean {
   return items.some(item => {
     const garment = item.garment;
     if (!garment) return false;
-    
     const seasons = garment.season_tags || [];
     return seasons.some(s => COLD_SEASONS.includes(s));
   });
@@ -70,117 +64,66 @@ function hasLightClothing(items: OutfitItem[]): boolean {
 export function analyzeOutfitWeather(
   items: OutfitItem[],
   currentWeather?: WeatherInfo | null,
-  outfitWeather?: WeatherInfo | null
+  outfitWeather?: WeatherInfo | null,
+  t?: (key: string) => string
 ): WeatherWarning[] {
   const warnings: WeatherWarning[] = [];
+  const tr = t || ((k: string) => k);
   
   const currentTemp = currentWeather?.temp ?? currentWeather?.temperature;
   const outfitTemp = outfitWeather?.temp ?? outfitWeather?.temperature;
   
-  // No current weather = no warnings
   if (currentTemp === undefined) return warnings;
   
-  // Check temperature difference from original outfit weather
   if (outfitTemp !== undefined) {
     const tempDiff = currentTemp - outfitTemp;
-    
     if (tempDiff > 10) {
-      warnings.push({
-        type: 'warning',
-        icon: ThermometerSun,
-        message: `Det är ${Math.abs(tempDiff)}° varmare än när outfiten skapades`,
-      });
+      warnings.push({ type: 'warning', icon: ThermometerSun, message: tr('weather.warning.warmer').replace('{diff}', String(Math.abs(tempDiff))) });
     } else if (tempDiff < -10) {
-      warnings.push({
-        type: 'warning',
-        icon: ThermometerSnowflake,
-        message: `Det är ${Math.abs(tempDiff)}° kallare än när outfiten skapades`,
-      });
+      warnings.push({ type: 'warning', icon: ThermometerSnowflake, message: tr('weather.warning.colder').replace('{diff}', String(Math.abs(tempDiff))) });
     }
   }
   
-  // Cold weather warnings (< 5°C)
   if (currentTemp <= 5) {
     if (!hasOuterwear(items)) {
-      warnings.push({
-        type: 'warning',
-        icon: Snowflake,
-        message: 'Kyla! Överväg att lägga till ytterkläder',
-      });
+      warnings.push({ type: 'warning', icon: Snowflake, message: tr('weather.warning.cold_no_outer') });
     }
     if (!hasWarmClothing(items)) {
-      warnings.push({
-        type: 'suggestion',
-        icon: ThermometerSnowflake,
-        message: 'Outfiten saknar vinterplagg – klä dig varmt',
-      });
+      warnings.push({ type: 'suggestion', icon: ThermometerSnowflake, message: tr('weather.warning.no_winter') });
     }
   }
   
-  // Chilly weather (5-12°C)
   if (currentTemp > 5 && currentTemp <= 12) {
     if (!hasOuterwear(items) && !hasWarmClothing(items)) {
-      warnings.push({
-        type: 'suggestion',
-        icon: Thermometer,
-        message: 'Kan vara kyligt – ta med en jacka',
-      });
+      warnings.push({ type: 'suggestion', icon: Thermometer, message: tr('weather.warning.chilly') });
     }
   }
   
-  // Hot weather warnings (> 25°C)
   if (currentTemp >= 25) {
     if (hasOuterwear(items)) {
-      warnings.push({
-        type: 'warning',
-        icon: ThermometerSun,
-        message: 'Varmt väder! Ytterkläder kan bli för varmt',
-      });
+      warnings.push({ type: 'warning', icon: ThermometerSun, message: tr('weather.warning.hot_outer') });
     }
     if (hasWarmClothing(items) && !hasLightClothing(items)) {
-      warnings.push({
-        type: 'suggestion',
-        icon: ThermometerSun,
-        message: 'Överväg lättare plagg för värmen',
-      });
+      warnings.push({ type: 'suggestion', icon: ThermometerSun, message: tr('weather.warning.hot_warm') });
     }
   }
   
-  // Rain warnings
   if (currentWeather?.precipitation === 'rain') {
     if (!hasOuterwear(items)) {
-      warnings.push({
-        type: 'warning',
-        icon: Droplets,
-        message: 'Regn! Ta med regnkläder eller paraply',
-      });
+      warnings.push({ type: 'warning', icon: Droplets, message: tr('weather.warning.rain_no_outer') });
     } else {
-      warnings.push({
-        type: 'suggestion',
-        icon: Droplets,
-        message: 'Regn väntas – se till att jackan är vattenavvisande',
-      });
+      warnings.push({ type: 'suggestion', icon: Droplets, message: tr('weather.warning.rain_check') });
     }
   }
   
-  // Snow warnings
   if (currentWeather?.precipitation === 'snow') {
     if (!hasWarmClothing(items)) {
-      warnings.push({
-        type: 'warning',
-        icon: Snowflake,
-        message: 'Snö! Klä dig varmt och vattentätt',
-      });
+      warnings.push({ type: 'warning', icon: Snowflake, message: tr('weather.warning.snow') });
     }
   }
   
-  // Wind warnings
   if (currentWeather?.wind === 'high') {
-    warnings.push({
-      type: 'suggestion',
-      icon: Wind,
-      message: 'Blåsigt – välj vindtäta kläder',
-    });
+    warnings.push({ type: 'suggestion', icon: Wind, message: tr('weather.warning.wind') });
   }
   
   return warnings;
@@ -192,7 +135,8 @@ export function WeatherWarnings({
   outfitWeather,
   className 
 }: WeatherWarningsProps) {
-  const warnings = analyzeOutfitWeather(outfitItems, currentWeather, outfitWeather);
+  const { t } = useLanguage();
+  const warnings = analyzeOutfitWeather(outfitItems, currentWeather, outfitWeather, t);
   
   if (warnings.length === 0) return null;
   
@@ -227,16 +171,21 @@ export function WeatherWarningBadge({
   currentWeather, 
   outfitWeather,
 }: WeatherWarningsProps) {
-  const warnings = analyzeOutfitWeather(outfitItems, currentWeather, outfitWeather);
+  const { t } = useLanguage();
+  const warnings = analyzeOutfitWeather(outfitItems, currentWeather, outfitWeather, t);
   
   const criticalWarnings = warnings.filter(w => w.type === 'warning');
   
   if (criticalWarnings.length === 0) return null;
   
+  const label = criticalWarnings.length > 1
+    ? t('weather.warning.count_plural').replace('{count}', String(criticalWarnings.length))
+    : t('weather.warning.count').replace('{count}', String(criticalWarnings.length));
+  
   return (
     <div className="flex items-center gap-1 text-amber-600 dark:text-amber-500">
       <AlertTriangle className="w-3.5 h-3.5" />
-      <span className="text-xs">{criticalWarnings.length} varning{criticalWarnings.length > 1 ? 'ar' : ''}</span>
+      <span className="text-xs">{label}</span>
     </div>
   );
 }
