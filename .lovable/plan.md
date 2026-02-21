@@ -1,83 +1,43 @@
 
 
-## Ultimate Immersive Landing Page -- Full Animation Overhaul
+## Fix "How It Works" Step Number Alignment
 
-### Vision
-Transform the landing page into a full-screen, section-by-section scrollytelling experience. Each section occupies the full viewport and animates in from different directions (bottom-up, left, right, scale, fade) as you scroll. Minimalistic content, maximum cinematic impact.
+### Problem
+The large step numbers (01, 02, 03) are misaligned with their corresponding text content. As visible in the screenshot:
+- "01" floats near the section title instead of next to step 1 content
+- Numbers and text blocks don't share a consistent baseline or vertical center
+- The `pt-2` offset on the text div creates uneven spacing
 
-### New Animation System
+### Solution
 
-**1. `src/index.css` -- Add directional reveal classes and full-page section styles**
+**File: `src/pages/Landing.tsx` (lines 201-216)**
 
-New CSS classes:
-- `.section-full` -- each section is `min-h-screen` with `position: sticky` layering behavior
-- `.reveal-up` -- slides in from bottom (translateY(80px) to 0)
-- `.reveal-down` -- slides in from top (translateY(-80px) to 0)
-- `.reveal-left` -- slides in from right (translateX(80px) to 0)
-- `.reveal-right` -- slides in from left (translateX(-80px) to 0)
-- `.reveal-scale` -- scales from 0.85 to 1 with fade
-- `.reveal-rotate` -- subtle 3D rotation entry (rotateX(8deg) to 0)
-- All `.reveal-*` classes start invisible and transition on `.visible` class
-- Stagger utility: `.stagger > *:nth-child(n)` with incremental delays
-- Horizontal rule animation: `.line-grow` -- a divider that grows from center outward
-- Text reveal: `.text-reveal` -- characters/words fade in sequentially
-- Parallax layers: `.parallax-slow`, `.parallax-fast` -- different scroll speeds via CSS transforms
+Restructure each step row so the number and text are properly vertically centered:
 
-**2. `src/pages/Landing.tsx` -- Complete section-by-section redesign**
+1. Change `items-start` to `items-center` on the flex container so numbers and text vertically center-align
+2. Remove the `pt-2` hack from the text div since centering handles it
+3. Give the number span a fixed width (`w-20 md:w-28`) so all three numbers create a consistent left column
+4. Move the "01" number away from the section heading -- it currently appears above step 1's content area because the heading/divider section is separate. The fix ensures each number sits cleanly in its own row
 
-Structure becomes a sequence of full-viewport "slides":
+The corrected layout per step:
 
-- **Hero (slide 1)**: Full screen. Title animates word-by-word. Subtitle fades up. CTAs scale in. Particles + aurora remain. Scroll-down chevron pulses at bottom.
+```text
+  |  01  |  [icon] Snap your clothes           |
+  |      |  Description text here...            |
+  |------|--------------------------------------|
+  |  02  |  [icon] AI works its magic           |
+  |      |  Description text here...            |
+  |------|--------------------------------------|
+  |  03  |  [icon] Wear & Care                  |
+  |      |  Description text here...            |
+```
 
-- **Trial Banner (slide 2)**: Slides in from bottom (`reveal-up`). Glass panel scales in (`reveal-scale`). Text staggers in.
+### Technical Changes
 
-- **How It Works (slide 3)**: Full screen. The three steps animate in from alternating sides -- step 1 from left, step 2 from right, step 3 from left (`reveal-left` / `reveal-right` alternating). Large step numbers parallax at a slower rate than the text.
+- `items-start` becomes `items-center` on step flex containers
+- Remove `pt-2` from the text `div`
+- Add consistent `w-20 md:w-28` to the number `span` for uniform column width
+- Adjust number font styling: keep `text-6xl md:text-7xl` but ensure `leading-none` and proper shrink behavior
 
-- **Sustainability (slide 4)**: Full screen. The quote reveals with a `reveal-scale` zoom-in effect. Stats grid items fly in from bottom with stagger (`reveal-up` + stagger). The leaf icon rotates in.
-
-- **Mission / Trust (slide 5)**: Full screen. Cards reveal from bottom-up with stagger. Each card has a subtle hover 3D tilt effect (CSS perspective transform on hover).
-
-- **Pricing (slide 6)**: Full screen. Free card slides in from left, Premium card from right simultaneously. Badge pops in with delay.
-
-- **Final CTA (slide 7)**: Full screen. Logo scales in, text reveals up, button pulses gently. Aurora glow intensifies.
-
-- **Download (slide 8)**: Cards slide in from bottom with stagger.
-
-- **Footer**: Fades in last.
-
-**3. Enhanced IntersectionObserver**
-
-Replace the single simple observer with a more sophisticated one that:
-- Detects scroll direction (up vs down) and applies appropriate animation class
-- Supports re-triggering animations when scrolling back up (elements that leave viewport reset)
-- Uses a lower threshold (0.1) for earlier trigger
-- Handles all `.reveal-*` variants
-
-**4. CSS-only parallax layers**
-
-Add 2-3 decorative floating geometric shapes (thin lines, circles, dots) that move at different speeds using `transform: translateY(calc(var(--scroll) * -0.3))` updated via a lightweight scroll listener that sets a CSS custom property.
-
-**5. Smooth section transitions**
-
-Add subtle gradient overlays between sections (dark to transparent) so they feel like they "layer" on top of each other as you scroll down. Each section gets a `z-index` that increments, creating depth.
-
-### Technical Details
-
-**Files modified:**
-- `src/index.css` -- ~60 new lines of reveal/parallax/stagger CSS
-- `src/pages/Landing.tsx` -- Full rewrite with new animation classes, enhanced observer, parallax scroll listener, full-screen sections
-
-**Performance:**
-- All animations use `transform` and `opacity` only (GPU-accelerated, no layout thrashing)
-- Single `requestAnimationFrame` scroll listener for parallax CSS variable
-- IntersectionObserver for reveal triggers (no scroll event spam)
-- No external libraries needed
-
-**What stays the same:**
-- All content and copy
-- All `navigate('/auth')` calls
-- Logo image usage
-- Particle star-field in hero
-- Mobile menu
-- SEO meta tags
+This is a small, targeted fix -- only lines 206-214 in `Landing.tsx` change.
 
