@@ -16,6 +16,7 @@ export default {
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
         heading: ["Sora", "Inter", "sans-serif"],
+        space: ["'Space Grotesk'", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
