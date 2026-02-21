@@ -140,9 +140,9 @@ function InsightsSection({ isPremium, t }: { isPremium: boolean; t: (k: string) 
           <CardHeader className="pb-2 pt-3 px-4">
             <CardTitle className="text-sm flex items-center gap-2">🏆 {t('insights.top_garments')}</CardTitle>
           </CardHeader>
-          <CardContent className="px-4 pb-3 space-y-1.5">
+          <CardContent className="px-4 pb-3 divide-y divide-border/50">
             {insights.topFiveWorn.slice(0, 3).map((garment, index) => (
-              <div key={garment.id} className="flex items-center gap-2" onClick={() => navigate(`/wardrobe/${garment.id}`)}>
+              <div key={garment.id} className="flex items-center gap-2 py-2" onClick={() => navigate(`/wardrobe/${garment.id}`)}>
                 <span className="w-4 text-center text-xs font-bold text-muted-foreground">{index + 1}</span>
                 <LazyImageSimple imagePath={garment.image_path} alt={garment.title} className="w-9 h-9 rounded-lg flex-shrink-0" fallbackIcon={<Shirt className="w-4 h-4 text-muted-foreground/50" />} />
                 <div className="flex-1 min-w-0">
@@ -164,9 +164,9 @@ function InsightsSection({ isPremium, t }: { isPremium: boolean; t: (k: string) 
               <CardTitle className="text-sm">{t('insights.unused')}</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className={cn("px-4 pb-3 space-y-1.5", !isPremium && "blur-sm select-none")}>
+          <CardContent className={cn("px-4 pb-3 divide-y divide-border/50", !isPremium && "blur-sm select-none")}>
             {insights.unusedGarments.slice(0, 3).map((garment) => (
-              <div key={garment.id} className="flex items-center gap-2" onClick={() => navigate(`/wardrobe/${garment.id}`)}>
+              <div key={garment.id} className="flex items-center gap-2 py-2" onClick={() => navigate(`/wardrobe/${garment.id}`)}>
                 <LazyImageSimple imagePath={garment.image_path} alt={garment.title} className="w-9 h-9 rounded-lg flex-shrink-0" fallbackIcon={<Shirt className="w-4 h-4 text-muted-foreground/50" />} />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium truncate">{garment.title}</p>

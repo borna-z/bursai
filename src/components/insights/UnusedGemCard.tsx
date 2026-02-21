@@ -22,7 +22,7 @@ export function UnusedGemCard({ garment, daysUnused, onCreateOutfit }: UnusedGem
   const { t } = useLanguage();
 
   return (
-    <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl group hover:bg-muted transition-colors">
+    <div className="flex items-center gap-3 py-3 group hover:opacity-70 transition-opacity">
       <div 
         className="cursor-pointer"
         onClick={() => navigate(`/wardrobe/${garment.id}`)}

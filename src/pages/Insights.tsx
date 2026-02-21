@@ -19,7 +19,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 function GarmentMini({ garment, wearCount }: { garment: Garment; wearCount?: number }) {
   const navigate = useNavigate();
   return (
-    <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl cursor-pointer hover:bg-muted transition-colors active:scale-[0.99]" onClick={() => navigate(`/wardrobe/${garment.id}`)}>
+    <div className="flex items-center gap-3 py-3 cursor-pointer hover:opacity-70 transition-opacity active:scale-[0.99]" onClick={() => navigate(`/wardrobe/${garment.id}`)}>
       <LazyImageSimple imagePath={garment.image_path} alt={garment.title} className="w-12 h-12 rounded-lg flex-shrink-0 shadow-sm" fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/50" />} />
       <div className="flex-1 min-w-0">
         <p className="font-medium text-sm truncate">{garment.title}</p>
@@ -99,7 +99,7 @@ function UnusedGems({ garments, isPremium, t }: UnusedGemsProps) {
         <div className="flex items-center gap-2"><Gem className="w-5 h-5 text-amber-500" /><CardTitle className="text-base">{t('insights.unused_gems')}</CardTitle></div>
         <CardDescription>{unusedGems.length} {t('insights.unused_60d')}</CardDescription>
       </CardHeader>
-      <CardContent className={cn("space-y-2", !isPremium && "blur-sm select-none")}>
+      <CardContent className={cn("divide-y divide-border/50", !isPremium && "blur-sm select-none")}>
         {unusedGems.slice(0, 4).map((garment) => (
           <UnusedGemCard key={garment.id} garment={garment} daysUnused={garment.daysUnused} onCreateOutfit={() => handleCreateOutfit(garment.id)} />
         ))}
@@ -199,7 +199,7 @@ export default function InsightsPage() {
               <CardTitle className="text-base flex items-center gap-2">🏆 {t('insights.top_garments')}</CardTitle>
               <CardDescription>{t('insights.most_used')}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="divide-y divide-border/50">
               {insights.topFiveWorn.map((garment, index) => (
                 <div key={garment.id} className="flex items-center gap-2 animate-fade-in" style={{ animationDelay: `${index * 50}ms` }}>
                   <span className="w-5 text-center font-bold text-muted-foreground">{index + 1}</span>
@@ -216,7 +216,7 @@ export default function InsightsPage() {
               <div className="flex items-center gap-2"><AlertCircle className="w-5 h-5 text-amber-500" /><CardTitle className="text-base">{t('insights.unused')}</CardTitle></div>
               <CardDescription>{insights.unusedGarments.length} {t('insights.garments_suffix')} (30d)</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="divide-y divide-border/50">
               {insights.unusedGarments.slice(0, isPremium ? 5 : 3).map((garment) => (
                 <GarmentMini key={garment.id} garment={garment} />
               ))}
