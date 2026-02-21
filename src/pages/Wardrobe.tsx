@@ -21,6 +21,7 @@ import { SettingsGroup } from '@/components/settings/SettingsGroup';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { WardrobeOutfitsTab } from '@/components/wardrobe/WardrobeOutfitsTab';
 
 const colorFilters = ['svart', 'vit', 'grå', 'marinblå', 'blå', 'röd', 'grön', 'beige', 'brun'];
 const seasonFilters = ['vår', 'sommar', 'höst', 'vinter'];
@@ -98,6 +99,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
 export default function WardrobePage() {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const [activeTab, setActiveTab] = useState<'garments' | 'outfits'>('garments');
   const [filters, setFilters] = useState<GarmentFilters>({});
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -223,234 +225,261 @@ export default function WardrobePage() {
       />
       
       <div className="px-4 pb-36 pt-4 space-y-5 max-w-lg mx-auto">
-        {/* Search */}
-        <SettingsGroup>
-          <Collapsible open={searchOpen} onOpenChange={setSearchOpen}>
-            <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-3">
-              <div className="flex items-center gap-2">
-                <Search className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{search || t('wardrobe.search')}</span>
-              </div>
-              {searchOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="px-4 pb-3">
-                <Input
-                  placeholder={t('wardrobe.search')}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="bg-muted/50 border-0"
-                  autoFocus
-                />
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        </SettingsGroup>
-
-        {/* Category grid */}
-        <SettingsGroup title={t('wardrobe.category')}>
-          <div className="grid grid-cols-4">
-            {categories.map((cat, index) => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={cn(
-                  'py-3 text-sm font-medium transition-colors relative',
-                  selectedCategory === cat.id
-                    ? 'text-accent bg-accent/5'
-                    : 'text-foreground hover:bg-muted/50',
-                  // borders
-                  index % 4 !== 3 && 'border-r border-border/50',
-                  index < 4 && 'border-b border-border/50',
-                )}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
-        </SettingsGroup>
-
-        {/* Filters */}
-        <SettingsGroup>
-          <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
-            <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-3">
-              <span className="text-sm font-medium">{t('wardrobe.filter')}</span>
-              <div className="flex items-center gap-2">
-                {hasActiveFilters && (
-                  <span className="w-2 h-2 rounded-full bg-accent" />
-                )}
-                {filtersOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-              </div>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="px-4 pb-4 space-y-4">
-                {/* Sort */}
-                <div className="space-y-1.5">
-                  <span className="text-xs text-muted-foreground uppercase tracking-wide">{t('wardrobe.sort')}</span>
-                  <Select value={filters.sortBy || 'created_at'} onValueChange={(v) => handleFilterChange('sortBy', v as GarmentFilters['sortBy'])}>
-                    <SelectTrigger className="bg-muted/50 border-0"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {sortOptions.map((o) => <SelectItem key={o.id} value={o.id}>{o.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Color */}
-                <div className="space-y-1.5">
-                  <span className="text-xs text-muted-foreground uppercase tracking-wide">{t('wardrobe.color')}</span>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {colorFilters.map((color) => (
-                      <button
-                        key={color}
-                        onClick={() => setSelectedColor(selectedColor === color ? null : color)}
-                        className={cn(
-                          'py-2 text-xs rounded-lg capitalize transition-colors',
-                          selectedColor === color
-                            ? 'bg-accent/10 text-accent font-medium'
-                            : 'bg-muted/50 text-foreground hover:bg-muted'
-                        )}
-                      >
-                        {color}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Season */}
-                <div className="space-y-1.5">
-                  <span className="text-xs text-muted-foreground uppercase tracking-wide">{t('wardrobe.season')}</span>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {seasonFilters.map((season) => (
-                      <button
-                        key={season}
-                        onClick={() => setSelectedSeason(selectedSeason === season ? null : season)}
-                        className={cn(
-                          'py-2 text-xs rounded-lg capitalize transition-colors',
-                          selectedSeason === season
-                            ? 'bg-accent/10 text-accent font-medium'
-                            : 'bg-muted/50 text-foreground hover:bg-muted'
-                        )}
-                      >
-                        {season}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {hasActiveFilters && (
-                  <button onClick={clearFilters} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                    <X className="w-3.5 h-3.5" />
-                    {t('wardrobe.clear')}
-                  </button>
-                )}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        </SettingsGroup>
-
-        {/* Count */}
-        <p className="text-xs text-muted-foreground px-1">
-          {hasNextPage && totalCount
-            ? `${displayGarments.length} av ${totalCount} ${t('wardrobe.garments_count_label')}`
-            : `${displayGarments.length} ${t('wardrobe.garments_count_label')}`}
-        </p>
-
-        {/* Bulk select bar */}
-        {isSelecting && selectedIds.size > 0 && (
-          <div className="flex items-center justify-between p-3 bg-card rounded-xl">
-            <span className="text-sm font-medium">{selectedIds.size} {t('wardrobe.selected')}</span>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={handleBulkLaundry} className="rounded-xl">
-                <WashingMachine className="w-4 h-4 mr-1" />{t('wardrobe.laundry')}
-              </Button>
-              <Button size="sm" variant="destructive" onClick={handleBulkDelete} className="rounded-xl">
-                <Trash2 className="w-4 h-4 mr-1" />{t('wardrobe.remove')}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Garment grid */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : displayGarments.length > 0 ? (
-          <>
-            <div className={cn(isGridView ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2')}>
-              {displayGarments.map((garment, index) => (
-                <div key={garment.id} className="animate-drape-in" style={{ animationDelay: `${Math.min(index, 12) * 40}ms`, animationFillMode: 'both' }}>
-                  <GarmentCard
-                    garment={garment}
-                    isGridView={isGridView}
-                    isSelecting={isSelecting}
-                    isSelected={selectedIds.has(garment.id)}
-                    onSelect={() => toggleSelect(garment.id)}
-                  />
-                </div>
-              ))}
-            </div>
-            {/* Infinite scroll sentinel */}
-            <div ref={sentinelRef} className="h-1" />
-            {isFetchingNextPage && (
-              isGridView ? (
-                <div className="grid grid-cols-2 gap-3">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="bg-card rounded-xl overflow-hidden">
-                      <Skeleton className="aspect-square w-full" />
-                      <div className="p-2.5 space-y-1.5">
-                        <Skeleton className="h-4 w-3/4" />
-                        <Skeleton className="h-3 w-1/2" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 bg-card rounded-xl">
-                      <Skeleton className="w-14 h-14 rounded-lg shrink-0" />
-                      <div className="flex-1 space-y-1.5">
-                        <Skeleton className="h-4 w-3/4" />
-                        <Skeleton className="h-3 w-1/2" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
-          </>
-        ) : (
-          <EmptyState
-            icon={Shirt}
-            title={hasActiveFilters ? t('wardrobe.no_results') : t('wardrobe.no_garments')}
-            description={hasActiveFilters ? t('wardrobe.try_other') : t('wardrobe.add_first')}
-            action={!hasActiveFilters ? { label: t('wardrobe.add'), onClick: handleAddGarment, icon: Plus } : undefined}
-          />
-        )}
-
-        {/* FABs */}
-        <div className="fixed bottom-24 right-4 z-30 flex flex-col gap-3">
-          <Button
-            size="lg"
-            variant="outline"
-            className="h-14 w-14 rounded-xl shadow-lg bg-card border-border"
-            onClick={() => navigate('/wardrobe/scan')}
-            aria-label="Live Scan"
-          >
-            <ScanLine className="w-6 h-6" />
-          </Button>
-          <Button
-            size="lg"
-            className={cn(
-              "h-14 w-14 rounded-xl shadow-lg bg-accent text-accent-foreground hover:bg-accent/90",
-              isOverLimit && "opacity-50"
-            )}
-            onClick={handleAddGarment}
-          >
-            <Plus className="w-6 h-6" />
-          </Button>
+        {/* Segmented control */}
+        <div className="flex p-1 rounded-2xl bg-foreground/[0.04] backdrop-blur-sm border border-border/30">
+          {(['garments', 'outfits'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={cn(
+                'flex-1 py-2 text-sm font-medium rounded-xl transition-all duration-200',
+                activeTab === tab
+                  ? 'bg-background/80 backdrop-blur-md text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.08)]'
+                  : 'text-muted-foreground'
+              )}
+            >
+              {t(`wardrobe.tab_${tab}`)}
+            </button>
+          ))}
         </div>
+
+        {activeTab === 'garments' ? (
+          <div key="garments" className="space-y-5 tab-content-enter">
+            {/* Search */}
+            <SettingsGroup>
+              <Collapsible open={searchOpen} onOpenChange={setSearchOpen}>
+                <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Search className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">{search || t('wardrobe.search')}</span>
+                  </div>
+                  {searchOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-4 pb-3">
+                    <Input
+                      placeholder={t('wardrobe.search')}
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="bg-muted/50 border-0"
+                      autoFocus
+                    />
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </SettingsGroup>
+
+            {/* Category grid */}
+            <SettingsGroup title={t('wardrobe.category')}>
+              <div className="grid grid-cols-4">
+                {categories.map((cat, index) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={cn(
+                      'py-3 text-sm font-medium transition-colors relative',
+                      selectedCategory === cat.id
+                        ? 'text-accent bg-accent/5'
+                        : 'text-foreground hover:bg-muted/50',
+                      index % 4 !== 3 && 'border-r border-border/50',
+                      index < 4 && 'border-b border-border/50',
+                    )}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </SettingsGroup>
+
+            {/* Filters */}
+            <SettingsGroup>
+              <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+                <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-3">
+                  <span className="text-sm font-medium">{t('wardrobe.filter')}</span>
+                  <div className="flex items-center gap-2">
+                    {hasActiveFilters && (
+                      <span className="w-2 h-2 rounded-full bg-accent" />
+                    )}
+                    {filtersOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-4 pb-4 space-y-4">
+                    {/* Sort */}
+                    <div className="space-y-1.5">
+                      <span className="text-xs text-muted-foreground uppercase tracking-wide">{t('wardrobe.sort')}</span>
+                      <Select value={filters.sortBy || 'created_at'} onValueChange={(v) => handleFilterChange('sortBy', v as GarmentFilters['sortBy'])}>
+                        <SelectTrigger className="bg-muted/50 border-0"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {sortOptions.map((o) => <SelectItem key={o.id} value={o.id}>{o.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Color */}
+                    <div className="space-y-1.5">
+                      <span className="text-xs text-muted-foreground uppercase tracking-wide">{t('wardrobe.color')}</span>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {colorFilters.map((color) => (
+                          <button
+                            key={color}
+                            onClick={() => setSelectedColor(selectedColor === color ? null : color)}
+                            className={cn(
+                              'py-2 text-xs rounded-lg capitalize transition-colors',
+                              selectedColor === color
+                                ? 'bg-accent/10 text-accent font-medium'
+                                : 'bg-muted/50 text-foreground hover:bg-muted'
+                            )}
+                          >
+                            {color}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Season */}
+                    <div className="space-y-1.5">
+                      <span className="text-xs text-muted-foreground uppercase tracking-wide">{t('wardrobe.season')}</span>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {seasonFilters.map((season) => (
+                          <button
+                            key={season}
+                            onClick={() => setSelectedSeason(selectedSeason === season ? null : season)}
+                            className={cn(
+                              'py-2 text-xs rounded-lg capitalize transition-colors',
+                              selectedSeason === season
+                                ? 'bg-accent/10 text-accent font-medium'
+                                : 'bg-muted/50 text-foreground hover:bg-muted'
+                            )}
+                          >
+                            {season}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {hasActiveFilters && (
+                      <button onClick={clearFilters} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                        <X className="w-3.5 h-3.5" />
+                        {t('wardrobe.clear')}
+                      </button>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </SettingsGroup>
+
+            {/* Count */}
+            <p className="text-xs text-muted-foreground px-1">
+              {hasNextPage && totalCount
+                ? `${displayGarments.length} av ${totalCount} ${t('wardrobe.garments_count_label')}`
+                : `${displayGarments.length} ${t('wardrobe.garments_count_label')}`}
+            </p>
+
+            {/* Bulk select bar */}
+            {isSelecting && selectedIds.size > 0 && (
+              <div className="flex items-center justify-between p-3 bg-card rounded-xl">
+                <span className="text-sm font-medium">{selectedIds.size} {t('wardrobe.selected')}</span>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={handleBulkLaundry} className="rounded-xl">
+                    <WashingMachine className="w-4 h-4 mr-1" />{t('wardrobe.laundry')}
+                  </Button>
+                  <Button size="sm" variant="destructive" onClick={handleBulkDelete} className="rounded-xl">
+                    <Trash2 className="w-4 h-4 mr-1" />{t('wardrobe.remove')}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Garment grid */}
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : displayGarments.length > 0 ? (
+              <>
+                <div className={cn(isGridView ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2')}>
+                  {displayGarments.map((garment, index) => (
+                    <div key={garment.id} className="animate-drape-in" style={{ animationDelay: `${Math.min(index, 12) * 40}ms`, animationFillMode: 'both' }}>
+                      <GarmentCard
+                        garment={garment}
+                        isGridView={isGridView}
+                        isSelecting={isSelecting}
+                        isSelected={selectedIds.has(garment.id)}
+                        onSelect={() => toggleSelect(garment.id)}
+                      />
+                    </div>
+                  ))}
+                </div>
+                {/* Infinite scroll sentinel */}
+                <div ref={sentinelRef} className="h-1" />
+                {isFetchingNextPage && (
+                  isGridView ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      {[1, 2].map((i) => (
+                        <div key={i} className="glass-card rounded-xl overflow-hidden">
+                          <Skeleton className="aspect-square w-full" />
+                          <div className="p-2.5 space-y-1.5">
+                            <Skeleton className="h-4 w-3/4" />
+                            <Skeleton className="h-3 w-1/2" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {[1, 2].map((i) => (
+                        <div key={i} className="flex items-center gap-3 p-3 glass-card rounded-xl">
+                          <Skeleton className="w-14 h-14 rounded-lg shrink-0" />
+                          <div className="flex-1 space-y-1.5">
+                            <Skeleton className="h-4 w-3/4" />
+                            <Skeleton className="h-3 w-1/2" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                )}
+              </>
+            ) : (
+              <EmptyState
+                icon={Shirt}
+                title={hasActiveFilters ? t('wardrobe.no_results') : t('wardrobe.no_garments')}
+                description={hasActiveFilters ? t('wardrobe.try_other') : t('wardrobe.add_first')}
+                action={!hasActiveFilters ? { label: t('wardrobe.add'), onClick: handleAddGarment, icon: Plus } : undefined}
+              />
+            )}
+          </div>
+        ) : (
+          <div key="outfits" className="tab-content-enter">
+            <WardrobeOutfitsTab />
+          </div>
+        )}
+
+        {/* FABs - only show on garments tab */}
+        {activeTab === 'garments' && (
+          <div className="fixed bottom-24 right-4 z-30 flex flex-col gap-3">
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-14 w-14 rounded-xl shadow-lg bg-card border-border"
+              onClick={() => navigate('/wardrobe/scan')}
+              aria-label="Live Scan"
+            >
+              <ScanLine className="w-6 h-6" />
+            </Button>
+            <Button
+              size="lg"
+              className={cn(
+                "h-14 w-14 rounded-xl shadow-lg bg-accent text-accent-foreground hover:bg-accent/90",
+                isOverLimit && "opacity-50"
+              )}
+              onClick={handleAddGarment}
+            >
+              <Plus className="w-6 h-6" />
+            </Button>
+          </div>
+        )}
       </div>
 
       <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="garments" />
