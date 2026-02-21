@@ -1,5 +1,6 @@
 import { Sparkles, ShoppingBag } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { EASE_CURVE } from '@/lib/motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface ChatWelcomeProps {
@@ -19,7 +20,7 @@ const itemVariants = {
   show: {
     opacity: 1,
     y: 0,
-    transition: { type: 'tween' as const, ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number], duration: 0.45 },
+    transition: { type: 'tween' as const, ease: EASE_CURVE, duration: 0.45 },
   },
 };
 

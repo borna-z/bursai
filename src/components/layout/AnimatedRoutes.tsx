@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { EASE_CURVE } from '@/lib/motion';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { PageSkeleton } from '@/components/layout/PageSkeleton';
 
@@ -43,7 +44,7 @@ const Admin = lazy(() => import('@/pages/marketing/Admin'));
 
 const routeTransition = {
   type: 'tween' as const,
-  ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number],
+  ease: EASE_CURVE,
   duration: 0.25,
 };
 
@@ -57,7 +58,7 @@ const routeVariants = {
 const darkRoutes = new Set(['/welcome', '/auth']);
 const crossfadeTransition = {
   type: 'tween' as const,
-  ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number],
+  ease: EASE_CURVE,
   duration: 0.4,
 };
 const crossfadeVariants = {

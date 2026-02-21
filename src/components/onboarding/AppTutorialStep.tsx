@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import { Home, Shirt, CalendarDays, Bot, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { EASE_CURVE } from '@/lib/motion';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
@@ -41,7 +42,7 @@ const slideVariants = {
 
 const slideTransition = {
   type: 'tween' as const,
-  ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number],
+  ease: EASE_CURVE,
   duration: 0.35,
 };
 

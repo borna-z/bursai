@@ -6,6 +6,7 @@ import { lovable } from '@/integrations/lovable/index';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { EASE_CURVE } from '@/lib/motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import bursLogoWhite from '@/assets/burs-logo-white.png';
 
@@ -95,7 +96,7 @@ export default function AuthPage() {
           className="flex flex-col items-center gap-4"
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
+          transition={{ duration: 0.6, ease: EASE_CURVE }}
         >
           <img src={bursLogoWhite} alt="BURS" className="h-10 w-auto opacity-90" />
           <p className="text-white/40 text-sm tracking-wide">
@@ -108,7 +109,7 @@ export default function AuthPage() {
           className="rounded-2xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] overflow-hidden"
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
+          transition={{ duration: 0.5, delay: 0.15, ease: EASE_CURVE }}
         >
           {/* OAuth */}
           <motion.div

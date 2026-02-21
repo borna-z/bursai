@@ -1,5 +1,6 @@
 import { Globe, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { EASE_CURVE } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -7,7 +8,7 @@ import { SUPPORTED_LOCALES, type Locale } from '@/i18n/translations';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
-  show: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.06, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] as const } }),
+  show: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.06, duration: 0.4, ease: EASE_CURVE } }),
 };
 
 interface LanguageStepProps {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Ruler, Weight, Lock, ChevronRight, Loader2, Brain, User, Calendar } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { EASE_CURVE } from '@/lib/motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,7 +10,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
-  show: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.06, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] as const } }),
+  show: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.06, duration: 0.4, ease: EASE_CURVE } }),
 };
 
 interface BodyMeasurementsStepProps {

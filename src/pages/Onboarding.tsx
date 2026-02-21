@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { EASE_CURVE } from '@/lib/motion';
 import { 
   Shirt, 
   Sparkles, 
@@ -159,7 +160,7 @@ export default function OnboardingPage() {
           initial={{ opacity: 0, x: 40 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -40 }}
-          transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] as const }}
+          transition={{ duration: 0.3, ease: EASE_CURVE }}
         >
           {stepKey === 'lang' && <LanguageStep onComplete={() => setLanguageStepDone(true)} />}
           {stepKey === 'accent' && <AccentColorStep onComplete={() => setAccentStepDone(true)} />}
@@ -216,7 +217,7 @@ export default function OnboardingPage() {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] as const }}
+        transition={{ duration: 0.4, ease: EASE_CURVE }}
         className="bg-gradient-to-br from-accent/10 via-accent/5 to-background pt-16 pb-8 px-6 flex flex-col items-center text-center"
       >
         <div className="w-20 h-20 rounded-2xl bg-accent/15 flex items-center justify-center mb-6">
