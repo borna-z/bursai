@@ -1,65 +1,44 @@
 
-## Redesign AI Stylist Chat -- ChatGPT-style Layout
 
-The current chat looks fragmented -- garment cards break the text flow, bubbles feel like Excel rows, and the overall experience doesn't feel premium. This redesign creates a clean, modern ChatGPT-inspired conversational interface while keeping the DRAPE design language.
+## Translate Garment Title Based on User Language
 
----
+The AI garment analysis always returns Swedish titles because the edge function prompt is hardcoded to request Swedish output. When the user switches language, the title stays in Swedish.
 
 ### What changes
 
-#### 1. Remove chat bubble alignment -- use left-aligned conversation flow
-- **Current**: User messages right-aligned in colored bubbles, assistant left-aligned in grey bubbles with avatar circles. Feels dated.
-- **New**: All messages flow top-to-bottom. User messages get a subtle background card (right-aligned or a light pill). Assistant messages are left-aligned plain text with no bubble -- just clean typography with a small avatar/icon above. Similar to ChatGPT's flat layout.
+1. **Pass the user's locale to the edge function** so the AI prompt generates titles in the correct language.
 
-#### 2. Redesign the header area
-- **Current**: Cramped header with "BURS Stylist" title, mode switcher pills, insights icon, and trash icon all jammed together.
-- **New**: Clean minimal header with just the mode switcher centered. Move clear history into a dropdown menu (three-dot icon). Remove the insights link from the header (it's already in the bottom nav via other routes).
+2. **Update the edge function prompt** to use the locale parameter for the title language, while keeping all structured data values (category IDs, color IDs, season tags) in Swedish since those are database keys.
 
-#### 3. Redesign the input area -- ChatGPT-style floating input
-- **Current**: Fixed bar at bottom with separate image/send buttons and a basic textarea. Feels disconnected.
-- **New**: Centered floating input container with rounded corners and a subtle border/shadow. Image upload button and send button inside the input container (not outside). Textarea auto-grows. The whole input bar feels like one cohesive element. Disclaimer text below.
+### Files to modify
 
-#### 4. Better message rendering with markdown
-- **Current**: Plain `whitespace-pre-wrap` text with garment cards inline breaking the flow.
-- **New**: Better paragraph spacing. Garment inline cards rendered as compact horizontal chips below the relevant text paragraph instead of breaking mid-sentence. Assistant messages use slightly better typography (line-height, paragraph gaps).
+#### 1. `src/hooks/useAnalyzeGarment.ts`
+- Accept an optional `locale` parameter in `analyzeGarment` or read it from `useLanguage()` (already imported).
+- Pass `locale` in the request body alongside `storagePath`.
 
-#### 5. Welcome state -- centered with suggestions
-- **Current**: Welcome message appears as a chat bubble with suggestion chips below.
-- **New**: Welcome state is centered vertically with a large icon, greeting text, and suggestion chips arranged as cards/pills beneath. Like ChatGPT's empty state. Once a conversation starts, it switches to the normal message flow.
+#### 2. `src/pages/AddGarment.tsx`
+- Pass the current `locale` when calling `analyzeGarment` (from `useLanguage()`), or no change needed if the hook reads it internally.
 
-#### 6. Streaming indicator
-- **Current**: Three bouncing dots inside a bubble.
-- **New**: Typing indicator as a subtle shimmer or pulsing cursor at the end of the streaming text (like ChatGPT's blinking cursor).
+#### 3. `supabase/functions/analyze_garment/index.ts`
+- Read `locale` from the request body (default to `'sv'`).
+- Build the AI prompt dynamically:
+  - Title instruction changes from `"kort beskrivande titel på svenska"` to the equivalent in the user's language (e.g., `"short descriptive title in English"` for `en`).
+  - All other fields (category, color, pattern, season_tags) remain in Swedish since they are database keys.
+- A small locale-to-language map handles the prompt text:
+  ```
+  sv -> "kort beskrivande titel på svenska"
+  en -> "short descriptive title in English"
+  no -> "kort beskrivende tittel på norsk"
+  ```
 
----
+### Technical details
 
-### Technical implementation
+- Only the `title` field in the AI response changes language. All other values (categories, colors, patterns, seasons, materials, fits) stay in Swedish because they are used as database keys and matched via `*_I18N` translation maps.
+- The system prompt for the AI is adjusted to specify the title language while keeping the rest of the instructions consistent.
+- The `user` message text ("Analysera detta klädesplagg...") can also be translated, but since the AI model understands the task from the system prompt, this is optional.
+- Edge function error messages in Swedish remain as-is since they are returned as error codes and handled client-side via `t()`.
 
-**File: `src/pages/AIChat.tsx`** -- Major rewrite of the UI layout:
-
-1. **Header**: Replace `PageHeader` with a custom slim header containing only the mode switcher (centered) and a menu button (right). Use a `DropdownMenu` for clear history.
-
-2. **Message area**: Remove bubble styling. User messages get a subtle `bg-muted/40` full-width card. Assistant messages are plain text. Add proper paragraph rendering with `whitespace-pre-wrap` and `leading-relaxed`.
-
-3. **Welcome state**: When `messages.length === 1` (just the welcome message), render a centered hero layout with the Sparkles/ShoppingBag icon large, the greeting text, and suggestion chips as rounded cards.
-
-4. **Input bar**: Create a single container `div` with `rounded-2xl border shadow-sm` that contains the image button, auto-growing textarea, and send button all inside. Position it at the bottom with proper spacing above the bottom nav.
-
-5. **Pending image**: Show as a small thumbnail inside the input container (above the text row).
-
-6. **MessageBubble component**: Refactor to `ChatMessage` with flat layout. User: right-aligned text in a subtle pill. Assistant: left-aligned with small avatar, clean text, garment cards rendered as a row below the text.
-
-7. **Streaming**: Add a blinking cursor (`|` character with CSS animation) at the end of streaming text instead of bouncing dots.
-
-**File: `src/components/chat/GarmentInlineCard.tsx`** -- Minor style tweaks:
-- Make cards slightly more compact and visually consistent with the new flat layout.
-
-**No new dependencies needed** -- uses existing Radix UI components (DropdownMenu) and Tailwind classes.
-
-### Design tokens used
-- Background: `bg-background` (warm off-white)
-- User message: `bg-muted/50` with subtle rounded corners
-- Assistant message: plain text on background, no bubble
-- Input container: `bg-background border border-border/80 shadow-sm rounded-2xl`
-- Accent for send button: `bg-primary text-primary-foreground`
-- Avatar: small 28px circle with accent icon
+### Files modified (3 total)
+1. `src/hooks/useAnalyzeGarment.ts` -- pass locale to edge function
+2. `src/pages/AddGarment.tsx` -- pass locale when calling analyze (if needed)
+3. `supabase/functions/analyze_garment/index.ts` -- dynamic prompt based on locale
