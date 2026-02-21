@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import { Home, Shirt, CalendarDays, Bot, ArrowRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
@@ -32,6 +33,18 @@ const SLIDES = [
   },
 ];
 
+const slideVariants = {
+  enter: { opacity: 0, scale: 0.95 },
+  center: { opacity: 1, scale: 1 },
+  exit: { opacity: 0, scale: 0.95 },
+};
+
+const slideTransition = {
+  type: 'tween' as const,
+  ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number],
+  duration: 0.35,
+};
+
 export function AppTutorialStep({ onComplete }: AppTutorialStepProps) {
   const { t } = useLanguage();
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false });
@@ -62,9 +75,14 @@ export function AppTutorialStep({ onComplete }: AppTutorialStepProps) {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <div className="text-center pt-12 pb-4 px-6">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={slideTransition}
+        className="text-center pt-12 pb-4 px-6"
+      >
         <h1 className="text-2xl font-bold">{t('onboarding.tutorial.title')}</h1>
-      </div>
+      </motion.div>
 
       {/* Carousel */}
       <div className="flex-1 overflow-hidden" ref={emblaRef}>
@@ -77,18 +95,32 @@ export function AppTutorialStep({ onComplete }: AppTutorialStepProps) {
                 key={i}
                 className="flex-[0_0_100%] min-w-0 flex flex-col items-center justify-center px-8 text-center"
               >
-                <div className="w-20 h-20 rounded-2xl bg-accent/10 flex items-center justify-center mb-6">
-                  <Icon className="w-10 h-10 text-accent" />
-                </div>
-                <h2 className="text-xl font-semibold mb-4">{t(slide.titleKey)}</h2>
-                <ul className="space-y-2 text-muted-foreground text-sm max-w-xs">
-                  {descLines.map((line, j) => (
-                    <li key={j} className="flex items-start gap-2">
-                      <span className="text-accent mt-0.5">•</span>
-                      <span>{line}</span>
-                    </li>
-                  ))}
-                </ul>
+                <AnimatePresence mode="wait">
+                  {selectedIndex === i && (
+                    <motion.div
+                      key={i}
+                      variants={slideVariants}
+                      initial="enter"
+                      animate="center"
+                      exit="exit"
+                      transition={slideTransition}
+                      className="flex flex-col items-center"
+                    >
+                      <div className="w-20 h-20 rounded-2xl bg-accent/10 flex items-center justify-center mb-6">
+                        <Icon className="w-10 h-10 text-accent" />
+                      </div>
+                      <h2 className="text-xl font-semibold mb-4">{t(slide.titleKey)}</h2>
+                      <ul className="space-y-2 text-muted-foreground text-sm max-w-xs">
+                        {descLines.map((line, j) => (
+                          <li key={j} className="flex items-start gap-2">
+                            <span className="text-accent mt-0.5">•</span>
+                            <span>{line}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             );
           })}
@@ -96,16 +128,23 @@ export function AppTutorialStep({ onComplete }: AppTutorialStepProps) {
       </div>
 
       {/* Dots + Button */}
-      <div className="pb-[calc(3rem+env(safe-area-inset-bottom))] px-6 space-y-6">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ...slideTransition, delay: 0.2 }}
+        className="pb-[calc(3rem+env(safe-area-inset-bottom))] px-6 space-y-6"
+      >
         {/* Dot indicator */}
         <div className="flex justify-center gap-2">
           {SLIDES.map((_, i) => (
-            <div
+            <motion.div
               key={i}
-              className={cn(
-                'w-2 h-2 rounded-full transition-all',
-                i === selectedIndex ? 'bg-accent w-6' : 'bg-muted-foreground/30'
-              )}
+              animate={{
+                width: i === selectedIndex ? 24 : 8,
+                backgroundColor: i === selectedIndex ? 'hsl(var(--accent))' : 'hsl(var(--muted-foreground) / 0.3)',
+              }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              className="h-2 rounded-full"
             />
           ))}
         </div>
@@ -118,7 +157,7 @@ export function AppTutorialStep({ onComplete }: AppTutorialStepProps) {
           {isLast ? t('onboarding.tutorial.start') : t('onboarding.tutorial.next')}
           <ArrowRight className="w-5 h-5 ml-2" />
         </Button>
-      </div>
+      </motion.div>
     </div>
   );
 }

@@ -21,6 +21,7 @@ import { AISuggestions } from '@/components/insights/AISuggestions';
 import { MiniBar, ColorBar } from '@/components/insights/MiniBar';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { StatGridSkeleton, InsightCardSkeleton } from '@/components/ui/skeletons';
 import { useMemo } from 'react';
 
 // ─── Occasion + sub-option config ────────────────────────────
@@ -81,8 +82,10 @@ function InsightsSection({ isPremium, t }: { isPremium: boolean; t: (k: string) 
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <RefreshCw className="w-5 h-5 animate-spin text-muted-foreground" />
+      <div className="space-y-4">
+        <StatGridSkeleton />
+        <InsightCardSkeleton />
+        <InsightCardSkeleton />
       </div>
     );
   }

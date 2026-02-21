@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { GarmentGridSkeleton } from '@/components/ui/skeletons';
 import { useGarments, useUpdateGarment, useDeleteGarment, useGarmentCount, type GarmentFilters, type Garment } from '@/hooks/useGarments';
 import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
@@ -397,9 +398,7 @@ export default function WardrobePage() {
 
             {/* Garment grid */}
             {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-              </div>
+              <GarmentGridSkeleton count={6} grid={isGridView} />
             ) : displayGarments.length > 0 ? (
               <>
                 <div className={cn(isGridView ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2')}>
