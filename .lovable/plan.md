@@ -1,33 +1,56 @@
 
 
-## Speed Up Outfit Generation
+## Redesign Landing Page -- Dark Futuristic Theme
 
-### Problem
-Both the outfit generator (`generate_outfit`) and the suggestions engine (`suggest_outfit_combinations`) use `google/gemini-2.5-pro` -- the most powerful but **slowest** AI model available. This is the primary cause of the long wait times. Additionally, the outfit generator has a retry mechanism that can double the total time.
-
-### Solution
-Switch to a much faster model and streamline the logic to eliminate unnecessary delays.
+### Overview
+Transform the current warm, light landing page into a dark, immersive "space noir" design inspired by the provided HTML. The new design features a deep black background (#030305), aurora glow effects, glassmorphism panels, floating animations, and the Space Grotesk font -- while keeping all existing content sections and functionality intact.
 
 ### Changes
 
-**1. `supabase/functions/generate_outfit/index.ts` -- Switch to fast model**
-- Change model from `google/gemini-2.5-pro` to `google/gemini-3-flash-preview` (3-5x faster, still excellent quality for outfit selection)
-- Remove the retry mechanism (lines 350-379) that calls the AI a second time when slots are missing -- instead, handle missing slots with the existing fallback logic (lines 382-393) which fills them instantly from available garments
-- Trim the system prompt: remove redundant weather dressing rules and verbose instructions to reduce token processing time
+**1. Add Space Grotesk font to `index.html`**
+- Add `Space+Grotesk:wght@300;400;700` to the existing Google Fonts link
 
-**2. `supabase/functions/suggest_outfit_combinations/index.ts` -- Switch to fast model**
-- Change model from `google/gemini-2.5-pro` to `google/gemini-3-flash-preview`
+**2. Update `tailwind.config.ts`**
+- Add `'Space Grotesk'` to fontFamily options
 
-**3. `src/pages/OutfitGenerate.tsx` -- Shorten loading animation**
-- Reduce phase durations from 1200ms + 2000ms to 600ms + 1000ms so the UI feels snappier
+**3. Add dark landing styles to `src/index.css`**
+- Add `.dark-landing` class with the deep black background (#030305)
+- Add `.aurora-glow` radial gradient background effect
+- Add `.glass-panel` glassmorphism style (rgba white 2%, blur 20px, subtle border)
+- Add `.anti-gravity` and `.anti-gravity-delayed` floating keyframe animations
+- Keep all existing styles untouched
 
-### Expected Result
-- Outfit generation drops from ~8-15 seconds to ~2-5 seconds
-- AI suggestions load ~3x faster
-- No quality loss for outfit selection tasks (Flash models handle structured selection very well)
+**4. Rewrite `src/pages/Landing.tsx`** -- major visual overhaul
+- Remove `force-light` wrapper; replace with `dark-landing` dark theme wrapper
+- Background: deep space black (#030305) with aurora glow overlay
+- Header: glassmorphism style, transparent with blur, white text on dark
+- Hero section:
+  - Large aurora glow behind content
+  - "Designad for nasta dimension" headline adapted to English: "Designed for the next dimension"
+  - Subtitle about Scandinavian minimalism meets computational power
+  - Two CTAs: "Get Started" (solid white) and "Explore" (glass outline)
+  - Floating animation on decorative elements
+- All existing sections preserved (How It Works, Sustainability, Pricing, Download, etc.) but restyled:
+  - Cards use `.glass-panel` instead of `bg-card border-border`
+  - Text colors: white (#f3f4f6) for headings, gray-400 for body
+  - Borders: rgba(255,255,255,0.05) instead of warm beige
+  - Stats and pricing cards get glassmorphism treatment
+- Footer: dark with subtle top border, same links
+- All scroll-reveal animations and navigation logic preserved
+- All `navigate('/auth')` calls preserved
 
-### Technical Details
-- `gemini-3-flash-preview` is optimized for speed while maintaining strong reasoning for structured tool-calling tasks like garment selection
-- The retry mechanism is the biggest time sink -- removing it saves an entire round-trip to the AI (another 5-10 seconds when triggered)
-- The existing fallback logic (manually filling missing slots from available garments) runs instantly and produces acceptable results
+### What stays the same
+- All routing and navigation logic
+- All content sections (How It Works, Sustainability, Mission, Pricing, Download)
+- Mobile menu functionality
+- Scroll-reveal observer
+- SEO meta tags (Helmet)
+- BursMonogram component usage
+
+### Visual Result
+- Deep space-black landing page with subtle aurora glow effects
+- Glassmorphism cards and panels
+- Floating/anti-gravity animations on hero decorative elements
+- High contrast white text on dark background
+- Premium, futuristic feel while maintaining Scandinavian minimalism
 
