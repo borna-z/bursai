@@ -271,15 +271,24 @@
   .glass-card {
     @apply bg-card/70 backdrop-blur-md border border-border/40 shadow-[0_1px_3px_0_rgb(0_0_0/0.04)];
   }
+  :is(.dark) .glass-card {
+    @apply bg-white/[0.04] backdrop-blur-xl border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.2)];
+  }
 
   /* Glass chip – small pill / filter tag */
   .glass-chip {
     @apply bg-background/50 backdrop-blur-sm border border-border/30 rounded-full;
   }
+  :is(.dark) .glass-chip {
+    @apply bg-white/[0.04] border-white/[0.08];
+  }
 
   /* Glass surface – for sheets, drawers, fixed panels */
   .glass-surface {
     @apply bg-background/70 backdrop-blur-xl backdrop-saturate-150;
+  }
+  :is(.dark) .glass-surface {
+    @apply bg-[#030305]/80 backdrop-blur-xl;
   }
 
   /* Glass overlay – softer modal backdrop */

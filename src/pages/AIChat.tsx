@@ -268,16 +268,16 @@ export default function AIChat() {
     <AppLayout>
       <div className="flex flex-col" style={{ height: 'calc(100dvh - 4rem)' }}>
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40 shrink-0 sticky top-0 z-10 bg-background/70 backdrop-blur-xl backdrop-saturate-150">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40 shrink-0 sticky top-0 z-10 bg-background/70 backdrop-blur-xl backdrop-saturate-150 dark:border-white/[0.06]">
           <div className="w-9" /> {/* spacer */}
           {/* Mode switcher */}
-          <div className="flex bg-foreground/[0.04] backdrop-blur-sm rounded-lg p-0.5 border border-border/30">
+          <div className="flex bg-foreground/[0.04] backdrop-blur-sm rounded-lg p-0.5 border border-border/30 dark:bg-white/[0.04] dark:border-white/[0.06]">
             <button
               onClick={() => setMode('stylist')}
               className={cn(
                 'flex items-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-medium transition-all',
                 mode === 'stylist'
-                  ? 'bg-background/80 backdrop-blur-md text-foreground shadow-sm'
+                  ? 'bg-background/80 backdrop-blur-md text-foreground shadow-sm dark:bg-white/[0.1] dark:text-white'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
@@ -289,7 +289,7 @@ export default function AIChat() {
               className={cn(
                 'flex items-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-medium transition-all',
                 mode === 'shopping'
-                  ? 'bg-background/80 backdrop-blur-md text-foreground shadow-sm'
+                  ? 'bg-background/80 backdrop-blur-md text-foreground shadow-sm dark:bg-white/[0.1] dark:text-white'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >

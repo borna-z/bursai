@@ -442,7 +442,7 @@ export default function WardrobePage() {
       <PullToRefresh onRefresh={handleRefresh}>
       <AnimatedPage className="px-4 pb-36 pt-4 space-y-5 max-w-lg mx-auto">
         {/* Segmented control */}
-        <div className="flex p-1 rounded-2xl bg-foreground/[0.04] backdrop-blur-sm border border-border/30">
+        <div className="flex p-1 rounded-2xl bg-foreground/[0.04] backdrop-blur-sm border border-border/30 dark:bg-white/[0.04] dark:border-white/[0.06]">
           {(['garments', 'outfits'] as const).map((tab) => (
             <button
               key={tab}
@@ -450,7 +450,7 @@ export default function WardrobePage() {
               className={cn(
                 'flex-1 py-2 text-sm font-medium rounded-xl transition-all duration-200',
                 activeTab === tab
-                  ? 'bg-background/80 backdrop-blur-md text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.08)]'
+                  ? 'bg-background/80 backdrop-blur-md text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.08)] dark:bg-white/[0.1] dark:text-white'
                   : 'text-muted-foreground'
               )}
             >
@@ -497,9 +497,9 @@ export default function WardrobePage() {
                       'py-3 text-sm font-medium transition-colors relative',
                       selectedCategory === cat.id
                         ? 'text-accent bg-accent/5'
-                        : 'text-foreground hover:bg-muted/50',
-                      index % 4 !== 3 && 'border-r border-border/50',
-                      index < 4 && 'border-b border-border/50',
+                        : 'text-foreground hover:bg-muted/50 dark:hover:bg-white/[0.04]',
+                      index % 4 !== 3 && 'border-r border-border/50 dark:border-white/[0.06]',
+                      index < 4 && 'border-b border-border/50 dark:border-white/[0.06]',
                     )}
                   >
                     {cat.label}
@@ -545,7 +545,7 @@ export default function WardrobePage() {
                               'py-2 text-xs rounded-lg capitalize transition-colors',
                               selectedColor === color
                                 ? 'bg-accent/10 text-accent font-medium'
-                                : 'bg-muted/30 backdrop-blur-sm text-foreground hover:bg-muted/50'
+                                : 'bg-muted/30 backdrop-blur-sm text-foreground hover:bg-muted/50 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]'
                             )}
                           >
                             {t(`color.${color}`)}
@@ -566,7 +566,7 @@ export default function WardrobePage() {
                               'py-2 text-xs rounded-lg capitalize transition-colors',
                               selectedSeason === season
                                 ? 'bg-accent/10 text-accent font-medium'
-                                : 'bg-muted/30 backdrop-blur-sm text-foreground hover:bg-muted/50'
+                                : 'bg-muted/30 backdrop-blur-sm text-foreground hover:bg-muted/50 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]'
                             )}
                           >
                             {t(`garment.season.${season === 'vår' ? 'spring' : season === 'sommar' ? 'summer' : season === 'höst' ? 'autumn' : 'winter'}`)}
@@ -647,7 +647,7 @@ export default function WardrobePage() {
             <Button
               size="lg"
               variant="outline"
-              className="h-14 w-14 rounded-xl shadow-lg bg-card border-border"
+              className="h-14 w-14 rounded-xl shadow-lg bg-card border-border dark:bg-white/[0.06] dark:border-white/[0.08]"
               onClick={() => navigate('/wardrobe/scan')}
               aria-label="Live Scan"
             >
