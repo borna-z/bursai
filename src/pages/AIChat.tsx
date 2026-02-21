@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Loader2, Sparkles, ShoppingBag, MoreVertical, Trash2 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,6 +8,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
+import { useCreateOutfit } from '@/hooks/useOutfits';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ChatWelcome } from '@/components/chat/ChatWelcome';
 import { ChatInput } from '@/components/chat/ChatInput';
@@ -68,14 +70,21 @@ async function deleteMessagesByMode(userId: string, accessToken: string, mode: C
 }
 
 const GARMENT_TAG_RE = /\[\[garment:([a-f0-9-]+)\]\]/gi;
+const OUTFIT_TAG_RE = /\[\[outfit:([a-f0-9-,]+)\|[^\]]*\]\]/gi;
 
 function extractGarmentIds(messages: Message[]): string[] {
   const ids = new Set<string>();
   for (const m of messages) {
     const text = getTextContent(m.content);
+    // Extract from garment tags
     let match: RegExpExecArray | null;
     GARMENT_TAG_RE.lastIndex = 0;
     while ((match = GARMENT_TAG_RE.exec(text)) !== null) ids.add(match[1]);
+    // Extract from outfit tags
+    OUTFIT_TAG_RE.lastIndex = 0;
+    while ((match = OUTFIT_TAG_RE.exec(text)) !== null) {
+      match[1].split(',').forEach(id => ids.add(id.trim()));
+    }
   }
   return Array.from(ids);
 }
@@ -83,6 +92,8 @@ function extractGarmentIds(messages: Message[]): string[] {
 export default function AIChat() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const navigate = useNavigate();
+  const createOutfit = useCreateOutfit();
 
   const [mode, setMode] = useState<ChatMode>('stylist');
 
@@ -230,6 +241,29 @@ export default function AIChat() {
     } catch { toast.error(t('chat.history_error')); }
   };
 
+  const handleTryOutfit = useCallback(async (garmentIds: string[]) => {
+    if (!garmentIds.length) return;
+    try {
+      const SLOT_ORDER = ['top', 'bottom', 'shoes', 'outerwear', 'accessory'];
+      // Map garment IDs to slots based on their category
+      const items = garmentIds.map((id, i) => {
+        const garment = garmentMap.get(id);
+        const slot = garment?.category && SLOT_ORDER.includes(garment.category)
+          ? garment.category
+          : SLOT_ORDER[i] || 'top';
+        return { garment_id: id, slot };
+      });
+      const result = await createOutfit.mutateAsync({
+        outfit: { occasion: 'Vardag', explanation: 'Skapad från stylistens förslag' },
+        items,
+      });
+      navigate(`/outfits/${result.id}`);
+      toast.success(t('outfit.created') || 'Outfit skapad!');
+    } catch {
+      toast.error(t('outfit.create_error') || 'Kunde inte skapa outfit');
+    }
+  }, [garmentMap, createOutfit, navigate, t]);
+
   return (
     <AppLayout>
       <div className="flex flex-col" style={{ height: 'calc(100dvh - 4rem)' }}>
@@ -301,6 +335,8 @@ export default function AIChat() {
                   isStreaming={isStreaming && idx === messages.length - 1 && msg.role === 'assistant'}
                   garmentMap={garmentMap}
                   isShopping={mode === 'shopping'}
+                  onTryOutfit={handleTryOutfit}
+                  isCreatingOutfit={createOutfit.isPending}
                 />
               );
             })}
