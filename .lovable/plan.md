@@ -1,35 +1,33 @@
 
-## Fix Insights Layout -- Remove Nested Card Effect
+
+## Speed Up Outfit Generation
 
 ### Problem
-On the Insights page, the garment list items inside cards (Top Garments, Unused, etc.) have their own background color (`bg-muted/50`) and rounded corners (`rounded-xl`), creating a "card within a card" effect. This makes items look like they jump out from the parent card, breaking the clean Nordic minimalist design.
+Both the outfit generator (`generate_outfit`) and the suggestions engine (`suggest_outfit_combinations`) use `google/gemini-2.5-pro` -- the most powerful but **slowest** AI model available. This is the primary cause of the long wait times. Additionally, the outfit generator has a retry mechanism that can double the total time.
 
 ### Solution
-Remove the inner card styling from garment list items so they sit flat inside their parent card, using only subtle dividers or spacing to separate them.
+Switch to a much faster model and streamline the logic to eliminate unnecessary delays.
 
 ### Changes
 
-**1. `src/pages/Insights.tsx` -- `GarmentMini` component (line 22)**
-- Remove `bg-muted/50 rounded-xl` from the wrapper div
-- Replace with a flat layout using a subtle bottom border for separation
-- Keep hover state but make it more subtle (no background, just slight opacity change)
+**1. `supabase/functions/generate_outfit/index.ts` -- Switch to fast model**
+- Change model from `google/gemini-2.5-pro` to `google/gemini-3-flash-preview` (3-5x faster, still excellent quality for outfit selection)
+- Remove the retry mechanism (lines 350-379) that calls the AI a second time when slots are missing -- instead, handle missing slots with the existing fallback logic (lines 382-393) which fills them instantly from available garments
+- Trim the system prompt: remove redundant weather dressing rules and verbose instructions to reduce token processing time
 
-**2. `src/pages/Insights.tsx` -- Top Garments section (lines 203-208)**
-- Add `divide-y divide-border/50` to the list container instead of `space-y-2`
-- This gives clean, flat separation between items
+**2. `supabase/functions/suggest_outfit_combinations/index.ts` -- Switch to fast model**
+- Change model from `google/gemini-2.5-pro` to `google/gemini-3-flash-preview`
 
-**3. `src/pages/Insights.tsx` -- Unused Garments section (lines 219-222)**  
-- Same treatment: flat items with divider lines instead of rounded inner cards
+**3. `src/pages/OutfitGenerate.tsx` -- Shorten loading animation**
+- Reduce phase durations from 1200ms + 2000ms to 600ms + 1000ms so the UI feels snappier
 
-**4. `src/components/insights/UnusedGemCard.tsx` (line 31)**
-- Remove `bg-muted/50 rounded-xl` from wrapper
-- Use flat layout with subtle border-bottom instead
+### Expected Result
+- Outfit generation drops from ~8-15 seconds to ~2-5 seconds
+- AI suggestions load ~3x faster
+- No quality loss for outfit selection tasks (Flash models handle structured selection very well)
 
-**5. `src/pages/Home.tsx` -- InsightsSection garment rows (lines 145-153, 168-176)**
-- Same fix for the embedded insights on the Home tab: remove inner card backgrounds from garment rows
+### Technical Details
+- `gemini-3-flash-preview` is optimized for speed while maintaining strong reasoning for structured tool-calling tasks like garment selection
+- The retry mechanism is the biggest time sink -- removing it saves an entire round-trip to the AI (another 5-10 seconds when triggered)
+- The existing fallback logic (manually filling missing slots from available garments) runs instantly and produces acceptable results
 
-### Visual Result
-- Items will sit cleanly inside their parent card with no "popping out" effect
-- Subtle horizontal dividers separate entries
-- Hover remains functional but without competing background layers
-- Consistent flat layout across both the Insights page and the Home tab insights section
