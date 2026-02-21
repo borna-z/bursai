@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Smartphone, ChevronDown, Shirt, Sparkles, Heart } from 'lucide-react';
-import bursLandingLogo from '@/assets/burs-landing-logo-white.png';
+import { ArrowRight, Smartphone, ChevronDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 export function HeroSection() {
@@ -12,12 +11,18 @@ export function HeroSection() {
   };
 
   return (
-    <section className="section-full relative w-full px-6 md:px-12 pt-20 section-gradient-bottom" style={{ zIndex: 8 }}>
-      <div className="aurora-glow" />
+    <section
+      id="main-content"
+      role="banner"
+      aria-label="Hero"
+      className="section-full relative w-full px-6 md:px-12 pt-20 section-gradient-bottom"
+      style={{ zIndex: 8, minHeight: '100vh', containIntrinsicSize: '0 100vh', contentVisibility: 'auto' }}
+    >
+      <div className="aurora-glow" aria-hidden="true" />
 
-      {/* Star-field particles */}
-      <div className="particles">
-        {Array.from({ length: 22 }).map((_, i) => {
+      {/* Star-field particles — reduced to 12 for perf */}
+      <div className="particles" aria-hidden="true">
+        {Array.from({ length: 12 }).map((_, i) => {
           const size = 1 + (i % 3);
           const opacity = 0.04 + (i % 5) * 0.03;
           return (
@@ -34,13 +39,13 @@ export function HeroSection() {
       </div>
 
       {/* Parallax decorative shapes */}
-      <div className="absolute top-1/4 left-[12%] w-24 h-px bg-white/5 parallax-slow rotate-45" />
-      <div className="absolute top-1/3 right-[15%] w-3 h-3 rounded-full border border-white/5 parallax-fast" />
-      <div className="absolute bottom-1/3 left-[30%] w-1.5 h-1.5 rounded-full bg-white/10 parallax-slow" />
+      <div className="absolute top-1/4 left-[12%] w-24 h-px bg-white/5 parallax-slow rotate-45" aria-hidden="true" />
+      <div className="absolute top-1/3 right-[15%] w-3 h-3 rounded-full border border-white/5 parallax-fast" aria-hidden="true" />
+      <div className="absolute bottom-1/3 left-[30%] w-1.5 h-1.5 rounded-full bg-white/10 parallax-slow" aria-hidden="true" />
 
       <div className="max-w-3xl mx-auto w-full flex flex-col items-center text-center gap-8 relative z-10">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs tracking-wide text-gray-400 backdrop-blur-sm reveal-scale" style={{ '--reveal-delay': '0ms' } as React.CSSProperties}>
-          <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+          <span className="w-2 h-2 rounded-full bg-white animate-pulse" aria-hidden="true" />
           {t('landing.badge')}
         </div>
 
@@ -53,11 +58,11 @@ export function HeroSection() {
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto pt-4 reveal-scale" style={{ '--reveal-delay': '400ms' } as React.CSSProperties}>
-          <button onClick={() => navigate('/auth')} className="w-full sm:w-auto px-8 py-4 bg-white text-[#030305] rounded-full font-medium hover:scale-105 transition-transform duration-300 flex items-center justify-center gap-2">
-            {t('landing.get_started')} <ArrowRight size={18} strokeWidth={2} />
+          <button onClick={() => navigate('/auth')} className="w-full sm:w-auto px-8 py-4 bg-white text-[#030305] rounded-full font-medium hover:scale-105 transition-transform duration-300 flex items-center justify-center gap-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+            {t('landing.get_started')} <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
           </button>
-          <button onClick={() => scrollTo('how-it-works')} className="w-full sm:w-auto px-8 py-4 border border-white/10 text-white rounded-full font-medium hover:bg-white/5 transition-colors duration-300 flex items-center justify-center gap-2 glass-panel">
-            <Smartphone size={18} strokeWidth={1.5} /> {t('landing.explore')}
+          <button onClick={() => scrollTo('how-it-works')} className="w-full sm:w-auto px-8 py-4 border border-white/10 text-white rounded-full font-medium hover:bg-white/5 transition-colors duration-300 flex items-center justify-center gap-2 glass-panel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+            <Smartphone size={18} strokeWidth={1.5} aria-hidden="true" /> {t('landing.explore')}
           </button>
         </div>
 
@@ -67,7 +72,7 @@ export function HeroSection() {
       </div>
 
       {/* Scroll-down indicator */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 text-gray-500">
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 text-gray-500" aria-hidden="true">
         <span className="text-[10px] tracking-[0.3em] uppercase">{t('landing.scroll')}</span>
         <ChevronDown size={16} strokeWidth={1.5} className="chevron-pulse" />
       </div>

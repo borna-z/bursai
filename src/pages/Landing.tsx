@@ -113,32 +113,32 @@ export default function Landing() {
         <div className="font-space selection:bg-white/10">
 
           {/* ── Header ── */}
-          <header className="fixed top-0 w-full z-50 glass-panel border-b border-white/5">
+          <header className="fixed top-0 w-full z-50 glass-panel border-b border-white/5" role="navigation" aria-label="Main navigation">
             <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
-              <div className="flex items-center gap-3 cursor-pointer" onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}>
-                <img src={bursLandingLogo} alt="BURS" className="h-6 object-contain" />
+              <div className="flex items-center gap-3 cursor-pointer" onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} role="button" aria-label="Scroll to top">
+                <img src={bursLandingLogo} alt="BURS home" className="h-6 object-contain" width={80} height={24} loading="eager" fetchPriority="high" />
               </div>
-              <nav className="hidden md:flex items-center gap-10 text-sm font-light tracking-wide text-gray-400">
+              <nav className="hidden md:flex items-center gap-10 text-sm font-light tracking-wide text-gray-400" aria-label="Page sections">
                 {navLinks.map(l => (
-                  <button key={l.id} onClick={() => scrollTo(l.id)} className="hover:text-white transition-colors duration-300">{l.label}</button>
+                  <button key={l.id} onClick={() => scrollTo(l.id)} className="hover:text-white transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">{l.label}</button>
                 ))}
               </nav>
               <div className="flex items-center gap-4">
-                <button onClick={() => navigate('/auth')} className="hidden md:block bg-white text-[#030305] px-6 py-2.5 rounded-full text-sm font-medium hover:opacity-90 transition-all duration-300 hover:scale-105">
+                <button onClick={() => navigate('/auth')} className="hidden md:block bg-white text-[#030305] px-6 py-2.5 rounded-full text-sm font-medium hover:opacity-90 transition-all duration-300 hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
                   {t('landing.login')}
                 </button>
-                <button className="md:hidden text-gray-400 hover:text-white p-2" onClick={() => setMobileOpen(!mobileOpen)}>
-                  {mobileOpen ? <X size={24} strokeWidth={1.5} /> : <Menu size={24} strokeWidth={1.5} />}
+                <button className="md:hidden text-gray-400 hover:text-white p-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" onClick={() => setMobileOpen(!mobileOpen)} aria-expanded={mobileOpen} aria-label={mobileOpen ? 'Close menu' : 'Open menu'}>
+                  {mobileOpen ? <X size={24} strokeWidth={1.5} aria-hidden="true" /> : <Menu size={24} strokeWidth={1.5} aria-hidden="true" />}
                 </button>
               </div>
             </div>
             {mobileOpen && (
-              <div className="md:hidden border-t border-white/5 glass-panel animate-fade-in">
+              <div className="md:hidden border-t border-white/5 glass-panel animate-fade-in" role="menu">
                 <div className="flex flex-col gap-1 px-6 py-4 text-sm text-gray-400">
                   {navLinks.map(l => (
-                    <button key={l.id} onClick={() => scrollTo(l.id)} className="py-3 text-left hover:text-white transition-colors">{l.label}</button>
+                    <button key={l.id} onClick={() => scrollTo(l.id)} className="py-3 text-left hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" role="menuitem">{l.label}</button>
                   ))}
-                  <button onClick={() => { setMobileOpen(false); navigate('/auth'); }} className="mt-2 bg-white text-[#030305] py-3 rounded-full text-center font-medium">{t('landing.login')}</button>
+                  <button onClick={() => { setMobileOpen(false); navigate('/auth'); }} className="mt-2 bg-white text-[#030305] py-3 rounded-full text-center font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" role="menuitem">{t('landing.login')}</button>
                 </div>
               </div>
             )}
@@ -147,8 +147,8 @@ export default function Landing() {
           {/* Hero loads eagerly */}
           <HeroSection />
 
-          {/* Below-fold sections lazy-loaded */}
-          <Suspense fallback={null}>
+          {/* Below-fold sections lazy-loaded with min-height to prevent CLS */}
+          <Suspense fallback={<div style={{ minHeight: '400vh' }} aria-hidden="true" />}>
             <TrialBanner />
             <HowItWorks />
             <SustainabilitySection />
