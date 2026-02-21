@@ -149,9 +149,10 @@ export function PremiumSection({ isPremium, subscription, limits }: PremiumSecti
               <Progress value={((subscription?.outfits_used_month || 0) / limits.maxOutfitsPerMonth) * 100} className="h-2" />
             </div>
             <div className="space-y-2">
+              <p className="text-center text-xs font-medium text-amber-600">{t('trial.first_free')}</p>
               <Button className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600" onClick={() => handleUpgrade('monthly')} disabled={isLoadingCheckout !== null}>
                 {isLoadingCheckout === 'monthly' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Crown className="w-4 h-4 mr-2" />}
-                {t('premium.monthly')}
+                {t('trial.start_button')}
               </Button>
               <Button variant="outline" className="w-full border-amber-500/50 hover:bg-amber-500/10" onClick={() => handleUpgrade('yearly')} disabled={isLoadingCheckout !== null}>
                 {isLoadingCheckout === 'yearly' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2 text-amber-500" />}
