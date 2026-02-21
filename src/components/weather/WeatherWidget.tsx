@@ -106,7 +106,7 @@ export function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
     return (
       <div className="glass-card rounded-2xl p-5 space-y-4">
         <div className="flex items-center gap-4">
-          <Skeleton className="w-12 h-12 rounded-xl" />
+          <Skeleton className="w-14 h-14 rounded-xl" />
           <div className="space-y-2 flex-1">
             <Skeleton className="h-8 w-20" />
             <Skeleton className="h-4 w-32" />
@@ -132,8 +132,8 @@ export function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
       <div className="px-5 pt-5 pb-4">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-muted/30 backdrop-blur-sm flex items-center justify-center">
-              <HeroIcon className="w-7 h-7 text-foreground/80" />
+            <div className="w-14 h-14 rounded-xl bg-muted/30 backdrop-blur-sm flex items-center justify-center">
+              <HeroIcon className="w-8 h-8 text-foreground/80" />
             </div>
             <div>
               <div className="flex items-baseline gap-1">

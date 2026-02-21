@@ -103,6 +103,7 @@ export function OutfitSlotCard({
               "transition-all hover:bg-primary hover:text-primary-foreground",
               "active:scale-95"
             )}
+            aria-label={t('outfit.swap_out')}
             onClick={(e) => {
               e.stopPropagation();
               onSwap();

@@ -32,7 +32,7 @@ export function LazyImage({
     <div 
       ref={setRef}
       className={cn(
-        "relative overflow-hidden bg-muted",
+        "relative overflow-hidden bg-muted rounded-lg",
         aspectClasses[aspectRatio],
         className
       )}

@@ -9,7 +9,7 @@ interface GarmentSkeletonProps {
 export function GarmentCardSkeleton({ grid = true }: { grid?: boolean }) {
   if (!grid) {
     return (
-      <div className="flex items-center gap-3 p-3 bg-card/70 backdrop-blur-md border border-border/30 rounded-xl">
+      <div className="flex items-center gap-3 p-3 glass-card rounded-xl">
         <Skeleton className="w-14 h-14 rounded-lg shrink-0" />
         <div className="flex-1 space-y-2">
           <Skeleton className="h-4 w-3/4" />
@@ -20,9 +20,9 @@ export function GarmentCardSkeleton({ grid = true }: { grid?: boolean }) {
   }
 
   return (
-    <div className="bg-card/70 backdrop-blur-md border border-border/30 rounded-xl overflow-hidden">
-      <Skeleton className="aspect-square w-full" />
-      <div className="p-2.5 space-y-2">
+      <div className="glass-card rounded-xl overflow-hidden">
+        <Skeleton className="aspect-square w-full" />
+        <div className="p-3 space-y-2">
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-3 w-1/2" />
       </div>
@@ -42,7 +42,7 @@ export function GarmentGridSkeleton({ count = 6, grid = true }: GarmentSkeletonP
 
 export function OutfitCardSkeleton() {
   return (
-    <div className="bg-card/70 backdrop-blur-md border border-border/30 rounded-xl overflow-hidden p-4 space-y-3">
+    <div className="glass-card rounded-xl overflow-hidden p-4 space-y-3">
       <div className="flex gap-2">
         {[1, 2, 3].map((i) => (
           <Skeleton key={i} className="w-16 h-16 rounded-lg shrink-0" />
@@ -66,7 +66,7 @@ export function OutfitListSkeleton({ count = 3 }: { count?: number }) {
 
 export function InsightCardSkeleton() {
   return (
-    <div className="bg-card/70 backdrop-blur-md border border-border/30 rounded-xl p-4 space-y-3">
+    <div className="glass-card rounded-xl p-4 space-y-3">
       <div className="flex items-center gap-2">
         <Skeleton className="w-4 h-4 rounded" />
         <Skeleton className="h-4 w-32" />
@@ -81,7 +81,7 @@ export function StatGridSkeleton() {
   return (
     <div className="grid grid-cols-3 gap-2">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="bg-card/70 backdrop-blur-md border border-border/30 rounded-xl p-3 text-center space-y-2">
+        <div key={i} className="glass-card rounded-xl p-4 text-center space-y-2">
           <Skeleton className="h-7 w-10 mx-auto" />
           <Skeleton className="h-3 w-12 mx-auto" />
         </div>
