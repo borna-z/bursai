@@ -6,6 +6,7 @@ import {
   Plus, Search, Loader2, WashingMachine,
   Grid3X3, List, X, Trash2, Shirt, ScanLine, ChevronDown, ChevronUp
 } from 'lucide-react';
+import { SwipeableGarmentCard } from '@/components/wardrobe/SwipeableGarmentCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -418,13 +419,22 @@ export default function WardrobePage() {
                 <div className={cn(isGridView ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2')}>
                   {displayGarments.map((garment, index) => (
                     <div key={garment.id} className="animate-drape-in" style={{ animationDelay: `${Math.min(index, 12) * 40}ms`, animationFillMode: 'both' }}>
-                      <GarmentCard
-                        garment={garment}
-                        isGridView={isGridView}
-                        isSelecting={isSelecting}
-                        isSelected={selectedIds.has(garment.id)}
-                        onSelect={() => toggleSelect(garment.id)}
-                      />
+                      {!isGridView && !isSelecting ? (
+                        <SwipeableGarmentCard
+                          garment={garment}
+                          onEdit={() => navigate(`/wardrobe/${garment.id}/edit`)}
+                          onLaundry={() => updateGarment.mutate({ id: garment.id, updates: { in_laundry: !garment.in_laundry } })}
+                          onDelete={() => deleteGarment.mutate(garment.id)}
+                        />
+                      ) : (
+                        <GarmentCard
+                          garment={garment}
+                          isGridView={isGridView}
+                          isSelecting={isSelecting}
+                          isSelected={selectedIds.has(garment.id)}
+                          onSelect={() => toggleSelect(garment.id)}
+                        />
+                      )}
                     </div>
                   ))}
                 </div>
