@@ -17,7 +17,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { data: garmentCount } = useGarmentCount();
   const { needsOnboarding } = useOnboarding();
   const { canCreateOutfit } = useSubscription();
@@ -62,6 +62,7 @@ export default function HomePage() {
       state: {
         occasion: selectedOccasion,
         style: selectedStyle,
+        locale,
         weather: weather ? {
           temperature: weather.temperature,
           precipitation: weather.precipitation,

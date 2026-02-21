@@ -7,6 +7,7 @@ import type { Garment } from './useGarments';
 export interface OutfitRequest {
   occasion: string;
   style?: string | null;
+  locale?: string;
   weather: {
     temperature?: number;
     precipitation: string;
@@ -32,7 +33,7 @@ async function generateOutfitViaAI(
 ): Promise<GeneratedOutfit> {
   // Call AI edge function
   const { data, error: fnError } = await supabase.functions.invoke('generate_outfit', {
-    body: { occasion: request.occasion, style: request.style, weather: request.weather },
+    body: { occasion: request.occasion, style: request.style, weather: request.weather, locale: request.locale || 'sv' },
   });
 
   if (fnError) {

@@ -29,6 +29,15 @@ const occasionIcons: Record<string, React.ElementType> = {
   dejt: Heart,
 };
 
+const OCCASION_I18N: Record<string, string> = {
+  jobb: 'occasion.jobb',
+  vardag: 'occasion.vardag',
+  fest: 'occasion.fest',
+  resa: 'occasion.resa',
+  traning: 'occasion.traning',
+  dejt: 'occasion.dejt',
+};
+
 export function DayCard({
   date,
   plannedOutfit,
@@ -97,7 +106,7 @@ export function DayCard({
 
             <div className="flex items-center gap-2 mb-3 flex-wrap">
               <Badge variant="secondary" className="capitalize text-xs">
-                <OccasionIcon className="w-3 h-3 mr-1" />{outfit.occasion}
+                <OccasionIcon className="w-3 h-3 mr-1" />{t(OCCASION_I18N[outfit.occasion?.toLowerCase()] || `occasion.${outfit.occasion}`)}
               </Badge>
               {outfit.style_vibe && (<Badge variant="outline" className="text-xs">{outfit.style_vibe}</Badge>)}
             </div>
