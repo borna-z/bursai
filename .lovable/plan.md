@@ -92,8 +92,8 @@ Added a styled `ErrorBoundary` class component wrapping the entire app. Catches 
 
 **Files:** `src/components/layout/ErrorBoundary.tsx`, `src/App.tsx`
 
-### 5.2 Retry logic on failed mutations
-Add automatic retry with exponential backoff for failed saves (garment create/update, outfit save) using react-query mutation options.
+### ✅ 5.2 Retry logic on failed mutations
+Added `retry: 2` with exponential backoff (`retryDelay: 2^attempt * 1000`, max 8s) to all write mutations (create, update, delete) in garment and outfit hooks.
 
 **Files:** `src/hooks/useGarments.ts`, `src/hooks/useOutfits.ts`
 

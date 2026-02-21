@@ -136,6 +136,8 @@ export function useCreateGarment() {
       if (error) throw error;
       return data;
     },
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['garments'] });
     },
@@ -157,6 +159,8 @@ export function useUpdateGarment() {
       if (error) throw error;
       return data;
     },
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['garments'] });
       queryClient.invalidateQueries({ queryKey: ['garment', data.id] });
@@ -176,6 +180,8 @@ export function useDeleteGarment() {
       
       if (error) throw error;
     },
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['garments'] });
     },
