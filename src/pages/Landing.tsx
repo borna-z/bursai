@@ -50,9 +50,9 @@ export default function Landing() {
   // Word reveal helper
   const WordReveal = ({ text, className = '' }: { text: string; className?: string }) => (
     <span className={`word-reveal ${className}`}>
-      {text.split(' ').map((word, i) => (
-        <span key={i} style={{ transitionDelay: `${i * 80}ms` }}>
-          {word}{' '}
+      {text.split(' ').map((word, i, arr) => (
+        <span key={i} style={{ transitionDelay: `${i * 80}ms`, marginRight: i < arr.length - 1 ? '0.3em' : 0 }}>
+          {word}
         </span>
       ))}
     </span>
