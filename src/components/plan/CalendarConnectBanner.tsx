@@ -30,7 +30,8 @@ export function CalendarConnectBanner() {
   if (connectedProvider) return null;
 
   const handleIcsConnect = async () => {
-    if (!inputUrl.trim() || (!inputUrl.startsWith('http://') && !inputUrl.startsWith('https://'))) return;
+    const trimmed = inputUrl.trim();
+    if (!trimmed || !trimmed.startsWith('https://')) return;
     setIsSaving(true);
     try {
       await saveIcsUrl(inputUrl.trim());

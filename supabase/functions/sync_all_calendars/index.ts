@@ -5,6 +5,47 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// SSRF protection
+const BLOCKED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '[::1]'];
+const BLOCKED_IP_PREFIXES = [
+  '10.', '172.16.', '172.17.', '172.18.', '172.19.',
+  '172.20.', '172.21.', '172.22.', '172.23.', '172.24.',
+  '172.25.', '172.26.', '172.27.', '172.28.', '172.29.',
+  '172.30.', '172.31.', '192.168.', '169.254.', '100.64.',
+];
+
+function isBlockedUrl(urlString: string): { blocked: boolean; reason?: string } {
+  try {
+    const url = new URL(urlString);
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      return { blocked: true, reason: 'Only http/https allowed' };
+    }
+    const hostname = url.hostname.toLowerCase();
+    if (BLOCKED_HOSTS.includes(hostname)) {
+      return { blocked: true, reason: 'Local address blocked' };
+    }
+    for (const prefix of BLOCKED_IP_PREFIXES) {
+      if (hostname.startsWith(prefix)) {
+        return { blocked: true, reason: 'Private IP blocked' };
+      }
+    }
+    if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
+      const parts = hostname.split('.').map(Number);
+      if (parts[0] === 10 ||
+          (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
+          (parts[0] === 192 && parts[1] === 168) ||
+          (parts[0] === 169 && parts[1] === 254) ||
+          parts[0] === 127 ||
+          (parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127)) {
+        return { blocked: true, reason: 'Internal IP blocked' };
+      }
+    }
+    return { blocked: false };
+  } catch {
+    return { blocked: true, reason: 'Invalid URL' };
+  }
+}
+
 interface CalendarEvent {
   title: string;
   date: string;
@@ -116,6 +157,12 @@ async function syncUserCalendar(
 ): Promise<{ success: boolean; synced: number; error?: string }> {
   try {
     console.log(`Syncing calendar for user ${userId.substring(0, 8)}...`);
+
+    // SSRF validation
+    const ssrfCheck = isBlockedUrl(icsUrl);
+    if (ssrfCheck.blocked) {
+      return { success: false, synced: 0, error: `SSRF blocked: ${ssrfCheck.reason}` };
+    }
     
     const icsResponse = await fetch(icsUrl, {
       headers: { 'User-Agent': 'GarderobsAssistent/1.0' },
