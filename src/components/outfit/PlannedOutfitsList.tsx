@@ -16,6 +16,7 @@ import { EmptyState } from '@/components/layout/EmptyState';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getBCP47 } from '@/lib/dateLocale';
 import { isToday, isTomorrow } from 'date-fns';
 
 interface PlannedGroup {
@@ -57,7 +58,7 @@ function PlannedOutfitCard({ outfit, onDelete }: PlannedOutfitCardProps) {
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="secondary" className="capitalize text-xs">{outfit.occasion}</Badge>
+              <Badge variant="secondary" className="capitalize text-xs">{t(`occasion.${outfit.occasion}`)}</Badge>
               {outfit.rating && (
                 <div className="flex items-center gap-0.5 text-sm text-muted-foreground">
                   <Star className="w-3 h-3 fill-primary text-primary" />{outfit.rating}
@@ -102,7 +103,7 @@ interface PlannedOutfitsListProps {
 
 export function PlannedOutfitsList({ outfits, onDelete }: PlannedOutfitsListProps) {
   const { data: profile } = useProfile();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { getForecastForDate } = useForecast({ homeCity: profile?.home_city });
   
   const groupedByDate = useMemo(() => {
@@ -117,7 +118,7 @@ export function PlannedOutfitsList({ outfits, onDelete }: PlannedOutfitsListProp
       const dateStr = (outfit as any).planned_for;
       const date = new Date(dateStr);
       
-      let label = date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+      let label = date.toLocaleDateString(getBCP47(locale), { weekday: 'long', day: 'numeric', month: 'long' });
       if (isToday(date)) { label = t('plan.today'); }
       else if (isTomorrow(date)) { label = t('plan.tomorrow'); }
       

@@ -5,6 +5,7 @@ import {
   MapPin, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getBCP47 } from '@/lib/dateLocale';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useWeather } from '@/hooks/useWeather';
@@ -37,10 +38,10 @@ function CurrentTime() {
   return <span className="text-sm text-muted-foreground tabular-nums">{time}</span>;
 }
 
-function ForecastDayColumn({ day }: { day: ForecastDay }) {
+function ForecastDayColumn({ day, bcp47 }: { day: ForecastDay; bcp47: string }) {
   const Icon = getWeatherIcon(day.weather_code);
   const dayDate = parseISO(day.date);
-  const label = dayDate.toLocaleDateString(undefined, { weekday: 'short' });
+  const label = dayDate.toLocaleDateString(bcp47, { weekday: 'short' });
   const capitalised = label.charAt(0).toUpperCase() + label.slice(1);
 
   return (
@@ -54,7 +55,8 @@ function ForecastDayColumn({ day }: { day: ForecastDay }) {
 }
 
 export function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
+  const bcp47 = getBCP47(locale);
   const [manualCity, setManualCity] = useState<string | null>(null);
   const [editingLocation, setEditingLocation] = useState(false);
   const [cityInput, setCityInput] = useState('');
@@ -191,7 +193,7 @@ export function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
         <div className="border-t border-border/50 px-5 py-4">
           <div className="flex justify-between">
             {next5.map((day) => (
-              <ForecastDayColumn key={day.date} day={day} />
+              <ForecastDayColumn key={day.date} day={day} bcp47={bcp47} />
             ))}
           </div>
         </div>

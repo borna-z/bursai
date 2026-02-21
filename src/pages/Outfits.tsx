@@ -19,12 +19,14 @@ import { PlannedOutfitsList } from '@/components/outfit/PlannedOutfitsList';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getDateFnsLocale } from '@/lib/dateLocale';
 
-function OutfitCard({ outfit, onDelete, showPlannedDate, t }: { 
+function OutfitCard({ outfit, onDelete, showPlannedDate, t, locale }: { 
   outfit: OutfitWithItems; 
   onDelete: (id: string) => void;
   showPlannedDate?: boolean;
   t: (key: string) => string;
+  locale: string;
 }) {
   const navigate = useNavigate();
   const handleDelete = (e: React.MouseEvent) => { e.stopPropagation(); };
@@ -46,7 +48,7 @@ function OutfitCard({ outfit, onDelete, showPlannedDate, t }: {
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="secondary" className="capitalize text-xs">{outfit.occasion}</Badge>
+              <Badge variant="secondary" className="capitalize text-xs">{t(`occasion.${outfit.occasion}`)}</Badge>
               {outfit.rating && (
                 <div className="flex items-center gap-0.5 text-sm text-muted-foreground">
                   <Star className="w-3 h-3 fill-primary text-primary" />{outfit.rating}
@@ -56,10 +58,10 @@ function OutfitCard({ outfit, onDelete, showPlannedDate, t }: {
             {outfit.explanation && <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{outfit.explanation}</p>}
             <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
               {showPlannedDate && plannedFor && (
-                <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{format(new Date(plannedFor), 'd MMM')}</span>
+                <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{format(new Date(plannedFor), 'd MMM', { locale: getDateFnsLocale(locale as any) })}</span>
               )}
               {!showPlannedDate && outfit.worn_at && (
-                <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{format(new Date(outfit.worn_at), 'd MMM')}</span>
+                <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{format(new Date(outfit.worn_at), 'd MMM', { locale: getDateFnsLocale(locale as any) })}</span>
               )}
             </div>
           </div>
@@ -90,7 +92,7 @@ function OutfitCard({ outfit, onDelete, showPlannedDate, t }: {
 
 export default function OutfitsPage() {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { data: outfits, isLoading } = useOutfits(false);
   const deleteOutfit = useDeleteOutfit();
   const [activeTab, setActiveTab] = useState('recent');
@@ -132,14 +134,14 @@ export default function OutfitsPage() {
             </TabsList>
             <TabsContent value="recent" className="space-y-3 mt-0 stagger-burs tab-content-enter">
               {recentOutfits.length > 0 ? recentOutfits.map((outfit) => (
-                <OutfitCard key={outfit.id} outfit={outfit} onDelete={handleDeleteOutfit} t={t} />
+                <OutfitCard key={outfit.id} outfit={outfit} onDelete={handleDeleteOutfit} t={t} locale={locale} />
               )) : (
                 <EmptyState icon={Sparkles} title={t('outfits.no_outfits')} description={t('outfits.create_first')} action={{ label: t('outfits.create'), onClick: () => navigate('/'), icon: Sparkles }} />
               )}
             </TabsContent>
             <TabsContent value="saved" className="space-y-3 mt-0 stagger-burs tab-content-enter">
               {savedOutfits.length > 0 ? savedOutfits.map((outfit) => (
-                <OutfitCard key={outfit.id} outfit={outfit} onDelete={handleDeleteOutfit} t={t} />
+                <OutfitCard key={outfit.id} outfit={outfit} onDelete={handleDeleteOutfit} t={t} locale={locale} />
               )) : (
                 <EmptyState icon={Star} title={t('outfits.no_saved')} description={t('outfits.save_hint')} />
               )}

@@ -254,7 +254,7 @@ export default function AIChat() {
         return { garment_id: id, slot };
       });
       const result = await createOutfit.mutateAsync({
-        outfit: { occasion: 'Vardag', explanation: 'Skapad från stylistens förslag' },
+        outfit: { occasion: 'vardag', explanation: t('chat.outfit_from_stylist') },
         items,
       });
       navigate(`/outfits/${result.id}`);

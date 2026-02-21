@@ -16,11 +16,12 @@ import { useGarment, useUpdateGarment, useDeleteGarment, useMarkGarmentWorn } fr
 import { LazyImage } from '@/components/ui/lazy-image';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getBCP47 } from '@/lib/dateLocale';
 
 export default function GarmentDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { data: garment, isLoading, refetch } = useGarment(id);
   const updateGarment = useUpdateGarment();
   const deleteGarment = useDeleteGarment();
@@ -108,15 +109,15 @@ export default function GarmentDetailPage() {
       </div>
 
       <div className="p-4 space-y-6 max-w-lg mx-auto">
-        <div><p className="text-muted-foreground capitalize text-sm">{garment.subcategory || garment.category}</p></div>
+        <div><p className="text-muted-foreground capitalize text-sm">{t(`garment.category.${garment.category}`) || garment.subcategory || garment.category}</p></div>
 
         <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary" className="capitalize">{garment.color_primary}</Badge>
-          {garment.color_secondary && <Badge variant="secondary" className="capitalize">{garment.color_secondary}</Badge>}
-          {garment.pattern && garment.pattern !== 'solid' && <Badge variant="secondary" className="capitalize">{garment.pattern}</Badge>}
-          {garment.material && <Badge variant="secondary" className="capitalize">{garment.material}</Badge>}
-          {garment.fit && <Badge variant="secondary" className="capitalize">{garment.fit}</Badge>}
-          {garment.season_tags?.map((season) => <Badge key={season} variant="outline" className="capitalize">{season}</Badge>)}
+          <Badge variant="secondary" className="capitalize">{t(`color.${garment.color_primary}`)}</Badge>
+          {garment.color_secondary && <Badge variant="secondary" className="capitalize">{t(`color.${garment.color_secondary}`)}</Badge>}
+          {garment.pattern && garment.pattern !== 'solid' && <Badge variant="secondary" className="capitalize">{t(`garment.pattern.${garment.pattern}`)}</Badge>}
+          {garment.material && <Badge variant="secondary" className="capitalize">{t(`garment.material.${garment.material}`)}</Badge>}
+          {garment.fit && <Badge variant="secondary" className="capitalize">{t(`garment.fit.${garment.fit}`)}</Badge>}
+          {garment.season_tags?.map((season) => <Badge key={season} variant="outline" className="capitalize">{t(`garment.season.${season === 'vår' ? 'spring' : season === 'sommar' ? 'summer' : season === 'höst' ? 'autumn' : season === 'vinter' ? 'winter' : season}`)}</Badge>)}
           {garment.formality && <Badge variant="outline">{t('garment.formality')} {garment.formality}/5</Badge>}
         </div>
 
@@ -151,7 +152,7 @@ export default function GarmentDetailPage() {
               </div>
               <p className="text-sm font-medium">
                 {garment.last_worn_at
-                  ? new Date(garment.last_worn_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+                  ? new Date(garment.last_worn_at).toLocaleDateString(getBCP47(locale), { day: 'numeric', month: 'short' })
                   : t('garment.never_worn')}
               </p>
               <p className="text-xs text-muted-foreground">{t('garment.last_worn')}</p>
@@ -178,7 +179,7 @@ export default function GarmentDetailPage() {
 
         {garment.ai_analyzed_at && (
           <p className="text-xs text-muted-foreground text-center">
-            {t('garment.analyzed_at')} {new Date(garment.ai_analyzed_at).toLocaleDateString(undefined)}
+            {t('garment.analyzed_at')} {new Date(garment.ai_analyzed_at).toLocaleDateString(getBCP47(locale))}
           </p>
         )}
       </div>

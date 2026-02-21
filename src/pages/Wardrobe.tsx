@@ -36,6 +36,7 @@ interface GarmentCardProps {
 
 function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }: GarmentCardProps) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const handleClick = () => {
     if (isSelecting) { onSelect(); } else { navigate(`/wardrobe/${garment.id}`); }
@@ -60,7 +61,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
         />
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm truncate">{garment.title}</p>
-          <p className="text-xs text-muted-foreground capitalize">{garment.category} · {garment.color_primary}</p>
+          <p className="text-xs text-muted-foreground capitalize">{t(`garment.category.${garment.category}`)} · {t(`color.${garment.color_primary}`)}</p>
         </div>
       </button>
     );
@@ -90,7 +91,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
       </div>
       <div className="p-2.5">
         <p className="font-medium text-sm truncate">{garment.title}</p>
-        <p className="text-xs text-muted-foreground capitalize">{garment.category} · {garment.color_primary}</p>
+        <p className="text-xs text-muted-foreground capitalize">{t(`garment.category.${garment.category}`)} · {t(`color.${garment.color_primary}`)}</p>
       </div>
     </button>
   );
@@ -331,7 +332,7 @@ export default function WardrobePage() {
                                 : 'bg-muted/50 text-foreground hover:bg-muted'
                             )}
                           >
-                            {color}
+                            {t(`color.${color}`)}
                           </button>
                         ))}
                       </div>
@@ -352,7 +353,7 @@ export default function WardrobePage() {
                                 : 'bg-muted/50 text-foreground hover:bg-muted'
                             )}
                           >
-                            {season}
+                            {t(`garment.season.${season === 'vår' ? 'spring' : season === 'sommar' ? 'summer' : season === 'höst' ? 'autumn' : 'winter'}`)}
                           </button>
                         ))}
                       </div>

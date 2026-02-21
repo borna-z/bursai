@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { format, addDays, isSameDay, isToday, isTomorrow } from 'date-fns';
+import { getDateFnsLocale } from '@/lib/dateLocale';
 import { Wand2, Shirt, Loader2, CalendarDays, Repeat, Info, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
@@ -102,7 +103,7 @@ export default function PlanPage() {
   const isWorn = plannedOutfit?.status === 'worn';
 
   // Date label
-  let dateLabel = format(selectedDate, 'EEEE d MMMM');
+  let dateLabel = format(selectedDate, 'EEEE d MMMM', { locale: getDateFnsLocale(locale) });
   if (isToday(selectedDate)) dateLabel = t('plan.today');
   else if (isTomorrow(selectedDate)) dateLabel = t('plan.tomorrow');
 

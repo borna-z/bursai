@@ -11,9 +11,11 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { OutfitReel } from './OutfitReel';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
+import { getDateFnsLocale } from '@/lib/dateLocale';
 
 function OutfitMiniCard({ outfit }: { outfit: OutfitWithItems }) {
   const navigate = useNavigate();
+  const { t, locale } = useLanguage();
 
   return (
     <button
@@ -38,7 +40,7 @@ function OutfitMiniCard({ outfit }: { outfit: OutfitWithItems }) {
         ))}
       </div>
       <div className="p-2.5 flex items-center gap-2">
-        <Badge variant="secondary" className="capitalize text-xs">{outfit.occasion}</Badge>
+        <Badge variant="secondary" className="capitalize text-xs">{t(`occasion.${outfit.occasion}`)}</Badge>
         {outfit.rating && (
           <div className="flex items-center gap-0.5 text-xs text-muted-foreground">
             <Star className="w-3 h-3 fill-primary text-primary" />{outfit.rating}
@@ -47,7 +49,7 @@ function OutfitMiniCard({ outfit }: { outfit: OutfitWithItems }) {
         {outfit.generated_at && (
           <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className="w-3 h-3" />
-            {format(new Date(outfit.generated_at), 'd MMM')}
+            {format(new Date(outfit.generated_at), 'd MMM', { locale: getDateFnsLocale(locale) })}
           </span>
         )}
       </div>
