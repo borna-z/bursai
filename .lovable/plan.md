@@ -1,27 +1,37 @@
 
-# Update OG Image with Logo
+# Redesign Auth Page -- Minimalistic Glass Aesthetic
 
-## What Changes
-Replace the current OG image (`public/og-image.png`) with a new 1200x630 version that includes:
+## Overview
+Transform the current Auth page (`/auth`) into a premium, minimalistic login experience that matches the landing page's "space noir" glass aesthetic. Add the BURS hanger-B monogram logo, glassmorphism card styling, and entrance animations.
 
-- The **hanger-B monogram** logo (from `src/assets/burs-hanger-logo.png`) rendered in white, centered above the "BURS" wordmark
-- The same **dark space-noir background** (#030305) matching the landing page
-- Subtle aurora glow effect behind the logo for depth
-- "BURS" wordmark below the icon in Space Grotesk font
-- "Your AI Stylist" tagline in lighter gray beneath
+## Visual Changes
 
-## Technical Approach
-Since OG images must be static PNG files (social crawlers cannot render HTML/CSS), I will generate a new `public/og-image.png` using an HTML-to-image approach rendered at build time, or create it as a pre-rendered static asset.
+**Background**: Replace the plain gradient with the dark noir background (#030305) featuring a subtle aurora glow effect, matching the landing page.
 
-The composition will be:
-- 1200x630px canvas
-- Dark gradient background matching landing (#030305 to #0a0a12)
-- White hanger-B monogram centered, approximately 120px tall
-- "BURS" text in white, tracked, below the icon
-- "Your AI Stylist" subtitle in gray (#888)
-- Faint radial aurora glow (blue-indigo) behind the logo center
+**Logo**: Add the hanger-B monogram (`BursMonogram` component) centered above the "BURS" wordmark, replacing the plain text heading.
 
-No code changes needed beyond replacing the image file — all meta tags already point to `/og-image.png` with correct dimensions.
+**Card**: Apply glassmorphism styling -- `backdrop-blur-xl`, semi-transparent background (`bg-white/5`), subtle `border-white/10` border -- matching the landing page's `glass-panel` class.
 
-## File Modified
-- `public/og-image.png` — replaced with new design incorporating the logo
+**Typography**: Keep the Sora font for "BURS" wordmark. Make the tagline lighter and more spaced.
+
+**Buttons**: Style the primary CTA (login/signup) with a white pill button matching the landing hero. OAuth buttons get glass styling with subtle borders.
+
+**Animations**: Add `framer-motion` entrance animations -- the logo fades in and scales up, the card slides up with opacity, form elements stagger in sequentially.
+
+## Technical Details
+
+### File: `src/pages/Auth.tsx`
+- Import `motion` from `framer-motion` and `BursMonogram` from `@/components/ui/BursMonogram`
+- Wrap the outer container in `dark-landing` class to activate the dark theme
+- Replace background classes with dark noir styling + aurora glow div
+- Replace the text-only "BURS" heading with `BursMonogram` icon + styled wordmark
+- Wrap the card in `motion.div` with `initial={{ opacity: 0, y: 30 }}` / `animate={{ opacity: 1, y: 0 }}` and spring transition
+- Add staggered delays to logo, tagline, and card elements
+- Apply glass styling to the Card: `bg-white/5 backdrop-blur-xl border-white/10`
+- Style OAuth buttons with `bg-white/5 border-white/10 text-white hover:bg-white/10`
+- Style the primary submit button as white pill: `bg-white text-[#030305] rounded-full`
+- Style inputs with transparent dark backgrounds: `bg-white/5 border-white/10 text-white`
+- Style TabsList and TabsTrigger with glass variants
+
+### No new files or dependencies needed
+All animation utilities (`framer-motion`) and glass styles (`dark-landing`, `glass-panel`, `aurora-glow`) already exist in the codebase.
