@@ -1,93 +1,52 @@
 
 
-## 30-Day Free Trial Campaign -- Landing Page + Stripe Integration
+## Fix Wardrobe Editing, Deleting, and Name Change Flow
 
-### What this does
-Adds a **30-day free trial** to the Premium subscription. New customers sign up, get full Premium access immediately, and are only charged after 30 days. If they cancel before the trial ends, they pay nothing.
+### Problems Found
 
-### Changes
+1. **Cannot edit garment name (error on click)**: The edit button on the Garment Detail page navigates to `/wardrobe/:id/edit`, but this route does **not exist** in the app router. It results in a 404 page.
 
-#### 1. Stripe Checkout -- Add `trial_period_days: 30`
-**File: `supabase/functions/create_checkout_session/index.ts`**
+2. **Cannot delete a single garment**: The delete button on the Garment Detail page uses an `AlertDialog` which should work. The issue may be related to event propagation or the dialog not rendering properly. This will be verified and fixed.
 
-Add `subscription_data: { trial_period_days: 30 }` to the `stripe.checkout.sessions.create()` call. This tells Stripe to give 30 free days before the first charge.
+3. **Cannot delete multiple garments in select mode**: The bulk delete code looks correct but may silently fail. Will add better error handling.
 
-Also add `payment_method_collection: 'always'` so Stripe still collects a card upfront (required for auto-charging after the trial).
+### Solution
 
-#### 2. Stripe Webhook -- Handle `trialing` status as premium
-**File: `supabase/functions/stripe_webhook/index.ts`**
+#### 1. Create a new Edit Garment page (`src/pages/EditGarment.tsx`)
+- A new page that loads the existing garment data and presents an editable form (title, category, subcategory, color, pattern, material, fit, season tags, formality).
+- Reuses the same form layout and constants from `AddGarment.tsx` but pre-fills all fields from the existing garment.
+- Uses `useGarment(id)` to load data and `useUpdateGarment()` to save changes.
+- Includes a save button that updates the garment and navigates back.
 
-The `updateSubscription` helper currently maps subscription status to plan. Ensure `trialing` is treated as `premium` (same as `active`). This may already work but needs verification and explicit handling.
+#### 2. Register the edit route in `src/App.tsx`
+- Add route: `/wardrobe/:id/edit` pointing to the new `EditGarment` component, wrapped in `ProtectedRoute`.
 
-#### 3. Landing Page -- Campaign hero banner + updated pricing section
-**File: `src/pages/Landing.tsx`**
+#### 3. Fix delete flow on Garment Detail page
+- Verify the `AlertDialog` works correctly and ensure the delete confirmation button triggers `handleDelete` properly.
+- Add a confirmation dialog for single-item deletion from the wardrobe select mode as well.
 
-- Add a **campaign banner** below the hero: a highlighted strip announcing "Try Premium free for 30 days -- no commitment."
-- Update the Premium pricing card (line 237-261) to prominently show the trial offer:
-  - Add "30 days free" badge replacing "Popular"
-  - Show "Then 79 kr/month" as secondary text
-  - Keep the "Start Free Trial" button text
+#### 4. Improve bulk delete reliability
+- Add better error feedback in `handleBulkDelete` on `Wardrobe.tsx` so failures are visible.
 
-#### 4. Pricing Page -- Add trial messaging
-**File: `src/pages/Pricing.tsx`**
+### Technical Details
 
-- Add a trial banner at the top of the page
-- Update the Premium card to show "First 30 days free" prominently
-- Update button text to emphasize the free trial
+**New file: `src/pages/EditGarment.tsx`**
+- Loads garment via `useGarment(id)` hook
+- Pre-fills form state with garment's current values (title, category, color, etc.)
+- Save button calls `useUpdateGarment().mutateAsync({ id, updates })` and navigates back to `/wardrobe/:id`
+- Uses same category/color/pattern/material/fit/season constants from `AddGarment.tsx`
 
-#### 5. PaywallModal -- Add trial messaging
-**File: `src/components/PaywallModal.tsx`**
-
-- Add "30 days free" text to the upgrade buttons
-- Update monthly button label to "Start 30-day free trial"
-
-#### 6. PremiumSection -- Add trial messaging
-**File: `src/components/PremiumSection.tsx`**
-
-- Update the monthly upgrade button to mention the free trial
-- Show trial status if user is currently in trial period
-
-#### 7. Translation keys
-**File: `src/i18n/translations.ts`**
-
-Add new keys for trial-related text in both Swedish and English:
-- `trial.banner_title` / `trial.banner_desc`
-- `trial.badge`
-- `trial.then_price`
-- `trial.start_button`
-- `trial.active_badge`
-
-### Technical details
-
-**Stripe checkout session change:**
-```typescript
-const session = await stripe.checkout.sessions.create({
-  customer: customerId,
-  line_items: [{ price: priceId, quantity: 1 }],
-  mode: "subscription",
-  subscription_data: {
-    trial_period_days: 30,
-  },
-  payment_method_collection: 'always',
-  success_url: `${origin}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-  cancel_url: `${origin}/billing/cancel`,
-  metadata: { ... },
-});
+**Route addition in `src/App.tsx`:**
+```text
+/wardrobe/:id/edit -> <ProtectedRoute><EditGarment /></ProtectedRoute>
 ```
 
-**Webhook -- trialing status mapping:**
-```typescript
-const plan = ['active', 'trialing'].includes(subscription.status) ? 'premium' : 'free';
-```
+**Translation keys to add:**
+- `garment.edit_title` -- "Edit garment" / "Redigera plagg"
+- `garment.save` -- "Save" / "Spara"
 
-**Landing page campaign banner (after hero, before "How it works"):**
-A full-width section with a subtle gradient background, large "30 days free" headline, supporting text, and a CTA button. Clean Scandinavian style matching the existing design language.
+### Files to Create/Modify
+1. **Create** `src/pages/EditGarment.tsx` -- full garment edit form
+2. **Modify** `src/App.tsx` -- add the edit route
+3. **Modify** `src/i18n/translations.ts` -- add edit-related translation keys
 
-### Files summary
-1. `supabase/functions/create_checkout_session/index.ts` -- add `trial_period_days: 30`
-2. `supabase/functions/stripe_webhook/index.ts` -- ensure `trialing` = premium
-3. `src/pages/Landing.tsx` -- campaign banner + updated pricing card
-4. `src/pages/Pricing.tsx` -- trial messaging in pricing page
-5. `src/components/PaywallModal.tsx` -- trial text on buttons
-6. `src/components/PremiumSection.tsx` -- trial text + trial status display
-7. `src/i18n/translations.ts` -- new translation keys
