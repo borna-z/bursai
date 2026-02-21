@@ -1,5 +1,6 @@
 import { motion, type HTMLMotionProps } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { EASE_CURVE } from '@/lib/motion';
 
 /**
  * A motion.div wrapper that adds a subtle press/tap scale effect.
@@ -9,7 +10,7 @@ export function Pressable({ children, className, ...props }: HTMLMotionProps<'di
   return (
     <motion.div
       whileTap={{ scale: 0.975 }}
-      transition={{ type: 'tween', ease: [0.25, 0.1, 0.25, 1], duration: 0.15 }}
+      transition={{ type: 'tween', ease: EASE_CURVE, duration: 0.15 }}
       className={cn('will-change-transform', className)}
       {...props}
     >
