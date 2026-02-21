@@ -1,37 +1,44 @@
 
-# Redesign Auth Page -- Minimalistic Glass Aesthetic
 
-## Overview
-Transform the current Auth page (`/auth`) into a premium, minimalistic login experience that matches the landing page's "space noir" glass aesthetic. Add the BURS hanger-B monogram logo, glassmorphism card styling, and entrance animations.
+# Unify Logo Across Entire PWA
 
-## Visual Changes
+## Summary
+Replace all old logo references throughout the app with the new logo you provided (`burs-logo-white.png`). This affects the landing page, marketing pages, and the shared logo components.
 
-**Background**: Replace the plain gradient with the dark noir background (#030305) featuring a subtle aurora glow effect, matching the landing page.
+## Changes
 
-**Logo**: Add the hanger-B monogram (`BursMonogram` component) centered above the "BURS" wordmark, replacing the plain text heading.
+### 1. Update `BursMonogram` component (single source of truth)
+**File:** `src/components/ui/BursMonogram.tsx`
 
-**Card**: Apply glassmorphism styling -- `backdrop-blur-xl`, semi-transparent background (`bg-white/5`), subtle `border-white/10` border -- matching the landing page's `glass-panel` class.
+Replace the `burs-hanger-logo.png` import with `burs-logo-white.png`. Since this component is used by `DrapeLogo` and all marketing pages, updating it here propagates everywhere those components are used (Terms, Privacy, Contact pages).
 
-**Typography**: Keep the Sora font for "BURS" wordmark. Make the tagline lighter and more spaced.
+### 2. Update Landing page header
+**File:** `src/pages/Landing.tsx`
 
-**Buttons**: Style the primary CTA (login/signup) with a white pill button matching the landing hero. OAuth buttons get glass styling with subtle borders.
+Replace `burs-landing-logo-white.png` import with `burs-logo-white.png` so the fixed header logo matches.
 
-**Animations**: Add `framer-motion` entrance animations -- the logo fades in and scales up, the card slides up with opacity, form elements stagger in sequentially.
+### 3. Update CTA section
+**File:** `src/components/landing/CTASection.tsx`
 
-## Technical Details
+Replace `burs-landing-logo-white.png` with `burs-logo-white.png`.
 
-### File: `src/pages/Auth.tsx`
-- Import `motion` from `framer-motion` and `BursMonogram` from `@/components/ui/BursMonogram`
-- Wrap the outer container in `dark-landing` class to activate the dark theme
-- Replace background classes with dark noir styling + aurora glow div
-- Replace the text-only "BURS" heading with `BursMonogram` icon + styled wordmark
-- Wrap the card in `motion.div` with `initial={{ opacity: 0, y: 30 }}` / `animate={{ opacity: 1, y: 0 }}` and spring transition
-- Add staggered delays to logo, tagline, and card elements
-- Apply glass styling to the Card: `bg-white/5 backdrop-blur-xl border-white/10`
-- Style OAuth buttons with `bg-white/5 border-white/10 text-white hover:bg-white/10`
-- Style the primary submit button as white pill: `bg-white text-[#030305] rounded-full`
-- Style inputs with transparent dark backgrounds: `bg-white/5 border-white/10 text-white`
-- Style TabsList and TabsTrigger with glass variants
+### 4. Update Landing footer
+**File:** `src/components/landing/LandingFooter.tsx`
 
-### No new files or dependencies needed
-All animation utilities (`framer-motion`) and glass styles (`dark-landing`, `glass-panel`, `aurora-glow`) already exist in the codebase.
+Replace `burs-landing-logo-white.png` with `burs-logo-white.png`.
+
+### 5. No changes needed for
+- **Auth page** -- already uses the new logo
+- **DrapeLogo** -- wraps BursMonogram, so it gets the update automatically
+- **Terms, Privacy, Contact pages** -- use BursMonogram, so they get the update automatically
+- **In-app pages** (Home, Settings, Wardrobe, etc.) -- these don't display a logo, they use text headers
+
+## Technical Notes
+
+All changes are simple import swaps -- replacing one PNG asset path with another. No layout, sizing, or logic changes are needed since all usages already render the logo as an `<img>` tag with appropriate sizing classes.
+
+**Total files modified: 4**
+- `src/components/ui/BursMonogram.tsx`
+- `src/pages/Landing.tsx`
+- `src/components/landing/CTASection.tsx`
+- `src/components/landing/LandingFooter.tsx`
