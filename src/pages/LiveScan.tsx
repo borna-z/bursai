@@ -177,7 +177,7 @@ export default function LiveScan() {
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
       {/* Top bar */}
-      <div className="relative z-10 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/70 to-transparent">
+      <div className="relative z-10 flex items-center justify-between px-4 py-3 bg-black/40 backdrop-blur-xl backdrop-saturate-150">
         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={handleClose}>
           <X className="w-6 h-6" />
         </Button>
@@ -229,7 +229,7 @@ export default function LiveScan() {
 
         {error && !isProcessing && (
           <div className="absolute bottom-32 left-4 right-4 z-20">
-            <Card className="bg-destructive/90 border-0 backdrop-blur-sm">
+            <Card className="bg-destructive/80 border-0 backdrop-blur-md">
               <CardContent className="p-3 text-center"><p className="text-destructive-foreground text-sm">{error}</p></CardContent>
             </Card>
           </div>
@@ -238,7 +238,7 @@ export default function LiveScan() {
         {/* Result card */}
         {lastResult && (
           <div className="absolute bottom-0 left-0 right-0 z-20 p-4 animate-slide-in-bottom">
-            <Card className="bg-card/95 backdrop-blur-md border-border/50 shadow-2xl">
+            <Card className="bg-card/80 backdrop-blur-xl border-border/40 shadow-2xl">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <img src={lastResult.thumbnailUrl} alt="" className="w-16 h-16 rounded-lg object-cover shrink-0" />
@@ -267,7 +267,7 @@ export default function LiveScan() {
       </div>
 
       {/* Shutter button */}
-      <div className="relative z-10 flex items-center justify-center py-6 bg-gradient-to-t from-black/70 to-transparent">
+      <div className="relative z-10 flex items-center justify-center py-6 bg-black/40 backdrop-blur-xl backdrop-saturate-150">
         <div className="relative w-20 h-20">
           {autoMode && autoProgress > 0 && <AutoProgressRing progress={autoProgress} />}
           <button disabled={!canCapture} onClick={handleCapture} className={cn('w-20 h-20 rounded-full border-4 border-white flex items-center justify-center transition-all active:scale-90', !canCapture ? 'opacity-30' : 'opacity-100 hover:bg-white/10')} aria-label="Scan">
@@ -279,7 +279,7 @@ export default function LiveScan() {
       {/* Free tier remaining slots */}
       {!isPremium && cameraReady && (
         <div className="absolute bottom-28 left-0 right-0 flex justify-center z-10">
-          <span className="text-white/60 text-xs bg-black/40 px-3 py-1 rounded-full backdrop-blur-sm">
+          <span className="text-white/60 text-xs bg-black/30 px-3 py-1 rounded-full backdrop-blur-md">
             {remainingSlots > 0 ? `${remainingSlots} ${t('scan.slots_remaining')}` : t('scan.limit_reached')}
           </span>
         </div>
