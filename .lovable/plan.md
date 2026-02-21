@@ -52,12 +52,10 @@ Pages like `AIChat`, `OutfitGenerate`, `LiveScan`, `Plan`, and `Insights` are he
 - Convert direct imports to `const AIChat = lazy(() => import('./pages/AIChat'))`
 - Add `<Suspense fallback={<PageSkeleton />}>` wrapper
 
-### 3.2 Optimize QueryClient defaults
-Configure `staleTime` and `gcTime` on the global QueryClient for better caching behavior — reduce redundant refetches on tab switches.
+### ✅ 3.2 Optimize QueryClient defaults
+Configured `staleTime: 2min`, `gcTime: 10min`, `refetchOnWindowFocus: false`, `retry: 1` on the global QueryClient to reduce redundant refetches and improve perceived performance.
 
 **Files:** `src/App.tsx`
-- Set `staleTime: 1000 * 60 * 2` (2 min) for general queries
-- Set `refetchOnWindowFocus: false` to prevent jank on tab return
 
 ### 3.3 Virtualize wardrobe grid for large collections
 Users with 50+ garments experience scroll jank. Add virtual scrolling to the wardrobe grid using a lightweight virtualizer.
