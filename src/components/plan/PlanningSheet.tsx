@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useOutfits, type OutfitWithItems } from '@/hooks/useOutfits';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getBCP47 } from '@/lib/dateLocale';
 
 interface PlanningSheetProps {
   open: boolean;
@@ -24,7 +25,7 @@ export function PlanningSheet({ open, onOpenChange, date, onSelectOutfit, onCrea
   const [mode, setMode] = useState<'choose' | 'select'>('choose');
   const [searchQuery, setSearchQuery] = useState('');
   const { data: outfits, isLoading } = useOutfits(true);
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
 
   const filteredOutfits = outfits?.filter(outfit => {
     if (!searchQuery) return true;
@@ -39,7 +40,7 @@ export function PlanningSheet({ open, onOpenChange, date, onSelectOutfit, onCrea
     <Sheet open={open} onOpenChange={handleClose}>
       <SheetContent side="bottom" className="h-[85vh] rounded-t-2xl">
         <SheetHeader className="text-left pb-4">
-          <SheetTitle>{t('plan.plan')} {date.toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}</SheetTitle>
+          <SheetTitle>{t('plan.plan')} {date.toLocaleDateString(getBCP47(locale), { day: 'numeric', month: 'long' })}</SheetTitle>
           <SheetDescription>
             {mode === 'choose' ? t('planning.choose_how') : t('planning.choose_saved')}
           </SheetDescription>
@@ -87,7 +88,7 @@ export function PlanningSheet({ open, onOpenChange, date, onSelectOutfit, onCrea
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="secondary" className="capitalize text-xs">{outfit.occasion}</Badge>
+                        <Badge variant="secondary" className="capitalize text-xs">{t(`occasion.${outfit.occasion}`)}</Badge>
                         {outfit.style_vibe && (<Badge variant="outline" className="text-xs">{outfit.style_vibe}</Badge>)}
                       </div>
                       {outfit.explanation && (<p className="text-xs text-muted-foreground line-clamp-1">{outfit.explanation}</p>)}

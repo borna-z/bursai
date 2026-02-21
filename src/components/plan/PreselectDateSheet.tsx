@@ -11,6 +11,7 @@ import {
 import { cn } from '@/lib/utils';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getBCP47 } from '@/lib/dateLocale';
 
 interface PreselectDateSheetProps {
   open: boolean;
@@ -25,13 +26,13 @@ export function PreselectDateSheet({
   onSelectDate,
   isLoading,
 }: PreselectDateSheetProps) {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const days = Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
 
   const getDateLabel = (date: Date): string => {
     if (isToday(date)) return t('plan.today');
     if (isTomorrow(date)) return t('plan.tomorrow');
-    return date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+    return date.toLocaleDateString(getBCP47(locale), { weekday: 'long', day: 'numeric', month: 'long' });
   };
 
   return (

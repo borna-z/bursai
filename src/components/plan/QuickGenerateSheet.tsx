@@ -13,6 +13,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useForecast, getCoordinatesFromCity, fetchForecast, type ForecastDay } from '@/hooks/useForecast';
 import { useCalendarEvents, inferOccasionFromEvent } from '@/hooks/useCalendarSync';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getBCP47 } from '@/lib/dateLocale';
 
 function getSuggestedOccasion(events: { title: string }[]): { occasion: string; source: string } | null {
   let bestMatch: { occasion: string; formality: number; source: string } | null = null;
@@ -34,7 +35,7 @@ interface QuickGenerateSheetProps {
 }
 
 export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGenerating }: QuickGenerateSheetProps) {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { data: profile } = useProfile();
   const { weather } = useWeather();
   const { getForecastForDate } = useForecast({ homeCity: profile?.home_city });
@@ -65,7 +66,7 @@ export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGen
 
   const STYLE_VIBES = [
     { id: 'minimal', label: t('home.style.minimal') },
-    { id: 'street', label: 'Street' },
+    { id: 'street', label: t('home.style.street') },
     { id: 'smart-casual', label: t('home.style.smart_casual') },
     { id: 'klassisk', label: t('home.style.klassisk') },
     { id: 'sportig', label: t('qgen.sporty') },
@@ -116,7 +117,7 @@ export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGen
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="h-auto max-h-[85vh] rounded-t-2xl">
         <SheetHeader className="text-left pb-4">
-          <SheetTitle>{t('qgen.create_for')} {date.toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}</SheetTitle>
+          <SheetTitle>{t('qgen.create_for')} {date.toLocaleDateString(getBCP47(locale), { day: 'numeric', month: 'long' })}</SheetTitle>
           <SheetDescription>{t('qgen.choose_occasion')}</SheetDescription>
         </SheetHeader>
 

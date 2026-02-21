@@ -9,6 +9,7 @@ import { toPng } from 'html-to-image';
 import type { OutfitWithItems } from '@/hooks/useOutfits';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
+import { getDateFnsLocale } from '@/lib/dateLocale';
 
 interface OutfitReelProps {
   outfits: OutfitWithItems[];
@@ -18,7 +19,7 @@ interface OutfitReelProps {
 const SLIDE_DURATION = 3000;
 
 export function OutfitReel({ outfits, onClose }: OutfitReelProps) {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -204,15 +205,15 @@ export function OutfitReel({ outfits, onClose }: OutfitReelProps) {
 
           {/* Info */}
           <div className="mt-6 text-center px-4">
-            <Badge variant="secondary" className="capitalize mb-2 bg-white/10 text-white border-white/20">
-              {outfit.occasion}
+              <Badge variant="secondary" className="capitalize mb-2 bg-white/10 text-white border-white/20">
+                {t(`occasion.${outfit.occasion}`)}
             </Badge>
             {outfit.explanation && (
               <p className="text-white/60 text-sm mt-2 max-w-xs mx-auto line-clamp-2">{outfit.explanation}</p>
             )}
             {outfit.generated_at && (
               <p className="text-white/40 text-xs mt-2">
-                {format(new Date(outfit.generated_at), 'd MMM yyyy')}
+                {format(new Date(outfit.generated_at), 'd MMM yyyy', { locale: getDateFnsLocale(locale) })}
               </p>
             )}
           </div>

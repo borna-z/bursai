@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getBCP47 } from '@/lib/dateLocale';
 import type { PlannedOutfit } from '@/hooks/usePlannedOutfits';
 
 const occasionIcons: Record<string, React.ElementType> = {
@@ -22,13 +23,13 @@ interface MiniDayCardProps {
 }
 
 export function MiniDayCard({ date, plannedOutfit, isSelected, onClick }: MiniDayCardProps) {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const dateStr = format(date, 'yyyy-MM-dd');
   const outfit = plannedOutfit?.outfit;
   const hasOutfit = !!outfit;
   const isWorn = plannedOutfit?.status === 'worn';
 
-  let dateLabel = date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
+  let dateLabel = date.toLocaleDateString(getBCP47(locale), { weekday: 'long', day: 'numeric', month: 'short' });
   if (isToday(date)) dateLabel = t('plan.today');
   else if (isTomorrow(date)) dateLabel = t('plan.tomorrow');
 
@@ -90,7 +91,7 @@ export function MiniDayCard({ date, plannedOutfit, isSelected, onClick }: MiniDa
           {OccasionIcon && (
             <Badge variant="outline" className="text-[10px] capitalize shrink-0">
               <OccasionIcon className="w-3 h-3 mr-0.5" />
-              {outfit.occasion}
+              {t(`occasion.${outfit.occasion}`)}
             </Badge>
           )}
         </div>

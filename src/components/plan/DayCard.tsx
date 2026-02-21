@@ -10,6 +10,7 @@ import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
 import { DaySummaryCard } from '@/components/plan/DaySummaryCard';
 import { useDaySummary } from '@/hooks/useDaySummary';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getBCP47 } from '@/lib/dateLocale';
 import type { PlannedOutfit } from '@/hooks/usePlannedOutfits';
 
 interface DayCardProps {
@@ -49,7 +50,7 @@ export function DayCard({
   isLoading,
 }: DayCardProps) {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const dateStr = format(date, 'yyyy-MM-dd');
   const outfit = plannedOutfit?.outfit;
   const hasOutfit = !!outfit;
@@ -57,7 +58,7 @@ export function DayCard({
 
   const { data: daySummary, isLoading: isSummaryLoading } = useDaySummary(dateStr);
 
-  let dateLabel = date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+  let dateLabel = date.toLocaleDateString(getBCP47(locale), { weekday: 'long', day: 'numeric', month: 'long' });
   if (isToday(date)) {
     dateLabel = t('plan.today');
   } else if (isTomorrow(date)) {
