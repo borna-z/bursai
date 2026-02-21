@@ -79,22 +79,25 @@
     --background: 0 0% 5%;
     --foreground: 36 20% 93%;
 
-    /* Slightly lifted card surface */
-    --card: 0 0% 9%;
+    /* Slightly lifted card surface – bumped from 9→11% for glass visibility */
+    --card: 0 0% 11%;
     --card-foreground: 36 20% 93%;
 
-    --popover: 0 0% 9%;
+    --popover: 0 0% 11%;
     --popover-foreground: 36 20% 93%;
 
     /* Off-white primary in dark – #F6F4F1 */
     --primary: 36 20% 93%;
     --primary-foreground: 0 0% 5%;
 
-    --secondary: 0 0% 13%;
+    /* Secondary surfaces – bumped from 13→15% */
+    --secondary: 0 0% 15%;
     --secondary-foreground: 36 20% 93%;
 
-    --muted: 0 0% 13%;
-    --muted-foreground: 0 0% 55%;
+    /* Muted – bumped from 13→16% for skeleton shimmer visibility */
+    --muted: 0 0% 16%;
+    /* Muted text – bumped from 55→62% for small-text readability */
+    --muted-foreground: 0 0% 62%;
 
     /* Lightened indigo accent in dark */
     --accent: 234 60% 62%;
@@ -103,9 +106,9 @@
     --destructive: 0 62% 50%;
     --destructive-foreground: 36 20% 93%;
 
-    /* Subtle dark border */
-    --border: 0 0% 16%;
-    --input: 0 0% 16%;
+    /* Border – bumped from 16→20% for glass card edge visibility */
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
     --ring: 36 20% 93%;
 
     --success: 152 55% 48%;
@@ -117,15 +120,15 @@
 
     --accent-indigo: 234 60% 62%;
     --accent-indigo-foreground: 0 0% 5%;
-    --accent-indigo-muted: 234 30% 16%;
+    --accent-indigo-muted: 234 30% 18%;
 
     --sidebar-background: 0 0% 5%;
     --sidebar-foreground: 0 0% 75%;
     --sidebar-primary: 36 20% 93%;
     --sidebar-primary-foreground: 0 0% 5%;
-    --sidebar-accent: 0 0% 11%;
+    --sidebar-accent: 0 0% 13%;
     --sidebar-accent-foreground: 36 20% 93%;
-    --sidebar-border: 0 0% 14%;
+    --sidebar-border: 0 0% 18%;
     --sidebar-ring: 36 20% 93%;
 
     --chart-1: 36 20% 93%;
