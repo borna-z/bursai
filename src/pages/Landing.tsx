@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Menu, X, Sparkles, Shirt, Heart, Leaf, Shield, ArrowRight, Smartphone, Instagram, Twitter, Check } from 'lucide-react';
-import { BursMonogram } from '@/components/ui/BursMonogram';
+import bursLandingLogo from '@/assets/burs-landing-logo-white.png';
 
 
 export default function Landing() {
@@ -51,7 +51,7 @@ export default function Landing() {
           <header className="fixed top-0 w-full z-50 glass-panel border-b border-white/5">
             <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
               <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-                <span className="text-white text-lg font-medium tracking-[0.2em] font-space">BURS</span>
+                <img src={bursLandingLogo} alt="BURS" className="h-6 object-contain" />
               </div>
 
               <nav className="hidden md:flex items-center gap-10 text-sm font-light tracking-wide text-gray-400">
@@ -96,7 +96,7 @@ export default function Landing() {
             <div className="absolute bottom-1/3 left-[25%] w-1.5 h-1.5 rounded-full bg-white/10 anti-gravity-delayed" />
 
             <div className="max-w-3xl mx-auto w-full flex flex-col items-center text-center gap-8 relative z-10 animate-fade-in">
-                <BursMonogram size={80} className="animate-fade-in" />
+                
 
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs tracking-wide text-gray-400 backdrop-blur-sm">
                   <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
@@ -297,7 +297,7 @@ export default function Landing() {
           <section className="px-6 py-28 md:py-40 relative">
             <div className="aurora-glow" />
             <div className="max-w-lg mx-auto text-center space-y-8 scroll-reveal relative z-10" style={{ '--delay': '0ms' } as React.CSSProperties}>
-              <BursMonogram size={56} className="mx-auto" />
+              <img src={bursLandingLogo} alt="BURS" className="h-10 mx-auto" />
               <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white font-space">
                 Join the movement.
               </h2>
@@ -377,8 +377,7 @@ export default function Landing() {
           <footer className="border-t border-white/5 px-6 py-10">
             <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-gray-500 tracking-wide">
               <div className="flex items-center gap-2">
-                <BursMonogram size={20} />
-                <span className="text-white font-medium tracking-[0.12em] font-space">BURS</span>
+                <img src={bursLandingLogo} alt="BURS" className="h-5 object-contain" />
               </div>
               <div className="flex gap-6">
                 <a href="/privacy" className="hover:text-white transition-colors">Privacy Policy</a>
