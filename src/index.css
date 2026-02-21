@@ -75,15 +75,15 @@
   }
 
   .dark {
-    /* Deep noir background – near #0A0A0A */
-    --background: 0 0% 5%;
+    /* Space noir background – #030305 */
+    --background: 240 20% 2%;
     --foreground: 36 20% 93%;
 
-    /* Slightly lifted card surface – bumped from 9→11% for glass visibility */
-    --card: 0 0% 11%;
+    /* Glass card surface */
+    --card: 240 10% 7%;
     --card-foreground: 36 20% 93%;
 
-    --popover: 0 0% 11%;
+    --popover: 240 10% 7%;
     --popover-foreground: 36 20% 93%;
 
     /* Off-white primary in dark – #F6F4F1 */
@@ -106,9 +106,9 @@
     --destructive: 0 62% 50%;
     --destructive-foreground: 36 20% 93%;
 
-    /* Border – bumped from 16→20% for glass card edge visibility */
-    --border: 0 0% 20%;
-    --input: 0 0% 20%;
+    /* Subtle glass borders */
+    --border: 0 0% 14%;
+    --input: 0 0% 14%;
     --ring: 36 20% 93%;
 
     --success: 152 55% 48%;
@@ -122,7 +122,7 @@
     --accent-indigo-foreground: 0 0% 5%;
     --accent-indigo-muted: 234 30% 18%;
 
-    --sidebar-background: 0 0% 5%;
+    --sidebar-background: 240 20% 2%;
     --sidebar-foreground: 0 0% 75%;
     --sidebar-primary: 36 20% 93%;
     --sidebar-primary-foreground: 0 0% 5%;
