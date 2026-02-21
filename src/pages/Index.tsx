@@ -1,23 +1,25 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
-import { Loader2 } from 'lucide-react';
+import Landing from './Landing';
 import Home from './Home';
 
 const Index = () => {
   const { user, loading } = useAuth();
   const { data: profile, isLoading: profileLoading } = useProfile();
 
-  if (loading || (user && profileLoading)) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+  // While auth is loading OR user is not logged in, show Landing instantly (no spinner, no redirect)
+  if (loading || !user) {
+    return <Landing />;
   }
 
-  if (!user) {
-    return <Navigate to="/welcome" replace />;
+  // Auth resolved with a user — wait for profile before deciding
+  if (profileLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#030305]">
+        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+      </div>
+    );
   }
 
   // Check onboarding
