@@ -46,7 +46,7 @@ export function ChatInput({
           {pendingImage && (
             <div className="px-3 pt-3">
               <div className="relative inline-block">
-                <img src={pendingImage.url} alt="" className="h-16 w-16 object-cover rounded-lg border border-border" />
+                <img src={pendingImage.url} alt="Pending upload preview" className="h-16 w-16 object-cover rounded-lg border border-border" />
                 <button
                   onClick={onClearImage}
                   className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs font-bold"

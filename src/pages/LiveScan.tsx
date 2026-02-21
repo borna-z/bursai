@@ -241,7 +241,7 @@ export default function LiveScan() {
             <Card className="bg-card/80 backdrop-blur-xl border-border/40 shadow-2xl">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3 mb-3">
-                  <img src={lastResult.thumbnailUrl} alt="" className="w-16 h-16 rounded-lg object-cover shrink-0" />
+                  <img src={lastResult.thumbnailUrl} alt="Scanned garment thumbnail" className="w-16 h-16 rounded-lg object-cover shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm truncate">{lastResult.analysis.title}</p>
                     <p className="text-xs text-muted-foreground capitalize">{lastResult.analysis.category} • {lastResult.analysis.color_primary}</p>
