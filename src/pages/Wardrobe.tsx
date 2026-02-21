@@ -22,6 +22,8 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { WardrobeOutfitsTab } from '@/components/wardrobe/WardrobeOutfitsTab';
+import { AnimatedPage } from '@/components/ui/animated-page';
+import { AnimatedTab } from '@/components/ui/animated-tab';
 
 const colorFilters = ['svart', 'vit', 'grå', 'marinblå', 'blå', 'röd', 'grön', 'beige', 'brun'];
 const seasonFilters = ['vår', 'sommar', 'höst', 'vinter'];
@@ -225,7 +227,7 @@ export default function WardrobePage() {
         }
       />
       
-      <div className="px-4 pb-36 pt-4 space-y-5 max-w-lg mx-auto">
+      <AnimatedPage className="px-4 pb-36 pt-4 space-y-5 max-w-lg mx-auto">
         {/* Segmented control */}
         <div className="flex p-1 rounded-2xl bg-foreground/[0.04] backdrop-blur-sm border border-border/30">
           {(['garments', 'outfits'] as const).map((tab) => (
@@ -244,8 +246,9 @@ export default function WardrobePage() {
           ))}
         </div>
 
+        <AnimatedTab tabKey={activeTab}>
         {activeTab === 'garments' ? (
-          <div key="garments" className="space-y-5 tab-content-enter">
+          <div className="space-y-5">
             {/* Search */}
             <SettingsGroup>
               <Collapsible open={searchOpen} onOpenChange={setSearchOpen}>
@@ -452,10 +455,11 @@ export default function WardrobePage() {
             )}
           </div>
         ) : (
-          <div key="outfits" className="tab-content-enter">
+          <div>
             <WardrobeOutfitsTab />
           </div>
         )}
+        </AnimatedTab>
 
         {/* FABs - only show on garments tab */}
         {activeTab === 'garments' && (
@@ -481,7 +485,7 @@ export default function WardrobePage() {
             </Button>
           </div>
         )}
-      </div>
+      </AnimatedPage>
 
       <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="garments" />
     </AppLayout>

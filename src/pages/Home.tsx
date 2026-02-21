@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, ChevronRight, BarChart3, TrendingUp, Shirt, Palette, Gem, AlertCircle, Lock, RefreshCw, ChevronDown, Sun, Briefcase, PartyPopper, Heart, Dumbbell, Plane, Trophy } from 'lucide-react';
+import { AnimatedPage } from '@/components/ui/animated-page';
+import { AnimatedTab } from '@/components/ui/animated-tab';
+import { StaggerContainer, StaggerItem } from '@/components/ui/stagger';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -258,7 +261,7 @@ export default function HomePage() {
     <AppLayout>
       <PageHeader title={getGreeting()} actions={null} />
 
-      <div className="px-4 pb-6 pt-2 space-y-5 max-w-lg mx-auto">
+      <AnimatedPage className="px-4 pb-6 pt-2 space-y-5 max-w-lg mx-auto">
 
         {/* Onboarding nudge */}
         {needsOnboarding && (
@@ -305,8 +308,9 @@ export default function HomePage() {
         </div>
 
         {/* ── CREATE TAB ── */}
+        <AnimatedTab tabKey={activeTab}>
         {activeTab === 'create' && (
-          <div key="create" className="space-y-5 tab-content-enter">
+          <div className="space-y-5">
             <WeatherWidget />
 
             {weather && weather.temperature <= 10 && (
@@ -318,13 +322,13 @@ export default function HomePage() {
             {/* Occasions */}
             <div className="space-y-2.5">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('home.what_today')}</p>
-              <div className="grid grid-cols-3 gap-2">
+              <StaggerContainer className="grid grid-cols-3 gap-2" stagger={0.04}>
                 {OCCASIONS.map((occ) => (
+                  <StaggerItem key={occ.id}>
                   <button
-                    key={occ.id}
                     onClick={() => handleSelectOccasion(occ.id)}
                     className={cn(
-                      "flex flex-col items-center gap-1 py-3 px-2 rounded-xl text-sm font-medium transition-all border",
+                      "w-full flex flex-col items-center gap-1 py-3 px-2 rounded-xl text-sm font-medium transition-all border",
                       selectedOccasion === occ.id
                         ? "border-accent bg-accent/5 text-accent"
                         : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground active:bg-muted/60"
@@ -333,8 +337,9 @@ export default function HomePage() {
                     <occ.icon className="w-5 h-5" />
                     <span className="text-xs">{t(occ.labelKey)}</span>
                   </button>
+                  </StaggerItem>
                 ))}
-              </div>
+              </StaggerContainer>
             </div>
 
             {/* Sub-options */}
@@ -404,11 +409,12 @@ export default function HomePage() {
 
         {/* ── INSIGHTS TAB ── */}
         {activeTab === 'insights' && (
-          <div key="insights" className="tab-content-enter">
+          <div>
             <InsightsSection isPremium={isPremium} t={t} />
           </div>
         )}
-      </div>
+        </AnimatedTab>
+      </AnimatedPage>
 
       <PaywallModal
         isOpen={showPaywall}
