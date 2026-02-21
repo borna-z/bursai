@@ -1,169 +1,73 @@
 
-# Glassmorphism Design System -- Hela appen
 
-## Oversikt
+# Landing Page Copy Improvements — Text Only
 
-Appen har redan en bra glass-effekt pa BottomNav och PageHeader (`backdrop-blur-xl`, `bg-background/60`). Malet ar att utoka denna glasmorfism-estetik till **alla UI-primitiver** sa att hela appen kanns enhetlig och premium.
+## Summary
 
-## Vad som redan ar glassmorphism
+Small, high-impact copy changes to make the product clearer (AI wardrobe + styling app) while keeping the premium tone. No design, layout, color, spacing, component, or animation changes.
 
-- **BottomNav**: `bg-background/60 backdrop-blur-xl backdrop-saturate-150` -- perfekt
-- **PageHeader**: `bg-background/70 backdrop-blur-xl backdrop-saturate-150` -- perfekt
-- **TabsList**: `bg-foreground/[0.04] backdrop-blur-sm border-border/30` -- bra start
-- **TabsTrigger active**: `bg-background/80 backdrop-blur-md` -- bra start
-- `.glass-card` utility: `bg-card/80 backdrop-blur-md border-border/40` -- finns men anvands inte overallt
-- `.glass-chip` utility: `bg-background/60 backdrop-blur-sm border-border/30` -- finns
+## Changes
 
-## Vad som ska andras
+### 1. Hero Section — New Copy (all 14 languages)
 
-### 1. Card-komponenten (bas for alla kort i appen)
-**Fil:** `src/components/ui/card.tsx`
+Replace these translation keys:
 
-Nuvarande: `bg-card` (helt opak vit/mork) med solid border.
-Nytt: Semi-transparent bakgrund med backdrop-blur, mjukare border och subtil skugga -- i princip `.glass-card` som default.
+| Key | Current (EN) | New (EN) |
+|-----|-------------|----------|
+| `landing.badge` | "Sustainable AI Styling" | "AI Wardrobe & Stylist" |
+| `landing.hero` | "Designed for the next dimension." | "Rediscover your wardrobe." |
+| `landing.hero_desc` | "Pure Scandinavian minimalism meets brutal computational power in a frictionless experience." | "BURS turns your clothes into effortless outfits — personalized for your day, weather, and style." |
+| `landing.get_started` | "Get Started" | "Try BURS" |
+| `landing.explore` | "Explore" | "See how it works" |
 
-```
-rounded-xl border border-border/40 bg-card/70 backdrop-blur-md text-card-foreground shadow-[0_1px_3px_0_rgb(0_0_0/0.04)]
-```
+Swedish equivalents:
 
-### 2. Button-komponenten
-**Fil:** `src/components/ui/button.tsx`
+| Key | New (SV) |
+|-----|----------|
+| `landing.badge` | "AI-garderob & stylist" |
+| `landing.hero` | "Aterupptack din garderob." |
+| `landing.hero_desc` | "BURS gor dina klader till enkla outfits — anpassade for din dag, vader och stil." |
+| `landing.get_started` | "Testa BURS" |
+| `landing.explore` | "Se hur det funkar" |
 
-- **default** (primary): Behall solid (det ar CTA-knappar, de ska vara tydliga). Inga andringar.
-- **secondary**: Gor semi-transparent: `bg-secondary/60 backdrop-blur-sm`
-- **outline**: Gor glasig: `border border-border/50 bg-background/50 backdrop-blur-sm hover:bg-background/70`
-- **ghost**: Lagg till subtil blur pa hover: `hover:bg-foreground/[0.04] hover:backdrop-blur-sm`
+All 14 languages will be updated with equivalent translations.
 
-### 3. Sheet (bottom sheets/sidopaneler)
-**Fil:** `src/components/ui/sheet.tsx`
+### 2. Add Trust Line Under Hero Buttons
 
-Nuvarande: `bg-background` (solid).
-Nytt: `bg-background/80 backdrop-blur-xl backdrop-saturate-150` for frostad glaseffekt.
-Overlay: Gora mjukare -- `bg-black/40 backdrop-blur-sm` istallet for `bg-black/80`.
+Add a small text line below the CTA buttons in the hero section:
 
-### 4. Dialog
-**Fil:** `src/components/ui/dialog.tsx`
+**EN:** "Private by design · Built for real wardrobes · Made for everyday life"
+**SV:** "Privat fran grunden · Byggt for riktiga garderober · Gjort for vardagen"
 
-Nuvarande: `bg-background` solid.
-Nytt: `bg-background/85 backdrop-blur-xl backdrop-saturate-150 border-border/40`.
-Overlay: Samma som Sheet -- `bg-black/40 backdrop-blur-sm`.
+New translation key: `landing.trust_line`
 
-### 5. Drawer
-**Fil:** `src/components/ui/drawer.tsx`
+This requires a tiny addition to `Landing.tsx` — one `<p>` element below the existing button `<div>`, using the same reveal animation style already in use.
 
-Nuvarande: `bg-background` solid.
-Nytt: `bg-background/80 backdrop-blur-xl backdrop-saturate-150`.
-Overlay: `bg-black/40 backdrop-blur-sm`.
-Handtag: Gora mer subtilt med `bg-foreground/10` istallet for `bg-muted`.
+### 3. Brand Consistency — "Burs" to "BURS"
 
-### 6. Popover och Select-content
-**Filer:** `src/components/ui/popover.tsx`, `src/components/ui/select.tsx`
+Fix inconsistent casing in these keys (all languages):
 
-Nuvarande: `bg-popover` solid.
-Nytt: `bg-popover/80 backdrop-blur-xl border-border/40 shadow-lg`.
+| Key | Current (EN) | Fixed |
+|-----|-------------|-------|
+| `landing.sust_desc` | "...Burs helps you..." | "...BURS helps you..." |
+| `landing.cta_desc` | "...Rediscover your style with Burs." | "...Rediscover your style with BURS." |
 
-### 7. DropdownMenu-content
-**Fil:** `src/components/ui/dropdown-menu.tsx`
+Same fix in SV and all other languages where "Burs" appears lowercase in landing keys.
 
-Nuvarande: `bg-popover` solid.
-Nytt: `bg-popover/80 backdrop-blur-xl border-border/40`.
+### 4. Final CTA Button Label
 
-### 8. Tooltip
-**Fil:** `src/components/ui/tooltip.tsx`
+The final CTA button (Slide 7) currently uses `t('landing.login')` which shows "Log In". Change it to use `t('landing.get_started')` so it says "Try BURS" — matching the hero CTA.
 
-Nuvarande: `bg-popover` solid.
-Nytt: `bg-popover/80 backdrop-blur-lg border-border/40`.
-
-### 9. Toast
-**Fil:** `src/components/ui/toast.tsx`
-
-Nuvarande default variant: `bg-background` solid.
-Nytt: `bg-background/80 backdrop-blur-xl border-border/40`.
-
-### 10. Badge-komponenten
-**Fil:** `src/components/ui/badge.tsx`
-
-- **secondary**: `bg-secondary/60 backdrop-blur-sm border-transparent`
-- **outline**: `bg-background/40 backdrop-blur-sm`
-
-### 11. Chip-komponenten
-**Fil:** `src/components/ui/chip.tsx`
-
-- **default**: `bg-secondary/50 backdrop-blur-sm`
-- **filter**: `bg-muted/50 backdrop-blur-sm`
-- **outline**: `bg-background/40 backdrop-blur-sm border-border/40`
-
-### 12. Input
-**Fil:** `src/components/ui/input.tsx`
-
-Nuvarande: `bg-background` solid.
-Nytt: `bg-background/60 backdrop-blur-sm border-border/50`.
-
-### 13. Select trigger
-**Fil:** `src/components/ui/select.tsx`
-
-Nuvarande: `bg-background` solid.
-Nytt: `bg-background/60 backdrop-blur-sm border-border/50`.
-
-### 14. SettingsGroup card
-**Fil:** `src/components/settings/SettingsGroup.tsx`
-
-Nuvarande: `bg-card` solid.
-Nytt: `bg-card/70 backdrop-blur-md border border-border/30`.
-
-### 15. Global CSS -- forstarkt glass-utilities
-**Fil:** `src/index.css`
-
-Uppdatera `.glass-card` och `.glass-chip` for starkare, mer enhetlig effekt:
-```css
-.glass-card {
-  @apply bg-card/70 backdrop-blur-md border border-border/40 shadow-[0_1px_3px_0_rgb(0_0_0/0.04)];
-}
-
-.glass-chip {
-  @apply bg-background/50 backdrop-blur-sm border border-border/30 rounded-full;
-}
-```
-
-Lagg till nya utilities:
-```css
-.glass-surface {
-  @apply bg-background/70 backdrop-blur-xl backdrop-saturate-150;
-}
-
-.glass-overlay {
-  @apply bg-black/40 backdrop-blur-sm;
-}
-```
+This is a one-word change in `Landing.tsx` line 344.
 
 ---
 
-## Teknisk sammanfattning
+## Files Changed
 
-| # | Fil | Andringar |
-|---|-----|-----------|
-| 1 | `src/components/ui/card.tsx` | Glass-bakgrund som default |
-| 2 | `src/components/ui/button.tsx` | Glass pa secondary/outline/ghost |
-| 3 | `src/components/ui/sheet.tsx` | Glass content + mjukare overlay |
-| 4 | `src/components/ui/dialog.tsx` | Glass content + mjukare overlay |
-| 5 | `src/components/ui/drawer.tsx` | Glass content + mjukare overlay |
-| 6 | `src/components/ui/popover.tsx` | Glass content |
-| 7 | `src/components/ui/select.tsx` | Glass content + trigger |
-| 8 | `src/components/ui/dropdown-menu.tsx` | Glass content |
-| 9 | `src/components/ui/tooltip.tsx` | Glass content |
-| 10 | `src/components/ui/toast.tsx` | Glass default variant |
-| 11 | `src/components/ui/badge.tsx` | Glass secondary/outline |
-| 12 | `src/components/ui/chip.tsx` | Glass default/filter/outline |
-| 13 | `src/components/ui/input.tsx` | Glass bakgrund |
-| 14 | `src/components/settings/SettingsGroup.tsx` | Glass card wrapper |
-| 15 | `src/index.css` | Forstarkt glass-utilities + nya klasser |
+| # | File | Change |
+|---|------|--------|
+| 1 | `src/i18n/translations.ts` | Update 5 existing keys + add 1 new key (`landing.trust_line`) across all 14 languages. Fix "Burs" to "BURS" in 2 keys. |
+| 2 | `src/pages/Landing.tsx` | Add trust line `<p>` under hero buttons (line ~164). Change final CTA from `landing.login` to `landing.get_started` (line 344). |
 
-Totalt: **15 filer** som redigeras. Inga nya filer. Inga beroendeforandringar.
+**Total: 2 files. No design changes. No new components. No layout changes.**
 
-## Designprinciper
-
-- **Primary buttons** behaller solid bakgrund for tydlig CTA-kontrast
-- **Overlays** ar mjukare (40% svart + blur) istallet for 80% svart
-- **Alla ytor** (kort, sheets, dropdowns) far semi-transparent bakgrund + blur
-- **Borders** ar genomgaende tunnare (`border-border/40`) for subtilare avgranning
-- Fungerar i bade ljust och morkt tema tack vare CSS-variablerna
