@@ -4,6 +4,7 @@ import { format, addDays, isSameDay, isToday, isTomorrow } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
 import { Wand2, Shirt, Loader2, CalendarDays, Repeat, Info, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
@@ -241,7 +242,7 @@ export default function PlanPage() {
       </header>
 
       {/* ─── Single-column content ─── */}
-      <div className="max-w-lg mx-auto px-4 py-4 space-y-5">
+      <AnimatedPage className="max-w-lg mx-auto px-4 py-4 space-y-5">
         {/* Calendar connect nudge */}
         <CalendarConnectBanner />
 
@@ -397,7 +398,7 @@ export default function PlanPage() {
             </div>
           )}
         </div>
-      </div>
+      </AnimatedPage>
 
       {/* ─── Sheets ─── */}
       <PlanningSheet
