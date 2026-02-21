@@ -1,5 +1,5 @@
 import { Instagram, Twitter } from 'lucide-react';
-import bursLandingLogo from '@/assets/burs-landing-logo-white.png';
+import bursLandingLogo from '@/assets/burs-logo-white.png';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 export function LandingFooter() {

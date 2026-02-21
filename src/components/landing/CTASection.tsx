@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-import bursLandingLogo from '@/assets/burs-landing-logo-white.png';
+import bursLandingLogo from '@/assets/burs-logo-white.png';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 export function CTASection() {
