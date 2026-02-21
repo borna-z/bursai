@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { Sparkles, AlertCircle, Shirt, Palette, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -8,32 +8,50 @@ import { useOutfitGenerator, type OutfitRequest } from '@/hooks/useOutfitGenerat
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 
+const PHASES = [
+  { icon: Shirt, label: 'Analyserar din garderob...', duration: 1200 },
+  { icon: Palette, label: 'Matchar färger och stil...', duration: 2000 },
+  { icon: Wand2, label: 'Skapar din outfit...', duration: 0 },
+] as const;
+
 export default function OutfitGeneratePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
   const { generateOutfit, isGenerating, error } = useOutfitGenerator();
+  const [phase, setPhase] = useState(0);
+  const [phaseKey, setPhaseKey] = useState(0);
   
   const state = location.state as OutfitRequest | null;
   
   useEffect(() => {
     if (!state?.occasion) {
-      // No state, go back to home
       navigate('/', { replace: true });
       return;
     }
-    
-    // Start generation
     handleGenerate();
   }, []);
+
+  // Phase progression
+  useEffect(() => {
+    if (!isGenerating && phase === 0) return;
+    if (phase >= PHASES.length - 1) return;
+
+    const timer = setTimeout(() => {
+      setPhase((p) => p + 1);
+      setPhaseKey((k) => k + 1);
+    }, PHASES[phase].duration);
+
+    return () => clearTimeout(timer);
+  }, [phase, isGenerating]);
   
   const handleGenerate = async () => {
     if (!state) return;
+    setPhase(0);
+    setPhaseKey(0);
     
     try {
       const outfit = await generateOutfit(state);
-      
-      // Navigate to result
       navigate(`/outfits/${outfit.id}`, { 
         replace: true,
         state: { justGenerated: true }
@@ -45,11 +63,14 @@ export default function OutfitGeneratePage() {
       });
     }
   };
+
+  const CurrentIcon = PHASES[phase]?.icon ?? Sparkles;
+  const currentLabel = PHASES[phase]?.label ?? '';
   
   if (error) {
     return (
       <AppLayout>
-        <div className="p-4 flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="p-4 flex flex-col items-center justify-center min-h-[60vh] animate-fade-in">
           <Card className="max-w-sm w-full">
             <CardContent className="p-6 text-center">
               <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
@@ -84,29 +105,61 @@ export default function OutfitGeneratePage() {
   return (
     <AppLayout>
       <div className="p-4 flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="text-center space-y-4">
-          <div className="relative">
-            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-              <Sparkles className="w-10 h-10 text-primary animate-pulse" />
+        <div className="text-center space-y-6">
+          {/* Animated icon area */}
+          <div className="relative w-28 h-28 mx-auto">
+            {/* Pulsing background rings */}
+            <div className="absolute inset-0 rounded-full bg-primary/5 animate-ping" style={{ animationDuration: '2s' }} />
+            <div className="absolute inset-2 rounded-full bg-primary/8 animate-ping" style={{ animationDuration: '2.5s', animationDelay: '0.3s' }} />
+            
+            {/* Icon container */}
+            <div
+              key={phaseKey}
+              className="relative w-28 h-28 rounded-full bg-primary/10 flex items-center justify-center animate-scale-in"
+            >
+              <CurrentIcon
+                className="w-12 h-12 text-primary transition-all duration-500"
+                strokeWidth={1.5}
+              />
             </div>
-            <Loader2 className="w-24 h-24 absolute -top-2 -left-2 left-1/2 -translate-x-1/2 animate-spin text-primary/30" />
+
+            {/* Orbiting dots */}
+            <div className="absolute inset-0 animate-spin" style={{ animationDuration: '4s' }}>
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-primary/40" />
+            </div>
+            <div className="absolute inset-0 animate-spin" style={{ animationDuration: '6s', animationDirection: 'reverse' }}>
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary/25" />
+            </div>
           </div>
           
-          <div className="space-y-2">
-            <h2 className="text-xl font-semibold">{t('generate.creating')}</h2>
-            <p className="text-muted-foreground">
-              {t('generate.matching_for')} {state?.occasion || ''}
+          {/* Phase text */}
+          <div key={`text-${phaseKey}`} className="space-y-2 animate-fade-in">
+            <h2 className="text-xl font-semibold tracking-tight">{currentLabel}</h2>
+            <p className="text-sm text-muted-foreground">
+              {state?.occasion || ''}
+              {state?.style ? ` · ${state.style}` : ''}
             </p>
           </div>
-          
-          <div className="flex flex-wrap gap-2 justify-center text-sm text-muted-foreground">
-            {state?.weather?.temperature !== undefined && (
-              <span>{state.weather.temperature}°C</span>
-            )}
-            {state?.style && (
-              <span className="capitalize">{state.style}</span>
-            )}
+
+          {/* Progress dots */}
+          <div className="flex justify-center gap-2">
+            {PHASES.map((_, i) => (
+              <div
+                key={i}
+                className={`h-1.5 rounded-full transition-all duration-500 ${
+                  i <= phase
+                    ? 'w-6 bg-primary'
+                    : 'w-1.5 bg-muted-foreground/20'
+                }`}
+              />
+            ))}
           </div>
+          
+          {state?.weather?.temperature !== undefined && (
+            <p className="text-xs text-muted-foreground/60">
+              {state.weather.temperature}°C
+            </p>
+          )}
         </div>
       </div>
     </AppLayout>
