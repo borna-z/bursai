@@ -11,20 +11,17 @@ export function GarmentInlineCard({ garment }: Props) {
   return (
     <Link
       to={`/wardrobe/${garment.id}`}
-      className="inline-flex items-center gap-2 rounded-lg border border-border bg-background/80 px-2 py-1.5 my-1 mr-1 hover:bg-accent/40 transition-colors max-w-[200px]"
+      className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 pl-1 pr-2.5 py-1 hover:bg-muted/70 transition-colors"
     >
-      <div className="w-10 h-10 rounded-md overflow-hidden shrink-0 bg-muted">
+      <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 bg-muted">
         <LazyImageSimple
           imagePath={garment.image_path}
           alt={garment.title}
-          className="w-10 h-10 object-cover"
-          fallbackIcon={<Shirt className="w-5 h-5" />}
+          className="w-7 h-7 object-cover"
+          fallbackIcon={<Shirt className="w-3.5 h-3.5" />}
         />
       </div>
-      <div className="min-w-0">
-        <p className="text-xs font-medium truncate text-foreground">{garment.title}</p>
-        <p className="text-[10px] text-muted-foreground truncate">{garment.category}</p>
-      </div>
+      <span className="text-xs font-medium truncate text-foreground max-w-[120px]">{garment.title}</span>
     </Link>
   );
 }
