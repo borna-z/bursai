@@ -290,7 +290,7 @@ export default function PlanPage() {
             <div className="space-y-4">
               {/* Outfit image grid */}
               <div 
-                className="rounded-2xl overflow-hidden bg-muted/20 cursor-pointer press"
+                className="rounded-2xl overflow-hidden glass-card cursor-pointer press"
                 onClick={() => navigate(`/outfits/${outfit.id}`)}
               >
                 <div className="grid grid-cols-2 gap-px bg-border">

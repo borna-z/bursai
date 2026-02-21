@@ -38,7 +38,7 @@ export function MiniDayCard({ date, plannedOutfit, isSelected, onClick }: MiniDa
     <Card
       onClick={onClick}
       className={cn(
-        'cursor-pointer transition-all duration-200 p-3 hover:shadow-md hover:border-accent/30',
+        'glass-card cursor-pointer transition-all duration-200 p-3 hover:shadow-md hover:border-accent/30',
         isSelected && 'ring-2 ring-accent shadow-md bg-accent/5',
         !hasOutfit && 'border-dashed',
         isWorn && 'opacity-60'
