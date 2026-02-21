@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import { AnimatedRoutes } from "@/components/layout/AnimatedRoutes";
+import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,24 +23,26 @@ const queryClient = new QueryClient({
 });
 
 const App = () => (
-  <HelmetProvider>
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AuthProvider>
-          <LanguageProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
-                <ScrollToTop />
-                <AnimatedRoutes />
-              </BrowserRouter>
-            </TooltipProvider>
-          </LanguageProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
-  </HelmetProvider>
+  <ErrorBoundary>
+    <HelmetProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AuthProvider>
+            <LanguageProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
+                  <ScrollToTop />
+                  <AnimatedRoutes />
+                </BrowserRouter>
+              </TooltipProvider>
+            </LanguageProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </HelmetProvider>
+  </ErrorBoundary>
 );
 
 export default App;
