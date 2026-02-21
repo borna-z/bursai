@@ -306,7 +306,7 @@ export default function HomePage() {
 
         {/* ── CREATE TAB ── */}
         {activeTab === 'create' && (
-          <div className="space-y-5">
+          <div key="create" className="space-y-5 tab-content-enter">
             <WeatherWidget />
 
             {weather && weather.temperature <= 10 && (
@@ -404,7 +404,9 @@ export default function HomePage() {
 
         {/* ── INSIGHTS TAB ── */}
         {activeTab === 'insights' && (
-          <InsightsSection isPremium={isPremium} t={t} />
+          <div key="insights" className="tab-content-enter">
+            <InsightsSection isPremium={isPremium} t={t} />
+          </div>
         )}
       </div>
 
