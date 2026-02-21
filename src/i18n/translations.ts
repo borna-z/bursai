@@ -794,6 +794,15 @@ export const translations: Record<Locale, Record<string, string>> = {
     'pricing.free_2': '10 outfit-genereringar per månad',
     'pricing.free_3': 'Grundläggande AI-analys',
 
+    // Trial campaign
+    'trial.badge': '30 dagar gratis',
+    'trial.banner_title': 'Testa Premium gratis i 30 dagar',
+    'trial.banner_desc': 'Full tillgång utan kostnad. Avbryt när som helst.',
+    'trial.first_free': 'Första 30 dagarna gratis',
+    'trial.then_price': 'Sedan 79 kr/månad eller 699 kr/år',
+    'trial.start_button': 'Starta gratis provperiod',
+    'trial.active_badge': 'Provperiod',
+
     // Billing success/cancel
     'billing.success_title': 'Premium aktiverat!',
     'billing.success_desc': 'Tack för din prenumeration. Du har nu tillgång till alla premium-funktioner.',
@@ -1896,6 +1905,15 @@ export const translations: Record<Locale, Record<string, string>> = {
     'pricing.free_1': 'Up to 10 garments',
     'pricing.free_2': '10 outfit generations per month',
     'pricing.free_3': 'Basic AI analysis',
+
+    // Trial campaign
+    'trial.badge': '30 days free',
+    'trial.banner_title': 'Try Premium free for 30 days',
+    'trial.banner_desc': 'Full access at no cost. Cancel anytime.',
+    'trial.first_free': 'First 30 days free',
+    'trial.then_price': 'Then 79 kr/month or 699 kr/year',
+    'trial.start_button': 'Start free trial',
+    'trial.active_badge': 'Trial',
 
     // Billing success/cancel
     'billing.success_title': 'Premium activated!',

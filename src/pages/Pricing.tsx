@@ -56,6 +56,14 @@ export default function PricingPage() {
       </div>
 
       <div className="p-4 space-y-6 pb-24">
+        {/* Trial banner */}
+        <div className="relative overflow-hidden rounded-xl border border-amber-400/30 bg-gradient-to-br from-amber-500/5 to-orange-500/5 p-6 text-center">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 to-orange-500" />
+          <Badge className="bg-amber-500 text-white mb-3">{t('trial.badge')}</Badge>
+          <h2 className="text-xl font-bold mb-1">{t('trial.banner_title')}</h2>
+          <p className="text-sm text-muted-foreground">{t('trial.banner_desc')}</p>
+        </div>
+
         <div className="text-center space-y-4 pt-4">
           <div className="mx-auto w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
             <Crown className="w-10 h-10 text-white" />
@@ -94,9 +102,11 @@ export default function PricingPage() {
               <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center"><Sparkles className="w-4 h-4 text-amber-500" /></div><span className="text-sm">{t('pricing.unlimited_outfits')}</span></div>
               <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center"><Crown className="w-4 h-4 text-amber-500" /></div><span className="text-sm">{t('pricing.smarter_ai')}</span></div>
             </div>
+            <p className="text-center text-sm font-medium text-amber-600">{t('trial.first_free')}</p>
+            <p className="text-center text-xs text-muted-foreground">{t('trial.then_price')}</p>
             <Button className="w-full h-12 text-base bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600" onClick={handleCheckout} disabled={isLoading}>
               {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Crown className="w-5 h-5 mr-2" />}
-              {t('pricing.start_premium')}
+              {t('trial.start_button')}
             </Button>
           </CardContent>
         </Card>

@@ -120,6 +120,29 @@ export default function Landing() {
             </div>
           </section>
 
+          {/* ── Trial Campaign Banner ── */}
+          <section className="px-6 py-12 md:py-16">
+            <div className="max-w-3xl mx-auto">
+              <div className="relative overflow-hidden rounded-2xl border border-amber-400/30 bg-gradient-to-br from-amber-500/5 to-orange-500/5 p-8 md:p-12 text-center">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 to-orange-500" />
+                <p className="text-[10px] tracking-[0.4em] uppercase text-amber-600 mb-3 font-semibold">Limited Offer</p>
+                <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-3" style={{ fontFamily: "'Sora', sans-serif" }}>
+                  Try Premium free for 30 days.
+                </h2>
+                <p className="text-muted-foreground text-sm max-w-md mx-auto mb-6">
+                  Full access to unlimited garments, unlimited outfits and smarter AI — no commitment, cancel anytime.
+                </p>
+                <button
+                  onClick={() => navigate('/auth')}
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white h-12 px-8 rounded-full text-sm font-semibold hover:opacity-90 transition-all hover:scale-105"
+                >
+                  Start Free Trial
+                  <ArrowRight size={16} strokeWidth={2} />
+                </button>
+              </div>
+            </div>
+          </section>
+
           {/* ── How It Works ── */}
           <section id="how-it-works" className="px-6 py-28 md:py-40">
             <div className="max-w-4xl mx-auto">
@@ -235,15 +258,15 @@ export default function Landing() {
 
                 {/* Premium */}
                 <div className="bg-foreground text-background border border-foreground rounded-2xl p-8 md:p-10 flex flex-col relative overflow-hidden scroll-reveal" style={{ '--delay': '240ms' } as React.CSSProperties}>
-                  <div className="absolute top-4 right-4 bg-background text-foreground text-[10px] tracking-widest uppercase font-semibold px-3 py-1 rounded-full">
-                    Popular
+                  <div className="absolute top-4 right-4 bg-amber-400 text-foreground text-[10px] tracking-widest uppercase font-bold px-3 py-1 rounded-full">
+                    30 days free
                   </div>
                   <h3 className="text-lg font-semibold tracking-tight" style={{ fontFamily: "'Sora', sans-serif" }}>Premium</h3>
                   <div className="mt-4 mb-2">
-                    <span className="text-4xl font-bold" style={{ fontFamily: "'Sora', sans-serif" }}>79 kr</span>
-                    <span className="text-background/60 text-sm ml-1">/ month</span>
+                    <span className="text-4xl font-bold" style={{ fontFamily: "'Sora', sans-serif" }}>0 kr</span>
+                    <span className="text-background/60 text-sm ml-1">for 30 days</span>
                   </div>
-                  <p className="text-background/50 text-xs mb-6">or 699 kr / year — save ~26%</p>
+                  <p className="text-background/50 text-xs mb-6">Then 79 kr/month · or 699 kr/year — save ~26%</p>
                   <ul className="space-y-3 text-sm text-background/80 flex-1">
                     {['Unlimited garments', 'Unlimited outfits', 'Advanced AI styling', 'Calendar & weather sync', 'Priority support'].map(f => (
                       <li key={f} className="flex items-center gap-2.5">

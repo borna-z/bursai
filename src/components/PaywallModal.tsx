@@ -74,9 +74,10 @@ export function PaywallModal({ isOpen, onClose, reason }: PaywallModalProps) {
         </div>
 
         <div className="space-y-2">
+          <p className="text-center text-sm font-medium text-amber-600">{t('trial.first_free')}</p>
           <Button className="w-full h-12 text-base bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600" onClick={() => handleStartPremium('monthly')} disabled={isLoading !== null}>
             {isLoading === 'monthly' ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Crown className="w-5 h-5 mr-2" />}
-            {t('premium.monthly')}
+            {t('trial.start_button')}
           </Button>
           <Button variant="outline" className="w-full h-12 text-base border-amber-500/50 hover:bg-amber-500/10" onClick={() => handleStartPremium('yearly')} disabled={isLoading !== null}>
             {isLoading === 'yearly' ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Sparkles className="w-5 h-5 mr-2 text-amber-500" />}
