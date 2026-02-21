@@ -234,7 +234,7 @@ export default function AIChat() {
     <AppLayout>
       <div className="flex flex-col" style={{ height: 'calc(100dvh - 4rem)' }}>
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/50">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/50 shrink-0 sticky top-0 z-10 bg-background/95 backdrop-blur-sm">
           <div className="w-9" /> {/* spacer */}
           {/* Mode switcher */}
           <div className="flex bg-muted/60 rounded-lg p-0.5">

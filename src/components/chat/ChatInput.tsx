@@ -40,7 +40,7 @@ export function ChatInput({
   };
 
   return (
-    <div className="px-4 pb-3 pt-2">
+    <div className="px-4 pb-3 pt-2 shrink-0 animate-fade-in">
       <div className="max-w-lg mx-auto">
         <div className="relative rounded-2xl border border-border/80 bg-background shadow-sm">
           {pendingImage && (
@@ -81,7 +81,7 @@ export function ChatInput({
               onClick={onSend}
               disabled={(!input.trim() && !pendingImage) || isStreaming}
               size="icon"
-              className="h-9 w-9 shrink-0 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
+              className="h-9 w-9 shrink-0 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-transform hover:scale-105 active:scale-95"
             >
               {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>
