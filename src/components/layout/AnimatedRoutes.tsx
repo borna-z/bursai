@@ -53,18 +53,34 @@ const routeVariants = {
   exit: { opacity: 0, y: -6 },
 };
 
+// Smoother crossfade for dark-to-dark page transitions (landing ↔ auth)
+const darkRoutes = new Set(['/welcome', '/auth']);
+const crossfadeTransition = {
+  type: 'tween' as const,
+  ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number],
+  duration: 0.4,
+};
+const crossfadeVariants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0 },
+};
+
 export function AnimatedRoutes() {
   const location = useLocation();
+  const isDark = darkRoutes.has(location.pathname);
+  const variants = isDark ? crossfadeVariants : routeVariants;
+  const transition = isDark ? crossfadeTransition : routeTransition;
 
   return (
     <AnimatePresence mode="wait">
       <motion.div
         key={location.pathname}
-        variants={routeVariants}
+        variants={variants}
         initial="initial"
         animate="animate"
         exit="exit"
-        transition={routeTransition}
+        transition={transition}
         style={{ minHeight: '100dvh' }}
       >
         <Suspense fallback={<PageSkeleton />}>
