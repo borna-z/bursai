@@ -1,10 +1,16 @@
 import { useState } from 'react';
 import { Ruler, Weight, Lock, ChevronRight, Loader2, Brain, User, Calendar } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  show: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.06, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] as const } }),
+};
 
 interface BodyMeasurementsStepProps {
   onComplete: (data: { height_cm: number | null; weight_kg: number | null; gender: string | null; age: number | null }) => Promise<void>;
@@ -44,17 +50,17 @@ export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasu
     <div className="min-h-screen bg-background flex flex-col">
       {/* Top visual area */}
       <div className="bg-gradient-to-br from-accent/10 via-accent/5 to-background pt-16 pb-10 px-6 flex flex-col items-center text-center">
-        <div className="w-20 h-20 rounded-2xl bg-accent/15 flex items-center justify-center mb-6">
+        <motion.div variants={fadeUp} initial="hidden" animate="show" custom={0} className="w-20 h-20 rounded-2xl bg-accent/15 flex items-center justify-center mb-6">
           <Brain className="w-10 h-10 text-accent" />
-        </div>
-        <h1 className="text-2xl font-bold mb-3 tracking-tight">{t('onboarding.body.title')}</h1>
-        <p className="text-muted-foreground text-sm leading-relaxed max-w-xs">
+        </motion.div>
+        <motion.h1 variants={fadeUp} initial="hidden" animate="show" custom={1} className="text-2xl font-bold mb-3 tracking-tight">{t('onboarding.body.title')}</motion.h1>
+        <motion.p variants={fadeUp} initial="hidden" animate="show" custom={2} className="text-muted-foreground text-sm leading-relaxed max-w-xs">
           {t('onboarding.body.subtitle')}
-        </p>
+        </motion.p>
       </div>
 
       {/* Form area */}
-      <div className="flex-1 px-6 pt-8 pb-10 space-y-8">
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={3} className="flex-1 px-6 pt-8 pb-10 space-y-8">
         {/* Gender selection */}
         <div className="space-y-2">
           <Label className="flex items-center gap-2 text-sm font-medium">
@@ -196,7 +202,7 @@ export function BodyMeasurementsStep({ onComplete, onSkip, isSaving }: BodyMeasu
             {t('onboarding.body.skip')}
           </Button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
