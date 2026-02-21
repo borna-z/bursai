@@ -73,10 +73,10 @@ Use the `navigator.vibrate` API (where supported) for save confirmations, outfit
 
 **Files:** Create `src/lib/haptics.ts` utility, integrate into key flows
 
-### 4.3 Offline indicator banner
-Show a subtle banner when the user loses connectivity, since the app depends on cloud data.
+### ✅ 4.3 Offline indicator banner
+Added `OfflineBanner` component using `navigator.onLine` + window events. Shows a red banner with spring animation when connectivity is lost, auto-hides when back online. Integrated into `AppLayout`.
 
-**Files:** Create `src/components/layout/OfflineBanner.tsx`, add to `AppLayout`
+**Files:** `src/components/layout/OfflineBanner.tsx`, `src/components/layout/AppLayout.tsx`
 
 ### 4.4 Garment quick-actions swipe
 Add swipe-to-reveal actions (edit, delete, toggle laundry) on garment list items for faster wardrobe management.
