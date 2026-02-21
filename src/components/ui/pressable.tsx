@@ -9,7 +9,7 @@ export function Pressable({ children, className, ...props }: HTMLMotionProps<'di
   return (
     <motion.div
       whileTap={{ scale: 0.975 }}
-      transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
+      transition={{ type: 'tween', ease: [0.25, 0.1, 0.25, 1], duration: 0.15 }}
       className={cn('will-change-transform', className)}
       {...props}
     >
