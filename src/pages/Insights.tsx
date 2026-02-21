@@ -30,6 +30,12 @@ function GarmentMini({ garment, wearCount }: { garment: Garment; wearCount?: num
   );
 }
 
+const COLOR_I18N: Record<string, string> = {
+  svart: 'color.svart', vit: 'color.vit', grå: 'color.grå', marinblå: 'color.marinblå',
+  blå: 'color.blå', röd: 'color.röd', grön: 'color.grön', beige: 'color.beige',
+  brun: 'color.brun', rosa: 'color.rosa', gul: 'color.gul', orange: 'color.orange', lila: 'color.lila',
+};
+
 interface ColorDistributionProps { garments: Garment[]; isPremium: boolean; t: (key: string) => string; }
 
 function ColorDistribution({ garments, isPremium, t }: ColorDistributionProps) {
@@ -55,7 +61,7 @@ function ColorDistribution({ garments, isPremium, t }: ColorDistributionProps) {
             const percentage = Math.round((count / total) * 100);
             return (
               <div key={color} className="flex items-center gap-3">
-                <span className="text-sm capitalize flex-1">{color}</span>
+                <span className="text-sm capitalize flex-1">{t(COLOR_I18N[color] || color)}</span>
                 <MiniBar value={percentage} className="flex-1" />
                 <span className="text-xs text-muted-foreground w-8 text-right">{count}</span>
               </div>
