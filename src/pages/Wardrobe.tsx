@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -17,6 +18,7 @@ import { useGarments, useUpdateGarment, useDeleteGarment, useGarmentCount, type 
 import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { SettingsGroup } from '@/components/settings/SettingsGroup';
@@ -108,6 +110,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
 export default function WardrobePage() {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'garments' | 'outfits'>('garments');
   const [filters, setFilters] = useState<GarmentFilters>({});
   const [search, setSearch] = useState('');
@@ -215,6 +218,11 @@ export default function WardrobePage() {
   const clearFilters = () => { setSelectedCategory('all'); setSelectedColor(null); setSelectedSeason(null); setFilters({}); setSearch(''); };
   const hasActiveFilters = selectedCategory !== 'all' || selectedColor || selectedSeason || search;
 
+  const handleRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['garments'] });
+    await queryClient.invalidateQueries({ queryKey: ['garments-count'] });
+  }, [queryClient]);
+
   return (
     <AppLayout>
       <PageHeader 
@@ -233,6 +241,7 @@ export default function WardrobePage() {
         }
       />
       
+      <PullToRefresh onRefresh={handleRefresh}>
       <AnimatedPage className="px-4 pb-36 pt-4 space-y-5 max-w-lg mx-auto">
         {/* Segmented control */}
         <div className="flex p-1 rounded-2xl bg-foreground/[0.04] backdrop-blur-sm border border-border/30">
@@ -490,6 +499,7 @@ export default function WardrobePage() {
           </div>
         )}
       </AnimatedPage>
+      </PullToRefresh>
 
       <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="garments" />
     </AppLayout>

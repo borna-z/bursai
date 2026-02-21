@@ -63,10 +63,10 @@ Users with 50+ garments experience scroll jank. Add virtual scrolling to the war
 
 ## 🧩 Phase 4 — Missing Features & UX Gaps
 
-### 4.1 Pull-to-refresh on mobile
-Add a pull-to-refresh gesture on the Home and Wardrobe pages to re-fetch data, matching native app behavior.
+### ✅ 4.1 Pull-to-refresh on mobile
+Added reusable `PullToRefresh` component with touch gesture detection, damped pull, framer-motion animated spinner, and threshold-based trigger. Integrated into Home (refreshes weather, insights, garment count) and Wardrobe (refreshes garments list and count).
 
-**Files:** `src/pages/Home.tsx`, `src/pages/Wardrobe.tsx`
+**Files:** `src/components/layout/PullToRefresh.tsx`, `src/pages/Home.tsx`, `src/pages/Wardrobe.tsx`
 
 ### 4.2 Haptic feedback for key interactions
 Use the `navigator.vibrate` API (where supported) for save confirmations, outfit generation completion, and delete actions.
