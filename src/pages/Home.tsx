@@ -277,13 +277,13 @@ export default function HomePage() {
         )}
 
         {/* Tab switcher */}
-        <div className="flex bg-muted/50 rounded-xl p-1 gap-1">
+        <div className="flex bg-foreground/[0.04] backdrop-blur-sm rounded-2xl p-1 gap-1 border border-border/30">
           <button
             onClick={() => setActiveTab('create')}
             className={cn(
-              "flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all",
+              "flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200",
               activeTab === 'create'
-                ? "bg-background text-foreground shadow-sm"
+                ? "bg-background/80 backdrop-blur-md text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
                 : "text-muted-foreground"
             )}
           >
@@ -293,9 +293,9 @@ export default function HomePage() {
           <button
             onClick={() => setActiveTab('insights')}
             className={cn(
-              "flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all",
+              "flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200",
               activeTab === 'insights'
-                ? "bg-background text-foreground shadow-sm"
+                ? "bg-background/80 backdrop-blur-md text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
                 : "text-muted-foreground"
             )}
           >

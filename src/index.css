@@ -261,7 +261,22 @@
 
   /* Press micro-interaction */
   .press {
-    @apply transition-transform active:scale-[0.97];
+    @apply transition-all duration-200 active:scale-[0.97];
+  }
+
+  /* Glass card – frosted translucent surface */
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-md border border-border/40 shadow-sm;
+  }
+
+  /* Glass chip – small pill / filter tag */
+  .glass-chip {
+    @apply bg-background/60 backdrop-blur-sm border border-border/30 rounded-full;
+  }
+
+  /* Tab content enter animation */
+  .tab-content-enter {
+    animation: tab-fade-in 0.25s ease-out both;
   }
 
   /* Lift hover effect */
@@ -330,6 +345,11 @@
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes tab-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
