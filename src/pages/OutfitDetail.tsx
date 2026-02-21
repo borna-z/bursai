@@ -212,7 +212,7 @@ export default function OutfitDetailPage() {
         </div>
       </div>
 
-      <div className="p-4 space-y-4 pb-32">
+      <div className="p-4 pt-6 space-y-6 pb-32">
         {justGenerated && (
           <div className="flex items-center gap-2 text-primary animate-fade-in"><Sparkles className="w-5 h-5" /><span className="font-medium">{t('outfit.just_created')}</span></div>
         )}

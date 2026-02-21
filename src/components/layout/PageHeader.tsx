@@ -33,7 +33,7 @@ export function PageHeader({
     >
       <div className={cn(
         'flex items-center justify-between px-4 max-w-lg mx-auto',
-        subtitle ? 'h-16 py-2' : 'h-14'
+        subtitle ? 'h-[72px] py-2' : 'h-16'
       )}>
         <div className="flex items-center gap-3">
           {showBack && (

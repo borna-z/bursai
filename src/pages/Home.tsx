@@ -107,21 +107,21 @@ function InsightsSection({ isPremium, t }: { isPremium: boolean; t: (k: string) 
   return (
     <div className="space-y-4">
       {/* Quick stats */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-3">
         <Card className="bg-muted/20 backdrop-blur-sm">
-          <CardContent className="p-3 text-center">
+          <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold tracking-tight">{insights.totalGarments}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">{t('insights.total')}</p>
           </CardContent>
         </Card>
         <Card className="bg-muted/20 backdrop-blur-sm">
-          <CardContent className="p-3 text-center">
+          <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold tracking-tight text-accent">{insights.usageRate}%</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">{t('insights.usage')}</p>
           </CardContent>
         </Card>
         <Card className="bg-muted/20 backdrop-blur-sm">
-          <CardContent className="p-3 text-center">
+          <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold tracking-tight">{insights.unusedGarments.length}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">{t('insights.unused')}</p>
           </CardContent>
@@ -274,7 +274,7 @@ export default function HomePage() {
     <AppLayout>
       <PageHeader title={getGreeting()} actions={null} />
       <PullToRefresh onRefresh={handleRefresh}>
-      <AnimatedPage className="px-4 pb-6 pt-2 space-y-5 max-w-lg mx-auto">
+      <AnimatedPage className="px-4 pb-6 pt-6 space-y-6 max-w-lg mx-auto">
 
         {/* Onboarding nudge */}
         {needsOnboarding && (
@@ -335,7 +335,7 @@ export default function HomePage() {
             )}
 
             {/* Occasions */}
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('home.what_today')}</p>
               <StaggerContainer className="grid grid-cols-3 gap-2" stagger={0.04}>
                 {OCCASIONS.map((occ) => (
@@ -387,7 +387,7 @@ export default function HomePage() {
             )}
 
             {/* Styles */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('home.style_optional')}</p>
               <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
                 {STYLES.map((style) => (
