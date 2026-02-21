@@ -22,8 +22,8 @@ export default function OutfitGeneratePage() {
   const state = location.state as OutfitRequest | null;
   
   const PHASES = [
-    { icon: Shirt, label: t('generate.phase_analyzing'), duration: 1200 },
-    { icon: Palette, label: t('generate.phase_matching'), duration: 2000 },
+    { icon: Shirt, label: t('generate.phase_analyzing'), duration: 600 },
+    { icon: Palette, label: t('generate.phase_matching'), duration: 1000 },
     { icon: Wand2, label: t('generate.phase_creating'), duration: 0 },
   ];
   

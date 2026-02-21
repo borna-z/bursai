@@ -246,13 +246,6 @@ ${weather?.precipitation ? `Precipitation: ${weather.precipitation}` : ""}
 ${weather?.wind ? `Wind: ${weather.wind}` : ""}
 Season: ${seasonHint}
 
-WEATHER DRESSING RULES:
-- Below 5°C: Heavy outerwear mandatory, prefer wool/down/warm materials
-- 5-15°C: Light jacket or layering required
-- 15-25°C: No outerwear needed
-- Above 25°C: Light fabrics, short sleeves preferred
-- Rain: Waterproof or water-resistant outerwear
-- Snow: Warm + waterproof, boots preferred
 ${recentOutfitsContext}
 
 OCCASION: ${occasion}
@@ -268,7 +261,7 @@ ${garmentList}`;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    // Call AI with gemini-2.5-pro for best reasoning
+    // Call AI with gemini-3-flash-preview for fast structured selection
     async function callAI(messages: { role: string; content: string }[]) {
       const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -277,7 +270,7 @@ ${garmentList}`;
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-pro",
+          model: "google/gemini-3-flash-preview",
           messages,
           tools: [TOOL_DEF],
           tool_choice: { type: "function", function: { name: "select_outfit" } },
@@ -347,33 +340,15 @@ ${garmentList}`;
     if (!hasShoes && availableBySlot.shoes.length > 0) missingSlots.push("shoes");
     if (needsOuterwear && !hasOuterwear && availableBySlot.outerwear.length > 0) missingSlots.push("outerwear");
 
-    // Retry once if missing mandatory slots
+    // Fill missing mandatory slots instantly from available garments (no retry)
     if (missingSlots.length > 0) {
-      console.log("Missing slots, retrying:", missingSlots.join(", "));
-      const retryPrompt = `Your previous outfit was incomplete. You are MISSING these mandatory slots: ${missingSlots.join(", ")}.
-
-Current selection: ${JSON.stringify(validItems)}
-
-Add the missing items. Return the COMPLETE outfit (all previous items + the missing ones). Use ONLY garment IDs from the wardrobe.
-
-Available garments for missing slots:
-${missingSlots.map(slot => {
-  const available = availableBySlot[slot] || [];
-  return `${slot}: ${available.map(g => `${g.id} (${g.title}, ${g.color_primary})`).join("; ")}`;
-}).join("\n")}`;
-
-      const retryResult = await callAI([
-        { role: "system", content: systemPrompt },
-        { role: "user", content: "Create a complete outfit for me." },
-        { role: "assistant", content: `I selected: ${JSON.stringify(result.data)}` },
-        { role: "user", content: retryPrompt },
-      ]);
-
-      if (retryResult.data) {
-        const retryValid = retryResult.data.items.filter((item) => garmentIdSet.has(item.garment_id));
-        if (retryValid.length > validItems.length) {
-          validItems = retryValid;
-          explanation = retryResult.data.explanation || explanation;
+      console.log("Filling missing slots locally:", missingSlots.join(", "));
+      const usedIds = new Set(validItems.map(i => i.garment_id));
+      for (const slot of missingSlots) {
+        const candidate = (availableBySlot[slot] || []).find(g => !usedIds.has(g.id));
+        if (candidate) {
+          validItems.push({ slot, garment_id: candidate.id });
+          usedIds.add(candidate.id);
         }
       }
     }
