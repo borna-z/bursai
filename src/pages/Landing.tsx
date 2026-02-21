@@ -162,6 +162,10 @@ export default function Landing() {
                   <Smartphone size={18} strokeWidth={1.5} /> {t('landing.explore')}
                 </button>
               </div>
+
+              <p className="text-xs text-gray-500 tracking-wide reveal-up" style={{ '--reveal-delay': '550ms' } as React.CSSProperties}>
+                {t('landing.trust_line')}
+              </p>
             </div>
 
             {/* Scroll-down indicator */}
@@ -341,7 +345,7 @@ export default function Landing() {
                 {t('landing.cta_desc')}
               </p>
               <button onClick={() => navigate('/auth')} className="inline-flex items-center gap-2 bg-white text-[#030305] h-14 px-12 rounded-full text-sm font-semibold tracking-widest uppercase hover:opacity-90 transition-all hover:scale-105 glow-pulse reveal-scale" style={{ '--reveal-delay': '350ms' } as React.CSSProperties}>
-                {t('landing.login')} <ArrowRight className="w-4 h-4" />
+                {t('landing.get_started')} <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </section>
