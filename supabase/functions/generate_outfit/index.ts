@@ -23,13 +23,97 @@ interface GarmentRow {
   last_worn_at: string | null;
 }
 
+const LOCALE_NAMES: Record<string, string> = {
+  sv: "svenska", en: "English", no: "norsk", da: "dansk", fi: "finska",
+  de: "Deutsch", fr: "français", es: "español", it: "italiano",
+  pt: "português", nl: "Nederlands", ja: "日本語", ko: "한국어", ar: "العربية",
+  fa: "فارسی", zh: "中文",
+};
+
+// Categories that count as each slot
+const TOP_CATEGORIES = ["top", "shirt", "t-shirt", "blouse", "sweater", "hoodie", "polo", "tank_top", "cardigan", "tröja", "skjorta"];
+const BOTTOM_CATEGORIES = ["bottom", "pants", "jeans", "trousers", "shorts", "skirt", "chinos", "byxor", "kjol"];
+const SHOES_CATEGORIES = ["shoes", "sneakers", "boots", "loafers", "sandals", "heels", "skor", "stövlar"];
+const OUTERWEAR_CATEGORIES = ["outerwear", "jacket", "coat", "blazer", "parka", "windbreaker", "jacka", "kappa", "rock"];
+const DRESS_CATEGORIES = ["dress", "jumpsuit", "overall", "klänning"];
+
+function categorizeSlot(category: string, subcategory: string | null): string | null {
+  const cat = (category || "").toLowerCase();
+  const sub = (subcategory || "").toLowerCase();
+  const both = `${cat} ${sub}`;
+  
+  if (DRESS_CATEGORIES.some(d => both.includes(d))) return "dress";
+  if (OUTERWEAR_CATEGORIES.some(o => both.includes(o))) return "outerwear";
+  if (TOP_CATEGORIES.some(t => both.includes(t))) return "top";
+  if (BOTTOM_CATEGORIES.some(b => both.includes(b))) return "bottom";
+  if (SHOES_CATEGORIES.some(s => both.includes(s))) return "shoes";
+  return null;
+}
+
+function buildStyleContext(preferences: Record<string, any> | null, profile: any): string {
+  if (!preferences) return "";
+  const sp = preferences.styleProfile as Record<string, any> | undefined;
+  if (!sp) {
+    const parts: string[] = [];
+    if (preferences.favoriteColors?.length) parts.push(`Favorite colors: ${(preferences.favoriteColors as string[]).join(", ")}`);
+    if (preferences.dislikedColors?.length) parts.push(`Avoids: ${(preferences.dislikedColors as string[]).join(", ")}`);
+    if (preferences.fitPreference) parts.push(`Fit: ${preferences.fitPreference}`);
+    if (preferences.styleVibe) parts.push(`Style: ${preferences.styleVibe}`);
+    return parts.join(". ");
+  }
+  const lines: string[] = [];
+  if (sp.favoriteColors?.length) lines.push(`Favorite colors: ${sp.favoriteColors.join(", ")}`);
+  if (sp.dislikedColors?.length) lines.push(`Avoids colors: ${sp.dislikedColors.join(", ")}`);
+  if (sp.colorTone) lines.push(`Color tone: ${sp.colorTone}`);
+  if (sp.patternFeeling) lines.push(`Pattern preference: ${sp.patternFeeling}`);
+  if (sp.fit) lines.push(`Fit: ${sp.fit}`);
+  if (sp.layering) lines.push(`Layering: ${sp.layering}`);
+  if (sp.styleWords?.length) lines.push(`Style words: ${sp.styleWords.join(", ")}`);
+  if (sp.adventurousness) lines.push(`Adventurousness: ${sp.adventurousness}`);
+  if (sp.genderNeutral) lines.push("Prefers gender-neutral suggestions");
+  return lines.join(". ");
+}
+
+const TOOL_DEF = {
+  type: "function" as const,
+  function: {
+    name: "select_outfit",
+    description: "Select garments for a complete outfit from the user's wardrobe",
+    parameters: {
+      type: "object",
+      properties: {
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              slot: {
+                type: "string",
+                enum: ["top", "bottom", "shoes", "outerwear", "accessory", "dress"],
+              },
+              garment_id: { type: "string", description: "UUID of the garment from the wardrobe list" },
+            },
+            required: ["slot", "garment_id"],
+            additionalProperties: false,
+          },
+        },
+        explanation: {
+          type: "string",
+          description: "2-3 sentence explanation of why this outfit works stylistically",
+        },
+      },
+      required: ["items", "explanation"],
+      additionalProperties: false,
+    },
+  },
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -55,31 +139,36 @@ serve(async (req) => {
     const userId = claimsData.claims.sub;
 
     const { occasion, style, weather, locale = "sv" } = await req.json();
-
-    const LOCALE_NAMES: Record<string, string> = {
-      sv: "svenska", en: "English", no: "norsk", da: "dansk", fi: "finska",
-      de: "Deutsch", fr: "français", es: "español", it: "italiano",
-      pt: "português", nl: "Nederlands", ja: "日本語", ko: "한국어", ar: "العربية",
-      fa: "فارسی", zh: "中文",
-    };
     const localeName = LOCALE_NAMES[locale] || "English";
 
-    // Fetch garments + profile in parallel
-    const [garmentsRes, profileRes] = await Promise.all([
+    // Fetch garments, profile, and recent outfits in parallel
+    const serviceSupabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const [garmentsRes, profileRes, recentOutfitsRes] = await Promise.all([
       supabase
         .from("garments")
         .select("id, title, category, subcategory, color_primary, color_secondary, pattern, material, fit, formality, season_tags, wear_count, last_worn_at")
         .eq("user_id", userId)
         .eq("in_laundry", false),
       supabase.from("profiles").select("preferences, height_cm, weight_kg").eq("id", userId).single(),
+      // Fetch last 5 outfits with their items for anti-repetition
+      serviceSupabase
+        .from("outfit_items")
+        .select("outfit_id, garment_id, outfits!inner(user_id, generated_at)")
+        .eq("outfits.user_id", userId)
+        .order("outfits(generated_at)", { ascending: false })
+        .limit(25),
     ]);
 
     if (garmentsRes.error) throw garmentsRes.error;
     const garments = garmentsRes.data as GarmentRow[];
 
-    if (!garments || garments.length < 2) {
+    if (!garments || garments.length < 3) {
       return new Response(
-        JSON.stringify({ error: "Inte tillräckligt med plagg i garderoben" }),
+        JSON.stringify({ error: "Du behöver minst 3 plagg (överdel, underdel, skor) för att generera en outfit" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -87,196 +176,230 @@ serve(async (req) => {
     const profile = profileRes.data;
     const preferences = profile?.preferences as Record<string, any> | null;
 
+    // Build recent outfits context for anti-repetition
+    let recentOutfitsContext = "";
+    if (recentOutfitsRes.data?.length) {
+      const outfitMap = new Map<string, string[]>();
+      for (const item of recentOutfitsRes.data) {
+        const oid = item.outfit_id;
+        if (!outfitMap.has(oid)) outfitMap.set(oid, []);
+        outfitMap.get(oid)!.push(item.garment_id);
+      }
+      const recentSets = Array.from(outfitMap.values()).slice(0, 5);
+      if (recentSets.length > 0) {
+        recentOutfitsContext = `\nRECENTLY GENERATED OUTFITS (DO NOT repeat these exact combinations — use DIFFERENT garments):\n${recentSets.map((ids, i) => `Outfit ${i + 1}: ${ids.join(", ")}`).join("\n")}`;
+      }
+    }
+
+    // Categorize available garments by slot
+    const availableBySlot: Record<string, GarmentRow[]> = { top: [], bottom: [], shoes: [], outerwear: [], dress: [] };
+    for (const g of garments) {
+      const slot = categorizeSlot(g.category, g.subcategory);
+      if (slot && availableBySlot[slot]) {
+        availableBySlot[slot].push(g);
+      }
+    }
+
     // Build garment list for prompt
     const garmentList = garments
       .map((g) => {
-        const parts = [`ID:${g.id}`, g.title, g.category];
-        if (g.subcategory) parts.push(g.subcategory);
-        parts.push(`färg:${g.color_primary}`);
-        if (g.color_secondary) parts.push(`sekundär:${g.color_secondary}`);
-        if (g.pattern) parts.push(`mönster:${g.pattern}`);
+        const parts = [`ID:${g.id}`, g.title, `category:${g.category}`];
+        if (g.subcategory) parts.push(`sub:${g.subcategory}`);
+        parts.push(`color:${g.color_primary}`);
+        if (g.color_secondary) parts.push(`secondary:${g.color_secondary}`);
+        if (g.pattern) parts.push(`pattern:${g.pattern}`);
         if (g.material) parts.push(`material:${g.material}`);
-        if (g.fit) parts.push(`passform:${g.fit}`);
-        if (g.formality) parts.push(`formalitet:${g.formality}/5`);
-        if (g.season_tags?.length) parts.push(`säsong:${g.season_tags.join(",")}`);
-        if (g.wear_count !== null) parts.push(`använd:${g.wear_count}ggr`);
-        if (g.last_worn_at) parts.push(`senast:${g.last_worn_at}`);
+        if (g.fit) parts.push(`fit:${g.fit}`);
+        if (g.formality) parts.push(`formality:${g.formality}/5`);
+        if (g.season_tags?.length) parts.push(`season:${g.season_tags.join(",")}`);
+        if (g.wear_count !== null) parts.push(`worn:${g.wear_count}x`);
+        if (g.last_worn_at) parts.push(`last:${g.last_worn_at}`);
         return parts.join(" | ");
       })
       .join("\n");
 
-    // Build comprehensive style context from styleProfile
-    let styleContext = "";
-    if (preferences) {
-      const sp = preferences.styleProfile as Record<string, any> | undefined;
-      if (sp) {
-        const lines: string[] = [];
-        if (sp.favoriteColors?.length) lines.push(`Favoritfärger: ${sp.favoriteColors.join(", ")}`);
-        if (sp.dislikedColors?.length) lines.push(`Undviker färger: ${sp.dislikedColors.join(", ")}`);
-        if (sp.colorTone) lines.push(`Färgton: ${sp.colorTone === 'neutral' ? 'neutrala/jordtoner' : 'starka/mättade färger'}`);
-        if (sp.patternFeeling) lines.push(`Mönster: ${sp.patternFeeling}`);
-        if (sp.likedPatterns?.length) lines.push(`Gillar: ${sp.likedPatterns.join(", ")}`);
-        if (sp.fit) lines.push(`Passform: ${sp.fit}`);
-        if (sp.topLength) lines.push(`Överdel: ${sp.topLength}`);
-        if (sp.bottomLength) lines.push(`Underdel: ${sp.bottomLength}`);
-        if (sp.layering) lines.push(`Lagerläggning: ${sp.layering === 'love' ? 'älskar lager' : 'minimalt'}`);
-        if (sp.styleWords?.length) lines.push(`Stilord: ${sp.styleWords.join(", ")}`);
-        if (sp.styleIcons) lines.push(`Inspireras av: ${sp.styleIcons}`);
-        if (sp.adventurousness) lines.push(`Modemodig: ${sp.adventurousness}`);
-        if (sp.trendFollowing) lines.push(`Följer trender: ${sp.trendFollowing}`);
-        if (sp.genderNeutral) lines.push("Föredrar könsneutrala förslag");
-        if (sp.weekdayContext) lines.push(`Vardag: ${sp.weekdayContext}`);
-        if (sp.weekendContext) lines.push(`Helg: ${sp.weekendContext}`);
-        if (sp.workFormality) lines.push(`Arbetsformality: ${sp.workFormality}`);
-        if (sp.comfortVsStyle !== undefined) lines.push(`Komfort vs stil: ${sp.comfortVsStyle}% mot stil`);
-        if (sp.frustrations?.length) lines.push(`Frustration: ${sp.frustrations.join(", ")}`);
-        if (sp.budgetMindset) lines.push(`Budget: ${sp.budgetMindset}`);
-        if (sp.sustainability) lines.push(`Hållbarhet: ${sp.sustainability}`);
-        if (sp.ageRange) lines.push(`Ålder: ${sp.ageRange}`);
-        if (sp.climate) lines.push(`Klimat: ${sp.climate}`);
-        if (sp.styleGoals) lines.push(`Mål: ${sp.styleGoals}`);
-        styleContext = lines.join(". ");
-      } else {
-        // Fallback to legacy fields
-        if (preferences.favoriteColors?.length) styleContext += `Favoritfärger: ${(preferences.favoriteColors as string[]).join(", ")}. `;
-        if (preferences.dislikedColors?.length) styleContext += `Undviker: ${(preferences.dislikedColors as string[]).join(", ")}. `;
-        if (preferences.fitPreference) styleContext += `Passform: ${preferences.fitPreference}. `;
-        if (preferences.styleVibe) styleContext += `Stil: ${preferences.styleVibe}. `;
-      }
-    }
+    const styleContext = buildStyleContext(preferences, profile);
 
     const currentMonth = new Date().getMonth();
-    const seasonHint = currentMonth >= 2 && currentMonth <= 4 ? "vår" :
-                       currentMonth >= 5 && currentMonth <= 7 ? "sommar" :
-                       currentMonth >= 8 && currentMonth <= 10 ? "höst" : "vinter";
+    const seasonHint = currentMonth >= 2 && currentMonth <= 4 ? "spring" :
+                       currentMonth >= 5 && currentMonth <= 7 ? "summer" :
+                       currentMonth >= 8 && currentMonth <= 10 ? "autumn" : "winter";
 
-    const systemPrompt = `Du är en världsledande personlig stylist med djup kunskap om mode, trender och färgteori. Skapa den perfekta outfiten.
+    const needsOuterwear = (weather?.temperature !== undefined && weather.temperature < 15) ||
+      (weather?.precipitation && weather.precipitation !== "none" && weather.precipitation !== "ingen");
 
-EXPERTIS:
-- Du förstår färghjul, komplementfärger, analogt matchande och ton-i-ton
-- Du tänker på proportioner, silhuetter och hur plagg samverkar
-- Du känner till aktuella trender för ${seasonHint}en ${new Date().getFullYear()} inom skandinaviskt mode
-- Du prioriterar variation – undvik att alltid välja samma plagg
+    const systemPrompt = `You are a world-class personal stylist. Create ONE complete, wearable outfit.
 
-REGLER:
-- Välj plagg ENBART från listan nedan (referera med exakt ID)
-- Obligatoriska slots: top, bottom, shoes
-- Valfria slots: outerwear (om kallt/regn/under 15°C), accessory
-- Respektera användarens stilprofil nedan – det är deras personliga smak
-- Föredra plagg som inte använts nyligen (variation)
-- Ge en personlig förklaring (2-3 meningar) på ${localeName}: varför denna kombination funkar stilmässigt
+MANDATORY RULES — FOLLOW STRICTLY:
+1. Every outfit MUST include ALL of these slots: "top" + "bottom" + "shoes" (minimum 3 items)
+2. ${needsOuterwear ? 'OUTERWEAR IS REQUIRED for this weather. You MUST include an "outerwear" slot (4 items minimum).' : 'Outerwear is optional for this weather.'}
+3. EXCEPTION: If choosing a dress/jumpsuit, use slot "dress" which replaces top+bottom. Still MUST include shoes.
+4. ONLY use garment IDs from the WARDROBE list below. Never invent IDs.
+5. Prioritize garments not recently worn (low wear_count, old last_worn date)
+6. Consider color harmony: complementary, analogous, tone-on-tone, or neutral base + accent
+7. Match formality levels across all items
+8. Each garment ID can only appear ONCE in the outfit
 
-TILLFÄLLE: ${occasion}
-${style ? `ÖNSKAD STIL: ${style}` : ""}
-${weather?.temperature !== undefined ? `TEMPERATUR: ${weather.temperature}°C` : ""}
-${weather?.precipitation ? `NEDERBÖRD: ${weather.precipitation}` : ""}
-${weather?.wind ? `VIND: ${weather.wind}` : ""}
-SÄSONG: ${seasonHint}
-${styleContext ? `\nANVÄNDARENS STILPROFIL:\n${styleContext}` : ""}
-${profile?.height_cm ? `LÄNGD: ${profile.height_cm}cm` : ""}
-${profile?.weight_kg ? `VIKT: ${profile.weight_kg}kg` : ""}
+WEATHER CONTEXT:
+${weather?.temperature !== undefined ? `Temperature: ${weather.temperature}°C` : "Unknown temperature"}
+${weather?.precipitation ? `Precipitation: ${weather.precipitation}` : ""}
+${weather?.wind ? `Wind: ${weather.wind}` : ""}
+Season: ${seasonHint}
 
-GARDEROB:
+WEATHER DRESSING RULES:
+- Below 5°C: Heavy outerwear mandatory, prefer wool/down/warm materials
+- 5-15°C: Light jacket or layering required
+- 15-25°C: No outerwear needed
+- Above 25°C: Light fabrics, short sleeves preferred
+- Rain: Waterproof or water-resistant outerwear
+- Snow: Warm + waterproof, boots preferred
+${recentOutfitsContext}
+
+OCCASION: ${occasion}
+${style ? `REQUESTED STYLE: ${style}` : ""}
+${styleContext ? `\nUSER STYLE PROFILE:\n${styleContext}` : ""}
+${profile?.height_cm ? `Height: ${profile.height_cm}cm` : ""}
+
+Write the explanation in ${localeName}.
+
+WARDROBE (choose ONLY from these):
 ${garmentList}`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: locale === "sv" ? "Skapa en outfit åt mig." : "Create an outfit for me." },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "select_outfit",
-              description: "Select garments for an outfit from the user's wardrobe",
-              parameters: {
-                type: "object",
-                properties: {
-                  items: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        slot: {
-                          type: "string",
-                          enum: ["top", "bottom", "shoes", "outerwear", "accessory"],
-                        },
-                        garment_id: { type: "string", description: "UUID of the garment" },
-                      },
-                      required: ["slot", "garment_id"],
-                      additionalProperties: false,
-                    },
-                  },
-                  explanation: {
-                    type: "string",
-                    description: `Short explanation in ${localeName} of why this outfit works`,
-                  },
-                },
-                required: ["items", "explanation"],
-                additionalProperties: false,
-              },
-            },
-          },
-        ],
-        tool_choice: { type: "function", function: { name: "select_outfit" } },
-      }),
-    });
+    // Call AI with gemini-2.5-pro for best reasoning
+    async function callAI(messages: { role: string; content: string }[]) {
+      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-pro",
+          messages,
+          tools: [TOOL_DEF],
+          tool_choice: { type: "function", function: { name: "select_outfit" } },
+        }),
+      });
 
-    if (!aiResponse.ok) {
-      const status = aiResponse.status;
-      if (status === 429) {
+      if (!resp.ok) {
+        if (resp.status === 429) {
+          return { error: "rate_limit", status: 429 };
+        }
+        if (resp.status === 402) {
+          return { error: "payment", status: 402 };
+        }
+        const errText = await resp.text();
+        console.error("AI gateway error:", resp.status, errText);
+        return { error: "ai_error", status: 500 };
+      }
+
+      const data = await resp.json();
+      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+      if (!toolCall?.function?.arguments) {
+        return { error: "no_output", status: 500 };
+      }
+
+      try {
+        return { data: JSON.parse(toolCall.function.arguments) as { items: { slot: string; garment_id: string }[]; explanation: string } };
+      } catch {
+        return { error: "parse_error", status: 500 };
+      }
+    }
+
+    // First attempt
+    const result = await callAI([
+      { role: "system", content: systemPrompt },
+      { role: "user", content: "Create a complete outfit for me." },
+    ]);
+
+    if (result.error) {
+      if (result.status === 429) {
         return new Response(JSON.stringify({ error: "För många förfrågningar, försök igen om en stund." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (status === 402) {
+      if (result.status === 402) {
         return new Response(JSON.stringify({ error: "AI-krediter slut. Kontakta support." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const errText = await aiResponse.text();
-      console.error("AI gateway error:", status, errText);
       throw new Error("AI service error");
     }
 
-    const aiData = await aiResponse.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall?.function?.arguments) {
-      throw new Error("AI did not return structured output");
+    const garmentIdSet = new Set(garments.map((g) => g.id));
+    let validItems = result.data!.items.filter((item) => garmentIdSet.has(item.garment_id));
+    let explanation = result.data!.explanation;
+
+    // Validate completeness
+    const slots = new Set(validItems.map(i => i.slot));
+    const hasDress = slots.has("dress");
+    const hasTop = slots.has("top") || hasDress;
+    const hasBottom = slots.has("bottom") || hasDress;
+    const hasShoes = slots.has("shoes");
+    const hasOuterwear = slots.has("outerwear");
+
+    const missingSlots: string[] = [];
+    if (!hasTop && availableBySlot.top.length > 0) missingSlots.push("top");
+    if (!hasBottom && availableBySlot.bottom.length > 0) missingSlots.push("bottom");
+    if (!hasShoes && availableBySlot.shoes.length > 0) missingSlots.push("shoes");
+    if (needsOuterwear && !hasOuterwear && availableBySlot.outerwear.length > 0) missingSlots.push("outerwear");
+
+    // Retry once if missing mandatory slots
+    if (missingSlots.length > 0) {
+      console.log("Missing slots, retrying:", missingSlots.join(", "));
+      const retryPrompt = `Your previous outfit was incomplete. You are MISSING these mandatory slots: ${missingSlots.join(", ")}.
+
+Current selection: ${JSON.stringify(validItems)}
+
+Add the missing items. Return the COMPLETE outfit (all previous items + the missing ones). Use ONLY garment IDs from the wardrobe.
+
+Available garments for missing slots:
+${missingSlots.map(slot => {
+  const available = availableBySlot[slot] || [];
+  return `${slot}: ${available.map(g => `${g.id} (${g.title}, ${g.color_primary})`).join("; ")}`;
+}).join("\n")}`;
+
+      const retryResult = await callAI([
+        { role: "system", content: systemPrompt },
+        { role: "user", content: "Create a complete outfit for me." },
+        { role: "assistant", content: `I selected: ${JSON.stringify(result.data)}` },
+        { role: "user", content: retryPrompt },
+      ]);
+
+      if (retryResult.data) {
+        const retryValid = retryResult.data.items.filter((item) => garmentIdSet.has(item.garment_id));
+        if (retryValid.length > validItems.length) {
+          validItems = retryValid;
+          explanation = retryResult.data.explanation || explanation;
+        }
+      }
     }
 
-    let parsed: { items: { slot: string; garment_id: string }[]; explanation: string };
-    try {
-      parsed = JSON.parse(toolCall.function.arguments);
-    } catch {
-      throw new Error("Failed to parse AI output");
+    if (validItems.length < 3) {
+      // Last resort: if we have garments for each slot, manually fill
+      const finalSlots = new Set(validItems.map(i => i.slot));
+      if (!finalSlots.has("top") && !finalSlots.has("dress") && availableBySlot.top.length > 0) {
+        validItems.push({ slot: "top", garment_id: availableBySlot.top[0].id });
+      }
+      if (!finalSlots.has("bottom") && !finalSlots.has("dress") && availableBySlot.bottom.length > 0) {
+        validItems.push({ slot: "bottom", garment_id: availableBySlot.bottom[0].id });
+      }
+      if (!finalSlots.has("shoes") && availableBySlot.shoes.length > 0) {
+        validItems.push({ slot: "shoes", garment_id: availableBySlot.shoes[0].id });
+      }
     }
-
-    // Validate all IDs exist in user's wardrobe
-    const garmentIds = new Set(garments.map((g) => g.id));
-    const validItems = parsed.items.filter((item) => garmentIds.has(item.garment_id));
 
     if (validItems.length < 2) {
-      throw new Error("AI returned invalid garment selections");
+      throw new Error("Kunde inte skapa en komplett outfit med din garderob");
     }
 
     return new Response(
       JSON.stringify({
         items: validItems,
-        explanation: parsed.explanation || (locale === "sv" ? "Snygg kombination!" : "Great combination!"),
+        explanation: explanation || "Snygg kombination!",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

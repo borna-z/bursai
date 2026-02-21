@@ -69,8 +69,8 @@ async function generateOutfitViaAI(
     }))
     .filter((item) => item.garment);
 
-  if (selectedItems.length < 2) {
-    throw new Error('Inte tillräckligt med matchande plagg');
+  if (selectedItems.length < 3) {
+    throw new Error('Inte tillräckligt med matchande plagg – minst överdel, underdel och skor krävs');
   }
 
   // Save outfit to database
