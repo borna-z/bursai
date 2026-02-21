@@ -12,13 +12,10 @@
 
 ## 🔥 Phase 1 — Route Transitions & Navigation Polish
 
-### 1.1 Page-level route transitions
-Wrap `<Routes>` in `AnimatePresence` with a shared `motion.div` layout wrapper so navigating between pages has a smooth fade+slide crossfade instead of hard cuts.
+### ✅ 1.1 Page-level route transitions
+Wrapped `<Routes>` in `AnimatePresence mode="wait"` with a `motion.div` keyed by `location.pathname`. Every route now fades + slides (opacity + translateY 8px → 0 → -6px) over 250ms on enter/exit. Extracted into `AnimatedRoutes.tsx` to keep `App.tsx` clean.
 
-**Files:** `src/App.tsx`
-- Wrap route output with `AnimatePresence mode="wait"`
-- Create a `<PageTransition>` wrapper component that each page uses
-- Use `opacity + translateY(8px)` enter/exit with 250ms duration
+**Files:** `src/App.tsx`, `src/components/layout/AnimatedRoutes.tsx`
 
 ### 1.2 Bottom nav active indicator animation
 Add a sliding pill indicator under the active tab in `BottomNav` that glides between tabs using `motion.div layoutId="nav-pill"`.
