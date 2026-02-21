@@ -146,7 +146,7 @@ export default function Landing() {
               </div>
 
               <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] font-space reveal-up gradient-shift-text" style={{ '--reveal-delay': '100ms' } as React.CSSProperties}>
-                <WordReveal text="Designed for the next dimension." />
+                Designed for the next dimension.
               </h1>
 
               <p className="text-lg md:text-xl text-gray-400 font-light max-w-lg leading-relaxed reveal-up" style={{ '--reveal-delay': '250ms' } as React.CSSProperties}>
