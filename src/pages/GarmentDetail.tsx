@@ -108,7 +108,7 @@ export default function GarmentDetailPage() {
         <LazyImage imagePath={garment.image_path} alt={garment.title} aspectRatio="square" className="w-full" />
       </div>
 
-      <div className="p-4 space-y-6 max-w-lg mx-auto">
+      <div className="p-4 pt-6 space-y-6 max-w-lg mx-auto">
         <div><p className="text-muted-foreground capitalize text-sm">{t(`garment.category.${garment.category}`) || garment.subcategory || garment.category}</p></div>
 
         <div className="flex flex-wrap gap-2">

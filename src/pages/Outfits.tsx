@@ -44,7 +44,7 @@ function OutfitCard({ outfit, onDelete, showPlannedDate, t, locale }: {
           <div className="w-12 flex items-center justify-center bg-muted/50 text-xs text-muted-foreground">+{outfit.outfit_items.length - 4}</div>
         )}
       </div>
-      <CardContent className="p-3">
+      <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -122,7 +122,7 @@ export default function OutfitsPage() {
         </Button>
       } />
       
-      <div className="px-4 pb-6 pt-4 max-w-lg mx-auto">
+      <div className="px-4 pb-6 pt-6 max-w-lg mx-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>
         ) : outfits && outfits.length > 0 ? (

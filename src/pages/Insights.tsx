@@ -147,7 +147,7 @@ export default function InsightsPage() {
   return (
     <AppLayout>
       <PageHeader title={t('insights.title')} showBack />
-      <div className="px-4 pb-6 pt-4 space-y-5 max-w-lg mx-auto stagger-drape [&>*]:animate-drape-in [&>*]:opacity-0 [&>*]:[animation-fill-mode:both]">
+      <div className="px-4 pb-6 pt-6 space-y-6 max-w-lg mx-auto stagger-drape [&>*]:animate-drape-in [&>*]:opacity-0 [&>*]:[animation-fill-mode:both]">
         {!isPremium && (
           <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-background/70 backdrop-blur-sm border-primary/20 animate-fade-in">
             <CardContent className="p-4 flex items-center gap-4">

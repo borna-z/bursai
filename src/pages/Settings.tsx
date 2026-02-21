@@ -35,7 +35,7 @@ export default function SettingsPage() {
     <AppLayout>
       <PageHeader title={t('settings.title')} />
 
-      <AnimatedPage className="px-4 pb-6 pt-4 space-y-6 max-w-lg mx-auto">
+      <AnimatedPage className="px-4 pb-6 pt-6 space-y-6 max-w-lg mx-auto">
         <StaggerContainer>
           <SettingsGroup>
             <StaggerItem>

@@ -101,7 +101,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
           </div>
         )}
       </div>
-      <div className="p-2.5">
+      <div className="p-3">
         <p className="font-medium text-sm truncate">{garment.title}</p>
         <p className="text-xs text-muted-foreground capitalize">{t(`garment.category.${garment.category}`)} · {t(`color.${garment.color_primary}`)}</p>
       </div>
@@ -174,7 +174,7 @@ function GarmentListContent({
   // Non-virtualized render for smaller collections
   return (
     <>
-      <div className={cn(isGridView ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2')}>
+      <div className={cn(isGridView ? 'grid grid-cols-2 gap-4' : 'flex flex-col gap-2')}>
         {garments.map((garment, index) => (
           <div key={garment.id} className="animate-drape-in" style={{ animationDelay: `${Math.min(index, 12) * 40}ms`, animationFillMode: 'both' }}>
             {!isGridView && !isSelecting ? (
@@ -440,7 +440,7 @@ export default function WardrobePage() {
       />
       
       <PullToRefresh onRefresh={handleRefresh}>
-      <AnimatedPage className="px-4 pb-36 pt-4 space-y-5 max-w-lg mx-auto">
+      <AnimatedPage className="px-4 pb-36 pt-6 space-y-6 max-w-lg mx-auto">
         {/* Segmented control */}
         <div className="flex p-1 rounded-2xl bg-foreground/[0.04] backdrop-blur-sm border border-border/30">
           {(['garments', 'outfits'] as const).map((tab) => (
@@ -461,7 +461,7 @@ export default function WardrobePage() {
 
         <AnimatedTab tabKey={activeTab}>
         {activeTab === 'garments' ? (
-          <div className="space-y-5">
+          <div className="space-y-6">
             {/* Search */}
             <SettingsGroup>
               <Collapsible open={searchOpen} onOpenChange={setSearchOpen}>

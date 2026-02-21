@@ -211,7 +211,7 @@ export default function PlanPage() {
     <AppLayout>
       {/* ─── Sticky header ─── */}
       <header className="sticky top-0 bg-background/70 backdrop-blur-xl backdrop-saturate-150 border-b border-border/40 z-20">
-        <div className="flex items-center justify-between px-4 h-14 max-w-lg mx-auto">
+        <div className="flex items-center justify-between px-4 h-16 max-w-lg mx-auto">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
               <button className="flex items-center gap-2 hover:opacity-70 transition-opacity press">
@@ -242,7 +242,7 @@ export default function PlanPage() {
       </header>
 
       {/* ─── Single-column content ─── */}
-      <AnimatedPage className="max-w-lg mx-auto px-4 py-4 space-y-5">
+      <AnimatedPage className="max-w-lg mx-auto px-4 pt-6 pb-4 space-y-6">
         {/* Calendar connect nudge */}
         <CalendarConnectBanner />
 
@@ -256,7 +256,7 @@ export default function PlanPage() {
         {/* Day content – animate on day switch */}
         <div 
           key={selectedDateStr} 
-          className="space-y-5 animate-drape-in"
+          className="space-y-6 animate-drape-in"
         >
           {/* Weather line */}
           <div className="flex items-center justify-between">
