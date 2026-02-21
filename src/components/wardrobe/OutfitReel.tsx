@@ -74,6 +74,32 @@ export function OutfitReel({ outfits, onClose }: OutfitReelProps) {
     return () => window.removeEventListener('keydown', handler);
   }, [onClose, goNext, goPrev]);
 
+  // Touch swipe
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      time: Date.now(),
+    };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
+    const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
+    const dt = Date.now() - touchStartRef.current.time;
+    touchStartRef.current = null;
+
+    // Must be primarily horizontal and fast enough
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5 && dt < 400) {
+      if (dx < 0) goNext();
+      else goPrev();
+      return;
+    }
+  };
+
   const handleTap = (e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -130,7 +156,7 @@ export function OutfitReel({ outfits, onClose }: OutfitReelProps) {
       </div>
 
       {/* Slide area */}
-      <div className="flex-1 relative overflow-hidden" onClick={handleTap}>
+      <div className="flex-1 relative overflow-hidden" onClick={handleTap} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         <div
           ref={slideRef}
           key={outfit.id}
