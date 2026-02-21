@@ -36,6 +36,7 @@ import Pricing from "./pages/Pricing";
 import NotFound from "./pages/NotFound";
 import LiveScan from "./pages/LiveScan";
 import ResetPassword from "./pages/ResetPassword";
+import EditGarment from "./pages/EditGarment";
 import GoogleCalendarCallback from "./pages/GoogleCalendarCallback";
  // Standalone pages
  import PrivacyPolicy from "./pages/marketing/PrivacyPolicy";
@@ -72,7 +73,8 @@ const queryClient = new QueryClient();
                  <Route path="/wardrobe" element={<ProtectedRoute><Wardrobe /></ProtectedRoute>} />
                   <Route path="/wardrobe/add" element={<ProtectedRoute><AddGarment /></ProtectedRoute>} />
                   <Route path="/wardrobe/scan" element={<ProtectedRoute><LiveScan /></ProtectedRoute>} />
-                  <Route path="/wardrobe/:id" element={<ProtectedRoute><GarmentDetail /></ProtectedRoute>} />
+                   <Route path="/wardrobe/:id" element={<ProtectedRoute><GarmentDetail /></ProtectedRoute>} />
+                   <Route path="/wardrobe/:id/edit" element={<ProtectedRoute><EditGarment /></ProtectedRoute>} />
                   <Route path="/outfits" element={<ProtectedRoute><Outfits /></ProtectedRoute>} />
                   <Route path="/outfits/generate" element={<ProtectedRoute><OutfitGenerate /></ProtectedRoute>} />
                   <Route path="/outfits/:id" element={<ProtectedRoute><OutfitDetail /></ProtectedRoute>} />
