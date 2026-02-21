@@ -53,7 +53,7 @@ export function ChatMessage({ message, isStreaming, garmentMap, isShopping }: Ch
 
   if (isUser) {
     return (
-      <div className="flex justify-end">
+      <div className="flex justify-end animate-fade-in">
         <div className="max-w-[85%] space-y-2">
           {images.length > 0 && (
             <div className="flex gap-2 flex-wrap justify-end">
@@ -74,8 +74,8 @@ export function ChatMessage({ message, isStreaming, garmentMap, isShopping }: Ch
 
   // Assistant message
   return (
-    <div className="flex gap-3 items-start">
-      <div className="flex items-center justify-center w-7 h-7 rounded-full bg-accent/10 shrink-0 mt-0.5">
+    <div className="flex gap-3 items-start animate-fade-in">
+      <div className="flex items-center justify-center w-7 h-7 rounded-full bg-accent/10 shrink-0 mt-0.5 animate-scale-in">
         {isShopping
           ? <ShoppingBag className="w-3.5 h-3.5 text-accent" />
           : <Sparkles className="w-3.5 h-3.5 text-accent" />}
