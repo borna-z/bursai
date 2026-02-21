@@ -104,7 +104,7 @@ export function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
   // Loading skeleton (first load only)
   if (isLoading) {
     return (
-      <div className="bg-card rounded-2xl border border-border p-5 space-y-4">
+      <div className="glass-card rounded-2xl p-5 space-y-4">
         <div className="flex items-center gap-4">
           <Skeleton className="w-12 h-12 rounded-xl" />
           <div className="space-y-2 flex-1">
@@ -127,12 +127,12 @@ export function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
   }
 
   return (
-    <div className="bg-card rounded-2xl border border-border overflow-hidden">
+    <div className="glass-card rounded-2xl overflow-hidden">
       {/* Current weather hero */}
       <div className="px-5 pt-5 pb-4">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl bg-muted/30 backdrop-blur-sm flex items-center justify-center">
               <HeroIcon className="w-7 h-7 text-foreground/80" />
             </div>
             <div>

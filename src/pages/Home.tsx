@@ -99,19 +99,19 @@ function InsightsSection({ isPremium, t }: { isPremium: boolean; t: (k: string) 
     <div className="space-y-4">
       {/* Quick stats */}
       <div className="grid grid-cols-3 gap-2">
-        <Card className="bg-muted/30">
+        <Card className="bg-muted/20 backdrop-blur-sm">
           <CardContent className="p-3 text-center">
             <p className="text-2xl font-bold tracking-tight">{insights.totalGarments}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">{t('insights.total')}</p>
           </CardContent>
         </Card>
-        <Card className="bg-muted/30">
+        <Card className="bg-muted/20 backdrop-blur-sm">
           <CardContent className="p-3 text-center">
             <p className="text-2xl font-bold tracking-tight text-accent">{insights.usageRate}%</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">{t('insights.usage')}</p>
           </CardContent>
         </Card>
-        <Card className="bg-muted/30">
+        <Card className="bg-muted/20 backdrop-blur-sm">
           <CardContent className="p-3 text-center">
             <p className="text-2xl font-bold tracking-tight">{insights.unusedGarments.length}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">{t('insights.unused')}</p>
@@ -264,7 +264,7 @@ export default function HomePage() {
         {needsOnboarding && (
           <button
             onClick={() => navigate('/onboarding')}
-            className="w-full flex items-center justify-between bg-card rounded-xl px-4 py-3 active:bg-muted/60 transition-colors"
+            className="w-full flex items-center justify-between bg-card/70 backdrop-blur-sm rounded-xl px-4 py-3 border border-border/40 active:bg-muted/60 transition-colors"
           >
             <div className="flex items-center gap-3">
               <span className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center">
@@ -327,7 +327,7 @@ export default function HomePage() {
                       "flex flex-col items-center gap-1 py-3 px-2 rounded-xl text-sm font-medium transition-all border",
                       selectedOccasion === occ.id
                         ? "border-accent bg-accent/5 text-accent"
-                        : "border-border/50 bg-card text-foreground active:bg-muted/60"
+                        : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground active:bg-muted/60"
                     )}
                   >
                     <span className="text-lg">{occ.icon}</span>
@@ -352,7 +352,7 @@ export default function HomePage() {
                         "px-3.5 py-1.5 rounded-full text-xs font-medium transition-all border",
                         selectedSub === sub.id
                           ? "border-accent bg-accent/10 text-accent"
-                          : "border-border/50 bg-card text-foreground active:bg-muted/60"
+                        : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground active:bg-muted/60"
                       )}
                     >
                       {t(sub.labelKey)}
@@ -374,7 +374,7 @@ export default function HomePage() {
                       "px-4 py-2 rounded-full text-xs font-medium transition-all border whitespace-nowrap flex-shrink-0",
                       selectedStyle === style.id
                         ? "border-accent bg-accent/10 text-accent"
-                        : "border-border/50 bg-card text-foreground active:bg-muted/60"
+                        : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground active:bg-muted/60"
                     )}
                   >
                     {t(style.labelKey)}

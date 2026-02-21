@@ -435,7 +435,7 @@ export default function AddGarmentPage() {
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8">
         <div className="flex flex-col items-center gap-6 w-full max-w-xs">
           {imagePreview && (
-            <div className="relative aspect-square w-48 rounded-xl overflow-hidden bg-secondary">
+            <div className="relative aspect-square w-48 rounded-xl overflow-hidden bg-secondary/60 backdrop-blur-sm">
               <img
                 src={imagePreview}
                 alt="Preview"

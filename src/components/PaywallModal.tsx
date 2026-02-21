@@ -44,7 +44,7 @@ export function PaywallModal({ isOpen, onClose, reason }: PaywallModalProps) {
         </DialogHeader>
 
         <div className="space-y-3 my-6">
-          <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
+          <div className="flex items-center gap-3 p-3 bg-secondary/60 backdrop-blur-sm rounded-lg">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
               <Infinity className="w-5 h-5 text-primary" />
             </div>
@@ -53,7 +53,7 @@ export function PaywallModal({ isOpen, onClose, reason }: PaywallModalProps) {
               <p className="text-sm text-muted-foreground">{t('paywall.unlimited_wardrobe_desc')}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
+          <div className="flex items-center gap-3 p-3 bg-secondary/60 backdrop-blur-sm rounded-lg">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
               <Sparkles className="w-5 h-5 text-primary" />
             </div>
@@ -62,7 +62,7 @@ export function PaywallModal({ isOpen, onClose, reason }: PaywallModalProps) {
               <p className="text-sm text-muted-foreground">{t('paywall.unlimited_outfits_desc')}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
+          <div className="flex items-center gap-3 p-3 bg-secondary/60 backdrop-blur-sm rounded-lg">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
               <Crown className="w-5 h-5 text-primary" />
             </div>

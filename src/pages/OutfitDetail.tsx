@@ -48,7 +48,7 @@ function SwapSheet({ isOpen, onClose, slot, candidates, isLoading, onSelect, isS
           ) : (
             <div className="space-y-2">
               {candidates.map((candidate) => (
-                <button key={candidate.garment.id} onClick={() => onSelect(candidate.garment.id)} disabled={isSwapping} className={cn("w-full flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-secondary/80 bg-secondary active:scale-[0.99]", isSwapping && "opacity-50")}>
+                <button key={candidate.garment.id} onClick={() => onSelect(candidate.garment.id)} disabled={isSwapping} className={cn("w-full flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-secondary/80 bg-secondary/60 backdrop-blur-sm active:scale-[0.99]", isSwapping && "opacity-50")}>
                   <LazyImageSimple imagePath={candidate.garment.image_path} alt={candidate.garment.title} className="w-16 h-16 rounded-lg flex-shrink-0" />
                   <div className="flex-1 text-left min-w-0">
                     <p className="font-medium truncate">{candidate.garment.title}</p>
@@ -171,7 +171,7 @@ export default function OutfitDetailPage() {
   if (isLoading) {
     return (
       <AppLayout hideNav>
-        <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b">
+        <div className="sticky top-0 z-10 bg-background/70 backdrop-blur-xl backdrop-saturate-150 border-b border-border/40">
           <div className="p-4 flex items-center justify-between">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="w-5 h-5" /></Button>
             <div className="flex gap-1"><Skeleton className="w-10 h-10 rounded-lg" /><Skeleton className="w-10 h-10 rounded-lg" /></div>
@@ -200,7 +200,7 @@ export default function OutfitDetailPage() {
 
   return (
     <AppLayout hideNav>
-      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b">
+      <div className="sticky top-0 z-10 bg-background/70 backdrop-blur-xl backdrop-saturate-150 border-b border-border/40">
         <div className="p-4 flex items-center justify-between">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="w-5 h-5" /></Button>
           <div className="flex gap-1">

@@ -107,7 +107,7 @@ function SuggestionCard({ suggestion, onTryIt, onPlan, isCreating }: SuggestionC
   const { t } = useLanguage();
 
   return (
-    <div className="p-4 bg-muted/30 rounded-xl space-y-3 border border-border/50 animate-fade-in">
+    <div className="p-4 bg-card/50 backdrop-blur-sm rounded-xl space-y-3 border border-border/40 animate-fade-in">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <h4 className="font-semibold text-sm truncate">{suggestion.title}</h4>
@@ -171,7 +171,7 @@ function SuggestionCard({ suggestion, onTryIt, onPlan, isCreating }: SuggestionC
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-2">
-          <p className="text-sm text-muted-foreground bg-background/50 p-2 rounded-lg">
+          <p className="text-sm text-muted-foreground bg-background/50 backdrop-blur-sm p-2 rounded-lg">
             {suggestion.explanation}
           </p>
         </CollapsibleContent>
