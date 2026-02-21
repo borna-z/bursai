@@ -1,44 +1,25 @@
 
 
-# Unify Logo Across Entire PWA
+# Update Pressable Component Transition
 
-## Summary
-Replace all old logo references throughout the app with the new logo you provided (`burs-logo-white.png`). This affects the landing page, marketing pages, and the shared logo components.
+## What
+Change the `Pressable` component's tap animation from a spring-based transition to a tween-based transition, matching the consistent `[0.25, 0.1, 0.25, 1]` easing curve used across the rest of the app (AnimatedRoutes, AnimatedPage, AnimatedTab).
 
-## Changes
+## Technical Details
 
-### 1. Update `BursMonogram` component (single source of truth)
-**File:** `src/components/ui/BursMonogram.tsx`
+### File: `src/components/ui/pressable.tsx`
 
-Replace the `burs-hanger-logo.png` import with `burs-logo-white.png`. Since this component is used by `DrapeLogo` and all marketing pages, updating it here propagates everywhere those components are used (Terms, Privacy, Contact pages).
+Replace the current spring transition:
+```typescript
+transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
+```
 
-### 2. Update Landing page header
-**File:** `src/pages/Landing.tsx`
+With the app-wide tween transition:
+```typescript
+transition={{ type: 'tween', ease: [0.25, 0.1, 0.25, 1], duration: 0.15 }}
+```
 
-Replace `burs-landing-logo-white.png` import with `burs-logo-white.png` so the fixed header logo matches.
+A short `0.15s` duration keeps the tap feedback feeling snappy while staying consistent with the tween pattern used everywhere else.
 
-### 3. Update CTA section
-**File:** `src/components/landing/CTASection.tsx`
+**1 file modified:** `src/components/ui/pressable.tsx`
 
-Replace `burs-landing-logo-white.png` with `burs-logo-white.png`.
-
-### 4. Update Landing footer
-**File:** `src/components/landing/LandingFooter.tsx`
-
-Replace `burs-landing-logo-white.png` with `burs-logo-white.png`.
-
-### 5. No changes needed for
-- **Auth page** -- already uses the new logo
-- **DrapeLogo** -- wraps BursMonogram, so it gets the update automatically
-- **Terms, Privacy, Contact pages** -- use BursMonogram, so they get the update automatically
-- **In-app pages** (Home, Settings, Wardrobe, etc.) -- these don't display a logo, they use text headers
-
-## Technical Notes
-
-All changes are simple import swaps -- replacing one PNG asset path with another. No layout, sizing, or logic changes are needed since all usages already render the logo as an `<img>` tag with appropriate sizing classes.
-
-**Total files modified: 4**
-- `src/components/ui/BursMonogram.tsx`
-- `src/pages/Landing.tsx`
-- `src/components/landing/CTASection.tsx`
-- `src/components/landing/LandingFooter.tsx`
