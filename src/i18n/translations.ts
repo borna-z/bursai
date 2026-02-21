@@ -441,7 +441,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'garment.available': 'Tillgängligt',
     'garment.deleted': 'Borttaget',
     'garment.marked': 'Markerat ✓',
-    'garment.analyzed_at': 'Analyserat',
+     'garment.analyzed_at': 'Analyserat',
+    'garment.edit_title': 'Redigera plagg',
+    'garment.edit_save': 'Spara',
+    'garment.edit_saved': 'Plagg uppdaterat ✅',
 
     // AI Chat
     'chat.title': 'BURS Stylisten',
@@ -1575,7 +1578,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'garment.available': 'Available',
     'garment.deleted': 'Deleted',
     'garment.marked': 'Marked ✓',
-    'garment.analyzed_at': 'Analyzed',
+     'garment.analyzed_at': 'Analyzed',
+    'garment.edit_title': 'Edit garment',
+    'garment.edit_save': 'Save',
+    'garment.edit_saved': 'Garment updated ✅',
     'chat.title': 'BURS Stylist',
     'chat.welcome': 'Hi! I\'m the BURS Stylist – your personal AI stylist. I\'m here to help you dress with style and confidence. You can send me photos of your outfits and I\'ll give you feedback! 📸',
     'chat.placeholder': 'Write to your stylist...',
