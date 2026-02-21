@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Shirt, Sparkles, BarChart3, TrendingUp, Lock, Palette, Gem, AlertCircle } from 'lucide-react';
+import { Loader2, Shirt, Sparkles, BarChart3, TrendingUp, Lock, Palette, Gem, AlertCircle, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -196,7 +196,7 @@ export default function InsightsPage() {
         {insights.topFiveWorn.length > 0 && (
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">🏆 {t('insights.top_garments')}</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2"><Trophy className="w-4 h-4 text-amber-500" /> {t('insights.top_garments')}</CardTitle>
               <CardDescription>{t('insights.most_used')}</CardDescription>
             </CardHeader>
             <CardContent className="divide-y divide-border/50">
