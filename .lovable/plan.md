@@ -1,71 +1,63 @@
 
 
-## Outfit Cards in AI Stylist Chat
+## Upgrade Outfit Generator: AI-Powered + Premium Animation
 
-Currently the AI stylist shows individual garment chips (small pills with tiny images). The user wants a richer experience: when the AI recommends an outfit, it should render as a **visual outfit card** showing all the garments together with an explanation, and allow swapping individual items directly in the chat.
-
----
+### Problem
+1. **Dumb generation**: The current outfit generator uses a basic client-side scoring algorithm (formality points, color clash lists). It doesn't understand style, trends, or nuance — just picks garments with the highest score.
+2. **Boring loading animation**: Just a pulsing sparkle icon with a generic spinner. No personality, no progress feedback.
 
 ### What changes
 
-#### 1. New "Outfit Card" component in chat
-A new `OutfitSuggestionCard` component that renders when the AI suggests a complete outfit. The card will:
-- Show garment images in a horizontal row (thumbnails)
-- Display a short "Why this works" explanation from the AI
-- Have a "Try this outfit" button that creates the outfit and navigates to the detail page
-- Each garment in the card is tappable to view details
+#### 1. New edge function: `generate_outfit`
+Replace the client-side scoring with a real AI call (Gemini Flash). The edge function will:
+- Receive occasion, style, weather from the client
+- Fetch the user's wardrobe (excluding laundry items)
+- Fetch user profile (style preferences, body measurements)
+- Send all context to AI with a structured prompt requesting garment IDs, slots, and an explanation
+- Use tool calling to get guaranteed structured JSON output
+- Return the selected garment IDs, slots, and explanation
+- The client then saves the outfit to the database (keeps existing save logic)
 
-#### 2. Swap alternatives on each garment within the card
-- Each garment in the outfit card shows a small swap icon
-- Tapping it reveals 2 alternative garments (fetched client-side from the user's wardrobe using the existing swap scoring logic)
-- Tapping an alternative replaces the garment in the card before creating the outfit
-
-#### 3. New AI output format -- `[[outfit:...]]` tags
-Update the `style_chat` edge function prompt to instruct the AI to output outfit suggestions in a structured format:
-```
-[[outfit:id1,id2,id3,id4|Why this works explanation here]]
-```
-The ChatMessage component parses this tag and renders the `OutfitSuggestionCard` instead of inline text.
-
-#### 4. Update ChatMessage to parse and render outfit cards
-The existing garment tag parsing (`[[garment:ID]]`) stays for single garment references. A new regex handles `[[outfit:...]]` tags and renders the full outfit card component.
-
----
+#### 2. Premium loading animation on `OutfitGenerate` page
+Replace the basic spinner with a multi-phase animation:
+- Phase 1 (0-1s): "Analyserar din garderob..." with a wardrobe scan animation (pulsing grid of small squares)
+- Phase 2 (1-3s): "Matchar färger och stil..." with a color palette animation
+- Phase 3 (3s+): "Skapar din outfit..." with the sparkles icon scaling in
+- Each phase fades in/out smoothly using existing `animate-fade-in` classes
+- The whole thing feels like AI is actually working (because it is now)
 
 ### Technical details
 
-**New file: `src/components/chat/OutfitSuggestionCard.tsx`**
-- Props: `garments: GarmentBasic[]`, `explanation: string`, `onSwap: (index, newGarmentId) => void`, `onTryOutfit: (garmentIds) => void`
-- Layout: rounded card with border, garment image row, explanation text, action button
-- Each garment shows a small "swap" indicator; tapping opens a mini popover with 2 alternatives
-- Alternatives are fetched using existing swap scoring logic from `useSwapGarment` (color harmony, wear count, recency)
-- "Try this outfit" button creates the outfit in the database and navigates to `/outfits/:id`
+#### New file: `supabase/functions/generate_outfit/index.ts`
+- Auth: validate JWT from authorization header
+- Fetch garments from DB (user_id, not in_laundry)
+- Fetch profile (preferences, body info)
+- AI prompt instructs the model to pick garments by ID for each slot (top, bottom, shoes, optional outerwear/accessory)
+- Uses tool calling with a `select_outfit` function schema to guarantee structured output:
+  ```
+  items: [{ slot: "top", garment_id: "uuid" }, ...]
+  explanation: "string"
+  ```
+- Validates returned IDs exist in the user's wardrobe
+- Returns the items array and explanation
 
-**Modified file: `src/components/chat/ChatMessage.tsx`**
-- Add regex for `[[outfit:id1,id2,...|explanation]]` pattern
-- When matched, render `OutfitSuggestionCard` with the garments from `garmentMap` and the explanation text
-- Keep existing `[[garment:ID]]` handling for single garment references
+#### Modified file: `src/hooks/useOutfitGenerator.ts`
+- Remove all client-side scoring logic (200+ lines of formality/color/season scoring)
+- Replace with a single `supabase.functions.invoke('generate_outfit', { body: { occasion, style, weather } })` call
+- Parse the AI response, save outfit + items to DB (keep existing save logic)
+- Return the same `GeneratedOutfit` shape so no downstream changes needed
 
-**Modified file: `supabase/functions/style_chat/index.ts`**
-- Update the system prompt to instruct the AI to use the new `[[outfit:...]]` tag format when suggesting complete outfits
-- Keep `[[garment:ID]]` for individual garment mentions
-- Add prompt instructions like: "When suggesting a complete outfit, use [[outfit:id1,id2,id3|kort förklaring]] format"
+#### Modified file: `src/pages/OutfitGenerate.tsx`
+- Add phased loading states with `useState` cycling through 3 phases on a timer
+- Each phase shows different icon, text, and animation
+- Phase transitions use `animate-fade-in` with opacity transitions
+- Error state stays the same but gets the fade-in treatment too
 
-**Modified file: `src/pages/AIChat.tsx`**
-- Add outfit creation handler that the `OutfitSuggestionCard` calls when user taps "Try this outfit"
-- Uses existing `useCreateOutfit` mutation to save the outfit and navigate to its detail page
+#### Modified file: `supabase/config.toml`
+- Add `[functions.generate_outfit]` with `verify_jwt = false`
 
-**Modified file: `src/hooks/useGarmentsByIds.ts`**
-- No changes needed -- already fetches the data we need
-
-### Swap alternatives logic
-- When user taps swap on a garment in the card, fetch 2 top-scoring alternatives from the same category using the existing scoring from `useSwapGarment` (color harmony with other outfit items, wear recency, wear count)
-- Show as 2 small thumbnail buttons below the garment
-- Tapping one replaces the garment in the local card state (before outfit creation)
-
-### Files summary (4 modified, 1 new)
-1. **New**: `src/components/chat/OutfitSuggestionCard.tsx` -- outfit card with garment row, explanation, swap, and create action
-2. `src/components/chat/ChatMessage.tsx` -- parse `[[outfit:...]]` tags and render outfit cards
-3. `supabase/functions/style_chat/index.ts` -- update AI prompt for outfit tag format
-4. `src/pages/AIChat.tsx` -- add outfit creation handler
-5. `src/hooks/useGarmentsByIds.ts` -- potentially expand fields if needed for swap logic
+### Files summary (3 modified, 1 new)
+1. **New**: `supabase/functions/generate_outfit/index.ts` — AI-powered outfit selection
+2. `src/hooks/useOutfitGenerator.ts` — replace scoring with edge function call
+3. `src/pages/OutfitGenerate.tsx` — premium multi-phase loading animation
+4. `supabase/config.toml` — register new function
