@@ -1,18 +1,27 @@
 
 
-## Use Uploaded Logo on Landing Page
+## Add Particle Animation to Hero Section
 
 ### What changes
-1. **Copy the uploaded logo** (`burs_logo_transparent_4x-2.png`) into `src/assets/burs-landing-logo-white.png`
-2. **Update `src/pages/Landing.tsx`**:
-   - Replace the text-only "BURS" wordmark in the header (line 54) with an `<img>` tag using the new logo
-   - Remove the `BursMonogram` from the hero section (line 99) -- the user said "don't put one underneath, just use it"
-   - Remove the `BursMonogram` import if no longer needed (check footer usage at line 380 -- replace that too with the new logo image)
-   - Size the header logo to roughly `h-6` and the footer logo to roughly `h-5` for crisp rendering on the dark background
+Add a subtle, performant star-field / floating particle effect to the hero section using pure CSS (no external library needed). This creates an immersive "space" feel without impacting performance.
 
-### Technical detail
-- The uploaded image is white text on transparent background, which works perfectly on the dark `#030305` landing
-- Import as ES module: `import bursLandingLogo from '@/assets/burs-landing-logo-white.png'`
-- All three `BursMonogram` usages on Landing.tsx (header, hero, footer) will be replaced or removed
-- The "Join the movement" section monogram (line 300) will also be replaced with the new logo for consistency
+### Implementation
+
+**1. `src/index.css` -- Add particle keyframes and styles**
+- Add a `.particles` container class with `pointer-events: none` and full absolute coverage
+- Add 15-20 tiny dot elements via a new `StarField` component with randomized positions, sizes (1-3px), opacities (0.05-0.2), and float speeds
+- Add a `twinkle` keyframe that subtly pulses opacity
+- Add a slow `drift` keyframe for gentle lateral movement
+
+**2. `src/pages/Landing.tsx` -- Add StarField to hero**
+- Create an inline `StarField` component that renders ~20 absolutely positioned tiny circles with randomized CSS custom properties for position, size, animation duration, and delay
+- Place it inside the hero `<section>` alongside the existing `aurora-glow` div
+- Each particle gets a combination of the `twinkle` and `drift` animations at different speeds for organic movement
+- All particles use `pointer-events: none` and very low opacity (white at 5-15%) to stay subtle
+
+### Visual result
+- Tiny white dots scattered across the hero, gently twinkling and drifting upward
+- Complements the existing aurora glow and floating decorative dots
+- Zero performance impact (CSS-only animations, no JS animation loop)
+- Subtle enough to not distract from the headline and CTAs
 
