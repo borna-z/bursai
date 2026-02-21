@@ -78,10 +78,10 @@ Added `OfflineBanner` component using `navigator.onLine` + window events. Shows 
 
 **Files:** `src/components/layout/OfflineBanner.tsx`, `src/components/layout/AppLayout.tsx`
 
-### 4.4 Garment quick-actions swipe
-Add swipe-to-reveal actions (edit, delete, toggle laundry) on garment list items for faster wardrobe management.
+### ✅ 4.4 Garment quick-actions swipe
+Added `SwipeableGarmentCard` component using framer-motion drag gestures. In list view (non-select mode), garment items can be swiped left to reveal three action buttons: Edit (accent), Laundry (warning), and Delete (destructive). Spring-based snap with threshold detection. Integrated into Wardrobe list view.
 
-**Files:** `src/pages/Wardrobe.tsx` (list view mode)
+**Files:** `src/components/wardrobe/SwipeableGarmentCard.tsx`, `src/pages/Wardrobe.tsx`
 
 ---
 

@@ -1,0 +1,125 @@
+import { useState, useRef } from 'react';
+import { motion, useMotionValue, useTransform, animate, PanInfo } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { Pencil, WashingMachine, Trash2, Shirt } from 'lucide-react';
+import { LazyImageSimple } from '@/components/ui/lazy-image';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { cn } from '@/lib/utils';
+import type { Garment } from '@/hooks/useGarments';
+
+const ACTION_WIDTH = 72; // width per action button
+const TOTAL_WIDTH = ACTION_WIDTH * 3; // 3 actions
+const SNAP_THRESHOLD = ACTION_WIDTH; // drag past 1 button to reveal
+
+interface SwipeableGarmentCardProps {
+  garment: Garment;
+  onEdit: () => void;
+  onLaundry: () => void;
+  onDelete: () => void;
+}
+
+export function SwipeableGarmentCard({ garment, onEdit, onLaundry, onDelete }: SwipeableGarmentCardProps) {
+  const navigate = useNavigate();
+  const { t } = useLanguage();
+  const [isOpen, setIsOpen] = useState(false);
+  const x = useMotionValue(0);
+  const constraintRef = useRef<HTMLDivElement>(null);
+
+  // Opacity for action buttons based on drag distance
+  const actionsOpacity = useTransform(x, [-TOTAL_WIDTH, -SNAP_THRESHOLD / 2, 0], [1, 0.6, 0]);
+
+  const handleDragEnd = (_: unknown, info: PanInfo) => {
+    const offset = info.offset.x;
+    const velocity = info.velocity.x;
+
+    if (offset < -SNAP_THRESHOLD || velocity < -300) {
+      // Snap open
+      animate(x, -TOTAL_WIDTH, { type: 'spring', stiffness: 400, damping: 35 });
+      setIsOpen(true);
+    } else {
+      // Snap closed
+      animate(x, 0, { type: 'spring', stiffness: 400, damping: 35 });
+      setIsOpen(false);
+    }
+  };
+
+  const close = () => {
+    animate(x, 0, { type: 'spring', stiffness: 400, damping: 35 });
+    setIsOpen(false);
+  };
+
+  const handleAction = (action: () => void) => {
+    close();
+    // Small delay so the close animation starts before the action
+    setTimeout(action, 150);
+  };
+
+  return (
+    <div ref={constraintRef} className="relative overflow-hidden rounded-xl">
+      {/* Action buttons behind */}
+      <motion.div
+        className="absolute inset-y-0 right-0 flex items-stretch"
+        style={{ opacity: actionsOpacity, width: TOTAL_WIDTH }}
+      >
+        <button
+          onClick={() => handleAction(onEdit)}
+          className="flex-1 flex flex-col items-center justify-center gap-1 bg-accent text-accent-foreground"
+          aria-label={t('common.edit')}
+        >
+          <Pencil className="w-4 h-4" />
+          <span className="text-[10px] font-medium">{t('common.edit')}</span>
+        </button>
+        <button
+          onClick={() => handleAction(onLaundry)}
+          className="flex-1 flex flex-col items-center justify-center gap-1 bg-warning text-warning-foreground"
+          aria-label={t('wardrobe.laundry')}
+        >
+          <WashingMachine className="w-4 h-4" />
+          <span className="text-[10px] font-medium">{t('wardrobe.laundry')}</span>
+        </button>
+        <button
+          onClick={() => handleAction(onDelete)}
+          className="flex-1 flex flex-col items-center justify-center gap-1 bg-destructive text-destructive-foreground"
+          aria-label={t('wardrobe.remove')}
+        >
+          <Trash2 className="w-4 h-4" />
+          <span className="text-[10px] font-medium">{t('wardrobe.remove')}</span>
+        </button>
+      </motion.div>
+
+      {/* Draggable card */}
+      <motion.div
+        style={{ x }}
+        drag="x"
+        dragDirectionLock
+        dragConstraints={{ left: -TOTAL_WIDTH, right: 0 }}
+        dragElastic={0.1}
+        onDragEnd={handleDragEnd}
+        onClick={() => {
+          if (isOpen) {
+            close();
+          } else {
+            navigate(`/wardrobe/${garment.id}`);
+          }
+        }}
+        className={cn(
+          'relative flex items-center gap-3 p-3 glass-card rounded-xl text-left cursor-grab active:cursor-grabbing will-change-transform',
+          garment.in_laundry && 'opacity-60'
+        )}
+      >
+        <LazyImageSimple
+          imagePath={garment.image_path}
+          alt={garment.title}
+          className="w-14 h-14 rounded-lg shrink-0"
+          fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/30" />}
+        />
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-sm truncate">{garment.title}</p>
+          <p className="text-xs text-muted-foreground capitalize">
+            {t(`garment.category.${garment.category}`)} · {t(`color.${garment.color_primary}`)}
+          </p>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
