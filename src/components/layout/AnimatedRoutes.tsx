@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useRef } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
@@ -59,7 +59,7 @@ const darkRoutes = new Set(['/welcome', '/auth']);
 const crossfadeTransition = {
   type: 'tween' as const,
   ease: EASE_CURVE,
-  duration: 0.4,
+  duration: 0.2,
 };
 const crossfadeVariants = {
   initial: { opacity: 0 },
@@ -69,16 +69,21 @@ const crossfadeVariants = {
 
 export function AnimatedRoutes() {
   const location = useLocation();
+  const isFirstRender = useRef(true);
   const isDark = darkRoutes.has(location.pathname);
   const variants = isDark ? crossfadeVariants : routeVariants;
   const transition = isDark ? crossfadeTransition : routeTransition;
 
+  // Skip animation on very first render so the page appears instantly
+  const skipInitial = isFirstRender.current;
+  if (isFirstRender.current) isFirstRender.current = false;
+
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={location.pathname}
         variants={variants}
-        initial="initial"
+        initial={skipInitial ? false : "initial"}
         animate="animate"
         exit="exit"
         transition={transition}

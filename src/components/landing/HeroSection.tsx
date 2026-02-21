@@ -44,20 +44,20 @@ export function HeroSection() {
       <div className="absolute bottom-1/3 left-[30%] w-1.5 h-1.5 rounded-full bg-white/10 parallax-slow" aria-hidden="true" />
 
       <div className="max-w-3xl mx-auto w-full flex flex-col items-center text-center gap-8 relative z-10">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs tracking-wide text-gray-400 backdrop-blur-sm reveal-scale" style={{ '--reveal-delay': '0ms' } as React.CSSProperties}>
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs tracking-wide text-gray-400 backdrop-blur-sm reveal-scale visible" style={{ '--reveal-delay': '0ms' } as React.CSSProperties}>
           <span className="w-2 h-2 rounded-full bg-white animate-pulse" aria-hidden="true" />
           {t('landing.badge')}
         </div>
 
-        <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] font-space reveal-up gradient-shift-text" style={{ '--reveal-delay': '100ms' } as React.CSSProperties}>
+        <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] font-space reveal-up visible gradient-shift-text" style={{ '--reveal-delay': '0ms' } as React.CSSProperties}>
           {t('landing.hero')}
         </h1>
 
-        <p className="text-lg md:text-xl text-gray-400 font-light max-w-lg leading-relaxed reveal-up" style={{ '--reveal-delay': '250ms' } as React.CSSProperties}>
+        <p className="text-lg md:text-xl text-gray-400 font-light max-w-lg leading-relaxed reveal-up visible" style={{ '--reveal-delay': '0ms' } as React.CSSProperties}>
           {t('landing.hero_desc')}
         </p>
 
-        <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto pt-4 reveal-scale" style={{ '--reveal-delay': '400ms' } as React.CSSProperties}>
+        <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto pt-4 reveal-scale visible" style={{ '--reveal-delay': '0ms' } as React.CSSProperties}>
           <button onClick={() => navigate('/auth')} className="w-full sm:w-auto px-8 py-4 bg-white text-[#030305] rounded-full font-medium hover:scale-105 transition-transform duration-300 flex items-center justify-center gap-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
             {t('landing.get_started')} <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
           </button>
@@ -66,7 +66,7 @@ export function HeroSection() {
           </button>
         </div>
 
-        <p className="text-xs text-gray-500 tracking-wide reveal-up" style={{ '--reveal-delay': '550ms' } as React.CSSProperties}>
+        <p className="text-xs text-gray-500 tracking-wide reveal-up visible" style={{ '--reveal-delay': '0ms' } as React.CSSProperties}>
           {t('landing.trust_line')}
         </p>
       </div>
