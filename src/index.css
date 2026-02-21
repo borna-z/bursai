@@ -538,6 +538,29 @@
   animation: gentle-glow 3s ease-in-out infinite;
 }
 
+/* Animated gradient text shift */
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.gradient-shift-text {
+  background: linear-gradient(
+    90deg,
+    #ffffff 0%,
+    #a0a0a0 25%,
+    #ffffff 50%,
+    #6b7280 75%,
+    #ffffff 100%
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-shift 6s ease-in-out infinite;
+}
+
 /* ── Dark Landing Page Theme ── */
 .dark-landing {
   background-color: #030305;

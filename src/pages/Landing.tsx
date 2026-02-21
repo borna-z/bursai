@@ -145,7 +145,7 @@ export default function Landing() {
                 Sustainable AI Styling
               </div>
 
-              <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-white leading-[1.1] font-space reveal-up" style={{ '--reveal-delay': '100ms' } as React.CSSProperties}>
+              <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] font-space reveal-up gradient-shift-text" style={{ '--reveal-delay': '100ms' } as React.CSSProperties}>
                 <WordReveal text="Designed for the next dimension." />
               </h1>
 
