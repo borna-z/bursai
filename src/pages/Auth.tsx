@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { BursMonogram } from '@/components/ui/BursMonogram';
+import bursLogoWhite from '@/assets/burs-logo-white.png';
 
 export default function AuthPage() {
   const { user, loading, signIn, signUp } = useAuth();
@@ -97,13 +97,7 @@ export default function AuthPage() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
         >
-          <BursMonogram size={56} className="opacity-90" />
-          <h1
-            className="text-2xl font-bold tracking-[0.18em] text-white/90"
-            style={{ fontFamily: "'Sora', sans-serif" }}
-          >
-            BURS
-          </h1>
+          <img src={bursLogoWhite} alt="BURS" className="h-10 w-auto opacity-90" />
           <p className="text-white/40 text-sm tracking-wide">
             {t('auth.tagline')}
           </p>
