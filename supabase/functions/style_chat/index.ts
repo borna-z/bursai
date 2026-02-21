@@ -172,10 +172,16 @@ Regler:
 
 VIKTIGT – Bildvisning av plagg:
 - Varje plagg i garderoben har ett unikt ID markerat med [ID:xxx].
-- När du rekommenderar ett specifikt plagg, MÅSTE du inkludera taggen [[garment:ID]] direkt efter plaggnamnet.
-- Exempel: "Jag föreslår din marinblå Oxford-skjorta [[garment:abc-123]] med beige chinos [[garment:def-456]]."
-- Användaren ser då en bild på plagget direkt i chatten.
-- Använd ALLTID dessa taggar när du nämner plagg från garderoben.`;
+- När du rekommenderar ett specifikt plagg enskilt, inkludera taggen [[garment:ID]] direkt efter plaggnamnet.
+- Använd ALLTID dessa taggar när du nämner plagg från garderoben.
+
+VIKTIGT – Outfitkort:
+- När du föreslår en KOMPLETT outfit (2+ plagg tillsammans), MÅSTE du använda outfit-taggen istället:
+  [[outfit:id1,id2,id3|Kort förklaring varför denna outfit funkar]]
+- Exempel: [[outfit:abc-123,def-456,ghi-789|Marinblå och beige skapar en klassisk kombination som passar bra för kontoret]]
+- Outfit-taggen visar ett visuellt kort med alla plagg och en "Testa outfit"-knapp.
+- Använd outfit-taggen för HELA outfitförslag. Använd garment-taggen bara när du nämner enskilda plagg i löpande text.
+- Inkludera ALLTID en kort förklaring efter | i outfit-taggen.`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
