@@ -22,12 +22,16 @@ export function OutfitReel({ outfits, onClose }: OutfitReelProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
+  const [dragOffset, setDragOffset] = useState(0);
   const slideRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef(Date.now());
   const rafRef = useRef<number>();
 
   const goNext = useCallback(() => {
     if (currentIndex < outfits.length - 1) {
+      setSlideDirection('left');
+      setDragOffset(0);
       setCurrentIndex(i => i + 1);
       setProgress(0);
       startTimeRef.current = Date.now();
@@ -38,6 +42,8 @@ export function OutfitReel({ outfits, onClose }: OutfitReelProps) {
 
   const goPrev = useCallback(() => {
     if (currentIndex > 0) {
+      setSlideDirection('right');
+      setDragOffset(0);
       setCurrentIndex(i => i - 1);
       setProgress(0);
       startTimeRef.current = Date.now();
@@ -83,6 +89,17 @@ export function OutfitReel({ outfits, onClose }: OutfitReelProps) {
       y: e.touches[0].clientY,
       time: Date.now(),
     };
+    setDragOffset(0);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const dx = e.touches[0].clientX - touchStartRef.current.x;
+    const dy = e.touches[0].clientY - touchStartRef.current.y;
+    // Only track horizontal drags
+    if (Math.abs(dx) > Math.abs(dy) * 1.2) {
+      setDragOffset(dx);
+    }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -91,8 +108,8 @@ export function OutfitReel({ outfits, onClose }: OutfitReelProps) {
     const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
     const dt = Date.now() - touchStartRef.current.time;
     touchStartRef.current = null;
+    setDragOffset(0);
 
-    // Must be primarily horizontal and fast enough
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5 && dt < 400) {
       if (dx < 0) goNext();
       else goPrev();
@@ -156,11 +173,21 @@ export function OutfitReel({ outfits, onClose }: OutfitReelProps) {
       </div>
 
       {/* Slide area */}
-      <div className="flex-1 relative overflow-hidden" onClick={handleTap} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+      <div className="flex-1 relative overflow-hidden" onClick={handleTap} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
         <div
           ref={slideRef}
           key={outfit.id}
-          className="absolute inset-0 flex flex-col items-center justify-center animate-fade-in bg-black"
+          className="absolute inset-0 flex flex-col items-center justify-center bg-black"
+          style={{
+            transform: dragOffset !== 0
+              ? `translateX(${dragOffset}px)`
+              : undefined,
+            transition: dragOffset !== 0 ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.3s ease',
+            animation: slideDirection && dragOffset === 0
+              ? `reel-slide-${slideDirection} 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both`
+              : undefined,
+          }}
+          onAnimationEnd={() => setSlideDirection(null)}
         >
           {/* Outfit images grid */}
           <div className="w-full max-w-sm mx-auto grid grid-cols-2 gap-1 px-4">
