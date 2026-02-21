@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, ChevronRight, BarChart3, TrendingUp, Shirt, Palette, Gem, AlertCircle, Lock, RefreshCw, ChevronDown } from 'lucide-react';
+import { Sparkles, ChevronRight, BarChart3, TrendingUp, Shirt, Palette, Gem, AlertCircle, Lock, RefreshCw, ChevronDown, Sun, Briefcase, PartyPopper, Heart, Dumbbell, Plane, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,34 +24,34 @@ import { useMemo } from 'react';
 interface OccasionOption {
   id: string;
   labelKey: string;
-  icon: string;
+  icon: React.ElementType;
   subOptions?: { id: string; labelKey: string }[];
 }
 
 const OCCASIONS: OccasionOption[] = [
-  { id: 'vardag', labelKey: 'home.occasion.vardag', icon: '☀️' },
-  { id: 'jobb', labelKey: 'home.occasion.jobb', icon: '💼', subOptions: [
+  { id: 'vardag', labelKey: 'home.occasion.vardag', icon: Sun },
+  { id: 'jobb', labelKey: 'home.occasion.jobb', icon: Briefcase, subOptions: [
     { id: 'kontor', labelKey: 'home.sub.kontor' },
     { id: 'kreativt', labelKey: 'home.sub.kreativt' },
     { id: 'möte', labelKey: 'home.sub.möte' },
   ]},
-  { id: 'fest', labelKey: 'home.occasion.fest', icon: '🎉', subOptions: [
+  { id: 'fest', labelKey: 'home.occasion.fest', icon: PartyPopper, subOptions: [
     { id: 'middag', labelKey: 'home.sub.middag' },
     { id: 'klubb', labelKey: 'home.sub.klubb' },
     { id: 'release', labelKey: 'home.sub.release' },
     { id: 'bröllop', labelKey: 'home.sub.bröllop' },
   ]},
-  { id: 'dejt', labelKey: 'home.occasion.dejt', icon: '❤️', subOptions: [
+  { id: 'dejt', labelKey: 'home.occasion.dejt', icon: Heart, subOptions: [
     { id: 'casual-dejt', labelKey: 'home.sub.casual_dejt' },
     { id: 'fin-dejt', labelKey: 'home.sub.fin_dejt' },
   ]},
-  { id: 'traning', labelKey: 'home.occasion.traning', icon: '🏃', subOptions: [
+  { id: 'traning', labelKey: 'home.occasion.traning', icon: Dumbbell, subOptions: [
     { id: 'gym', labelKey: 'home.sub.gym' },
     { id: 'löpning', labelKey: 'home.sub.löpning' },
     { id: 'yoga', labelKey: 'home.sub.yoga' },
     { id: 'outdoor', labelKey: 'home.sub.outdoor' },
   ]},
-  { id: 'resa', labelKey: 'home.occasion.resa', icon: '✈️', subOptions: [
+  { id: 'resa', labelKey: 'home.occasion.resa', icon: Plane, subOptions: [
     { id: 'flyg', labelKey: 'home.sub.flyg' },
     { id: 'semester', labelKey: 'home.sub.semester' },
     { id: 'weekend', labelKey: 'home.sub.weekend' },
@@ -138,7 +138,7 @@ function InsightsSection({ isPremium, t }: { isPremium: boolean; t: (k: string) 
       {insights.topFiveWorn.length > 0 && (
         <Card>
           <CardHeader className="pb-2 pt-3 px-4">
-            <CardTitle className="text-sm flex items-center gap-2">🏆 {t('insights.top_garments')}</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2"><Trophy className="w-4 h-4 text-amber-500" /> {t('insights.top_garments')}</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-3 divide-y divide-border/50">
             {insights.topFiveWorn.slice(0, 3).map((garment, index) => (
@@ -330,7 +330,7 @@ export default function HomePage() {
                         : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground active:bg-muted/60"
                     )}
                   >
-                    <span className="text-lg">{occ.icon}</span>
+                    <occ.icon className="w-5 h-5" />
                     <span className="text-xs">{t(occ.labelKey)}</span>
                   </button>
                 ))}
