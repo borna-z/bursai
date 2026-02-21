@@ -342,12 +342,12 @@ export default function HomePage() {
                   <StaggerItem key={occ.id}>
                   <motion.button
                     whileTap={{ scale: 0.94 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
+                    transition={{ type: 'tween', duration: 0.1 }}
                     onClick={() => handleSelectOccasion(occ.id)}
                     className={cn(
                       "w-full flex flex-col items-center gap-1 py-3 px-2 rounded-xl text-sm font-medium transition-colors border will-change-transform",
                       selectedOccasion === occ.id
-                        ? "border-accent bg-accent/5 text-accent"
+                        ? "border-accent bg-accent/10 text-accent"
                         : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
                     )}
                   >
@@ -370,7 +370,7 @@ export default function HomePage() {
                     <motion.button
                       key={sub.id}
                       whileTap={{ scale: 0.93 }}
-                      transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
+                      transition={{ type: 'tween', duration: 0.1 }}
                       onClick={() => setSelectedSub(selectedSub === sub.id ? null : sub.id)}
                       className={cn(
                         "px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors border will-change-transform",
@@ -394,7 +394,7 @@ export default function HomePage() {
                   <motion.button
                     key={style.id}
                     whileTap={{ scale: 0.93 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
+                    transition={{ type: 'tween', duration: 0.1 }}
                     onClick={() => setSelectedStyle(selectedStyle === style.id ? null : style.id)}
                     className={cn(
                       "px-4 py-2 rounded-full text-xs font-medium transition-colors border whitespace-nowrap flex-shrink-0 will-change-transform",
