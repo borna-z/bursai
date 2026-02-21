@@ -137,31 +137,67 @@ serve(async (req) => {
       bodyContext = `\nKroppsmått: ${heightCm} cm${weightKg ? `, ${weightKg} kg` : ""}. Tips: ${silhouetteHints}`;
     }
 
-    // Style prefs
+    // Style prefs — use full styleProfile if available, fallback to legacy
     const preferences = profile?.preferences as Record<string, unknown> || {};
-    const styleLines = [
-      (preferences.favoriteColors as string[])?.length ? `Favoritfärger: ${(preferences.favoriteColors as string[]).join(", ")}` : "",
-      (preferences.dislikedColors as string[])?.length ? `Ogillar: ${(preferences.dislikedColors as string[]).join(", ")}` : "",
-      preferences.fitPreference ? `Passform: ${preferences.fitPreference}` : "",
-      preferences.styleVibe ? `Stil: ${preferences.styleVibe}` : "",
-    ].filter(Boolean).join(". ");
+    const sp = preferences.styleProfile as Record<string, any> | undefined;
+    let styleLines = "";
+    if (sp) {
+      const parts: string[] = [];
+      if (sp.favoriteColors?.length) parts.push(`Favoritfärger: ${sp.favoriteColors.join(", ")}`);
+      if (sp.dislikedColors?.length) parts.push(`Undviker: ${sp.dislikedColors.join(", ")}`);
+      if (sp.colorTone) parts.push(`Färgton: ${sp.colorTone === 'neutral' ? 'neutrala/jordtoner' : 'starka/mättade'}`);
+      if (sp.fit) parts.push(`Passform: ${sp.fit}`);
+      if (sp.topLength) parts.push(`Överdel: ${sp.topLength}`);
+      if (sp.layering) parts.push(`Lager: ${sp.layering === 'love' ? 'älskar' : 'minimalt'}`);
+      if (sp.styleWords?.length) parts.push(`Stilord: ${sp.styleWords.join(", ")}`);
+      if (sp.styleIcons) parts.push(`Inspireras av: ${sp.styleIcons}`);
+      if (sp.adventurousness) parts.push(`Modemodig: ${sp.adventurousness}`);
+      if (sp.trendFollowing) parts.push(`Trender: ${sp.trendFollowing}`);
+      if (sp.genderNeutral) parts.push("Könsneutral styling");
+      if (sp.weekdayContext) parts.push(`Vardag: ${sp.weekdayContext}`);
+      if (sp.weekendContext) parts.push(`Helg: ${sp.weekendContext}`);
+      if (sp.workFormality) parts.push(`Jobb: ${sp.workFormality}`);
+      if (sp.budgetMindset) parts.push(`Budget: ${sp.budgetMindset}`);
+      if (sp.styleGoals) parts.push(`Mål: ${sp.styleGoals}`);
+      styleLines = parts.join(". ");
+    } else {
+      styleLines = [
+        (preferences.favoriteColors as string[])?.length ? `Favoritfärger: ${(preferences.favoriteColors as string[]).join(", ")}` : "",
+        (preferences.dislikedColors as string[])?.length ? `Ogillar: ${(preferences.dislikedColors as string[]).join(", ")}` : "",
+        preferences.fitPreference ? `Passform: ${preferences.fitPreference}` : "",
+        preferences.styleVibe ? `Stil: ${preferences.styleVibe}` : "",
+      ].filter(Boolean).join(". ");
+    }
 
-    const systemPrompt = `Du är BURS Stylisten – en personlig AI-stylingassistent. Varm, professionell och konkret.
+    const currentMonth = new Date().getMonth();
+    const seasonHint = currentMonth >= 2 && currentMonth <= 4 ? "vår" :
+                       currentMonth >= 5 && currentMonth <= 7 ? "sommar" :
+                       currentMonth >= 8 && currentMonth <= 10 ? "höst" : "vinter";
+
+    const systemPrompt = `Du är BURS Stylisten – en personlig AI-stylingassistent med expertkunskap inom mode, trender och färgteori. Varm, professionell och konkret.
+
+Du har djup förståelse för:
+- Färgteori (komplementfärger, analogt matchande, ton-i-ton)
+- Aktuella ${seasonHint}trender ${new Date().getFullYear()} inom skandinaviskt mode
+- Silhuetter, proportioner och hur plagg samverkar
+- Hur man bygger en sammanhängande garderob
 
 ${profile?.display_name ? `Användare: ${profile.display_name}` : ""}${profile?.home_city ? ` (${profile.home_city})` : ""}${bodyContext}
-${styleLines ? `Stilpreferenser: ${styleLines}` : ""}
+${styleLines ? `\nSTILPROFIL:\n${styleLines}` : ""}
 
 ${wardrobeCtx}
 ${calendarCtx}
 ${weatherCtx}
 
 Ditt uppdrag:
-- Ge personliga stil- och outfitråd baserade på garderoben, kropp, väder och kalender
+- Ge personliga stil- och outfitråd baserade på garderoben, stilprofil, kropp, väder och kalender
+- Referera ALLTID till användarens stilprofil när du ger råd — anpassa efter deras smak
 - När användaren laddar upp en bild: analysera outfiten (färger, passform, stil), jämför med garderoben, föreslå konkreta byten av plagg MED NAMN
-- Anpassa råd kring passform baserat på kroppsmått
+- Anpassa råd kring passform baserat på kroppsmått och preferenser
 - Kolla dagens kalenderhändelser och matcha outfit mot tillfälle
 - Varna om outfiten inte passar vädret
 - Var specifik: "Byt ut den vita t-shirten mot din marinblå Oxford-skjorta för morgondagens möte"
+- Tänk på säsongstrender och färgharmoni
 
 Regler:
 - Skriv alltid på svenska

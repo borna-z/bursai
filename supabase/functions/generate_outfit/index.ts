@@ -97,34 +97,76 @@ serve(async (req) => {
       })
       .join("\n");
 
-    // Style preferences
+    // Build comprehensive style context from styleProfile
     let styleContext = "";
     if (preferences) {
-      const sp = preferences.style_preferences;
+      const sp = preferences.styleProfile as Record<string, any> | undefined;
       if (sp) {
-        if (sp.favoriteStyles?.length) styleContext += `Favoritstiler: ${sp.favoriteStyles.join(", ")}. `;
-        if (sp.avoidStyles?.length) styleContext += `Undviker: ${sp.avoidStyles.join(", ")}. `;
-        if (sp.colorPreference) styleContext += `Färgpreferens: ${sp.colorPreference}. `;
+        const lines: string[] = [];
+        if (sp.favoriteColors?.length) lines.push(`Favoritfärger: ${sp.favoriteColors.join(", ")}`);
+        if (sp.dislikedColors?.length) lines.push(`Undviker färger: ${sp.dislikedColors.join(", ")}`);
+        if (sp.colorTone) lines.push(`Färgton: ${sp.colorTone === 'neutral' ? 'neutrala/jordtoner' : 'starka/mättade färger'}`);
+        if (sp.patternFeeling) lines.push(`Mönster: ${sp.patternFeeling}`);
+        if (sp.likedPatterns?.length) lines.push(`Gillar: ${sp.likedPatterns.join(", ")}`);
+        if (sp.fit) lines.push(`Passform: ${sp.fit}`);
+        if (sp.topLength) lines.push(`Överdel: ${sp.topLength}`);
+        if (sp.bottomLength) lines.push(`Underdel: ${sp.bottomLength}`);
+        if (sp.layering) lines.push(`Lagerläggning: ${sp.layering === 'love' ? 'älskar lager' : 'minimalt'}`);
+        if (sp.styleWords?.length) lines.push(`Stilord: ${sp.styleWords.join(", ")}`);
+        if (sp.styleIcons) lines.push(`Inspireras av: ${sp.styleIcons}`);
+        if (sp.adventurousness) lines.push(`Modemodig: ${sp.adventurousness}`);
+        if (sp.trendFollowing) lines.push(`Följer trender: ${sp.trendFollowing}`);
+        if (sp.genderNeutral) lines.push("Föredrar könsneutrala förslag");
+        if (sp.weekdayContext) lines.push(`Vardag: ${sp.weekdayContext}`);
+        if (sp.weekendContext) lines.push(`Helg: ${sp.weekendContext}`);
+        if (sp.workFormality) lines.push(`Arbetsformality: ${sp.workFormality}`);
+        if (sp.comfortVsStyle !== undefined) lines.push(`Komfort vs stil: ${sp.comfortVsStyle}% mot stil`);
+        if (sp.frustrations?.length) lines.push(`Frustration: ${sp.frustrations.join(", ")}`);
+        if (sp.budgetMindset) lines.push(`Budget: ${sp.budgetMindset}`);
+        if (sp.sustainability) lines.push(`Hållbarhet: ${sp.sustainability}`);
+        if (sp.ageRange) lines.push(`Ålder: ${sp.ageRange}`);
+        if (sp.climate) lines.push(`Klimat: ${sp.climate}`);
+        if (sp.styleGoals) lines.push(`Mål: ${sp.styleGoals}`);
+        styleContext = lines.join(". ");
+      } else {
+        // Fallback to legacy fields
+        if (preferences.favoriteColors?.length) styleContext += `Favoritfärger: ${(preferences.favoriteColors as string[]).join(", ")}. `;
+        if (preferences.dislikedColors?.length) styleContext += `Undviker: ${(preferences.dislikedColors as string[]).join(", ")}. `;
+        if (preferences.fitPreference) styleContext += `Passform: ${preferences.fitPreference}. `;
+        if (preferences.styleVibe) styleContext += `Stil: ${preferences.styleVibe}. `;
       }
     }
 
-    const systemPrompt = `Du är en professionell stylist. Skapa den bästa outfiten från användarens garderob.
+    const currentMonth = new Date().getMonth();
+    const seasonHint = currentMonth >= 2 && currentMonth <= 4 ? "vår" :
+                       currentMonth >= 5 && currentMonth <= 7 ? "sommar" :
+                       currentMonth >= 8 && currentMonth <= 10 ? "höst" : "vinter";
+
+    const systemPrompt = `Du är en världsledande personlig stylist med djup kunskap om mode, trender och färgteori. Skapa den perfekta outfiten.
+
+EXPERTIS:
+- Du förstår färghjul, komplementfärger, analogt matchande och ton-i-ton
+- Du tänker på proportioner, silhuetter och hur plagg samverkar
+- Du känner till aktuella trender för ${seasonHint}en ${new Date().getFullYear()} inom skandinaviskt mode
+- Du prioriterar variation – undvik att alltid välja samma plagg
 
 REGLER:
 - Välj plagg ENBART från listan nedan (referera med exakt ID)
 - Obligatoriska slots: top, bottom, shoes
-- Valfria slots: outerwear (om kallt/regn), accessory
-- Tänk på: färgharmoni, formalitetsnivå, säsong, väder, tillfälle
+- Valfria slots: outerwear (om kallt/regn/under 15°C), accessory
+- Respektera användarens stilprofil nedan – det är deras personliga smak
 - Föredra plagg som inte använts nyligen (variation)
-- Ge en kort, personlig förklaring på svenska varför outfiten funkar
+- Ge en personlig förklaring (2-3 meningar) på svenska: varför denna kombination funkar stilmässigt
 
 TILLFÄLLE: ${occasion}
-${style ? `STIL: ${style}` : ""}
+${style ? `ÖNSKAD STIL: ${style}` : ""}
 ${weather?.temperature !== undefined ? `TEMPERATUR: ${weather.temperature}°C` : ""}
 ${weather?.precipitation ? `NEDERBÖRD: ${weather.precipitation}` : ""}
 ${weather?.wind ? `VIND: ${weather.wind}` : ""}
-${styleContext ? `ANVÄNDARENS STILPREFERENSER: ${styleContext}` : ""}
+SÄSONG: ${seasonHint}
+${styleContext ? `\nANVÄNDARENS STILPROFIL:\n${styleContext}` : ""}
 ${profile?.height_cm ? `LÄNGD: ${profile.height_cm}cm` : ""}
+${profile?.weight_kg ? `VIKT: ${profile.weight_kg}kg` : ""}
 
 GARDEROB:
 ${garmentList}`;
