@@ -54,7 +54,15 @@ serve(async (req) => {
     }
     const userId = claimsData.claims.sub;
 
-    const { occasion, style, weather } = await req.json();
+    const { occasion, style, weather, locale = "sv" } = await req.json();
+
+    const LOCALE_NAMES: Record<string, string> = {
+      sv: "svenska", en: "English", no: "norsk", da: "dansk", fi: "finska",
+      de: "Deutsch", fr: "français", es: "español", it: "italiano",
+      pt: "português", nl: "Nederlands", ja: "日本語", ko: "한국어", ar: "العربية",
+      fa: "فارسی", zh: "中文",
+    };
+    const localeName = LOCALE_NAMES[locale] || "English";
 
     // Fetch garments + profile in parallel
     const [garmentsRes, profileRes] = await Promise.all([
@@ -156,7 +164,7 @@ REGLER:
 - Valfria slots: outerwear (om kallt/regn/under 15°C), accessory
 - Respektera användarens stilprofil nedan – det är deras personliga smak
 - Föredra plagg som inte använts nyligen (variation)
-- Ge en personlig förklaring (2-3 meningar) på svenska: varför denna kombination funkar stilmässigt
+- Ge en personlig förklaring (2-3 meningar) på ${localeName}: varför denna kombination funkar stilmässigt
 
 TILLFÄLLE: ${occasion}
 ${style ? `ÖNSKAD STIL: ${style}` : ""}
@@ -184,7 +192,7 @@ ${garmentList}`;
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: "Skapa en outfit åt mig." },
+          { role: "user", content: locale === "sv" ? "Skapa en outfit åt mig." : "Create an outfit for me." },
         ],
         tools: [
           {
@@ -212,7 +220,7 @@ ${garmentList}`;
                   },
                   explanation: {
                     type: "string",
-                    description: "Short explanation in Swedish of why this outfit works",
+                    description: `Short explanation in ${localeName} of why this outfit works`,
                   },
                 },
                 required: ["items", "explanation"],
@@ -268,7 +276,7 @@ ${garmentList}`;
     return new Response(
       JSON.stringify({
         items: validItems,
-        explanation: parsed.explanation || "Snygg kombination!",
+        explanation: parsed.explanation || (locale === "sv" ? "Snygg kombination!" : "Great combination!"),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

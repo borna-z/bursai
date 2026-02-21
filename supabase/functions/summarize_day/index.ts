@@ -30,8 +30,18 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+    const LOCALE_NAMES: Record<string, string> = {
+      sv: "svenska", en: "English", no: "norsk", da: "dansk", fi: "finska",
+      de: "Deutsch", fr: "français", es: "español", it: "italiano",
+      pt: "português", nl: "Nederlands", ja: "日本語", ko: "한국어", ar: "العربية",
+    };
+    const localeName = LOCALE_NAMES[locale] || "English";
+    const isSv = locale === "sv";
+
     const weatherContext = weather
-      ? `Väder: ${weather.temperature}°C, ${weather.precipitation === "none" ? "uppehåll" : weather.precipitation === "rain" ? "regn" : "snö"}.`
+      ? (isSv
+        ? `Väder: ${weather.temperature}°C, ${weather.precipitation === "none" ? "uppehåll" : weather.precipitation === "rain" ? "regn" : "snö"}.`
+        : `Weather: ${weather.temperature}°C, ${weather.precipitation === "none" ? "clear" : weather.precipitation === "rain" ? "rain" : "snow"}.`)
       : "";
 
     const eventsText = events
@@ -40,16 +50,22 @@ serve(async (req) => {
       )
       .join("\n");
 
-    const systemPrompt = `Du är en stilmedveten dagplanerare. Analysera användarens kalenderhändelser och ge en kort, insiktsfull sammanfattning av dagen.
+    const summaryDesc = isSv ? "2-3 meningar som sammanfattar dagens tema och ger klädtips" : "2-3 sentences summarizing the day's theme and clothing tips";
+    const occasionValues = isSv ? "jobb|fest|dejt|träning|vardag" : "work|party|date|workout|casual";
+    const styleDesc = isSv ? "Kort stilbeskrivning" : "Short style description";
+    const noteDesc = isSv ? "Praktiskt tips" : "Practical tip";
+
+    const systemPrompt = isSv
+      ? `Du är en stilmedveten dagplanerare. Analysera användarens kalenderhändelser och ge en kort, insiktsfull sammanfattning av dagen.
 
 Svara ALLTID med giltig JSON i exakt detta format:
 {
-  "summary": "2-3 meningar som sammanfattar dagens tema och ger klädtips",
+  "summary": "${summaryDesc}",
   "priorities": [
-    { "title": "Händelsenamn", "occasion": "jobb|fest|dejt|träning|vardag", "formality": 1-5, "time": "HH:MM" }
+    { "title": "Händelsenamn", "occasion": "${occasionValues}", "formality": 1-5, "time": "HH:MM" }
   ],
   "outfit_hints": [
-    { "occasion": "jobb|fest|dejt|träning|vardag", "style": "Kort stilbeskrivning", "note": "Praktiskt tips" }
+    { "occasion": "${occasionValues}", "style": "${styleDesc}", "note": "${noteDesc}" }
   ]
 }
 
@@ -59,8 +75,29 @@ Regler:
 - Max 3 priorities och 2 outfit_hints
 - Koppla varje outfit_hint till en occasion-typ
 - Om flera aktiviteter kräver olika klädsel, nämn det i sammanfattningen
-- Skriv på ${locale === "sv" ? "svenska" : locale === "en" ? "engelska" : locale}
-- Var kortfattad men insiktsfull`;
+- Skriv på svenska
+- Var kortfattad men insiktsfull`
+      : `You are a style-conscious day planner. Analyze the user's calendar events and provide a short, insightful summary of the day.
+
+ALWAYS respond with valid JSON in exactly this format:
+{
+  "summary": "${summaryDesc}",
+  "priorities": [
+    { "title": "Event name", "occasion": "${occasionValues}", "formality": 1-5, "time": "HH:MM" }
+  ],
+  "outfit_hints": [
+    { "occasion": "${occasionValues}", "style": "${styleDesc}", "note": "${noteDesc}" }
+  ]
+}
+
+Rules:
+- Identify the day's overall theme (work-focused, mixed, social, active)
+- Rank events by how much they affect clothing choices (most important first)
+- Max 3 priorities and 2 outfit_hints
+- Link each outfit_hint to an occasion type
+- If multiple activities require different outfits, mention it in the summary
+- Write in ${localeName}
+- Be concise but insightful`;
 
     const userPrompt = `Dagens händelser:\n${eventsText}\n\n${weatherContext}`;
 

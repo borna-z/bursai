@@ -42,11 +42,20 @@ const occasionIcons: Record<string, React.ElementType> = {
   dejt: Heart,
 };
 
+const OCCASION_I18N: Record<string, string> = {
+  jobb: 'occasion.jobb',
+  vardag: 'occasion.vardag',
+  fest: 'occasion.fest',
+  resa: 'occasion.resa',
+  traning: 'occasion.traning',
+  dejt: 'occasion.dejt',
+};
+
 export default function PlanPage() {
   useBackgroundSyncNotification();
   const navigate = useNavigate();
   const location = useLocation();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   
@@ -120,6 +129,7 @@ export default function PlanPage() {
       const o = await generateOutfit({
         occasion: request.occasion,
         style: request.style,
+        locale,
         weather: { temperature: request.temperature, precipitation: 'none', wind: 'low' },
       });
       await upsertPlanned.mutateAsync({ date: dateStr, outfitId: o.id });
@@ -180,6 +190,7 @@ export default function PlanPage() {
         const o = await generateOutfit({
           occasion: occasions[i % occasions.length],
           style: null,
+          locale,
           weather: { temperature: temp, precipitation: forecast?.precipitation_probability && forecast.precipitation_probability > 50 ? 'rain' : 'none', wind: 'low' },
         });
         await upsertPlanned.mutateAsync({ date: dateStr, outfitId: o.id });
@@ -299,7 +310,7 @@ export default function PlanPage() {
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant="secondary" className="capitalize text-xs">
                   <OccasionIcon className="w-3 h-3 mr-1" />
-                  {outfit.occasion}
+                  {t(OCCASION_I18N[outfit.occasion?.toLowerCase()] || `occasion.${outfit.occasion}`)}
                 </Badge>
                 {outfit.style_vibe && (
                   <Badge variant="outline" className="text-xs">{outfit.style_vibe}</Badge>

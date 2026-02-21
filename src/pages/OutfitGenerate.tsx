@@ -8,21 +8,24 @@ import { useOutfitGenerator, type OutfitRequest } from '@/hooks/useOutfitGenerat
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 
-const PHASES = [
-  { icon: Shirt, label: 'Analyserar din garderob...', duration: 1200 },
-  { icon: Palette, label: 'Matchar färger och stil...', duration: 2000 },
-  { icon: Wand2, label: 'Skapar din outfit...', duration: 0 },
-] as const;
+// Phase labels are set dynamically via t() in the component
 
 export default function OutfitGeneratePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
   const { generateOutfit, isGenerating, error } = useOutfitGenerator();
+  const { locale } = useLanguage();
   const [phase, setPhase] = useState(0);
   const [phaseKey, setPhaseKey] = useState(0);
   
   const state = location.state as OutfitRequest | null;
+  
+  const PHASES = [
+    { icon: Shirt, label: t('generate.phase_analyzing'), duration: 1200 },
+    { icon: Palette, label: t('generate.phase_matching'), duration: 2000 },
+    { icon: Wand2, label: t('generate.phase_creating'), duration: 0 },
+  ];
   
   useEffect(() => {
     if (!state?.occasion) {
@@ -51,7 +54,7 @@ export default function OutfitGeneratePage() {
     setPhaseKey(0);
     
     try {
-      const outfit = await generateOutfit(state);
+      const outfit = await generateOutfit({ ...state, locale });
       navigate(`/outfits/${outfit.id}`, { 
         replace: true,
         state: { justGenerated: true }

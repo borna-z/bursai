@@ -610,6 +610,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'generate.back': 'Tillbaka',
     'generate.retry': 'Försök igen',
     'generate.error_toast': 'Kunde inte skapa outfit',
+    'generate.phase_analyzing': 'Analyserar din garderob...',
+    'generate.phase_matching': 'Matchar färger och stil...',
+    'generate.phase_creating': 'Skapar din outfit...',
 
     // Calendar Section
     'calendar.title': 'Kalendersynk',
@@ -1714,6 +1717,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'generate.back': 'Back',
     'generate.retry': 'Try again',
     'generate.error_toast': 'Could not create outfit',
+    'generate.phase_analyzing': 'Analyzing your wardrobe...',
+    'generate.phase_matching': 'Matching colors and style...',
+    'generate.phase_creating': 'Creating your outfit...',
     'calendar.title': 'Calendar sync',
     'calendar.desc': 'Sync your calendar events for smarter outfit suggestions',
     'calendar.synced': 'Synced',
