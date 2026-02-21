@@ -72,8 +72,10 @@ export default function AuthPage() {
     if (error) {
       if (error.message.includes('already registered')) {
         toast.error(t('auth.already_exists'));
+      } else if (error.message.includes('weak_password') || error.message.includes('weak') || error.message.includes('pwned')) {
+        toast.error(t('auth.weak_password'));
       } else {
-        toast.error(t('auth.something_wrong'));
+        toast.error(error.message || t('auth.something_wrong'));
       }
     } else if (data?.user?.identities?.length === 0) {
       toast.error(t('auth.already_exists'));
