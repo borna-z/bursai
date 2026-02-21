@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Sparkles, ChevronRight, BarChart3, TrendingUp, Shirt, Palette, Gem, AlertCircle, Lock, RefreshCw, ChevronDown, Sun, Briefcase, PartyPopper, Heart, Dumbbell, Plane, Trophy } from 'lucide-react';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { AnimatedTab } from '@/components/ui/animated-tab';
@@ -268,9 +269,11 @@ export default function HomePage() {
 
         {/* Onboarding nudge */}
         {needsOnboarding && (
-          <button
+          <motion.button
+            whileTap={{ scale: 0.975 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
             onClick={() => navigate('/onboarding')}
-            className="w-full flex items-center justify-between bg-card/70 backdrop-blur-sm rounded-xl px-4 py-3 border border-border/40 active:bg-muted/60 transition-colors"
+            className="w-full flex items-center justify-between bg-card/70 backdrop-blur-sm rounded-xl px-4 py-3 border border-border/40 transition-colors will-change-transform"
           >
             <div className="flex items-center gap-3">
               <span className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center">
@@ -279,7 +282,7 @@ export default function HomePage() {
               <span className="text-sm font-medium">{t('home.get_started')}</span>
             </div>
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
-          </button>
+          </motion.button>
         )}
 
         {/* Tab switcher */}
@@ -328,18 +331,20 @@ export default function HomePage() {
               <StaggerContainer className="grid grid-cols-3 gap-2" stagger={0.04}>
                 {OCCASIONS.map((occ) => (
                   <StaggerItem key={occ.id}>
-                  <button
+                  <motion.button
+                    whileTap={{ scale: 0.94 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
                     onClick={() => handleSelectOccasion(occ.id)}
                     className={cn(
-                      "w-full flex flex-col items-center gap-1 py-3 px-2 rounded-xl text-sm font-medium transition-all border",
+                      "w-full flex flex-col items-center gap-1 py-3 px-2 rounded-xl text-sm font-medium transition-colors border will-change-transform",
                       selectedOccasion === occ.id
                         ? "border-accent bg-accent/5 text-accent"
-                        : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground active:bg-muted/60"
+                        : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground"
                     )}
                   >
                     <occ.icon className="w-5 h-5" />
                     <span className="text-xs">{t(occ.labelKey)}</span>
-                  </button>
+                  </motion.button>
                   </StaggerItem>
                 ))}
               </StaggerContainer>
@@ -353,18 +358,20 @@ export default function HomePage() {
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {activeOccasion.subOptions.map((sub) => (
-                    <button
+                    <motion.button
                       key={sub.id}
+                      whileTap={{ scale: 0.93 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
                       onClick={() => setSelectedSub(selectedSub === sub.id ? null : sub.id)}
                       className={cn(
-                        "px-3.5 py-1.5 rounded-full text-xs font-medium transition-all border",
+                        "px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors border will-change-transform",
                         selectedSub === sub.id
                           ? "border-accent bg-accent/10 text-accent"
-                        : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground active:bg-muted/60"
+                        : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground"
                       )}
                     >
                       {t(sub.labelKey)}
-                    </button>
+                    </motion.button>
                   ))}
                 </div>
               </div>
@@ -375,18 +382,20 @@ export default function HomePage() {
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('home.style_optional')}</p>
               <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
                 {STYLES.map((style) => (
-                  <button
+                  <motion.button
                     key={style.id}
+                    whileTap={{ scale: 0.93 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
                     onClick={() => setSelectedStyle(selectedStyle === style.id ? null : style.id)}
                     className={cn(
-                      "px-4 py-2 rounded-full text-xs font-medium transition-all border whitespace-nowrap flex-shrink-0",
+                      "px-4 py-2 rounded-full text-xs font-medium transition-colors border whitespace-nowrap flex-shrink-0 will-change-transform",
                       selectedStyle === style.id
                         ? "border-accent bg-accent/10 text-accent"
-                        : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground active:bg-muted/60"
+                        : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground"
                     )}
                   >
                     {t(style.labelKey)}
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             </div>

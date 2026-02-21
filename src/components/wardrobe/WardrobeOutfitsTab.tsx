@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Sparkles, Film, Star, Clock, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,9 +19,11 @@ function OutfitMiniCard({ outfit }: { outfit: OutfitWithItems }) {
   const { t, locale } = useLanguage();
 
   return (
-    <button
+    <motion.button
+      whileTap={{ scale: 0.97 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
       onClick={() => navigate(`/outfits/${outfit.id}`)}
-      className="w-full glass-card rounded-xl overflow-hidden transition-all active:scale-[0.98] text-left"
+      className="w-full glass-card rounded-xl overflow-hidden transition-colors text-left will-change-transform"
     >
       <div className="flex h-20 bg-muted/30">
         {outfit.outfit_items.slice(0, 4).map((item, index) => (
@@ -53,7 +56,7 @@ function OutfitMiniCard({ outfit }: { outfit: OutfitWithItems }) {
           </span>
         )}
       </div>
-    </button>
+    </motion.button>
   );
 }
 
