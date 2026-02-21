@@ -1,50 +1,71 @@
 
 
-## Fix Chat Header Scroll Issue and Add Premium Animations
+## Outfit Cards in AI Stylist Chat
 
-### Problem
-The Stylist/Shopping mode switcher header scrolls out of view when scrolling chat messages. This happens because `AppLayout`'s `<main>` has `overflow-y-auto` and the chat's inner container height (`calc(100dvh - 4rem)`) combined with `pb-20` causes the outer container to also scroll, taking the header with it.
+Currently the AI stylist shows individual garment chips (small pills with tiny images). The user wants a richer experience: when the AI recommends an outfit, it should render as a **visual outfit card** showing all the garments together with an explanation, and allow swapping individual items directly in the chat.
 
-### Changes
+---
 
-#### 1. Fix the scroll architecture in `src/pages/AIChat.tsx`
-- Pass `hideNav` to `AppLayout` so the outer `<main>` doesn't add `pb-20` padding that causes overflow
-- Instead, manage the bottom nav visibility separately by **not** hiding it -- instead adjust the inner container height to account for bottom nav (`calc(100dvh - 4rem - 5rem)` or use `h-full` approach)
-- Alternative simpler fix: make the header `sticky top-0 z-10 bg-background` so it pins to the top of the scroll container even if the outer main scrolls
-- Add `shrink-0` to the header so it never collapses in the flex layout
+### What changes
 
-#### 2. Add entrance animations to `src/components/chat/ChatMessage.tsx`
-- Each message fades + slides in from below using `animate-fade-in` (already defined in tailwind config)
-- Assistant avatar icon gets a subtle scale-in animation
-- Streaming cursor uses a smoother pulse animation
+#### 1. New "Outfit Card" component in chat
+A new `OutfitSuggestionCard` component that renders when the AI suggests a complete outfit. The card will:
+- Show garment images in a horizontal row (thumbnails)
+- Display a short "Why this works" explanation from the AI
+- Have a "Try this outfit" button that creates the outfit and navigates to the detail page
+- Each garment in the card is tappable to view details
 
-#### 3. Add animations to `src/components/chat/ChatWelcome.tsx`
-- Icon container: scale-in animation on mount
-- Welcome text: fade-in with slight delay
-- Suggestion chips: staggered fade-in (each chip gets increasing `animation-delay`)
+#### 2. Swap alternatives on each garment within the card
+- Each garment in the outfit card shows a small swap icon
+- Tapping it reveals 2 alternative garments (fetched client-side from the user's wardrobe using the existing swap scoring logic)
+- Tapping an alternative replaces the garment in the card before creating the outfit
 
-#### 4. Add animations to `src/components/chat/ChatInput.tsx`
-- Input bar: subtle fade-in on mount
-- Send button: micro scale on hover/tap via `transition-transform hover:scale-105 active:scale-95`
+#### 3. New AI output format -- `[[outfit:...]]` tags
+Update the `style_chat` edge function prompt to instruct the AI to output outfit suggestions in a structured format:
+```
+[[outfit:id1,id2,id3,id4|Why this works explanation here]]
+```
+The ChatMessage component parses this tag and renders the `OutfitSuggestionCard` instead of inline text.
 
-#### 5. Mode switcher transition in `src/pages/AIChat.tsx`
-- Add `transition-all duration-200` to mode switcher buttons for smoother active state changes
-- Message area gets a subtle opacity transition when switching modes
+#### 4. Update ChatMessage to parse and render outfit cards
+The existing garment tag parsing (`[[garment:ID]]`) stays for single garment references. A new regex handles `[[outfit:...]]` tags and renders the full outfit card component.
 
 ---
 
 ### Technical details
 
-**Scroll fix approach**: The simplest reliable fix is making the header `sticky top-0 z-10 bg-background/95 backdrop-blur-sm` within the flex container. This ensures it stays visible regardless of scroll behavior. Combined with ensuring the flex container itself is `overflow-hidden` and only the messages div scrolls.
+**New file: `src/components/chat/OutfitSuggestionCard.tsx`**
+- Props: `garments: GarmentBasic[]`, `explanation: string`, `onSwap: (index, newGarmentId) => void`, `onTryOutfit: (garmentIds) => void`
+- Layout: rounded card with border, garment image row, explanation text, action button
+- Each garment shows a small "swap" indicator; tapping opens a mini popover with 2 alternatives
+- Alternatives are fetched using existing swap scoring logic from `useSwapGarment` (color harmony, wear count, recency)
+- "Try this outfit" button creates the outfit in the database and navigates to `/outfits/:id`
 
-**Animation classes used** (all pre-existing in the project):
-- `animate-fade-in` -- 0.3s ease-out fade + translate
-- `animate-scale-in` -- 0.2s ease-out scale
-- Custom stagger delays via inline `style={{ animationDelay }}`
-- `transition-transform` + `hover:scale-105` for micro-interactions
+**Modified file: `src/components/chat/ChatMessage.tsx`**
+- Add regex for `[[outfit:id1,id2,...|explanation]]` pattern
+- When matched, render `OutfitSuggestionCard` with the garments from `garmentMap` and the explanation text
+- Keep existing `[[garment:ID]]` handling for single garment references
 
-### Files modified (4 total)
-1. `src/pages/AIChat.tsx` -- sticky header fix, mode switch animation
-2. `src/components/chat/ChatMessage.tsx` -- message entrance animations
-3. `src/components/chat/ChatWelcome.tsx` -- welcome state animations with stagger
-4. `src/components/chat/ChatInput.tsx` -- input bar animations, button micro-interactions
+**Modified file: `supabase/functions/style_chat/index.ts`**
+- Update the system prompt to instruct the AI to use the new `[[outfit:...]]` tag format when suggesting complete outfits
+- Keep `[[garment:ID]]` for individual garment mentions
+- Add prompt instructions like: "When suggesting a complete outfit, use [[outfit:id1,id2,id3|kort förklaring]] format"
+
+**Modified file: `src/pages/AIChat.tsx`**
+- Add outfit creation handler that the `OutfitSuggestionCard` calls when user taps "Try this outfit"
+- Uses existing `useCreateOutfit` mutation to save the outfit and navigate to its detail page
+
+**Modified file: `src/hooks/useGarmentsByIds.ts`**
+- No changes needed -- already fetches the data we need
+
+### Swap alternatives logic
+- When user taps swap on a garment in the card, fetch 2 top-scoring alternatives from the same category using the existing scoring from `useSwapGarment` (color harmony with other outfit items, wear recency, wear count)
+- Show as 2 small thumbnail buttons below the garment
+- Tapping one replaces the garment in the local card state (before outfit creation)
+
+### Files summary (4 modified, 1 new)
+1. **New**: `src/components/chat/OutfitSuggestionCard.tsx` -- outfit card with garment row, explanation, swap, and create action
+2. `src/components/chat/ChatMessage.tsx` -- parse `[[outfit:...]]` tags and render outfit cards
+3. `supabase/functions/style_chat/index.ts` -- update AI prompt for outfit tag format
+4. `src/pages/AIChat.tsx` -- add outfit creation handler
+5. `src/hooks/useGarmentsByIds.ts` -- potentially expand fields if needed for swap logic
