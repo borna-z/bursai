@@ -130,21 +130,21 @@ export default function OutfitsPage() {
               <TabsTrigger value="saved" className="text-sm">{t('outfits.saved')} ({savedOutfits.length})</TabsTrigger>
               <TabsTrigger value="planned" className="text-sm">{t('outfits.planned')} ({plannedOutfits.length})</TabsTrigger>
             </TabsList>
-            <TabsContent value="recent" className="space-y-3 mt-0 stagger-burs">
+            <TabsContent value="recent" className="space-y-3 mt-0 stagger-burs tab-content-enter">
               {recentOutfits.length > 0 ? recentOutfits.map((outfit) => (
                 <OutfitCard key={outfit.id} outfit={outfit} onDelete={handleDeleteOutfit} t={t} />
               )) : (
                 <EmptyState icon={Sparkles} title={t('outfits.no_outfits')} description={t('outfits.create_first')} action={{ label: t('outfits.create'), onClick: () => navigate('/'), icon: Sparkles }} />
               )}
             </TabsContent>
-            <TabsContent value="saved" className="space-y-3 mt-0 stagger-burs">
+            <TabsContent value="saved" className="space-y-3 mt-0 stagger-burs tab-content-enter">
               {savedOutfits.length > 0 ? savedOutfits.map((outfit) => (
                 <OutfitCard key={outfit.id} outfit={outfit} onDelete={handleDeleteOutfit} t={t} />
               )) : (
                 <EmptyState icon={Star} title={t('outfits.no_saved')} description={t('outfits.save_hint')} />
               )}
             </TabsContent>
-            <TabsContent value="planned" className="mt-0">
+            <TabsContent value="planned" className="mt-0 tab-content-enter">
               <PlannedOutfitsList outfits={plannedOutfits} onDelete={handleDeleteOutfit} />
             </TabsContent>
           </Tabs>
