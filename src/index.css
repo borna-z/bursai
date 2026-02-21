@@ -253,7 +253,7 @@
   /* Skeleton shimmer */
   .skeleton-shimmer {
     background: linear-gradient(
-      90deg,
+      135deg,
       hsl(var(--muted)) 0%,
       hsl(var(--muted) / 0.5) 50%,
       hsl(var(--muted)) 100%

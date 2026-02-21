@@ -66,6 +66,7 @@ export default function SettingsPage() {
           </SettingsGroup>
         </StaggerContainer>
 
+        <div className="border-t border-border/30" />
         <StaggerContainer delay={0.25}>
           <StaggerItem>
           <SettingsGroup>

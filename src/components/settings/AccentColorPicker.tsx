@@ -10,7 +10,7 @@ export function AccentColorPicker() {
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">{t('onboarding.accent.subtitle')}</p>
-      <div className="grid grid-cols-6 gap-2">
+      <div className="grid grid-cols-6 gap-3">
         {ACCENT_COLORS.map((color) => {
           const isSelected = accentColor.id === color.id;
           return (
@@ -27,7 +27,7 @@ export function AccentColorPicker() {
             >
               <div className="relative">
                 <div
-                  className="w-8 h-8 rounded-full transition-transform duration-200"
+                  className="w-10 h-10 rounded-full transition-transform duration-200"
                   style={{ backgroundColor: color.hex }}
                 />
                 {isSelected && (

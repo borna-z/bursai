@@ -15,7 +15,7 @@ export function SettingsGroup({ title, children, className }: SettingsGroupProps
           {title}
         </h3>
       )}
-      <div className="bg-card/70 backdrop-blur-md border border-border/30 rounded-xl overflow-hidden">
+      <div className="glass-card rounded-xl overflow-hidden">
         {children}
       </div>
     </div>

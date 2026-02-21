@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
+import { TAP_TRANSITION } from '@/lib/motion';
 import { Sparkles, ChevronRight, BarChart3, TrendingUp, Shirt, Palette, Gem, AlertCircle, Lock, RefreshCw, ChevronDown, Sun, Briefcase, PartyPopper, Heart, Dumbbell, Plane, Trophy } from 'lucide-react';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { AnimatedTab } from '@/components/ui/animated-tab';
@@ -25,6 +26,7 @@ import { MiniBar, ColorBar } from '@/components/insights/MiniBar';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { StatGridSkeleton, InsightCardSkeleton } from '@/components/ui/skeletons';
+import { SectionHeader } from '@/components/ui/section-header';
 import { useMemo } from 'react';
 
 // ─── Occasion + sub-option config ────────────────────────────
@@ -108,22 +110,22 @@ function InsightsSection({ isPremium, t }: { isPremium: boolean; t: (k: string) 
     <div className="space-y-4">
       {/* Quick stats */}
       <div className="grid grid-cols-3 gap-3">
-        <Card className="bg-muted/20 backdrop-blur-sm">
+        <Card className="glass-card">
           <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold tracking-tight">{insights.totalGarments}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{t('insights.total')}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5"><span className="sr-only">{t('insights.total')}: </span>{t('insights.total')}</p>
           </CardContent>
         </Card>
-        <Card className="bg-muted/20 backdrop-blur-sm">
+        <Card className="glass-card">
           <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold tracking-tight text-accent">{insights.usageRate}%</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{t('insights.usage')}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5"><span className="sr-only">{t('insights.usage')}: </span>{t('insights.usage')}</p>
           </CardContent>
         </Card>
-        <Card className="bg-muted/20 backdrop-blur-sm">
+        <Card className="glass-card">
           <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold tracking-tight">{insights.unusedGarments.length}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{t('insights.unused')}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5"><span className="sr-only">{t('insights.unused')}: </span>{t('insights.unused')}</p>
           </CardContent>
         </Card>
       </div>
@@ -280,7 +282,7 @@ export default function HomePage() {
         {needsOnboarding && (
           <motion.button
             whileTap={{ scale: 0.975 }}
-            transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
+            transition={TAP_TRANSITION}
             onClick={() => navigate('/onboarding')}
             className="w-full flex items-center justify-between bg-card/70 backdrop-blur-sm rounded-xl px-4 py-3 border border-border/40 transition-colors will-change-transform"
           >
@@ -336,13 +338,13 @@ export default function HomePage() {
 
             {/* Occasions */}
             <div className="space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('home.what_today')}</p>
+              <SectionHeader title={t('home.what_today')} />
               <StaggerContainer className="grid grid-cols-3 gap-2" stagger={0.04}>
                 {OCCASIONS.map((occ) => (
                   <StaggerItem key={occ.id}>
                   <motion.button
                     whileTap={{ scale: 0.94 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
+                    transition={TAP_TRANSITION}
                     onClick={() => handleSelectOccasion(occ.id)}
                     className={cn(
                       "w-full flex flex-col items-center gap-1 py-3 px-2 rounded-xl text-sm font-medium transition-colors border will-change-transform",
@@ -362,15 +364,13 @@ export default function HomePage() {
             {/* Sub-options */}
             {activeOccasion?.subOptions && (
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  {t('home.specify')}
-                </p>
+                <SectionHeader title={t('home.specify')} />
                 <div className="flex flex-wrap gap-2">
                   {activeOccasion.subOptions.map((sub) => (
                     <motion.button
                       key={sub.id}
                       whileTap={{ scale: 0.93 }}
-                      transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
+                      transition={TAP_TRANSITION}
                       onClick={() => setSelectedSub(selectedSub === sub.id ? null : sub.id)}
                       className={cn(
                         "px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors border will-change-transform",
@@ -388,13 +388,13 @@ export default function HomePage() {
 
             {/* Styles */}
             <div className="space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('home.style_optional')}</p>
+              <SectionHeader title={t('home.style_optional')} />
               <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
                 {STYLES.map((style) => (
                   <motion.button
                     key={style.id}
                     whileTap={{ scale: 0.93 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
+                    transition={TAP_TRANSITION}
                     onClick={() => setSelectedStyle(selectedStyle === style.id ? null : style.id)}
                     className={cn(
                       "px-4 py-2 rounded-full text-xs font-medium transition-colors border whitespace-nowrap flex-shrink-0 will-change-transform",

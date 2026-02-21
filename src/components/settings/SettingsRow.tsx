@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { TAP_TRANSITION } from '@/lib/motion';
 
 interface SettingsRowProps {
   icon?: ReactNode;
@@ -37,7 +38,7 @@ export function SettingsRow({ icon, label, sublabel, children, last, onClick, cl
     return (
       <motion.button
         whileTap={{ scale: 0.98 }}
-        transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
+        transition={TAP_TRANSITION}
         onClick={onClick}
         className={cn(baseClass, 'will-change-transform')}
       >

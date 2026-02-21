@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback, Fragment } from 'rea
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
+import { TAP_TRANSITION } from '@/lib/motion';
 import { useNavigate } from 'react-router-dom';
 import { 
   Plus, Search, Loader2, WashingMachine,
@@ -54,7 +55,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
     return (
       <motion.button
         whileTap={{ scale: 0.975 }}
-        transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
+        transition={TAP_TRANSITION}
         onClick={handleClick}
         className={cn(
           'w-full flex items-center gap-3 p-3 glass-card rounded-xl transition-colors text-left will-change-transform',
@@ -80,7 +81,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
   return (
     <motion.button
       whileTap={{ scale: 0.97 }}
-      transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
+      transition={TAP_TRANSITION}
       onClick={handleClick}
       className={cn(
         'w-full glass-card rounded-xl overflow-hidden transition-colors text-left will-change-transform',
@@ -427,7 +428,7 @@ export default function WardrobePage() {
         title={t('wardrobe.title')} 
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => setIsGridView(!isGridView)}>
+            <Button variant="ghost" size="icon" onClick={() => setIsGridView(!isGridView)} aria-label={isGridView ? 'Switch to list view' : 'Switch to grid view'}>
               {isGridView ? <List className="w-5 h-5" /> : <Grid3X3 className="w-5 h-5" />}
             </Button>
             {!isSelecting ? (

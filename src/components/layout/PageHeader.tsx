@@ -47,9 +47,9 @@ export function PageHeader({
             </Button>
           )}
           <div>
-            <h1 className="text-lg font-semibold truncate">{title}</h1>
+            <h1 className="text-xl font-semibold truncate">{title}</h1>
             {subtitle && (
-              <p className="text-xs text-muted-foreground">{subtitle}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{subtitle}</p>
             )}
           </div>
         </div>
