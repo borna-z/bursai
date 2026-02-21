@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Menu, X } from 'lucide-react';
-import bursLandingLogo from '@/assets/burs-landing-logo-white.png';
+import bursLandingLogo from '@/assets/burs-logo-white.png';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { HeroSection } from '@/components/landing/HeroSection';
 

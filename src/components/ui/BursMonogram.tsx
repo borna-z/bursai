@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import hangerLogo from '@/assets/burs-hanger-logo.png';
+import hangerLogo from '@/assets/burs-logo-white.png';
 
 interface BursMonogramProps {
   size?: number;
