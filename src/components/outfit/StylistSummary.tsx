@@ -14,6 +14,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WeatherWarnings, analyzeOutfitWeather } from './WeatherWarnings';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { cn } from '@/lib/utils';
 import type { Garment } from '@/hooks/useGarments';
 
 interface OutfitItem {
@@ -40,13 +42,13 @@ const occasionIcons: Record<string, React.ElementType> = {
   dejt: Heart,
 };
 
-const occasionLabels: Record<string, string> = {
-  jobb: 'Jobb',
-  vardag: 'Vardag',
-  fest: 'Fest',
-  resa: 'Resa',
-  träning: 'Träning',
-  dejt: 'Dejt',
+const OCCASION_I18N: Record<string, string> = {
+  jobb: 'occasion.jobb',
+  vardag: 'occasion.vardag',
+  fest: 'occasion.fest',
+  resa: 'occasion.resa',
+  'träning': 'occasion.traning',
+  dejt: 'occasion.dejt',
 };
 
 function getTemperatureIcon(temp?: number) {
@@ -56,34 +58,19 @@ function getTemperatureIcon(temp?: number) {
   return Thermometer;
 }
 
-function generateSummary(occasion: string, styleVibe?: string | null, temp?: number): string {
-  const greetings = ['Perfekt valt!', 'Stilrent!', 'Snyggt matchat!', 'Bra kombo!'];
-  const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+function generateSummary(occasion: string, t: (key: string) => string, temp?: number): string {
+  const greetingKeys = ['stylist.greeting_1', 'stylist.greeting_2', 'stylist.greeting_3', 'stylist.greeting_4'];
+  const greeting = t(greetingKeys[Math.floor(Math.random() * greetingKeys.length)]);
   
-  let summary = greeting;
+  const occasionKey = `stylist.${occasion.toLowerCase()}`;
+  // Try occasion-specific, fall back to default
+  const occasionText = t(occasionKey) !== occasionKey ? t(occasionKey) : t('stylist.default');
   
-  if (occasion === 'jobb') {
-    summary += ' En proffsig look som funkar hela dagen.';
-  } else if (occasion === 'vardag') {
-    summary += ' Avslappnat men snyggt – perfekt för en vanlig dag.';
-  } else if (occasion === 'fest') {
-    summary += ' Du kommer sticka ut på bästa sätt.';
-  } else if (occasion === 'dejt') {
-    summary += ' En look som utstrålar självförtroende.';
-  } else if (occasion === 'resa') {
-    summary += ' Bekvämt och stilfullt för resan.';
-  } else if (occasion === 'träning') {
-    summary += ' Redo att prestera!';
-  } else {
-    summary += ' En balanserad outfit för tillfället.';
-  }
+  let summary = `${greeting} ${occasionText}`;
   
   if (temp !== undefined) {
-    if (temp <= 5) {
-      summary += ' Klätt för kylan!';
-    } else if (temp >= 25) {
-      summary += ' Luftigt för värmen.';
-    }
+    if (temp <= 5) summary += ` ${t('stylist.cold')}`;
+    else if (temp >= 25) summary += ` ${t('stylist.hot')}`;
   }
   
   return summary;
@@ -98,18 +85,21 @@ export function StylistSummary({
   outfitItems = [],
   isLoading 
 }: StylistSummaryProps) {
+  const { t } = useLanguage();
   const OccasionIcon = occasionIcons[occasion.toLowerCase()] || Coffee;
   const TempIcon = getTemperatureIcon(weather?.temp);
   
-  const summary = explanation || generateSummary(occasion, styleVibe, weather?.temp);
+  const summary = explanation || generateSummary(occasion, t, weather?.temp);
   
-  // Analyze weather warnings
   const warnings = outfitItems.length > 0 
-    ? analyzeOutfitWeather(outfitItems, currentWeather, weather)
+    ? analyzeOutfitWeather(outfitItems, currentWeather, weather, t)
     : [];
   
   const hasWarnings = warnings.length > 0;
   const hasCriticalWarnings = warnings.some(w => w.type === 'warning');
+  
+  const occasionLabel = t(OCCASION_I18N[occasion.toLowerCase()] || `occasion.${occasion.toLowerCase()}`);
+  const displayLabel = occasionLabel.startsWith('occasion.') ? occasion : occasionLabel;
   
   if (isLoading) {
     return (
@@ -147,15 +137,14 @@ export function StylistSummary({
             )} />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-sm">Stylistens sammanfattning</h3>
+            <h3 className="font-semibold text-sm">{t('stylist.title')}</h3>
             <p className="text-sm text-muted-foreground mt-1">{summary}</p>
           </div>
         </div>
         
-        {/* Pill row */}
         <div className="flex flex-wrap gap-2">
           <Badge variant="secondary" className="capitalize">
-            {occasionLabels[occasion.toLowerCase()] || occasion}
+            {displayLabel}
           </Badge>
           {styleVibe && (
             <Badge variant="outline" className="capitalize">
@@ -171,12 +160,11 @@ export function StylistSummary({
           {!hasWarnings && outfitItems.length > 0 && currentWeather && (
             <Badge variant="outline" className="flex items-center gap-1 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800">
               <CheckCircle2 className="w-3 h-3" />
-              Passar vädret
+              {t('stylist.fits_weather')}
             </Badge>
           )}
         </div>
         
-        {/* Weather warnings */}
         {hasWarnings && outfitItems.length > 0 && (
           <WeatherWarnings
             outfitItems={outfitItems}
@@ -187,9 +175,4 @@ export function StylistSummary({
       </CardContent>
     </Card>
   );
-}
-
-// Helper for cn in this file
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(' ');
 }

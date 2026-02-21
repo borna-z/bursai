@@ -970,6 +970,79 @@ export const translations: Record<Locale, Record<string, string>> = {
     'subcategory.party_dress': 'Festklänning',
     'subcategory.maxi_dress': 'Maxiklänning',
     'subcategory.mini_dress': 'Miniklänning',
+
+    // Occasion labels
+    'occasion.jobb': 'Jobb',
+    'occasion.vardag': 'Vardag',
+    'occasion.fest': 'Fest',
+    'occasion.dejt': 'Dejt',
+    'occasion.resa': 'Resa',
+    'occasion.traning': 'Träning',
+
+    // Stylist summary
+    'stylist.title': 'Stylistens sammanfattning',
+    'stylist.fits_weather': 'Passar vädret',
+    'stylist.greeting_1': 'Perfekt valt!',
+    'stylist.greeting_2': 'Stilrent!',
+    'stylist.greeting_3': 'Snyggt matchat!',
+    'stylist.greeting_4': 'Bra kombo!',
+    'stylist.jobb': 'En proffsig look som funkar hela dagen.',
+    'stylist.vardag': 'Avslappnat men snyggt – perfekt för en vanlig dag.',
+    'stylist.fest': 'Du kommer sticka ut på bästa sätt.',
+    'stylist.dejt': 'En look som utstrålar självförtroende.',
+    'stylist.resa': 'Bekvämt och stilfullt för resan.',
+    'stylist.traning': 'Redo att prestera!',
+    'stylist.default': 'En balanserad outfit för tillfället.',
+    'stylist.cold': 'Klätt för kylan!',
+    'stylist.hot': 'Luftigt för värmen.',
+
+    // Weather warnings
+    'weather.warning.warmer': 'Det är {diff}° varmare än när outfiten skapades',
+    'weather.warning.colder': 'Det är {diff}° kallare än när outfiten skapades',
+    'weather.warning.cold_no_outer': 'Kyla! Överväg att lägga till ytterkläder',
+    'weather.warning.no_winter': 'Outfiten saknar vinterplagg – klä dig varmt',
+    'weather.warning.chilly': 'Kan vara kyligt – ta med en jacka',
+    'weather.warning.hot_outer': 'Varmt väder! Ytterkläder kan bli för varmt',
+    'weather.warning.hot_warm': 'Överväg lättare plagg för värmen',
+    'weather.warning.rain_no_outer': 'Regn! Ta med regnkläder eller paraply',
+    'weather.warning.rain_check': 'Regn väntas – se till att jackan är vattenavvisande',
+    'weather.warning.snow': 'Snö! Klä dig varmt och vattentätt',
+    'weather.warning.wind': 'Blåsigt – välj vindtäta kläder',
+    'weather.warning.count': '{count} varning',
+    'weather.warning.count_plural': '{count} varningar',
+
+    // Weekly summary
+    'weekly.title': 'Veckosammanfattning',
+    'weekly.subtitle': 'Din stil denna vecka',
+    'weekly.days': '{count} dagar',
+    'weekly.streak': 'Användningsstreak',
+    'weekly.most_worn': 'Mest använd denna vecka',
+
+    // Unused gem
+    'gem.days_ago': '{count} dagar sedan',
+    'gem.outfit': 'Outfit',
+
+    // Accent colors
+    'accent.indigo': 'Indigo',
+    'accent.petrol': 'Petrol',
+    'accent.forest': 'Skog',
+    'accent.sage': 'Salvia',
+    'accent.navy': 'Marin',
+    'accent.slate': 'Skiffer',
+    'accent.burgundy': 'Vinröd',
+    'accent.rose': 'Ros',
+    'accent.terracotta': 'Terrakotta',
+    'accent.amber': 'Bärnsten',
+    'accent.plum': 'Plommon',
+    'accent.charcoal': 'Kol',
+
+    // Analyze errors
+    'analyze.not_logged_in': 'Inte inloggad',
+    'analyze.failed': 'AI-analys misslyckades',
+    'analyze.unexpected': 'Ett oväntat fel uppstod vid AI-analysen',
+
+    // Insights fallback
+    'insights.unknown_color': 'okänd',
   },
 
   en: {
@@ -1874,6 +1947,79 @@ export const translations: Record<Locale, Record<string, string>> = {
     'subcategory.party_dress': 'Party dress',
     'subcategory.maxi_dress': 'Maxi dress',
     'subcategory.mini_dress': 'Mini dress',
+
+    // Occasion labels
+    'occasion.jobb': 'Work',
+    'occasion.vardag': 'Casual',
+    'occasion.fest': 'Party',
+    'occasion.dejt': 'Date',
+    'occasion.resa': 'Travel',
+    'occasion.traning': 'Workout',
+
+    // Stylist summary
+    'stylist.title': 'Stylist summary',
+    'stylist.fits_weather': 'Fits the weather',
+    'stylist.greeting_1': 'Perfect choice!',
+    'stylist.greeting_2': 'Stylish!',
+    'stylist.greeting_3': 'Great match!',
+    'stylist.greeting_4': 'Nice combo!',
+    'stylist.jobb': 'A professional look that works all day.',
+    'stylist.vardag': 'Relaxed yet stylish – perfect for an ordinary day.',
+    'stylist.fest': 'You\'ll stand out in the best way.',
+    'stylist.dejt': 'A look that radiates confidence.',
+    'stylist.resa': 'Comfortable and stylish for travel.',
+    'stylist.traning': 'Ready to perform!',
+    'stylist.default': 'A balanced outfit for the occasion.',
+    'stylist.cold': 'Dressed for the cold!',
+    'stylist.hot': 'Light and airy for the heat.',
+
+    // Weather warnings
+    'weather.warning.warmer': 'It\'s {diff}° warmer than when the outfit was created',
+    'weather.warning.colder': 'It\'s {diff}° colder than when the outfit was created',
+    'weather.warning.cold_no_outer': 'Cold! Consider adding outerwear',
+    'weather.warning.no_winter': 'Outfit lacks winter clothing – dress warmly',
+    'weather.warning.chilly': 'Could be chilly – bring a jacket',
+    'weather.warning.hot_outer': 'Hot weather! Outerwear may be too warm',
+    'weather.warning.hot_warm': 'Consider lighter garments for the heat',
+    'weather.warning.rain_no_outer': 'Rain! Bring rain gear or an umbrella',
+    'weather.warning.rain_check': 'Rain expected – make sure the jacket is water-resistant',
+    'weather.warning.snow': 'Snow! Dress warmly and waterproof',
+    'weather.warning.wind': 'Windy – choose windproof clothing',
+    'weather.warning.count': '{count} warning',
+    'weather.warning.count_plural': '{count} warnings',
+
+    // Weekly summary
+    'weekly.title': 'Weekly summary',
+    'weekly.subtitle': 'Your style this week',
+    'weekly.days': '{count} days',
+    'weekly.streak': 'Usage streak',
+    'weekly.most_worn': 'Most worn this week',
+
+    // Unused gem
+    'gem.days_ago': '{count} days ago',
+    'gem.outfit': 'Outfit',
+
+    // Accent colors
+    'accent.indigo': 'Indigo',
+    'accent.petrol': 'Petrol',
+    'accent.forest': 'Forest',
+    'accent.sage': 'Sage',
+    'accent.navy': 'Navy',
+    'accent.slate': 'Slate',
+    'accent.burgundy': 'Burgundy',
+    'accent.rose': 'Rose',
+    'accent.terracotta': 'Terracotta',
+    'accent.amber': 'Amber',
+    'accent.plum': 'Plum',
+    'accent.charcoal': 'Charcoal',
+
+    // Analyze errors
+    'analyze.not_logged_in': 'Not logged in',
+    'analyze.failed': 'AI analysis failed',
+    'analyze.unexpected': 'An unexpected error occurred during AI analysis',
+
+    // Insights fallback
+    'insights.unknown_color': 'unknown',
   },
 
   no: {
@@ -2258,6 +2404,26 @@ export const translations: Record<Locale, Record<string, string>> = {
     'subcategory.belt': 'Belte', 'subcategory.jewelry': 'Smykke', 'subcategory.sunglasses': 'Solbriller',
     'subcategory.casual_dress': 'Hverdagskjole', 'subcategory.party_dress': 'Festkjole',
     'subcategory.maxi_dress': 'Maxikjole', 'subcategory.mini_dress': 'Minikjole',
+    'occasion.jobb': 'Jobb', 'occasion.vardag': 'Hverdag', 'occasion.fest': 'Fest', 'occasion.dejt': 'Date', 'occasion.resa': 'Reise', 'occasion.traning': 'Trening',
+    'stylist.title': 'Stylistens oppsummering', 'stylist.fits_weather': 'Passer været',
+    'stylist.greeting_1': 'Perfekt valg!', 'stylist.greeting_2': 'Stilrent!', 'stylist.greeting_3': 'Fint matchet!', 'stylist.greeting_4': 'Fin kombo!',
+    'stylist.jobb': 'En profesjonell look som fungerer hele dagen.', 'stylist.vardag': 'Avslappet men stilig – perfekt for en vanlig dag.',
+    'stylist.fest': 'Du kommer til å skille deg ut på beste måte.', 'stylist.dejt': 'En look som utstråler selvtillit.',
+    'stylist.resa': 'Komfortabelt og stilfullt for reisen.', 'stylist.traning': 'Klar for å prestere!',
+    'stylist.default': 'Et balansert antrekk for anledningen.', 'stylist.cold': 'Kledd for kulda!', 'stylist.hot': 'Luftig for varmen.',
+    'weather.warning.warmer': 'Det er {diff}° varmere enn da antrekket ble laget',
+    'weather.warning.colder': 'Det er {diff}° kaldere enn da antrekket ble laget',
+    'weather.warning.cold_no_outer': 'Kaldt! Vurder å legge til ytterplagg', 'weather.warning.no_winter': 'Antrekket mangler vinterplagg – kle deg varmt',
+    'weather.warning.chilly': 'Kan bli kjølig – ta med en jakke', 'weather.warning.hot_outer': 'Varmt vær! Ytterplagg kan bli for varmt',
+    'weather.warning.hot_warm': 'Vurder lettere plagg for varmen', 'weather.warning.rain_no_outer': 'Regn! Ta med regnklær eller paraply',
+    'weather.warning.rain_check': 'Regn ventes – sørg for at jakken er vannavvisende', 'weather.warning.snow': 'Snø! Kle deg varmt og vanntett',
+    'weather.warning.wind': 'Vind – velg vindtette klær', 'weather.warning.count': '{count} advarsel', 'weather.warning.count_plural': '{count} advarsler',
+    'weekly.title': 'Ukesoppsummering', 'weekly.subtitle': 'Din stil denne uken', 'weekly.days': '{count} dager', 'weekly.streak': 'Bruksstreak', 'weekly.most_worn': 'Mest brukt denne uken',
+    'gem.days_ago': '{count} dager siden', 'gem.outfit': 'Antrekk',
+    'accent.indigo': 'Indigo', 'accent.petrol': 'Petrol', 'accent.forest': 'Skog', 'accent.sage': 'Salvie', 'accent.navy': 'Marine', 'accent.slate': 'Skiffer',
+    'accent.burgundy': 'Burgunder', 'accent.rose': 'Rose', 'accent.terracotta': 'Terrakotta', 'accent.amber': 'Rav', 'accent.plum': 'Plomme', 'accent.charcoal': 'Kull',
+    'analyze.not_logged_in': 'Ikke innlogget', 'analyze.failed': 'AI-analyse mislyktes', 'analyze.unexpected': 'En uventet feil oppstod under AI-analysen',
+    'insights.unknown_color': 'ukjent',
   },
 
   da: {

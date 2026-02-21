@@ -10,11 +10,18 @@ interface SmartDayBannerProps {
   className?: string;
 }
 
-const occasionConfig: Record<string, { icon: React.ElementType; label: string }> = {
-  jobb:     { icon: Briefcase,   label: 'Jobb' },
-  träning:  { icon: Dumbbell,    label: 'Träning' },
-  fest:     { icon: PartyPopper, label: 'Fest' },
-  dejt:     { icon: Heart,       label: 'Dejt' },
+const occasionIcons: Record<string, React.ElementType> = {
+  jobb: Briefcase,
+  träning: Dumbbell,
+  fest: PartyPopper,
+  dejt: Heart,
+};
+
+const OCCASION_I18N: Record<string, string> = {
+  jobb: 'occasion.jobb',
+  'träning': 'occasion.traning',
+  fest: 'occasion.fest',
+  dejt: 'occasion.dejt',
 };
 
 export function SmartDayBanner({ slots, onGenerate, className }: SmartDayBannerProps) {
@@ -34,18 +41,16 @@ export function SmartDayBanner({ slots, onGenerate, className }: SmartDayBannerP
 
       <div className="space-y-2">
         {slots.map((slot, idx) => {
-          const config = occasionConfig[slot.occasion] || {
-            icon: Sparkles,
-            label: slot.occasion,
-          };
-          const Icon = config.icon;
+          const Icon = occasionIcons[slot.occasion] || Sparkles;
+          const i18nKey = OCCASION_I18N[slot.occasion];
+          const label = i18nKey ? t(i18nKey) : slot.occasion;
 
           return (
             <div key={idx} className="space-y-1.5">
               <div className="flex items-center gap-1.5">
                 <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border border-border text-foreground/70">
                   <Icon className="w-3 h-3" />
-                  <span>{config.label}</span>
+                  <span>{label}</span>
                 </div>
                 <span className="text-[10px] text-muted-foreground truncate max-w-[140px]">{slot.eventTitle}</span>
               </div>

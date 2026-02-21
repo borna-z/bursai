@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Gem } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 
 interface UnusedGemCardProps {
@@ -18,10 +19,10 @@ interface UnusedGemCardProps {
 
 export function UnusedGemCard({ garment, daysUnused, onCreateOutfit }: UnusedGemCardProps) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   return (
     <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl group hover:bg-muted transition-colors">
-      {/* Thumbnail */}
       <div 
         className="cursor-pointer"
         onClick={() => navigate(`/wardrobe/${garment.id}`)}
@@ -33,18 +34,16 @@ export function UnusedGemCard({ garment, daysUnused, onCreateOutfit }: UnusedGem
         />
       </div>
       
-      {/* Info */}
       <div 
         className="flex-1 min-w-0 cursor-pointer"
         onClick={() => navigate(`/wardrobe/${garment.id}`)}
       >
         <p className="font-medium text-sm truncate">{garment.title}</p>
         <p className="text-xs text-muted-foreground capitalize">
-          {garment.category} • {daysUnused} dagar sedan
+          {garment.category} • {t('gem.days_ago').replace('{count}', String(daysUnused))}
         </p>
       </div>
       
-      {/* CTA */}
       <Button
         size="sm"
         variant="ghost"
@@ -59,7 +58,7 @@ export function UnusedGemCard({ garment, daysUnused, onCreateOutfit }: UnusedGem
         }}
       >
         <Sparkles className="w-3 h-3 mr-1" />
-        Outfit
+        {t('gem.outfit')}
       </Button>
     </div>
   );

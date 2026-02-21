@@ -35,7 +35,7 @@ interface ColorDistributionProps { garments: Garment[]; isPremium: boolean; t: (
 function ColorDistribution({ garments, isPremium, t }: ColorDistributionProps) {
   const { colorCounts, colorBars, total } = useMemo(() => {
     const counts: Record<string, number> = {};
-    garments.forEach(g => { const color = g.color_primary?.toLowerCase() || 'okänd'; counts[color] = (counts[color] || 0) + 1; });
+    garments.forEach(g => { const color = g.color_primary?.toLowerCase() || t('insights.unknown_color'); counts[color] = (counts[color] || 0) + 1; });
     const colorMap: Record<string, string> = { svart: 'bg-gray-900', vit: 'bg-gray-100', grå: 'bg-gray-400', marinblå: 'bg-blue-900', blå: 'bg-blue-500', röd: 'bg-red-500', grön: 'bg-green-600', beige: 'bg-amber-100', brun: 'bg-amber-800', rosa: 'bg-pink-400', lila: 'bg-purple-500', gul: 'bg-yellow-400', orange: 'bg-orange-500' };
     const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6);
     const bars = sorted.map(([color, count]) => ({ color, count, colorClass: colorMap[color] || 'bg-muted' }));

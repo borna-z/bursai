@@ -23,7 +23,7 @@ export function AccentColorPicker() {
                   ? 'border-foreground/30 bg-secondary/80 scale-105 shadow-sm'
                   : 'border-transparent hover:bg-secondary/40'
               )}
-              aria-label={color.name}
+              aria-label={t(color.name)}
             >
               <div className="relative">
                 <div
@@ -37,7 +37,7 @@ export function AccentColorPicker() {
                 )}
               </div>
               <span className="text-[9px] font-medium text-muted-foreground leading-none">
-                {color.name}
+                {t(color.name)}
               </span>
             </button>
           );

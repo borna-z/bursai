@@ -12,18 +12,18 @@ export interface AccentColor {
 }
 
 export const ACCENT_COLORS: AccentColor[] = [
-  { id: 'indigo',     name: 'Indigo',      hsl: '234 51% 37%', hslDark: '234 60% 62%', hex: '#2F3A8F' },
-  { id: 'petrol',     name: 'Petrol',      hsl: '174 72% 22%', hslDark: '174 55% 45%', hex: '#0D5C63' },
-  { id: 'forest',     name: 'Skog',        hsl: '152 55% 28%', hslDark: '152 45% 50%', hex: '#206B4A' },
-  { id: 'sage',       name: 'Salvia',      hsl: '140 20% 45%', hslDark: '140 25% 60%', hex: '#5C8A6E' },
-  { id: 'navy',       name: 'Marin',       hsl: '220 50% 30%', hslDark: '220 50% 58%', hex: '#264573' },
-  { id: 'slate',      name: 'Skiffer',     hsl: '215 20% 42%', hslDark: '215 25% 60%', hex: '#556880' },
-  { id: 'burgundy',   name: 'Vinröd',      hsl: '345 55% 35%', hslDark: '345 50% 58%', hex: '#8A2843' },
-  { id: 'rose',       name: 'Ros',         hsl: '340 45% 50%', hslDark: '340 50% 65%', hex: '#B94D6E' },
-  { id: 'terracotta', name: 'Terrakotta',  hsl: '16 55% 42%',  hslDark: '16 55% 58%',  hex: '#A65A35' },
-  { id: 'amber',      name: 'Bärnsten',    hsl: '38 75% 42%',  hslDark: '38 80% 55%',  hex: '#BB8820' },
-  { id: 'plum',       name: 'Plommon',     hsl: '280 35% 38%', hslDark: '280 40% 58%', hex: '#6E3A8A' },
-  { id: 'charcoal',   name: 'Kol',         hsl: '0 0% 25%',    hslDark: '0 0% 65%',    hex: '#404040' },
+  { id: 'indigo',     name: 'accent.indigo',      hsl: '234 51% 37%', hslDark: '234 60% 62%', hex: '#2F3A8F' },
+  { id: 'petrol',     name: 'accent.petrol',      hsl: '174 72% 22%', hslDark: '174 55% 45%', hex: '#0D5C63' },
+  { id: 'forest',     name: 'accent.forest',      hsl: '152 55% 28%', hslDark: '152 45% 50%', hex: '#206B4A' },
+  { id: 'sage',       name: 'accent.sage',        hsl: '140 20% 45%', hslDark: '140 25% 60%', hex: '#5C8A6E' },
+  { id: 'navy',       name: 'accent.navy',        hsl: '220 50% 30%', hslDark: '220 50% 58%', hex: '#264573' },
+  { id: 'slate',      name: 'accent.slate',       hsl: '215 20% 42%', hslDark: '215 25% 60%', hex: '#556880' },
+  { id: 'burgundy',   name: 'accent.burgundy',    hsl: '345 55% 35%', hslDark: '345 50% 58%', hex: '#8A2843' },
+  { id: 'rose',       name: 'accent.rose',        hsl: '340 45% 50%', hslDark: '340 50% 65%', hex: '#B94D6E' },
+  { id: 'terracotta', name: 'accent.terracotta',  hsl: '16 55% 42%',  hslDark: '16 55% 58%',  hex: '#A65A35' },
+  { id: 'amber',      name: 'accent.amber',       hsl: '38 75% 42%',  hslDark: '38 80% 55%',  hex: '#BB8820' },
+  { id: 'plum',       name: 'accent.plum',        hsl: '280 35% 38%', hslDark: '280 40% 58%', hex: '#6E3A8A' },
+  { id: 'charcoal',   name: 'accent.charcoal',    hsl: '0 0% 25%',    hslDark: '0 0% 65%',    hex: '#404040' },
 ];
 
 interface ThemeContextType {
