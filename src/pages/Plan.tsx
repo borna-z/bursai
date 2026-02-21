@@ -210,7 +210,7 @@ export default function PlanPage() {
   return (
     <AppLayout>
       {/* ─── Sticky header ─── */}
-      <header className="sticky top-0 bg-background/70 backdrop-blur-xl backdrop-saturate-150 border-b border-border/40 z-20 dark:border-white/[0.06]">
+      <header className="sticky top-0 bg-background/70 backdrop-blur-xl backdrop-saturate-150 border-b border-border/40 z-20">
         <div className="flex items-center justify-between px-4 h-14 max-w-lg mx-auto">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
@@ -371,7 +371,7 @@ export default function PlanPage() {
           ) : (
             /* Empty state */
             <div className="flex flex-col items-center justify-center py-16 text-center space-y-5">
-              <div className="w-16 h-16 rounded-2xl bg-muted/30 backdrop-blur-sm flex items-center justify-center dark:bg-white/[0.04]">
+              <div className="w-16 h-16 rounded-2xl bg-muted/30 backdrop-blur-sm flex items-center justify-center">
                 <CalendarDays className="w-7 h-7 text-muted-foreground/40" />
               </div>
               <p className="text-sm text-muted-foreground">{t('plan.no_outfit')}</p>

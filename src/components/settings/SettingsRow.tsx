@@ -28,7 +28,7 @@ export function SettingsRow({ icon, label, sublabel, children, last, onClick, cl
 
   const baseClass = cn(
     'flex items-center justify-between gap-3 px-4 py-3 w-full text-left',
-    !last && 'border-b border-border/50 dark:border-white/[0.06]',
+    !last && 'border-b border-border/50',
     onClick && 'transition-colors',
     className,
   );

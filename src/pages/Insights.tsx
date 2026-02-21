@@ -149,7 +149,7 @@ export default function InsightsPage() {
       <PageHeader title={t('insights.title')} showBack />
       <div className="px-4 pb-6 pt-4 space-y-5 max-w-lg mx-auto stagger-drape [&>*]:animate-drape-in [&>*]:opacity-0 [&>*]:[animation-fill-mode:both]">
         {!isPremium && (
-          <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-background/70 backdrop-blur-sm border-primary/20 animate-fade-in dark:bg-white/[0.04] dark:border-white/[0.08] dark:from-transparent dark:via-transparent dark:to-transparent">
+          <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-background/70 backdrop-blur-sm border-primary/20 animate-fade-in">
             <CardContent className="p-4 flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0"><Sparkles className="w-6 h-6 text-primary" /></div>
               <div className="flex-1">

@@ -75,15 +75,15 @@
   }
 
   .dark {
-    /* Space noir background – #030305 */
-    --background: 240 20% 2%;
+    /* Deep noir background – near #0A0A0A */
+    --background: 0 0% 5%;
     --foreground: 36 20% 93%;
 
-    /* Glass card surface */
-    --card: 240 10% 7%;
+    /* Slightly lifted card surface – bumped from 9→11% for glass visibility */
+    --card: 0 0% 11%;
     --card-foreground: 36 20% 93%;
 
-    --popover: 240 10% 7%;
+    --popover: 0 0% 11%;
     --popover-foreground: 36 20% 93%;
 
     /* Off-white primary in dark – #F6F4F1 */
@@ -106,9 +106,9 @@
     --destructive: 0 62% 50%;
     --destructive-foreground: 36 20% 93%;
 
-    /* Subtle glass borders */
-    --border: 0 0% 14%;
-    --input: 0 0% 14%;
+    /* Border – bumped from 16→20% for glass card edge visibility */
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
     --ring: 36 20% 93%;
 
     --success: 152 55% 48%;
@@ -122,7 +122,7 @@
     --accent-indigo-foreground: 0 0% 5%;
     --accent-indigo-muted: 234 30% 18%;
 
-    --sidebar-background: 240 20% 2%;
+    --sidebar-background: 0 0% 5%;
     --sidebar-foreground: 0 0% 75%;
     --sidebar-primary: 36 20% 93%;
     --sidebar-primary-foreground: 0 0% 5%;
@@ -271,24 +271,15 @@
   .glass-card {
     @apply bg-card/70 backdrop-blur-md border border-border/40 shadow-[0_1px_3px_0_rgb(0_0_0/0.04)];
   }
-  :is(.dark) .glass-card {
-    @apply bg-white/[0.04] backdrop-blur-xl border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.2)];
-  }
 
   /* Glass chip – small pill / filter tag */
   .glass-chip {
     @apply bg-background/50 backdrop-blur-sm border border-border/30 rounded-full;
   }
-  :is(.dark) .glass-chip {
-    @apply bg-white/[0.04] border-white/[0.08];
-  }
 
   /* Glass surface – for sheets, drawers, fixed panels */
   .glass-surface {
     @apply bg-background/70 backdrop-blur-xl backdrop-saturate-150;
-  }
-  :is(.dark) .glass-surface {
-    @apply bg-[#030305]/80 backdrop-blur-xl;
   }
 
   /* Glass overlay – softer modal backdrop */

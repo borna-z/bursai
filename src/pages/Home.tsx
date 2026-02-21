@@ -282,7 +282,7 @@ export default function HomePage() {
             whileTap={{ scale: 0.975 }}
             transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
             onClick={() => navigate('/onboarding')}
-            className="w-full flex items-center justify-between bg-card/70 backdrop-blur-sm rounded-xl px-4 py-3 border border-border/40 transition-colors will-change-transform dark:bg-white/[0.04] dark:border-white/[0.08]"
+            className="w-full flex items-center justify-between bg-card/70 backdrop-blur-sm rounded-xl px-4 py-3 border border-border/40 transition-colors will-change-transform"
           >
             <div className="flex items-center gap-3">
               <span className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center">
@@ -295,13 +295,13 @@ export default function HomePage() {
         )}
 
         {/* Tab switcher */}
-        <div className="flex bg-foreground/[0.04] backdrop-blur-sm rounded-2xl p-1 gap-1 border border-border/30 dark:bg-white/[0.04] dark:border-white/[0.06]">
+        <div className="flex bg-foreground/[0.04] backdrop-blur-sm rounded-2xl p-1 gap-1 border border-border/30">
           <button
             onClick={() => setActiveTab('create')}
             className={cn(
               "flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200",
               activeTab === 'create'
-                ? "bg-background/80 backdrop-blur-md text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.08)] dark:bg-white/[0.1] dark:text-white"
+                ? "bg-background/80 backdrop-blur-md text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
                 : "text-muted-foreground"
             )}
           >
@@ -313,7 +313,7 @@ export default function HomePage() {
             className={cn(
               "flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200",
               activeTab === 'insights'
-                ? "bg-background/80 backdrop-blur-md text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.08)] dark:bg-white/[0.1] dark:text-white"
+                ? "bg-background/80 backdrop-blur-md text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
                 : "text-muted-foreground"
             )}
           >
@@ -342,13 +342,13 @@ export default function HomePage() {
                   <StaggerItem key={occ.id}>
                   <motion.button
                     whileTap={{ scale: 0.94 }}
-                    transition={{ type: 'tween', duration: 0.1 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
                     onClick={() => handleSelectOccasion(occ.id)}
                     className={cn(
                       "w-full flex flex-col items-center gap-1 py-3 px-2 rounded-xl text-sm font-medium transition-colors border will-change-transform",
                       selectedOccasion === occ.id
-                        ? "border-accent bg-accent/10 text-accent"
-                        : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
+                        ? "border-accent bg-accent/5 text-accent"
+                        : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground"
                     )}
                   >
                     <occ.icon className="w-5 h-5" />
@@ -370,13 +370,13 @@ export default function HomePage() {
                     <motion.button
                       key={sub.id}
                       whileTap={{ scale: 0.93 }}
-                      transition={{ type: 'tween', duration: 0.1 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
                       onClick={() => setSelectedSub(selectedSub === sub.id ? null : sub.id)}
                       className={cn(
                         "px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors border will-change-transform",
                         selectedSub === sub.id
                           ? "border-accent bg-accent/10 text-accent"
-                        : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
+                        : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground"
                       )}
                     >
                       {t(sub.labelKey)}
@@ -394,13 +394,13 @@ export default function HomePage() {
                   <motion.button
                     key={style.id}
                     whileTap={{ scale: 0.93 }}
-                    transition={{ type: 'tween', duration: 0.1 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
                     onClick={() => setSelectedStyle(selectedStyle === style.id ? null : style.id)}
                     className={cn(
                       "px-4 py-2 rounded-full text-xs font-medium transition-colors border whitespace-nowrap flex-shrink-0 will-change-transform",
                       selectedStyle === style.id
                         ? "border-accent bg-accent/10 text-accent"
-                        : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
+                        : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground"
                     )}
                   >
                     {t(style.labelKey)}
@@ -413,7 +413,7 @@ export default function HomePage() {
             <Button
               onClick={handleGenerateOutfit}
               disabled={!selectedOccasion || (garmentCount || 0) < 3}
-              className="w-full h-14 text-base font-semibold rounded-full shadow-sm dark:bg-white dark:text-[#030305] dark:hover:bg-white/90"
+              className="w-full h-14 text-base font-semibold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl shadow-sm"
               size="lg"
             >
               <Sparkles className="w-5 h-5 mr-2" />
