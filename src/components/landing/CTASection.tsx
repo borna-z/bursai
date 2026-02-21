@@ -8,7 +8,7 @@ export function CTASection() {
   const { t } = useLanguage();
 
   return (
-    <section className="section-full px-6 relative section-gradient-top" style={{ zIndex: 14 }}>
+    <section className="section-full px-6 relative section-gradient-top" style={{ zIndex: 14 }} aria-label="Call to action">
       <div className="aurora-glow" />
       <div className="max-w-lg mx-auto text-center space-y-8 relative z-10">
         <img src={bursLandingLogo} alt="BURS" className="h-10 mx-auto reveal-scale" style={{ '--reveal-delay': '0ms' } as React.CSSProperties} />
