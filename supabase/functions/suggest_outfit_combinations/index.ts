@@ -6,29 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface Garment {
-  id: string;
-  title: string;
-  category: string;
-  color_primary: string;
-  color_secondary?: string;
-  material?: string;
-  pattern?: string;
-  formality?: number;
-  season_tags?: string[];
-  last_worn_at?: string;
-  wear_count?: number;
-  image_path: string;
-}
-
-interface StylePreferences {
-  favorite_colors?: string[];
-  disliked_colors?: string[];
-  fit_preference?: string;
-  style_vibes?: string[];
-  gender_neutral?: boolean;
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -47,7 +24,6 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get user from token
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
@@ -58,84 +34,84 @@ serve(async (req) => {
       });
     }
 
-    // Get user profile with style preferences
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("preferences")
-      .eq("id", user.id)
-      .single();
-
-    const preferences = (profile?.preferences as StylePreferences) || {};
-
-    // Get unused garments (not worn in 30+ days)
+    // Fetch garments, profile, and recent outfits in parallel
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
 
-    const { data: garments, error: garmentsError } = await supabase
-      .from("garments")
-      .select("id, title, category, color_primary, color_secondary, material, pattern, formality, season_tags, last_worn_at, wear_count, image_path")
-      .eq("user_id", user.id)
-      .or(`last_worn_at.is.null,last_worn_at.lt.${thirtyDaysAgoStr}`)
-      .eq("in_laundry", false);
+    const [garmentsRes, profileRes, recentRes] = await Promise.all([
+      supabase
+        .from("garments")
+        .select("id, title, category, subcategory, color_primary, color_secondary, material, pattern, formality, season_tags, last_worn_at, wear_count, image_path")
+        .eq("user_id", user.id)
+        .eq("in_laundry", false),
+      supabase.from("profiles").select("preferences").eq("id", user.id).single(),
+      supabase
+        .from("outfit_items")
+        .select("outfit_id, garment_id, outfits!inner(user_id, generated_at)")
+        .eq("outfits.user_id", user.id)
+        .order("outfits(generated_at)", { ascending: false })
+        .limit(25),
+    ]);
 
-    if (garmentsError) {
-      throw garmentsError;
-    }
+    if (garmentsRes.error) throw garmentsRes.error;
+    const garments = garmentsRes.data || [];
 
-    if (!garments || garments.length < 2) {
+    if (garments.length < 3) {
       return new Response(JSON.stringify({ 
         suggestions: [],
-        message: "Inte tillräckligt med oanvända plagg för att skapa förslag." 
+        message: "Inte tillräckligt med plagg för att skapa förslag." 
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Call AI to generate suggestions
+    // Build recent outfits context
+    let recentContext = "";
+    if (recentRes.data?.length) {
+      const outfitMap = new Map<string, string[]>();
+      for (const item of recentRes.data) {
+        if (!outfitMap.has(item.outfit_id)) outfitMap.set(item.outfit_id, []);
+        outfitMap.get(item.outfit_id)!.push(item.garment_id);
+      }
+      const recentSets = Array.from(outfitMap.values()).slice(0, 5);
+      if (recentSets.length > 0) {
+        recentContext = `\nRECENT OUTFITS (avoid repeating):\n${recentSets.map((ids, i) => `${i + 1}: ${ids.join(", ")}`).join("\n")}`;
+      }
+    }
+
+    // Prioritize unused garments but include all for complete outfits
+    const unusedGarments = garments.filter(g => !g.last_worn_at || g.last_worn_at < thirtyDaysAgoStr);
+
+    const preferences = (profileRes.data?.preferences as Record<string, any>) || {};
+    const sp = preferences.styleProfile || {};
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const systemPrompt = `Du är en personlig stylist som hjälper användare att hitta nya outfit-kombinationer från deras garderob.
+    const garmentList = garments.map(g => 
+      `ID:${g.id} | ${g.title} | cat:${g.category}${g.subcategory ? "/" + g.subcategory : ""} | color:${g.color_primary} | worn:${g.wear_count || 0}x | last:${g.last_worn_at || "never"}`
+    ).join("\n");
 
-Din uppgift är att skapa 2-3 kreativa outfit-förslag baserat på oanvända plagg i användarens garderob.
+    const unusedIds = new Set(unusedGarments.map(g => g.id));
 
-Regler:
-1. Varje outfit ska innehålla 2-4 plagg som passar ihop
-2. Prioritera plagg som inte använts länge
-3. Tänk på färgharmoni och stilmässig balans
-4. Om användaren har stilpreferenser, respektera dessa
-5. Varje förslag ska ha en kort förklaring på varför kombinationen fungerar
+    const systemPrompt = `You are a world-class personal stylist helping a user rediscover unused garments in their wardrobe.
 
-Svara alltid med exakt detta JSON-format:
-{
-  "suggestions": [
-    {
-      "title": "Kort beskrivande titel",
-      "garment_ids": ["id1", "id2", "id3"],
-      "explanation": "Varför denna kombination fungerar (max 2 meningar)",
-      "occasion": "Lämpligt tillfälle (t.ex. Vardag, Jobb, Dejt)"
-    }
-  ]
-}`;
+RULES:
+1. Create 2-3 COMPLETE outfit suggestions
+2. Each outfit MUST include: top + bottom + shoes (minimum 3 items)
+3. Exception: a dress/jumpsuit replaces top+bottom, but shoes are still mandatory
+4. PRIORITIZE garments marked as unused (not worn in 30+ days) — these IDs: ${Array.from(unusedIds).join(", ")}
+5. But you MAY include recently worn garments to complete an outfit (e.g., shoes)
+6. Consider color harmony, formality matching, and seasonal appropriateness
+7. Each suggestion needs a different style/occasion
+8. ONLY use garment IDs from the list
+${recentContext}
+${sp.styleWords?.length ? `User style: ${sp.styleWords.join(", ")}` : ""}
+${sp.favoriteColors?.length ? `Favorite colors: ${sp.favoriteColors.join(", ")}` : ""}
 
-    const userPrompt = `Här är användarens oanvända plagg:
-${JSON.stringify(garments.map(g => ({
-  id: g.id,
-  title: g.title,
-  category: g.category,
-  color: g.color_primary,
-  formality: g.formality,
-  last_worn: g.last_worn_at || "Aldrig",
-})), null, 2)}
-
-${preferences.style_vibes?.length ? `Användarens stilpreferenser: ${preferences.style_vibes.join(", ")}` : ""}
-${preferences.favorite_colors?.length ? `Favoritfärger: ${preferences.favorite_colors.join(", ")}` : ""}
-${preferences.disliked_colors?.length ? `Undvik dessa färger: ${preferences.disliked_colors.join(", ")}` : ""}
-
-Skapa 2-3 outfit-förslag som kombinerar dessa oanvända plagg på ett snyggt sätt.`;
+WARDROBE:
+${garmentList}`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -144,25 +120,52 @@ Skapa 2-3 outfit-förslag som kombinerar dessa oanvända plagg på ett snyggt s�
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-pro",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
+          { role: "user", content: "Create 2-3 complete outfit suggestions using my unused garments." },
         ],
+        tools: [{
+          type: "function",
+          function: {
+            name: "suggest_outfits",
+            description: "Return 2-3 complete outfit suggestions",
+            parameters: {
+              type: "object",
+              properties: {
+                suggestions: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      title: { type: "string", description: "Short descriptive title in Swedish" },
+                      garment_ids: { type: "array", items: { type: "string" }, description: "Array of garment UUIDs" },
+                      explanation: { type: "string", description: "Why this combination works (2 sentences, in Swedish)" },
+                      occasion: { type: "string", description: "Suitable occasion in Swedish (e.g. Vardag, Jobb, Dejt)" },
+                    },
+                    required: ["title", "garment_ids", "explanation", "occasion"],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ["suggestions"],
+              additionalProperties: false,
+            },
+          },
+        }],
+        tool_choice: { type: "function", function: { name: "suggest_outfits" } },
       }),
     });
 
     if (!aiResponse.ok) {
       if (aiResponse.status === 429) {
         return new Response(JSON.stringify({ error: "AI-tjänsten är överbelastad. Försök igen senare." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (aiResponse.status === 402) {
         return new Response(JSON.stringify({ error: "AI-krediter slut. Kontakta support." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const errorText = await aiResponse.text();
@@ -171,46 +174,32 @@ Skapa 2-3 outfit-förslag som kombinerar dessa oanvända plagg på ett snyggt s�
     }
 
     const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content;
+    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
 
-    if (!content) {
-      throw new Error("No AI response content");
+    if (!toolCall?.function?.arguments) {
+      throw new Error("No structured AI response");
     }
 
-    // Parse JSON from response (handle markdown code blocks)
-    let parsedSuggestions;
+    let parsed: { suggestions: { title: string; garment_ids: string[]; explanation: string; occasion: string }[] };
     try {
-      const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/```\s*([\s\S]*?)\s*```/);
-      const jsonStr = jsonMatch ? jsonMatch[1] : content;
-      parsedSuggestions = JSON.parse(jsonStr);
-    } catch (parseError) {
-      console.error("Failed to parse AI response:", content);
+      parsed = JSON.parse(toolCall.function.arguments);
+    } catch {
       throw new Error("Failed to parse AI suggestions");
     }
 
-    // Validate and enrich suggestions with garment details
-    const enrichedSuggestions = parsedSuggestions.suggestions?.map((suggestion: any) => {
-      const validGarmentIds = suggestion.garment_ids.filter((id: string) =>
-        garments.some((g) => g.id === id)
-      );
-      
-      const garmentDetails = validGarmentIds.map((id: string) =>
-        garments.find((g) => g.id === id)
-      ).filter(Boolean);
+    // Validate and enrich
+    const garmentMap = new Map(garments.map(g => [g.id, g]));
+    const enrichedSuggestions = (parsed.suggestions || [])
+      .map(s => {
+        const validIds = s.garment_ids.filter(id => garmentMap.has(id));
+        const garmentDetails = validIds.map(id => garmentMap.get(id)!);
+        return { ...s, garment_ids: validIds, garments: garmentDetails };
+      })
+      .filter(s => s.garment_ids.length >= 3); // Must be complete outfit
 
-      return {
-        ...suggestion,
-        garment_ids: validGarmentIds,
-        garments: garmentDetails,
-      };
-    }).filter((s: any) => s.garment_ids.length >= 2) || [];
-
-    return new Response(JSON.stringify({ 
-      suggestions: enrichedSuggestions 
-    }), {
+    return new Response(JSON.stringify({ suggestions: enrichedSuggestions }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
   } catch (error) {
     console.error("Error in suggest_outfit_combinations:", error);
     return new Response(JSON.stringify({ 
