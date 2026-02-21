@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
   Plus, Search, Loader2, WashingMachine,
@@ -47,10 +48,12 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
 
   if (!isGridView) {
     return (
-      <button
+      <motion.button
+        whileTap={{ scale: 0.975 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
         onClick={handleClick}
         className={cn(
-          'w-full flex items-center gap-3 p-3 glass-card rounded-xl transition-all active:scale-[0.99] text-left',
+          'w-full flex items-center gap-3 p-3 glass-card rounded-xl transition-colors text-left will-change-transform',
           garment.in_laundry && 'opacity-60',
           isSelected && 'ring-2 ring-accent'
         )}
@@ -66,15 +69,17 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
           <p className="font-medium text-sm truncate">{garment.title}</p>
           <p className="text-xs text-muted-foreground capitalize">{t(`garment.category.${garment.category}`)} · {t(`color.${garment.color_primary}`)}</p>
         </div>
-      </button>
+      </motion.button>
     );
   }
 
   return (
-    <button
+    <motion.button
+      whileTap={{ scale: 0.97 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.5 }}
       onClick={handleClick}
       className={cn(
-        'w-full glass-card rounded-xl overflow-hidden transition-all active:scale-[0.98] text-left',
+        'w-full glass-card rounded-xl overflow-hidden transition-colors text-left will-change-transform',
         garment.in_laundry && 'opacity-60',
         isSelected && 'ring-2 ring-accent'
       )}
@@ -96,7 +101,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
         <p className="font-medium text-sm truncate">{garment.title}</p>
         <p className="text-xs text-muted-foreground capitalize">{t(`garment.category.${garment.category}`)} · {t(`color.${garment.color_primary}`)}</p>
       </div>
-    </button>
+    </motion.button>
   );
 }
 
