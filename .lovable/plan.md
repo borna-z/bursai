@@ -87,10 +87,10 @@ Add swipe-to-reveal actions (edit, delete, toggle laundry) on garment list items
 
 ## 🔒 Phase 5 — Reliability & Error Handling
 
-### 5.1 Global error boundary
-Add a styled error boundary that catches React crashes and offers a "reload" button instead of a white screen.
+### ✅ 5.1 Global error boundary
+Added a styled `ErrorBoundary` class component wrapping the entire app. Catches React crashes and shows a branded error screen with "Try again" and "Reload" buttons. Shows error details in development mode.
 
-**Files:** Create `src/components/layout/ErrorBoundary.tsx`, wrap in `App.tsx`
+**Files:** `src/components/layout/ErrorBoundary.tsx`, `src/App.tsx`
 
 ### 5.2 Retry logic on failed mutations
 Add automatic retry with exponential backoff for failed saves (garment create/update, outfit save) using react-query mutation options.
