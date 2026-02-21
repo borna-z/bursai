@@ -26,10 +26,10 @@ Added a sliding pill indicator using `motion.div` with `layoutId="nav-pill"` tha
 
 ## 🎨 Phase 2 — Landing Page & Marketing Polish
 
-### 2.1 Lazy-load landing page sections
-The Landing page is 434 lines with scroll observers. Split into lazy-loaded section components with `React.lazy` + `Suspense` for faster initial paint.
+### ✅ 2.1 Lazy-load landing page sections
+Split 443-line Landing.tsx into 8 section components. Hero loads eagerly; all below-fold sections (TrialBanner, HowItWorks, Sustainability, Mission, Pricing, CTA, Download, Footer) are `React.lazy` loaded with `Suspense` for faster initial paint. Added a secondary IntersectionObserver to re-observe elements after lazy mount.
 
-**Files:** `src/pages/Landing.tsx` → extract `HeroSection`, `FeaturesSection`, `TestimonialsSection`, `CTASection`
+**Files:** `src/pages/Landing.tsx`, `src/components/landing/HeroSection.tsx`, `src/components/landing/TrialBanner.tsx`, `src/components/landing/HowItWorks.tsx`, `src/components/landing/SustainabilitySection.tsx`, `src/components/landing/MissionSection.tsx`, `src/components/landing/PricingSection.tsx`, `src/components/landing/CTASection.tsx`, `src/components/landing/DownloadSection.tsx`, `src/components/landing/LandingFooter.tsx`
 
 ### ✅ 2.2 Add OG meta tags for social sharing
 Added page-specific Open Graph and Twitter Card meta tags via `react-helmet-async` to Landing (brand), Pricing (conversion), and ShareOutfit (dynamic outfit title/explanation).
