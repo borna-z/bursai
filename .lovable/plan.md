@@ -1,44 +1,50 @@
 
 
-## Translate Garment Title Based on User Language
+## Fix Chat Header Scroll Issue and Add Premium Animations
 
-The AI garment analysis always returns Swedish titles because the edge function prompt is hardcoded to request Swedish output. When the user switches language, the title stays in Swedish.
+### Problem
+The Stylist/Shopping mode switcher header scrolls out of view when scrolling chat messages. This happens because `AppLayout`'s `<main>` has `overflow-y-auto` and the chat's inner container height (`calc(100dvh - 4rem)`) combined with `pb-20` causes the outer container to also scroll, taking the header with it.
 
-### What changes
+### Changes
 
-1. **Pass the user's locale to the edge function** so the AI prompt generates titles in the correct language.
+#### 1. Fix the scroll architecture in `src/pages/AIChat.tsx`
+- Pass `hideNav` to `AppLayout` so the outer `<main>` doesn't add `pb-20` padding that causes overflow
+- Instead, manage the bottom nav visibility separately by **not** hiding it -- instead adjust the inner container height to account for bottom nav (`calc(100dvh - 4rem - 5rem)` or use `h-full` approach)
+- Alternative simpler fix: make the header `sticky top-0 z-10 bg-background` so it pins to the top of the scroll container even if the outer main scrolls
+- Add `shrink-0` to the header so it never collapses in the flex layout
 
-2. **Update the edge function prompt** to use the locale parameter for the title language, while keeping all structured data values (category IDs, color IDs, season tags) in Swedish since those are database keys.
+#### 2. Add entrance animations to `src/components/chat/ChatMessage.tsx`
+- Each message fades + slides in from below using `animate-fade-in` (already defined in tailwind config)
+- Assistant avatar icon gets a subtle scale-in animation
+- Streaming cursor uses a smoother pulse animation
 
-### Files to modify
+#### 3. Add animations to `src/components/chat/ChatWelcome.tsx`
+- Icon container: scale-in animation on mount
+- Welcome text: fade-in with slight delay
+- Suggestion chips: staggered fade-in (each chip gets increasing `animation-delay`)
 
-#### 1. `src/hooks/useAnalyzeGarment.ts`
-- Accept an optional `locale` parameter in `analyzeGarment` or read it from `useLanguage()` (already imported).
-- Pass `locale` in the request body alongside `storagePath`.
+#### 4. Add animations to `src/components/chat/ChatInput.tsx`
+- Input bar: subtle fade-in on mount
+- Send button: micro scale on hover/tap via `transition-transform hover:scale-105 active:scale-95`
 
-#### 2. `src/pages/AddGarment.tsx`
-- Pass the current `locale` when calling `analyzeGarment` (from `useLanguage()`), or no change needed if the hook reads it internally.
+#### 5. Mode switcher transition in `src/pages/AIChat.tsx`
+- Add `transition-all duration-200` to mode switcher buttons for smoother active state changes
+- Message area gets a subtle opacity transition when switching modes
 
-#### 3. `supabase/functions/analyze_garment/index.ts`
-- Read `locale` from the request body (default to `'sv'`).
-- Build the AI prompt dynamically:
-  - Title instruction changes from `"kort beskrivande titel på svenska"` to the equivalent in the user's language (e.g., `"short descriptive title in English"` for `en`).
-  - All other fields (category, color, pattern, season_tags) remain in Swedish since they are database keys.
-- A small locale-to-language map handles the prompt text:
-  ```
-  sv -> "kort beskrivande titel på svenska"
-  en -> "short descriptive title in English"
-  no -> "kort beskrivende tittel på norsk"
-  ```
+---
 
 ### Technical details
 
-- Only the `title` field in the AI response changes language. All other values (categories, colors, patterns, seasons, materials, fits) stay in Swedish because they are used as database keys and matched via `*_I18N` translation maps.
-- The system prompt for the AI is adjusted to specify the title language while keeping the rest of the instructions consistent.
-- The `user` message text ("Analysera detta klädesplagg...") can also be translated, but since the AI model understands the task from the system prompt, this is optional.
-- Edge function error messages in Swedish remain as-is since they are returned as error codes and handled client-side via `t()`.
+**Scroll fix approach**: The simplest reliable fix is making the header `sticky top-0 z-10 bg-background/95 backdrop-blur-sm` within the flex container. This ensures it stays visible regardless of scroll behavior. Combined with ensuring the flex container itself is `overflow-hidden` and only the messages div scrolls.
 
-### Files modified (3 total)
-1. `src/hooks/useAnalyzeGarment.ts` -- pass locale to edge function
-2. `src/pages/AddGarment.tsx` -- pass locale when calling analyze (if needed)
-3. `supabase/functions/analyze_garment/index.ts` -- dynamic prompt based on locale
+**Animation classes used** (all pre-existing in the project):
+- `animate-fade-in` -- 0.3s ease-out fade + translate
+- `animate-scale-in` -- 0.2s ease-out scale
+- Custom stagger delays via inline `style={{ animationDelay }}`
+- `transition-transform` + `hover:scale-105` for micro-interactions
+
+### Files modified (4 total)
+1. `src/pages/AIChat.tsx` -- sticky header fix, mode switch animation
+2. `src/components/chat/ChatMessage.tsx` -- message entrance animations
+3. `src/components/chat/ChatWelcome.tsx` -- welcome state animations with stagger
+4. `src/components/chat/ChatInput.tsx` -- input bar animations, button micro-interactions
