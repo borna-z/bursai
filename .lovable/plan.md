@@ -1,71 +1,93 @@
 
 
-## Fix Swedish Texts in Plan Page -- Locale-Aware AI + Translated Labels
+## 30-Day Free Trial Campaign -- Landing Page + Stripe Integration
 
-### Problem
-Three sources of hardcoded Swedish text on the Plan page:
-
-1. **Outfit explanations** are always in Swedish because `generate_outfit` edge function doesn't receive the user's locale and instructs AI to always write in Swedish
-2. **Day summaries** from `summarize_day` -- receives locale but its prompt template still has Swedish-only format examples
-3. **Occasion badges** ("jobb", "vardag", etc.) shown raw without going through the translation system
+### What this does
+Adds a **30-day free trial** to the Premium subscription. New customers sign up, get full Premium access immediately, and are only charged after 30 days. If they cancel before the trial ends, they pay nothing.
 
 ### Changes
 
-#### 1. `src/hooks/useOutfitGenerator.ts`
-- Accept `locale` parameter in the `OutfitRequest` interface
-- Pass `locale` in the body when invoking `generate_outfit`
+#### 1. Stripe Checkout -- Add `trial_period_days: 30`
+**File: `supabase/functions/create_checkout_session/index.ts`**
 
-#### 2. `supabase/functions/generate_outfit/index.ts`
-- Read `locale` from the request body (default: `"sv"`)
-- Update the system prompt: replace "Ge en personlig forklaring... pa svenska" with a dynamic language instruction based on locale
-- Update fallback explanation text from hardcoded Swedish to locale-aware
+Add `subscription_data: { trial_period_days: 30 }` to the `stripe.checkout.sessions.create()` call. This tells Stripe to give 30 free days before the first charge.
 
-#### 3. `supabase/functions/summarize_day/index.ts`
-- Translate the JSON format example labels and weather terms dynamically based on locale so the AI returns content in the correct language
+Also add `payment_method_collection: 'always'` so Stripe still collects a card upfront (required for auto-charging after the trial).
 
-#### 4. `src/pages/Plan.tsx`
-- Line 302: Translate `outfit.occasion` using the `OCCASION_I18N` map (same pattern already used in `StylistSummary.tsx`)
-- Pass the user's locale when calling `generateOutfit` (via the request object)
+#### 2. Stripe Webhook -- Handle `trialing` status as premium
+**File: `supabase/functions/stripe_webhook/index.ts`**
 
-#### 5. `src/components/plan/DayCard.tsx`
-- Line 100: Same fix -- translate `outfit.occasion` using `OCCASION_I18N` map instead of showing raw value
+The `updateSubscription` helper currently maps subscription status to plan. Ensure `trialing` is treated as `premium` (same as `active`). This may already work but needs verification and explicit handling.
 
-#### 6. Caller sites that invoke `generateOutfit`
-- `src/pages/Plan.tsx` (handleGenerateForDate, handleAutoGenerateWeek) -- add locale from `useLanguage()`
-- `src/pages/Home.tsx` or wherever else `generateOutfit` is called -- add locale
-- `src/components/insights/AISuggestions.tsx` -- if it generates outfits, add locale
+#### 3. Landing Page -- Campaign hero banner + updated pricing section
+**File: `src/pages/Landing.tsx`**
+
+- Add a **campaign banner** below the hero: a highlighted strip announcing "Try Premium free for 30 days -- no commitment."
+- Update the Premium pricing card (line 237-261) to prominently show the trial offer:
+  - Add "30 days free" badge replacing "Popular"
+  - Show "Then 79 kr/month" as secondary text
+  - Keep the "Start Free Trial" button text
+
+#### 4. Pricing Page -- Add trial messaging
+**File: `src/pages/Pricing.tsx`**
+
+- Add a trial banner at the top of the page
+- Update the Premium card to show "First 30 days free" prominently
+- Update button text to emphasize the free trial
+
+#### 5. PaywallModal -- Add trial messaging
+**File: `src/components/PaywallModal.tsx`**
+
+- Add "30 days free" text to the upgrade buttons
+- Update monthly button label to "Start 30-day free trial"
+
+#### 6. PremiumSection -- Add trial messaging
+**File: `src/components/PremiumSection.tsx`**
+
+- Update the monthly upgrade button to mention the free trial
+- Show trial status if user is currently in trial period
+
+#### 7. Translation keys
+**File: `src/i18n/translations.ts`**
+
+Add new keys for trial-related text in both Swedish and English:
+- `trial.banner_title` / `trial.banner_desc`
+- `trial.badge`
+- `trial.then_price`
+- `trial.start_button`
+- `trial.active_badge`
 
 ### Technical details
 
-**Edge function prompt change (generate_outfit):**
-```
-// Before:
-"Ge en personlig forklaring (2-3 meningar) pa svenska"
-
-// After (dynamic):
-"Ge en personlig forklaring (2-3 meningar) pa ${localeName}"
-// where localeName maps: sv->svenska, en->English, no->norsk, etc.
-```
-
-**Occasion translation in Plan.tsx and DayCard.tsx:**
+**Stripe checkout session change:**
 ```typescript
-const OCCASION_I18N: Record<string, string> = {
-  jobb: 'occasion.jobb',
-  vardag: 'occasion.vardag',
-  fest: 'occasion.fest',
-  resa: 'occasion.resa',
-  traning: 'occasion.traning',
-  dejt: 'occasion.dejt',
-};
-
-// Usage:
-const occasionKey = OCCASION_I18N[outfit.occasion?.toLowerCase()] || `occasion.${outfit.occasion}`;
-const occasionLabel = t(occasionKey);
+const session = await stripe.checkout.sessions.create({
+  customer: customerId,
+  line_items: [{ price: priceId, quantity: 1 }],
+  mode: "subscription",
+  subscription_data: {
+    trial_period_days: 30,
+  },
+  payment_method_collection: 'always',
+  success_url: `${origin}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+  cancel_url: `${origin}/billing/cancel`,
+  metadata: { ... },
+});
 ```
+
+**Webhook -- trialing status mapping:**
+```typescript
+const plan = ['active', 'trialing'].includes(subscription.status) ? 'premium' : 'free';
+```
+
+**Landing page campaign banner (after hero, before "How it works"):**
+A full-width section with a subtle gradient background, large "30 days free" headline, supporting text, and a CTA button. Clean Scandinavian style matching the existing design language.
 
 ### Files summary
-1. `src/hooks/useOutfitGenerator.ts` -- add locale to request interface and API call
-2. `supabase/functions/generate_outfit/index.ts` -- dynamic locale in AI prompt
-3. `supabase/functions/summarize_day/index.ts` -- improve locale handling in prompt
-4. `src/pages/Plan.tsx` -- translate occasion labels, pass locale to generator
-5. `src/components/plan/DayCard.tsx` -- translate occasion labels
+1. `supabase/functions/create_checkout_session/index.ts` -- add `trial_period_days: 30`
+2. `supabase/functions/stripe_webhook/index.ts` -- ensure `trialing` = premium
+3. `src/pages/Landing.tsx` -- campaign banner + updated pricing card
+4. `src/pages/Pricing.tsx` -- trial messaging in pricing page
+5. `src/components/PaywallModal.tsx` -- trial text on buttons
+6. `src/components/PremiumSection.tsx` -- trial text + trial status display
+7. `src/i18n/translations.ts` -- new translation keys
