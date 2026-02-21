@@ -1,187 +1,169 @@
 
-# Fullstandig i18n-granskning: Alla hardkodade strangar ska bort
+# Glassmorphism Design System -- Hela appen
 
-## Sammanfattning
+## Oversikt
 
-En grundlig genomgang av hela appen har identifierat **hardkodade strangar och datumsformatering** som inte ar oversattbara. Problemet beror pa tva saker:
+Appen har redan en bra glass-effekt pa BottomNav och PageHeader (`backdrop-blur-xl`, `bg-background/60`). Malet ar att utoka denna glasmorfism-estetik till **alla UI-primitiver** sa att hela appen kanns enhetlig och premium.
 
-1. **Datum/dagar formateras med `date-fns` `format()` eller `toLocaleDateString(undefined, ...)` utan att skicka in aktuell locale** -- sa dagar visas alltid pa systemspraket (oftast svenska/engelska) istallet for det valda spraket.
-2. **Flera sidor (Landing, Terms, Privacy) har all text pa engelska direkt i komponenterna.**
-3. **Enstaka hardkodade svenska strängar i komponentkod** (t.ex. `'Vardag'`, `'Skapad fran stylistens forslag'` i AIChat).
-4. **Fargnamn, sakongnamn etc i Wardrobe-filtren visas hardkodade** (`'svart'`, `'vit'`, `'var'`, `'sommar'` etc.)
+## Vad som redan ar glassmorphism
 
----
+- **BottomNav**: `bg-background/60 backdrop-blur-xl backdrop-saturate-150` -- perfekt
+- **PageHeader**: `bg-background/70 backdrop-blur-xl backdrop-saturate-150` -- perfekt
+- **TabsList**: `bg-foreground/[0.04] backdrop-blur-sm border-border/30` -- bra start
+- **TabsTrigger active**: `bg-background/80 backdrop-blur-md` -- bra start
+- `.glass-card` utility: `bg-card/80 backdrop-blur-md border-border/40` -- finns men anvands inte overallt
+- `.glass-chip` utility: `bg-background/60 backdrop-blur-sm border-border/30` -- finns
 
-## Del 1: Datum- och dagformatering (hogst prioritet -- synligaste buggen)
+## Vad som ska andras
 
-Alla `toLocaleDateString(undefined, ...)`, `format(date, 'EEE')`, `format(date, 'd MMM')`, och `format(date, 'EEEE d MMMM')` ska anvanda anviandarens valda locale.
+### 1. Card-komponenten (bas for alla kort i appen)
+**Fil:** `src/components/ui/card.tsx`
 
-### Fil: `src/components/plan/WeekStrip.tsx`
-- Rad 49: `format(date, 'EEE').slice(0, 2)` -- date-fns `format` defaults till engelska. Ska andras till `format(date, 'EEE', { locale: dateFnsLocale }).slice(0, 2)`.
-- Behover importera `useLanguage` och en locale-mapper.
+Nuvarande: `bg-card` (helt opak vit/mork) med solid border.
+Nytt: Semi-transparent bakgrund med backdrop-blur, mjukare border och subtil skugga -- i princip `.glass-card` som default.
 
-### Fil: `src/components/weather/WeatherWidget.tsx`
-- Rad 43: `dayDate.toLocaleDateString(undefined, { weekday: 'short' })` -- `undefined` fallback. Ska anvanda den korrekta BCP47 locale-stangen fran `useLanguage`.
+```
+rounded-xl border border-border/40 bg-card/70 backdrop-blur-md text-card-foreground shadow-[0_1px_3px_0_rgb(0_0_0/0.04)]
+```
 
-### Fil: `src/pages/Plan.tsx`
-- Rad 105: `format(selectedDate, 'EEEE d MMMM')` -- hardkodad date-fns format utan locale.
+### 2. Button-komponenten
+**Fil:** `src/components/ui/button.tsx`
 
-### Fil: `src/components/plan/MiniDayCard.tsx`
-- Rad 31: `date.toLocaleDateString(undefined, ...)`.
+- **default** (primary): Behall solid (det ar CTA-knappar, de ska vara tydliga). Inga andringar.
+- **secondary**: Gor semi-transparent: `bg-secondary/60 backdrop-blur-sm`
+- **outline**: Gor glasig: `border border-border/50 bg-background/50 backdrop-blur-sm hover:bg-background/70`
+- **ghost**: Lagg till subtil blur pa hover: `hover:bg-foreground/[0.04] hover:backdrop-blur-sm`
 
-### Fil: `src/components/plan/DayCard.tsx`
-- Rad 60: `date.toLocaleDateString(undefined, ...)`.
+### 3. Sheet (bottom sheets/sidopaneler)
+**Fil:** `src/components/ui/sheet.tsx`
 
-### Fil: `src/components/plan/QuickPlanSheet.tsx`
-- Rad 33: `date.toLocaleDateString(undefined, { weekday: 'long' })`.
+Nuvarande: `bg-background` (solid).
+Nytt: `bg-background/80 backdrop-blur-xl backdrop-saturate-150` for frostad glaseffekt.
+Overlay: Gora mjukare -- `bg-black/40 backdrop-blur-sm` istallet for `bg-black/80`.
 
-### Fil: `src/components/plan/QuickGenerateSheet.tsx`
-- Rad 119: `date.toLocaleDateString(undefined, { day: 'numeric', month: 'long' })`.
+### 4. Dialog
+**Fil:** `src/components/ui/dialog.tsx`
 
-### Fil: `src/components/plan/PlanningSheet.tsx`
-- Rad 42: `date.toLocaleDateString(undefined, { day: 'numeric', month: 'long' })`.
+Nuvarande: `bg-background` solid.
+Nytt: `bg-background/85 backdrop-blur-xl backdrop-saturate-150 border-border/40`.
+Overlay: Samma som Sheet -- `bg-black/40 backdrop-blur-sm`.
 
-### Fil: `src/components/plan/PreselectDateSheet.tsx`
-- Rad 34: `date.toLocaleDateString(undefined, ...)`.
+### 5. Drawer
+**Fil:** `src/components/ui/drawer.tsx`
 
-### Fil: `src/components/outfit/PlannedOutfitsList.tsx`
-- Rad 120: `date.toLocaleDateString(undefined, ...)`.
+Nuvarande: `bg-background` solid.
+Nytt: `bg-background/80 backdrop-blur-xl backdrop-saturate-150`.
+Overlay: `bg-black/40 backdrop-blur-sm`.
+Handtag: Gora mer subtilt med `bg-foreground/10` istallet for `bg-muted`.
 
-### Fil: `src/pages/Outfits.tsx`
-- Rad 59-62: `format(new Date(...), 'd MMM')`.
+### 6. Popover och Select-content
+**Filer:** `src/components/ui/popover.tsx`, `src/components/ui/select.tsx`
 
-### Fil: `src/components/wardrobe/OutfitReel.tsx`
-- Rad 215: `format(new Date(...), 'd MMM yyyy')`.
+Nuvarande: `bg-popover` solid.
+Nytt: `bg-popover/80 backdrop-blur-xl border-border/40 shadow-lg`.
 
-### Fil: `src/components/wardrobe/WardrobeOutfitsTab.tsx`
-- Rad 50: `format(new Date(...), 'd MMM')`.
+### 7. DropdownMenu-content
+**Fil:** `src/components/ui/dropdown-menu.tsx`
 
-### Fil: `src/pages/GarmentDetail.tsx`
-- Rad 154: `toLocaleDateString(undefined, ...)`.
-- Rad 181: `toLocaleDateString(undefined)`.
+Nuvarande: `bg-popover` solid.
+Nytt: `bg-popover/80 backdrop-blur-xl border-border/40`.
 
-### Losning: Ny hjalpfunktion + date-fns locale-map
+### 8. Tooltip
+**Fil:** `src/components/ui/tooltip.tsx`
 
-Skapa en ny util `src/lib/dateLocale.ts`:
-- Exporterar en funktion `getDateFnsLocale(locale: Locale)` som mappar var locale till date-fns locale-objekt.
-- Exporterar en funktion `getBCP47(locale: Locale): string` som mappar till BCP47-strang for `toLocaleDateString()`.
-- Behover installera `date-fns/locale` (ingar redan i date-fns).
+Nuvarande: `bg-popover` solid.
+Nytt: `bg-popover/80 backdrop-blur-lg border-border/40`.
 
-Sedan uppdatera alla filer ovan for att:
-1. `toLocaleDateString(getBCP47(locale), ...)` istallet for `toLocaleDateString(undefined, ...)`.
-2. `format(date, 'pattern', { locale: getDateFnsLocale(locale) })` istallet for `format(date, 'pattern')`.
+### 9. Toast
+**Fil:** `src/components/ui/toast.tsx`
 
----
+Nuvarande default variant: `bg-background` solid.
+Nytt: `bg-background/80 backdrop-blur-xl border-border/40`.
 
-## Del 2: Hardkodade strängar i Wardrobe-filter
+### 10. Badge-komponenten
+**Fil:** `src/components/ui/badge.tsx`
 
-### Fil: `src/pages/Wardrobe.tsx`
-- Rad 26: `colorFilters = ['svart', 'vit', 'gra', ...]` -- visas direkt. Ska anvanda `COLOR_I18N` mapping med `t()`.
-- Rad 27: `seasonFilters = ['var', 'sommar', 'host', 'vinter']` -- visas direkt. Ska anvanda `SEASON_I18N` mapping med `t()`.
-- Raderna 333-335 och 355: `{color}` och `{season}` visas direkt utan oversattning.
+- **secondary**: `bg-secondary/60 backdrop-blur-sm border-transparent`
+- **outline**: `bg-background/40 backdrop-blur-sm`
 
-### Losning
-Importera `COLOR_I18N` och `SEASON_I18N` (redan definierade i AddGarment) och anvand `t(COLOR_I18N[color] || color)` och `t(SEASON_I18N[season] || season)` vid rendering.
+### 11. Chip-komponenten
+**Fil:** `src/components/ui/chip.tsx`
 
----
+- **default**: `bg-secondary/50 backdrop-blur-sm`
+- **filter**: `bg-muted/50 backdrop-blur-sm`
+- **outline**: `bg-background/40 backdrop-blur-sm border-border/40`
 
-## Del 3: Hardkodade strangar i AIChat
+### 12. Input
+**Fil:** `src/components/ui/input.tsx`
 
-### Fil: `src/pages/AIChat.tsx`
-- Rad 257: `{ occasion: 'Vardag', explanation: 'Skapad fran stylistens forslag' }` -- hardkodade svenska strängar.
-- Rad 261: `'Outfit skapad!'` fallback.
-- Rad 263: `'Kunde inte skapa outfit'` fallback.
+Nuvarande: `bg-background` solid.
+Nytt: `bg-background/60 backdrop-blur-sm border-border/50`.
 
-### Losning
-Anvand `t()` for alla dessa.
+### 13. Select trigger
+**Fil:** `src/components/ui/select.tsx`
 
----
+Nuvarande: `bg-background` solid.
+Nytt: `bg-background/60 backdrop-blur-sm border-border/50`.
 
-## Del 4: GarmentDetail -- hardkodade attributvarden
+### 14. SettingsGroup card
+**Fil:** `src/components/settings/SettingsGroup.tsx`
 
-### Fil: `src/pages/GarmentDetail.tsx`
-- Rad 111: `{garment.subcategory || garment.category}` -- visas ra (t.ex. "top", "svart").
-- Rad 114-119: Badges visar `garment.color_primary`, `garment.pattern`, `garment.material`, `garment.fit`, `garment.season_tags` ratt fran databasen utan oversattning.
+Nuvarande: `bg-card` solid.
+Nytt: `bg-card/70 backdrop-blur-md border border-border/30`.
 
-### Losning
-Anvand I18N-mappings (COLOR_I18N, PATTERN_I18N, MATERIAL_I18N, FIT_I18N, SEASON_I18N, CATEGORY_I18N, SUBCATEGORY_I18N) med `t()` for att visa oversatta varden.
+### 15. Global CSS -- forstarkt glass-utilities
+**Fil:** `src/index.css`
 
----
+Uppdatera `.glass-card` och `.glass-chip` for starkare, mer enhetlig effekt:
+```css
+.glass-card {
+  @apply bg-card/70 backdrop-blur-md border border-border/40 shadow-[0_1px_3px_0_rgb(0_0_0/0.04)];
+}
 
-## Del 5: QuickGenerateSheet hardkodad streng
+.glass-chip {
+  @apply bg-background/50 backdrop-blur-sm border border-border/30 rounded-full;
+}
+```
 
-### Fil: `src/components/plan/QuickGenerateSheet.tsx`
-- Rad 68: `{ id: 'street', label: 'Street' }` -- hardkodat utan `t()`.
+Lagg till nya utilities:
+```css
+.glass-surface {
+  @apply bg-background/70 backdrop-blur-xl backdrop-saturate-150;
+}
 
-### Losning
-Anvand `t('home.style.street')`.
-
----
-
-## Del 6: Landing, Terms, PrivacyPolicy -- helt hardkodad engelska
-
-### Fil: `src/pages/Landing.tsx`
-Alla texter ar pa engelska direkt i komponentkoden ("How it works", "Log In", "Get Started", "Sustainability", etc.). Ca 50+ strängar.
-
-### Fil: `src/pages/marketing/Terms.tsx`
-Alla TERMS.sections ar pa engelska. Footer-lankar ("Privacy Policy", "Terms", "Contact") ar hardkodade.
-
-### Fil: `src/pages/marketing/PrivacyPolicy.tsx`
-Alla PRIVACY.sections ar pa engelska. Footer-lankar och "Contact" sektionen ar hardkodade.
-
-### Losning
-Lagga till alla Landing/Terms/Privacy-strängar i `translations.ts` och anvanda `t()` overallt. Notera att detta ar marketing-sidor och kan behandlas som lagre prioritet an app-flode.
-
----
-
-## Del 7: PlanningSheet occasion-badge
-
-### Fil: `src/components/plan/PlanningSheet.tsx`
-- Rad 90: `{outfit.occasion}` visas direkt utan oversattning i badges.
-
-### Fil: `src/components/wardrobe/WardrobeOutfitsTab.tsx`
-- Rad 41: `{outfit.occasion}` visas direkt.
-
-### Fil: `src/pages/ShareOutfit.tsx`
-- Rad 145: `{outfit.occasion}` visas direkt.
-
-### Losning
-Anvanda OCCASION_I18N-mapping for att oversatta occasion.
+.glass-overlay {
+  @apply bg-black/40 backdrop-blur-sm;
+}
+```
 
 ---
 
-## Del 8: Oversattningsfilen
-
-### Fil: `src/i18n/translations.ts`
-Alla nya nycklar som laggs till i sv maste aven laggas till i alla 13 ovriga sprak (en, no, da, fi, de, fr, es, it, pt, nl, pl, ar, fa).
-
----
-
-## Teknisk plan -- filer som andras
+## Teknisk sammanfattning
 
 | # | Fil | Andringar |
 |---|-----|-----------|
-| 1 | `src/lib/dateLocale.ts` | **NY FIL** -- date-fns locale mapper + BCP47 mapper |
-| 2 | `src/components/plan/WeekStrip.tsx` | Locale-aware date-fns format |
-| 3 | `src/components/weather/WeatherWidget.tsx` | Locale-aware toLocaleDateString |
-| 4 | `src/pages/Plan.tsx` | Locale-aware date-fns format |
-| 5 | `src/components/plan/MiniDayCard.tsx` | Locale-aware toLocaleDateString |
-| 6 | `src/components/plan/DayCard.tsx` | Locale-aware toLocaleDateString |
-| 7 | `src/components/plan/QuickPlanSheet.tsx` | Locale-aware toLocaleDateString |
-| 8 | `src/components/plan/QuickGenerateSheet.tsx` | Locale-aware toLocaleDateString + fix Street-label |
-| 9 | `src/components/plan/PlanningSheet.tsx` | Locale-aware date + occasion t() |
-| 10 | `src/components/plan/PreselectDateSheet.tsx` | Locale-aware toLocaleDateString |
-| 11 | `src/components/outfit/PlannedOutfitsList.tsx` | Locale-aware toLocaleDateString |
-| 12 | `src/pages/Outfits.tsx` | Locale-aware date-fns format |
-| 13 | `src/components/wardrobe/OutfitReel.tsx` | Locale-aware date-fns format |
-| 14 | `src/components/wardrobe/WardrobeOutfitsTab.tsx` | Locale-aware date + occasion t() |
-| 15 | `src/pages/GarmentDetail.tsx` | Locale-aware date + translated attributes |
-| 16 | `src/pages/Wardrobe.tsx` | Color/season filter labels via t() |
-| 17 | `src/pages/AIChat.tsx` | Hardkodade strängar -> t() |
-| 18 | `src/pages/ShareOutfit.tsx` | Occasion -> t() |
-| 19 | `src/pages/Landing.tsx` | Alla strangar -> t() + nya nycklar |
-| 20 | `src/pages/marketing/Terms.tsx` | Alla strangar -> t() + nya nycklar |
-| 21 | `src/pages/marketing/PrivacyPolicy.tsx` | Alla strangar -> t() + nya nycklar |
-| 22 | `src/i18n/translations.ts` | Nya nycklar for datum, landing, terms, privacy + alla 14 sprak |
+| 1 | `src/components/ui/card.tsx` | Glass-bakgrund som default |
+| 2 | `src/components/ui/button.tsx` | Glass pa secondary/outline/ghost |
+| 3 | `src/components/ui/sheet.tsx` | Glass content + mjukare overlay |
+| 4 | `src/components/ui/dialog.tsx` | Glass content + mjukare overlay |
+| 5 | `src/components/ui/drawer.tsx` | Glass content + mjukare overlay |
+| 6 | `src/components/ui/popover.tsx` | Glass content |
+| 7 | `src/components/ui/select.tsx` | Glass content + trigger |
+| 8 | `src/components/ui/dropdown-menu.tsx` | Glass content |
+| 9 | `src/components/ui/tooltip.tsx` | Glass content |
+| 10 | `src/components/ui/toast.tsx` | Glass default variant |
+| 11 | `src/components/ui/badge.tsx` | Glass secondary/outline |
+| 12 | `src/components/ui/chip.tsx` | Glass default/filter/outline |
+| 13 | `src/components/ui/input.tsx` | Glass bakgrund |
+| 14 | `src/components/settings/SettingsGroup.tsx` | Glass card wrapper |
+| 15 | `src/index.css` | Forstarkt glass-utilities + nya klasser |
 
-Totalt: **1 ny fil + 21 redigerade filer**
+Totalt: **15 filer** som redigeras. Inga nya filer. Inga beroendeforandringar.
+
+## Designprinciper
+
+- **Primary buttons** behaller solid bakgrund for tydlig CTA-kontrast
+- **Overlays** ar mjukare (40% svart + blur) istallet for 80% svart
+- **Alla ytor** (kort, sheets, dropdowns) far semi-transparent bakgrund + blur
+- **Borders** ar genomgaende tunnare (`border-border/40`) for subtilare avgranning
+- Fungerar i bade ljust och morkt tema tack vare CSS-variablerna
