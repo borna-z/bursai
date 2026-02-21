@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { 
   Shirt, 
   Sparkles, 
@@ -147,83 +148,83 @@ export default function OnboardingPage() {
     return <Navigate to="/" replace />;
   }
 
-  // Step 0: Language picker
-  if (!languageStepDone) {
-    return <LanguageStep onComplete={() => setLanguageStepDone(true)} />;
-  }
+  // Determine which full-screen step to show
+  const stepKey = !languageStepDone ? 'lang' : !accentStepDone ? 'accent' : !bodyStepDone ? 'body' : !styleStepDone ? 'style' : !tutorialDone ? 'tutorial' : null;
 
-  // Step 0.5: Accent color picker
-  if (!accentStepDone) {
-    return <AccentColorStep onComplete={() => setAccentStepDone(true)} />;
-  }
-
-  // Step 1: Body measurements
-  if (!bodyStepDone) {
+  if (stepKey) {
     return (
-      <BodyMeasurementsStep
-        onComplete={handleSaveBodyMeasurements}
-        onSkip={() => setBodyStepDone(true)}
-        isSaving={isSavingBody}
-      />
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={stepKey}
+          initial={{ opacity: 0, x: 40 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -40 }}
+          transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] as const }}
+        >
+          {stepKey === 'lang' && <LanguageStep onComplete={() => setLanguageStepDone(true)} />}
+          {stepKey === 'accent' && <AccentColorStep onComplete={() => setAccentStepDone(true)} />}
+          {stepKey === 'body' && (
+            <BodyMeasurementsStep
+              onComplete={handleSaveBodyMeasurements}
+              onSkip={() => setBodyStepDone(true)}
+              isSaving={isSavingBody}
+            />
+          )}
+          {stepKey === 'style' && (
+            <StyleQuizStep
+              onComplete={async (sp: StyleProfile) => {
+                setIsSavingStyle(true);
+                try {
+                  const currentPrefs = (profile?.preferences as Record<string, unknown>) || {};
+                  await updateProfile.mutateAsync({
+                    preferences: {
+                      ...currentPrefs,
+                      favoriteColors: sp.favoriteColors,
+                      dislikedColors: sp.dislikedColors,
+                      fitPreference: sp.fit,
+                      styleVibe: sp.styleWords[0] || 'smart-casual',
+                      genderNeutral: sp.genderNeutral,
+                      styleProfile: { ...sp },
+                    },
+                  });
+                  setStyleStepDone(true);
+                } catch {
+                  toast.error(t('onboarding.error'));
+                } finally {
+                  setIsSavingStyle(false);
+                }
+              }}
+              onSkip={() => setStyleStepDone(true)}
+              isSaving={isSavingStyle}
+            />
+          )}
+          {stepKey === 'tutorial' && (
+            <AppTutorialStep onComplete={async () => {
+              setTutorialDone(true);
+              try { await completeOnboarding(); } catch { /* ignore */ }
+              navigate('/');
+            }} />
+          )}
+        </motion.div>
+      </AnimatePresence>
     );
-  }
-
-  // Step 1.5: Style preferences
-  if (!styleStepDone) {
-    return (
-      <StyleQuizStep
-        onComplete={async (sp: StyleProfile) => {
-          setIsSavingStyle(true);
-          try {
-            const currentPrefs = (profile?.preferences as Record<string, unknown>) || {};
-            await updateProfile.mutateAsync({
-              preferences: {
-                ...currentPrefs,
-                // Backward compat
-                favoriteColors: sp.favoriteColors,
-                dislikedColors: sp.dislikedColors,
-                fitPreference: sp.fit,
-                styleVibe: sp.styleWords[0] || 'smart-casual',
-                genderNeutral: sp.genderNeutral,
-                // Full profile
-                styleProfile: { ...sp },
-              },
-            });
-            setStyleStepDone(true);
-          } catch {
-            toast.error(t('onboarding.error'));
-          } finally {
-            setIsSavingStyle(false);
-          }
-        }}
-        onSkip={() => setStyleStepDone(true)}
-        isSaving={isSavingStyle}
-      />
-    );
-  }
-  // Step 2: App tutorial — completing this finishes onboarding
-  if (!tutorialDone) {
-    return <AppTutorialStep onComplete={async () => {
-      setTutorialDone(true);
-      try {
-        await completeOnboarding();
-      } catch {
-        // ignore — worst case they see the checklist
-      }
-      navigate('/');
-    }} />;
   }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Gradient header */}
-      <div className="bg-gradient-to-br from-accent/10 via-accent/5 to-background pt-16 pb-8 px-6 flex flex-col items-center text-center">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] as const }}
+        className="bg-gradient-to-br from-accent/10 via-accent/5 to-background pt-16 pb-8 px-6 flex flex-col items-center text-center"
+      >
         <div className="w-20 h-20 rounded-2xl bg-accent/15 flex items-center justify-center mb-6">
           <Sparkles className="w-10 h-10 text-accent" />
         </div>
         <h1 className="text-2xl font-bold mb-3 tracking-tight">{t('onboarding.welcome')}</h1>
         <p className="text-muted-foreground text-sm leading-relaxed max-w-xs">{t('onboarding.welcome_sub')}</p>
-      </div>
+      </motion.div>
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto px-6 pt-4 pb-6">

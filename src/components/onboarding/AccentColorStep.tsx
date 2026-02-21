@@ -1,8 +1,14 @@
 import { Check, Heart, Star } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useTheme, ACCENT_COLORS } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  show: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.06, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] as const } }),
+};
 
 interface AccentColorStepProps {
   onComplete: () => void;
@@ -15,15 +21,15 @@ export function AccentColorStep({ onComplete }: AccentColorStepProps) {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <div className="pt-16 pb-8 px-6 flex flex-col items-center text-center">
-        <h1 className="text-xl font-bold mb-2 tracking-tight">
+        <motion.h1 variants={fadeUp} initial="hidden" animate="show" custom={0} className="text-xl font-bold mb-2 tracking-tight">
           {t('onboarding.accent.title')}
-        </h1>
-        <p className="text-muted-foreground text-sm leading-relaxed max-w-xs mb-8">
+        </motion.h1>
+        <motion.p variants={fadeUp} initial="hidden" animate="show" custom={1} className="text-muted-foreground text-sm leading-relaxed max-w-xs mb-8">
           {t('onboarding.accent.subtitle')}
-        </p>
+        </motion.p>
 
         {/* Live UI preview */}
-        <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-5 space-y-4 transition-all duration-300">
+        <motion.div variants={fadeUp} initial="hidden" animate="show" custom={2} className="w-full max-w-sm rounded-2xl border border-border bg-card p-5 space-y-4 transition-all duration-300">
           <div className="flex items-center gap-2 flex-wrap">
             <button
               className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors duration-300"
@@ -58,11 +64,11 @@ export function AccentColorStep({ onComplete }: AccentColorStepProps) {
               Casual
             </span>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Color grid */}
-      <div className="flex-1 px-6 pb-10">
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={3} className="flex-1 px-6 pb-10">
         <div className="grid grid-cols-4 gap-3 max-w-sm mx-auto">
           {ACCENT_COLORS.map((color) => {
             const isSelected = accentColor.id === color.id;
@@ -107,7 +113,7 @@ export function AccentColorStep({ onComplete }: AccentColorStepProps) {
             {t('onboarding.body.continue')}
           </Button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
