@@ -52,12 +52,10 @@ Configured `staleTime: 2min`, `gcTime: 10min`, `refetchOnWindowFocus: false`, `r
 
 **Files:** `src/App.tsx`
 
-### 3.3 Virtualize wardrobe grid for large collections
-Users with 50+ garments experience scroll jank. Add virtual scrolling to the wardrobe grid using a lightweight virtualizer.
+### ✅ 3.3 Virtualize wardrobe grid for large collections
+Added `@tanstack/react-virtual` to virtualize both grid and list views. A `VirtualizedGarmentList` component renders only visible rows + 5 overscan buffer. Automatically triggers `fetchNextPage` when the sentinel row becomes visible. Supports grid (2-col, ~220px rows) and list (~74px rows) modes.
 
 **Files:** `src/pages/Wardrobe.tsx`
-- Consider `@tanstack/react-virtual` for the garment grid
-- Only render visible items + buffer
 
 ---
 
