@@ -42,8 +42,8 @@ export default function PricingPage() {
     finally { setIsLoading(false); }
   };
 
-  const monthlyPrice = 79;
-  const yearlyPrice = 699;
+  const monthlyPrice = 59;
+  const yearlyPrice = 499;
   const yearlyMonthlyEquivalent = Math.round(yearlyPrice / 12);
   const savingsPercent = Math.round((1 - yearlyPrice / (monthlyPrice * 12)) * 100);
 
