@@ -90,6 +90,11 @@ export function CalendarConnectBanner() {
           </div>
         </Button>
 
+        <p className="text-[11px] text-muted-foreground leading-snug">
+          BURS will read your calendar events to help plan outfits around your schedule. You can disconnect at any time.{' '}
+          <a href="/terms" className="underline hover:text-foreground">Privacy Policy</a>
+        </p>
+
         {!showIcs ? (
           <button
             onClick={() => setShowIcs(true)}
