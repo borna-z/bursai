@@ -10,10 +10,10 @@ interface DrapeLogoProps {
 }
 
 const sizeMap = {
-  sm: { icon: 24, text: 'text-sm' },
-  md: { icon: 32, text: 'text-base' },
-  lg: { icon: 40, text: 'text-lg' },
-  xl: { icon: 56, text: 'text-2xl' }
+  sm: { icon: 28, text: 'text-sm' },
+  md: { icon: 40, text: 'text-base' },
+  lg: { icon: 48, text: 'text-lg' },
+  xl: { icon: 64, text: 'text-2xl' }
 };
 
 export function DrapeLogo({ variant = 'horizontal', className, size = 'md', tinted = true }: DrapeLogoProps) {
