@@ -1,29 +1,31 @@
 
 
-## GDPR Cookie Consent Banner
+## Redesign "Our Mission" Section
 
-### What it does
-A cookie consent popup that appears at the bottom of the landing page for first-time visitors. It asks users to accept or decline non-essential cookies, and remembers their choice in `localStorage`. Fully GDPR-compliant: no tracking cookies are set before the user gives consent.
+### Problem
+The current three cards talk about "Privacy first", "Zero lock-in", and "Offline-ready PWA" -- these are technical features that don't resonate with users and don't align with BURS's brand positioning as an AI wardrobe stylist.
 
-### Design
-- Fixed bottom banner, dark glass style matching the landing page aesthetic (dark background, white text, subtle border)
-- Two buttons: "Accept" (white filled) and "Decline" (outline/ghost)
-- A link to the Privacy Policy (`/privacy`)
-- Once dismissed, the choice is saved to `localStorage` and the banner never appears again
-- Minimal, non-intrusive -- fits the Scandinavian minimalist design
+### New Content Direction
 
-### Technical changes
+**Section label:** "Why BURS" (sv: "Varför BURS")
+**Section title:** "Style smarter, not harder." (sv: "Styla smartare, inte mer.")
 
-#### 1. New component: `src/components/landing/CookieConsent.tsx`
-- Reads `localStorage` key `burs-cookie-consent` on mount
-- If no value found, show the banner
-- "Accept" sets value to `"accepted"`, "Decline" sets to `"declined"`
-- Links to `/privacy` for more details
-- Animated entrance (slide up) using existing Tailwind animation classes
-- Text: "We use cookies to improve your experience. Read our [Privacy Policy](/privacy) for details."
+Three new pillars that speak to the user's actual experience:
 
-#### 2. Update `src/pages/Landing.tsx`
-- Import and render `<CookieConsent />` at the bottom of the page, outside the scroll container so it stays fixed
+| Card | Icon | Title (EN) | Description (EN) |
+|------|------|------------|-------------------|
+| 1 | Sparkles | **Learns your style** | The more you wear, the smarter it gets. BURS adapts to your taste and lifestyle over time. |
+| 2 | Leaf | **Less buying, more wearing** | Rediscover forgotten favorites. Get more outfits from the clothes you already own. |
+| 3 | Calendar | **Dressed for every moment** | From Monday meetings to weekend plans. BURS matches your outfits to your schedule and weather. |
 
-No database changes needed -- consent is stored client-side in `localStorage` since BURS does not currently use any third-party tracking cookies. If analytics are added later, this component can be extended to gate those scripts.
+These pillars connect directly to BURS's core value props: AI personalization, sustainability, and contextual outfit planning.
+
+### Technical Changes
+
+**`src/i18n/translations.ts`**
+- Update all 6 translation keys (`mission_label`, `mission_title`, `trust1_title`, `trust1_desc`, `trust2_title`, `trust2_desc`, `trust3_title`, `trust3_desc`) across all languages (Swedish, English, Norwegian, Danish, Finnish)
+
+**`src/components/landing/MissionSection.tsx`**
+- Replace icons: `Shield, Smartphone` with `Sparkles, Leaf, Calendar` from lucide-react
+- Map the three cards to the updated translation keys (no structural changes needed -- same layout, just new icons and text)
 
