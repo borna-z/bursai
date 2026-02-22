@@ -1,74 +1,75 @@
 
 
-# Prisuppdatering: 59 kr/mån och 499 kr/år
+# Google OAuth Verification Compliance
 
-Ändrar all prissättning i appen från 79 kr/mån + 699 kr/år till **59 kr/mån + 499 kr/år**. Sparandeprocenten uppdateras från ~26% till ~30%.
-
----
-
-## Steg 1 -- Skapa nya Stripe-priser
-
-Eftersom Stripe-verktyget för att skapa produkter inte kunde användas direkt, behöver vi skapa nya Price-objekt manuellt i Stripe Dashboard:
-
-- **BURSE Premium Monthly**: 5900 öre (59 SEK), recurring monthly
-- **BURSE Premium Yearly**: 49900 öre (499 SEK), recurring yearly
-
-Sedan uppdateras secrets med de nya Price ID:na:
-- `STRIPE_PRICE_ID_MONTHLY` / `STRIPE_PRICE_ID_MONTHLY_TEST` / `STRIPE_PRICE_ID_MONTHLY_LIVE`
-- `STRIPE_PRICE_ID_YEARLY` / `STRIPE_PRICE_ID_YEARLY_TEST` / `STRIPE_PRICE_ID_YEARLY_LIVE`
-
-**Alternativ**: Om du redan har skapat dessa priser i Stripe Dashboard, meddela mig Price ID:na (format: `price_xxx`) så uppdaterar jag secrets direkt.
+This plan implements all required changes to pass Google's OAuth verification for the Google Calendar integration.
 
 ---
 
-## Steg 2 -- Uppdatera Pricing-sidan
+## Part 1: Landing Page — Privacy Policy and Terms Links
 
-**Fil**: `src/pages/Pricing.tsx` (rad 45-46)
+### Header (Landing.tsx)
+- Add "Privacy Policy" and "Terms of Service" as visible text links in the top navigation bar (desktop), alongside the existing section links (How it works, Sustainability, etc.)
+- On mobile, include both links in the hamburger menu
+- Links point to `/terms` (as specified)
+- Styled as subtle gray-400 text matching existing nav link style
 
-Ändra:
-- `monthlyPrice = 79` till `monthlyPrice = 59`
-- `yearlyPrice = 699` till `yearlyPrice = 499`
-
-Sparandeprocenten beraknas automatiskt och blir ~30%.
-
----
-
-## Steg 3 -- Uppdatera alla oversattningar
-
-**Fil**: `src/i18n/translations.ts`
-
-Folande nycklar uppdateras i **alla 14 sprak** (sv, en, no, da, fi, de, fr, es, it, pt, nl, pl, ar, fa):
-
-| Nyckel | Gammalt varde | Nytt varde |
-|--------|--------------|------------|
-| `premium.monthly` | 79 kr/manad | 59 kr/manad |
-| `premium.yearly` | 699 kr/ar (spara 26%) | 499 kr/ar (spara 30%) |
-| `trial.then_price` | Sedan 79 kr/manad eller 699 kr/ar | Sedan 59 kr/manad eller 499 kr/ar |
-| `landing.premium_then` | 79 kr/manad ... 699 kr/ar -- spara ~26% | 59 kr/manad ... 499 kr/ar -- spara ~30% |
-| `pricing.faq4_a` | spara 26% med arsplan | spara 30% med arsplan |
-
-Totalt ca 60+ strangar som behover andras (5 nycklar x 14 sprak).
+### Footer (LandingFooter.tsx)
+- The footer already has "Privacy Policy" and "Terms" links — verify they point to `/terms` and `/privacy` respectively
+- Add explicit "Terms of Service" label if not already present (currently uses translation key `landing.footer_terms`)
 
 ---
 
-## Steg 4 -- Uppdatera Stripe secrets
+## Part 2: Terms Page — Google Calendar Privacy Section
 
-Sex secrets uppdateras med de nya Price ID:na fran Stripe. Befintliga edge functions (`create_checkout_session`, `restore_subscription`, `stripe_webhook`) behover inte andras -- de laser redan Price ID fran secrets dynamiskt.
+### Update Terms.tsx
+- Add a new "Privacy Policy — Google Calendar Integration" section at the TOP of the page, before existing terms sections
+- Include anchor navigation (jump links) at the top for: Overview, Data Accessed, Data Usage, Storage & Retention, Sharing, User Controls, Security, Contact
+- Each subsection rendered with proper heading IDs for anchor links
+- Content is hardcoded in English (not translated) since this is a legal compliance document for Google's review
+- Existing terms sections remain unchanged below
+
+### Content structure:
+1. **Overview** — BURS description and optional Google Calendar connection
+2. **Google User Data We Access** — Read-only scope, fields accessed, fields NOT accessed
+3. **How We Use Google User Data** — Outfit suggestions, weekly planning; no selling/ads
+4. **Storage & Retention** — Token storage, encryption at rest, deletion on disconnect
+5. **Sharing** — No third-party sharing, no human review
+6. **User Controls** — Disconnect in Settings, delete account, revoke via Google
+7. **Security** — TLS, encryption at rest, least privilege
+8. **Contact** — privacy@burs.me, BURS
 
 ---
 
-## Tekniska detaljer
+## Part 3: In-App Disclosure Before Google OAuth
 
-### Filer som andras:
-1. `src/pages/Pricing.tsx` -- 2 rader (hardkodade prisvarden)
-2. `src/i18n/translations.ts` -- ~60 strangar (prisreferenser i alla sprak)
+### CalendarConnectBanner.tsx
+- Add a disclosure text below the "Google Calendar" connect button:
+  *"BURS will read your calendar events to help plan outfits around your schedule. You can disconnect at any time."*
+- Add a "Privacy Policy" link pointing to `/terms` below the disclosure text
 
-### Filer som INTE andras:
-- `supabase/functions/create_checkout_session/index.ts` -- laser Price ID fran environment secrets
-- `supabase/functions/_shared/stripe-config.ts` -- ingen andring behövs
-- Ingen databasandring kravs
+### CalendarSection.tsx (Settings page)
+- Add the same disclosure text above the Google Calendar connect button when not connected
+- Include link to `/terms`
 
-### Stripe-atgarder:
-- Skapa 2 nya Price-objekt i Stripe Dashboard (59 SEK monthly, 499 SEK yearly) for produkten "BURSE Premium"
-- Uppdatera 6 secrets med nya Price IDs
+---
+
+## Part 4: Internal Consistency (Code Comments)
+
+- Add a code comment block in the Google Calendar auth edge function noting the required Google Cloud Console settings (homepage URL, privacy policy URL, authorized domain, minimum scopes)
+
+---
+
+## Technical Details
+
+### Files to modify:
+1. **`src/pages/Landing.tsx`** — Add Privacy Policy + Terms links to header nav and mobile menu
+2. **`src/components/landing/LandingFooter.tsx`** — Ensure "Terms of Service" link is explicit and visible
+3. **`src/pages/marketing/Terms.tsx`** — Add Google Calendar privacy section with anchor nav at top
+4. **`src/components/plan/CalendarConnectBanner.tsx`** — Add disclosure text + privacy link before OAuth
+5. **`src/components/settings/CalendarSection.tsx`** — Add disclosure text + privacy link in Google Calendar card
+6. **`supabase/functions/google_calendar_auth/index.ts`** — Add checklist comment block
+
+### No database changes required.
+### No new dependencies required.
 
