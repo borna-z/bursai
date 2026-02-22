@@ -315,7 +315,7 @@ function AddFAB({ onPhoto, onScan, isOverLimit }: { onPhoto: () => void; onScan:
                 className="flex items-center gap-2.5 bg-card border border-border/40 rounded-xl px-4 py-3 shadow-lg text-sm font-medium"
               >
                 <ScanLine className="w-4 h-4 text-accent" />
-                {t('wardrobe.live_scan') || 'Live Scan'}
+                Drape Live Scan
               </button>
               <button
                 onClick={() => { setOpen(false); onPhoto(); }}
