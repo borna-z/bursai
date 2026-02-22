@@ -20,6 +20,7 @@ interface UseForecastResult {
 
 interface UseForecastOptions {
   homeCity?: string | null;
+  city?: string | null;
   enabled?: boolean;
 }
 
@@ -80,27 +81,50 @@ export async function fetchForecast(lat: number, lon: number): Promise<ForecastD
   return forecast;
 }
 
-// Get coordinates - from city or geolocation
-async function getCoordinates(homeCity?: string | null): Promise<{ lat: number; lon: number }> {
-  // Try home city first
+// Get coordinates - from city, home city, geolocation, or Stockholm fallback
+async function getCoordinates(city?: string | null, homeCity?: string | null): Promise<{ lat: number; lon: number }> {
+  // 1. Manual city override
+  if (city) {
+    const coords = await getCoordinatesFromCity(city);
+    if (coords) return coords;
+  }
+
+  // 2. Profile home city
   if (homeCity) {
     const coords = await getCoordinatesFromCity(homeCity);
     if (coords) return coords;
   }
 
-  // Fallback to Stockholm
+  // 3. Browser geolocation
+  if (typeof navigator !== 'undefined' && navigator.geolocation) {
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: false,
+          timeout: 10000,
+          maximumAge: 300000,
+        });
+      });
+      return { lat: position.coords.latitude, lon: position.coords.longitude };
+    } catch {
+      // Fall through to Stockholm
+    }
+  }
+
+  // 4. Fallback to Stockholm
   return { lat: 59.3293, lon: 18.0686 };
 }
 
 export function useForecast(options: UseForecastOptions = {}): UseForecastResult {
   const { data: profile } = useProfile();
   const homeCity = options.homeCity ?? profile?.home_city;
+  const city = options.city ?? null;
   const enabled = options.enabled !== false;
 
   const { data: forecast = [], isLoading, error } = useQuery({
-    queryKey: ['forecast', homeCity],
+    queryKey: ['forecast', city, homeCity],
     queryFn: async () => {
-      const coords = await getCoordinates(homeCity);
+      const coords = await getCoordinates(city, homeCity);
       return fetchForecast(coords.lat, coords.lon);
     },
     enabled,
