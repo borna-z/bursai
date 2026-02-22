@@ -12,7 +12,7 @@ export function LandingFooter() {
           <img src={bursLandingLogo} alt="BURS" className="h-5 object-contain" />
         </div>
         <div className="flex gap-6">
-          <a href="/terms" className="hover:text-white transition-colors">Privacy Policy</a>
+          <a href="/privacy" className="hover:text-white transition-colors">Privacy Policy</a>
           <a href="/terms" className="hover:text-white transition-colors">Terms of Service</a>
           <a href="/contact" className="hover:text-white transition-colors">{t('landing.footer_contact')}</a>
         </div>
