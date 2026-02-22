@@ -1,30 +1,56 @@
 
 
-## Make sinamobarraky@gmail.com Premium
+# BURS Roadmap -- Uppdatering av .lovable/plan.md
 
-### What
-Set the user `sinamobarraky@gmail.com` (ID: `a9a3750d-2ab8-47d4-b278-7c3238d35088`) to premium plan.
+Ersatt det gamla (avklarat) planinnehallet med en ny roadmap som tar projektet framat. Organiserat i fyra prioritetsnivan.
 
-### Technical steps
+---
 
-1. **Update `user_subscriptions` table** -- set `plan` to `'premium'` for this user
-2. **Update `subscriptions` table** -- upsert a record with `plan = 'premium'` and `status = 'active'`
+## Nytt innehall for `.lovable/plan.md`
 
-Both updates use the service role (via SQL migration) since client-side inserts/updates are denied by RLS on these tables.
+```markdown
+# BURS Roadmap
 
-### SQL to run
+## Avklarat
+- [x] Redesign "Our Mission" -> "Why BURS" (nya ikoner, ny copy, 5 sprak)
+- [x] GDPR cookie consent banner pa landningssidan
+- [x] Privacy Policy omskrivning (GDPR, Google Calendar scope)
+- [x] Terms of Service omskrivning (EU angeratt, prissattning)
+- [x] Separata /privacy och /terms routes med korslankar
+- [x] Ta bort legal-lankar fran header (bara footer)
+- [x] Uppgradera sinamobarraky@gmail.com till premium
 
-```sql
--- Update user_subscriptions
-UPDATE public.user_subscriptions
-SET plan = 'premium', updated_at = now()
-WHERE user_id = 'a9a3750d-2ab8-47d4-b278-7c3238d35088';
+## Prioritet 1 -- Landningssida polish
+- [ ] Granska och forbattra Hero-copy (rubrik, underrubrik, trust line)
+- [ ] Granska "How it works" -- sakerstall att stegen matchar appens flode
+- [ ] Granska Sustainability-statistik -- verifiera siffror
+- [ ] Granska CTA-sektion copy
+- [ ] Lagg till social proof / testimonials-sektion
+- [ ] Uppdatera OG-bild och metataggar till aktuell branding
+- [ ] App-screenshots eller demo-video pa landningssidan
 
--- Upsert subscriptions
-INSERT INTO public.subscriptions (user_id, plan, status, updated_at)
-VALUES ('a9a3750d-2ab8-47d4-b278-7c3238d35088', 'premium', 'active', now())
-ON CONFLICT (user_id)
-DO UPDATE SET plan = 'premium', status = 'active', updated_at = now();
+## Prioritet 2 -- Onboarding och konvertering
+- [ ] Granska onboarding-flodet (style quiz, tutorial) for dropout-punkter
+- [ ] Forbattra trial banner messaging och placering
+- [ ] Testa konverteringsflode fran landing -> auth -> onboarding -> app
+
+## Prioritet 3 -- Karnapp-forbattringar
+- [ ] Forbattra outfit-generering (kvalitet och hastighet)
+- [ ] Garderob: sortering, filtrering, bulk-atgarder
+- [ ] Kalenderintegration UX-forbattringar
+- [ ] AI-chatt: snabbare svar, battre forslag
+- [ ] Plan-vyn: forbattra veckoplanering UX
+
+## Prioritet 4 -- Tillvaxt och retention
+- [ ] Forbattra outfit-delning (share-kort design)
+- [ ] Push-notifieringsstrategi (outfit-paminnelser, vader-varningar)
+- [ ] Veckovis style-rapport / insikts-email
+- [ ] Referral-program
 ```
 
-No code changes needed -- this is a data-only operation.
+## Teknisk andring
+
+**Fil:** `.lovable/plan.md`
+- Ersatt hela filinnehallet med den nya roadmapen ovan
+- Inga andra filer andras
+
