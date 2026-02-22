@@ -5,6 +5,7 @@ import { Menu, X } from 'lucide-react';
 import bursLandingLogo from '@/assets/burs-logo-white.png';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { HeroSection } from '@/components/landing/HeroSection';
+import { CookieConsent } from '@/components/landing/CookieConsent';
 
 // Lazy-load below-fold sections for faster initial paint
 const TrialBanner = lazy(() => import('@/components/landing/TrialBanner').then(m => ({ default: m.TrialBanner })));
@@ -161,6 +162,7 @@ export default function Landing() {
             <LandingFooter />
           </Suspense>
         </div>
+        <CookieConsent />
       </div>
     </>
   );
