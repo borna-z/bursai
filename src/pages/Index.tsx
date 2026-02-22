@@ -22,13 +22,11 @@ const Index = () => {
     );
   }
 
-  // Check onboarding
-  if (profile) {
-    const prefs = profile.preferences as Record<string, any> | null;
-    const onboardingCompleted = prefs?.onboarding?.completed === true;
-    if (!onboardingCompleted) {
-      return <Navigate to="/onboarding" replace />;
-    }
+  // Check onboarding — if profile is null or onboarding not completed, go to onboarding
+  const prefs = profile?.preferences as Record<string, any> | null;
+  const onboardingCompleted = prefs?.onboarding?.completed === true;
+  if (!onboardingCompleted) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <Home />;
