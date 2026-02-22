@@ -1,10 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, Shirt, Sparkles, BarChart3, TrendingUp, Lock, Palette, Gem, AlertCircle, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useInsights, type Garment, type InsightsData } from '@/hooks/useInsights';
+import { useInsights, type Garment } from '@/hooks/useInsights';
 import { useSubscription } from '@/hooks/useSubscription';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -20,7 +19,7 @@ function GarmentMini({ garment, wearCount }: { garment: Garment; wearCount?: num
   const navigate = useNavigate();
   return (
     <div className="flex items-center gap-3 py-3 cursor-pointer hover:opacity-70 transition-opacity active:scale-[0.99]" onClick={() => navigate(`/wardrobe/${garment.id}`)}>
-      <LazyImageSimple imagePath={garment.image_path} alt={garment.title} className="w-12 h-12 rounded-lg flex-shrink-0 shadow-sm" fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/50" />} />
+      <LazyImageSimple imagePath={garment.image_path} alt={garment.title} className="w-12 h-12 rounded-lg flex-shrink-0" fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/50" />} />
       <div className="flex-1 min-w-0">
         <p className="font-medium text-sm truncate">{garment.title}</p>
         <p className="text-xs text-muted-foreground capitalize">{garment.category}</p>
@@ -36,9 +35,7 @@ const COLOR_I18N: Record<string, string> = {
   brun: 'color.brun', rosa: 'color.rosa', gul: 'color.gul', orange: 'color.orange', lila: 'color.lila',
 };
 
-interface ColorDistributionProps { garments: Garment[]; isPremium: boolean; t: (key: string) => string; }
-
-function ColorDistribution({ garments, isPremium, t }: ColorDistributionProps) {
+function ColorDistribution({ garments, isPremium, t }: { garments: Garment[]; isPremium: boolean; t: (key: string) => string }) {
   const { colorCounts, colorBars, total } = useMemo(() => {
     const counts: Record<string, number> = {};
     garments.forEach(g => { const color = g.color_primary?.toLowerCase() || t('insights.unknown_color'); counts[color] = (counts[color] || 0) + 1; });
@@ -49,38 +46,36 @@ function ColorDistribution({ garments, isPremium, t }: ColorDistributionProps) {
   }, [garments]);
 
   return (
-    <Card className={cn(!isPremium && "relative overflow-hidden")}>
-      <CardHeader className="pb-2">
-        <div className="flex items-center gap-2"><Palette className="w-5 h-5 text-primary" /><CardTitle className="text-base">{t('insights.colors')}</CardTitle></div>
-        <CardDescription>{t('insights.common_colors')}</CardDescription>
-      </CardHeader>
-      <CardContent className={cn(!isPremium && "blur-sm select-none")}>
+    <div className={cn("space-y-4", !isPremium && "relative")}>
+      <div className="flex items-center gap-2">
+        <Palette className="w-4 h-4 text-muted-foreground" />
+        <h3 className="text-sm font-semibold">{t('insights.colors')}</h3>
+      </div>
+      <div className={cn(!isPremium && "blur-sm select-none")}>
         <ColorBar colors={colorBars} total={total} />
-        <div className="mt-4 space-y-2">
+        <div className="mt-3 space-y-1.5">
           {colorCounts.map(([color, count]) => {
             const percentage = Math.round((count / total) * 100);
             return (
               <div key={color} className="flex items-center gap-3">
-                <span className="text-sm capitalize flex-1">{t(COLOR_I18N[color] || color)}</span>
+                <span className="text-xs capitalize flex-1">{t(COLOR_I18N[color] || color)}</span>
                 <MiniBar value={percentage} className="flex-1" />
-                <span className="text-xs text-muted-foreground w-8 text-right">{count}</span>
+                <span className="text-[11px] text-muted-foreground w-6 text-right tabular-nums">{count}</span>
               </div>
             );
           })}
         </div>
-      </CardContent>
+      </div>
       {!isPremium && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/50">
-          <div className="text-center p-4"><Lock className="w-8 h-8 mx-auto mb-2 text-muted-foreground" /><p className="font-medium">{t('common.premium')}</p></div>
+        <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-xl">
+          <div className="text-center p-4"><Lock className="w-6 h-6 mx-auto mb-1.5 text-muted-foreground" /><p className="text-sm font-medium">{t('common.premium')}</p></div>
         </div>
       )}
-    </Card>
+    </div>
   );
 }
 
-interface UnusedGemsProps { garments: Garment[]; isPremium: boolean; t: (key: string) => string; }
-
-function UnusedGems({ garments, isPremium, t }: UnusedGemsProps) {
+function UnusedGems({ garments, isPremium, t }: { garments: Garment[]; isPremium: boolean; t: (key: string) => string }) {
   const navigate = useNavigate();
   const unusedGems = useMemo(() => {
     const sixtyDaysAgo = new Date(); sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
@@ -94,12 +89,13 @@ function UnusedGems({ garments, isPremium, t }: UnusedGemsProps) {
   const handleCreateOutfit = (garmentId: string) => { navigate('/', { state: { includeGarmentId: garmentId } }); };
 
   return (
-    <Card className={cn(!isPremium && "relative overflow-hidden")}>
-      <CardHeader className="pb-2">
-        <div className="flex items-center gap-2"><Gem className="w-5 h-5 text-amber-500" /><CardTitle className="text-base">{t('insights.unused_gems')}</CardTitle></div>
-        <CardDescription>{unusedGems.length} {t('insights.unused_60d')}</CardDescription>
-      </CardHeader>
-      <CardContent className={cn("divide-y divide-border/50", !isPremium && "blur-sm select-none")}>
+    <div className={cn("space-y-3", !isPremium && "relative")}>
+      <div className="flex items-center gap-2">
+        <Gem className="w-4 h-4 text-amber-500" />
+        <h3 className="text-sm font-semibold">{t('insights.unused_gems')}</h3>
+        <span className="text-xs text-muted-foreground">{unusedGems.length} {t('insights.unused_60d')}</span>
+      </div>
+      <div className={cn("divide-y divide-border/20", !isPremium && "blur-sm select-none")}>
         {unusedGems.slice(0, 4).map((garment) => (
           <UnusedGemCard key={garment.id} garment={garment} daysUnused={garment.daysUnused} onCreateOutfit={() => handleCreateOutfit(garment.id)} />
         ))}
@@ -108,13 +104,13 @@ function UnusedGems({ garments, isPremium, t }: UnusedGemsProps) {
             {t('insights.show_all')} {unusedGems.length}
           </Button>
         )}
-      </CardContent>
+      </div>
       {!isPremium && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/50">
-          <div className="text-center p-4"><Lock className="w-8 h-8 mx-auto mb-2 text-muted-foreground" /><p className="font-medium">{t('common.premium')}</p></div>
+        <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-xl">
+          <div className="text-center p-4"><Lock className="w-6 h-6 mx-auto mb-1.5 text-muted-foreground" /><p className="text-sm font-medium">{t('common.premium')}</p></div>
         </div>
       )}
-    </Card>
+    </div>
   );
 }
 
@@ -147,94 +143,96 @@ export default function InsightsPage() {
   return (
     <AppLayout>
       <PageHeader title={t('insights.title')} showBack />
-      <div className="px-4 pb-6 pt-6 space-y-6 max-w-lg mx-auto stagger-drape [&>*]:animate-drape-in [&>*]:opacity-0 [&>*]:[animation-fill-mode:both]">
-        {!isPremium && (
-          <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-background/70 backdrop-blur-sm border-primary/20 animate-fade-in">
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0"><Sparkles className="w-6 h-6 text-primary" /></div>
-              <div className="flex-1">
-                <p className="font-semibold">{t('insights.unlock')}</p>
-                <p className="text-sm text-muted-foreground">{t('insights.ai_suggestions')}</p>
-              </div>
-              <Button size="sm" onClick={() => navigate('/settings')}>{t('common.premium')}</Button>
-            </CardContent>
-          </Card>
-        )}
+      <div className="px-4 pb-6 pt-6 space-y-5 max-w-lg mx-auto">
 
-        <div className="grid grid-cols-2 gap-3">
-          <Card className="bg-gradient-to-br from-muted/40 to-background/70 backdrop-blur-sm">
-            <CardContent className="p-4 text-center">
-              <p className="text-4xl font-bold tracking-tight">{insights.totalGarments}</p>
-              <p className="text-xs text-muted-foreground mt-1">{t('insights.total')}</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-primary/5 to-background/70 backdrop-blur-sm">
-            <CardContent className="p-4 text-center">
-              <p className="text-4xl font-bold tracking-tight text-primary">{insights.garmentsUsedLast30Days}</p>
-              <p className="text-xs text-muted-foreground mt-1">{t('insights.used_30d')}</p>
-            </CardContent>
-          </Card>
+        {/* Stats strip — borderless */}
+        <div className="flex items-center justify-between py-4 border-b border-border/20">
+          <div className="flex-1 text-center">
+            <p className="text-3xl font-bold tracking-tight tabular-nums">{insights.totalGarments}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{t('insights.total')}</p>
+          </div>
+          <div className="w-px h-10 bg-border/30" />
+          <div className="flex-1 text-center">
+            <p className="text-3xl font-bold tracking-tight tabular-nums text-primary">{insights.garmentsUsedLast30Days}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{t('insights.used_30d')}</p>
+          </div>
         </div>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-2"><TrendingUp className="w-5 h-5 text-primary" /><CardTitle className="text-base">{t('insights.usage')}</CardTitle></div>
-            <CardDescription>{t('insights.last_30d')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-baseline gap-1">
-                <span className="text-5xl font-bold tracking-tight">{insights.usageRate}</span>
-                <span className="text-2xl text-muted-foreground">%</span>
-              </div>
-              <MiniBar value={insights.usageRate} color={insights.usageRate >= 50 ? 'success' : insights.usageRate >= 25 ? 'primary' : 'warning'} showLabel />
-              <p className="text-sm text-muted-foreground">{insights.garmentsUsedLast30Days} {t('insights.of_garments')} {insights.totalGarments} {t('insights.garments_suffix')}</p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Usage rate */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">{t('insights.usage')}</h3>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-4xl font-bold tracking-tight tabular-nums">{insights.usageRate}</span>
+            <span className="text-xl text-muted-foreground">%</span>
+          </div>
+          <MiniBar value={insights.usageRate} color={insights.usageRate >= 50 ? 'success' : insights.usageRate >= 25 ? 'primary' : 'warning'} showLabel />
+          <p className="text-xs text-muted-foreground">{insights.garmentsUsedLast30Days} {t('insights.of_garments')} {insights.totalGarments} {t('insights.garments_suffix')}</p>
+        </div>
 
+        {/* Top worn */}
         {insights.topFiveWorn.length > 0 && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2"><Trophy className="w-4 h-4 text-amber-500" /> {t('insights.top_garments')}</CardTitle>
-              <CardDescription>{t('insights.most_used')}</CardDescription>
-            </CardHeader>
-            <CardContent className="divide-y divide-border/50">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-amber-500" />
+              <h3 className="text-sm font-semibold">{t('insights.top_garments')}</h3>
+            </div>
+            <div className="divide-y divide-border/20">
               {insights.topFiveWorn.map((garment, index) => (
-                <div key={garment.id} className="flex items-center gap-2 animate-fade-in" style={{ animationDelay: `${index * 50}ms` }}>
-                  <span className="w-5 text-center font-bold text-muted-foreground">{index + 1}</span>
+                <div key={garment.id} className="flex items-center gap-2">
+                  <span className="w-5 text-center font-bold text-muted-foreground/60 text-xs">{index + 1}</span>
                   <div className="flex-1"><GarmentMini garment={garment} wearCount={garment.wearCountLast30} /></div>
                 </div>
               ))}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
 
+        {/* Unused */}
         {insights.unusedGarments.length > 0 && (
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-2"><AlertCircle className="w-5 h-5 text-amber-500" /><CardTitle className="text-base">{t('insights.unused')}</CardTitle></div>
-              <CardDescription>{insights.unusedGarments.length} {t('insights.garments_suffix')} (30d)</CardDescription>
-            </CardHeader>
-            <CardContent className="divide-y divide-border/50">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-500" />
+              <h3 className="text-sm font-semibold">{t('insights.unused')}</h3>
+              <span className="text-xs text-muted-foreground">{insights.unusedGarments.length} (30d)</span>
+            </div>
+            <div className={cn("divide-y divide-border/20", !isPremium && "blur-sm select-none relative")}>
               {insights.unusedGarments.slice(0, isPremium ? 5 : 3).map((garment) => (
                 <GarmentMini key={garment.id} garment={garment} />
               ))}
               {!isPremium && insights.unusedGarments.length > 3 && (
-                <div className="text-center py-2">
-                  <p className="text-sm text-muted-foreground mb-2">+{insights.unusedGarments.length - 3} {t('insights.more')}</p>
-                  <Button variant="outline" size="sm" onClick={() => navigate('/settings')}>
-                    <Lock className="w-3 h-3 mr-1.5" />{t('common.premium')}
-                  </Button>
+                <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+                  <div className="text-center p-3">
+                    <Lock className="w-6 h-6 mx-auto mb-1.5 text-muted-foreground" />
+                    <Button variant="outline" size="sm" onClick={() => navigate('/settings')}>
+                      <Lock className="w-3 h-3 mr-1.5" />{t('common.premium')}
+                    </Button>
+                  </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
 
+        {/* AI Suggestions */}
         <AISuggestions isPremium={isPremium} />
+
+        {/* Color Distribution — borderless */}
         <ColorDistribution garments={allGarments} isPremium={isPremium} t={t} />
+
+        {/* Unused Gems — borderless */}
         <UnusedGems garments={insights.unusedGarments} isPremium={isPremium} t={t} />
+
+        {/* Bottom subtle premium link */}
+        {!isPremium && (
+          <p className="text-center text-xs text-muted-foreground/60">
+            <button onClick={() => navigate('/settings')} className="underline underline-offset-2 hover:text-foreground transition-colors">
+              {t('insights.unlock')} {t('common.premium')}
+            </button>
+          </p>
+        )}
 
         <Button className="w-full" size="lg" onClick={() => navigate('/')}>
           <Sparkles className="w-5 h-5 mr-2" />{t('insights.get_outfits')}

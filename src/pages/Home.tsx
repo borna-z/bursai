@@ -3,32 +3,28 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { TAP_TRANSITION } from '@/lib/motion';
-import { Sparkles, ChevronRight, BarChart3, TrendingUp, Shirt, Palette, Gem, AlertCircle, Lock, RefreshCw, ChevronDown, Sun, Briefcase, PartyPopper, Heart, Dumbbell, Plane, Trophy } from 'lucide-react';
+import {
+  Sparkles, ChevronRight, Shirt, Trophy, Lock,
+  Sun, Briefcase, PartyPopper, Heart, Dumbbell, Plane,
+} from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { AnimatedTab } from '@/components/ui/animated-tab';
-import { StaggerContainer, StaggerItem } from '@/components/ui/stagger';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useGarmentCount } from '@/hooks/useGarments';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useWeather } from '@/hooks/useWeather';
-import { useInsights, type Garment } from '@/hooks/useInsights';
+import { useInsights } from '@/hooks/useInsights';
 import { PaywallModal } from '@/components/PaywallModal';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { WeatherWidget } from '@/components/weather/WeatherWidget';
+import { WeatherPill } from '@/components/weather/WeatherPill';
 import { AISuggestions } from '@/components/insights/AISuggestions';
-import { MiniBar, ColorBar } from '@/components/insights/MiniBar';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { StatGridSkeleton, InsightCardSkeleton } from '@/components/ui/skeletons';
 import { SectionHeader } from '@/components/ui/section-header';
-import { useMemo } from 'react';
 
 // ─── Occasion + sub-option config ────────────────────────────
 interface OccasionOption {
@@ -81,134 +77,6 @@ const STYLES = [
   { id: 'avslappnad', labelKey: 'home.style.avslappnad' },
 ];
 
-// ─── Compact insight widgets ────────────────────────────────
-function InsightsSection({ isPremium, t }: { isPremium: boolean; t: (k: string) => string }) {
-  const navigate = useNavigate();
-  const { data: insights, isLoading } = useInsights();
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <StatGridSkeleton />
-        <InsightCardSkeleton />
-        <InsightCardSkeleton />
-      </div>
-    );
-  }
-
-  if (!insights || insights.totalGarments === 0) {
-    return (
-      <Card>
-        <CardContent className="p-6 text-center">
-          <BarChart3 className="w-8 h-8 mx-auto mb-2 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">{t('insights.add_garments')}</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      {/* Quick stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-3xl font-bold tracking-tight">{insights.totalGarments}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5"><span className="sr-only">{t('insights.total')}: </span>{t('insights.total')}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-3xl font-bold tracking-tight">{insights.usageRate}%</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5"><span className="sr-only">{t('insights.usage')}: </span>{t('insights.usage')}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-3xl font-bold tracking-tight">{insights.unusedGarments.length}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5"><span className="sr-only">{t('insights.unused')}: </span>{t('insights.unused')}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Usage bar */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-accent" />
-              <span className="text-sm font-medium">{t('insights.wardrobe_use')}</span>
-            </div>
-            <span className="text-sm font-semibold text-accent">{insights.usageRate}%</span>
-          </div>
-          <MiniBar value={insights.usageRate} color={insights.usageRate >= 50 ? 'success' : insights.usageRate >= 25 ? 'primary' : 'warning'} />
-          <p className="text-xs text-muted-foreground mt-2">{insights.garmentsUsedLast30Days} {t('insights.of_garments')} {insights.totalGarments} {t('insights.used_30d_suffix')}</p>
-        </CardContent>
-      </Card>
-
-      {/* Top worn */}
-      {insights.topFiveWorn.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2 pt-3 px-4">
-            <CardTitle className="text-sm flex items-center gap-2"><Trophy className="w-4 h-4 text-amber-500" /> {t('insights.top_garments')}</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-3 divide-y divide-border/50">
-            {insights.topFiveWorn.slice(0, 3).map((garment, index) => (
-              <div key={garment.id} className="flex items-center gap-2 py-2" onClick={() => navigate(`/wardrobe/${garment.id}`)}>
-                <span className="w-4 text-center text-xs font-bold text-muted-foreground">{index + 1}</span>
-                <LazyImageSimple imagePath={garment.image_path} alt={garment.title} className="w-9 h-9 rounded-lg flex-shrink-0" fallbackIcon={<Shirt className="w-4 h-4 text-muted-foreground/50" />} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate">{garment.title}</p>
-                </div>
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{garment.wearCountLast30}×</Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Unused garments */}
-      {insights.unusedGarments.length > 0 && (
-        <Card className={cn(!isPremium && "relative overflow-hidden")}>
-          <CardHeader className="pb-2 pt-3 px-4">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-500" />
-              <CardTitle className="text-sm">{t('insights.unused')}</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className={cn("px-4 pb-3 divide-y divide-border/50", !isPremium && "blur-sm select-none")}>
-            {insights.unusedGarments.slice(0, 3).map((garment) => (
-              <div key={garment.id} className="flex items-center gap-2 py-2" onClick={() => navigate(`/wardrobe/${garment.id}`)}>
-                <LazyImageSimple imagePath={garment.image_path} alt={garment.title} className="w-9 h-9 rounded-lg flex-shrink-0" fallbackIcon={<Shirt className="w-4 h-4 text-muted-foreground/50" />} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate">{garment.title}</p>
-                  <p className="text-[10px] text-muted-foreground capitalize">{garment.category}</p>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-          {!isPremium && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/50">
-              <div className="text-center p-3">
-                <Lock className="w-6 h-6 mx-auto mb-1 text-muted-foreground" />
-                <p className="text-xs font-medium">{t('common.premium')}</p>
-              </div>
-            </div>
-          )}
-        </Card>
-      )}
-
-      {/* AI Suggestions */}
-      <AISuggestions isPremium={isPremium} />
-
-      {/* Full insights link */}
-      <Button variant="ghost" className="w-full text-sm text-muted-foreground" onClick={() => navigate('/insights')}>
-        {t('home.all_insights')} <ChevronRight className="w-4 h-4 ml-1" />
-      </Button>
-    </div>
-  );
-}
-
 // ─── Main Home ──────────────────────────────────────────────
 export default function HomePage() {
   const navigate = useNavigate();
@@ -218,6 +86,7 @@ export default function HomePage() {
   const { canCreateOutfit, isPremium } = useSubscription();
   const { weather } = useWeather();
   const { data: profile } = useProfile();
+  const { data: insights } = useInsights();
   const queryClient = useQueryClient();
 
   const handleRefresh = useCallback(async () => {
@@ -226,7 +95,6 @@ export default function HomePage() {
     await queryClient.invalidateQueries({ queryKey: ['weather'] });
   }, [queryClient]);
 
-  const [activeTab, setActiveTab] = useState<'create' | 'insights'>('create');
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(() => localStorage.getItem('burs_last_occasion'));
   const [selectedSub, setSelectedSub] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(() => localStorage.getItem('burs_last_style'));
@@ -279,16 +147,19 @@ export default function HomePage() {
   return (
     <AppLayout>
       <PullToRefresh onRefresh={handleRefresh}>
-      <AnimatedPage className="px-4 pb-6 pt-6 space-y-6 max-w-lg mx-auto">
-        {/* Hero greeting */}
+      <AnimatedPage className="px-4 pb-8 pt-6 space-y-6 max-w-lg mx-auto">
+
+        {/* ── 1. Greeting + Weather Pill ── */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
+          className="flex items-center justify-between"
         >
-          <h1 className="text-xl font-bold tracking-tight" style={{ fontFamily: "'Sora', sans-serif" }}>
+          <h1 className="text-lg font-semibold tracking-tight" style={{ fontFamily: "'Sora', sans-serif" }}>
             {getGreeting()}
           </h1>
+          <WeatherPill />
         </motion.div>
 
         {/* Onboarding nudge */}
@@ -297,7 +168,7 @@ export default function HomePage() {
             whileTap={{ scale: 0.975 }}
             transition={TAP_TRANSITION}
             onClick={() => navigate('/onboarding')}
-            className="w-full flex items-center justify-between bg-card/70 backdrop-blur-sm rounded-xl px-4 py-3 border border-border/40 transition-colors will-change-transform"
+            className="w-full flex items-center justify-between rounded-xl px-4 py-3 bg-foreground/[0.03] transition-colors will-change-transform"
           >
             <div className="flex items-center gap-3">
               <span className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center">
@@ -309,147 +180,162 @@ export default function HomePage() {
           </motion.button>
         )}
 
-        {/* Tab switcher */}
-        <div className="flex bg-foreground/[0.04] rounded-2xl p-1 gap-1">
-          <button
-            onClick={() => setActiveTab('create')}
-            className={cn(
-              "flex-1 py-2 text-sm font-semibold rounded-xl transition-all duration-200",
-              activeTab === 'create'
-                ? "bg-foreground/[0.06] text-foreground"
-                : "text-muted-foreground"
-            )}
-          >
-            <Sparkles className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
-            {t('home.tab_create')}
-          </button>
-          <button
-            onClick={() => setActiveTab('insights')}
-            className={cn(
-              "flex-1 py-2 text-sm font-semibold rounded-xl transition-all duration-200",
-              activeTab === 'insights'
-                ? "bg-foreground/[0.06] text-foreground"
-                : "text-muted-foreground"
-            )}
-          >
-            <BarChart3 className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
-            {t('home.tab_insights')}
-          </button>
+        {/* ── 2. Occasion Selector (horizontal scroll) ── */}
+        <div className="space-y-3">
+          <SectionHeader title={t('home.what_today')} />
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
+            {OCCASIONS.map((occ) => (
+              <motion.button
+                key={occ.id}
+                whileTap={{ scale: 0.94 }}
+                transition={TAP_TRANSITION}
+                onClick={() => handleSelectOccasion(occ.id)}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 will-change-transform",
+                  selectedOccasion === occ.id
+                    ? "bg-accent/[0.08] text-accent ring-1 ring-accent/30"
+                    : "bg-foreground/[0.03] text-foreground"
+                )}
+              >
+                <occ.icon className="w-4 h-4" />
+                <span className="text-xs">{t(occ.labelKey)}</span>
+              </motion.button>
+            ))}
+          </div>
+
+          {/* Sub-options row */}
+          {activeOccasion?.subOptions && (
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
+              {activeOccasion.subOptions.map((sub) => (
+                <motion.button
+                  key={sub.id}
+                  whileTap={{ scale: 0.93 }}
+                  transition={TAP_TRANSITION}
+                  onClick={() => setSelectedSub(selectedSub === sub.id ? null : sub.id)}
+                  className={cn(
+                    "px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap flex-shrink-0 will-change-transform",
+                    selectedSub === sub.id
+                      ? "bg-accent/10 text-accent"
+                      : "bg-foreground/[0.03] text-foreground"
+                  )}
+                >
+                  {t(sub.labelKey)}
+                </motion.button>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* ── CREATE TAB ── */}
-        <AnimatedTab tabKey={activeTab}>
-        {activeTab === 'create' && (
-          <div className="space-y-5">
-            <WeatherWidget />
+        {/* Cold weather hint */}
+        {weather && weather.temperature <= 10 && (
+          <p className="text-xs text-muted-foreground">
+            ❄️ {t('home.cold_hint')}
+          </p>
+        )}
 
-            {weather && weather.temperature <= 10 && (
-              <p className="text-xs text-muted-foreground text-center -mt-2">
-                {t('home.cold_hint')}
-              </p>
-            )}
+        {/* ── 3. Styles ── */}
+        <div className="space-y-3">
+          <SectionHeader title={t('home.style_optional')} />
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
+            {STYLES.map((style) => (
+              <motion.button
+                key={style.id}
+                whileTap={{ scale: 0.93 }}
+                transition={TAP_TRANSITION}
+                onClick={() => setSelectedStyle(selectedStyle === style.id ? null : style.id)}
+                className={cn(
+                  "px-4 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap flex-shrink-0 will-change-transform",
+                  selectedStyle === style.id
+                    ? "bg-accent/10 text-accent"
+                    : "bg-foreground/[0.03] text-foreground"
+                )}
+              >
+                {t(style.labelKey)}
+              </motion.button>
+            ))}
+          </div>
+        </div>
 
-            {/* Occasions */}
-            <div className="space-y-3">
-              <SectionHeader title={t('home.what_today')} />
-              <StaggerContainer className="grid grid-cols-2 gap-3" stagger={0.04}>
-                {OCCASIONS.map((occ) => (
-                  <StaggerItem key={occ.id}>
-                  <motion.button
-                    whileTap={{ scale: 0.94 }}
-                    transition={TAP_TRANSITION}
-                    onClick={() => handleSelectOccasion(occ.id)}
-                    className={cn(
-                      "w-full flex flex-col items-center gap-1.5 py-5 px-2 rounded-xl text-sm font-medium transition-colors will-change-transform",
-                      selectedOccasion === occ.id
-                        ? "bg-accent/[0.08] text-accent ring-1 ring-accent/30"
-                        : "bg-foreground/[0.03] text-foreground"
-                    )}
-                  >
-                    <occ.icon className="w-6 h-6" />
-                    <span className="text-xs">{t(occ.labelKey)}</span>
-                  </motion.button>
-                  </StaggerItem>
-                ))}
-              </StaggerContainer>
+        {/* ── Generate CTA ── */}
+        <Button
+          onClick={handleGenerateOutfit}
+          disabled={!selectedOccasion || (garmentCount || 0) < 3}
+          className="w-full h-12 text-base font-semibold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl"
+          size="lg"
+        >
+          <Sparkles className="w-5 h-5 mr-2" />
+          {selectedOccasion ? t('home.create_outfit') : t('home.select_occasion_hint')}
+        </Button>
+
+        {(garmentCount || 0) < 3 && (
+          <p className="text-xs text-center text-muted-foreground -mt-3">
+            {t('home.min_garments')}
+          </p>
+        )}
+
+        {/* ── 4. Quick Stats Strip ── */}
+        {insights && insights.totalGarments > 0 && (
+          <button
+            onClick={() => navigate('/insights')}
+            className="w-full flex items-center justify-between py-4 border-t border-b border-border/20"
+          >
+            <div className="flex-1 text-center">
+              <p className="text-xl font-bold tracking-tight tabular-nums">{insights.totalGarments}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{t('insights.total')}</p>
             </div>
-
-            {/* Sub-options */}
-            {activeOccasion?.subOptions && (
-              <div className="space-y-2">
-                <SectionHeader title={t('home.specify')} />
-                <div className="flex flex-wrap gap-2">
-                  {activeOccasion.subOptions.map((sub) => (
-                    <motion.button
-                      key={sub.id}
-                      whileTap={{ scale: 0.93 }}
-                      transition={TAP_TRANSITION}
-                      onClick={() => setSelectedSub(selectedSub === sub.id ? null : sub.id)}
-                      className={cn(
-                        "px-4 py-2 rounded-full text-xs font-medium transition-colors will-change-transform",
-                        selectedSub === sub.id
-                          ? "bg-accent/10 text-accent"
-                        : "bg-foreground/[0.03] text-foreground"
-                      )}
-                    >
-                      {t(sub.labelKey)}
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Styles */}
-            <div className="space-y-3">
-              <SectionHeader title={t('home.style_optional')} />
-              <div className="relative">
-                <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide scroll-fade-right">
-                {STYLES.map((style) => (
-                  <motion.button
-                    key={style.id}
-                    whileTap={{ scale: 0.93 }}
-                    transition={TAP_TRANSITION}
-                    onClick={() => setSelectedStyle(selectedStyle === style.id ? null : style.id)}
-                    className={cn(
-                      "px-4 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap flex-shrink-0 will-change-transform",
-                      selectedStyle === style.id
-                        ? "bg-accent/10 text-accent"
-                        : "bg-foreground/[0.03] text-foreground"
-                    )}
-                  >
-                    {t(style.labelKey)}
-                  </motion.button>
-                ))}
-                </div>
-              </div>
+            <div className="w-px h-8 bg-border/30" />
+            <div className="flex-1 text-center">
+              <p className="text-xl font-bold tracking-tight tabular-nums">{insights.usageRate}%</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{t('insights.usage')}</p>
             </div>
+            <div className="w-px h-8 bg-border/30" />
+            <div className="flex-1 text-center">
+              <p className="text-xl font-bold tracking-tight tabular-nums">{insights.unusedGarments.length}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{t('insights.unused')}</p>
+            </div>
+          </button>
+        )}
 
-            {/* Generate CTA */}
-            <Button
-              onClick={handleGenerateOutfit}
-              disabled={!selectedOccasion || (garmentCount || 0) < 3}
-              className="w-full h-14 text-base font-semibold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl"
-              size="lg"
-            >
-              <Sparkles className="w-5 h-5 mr-2" />
-              {selectedOccasion ? t('home.create_outfit') : t('home.select_occasion_hint')}
-            </Button>
+        {/* ── 5. AI Suggestion ── */}
+        <AISuggestions isPremium={isPremium} />
 
-            {(garmentCount || 0) < 3 && (
-              <p className="text-xs text-center text-muted-foreground">
-                {t('home.min_garments')}
-              </p>
-            )}
+        {/* ── 6. Top 3 Worn ── */}
+        {insights && insights.topFiveWorn.length > 0 && (
+          <div className="space-y-2">
+            <SectionHeader title={t('insights.top_garments')} />
+            <div className="divide-y divide-border/20">
+              {insights.topFiveWorn.slice(0, 3).map((garment, index) => (
+                <button
+                  key={garment.id}
+                  onClick={() => navigate(`/wardrobe/${garment.id}`)}
+                  className="w-full flex items-center gap-3 py-2.5 text-left hover:opacity-70 transition-opacity"
+                >
+                  <span className="w-5 text-center text-xs font-bold text-muted-foreground/60">{index + 1}</span>
+                  <LazyImageSimple
+                    imagePath={garment.image_path}
+                    alt={garment.title}
+                    className="w-10 h-10 rounded-lg flex-shrink-0"
+                    fallbackIcon={<Shirt className="w-4 h-4 text-muted-foreground/50" />}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{garment.title}</p>
+                  </div>
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-semibold">{garment.wearCountLast30}×</Badge>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* ── INSIGHTS TAB ── */}
-        {activeTab === 'insights' && (
-          <div>
-            <InsightsSection isPremium={isPremium} t={t} />
-          </div>
-        )}
-        </AnimatedTab>
+        {/* ── 7. See all insights ── */}
+        <Button
+          variant="ghost"
+          className="w-full text-sm text-muted-foreground"
+          onClick={() => navigate('/insights')}
+        >
+          {t('home.all_insights')} <ChevronRight className="w-4 h-4 ml-1" />
+        </Button>
+
       </AnimatedPage>
       </PullToRefresh>
 
