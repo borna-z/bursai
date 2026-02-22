@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { format, addDays, isSameDay, isToday, isTomorrow } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
 import { Wand2, Shirt, Loader2, CalendarDays, Repeat, Info, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart } from 'lucide-react';
@@ -254,9 +255,13 @@ export default function PlanPage() {
         />
 
         {/* Day content – animate on day switch */}
-        <div 
-          key={selectedDateStr} 
-          className="space-y-6 animate-drape-in"
+        <motion.div
+          key={selectedDateStr}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ type: 'tween', ease: [0.25, 0.1, 0.25, 1], duration: 0.25 }}
+          className="space-y-6"
         >
           {/* Weather line */}
           <div className="flex items-center justify-between">
@@ -397,7 +402,7 @@ export default function PlanPage() {
               </div>
             </div>
           )}
-        </div>
+        </motion.div>
       </AnimatedPage>
 
       {/* ─── Sheets ─── */}

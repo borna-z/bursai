@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { EASE_TWEEN } from '@/lib/motion';
+import { EASE_TWEEN, SPRING_BOUNCE } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
 
 const tabKeys = [
@@ -40,16 +40,32 @@ export function BottomNav() {
                   {isActive && (
                     <motion.div
                       layoutId="nav-pill"
-                      className="absolute inset-0 bg-accent/10 rounded-2xl will-change-transform"
+                      className="absolute inset-0 bg-accent/10 backdrop-blur-sm rounded-2xl will-change-transform"
                       transition={EASE_TWEEN}
                     />
                   )}
-                  <tab.icon
-                    className={cn('relative z-10 w-5 h-5 transition-transform duration-200', isActive && 'scale-105')}
-                    strokeWidth={isActive ? 2.5 : 2}
-                  />
+                  <motion.div
+                    animate={isActive ? { scale: 1.08 } : { scale: 1 }}
+                    transition={SPRING_BOUNCE}
+                    className="relative z-10"
+                  >
+                    <tab.icon
+                      className="w-5 h-5"
+                      strokeWidth={isActive ? 2.5 : 2}
+                    />
+                  </motion.div>
                 </div>
                 <span>{t(tab.labelKey)}</span>
+                {/* Active dot indicator */}
+                <div className="h-1 flex items-center justify-center">
+                  {isActive && (
+                    <motion.div
+                      layoutId="nav-dot"
+                      className="w-[3px] h-[3px] rounded-full bg-accent"
+                      transition={EASE_TWEEN}
+                    />
+                  )}
+                </div>
               </>
             )}
           </NavLink>

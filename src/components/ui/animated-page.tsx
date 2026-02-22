@@ -16,7 +16,7 @@ const pageVariants = {
 const pageTransition = {
   type: 'tween' as const,
   ease: EASE_CURVE,
-  duration: 0.35,
+  duration: 0.4,
 };
 
 export function AnimatedPage({ children, className }: AnimatedPageProps) {

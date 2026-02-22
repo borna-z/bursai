@@ -80,22 +80,24 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
 
   return (
     <motion.button
-      whileTap={{ scale: 0.97 }}
+      whileTap={{ scale: 0.97, y: -2 }}
       transition={TAP_TRANSITION}
       onClick={handleClick}
       className={cn(
-        'w-full glass-card rounded-xl overflow-hidden transition-colors text-left will-change-transform',
+        'w-full glass-card rounded-xl overflow-hidden transition-colors text-left will-change-transform shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]',
         garment.in_laundry && 'opacity-60',
         isSelected && 'ring-2 ring-accent'
       )}
     >
-      <div className="aspect-square bg-muted relative">
-        <LazyImageSimple
-          imagePath={garment.image_path}
-          alt={garment.title}
-          className="w-full h-full"
-          fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/50" />}
-        />
+      <div className="aspect-square bg-muted relative overflow-hidden">
+        <motion.div whileTap={{ scale: 1.03 }} transition={TAP_TRANSITION} className="w-full h-full">
+          <LazyImageSimple
+            imagePath={garment.image_path}
+            alt={garment.title}
+            className="w-full h-full"
+            fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/50" />}
+          />
+        </motion.div>
         {isSelecting && (
           <div className="absolute top-2 left-2">
             <Checkbox checked={isSelected} className="bg-background/80" />

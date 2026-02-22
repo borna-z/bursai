@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, Sparkles, ShoppingBag, MoreVertical, Trash2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -328,16 +329,37 @@ export default function AIChat() {
                 const welcomeText = mode === 'stylist' ? t('chat.welcome') : t('chat.shopping_welcome');
                 if (getTextContent(msg.content) === welcomeText) return null;
               }
+              const isStreamingMsg = isStreaming && idx === messages.length - 1 && msg.role === 'assistant';
+              const isEmpty = getTextContent(msg.content) === '';
               return (
-                <ChatMessage
+                <motion.div
                   key={`${mode}-${idx}`}
-                  message={msg}
-                  isStreaming={isStreaming && idx === messages.length - 1 && msg.role === 'assistant'}
-                  garmentMap={garmentMap}
-                  isShopping={mode === 'shopping'}
-                  onTryOutfit={handleTryOutfit}
-                  isCreatingOutfit={createOutfit.isPending}
-                />
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+                >
+                  {isStreamingMsg && isEmpty ? (
+                    <div className="flex items-center gap-1.5 py-2 px-1">
+                      {[0, 1, 2].map((i) => (
+                        <motion.div
+                          key={i}
+                          className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50"
+                          animate={{ scale: [1, 1.4, 1] }}
+                          transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <ChatMessage
+                      message={msg}
+                      isStreaming={isStreamingMsg}
+                      garmentMap={garmentMap}
+                      isShopping={mode === 'shopping'}
+                      onTryOutfit={handleTryOutfit}
+                      isCreatingOutfit={createOutfit.isPending}
+                    />
+                  )}
+                </motion.div>
               );
             })}
             <div ref={messagesEndRef} />
