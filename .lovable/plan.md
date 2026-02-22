@@ -1,107 +1,57 @@
 
 
-# Fix: Centraliserad platshantering utan fallbacks
+# Fix: "Forecast unavailable" on Plan page
 
-## Problem
+## Root Cause
 
-1. **Manuell plats sparas inte** -- den lagras bara i `useState` och forsvinner vid sidnavigering eller refresh
-2. **Varje komponent har sin egen plats-state** -- WeatherPill, WeatherWidget, Plan-sidan och andra delar av appen kannerr inte varandras platsval
-3. **Plan-sidan ignorerar manuell plats** -- den skickar bara `profile.home_city` till forecast-hooken
-4. **Fallback-kedja skapar forvirring** -- nar manuell plats misslyckas faller den tillbaka till gamla platsen istallet for att ge ett felmeddelande
+The `useForecast` query is failing silently. When the query errors:
+- `isLoading` becomes `false`
+- `forecast` defaults to `[]` (empty array)
+- `getForecastForDate()` returns `null`
+- `WeatherForecastBadge` shows "Forecast unavailable"
 
-## Losning
+Network logs confirm: current weather calls (`useWeather`) succeed, but no forecast API calls (`daily=...&forecast_days=16`) appear -- meaning the query either errored and stopped retrying, or never completed.
 
-Skapa en centraliserad plats-kontext (`LocationContext`) som:
-- Sparar manuell plats till `profiles.home_city` i databasen
-- Delar platsvalet over hela appen (alla sidor)
-- Fragar anvandaren om platsbekreftelse nar appen oppnas
-- Inga fallbacks -- manuell plats ar laast tills anvandaren andrar den
+## Changes
 
----
+### 1. `src/hooks/useForecast.ts` -- Add resilience and error logging
 
-## Tekniska andringar
+- Add `retry: 3` explicitly to the query options
+- Add `retryDelay` with exponential backoff
+- Wrap `getCoordinatesFromCity` in a try/catch with console warning
+- If city geocoding fails, fall through to geolocation/Stockholm (currently this already happens but silently)
+- Add console.error in queryFn catch to surface why the forecast fails
 
-### 1. Ny fil: `src/contexts/LocationContext.tsx`
+### 2. `src/components/outfit/WeatherForecastBadge.tsx` -- Show retry option on error
 
-En React-kontext som centraliserar platshantering:
+- Accept `error` from `useForecast` in addition to `isLoading`
+- When there is an error (not just missing data), show a slightly different UI that hints the user can retry, or at minimum logs the issue
 
-- **State**: `effectiveCity` (den stad som anvands overallt)
-- **Kalla**: `profile.home_city` fran databasen, eller `null` for auto-detect (geolokaliseringg)
-- **`setManualCity(city)`**: Sparar till `profiles.home_city` via `useUpdateProfile` + uppdaterar lokal state
-- **`clearManualCity()`**: Rensar `home_city` i profilen, atergar till auto-detect
-- **`locationSource`**: `'manual'` eller `'auto'` -- sa UI vet om det ar laast
-- **Vid appstart**: Om `home_city` finns i profilen, anvand den direkt (ingen fallback). Om den saknas, anvand geolokaliseringg.
+### 3. `src/hooks/useForecast.ts` -- Ensure query does not stay disabled
 
-### 2. Uppdatera: `src/hooks/useWeather.ts`
+- The `enabled` option should also check that the hook is ready (not waiting on a null city that will change). Add `enabled: options.enabled !== false` explicitly (already present, but verify no race condition).
+- Consider adding `refetchOnMount: true` so navigating to the Plan page always attempts a fresh fetch if data is stale.
 
-- Ta bort intern `homeCity`-logik
-- Ta emot `city` fran `LocationContext` via konsumenten (WeatherPill etc.)
-- Om `city` ar satt: anvand den. Punkt. Ingen fallback till geolokalisering.
-- Om `city` ar `null`: anvand geolokalisering som vanligt
+## Technical Detail
 
-### 3. Uppdatera: `src/hooks/useForecast.ts`
-
-- Samma andring: ingen egen `homeCity`-upphamtning
-- Forecast-hooken far `city` fran den som anropar den
-- Inga fallback-kedjor -- om stad ar satt, anvand den
-
-### 4. Uppdatera: `src/components/weather/WeatherPill.tsx`
-
-- Ta bort lokal `manualCity` useState
-- Anvand `useLocation()` fran `LocationContext`
-- Nar anvandaren skriver en ny stad: anropa `setManualCity(city)` som sparar till databasen
-- Nar anvandaren klickar X: anropa `clearManualCity()` som rensar `home_city` i profilen
-- Auto-expand forblir
-
-### 5. Uppdatera: `src/components/weather/WeatherWidget.tsx`
-
-- Samma andring som WeatherPill -- anvand `useLocation()` istallet for lokal state
-
-### 6. Uppdatera: `src/pages/Plan.tsx`
-
-- Anvand `useLocation()` for att hamta `effectiveCity`
-- Skicka den till `useForecast({ city: effectiveCity })`
-- Nu delar Plan-sidan samma plats som Home-sidan
-
-### 7. Uppdatera andra konsumenter
-
-- `src/components/plan/QuickGenerateSheet.tsx` -- anvand `useLocation()`
-- `src/components/outfit/PlannedOutfitsList.tsx` -- anvand `useLocation()`
-- `src/hooks/useDaySummary.ts` -- anvand `useLocation()`
-- `src/components/outfit/WeatherForecastBadge.tsx` -- anvand `useLocation()`
-
-### 8. Uppdatera: `src/App.tsx`
-
-- Wrappa appen med `<LocationProvider>`
-
----
-
-## Platsbekraftelse vid appstart
-
-Nar anvandaren oppnar appen och det inte finns nagon sparad `home_city`:
-- Appen forsoker hamta geolokalisering
-- Om lyckad: visa en liten bekraftelsetoast/banner: "Vi har hittat din plats: Stockholm. Stammer det?" med knappar "Ja" / "Andra"
-- Om "Ja": spara staden till `profiles.home_city`
-- Om "Andra": oppna platsredigering
-
-Om `home_city` redan ar sparad:
-- Anvand den direkt, fraga inte
-
-## Sammanfattning
-
-```text
-Fore:   WeatherPill [useState] ----x----> useWeather
-        WeatherWidget [useState] --x----> useWeather  
-        Plan.tsx -------profile.home_city-> useForecast
-        (tre separata, osparkade plats-stater)
-
-Efter:  LocationContext [profile.home_city i DB]
-            |
-            +---> WeatherPill (laser + skriver)
-            +---> WeatherWidget (laser + skriver)
-            +---> Plan.tsx (laser)
-            +---> QuickGenerateSheet (laser)
-            +---> PlannedOutfitsList (laser)
-            +---> useDaySummary (laser)
-            (en enda kalla, persisterad)
+```typescript
+// useForecast.ts queryFn update
+queryFn: async () => {
+  try {
+    const coords = await getCoordinates(city);
+    return fetchForecast(coords.lat, coords.lon);
+  } catch (err) {
+    console.error('[useForecast] Failed to fetch forecast:', err);
+    throw err; // Re-throw so React Query tracks the error
+  }
+},
+retry: 3,
+retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
+refetchOnMount: 'always',
 ```
+
+This ensures:
+- Transient failures (Nominatim rate limits, network hiccups) are retried up to 3 times
+- Every time the Plan page mounts, it checks for fresh data
+- Errors are logged to console for debugging
+
