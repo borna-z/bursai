@@ -36,10 +36,16 @@ export function WeatherPill({ onWeatherChange }: WeatherPillProps) {
   const [manualCity, setManualCity] = useState<string | null>(null);
   const [editingLocation, setEditingLocation] = useState(false);
   const [cityInput, setCityInput] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { weather, isLoading } = useWeather({ city: manualCity });
-  const { forecast } = useForecast();
+  const { forecast } = useForecast({ city: manualCity });
+
+  // Auto-expand when manual city is selected
+  useEffect(() => {
+    if (manualCity) setIsOpen(true);
+  }, [manualCity]);
 
   useEffect(() => {
     if (weather && onWeatherChange) {
@@ -78,7 +84,7 @@ export function WeatherPill({ onWeatherChange }: WeatherPillProps) {
   const next3 = forecast.slice(1, 4);
 
   return (
-    <Collapsible>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <CollapsibleTrigger asChild>
         <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-foreground/[0.04] hover:bg-foreground/[0.07] transition-colors text-sm">
           <Icon className="w-4 h-4 text-foreground/70" />

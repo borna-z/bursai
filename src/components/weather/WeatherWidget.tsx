@@ -63,7 +63,7 @@ export function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { weather, isLoading } = useWeather({ city: manualCity });
-  const { forecast, isLoading: forecastLoading } = useForecast();
+  const { forecast, isLoading: forecastLoading } = useForecast({ city: manualCity });
 
   // Notify parent of weather changes
   useEffect(() => {
