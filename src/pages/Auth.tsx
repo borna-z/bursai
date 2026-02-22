@@ -44,6 +44,7 @@ export default function AuthPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [tab, setTab] = useState<'login' | 'signup'>('login');
   const { t } = useLanguage();
 
@@ -63,6 +64,7 @@ export default function AuthPage() {
     e.preventDefault();
     if (!email || !password) { toast.error(t('auth.fill_all')); return; }
     setIsLoading(true);
+    localStorage.setItem('remember_me', rememberMe ? 'true' : 'false');
     const { error } = await signIn(email, password);
     setIsLoading(false);
     if (error) {
@@ -76,6 +78,7 @@ export default function AuthPage() {
     if (email !== confirmEmail) { toast.error(t('auth.emails_no_match')); return; }
     const passOk = password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password);
     if (!passOk) { toast.error(t('auth.password_too_short')); return; }
+    localStorage.setItem('remember_me', rememberMe ? 'true' : 'false');
     setIsLoading(true);
     const { data, error } = await signUp(email, password, username || undefined);
     setIsLoading(false);
@@ -297,6 +300,23 @@ export default function AuthPage() {
             {!isLogin && (
               <PasswordRequirements password={password} t={t} />
             )}
+
+            {/* Remember me checkbox */}
+            <label className="flex items-center gap-2.5 cursor-pointer group pt-1">
+              <div
+                onClick={() => setRememberMe(!rememberMe)}
+                className={`w-4 h-4 rounded border flex items-center justify-center transition-all duration-200 ${
+                  rememberMe
+                    ? 'bg-white/90 border-white/90'
+                    : 'border-white/20 bg-transparent hover:border-white/40'
+                }`}
+              >
+                {rememberMe && <Check className="w-3 h-3 text-[#030305]" />}
+              </div>
+              <span className="text-xs text-white/50 group-hover:text-white/70 transition-colors select-none">
+                {t('auth.remember_me')}
+              </span>
+            </label>
 
             <button
               type="submit"
