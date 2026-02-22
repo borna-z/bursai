@@ -180,13 +180,15 @@ Deno.serve(async (req) => {
     });
 
     // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
       return new Response(
         JSON.stringify({ error: 'Ogiltig autentisering' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    const user = { id: claimsData.claims.sub as string };
 
     // Get user's profile with ICS URL
     const { data: profile, error: profileError } = await supabase
