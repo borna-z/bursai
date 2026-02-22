@@ -43,7 +43,7 @@ export function WeatherForecastBadge({
 }: WeatherForecastBadgeProps) {
   const { t } = useLanguage();
   const { effectiveCity } = useLocation();
-  const { getForecastForDate, isLoading } = useForecast({ city: effectiveCity });
+  const { getForecastForDate, isLoading, error } = useForecast({ city: effectiveCity });
   const forecast = getForecastForDate(date);
   const warning = showWarning ? useWeatherWarning(forecast) : null;
 
@@ -52,6 +52,15 @@ export function WeatherForecastBadge({
       <div className={cn("flex items-center gap-1 text-muted-foreground", className)}>
         <Loader2 className="w-3 h-3 animate-spin" />
         {!compact && <span className="text-xs">{t('common.loading')}</span>}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={cn("flex items-center gap-1 text-destructive/70", className)}>
+        <AlertTriangle className="w-3.5 h-3.5" />
+        {!compact && <span className="text-xs">{t('weather.unavailable')}</span>}
       </div>
     );
   }
@@ -121,7 +130,7 @@ interface ForecastPreviewProps {
 export function ForecastPreview({ date, originalTemp }: ForecastPreviewProps) {
   const { t } = useLanguage();
   const { effectiveCity } = useLocation();
-  const { getForecastForDate, isLoading } = useForecast({ city: effectiveCity });
+  const { getForecastForDate, isLoading, error } = useForecast({ city: effectiveCity });
   const forecast = getForecastForDate(date);
 
   if (isLoading) {

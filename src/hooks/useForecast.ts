@@ -115,12 +115,20 @@ export function useForecast(options: UseForecastOptions = {}): UseForecastResult
   const { data: forecast = [], isLoading, error } = useQuery({
     queryKey: ['forecast', city],
     queryFn: async () => {
-      const coords = await getCoordinates(city);
-      return fetchForecast(coords.lat, coords.lon);
+      try {
+        const coords = await getCoordinates(city);
+        return fetchForecast(coords.lat, coords.lon);
+      } catch (err) {
+        console.error('[useForecast] Failed to fetch forecast:', err);
+        throw err;
+      }
     },
     enabled,
     staleTime: 60 * 60 * 1000,
     gcTime: 2 * 60 * 60 * 1000,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
+    refetchOnMount: 'always',
   });
 
   const getForecastForDate = (date: string): ForecastDay | null => {
