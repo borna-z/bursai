@@ -13,6 +13,8 @@ import { useWeather } from '@/hooks/useWeather';
 import { useForecast, type ForecastDay } from '@/hooks/useForecast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useLocation } from '@/contexts/LocationContext';
+import { useProfile } from '@/hooks/useProfile';
+import { toast } from 'sonner';
 
 function getWeatherIcon(code: number, isDay = true) {
   if (code === 0) return isDay ? Sun : Moon;
@@ -35,10 +37,12 @@ export function WeatherPill({ onWeatherChange }: WeatherPillProps) {
   const { t, locale } = useLanguage();
   const bcp47 = getBCP47(locale);
   const { effectiveCity, locationSource, setManualCity, clearManualCity } = useLocation();
+  const { data: profile } = useProfile();
   const [editingLocation, setEditingLocation] = useState(false);
   const [cityInput, setCityInput] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const hasShownLocationToast = useRef(false);
 
   const { weather, isLoading } = useWeather({ city: effectiveCity });
   const { forecast } = useForecast({ city: effectiveCity });
@@ -47,6 +51,34 @@ export function WeatherPill({ onWeatherChange }: WeatherPillProps) {
   useEffect(() => {
     if (locationSource === 'manual') setIsOpen(true);
   }, [locationSource]);
+
+  // Show "Is this your city?" toast on first auto-detect
+  useEffect(() => {
+    if (
+      locationSource === 'auto' &&
+      weather?.location &&
+      profile !== undefined &&
+      !profile?.home_city &&
+      !hasShownLocationToast.current
+    ) {
+      hasShownLocationToast.current = true;
+      toast(t('weather.located_in').replace('{city}', weather.location), {
+        description: t('weather.is_this_your_city'),
+        duration: 8000,
+        action: {
+          label: t('weather.yes'),
+          onClick: () => setManualCity(weather.location),
+        },
+        cancel: {
+          label: t('weather.change'),
+          onClick: () => {
+            setIsOpen(true);
+            setEditingLocation(true);
+          },
+        },
+      });
+    }
+  }, [locationSource, weather?.location, profile, setManualCity, t]);
 
   useEffect(() => {
     if (weather && onWeatherChange) {
