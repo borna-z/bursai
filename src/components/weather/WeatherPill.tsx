@@ -47,10 +47,6 @@ export function WeatherPill({ onWeatherChange }: WeatherPillProps) {
   const { weather, isLoading } = useWeather({ city: effectiveCity });
   const { forecast } = useForecast({ city: effectiveCity });
 
-  // Auto-expand when manual city is selected
-  useEffect(() => {
-    if (locationSource === 'manual') setIsOpen(true);
-  }, [locationSource]);
 
   // Show "Is this your city?" toast on first auto-detect
   useEffect(() => {
