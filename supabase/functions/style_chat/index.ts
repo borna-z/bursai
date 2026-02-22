@@ -137,28 +137,51 @@ serve(async (req) => {
       bodyContext = `\nKroppsmått: ${heightCm} cm${weightKg ? `, ${weightKg} kg` : ""}. Tips: ${silhouetteHints}`;
     }
 
-    // Style prefs — use full styleProfile if available, fallback to legacy
+    // Style prefs — use full styleProfile (quiz v3) if available, fallback to legacy
     const preferences = profile?.preferences as Record<string, unknown> || {};
     const sp = preferences.styleProfile as Record<string, any> | undefined;
     let styleLines = "";
     if (sp) {
       const parts: string[] = [];
-      if (sp.favoriteColors?.length) parts.push(`Favoritfärger: ${sp.favoriteColors.join(", ")}`);
-      if (sp.dislikedColors?.length) parts.push(`Undviker: ${sp.dislikedColors.join(", ")}`);
-      if (sp.colorTone) parts.push(`Färgton: ${sp.colorTone === 'neutral' ? 'neutrala/jordtoner' : 'starka/mättade'}`);
-      if (sp.fit) parts.push(`Passform: ${sp.fit}`);
-      if (sp.topLength) parts.push(`Överdel: ${sp.topLength}`);
-      if (sp.layering) parts.push(`Lager: ${sp.layering === 'love' ? 'älskar' : 'minimalt'}`);
+      // Identity
+      if (sp.gender) parts.push(`Kön: ${sp.gender}`);
+      if (sp.ageRange) parts.push(`Ålder: ${sp.ageRange}`);
+      if (sp.climate) parts.push(`Klimat: ${sp.climate}`);
+      // Lifestyle
+      if (sp.weekdayLife) parts.push(`Vardag: ${sp.weekdayLife}`);
+      if (sp.workFormality) parts.push(`Jobb-formalitet: ${sp.workFormality}`);
+      if (sp.weekendLife) parts.push(`Helg: ${sp.weekendLife}`);
+      if (sp.specialOccasionFreq) parts.push(`Speciella tillfällen: ${sp.specialOccasionFreq}`);
+      // Style DNA
       if (sp.styleWords?.length) parts.push(`Stilord: ${sp.styleWords.join(", ")}`);
-      if (sp.styleIcons) parts.push(`Inspireras av: ${sp.styleIcons}`);
+      if (sp.comfortVsStyle !== undefined) parts.push(`Komfort vs stil: ${sp.comfortVsStyle}/100`);
       if (sp.adventurousness) parts.push(`Modemodig: ${sp.adventurousness}`);
       if (sp.trendFollowing) parts.push(`Trender: ${sp.trendFollowing}`);
       if (sp.genderNeutral) parts.push("Könsneutral styling");
-      if (sp.weekdayContext) parts.push(`Vardag: ${sp.weekdayContext}`);
-      if (sp.weekendContext) parts.push(`Helg: ${sp.weekendContext}`);
-      if (sp.workFormality) parts.push(`Jobb: ${sp.workFormality}`);
-      if (sp.budgetMindset) parts.push(`Budget: ${sp.budgetMindset}`);
-      if (sp.styleGoals) parts.push(`Mål: ${sp.styleGoals}`);
+      // Fit
+      if (sp.fit) parts.push(`Passform: ${sp.fit}`);
+      if (sp.layering) parts.push(`Lager: ${sp.layering}`);
+      if (sp.topFit) parts.push(`Överdelspassform: ${sp.topFit}`);
+      if (sp.bottomLength) parts.push(`Byxlängd: ${sp.bottomLength}`);
+      // Colors & patterns
+      if (sp.favoriteColors?.length) parts.push(`Favoritfärger: ${sp.favoriteColors.join(", ")}`);
+      if (sp.dislikedColors?.length) parts.push(`Undviker: ${sp.dislikedColors.join(", ")}`);
+      if (sp.paletteVibe) parts.push(`Palettskänsla: ${sp.paletteVibe}`);
+      if (sp.patternFeeling) parts.push(`Mönster: ${sp.patternFeeling}`);
+      // Philosophy
+      if (sp.shoppingMindset) parts.push(`Shopping: ${sp.shoppingMindset}`);
+      if (sp.sustainability) parts.push(`Hållbarhet: ${sp.sustainability}`);
+      if (sp.capsuleWardrobe) parts.push(`Kapselgarderob: ${sp.capsuleWardrobe}`);
+      if (sp.wardrobeFrustrations?.length) parts.push(`Frustrationer: ${sp.wardrobeFrustrations.join(", ")}`);
+      // Inspiration
+      if (sp.styleIcons) parts.push(`Inspireras av: ${sp.styleIcons}`);
+      if (sp.hardestOccasions?.length) parts.push(`Svårast att klä sig för: ${sp.hardestOccasions.join(", ")}`);
+      if (sp.fabricFeel) parts.push(`Favoritmaterial: ${sp.fabricFeel}`);
+      if (sp.signaturePieces) parts.push(`Signaturplagg: ${sp.signaturePieces}`);
+      // Goals
+      if (sp.primaryGoal) parts.push(`Huvudmål: ${sp.primaryGoal}`);
+      if (sp.morningTime) parts.push(`Morgonrutin: ${sp.morningTime}`);
+      if (sp.freeNote) parts.push(`Personlig anteckning: ${sp.freeNote}`);
       styleLines = parts.join(". ");
     } else {
       styleLines = [

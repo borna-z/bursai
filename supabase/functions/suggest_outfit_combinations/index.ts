@@ -86,6 +86,31 @@ serve(async (req) => {
     const preferences = (profileRes.data?.preferences as Record<string, any>) || {};
     const sp = preferences.styleProfile || {};
 
+    // Build comprehensive style context from quiz v3
+    const styleContextParts: string[] = [];
+    if (sp.gender) styleContextParts.push(`Gender: ${sp.gender}`);
+    if (sp.ageRange) styleContextParts.push(`Age: ${sp.ageRange}`);
+    if (sp.climate) styleContextParts.push(`Climate: ${sp.climate}`);
+    if (sp.styleWords?.length) styleContextParts.push(`Style words: ${sp.styleWords.join(", ")}`);
+    if (sp.favoriteColors?.length) styleContextParts.push(`Favorite colors: ${sp.favoriteColors.join(", ")}`);
+    if (sp.dislikedColors?.length) styleContextParts.push(`Avoids colors: ${sp.dislikedColors.join(", ")}`);
+    if (sp.paletteVibe) styleContextParts.push(`Palette vibe: ${sp.paletteVibe}`);
+    if (sp.patternFeeling) styleContextParts.push(`Patterns: ${sp.patternFeeling}`);
+    if (sp.fit) styleContextParts.push(`Fit: ${sp.fit}`);
+    if (sp.layering) styleContextParts.push(`Layering: ${sp.layering}`);
+    if (sp.topFit) styleContextParts.push(`Top fit: ${sp.topFit}`);
+    if (sp.bottomLength) styleContextParts.push(`Bottom length: ${sp.bottomLength}`);
+    if (sp.adventurousness) styleContextParts.push(`Adventurousness: ${sp.adventurousness}`);
+    if (sp.trendFollowing) styleContextParts.push(`Trends: ${sp.trendFollowing}`);
+    if (sp.genderNeutral) styleContextParts.push("Open to gender-neutral suggestions");
+    if (sp.fabricFeel) styleContextParts.push(`Favorite fabrics: ${sp.fabricFeel}`);
+    if (sp.primaryGoal) styleContextParts.push(`Goal: ${sp.primaryGoal}`);
+    if (sp.weekdayLife) styleContextParts.push(`Weekday: ${sp.weekdayLife}`);
+    if (sp.workFormality) styleContextParts.push(`Work formality: ${sp.workFormality}`);
+    if (sp.weekendLife) styleContextParts.push(`Weekend: ${sp.weekendLife}`);
+    if (sp.freeNote) styleContextParts.push(`Personal note: ${sp.freeNote}`);
+    const styleContext = styleContextParts.length > 0 ? `\nUSER STYLE PROFILE:\n${styleContextParts.join(". ")}` : "";
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -107,8 +132,7 @@ RULES:
 7. Each suggestion needs a different style/occasion
 8. ONLY use garment IDs from the list
 ${recentContext}
-${sp.styleWords?.length ? `User style: ${sp.styleWords.join(", ")}` : ""}
-${sp.favoriteColors?.length ? `Favorite colors: ${sp.favoriteColors.join(", ")}` : ""}
+${styleContext}
 
 WARDROBE:
 ${garmentList}`;

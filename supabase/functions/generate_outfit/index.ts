@@ -54,6 +54,7 @@ function buildStyleContext(preferences: Record<string, any> | null, profile: any
   if (!preferences) return "";
   const sp = preferences.styleProfile as Record<string, any> | undefined;
   if (!sp) {
+    // Legacy fallback
     const parts: string[] = [];
     if (preferences.favoriteColors?.length) parts.push(`Favorite colors: ${(preferences.favoriteColors as string[]).join(", ")}`);
     if (preferences.dislikedColors?.length) parts.push(`Avoids: ${(preferences.dislikedColors as string[]).join(", ")}`);
@@ -61,16 +62,47 @@ function buildStyleContext(preferences: Record<string, any> | null, profile: any
     if (preferences.styleVibe) parts.push(`Style: ${preferences.styleVibe}`);
     return parts.join(". ");
   }
+  // Quiz v3 — comprehensive style profile
   const lines: string[] = [];
-  if (sp.favoriteColors?.length) lines.push(`Favorite colors: ${sp.favoriteColors.join(", ")}`);
-  if (sp.dislikedColors?.length) lines.push(`Avoids colors: ${sp.dislikedColors.join(", ")}`);
-  if (sp.colorTone) lines.push(`Color tone: ${sp.colorTone}`);
-  if (sp.patternFeeling) lines.push(`Pattern preference: ${sp.patternFeeling}`);
+  // Identity & body
+  if (sp.gender) lines.push(`Gender: ${sp.gender}`);
+  if (sp.ageRange) lines.push(`Age: ${sp.ageRange}`);
+  if (sp.climate) lines.push(`Climate: ${sp.climate}`);
+  // Lifestyle
+  if (sp.weekdayLife) lines.push(`Weekday: ${sp.weekdayLife}`);
+  if (sp.workFormality) lines.push(`Work formality: ${sp.workFormality}`);
+  if (sp.weekendLife) lines.push(`Weekend: ${sp.weekendLife}`);
+  if (sp.specialOccasionFreq) lines.push(`Special occasions: ${sp.specialOccasionFreq}`);
+  // Style DNA
+  if (sp.styleWords?.length) lines.push(`Style words: ${sp.styleWords.join(", ")}`);
+  if (sp.comfortVsStyle !== undefined) lines.push(`Comfort vs style: ${sp.comfortVsStyle}/100`);
+  if (sp.adventurousness) lines.push(`Adventurousness: ${sp.adventurousness}`);
+  if (sp.trendFollowing) lines.push(`Trends: ${sp.trendFollowing}`);
+  if (sp.genderNeutral) lines.push("Open to gender-neutral suggestions");
+  // Fit
   if (sp.fit) lines.push(`Fit: ${sp.fit}`);
   if (sp.layering) lines.push(`Layering: ${sp.layering}`);
-  if (sp.styleWords?.length) lines.push(`Style words: ${sp.styleWords.join(", ")}`);
-  if (sp.adventurousness) lines.push(`Adventurousness: ${sp.adventurousness}`);
-  if (sp.genderNeutral) lines.push("Prefers gender-neutral suggestions");
+  if (sp.topFit) lines.push(`Top fit: ${sp.topFit}`);
+  if (sp.bottomLength) lines.push(`Bottom length: ${sp.bottomLength}`);
+  // Colors & patterns
+  if (sp.favoriteColors?.length) lines.push(`Favorite colors: ${sp.favoriteColors.join(", ")}`);
+  if (sp.dislikedColors?.length) lines.push(`Avoids colors: ${sp.dislikedColors.join(", ")}`);
+  if (sp.paletteVibe) lines.push(`Palette vibe: ${sp.paletteVibe}`);
+  if (sp.patternFeeling) lines.push(`Patterns: ${sp.patternFeeling}`);
+  // Philosophy
+  if (sp.shoppingMindset) lines.push(`Shopping: ${sp.shoppingMindset}`);
+  if (sp.sustainability) lines.push(`Sustainability: ${sp.sustainability}`);
+  if (sp.capsuleWardrobe) lines.push(`Capsule wardrobe: ${sp.capsuleWardrobe}`);
+  if (sp.wardrobeFrustrations?.length) lines.push(`Frustrations: ${sp.wardrobeFrustrations.join(", ")}`);
+  // Inspiration
+  if (sp.styleIcons) lines.push(`Inspiration: ${sp.styleIcons}`);
+  if (sp.hardestOccasions?.length) lines.push(`Hardest to dress for: ${sp.hardestOccasions.join(", ")}`);
+  if (sp.fabricFeel) lines.push(`Favorite fabrics: ${sp.fabricFeel}`);
+  if (sp.signaturePieces) lines.push(`Signature pieces: ${sp.signaturePieces}`);
+  // Goals
+  if (sp.primaryGoal) lines.push(`Primary goal: ${sp.primaryGoal}`);
+  if (sp.morningTime) lines.push(`Morning routine: ${sp.morningTime}`);
+  if (sp.freeNote) lines.push(`Personal note: ${sp.freeNote}`);
   return lines.join(". ");
 }
 
