@@ -1,36 +1,29 @@
 
 
-## Update Privacy Policy and Terms of Service
+## GDPR Cookie Consent Banner
 
-### Changes
+### What it does
+A cookie consent popup that appears at the bottom of the landing page for first-time visitors. It asks users to accept or decline non-essential cookies, and remembers their choice in `localStorage`. Fully GDPR-compliant: no tracking cookies are set before the user gives consent.
 
-#### 1. Remove legal links from landing page header
-**File: `src/pages/Landing.tsx`**
-- Remove the `legalLinks` array and all references to it in both desktop nav and mobile menu
-- Keep the links in the footer only (via `LandingFooter`)
+### Design
+- Fixed bottom banner, dark glass style matching the landing page aesthetic (dark background, white text, subtle border)
+- Two buttons: "Accept" (white filled) and "Decline" (outline/ghost)
+- A link to the Privacy Policy (`/privacy`)
+- Once dismissed, the choice is saved to `localStorage` and the banner never appears again
+- Minimal, non-intrusive -- fits the Scandinavian minimalist design
 
-#### 2. Separate routes: `/privacy` for Privacy Policy, `/terms` for Terms of Service
-Currently both links point to `/terms`. The routes already exist separately (`/privacy` and `/terms`), so we just need to update the footer links.
+### Technical changes
 
-**File: `src/components/landing/LandingFooter.tsx`**
-- Change "Privacy Policy" link to point to `/privacy`
-- Keep "Terms of Service" pointing to `/terms`
+#### 1. New component: `src/components/landing/CookieConsent.tsx`
+- Reads `localStorage` key `burs-cookie-consent` on mount
+- If no value found, show the banner
+- "Accept" sets value to `"accepted"`, "Decline" sets to `"declined"`
+- Links to `/privacy` for more details
+- Animated entrance (slide up) using existing Tailwind animation classes
+- Text: "We use cookies to improve your experience. Read our [Privacy Policy](/privacy) for details."
 
-#### 3. Update Privacy Policy content
-**File: `src/pages/marketing/PrivacyPolicy.tsx`**
-- Replace existing generic sections with the full new privacy policy text you provided
-- Update effective date to February 22, 2026
-- Update contact email to `hello@burs.me`
-- Structure: Introduction, Google User Data, AI Processing, Storage & Retention, Sharing & Disclosure, User Controls & Rights, Security, Contact
+#### 2. Update `src/pages/Landing.tsx`
+- Import and render `<CookieConsent />` at the bottom of the page, outside the scroll container so it stays fixed
 
-#### 4. Update Terms of Service content
-**File: `src/pages/marketing/Terms.tsx`**
-- Remove the Google Calendar Privacy section (now covered in the Privacy Policy page)
-- Replace the existing terms sections with the new Terms of Service text
-- Sections: Acceptance, Use of Service, Subscription & Payments, Disclaimers, Governing Law
-- Update effective date to February 22, 2026
-
-#### 5. Fix footer links on legal pages
-**Files: `src/pages/marketing/PrivacyPolicy.tsx` and `src/pages/marketing/Terms.tsx`**
-- Update footer links so Privacy Policy points to `/privacy` and Terms points to `/terms`
+No database changes needed -- consent is stored client-side in `localStorage` since BURS does not currently use any third-party tracking cookies. If analytics are added later, this component can be extended to gate those scripts.
 
