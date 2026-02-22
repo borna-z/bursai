@@ -71,11 +71,6 @@ export default function Landing() {
     { id: 'download', label: t('landing.nav.download') },
   ];
 
-  const legalLinks = [
-    { href: '/terms', label: 'Privacy Policy' },
-    { href: '/terms', label: 'Terms of Service' },
-  ];
-
   // Re-observe elements after lazy sections mount
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -129,9 +124,6 @@ export default function Landing() {
                 {navLinks.map(l => (
                   <button key={l.id} onClick={() => scrollTo(l.id)} className="hover:text-white transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">{l.label}</button>
                 ))}
-                {legalLinks.map(l => (
-                  <a key={l.label} href={l.href} className="hover:text-white transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">{l.label}</a>
-                ))}
               </nav>
               <div className="flex items-center gap-4">
                 <button onClick={() => navigate('/auth')} className="hidden md:block bg-white text-[#030305] px-6 py-2.5 rounded-full text-sm font-medium hover:opacity-90 transition-all duration-300 hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
@@ -147,9 +139,6 @@ export default function Landing() {
                 <div className="flex flex-col gap-1 px-6 py-4 text-sm text-gray-400">
                   {navLinks.map(l => (
                     <button key={l.id} onClick={() => scrollTo(l.id)} className="py-3 text-left hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" role="menuitem">{l.label}</button>
-                  ))}
-                  {legalLinks.map(l => (
-                    <a key={l.label} href={l.href} className="py-3 text-left hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" role="menuitem">{l.label}</a>
                   ))}
                   <button onClick={() => { setMobileOpen(false); navigate('/auth'); }} className="mt-2 bg-white text-[#030305] py-3 rounded-full text-center font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" role="menuitem">{t('landing.login')}</button>
                 </div>
