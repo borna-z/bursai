@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { TAP_TRANSITION } from '@/lib/motion';
 import { useNavigate } from 'react-router-dom';
 import hangerLogo from '@/assets/burs-logo.png';
+import hangerLogoWhite from '@/assets/burs-logo-white.png';
 import { 
   Plus, Search, Loader2, WashingMachine,
   Grid3X3, List, X, Trash2, Shirt, ScanLine, Camera, SlidersHorizontal
@@ -480,7 +481,8 @@ export default function WardrobePage() {
           <div className="space-y-4">
             {/* Search bar — always visible, count in placeholder */}
             <div className="relative">
-              <img src={hangerLogo} alt="" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 object-contain pointer-events-none opacity-50" />
+              <img src={hangerLogo} alt="" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 object-contain pointer-events-none opacity-50 z-10 dark:hidden" />
+              <img src={hangerLogoWhite} alt="" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 object-contain pointer-events-none opacity-50 z-10 hidden dark:block" />
               <Input
                 placeholder={`${t('wardrobe.search')} ${totalCount ?? ''} ${t('wardrobe.garments_count_label')}...`}
                 value={search}
