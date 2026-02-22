@@ -159,14 +159,16 @@ serve(async (req) => {
     });
 
     // Verify user from JWT - this is the ONLY source of truth for user identity
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
-    if (authError || !user) {
-      console.error('Auth error:', authError);
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      console.error('Auth error:', claimsError);
       return new Response(
         JSON.stringify({ error: "Ej auktoriserad" }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    const user = { id: claimsData.claims.sub as string };
 
     const userId = user.id;
     console.log(`Authenticated user: ${userId}`);

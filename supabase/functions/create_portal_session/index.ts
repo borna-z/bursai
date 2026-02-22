@@ -56,10 +56,12 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
     
-    const { data: { user }, error: authError } = await anonClient.auth.getUser();
-    if (authError || !user) {
-      throw new Error(`Authentication error: ${authError?.message || 'No user'}`);
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      throw new Error(`Authentication error: ${claimsError?.message || 'No user'}`);
     }
+    const user = { id: claimsData.claims.sub as string, email: claimsData.claims.email as string };
     
     if (!user.email) {
       throw new Error("User email not available");
