@@ -1,31 +1,30 @@
 
 
-## Redesign "Our Mission" Section
+## Make sinamobarraky@gmail.com Premium
 
-### Problem
-The current three cards talk about "Privacy first", "Zero lock-in", and "Offline-ready PWA" -- these are technical features that don't resonate with users and don't align with BURS's brand positioning as an AI wardrobe stylist.
+### What
+Set the user `sinamobarraky@gmail.com` (ID: `a9a3750d-2ab8-47d4-b278-7c3238d35088`) to premium plan.
 
-### New Content Direction
+### Technical steps
 
-**Section label:** "Why BURS" (sv: "Varför BURS")
-**Section title:** "Style smarter, not harder." (sv: "Styla smartare, inte mer.")
+1. **Update `user_subscriptions` table** -- set `plan` to `'premium'` for this user
+2. **Update `subscriptions` table** -- upsert a record with `plan = 'premium'` and `status = 'active'`
 
-Three new pillars that speak to the user's actual experience:
+Both updates use the service role (via SQL migration) since client-side inserts/updates are denied by RLS on these tables.
 
-| Card | Icon | Title (EN) | Description (EN) |
-|------|------|------------|-------------------|
-| 1 | Sparkles | **Learns your style** | The more you wear, the smarter it gets. BURS adapts to your taste and lifestyle over time. |
-| 2 | Leaf | **Less buying, more wearing** | Rediscover forgotten favorites. Get more outfits from the clothes you already own. |
-| 3 | Calendar | **Dressed for every moment** | From Monday meetings to weekend plans. BURS matches your outfits to your schedule and weather. |
+### SQL to run
 
-These pillars connect directly to BURS's core value props: AI personalization, sustainability, and contextual outfit planning.
+```sql
+-- Update user_subscriptions
+UPDATE public.user_subscriptions
+SET plan = 'premium', updated_at = now()
+WHERE user_id = 'a9a3750d-2ab8-47d4-b278-7c3238d35088';
 
-### Technical Changes
+-- Upsert subscriptions
+INSERT INTO public.subscriptions (user_id, plan, status, updated_at)
+VALUES ('a9a3750d-2ab8-47d4-b278-7c3238d35088', 'premium', 'active', now())
+ON CONFLICT (user_id)
+DO UPDATE SET plan = 'premium', status = 'active', updated_at = now();
+```
 
-**`src/i18n/translations.ts`**
-- Update all 6 translation keys (`mission_label`, `mission_title`, `trust1_title`, `trust1_desc`, `trust2_title`, `trust2_desc`, `trust3_title`, `trust3_desc`) across all languages (Swedish, English, Norwegian, Danish, Finnish)
-
-**`src/components/landing/MissionSection.tsx`**
-- Replace icons: `Shield, Smartphone` with `Sparkles, Leaf, Calendar` from lucide-react
-- Map the three cards to the updated translation keys (no structural changes needed -- same layout, just new icons and text)
-
+No code changes needed -- this is a data-only operation.
