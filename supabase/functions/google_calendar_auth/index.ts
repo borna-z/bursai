@@ -1,3 +1,15 @@
+/**
+ * Google OAuth Verification — Internal Checklist
+ * ------------------------------------------------
+ * Ensure the following in Google Cloud Console:
+ * - Homepage URL = https://burs.me/welcome
+ * - Privacy Policy URL = https://burs.me/terms
+ * - Authorized domain includes: burs.me
+ * - Only minimum calendar scopes requested:
+ *     https://www.googleapis.com/auth/calendar.readonly
+ *     https://www.googleapis.com/auth/calendar.events.readonly
+ */
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
