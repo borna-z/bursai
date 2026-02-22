@@ -1,17 +1,16 @@
 import { useState, useMemo, useEffect, useRef, useCallback, Fragment } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { TAP_TRANSITION } from '@/lib/motion';
 import { useNavigate } from 'react-router-dom';
 import { 
   Plus, Search, Loader2, WashingMachine,
-  Grid3X3, List, X, Trash2, Shirt, ScanLine, ChevronDown, ChevronUp
+  Grid3X3, List, X, Trash2, Shirt, ScanLine, Camera, SlidersHorizontal
 } from 'lucide-react';
 import { SwipeableGarmentCard } from '@/components/wardrobe/SwipeableGarmentCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -24,9 +23,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
-import { SettingsGroup } from '@/components/settings/SettingsGroup';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { WardrobeOutfitsTab } from '@/components/wardrobe/WardrobeOutfitsTab';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -34,6 +31,8 @@ import { AnimatedTab } from '@/components/ui/animated-tab';
 
 const colorFilters = ['svart', 'vit', 'grå', 'marinblå', 'blå', 'röd', 'grön', 'beige', 'brun'];
 const seasonFilters = ['vår', 'sommar', 'höst', 'vinter'];
+
+// ── Garment Card ──
 
 interface GarmentCardProps {
   garment: Garment;
@@ -45,7 +44,6 @@ interface GarmentCardProps {
 
 function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }: GarmentCardProps) {
   const navigate = useNavigate();
-  const { t } = useLanguage();
 
   const handleClick = () => {
     if (isSelecting) { onSelect(); } else { navigate(`/wardrobe/${garment.id}`); }
@@ -72,48 +70,47 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
         />
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm truncate">{garment.title}</p>
-          <p className="text-xs text-muted-foreground capitalize">{t(`garment.category.${garment.category}`)} · {t(`color.${garment.color_primary}`)}</p>
+          <p className="text-xs text-muted-foreground capitalize">{garment.category} · {garment.color_primary}</p>
         </div>
       </motion.button>
     );
   }
 
+  // Grid view — lookbook style with overlay title
   return (
     <motion.button
       whileTap={{ scale: 0.97, y: -2 }}
       transition={TAP_TRANSITION}
       onClick={handleClick}
       className={cn(
-        'w-full rounded-2xl overflow-hidden transition-colors text-left will-change-transform',
+        'w-full rounded-2xl overflow-hidden transition-colors text-left will-change-transform relative',
         garment.in_laundry && 'opacity-60',
         isSelected && 'ring-2 ring-accent'
       )}
     >
       <div className="aspect-[3/4] bg-muted relative overflow-hidden">
-        <motion.div whileTap={{ scale: 1.03 }} transition={TAP_TRANSITION} className="w-full h-full rounded-xl overflow-hidden">
-          <LazyImageSimple
-            imagePath={garment.image_path}
-            alt={garment.title}
-            className="w-full h-full"
-            fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/50" />}
-          />
-        </motion.div>
+        <LazyImageSimple
+          imagePath={garment.image_path}
+          alt={garment.title}
+          className="w-full h-full"
+          fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/50" />}
+        />
+        {/* Gradient overlay with title */}
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent pt-10 pb-2.5 px-2.5">
+          <p className="text-white text-[13px] font-medium truncate drop-shadow-sm">{garment.title}</p>
+        </div>
         {isSelecting && (
           <div className="absolute top-2 left-2">
             <Checkbox checked={isSelected} className="bg-background/80" />
           </div>
         )}
       </div>
-      <div className="p-3">
-        <p className="font-medium text-[13px] truncate">{garment.title}</p>
-        <p className="text-xs text-muted-foreground capitalize">{t(`garment.category.${garment.category}`)} · {t(`color.${garment.color_primary}`)}</p>
-      </div>
     </motion.button>
   );
 }
 
-// ── Virtualized garment list ──
-// Only kicks in above this threshold; below it we render normally
+// ── Virtualization ──
+
 const VIRTUALIZE_THRESHOLD = 30;
 const GRID_ROW_HEIGHT = 220;
 const LIST_ROW_HEIGHT = 74;
@@ -139,7 +136,6 @@ function GarmentListContent({
 }: VirtualizedGarmentListProps) {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  // Simple intersection observer for infinite scroll
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
@@ -174,7 +170,6 @@ function GarmentListContent({
     );
   }
 
-  // Non-virtualized render for smaller collections
   return (
     <>
       <div className={cn(isGridView ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2')}>
@@ -209,20 +204,14 @@ function LoadingSkeletons({ isGridView }: { isGridView: boolean }) {
   return isGridView ? (
     <div className="grid grid-cols-2 gap-3">
       {[1, 2].map(i => (
-        <div key={i} className="glass-card rounded-xl overflow-hidden">
-          <Skeleton className="aspect-square w-full" />
-          <div className="p-2.5 space-y-1.5">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-3 w-1/2" />
-          </div>
-        </div>
+        <Skeleton key={i} className="aspect-[3/4] w-full rounded-2xl" />
       ))}
     </div>
   ) : (
     <div className="flex flex-col gap-2">
       {[1, 2].map(i => (
-        <div key={i} className="flex items-center gap-3 p-3 glass-card rounded-xl">
-          <Skeleton className="w-14 h-14 rounded-lg shrink-0" />
+        <div key={i} className="flex items-center gap-3 p-3">
+          <Skeleton className="w-16 h-16 rounded-xl shrink-0" />
           <div className="flex-1 space-y-1.5">
             <Skeleton className="h-4 w-3/4" />
             <Skeleton className="h-3 w-1/2" />
@@ -263,52 +252,23 @@ function VirtualGarmentGrid({
   });
 
   return (
-    <div
-      ref={parentRef}
-      className="w-full overflow-auto"
-      style={{ maxHeight: 'calc(100vh - 200px)' }}
-    >
-      <div
-        style={{
-          height: virtualizer.getTotalSize(),
-          width: '100%',
-          position: 'relative',
-        }}
-      >
+    <div ref={parentRef} className="w-full overflow-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+      <div style={{ height: virtualizer.getTotalSize(), width: '100%', position: 'relative' }}>
         {virtualizer.getVirtualItems().map((virtualRow) => {
           const startIdx = virtualRow.index * cols;
           const rowGarments = garments.slice(startIdx, startIdx + cols);
-
           return (
             <div
               key={virtualRow.index}
-              style={{
-                position: 'absolute',
-                top: virtualRow.start,
-                left: 0,
-                width: '100%',
-                height: virtualRow.size,
-                paddingBottom: GAP,
-              }}
+              style={{ position: 'absolute', top: virtualRow.start, left: 0, width: '100%', height: virtualRow.size, paddingBottom: GAP }}
             >
               <div className={cn(isGridView ? 'grid grid-cols-2 gap-3 h-full' : 'flex flex-col gap-2')}>
                 {rowGarments.map((garment) => (
                   <Fragment key={garment.id}>
                     {!isGridView && !isSelecting ? (
-                      <SwipeableGarmentCard
-                        garment={garment}
-                        onEdit={() => onEdit(garment.id)}
-                        onLaundry={() => onLaundry(garment)}
-                        onDelete={() => onDelete(garment.id)}
-                      />
+                      <SwipeableGarmentCard garment={garment} onEdit={() => onEdit(garment.id)} onLaundry={() => onLaundry(garment)} onDelete={() => onDelete(garment.id)} />
                     ) : (
-                      <GarmentCard
-                        garment={garment}
-                        isGridView={isGridView}
-                        isSelecting={isSelecting}
-                        isSelected={selectedIds.has(garment.id)}
-                        onSelect={() => onSelect(garment.id)}
-                      />
+                      <GarmentCard garment={garment} isGridView={isGridView} isSelecting={isSelecting} isSelected={selectedIds.has(garment.id)} onSelect={() => onSelect(garment.id)} />
                     )}
                   </Fragment>
                 ))}
@@ -322,6 +282,67 @@ function VirtualGarmentGrid({
     </div>
   );
 }
+
+// ── FAB Menu ──
+
+function AddFAB({ onPhoto, onScan, isOverLimit }: { onPhoto: () => void; onScan: () => void; isOverLimit: boolean }) {
+  const [open, setOpen] = useState(false);
+  const { t } = useLanguage();
+
+  return (
+    <div className="fixed bottom-24 right-4 z-30">
+      <AnimatePresence>
+        {open && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-20"
+              onClick={() => setOpen(false)}
+            />
+            {/* Menu items */}
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.9 }}
+              transition={{ duration: 0.15 }}
+              className="absolute bottom-16 right-0 flex flex-col gap-2 items-end z-30"
+            >
+              <button
+                onClick={() => { setOpen(false); onScan(); }}
+                className="flex items-center gap-2.5 bg-card border border-border/40 rounded-xl px-4 py-3 shadow-lg text-sm font-medium"
+              >
+                <ScanLine className="w-4 h-4 text-accent" />
+                {t('wardrobe.live_scan') || 'Live Scan'}
+              </button>
+              <button
+                onClick={() => { setOpen(false); onPhoto(); }}
+                className={cn(
+                  "flex items-center gap-2.5 bg-card border border-border/40 rounded-xl px-4 py-3 shadow-lg text-sm font-medium",
+                  isOverLimit && "opacity-50"
+                )}
+              >
+                <Camera className="w-4 h-4 text-accent" />
+                {t('wardrobe.add') || 'Lägg till'}
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+      <Button
+        size="lg"
+        className="h-14 w-14 rounded-xl shadow-lg bg-accent text-accent-foreground hover:bg-accent/90 relative z-30"
+        onClick={() => setOpen(!open)}
+      >
+        <Plus className={cn("w-6 h-6 transition-transform duration-200", open && "rotate-45")} />
+      </Button>
+    </div>
+  );
+}
+
+// ── Main Page ──
 
 export default function WardrobePage() {
   const navigate = useNavigate();
@@ -337,8 +358,7 @@ export default function WardrobePage() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   useEffect(() => {
@@ -363,8 +383,6 @@ export default function WardrobePage() {
     return infiniteData?.pages.flatMap(p => p.items) ?? [];
   }, [infiniteData]);
 
-
-
   const categories = [
     { id: 'all', label: t('wardrobe.all') },
     { id: 'top', label: t('wardrobe.top') },
@@ -374,12 +392,6 @@ export default function WardrobePage() {
     { id: 'accessory', label: t('wardrobe.accessory') },
     { id: 'dress', label: t('wardrobe.dress') },
     { id: 'underwear', label: t('wardrobe.underwear') },
-  ];
-
-  const sortOptions = [
-    { id: 'created_at', label: t('wardrobe.sort.latest') },
-    { id: 'wear_count', label: t('wardrobe.sort.most_used') },
-    { id: 'last_worn_at', label: t('wardrobe.sort.least_used') },
   ];
 
   const handleFilterChange = (key: keyof GarmentFilters, value: unknown) => {
@@ -430,7 +442,7 @@ export default function WardrobePage() {
         title={t('wardrobe.title')} 
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => setIsGridView(!isGridView)} aria-label={isGridView ? 'Switch to list view' : 'Switch to grid view'}>
+            <Button variant="ghost" size="icon" onClick={() => setIsGridView(!isGridView)} aria-label={isGridView ? 'List view' : 'Grid view'}>
               {isGridView ? <List className="w-5 h-5" /> : <Grid3X3 className="w-5 h-5" />}
             </Button>
             {!isSelecting ? (
@@ -443,15 +455,15 @@ export default function WardrobePage() {
       />
       
       <PullToRefresh onRefresh={handleRefresh}>
-      <AnimatedPage className="px-4 pb-36 pt-6 space-y-6 max-w-lg mx-auto">
-        {/* Segmented control */}
-        <div className="flex p-1 rounded-2xl bg-foreground/[0.04]">
+      <AnimatedPage className="px-4 pb-36 pt-5 space-y-4 max-w-lg mx-auto">
+        {/* Slim segmented control */}
+        <div className="flex p-0.5 rounded-xl bg-foreground/[0.04]">
           {(['garments', 'outfits'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={cn(
-                'flex-1 py-2 text-sm font-medium rounded-xl transition-all duration-200',
+                'flex-1 py-1.5 text-xs font-medium rounded-lg transition-all duration-200',
                 activeTab === tab
                   ? 'bg-foreground/[0.06] text-foreground'
                   : 'text-muted-foreground'
@@ -464,91 +476,86 @@ export default function WardrobePage() {
 
         <AnimatedTab tabKey={activeTab}>
         {activeTab === 'garments' ? (
-          <div className="space-y-6">
-            {/* Search */}
-            <SettingsGroup>
-              <Collapsible open={searchOpen} onOpenChange={setSearchOpen}>
-                <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Search className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">{search || t('wardrobe.search')}</span>
-                  </div>
-                  {searchOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="px-4 pb-3">
-                    <Input
-                      placeholder={t('wardrobe.search')}
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="bg-muted/50 border-0"
-                      autoFocus
-                    />
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            </SettingsGroup>
+          <div className="space-y-4">
+            {/* Search bar — always visible, count in placeholder */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder={`${t('wardrobe.search')} ${totalCount ?? ''} ${t('wardrobe.garments_count_label')}...`}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 bg-foreground/[0.04] border-0 h-10 rounded-xl text-sm"
+              />
+              {search && (
+                <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <X className="w-4 h-4 text-muted-foreground" />
+                </button>
+              )}
+            </div>
 
-            {/* Category grid */}
-            <SettingsGroup title={t('wardrobe.category')}>
-              <div className="grid grid-cols-4">
-                {categories.map((cat, index) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={cn(
-                      'py-3 text-sm font-medium transition-colors relative',
-                      selectedCategory === cat.id
-                        ? 'text-accent bg-accent/5'
-                        : 'text-foreground hover:bg-muted/50',
-                      index % 4 !== 3 && 'border-r border-border/50',
-                      index < 4 && 'border-b border-border/50',
-                    )}
-                  >
-                    {cat.label}
-                  </button>
-                ))}
-              </div>
-            </SettingsGroup>
+            {/* Category pills — horizontal scroll */}
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={cn(
+                    'whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0',
+                    selectedCategory === cat.id
+                      ? 'bg-accent text-accent-foreground'
+                      : 'bg-foreground/[0.04] text-muted-foreground hover:bg-foreground/[0.08]'
+                  )}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
 
-            {/* Filters */}
-            <SettingsGroup>
-              <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
-                <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-3">
-                  <span className="text-sm font-medium">{t('wardrobe.filter')}</span>
-                  <div className="flex items-center gap-2">
-                    {hasActiveFilters && (
-                      <span className="w-2 h-2 rounded-full bg-accent" />
-                    )}
-                    {filtersOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="px-4 pb-4 space-y-4">
-                    {/* Sort */}
+            {/* Filter pill + inline filter row */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all',
+                  showFilters || hasActiveFilters
+                    ? 'bg-accent/10 text-accent'
+                    : 'bg-foreground/[0.04] text-muted-foreground'
+                )}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                {t('wardrobe.filter')}
+                {hasActiveFilters && <span className="w-1.5 h-1.5 rounded-full bg-accent" />}
+              </button>
+              {hasActiveFilters && (
+                <button onClick={clearFilters} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  {t('wardrobe.clear')}
+                </button>
+              )}
+            </div>
+
+            <AnimatePresence>
+              {showFilters && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="space-y-3 pb-2">
+                    {/* Color row */}
                     <div className="space-y-1.5">
-                      <span className="text-xs text-muted-foreground uppercase tracking-wide">{t('wardrobe.sort')}</span>
-                      <Select value={filters.sortBy || 'created_at'} onValueChange={(v) => handleFilterChange('sortBy', v as GarmentFilters['sortBy'])}>
-                        <SelectTrigger className="bg-muted/50 border-0"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {sortOptions.map((o) => <SelectItem key={o.id} value={o.id}>{o.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Color */}
-                    <div className="space-y-1.5">
-                      <span className="text-xs text-muted-foreground uppercase tracking-wide">{t('wardrobe.color')}</span>
-                      <div className="grid grid-cols-3 gap-1.5">
+                      <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t('wardrobe.color')}</span>
+                      <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
                         {colorFilters.map((color) => (
                           <button
                             key={color}
                             onClick={() => setSelectedColor(selectedColor === color ? null : color)}
                             className={cn(
-                              'py-2 text-xs rounded-lg capitalize transition-colors',
+                              'whitespace-nowrap px-2.5 py-1 rounded-full text-xs transition-all shrink-0',
                               selectedColor === color
                                 ? 'bg-accent/10 text-accent font-medium'
-                                : 'bg-muted/30 backdrop-blur-sm text-foreground hover:bg-muted/50'
+                                : 'bg-foreground/[0.04] text-muted-foreground'
                             )}
                           >
                             {t(`color.${color}`)}
@@ -556,20 +563,19 @@ export default function WardrobePage() {
                         ))}
                       </div>
                     </div>
-
-                    {/* Season */}
+                    {/* Season row */}
                     <div className="space-y-1.5">
-                      <span className="text-xs text-muted-foreground uppercase tracking-wide">{t('wardrobe.season')}</span>
-                      <div className="grid grid-cols-4 gap-1.5">
+                      <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t('wardrobe.season')}</span>
+                      <div className="flex gap-1.5">
                         {seasonFilters.map((season) => (
                           <button
                             key={season}
                             onClick={() => setSelectedSeason(selectedSeason === season ? null : season)}
                             className={cn(
-                              'py-2 text-xs rounded-lg capitalize transition-colors',
+                              'flex-1 py-1.5 rounded-full text-xs transition-all capitalize',
                               selectedSeason === season
                                 ? 'bg-accent/10 text-accent font-medium'
-                                : 'bg-muted/30 backdrop-blur-sm text-foreground hover:bg-muted/50'
+                                : 'bg-foreground/[0.04] text-muted-foreground'
                             )}
                           >
                             {t(`garment.season.${season === 'vår' ? 'spring' : season === 'sommar' ? 'summer' : season === 'höst' ? 'autumn' : 'winter'}`)}
@@ -577,28 +583,14 @@ export default function WardrobePage() {
                         ))}
                       </div>
                     </div>
-
-                    {hasActiveFilters && (
-                      <button onClick={clearFilters} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                        <X className="w-3.5 h-3.5" />
-                        {t('wardrobe.clear')}
-                      </button>
-                    )}
                   </div>
-                </CollapsibleContent>
-              </Collapsible>
-            </SettingsGroup>
-
-            {/* Count */}
-            <p className="text-xs text-muted-foreground px-1">
-              {hasNextPage && totalCount
-                ? `${displayGarments.length} av ${totalCount} ${t('wardrobe.garments_count_label')}`
-                : `${displayGarments.length} ${t('wardrobe.garments_count_label')}`}
-            </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Bulk select bar */}
             {isSelecting && selectedIds.size > 0 && (
-              <div className="flex items-center justify-between p-3 glass-card rounded-xl">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-foreground/[0.04]">
                 <span className="text-sm font-medium">{selectedIds.size} {t('wardrobe.selected')}</span>
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={handleBulkLaundry} className="rounded-xl">
@@ -611,7 +603,7 @@ export default function WardrobePage() {
               </div>
             )}
 
-            {/* Garment grid - virtualized */}
+            {/* Garment grid */}
             {isLoading ? (
               <GarmentGridSkeleton count={6} grid={isGridView} />
             ) : displayGarments.length > 0 ? (
@@ -644,29 +636,13 @@ export default function WardrobePage() {
         )}
         </AnimatedTab>
 
-        {/* FABs - only show on garments tab */}
+        {/* Single FAB with menu */}
         {activeTab === 'garments' && (
-          <div className="fixed bottom-24 right-4 z-30 flex flex-col gap-3">
-            <Button
-              size="lg"
-              variant="outline"
-              className="h-14 w-14 rounded-xl shadow-lg bg-card border-border"
-              onClick={() => navigate('/wardrobe/scan')}
-              aria-label="Live Scan"
-            >
-              <ScanLine className="w-6 h-6" />
-            </Button>
-            <Button
-              size="lg"
-              className={cn(
-                "h-14 w-14 rounded-xl shadow-lg bg-accent text-accent-foreground hover:bg-accent/90",
-                isOverLimit && "opacity-50"
-              )}
-              onClick={handleAddGarment}
-            >
-              <Plus className="w-6 h-6" />
-            </Button>
-          </div>
+          <AddFAB
+            onPhoto={handleAddGarment}
+            onScan={() => navigate('/wardrobe/scan')}
+            isOverLimit={isOverLimit}
+          />
         )}
       </AnimatedPage>
       </PullToRefresh>

@@ -11,8 +11,8 @@ import { useRef, useCallback, useEffect, useState } from 'react';
 const SAMPLE_SIZE = 64; // downscale to 64×64 for diffing
 const DIFF_THRESHOLD = 0.04; // max avg pixel diff to count as "stable" (0–1)
 const SAMPLE_INTERVAL = 100; // ms between samples (was 150)
-const STABLE_DURATION = 400; // ms of stability before firing (was 600)
-const COOLDOWN = 500; // ms after firing before re-arming (was 800)
+const STABLE_DURATION = 300; // ms of stability before firing
+const COOLDOWN = 350; // ms after firing before re-arming
 
 export type FramingHint = 'ready' | 'more_light' | 'too_close' | 'too_far' | null;
 
