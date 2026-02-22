@@ -116,7 +116,7 @@ export default function AuthPage() {
 
   const isLogin = tab === 'login';
 
-  const inputClass = "w-full h-11 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-white/15 transition-colors disabled:opacity-40";
+  const inputClass = "w-full h-11 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3.5 text-base text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-white/15 transition-colors disabled:opacity-40";
 
   return (
     <div className="dark-landing min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
