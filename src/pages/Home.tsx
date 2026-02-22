@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { TAP_TRANSITION } from '@/lib/motion';
 import { Sparkles, ChevronRight, BarChart3, TrendingUp, Shirt, Palette, Gem, AlertCircle, Lock, RefreshCw, ChevronDown, Sun, Briefcase, PartyPopper, Heart, Dumbbell, Plane, Trophy } from 'lucide-react';
+import { useProfile } from '@/hooks/useProfile';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { AnimatedTab } from '@/components/ui/animated-tab';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger';
@@ -216,6 +217,7 @@ export default function HomePage() {
   const { needsOnboarding } = useOnboarding();
   const { canCreateOutfit, isPremium } = useSubscription();
   const { weather } = useWeather();
+  const { data: profile } = useProfile();
   const queryClient = useQueryClient();
 
   const handleRefresh = useCallback(async () => {
@@ -234,9 +236,11 @@ export default function HomePage() {
 
   function getGreeting() {
     const hour = new Date().getHours();
-    if (hour < 10) return t('home.greeting_morning');
-    if (hour < 18) return t('home.greeting_afternoon');
-    return t('home.greeting_evening');
+    const firstName = profile?.display_name?.split(' ')[0];
+    const suffix = firstName ? `, ${firstName}` : '';
+    if (hour < 10) return t('home.greeting_morning') + suffix;
+    if (hour < 18) return t('home.greeting_afternoon') + suffix;
+    return t('home.greeting_evening') + suffix;
   }
 
   const handleSelectOccasion = (id: string) => {
@@ -274,9 +278,19 @@ export default function HomePage() {
 
   return (
     <AppLayout>
-      <PageHeader title={getGreeting()} actions={null} />
       <PullToRefresh onRefresh={handleRefresh}>
       <AnimatedPage className="px-4 pb-6 pt-6 space-y-6 max-w-lg mx-auto">
+        {/* Hero greeting */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
+        >
+          <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: "'Sora', sans-serif" }}>
+            {getGreeting()}
+          </h1>
+          <div className="w-20 h-0.5 mt-2 rounded-full bg-accent/40" />
+        </motion.div>
 
         {/* Onboarding nudge */}
         {needsOnboarding && (
@@ -347,9 +361,9 @@ export default function HomePage() {
                     transition={TAP_TRANSITION}
                     onClick={() => handleSelectOccasion(occ.id)}
                     className={cn(
-                      "w-full flex flex-col items-center gap-1 py-3 px-2 rounded-xl text-sm font-medium transition-colors border will-change-transform",
+                      "w-full flex flex-col items-center gap-1 py-3.5 px-2 rounded-xl text-sm font-medium transition-colors border will-change-transform",
                       selectedOccasion === occ.id
-                        ? "border-accent bg-accent/5 text-accent"
+                        ? "border-accent bg-accent/[0.08] text-accent shadow-[inset_0_1px_2px_0_rgba(0,0,0,0.06)]"
                         : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground"
                     )}
                   >
@@ -389,7 +403,8 @@ export default function HomePage() {
             {/* Styles */}
             <div className="space-y-3">
               <SectionHeader title={t('home.style_optional')} />
-              <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
+              <div className="relative">
+                <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide scroll-fade-right">
                 {STYLES.map((style) => (
                   <motion.button
                     key={style.id}
@@ -406,6 +421,7 @@ export default function HomePage() {
                     {t(style.labelKey)}
                   </motion.button>
                 ))}
+                </div>
               </div>
             </div>
 
@@ -413,7 +429,10 @@ export default function HomePage() {
             <Button
               onClick={handleGenerateOutfit}
               disabled={!selectedOccasion || (garmentCount || 0) < 3}
-              className="w-full h-14 text-base font-semibold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl shadow-sm"
+              className={cn(
+                "w-full h-14 text-base font-semibold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl shadow-sm",
+                selectedOccasion && "breathe-pulse"
+              )}
               size="lg"
             >
               <Sparkles className="w-5 h-5 mr-2" />

@@ -39,9 +39,9 @@ export function ChatWelcome({ mode, onSuggestion }: ChatWelcomeProps) {
     >
       <motion.div
         variants={itemVariants}
-        className="w-14 h-14 rounded-2xl bg-accent/[0.08] backdrop-blur-sm flex items-center justify-center mb-5"
+        className="w-16 h-16 rounded-2xl bg-accent/[0.08] backdrop-blur-sm flex items-center justify-center mb-5"
       >
-        <Icon className="w-7 h-7 text-accent" />
+        <Icon className="w-8 h-8 text-accent" />
       </motion.div>
       <motion.p
         variants={itemVariants}
@@ -55,7 +55,7 @@ export function ChatWelcome({ mode, onSuggestion }: ChatWelcomeProps) {
             key={s}
             variants={itemVariants}
             onClick={() => onSuggestion(s)}
-            className="px-3.5 py-2 text-xs rounded-xl border border-border/40 bg-background/50 backdrop-blur-sm hover:bg-muted/60 text-foreground transition-colors"
+            className="px-3.5 py-2 text-xs rounded-xl border border-border/40 bg-background/50 backdrop-blur-sm hover:bg-muted/60 text-foreground transition-colors glass-chip"
             whileTap={{ scale: 0.96 }}
           >
             {s}

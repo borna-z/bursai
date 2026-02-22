@@ -7,6 +7,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { SettingsRow } from '@/components/settings/SettingsRow';
 import { SettingsGroup } from '@/components/settings/SettingsGroup';
+import { ProfileCard } from '@/components/settings/ProfileCard';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger';
 
@@ -36,6 +37,7 @@ export default function SettingsPage() {
       <PageHeader title={t('settings.title')} />
 
       <AnimatedPage className="px-4 pb-6 pt-6 space-y-6 max-w-lg mx-auto">
+        <ProfileCard />
         <StaggerContainer>
           <SettingsGroup>
             <StaggerItem>

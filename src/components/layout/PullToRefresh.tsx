@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, type ReactNode } from 'react';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
-import { RefreshCw } from 'lucide-react';
+import { DrapeLogo } from '@/components/ui/DrapeLogo';
 
 interface PullToRefreshProps {
   onRefresh: () => Promise<void>;
@@ -65,7 +65,7 @@ export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
         className="flex items-center justify-center overflow-hidden"
       >
         <motion.div style={{ opacity: progress, rotate }}>
-          <RefreshCw className={`w-5 h-5 text-muted-foreground ${refreshing ? 'animate-spin' : ''}`} />
+          <DrapeLogo variant="icon" size="sm" tinted={false} />
         </motion.div>
       </motion.div>
       {children}

@@ -22,3 +22,11 @@ export const TAP_TRANSITION = {
   ease: EASE_CURVE,
   duration: DURATION_FAST,
 };
+
+/** Bouncy spring for interactive emphasis (nav, cards) */
+export const SPRING_BOUNCE = {
+  type: 'spring' as const,
+  stiffness: 400,
+  damping: 25,
+  mass: 0.8,
+};
