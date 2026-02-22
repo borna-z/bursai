@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { useProfile } from './useProfile';
 import { getCoordinatesFromCity } from './useForecast';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -60,12 +59,14 @@ async function getCityName(lat: number, lon: number, locale: string, fallback: s
 }
 
 async function getCoordinates(city?: string | null): Promise<{ lat: number; lon: number }> {
+  // If city is set, use it — no fallback
   if (city) {
     const coords = await getCoordinatesFromCity(city);
     if (coords) return coords;
   }
 
-  if (navigator.geolocation) {
+  // Auto mode: try geolocation
+  if (!city && navigator.geolocation) {
     try {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -83,8 +84,8 @@ async function getCoordinates(city?: string | null): Promise<{ lat: number; lon:
   return { lat: 59.3293, lon: 18.0686 };
 }
 
-async function fetchWeather(city?: string | null, homeCity?: string | null, locale?: string, locationFallback?: string): Promise<WeatherData> {
-  const coords = await getCoordinates(city || homeCity);
+async function fetchWeather(city?: string | null, locale?: string, locationFallback?: string): Promise<WeatherData> {
+  const coords = await getCoordinates(city);
 
   const response = await fetch(
     `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,weather_code,wind_speed_10m,is_day&timezone=auto`
@@ -109,15 +110,13 @@ async function fetchWeather(city?: string | null, homeCity?: string | null, loca
 }
 
 export function useWeather(options?: UseWeatherOptions) {
-  const { data: profile } = useProfile();
   const { locale, t } = useLanguage();
-  const homeCity = profile?.home_city;
-  const city = options?.city;
+  const city = options?.city ?? null;
   const locationFallback = t('weather.your_location');
 
   const { data: weather, isLoading, error } = useQuery({
-    queryKey: ['weather', city, homeCity, locale],
-    queryFn: () => fetchWeather(city, homeCity, locale, locationFallback),
+    queryKey: ['weather', city, locale],
+    queryFn: () => fetchWeather(city, locale, locationFallback),
     refetchInterval: 5 * 60 * 1000,
     staleTime: 3 * 60 * 1000,
     gcTime: 10 * 60 * 1000,

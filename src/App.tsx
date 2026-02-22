@@ -7,6 +7,7 @@ import { HelmetProvider } from "react-helmet-async";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { LocationProvider } from "@/contexts/LocationContext";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import { AnimatedRoutes } from "@/components/layout/AnimatedRoutes";
 import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
@@ -29,6 +30,7 @@ const App = () => (
         <ThemeProvider>
           <AuthProvider>
             <LanguageProvider>
+              <LocationProvider>
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
@@ -37,6 +39,7 @@ const App = () => (
                   <AnimatedRoutes />
                 </BrowserRouter>
               </TooltipProvider>
+              </LocationProvider>
             </LanguageProvider>
           </AuthProvider>
         </ThemeProvider>

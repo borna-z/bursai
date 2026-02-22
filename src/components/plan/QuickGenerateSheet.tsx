@@ -9,10 +9,10 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet';
 import { useWeather } from '@/hooks/useWeather';
-import { useProfile } from '@/hooks/useProfile';
 import { useForecast, getCoordinatesFromCity, fetchForecast, type ForecastDay } from '@/hooks/useForecast';
 import { useCalendarEvents, inferOccasionFromEvent } from '@/hooks/useCalendarSync';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useLocation } from '@/contexts/LocationContext';
 import { getBCP47 } from '@/lib/dateLocale';
 
 function getSuggestedOccasion(events: { title: string }[]): { occasion: string; source: string } | null {
@@ -36,9 +36,9 @@ interface QuickGenerateSheetProps {
 
 export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGenerating }: QuickGenerateSheetProps) {
   const { t, locale } = useLanguage();
-  const { data: profile } = useProfile();
-  const { weather } = useWeather();
-  const { getForecastForDate } = useForecast({ homeCity: profile?.home_city });
+  const { effectiveCity } = useLocation();
+  const { weather } = useWeather({ city: effectiveCity });
+  const { getForecastForDate } = useForecast({ city: effectiveCity });
   
   const dateStr = format(date, 'yyyy-MM-dd');
   const { data: calendarEvents } = useCalendarEvents(dateStr);

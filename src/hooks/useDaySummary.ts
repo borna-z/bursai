@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCalendarEvents } from '@/hooks/useCalendarSync';
 import { useForecast } from '@/hooks/useForecast';
 import { useProfile } from '@/hooks/useProfile';
+import { useLocation } from '@/contexts/LocationContext';
 
 export interface DayPriority {
   title: string;
@@ -26,7 +27,8 @@ export interface DaySummary {
 export function useDaySummary(date: string) {
   const { data: calendarEvents } = useCalendarEvents(date);
   const { data: profile } = useProfile();
-  const { getForecastForDate } = useForecast({ homeCity: profile?.home_city });
+  const { effectiveCity } = useLocation();
+  const { getForecastForDate } = useForecast({ city: effectiveCity });
 
   const hasEvents = !!calendarEvents && calendarEvents.length > 0;
   const forecast = getForecastForDate(date);
