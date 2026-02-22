@@ -1,14 +1,3 @@
-
-
-# BURS Roadmap -- Uppdatering av .lovable/plan.md
-
-Ersatt det gamla (avklarat) planinnehallet med en ny roadmap som tar projektet framat. Organiserat i fyra prioritetsnivan.
-
----
-
-## Nytt innehall for `.lovable/plan.md`
-
-```markdown
 # BURS Roadmap
 
 ## Avklarat
@@ -46,11 +35,3 @@ Ersatt det gamla (avklarat) planinnehallet med en ny roadmap som tar projektet f
 - [ ] Push-notifieringsstrategi (outfit-paminnelser, vader-varningar)
 - [ ] Veckovis style-rapport / insikts-email
 - [ ] Referral-program
-```
-
-## Teknisk andring
-
-**Fil:** `.lovable/plan.md`
-- Ersatt hela filinnehallet med den nya roadmapen ovan
-- Inga andra filer andras
-
