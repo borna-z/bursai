@@ -110,14 +110,35 @@ serve(async (req) => {
       if (coords) weatherCtx = await fetchWeather(coords.lat, coords.lon);
     }
 
-    // Style prefs
+    // Style prefs — use full styleProfile (quiz v3) if available, fallback to legacy
     const preferences = profile?.preferences as Record<string, unknown> || {};
-    const styleLines = [
-      (preferences.favoriteColors as string[])?.length ? `Favoritfärger: ${(preferences.favoriteColors as string[]).join(", ")}` : "",
-      (preferences.dislikedColors as string[])?.length ? `Ogillar: ${(preferences.dislikedColors as string[]).join(", ")}` : "",
-      preferences.fitPreference ? `Passform: ${preferences.fitPreference}` : "",
-      preferences.styleVibe ? `Stil: ${preferences.styleVibe}` : "",
-    ].filter(Boolean).join(". ");
+    const sp = preferences.styleProfile as Record<string, any> | undefined;
+    let styleLines = "";
+    if (sp) {
+      const parts: string[] = [];
+      if (sp.gender) parts.push(`Kön: ${sp.gender}`);
+      if (sp.ageRange) parts.push(`Ålder: ${sp.ageRange}`);
+      if (sp.styleWords?.length) parts.push(`Stilord: ${sp.styleWords.join(", ")}`);
+      if (sp.favoriteColors?.length) parts.push(`Favoritfärger: ${sp.favoriteColors.join(", ")}`);
+      if (sp.dislikedColors?.length) parts.push(`Undviker: ${sp.dislikedColors.join(", ")}`);
+      if (sp.paletteVibe) parts.push(`Palettskänsla: ${sp.paletteVibe}`);
+      if (sp.patternFeeling) parts.push(`Mönster: ${sp.patternFeeling}`);
+      if (sp.fit) parts.push(`Passform: ${sp.fit}`);
+      if (sp.shoppingMindset) parts.push(`Shopping: ${sp.shoppingMindset}`);
+      if (sp.sustainability) parts.push(`Hållbarhet: ${sp.sustainability}`);
+      if (sp.capsuleWardrobe) parts.push(`Kapselgarderob: ${sp.capsuleWardrobe}`);
+      if (sp.wardrobeFrustrations?.length) parts.push(`Frustrationer: ${sp.wardrobeFrustrations.join(", ")}`);
+      if (sp.primaryGoal) parts.push(`Huvudmål: ${sp.primaryGoal}`);
+      if (sp.fabricFeel) parts.push(`Favoritmaterial: ${sp.fabricFeel}`);
+      styleLines = parts.join(". ");
+    } else {
+      styleLines = [
+        (preferences.favoriteColors as string[])?.length ? `Favoritfärger: ${(preferences.favoriteColors as string[]).join(", ")}` : "",
+        (preferences.dislikedColors as string[])?.length ? `Ogillar: ${(preferences.dislikedColors as string[]).join(", ")}` : "",
+        preferences.fitPreference ? `Passform: ${preferences.fitPreference}` : "",
+        preferences.styleVibe ? `Stil: ${preferences.styleVibe}` : "",
+      ].filter(Boolean).join(". ");
+    }
 
     const systemPrompt = `Du är BURS Shopping-assistenten – en smart shoppingrådgivare som hjälper användaren fatta bra köpbeslut baserat på deras befintliga garderob.
 
