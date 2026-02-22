@@ -25,14 +25,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        // When user signs in, mark session active in sessionStorage
+        if (event === 'SIGNED_IN') {
+          sessionStorage.setItem('session_active', 'true');
+        }
+        if (event === 'SIGNED_OUT') {
+          sessionStorage.removeItem('session_active');
+        }
       }
     );
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      // If "remember me" was unchecked and this is a new browser session, sign out
+      const rememberMe = localStorage.getItem('remember_me');
+      const sessionActive = sessionStorage.getItem('session_active');
+
+      if (session && rememberMe === 'false' && !sessionActive) {
+        // Session exists but user didn't want to stay logged in and this is a new tab/window session
+        supabase.auth.signOut().then(() => {
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+        });
+        return;
+      }
+
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+
+      // Mark session active for current browser session
+      if (session) {
+        sessionStorage.setItem('session_active', 'true');
+      }
     });
 
     return () => subscription.unsubscribe();
