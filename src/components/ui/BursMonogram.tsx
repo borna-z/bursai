@@ -6,7 +6,7 @@ interface BursMonogramProps {
   className?: string;
 }
 
-export function BursMonogram({ size = 32, className }: BursMonogramProps) {
+export function BursMonogram({ size = 40, className }: BursMonogramProps) {
   return (
     <img
       src={hangerLogo}
