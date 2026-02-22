@@ -1,106 +1,229 @@
 
 
-# UI & UX Polish Plan -- "Great Feel" Upgrade
+# Layout and UI Overhaul -- Clean, Minimalist, Futuristic, Premium
 
-This plan focuses on micro-interactions, visual hierarchy, and tactile feedback improvements across all main screens to make the app feel truly premium and delightful.
-
----
-
-## 1. Home Page -- Hero Greeting & Create Flow
-
-**Current state**: The greeting is plain text in a standard PageHeader. The occasion grid and style selector work but feel flat.
-
-**Changes**:
-- Replace the plain PageHeader greeting with a larger, more expressive greeting block inside the page body (Sora font, text-2xl, with a subtle fade-in). Add the user's first name if available from profile data.
-- Add a soft gradient accent line under the greeting (2px, accent-indigo, 40% opacity, 80px wide) for visual anchoring.
-- Make occasion cards slightly taller with a subtle background tint when selected (accent/8 instead of accent/5), and add a thin inner shadow for depth.
-- Add a "pulse" micro-animation on the Generate button when an occasion is selected (a gentle scale breathe, 3s loop) to draw attention.
-- Wrap the style chips in a horizontal scroll container with a fade-out mask on the right edge to hint at scrollability.
-
-## 2. Bottom Navigation -- Refined Active State
-
-**Current state**: The nav pill is a simple accent/10 rounded rectangle.
-
-**Changes**:
-- Add a tiny 3px dot indicator below the active icon (accent color, rounded-full) in addition to the pill, for a cleaner "iOS 18" look.
-- Increase the pill's blur slightly (backdrop-blur-sm on the pill itself) for a more glass-like feel.
-- Add a subtle scale-up (1.08) on the active icon with a spring transition for a bouncy, alive feel.
-
-## 3. Wardrobe -- Card Refinements & Empty State
-
-**Current state**: Grid cards use glass-card styling. The empty state is functional but bland.
-
-**Changes**:
-- Add a soft 1px inner shadow to grid cards (`shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]` in dark mode) for a glass edge highlight.
-- Add a gentle hover/press lift effect: translate-y of -2px on tap with a spring transition.
-- Make the garment image slightly zoom (scale 1.03) on press for a tactile feel.
-- Improve the empty state with a larger illustration area, animated Shirt icon (gentle float animation), and a more inviting CTA.
-
-## 4. Plan Page -- Day Transitions & Weather
-
-**Current state**: Day switching uses animate-drape-in. The WeekStrip is functional but compact.
-
-**Changes**:
-- Add a directional slide to the day content: slide-left when moving forward in days, slide-right when going back, using framer-motion AnimatePresence with a direction state.
-- Make the selected day in WeekStrip have a subtle scale-up (1.1) with a spring animation.
-- Add a soft color tint to the WeekStrip day number based on planned status: accent for planned, success for worn.
-
-## 5. AI Chat -- Conversational Polish
-
-**Current state**: Messages render cleanly but without personality.
-
-**Changes**:
-- Add a typing indicator with three animated dots (scale pulse, staggered) instead of just a spinner when the assistant is streaming.
-- Add a subtle slide-up animation (translateY 8px to 0, 200ms) for each new message as it appears.
-- Make the welcome state more inviting: larger icon, a gradient text effect on the greeting, and pill-shaped suggestion buttons with a glass-chip style.
-
-## 6. Settings -- Visual Hierarchy
-
-**Current state**: Settings rows are clean but all visually equal weight.
-
-**Changes**:
-- Add a user profile card at the top of Settings: avatar circle (initials or photo), user email, and subscription badge. This creates a personal connection.
-- Add subtle icon background circles (w-8 h-8 rounded-full bg-accent/8) behind each settings icon for visual rhythm.
-
-## 7. Global Micro-Interactions
-
-**Changes across all pages**:
-- **Pull-to-refresh**: Add a custom branded indicator -- the DRAPE monogram that rotates while refreshing, replacing the default spinner.
-- **Page transitions**: Slightly increase the exit animation opacity duration (from 0.35s to 0.4s) for smoother page leaves.
-- **Toast notifications**: Style success toasts with a subtle green-tinted left border and a check icon, error toasts with red.
-- **Skeleton loading**: Add a warmer shimmer direction (left-to-right instead of diagonal) and slightly slower animation (2s instead of 1.5s) for a calmer loading feel.
-
-## 8. Typography Refinements
-
-**Changes**:
-- Increase letter-spacing on section headers from `tracking-wide` to `tracking-widest` for a more luxurious uppercase look.
-- Add `font-feature-settings: "ss01"` to heading elements for stylistic alternates in Inter/Sora (if available).
+A systematic pass through every screen to tighten spacing, simplify visual noise, unify card styles, and create a cohesive "less is more" premium feel.
 
 ---
 
-## Technical Details
+## Design Principles
+
+- **Reduce visual clutter**: fewer borders, lighter dividers, more whitespace
+- **Unified card language**: one card style everywhere -- no border, ultra-subtle shadow, clean radius
+- **Consistent spacing rhythm**: 8-16-24-32 grid strictly followed
+- **Typography hierarchy**: bigger contrast between heading sizes, lighter body text
+- **Monochrome-first**: accent color used sparingly (only interactive elements and key data)
+- **Larger touch targets**: min 44px for all tappable elements
+- **Breathing room**: generous padding, no cramped layouts
+
+---
+
+## 1. Global Foundation Changes
+
+### Card Component (`src/components/ui/card.tsx`)
+- Remove `border-border/40` -- use borderless cards with a soft shadow only
+- New default: `rounded-2xl bg-card shadow-[0_1px_2px_0_rgb(0_0_0/0.03),0_1px_6px_0_rgb(0_0_0/0.02)]`
+- Remove backdrop-blur from base card (reserve glass for nav/headers only)
+
+### Button Component (`src/components/ui/button.tsx`)
+- Change default border-radius from `rounded-lg` to `rounded-xl` for a softer, more modern feel
+- Increase default height from `h-11` to `h-12` for better touch targets
+- Make outline variant borderless with just a subtle background tint: `bg-foreground/[0.04] hover:bg-foreground/[0.08]`
+
+### Section Header (`src/components/ui/section-header.tsx`)
+- Change from uppercase to sentence case for a calmer feel
+- Use `text-[11px] font-medium text-muted-foreground/70 tracking-wide` instead of `tracking-widest` + uppercase
+
+### EmptyState (`src/components/layout/EmptyState.tsx`)
+- Larger icon container: `w-20 h-20 rounded-3xl`
+- Softer background: `bg-muted/30`
+- More vertical padding: `py-24`
+
+### Index CSS (`src/index.css`)
+- Add a new utility `.card-clean` for borderless elevated cards
+- Refine `.glass` to use `bg-background/80 backdrop-blur-xl` (from `backdrop-blur-md`)
+- Add `.divider-subtle` as `border-border/20` for ultra-light section dividers
+
+---
+
+## 2. Bottom Navigation (`src/components/layout/BottomNav.tsx`)
+- Reduce height from `h-[72px]` to `h-[64px]` -- less visual weight
+- Make background more transparent: `bg-background/50`
+- Remove the active dot indicator (simplify to just pill + scale)
+- Make label text slightly larger: `text-[11px]` (from `text-[10px]`)
+
+## 3. Page Header (`src/components/layout/PageHeader.tsx`)
+- Remove the shadow line (`shadow-[0_0.5px_0...]`) -- use a barely-visible border instead: `border-b border-border/20`
+- Reduce blur intensity slightly for performance
+- Make title `text-lg` instead of `text-xl` for a lighter header feel
+
+---
+
+## 4. Home Page (`src/pages/Home.tsx`)
+
+### Greeting
+- Change to `text-xl` from `text-2xl` -- more restrained, elegant
+- Remove the accent line under the greeting (visual noise)
+
+### Tab Switcher
+- Simplify: remove border, use just background tint difference
+- Active tab: `bg-foreground/[0.06]` instead of complex glass effect
+- Reduce padding: `py-2` from `py-2.5`
+
+### Occasion Grid
+- Change from `grid-cols-3` to `grid-cols-2` for larger, more breathable cards
+- Increase vertical padding: `py-5` from `py-3.5`
+- Remove inner shadow on selected state -- just a clean accent border
+- Slightly larger icons: `w-6 h-6` from `w-5 h-5`
+
+### Style Chips
+- Increase padding: `px-4 py-2` from `px-3.5 py-1.5`
+- Borderless design: just a subtle background tint
+
+### Generate Button
+- Remove the breathe-pulse animation (distracting)
+- Full-width with `h-14` for a statement CTA
+- Add subtle icon: keep Sparkles but at `w-5 h-5`
+
+### Insights Section (Home)
+- Stat cards: remove glass-card class, use clean borderless cards
+- Increase stat number size to `text-3xl` from `text-2xl`
+- Remove colored accent on usage percentage -- keep monochrome
+
+---
+
+## 5. Wardrobe Page (`src/pages/Wardrobe.tsx`)
+
+### Grid Cards
+- Remove inner shadow (`shadow-[inset_...]`)
+- Increase image aspect ratio from `aspect-square` to `aspect-[3/4]` for a fashion-magazine feel
+- Increase gap from `gap-4` to `gap-3` (slightly tighter grid looks more editorial)
+- Remove glass-card class -- use clean borderless card style
+- Title typography: `text-[13px] font-medium` (slightly smaller, more refined)
+
+### List View Cards
+- Remove glass-card -- use borderless with subtle separator
+- Increase image size: `w-16 h-16` from `w-14 h-14`
+- Add `rounded-xl` to images from `rounded-lg`
+
+### Filter Bar
+- Simplify the collapsible filter section
+- Use chip-style filters instead of Select dropdowns for a more visual approach
+- Category tabs: horizontal scroll with pill-shaped buttons
+
+---
+
+## 6. Plan Page (`src/pages/Plan.tsx`)
+
+### Header
+- Simplify: just the date text and wand icon, no calendar icon next to date
+- Date text: `text-base font-medium` (from `text-lg font-semibold`) -- calmer
+
+### Day Content
+- Outfit image grid: change from `grid-cols-2 gap-px` to `grid-cols-2 gap-1 p-1` for visible spacing between items
+- Round inner images: `rounded-xl` for each item
+- Remove the glass-card wrapper around the outfit grid -- make it borderless
+
+### Action Buttons
+- Stack vertically instead of side-by-side for cleaner layout
+- Use ghost buttons with subtle dividers between them
+
+### Empty State
+- Simplify: just one CTA button (Generate), remove the secondary "Plan" button
+- Larger icon container with softer visual
+
+---
+
+## 7. AI Chat (`src/pages/AIChat.tsx`)
+
+### Header
+- Simplify mode switcher: use just text tabs with an underline indicator (no background pills)
+- Remove the background border/glass effect
+
+### Welcome Screen
+- Larger icon: `w-20 h-20` with `rounded-3xl`
+- Welcome text: `text-base` from `text-sm` for better readability
+- Suggestion pills: increase padding and make them borderless with background tint
+
+### Messages
+- Increase spacing between messages: `space-y-6` from `space-y-5`
+- User messages: clean right-aligned bubble with `bg-foreground text-background rounded-2xl rounded-br-md`
+- Assistant messages: left-aligned, no bubble background, just text
+
+---
+
+## 8. Settings Page (`src/pages/Settings.tsx`)
+
+### Profile Card
+- Make it larger and more prominent: full-width with more padding
+- Avatar: `w-14 h-14` from `w-12 h-12`
+- Name: `text-base font-semibold` from `text-sm`
+
+### Settings Rows
+- Remove the icon background circles (simpler, cleaner)
+- Just the raw icon in muted-foreground color
+- Increase row height to `py-4` from `py-3`
+- Remove bottom borders entirely -- use spacing between rows instead
+
+### Settings Group
+- Remove border/card wrapper -- just use spacing to separate groups
+- Add a thin divider between groups: `border-b border-border/10`
+
+---
+
+## 9. Detail Pages
+
+### Garment Detail (`src/pages/GarmentDetail.tsx`)
+- Image: add `rounded-2xl` with slight margin for breathing room
+- Badge chips: increase padding, borderless with background tint
+- Stats cards: side-by-side borderless with clean typography
+- Remove card wrappers around individual sections -- use spacing
+
+### Outfit Detail (`src/pages/OutfitDetail.tsx`)
+- Slot cards: borderless, larger images
+- Rating stars: increase size to `w-8 h-8`
+- Feedback chips: larger, more padding, borderless
+
+### Insights (`src/pages/Insights.tsx`)
+- Stat cards: borderless, clean large numbers
+- Section cards: remove borders, use spacing and subtle shadows only
+- Color distribution: cleaner bar chart visualization
+
+---
+
+## 10. Onboarding + Auth
+
+### Auth Page
+- Already has good dark aesthetic -- keep as-is
+- Just ensure button sizes match the new `h-12` standard
+
+---
+
+## Technical Summary
 
 ### Files to modify:
-1. `src/pages/Home.tsx` -- Greeting block, occasion card tweaks, generate button animation
-2. `src/components/layout/BottomNav.tsx` -- Active dot indicator, spring scale on active icon
-3. `src/pages/Wardrobe.tsx` -- Card inner shadow, press animation
-4. `src/pages/Plan.tsx` -- Directional day transitions
-5. `src/pages/AIChat.tsx` -- Typing indicator, message animations
-6. `src/pages/Settings.tsx` -- Profile card at top
-7. `src/components/layout/PageHeader.tsx` -- No changes (Home will use custom greeting instead)
-8. `src/components/ui/section-header.tsx` -- Wider letter-spacing
-9. `src/index.css` -- Shimmer animation timing, toast border styles, new utility classes
-10. `src/lib/motion.ts` -- Add spring config constant for bouncy interactions
-11. `src/components/layout/PullToRefresh.tsx` -- Branded refresh indicator
-12. `src/components/ui/sonner.tsx` -- Toast styling overrides
+1. `src/components/ui/card.tsx` -- borderless cards
+2. `src/components/ui/button.tsx` -- rounded-xl, h-12
+3. `src/components/ui/section-header.tsx` -- sentence case, lighter
+4. `src/components/layout/EmptyState.tsx` -- larger, softer
+5. `src/components/layout/BottomNav.tsx` -- shorter, cleaner
+6. `src/components/layout/PageHeader.tsx` -- lighter header
+7. `src/components/settings/SettingsRow.tsx` -- remove icon circles, more padding
+8. `src/components/settings/SettingsGroup.tsx` -- borderless groups
+9. `src/components/settings/ProfileCard.tsx` -- larger profile
+10. `src/components/chat/ChatWelcome.tsx` -- larger welcome
+11. `src/pages/Home.tsx` -- occasion grid cols-2, remove noise
+12. `src/pages/Wardrobe.tsx` -- editorial grid, borderless cards
+13. `src/pages/Plan.tsx` -- simplified layout
+14. `src/pages/AIChat.tsx` -- cleaner chat chrome
+15. `src/pages/Settings.tsx` -- spacing-based groups
+16. `src/pages/GarmentDetail.tsx` -- borderless sections
+17. `src/pages/OutfitDetail.tsx` -- cleaner detail layout
+18. `src/pages/Insights.tsx` -- borderless stat cards
+19. `src/index.css` -- new utility classes
 
-### New components:
-- `src/components/settings/ProfileCard.tsx` -- User identity card for settings top
+### No new dependencies needed.
 
-### Dependencies:
-- No new packages needed. All changes use existing framer-motion, Tailwind, and Lucide.
-
-### Risk:
-- Low. All changes are additive visual polish. No data flow or business logic modifications.
-- Performance: spring animations use `will-change-transform` to prevent paint jank.
+### Risk: Low
+All changes are visual/layout only. No data flow or business logic is affected.
 
