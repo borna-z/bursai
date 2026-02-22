@@ -269,17 +269,17 @@ export default function AIChat() {
     <AppLayout>
       <div className="flex flex-col" style={{ height: 'calc(100dvh - 4rem)' }}>
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40 shrink-0 sticky top-0 z-10 bg-background/70 backdrop-blur-xl backdrop-saturate-150">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/20 shrink-0 sticky top-0 z-10 bg-background/70 backdrop-blur-lg">
           <div className="w-9" /> {/* spacer */}
           {/* Mode switcher */}
-          <div className="flex bg-foreground/[0.04] backdrop-blur-sm rounded-lg p-0.5 border border-border/30">
+          <div className="flex gap-1">
             <button
               onClick={() => setMode('stylist')}
               className={cn(
-                'flex items-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-medium transition-all',
+                'flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium transition-all border-b-2',
                 mode === 'stylist'
-                  ? 'bg-background/80 backdrop-blur-md text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'text-foreground border-foreground'
+                  : 'text-muted-foreground border-transparent hover:text-foreground'
               )}
             >
               <Sparkles className="w-3.5 h-3.5" />
@@ -288,10 +288,10 @@ export default function AIChat() {
             <button
               onClick={() => setMode('shopping')}
               className={cn(
-                'flex items-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-medium transition-all',
+                'flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium transition-all border-b-2',
                 mode === 'shopping'
-                  ? 'bg-background/80 backdrop-blur-md text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'text-foreground border-foreground'
+                  : 'text-muted-foreground border-transparent hover:text-foreground'
               )}
             >
               <ShoppingBag className="w-3.5 h-3.5" />
@@ -322,7 +322,7 @@ export default function AIChat() {
         ) : isWelcomeState ? (
           <ChatWelcome mode={mode} onSuggestion={sendMessage} />
         ) : (
-          <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-4 space-y-5">
+          <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-4 space-y-6">
             {messages.map((msg, idx) => {
               // Skip the initial welcome message in conversation view
               if (idx === 0 && msg.role === 'assistant' && !isStreaming) {

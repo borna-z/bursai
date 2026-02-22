@@ -18,8 +18,8 @@ export function BottomNav() {
   const { t } = useLanguage();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/60 backdrop-blur-xl backdrop-saturate-150 shadow-[0_-1px_0_0_hsl(var(--border)/0.4)] safe-bottom">
-      <div className="flex justify-around items-center h-[72px] max-w-lg mx-auto px-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/50 backdrop-blur-xl backdrop-saturate-150 border-t border-border/10 safe-bottom">
+      <div className="flex justify-around items-center h-16 max-w-lg mx-auto px-2">
         {tabKeys.map((tab) => (
           <NavLink
             key={tab.path}
@@ -27,7 +27,7 @@ export function BottomNav() {
             onClick={() => hapticLight()}
             className={({ isActive }) =>
               cn(
-                'relative flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[10px] font-medium transition-colors duration-200',
+                'relative flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[11px] font-medium transition-colors duration-200',
                 isActive
                   ? 'text-accent'
                   : 'text-muted-foreground hover:text-foreground'
@@ -40,7 +40,7 @@ export function BottomNav() {
                   {isActive && (
                     <motion.div
                       layoutId="nav-pill"
-                      className="absolute inset-0 bg-accent/10 backdrop-blur-sm rounded-2xl will-change-transform"
+                      className="absolute inset-0 bg-accent/10 rounded-2xl will-change-transform"
                       transition={EASE_TWEEN}
                     />
                   )}
@@ -56,16 +56,6 @@ export function BottomNav() {
                   </motion.div>
                 </div>
                 <span>{t(tab.labelKey)}</span>
-                {/* Active dot indicator */}
-                <div className="h-1 flex items-center justify-center">
-                  {isActive && (
-                    <motion.div
-                      layoutId="nav-dot"
-                      className="w-[3px] h-[3px] rounded-full bg-accent"
-                      transition={EASE_TWEEN}
-                    />
-                  )}
-                </div>
               </>
             )}
           </NavLink>

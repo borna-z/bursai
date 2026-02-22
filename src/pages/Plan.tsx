@@ -211,12 +211,12 @@ export default function PlanPage() {
   return (
     <AppLayout>
       {/* ─── Sticky header ─── */}
-      <header className="sticky top-0 bg-background/70 backdrop-blur-xl backdrop-saturate-150 border-b border-border/40 z-20">
+      <header className="sticky top-0 bg-background/70 backdrop-blur-lg border-b border-border/20 z-20">
         <div className="flex items-center justify-between px-4 h-16 max-w-lg mx-auto">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
               <button className="flex items-center gap-2 hover:opacity-70 transition-opacity press">
-                <h1 className="text-lg font-semibold capitalize">{dateLabel}</h1>
+                <h1 className="text-base font-medium capitalize">{dateLabel}</h1>
                 <CalendarDays className="w-4 h-4 text-muted-foreground" />
               </button>
             </PopoverTrigger>
@@ -297,12 +297,12 @@ export default function PlanPage() {
             <div className="space-y-4">
               {/* Outfit image grid */}
               <div 
-                className="rounded-2xl overflow-hidden glass-card cursor-pointer press"
+                className="rounded-2xl overflow-hidden cursor-pointer press"
                 onClick={() => navigate(`/outfits/${outfit.id}`)}
               >
-                <div className="grid grid-cols-2 gap-px bg-border">
+                <div className="grid grid-cols-2 gap-1 p-1">
                   {outfit.outfit_items.slice(0, 4).map((item) => (
-                    <div key={item.id} className="bg-card aspect-[4/5]">
+                    <div key={item.id} className="bg-muted aspect-[4/5] rounded-xl overflow-hidden">
                       <LazyImageSimple
                         imagePath={item.garment?.image_path}
                         alt={item.garment?.title || item.slot}

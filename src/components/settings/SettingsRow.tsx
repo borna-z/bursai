@@ -17,7 +17,7 @@ export function SettingsRow({ icon, label, sublabel, children, last, onClick, cl
   const content = (
     <>
       <div className="flex items-center gap-3 min-w-0 flex-1">
-        {icon && <span className={cn('flex-shrink-0 w-8 h-8 rounded-full bg-accent/[0.08] flex items-center justify-center [&>svg]:w-[18px] [&>svg]:h-[18px]', onClick ? 'text-accent' : 'text-muted-foreground')}>{icon}</span>}
+        {icon && <span className="flex-shrink-0 [&>svg]:w-[18px] [&>svg]:h-[18px] text-muted-foreground">{icon}</span>}
         <div className="min-w-0">
           <span className="text-sm font-medium text-foreground">{label}</span>
           {sublabel && <p className="text-xs text-muted-foreground mt-0.5">{sublabel}</p>}
@@ -28,8 +28,7 @@ export function SettingsRow({ icon, label, sublabel, children, last, onClick, cl
   );
 
   const baseClass = cn(
-    'flex items-center justify-between gap-3 px-4 py-3 w-full text-left',
-    !last && 'border-b border-border/50',
+    'flex items-center justify-between gap-3 px-4 py-4 w-full text-left',
     onClick && 'transition-colors',
     className,
   );

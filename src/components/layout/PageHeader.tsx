@@ -26,7 +26,7 @@ export function PageHeader({
   return (
     <header 
       className={cn(
-        'bg-background/70 backdrop-blur-xl backdrop-saturate-150 shadow-[0_0.5px_0_0_hsl(var(--border)/0.5)] z-20',
+        'bg-background/70 backdrop-blur-lg border-b border-border/20 z-20',
         sticky && 'sticky top-0',
         className
       )}
@@ -47,7 +47,7 @@ export function PageHeader({
             </Button>
           )}
           <div>
-            <h1 className="text-xl font-semibold truncate">{title}</h1>
+            <h1 className="text-lg font-semibold truncate">{title}</h1>
             {subtitle && (
               <p className="text-xs text-muted-foreground leading-relaxed">{subtitle}</p>
             )}

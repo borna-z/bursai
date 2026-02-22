@@ -39,13 +39,13 @@ export function ChatWelcome({ mode, onSuggestion }: ChatWelcomeProps) {
     >
       <motion.div
         variants={itemVariants}
-        className="w-16 h-16 rounded-2xl bg-accent/[0.08] backdrop-blur-sm flex items-center justify-center mb-5"
+        className="w-20 h-20 rounded-3xl bg-accent/[0.06] flex items-center justify-center mb-5"
       >
         <Icon className="w-8 h-8 text-accent" />
       </motion.div>
       <motion.p
         variants={itemVariants}
-        className="text-sm leading-relaxed text-muted-foreground max-w-xs whitespace-pre-wrap"
+        className="text-base leading-relaxed text-muted-foreground max-w-xs whitespace-pre-wrap"
       >
         {welcomeText}
       </motion.p>
@@ -55,7 +55,7 @@ export function ChatWelcome({ mode, onSuggestion }: ChatWelcomeProps) {
             key={s}
             variants={itemVariants}
             onClick={() => onSuggestion(s)}
-            className="px-3.5 py-2 text-xs rounded-xl border border-border/40 bg-background/50 backdrop-blur-sm hover:bg-muted/60 text-foreground transition-colors glass-chip"
+            className="px-4 py-2.5 text-xs rounded-xl bg-foreground/[0.04] hover:bg-foreground/[0.08] text-foreground transition-colors"
             whileTap={{ scale: 0.96 }}
           >
             {s}
