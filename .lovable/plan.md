@@ -1,229 +1,146 @@
 
 
-# Layout and UI Overhaul -- Clean, Minimalist, Futuristic, Premium
+# Today Page -- Complete Redesign
 
-A systematic pass through every screen to tighten spacing, simplify visual noise, unify card styles, and create a cohesive "less is more" premium feel.
-
----
-
-## Design Principles
-
-- **Reduce visual clutter**: fewer borders, lighter dividers, more whitespace
-- **Unified card language**: one card style everywhere -- no border, ultra-subtle shadow, clean radius
-- **Consistent spacing rhythm**: 8-16-24-32 grid strictly followed
-- **Typography hierarchy**: bigger contrast between heading sizes, lighter body text
-- **Monochrome-first**: accent color used sparingly (only interactive elements and key data)
-- **Larger touch targets**: min 44px for all tappable elements
-- **Breathing room**: generous padding, no cramped layouts
+Rebuilding the Today page from scratch with three seamless sections: a compact weather + outfit creator, inline insights, and a full insights view. Every element earns its place -- no visual noise, only actionable data.
 
 ---
 
-## 1. Global Foundation Changes
+## New Layout Structure
 
-### Card Component (`src/components/ui/card.tsx`)
-- Remove `border-border/40` -- use borderless cards with a soft shadow only
-- New default: `rounded-2xl bg-card shadow-[0_1px_2px_0_rgb(0_0_0/0.03),0_1px_6px_0_rgb(0_0_0/0.02)]`
-- Remove backdrop-blur from base card (reserve glass for nav/headers only)
+The page drops the tab switcher entirely. Instead, it flows as one continuous scroll with clear sections separated by whitespace:
 
-### Button Component (`src/components/ui/button.tsx`)
-- Change default border-radius from `rounded-lg` to `rounded-xl` for a softer, more modern feel
-- Increase default height from `h-11` to `h-12` for better touch targets
-- Make outline variant borderless with just a subtle background tint: `bg-foreground/[0.04] hover:bg-foreground/[0.08]`
-
-### Section Header (`src/components/ui/section-header.tsx`)
-- Change from uppercase to sentence case for a calmer feel
-- Use `text-[11px] font-medium text-muted-foreground/70 tracking-wide` instead of `tracking-widest` + uppercase
-
-### EmptyState (`src/components/layout/EmptyState.tsx`)
-- Larger icon container: `w-20 h-20 rounded-3xl`
-- Softer background: `bg-muted/30`
-- More vertical padding: `py-24`
-
-### Index CSS (`src/index.css`)
-- Add a new utility `.card-clean` for borderless elevated cards
-- Refine `.glass` to use `bg-background/80 backdrop-blur-xl` (from `backdrop-blur-md`)
-- Add `.divider-subtle` as `border-border/20` for ultra-light section dividers
+```text
++----------------------------------+
+|  Greeting + compact weather      |
++----------------------------------+
+|  "What's today?" occasion row    |
+|  Style chips (optional)          |
+|  [Generate Outfit] button        |
++----------------------------------+
+|  Quick Stats (inline, no cards)  |
++----------------------------------+
+|  AI Suggestion (1 card)          |
++----------------------------------+
+|  Top 3 worn (compact list)       |
++----------------------------------+
+|  [See all insights ->]           |
++----------------------------------+
+```
 
 ---
 
-## 2. Bottom Navigation (`src/components/layout/BottomNav.tsx`)
-- Reduce height from `h-[72px]` to `h-[64px]` -- less visual weight
-- Make background more transparent: `bg-background/50`
-- Remove the active dot indicator (simplify to just pill + scale)
-- Make label text slightly larger: `text-[11px]` (from `text-[10px]`)
+## Section-by-Section Design
 
-## 3. Page Header (`src/components/layout/PageHeader.tsx`)
-- Remove the shadow line (`shadow-[0_0.5px_0...]`) -- use a barely-visible border instead: `border-b border-border/20`
-- Reduce blur intensity slightly for performance
-- Make title `text-lg` instead of `text-xl` for a lighter header feel
+### 1. Greeting + Compact Weather (merged into one line)
 
----
+**Current problem**: The WeatherWidget is a large card with a 5-day forecast strip that takes ~200px of vertical space before any actionable content.
 
-## 4. Home Page (`src/pages/Home.tsx`)
+**New design**: Merge greeting and weather into a single row.
+- Left: "God morgon, Erik" (text-lg, Sora font)
+- Right: compact weather pill showing `18° Sun` with a small icon (no forecast strip, no location picker, no time)
+- Tapping the weather pill expands to show 3-day forecast inline (collapsible, closed by default)
+- The location picker moves inside the expanded state
 
-### Greeting
-- Change to `text-xl` from `text-2xl` -- more restrained, elegant
-- Remove the accent line under the greeting (visual noise)
+This saves ~150px of prime screen real estate.
 
-### Tab Switcher
-- Simplify: remove border, use just background tint difference
-- Active tab: `bg-foreground/[0.06]` instead of complex glass effect
-- Reduce padding: `py-2` from `py-2.5`
+### 2. Occasion Selector (streamlined)
 
-### Occasion Grid
-- Change from `grid-cols-3` to `grid-cols-2` for larger, more breathable cards
-- Increase vertical padding: `py-5` from `py-3.5`
-- Remove inner shadow on selected state -- just a clean accent border
-- Slightly larger icons: `w-6 h-6` from `w-5 h-5`
+**Current problem**: 6 occasions in a 2-column grid takes a lot of vertical space. Sub-options add another section.
 
-### Style Chips
-- Increase padding: `px-4 py-2` from `px-3.5 py-1.5`
-- Borderless design: just a subtle background tint
+**New design**: 
+- Single horizontal scroll row of occasion pills (not a grid). Each pill has icon + label.
+- Selected occasion expands sub-options as a second row below (also horizontal scroll pills)
+- This reduces the occasion area from ~200px to ~80px
 
-### Generate Button
-- Remove the breathe-pulse animation (distracting)
-- Full-width with `h-14` for a statement CTA
-- Add subtle icon: keep Sparkles but at `w-5 h-5`
+### 3. Style + Generate
 
-### Insights Section (Home)
-- Stat cards: remove glass-card class, use clean borderless cards
-- Increase stat number size to `text-3xl` from `text-2xl`
-- Remove colored accent on usage percentage -- keep monochrome
+- Style chips remain as horizontal scroll (unchanged, already good)
+- Generate button: full-width, prominent, but `h-12` not `h-14` (slightly less dominant)
+- Cold weather hint moves to a small inline note above the button if applicable
 
----
+### 4. Quick Stats Strip (new -- replaces stat cards)
 
-## 5. Wardrobe Page (`src/pages/Wardrobe.tsx`)
+**Current problem**: Three separate Card components with large text for total/usage/unused stats take significant space.
 
-### Grid Cards
-- Remove inner shadow (`shadow-[inset_...]`)
-- Increase image aspect ratio from `aspect-square` to `aspect-[3/4]` for a fashion-magazine feel
-- Increase gap from `gap-4` to `gap-3` (slightly tighter grid looks more editorial)
-- Remove glass-card class -- use clean borderless card style
-- Title typography: `text-[13px] font-medium` (slightly smaller, more refined)
+**New design**: A single row with three inline metrics, no cards:
+```
+42 plagg    67% använt    8 oanvända
+```
+- Just text: large number + small label below each
+- Separated by thin vertical dividers
+- No card borders, no shadows -- pure typography
+- Tapping any stat navigates to full Insights page
 
-### List View Cards
-- Remove glass-card -- use borderless with subtle separator
-- Increase image size: `w-16 h-16` from `w-14 h-14`
-- Add `rounded-xl` to images from `rounded-lg`
+### 5. AI Suggestion (kept, slightly refined)
 
-### Filter Bar
-- Simplify the collapsible filter section
-- Use chip-style filters instead of Select dropdowns for a more visual approach
-- Category tabs: horizontal scroll with pill-shaped buttons
+- Keep the single AI suggestion card (already limited to 1)
+- Remove the Card wrapper -- render directly as a borderless section
+- Garment thumbnails slightly larger: `w-14 h-14` (from `w-16 h-16` -- actually keep current)
+- "Why this works" collapsible stays
+
+### 6. Top 3 Worn (compact)
+
+- Show top 3 most-worn garments as small avatar-sized thumbnails in a row with name and wear count
+- No card wrapper, just a clean list with tiny dividers
+- Only show if there are worn garments in last 30 days
+
+### 7. "See all insights" link
+
+- Simple ghost button at the bottom linking to /insights
+- Replaces the current tab system entirely
 
 ---
 
-## 6. Plan Page (`src/pages/Plan.tsx`)
+## Full Insights Page (/insights) -- Polish
 
-### Header
-- Simplify: just the date text and wand icon, no calendar icon next to date
-- Date text: `text-base font-medium` (from `text-lg font-semibold`) -- calmer
+The dedicated Insights page keeps its current structure but gets the same minimalist treatment:
 
-### Day Content
-- Outfit image grid: change from `grid-cols-2 gap-px` to `grid-cols-2 gap-1 p-1` for visible spacing between items
-- Round inner images: `rounded-xl` for each item
-- Remove the glass-card wrapper around the outfit grid -- make it borderless
-
-### Action Buttons
-- Stack vertically instead of side-by-side for cleaner layout
-- Use ghost buttons with subtle dividers between them
-
-### Empty State
-- Simplify: just one CTA button (Generate), remove the secondary "Plan" button
-- Larger icon container with softer visual
+- Remove gradient backgrounds from stat cards (just clean numbers)
+- Remove premium upsell banner from the top (move to bottom as subtle text link)
+- Tighten spacing: `space-y-5` from `space-y-6`
+- Color Distribution chart: remove the Card wrapper, render directly
+- Unused Gems: show as simple list, no elaborate card layout
 
 ---
 
-## 7. AI Chat (`src/pages/AIChat.tsx`)
+## What Gets Removed
 
-### Header
-- Simplify mode switcher: use just text tabs with an underline indicator (no background pills)
-- Remove the background border/glass effect
+1. **Tab switcher** ("Create" / "Insights") -- gone. Everything flows as one page.
+2. **Large WeatherWidget** with 5-day forecast on the main view -- collapsed by default.
+3. **Three stat cards** -- replaced with inline text strip.
+4. **Usage bar card** -- removed from home (exists in full Insights page).
+5. **Unused garments card** on home -- simplified to just the count in the stats strip.
 
-### Welcome Screen
-- Larger icon: `w-20 h-20` with `rounded-3xl`
-- Welcome text: `text-base` from `text-sm` for better readability
-- Suggestion pills: increase padding and make them borderless with background tint
+## What Gets Added
 
-### Messages
-- Increase spacing between messages: `space-y-6` from `space-y-5`
-- User messages: clean right-aligned bubble with `bg-foreground text-background rounded-2xl rounded-br-md`
-- Assistant messages: left-aligned, no bubble background, just text
-
----
-
-## 8. Settings Page (`src/pages/Settings.tsx`)
-
-### Profile Card
-- Make it larger and more prominent: full-width with more padding
-- Avatar: `w-14 h-14` from `w-12 h-12`
-- Name: `text-base font-semibold` from `text-sm`
-
-### Settings Rows
-- Remove the icon background circles (simpler, cleaner)
-- Just the raw icon in muted-foreground color
-- Increase row height to `py-4` from `py-3`
-- Remove bottom borders entirely -- use spacing between rows instead
-
-### Settings Group
-- Remove border/card wrapper -- just use spacing to separate groups
-- Add a thin divider between groups: `border-b border-border/10`
+1. **Compact weather pill** merged with greeting -- new component `WeatherPill`
+2. **Horizontal occasion scroll** -- replaces the 2-col grid
+3. **Inline stats strip** -- replaces 3 card components
+4. **Expandable weather detail** -- 3-day forecast on tap
 
 ---
 
-## 9. Detail Pages
+## Technical Details
 
-### Garment Detail (`src/pages/GarmentDetail.tsx`)
-- Image: add `rounded-2xl` with slight margin for breathing room
-- Badge chips: increase padding, borderless with background tint
-- Stats cards: side-by-side borderless with clean typography
-- Remove card wrappers around individual sections -- use spacing
-
-### Outfit Detail (`src/pages/OutfitDetail.tsx`)
-- Slot cards: borderless, larger images
-- Rating stars: increase size to `w-8 h-8`
-- Feedback chips: larger, more padding, borderless
-
-### Insights (`src/pages/Insights.tsx`)
-- Stat cards: borderless, clean large numbers
-- Section cards: remove borders, use spacing and subtle shadows only
-- Color distribution: cleaner bar chart visualization
-
----
-
-## 10. Onboarding + Auth
-
-### Auth Page
-- Already has good dark aesthetic -- keep as-is
-- Just ensure button sizes match the new `h-12` standard
-
----
-
-## Technical Summary
+### Files to create:
+1. `src/components/weather/WeatherPill.tsx` -- Compact weather display with expandable forecast
 
 ### Files to modify:
-1. `src/components/ui/card.tsx` -- borderless cards
-2. `src/components/ui/button.tsx` -- rounded-xl, h-12
-3. `src/components/ui/section-header.tsx` -- sentence case, lighter
-4. `src/components/layout/EmptyState.tsx` -- larger, softer
-5. `src/components/layout/BottomNav.tsx` -- shorter, cleaner
-6. `src/components/layout/PageHeader.tsx` -- lighter header
-7. `src/components/settings/SettingsRow.tsx` -- remove icon circles, more padding
-8. `src/components/settings/SettingsGroup.tsx` -- borderless groups
-9. `src/components/settings/ProfileCard.tsx` -- larger profile
-10. `src/components/chat/ChatWelcome.tsx` -- larger welcome
-11. `src/pages/Home.tsx` -- occasion grid cols-2, remove noise
-12. `src/pages/Wardrobe.tsx` -- editorial grid, borderless cards
-13. `src/pages/Plan.tsx` -- simplified layout
-14. `src/pages/AIChat.tsx` -- cleaner chat chrome
-15. `src/pages/Settings.tsx` -- spacing-based groups
-16. `src/pages/GarmentDetail.tsx` -- borderless sections
-17. `src/pages/OutfitDetail.tsx` -- cleaner detail layout
-18. `src/pages/Insights.tsx` -- borderless stat cards
-19. `src/index.css` -- new utility classes
+1. `src/pages/Home.tsx` -- Complete rewrite of the page layout
+2. `src/pages/Insights.tsx` -- Simplify card styles, remove gradients, tighten spacing
+
+### Files unchanged:
+- `src/hooks/useInsights.ts` -- data layer stays the same
+- `src/hooks/useWeather.ts` -- data layer stays the same  
+- `src/hooks/useForecast.ts` -- data layer stays the same
+- `src/components/insights/AISuggestions.tsx` -- kept as-is (already well-designed)
+- `src/components/weather/WeatherWidget.tsx` -- kept for other pages, new WeatherPill for Home
 
 ### No new dependencies needed.
 
 ### Risk: Low
-All changes are visual/layout only. No data flow or business logic is affected.
+- All logic (weather fetching, outfit generation, insights data) remains unchanged
+- Only the presentation layer is rebuilt
+- The occasion/style/generate flow keeps the exact same navigation and state logic
 
