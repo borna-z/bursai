@@ -105,20 +105,20 @@ export default function GarmentDetailPage() {
       />
 
       <div className="max-w-lg mx-auto">
-        <LazyImage imagePath={garment.image_path} alt={garment.title} aspectRatio="square" className="w-full" />
+        <LazyImage imagePath={garment.image_path} alt={garment.title} aspectRatio="square" className="w-full rounded-2xl mx-auto px-4" />
       </div>
 
       <div className="p-4 pt-6 space-y-6 max-w-lg mx-auto">
         <div><p className="text-muted-foreground capitalize text-sm">{t(`garment.category.${garment.category}`) || garment.subcategory || garment.category}</p></div>
 
         <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary" className="capitalize">{t(`color.${garment.color_primary}`)}</Badge>
-          {garment.color_secondary && <Badge variant="secondary" className="capitalize">{t(`color.${garment.color_secondary}`)}</Badge>}
-          {garment.pattern && garment.pattern !== 'solid' && <Badge variant="secondary" className="capitalize">{t(`garment.pattern.${garment.pattern}`)}</Badge>}
-          {garment.material && <Badge variant="secondary" className="capitalize">{t(`garment.material.${garment.material}`)}</Badge>}
-          {garment.fit && <Badge variant="secondary" className="capitalize">{t(`garment.fit.${garment.fit}`)}</Badge>}
-          {garment.season_tags?.map((season) => <Badge key={season} variant="outline" className="capitalize">{t(`garment.season.${season === 'vår' ? 'spring' : season === 'sommar' ? 'summer' : season === 'höst' ? 'autumn' : season === 'vinter' ? 'winter' : season}`)}</Badge>)}
-          {garment.formality && <Badge variant="outline">{t('garment.formality')} {garment.formality}/5</Badge>}
+          <Badge variant="secondary" className="capitalize px-3 py-1">{t(`color.${garment.color_primary}`)}</Badge>
+          {garment.color_secondary && <Badge variant="secondary" className="capitalize px-3 py-1">{t(`color.${garment.color_secondary}`)}</Badge>}
+          {garment.pattern && garment.pattern !== 'solid' && <Badge variant="secondary" className="capitalize px-3 py-1">{t(`garment.pattern.${garment.pattern}`)}</Badge>}
+          {garment.material && <Badge variant="secondary" className="capitalize px-3 py-1">{t(`garment.material.${garment.material}`)}</Badge>}
+          {garment.fit && <Badge variant="secondary" className="capitalize px-3 py-1">{t(`garment.fit.${garment.fit}`)}</Badge>}
+          {garment.season_tags?.map((season) => <Badge key={season} variant="outline" className="capitalize px-3 py-1">{t(`garment.season.${season === 'vår' ? 'spring' : season === 'sommar' ? 'summer' : season === 'höst' ? 'autumn' : season === 'vinter' ? 'winter' : season}`)}</Badge>)}
+          {garment.formality && <Badge variant="outline" className="px-3 py-1">{t('garment.formality')} {garment.formality}/5</Badge>}
         </div>
 
         {garment.source_url && (

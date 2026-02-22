@@ -58,7 +58,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
         transition={TAP_TRANSITION}
         onClick={handleClick}
         className={cn(
-          'w-full flex items-center gap-3 p-3 glass-card rounded-xl transition-colors text-left will-change-transform',
+          'w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left will-change-transform',
           garment.in_laundry && 'opacity-60',
           isSelected && 'ring-2 ring-accent'
         )}
@@ -67,7 +67,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
         <LazyImageSimple
           imagePath={garment.image_path}
           alt={garment.title}
-          className="w-14 h-14 rounded-lg shrink-0"
+          className="w-16 h-16 rounded-xl shrink-0"
           fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/30" />}
         />
         <div className="flex-1 min-w-0">
@@ -84,13 +84,13 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
       transition={TAP_TRANSITION}
       onClick={handleClick}
       className={cn(
-        'w-full glass-card rounded-xl overflow-hidden transition-colors text-left will-change-transform shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]',
+        'w-full rounded-2xl overflow-hidden transition-colors text-left will-change-transform',
         garment.in_laundry && 'opacity-60',
         isSelected && 'ring-2 ring-accent'
       )}
     >
-      <div className="aspect-square bg-muted relative overflow-hidden">
-        <motion.div whileTap={{ scale: 1.03 }} transition={TAP_TRANSITION} className="w-full h-full">
+      <div className="aspect-[3/4] bg-muted relative overflow-hidden">
+        <motion.div whileTap={{ scale: 1.03 }} transition={TAP_TRANSITION} className="w-full h-full rounded-xl overflow-hidden">
           <LazyImageSimple
             imagePath={garment.image_path}
             alt={garment.title}
@@ -105,7 +105,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
         )}
       </div>
       <div className="p-3">
-        <p className="font-medium text-sm truncate">{garment.title}</p>
+        <p className="font-medium text-[13px] truncate">{garment.title}</p>
         <p className="text-xs text-muted-foreground capitalize">{t(`garment.category.${garment.category}`)} · {t(`color.${garment.color_primary}`)}</p>
       </div>
     </motion.button>
@@ -177,7 +177,7 @@ function GarmentListContent({
   // Non-virtualized render for smaller collections
   return (
     <>
-      <div className={cn(isGridView ? 'grid grid-cols-2 gap-4' : 'flex flex-col gap-2')}>
+      <div className={cn(isGridView ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2')}>
         {garments.map((garment, index) => (
           <div key={garment.id} className="animate-drape-in" style={{ animationDelay: `${Math.min(index, 12) * 40}ms`, animationFillMode: 'both' }}>
             {!isGridView && !isSelecting ? (
@@ -445,7 +445,7 @@ export default function WardrobePage() {
       <PullToRefresh onRefresh={handleRefresh}>
       <AnimatedPage className="px-4 pb-36 pt-6 space-y-6 max-w-lg mx-auto">
         {/* Segmented control */}
-        <div className="flex p-1 rounded-2xl bg-foreground/[0.04] backdrop-blur-sm border border-border/30">
+        <div className="flex p-1 rounded-2xl bg-foreground/[0.04]">
           {(['garments', 'outfits'] as const).map((tab) => (
             <button
               key={tab}
@@ -453,7 +453,7 @@ export default function WardrobePage() {
               className={cn(
                 'flex-1 py-2 text-sm font-medium rounded-xl transition-all duration-200',
                 activeTab === tab
-                  ? 'bg-background/80 backdrop-blur-md text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.08)]'
+                  ? 'bg-foreground/[0.06] text-foreground'
                   : 'text-muted-foreground'
               )}
             >

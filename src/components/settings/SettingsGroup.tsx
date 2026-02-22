@@ -11,11 +11,11 @@ export function SettingsGroup({ title, children, className }: SettingsGroupProps
   return (
     <div className={cn('mb-6', className)}>
       {title && (
-        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-4 mb-1.5">
+        <h3 className="text-[11px] font-medium text-muted-foreground/70 tracking-wide px-4 mb-1.5">
           {title}
         </h3>
       )}
-      <div className="glass-card rounded-xl overflow-hidden">
+      <div>
         {children}
       </div>
     </div>

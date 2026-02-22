@@ -18,15 +18,15 @@ export function ProfileCard() {
   const email = user?.email || '';
 
   return (
-    <Card className="glass-card">
-      <CardContent className="flex items-center gap-4 p-4">
-        <Avatar className="w-12 h-12 border-2 border-border/40">
-          <AvatarFallback className="bg-accent/10 text-accent font-semibold text-sm">
+    <Card>
+      <CardContent className="flex items-center gap-4 p-5">
+        <Avatar className="w-14 h-14">
+          <AvatarFallback className="bg-accent/10 text-accent font-semibold text-base">
             {initials}
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold truncate">{displayName}</p>
+          <p className="text-base font-semibold truncate">{displayName}</p>
           <p className="text-xs text-muted-foreground truncate">{email}</p>
         </div>
         {isPremium && (

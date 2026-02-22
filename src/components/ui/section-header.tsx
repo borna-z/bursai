@@ -8,7 +8,7 @@ interface SectionHeaderProps {
 export function SectionHeader({ title, className }: SectionHeaderProps) {
   return (
     <h3 className={cn(
-      "text-xs font-medium text-muted-foreground uppercase tracking-widest px-1",
+      "text-[11px] font-medium text-muted-foreground/70 tracking-wide px-1",
       className
     )}>
       {title}

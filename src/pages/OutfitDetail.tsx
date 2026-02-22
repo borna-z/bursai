@@ -171,7 +171,7 @@ export default function OutfitDetailPage() {
   if (isLoading) {
     return (
       <AppLayout hideNav>
-        <div className="sticky top-0 z-10 bg-background/70 backdrop-blur-xl backdrop-saturate-150 border-b border-border/40">
+        <div className="sticky top-0 z-10 bg-background/70 backdrop-blur-lg border-b border-border/20">
           <div className="p-4 flex items-center justify-between">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="w-5 h-5" /></Button>
             <div className="flex gap-1"><Skeleton className="w-10 h-10 rounded-lg" /><Skeleton className="w-10 h-10 rounded-lg" /></div>
@@ -200,7 +200,7 @@ export default function OutfitDetailPage() {
 
   return (
     <AppLayout hideNav>
-      <div className="sticky top-0 z-10 bg-background/70 backdrop-blur-xl backdrop-saturate-150 border-b border-border/40">
+      <div className="sticky top-0 z-10 bg-background/70 backdrop-blur-lg border-b border-border/20">
         <div className="p-4 flex items-center justify-between">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="w-5 h-5" /></Button>
           <div className="flex gap-1">
@@ -241,7 +241,7 @@ export default function OutfitDetailPage() {
           <div className="flex gap-1">
             {[1, 2, 3, 4, 5].map((value) => (
               <button key={value} onClick={() => handleRating(value)} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-                <Star className={cn('w-7 h-7 transition-colors', (rating || 0) >= value ? 'fill-primary text-primary' : 'text-muted-foreground/40')} />
+                <Star className={cn('w-8 h-8 transition-colors', (rating || 0) >= value ? 'fill-primary text-primary' : 'text-muted-foreground/40')} />
               </button>
             ))}
           </div>

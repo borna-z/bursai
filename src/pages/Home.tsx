@@ -111,21 +111,21 @@ function InsightsSection({ isPremium, t }: { isPremium: boolean; t: (k: string) 
     <div className="space-y-4">
       {/* Quick stats */}
       <div className="grid grid-cols-3 gap-3">
-        <Card className="glass-card">
+        <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold tracking-tight">{insights.totalGarments}</p>
+            <p className="text-3xl font-bold tracking-tight">{insights.totalGarments}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5"><span className="sr-only">{t('insights.total')}: </span>{t('insights.total')}</p>
           </CardContent>
         </Card>
-        <Card className="glass-card">
+        <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold tracking-tight text-accent">{insights.usageRate}%</p>
+            <p className="text-3xl font-bold tracking-tight">{insights.usageRate}%</p>
             <p className="text-[10px] text-muted-foreground mt-0.5"><span className="sr-only">{t('insights.usage')}: </span>{t('insights.usage')}</p>
           </CardContent>
         </Card>
-        <Card className="glass-card">
+        <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold tracking-tight">{insights.unusedGarments.length}</p>
+            <p className="text-3xl font-bold tracking-tight">{insights.unusedGarments.length}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5"><span className="sr-only">{t('insights.unused')}: </span>{t('insights.unused')}</p>
           </CardContent>
         </Card>
@@ -286,10 +286,9 @@ export default function HomePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
         >
-          <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: "'Sora', sans-serif" }}>
+          <h1 className="text-xl font-bold tracking-tight" style={{ fontFamily: "'Sora', sans-serif" }}>
             {getGreeting()}
           </h1>
-          <div className="w-20 h-0.5 mt-2 rounded-full bg-accent/40" />
         </motion.div>
 
         {/* Onboarding nudge */}
@@ -311,13 +310,13 @@ export default function HomePage() {
         )}
 
         {/* Tab switcher */}
-        <div className="flex bg-foreground/[0.04] backdrop-blur-sm rounded-2xl p-1 gap-1 border border-border/30">
+        <div className="flex bg-foreground/[0.04] rounded-2xl p-1 gap-1">
           <button
             onClick={() => setActiveTab('create')}
             className={cn(
-              "flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200",
+              "flex-1 py-2 text-sm font-semibold rounded-xl transition-all duration-200",
               activeTab === 'create'
-                ? "bg-background/80 backdrop-blur-md text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
+                ? "bg-foreground/[0.06] text-foreground"
                 : "text-muted-foreground"
             )}
           >
@@ -327,9 +326,9 @@ export default function HomePage() {
           <button
             onClick={() => setActiveTab('insights')}
             className={cn(
-              "flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200",
+              "flex-1 py-2 text-sm font-semibold rounded-xl transition-all duration-200",
               activeTab === 'insights'
-                ? "bg-background/80 backdrop-blur-md text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
+                ? "bg-foreground/[0.06] text-foreground"
                 : "text-muted-foreground"
             )}
           >
@@ -353,7 +352,7 @@ export default function HomePage() {
             {/* Occasions */}
             <div className="space-y-3">
               <SectionHeader title={t('home.what_today')} />
-              <StaggerContainer className="grid grid-cols-3 gap-2" stagger={0.04}>
+              <StaggerContainer className="grid grid-cols-2 gap-3" stagger={0.04}>
                 {OCCASIONS.map((occ) => (
                   <StaggerItem key={occ.id}>
                   <motion.button
@@ -361,13 +360,13 @@ export default function HomePage() {
                     transition={TAP_TRANSITION}
                     onClick={() => handleSelectOccasion(occ.id)}
                     className={cn(
-                      "w-full flex flex-col items-center gap-1 py-3.5 px-2 rounded-xl text-sm font-medium transition-colors border will-change-transform",
+                      "w-full flex flex-col items-center gap-1.5 py-5 px-2 rounded-xl text-sm font-medium transition-colors will-change-transform",
                       selectedOccasion === occ.id
-                        ? "border-accent bg-accent/[0.08] text-accent shadow-[inset_0_1px_2px_0_rgba(0,0,0,0.06)]"
-                        : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground"
+                        ? "bg-accent/[0.08] text-accent ring-1 ring-accent/30"
+                        : "bg-foreground/[0.03] text-foreground"
                     )}
                   >
-                    <occ.icon className="w-5 h-5" />
+                    <occ.icon className="w-6 h-6" />
                     <span className="text-xs">{t(occ.labelKey)}</span>
                   </motion.button>
                   </StaggerItem>
@@ -387,10 +386,10 @@ export default function HomePage() {
                       transition={TAP_TRANSITION}
                       onClick={() => setSelectedSub(selectedSub === sub.id ? null : sub.id)}
                       className={cn(
-                        "px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors border will-change-transform",
+                        "px-4 py-2 rounded-full text-xs font-medium transition-colors will-change-transform",
                         selectedSub === sub.id
-                          ? "border-accent bg-accent/10 text-accent"
-                        : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground"
+                          ? "bg-accent/10 text-accent"
+                        : "bg-foreground/[0.03] text-foreground"
                       )}
                     >
                       {t(sub.labelKey)}
@@ -412,10 +411,10 @@ export default function HomePage() {
                     transition={TAP_TRANSITION}
                     onClick={() => setSelectedStyle(selectedStyle === style.id ? null : style.id)}
                     className={cn(
-                      "px-4 py-2 rounded-full text-xs font-medium transition-colors border whitespace-nowrap flex-shrink-0 will-change-transform",
+                      "px-4 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap flex-shrink-0 will-change-transform",
                       selectedStyle === style.id
-                        ? "border-accent bg-accent/10 text-accent"
-                        : "border-border/40 bg-card/70 backdrop-blur-sm text-foreground"
+                        ? "bg-accent/10 text-accent"
+                        : "bg-foreground/[0.03] text-foreground"
                     )}
                   >
                     {t(style.labelKey)}
@@ -429,10 +428,7 @@ export default function HomePage() {
             <Button
               onClick={handleGenerateOutfit}
               disabled={!selectedOccasion || (garmentCount || 0) < 3}
-              className={cn(
-                "w-full h-14 text-base font-semibold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl shadow-sm",
-                selectedOccasion && "breathe-pulse"
-              )}
+              className="w-full h-14 text-base font-semibold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl"
               size="lg"
             >
               <Sparkles className="w-5 h-5 mr-2" />
