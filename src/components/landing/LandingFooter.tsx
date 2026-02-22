@@ -1,4 +1,4 @@
-import { Instagram, Twitter } from 'lucide-react';
+import { Instagram } from 'lucide-react';
 import bursLandingLogo from '@/assets/burs-logo-white.png';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -17,8 +17,7 @@ export function LandingFooter() {
           <a href="/contact" className="hover:text-white transition-colors">{t('landing.footer_contact')}</a>
         </div>
         <div className="flex items-center gap-5">
-          <a href="#" aria-label="Instagram" className="hover:text-white transition-colors"><Instagram size={16} strokeWidth={1.5} /></a>
-          <a href="#" aria-label="Twitter" className="hover:text-white transition-colors"><Twitter size={16} strokeWidth={1.5} /></a>
+          <a href="https://www.instagram.com/burs_style" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="hover:text-white transition-colors"><Instagram size={16} strokeWidth={1.5} /></a>
         </div>
         <div className="text-center md:text-right space-y-1">
           <span className="block text-gray-400">© {new Date().getFullYear()} BURS AB</span>
