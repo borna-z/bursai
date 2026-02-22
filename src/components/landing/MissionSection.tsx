@@ -1,13 +1,13 @@
-import { Shield, Smartphone } from 'lucide-react';
+import { Sparkles, Leaf, Calendar } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 export function MissionSection() {
   const { t } = useLanguage();
 
   const items = [
-    { icon: Shield, title: t('landing.trust1_title'), desc: t('landing.trust1_desc') },
-    { icon: Shield, title: t('landing.trust2_title'), desc: t('landing.trust2_desc') },
-    { icon: Smartphone, title: t('landing.trust3_title'), desc: t('landing.trust3_desc') },
+    { icon: Sparkles, title: t('landing.trust1_title'), desc: t('landing.trust1_desc') },
+    { icon: Leaf, title: t('landing.trust2_title'), desc: t('landing.trust2_desc') },
+    { icon: Calendar, title: t('landing.trust3_title'), desc: t('landing.trust3_desc') },
   ];
 
   return (
