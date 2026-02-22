@@ -37,7 +37,13 @@ export function useProfile() {
         
         if (insertError) {
           console.error('Failed to auto-create profile:', insertError);
-          // Return a minimal profile object so the app doesn't loop
+          // FK violation means user doesn't exist in auth.users — ghost session
+          if ((insertError as any).code === '23503') {
+            console.error('Ghost session detected — signing out');
+            await supabase.auth.signOut();
+            return null;
+          }
+          // Other errors: return minimal profile so app doesn't loop
           return { id: user.id, display_name: displayName, preferences: { onboarding: { completed: false } } } as unknown as Profile;
         }
         return newProfile as Profile;
@@ -63,9 +69,10 @@ export function useUpdateProfile() {
         .update(updates)
         .eq('id', user.id)
         .select()
-        .single();
+        .maybeSingle();
       
       if (error) throw error;
+      if (!data) throw new Error('Profile not found. Please log out and sign in again.');
       return data;
     },
     onSuccess: () => {

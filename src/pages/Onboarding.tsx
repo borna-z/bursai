@@ -54,8 +54,13 @@ export default function OnboardingPage() {
       }
       await updateProfile.mutateAsync(updates);
       setQuizDone(true);
-    } catch {
-      toast.error(t('onboarding.error'));
+    } catch (err: any) {
+      const msg = err?.message || '';
+      if (msg.includes('Profile not found') || msg.includes('foreign key') || (err as any)?.code === '23503') {
+        toast.error(t('onboarding.sessionExpired') || 'Session expired. Please log out and sign in again.');
+      } else {
+        toast.error(t('onboarding.error'));
+      }
     } finally {
       setIsSavingQuiz(false);
     }
