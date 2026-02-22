@@ -1,20 +1,49 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { lovable } from '@/integrations/lovable/index';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import bursLogoWhite from '@/assets/burs-logo-white.png';
 
+function PasswordRequirements({ password, t }: { password: string; t: (k: string) => string }) {
+  const rules = useMemo(() => [
+    { key: 'auth.req_length', met: password.length >= 8 },
+    { key: 'auth.req_uppercase', met: /[A-Z]/.test(password) },
+    { key: 'auth.req_lowercase', met: /[a-z]/.test(password) },
+    { key: 'auth.req_number', met: /[0-9]/.test(password) },
+  ], [password]);
+
+  return (
+    <div className="space-y-1.5 pt-1">
+      {rules.map(r => (
+        <div key={r.key} className="flex items-center gap-2 transition-colors duration-200">
+          {r.met ? (
+            <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          ) : (
+            <div className="w-3.5 h-3.5 rounded-full border border-white/20 shrink-0" />
+          )}
+          <span className={`text-xs transition-colors duration-200 ${r.met ? 'text-white/70' : 'text-white/40'}`}>
+            {t(r.key)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function AuthPage() {
   const { user, loading, signIn, signUp } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
+  const [confirmEmail, setConfirmEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [tab, setTab] = useState<'login' | 'signup'>('login');
   const { t } = useLanguage();
 
@@ -44,9 +73,11 @@ export default function AuthPage() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) { toast.error(t('auth.fill_all')); return; }
-    if (password.length < 8) { toast.error(t('auth.password_too_short')); return; }
+    if (email !== confirmEmail) { toast.error(t('auth.emails_no_match')); return; }
+    const passOk = password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password);
+    if (!passOk) { toast.error(t('auth.password_too_short')); return; }
     setIsLoading(true);
-    const { data, error } = await signUp(email, password);
+    const { data, error } = await signUp(email, password, username || undefined);
     setIsLoading(false);
     if (error) {
       if (error.message.includes('already registered')) toast.error(t('auth.already_exists'));
@@ -81,6 +112,8 @@ export default function AuthPage() {
   };
 
   const isLogin = tab === 'login';
+
+  const inputClass = "w-full h-11 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-white/15 transition-colors disabled:opacity-40";
 
   return (
     <div className="dark-landing min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
@@ -194,6 +227,22 @@ export default function AuthPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25 }}
           >
+            {/* Username - signup only */}
+            {!isLogin && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-white/50 pl-0.5">{t('auth.username')}</label>
+                <input
+                  type="text"
+                  placeholder={t('auth.username_placeholder')}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  disabled={isLoading}
+                  className={inputClass}
+                />
+              </div>
+            )}
+
+            {/* Email */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-white/50 pl-0.5">{t('auth.email')}</label>
               <input
@@ -202,20 +251,52 @@ export default function AuthPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isLoading}
-                className="w-full h-11 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-white/15 transition-colors disabled:opacity-40"
+                className={inputClass}
               />
             </div>
+
+            {/* Confirm email - signup only */}
+            {!isLogin && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-white/50 pl-0.5">{t('auth.confirm_email')}</label>
+                <input
+                  type="email"
+                  placeholder="din@email.se"
+                  value={confirmEmail}
+                  onChange={(e) => setConfirmEmail(e.target.value)}
+                  disabled={isLoading}
+                  className={inputClass}
+                />
+              </div>
+            )}
+
+            {/* Password with show/hide */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-white/50 pl-0.5">{t('auth.password')}</label>
-              <input
-                type="password"
-                placeholder={isLogin ? '••••••••' : t('auth.min_password')}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
-                className="w-full h-11 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-white/15 transition-colors disabled:opacity-40"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder={isLogin ? '••••••••' : t('auth.min_password')}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
+                  className={`${inputClass} pr-10`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                  aria-label={showPassword ? t('auth.hide_password') : t('auth.show_password')}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
+
+            {/* Password requirements checklist - signup only */}
+            {!isLogin && (
+              <PasswordRequirements password={password} t={t} />
+            )}
 
             <button
               type="submit"
