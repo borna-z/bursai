@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { parseISO } from 'date-fns';
 import {
   Sun, Moon, Cloud, CloudFog, CloudRain, CloudDrizzle, CloudSnow, CloudLightning,
@@ -12,6 +12,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useWeather } from '@/hooks/useWeather';
 import { useForecast, type ForecastDay } from '@/hooks/useForecast';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useLocation } from '@/contexts/LocationContext';
 
 function getWeatherIcon(code: number, isDay = true) {
   if (code === 0) return isDay ? Sun : Moon;
@@ -33,19 +34,19 @@ interface WeatherPillProps {
 export function WeatherPill({ onWeatherChange }: WeatherPillProps) {
   const { t, locale } = useLanguage();
   const bcp47 = getBCP47(locale);
-  const [manualCity, setManualCity] = useState<string | null>(null);
+  const { effectiveCity, locationSource, setManualCity, clearManualCity } = useLocation();
   const [editingLocation, setEditingLocation] = useState(false);
   const [cityInput, setCityInput] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { weather, isLoading } = useWeather({ city: manualCity });
-  const { forecast } = useForecast({ city: manualCity });
+  const { weather, isLoading } = useWeather({ city: effectiveCity });
+  const { forecast } = useForecast({ city: effectiveCity });
 
   // Auto-expand when manual city is selected
   useEffect(() => {
-    if (manualCity) setIsOpen(true);
-  }, [manualCity]);
+    if (locationSource === 'manual') setIsOpen(true);
+  }, [locationSource]);
 
   useEffect(() => {
     if (weather && onWeatherChange) {
@@ -69,7 +70,7 @@ export function WeatherPill({ onWeatherChange }: WeatherPillProps) {
   };
 
   const handleResetToAuto = () => {
-    setManualCity(null);
+    clearManualCity();
     setEditingLocation(false);
     setCityInput('');
   };
@@ -140,7 +141,7 @@ export function WeatherPill({ onWeatherChange }: WeatherPillProps) {
               >
                 <MapPin className="w-3 h-3" />
                 <span>{weather.location}</span>
-                {manualCity && (
+                {locationSource === 'manual' && (
                   <button
                     onClick={(e) => { e.stopPropagation(); handleResetToAuto(); }}
                     className="ml-1 p-0.5 rounded-full hover:bg-muted/60"

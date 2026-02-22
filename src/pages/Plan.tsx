@@ -35,8 +35,8 @@ import {
 import { useOutfitGenerator } from '@/hooks/useOutfitGenerator';
 import { useMarkOutfitWorn, useUndoMarkWorn } from '@/hooks/useOutfits';
 import { useFlatGarments } from '@/hooks/useGarments';
-import { useProfile } from '@/hooks/useProfile';
 import { useForecast } from '@/hooks/useForecast';
+import { useLocation as useLocationCtx } from '@/contexts/LocationContext';
 import { useBackgroundSyncNotification } from '@/hooks/useCalendarSync';
 
 const occasionIcons: Record<string, React.ElementType> = {
@@ -79,8 +79,8 @@ export default function PlanPage() {
   // Data hooks
   const { data: plannedOutfits = [], isLoading } = usePlannedOutfits();
   const { data: garments = [] } = useFlatGarments();
-  const { data: profile } = useProfile();
-  const { getForecastForDate } = useForecast({ homeCity: profile?.home_city });
+  const { effectiveCity } = useLocationCtx();
+  const { getForecastForDate } = useForecast({ city: effectiveCity });
   
   // Selected day data
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');

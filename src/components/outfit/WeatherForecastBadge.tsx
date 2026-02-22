@@ -1,6 +1,7 @@
 import { Cloud, CloudRain, CloudSnow, CloudDrizzle, Sun, CloudLightning, CloudFog, Loader2, AlertTriangle, Droplets } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useLocation } from '@/contexts/LocationContext';
 import { useForecast, type ForecastDay } from '@/hooks/useForecast';
 
 interface WeatherForecastBadgeProps {
@@ -41,7 +42,8 @@ export function WeatherForecastBadge({
   originalTemp,
 }: WeatherForecastBadgeProps) {
   const { t } = useLanguage();
-  const { getForecastForDate, isLoading } = useForecast();
+  const { effectiveCity } = useLocation();
+  const { getForecastForDate, isLoading } = useForecast({ city: effectiveCity });
   const forecast = getForecastForDate(date);
   const warning = showWarning ? useWeatherWarning(forecast) : null;
 
@@ -118,7 +120,8 @@ interface ForecastPreviewProps {
 
 export function ForecastPreview({ date, originalTemp }: ForecastPreviewProps) {
   const { t } = useLanguage();
-  const { getForecastForDate, isLoading } = useForecast();
+  const { effectiveCity } = useLocation();
+  const { getForecastForDate, isLoading } = useForecast({ city: effectiveCity });
   const forecast = getForecastForDate(date);
 
   if (isLoading) {

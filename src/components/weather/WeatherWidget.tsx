@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useWeather } from '@/hooks/useWeather';
 import { useForecast, type ForecastDay } from '@/hooks/useForecast';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useLocation } from '@/contexts/LocationContext';
 
 interface WeatherWidgetProps {
   onWeatherChange?: (weather: { temperature: number; precipitation: string; wind: string }) => void;
@@ -57,13 +58,13 @@ function ForecastDayColumn({ day, bcp47 }: { day: ForecastDay; bcp47: string }) 
 export function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
   const { t, locale } = useLanguage();
   const bcp47 = getBCP47(locale);
-  const [manualCity, setManualCity] = useState<string | null>(null);
+  const { effectiveCity, locationSource, setManualCity, clearManualCity } = useLocation();
   const [editingLocation, setEditingLocation] = useState(false);
   const [cityInput, setCityInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { weather, isLoading } = useWeather({ city: manualCity });
-  const { forecast, isLoading: forecastLoading } = useForecast({ city: manualCity });
+  const { weather, isLoading } = useWeather({ city: effectiveCity });
+  const { forecast, isLoading: forecastLoading } = useForecast({ city: effectiveCity });
 
   // Notify parent of weather changes
   useEffect(() => {
@@ -96,7 +97,7 @@ export function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
   };
 
   const handleResetToAuto = () => {
-    setManualCity(null);
+    clearManualCity();
     setEditingLocation(false);
     setCityInput('');
   };
@@ -174,7 +175,7 @@ export function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
             >
               <MapPin className="w-3.5 h-3.5" />
               <span className="text-sm">{weather?.location ?? 'Stockholm'}</span>
-              {manualCity && (
+              {locationSource === 'manual' && (
                 <button
                   onClick={(e) => { e.stopPropagation(); handleResetToAuto(); }}
                   className="ml-1 p-0.5 rounded-full hover:bg-muted/60"

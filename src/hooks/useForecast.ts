@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { useProfile } from './useProfile';
 
 export interface ForecastDay {
   date: string; // YYYY-MM-DD
@@ -19,7 +18,7 @@ interface UseForecastResult {
 }
 
 interface UseForecastOptions {
-  homeCity?: string | null;
+  /** Manual city override (highest priority) */
   city?: string | null;
   enabled?: boolean;
 }
@@ -81,22 +80,16 @@ export async function fetchForecast(lat: number, lon: number): Promise<ForecastD
   return forecast;
 }
 
-// Get coordinates - from city, home city, geolocation, or Stockholm fallback
-async function getCoordinates(city?: string | null, homeCity?: string | null): Promise<{ lat: number; lon: number }> {
-  // 1. Manual city override
+// Get coordinates — from city, geolocation, or Stockholm fallback
+async function getCoordinates(city?: string | null): Promise<{ lat: number; lon: number }> {
+  // 1. Manual city — no fallback
   if (city) {
     const coords = await getCoordinatesFromCity(city);
     if (coords) return coords;
   }
 
-  // 2. Profile home city
-  if (homeCity) {
-    const coords = await getCoordinatesFromCity(homeCity);
-    if (coords) return coords;
-  }
-
-  // 3. Browser geolocation
-  if (typeof navigator !== 'undefined' && navigator.geolocation) {
+  // 2. Auto mode: try browser geolocation
+  if (!city && typeof navigator !== 'undefined' && navigator.geolocation) {
     try {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -111,25 +104,23 @@ async function getCoordinates(city?: string | null, homeCity?: string | null): P
     }
   }
 
-  // 4. Fallback to Stockholm
+  // 3. Fallback to Stockholm
   return { lat: 59.3293, lon: 18.0686 };
 }
 
 export function useForecast(options: UseForecastOptions = {}): UseForecastResult {
-  const { data: profile } = useProfile();
-  const homeCity = options.homeCity ?? profile?.home_city;
   const city = options.city ?? null;
   const enabled = options.enabled !== false;
 
   const { data: forecast = [], isLoading, error } = useQuery({
-    queryKey: ['forecast', city, homeCity],
+    queryKey: ['forecast', city],
     queryFn: async () => {
-      const coords = await getCoordinates(city, homeCity);
+      const coords = await getCoordinates(city);
       return fetchForecast(coords.lat, coords.lon);
     },
     enabled,
-    staleTime: 60 * 60 * 1000, // Cache for 1 hour
-    gcTime: 2 * 60 * 60 * 1000, // Keep in cache for 2 hours
+    staleTime: 60 * 60 * 1000,
+    gcTime: 2 * 60 * 60 * 1000,
   });
 
   const getForecastForDate = (date: string): ForecastDay | null => {
