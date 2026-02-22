@@ -1,40 +1,42 @@
 
-## Fix: Saknad profilrad orsakar evig laddningsloop
+## Fix: Ghost Session Causes Onboarding Failure
 
-### Problem
-Användaren `9505f10f-...` (borna.zavareh@nordiskainglasningar.se) är autentiserad men har **ingen rad i `profiles`-tabellen**. Triggern `handle_new_user` misslyckades eller kördes aldrig vid registrering. Detta gör att:
-- `useProfile` returnerar 0 rader (406-fel)
-- `Index.tsx` fastnar i en evig spinner som väntar på profildata
-- Appen ser "död" ut trots att användaren är inloggad
+### Root Cause
+User `borna.zavareh@nordiskainglasningar.se` has a valid JWT token but no corresponding entry in `auth.users`. This means:
+- Profile auto-creation fails (FK constraint violation)
+- Any profile UPDATE returns 0 rows, causing a 406 error
+- The quiz "Done" button always fails with "Something went wrong"
 
-### Lösning
+### Solution
 
-#### Steg 1: Infoga saknad profilrad via SQL-migration
-Kör en SQL-sats som skapar profilraden för den befintliga användaren:
-```sql
-INSERT INTO public.profiles (id, display_name, preferences)
-VALUES (
-  '9505f10f-6371-48d7-b148-00b5cde64ace',
-  'borna.zavareh',
-  '{"onboarding": {"completed": false}}'::jsonb
-)
-ON CONFLICT (id) DO NOTHING;
-```
+#### 1. Detect ghost sessions in `useProfile.ts`
+When the profile auto-create INSERT fails with a FK violation, the user's auth session is invalid. Instead of returning a fake profile object, sign the user out so they can re-authenticate properly.
 
-#### Steg 2: Gör appen motståndskraftig mot saknade profiler
-Uppdatera `src/pages/Index.tsx` och `src/hooks/useProfile.ts` så att en saknad profil inte orsakar en evig loop:
+**File: `src/hooks/useProfile.ts`**
+- In the `if (!data)` block where auto-create fails, check if the error is a FK violation
+- If so, call `supabase.auth.signOut()` to clear the ghost session
+- Return `null` so the app redirects to login
 
-- **`useProfile.ts`**: Om profilen inte hittas (0 rader), returnera `null` istället för att kasta ett fel
-- **`Index.tsx`**: Om profilen är `null` efter laddning, skicka användaren till onboarding (eller skapa profilen automatiskt)
+#### 2. Make `useUpdateProfile` resilient
+**File: `src/hooks/useProfile.ts`**
+- Change `.single()` to `.maybeSingle()` in the update mutation
+- If result is null (0 rows updated), throw a clear error instead of a cryptic 406
 
-#### Steg 3: Lägg till en säkerhetsmekanism i `AuthContext`
-Lägg till en fallback som skapar profilen om den saknas vid inloggning, så att detta aldrig händer igen.
+#### 3. Improve error handling in `handleQuizComplete`
+**File: `src/pages/Onboarding.tsx`**
+- Add a more descriptive error message when profile save fails
+- Optionally suggest the user to log out and back in
 
-### Tekniska detaljer
+#### 4. User action required
+The user `borna.zavareh@nordiskainglasningar.se` must log out and create a new account (or sign in again if the account exists in the live environment). The ghost session cannot be repaired.
 
-Filen `src/hooks/useProfile.ts` behöver granskas för att se hur den hanterar `.single()`-anrop som returnerar 0 rader. PostgREST returnerar 406 när `.single()` inte hittar exakt en rad, vilket sannolikt kastar ett fel istället för att returnera `null`.
+### Technical Details
 
-Fixarna säkerställer att:
-- Din befintliga session börjar fungera omedelbart
-- Framtida användare aldrig fastnar i samma loop
-- Appen hanterar saknade profiler gracefully
+**`src/hooks/useProfile.ts` changes:**
+- In the `queryFn`, when `insertError` occurs after `!data`, check for FK violation (code `23503`)
+- If FK violation detected, call `supabase.auth.signOut()` and return `null`
+- In `useUpdateProfile`, replace `.single()` with `.maybeSingle()` and handle null result
+
+**`src/pages/Onboarding.tsx` changes:**
+- In the `handleQuizComplete` catch block, check if the error suggests an invalid session
+- Show a more helpful toast message like "Session expired. Please log in again."
