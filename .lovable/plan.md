@@ -1,146 +1,87 @@
 
 
-# Today Page -- Complete Redesign
+# Wardrobe + Live Scan -- Premium Redesign
 
-Rebuilding the Today page from scratch with three seamless sections: a compact weather + outfit creator, inline insights, and a full insights view. Every element earns its place -- no visual noise, only actionable data.
-
----
-
-## New Layout Structure
-
-The page drops the tab switcher entirely. Instead, it flows as one continuous scroll with clear sections separated by whitespace:
-
-```text
-+----------------------------------+
-|  Greeting + compact weather      |
-+----------------------------------+
-|  "What's today?" occasion row    |
-|  Style chips (optional)          |
-|  [Generate Outfit] button        |
-+----------------------------------+
-|  Quick Stats (inline, no cards)  |
-+----------------------------------+
-|  AI Suggestion (1 card)          |
-+----------------------------------+
-|  Top 3 worn (compact list)       |
-+----------------------------------+
-|  [See all insights ->]           |
-+----------------------------------+
-```
+Two pages rebuilt with the same "less is more" philosophy as the Today page: clean, minimal, interactive, and fast.
 
 ---
 
-## Section-by-Section Design
+## Part 1: Wardrobe Page
 
-### 1. Greeting + Compact Weather (merged into one line)
+### What changes
 
-**Current problem**: The WeatherWidget is a large card with a 5-day forecast strip that takes ~200px of vertical space before any actionable content.
+**Remove visual noise:**
+- Drop the collapsible SettingsGroup wrappers for search and filters -- replace with a single clean search bar always visible at the top
+- Remove the 4x2 category grid -- replace with a horizontal scroll row of category pills (like the occasion pills on Home)
+- Remove the collapsible filter section -- move color and season into a slim filter row that appears only when tapped (a single "Filter" pill that opens an inline row, not a collapsible card)
+- Remove the SettingsGroup borders around everything
 
-**New design**: Merge greeting and weather into a single row.
-- Left: "God morgon, Erik" (text-lg, Sora font)
-- Right: compact weather pill showing `18° Sun` with a small icon (no forecast strip, no location picker, no time)
-- Tapping the weather pill expands to show 3-day forecast inline (collapsible, closed by default)
-- The location picker moves inside the expanded state
+**Simplify the header area:**
+- Merge the garment count into the search bar placeholder (e.g., "Search 10 garments...")
+- Keep grid/list toggle and select button in the PageHeader
 
-This saves ~150px of prime screen real estate.
+**Streamline the tab switcher:**
+- Keep garments/outfits segmented control but make it slimmer: `py-1.5` with `text-xs`
 
-### 2. Occasion Selector (streamlined)
+**Card refinements:**
+- Grid cards: keep `aspect-[3/4]`, remove the text block below -- just show the image. Title appears as a subtle overlay at the bottom of the image (semi-transparent gradient)
+- This makes the grid feel more like a fashion lookbook -- pure imagery
+- List cards: keep as-is (already clean)
 
-**Current problem**: 6 occasions in a 2-column grid takes a lot of vertical space. Sub-options add another section.
+**FABs:**
+- Combine the two FABs (scan + add) into a single FAB with a "+" icon. Long-press or tap opens a small menu with "Photo" and "Scan" options
+- This reduces visual clutter at the bottom
 
-**New design**: 
-- Single horizontal scroll row of occasion pills (not a grid). Each pill has icon + label.
-- Selected occasion expands sub-options as a second row below (also horizontal scroll pills)
-- This reduces the occasion area from ~200px to ~80px
-
-### 3. Style + Generate
-
-- Style chips remain as horizontal scroll (unchanged, already good)
-- Generate button: full-width, prominent, but `h-12` not `h-14` (slightly less dominant)
-- Cold weather hint moves to a small inline note above the button if applicable
-
-### 4. Quick Stats Strip (new -- replaces stat cards)
-
-**Current problem**: Three separate Card components with large text for total/usage/unused stats take significant space.
-
-**New design**: A single row with three inline metrics, no cards:
-```
-42 plagg    67% använt    8 oanvända
-```
-- Just text: large number + small label below each
-- Separated by thin vertical dividers
-- No card borders, no shadows -- pure typography
-- Tapping any stat navigates to full Insights page
-
-### 5. AI Suggestion (kept, slightly refined)
-
-- Keep the single AI suggestion card (already limited to 1)
-- Remove the Card wrapper -- render directly as a borderless section
-- Garment thumbnails slightly larger: `w-14 h-14` (from `w-16 h-16` -- actually keep current)
-- "Why this works" collapsible stays
-
-### 6. Top 3 Worn (compact)
-
-- Show top 3 most-worn garments as small avatar-sized thumbnails in a row with name and wear count
-- No card wrapper, just a clean list with tiny dividers
-- Only show if there are worn garments in last 30 days
-
-### 7. "See all insights" link
-
-- Simple ghost button at the bottom linking to /insights
-- Replaces the current tab system entirely
+### What stays the same
+- All data fetching logic (useGarments, infinite scroll, virtualization)
+- Swipeable cards in list view
+- Bulk select mode
+- Pull-to-refresh
+- Outfits tab content
 
 ---
 
-## Full Insights Page (/insights) -- Polish
+## Part 2: Live Scan -- Faster and More Fun
 
-The dedicated Insights page keeps its current structure but gets the same minimalist treatment:
+### Performance improvements (useLiveScan hook)
+- Reduce image compression `maxDim` from 640 to 480 for faster upload
+- Reduce JPEG quality from 0.7 to 0.5 -- the AI doesn't need high quality for classification
+- These two changes alone cut the payload by ~50%, making the edge function response noticeably faster
 
-- Remove gradient backgrounds from stat cards (just clean numbers)
-- Remove premium upsell banner from the top (move to bottom as subtle text link)
-- Tighten spacing: `space-y-5` from `space-y-6`
-- Color Distribution chart: remove the Card wrapper, render directly
-- Unused Gems: show as simple list, no elaborate card layout
+### Auto-detect tuning (useAutoDetect hook)
+- Reduce `STABLE_DURATION` from 400ms to 300ms -- fire faster when stable
+- Reduce `COOLDOWN` from 500ms to 350ms -- re-arm faster for next scan
+- Keep `DIFF_THRESHOLD` at 0.04 (already good)
 
----
+### UI redesign -- cleaner, more premium
+- **Remove the corner brackets** during scanning -- too busy. Replace with a single clean circular reticle in the center (thin white circle, 200px diameter) that pulses green when stable
+- **Remove the laser sweep line** -- replace with a subtle radial pulse from center outward
+- **Simplify the result card**: make it fullscreen-overlay style instead of a bottom card. Show the captured image large with the analysis overlaid as clean text. Two buttons below: Retake (ghost) and Accept (solid emerald)
+- **Scan counter**: move from the top bar into a small floating pill at the bottom-left, showing just the number with a tiny checkmark icon
+- **Auto mode toggle**: keep but simplify -- just a small icon toggle (Zap/ZapOff) without text label
+- **Shutter button**: make it slightly smaller (w-16 h-16) and cleaner -- no inner circle, just a clean ring that fills with color when auto-progress advances
+- **Remove the "slots remaining" bar** for free users -- handle it silently (show paywall when limit hit)
 
-## What Gets Removed
-
-1. **Tab switcher** ("Create" / "Insights") -- gone. Everything flows as one page.
-2. **Large WeatherWidget** with 5-day forecast on the main view -- collapsed by default.
-3. **Three stat cards** -- replaced with inline text strip.
-4. **Usage bar card** -- removed from home (exists in full Insights page).
-5. **Unused garments card** on home -- simplified to just the count in the stats strip.
-
-## What Gets Added
-
-1. **Compact weather pill** merged with greeting -- new component `WeatherPill`
-2. **Horizontal occasion scroll** -- replaces the 2-col grid
-3. **Inline stats strip** -- replaces 3 card components
-4. **Expandable weather detail** -- 3-day forecast on tap
+### Accepted overlay refinement
+- Speed up from 600ms to 400ms -- keep the flow snappy
+- Simplify animation: just a clean checkmark fade-in without the ring drawing animation
 
 ---
 
 ## Technical Details
 
-### Files to create:
-1. `src/components/weather/WeatherPill.tsx` -- Compact weather display with expandable forecast
-
 ### Files to modify:
-1. `src/pages/Home.tsx` -- Complete rewrite of the page layout
-2. `src/pages/Insights.tsx` -- Simplify card styles, remove gradients, tighten spacing
+1. `src/pages/Wardrobe.tsx` -- Simplified layout, horizontal category pills, overlay titles on grid cards, single FAB
+2. `src/pages/LiveScan.tsx` -- Cleaner overlays, fullscreen result card, simplified scan UI
+3. `src/hooks/useLiveScan.ts` -- Reduce maxDim to 480, quality to 0.5
+4. `src/hooks/useAutoDetect.ts` -- Reduce STABLE_DURATION to 300ms, COOLDOWN to 350ms
 
-### Files unchanged:
-- `src/hooks/useInsights.ts` -- data layer stays the same
-- `src/hooks/useWeather.ts` -- data layer stays the same  
-- `src/hooks/useForecast.ts` -- data layer stays the same
-- `src/components/insights/AISuggestions.tsx` -- kept as-is (already well-designed)
-- `src/components/weather/WeatherWidget.tsx` -- kept for other pages, new WeatherPill for Home
-
-### No new dependencies needed.
+### No new files needed.
+### No new dependencies.
+### No database changes.
 
 ### Risk: Low
-- All logic (weather fetching, outfit generation, insights data) remains unchanged
-- Only the presentation layer is rebuilt
-- The occasion/style/generate flow keeps the exact same navigation and state logic
+- Wardrobe: only layout/presentation changes, all data logic unchanged
+- LiveScan: compression changes are safe (AI handles lower quality fine), timing changes are minor tweaks
+- No breaking changes to any shared components
 
