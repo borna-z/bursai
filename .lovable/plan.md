@@ -1,33 +1,91 @@
 
+# DRAPE – Next Steps Plan
 
-# Fix Dark Mode Status Bar Mismatch in PWA
+## Overview
+The app "BURS" is being rebranded to "DRAPE". The PWA native feel is now solid. This plan covers the next phase: rebranding, landing page polish, performance, and feature improvements.
 
-## Problem
+---
 
-The screenshot shows a visible color seam between the iOS status bar and the app content in dark mode. The status bar shows a slightly different shade of black than the app background.
+## Phase 1 – Rebrand BURS → DRAPE
 
-Root cause: The `theme-color` for dark mode is set to `#0D0D0D`, but the actual body background in `index.html` is `#030305`, and the CSS dark background token is `0 0% 5%` (which is approximately `#0D0D0D`). The inline body style on `index.html` uses `#030305` which creates a mismatch.
+### 1.1 Update all text references
+- `index.html`: Update `<title>`, OG tags, Twitter tags, `apple-mobile-web-app-title` from "BURS" to "DRAPE"
+- `public/manifest.json`: Update `name`, `short_name`, `description`
+- `src/i18n/translations.ts`: Update all translation strings referencing "BURS"
+- Landing page components: Update any hardcoded "BURS" text
 
-## Fixes
+### 1.2 Replace logo assets
+- Replace `src/assets/burs-logo.png`, `burs-logo-white.png`, `burs-landing-logo.png`, etc. with new DRAPE logo assets
+- Update `src/components/ui/DrapeLogo.tsx` and `BursMonogram.tsx` with new DRAPE branding
+- Update favicon and PWA icons (`public/favicon.png`, `public/favicon-dark.png`, `public/icons/icon-192.png`, `public/icons/icon-512.png`)
 
-### 1. `index.html` -- Align dark theme-color with actual body background
+### 1.3 Generate new OG image
+- Create a new 1200×630 OG image with DRAPE branding
+- Update all `og:image` and `twitter:image` meta tags
 
-Change the dark `theme-color` meta tag from `#0D0D0D` to `#030305` so the status bar matches the actual body inline background color. Also update the inline body `background` to match the CSS token, or vice versa -- pick one consistent value.
+---
 
-**Decision**: Use `#0D0D0D` everywhere (matching the CSS `--background: 0 0% 5%` = `hsl(0,0%,5%)` = `#0D0D0D`) and update the body inline style from `#030305` to `#0D0D0D`.
+## Phase 2 – Landing Page Polish
 
-Alternatively, keep `#030305` for the ultra-dark noir look and update the CSS `--background` in `.dark` to `0 0% 1%` to match. The simplest fix: align the `theme-color` and inline body `background` to the same value.
+### 2.1 Social proof section
+- Add a "Trusted by X users" counter or testimonial quotes between Hero and How It Works
+- Animated number counter on scroll reveal
 
-**Recommended approach**: Change `index.html` body inline style to `#0D0D0D` and keep the dark theme-color as `#0D0D0D`. This keeps CSS tokens and meta tags consistent.
+### 2.2 App screenshot showcase
+- Add a phone mockup in the hero or below-fold showing the actual app UI
+- Use the existing `src/assets/app-screenshot-home.png` in a device frame
 
-### 2. Verify safe-area padding
+### 2.3 Micro-interaction improvements
+- Add subtle hover states on pricing cards (lift + glow)
+- Smooth number animation on pricing toggle (if adding yearly/monthly switch)
 
-The `padding-top: env(safe-area-inset-top)` on body is already applied. With `black-translucent` status bar style, the content extends behind the status bar, and the safe-area padding pushes content down so it remains visible. The background color showing through the status bar will now match the app.
+### 2.4 FAQ section
+- Add an accordion FAQ section before the footer
+- Common questions: "How does AI styling work?", "Is my data private?", "Can I cancel anytime?"
 
-## Files changed
+---
 
-| File | Change |
-|---|---|
-| `index.html` | Change body inline `background:#030305` to `background:#0D0D0D` to match CSS dark background and theme-color meta |
+## Phase 3 – Performance
 
-This is a one-line change that eliminates the visible color seam between the status bar and app content in dark mode PWA.
+### 3.1 Image optimization
+- Convert large PNGs to WebP with fallback
+- Add `width`/`height` attributes to all images for CLS prevention
+- Lazy-load all below-fold images
+
+### 3.2 Font loading optimization
+- Current: preload + print→all swap. Good.
+- Consider subsetting fonts to reduce payload if needed
+
+### 3.3 Bundle splitting
+- Audit current lazy-loading boundaries
+- Ensure auth pages, settings, and heavy features are code-split
+
+---
+
+## Phase 4 – Feature Improvements
+
+### 4.1 Onboarding flow polish
+- Review and refine the style quiz experience
+- Add progress indicator and estimated time
+
+### 4.2 Wardrobe quick-add improvements
+- Streamline the garment upload flow
+- Better AI analysis feedback with loading states
+
+### 4.3 Outfit generation UX
+- Add "regenerate" with memory of rejected suggestions
+- Better explanation cards for why an outfit was suggested
+
+### 4.4 Share outfit improvements
+- Improve the share card design for social media
+- Add copy-link functionality
+
+---
+
+## Suggested execution order
+1. **Phase 1** (Rebrand) – Do first since it touches many files
+2. **Phase 2.2** (App screenshot in hero) – High visual impact
+3. **Phase 2.4** (FAQ section) – Quick SEO + conversion win
+4. **Phase 3.1** (Image optimization) – Performance win
+5. **Phase 4** – Feature work based on user feedback
+
