@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { motion, useMotionValue, useTransform, animate, PanInfo } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Pencil, WashingMachine, Trash2, Shirt } from 'lucide-react';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
+import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import type { Garment } from '@/hooks/useGarments';
@@ -21,6 +22,11 @@ interface SwipeableGarmentCardProps {
 export function SwipeableGarmentCard({ garment, onEdit, onLaundry, onDelete }: SwipeableGarmentCardProps) {
   const navigate = useNavigate();
   const { t } = useLanguage();
+
+  const isNew = useMemo(() => {
+    if (!garment.created_at) return false;
+    return Date.now() - new Date(garment.created_at).getTime() < 24 * 60 * 60 * 1000;
+  }, [garment.created_at]);
   const [isOpen, setIsOpen] = useState(false);
   const x = useMotionValue(0);
   const constraintRef = useRef<HTMLDivElement>(null);
@@ -114,7 +120,14 @@ export function SwipeableGarmentCard({ garment, onEdit, onLaundry, onDelete }: S
           fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/30" />}
         />
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm truncate">{garment.title}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="font-medium text-sm truncate">{garment.title}</p>
+            {isNew && (
+              <Badge variant="default" className="text-[10px] px-1.5 py-0 shrink-0">
+                {t('wardrobe.new_badge')}
+              </Badge>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground capitalize">
             {t(`garment.category.${garment.category}`)} · {t(`color.${garment.color_primary}`)}
           </p>
