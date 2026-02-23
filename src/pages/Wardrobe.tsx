@@ -362,6 +362,8 @@ export default function WardrobePage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'created_at' | 'last_worn_at' | 'wear_count'>('created_at');
+  const [showLaundry, setShowLaundry] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
@@ -376,6 +378,8 @@ export default function WardrobePage() {
     category: selectedCategory === 'all' ? undefined : selectedCategory,
     color: selectedColor || undefined,
     season: selectedSeason || undefined,
+    sortBy,
+    inLaundry: showLaundry ? true : undefined,
   });
   const { data: infiniteData, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = queryResult;
   const { canAddGarment, isPremium } = useSubscription();
@@ -430,8 +434,8 @@ export default function WardrobePage() {
 
   const isOverLimit = !isPremium && (displayGarments?.length || 0) >= PLAN_LIMITS.free.maxGarments;
 
-  const clearFilters = () => { setSelectedCategory('all'); setSelectedColor(null); setSelectedSeason(null); setFilters({}); setSearch(''); };
-  const hasActiveFilters = selectedCategory !== 'all' || selectedColor || selectedSeason || search;
+  const clearFilters = () => { setSelectedCategory('all'); setSelectedColor(null); setSelectedSeason(null); setFilters({}); setSearch(''); setSortBy('created_at'); setShowLaundry(false); };
+  const hasActiveFilters = selectedCategory !== 'all' || selectedColor || selectedSeason || search || sortBy !== 'created_at' || showLaundry;
 
   const handleRefresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['garments'] });
@@ -514,12 +518,12 @@ export default function WardrobePage() {
               ))}
             </div>
 
-            {/* Filter pill + inline filter row */}
-            <div className="flex items-center gap-2">
+            {/* Filter pill + laundry toggle + sort pills */}
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-0.5">
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all',
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0',
                   showFilters || hasActiveFilters
                     ? 'bg-accent/10 text-accent'
                     : 'bg-foreground/[0.04] text-muted-foreground'
@@ -529,8 +533,46 @@ export default function WardrobePage() {
                 {t('wardrobe.filter')}
                 {hasActiveFilters && <span className="w-1.5 h-1.5 rounded-full bg-accent" />}
               </button>
+
+              {/* Laundry toggle */}
+              <button
+                onClick={() => setShowLaundry(!showLaundry)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0',
+                  showLaundry
+                    ? 'bg-accent/10 text-accent'
+                    : 'bg-foreground/[0.04] text-muted-foreground'
+                )}
+              >
+                <WashingMachine className="w-3.5 h-3.5" />
+                {t('wardrobe.in_laundry')}
+              </button>
+
+              {/* Sort divider */}
+              <div className="w-px h-4 bg-border/40 shrink-0" />
+
+              {/* Sort pills */}
+              {([
+                { key: 'created_at' as const, label: t('wardrobe.sort.latest') },
+                { key: 'last_worn_at' as const, label: t('wardrobe.sort.last_worn') },
+                { key: 'wear_count' as const, label: t('wardrobe.sort.most_used') },
+              ]).map(sort => (
+                <button
+                  key={sort.key}
+                  onClick={() => setSortBy(sort.key)}
+                  className={cn(
+                    'whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0',
+                    sortBy === sort.key
+                      ? 'bg-accent/10 text-accent'
+                      : 'bg-foreground/[0.04] text-muted-foreground'
+                  )}
+                >
+                  {sort.label}
+                </button>
+              ))}
+
               {hasActiveFilters && (
-                <button onClick={clearFilters} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <button onClick={clearFilters} className="text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">
                   {t('wardrobe.clear')}
                 </button>
               )}
