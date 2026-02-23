@@ -1,91 +1,100 @@
 
-# DRAPE – Next Steps Plan
+# BURS – Next Steps Plan
 
 ## Overview
-The app "BURS" is being rebranded to "DRAPE". The PWA native feel is now solid. This plan covers the next phase: rebranding, landing page polish, performance, and feature improvements.
+PWA native feel is solid. This plan focuses on landing page conversion, performance, and in-app feature polish.
 
 ---
 
-## Phase 1 – Rebrand BURS → DRAPE
+## Phase 1 – Landing Page Conversion Boost
 
-### 1.1 Update all text references
-- `index.html`: Update `<title>`, OG tags, Twitter tags, `apple-mobile-web-app-title` from "BURS" to "DRAPE"
-- `public/manifest.json`: Update `name`, `short_name`, `description`
-- `src/i18n/translations.ts`: Update all translation strings referencing "BURS"
-- Landing page components: Update any hardcoded "BURS" text
+### 1.1 App screenshot in hero
+- Add a phone mockup with actual app UI screenshot in the hero section
+- Use existing `src/assets/app-screenshot-home.png` in a tilted device frame
+- Creates immediate visual trust and shows the product
 
-### 1.2 Replace logo assets
-- Replace `src/assets/burs-logo.png`, `burs-logo-white.png`, `burs-landing-logo.png`, etc. with new DRAPE logo assets
-- Update `src/components/ui/DrapeLogo.tsx` and `BursMonogram.tsx` with new DRAPE branding
-- Update favicon and PWA icons (`public/favicon.png`, `public/favicon-dark.png`, `public/icons/icon-192.png`, `public/icons/icon-512.png`)
+### 1.2 Social proof section
+- Add animated user count or testimonial quotes between Hero and How It Works
+- "Join X users styling smarter" with scroll-triggered number animation
 
-### 1.3 Generate new OG image
-- Create a new 1200×630 OG image with DRAPE branding
-- Update all `og:image` and `twitter:image` meta tags
+### 1.3 FAQ accordion section
+- Add before footer with common questions
+- "How does AI styling work?", "Is my data private?", "Can I cancel anytime?"
+- Good for SEO and reducing bounce
 
----
-
-## Phase 2 – Landing Page Polish
-
-### 2.1 Social proof section
-- Add a "Trusted by X users" counter or testimonial quotes between Hero and How It Works
-- Animated number counter on scroll reveal
-
-### 2.2 App screenshot showcase
-- Add a phone mockup in the hero or below-fold showing the actual app UI
-- Use the existing `src/assets/app-screenshot-home.png` in a device frame
-
-### 2.3 Micro-interaction improvements
-- Add subtle hover states on pricing cards (lift + glow)
-- Smooth number animation on pricing toggle (if adding yearly/monthly switch)
-
-### 2.4 FAQ section
-- Add an accordion FAQ section before the footer
-- Common questions: "How does AI styling work?", "Is my data private?", "Can I cancel anytime?"
+### 1.4 Video or animation showcase
+- Short auto-playing loop showing the outfit generation flow
+- Replaces static content with dynamic demonstration
 
 ---
 
-## Phase 3 – Performance
+## Phase 2 – Performance & Polish
 
-### 3.1 Image optimization
+### 2.1 Image optimization
 - Convert large PNGs to WebP with fallback
-- Add `width`/`height` attributes to all images for CLS prevention
+- Add explicit `width`/`height` on all images for CLS prevention
 - Lazy-load all below-fold images
 
-### 3.2 Font loading optimization
-- Current: preload + print→all swap. Good.
-- Consider subsetting fonts to reduce payload if needed
+### 2.2 Lighthouse audit fixes
+- Audit accessibility (color contrast, aria labels)
+- Optimize LCP by inlining critical CSS for landing page
+- Reduce unused JS in initial bundle
 
-### 3.3 Bundle splitting
-- Audit current lazy-loading boundaries
-- Ensure auth pages, settings, and heavy features are code-split
+### 2.3 Offline experience
+- Add service worker for basic offline caching
+- Show cached wardrobe data when offline
+- Improve the OfflineBanner component
 
 ---
 
-## Phase 4 – Feature Improvements
+## Phase 3 – In-App Feature Improvements
 
-### 4.1 Onboarding flow polish
-- Review and refine the style quiz experience
-- Add progress indicator and estimated time
+### 3.1 Onboarding flow polish
+- Add progress bar and estimated time to style quiz
+- Smoother transitions between steps
+- Skip option for returning users
 
-### 4.2 Wardrobe quick-add improvements
-- Streamline the garment upload flow
-- Better AI analysis feedback with loading states
+### 3.2 Wardrobe UX improvements
+- Batch upload multiple garments at once
+- Better AI analysis feedback with skeleton loading
+- Quick filters: by color, season, category
 
-### 4.3 Outfit generation UX
-- Add "regenerate" with memory of rejected suggestions
+### 3.3 Outfit generation UX
+- "Regenerate" button with memory of rejected suggestions
 - Better explanation cards for why an outfit was suggested
+- Save/favorite flow improvement
 
-### 4.4 Share outfit improvements
-- Improve the share card design for social media
-- Add copy-link functionality
+### 3.4 Share outfit improvements
+- Polished share card design for social media
+- Copy-link with preview
+- Instagram story-sized export
+
+### 3.5 Insights dashboard
+- Weekly style report with wear statistics
+- "Cost per wear" tracking
+- Sustainability score visualization
+
+---
+
+## Phase 4 – Growth & Engagement
+
+### 4.1 Push notifications (PWA)
+- Outfit suggestion reminders in the morning
+- Weather-based alerts ("Rain today – here's a waterproof outfit")
+
+### 4.2 Calendar integration polish
+- Better visual calendar with outfit thumbnails
+- Drag-and-drop outfit planning
+
+### 4.3 Seasonal wardrobe rotation
+- AI suggestions for seasonal swaps
+- "Archive" feature for off-season items
 
 ---
 
 ## Suggested execution order
-1. **Phase 1** (Rebrand) – Do first since it touches many files
-2. **Phase 2.2** (App screenshot in hero) – High visual impact
-3. **Phase 2.4** (FAQ section) – Quick SEO + conversion win
-4. **Phase 3.1** (Image optimization) – Performance win
-5. **Phase 4** – Feature work based on user feedback
-
+1. **1.1** App screenshot in hero – highest visual impact, quick win
+2. **1.3** FAQ section – SEO + conversion, quick to build
+3. **2.1** Image optimization – performance win
+4. **3.2** Wardrobe UX – core user experience
+5. **3.3** Outfit generation UX – key differentiator
