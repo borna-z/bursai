@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Image as ImageIcon, ArrowLeft, Loader2, X, Sparkles, RefreshCw, Link2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Camera, Image as ImageIcon, ArrowLeft, Loader2, X, Sparkles, RefreshCw, Link2, Upload, Palette, CheckCircle, Images } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,6 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { LinkImportForm } from '@/components/LinkImportForm';
+import { BatchUploadProgress } from '@/components/wardrobe/BatchUploadProgress';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
@@ -164,7 +166,7 @@ export default function AddGarmentPage() {
   const { user } = useAuth();
   const { canAddGarment, remainingGarments, refresh: refreshSubscription } = useSubscription();
 
-  const [step, setStep] = useState<'upload' | 'analyzing' | 'form'>('upload');
+  const [step, setStep] = useState<'upload' | 'analyzing' | 'form' | 'batch'>('upload');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [storagePath, setStoragePath] = useState<string | null>(null);
@@ -172,6 +174,11 @@ export default function AddGarmentPage() {
   const [garmentId, setGarmentId] = useState<string | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<GarmentAnalysis | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [analysisPhase, setAnalysisPhase] = useState(0); // 0-3 for 4 phases
+  const [analysisSummary, setAnalysisSummary] = useState<string | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [batchFiles, setBatchFiles] = useState<File[]>([]);
+  const batchInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -214,21 +221,44 @@ export default function AddGarmentPage() {
 
   const runAnalysis = async (path: string) => {
     setStep('analyzing');
+    setAnalysisPhase(0);
+    setAnalysisSummary(null);
+    setAnalysisError(null);
+    
+    // Simulate phase progression (actual analysis drives the final states)
+    const phaseTimer1 = setTimeout(() => setAnalysisPhase(1), 800);
+    const phaseTimer2 = setTimeout(() => setAnalysisPhase(2), 2500);
     
     const { data: analysisData, error: analysisError } = await analyzeGarment(path);
     
+    clearTimeout(phaseTimer1);
+    clearTimeout(phaseTimer2);
+    
     if (analysisError) {
-      toast.error(t('addgarment.ai_error'), {
-        description: analysisError,
-      });
+      setAnalysisError(analysisError);
+      setAnalysisPhase(0);
+      return; // Stay on analyzing screen with error
     } else if (analysisData) {
+      setAnalysisPhase(3); // Done
       applyAIAnalysis(analysisData);
+      
+      // Build summary string
+      const summary = [analysisData.title, analysisData.material].filter(Boolean).join(', ');
+      setAnalysisSummary(summary);
+      
+      // Show summary for 1.5s, then go to form
+      await new Promise(resolve => setTimeout(resolve, 1500));
       toast.success(t('addgarment.ai_success'), {
         description: t('addgarment.ai_review'),
       });
     }
     
     setStep('form');
+  };
+
+  const handleRetryAnalysis = async () => {
+    if (!storagePath) return;
+    await runAnalysis(storagePath);
   };
 
   const handleReanalyze = async () => {
@@ -350,6 +380,43 @@ export default function AddGarmentPage() {
     setInLaundry(false);
   };
 
+  // Batch upload handler
+  const handleBatchSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const remaining = remainingGarments();
+    const maxBatch = Math.min(10, remaining);
+    
+    if (remaining <= 0) {
+      setShowPaywall(true);
+      return;
+    }
+    
+    const fileList = Array.from(files).slice(0, maxBatch);
+    if (files.length > maxBatch) {
+      toast.info(`${t('batch.limited_to')} ${maxBatch} ${t('batch.items')}`);
+    }
+    setBatchFiles(fileList);
+    setStep('batch');
+  };
+
+  if (step === 'batch') {
+    return (
+      <BatchUploadProgress
+        files={batchFiles}
+        onComplete={() => {
+          refreshSubscription();
+          navigate('/wardrobe');
+        }}
+        onCancel={() => {
+          setBatchFiles([]);
+          setStep('upload');
+        }}
+      />
+    );
+  }
+
   if (step === 'upload') {
     return (
       <div className="min-h-screen bg-background">
@@ -388,6 +455,14 @@ export default function AddGarmentPage() {
                   onChange={handleImageSelect}
                   className="hidden"
                 />
+                <input
+                  ref={batchInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleBatchSelect}
+                  className="hidden"
+                />
 
                 <div className="flex gap-4">
                   <Button
@@ -418,6 +493,16 @@ export default function AddGarmentPage() {
                     {t('addgarment.gallery')}
                   </Button>
                 </div>
+
+                {/* Batch upload button */}
+                <Button
+                  variant="ghost"
+                  className="gap-2 text-muted-foreground"
+                  onClick={() => batchInputRef.current?.click()}
+                >
+                  <Images className="w-4 h-4" />
+                  {t('batch.upload_multiple')}
+                </Button>
               </div>
             </TabsContent>
 
@@ -430,12 +515,23 @@ export default function AddGarmentPage() {
     );
   }
 
+  // Analysis phases
+  const ANALYSIS_PHASES = [
+    { icon: Upload, label: t('addgarment.phase_upload') },
+    { icon: Palette, label: t('addgarment.phase_color') },
+    { icon: Sparkles, label: t('addgarment.phase_style') },
+    { icon: CheckCircle, label: t('addgarment.phase_done') },
+  ];
+
   if (step === 'analyzing') {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8">
         <div className="flex flex-col items-center gap-6 w-full max-w-xs">
           {imagePreview && (
-            <div className="relative aspect-square w-48 rounded-xl overflow-hidden bg-secondary/60 backdrop-blur-sm">
+            <div className={cn(
+              "relative aspect-square w-48 rounded-xl overflow-hidden bg-secondary/60",
+              !analysisError && analysisPhase < 3 && "shadow-[0_0_30px_0_hsl(var(--accent)/0.3)] animate-pulse"
+            )}>
               <img
                 src={imagePreview}
                 alt="Preview"
@@ -443,16 +539,74 @@ export default function AddGarmentPage() {
               />
             </div>
           )}
-          <div className="flex items-center gap-3">
-            <Sparkles className="w-5 h-5 text-primary animate-pulse" />
-            <span className="text-lg font-medium">{t('addgarment.analyzing')}</span>
-          </div>
-          <Progress value={analysisProgress} className="w-full" />
-          <p className="text-sm text-muted-foreground">
-            {analysisProgress < 30 ? t('addgarment.uploading') : 
-             analysisProgress < 70 ? t('addgarment.analyzing_style') : 
-             t('addgarment.finishing')}
-          </p>
+
+          {/* Error state */}
+          {analysisError ? (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center gap-4 w-full"
+            >
+              <p className="text-sm text-destructive text-center">{analysisError}</p>
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={resetForm}>
+                  {t('common.cancel')}
+                </Button>
+                <Button onClick={handleRetryAnalysis}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  {t('addgarment.retry')}
+                </Button>
+              </div>
+            </motion.div>
+          ) : analysisSummary ? (
+            /* Summary card */
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="flex flex-col items-center gap-2 bg-card rounded-xl p-4 w-full shadow-sm"
+            >
+              <CheckCircle className="w-6 h-6 text-accent" />
+              <p className="font-medium text-center">{analysisSummary}</p>
+              <p className="text-xs text-muted-foreground">{t('addgarment.ai_review')}</p>
+            </motion.div>
+          ) : (
+            /* 4-phase step indicator */
+            <div className="flex flex-col gap-3 w-full">
+              {ANALYSIS_PHASES.map((phase, i) => {
+                const PhaseIcon = phase.icon;
+                const isActive = i === analysisPhase;
+                const isDone = i < analysisPhase;
+                return (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: isDone || isActive ? 1 : 0.35, x: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    className={cn(
+                      "flex items-center gap-3 py-2 px-3 rounded-lg transition-colors",
+                      isActive && "bg-accent/10"
+                    )}
+                  >
+                    {isDone ? (
+                      <CheckCircle className="w-5 h-5 text-accent shrink-0" />
+                    ) : isActive ? (
+                      <Loader2 className="w-5 h-5 text-accent animate-spin shrink-0" />
+                    ) : (
+                      <PhaseIcon className="w-5 h-5 text-muted-foreground shrink-0" />
+                    )}
+                    <span className={cn(
+                      "text-sm",
+                      isActive && "font-medium text-foreground",
+                      isDone && "text-muted-foreground",
+                      !isActive && !isDone && "text-muted-foreground"
+                    )}>
+                      {phase.label}
+                    </span>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     );
