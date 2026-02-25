@@ -6,12 +6,31 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const LOCALE_NAMES: Record<string, string> = {
+  sv: "Swedish", en: "English", de: "German", fr: "French",
+  es: "Spanish", it: "Italian", nl: "Dutch", da: "Danish",
+  nb: "Norwegian", fi: "Finnish", pt: "Portuguese",
+  ja: "Japanese", ko: "Korean", ar: "Arabic", fa: "Persian",
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Parse request body for locale
+    let locale = "sv";
+    try {
+      const body = await req.json();
+      if (body?.locale && typeof body.locale === "string") {
+        locale = body.locale;
+      }
+    } catch {
+      // No body or invalid JSON — use default
+    }
+    const lang = LOCALE_NAMES[locale] || "English";
+
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing authorization" }), {
@@ -65,7 +84,7 @@ serve(async (req) => {
     if (garments.length < 3) {
       return new Response(JSON.stringify({ 
         suggestions: [],
-        message: "Inte tillräckligt med plagg för att skapa förslag." 
+        message: "Not enough garments to create suggestions." 
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -136,6 +155,7 @@ RULES:
 6. Consider color harmony, formality matching, and seasonal appropriateness
 7. Each suggestion needs a different style/occasion
 8. ONLY use garment IDs from the list
+9. ALL text output (titles, explanations, occasions) MUST be in ${lang}
 ${recentContext}
 ${styleContext}
 
@@ -152,7 +172,7 @@ ${garmentList}`;
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: "Create 2-3 complete outfit suggestions using my unused garments." },
+          { role: "user", content: `Create 2-3 complete outfit suggestions using my unused garments. Respond in ${lang}.` },
         ],
         tools: [{
           type: "function",
@@ -167,10 +187,10 @@ ${garmentList}`;
                   items: {
                     type: "object",
                     properties: {
-                      title: { type: "string", description: "Short descriptive title in Swedish" },
+                      title: { type: "string", description: `Short descriptive title in ${lang}` },
                       garment_ids: { type: "array", items: { type: "string" }, description: "Array of garment UUIDs" },
-                      explanation: { type: "string", description: "Why this combination works (2 sentences, in Swedish)" },
-                      occasion: { type: "string", description: "Suitable occasion in Swedish (e.g. Vardag, Jobb, Dejt)" },
+                      explanation: { type: "string", description: `Why this combination works (2 sentences, in ${lang})` },
+                      occasion: { type: "string", description: `Suitable occasion in ${lang}` },
                     },
                     required: ["title", "garment_ids", "explanation", "occasion"],
                     additionalProperties: false,
@@ -188,12 +208,12 @@ ${garmentList}`;
 
     if (!aiResponse.ok) {
       if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "AI-tjänsten är överbelastad. Försök igen senare." }), {
+        return new Response(JSON.stringify({ error: "AI service overloaded. Try again later." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "AI-krediter slut. Kontakta support." }), {
+        return new Response(JSON.stringify({ error: "AI credits exhausted. Contact support." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
