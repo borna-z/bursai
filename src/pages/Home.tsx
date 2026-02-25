@@ -154,7 +154,7 @@ export default function HomePage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
-          className="flex items-center justify-between"
+          className="flex items-center justify-between overflow-visible"
         >
           <h1 className="text-lg font-semibold tracking-tight" style={{ fontFamily: "'Sora', sans-serif" }}>
             {getGreeting()}
@@ -268,7 +268,7 @@ export default function HomePage() {
         </Button>
 
         {(garmentCount || 0) < 3 && (
-          <p className="text-xs text-center text-muted-foreground -mt-3">
+          <p className="text-xs text-center text-muted-foreground mt-1">
             {t('home.min_garments')}
           </p>
         )}
@@ -277,7 +277,7 @@ export default function HomePage() {
         {insights && insights.totalGarments > 0 && (
           <button
             onClick={() => navigate('/insights')}
-            className="w-full flex items-center justify-between py-4 border-t border-b border-border/20"
+            className="w-full flex items-center justify-between px-2 py-4 border-t border-b border-border/20"
           >
             <div className="flex-1 text-center">
               <p className="text-xl font-bold tracking-tight tabular-nums">{insights.totalGarments}</p>
@@ -330,7 +330,7 @@ export default function HomePage() {
         {/* ── 7. See all insights ── */}
         <Button
           variant="ghost"
-          className="w-full text-sm text-muted-foreground"
+          className="w-full text-sm text-muted-foreground -mt-2"
           onClick={() => navigate('/insights')}
         >
           {t('home.all_insights')} <ChevronRight className="w-4 h-4 ml-1" />
