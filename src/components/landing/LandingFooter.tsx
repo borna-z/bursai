@@ -16,6 +16,9 @@ export function LandingFooter() {
           <a href="/terms" className="hover:text-white transition-colors">Terms of Service</a>
           <a href="/contact" className="hover:text-white transition-colors">{t('landing.footer_contact')}</a>
         </div>
+        <p className="text-[10px] text-gray-600 mt-1">
+          By using BURS you agree to our <a href="/privacy" className="underline hover:text-white transition-colors">Privacy Policy</a>.
+        </p>
         <div className="flex items-center gap-5">
           <a href="https://www.instagram.com/burs_style" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="hover:text-white transition-colors"><Instagram size={16} strokeWidth={1.5} /></a>
         </div>
