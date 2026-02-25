@@ -42,8 +42,8 @@ export default function PrivacyPolicy() {
               <p>BURS ("BURS", "we", "us", "our") is a digital wardrobe and AI styling platform available via web and/or progressive web app at burs.me (the "Service").</p>
               <p className="mt-3">This Privacy Policy explains how we collect, use, store, share, and protect personal data when you use BURS, including when you connect your Google Calendar for contextual outfit recommendations.</p>
               <p className="mt-3 font-medium text-foreground">Data Controller (GDPR):</p>
-              <p>Burs<br />Email: <a href="mailto:hello@burs.com" className="text-accent hover:underline">hello@burs.com</a></p>
-              <p className="mt-3">If you have questions about this Privacy Policy or your personal data, contact us at <a href="mailto:hello@burs.com" className="text-accent hover:underline">hello@burs.com</a>.</p>
+              <p>Burs<br />Email: <a href="mailto:hello@burs.me" className="text-accent hover:underline">hello@burs.me</a></p>
+              <p className="mt-3">If you have questions about this Privacy Policy or your personal data, contact us at <a href="mailto:hello@burs.me" className="text-accent hover:underline">hello@burs.me</a>.</p>
             </section>
 
             {/* 2 */}
@@ -335,7 +335,7 @@ export default function PrivacyPolicy() {
               <p>If you are in Sweden, you can complain to the Swedish Authority for Privacy Protection (Integritetsskyddsmyndigheten, IMY).</p>
 
               <h3 className="font-medium text-foreground mt-4 mb-1">How to exercise your rights</h3>
-              <p>Email us at <a href="mailto:hello@burs.com" className="text-accent hover:underline">hello@burs.com</a>. We may need to verify your identity before completing your request.</p>
+              <p>Email us at <a href="mailto:hello@burs.me" className="text-accent hover:underline">hello@burs.me</a>. We may need to verify your identity before completing your request.</p>
             </section>
 
             {/* 12 */}
@@ -353,7 +353,7 @@ export default function PrivacyPolicy() {
               </ul>
 
               <h3 className="font-medium text-foreground mt-4 mb-1">Account deletion</h3>
-              <p>You can request account deletion by using in-app settings (if available) or emailing <a href="mailto:hello@burs.com" className="text-accent hover:underline">hello@burs.com</a>.</p>
+              <p>You can request account deletion by using in-app settings (if available) or emailing <a href="mailto:hello@burs.me" className="text-accent hover:underline">hello@burs.me</a>.</p>
             </section>
 
             {/* 13 */}
@@ -368,7 +368,7 @@ export default function PrivacyPolicy() {
               <h2 className="text-xl font-semibold text-foreground mb-3">14. Children's Privacy</h2>
               <p>BURS is not intended for children under 13.</p>
               <p className="mt-2">If we learn that we collected personal data from a child under 13 without valid parental consent, we will delete it.</p>
-              <p className="mt-2">If you believe a child has provided personal data to BURS, contact us at <a href="mailto:hello@burs.com" className="text-accent hover:underline">hello@burs.com</a>.</p>
+              <p className="mt-2">If you believe a child has provided personal data to BURS, contact us at <a href="mailto:hello@burs.me" className="text-accent hover:underline">hello@burs.me</a>.</p>
             </section>
 
             {/* 15 */}
@@ -386,7 +386,7 @@ export default function PrivacyPolicy() {
             {/* 16 */}
             <section>
               <h2 className="text-xl font-semibold text-foreground mb-3">16. Contact</h2>
-              <p>Burs<br />Email: <a href="mailto:hello@burs.com" className="text-accent hover:underline">hello@burs.com</a></p>
+              <p>Burs<br />Email: <a href="mailto:hello@burs.me" className="text-accent hover:underline">hello@burs.me</a></p>
             </section>
 
           </div>

@@ -48,7 +48,7 @@ export default function Terms() {
             <section>
               <h2 className="text-xl font-semibold text-foreground mb-3">2. Who We Are</h2>
               <p>BURS is provided by:</p>
-              <p className="mt-2">Burs<br />Email: <a href="mailto:hello@burs.com" className="text-accent hover:underline">hello@burs.com</a></p>
+              <p className="mt-2">Burs<br />Email: <a href="mailto:hello@burs.me" className="text-accent hover:underline">hello@burs.me</a></p>
             </section>
 
             {/* 3 */}
@@ -261,7 +261,7 @@ export default function Terms() {
             {/* 20 */}
             <section>
               <h2 className="text-xl font-semibold text-foreground mb-3">20. Contact</h2>
-              <p>Burs<br />Email: <a href="mailto:hello@burs.com" className="text-accent hover:underline">hello@burs.com</a></p>
+              <p>Burs<br />Email: <a href="mailto:hello@burs.me" className="text-accent hover:underline">hello@burs.me</a></p>
             </section>
 
           </div>
