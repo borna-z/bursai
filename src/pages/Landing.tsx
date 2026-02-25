@@ -23,10 +23,14 @@ export default function Landing() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Enhanced IntersectionObserver: re-triggers on scroll back up
+  const REVEAL_SELECTOR = '.reveal-up, .reveal-down, .reveal-left, .reveal-right, .reveal-scale, .reveal-rotate, .scroll-reveal, .line-grow, .word-reveal';
+
+  // Single unified IntersectionObserver + MutationObserver
   useEffect(() => {
-    const els = document.querySelectorAll('.reveal-up, .reveal-down, .reveal-left, .reveal-right, .reveal-scale, .reveal-rotate, .scroll-reveal, .line-grow, .word-reveal');
-    const observer = new IntersectionObserver(
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const io = new IntersectionObserver(
       (entries) => {
         entries.forEach(e => {
           if (e.isIntersecting) {
@@ -36,10 +40,24 @@ export default function Landing() {
           }
         });
       },
-      { threshold: 0.08 }
+      { root: container, threshold: 0.08 }
     );
-    els.forEach(el => observer.observe(el));
-    return () => observer.disconnect();
+
+    // Observe all current reveal elements
+    container.querySelectorAll(REVEAL_SELECTOR).forEach(el => io.observe(el));
+
+    // Watch for lazy-loaded sections adding new reveal elements
+    const mo = new MutationObserver(() => {
+      container.querySelectorAll(REVEAL_SELECTOR).forEach(el => {
+        io.observe(el); // safe to call multiple times on same element
+      });
+    });
+    mo.observe(container, { childList: true, subtree: true });
+
+    return () => {
+      io.disconnect();
+      mo.disconnect();
+    };
   }, []);
 
   // Parallax scroll listener
@@ -71,28 +89,6 @@ export default function Landing() {
     { id: 'pricing', label: t('landing.nav.pricing') },
     { id: 'download', label: t('landing.nav.download') },
   ];
-
-  // Re-observe elements after lazy sections mount
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const els = document.querySelectorAll('.reveal-up, .reveal-down, .reveal-left, .reveal-right, .reveal-scale, .reveal-rotate, .scroll-reveal, .line-grow, .word-reveal');
-      const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach(e => {
-            if (e.isIntersecting) {
-              e.target.classList.add('visible');
-            } else {
-              e.target.classList.remove('visible');
-            }
-          });
-        },
-        { threshold: 0.08 }
-      );
-      els.forEach(el => observer.observe(el));
-      return () => observer.disconnect();
-    }, 200);
-    return () => clearTimeout(timer);
-  });
 
   return (
     <>
