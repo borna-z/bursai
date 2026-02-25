@@ -7,8 +7,10 @@ export default function Terms() {
   return (
     <div className="force-light">
       <Helmet>
-        <title>Terms of Use | BURS</title>
+        <title>Terms of Use for BURS</title>
         <meta name="description" content="Terms of Use for BURS — acceptance, subscriptions, AI features, and governing law." />
+        <meta name="robots" content="index, follow" />
+        <link rel="canonical" href="https://burs.me/terms" />
       </Helmet>
 
       <div className="min-h-screen bg-background text-foreground flex flex-col">

@@ -7,8 +7,10 @@ export default function PrivacyPolicy() {
   return (
     <div className="force-light">
       <Helmet>
-        <title>Privacy Policy | BURS</title>
+        <title>Privacy Policy for BURS</title>
         <meta name="description" content="Privacy Policy for BURS — how we collect, use, store, share, and protect your personal data." />
+        <meta name="robots" content="index, follow" />
+        <link rel="canonical" href="https://burs.me/privacy" />
       </Helmet>
 
       <div className="min-h-screen bg-background text-foreground flex flex-col">
