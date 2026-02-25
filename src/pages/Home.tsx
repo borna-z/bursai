@@ -4,13 +4,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { TAP_TRANSITION } from '@/lib/motion';
 import {
-  Sparkles, ChevronRight, Shirt, Trophy, Lock,
+  Sparkles, ChevronRight,
   Sun, Briefcase, PartyPopper, Heart, Dumbbell, Plane,
 } from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useGarmentCount } from '@/hooks/useGarments';
 import { useOnboarding } from '@/hooks/useOnboarding';
@@ -22,7 +21,6 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { WeatherPill } from '@/components/weather/WeatherPill';
 import { AISuggestions } from '@/components/insights/AISuggestions';
-import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { SectionHeader } from '@/components/ui/section-header';
 
@@ -180,49 +178,92 @@ export default function HomePage() {
           </motion.button>
         )}
 
-        {/* ── 2. Occasion Selector (horizontal scroll) ── */}
-        <div className="space-y-3">
-          <SectionHeader title={t('home.what_today')} />
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
-            {OCCASIONS.map((occ) => (
-              <motion.button
-                key={occ.id}
-                whileTap={{ scale: 0.94 }}
-                transition={TAP_TRANSITION}
-                onClick={() => handleSelectOccasion(occ.id)}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 will-change-transform",
-                  selectedOccasion === occ.id
-                    ? "bg-accent/[0.08] text-accent ring-1 ring-accent/30"
-                    : "bg-foreground/[0.03] text-foreground"
-                )}
-              >
-                <occ.icon className="w-4 h-4" />
-                <span className="text-xs">{t(occ.labelKey)}</span>
-              </motion.button>
-            ))}
-          </div>
-
-          {/* Sub-options row */}
-          {activeOccasion?.subOptions && (
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
-              {activeOccasion.subOptions.map((sub) => (
+        {/* ── 2. Outfit Builder Card ── */}
+        <div className="rounded-2xl bg-foreground/[0.02] border border-border/30 p-4 space-y-4">
+          {/* Occasion */}
+          <div className="space-y-2.5">
+            <SectionHeader title={t('home.what_today')} />
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+              {OCCASIONS.map((occ) => (
                 <motion.button
-                  key={sub.id}
-                  whileTap={{ scale: 0.93 }}
+                  key={occ.id}
+                  whileTap={{ scale: 0.94 }}
                   transition={TAP_TRANSITION}
-                  onClick={() => setSelectedSub(selectedSub === sub.id ? null : sub.id)}
+                  onClick={() => handleSelectOccasion(occ.id)}
                   className={cn(
-                    "px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap flex-shrink-0 will-change-transform",
-                    selectedSub === sub.id
-                      ? "bg-accent/10 text-accent"
-                      : "bg-foreground/[0.03] text-foreground"
+                    "flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 will-change-transform",
+                    selectedOccasion === occ.id
+                      ? "bg-accent/[0.08] text-accent ring-1 ring-accent/30"
+                      : "bg-foreground/[0.04] text-foreground"
                   )}
                 >
-                  {t(sub.labelKey)}
+                  <occ.icon className="w-4 h-4" />
+                  <span className="text-xs">{t(occ.labelKey)}</span>
                 </motion.button>
               ))}
             </div>
+
+            {/* Sub-options row */}
+            {activeOccasion?.subOptions && (
+              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+                {activeOccasion.subOptions.map((sub) => (
+                  <motion.button
+                    key={sub.id}
+                    whileTap={{ scale: 0.93 }}
+                    transition={TAP_TRANSITION}
+                    onClick={() => setSelectedSub(selectedSub === sub.id ? null : sub.id)}
+                    className={cn(
+                      "px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap flex-shrink-0 will-change-transform",
+                      selectedSub === sub.id
+                        ? "bg-accent/10 text-accent"
+                        : "bg-foreground/[0.04] text-foreground"
+                    )}
+                  >
+                    {t(sub.labelKey)}
+                  </motion.button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Style */}
+          <div className="space-y-2.5">
+            <SectionHeader title={t('home.style_optional')} />
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+              {STYLES.map((style) => (
+                <motion.button
+                  key={style.id}
+                  whileTap={{ scale: 0.93 }}
+                  transition={TAP_TRANSITION}
+                  onClick={() => setSelectedStyle(selectedStyle === style.id ? null : style.id)}
+                  className={cn(
+                    "px-4 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap flex-shrink-0 will-change-transform",
+                    selectedStyle === style.id
+                      ? "bg-accent/10 text-accent"
+                      : "bg-foreground/[0.04] text-foreground"
+                  )}
+                >
+                  {t(style.labelKey)}
+                </motion.button>
+              ))}
+            </div>
+          </div>
+
+          {/* Generate CTA */}
+          <Button
+            onClick={handleGenerateOutfit}
+            disabled={!selectedOccasion || (garmentCount || 0) < 3}
+            className="w-full h-12 text-base font-semibold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl"
+            size="lg"
+          >
+            <Sparkles className="w-5 h-5 mr-2" />
+            {selectedOccasion ? t('home.create_outfit') : t('home.select_occasion_hint')}
+          </Button>
+
+          {(garmentCount || 0) < 3 && (
+            <p className="text-xs text-center text-muted-foreground">
+              {t('home.min_garments')}
+            </p>
           )}
         </div>
 
@@ -230,46 +271,6 @@ export default function HomePage() {
         {weather && weather.temperature <= 10 && (
           <p className="text-xs text-muted-foreground">
             ❄️ {t('home.cold_hint')}
-          </p>
-        )}
-
-        {/* ── 3. Styles ── */}
-        <div className="space-y-3">
-          <SectionHeader title={t('home.style_optional')} />
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
-            {STYLES.map((style) => (
-              <motion.button
-                key={style.id}
-                whileTap={{ scale: 0.93 }}
-                transition={TAP_TRANSITION}
-                onClick={() => setSelectedStyle(selectedStyle === style.id ? null : style.id)}
-                className={cn(
-                  "px-4 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap flex-shrink-0 will-change-transform",
-                  selectedStyle === style.id
-                    ? "bg-accent/10 text-accent"
-                    : "bg-foreground/[0.03] text-foreground"
-                )}
-              >
-                {t(style.labelKey)}
-              </motion.button>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Generate CTA ── */}
-        <Button
-          onClick={handleGenerateOutfit}
-          disabled={!selectedOccasion || (garmentCount || 0) < 3}
-          className="w-full h-12 text-base font-semibold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl"
-          size="lg"
-        >
-          <Sparkles className="w-5 h-5 mr-2" />
-          {selectedOccasion ? t('home.create_outfit') : t('home.select_occasion_hint')}
-        </Button>
-
-        {(garmentCount || 0) < 3 && (
-          <p className="text-xs text-center text-muted-foreground mt-1">
-            {t('home.min_garments')}
           </p>
         )}
 
@@ -299,42 +300,6 @@ export default function HomePage() {
         {/* ── 5. AI Suggestion ── */}
         <AISuggestions isPremium={isPremium} />
 
-        {/* ── 6. Top 3 Worn ── */}
-        {insights && insights.topFiveWorn.length > 0 && (
-          <div className="space-y-2">
-            <SectionHeader title={t('insights.top_garments')} />
-            <div className="divide-y divide-border/20">
-              {insights.topFiveWorn.slice(0, 3).map((garment, index) => (
-                <button
-                  key={garment.id}
-                  onClick={() => navigate(`/wardrobe/${garment.id}`)}
-                  className="w-full flex items-center gap-3 py-2.5 text-left hover:opacity-70 transition-opacity"
-                >
-                  <span className="w-5 text-center text-xs font-bold text-muted-foreground/60">{index + 1}</span>
-                  <LazyImageSimple
-                    imagePath={garment.image_path}
-                    alt={garment.title}
-                    className="w-10 h-10 rounded-lg flex-shrink-0"
-                    fallbackIcon={<Shirt className="w-4 h-4 text-muted-foreground/50" />}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{garment.title}</p>
-                  </div>
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-semibold">{garment.wearCountLast30}×</Badge>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── 7. See all insights ── */}
-        <Button
-          variant="ghost"
-          className="w-full text-sm text-muted-foreground -mt-2"
-          onClick={() => navigate('/insights')}
-        >
-          {t('home.all_insights')} <ChevronRight className="w-4 h-4 ml-1" />
-        </Button>
 
       </AnimatedPage>
       </PullToRefresh>

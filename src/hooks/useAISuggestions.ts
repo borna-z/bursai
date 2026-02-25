@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export interface AISuggestion {
   title: string;
@@ -24,9 +25,10 @@ interface AISuggestionsResponse {
 
 export function useAISuggestions() {
   const { user, session } = useAuth();
+  const { locale } = useLanguage();
 
   return useQuery({
-    queryKey: ['ai-suggestions', user?.id],
+    queryKey: ['ai-suggestions', user?.id, locale],
     queryFn: async (): Promise<AISuggestion[]> => {
       if (!session?.access_token) {
         throw new Error('Not authenticated');
@@ -38,6 +40,7 @@ export function useAISuggestions() {
           headers: {
             Authorization: `Bearer ${session.access_token}`,
           },
+          body: { locale },
         }
       );
 
@@ -52,8 +55,8 @@ export function useAISuggestions() {
       return response.data?.suggestions || [];
     },
     enabled: !!user && !!session?.access_token,
-    staleTime: 1000 * 60 * 30, // 30 minutes
-    gcTime: 1000 * 60 * 60, // 1 hour
+    staleTime: 1000 * 60 * 30,
+    gcTime: 1000 * 60 * 60,
     retry: 1,
   });
 }
