@@ -1,91 +1,62 @@
 
 
-# Forbattra Wardrobe UX
+# Fix Today Page Layout + Logo Drawing Animation
 
-Tre fokusomraden: battre AI-analys feedback, snabbfilter och batch-upload (flera bilder pa en gang).
+## Part 1: Fix Today Page Layout
 
----
+The Home page has layout issues where buttons and elements don't align properly on mobile. The fixes are:
 
-## 1. Battre AI-analys feedback (AddGarment)
+### Changes to `src/pages/Home.tsx`:
+- **Generate CTA button**: Ensure it stays full-width with proper margin spacing. Currently `w-full h-12` but the `-mt-3` on the min garments text can cause overlap.
+- **Quick Stats strip**: Add horizontal padding so the stat columns don't crowd each other on narrow screens.
+- **"See all insights" button**: Move it outside the `space-y-6` container's flow so it doesn't get extra vertical spacing -- reduce the gap above it.
+- **Occasion pills**: Ensure the horizontal scroll container clips correctly with proper padding compensation (`-mx-4 px-4` pattern is already there, verify it works).
+- **Weather Pill alignment**: The Collapsible content from WeatherPill can push layout below it. Wrap the greeting row to prevent the expanded weather from misaligning the occasion section.
 
-**Problem:** Analyssteget visar bara en generisk progress bar med tre korta texter. Anvandaren vet inte vad som hander.
-
-**Forbattring:**
-- Lagga till en animerad "steg-indikator" med 4 tydliga faser: Laddar upp, Analyserar farg och material, Identifierar stil, Klart
-- Varje fas far en ikon (Upload, Palette, Sparkles, CheckCircle) som animeras in nar den aktiva fasen andras
-- Bilden far en subtil pulsande glow-effekt under analys
-- Nar analysen ar klar visas en kort sammanfattning ("Svart bomullströja, casual") innan formularet oppnas -- en "bekraftelse-card" med fade-in som visas i 1.5s
-- Om analysen misslyckas: tydligare felmeddelande med "Försök igen"-knapp direkt pa platsen
-
-**Filer som andras:**
-- `src/pages/AddGarment.tsx` -- analyssteget (rad 433-458) byggs om med steg-indikator och sammanfattnings-card
-
----
-
-## 2. Snabbfilter -- "In Laundry" och sortering
-
-**Problem:** Det finns filter for farg och sasong men ingen snabb toggle for "i tvatten" och ingen sortering (senast tillagd, mest anvand).
-
-**Forbattring:**
-- Lagga till en "I tvätt"-toggle (liten pill-knapp) bredvid filter-knappen
-- Lagga till en sorteringsvaljare (dropdown eller pill-rad) med alternativen: Senast tillagd, Senast använd, Mest använd
-- Nar "I tvätt" ar aktiv filtreras listan pa `in_laundry = true`, med en blekt ikon sa det ar tydligt
-- Sortering anvander befintlig `sortBy`-parameter i `useGarments`
-
-**Filer som andras:**
-- `src/pages/Wardrobe.tsx` -- lagga till sorteringsstate och "i tvatt"-toggle i filterraden
-- `src/hooks/useGarments.ts` -- sortering fungerar redan via `sortBy`, ingen andring behövs om vi anvander `last_worn_at`, `created_at`, `wear_count`
+### Specific fixes:
+1. Add `overflow-hidden` to the greeting row so the WeatherPill collapsible expands downward cleanly
+2. Reduce excessive spacing between the Generate CTA and the stats strip
+3. Ensure the "min garments" warning text doesn't use negative margin that overlaps
+4. Add proper gap between AISuggestions card and the "See all insights" button
 
 ---
 
-## 3. Batch-upload (flera bilder)
+## Part 2: Logo Drawing Animation for App Loading Screen
 
-**Problem:** Anvandaren kan bara ladda upp en bild at gangen via kameran/galleriet. For att lagga till manga plagg kravs manga omgangar.
+Replace the plain spinner in `src/pages/Index.tsx` with a premium SVG logo that animates as if being drawn, then fades into the full app.
 
-**Forbattring:**
-- Andria file-inputen sa att `multiple` ar tillatet nar man valjer fran galleriet (inte fran kameran)
-- Nar flera bilder valjs: visa en kö-vy med miniatyrer och status (väntar, laddar upp, analyserar, klar, fel)
-- Varje bild gar igenom samma pipeline: upload -> AI-analys -> spara med AI-defaults (auto-save)
-- Anvandaren kan granska/redigera resultaten efterat via befintlig Quick Edit-panel
-- Visa total progress (t.ex. "3/7 plagg analyserade") med en progress bar
-- Begransar till max 10 bilder per batch for att undvika overbelastning
-- Free-plan: begransas till `canAddCount` precis som link-import
+### New file: `src/components/ui/BursDrawLogo.tsx`
+- Create an SVG version of the BURS "B" monogram using path elements
+- The path uses `stroke-dasharray` and `stroke-dashoffset` to create a "drawing" effect
+- After the stroke finishes drawing (~1.2s), the fill fades in (~0.4s)
+- The "BURS" wordmark fades in after the icon (~0.3s delay)
+- Total animation: ~2s
+- Uses `framer-motion` for orchestrating the sequence
 
-**Filer som andras:**
-- `src/pages/AddGarment.tsx` -- ny "Batch"-knapp i foto-tabben + batch-upload logik
-- Ny komponent `src/components/wardrobe/BatchUploadProgress.tsx` -- visar ko-vy med miniatyrer och status per bild
+### Update: `src/pages/Index.tsx`
+- Replace the plain spinner with the new `BursDrawLogo` component
+- Add a fade-out transition when loading completes (the logo scales up slightly and fades out before showing content)
+- Use `onAnimationComplete` to allow immediate transition if auth resolves before animation finishes
 
----
-
-## Tekniska detaljer
-
-### AddGarment.tsx -- analyssteget
-
+### Animation sequence:
 ```text
-Nuvarande:
-  [Bild] -> [Spinner + progress bar] -> [Formulär]
-
-Nytt:
-  [Bild med glow] -> [4-stegs indikator] -> [Sammanfattnings-card 1.5s] -> [Formulär]
+[0.0s] Screen appears with bg-background
+[0.0s-1.2s] SVG monogram strokes draw in (stroke-dashoffset animation)
+[1.0s-1.4s] Fill fades in as stroke completes
+[1.2s-1.6s] "BURS" wordmark letters fade in with slight stagger
+[auth ready] Whole logo scales to 1.05x and fades out (0.3s)
+[done] Content renders
 ```
 
-Steg-indikatorn anvander `framer-motion` for animerade overganger mellan faser. Varje fas har ett ikon + text-par som animeras in.
+### Technical approach:
+- SVG path data will represent the BURS "B" monogram shape (a stylized hanger/letter B)
+- `stroke-dasharray` set to total path length, `stroke-dashoffset` animated from full length to 0
+- CSS `@keyframes` for the draw effect (no JS needed for the core animation)
+- `framer-motion` `AnimatePresence` for the exit transition
+- The component checks if auth has resolved: if yes during animation, it waits for animation to finish before transitioning; if auth takes longer than animation, it shows a subtle pulse until ready
 
-### Wardrobe.tsx -- filterrad
-
-Sorteringsknapparna laggs till som en rad pills under befintliga filter:
-- "Nyast" (created_at, default)
-- "Senast använd" (last_worn_at)  
-- "Mest använd" (wear_count)
-
-Plus en toggle-pill "🧺 I tvätt" som satter `inLaundry: true` i filtren.
-
-### BatchUploadProgress.tsx
-
-Ny komponent som tar emot en lista av filer och kör pipeline sekventiellt:
-1. For varje fil: upload -> analyzeGarment -> createGarment (med AI-defaults)
-2. Visar miniatyr + status-ikon per fil
-3. Nar allt ar klart: toast + navigera till wardrobe
-
-Anvander befintliga hooks: `useStorage`, `useAnalyzeGarment`, `useCreateGarment`.
+### Colors:
+- Light mode: `#111111` stroke on `bg-background`
+- Dark mode: `#F6F4F1` stroke on dark background
+- Uses CSS `currentColor` so it automatically respects the theme
 
