@@ -16,7 +16,7 @@ export function HeroSection() {
       role="banner"
       aria-label="Hero"
       className="section-full relative w-full px-6 md:px-12 pt-20 section-gradient-bottom"
-      style={{ zIndex: 8, minHeight: '100vh', containIntrinsicSize: '0 100vh', contentVisibility: 'auto' }}
+      style={{ zIndex: 8, minHeight: '100vh' }}
     >
       <div className="aurora-glow" aria-hidden="true" />
 
