@@ -10,7 +10,8 @@ import Home from './Home';
 const Index = () => {
   const { user, loading } = useAuth();
   const { data: profile, isLoading: profileLoading } = useProfile();
-  const [animDone, setAnimDone] = useState(false);
+  // Skip splash when user is already resolved (tab navigation)
+  const [animDone, setAnimDone] = useState(!loading && !!user);
 
   const isResolving = loading || (user && profileLoading);
   const showSplash = !animDone || isResolving;
