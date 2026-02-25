@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import bursLogo from '@/assets/burs-logo.png';
+import bursLogo from '@/assets/burs-logo-white.png';
 
 interface BursDrawLogoProps {
   onComplete?: () => void;
