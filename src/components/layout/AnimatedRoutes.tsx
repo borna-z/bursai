@@ -45,13 +45,13 @@ const Admin = lazy(() => import('@/pages/marketing/Admin'));
 const routeTransition = {
   type: 'tween' as const,
   ease: EASE_CURVE,
-  duration: 0.25,
+  duration: 0.4,
 };
 
 const routeVariants = {
-  initial: { opacity: 0, y: 8 },
+  initial: { opacity: 0, y: 12 },
   animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -6 },
+  exit: { opacity: 0, y: -8 },
 };
 
 // Smoother crossfade for dark-to-dark page transitions (landing ↔ auth)
