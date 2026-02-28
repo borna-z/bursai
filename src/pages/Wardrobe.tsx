@@ -4,11 +4,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TAP_TRANSITION } from '@/lib/motion';
 import { useNavigate } from 'react-router-dom';
-import hangerLogo from '@/assets/burs-logo.png';
-import hangerLogoWhite from '@/assets/burs-logo-white.png';
-import { 
-  Plus, Search, Loader2, WashingMachine,
-  Grid3X3, List, X, Trash2, Shirt, ScanLine, Camera, SlidersHorizontal
+import {
+  Plus, Search, X, Trash2, Shirt, ScanLine, Camera,
+  SlidersHorizontal, Grid3X3, List, WashingMachine, Loader2,
 } from 'lucide-react';
 import { SwipeableGarmentCard } from '@/components/wardrobe/SwipeableGarmentCard';
 import { Button } from '@/components/ui/button';
@@ -30,9 +28,9 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { WardrobeOutfitsTab } from '@/components/wardrobe/WardrobeOutfitsTab';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { AnimatedTab } from '@/components/ui/animated-tab';
-
-const colorFilters = ['svart', 'vit', 'grå', 'marinblå', 'blå', 'röd', 'grön', 'beige', 'brun'];
-const seasonFilters = ['vår', 'sommar', 'höst', 'vinter'];
+import { SmartGroupings } from '@/components/wardrobe/SmartGroupings';
+import { FilterSheet } from '@/components/wardrobe/FilterSheet';
+import { SectionHeader } from '@/components/ui/section-header';
 
 // ── Garment Card ──
 
@@ -78,14 +76,14 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
     );
   }
 
-  // Grid view — lookbook style with overlay title
+  // Grid view — clean gallery, name on tap only
   return (
     <motion.button
       whileTap={{ scale: 0.97, y: -2 }}
       transition={TAP_TRANSITION}
       onClick={handleClick}
       className={cn(
-        'w-full rounded-2xl overflow-hidden transition-colors text-left will-change-transform relative',
+        'w-full rounded-2xl overflow-hidden transition-colors text-left will-change-transform relative group',
         garment.in_laundry && 'opacity-60',
         isSelected && 'ring-2 ring-accent'
       )}
@@ -97,14 +95,16 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
           className="w-full h-full"
           fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/50" />}
         />
-        {/* Gradient overlay with title */}
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent pt-10 pb-2.5 px-2.5">
-          <p className="text-white text-[13px] font-medium truncate drop-shadow-sm">{garment.title}</p>
-        </div>
         {isSelecting && (
           <div className="absolute top-2 left-2">
             <Checkbox checked={isSelected} className="bg-background/80" />
           </div>
+        )}
+        {/* Usage badge */}
+        {(garment.wear_count || 0) > 0 && (
+          <span className="absolute top-2 right-2 text-[10px] font-medium bg-background/70 backdrop-blur-sm px-1.5 py-0.5 rounded-full text-foreground/80">
+            {garment.wear_count}×
+          </span>
         )}
       </div>
     </motion.button>
@@ -296,7 +296,6 @@ function AddFAB({ onPhoto, onScan, isOverLimit }: { onPhoto: () => void; onScan:
       <AnimatePresence>
         {open && (
           <>
-            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -304,7 +303,6 @@ function AddFAB({ onPhoto, onScan, isOverLimit }: { onPhoto: () => void; onScan:
               className="fixed inset-0 z-20"
               onClick={() => setOpen(false)}
             />
-            {/* Menu items */}
             <motion.div
               initial={{ opacity: 0, y: 10, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -351,7 +349,6 @@ export default function WardrobePage() {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'garments' | 'outfits'>('garments');
-  const [filters, setFilters] = useState<GarmentFilters>({});
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
@@ -360,7 +357,7 @@ export default function WardrobePage() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sortBy, setSortBy] = useState<'created_at' | 'last_worn_at' | 'wear_count'>('created_at');
   const [showLaundry, setShowLaundry] = useState(false);
@@ -369,12 +366,12 @@ export default function WardrobePage() {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(timer);
   }, [search]);
-  
+
   const updateGarment = useUpdateGarment();
   const deleteGarment = useDeleteGarment();
-  
+
   const queryResult = useGarments({
-    ...filters, search: debouncedSearch,
+    search: debouncedSearch,
     category: selectedCategory === 'all' ? undefined : selectedCategory,
     color: selectedColor || undefined,
     season: selectedSeason || undefined,
@@ -399,10 +396,6 @@ export default function WardrobePage() {
     { id: 'dress', label: t('wardrobe.dress') },
     { id: 'underwear', label: t('wardrobe.underwear') },
   ];
-
-  const handleFilterChange = (key: keyof GarmentFilters, value: unknown) => {
-    setFilters((prev) => ({ ...prev, [key]: value === 'all' ? undefined : value }));
-  };
 
   const handleAddGarment = () => {
     if (canAddGarment()) { navigate('/wardrobe/add'); } else { setShowPaywall(true); }
@@ -434,8 +427,15 @@ export default function WardrobePage() {
 
   const isOverLimit = !isPremium && (displayGarments?.length || 0) >= PLAN_LIMITS.free.maxGarments;
 
-  const clearFilters = () => { setSelectedCategory('all'); setSelectedColor(null); setSelectedSeason(null); setFilters({}); setSearch(''); setSortBy('created_at'); setShowLaundry(false); };
-  const hasActiveFilters = selectedCategory !== 'all' || selectedColor || selectedSeason || search || sortBy !== 'created_at' || showLaundry;
+  const hasActiveFilters = selectedCategory !== 'all' || selectedColor || selectedSeason || sortBy !== 'created_at' || showLaundry;
+
+  const clearFilters = () => {
+    setSelectedCategory('all');
+    setSelectedColor(null);
+    setSelectedSeason(null);
+    setSortBy('created_at');
+    setShowLaundry(false);
+  };
 
   const handleRefresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['garments'] });
@@ -444,8 +444,8 @@ export default function WardrobePage() {
 
   return (
     <AppLayout>
-      <PageHeader 
-        title={t('wardrobe.title')} 
+      <PageHeader
+        title={t('wardrobe.title')}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={() => setIsGridView(!isGridView)} aria-label={isGridView ? 'List view' : 'Grid view'}>
@@ -459,238 +459,148 @@ export default function WardrobePage() {
           </div>
         }
       />
-      
+
       <PullToRefresh onRefresh={handleRefresh}>
-      <AnimatedPage className="px-4 pb-36 pt-5 space-y-4 max-w-lg mx-auto">
-        {/* Slim segmented control */}
-        <div className="flex p-0.5 rounded-xl bg-foreground/[0.04]">
-          {(['garments', 'outfits'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={cn(
-                'flex-1 py-1.5 text-xs font-medium rounded-lg transition-all duration-200',
-                activeTab === tab
-                  ? 'bg-foreground/[0.06] text-foreground'
-                  : 'text-muted-foreground'
-              )}
-            >
-              {t(`wardrobe.tab_${tab}`)}
-            </button>
-          ))}
-        </div>
-
-        <AnimatedTab tabKey={activeTab}>
-        {activeTab === 'garments' ? (
-          <div className="space-y-4">
-            {/* Search bar — always visible, count in placeholder */}
-            <div className="relative">
-              <img src={hangerLogo} alt="" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 object-contain pointer-events-none opacity-50 z-10 dark:hidden" />
-              <img src={hangerLogoWhite} alt="" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 object-contain pointer-events-none opacity-50 z-10 hidden dark:block" />
-              <Input
-                placeholder={`${t('wardrobe.search')} ${totalCount ?? ''} ${t('wardrobe.garments_count_label')}...`}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 bg-foreground/[0.04] border-0 h-10 rounded-xl text-sm"
-              />
-              {search && (
-                <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <X className="w-4 h-4 text-muted-foreground" />
-                </button>
-              )}
-            </div>
-
-            {/* Category pills — horizontal scroll */}
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={cn(
-                    'whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0',
-                    selectedCategory === cat.id
-                      ? 'bg-accent text-accent-foreground'
-                      : 'bg-foreground/[0.04] text-muted-foreground hover:bg-foreground/[0.08]'
-                  )}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Filter pill + laundry toggle + sort pills */}
-            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-0.5">
+        <AnimatedPage className="px-4 pb-36 pt-5 space-y-5 max-w-lg mx-auto">
+          {/* Slim segmented control */}
+          <div className="flex p-0.5 rounded-xl bg-foreground/[0.04]">
+            {(['garments', 'outfits'] as const).map((tab) => (
               <button
-                onClick={() => setShowFilters(!showFilters)}
+                key={tab}
+                onClick={() => setActiveTab(tab)}
                 className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0',
-                  showFilters || hasActiveFilters
-                    ? 'bg-accent/10 text-accent'
-                    : 'bg-foreground/[0.04] text-muted-foreground'
+                  'flex-1 py-1.5 text-xs font-medium rounded-lg transition-all duration-200',
+                  activeTab === tab
+                    ? 'bg-foreground/[0.06] text-foreground'
+                    : 'text-muted-foreground'
                 )}
               >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                {t('wardrobe.filter')}
-                {hasActiveFilters && <span className="w-1.5 h-1.5 rounded-full bg-accent" />}
+                {t(`wardrobe.tab_${tab}`)}
               </button>
+            ))}
+          </div>
 
-              {/* Laundry toggle */}
-              <button
-                onClick={() => setShowLaundry(!showLaundry)}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0',
-                  showLaundry
-                    ? 'bg-accent/10 text-accent'
-                    : 'bg-foreground/[0.04] text-muted-foreground'
-                )}
-              >
-                <WashingMachine className="w-3.5 h-3.5" />
-                {t('wardrobe.in_laundry')}
-              </button>
-
-              {/* Sort divider */}
-              <div className="w-px h-4 bg-border/40 shrink-0" />
-
-              {/* Sort pills */}
-              {([
-                { key: 'created_at' as const, label: t('wardrobe.sort.latest') },
-                { key: 'last_worn_at' as const, label: t('wardrobe.sort.last_worn') },
-                { key: 'wear_count' as const, label: t('wardrobe.sort.most_used') },
-              ]).map(sort => (
-                <button
-                  key={sort.key}
-                  onClick={() => setSortBy(sort.key)}
-                  className={cn(
-                    'whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0',
-                    sortBy === sort.key
-                      ? 'bg-accent/10 text-accent'
-                      : 'bg-foreground/[0.04] text-muted-foreground'
-                  )}
-                >
-                  {sort.label}
-                </button>
-              ))}
-
-              {hasActiveFilters && (
-                <button onClick={clearFilters} className="text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">
-                  {t('wardrobe.clear')}
-                </button>
-              )}
-            </div>
-
-            <AnimatePresence>
-              {showFilters && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  <div className="space-y-3 pb-2">
-                    {/* Color row */}
-                    <div className="space-y-1.5">
-                      <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t('wardrobe.color')}</span>
-                      <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
-                        {colorFilters.map((color) => (
-                          <button
-                            key={color}
-                            onClick={() => setSelectedColor(selectedColor === color ? null : color)}
-                            className={cn(
-                              'whitespace-nowrap px-2.5 py-1 rounded-full text-xs transition-all shrink-0',
-                              selectedColor === color
-                                ? 'bg-accent/10 text-accent font-medium'
-                                : 'bg-foreground/[0.04] text-muted-foreground'
-                            )}
-                          >
-                            {t(`color.${color}`)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    {/* Season row */}
-                    <div className="space-y-1.5">
-                      <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t('wardrobe.season')}</span>
-                      <div className="flex gap-1.5">
-                        {seasonFilters.map((season) => (
-                          <button
-                            key={season}
-                            onClick={() => setSelectedSeason(selectedSeason === season ? null : season)}
-                            className={cn(
-                              'flex-1 py-1.5 rounded-full text-xs transition-all capitalize',
-                              selectedSeason === season
-                                ? 'bg-accent/10 text-accent font-medium'
-                                : 'bg-foreground/[0.04] text-muted-foreground'
-                            )}
-                          >
-                            {t(`garment.season.${season === 'vår' ? 'spring' : season === 'sommar' ? 'summer' : season === 'höst' ? 'autumn' : 'winter'}`)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Bulk select bar */}
-            {isSelecting && selectedIds.size > 0 && (
-              <div className="flex items-center justify-between p-3 rounded-xl bg-foreground/[0.04]">
-                <span className="text-sm font-medium">{selectedIds.size} {t('wardrobe.selected')}</span>
+          <AnimatedTab tabKey={activeTab}>
+            {activeTab === 'garments' ? (
+              <div className="space-y-5">
+                {/* Search bar full width + filter icon */}
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={handleBulkLaundry} className="rounded-xl">
-                    <WashingMachine className="w-4 h-4 mr-1" />{t('wardrobe.laundry')}
-                  </Button>
-                  <Button size="sm" variant="destructive" onClick={handleBulkDelete} className="rounded-xl">
-                    <Trash2 className="w-4 h-4 mr-1" />{t('wardrobe.remove')}
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 pointer-events-none" />
+                    <Input
+                      placeholder={`${t('wardrobe.search')} ${totalCount ?? ''} ${t('wardrobe.garments_count_label')}...`}
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="pl-9 bg-foreground/[0.04] border-0 h-10 rounded-xl text-sm"
+                    />
+                    {search && (
+                      <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <X className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowFilterSheet(true)}
+                    className={cn(
+                      'h-10 w-10 rounded-xl flex-shrink-0',
+                      hasActiveFilters && 'bg-accent/10 text-accent'
+                    )}
+                  >
+                    <SlidersHorizontal className="w-4 h-4" />
+                    {hasActiveFilters && (
+                      <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-accent" />
+                    )}
                   </Button>
                 </div>
+
+                {/* Smart groupings — only when no search/filters active */}
+                {!search && !hasActiveFilters && displayGarments.length > 5 && (
+                  <SmartGroupings garments={displayGarments} />
+                )}
+
+                {/* All garments section header */}
+                {!search && !hasActiveFilters && displayGarments.length > 5 && (
+                  <SectionHeader title={t('wardrobe.all_garments')} />
+                )}
+
+                {/* Bulk select bar */}
+                {isSelecting && selectedIds.size > 0 && (
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-foreground/[0.04]">
+                    <span className="text-sm font-medium">{selectedIds.size} {t('wardrobe.selected')}</span>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={handleBulkLaundry} className="rounded-xl">
+                        <WashingMachine className="w-4 h-4 mr-1" />{t('wardrobe.laundry')}
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={handleBulkDelete} className="rounded-xl">
+                        <Trash2 className="w-4 h-4 mr-1" />{t('wardrobe.remove')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Garment grid */}
+                {isLoading ? (
+                  <GarmentGridSkeleton count={6} grid={isGridView} />
+                ) : displayGarments.length > 0 ? (
+                  <GarmentListContent
+                    garments={displayGarments}
+                    isGridView={isGridView}
+                    isSelecting={isSelecting}
+                    selectedIds={selectedIds}
+                    onSelect={toggleSelect}
+                    onEdit={(id) => navigate(`/wardrobe/${id}/edit`)}
+                    onLaundry={(garment) => updateGarment.mutate({ id: garment.id, updates: { in_laundry: !garment.in_laundry } })}
+                    onDelete={(id) => deleteGarment.mutate(id)}
+                    onLoadMore={() => { if (hasNextPage && !isFetchingNextPage) fetchNextPage(); }}
+                    hasNextPage={!!hasNextPage}
+                    isFetchingNextPage={isFetchingNextPage}
+                  />
+                ) : (
+                  <EmptyState
+                    icon={Shirt}
+                    title={hasActiveFilters || search ? t('wardrobe.no_results') : t('wardrobe.no_garments')}
+                    description={hasActiveFilters || search ? t('wardrobe.try_other') : t('wardrobe.add_first')}
+                    action={!hasActiveFilters && !search ? { label: t('wardrobe.add'), onClick: handleAddGarment, icon: Plus } : undefined}
+                  />
+                )}
+              </div>
+            ) : (
+              <div>
+                <WardrobeOutfitsTab />
               </div>
             )}
+          </AnimatedTab>
 
-            {/* Garment grid */}
-            {isLoading ? (
-              <GarmentGridSkeleton count={6} grid={isGridView} />
-            ) : displayGarments.length > 0 ? (
-              <GarmentListContent
-                garments={displayGarments}
-                isGridView={isGridView}
-                isSelecting={isSelecting}
-                selectedIds={selectedIds}
-                onSelect={toggleSelect}
-                onEdit={(id) => navigate(`/wardrobe/${id}/edit`)}
-                onLaundry={(garment) => updateGarment.mutate({ id: garment.id, updates: { in_laundry: !garment.in_laundry } })}
-                onDelete={(id) => deleteGarment.mutate(id)}
-                onLoadMore={() => { if (hasNextPage && !isFetchingNextPage) fetchNextPage(); }}
-                hasNextPage={!!hasNextPage}
-                isFetchingNextPage={isFetchingNextPage}
-              />
-            ) : (
-              <EmptyState
-                icon={Shirt}
-                title={hasActiveFilters ? t('wardrobe.no_results') : t('wardrobe.no_garments')}
-                description={hasActiveFilters ? t('wardrobe.try_other') : t('wardrobe.add_first')}
-                action={!hasActiveFilters ? { label: t('wardrobe.add'), onClick: handleAddGarment, icon: Plus } : undefined}
-              />
-            )}
-          </div>
-        ) : (
-          <div>
-            <WardrobeOutfitsTab />
-          </div>
-        )}
-        </AnimatedTab>
-
-        {/* Single FAB with menu */}
-        {activeTab === 'garments' && (
-          <AddFAB
-            onPhoto={handleAddGarment}
-            onScan={() => navigate('/wardrobe/scan')}
-            isOverLimit={isOverLimit}
-          />
-        )}
-      </AnimatedPage>
+          {/* Single FAB with menu */}
+          {activeTab === 'garments' && (
+            <AddFAB
+              onPhoto={handleAddGarment}
+              onScan={() => navigate('/wardrobe/scan')}
+              isOverLimit={isOverLimit}
+            />
+          )}
+        </AnimatedPage>
       </PullToRefresh>
+
+      {/* Filter bottom sheet */}
+      <FilterSheet
+        open={showFilterSheet}
+        onOpenChange={setShowFilterSheet}
+        category={selectedCategory}
+        onCategoryChange={setSelectedCategory}
+        color={selectedColor}
+        onColorChange={setSelectedColor}
+        season={selectedSeason}
+        onSeasonChange={setSelectedSeason}
+        sortBy={sortBy}
+        onSortChange={setSortBy}
+        showLaundry={showLaundry}
+        onLaundryChange={setShowLaundry}
+        onClear={clearFilters}
+        categories={categories}
+      />
 
       <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="garments" />
     </AppLayout>

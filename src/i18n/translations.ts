@@ -368,6 +368,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'wardrobe.no_outfits': 'Inga outfits än',
     'wardrobe.no_outfits_desc': 'Skapa din första outfit för att se den här',
     'wardrobe.reel_download': 'Sparad!',
+    'wardrobe.rarely_worn': 'Sällan använda',
+    'wardrobe.most_worn': 'Mest använda',
+    'wardrobe.recently_added': 'Nyligen tillagda',
+    'wardrobe.all_garments': 'Alla plagg',
     'wardrobe.reel_paused': 'Pausad',
 
     // Outfits
@@ -1898,6 +1902,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'wardrobe.no_outfits': 'No outfits yet',
     'wardrobe.no_outfits_desc': 'Create your first outfit to see it here',
     'wardrobe.reel_download': 'Saved!',
+    'wardrobe.rarely_worn': 'Rarely worn',
+    'wardrobe.most_worn': 'Most worn',
+    'wardrobe.recently_added': 'Recently added',
+    'wardrobe.all_garments': 'All garments',
     'wardrobe.reel_paused': 'Paused',
     'outfits.title': 'Outfits',
     'outfits.new': 'New',
