@@ -142,7 +142,7 @@ export function useCalendarSync() {
 
   const connectGoogle = async () => {
     try {
-      const redirectUri = `${window.location.origin}/calendar/callback`;
+      const redirectUri = 'https://burs.me/calendar/callback';
       const { data, error } = await supabase.functions.invoke('google_calendar_auth', {
         body: { action: 'get_auth_url', redirect_uri: redirectUri },
       });

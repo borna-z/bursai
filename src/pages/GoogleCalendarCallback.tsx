@@ -33,7 +33,7 @@ export default function GoogleCalendarCallback() {
           body: {
             action: 'exchange_code',
             code,
-            redirect_uri: `${window.location.origin}/calendar/callback`,
+            redirect_uri: 'https://burs.me/calendar/callback',
           },
         });
 
