@@ -17,10 +17,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const GOOGLE_SCOPES = [
-  'https://www.googleapis.com/auth/calendar.readonly',
-  'https://www.googleapis.com/auth/calendar.events.readonly',
-].join(' ');
+const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar.events.readonly';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
