@@ -2991,7 +2991,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'landing.pricing_title': 'Simple, transparent pricing.',
     'landing.pricing_desc': 'Start free. Upgrade when you\'re ready.',
     'landing.free': 'Free',
-    'landing.free_price': '0 kr',
+    'landing.free_price': '£0',
     'landing.per_month': '/ month',
     'landing.free_f1': '10 garments',
     'landing.free_f2': '10 outfits / month',
@@ -2999,9 +2999,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'landing.free_f4': 'Weather-based suggestions',
     'landing.premium': 'Premium',
     'landing.premium_badge': '30 days free',
-    'landing.premium_price': '0 kr',
+    'landing.premium_price': '£0',
     'landing.premium_for': 'for 30 days',
-    'landing.premium_then': 'Then 59 kr/month · or 499 kr/year — save ~30%',
+    'landing.premium_then': 'Then £3.99/month · or £34.99/year — save ~30%',
     'landing.premium_f1': 'Unlimited garments',
     'landing.premium_f2': 'Unlimited outfits',
     'landing.premium_f3': 'Advanced AI styling',
@@ -3817,7 +3817,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'landing.free': 'Gratis', 'landing.free_price': '0 kr', 'landing.per_month': '/ måned',
     'landing.free_f1': '10 beklædningsgenstande', 'landing.free_f2': '10 outfits / måned', 'landing.free_f3': 'Grundlæggende AI-styling', 'landing.free_f4': 'Vejrbaserede forslag',
     'landing.premium': 'Premium', 'landing.premium_badge': '30 dage gratis', 'landing.premium_price': '0 kr', 'landing.premium_for': 'i 30 dage',
-    'landing.premium_then': 'Derefter 59 kr/måned · eller 499 kr/år — spar ~30%',
+    'landing.premium_then': 'Derefter 39 kr/måned · eller 329 kr/år — spar ~30%',
     'landing.premium_f1': 'Ubegrænsede beklædningsgenstande', 'landing.premium_f2': 'Ubegrænsede outfits', 'landing.premium_f3': 'Avanceret AI-styling',
     'landing.premium_f4': 'Kalender- og vejrsynk', 'landing.premium_f5': 'Prioriteret support',
     'landing.cta_title': 'Vær med i bevægelsen.', 'landing.cta_desc': 'Klæd dig smartere. Spild mindre. Genopddag din stil med BURS.',
@@ -4127,10 +4127,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'landing.trust2_title': 'Vähemmän ostamista, enemmän stailaamista', 'landing.trust2_desc': 'Löydä unohdetut suosikit uudelleen. Saat enemmän asuja vaatteista joita jo omistat.',
     'landing.trust3_title': 'Pukeutunut joka hetkeen', 'landing.trust3_desc': 'Maanantaipalavereista viikonloppusuunnitelmiin. BURS yhdistää asusi aikatauluusi ja säähän.',
     'landing.pricing_label': 'Hinnat', 'landing.pricing_title': 'Yksinkertainen, läpinäkyvä hinnoittelu.', 'landing.pricing_desc': 'Aloita ilmaiseksi. Päivitä kun olet valmis.',
-    'landing.free': 'Ilmainen', 'landing.free_price': '0 kr', 'landing.per_month': '/ kuukausi',
+    'landing.free': 'Ilmainen', 'landing.free_price': '€0', 'landing.per_month': '/ kuukausi',
     'landing.free_f1': '10 vaatetta', 'landing.free_f2': '10 asua / kuukausi', 'landing.free_f3': 'Perus tekoäly-stailaus', 'landing.free_f4': 'Sääpohjaiset ehdotukset',
-    'landing.premium': 'Premium', 'landing.premium_badge': '30 päivää ilmaiseksi', 'landing.premium_price': '0 kr', 'landing.premium_for': '30 päivää',
-    'landing.premium_then': 'Sitten 59 kr/kk · tai 499 kr/vuosi — säästä ~30%',
+    'landing.premium': 'Premium', 'landing.premium_badge': '30 päivää ilmaiseksi', 'landing.premium_price': '€0', 'landing.premium_for': '30 päivää',
+    'landing.premium_then': 'Sitten €4,99/kk · tai €44,99/vuosi — säästä ~30%',
     'landing.premium_f1': 'Rajattomat vaatteet', 'landing.premium_f2': 'Rajattomat asut', 'landing.premium_f3': 'Edistynyt tekoäly-stailaus',
     'landing.premium_f4': 'Kalenteri- ja sääsynk', 'landing.premium_f5': 'Priorisoitu tuki',
     'landing.cta_title': 'Liity liikkeeseen.', 'landing.cta_desc': 'Pukeudu fiksummin. Tuhlaa vähemmän. Löydä tyylisi uudelleen BURSin avulla.',
@@ -4440,10 +4440,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'landing.trust2_title': 'Kein Lock-in', 'landing.trust2_desc': 'Exportiere alles. Kündige jederzeit.',
     'landing.trust3_title': 'Immer verfügbar', 'landing.trust3_desc': 'Offline-bereite PWA. Dein Kleiderschrank ist überall verfügbar.',
     'landing.pricing_label': 'Preise', 'landing.pricing_title': 'Einfach, transparent.', 'landing.pricing_desc': 'Starte kostenlos. Upgrade wenn du bereit bist.',
-    'landing.free': 'Kostenlos', 'landing.free_price': '0 kr', 'landing.per_month': '/ Monat',
+    'landing.free': 'Kostenlos', 'landing.free_price': '€0', 'landing.per_month': '/ Monat',
     'landing.free_f1': '10 Kleidungsstücke', 'landing.free_f2': '10 Outfits / Monat', 'landing.free_f3': 'Basis KI-Styling', 'landing.free_f4': 'Wetterbasierte Vorschläge',
-    'landing.premium': 'Premium', 'landing.premium_badge': '30 Tage gratis', 'landing.premium_price': '0 kr', 'landing.premium_for': 'für 30 Tage',
-    'landing.premium_then': 'Dann 59 kr/Monat · oder 499 kr/Jahr — spare ~30%',
+    'landing.premium': 'Premium', 'landing.premium_badge': '30 Tage gratis', 'landing.premium_price': '€0', 'landing.premium_for': 'für 30 Tage',
+    'landing.premium_then': 'Dann €4,99/Monat · oder €44,99/Jahr — spare ~30%',
     'landing.premium_f1': 'Unbegrenzte Kleidungsstücke', 'landing.premium_f2': 'Unbegrenzte Outfits', 'landing.premium_f3': 'Erweiterte KI-Styling',
     'landing.premium_f4': 'Kalender- & Wettersync', 'landing.premium_f5': 'Prioritäts-Support',
     'landing.cta_title': 'Werde Teil der Bewegung.', 'landing.cta_desc': 'Kleide dich smarter. Verschwende weniger. Entdecke deinen Stil mit BURS.',
@@ -4747,8 +4747,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     'landing.mission_label': 'Notre mission', 'landing.mission_title': 'Bâti sur la confiance.',
     'landing.trust1_title': 'Vie privée d\'abord', 'landing.trust1_desc': 'Chiffré de bout en bout.', 'landing.trust2_title': 'Pas de verrouillage', 'landing.trust2_desc': 'Exportez tout. Annulez quand vous voulez.', 'landing.trust3_title': 'Toujours disponible', 'landing.trust3_desc': 'PWA hors-ligne. Votre garde-robe partout.',
     'landing.pricing_label': 'Tarifs', 'landing.pricing_title': 'Simple et transparent.', 'landing.pricing_desc': 'Commencez gratuitement.',
-    'landing.free': 'Gratuit', 'landing.free_price': '0 kr', 'landing.per_month': '/ mois', 'landing.free_f1': '10 vêtements', 'landing.free_f2': '10 tenues / mois', 'landing.free_f3': 'Styling IA de base', 'landing.free_f4': 'Suggestions météo',
-    'landing.premium': 'Premium', 'landing.premium_badge': '30 jours gratuits', 'landing.premium_price': '0 kr', 'landing.premium_for': 'pendant 30 jours', 'landing.premium_then': 'Puis 59 kr/mois · ou 499 kr/an — économisez ~30%',
+    'landing.free': 'Gratuit', 'landing.free_price': '€0', 'landing.per_month': '/ mois', 'landing.free_f1': '10 vêtements', 'landing.free_f2': '10 tenues / mois', 'landing.free_f3': 'Styling IA de base', 'landing.free_f4': 'Suggestions météo',
+    'landing.premium': 'Premium', 'landing.premium_badge': '30 jours gratuits', 'landing.premium_price': '€0', 'landing.premium_for': 'pendant 30 jours', 'landing.premium_then': 'Puis €4,99/mois · ou €44,99/an — économisez ~30%',
     'landing.premium_f1': 'Vêtements illimités', 'landing.premium_f2': 'Tenues illimitées', 'landing.premium_f3': 'Styling IA avancé', 'landing.premium_f4': 'Synchro calendrier & météo', 'landing.premium_f5': 'Support prioritaire',
     'landing.cta_title': 'Rejoignez le mouvement.', 'landing.cta_desc': 'Habillez-vous plus intelligemment. Gaspillez moins. Redécouvrez votre style avec BURS.',
     'landing.trust_line': 'Privé par conception · Conçu pour de vraies garde-robes · Fait pour le quotidien',
@@ -4882,6 +4882,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'scan.slots_remaining': 'escaneos restantes', 'scan.limit_reached': 'Límite alcanzado',
     'scan.camera_error': 'No se pudo abrir la cámara. Comprueba los permisos.',
     'scan.move_closer': 'Acércate más', 'scan.move_back': 'Aléjate un poco', 'scan.more_light': 'Se necesita mejor iluminación', 'scan.ready': 'Mantén quieto para escanear…',
+    'landing.free_price': '€0', 'landing.premium_price': '€0', 'landing.premium_then': 'Luego €4,99/mes · o €44,99/año — ahorra ~30%',
   },
 
   it: {
@@ -4940,6 +4941,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'scan.slots_remaining': 'scansioni rimanenti', 'scan.limit_reached': 'Limite raggiunto',
     'scan.camera_error': 'Impossibile aprire la fotocamera. Controlla i permessi.',
     'scan.move_closer': 'Avvicinati', 'scan.move_back': 'Allontanati', 'scan.more_light': 'Serve più luce', 'scan.ready': 'Tieni fermo per scansionare…',
+    'landing.free_price': '€0', 'landing.premium_price': '€0', 'landing.premium_then': 'Poi €4,99/mese · o €44,99/anno — risparmia ~30%',
   },
 
   pt: {
@@ -4998,6 +5000,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'scan.slots_remaining': 'digitalizações restantes', 'scan.limit_reached': 'Limite atingido',
     'scan.camera_error': 'Não foi possível abrir a câmara. Verifique as permissões.',
     'scan.move_closer': 'Aproxime-se', 'scan.move_back': 'Afaste-se', 'scan.more_light': 'Melhor iluminação necessária', 'scan.ready': 'Mantenha parado para digitalizar…',
+    'landing.free_price': '€0', 'landing.premium_price': '€0', 'landing.premium_then': 'Depois €4,99/mês · ou €44,99/ano — poupe ~30%',
   },
 
   nl: {
@@ -5056,6 +5059,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'scan.slots_remaining': 'scans over', 'scan.limit_reached': 'Limiet bereikt',
     'scan.camera_error': 'Kan de camera niet openen. Controleer de machtigingen.',
     'scan.move_closer': 'Kom dichterbij', 'scan.move_back': 'Ga verder weg', 'scan.more_light': 'Betere verlichting nodig', 'scan.ready': 'Houd stil om te scannen…',
+    'landing.free_price': '€0', 'landing.premium_price': '€0', 'landing.premium_then': 'Dan €4,99/maand · of €44,99/jaar — bespaar ~30%',
   },
 
   pl: {
@@ -5114,6 +5118,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'scan.slots_remaining': 'skanów pozostało', 'scan.limit_reached': 'Limit osiągnięty',
     'scan.camera_error': 'Nie można otworzyć kamery. Sprawdź uprawnienia.',
     'scan.move_closer': 'Podejdź bliżej', 'scan.move_back': 'Odsuń się', 'scan.more_light': 'Potrzeba lepszego oświetlenia', 'scan.ready': 'Trzymaj nieruchomo, aby skanować…',
+    'landing.free_price': '0 zł', 'landing.premium_price': '0 zł', 'landing.premium_then': 'Potem 19,99 zł/mies. · lub 179 zł/rok — oszczędź ~30%',
   },
 
   ar: {
@@ -5302,6 +5307,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.loading': 'جارٍ التحميل...', 'common.save': 'حفظ', 'common.cancel': 'إلغاء', 'common.delete': 'حذف',
     'common.edit': 'تعديل', 'common.close': 'إغلاق', 'common.back': 'رجوع', 'common.next': 'التالي',
     'common.done': 'تم', 'common.search': 'بحث', 'common.something_wrong': 'حدث خطأ', 'common.premium': 'بريميوم',
+    'landing.free_price': '0 د.إ', 'landing.premium_price': '0 د.إ', 'landing.premium_then': 'ثم 19 د.إ/شهر · أو 169 د.إ/سنة — وفّر ~30%',
   },
 
   fa: {
@@ -5490,5 +5496,6 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.loading': 'در حال بارگذاری...', 'common.save': 'ذخیره', 'common.cancel': 'لغو', 'common.delete': 'حذف',
     'common.edit': 'ویرایش', 'common.close': 'بستن', 'common.back': 'بازگشت', 'common.next': 'بعدی',
     'common.done': 'انجام شد', 'common.search': 'جستجو', 'common.something_wrong': 'خطایی رخ داد', 'common.premium': 'پریمیوم',
+    'landing.free_price': '€0', 'landing.premium_price': '€0', 'landing.premium_then': 'سپس €4,99/ماه · یا €44,99/سال — ۳۰٪ صرفه‌جویی',
   },
 };
