@@ -23,7 +23,7 @@ export function PaywallModal({ isOpen, onClose, reason }: PaywallModalProps) {
     const nav = prepareExternalNavigation();
     setIsLoading(plan);
     try {
-      const { data, error } = await supabase.functions.invoke('create_checkout_session', { body: { plan } });
+      const { data, error } = await supabase.functions.invoke('create_checkout_session', { body: { plan, locale: document.documentElement.lang || 'sv' } });
       if (error) { console.error('Checkout error:', error); nav.closePopup(); toast.error(t('premium.checkout_error')); return; }
       if (data?.url) { nav.go(data.url); } else { nav.closePopup(); toast.error(t('premium.no_link')); }
     } catch (err) { console.error('Checkout error:', err); nav.closePopup(); toast.error(t('premium.error')); }

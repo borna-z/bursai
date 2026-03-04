@@ -14,7 +14,6 @@ const logStep = (step: string, details?: unknown) => {
 
 // Inline config to avoid import issues
 function getStripeConfig() {
-  // Normalize mode to avoid accidental mismatches like "Live" vs "live"
   const rawMode = (Deno.env.get('STRIPE_MODE') || 'test').toLowerCase();
   const mode: 'test' | 'live' = rawMode === 'live' ? 'live' : 'test';
   
@@ -35,8 +34,33 @@ function getStripeConfig() {
   };
 }
 
+// Multi-currency price mapping (language → Stripe price IDs)
+// Only used in LIVE mode. Test mode uses default SEK prices.
+const CURRENCY_PRICES: Record<string, { monthly: string; yearly: string }> = {
+  // EUR currencies
+  fi: { monthly: 'price_1T7KlxRfXibG26O7nxTQBfbm', yearly: 'price_1T7Km4RfXibG26O7CYVhGE26' },
+  de: { monthly: 'price_1T7KlxRfXibG26O7nxTQBfbm', yearly: 'price_1T7Km4RfXibG26O7CYVhGE26' },
+  fr: { monthly: 'price_1T7KlxRfXibG26O7nxTQBfbm', yearly: 'price_1T7Km4RfXibG26O7CYVhGE26' },
+  es: { monthly: 'price_1T7KlxRfXibG26O7nxTQBfbm', yearly: 'price_1T7Km4RfXibG26O7CYVhGE26' },
+  it: { monthly: 'price_1T7KlxRfXibG26O7nxTQBfbm', yearly: 'price_1T7Km4RfXibG26O7CYVhGE26' },
+  pt: { monthly: 'price_1T7KlxRfXibG26O7nxTQBfbm', yearly: 'price_1T7Km4RfXibG26O7CYVhGE26' },
+  nl: { monthly: 'price_1T7KlxRfXibG26O7nxTQBfbm', yearly: 'price_1T7Km4RfXibG26O7CYVhGE26' },
+  fa: { monthly: 'price_1T7KlxRfXibG26O7nxTQBfbm', yearly: 'price_1T7Km4RfXibG26O7CYVhGE26' },
+  // GBP
+  en: { monthly: 'price_1T7Km5RfXibG26O760JSXXfz', yearly: 'price_1T7Km6RfXibG26O714zWPRUg' },
+  // NOK
+  no: { monthly: 'price_1T7Km7RfXibG26O7AvToFIpX', yearly: 'price_1T7Km8RfXibG26O7zDE7gOGX' },
+  // DKK
+  da: { monthly: 'price_1T7Km9RfXibG26O7BaWaGc9N', yearly: 'price_1T7KmARfXibG26O7PisKyGgA' },
+  // PLN
+  pl: { monthly: 'price_1T7KmARfXibG26O7M6X6YFhD', yearly: 'price_1T7KmBRfXibG26O7H1uyA6ea' },
+  // AED
+  ar: { monthly: 'price_1T7KmCRfXibG26O7jfKp0hlq', yearly: 'price_1T7KmDRfXibG26O7gziO1UeN' },
+};
+
 interface CheckoutRequest {
   plan: 'monthly' | 'yearly';
+  locale?: string;
 }
 
 serve(async (req) => {
@@ -104,17 +128,24 @@ serve(async (req) => {
 
     // Parse request body
     const body = await req.json() as CheckoutRequest;
-    const { plan } = body;
+    const { plan, locale } = body;
     
     if (!plan || !['monthly', 'yearly'].includes(plan)) {
       throw new Error("Invalid plan. Must be 'monthly' or 'yearly'");
     }
 
-    const priceId = plan === 'monthly' ? stripeConfig.priceIdMonthly : stripeConfig.priceIdYearly;
+    // Determine price: use locale-based currency in live mode, fallback to default SEK
+    let priceId: string;
+    const currencyPrices = locale && stripeConfig.mode === 'live' ? CURRENCY_PRICES[locale] : null;
+    if (currencyPrices) {
+      priceId = plan === 'monthly' ? currencyPrices.monthly : currencyPrices.yearly;
+    } else {
+      priceId = plan === 'monthly' ? stripeConfig.priceIdMonthly : stripeConfig.priceIdYearly;
+    }
     if (!priceId) {
       throw new Error(`Missing price ID for ${plan} plan`);
     }
-    logStep("Selected price", { plan, priceId, mode: stripeConfig.mode });
+    logStep("Selected price", { plan, priceId, locale, mode: stripeConfig.mode });
 
     // Initialize Stripe
     const stripe = new Stripe(stripeConfig.secretKey, { apiVersion: "2025-08-27.basil" });
