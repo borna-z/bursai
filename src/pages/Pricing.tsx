@@ -116,7 +116,7 @@ export default function PricingPage() {
               <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center"><Crown className="w-4 h-4 text-amber-500" /></div><span className="text-sm">{t('pricing.smarter_ai')}</span></div>
             </div>
             <p className="text-center text-sm font-medium text-amber-600">{t('trial.first_free')}</p>
-            <p className="text-center text-xs text-muted-foreground">{t('trial.then_price')}</p>
+            <p className="text-center text-xs text-muted-foreground">{t('trial.then_prefix')} {pricing.monthly}{t('pricing.per_month')} {t('common.or')} {pricing.yearly}{t('pricing.per_year')}</p>
             <Button className="w-full h-12 text-base bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600" onClick={handleCheckout} disabled={isLoading}>
               {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Crown className="w-5 h-5 mr-2" />}
               {t('trial.start_button')}
