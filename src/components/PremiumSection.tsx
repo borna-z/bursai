@@ -13,6 +13,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { prepareExternalNavigation } from '@/lib/externalNavigation';
+import { getLocalizedPricing } from '@/lib/localizedPricing';
 
 interface PremiumSectionProps {
   isPremium: boolean;
@@ -29,7 +30,8 @@ export function PremiumSection({ isPremium, subscription, limits }: PremiumSecti
   const [isRestoring, setIsRestoring] = useState(false);
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
+  const pricing = getLocalizedPricing(locale);
 
   const [stripeSubscription, setStripeSubscription] = useState<{
     status: string | null;
@@ -156,7 +158,7 @@ export function PremiumSection({ isPremium, subscription, limits }: PremiumSecti
               </Button>
               <Button variant="outline" className="w-full border-amber-500/50 hover:bg-amber-500/10" onClick={() => handleUpgrade('yearly')} disabled={isLoadingCheckout !== null}>
                 {isLoadingCheckout === 'yearly' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2 text-amber-500" />}
-                {t('premium.yearly')}
+                {pricing.yearly}{t('pricing.per_year')}
               </Button>
             </div>
             <Button variant="ghost" className="w-full text-sm text-muted-foreground" onClick={handleRestoreSubscription} disabled={isRestoring}>

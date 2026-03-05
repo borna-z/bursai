@@ -1,9 +1,10 @@
 
 
+# Localized Pricing — ✅ DONE
 
-# Localized Pricing on Landing Page — ✅ DONE
+## Display prices (landing, pricing page, paywall, premium section)
 
-Pricing is now localized per language on the landing page:
+All pricing surfaces use `src/lib/localizedPricing.ts` to show locale-appropriate amounts:
 
 | Language | Currency | Monthly | Yearly |
 |----------|----------|---------|--------|
@@ -14,4 +15,6 @@ Pricing is now localized per language on the landing page:
 | pl | PLN | 19,99 zł | 179 zł |
 | ar | AED | 19 د.إ | 169 د.إ |
 
-**Note:** Display-only change. Stripe checkout still charges in SEK.
+## Stripe checkout (multi-currency charging)
+
+The `create_checkout_session` edge function maps `locale` → currency-specific Stripe Price IDs so users are charged in their local currency (not just SEK).
