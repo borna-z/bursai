@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { prepareExternalNavigation } from '@/lib/externalNavigation';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getLocalizedPricing } from '@/lib/localizedPricing';
 
 export default function PricingPage() {
   const navigate = useNavigate();
@@ -42,10 +43,8 @@ export default function PricingPage() {
     finally { setIsLoading(false); }
   };
 
-  const monthlyPrice = 59;
-  const yearlyPrice = 499;
-  const yearlyMonthlyEquivalent = Math.round(yearlyPrice / 12);
-  const savingsPercent = Math.round((1 - yearlyPrice / (monthlyPrice * 12)) * 100);
+  const { locale } = useLanguage();
+  const pricing = getLocalizedPricing(locale);
 
   return (
     <>
@@ -92,7 +91,7 @@ export default function PricingPage() {
           </button>
           <button className={cn('flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all relative', billingCycle === 'yearly' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')} onClick={() => setBillingCycle('yearly')}>
             {t('pricing.yearly_label')}
-            <Badge className="absolute -top-2 -right-2 bg-green-500 text-xs px-1.5">-{savingsPercent}%</Badge>
+            <Badge className="absolute -top-2 -right-2 bg-green-500 text-xs px-1.5">-{pricing.savingsPercent}%</Badge>
           </button>
         </div>
 
@@ -105,10 +104,10 @@ export default function PricingPage() {
           <CardContent className="space-y-4">
             <div className="text-center">
               {billingCycle === 'monthly' ? (
-                <><span className="text-4xl font-bold">{monthlyPrice} kr</span><span className="text-muted-foreground">{t('pricing.per_month')}</span></>
+                <><span className="text-4xl font-bold">{pricing.monthly}</span><span className="text-muted-foreground">{t('pricing.per_month')}</span></>
               ) : (
-                <><span className="text-4xl font-bold">{yearlyPrice} kr</span><span className="text-muted-foreground">{t('pricing.per_year')}</span>
-                <p className="text-sm text-green-600 mt-1">≈ {yearlyMonthlyEquivalent} kr{t('pricing.per_month')} • {t('common.save') || 'Save'} {savingsPercent}%</p></>
+                <><span className="text-4xl font-bold">{pricing.yearly}</span><span className="text-muted-foreground">{t('pricing.per_year')}</span>
+                <p className="text-sm text-green-600 mt-1">≈ {pricing.yearlyMonthlyEquivalent}{t('pricing.per_month')} • {t('common.save') || 'Save'} {pricing.savingsPercent}%</p></>
               )}
             </div>
             <div className="space-y-3 pt-2">
