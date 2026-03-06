@@ -1,10 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getLocalizedPricing } from '@/lib/localizedPricing';
+import type { Locale } from '@/i18n/translations';
 
 export function PricingSection() {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
+  const pricing = getLocalizedPricing(locale as Locale);
 
   return (
     <section id="pricing" className="section-full px-6 section-gradient-top section-gradient-bottom" style={{ zIndex: 13 }}>
@@ -48,7 +51,9 @@ export function PricingSection() {
               <span className="text-4xl font-bold font-space">{t('landing.premium_price')}</span>
               <span className="text-[#030305]/60 text-sm ml-1">{t('landing.premium_for')}</span>
             </div>
-            <p className="text-[#030305]/50 text-xs mb-6">{t('landing.premium_then')}</p>
+            <p className="text-[#030305]/50 text-xs mb-6">
+              {t('trial.then_prefix')} {pricing.monthly}{t('pricing.per_month')} · {t('common.or')} {pricing.yearly}{t('pricing.per_year')} — {t('pricing.save')} ~{pricing.savingsPercent}%
+            </p>
             <ul className="space-y-3 text-sm text-[#030305]/70 flex-1">
               {[t('landing.premium_f1'), t('landing.premium_f2'), t('landing.premium_f3'), t('landing.premium_f4'), t('landing.premium_f5')].map(f => (
                 <li key={f} className="flex items-center gap-2.5">
