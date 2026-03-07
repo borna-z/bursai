@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format, addDays, isSameDay, isToday, isTomorrow } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
-import { Wand2, Shirt, Loader2, CalendarDays, Repeat, Info, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart } from 'lucide-react';
+import { Wand2, Shirt, Loader2, CalendarDays, Repeat, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
@@ -111,7 +111,7 @@ export default function PlanPage() {
 
   const OccasionIcon = outfit?.occasion ? occasionIcons[outfit.occasion] || CalendarDays : CalendarDays;
 
-  // Handlers
+  // ── Handlers ──
   const handleSelectOutfit = async (outfitId: string) => {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     try {
@@ -211,13 +211,13 @@ export default function PlanPage() {
   return (
     <AppLayout>
       {/* ─── Sticky header ─── */}
-      <header className="sticky top-0 bg-background/70 backdrop-blur-lg border-b border-border/20 z-20">
+      <header className="sticky top-0 bg-background/80 backdrop-blur-xl z-20">
         <div className="flex items-center justify-between px-4 h-16 max-w-lg mx-auto">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
               <button className="flex items-center gap-2 hover:opacity-70 transition-opacity press">
                 <h1 className="text-base font-medium capitalize">{dateLabel}</h1>
-                <CalendarDays className="w-4 h-4 text-muted-foreground" />
+                <CalendarDays className="w-4 h-4 text-muted-foreground/50" />
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -235,39 +235,40 @@ export default function PlanPage() {
             variant="ghost"
             onClick={() => setQuickPlanSheetOpen(true)}
             disabled={!hasGarments}
-            className="press"
+            className="press h-9 w-9 p-0"
           >
-            <Wand2 className="w-4 h-4 text-accent" />
+            <Wand2 className="w-4 h-4 text-muted-foreground" />
           </Button>
         </div>
       </header>
 
-      {/* ─── Single-column content ─── */}
-      <AnimatedPage className="max-w-lg mx-auto px-4 pt-6 pb-4 space-y-6">
+      {/* ─── Content ─── */}
+      <AnimatedPage className="max-w-lg mx-auto px-4 pt-4 pb-6">
         {/* Calendar connect nudge */}
         <CalendarConnectBanner />
 
         {/* Week navigation */}
-        <WeekStrip 
-          selectedDate={selectedDate}
-          onSelectDate={setSelectedDate}
-          plannedOutfits={plannedOutfits}
-        />
+        <div className="py-2">
+          <WeekStrip 
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            plannedOutfits={plannedOutfits}
+          />
+        </div>
 
-        {/* Day content – animate on day switch */}
+        {/* Day content */}
         <motion.div
           key={selectedDateStr}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ type: 'tween', ease: [0.25, 0.1, 0.25, 1], duration: 0.25 }}
-          className="space-y-6"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'tween', ease: [0.25, 0.1, 0.25, 1], duration: 0.3 }}
+          className="pt-6 space-y-8"
         >
-          {/* Weather line */}
+          {/* Weather + status line */}
           <div className="flex items-center justify-between">
             <WeatherForecastBadge date={selectedDateStr} compact={false} />
             {isWorn && (
-              <Badge variant="secondary" className="text-xs bg-success/10 text-success">
+              <Badge variant="secondary" className="text-[10px] uppercase tracking-wider bg-success/10 text-success font-medium">
                 <Check className="w-3 h-3 mr-1" />
                 {t('plan.worn')}
               </Badge>
@@ -281,10 +282,10 @@ export default function PlanPage() {
             onGenerateFromHint={() => setQuickGenerateSheetOpen(true)}
           />
 
-          {/* Outfit section */}
+          {/* ─── Outfit section ─── */}
           {isLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground/40" />
             </div>
           ) : !hasGarments ? (
             <EmptyState
@@ -294,7 +295,7 @@ export default function PlanPage() {
               action={{ label: t('wardrobe.add'), onClick: () => navigate('/wardrobe/add'), icon: Shirt }}
             />
           ) : hasOutfit ? (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {/* Outfit image grid */}
               <div 
                 className="rounded-2xl overflow-hidden cursor-pointer press"
@@ -315,12 +316,12 @@ export default function PlanPage() {
 
               {/* Tags */}
               <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="secondary" className="capitalize text-xs">
-                  <OccasionIcon className="w-3 h-3 mr-1" />
+                <Badge variant="secondary" className="capitalize text-xs font-medium">
+                  <OccasionIcon className="w-3 h-3 mr-1.5" />
                   {t(OCCASION_I18N[outfit.occasion?.toLowerCase()] || `occasion.${outfit.occasion}`)}
                 </Badge>
                 {outfit.style_vibe && (
-                  <Badge variant="outline" className="text-xs">{outfit.style_vibe}</Badge>
+                  <Badge variant="outline" className="text-xs font-normal">{outfit.style_vibe}</Badge>
                 )}
               </div>
 
@@ -332,33 +333,32 @@ export default function PlanPage() {
               )}
 
               {/* Primary actions */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={() => { setCurrentOutfitId(outfit.id); setSwapSheetOpen(true); }}
-                  className="flex-1 rounded-xl press"
+                  className="flex-1 rounded-xl h-11 press"
                 >
-                  <Repeat className="w-4 h-4 mr-1.5" />
+                  <Repeat className="w-4 h-4 mr-2" />
                   {t('plan.swap')}
                 </Button>
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={() => navigate(`/outfits/${outfit.id}`)}
-                  className="flex-1 rounded-xl press"
+                  className="flex-1 rounded-xl h-11 press"
                 >
-                  <Info className="w-4 h-4 mr-1.5" />
                   {t('plan.details')}
                 </Button>
               </div>
 
-              {/* Secondary actions */}
-              <div className="flex items-center gap-4 pt-2 border-t">
+              {/* Secondary actions — quiet text links */}
+              <div className="flex items-center justify-between pt-2">
                 {!isWorn && (
                   <button 
                     onClick={handleMarkWorn}
-                    className="text-xs text-muted-foreground hover:text-success flex items-center gap-1.5 transition-colors press"
+                    className="text-xs text-muted-foreground/60 hover:text-success flex items-center gap-1.5 transition-colors press"
                   >
                     <Check className="w-3.5 h-3.5" />
                     {t('plan.mark_worn')}
@@ -366,7 +366,7 @@ export default function PlanPage() {
                 )}
                 <button 
                   onClick={handleRemove}
-                  className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1.5 transition-colors ml-auto press"
+                  className="text-xs text-muted-foreground/40 hover:text-destructive flex items-center gap-1.5 transition-colors ml-auto press"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   {t('plan.remove')}
@@ -374,31 +374,28 @@ export default function PlanPage() {
               </div>
             </div>
           ) : (
-            /* Empty state */
-            <div className="flex flex-col items-center justify-center py-16 text-center space-y-5">
-              <div className="w-16 h-16 rounded-2xl bg-muted/30 backdrop-blur-sm flex items-center justify-center">
-                <CalendarDays className="w-7 h-7 text-muted-foreground/40" />
+            /* Empty state — centered, breathing */
+            <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
+              <div className="w-16 h-16 rounded-2xl bg-muted/20 flex items-center justify-center">
+                <CalendarDays className="w-7 h-7 text-muted-foreground/30" />
               </div>
-              <p className="text-sm text-muted-foreground">{t('plan.no_outfit')}</p>
-              <div className="flex flex-col items-center gap-2 w-full max-w-xs">
+              <p className="text-sm text-muted-foreground/60">{t('plan.no_outfit')}</p>
+              <div className="flex flex-col items-center gap-3 w-full max-w-xs">
                 <Button 
                   onClick={() => setQuickGenerateSheetOpen(true)}
                   disabled={isGenerating || upsertPlanned.isPending}
-                  className="w-full rounded-xl press"
+                  className="w-full rounded-xl h-12 press"
                 >
-                  <Sparkles className="w-4 h-4 mr-1.5" />
+                  <Sparkles className="w-4 h-4 mr-2" />
                   {t('plan.generate')}
                 </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
+                <button
                   onClick={() => setPlanningSheetOpen(true)}
                   disabled={isGenerating || upsertPlanned.isPending}
-                  className="text-muted-foreground press"
+                  className="text-xs text-muted-foreground/50 hover:text-foreground transition-colors press"
                 >
-                  <Plus className="w-4 h-4 mr-1.5" />
                   {t('plan.plan')}
-                </Button>
+                </button>
               </div>
             </div>
           )}
@@ -440,23 +437,23 @@ export default function PlanPage() {
         onOpenChange={(open) => {
           setPreselectSheetOpen(open);
           if (!open && preselectedOutfitId) {
-            window.history.replaceState({}, document.title);
+            window.history.replaceState({}, '');
           }
         }}
-        onSelectDate={async (date) => {
-          if (preselectedOutfitId) {
-            const dateStr = format(date, 'yyyy-MM-dd');
-            try {
-              await upsertPlanned.mutateAsync({ date: dateStr, outfitId: preselectedOutfitId });
-              toast.success(t('plan.planned'));
-              setPreselectSheetOpen(false);
-              window.history.replaceState({}, document.title);
-            } catch {
-              toast.error(t('plan.plan_error'));
-            }
+        preselectedOutfitId={preselectedOutfitId || ''}
+        onSelectDate={async (date: Date) => {
+          if (!preselectedOutfitId) return;
+          const dateStr = format(date, 'yyyy-MM-dd');
+          try {
+            await upsertPlanned.mutateAsync({ date: dateStr, outfitId: preselectedOutfitId });
+            setSelectedDate(date);
+            setPreselectSheetOpen(false);
+            toast.success(t('plan.planned'));
+            window.history.replaceState({}, '');
+          } catch {
+            toast.error(t('plan.plan_error'));
           }
         }}
-        isLoading={upsertPlanned.isPending}
       />
     </AppLayout>
   );
