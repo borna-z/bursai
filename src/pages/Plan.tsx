@@ -440,7 +440,6 @@ export default function PlanPage() {
             window.history.replaceState({}, '');
           }
         }}
-        preselectedOutfitId={preselectedOutfitId || ''}
         onSelectDate={async (date: Date) => {
           if (!preselectedOutfitId) return;
           const dateStr = format(date, 'yyyy-MM-dd');
