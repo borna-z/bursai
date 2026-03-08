@@ -7,8 +7,9 @@ import { useUpdateProfile, useProfile } from '@/hooks/useProfile';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageStep } from '@/components/onboarding/LanguageStep';
 import { AccentColorStep } from '@/components/onboarding/AccentColorStep';
-import { StyleQuizV3, type StyleProfileV3 } from '@/components/onboarding/StyleQuizV3';
-import { AppTutorialStep } from '@/components/onboarding/AppTutorialStep';
+import { QuickStyleQuiz } from '@/components/onboarding/QuickStyleQuiz';
+import { GetStartedStep } from '@/components/onboarding/GetStartedStep';
+import type { StyleProfileV3 } from '@/components/onboarding/StyleQuizV3';
 import { toast } from 'sonner';
 
 export default function OnboardingPage() {
@@ -40,7 +41,6 @@ export default function OnboardingPage() {
         preferences: {
           ...currentPrefs,
           styleProfile: { ...sp },
-          // Legacy compat keys
           favoriteColors: sp.favoriteColors,
           dislikedColors: sp.dislikedColors,
           fitPreference: sp.fit,
@@ -48,7 +48,6 @@ export default function OnboardingPage() {
           genderNeutral: sp.genderNeutral === 'yes',
         },
       };
-      // Save height if provided
       if (sp.height && !isNaN(Number(sp.height))) {
         updates.height_cm = Number(sp.height);
       }
@@ -66,11 +65,11 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleTutorialComplete = async () => {
+  const handleGetStartedAction = async (path: string) => {
     try {
       await completeOnboarding();
     } catch { /* ignore */ }
-    navigate('/');
+    navigate(path);
   };
 
   // Redirect if already completed
@@ -79,8 +78,8 @@ export default function OnboardingPage() {
 
   if (profileLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-accent" />
+      <div className="dark-landing min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-white/40" />
       </div>
     );
   }
@@ -89,7 +88,7 @@ export default function OnboardingPage() {
     return <Navigate to="/" replace />;
   }
 
-  const stepKey = !languageStepDone ? 'lang' : !accentStepDone ? 'accent' : !quizDone ? 'quiz' : 'tutorial';
+  const stepKey = !languageStepDone ? 'lang' : !accentStepDone ? 'accent' : !quizDone ? 'quiz' : 'getstarted';
 
   return (
     <AnimatePresence mode="wait">
@@ -103,15 +102,13 @@ export default function OnboardingPage() {
         {stepKey === 'lang' && <LanguageStep onComplete={() => setLanguageStepDone(true)} />}
         {stepKey === 'accent' && <AccentColorStep onComplete={() => setAccentStepDone(true)} />}
         {stepKey === 'quiz' && (
-          <StyleQuizV3
+          <QuickStyleQuiz
             onComplete={handleQuizComplete}
-            onSkip={async () => {
-              setQuizDone(true);
-            }}
+            onSkip={async () => setQuizDone(true)}
             isSaving={isSavingQuiz}
           />
         )}
-        {stepKey === 'tutorial' && <AppTutorialStep onComplete={handleTutorialComplete} />}
+        {stepKey === 'getstarted' && <GetStartedStep onAction={handleGetStartedAction} />}
       </motion.div>
     </AnimatePresence>
   );

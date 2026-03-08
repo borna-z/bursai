@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Loader2, CheckCircle } from 'lucide-react';
+import { Loader2, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { EASE_CURVE } from '@/lib/motion';
 import { useLanguage } from '@/contexts/LanguageContext';
+import bursLogoWhite from '@/assets/burs-logo-white.png';
 
 export default function ResetPassword() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isRecovery, setIsRecovery] = useState(false);
   const [done, setDone] = useState(false);
@@ -19,30 +19,18 @@ export default function ResetPassword() {
   const { t } = useLanguage();
 
   useEffect(() => {
-    // Listen for the PASSWORD_RECOVERY event
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsRecovery(true);
-      }
+      if (event === 'PASSWORD_RECOVERY') setIsRecovery(true);
     });
 
-    // Check hash for type=recovery
     const hash = window.location.hash;
-    if (hash.includes('type=recovery')) {
-      setIsRecovery(true);
-    }
+    if (hash.includes('type=recovery')) setIsRecovery(true);
 
-    // Check search params for type=recovery
     const params = new URLSearchParams(window.location.search);
-    if (params.get('type') === 'recovery') {
-      setIsRecovery(true);
-    }
+    if (params.get('type') === 'recovery') setIsRecovery(true);
 
-    // If a session already exists, the recovery token was already consumed by AuthContext
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setIsRecovery(true);
-      }
+      if (session) setIsRecovery(true);
     });
 
     return () => subscription.unsubscribe();
@@ -50,16 +38,8 @@ export default function ResetPassword() {
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (password.length < 8) {
-      toast.error(t('auth.password_too_short'));
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      toast.error(t('auth.passwords_no_match'));
-      return;
-    }
+    if (password.length < 8) { toast.error(t('auth.password_too_short')); return; }
+    if (password !== confirmPassword) { toast.error(t('auth.passwords_no_match')); return; }
 
     setIsLoading(true);
     const { error } = await supabase.auth.updateUser({ password });
@@ -74,89 +54,122 @@ export default function ResetPassword() {
     }
   };
 
-  if (!isRecovery && !done) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-secondary/30">
-        <Card className="w-full max-w-sm">
-          <CardContent className="pt-6 text-center space-y-4">
-            <p className="text-muted-foreground text-sm">{t('auth.invalid_reset_link')}</p>
-            <Button variant="outline" onClick={() => navigate('/auth')} className="w-full">
-              {t('auth.back_to_login')}
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const inputClass = "w-full h-12 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 text-[15px] text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-white/15 transition-colors disabled:opacity-40";
 
-  if (done) {
+  const renderContent = () => {
+    if (done) {
+      return (
+        <motion.div
+          className="rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl p-8 text-center space-y-4"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, ease: EASE_CURVE }}
+        >
+          <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto" />
+          <p className="text-white font-medium">{t('auth.password_updated')}</p>
+          <p className="text-sm text-white/40">{t('auth.redirecting')}</p>
+        </motion.div>
+      );
+    }
+
+    if (!isRecovery) {
+      return (
+        <motion.div
+          className="rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl p-8 text-center space-y-5"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: EASE_CURVE }}
+        >
+          <p className="text-white/50 text-sm">{t('auth.invalid_reset_link')}</p>
+          <button
+            onClick={() => navigate('/auth')}
+            className="w-full h-12 rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/70 text-sm font-medium hover:bg-white/[0.08] transition-colors"
+          >
+            {t('auth.back_to_login')}
+          </button>
+        </motion.div>
+      );
+    }
+
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-secondary/30">
-        <Card className="w-full max-w-sm">
-          <CardContent className="pt-6 text-center space-y-4">
-            <CheckCircle className="w-12 h-12 text-green-500 mx-auto" />
-            <p className="font-medium">{t('auth.password_updated')}</p>
-            <p className="text-sm text-muted-foreground">{t('auth.redirecting')}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <motion.div
+        className="rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl overflow-hidden"
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.15, ease: EASE_CURVE }}
+      >
+        <div className="p-6 pb-2">
+          <h2 className="text-lg font-semibold text-white">{t('auth.set_new_password')}</h2>
+          <p className="text-sm text-white/40 mt-1">{t('auth.set_new_password_desc')}</p>
+        </div>
+        <form onSubmit={handleReset} className="p-6 pt-4 space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-white/40 pl-0.5">{t('auth.new_password')}</label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder={t('auth.min_password')}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading}
+                className={`${inputClass} pr-11`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/50 transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-white/40 pl-0.5">{t('auth.confirm_password')}</label>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="••••••••"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={isLoading}
+              className={inputClass}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full h-[52px] rounded-xl bg-white text-[#030305] text-[15px] font-semibold hover:bg-white/90 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2 mt-2"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {t('auth.updating')}
+              </>
+            ) : (
+              t('auth.update_password')
+            )}
+          </button>
+        </form>
+      </motion.div>
     );
-  }
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-secondary/30">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="text-center space-y-3">
-          <h1
-            className="text-3xl font-bold tracking-[0.12em]"
-            style={{ fontFamily: "'Sora', sans-serif" }}
-          >
-            DRAPE
-          </h1>
-        </div>
+    <div className="dark-landing min-h-screen flex flex-col items-center justify-center p-5 relative overflow-hidden">
+      {/* Aurora glow */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] rounded-full bg-[radial-gradient(ellipse,rgba(99,102,241,0.10)_0%,transparent_70%)] blur-3xl" />
+      </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{t('auth.set_new_password')}</CardTitle>
-            <CardDescription>{t('auth.set_new_password_desc')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleReset} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="new-password">{t('auth.new_password')}</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  placeholder={t('auth.min_password')}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirm-password">{t('auth.confirm_password')}</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  placeholder={t('auth.confirm_password')}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={isLoading}
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {t('auth.updating')}
-                  </>
-                ) : (
-                  t('auth.update_password')
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+      <div className="relative z-10 w-full max-w-sm space-y-10">
+        <motion.div
+          className="flex flex-col items-center"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6, ease: EASE_CURVE }}
+        >
+          <img src={bursLogoWhite} alt="BURS" className="h-10 w-auto opacity-90" />
+        </motion.div>
+        {renderContent()}
       </div>
     </div>
   );
