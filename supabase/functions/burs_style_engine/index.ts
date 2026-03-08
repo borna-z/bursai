@@ -129,6 +129,145 @@ function getCurrentSeason(): string {
   return "winter";
 }
 
+// ─────────────────────────────────────────────
+// SEASONAL TRANSITION INTELLIGENCE
+// ─────────────────────────────────────────────
+
+// Transition windows: which months are "transitional" between seasons
+const SEASON_ORDER = ["winter", "spring", "summer", "autumn"] as const;
+const TRANSITION_MONTHS: Record<number, { from: string; to: string; progress: number }> = {
+  // Feb: late winter → early spring (30% into transition)
+  1: { from: "winter", to: "spring", progress: 0.3 },
+  // March: mid transition winter→spring
+  2: { from: "winter", to: "spring", progress: 0.6 },
+  // May: late spring → early summer
+  4: { from: "spring", to: "summer", progress: 0.3 },
+  // June: mid transition spring→summer
+  5: { from: "spring", to: "summer", progress: 0.6 },
+  // Aug: late summer → early autumn
+  7: { from: "summer", to: "autumn", progress: 0.3 },
+  // Sept: mid transition summer→autumn
+  8: { from: "summer", to: "autumn", progress: 0.6 },
+  // Nov: late autumn → early winter
+  10: { from: "autumn", to: "winter", progress: 0.3 },
+  // Dec: mid transition autumn→winter
+  11: { from: "autumn", to: "winter", progress: 0.6 },
+};
+
+interface SeasonTransitionInfo {
+  currentSeason: string;
+  isTransitional: boolean;
+  fromSeason: string;
+  toSeason: string;
+  /** 0 = fully in fromSeason, 1 = fully in toSeason */
+  progress: number;
+}
+
+function getSeasonTransitionInfo(): SeasonTransitionInfo {
+  const month = new Date().getMonth();
+  const season = getCurrentSeason();
+  const trans = TRANSITION_MONTHS[month];
+
+  if (trans) {
+    return {
+      currentSeason: season,
+      isTransitional: true,
+      fromSeason: trans.from,
+      toSeason: trans.to,
+      progress: trans.progress,
+    };
+  }
+
+  return {
+    currentSeason: season,
+    isTransitional: false,
+    fromSeason: season,
+    toSeason: season,
+    progress: 0.5,
+  };
+}
+
+// Materials and categories that work across season boundaries
+const TRANSITIONAL_MATERIALS = [
+  "cotton", "bomull", "jersey", "denim", "leather", "läder",
+  "knit", "stickad", "linen-blend", "wool-blend", "blandull",
+];
+
+const TRANSITIONAL_CATEGORIES = [
+  "cardigan", "blazer", "light jacket", "tunn jacka", "denim jacket",
+  "jeansjacka", "shirt jacket", "shacket", "vest", "väst", "hoodie",
+];
+
+function isTransitionalGarment(garment: GarmentRow): boolean {
+  const mat = (garment.material || "").toLowerCase();
+  const cat = (garment.category || "").toLowerCase();
+  const sub = (garment.subcategory || "").toLowerCase();
+  const combined = `${cat} ${sub}`;
+
+  // Garments tagged for multiple seasons are inherently transitional
+  const tags = garment.season_tags || [];
+  if (tags.length >= 2) return true;
+
+  // Material check
+  if (TRANSITIONAL_MATERIALS.some(m => mat.includes(m))) return true;
+
+  // Category check (layering pieces)
+  if (TRANSITIONAL_CATEGORIES.some(c => combined.includes(c))) return true;
+
+  return false;
+}
+
+/**
+ * Scores a garment's seasonal fit during transition periods.
+ * During stable seasons → rewards in-season, penalizes off-season.
+ * During transitions → rewards transitional pieces and garments matching either season.
+ */
+function seasonalTransitionScore(garment: GarmentRow, transInfo: SeasonTransitionInfo): number {
+  const tags = garment.season_tags || [];
+  const { isTransitional, fromSeason, toSeason, progress } = transInfo;
+
+  const matchesFrom = tags.includes(fromSeason);
+  const matchesTo = tags.includes(toSeason);
+  const isTransPiece = isTransitionalGarment(garment);
+  const hasNoTags = tags.length === 0;
+
+  // Base score
+  let score = 5;
+
+  if (isTransitional) {
+    // TRANSITION PERIOD: blend scores from both seasons
+
+    // Perfect: garment bridges both seasons
+    if (matchesFrom && matchesTo) score += 3;
+    // Good: transitional piece (layering, versatile materials)
+    else if (isTransPiece) score += 2.5;
+    // Outgoing season garment: decreasing value as transition progresses
+    else if (matchesFrom && !matchesTo) score += 2 * (1 - progress);
+    // Incoming season garment: increasing value as transition progresses
+    else if (matchesTo && !matchesFrom) score += 2 * progress;
+    // No tags: neutral, slight transitional bonus
+    else if (hasNoTags) score += 1;
+    // Off-season (neither from nor to): penalize
+    else score -= 2;
+  } else {
+    // STABLE SEASON: straightforward seasonal scoring
+    const current = transInfo.currentSeason;
+    if (tags.includes(current)) score += 2;
+    else if (hasNoTags) score += 0.5; // untagged = year-round
+    else if (isTransPiece) score += 1; // transitional pieces always somewhat OK
+    else {
+      // Check adjacency: adjacent season is mildly acceptable
+      const idx = SEASON_ORDER.indexOf(current as any);
+      const prevSeason = SEASON_ORDER[(idx + 3) % 4];
+      const nextSeason = SEASON_ORDER[(idx + 1) % 4];
+      if (tags.includes(prevSeason) || tags.includes(nextSeason)) score -= 0.5;
+      else score -= 2; // fully off-season
+    }
+  }
+
+  return Math.max(0, Math.min(10, score));
+}
+
 function isInSeasonalPalette(hsl: [number, number, number], season: string): boolean {
   const palette = SEASONAL_PALETTES[season];
   if (!palette) return false;
@@ -1158,7 +1297,8 @@ function scoreGarment(
   styleVector: StyleVector | null = null,
   comfortProfile: ComfortStyleProfile | null = null,
   socialMap: SocialContextMap | null = null,
-  currentEventTitle: string | null = null
+  currentEventTitle: string | null = null,
+  transInfo: SeasonTransitionInfo | null = null
 ): ScoredGarment {
   const ws = weatherSuitability(garment, weather);
   const fs = formalityScore(garment, occasion);
@@ -1172,17 +1312,20 @@ function scoreGarment(
   // Social context penalty (avoid repeating at same recurring event)
   const scp = socialMap ? socialContextPenalty(garment.id, currentEventTitle, socialMap) : 0;
 
-  // Weighted composite: 9 factors + social penalty
-  const vectorConf = styleVector?.confidence || 0;
-  const saWeight = 0.08 * (1 - vectorConf * 0.5);
-  const svWeight = 0.08 + vectorConf * 0.04;
+  // Seasonal transition score
+  const sts = transInfo ? seasonalTransitionScore(garment, transInfo) : 7;
 
-  const score = ws * 0.18 + fs * 0.18 + wr * 0.14 + fb * 0.10 + sa * saWeight + wp * 0.10 + sv * svWeight + cs * 0.10 + 0.02 * 7 - scp * 0.5;
+  // Weighted composite: 10 factors + social penalty
+  const vectorConf = styleVector?.confidence || 0;
+  const saWeight = 0.07 * (1 - vectorConf * 0.5);
+  const svWeight = 0.07 + vectorConf * 0.04;
+
+  const score = ws * 0.16 + fs * 0.16 + wr * 0.12 + fb * 0.09 + sa * saWeight + wp * 0.09 + sv * svWeight + cs * 0.09 + sts * 0.08 - scp * 0.5;
 
   return {
     garment,
     score,
-    breakdown: { weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp, vector: sv, comfort: cs, socialPenalty: scp },
+    breakdown: { weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp, vector: sv, comfort: cs, socialPenalty: scp, seasonalTransition: sts },
   };
 }
 
@@ -1675,6 +1818,8 @@ serve(async (req) => {
       : null;
     // Build social context map for recurring event awareness
     const socialMap = wearLogs.length > 0 ? buildSocialContextMap(wearLogs) : null;
+    // Seasonal transition info
+    const transInfo = getSeasonTransitionInfo();
 
     // Build recent outfit sets for anti-repetition
     const recentOutfitSets: Set<string>[] = [];
@@ -1717,7 +1862,7 @@ serve(async (req) => {
       const slot = categorizeSlot(garment.category, garment.subcategory);
       if (!slot) continue;
       if (!slotCandidates[slot]) slotCandidates[slot] = [];
-      slotCandidates[slot].push(scoreGarment(garment, occasion, weather, penalties, preferences, wearPatterns, styleVector, comfortProfile, socialMap, eventTitle));
+      slotCandidates[slot].push(scoreGarment(garment, occasion, weather, penalties, preferences, wearPatterns, styleVector, comfortProfile, socialMap, eventTitle, transInfo));
     }
 
     // Sort each slot by score
