@@ -310,6 +310,53 @@ export type Database = {
         }
         Relationships: []
       }
+      outfit_feedback: {
+        Row: {
+          ai_raw: Json | null
+          color_match_score: number | null
+          commentary: string | null
+          created_at: string
+          fit_score: number | null
+          id: string
+          outfit_id: string
+          overall_score: number | null
+          selfie_path: string
+          user_id: string
+        }
+        Insert: {
+          ai_raw?: Json | null
+          color_match_score?: number | null
+          commentary?: string | null
+          created_at?: string
+          fit_score?: number | null
+          id?: string
+          outfit_id: string
+          overall_score?: number | null
+          selfie_path: string
+          user_id: string
+        }
+        Update: {
+          ai_raw?: Json | null
+          color_match_score?: number | null
+          commentary?: string | null
+          created_at?: string
+          fit_score?: number | null
+          id?: string
+          outfit_id?: string
+          overall_score?: number | null
+          selfie_path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outfit_feedback_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "outfits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       outfit_items: {
         Row: {
           created_at: string | null
