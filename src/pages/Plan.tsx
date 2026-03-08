@@ -131,11 +131,13 @@ export default function PlanPage() {
     temperature: number | undefined;
   }) => {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    const topEventTitle = daySummary?.priorities?.[0]?.title || null;
     try {
       const o = await generateOutfit({
         occasion: request.occasion,
         style: request.style,
         locale,
+        eventTitle: topEventTitle,
         weather: { temperature: request.temperature, precipitation: 'none', wind: 'low' },
       });
       await upsertPlanned.mutateAsync({ date: dateStr, outfitId: o.id });
