@@ -6522,5 +6522,13 @@ export const translations: Record<Locale, Record<string, string>> = {
     'landing.showcase_home_title': 'ست روزانه شما، آماده پوشیدن', 'landing.showcase_home_desc': 'هوش مصنوعی بر اساس آب‌و‌هوا و سبک انتخاب می‌کند.',
     'landing.showcase_planner_title': 'هفته‌تان را بدون استرس برنامه‌ریزی کنید', 'landing.showcase_planner_desc': 'پیشنهادات هوشمند بر اساس آب‌و‌هوا، روز به روز.',
     'landing.free_price': '€0', 'landing.premium_price': '€0', 'landing.premium_then': 'سپس €4,99/ماه · یا €44,99/سال — ۳۰٪ صرفه‌جویی',
+    'error.title': 'مشکلی پیش آمد', 'error.desc': 'خطای غیرمنتظره‌ای رخ داد. صفحه را مجدداً بارگذاری کنید.', 'error.try_again': 'دوباره امتحان کنید', 'error.reload': 'بارگذاری مجدد',
+    'seed.deleted': 'تمام لباس‌های قدیمی حذف شدند', 'seed.delete_error': 'حذف لباس‌های قدیمی ممکن نبود', 'seed.created': '{done} لباس ایجاد شد ({failed} ناموفق)', 'seed.batch_failed': 'دسته ناموفق بود', 'seed.retry_failed': 'تلاش مجدد ناموفق بود',
+    'genimg.title': 'ایجاد تصاویر منحصربه‌فرد', 'genimg.desc': 'تصاویر محصول با هوش مصنوعی برای همه لباس‌ها بر اساس ویژگی‌ها (رنگ، جنس، نوع) ایجاد کنید.', 'genimg.total': 'کل لباس‌ها', 'genimg.generated': 'ایجاد شده', 'genimg.failed': 'ناموفق', 'genimg.processing': 'در حال پردازش…', 'genimg.done': 'انجام شد', 'genimg.generating': 'در حال ایجاد…', 'genimg.generate_all': 'ایجاد تمام تصاویر', 'genimg.retry': 'دوباره امتحان کنید',
+    'contact.title': 'تماس با ما', 'contact.subtitle': 'سؤالی دارید؟ خوشحال می‌شویم کمک کنیم.', 'contact.success': 'از پیام شما متشکریم. در اسرع وقت پاسخ خواهیم داد.', 'contact.name': 'نام شما', 'contact.email': 'آدرس ایمیل شما', 'contact.message': 'پیام شما', 'contact.send': 'ارسال پیام', 'contact.rights': 'تمامی حقوق محفوظ است.', 'contact.gdpr_note': 'BURS با GDPR سازگار است. داده‌های شما با امنیت ذخیره شده و هرگز با اشخاص ثالث به اشتراک گذاشته نمی‌شود.',
+    'footer.privacy': 'سیاست حفظ حریم خصوصی', 'footer.terms': 'شرایط استفاده', 'footer.agree': 'با استفاده از BURS شرایط ما را می‌پذیرید', 'footer.rights': 'تمامی حقوق محفوظ است.',
+    'calendar.google_privacy': 'BURS رویدادهای تقویم شما را می‌خواند تا به برنامه‌ریزی لباس‌ها کمک کند. می‌توانید هر زمان قطع اتصال کنید.',
+    'reaction.styled': 'شیک', 'reaction.creative': 'خلاقانه', 'reaction.sustainable': 'پایدار',
+    'wardrobe.reel_save_error': 'ذخیره تصویر ممکن نبود',
   },
 };
