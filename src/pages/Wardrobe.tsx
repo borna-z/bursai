@@ -333,7 +333,7 @@ function AddFAB({ onPhoto, onScan, isOverLimit }: { onPhoto: () => void; onScan:
       </AnimatePresence>
       <Button
         size="lg"
-        className="h-14 w-14 rounded-xl shadow-lg bg-accent text-accent-foreground hover:bg-accent/90 relative z-30"
+        className="h-14 w-14 rounded-full shadow-lg shadow-primary/20 bg-primary text-primary-foreground hover:bg-primary/90 relative z-30"
         onClick={() => setOpen(!open)}
       >
         <Plus className={cn("w-6 h-6 transition-transform duration-200", open && "rotate-45")} />
