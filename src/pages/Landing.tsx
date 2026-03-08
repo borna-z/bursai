@@ -58,7 +58,7 @@ export default function Landing() {
     return () => { io.disconnect(); mo.disconnect(); };
   }, []);
 
-  // Parallax scroll
+  // Parallax scroll + header scroll detection
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
@@ -67,6 +67,7 @@ export default function Landing() {
       if (!ticking) {
         requestAnimationFrame(() => {
           document.documentElement.style.setProperty('--scroll-y', String(container.scrollTop));
+          setScrolled(container.scrollTop > 60);
           ticking = false;
         });
         ticking = true;
