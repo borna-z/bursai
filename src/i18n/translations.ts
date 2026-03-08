@@ -730,6 +730,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'discover.your_profile': 'Din profil',
     'discover.setup_profile': 'Välj ett användarnamn för att dela',
     'discover.saved': 'Sparad inspiration',
+    'discover.trending_locked': 'Trendande outfits låses upp snart',
+    'discover.trending_locked_sub': '{count} användare kvar tills communityn öppnar',
+    'discover.challenges_progress': '{unlocked} av {total} upplåsta',
+    'discover.challenge_locked': 'Ladda upp {count} plagg för att låsa upp',
     'challenges.joined_label': 'Deltar',
 
     'wardrobe.import_link': 'Importera via länk',
