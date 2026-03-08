@@ -2,12 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Compass, Shirt, Bookmark, BookmarkCheck, Trophy, Check, Sparkles, Lock,
-  Search, Heart, ShoppingBag, Clock, Users, ChevronRight, User
+  Search, Heart, ShoppingBag, Clock, Users, ChevronRight, User, PartyPopper
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -18,6 +17,7 @@ import { AnimatedPage } from '@/components/ui/animated-page';
 import { OutfitReactions } from '@/components/social/OutfitReactions';
 import { SectionHeader } from '@/components/ui/section-header';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
+import { useTrendingUnlocked } from '@/hooks/useTrendingUnlocked';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -53,13 +53,12 @@ const UNLOCK_THRESHOLDS = [
   20, 20, 22, 22, 25,
 ];
 
-const TRENDING_USER_THRESHOLD = 500;
-
 export default function DiscoverPage() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const { data: profile } = useProfile();
   const { data: garmentCount } = useGarmentCount();
+  const { isUnlocked: trendingUnlocked, showNewBadge, markSeen } = useTrendingUnlocked();
   const navigate = useNavigate();
 
   // Feed state
@@ -67,7 +66,7 @@ export default function DiscoverPage() {
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [feedLoading, setFeedLoading] = useState(true);
-  const [totalUsers, setTotalUsers] = useState(0);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   // Challenges state
   const [challenges, setChallenges] = useState<Challenge[]>([]);
@@ -76,43 +75,36 @@ export default function DiscoverPage() {
 
   const myGarments = garmentCount || 0;
 
-  // Load feed (limited preview)
+  // Load feed only if trending is unlocked
   const loadFeed = useCallback(async () => {
+    if (!trendingUnlocked) { setFeedLoading(false); return; }
     setFeedLoading(true);
 
-    // Check total user count for trending gate
-    const { count: userCount } = await supabase
-      .from('profiles')
-      .select('id', { count: 'exact', head: true });
-    setTotalUsers(userCount || 0);
+    const query = supabase
+      .from('outfits')
+      .select('id, occasion, style_vibe, outfit_items(id, slot, garment:garments(id, image_path))')
+      .eq('share_enabled', true)
+      .order('generated_at', { ascending: false })
+      .limit(6);
 
-    if ((userCount || 0) >= TRENDING_USER_THRESHOLD) {
-      const query = supabase
-        .from('outfits')
-        .select('id, occasion, style_vibe, outfit_items(id, slot, garment:garments(id, image_path))')
-        .eq('share_enabled', true)
-        .order('generated_at', { ascending: false })
-        .limit(6);
+    if (user) query.neq('user_id', user.id);
+    const { data } = await query;
+    setFeedOutfits((data || []) as any);
 
-      if (user) query.neq('user_id', user.id);
-      const { data } = await query;
-      setFeedOutfits((data || []) as any);
-
-      for (const outfit of (data || []) as any[]) {
-        const firstItem = outfit.outfit_items?.find((i: any) => i.garment?.image_path);
-        if (firstItem?.garment?.image_path) {
-          const { data: urlData } = await supabase.storage.from('garments').createSignedUrl(firstItem.garment.image_path, 3600);
-          if (urlData) setImageUrls(prev => ({ ...prev, [outfit.id]: urlData.signedUrl }));
-        }
-      }
-
-      if (user) {
-        const { data: saves } = await supabase.from('inspiration_saves').select('outfit_id').eq('user_id', user.id);
-        setSavedIds(new Set(saves?.map(s => s.outfit_id) || []));
+    for (const outfit of (data || []) as any[]) {
+      const firstItem = outfit.outfit_items?.find((i: any) => i.garment?.image_path);
+      if (firstItem?.garment?.image_path) {
+        const { data: urlData } = await supabase.storage.from('garments').createSignedUrl(firstItem.garment.image_path, 3600);
+        if (urlData) setImageUrls(prev => ({ ...prev, [outfit.id]: urlData.signedUrl }));
       }
     }
+
+    if (user) {
+      const { data: saves } = await supabase.from('inspiration_saves').select('outfit_id').eq('user_id', user.id);
+      setSavedIds(new Set(saves?.map(s => s.outfit_id) || []));
+    }
     setFeedLoading(false);
-  }, [user]);
+  }, [user, trendingUnlocked]);
 
   // Load challenges (all 25, always active)
   const loadChallenges = useCallback(async () => {
@@ -142,6 +134,13 @@ export default function DiscoverPage() {
   }, [user]);
 
   useEffect(() => { loadFeed(); loadChallenges(); }, [loadFeed, loadChallenges]);
+
+  // Show celebration banner once when trending first unlocks
+  useEffect(() => {
+    if (showNewBadge) {
+      setShowCelebration(true);
+    }
+  }, [showNewBadge]);
 
   const toggleSave = async (outfitId: string) => {
     if (!user) return;
@@ -181,69 +180,82 @@ export default function DiscoverPage() {
           <p className="text-xs text-muted-foreground mt-0.5">{t('discover.subtitle')}</p>
         </motion.div>
 
-        {/* ── Community Feed Preview ── */}
-        <section>
-          <SectionHeader
-            title={t('discover.trending')}
-            action={totalUsers >= TRENDING_USER_THRESHOLD ? t('discover.see_all') : undefined}
-            onAction={totalUsers >= TRENDING_USER_THRESHOLD ? () => navigate('/feed') : undefined}
-          />
-          {totalUsers < TRENDING_USER_THRESHOLD ? (
-            <div className="text-center py-10 rounded-2xl border border-dashed border-border/40 bg-muted/20">
-              <Lock className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-sm font-medium text-muted-foreground">{t('discover.trending_locked')}</p>
-              <p className="text-[11px] text-muted-foreground/60 mt-1">
-                {t('discover.trending_locked_sub').replace('{count}', String(TRENDING_USER_THRESHOLD - totalUsers))}
-              </p>
-              <div className="mt-4 px-8">
-                <Progress value={(totalUsers / TRENDING_USER_THRESHOLD) * 100} className="h-1.5" />
-                <p className="text-[10px] text-muted-foreground/50 mt-1.5">{totalUsers} / {TRENDING_USER_THRESHOLD}</p>
-              </div>
-            </div>
-          ) : feedLoading ? (
-            <div className="grid grid-cols-3 gap-2">
-              {[1, 2, 3].map(i => <div key={i} className="aspect-square rounded-xl bg-muted animate-pulse" />)}
-            </div>
-          ) : feedOutfits.length === 0 ? (
-            <div className="text-center py-8 rounded-xl border border-dashed border-border/40">
-              <Compass className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2" />
-              <p className="text-xs text-muted-foreground">{t('feed.empty')}</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-2">
-              {feedOutfits.slice(0, 6).map((outfit, i) => (
-                <motion.div
-                  key={outfit.id}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="relative rounded-xl overflow-hidden border border-border/20 cursor-pointer active:scale-[0.97] transition-transform"
-                  onClick={() => navigate(`/share/${outfit.id}`)}
-                >
-                  <div className="aspect-square bg-muted overflow-hidden">
-                    {imageUrls[outfit.id] ? (
-                      <img src={imageUrls[outfit.id]} alt={outfit.occasion} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Shirt className="w-6 h-6 text-muted-foreground/20" />
-                      </div>
-                    )}
-                  </div>
-                  {user && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); toggleSave(outfit.id); }}
-                      className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center"
-                    >
-                      {savedIds.has(outfit.id)
-                        ? <BookmarkCheck className="w-3 h-3 text-primary" />
-                        : <Bookmark className="w-3 h-3 text-muted-foreground" />}
-                    </button>
-                  )}
-                </motion.div>
-              ))}
-            </div>
+        {/* ── Celebration Banner (when trending just unlocked) ── */}
+        <AnimatePresence>
+          {showCelebration && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: -10 }}
+              className="rounded-2xl bg-accent/10 border border-accent/20 p-4 text-center"
+            >
+              <PartyPopper className="w-8 h-8 text-accent mx-auto mb-2" />
+              <h3 className="text-sm font-semibold">{t('discover.trending_unlocked')}</h3>
+              <p className="text-[11px] text-muted-foreground mt-1">{t('discover.trending_unlocked_sub')}</p>
+              <Button
+                size="sm"
+                className="mt-3 rounded-xl"
+                onClick={() => { markSeen(); setShowCelebration(false); }}
+              >
+                {t('discover.see_trending')}
+              </Button>
+            </motion.div>
           )}
-        </section>
+        </AnimatePresence>
+
+        {/* ── Community Feed Preview (only visible after 500 users) ── */}
+        {trendingUnlocked && !showCelebration && (
+          <section>
+            <SectionHeader
+              title={t('discover.trending')}
+              action={t('discover.see_all')}
+              onAction={() => navigate('/feed')}
+            />
+            {feedLoading ? (
+              <div className="grid grid-cols-3 gap-2">
+                {[1, 2, 3].map(i => <div key={i} className="aspect-square rounded-xl bg-muted animate-pulse" />)}
+              </div>
+            ) : feedOutfits.length === 0 ? (
+              <div className="text-center py-8 rounded-xl border border-dashed border-border/40">
+                <Compass className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">{t('feed.empty')}</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {feedOutfits.slice(0, 6).map((outfit, i) => (
+                  <motion.div
+                    key={outfit.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="relative rounded-xl overflow-hidden border border-border/20 cursor-pointer active:scale-[0.97] transition-transform"
+                    onClick={() => navigate(`/share/${outfit.id}`)}
+                  >
+                    <div className="aspect-square bg-muted overflow-hidden">
+                      {imageUrls[outfit.id] ? (
+                        <img src={imageUrls[outfit.id]} alt={outfit.occasion} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Shirt className="w-6 h-6 text-muted-foreground/20" />
+                        </div>
+                      )}
+                    </div>
+                    {user && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleSave(outfit.id); }}
+                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center"
+                      >
+                        {savedIds.has(outfit.id)
+                          ? <BookmarkCheck className="w-3 h-3 text-primary" />
+                          : <Bookmark className="w-3 h-3 text-muted-foreground" />}
+                      </button>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* ── Challenges (garment-gated) ── */}
         <section>

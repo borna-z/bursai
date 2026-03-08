@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { EASE_TWEEN, SPRING_BOUNCE } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
+import { useTrendingUnlocked } from '@/hooks/useTrendingUnlocked';
 
 const tabKeys = [
   { path: '/', labelKey: 'nav.today', icon: Home },
@@ -16,6 +17,7 @@ const tabKeys = [
 
 export function BottomNav() {
   const { t } = useLanguage();
+  const { showNewBadge } = useTrendingUnlocked();
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/50 backdrop-blur-xl backdrop-saturate-150 border-t border-border/10 safe-bottom">
@@ -54,6 +56,10 @@ export function BottomNav() {
                       strokeWidth={isActive ? 2.5 : 2}
                     />
                   </motion.div>
+                  {/* NEW badge for Discover when trending unlocks */}
+                  {tab.path === '/discover' && showNewBadge && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-accent animate-pulse" />
+                  )}
                 </div>
                 <span>{t(tab.labelKey)}</span>
               </>
