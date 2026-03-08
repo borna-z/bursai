@@ -50,8 +50,8 @@ Given a trip duration + destination weather, the `travel_capsule` edge function 
 ### Step 13: Social Context Awareness ✅
 Track what was worn to events with recurring attendees. Added `event_title` column to `wear_logs`. When marking an outfit as worn, the top calendar event title is stored. The style engine normalizes event titles to detect recurring events (stripping dates/numbers) and applies a garment penalty (0.5-1.5 score points) when a piece was recently worn at the same recurring event. Stronger penalties for more recent repeats (< 2 weeks: 3×, < 1 month: 2×, < 2 months: 1×).
 
-### Step 14: Laundry Cycle Integration
-Factor in laundry schedules: suggest outfits from clean garments, predict when favorites will be available again, suggest wash timing.
+### Step 14: Laundry Cycle Integration ✅
+Garments marked as in-laundry are automatically excluded from outfit generation (style engine filters `in_laundry = false`). A `useLaundryCycle` hook detects garments in laundry that are needed for upcoming planned outfits. The `LaundryAlertBanner` component on the Plan page warns users to wash specific garments before their planned date. The style engine now returns laundry metadata (count + items) in its response for client-side awareness. Translations added for sv/en.
 
 ### Step 15: Seasonal Transition Intelligence
 During season changes (spring→summer), gradually shift suggestions. Detect transitional garments that bridge seasons.

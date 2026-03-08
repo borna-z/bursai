@@ -22,6 +22,7 @@ import { QuickPlanSheet } from '@/components/plan/QuickPlanSheet';
 import { PreselectDateSheet } from '@/components/plan/PreselectDateSheet';
 import { CalendarConnectBanner } from '@/components/plan/CalendarConnectBanner';
 import { DaySummaryCard } from '@/components/plan/DaySummaryCard';
+import { LaundryAlertBanner } from '@/components/plan/LaundryAlertBanner';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useDaySummary } from '@/hooks/useDaySummary';
@@ -266,6 +267,9 @@ export default function PlanPage() {
       <AnimatedPage className="max-w-lg mx-auto px-4 pt-4 pb-6">
         {/* Calendar connect nudge */}
         <CalendarConnectBanner />
+
+        {/* Laundry alert */}
+        <LaundryAlertBanner />
 
         {/* Week navigation */}
         <div className="py-2">

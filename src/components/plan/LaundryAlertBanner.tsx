@@ -1,0 +1,54 @@
+import { WashingMachine, AlertTriangle, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { format, parseISO, isToday, isTomorrow } from 'date-fns';
+import { getDateFnsLocale } from '@/lib/dateLocale';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useLaundryCycle } from '@/hooks/useLaundryCycle';
+import { motion, AnimatePresence } from 'framer-motion';
+
+export function LaundryAlertBanner() {
+  const { t, locale } = useLanguage();
+  const navigate = useNavigate();
+  const { alerts, inLaundryCount } = useLaundryCycle();
+
+  if (alerts.length === 0) return null;
+
+  const topAlert = alerts[0];
+  const dateObj = parseISO(topAlert.neededDate);
+  const dateLabel = isToday(dateObj)
+    ? t('plan.today')
+    : isTomorrow(dateObj)
+      ? t('plan.tomorrow')
+      : format(dateObj, 'EEEE', { locale: getDateFnsLocale(locale) });
+
+  return (
+    <AnimatePresence>
+      <motion.button
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8 }}
+        onClick={() => navigate(`/wardrobe/${topAlert.garment.id}`)}
+        className="w-full flex items-center gap-3 rounded-xl bg-warning/10 border border-warning/20 p-3 press text-left"
+      >
+        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-warning/15 flex items-center justify-center">
+          <WashingMachine className="w-4 h-4 text-warning" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-foreground truncate">
+            {t('laundry.wash_alert_title')}
+          </p>
+          <p className="text-[11px] text-muted-foreground truncate">
+            <span className="font-medium text-foreground">{topAlert.garment.title}</span>
+            {' '}{t('laundry.needed_for')}{' '}{dateLabel}
+          </p>
+        </div>
+        {alerts.length > 1 && (
+          <span className="text-[10px] text-warning font-medium whitespace-nowrap">
+            +{alerts.length - 1}
+          </span>
+        )}
+        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 flex-shrink-0" />
+      </motion.button>
+    </AnimatePresence>
+  );
+}
