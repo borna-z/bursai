@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, Check, ArrowRight, Merge, X } from 'lucide-react';
+import { AlertTriangle, Check, ArrowRight, Merge } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { LazyImage } from '@/components/ui/lazy-image';
-import { useStorage } from '@/hooks/useStorage';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import type { DuplicateMatch } from '@/hooks/useDuplicateDetection';
@@ -15,25 +14,17 @@ interface DuplicateWarningSheetProps {
   onKeepBoth: () => void;
   onReplace: (garmentId: string) => void;
   onCancel: () => void;
-  newImagePreview?: string | null;
 }
 
 function DuplicateCard({ match, onReplace }: { match: DuplicateMatch; onReplace: () => void }) {
-  const { getGarmentSignedUrl } = useStorage();
   const { t } = useLanguage();
-  const [signedUrl, setSignedUrl] = useState<string | null>(null);
-
-  // Get signed URL on mount
-  useState(() => {
-    getGarmentSignedUrl(match.image_path).then(setSignedUrl);
-  });
 
   const confidencePercent = Math.round(match.confidence * 100);
   const confidenceColor = confidencePercent >= 80
-    ? 'text-red-400'
+    ? 'text-destructive'
     : confidencePercent >= 60
-      ? 'text-amber-400'
-      : 'text-yellow-400';
+      ? 'text-accent'
+      : 'text-muted-foreground';
 
   return (
     <motion.div
@@ -42,9 +33,7 @@ function DuplicateCard({ match, onReplace }: { match: DuplicateMatch; onReplace:
       className="flex gap-3 p-3 rounded-xl bg-muted/50 border border-border/50"
     >
       <div className="w-16 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-        {signedUrl && (
-          <LazyImage src={signedUrl} alt={match.title} className="w-full h-full object-cover" />
-        )}
+        <LazyImage imagePath={match.image_path} alt={match.title} className="w-full h-full object-cover" aspectRatio="3/4" />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-foreground truncate">{match.title}</p>
@@ -87,8 +76,8 @@ export function DuplicateWarningSheet({
       <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh]">
         <SheetHeader className="pb-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-amber-500/15 flex items-center justify-center">
-              <AlertTriangle className="w-4 h-4 text-amber-500" />
+            <div className="w-8 h-8 rounded-full bg-accent/15 flex items-center justify-center">
+              <AlertTriangle className="w-4 h-4 text-accent" />
             </div>
             <SheetTitle className="text-base">
               {t('duplicate.title') || 'Possible duplicate detected'}
