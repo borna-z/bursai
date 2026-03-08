@@ -580,7 +580,7 @@ function scoreGarment(
   garment: GarmentRow,
   occasion: string,
   weather: WeatherInput,
-  penalties: Map<string, number>,
+  penalties: Map<string, GarmentPenalty>,
   prefs: Record<string, any> | null
 ): ScoredGarment {
   const ws = weatherSuitability(garment, weather);
