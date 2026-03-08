@@ -6013,6 +6013,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'calendar.google_privacy': 'BURS lê os seus eventos de calendário para ajudar a planear outfits em torno da sua agenda. Pode desligar a qualquer momento.',
     'reaction.styled': 'Estiloso', 'reaction.creative': 'Criativo', 'reaction.sustainable': 'Sustentável',
     'wardrobe.reel_save_error': 'Não foi possível guardar a imagem',
+    'duplicate.title': 'Possível duplicado detetado', 'duplicate.subtitle': 'Encontrámos peças semelhantes no seu guarda-roupa. O que gostaria de fazer?',
+    'duplicate.match': 'correspondência', 'duplicate.visual_and_attribute': 'Correspondência visual + atributos', 'duplicate.visual_match': 'Correspondência visual', 'duplicate.attribute_match': 'Correspondência de atributos',
+    'duplicate.replace': 'Substituir', 'duplicate.keep_both': 'Manter ambos — não é um duplicado', 'duplicate.cancel': 'Cancelar envio', 'duplicate.replaced': 'Peça antiga substituída',
   },
 
   nl: {
