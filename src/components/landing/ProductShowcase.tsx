@@ -1,12 +1,27 @@
 import { useLanguage } from '@/contexts/LanguageContext';
 import screenshotWardrobe from '@/assets/screenshot-wardrobe.png';
 import screenshotHome from '@/assets/screenshot-home.png';
-import screenshotStylist from '@/assets/screenshot-stylist.png';
+import screenshotPlanner from '@/assets/screenshot-planner.png';
 
 const SCREENS = [
-  { src: screenshotWardrobe, altKey: 'landing.showcase_wardrobe', labelKey: 'landing.showcase_wardrobe_label' },
-  { src: screenshotHome, altKey: 'landing.showcase_home', labelKey: 'landing.showcase_home_label' },
-  { src: screenshotStylist, altKey: 'landing.showcase_chat', labelKey: 'landing.showcase_chat_label' },
+  {
+    src: screenshotWardrobe,
+    altKey: 'landing.showcase_wardrobe_title',
+    titleKey: 'landing.showcase_wardrobe_title',
+    descKey: 'landing.showcase_wardrobe_desc',
+  },
+  {
+    src: screenshotHome,
+    altKey: 'landing.showcase_home_title',
+    titleKey: 'landing.showcase_home_title',
+    descKey: 'landing.showcase_home_desc',
+  },
+  {
+    src: screenshotPlanner,
+    altKey: 'landing.showcase_planner_title',
+    titleKey: 'landing.showcase_planner_title',
+    descKey: 'landing.showcase_planner_desc',
+  },
 ];
 
 export function ProductShowcase() {
@@ -18,12 +33,15 @@ export function ProductShowcase() {
         <p className="text-[10px] tracking-[0.4em] uppercase text-gray-500 text-center mb-4 reveal-up">
           {t('landing.product_label')}
         </p>
-        <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-white font-space text-center mb-16 reveal-up" style={{ '--reveal-delay': '80ms' } as React.CSSProperties}>
+        <h2
+          className="text-3xl md:text-5xl font-bold tracking-tight text-white font-space text-center mb-16 reveal-up"
+          style={{ '--reveal-delay': '80ms' } as React.CSSProperties}
+        >
           {t('landing.product_title')}
         </h2>
 
-        {/* Phone trio */}
-        <div className="flex justify-center items-end gap-4 md:gap-8 mb-14">
+        {/* Phone trio + labels */}
+        <div className="flex justify-center items-end gap-4 md:gap-8 mb-6">
           {SCREENS.map((screen, i) => {
             const isCenter = i === 1;
             const rotation = i === 0 ? '-rotate-3' : i === 2 ? 'rotate-3' : '';
@@ -50,13 +68,29 @@ export function ProductShowcase() {
           })}
         </div>
 
-        {/* Callouts */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto text-center">
-          {SCREENS.map((screen, i) => (
-            <p key={i} className="text-xs text-gray-500 tracking-wide reveal-up" style={{ '--reveal-delay': `${i * 80 + 400}ms` } as React.CSSProperties}>
-              {t(screen.labelKey)}
-            </p>
-          ))}
+        {/* Animated labels */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto text-center mt-10">
+          {SCREENS.map((screen, i) => {
+            const isCenter = i === 1;
+            const hide = isCenter ? '' : 'hidden sm:block';
+
+            return (
+              <div
+                key={i}
+                className={`${hide} reveal-up`}
+                style={{ '--reveal-delay': `${i * 100 + 500}ms` } as React.CSSProperties}
+              >
+                <div className="inline-flex flex-col items-center gap-1.5 px-5 py-3 rounded-2xl bg-white/[0.04] border border-white/[0.06] backdrop-blur-sm">
+                  <span className="text-[13px] font-semibold text-white tracking-wide">
+                    {t(screen.titleKey)}
+                  </span>
+                  <span className="text-[11px] text-gray-500 leading-snug">
+                    {t(screen.descKey)}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>
