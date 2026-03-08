@@ -57,13 +57,13 @@ const Discover = lazy(() => import('@/pages/Discover'));
 const routeTransition = {
   type: 'tween' as const,
   ease: EASE_CURVE,
-  duration: 0.4,
+  duration: 0.2,
 };
 
 const routeVariants = {
-  initial: { opacity: 0, y: 12, scale: 0.98 },
-  animate: { opacity: 1, y: 0, scale: 1 },
-  exit: { opacity: 0, y: -8, scale: 0.98 },
+  initial: { opacity: 0, y: 6 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -4 },
 };
 
 // Smoother crossfade for dark-to-dark page transitions (landing ↔ auth)
