@@ -185,10 +185,22 @@ export default function DiscoverPage() {
         <section>
           <SectionHeader
             title={t('discover.trending')}
-            action={t('discover.see_all')}
-            onAction={() => navigate('/feed')}
+            action={totalUsers >= TRENDING_USER_THRESHOLD ? t('discover.see_all') : undefined}
+            onAction={totalUsers >= TRENDING_USER_THRESHOLD ? () => navigate('/feed') : undefined}
           />
-          {feedLoading ? (
+          {totalUsers < TRENDING_USER_THRESHOLD ? (
+            <div className="text-center py-10 rounded-2xl border border-dashed border-border/40 bg-muted/20">
+              <Lock className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm font-medium text-muted-foreground">{t('discover.trending_locked')}</p>
+              <p className="text-[11px] text-muted-foreground/60 mt-1">
+                {t('discover.trending_locked_sub').replace('{count}', String(TRENDING_USER_THRESHOLD - totalUsers))}
+              </p>
+              <div className="mt-4 px-8">
+                <Progress value={(totalUsers / TRENDING_USER_THRESHOLD) * 100} className="h-1.5" />
+                <p className="text-[10px] text-muted-foreground/50 mt-1.5">{totalUsers} / {TRENDING_USER_THRESHOLD}</p>
+              </div>
+            </div>
+          ) : feedLoading ? (
             <div className="grid grid-cols-3 gap-2">
               {[1, 2, 3].map(i => <div key={i} className="aspect-square rounded-xl bg-muted animate-pulse" />)}
             </div>
