@@ -5931,6 +5931,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'calendar.google_privacy': 'BURS legge i tuoi eventi del calendario per aiutarti a pianificare outfit in base ai tuoi impegni. Puoi disconnetterti in qualsiasi momento.',
     'reaction.styled': 'Stiloso', 'reaction.creative': 'Creativo', 'reaction.sustainable': 'Sostenibile',
     'wardrobe.reel_save_error': 'Impossibile salvare l\'immagine',
+    'duplicate.title': 'Possibile duplicato rilevato', 'duplicate.subtitle': 'Abbiamo trovato capi simili nel tuo guardaroba. Cosa vuoi fare?',
+    'duplicate.match': 'corrispondenza', 'duplicate.visual_and_attribute': 'Corrispondenza visiva + attributi', 'duplicate.visual_match': 'Corrispondenza visiva', 'duplicate.attribute_match': 'Corrispondenza attributi',
+    'duplicate.replace': 'Sostituisci', 'duplicate.keep_both': 'Tieni entrambi — non è un duplicato', 'duplicate.cancel': 'Annulla caricamento', 'duplicate.replaced': 'Vecchio capo sostituito',
   },
 
   pt: {
