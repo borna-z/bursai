@@ -277,12 +277,12 @@ function VirtualGarmentGrid({
               style={{ position: 'absolute', top: virtualRow.start, left: 0, width: '100%', height: virtualRow.size, paddingBottom: GAP }}
             >
               <div className={cn(isGridView ? 'grid grid-cols-3 gap-1.5 h-full' : 'flex flex-col gap-1')}>
-                {rowGarments.map((garment) => (
+                {rowGarments.map((garment, colIdx) => (
                   <Fragment key={garment.id}>
                     {!isGridView && !isSelecting ? (
                       <SwipeableGarmentCard garment={garment} onEdit={() => onEdit(garment.id)} onLaundry={() => onLaundry(garment)} onDelete={() => onDelete(garment.id)} />
                     ) : (
-                      <GarmentCard garment={garment} isGridView={isGridView} isSelecting={isSelecting} isSelected={selectedIds.has(garment.id)} onSelect={() => onSelect(garment.id)} />
+                      <GarmentCard garment={garment} isGridView={isGridView} isSelecting={isSelecting} isSelected={selectedIds.has(garment.id)} onSelect={() => onSelect(garment.id)} index={startIdx + colIdx} />
                     )}
                   </Fragment>
                 ))}
