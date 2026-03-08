@@ -258,18 +258,27 @@ export default function AuthPage() {
               />
             </div>
 
-            {/* Confirm email - signup only */}
+            {/* Confirm password - signup only */}
             {!isLogin && (
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-white/50 pl-0.5">{t('auth.confirm_email')}</label>
-                <input
-                  type="email"
-                  placeholder="din@email.se"
-                  value={confirmEmail}
-                  onChange={(e) => setConfirmEmail(e.target.value)}
-                  disabled={isLoading}
-                  className={inputClass}
-                />
+                <label className="text-xs font-medium text-white/50 pl-0.5">{t('auth.confirm_password')}</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={isLoading}
+                    className={`${inputClass} pr-10`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
             )}
 
