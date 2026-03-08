@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format, addDays, isSameDay, isToday, isTomorrow } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
-import { Wand2, Shirt, Loader2, CalendarDays, Repeat, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart } from 'lucide-react';
+import { Wand2, Shirt, Loader2, CalendarDays, Repeat, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart, Luggage } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
@@ -233,15 +233,27 @@ export default function PlanPage() {
             </PopoverContent>
           </Popover>
 
-          <Button 
-            size="sm" 
-            variant="ghost"
-            onClick={() => setQuickPlanSheetOpen(true)}
-            disabled={!hasGarments}
-            className="press h-9 w-9 p-0"
-          >
-            <Wand2 className="w-4 h-4 text-muted-foreground" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button 
+              size="sm" 
+              variant="ghost"
+              onClick={() => navigate('/plan/travel-capsule')}
+              disabled={!hasGarments}
+              className="press h-9 w-9 p-0"
+              title={t('plan.travel_capsule')}
+            >
+              <Luggage className="w-4 h-4 text-muted-foreground" />
+            </Button>
+            <Button 
+              size="sm" 
+              variant="ghost"
+              onClick={() => setQuickPlanSheetOpen(true)}
+              disabled={!hasGarments}
+              className="press h-9 w-9 p-0"
+            >
+              <Wand2 className="w-4 h-4 text-muted-foreground" />
+            </Button>
+          </div>
         </div>
       </header>
 
