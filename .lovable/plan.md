@@ -3,8 +3,8 @@
 
 ## Phase 1: UX Polish & Performance (Steps 1–7)
 
-### Step 1: Skeleton & Loading State Audit 🔲
-Audit every data-fetching view for proper skeleton/shimmer states. Replace any raw spinners with contextual skeletons matching content layout. Ensure no flash-of-empty-content on slow networks.
+### Step 1: Skeleton & Loading State Audit ✅
+Audited all data-fetching views. Replaced raw `Loader2` spinners with contextual shimmer skeletons on Insights, Plan, Settings, and AIChat pages. Added `InsightsPageSkeleton`, `PlanPageSkeleton`, `SettingsPageSkeleton`, and `ChatPageSkeleton` to shared skeletons file. Home, Wardrobe, GarmentDetail, and OutfitDetail already had proper skeletons.
 
 ### Step 2: Haptic & Micro-Interaction Pass 🔲
 Add subtle haptic feedback (via `lib/haptics.ts`) to key actions: save outfit, mark worn, swipe dismiss, toggle laundry. Add spring animations to interactive cards (press-scale on tap, bounce on save).
