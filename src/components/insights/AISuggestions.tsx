@@ -107,7 +107,7 @@ function SuggestionCard({ suggestion, onTryIt, onPlan, isCreating }: SuggestionC
   const { t } = useLanguage();
 
   return (
-    <div className="p-4 bg-card/50 backdrop-blur-sm rounded-xl space-y-3 border border-border/40 animate-fade-in">
+    <div className="min-w-[85%] snap-center p-4 bg-card/50 backdrop-blur-sm rounded-xl space-y-3 border border-border/40 animate-fade-in">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <h4 className="font-semibold text-sm truncate">{suggestion.title}</h4>
@@ -287,17 +287,26 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
             <p className="text-sm text-muted-foreground">{t('insights.add_more_garments')}</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {suggestions.slice(0, 1).map((suggestion, index) => (
-              <SuggestionCard 
-                key={index}
-                suggestion={suggestion}
-                onTryIt={() => handleTryIt(suggestion, index)}
-                onPlan={() => handlePlan(suggestion)}
-                isCreating={creatingOutfitId === index}
-              />
-            ))}
-          </div>
+          <>
+            <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-6 px-6 pb-1">
+              {suggestions.map((suggestion, index) => (
+                <SuggestionCard 
+                  key={index}
+                  suggestion={suggestion}
+                  onTryIt={() => handleTryIt(suggestion, index)}
+                  onPlan={() => handlePlan(suggestion)}
+                  isCreating={creatingOutfitId === index}
+                />
+              ))}
+            </div>
+            {suggestions.length > 1 && (
+              <div className="flex justify-center gap-1.5 pt-2">
+                {suggestions.map((_, i) => (
+                  <div key={i} className="w-1.5 h-1.5 rounded-full bg-muted-foreground/20" />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
