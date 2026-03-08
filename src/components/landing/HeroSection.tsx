@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { lovable } from '@/integrations/lovable/index';
-import appScreenshot from '@/assets/app-screenshot-home.png';
+import appScreenshot from '@/assets/app-screenshot-home-new.png';
 
 export function HeroSection() {
   const navigate = useNavigate();
