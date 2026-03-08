@@ -7,6 +7,29 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ---------- i18n ----------
+
+const LANG_CONFIG: Record<string, { name: string; weatherLabel: string; todayLabel: string; tomorrowLabel: string; seasonNames: [string, string, string, string] }> = {
+  sv: { name: "svenska", weatherLabel: "Väder just nu", todayLabel: "Idag", tomorrowLabel: "Imorgon", seasonNames: ["vår", "sommar", "höst", "vinter"] },
+  en: { name: "English", weatherLabel: "Current weather", todayLabel: "Today", tomorrowLabel: "Tomorrow", seasonNames: ["spring", "summer", "autumn", "winter"] },
+  no: { name: "norsk", weatherLabel: "Vær nå", todayLabel: "I dag", tomorrowLabel: "I morgen", seasonNames: ["vår", "sommer", "høst", "vinter"] },
+  da: { name: "dansk", weatherLabel: "Vejr nu", todayLabel: "I dag", tomorrowLabel: "I morgen", seasonNames: ["forår", "sommer", "efterår", "vinter"] },
+  fi: { name: "suomi", weatherLabel: "Sää nyt", todayLabel: "Tänään", tomorrowLabel: "Huomenna", seasonNames: ["kevät", "kesä", "syksy", "talvi"] },
+  de: { name: "Deutsch", weatherLabel: "Wetter aktuell", todayLabel: "Heute", tomorrowLabel: "Morgen", seasonNames: ["Frühling", "Sommer", "Herbst", "Winter"] },
+  fr: { name: "français", weatherLabel: "Météo actuelle", todayLabel: "Aujourd'hui", tomorrowLabel: "Demain", seasonNames: ["printemps", "été", "automne", "hiver"] },
+  es: { name: "español", weatherLabel: "Clima actual", todayLabel: "Hoy", tomorrowLabel: "Mañana", seasonNames: ["primavera", "verano", "otoño", "invierno"] },
+  it: { name: "italiano", weatherLabel: "Meteo attuale", todayLabel: "Oggi", tomorrowLabel: "Domani", seasonNames: ["primavera", "estate", "autunno", "inverno"] },
+  pt: { name: "português", weatherLabel: "Clima atual", todayLabel: "Hoje", tomorrowLabel: "Amanhã", seasonNames: ["primavera", "verão", "outono", "inverno"] },
+  nl: { name: "Nederlands", weatherLabel: "Weer nu", todayLabel: "Vandaag", tomorrowLabel: "Morgen", seasonNames: ["lente", "zomer", "herfst", "winter"] },
+  pl: { name: "polski", weatherLabel: "Pogoda teraz", todayLabel: "Dziś", tomorrowLabel: "Jutro", seasonNames: ["wiosna", "lato", "jesień", "zima"] },
+  ar: { name: "العربية", weatherLabel: "الطقس الحالي", todayLabel: "اليوم", tomorrowLabel: "غدًا", seasonNames: ["ربيع", "صيف", "خريف", "شتاء"] },
+  fa: { name: "فارسی", weatherLabel: "آب‌و‌هوای فعلی", todayLabel: "امروز", tomorrowLabel: "فردا", seasonNames: ["بهار", "تابستان", "پاییز", "زمستان"] },
+};
+
+function getLang(locale: string) {
+  return LANG_CONFIG[locale] || LANG_CONFIG["en"];
+}
+
 // ---------- helpers ----------
 
 async function geocodeCity(city: string): Promise<{ lat: number; lon: number } | null> {
@@ -21,7 +44,7 @@ async function geocodeCity(city: string): Promise<{ lat: number; lon: number } |
   return null;
 }
 
-async function fetchWeather(lat: number, lon: number): Promise<string> {
+async function fetchWeather(lat: number, lon: number, lang: typeof LANG_CONFIG[string]): Promise<string> {
   try {
     const res = await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,precipitation,wind_speed_10m,weather_code`
@@ -29,11 +52,11 @@ async function fetchWeather(lat: number, lon: number): Promise<string> {
     const d = await res.json();
     const c = d?.current;
     if (!c) return "";
-    return `Väder just nu: ${c.temperature_2m}°C, vind ${c.wind_speed_10m} km/h, nederbörd ${c.precipitation} mm, väderkod ${c.weather_code}.`;
+    return `${lang.weatherLabel}: ${c.temperature_2m}°C, wind ${c.wind_speed_10m} km/h, precipitation ${c.precipitation} mm, code ${c.weather_code}.`;
   } catch { return ""; }
 }
 
-async function getCalendarContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
+async function getCalendarContext(supabase: ReturnType<typeof createClient>, userId: string, lang: typeof LANG_CONFIG[string]): Promise<string> {
   const today = new Date().toISOString().slice(0, 10);
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   const { data } = await supabase
@@ -46,9 +69,9 @@ async function getCalendarContext(supabase: ReturnType<typeof createClient>, use
     .limit(10);
   if (!data?.length) return "";
   const lines = data.map((e: { title: string; date: string; start_time: string | null }) =>
-    `- ${e.date === today ? "Idag" : "Imorgon"}: ${e.title}${e.start_time ? ` kl ${e.start_time.slice(0, 5)}` : ""}`
+    `- ${e.date === today ? lang.todayLabel : lang.tomorrowLabel}: ${e.title}${e.start_time ? ` ${e.start_time.slice(0, 5)}` : ""}`
   );
-  return `\nKalenderhändelser:\n${lines.join("\n")}`;
+  return `\nCalendar events:\n${lines.join("\n")}`;
 }
 
 async function getWardrobeContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
@@ -57,7 +80,7 @@ async function getWardrobeContext(supabase: ReturnType<typeof createClient>, use
     .select("id, title, category, color_primary, formality, season_tags, image_path")
     .eq("user_id", userId)
     .limit(50);
-  if (!garments?.length) return "Användaren har inga plagg i garderoben ännu.";
+  if (!garments?.length) return "The user has no garments in their wardrobe yet.";
 
   const summary = Object.entries(
     garments.reduce((acc: Record<string, number>, g: { category: string }) => {
@@ -66,14 +89,13 @@ async function getWardrobeContext(supabase: ReturnType<typeof createClient>, use
     }, {})
   ).map(([cat, count]) => `${count} ${cat}`).join(", ");
 
-  // Pick up to 15 specific garments for the AI to reference by name
   const details = garments.slice(0, 15).map((g: {
     id: string; title: string; category: string; color_primary: string; formality: number | null; season_tags: string[] | null
   }) =>
-    `• ${g.title} [ID:${g.id}] (${g.category}, ${g.color_primary}${g.formality ? `, formalitet ${g.formality}` : ""}${g.season_tags?.length ? `, ${g.season_tags.join("/")}` : ""})`
+    `• ${g.title} [ID:${g.id}] (${g.category}, ${g.color_primary}${g.formality ? `, formality ${g.formality}` : ""}${g.season_tags?.length ? `, ${g.season_tags.join("/")}` : ""})`
   ).join("\n");
 
-  return `Garderob (${garments.length} plagg: ${summary}):\n${details}`;
+  return `Wardrobe (${garments.length} garments: ${summary}):\n${details}`;
 }
 
 serve(async (req) => {
@@ -104,18 +126,21 @@ serve(async (req) => {
     }
     const user = { id: claimsData.claims.sub as string };
 
-    const { messages } = await req.json();
+    const { messages, locale: rawLocale } = await req.json();
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "Invalid messages" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const locale = (typeof rawLocale === "string" && LANG_CONFIG[rawLocale]) ? rawLocale : "sv";
+    const lang = getLang(locale);
+
     // Fetch all context in parallel
     const [profileRes, wardrobeCtx, calendarCtx] = await Promise.all([
       supabase.from("profiles").select("display_name, preferences, home_city, height_cm, weight_kg").eq("id", user.id).single(),
       getWardrobeContext(supabase, user.id),
-      getCalendarContext(supabase, user.id),
+      getCalendarContext(supabase, user.id, lang),
     ]);
 
     const profile = profileRes.data;
@@ -124,7 +149,7 @@ serve(async (req) => {
     let weatherCtx = "";
     if (profile?.home_city) {
       const coords = await geocodeCity(profile.home_city);
-      if (coords) weatherCtx = await fetchWeather(coords.lat, coords.lon);
+      if (coords) weatherCtx = await fetchWeather(coords.lat, coords.lon, lang);
     }
 
     // Body context
@@ -132,117 +157,105 @@ serve(async (req) => {
     const weightKg = profile?.weight_kg;
     let bodyContext = "";
     if (heightCm) {
-      let silhouetteHints = "";
-      if (heightCm < 165) silhouetteHints = "Korta snitt, högmidjade byxor och monokromt skapar längd.";
-      else if (heightCm <= 180) silhouetteHints = "Mellanlånga proportioner – de flesta snitt fungerar.";
-      else silhouetteHints = "Lång silhuett – kan bära lagerläggning och horisontella detaljer bra.";
-      bodyContext = `\nKroppsmått: ${heightCm} cm${weightKg ? `, ${weightKg} kg` : ""}. Tips: ${silhouetteHints}`;
+      bodyContext = `\nBody: ${heightCm} cm${weightKg ? `, ${weightKg} kg` : ""}`;
     }
 
-    // Style prefs — use full styleProfile (quiz v3) if available, fallback to legacy
+    // Style prefs
     const preferences = profile?.preferences as Record<string, unknown> || {};
     const sp = preferences.styleProfile as Record<string, any> | undefined;
     let styleLines = "";
     if (sp) {
       const parts: string[] = [];
-      // Identity
-      if (sp.gender) parts.push(`Kön: ${sp.gender}`);
-      if (sp.ageRange) parts.push(`Ålder: ${sp.ageRange}`);
-      if (sp.climate) parts.push(`Klimat: ${sp.climate}`);
-      // Lifestyle
-      if (sp.weekdayLife) parts.push(`Vardag: ${sp.weekdayLife}`);
-      if (sp.workFormality) parts.push(`Jobb-formalitet: ${sp.workFormality}`);
-      if (sp.weekendLife) parts.push(`Helg: ${sp.weekendLife}`);
-      if (sp.specialOccasionFreq) parts.push(`Speciella tillfällen: ${sp.specialOccasionFreq}`);
-      // Style DNA
-      if (sp.styleWords?.length) parts.push(`Stilord: ${sp.styleWords.join(", ")}`);
-      if (sp.comfortVsStyle !== undefined) parts.push(`Komfort vs stil: ${sp.comfortVsStyle}/100`);
-      if (sp.adventurousness) parts.push(`Modemodig: ${sp.adventurousness}`);
-      if (sp.trendFollowing) parts.push(`Trender: ${sp.trendFollowing}`);
-      if (sp.genderNeutral) parts.push("Könsneutral styling");
-      // Fit
-      if (sp.fit) parts.push(`Passform: ${sp.fit}`);
-      if (sp.layering) parts.push(`Lager: ${sp.layering}`);
-      if (sp.topFit) parts.push(`Överdelspassform: ${sp.topFit}`);
-      if (sp.bottomLength) parts.push(`Byxlängd: ${sp.bottomLength}`);
-      // Colors & patterns
-      if (sp.favoriteColors?.length) parts.push(`Favoritfärger: ${sp.favoriteColors.join(", ")}`);
-      if (sp.dislikedColors?.length) parts.push(`Undviker: ${sp.dislikedColors.join(", ")}`);
-      if (sp.paletteVibe) parts.push(`Palettskänsla: ${sp.paletteVibe}`);
-      if (sp.patternFeeling) parts.push(`Mönster: ${sp.patternFeeling}`);
-      // Philosophy
+      if (sp.gender) parts.push(`Gender: ${sp.gender}`);
+      if (sp.ageRange) parts.push(`Age: ${sp.ageRange}`);
+      if (sp.climate) parts.push(`Climate: ${sp.climate}`);
+      if (sp.weekdayLife) parts.push(`Weekday: ${sp.weekdayLife}`);
+      if (sp.workFormality) parts.push(`Work formality: ${sp.workFormality}`);
+      if (sp.weekendLife) parts.push(`Weekend: ${sp.weekendLife}`);
+      if (sp.styleWords?.length) parts.push(`Style words: ${sp.styleWords.join(", ")}`);
+      if (sp.comfortVsStyle !== undefined) parts.push(`Comfort vs style: ${sp.comfortVsStyle}/100`);
+      if (sp.adventurousness) parts.push(`Adventurousness: ${sp.adventurousness}`);
+      if (sp.trendFollowing) parts.push(`Trend following: ${sp.trendFollowing}`);
+      if (sp.genderNeutral) parts.push("Gender-neutral styling");
+      if (sp.fit) parts.push(`Fit: ${sp.fit}`);
+      if (sp.layering) parts.push(`Layering: ${sp.layering}`);
+      if (sp.topFit) parts.push(`Top fit: ${sp.topFit}`);
+      if (sp.bottomLength) parts.push(`Bottom length: ${sp.bottomLength}`);
+      if (sp.favoriteColors?.length) parts.push(`Favorite colors: ${sp.favoriteColors.join(", ")}`);
+      if (sp.dislikedColors?.length) parts.push(`Avoids: ${sp.dislikedColors.join(", ")}`);
+      if (sp.paletteVibe) parts.push(`Palette vibe: ${sp.paletteVibe}`);
+      if (sp.patternFeeling) parts.push(`Pattern: ${sp.patternFeeling}`);
       if (sp.shoppingMindset) parts.push(`Shopping: ${sp.shoppingMindset}`);
-      if (sp.sustainability) parts.push(`Hållbarhet: ${sp.sustainability}`);
-      if (sp.capsuleWardrobe) parts.push(`Kapselgarderob: ${sp.capsuleWardrobe}`);
-      if (sp.wardrobeFrustrations?.length) parts.push(`Frustrationer: ${sp.wardrobeFrustrations.join(", ")}`);
-      // Inspiration
-      if (sp.styleIcons) parts.push(`Inspireras av: ${sp.styleIcons}`);
-      if (sp.hardestOccasions?.length) parts.push(`Svårast att klä sig för: ${sp.hardestOccasions.join(", ")}`);
-      if (sp.fabricFeel) parts.push(`Favoritmaterial: ${sp.fabricFeel}`);
-      if (sp.signaturePieces) parts.push(`Signaturplagg: ${sp.signaturePieces}`);
-      // Goals
-      if (sp.primaryGoal) parts.push(`Huvudmål: ${sp.primaryGoal}`);
-      if (sp.morningTime) parts.push(`Morgonrutin: ${sp.morningTime}`);
-      if (sp.freeNote) parts.push(`Personlig anteckning: ${sp.freeNote}`);
+      if (sp.sustainability) parts.push(`Sustainability: ${sp.sustainability}`);
+      if (sp.capsuleWardrobe) parts.push(`Capsule wardrobe: ${sp.capsuleWardrobe}`);
+      if (sp.wardrobeFrustrations?.length) parts.push(`Frustrations: ${sp.wardrobeFrustrations.join(", ")}`);
+      if (sp.styleIcons) parts.push(`Inspired by: ${sp.styleIcons}`);
+      if (sp.hardestOccasions?.length) parts.push(`Hardest to dress for: ${sp.hardestOccasions.join(", ")}`);
+      if (sp.fabricFeel) parts.push(`Favorite fabric: ${sp.fabricFeel}`);
+      if (sp.signaturePieces) parts.push(`Signature pieces: ${sp.signaturePieces}`);
+      if (sp.primaryGoal) parts.push(`Primary goal: ${sp.primaryGoal}`);
+      if (sp.morningTime) parts.push(`Morning routine: ${sp.morningTime}`);
+      if (sp.freeNote) parts.push(`Personal note: ${sp.freeNote}`);
       styleLines = parts.join(". ");
     } else {
       styleLines = [
-        (preferences.favoriteColors as string[])?.length ? `Favoritfärger: ${(preferences.favoriteColors as string[]).join(", ")}` : "",
-        (preferences.dislikedColors as string[])?.length ? `Ogillar: ${(preferences.dislikedColors as string[]).join(", ")}` : "",
-        preferences.fitPreference ? `Passform: ${preferences.fitPreference}` : "",
-        preferences.styleVibe ? `Stil: ${preferences.styleVibe}` : "",
+        (preferences.favoriteColors as string[])?.length ? `Favorite colors: ${(preferences.favoriteColors as string[]).join(", ")}` : "",
+        (preferences.dislikedColors as string[])?.length ? `Dislikes: ${(preferences.dislikedColors as string[]).join(", ")}` : "",
+        preferences.fitPreference ? `Fit: ${preferences.fitPreference}` : "",
+        preferences.styleVibe ? `Style: ${preferences.styleVibe}` : "",
       ].filter(Boolean).join(". ");
     }
 
     const currentMonth = new Date().getMonth();
-    const seasonHint = currentMonth >= 2 && currentMonth <= 4 ? "vår" :
-                       currentMonth >= 5 && currentMonth <= 7 ? "sommar" :
-                       currentMonth >= 8 && currentMonth <= 10 ? "höst" : "vinter";
+    const seasonIdx = currentMonth >= 2 && currentMonth <= 4 ? 0 : currentMonth >= 5 && currentMonth <= 7 ? 1 : currentMonth >= 8 && currentMonth <= 10 ? 2 : 3;
+    const seasonHint = lang.seasonNames[seasonIdx];
 
-    const systemPrompt = `Du är BURS Stylisten – en personlig AI-stylingassistent med expertkunskap inom mode, trender och färgteori. Varm, professionell och konkret.
+    const systemPrompt = `You are BURS Stylist – a personal AI styling assistant with deep expertise in fashion, trends, and color theory. Warm, professional, and specific.
 
-Du har djup förståelse för:
-- Färgteori (komplementfärger, analogt matchande, ton-i-ton)
-- Aktuella ${seasonHint}trender ${new Date().getFullYear()} inom skandinaviskt mode
-- Silhuetter, proportioner och hur plagg samverkar
-- Hur man bygger en sammanhängande garderob
+CRITICAL LANGUAGE RULE: You MUST write ALL responses in ${lang.name}. Every single word of your response must be in ${lang.name}. Never respond in any other language.
 
-${profile?.display_name ? `Användare: ${profile.display_name}` : ""}${profile?.home_city ? ` (${profile.home_city})` : ""}${bodyContext}
-${styleLines ? `\nSTILPROFIL:\n${styleLines}` : ""}
+You have deep understanding of:
+- Color theory (complementary colors, analogous matching, tonal)
+- Current ${seasonHint} trends ${new Date().getFullYear()}
+- Silhouettes, proportions, and how garments interact
+- How to build a cohesive wardrobe
+
+${profile?.display_name ? `User: ${profile.display_name}` : ""}${profile?.home_city ? ` (${profile.home_city})` : ""}${bodyContext}
+${styleLines ? `\nSTYLE PROFILE:\n${styleLines}` : ""}
 
 ${wardrobeCtx}
 ${calendarCtx}
 ${weatherCtx}
 
-Ditt uppdrag:
-- Ge personliga stil- och outfitråd baserade på garderoben, stilprofil, kropp, väder och kalender
-- Referera ALLTID till användarens stilprofil när du ger råd — anpassa efter deras smak
-- När användaren laddar upp en bild: analysera outfiten (färger, passform, stil), jämför med garderoben, föreslå konkreta byten av plagg MED NAMN
-- Anpassa råd kring passform baserat på kroppsmått och preferenser
-- Kolla dagens kalenderhändelser och matcha outfit mot tillfälle
-- Varna om outfiten inte passar vädret
-- Var specifik: "Byt ut den vita t-shirten mot din marinblå Oxford-skjorta för morgondagens möte"
-- Tänk på säsongstrender och färgharmoni
+Your mission:
+- Give personal style and outfit advice based on wardrobe, style profile, body, weather, and calendar
+- ALWAYS reference the user's style profile when giving advice — adapt to their taste
+- When user uploads an image: analyze the outfit (colors, fit, style), compare with wardrobe, suggest specific garment swaps BY NAME
+- Adapt fit advice based on body measurements and preferences
+- Check today's calendar events and match outfit to occasion
+- Warn if outfit doesn't match the weather
+- Be specific: e.g. "Swap the white t-shirt for your navy Oxford shirt for tomorrow's meeting"
+- Consider seasonal trends and color harmony
 
-Regler:
-- Skriv alltid på svenska
-- Max 4-5 meningar per svar
-- Ställ max EN fråga i taget
-- Ge konkreta förslag med plaggens namn från garderoben
-- Undvik tekniskt språk
+Rules:
+- ALWAYS respond in ${lang.name}
+- Max 4-5 sentences per response
+- Ask max ONE question at a time
+- Give specific suggestions with garment names from the wardrobe
+- Avoid technical jargon
 
-VIKTIGT – Bildvisning av plagg:
-- Varje plagg i garderoben har ett unikt ID markerat med [ID:xxx].
-- När du rekommenderar ett specifikt plagg enskilt, inkludera taggen [[garment:ID]] direkt efter plaggnamnet.
-- Använd ALLTID dessa taggar när du nämner plagg från garderoben.
+IMPORTANT – Garment display:
+- Each garment has a unique ID marked with [ID:xxx].
+- When recommending a specific garment, include the tag [[garment:ID]] right after the garment name.
+- ALWAYS use these tags when mentioning garments from the wardrobe.
 
-VIKTIGT – Outfitkort:
-- När du föreslår en KOMPLETT outfit (2+ plagg tillsammans), MÅSTE du använda outfit-taggen istället:
-  [[outfit:id1,id2,id3|Kort förklaring varför denna outfit funkar]]
-- Exempel: [[outfit:abc-123,def-456,ghi-789|Marinblå och beige skapar en klassisk kombination som passar bra för kontoret]]
-- Outfit-taggen visar ett visuellt kort med alla plagg och en "Testa outfit"-knapp.
-- Använd outfit-taggen för HELA outfitförslag. Använd garment-taggen bara när du nämner enskilda plagg i löpande text.
-- Inkludera ALLTID en kort förklaring efter | i outfit-taggen.`;
+IMPORTANT – Outfit cards:
+- When suggesting a COMPLETE outfit (2+ garments together), you MUST use the outfit tag:
+  [[outfit:id1,id2,id3|Short explanation why this outfit works]]
+- The outfit tag displays a visual card with all garments and a "Try outfit" button.
+- Use outfit tags for FULL outfit suggestions. Use garment tags only when mentioning individual garments in running text.
+- ALWAYS include a short explanation after | in the outfit tag.
+- The explanation after | MUST also be in ${lang.name}.`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -280,18 +293,18 @@ VIKTIGT – Outfitkort:
 
     if (!response.ok) {
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "För många förfrågningar, försök igen om en stund." }), {
+        return new Response(JSON.stringify({ error: "Too many requests, please try again shortly." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI-tjänsten kräver mer kredit." }), {
+        return new Response(JSON.stringify({ error: "AI service requires more credit." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const errText = await response.text();
       console.error("AI gateway error:", response.status, errText);
-      return new Response(JSON.stringify({ error: "AI-tjänsten svarade inte." }), {
+      return new Response(JSON.stringify({ error: "AI service did not respond." }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -306,7 +319,7 @@ VIKTIGT – Outfitkort:
   } catch (e) {
     console.error("style_chat error:", e);
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Okänt fel" }),
+      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

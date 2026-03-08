@@ -189,7 +189,7 @@ export default function AIChat() {
       const resp = await fetch(chatUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages: newMessages, locale }),
       });
       if (!resp.ok) { const errData = await resp.json().catch(() => ({ error: t('chat.unknown_error') })); throw new Error(errData.error || `HTTP ${resp.status}`); }
       if (!resp.body) throw new Error(t('chat.no_response'));
