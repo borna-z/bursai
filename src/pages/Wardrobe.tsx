@@ -287,7 +287,6 @@ function VirtualGarmentGrid({
 // ── FAB Menu ──
 
 const fabItems = [
-  { icon: Link, labelKey: 'wardrobe.import_link', fallback: 'Import from Link', action: 'link' as const },
   { icon: ScanLine, labelKey: 'wardrobe.live_scan', fallback: 'BURS Live Scan', action: 'scan' as const },
   { icon: Camera, labelKey: 'wardrobe.add', fallback: 'Add from Photo', action: 'photo' as const },
 ];

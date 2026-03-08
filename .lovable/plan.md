@@ -1,14 +1,20 @@
 
 
-## Remove "Import from Link" from Wardrobe FAB Menu
+# Localized Pricing — ✅ DONE
 
-### Change
-In `src/pages/Wardrobe.tsx`, remove the "Import from Link" menu item from the `AddFAB` component, keeping only:
-1. **BURS Live Scan** (ScanLine icon)
-2. **Add** (Camera icon)
+## Display prices (landing, pricing page, paywall, premium section)
 
-Update the `menuItems` array to exclude the link import entry and adjust stagger indices accordingly.
+All pricing surfaces use `src/lib/localizedPricing.ts` to show locale-appropriate amounts:
 
-### Files to Edit
-1. **`src/pages/Wardrobe.tsx`** — Remove the link import item from the `menuItems` array in `AddFAB`
+| Language | Currency | Monthly | Yearly |
+|----------|----------|---------|--------|
+| sv, no | SEK/NOK | 59 kr | 499 kr |
+| da | DKK | 39 kr | 329 kr |
+| fi, de, fr, es, it, pt, nl, fa | EUR | €4,99 | €44,99 |
+| en | GBP | £3.99 | £34.99 |
+| pl | PLN | 19,99 zł | 179 zł |
+| ar | AED | 19 د.إ | 169 د.إ |
 
+## Stripe checkout (multi-currency charging)
+
+The `create_checkout_session` edge function maps `locale` → currency-specific Stripe Price IDs so users are charged in their local currency (not just SEK).
