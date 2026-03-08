@@ -1,10 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check } from 'lucide-react';
+import { Infinity, Brain, CalendarDays, BarChart3, Image, Sparkles, ArrowRight } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getLocalizedPricing } from '@/lib/localizedPricing';
 import { ComparisonTable } from './ComparisonTable';
 import type { Locale } from '@/i18n/translations';
+
+const FEATURES = [
+  { icon: Infinity, label: 'landing.comp_garments', value: 'landing.comp_unlimited' },
+  { icon: Sparkles, label: 'landing.comp_outfits', value: 'landing.comp_unlimited' },
+  { icon: Brain, label: 'landing.comp_ai', value: 'landing.comp_advanced' },
+  { icon: CalendarDays, label: 'landing.comp_calendar' },
+  { icon: BarChart3, label: 'landing.comp_insights' },
+  { icon: Image, label: 'landing.comp_flatlay' },
+] as const;
 
 export function PricingSection() {
   const navigate = useNavigate();
@@ -12,83 +21,116 @@ export function PricingSection() {
   const pricing = getLocalizedPricing(locale as Locale);
   const [yearly, setYearly] = useState(true);
 
+  const displayPrice = yearly ? pricing.yearlyMonthlyEquivalent : pricing.monthly;
+  const billingNote = yearly
+    ? `${pricing.yearly}${t('pricing.per_year')}`
+    : null;
+
   return (
     <section id="pricing" className="px-6 py-20 md:py-32">
-      <div className="max-w-4xl mx-auto w-full">
-        <p className="text-[10px] tracking-[0.4em] uppercase text-gray-500 text-center mb-4 reveal-up">
+      <div className="max-w-xl mx-auto w-full">
+        {/* Header */}
+        <p className="text-[10px] tracking-[0.4em] uppercase text-muted-foreground text-center mb-4 reveal-up">
           {t('landing.pricing_label')}
         </p>
-        <h2 className="text-3xl md:text-4xl font-bold text-center tracking-tight mb-6 text-white font-space reveal-up" style={{ '--reveal-delay': '80ms' } as React.CSSProperties}>
+        <h2 className="text-3xl md:text-4xl font-bold text-center tracking-tight mb-4 text-foreground font-space reveal-up" style={{ '--reveal-delay': '80ms' } as React.CSSProperties}>
           {t('landing.pricing_title')}
         </h2>
-        <p className="text-center text-gray-400 text-sm mb-10 reveal-up" style={{ '--reveal-delay': '120ms' } as React.CSSProperties}>
+        <p className="text-center text-muted-foreground text-sm mb-10 reveal-up" style={{ '--reveal-delay': '120ms' } as React.CSSProperties}>
           {t('landing.pricing_desc')}
         </p>
 
         {/* Toggle */}
-        <div className="flex items-center justify-center gap-4 mb-12 reveal-up" style={{ '--reveal-delay': '160ms' } as React.CSSProperties}>
-          <span className={`text-sm transition-colors ${!yearly ? 'text-white' : 'text-gray-500'}`}>{t('pricing.monthly_label')}</span>
+        <div className="flex items-center justify-center gap-4 mb-10 reveal-up" style={{ '--reveal-delay': '160ms' } as React.CSSProperties}>
+          <span className={`text-sm transition-colors ${!yearly ? 'text-foreground' : 'text-muted-foreground'}`}>
+            {t('pricing.monthly_label')}
+          </span>
           <button
             onClick={() => setYearly(!yearly)}
-            className={`relative w-12 h-6 rounded-full transition-all duration-300 ${yearly ? 'bg-indigo-500/20 border-indigo-500/30' : 'bg-white/[0.06] border-white/[0.06]'} border`}
+            className={`relative w-12 h-6 rounded-full transition-all duration-300 border ${
+              yearly
+                ? 'bg-primary/20 border-primary/30'
+                : 'bg-white/[0.06] border-white/[0.06]'
+            }`}
             role="switch"
             aria-checked={yearly}
           >
-            <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform duration-300 ${yearly ? 'translate-x-6' : 'translate-x-0.5'}`} />
+            <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-foreground transition-transform duration-300 ${yearly ? 'translate-x-6' : 'translate-x-0.5'}`} />
           </button>
-          <span className={`text-sm transition-colors flex items-center gap-2 ${yearly ? 'text-white' : 'text-gray-500'}`}>
+          <span className={`text-sm transition-colors flex items-center gap-2 ${yearly ? 'text-foreground' : 'text-muted-foreground'}`}>
             {t('pricing.yearly_label')}
-            {yearly && <span className="text-[10px] px-2 py-0.5 rounded-full font-medium tracking-wide text-amber-400 bg-amber-400/10 border border-amber-400/20">-{pricing.savingsPercent}%</span>}
+            {yearly && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-medium tracking-wide text-amber-400 bg-amber-400/10 border border-amber-400/20">
+                -{pricing.savingsPercent}%
+              </span>
+            )}
           </span>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-5 max-w-3xl mx-auto">
-          {/* Free */}
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 md:p-10 flex flex-col reveal-up" style={{ '--reveal-delay': '200ms' } as React.CSSProperties}>
-            <h3 className="text-lg font-semibold tracking-tight text-white font-space">{t('landing.free')}</h3>
-            <div className="mt-4 mb-6">
-              <span className="text-4xl font-bold text-white font-space">{t('landing.free_price')}</span>
-              <span className="text-gray-500 text-sm ml-1">{t('landing.per_month')}</span>
-            </div>
-            <ul className="space-y-3 text-sm text-gray-400 flex-1">
-              {[t('landing.free_f1'), t('landing.free_f2'), t('landing.free_f3'), t('landing.free_f4')].map(f => (
-                <li key={f} className="flex items-center gap-2.5">
-                  <Check size={14} strokeWidth={2} className="text-gray-500 shrink-0" />{f}
-                </li>
-              ))}
-            </ul>
-            <button onClick={() => navigate('/auth')} className="mt-8 w-full py-3.5 rounded-full font-medium text-sm text-white border border-white/[0.08] hover:border-white/[0.16] transition-all duration-300">
-              {t('landing.get_started')}
-            </button>
+        {/* Premium Card */}
+        <div
+          className="relative rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-sm p-8 md:p-10 reveal-scale"
+          style={{
+            '--reveal-delay': '200ms',
+            boxShadow: '0 0 80px -20px hsl(var(--primary) / 0.12), inset 0 1px 0 0 rgba(255,255,255,0.04)',
+          } as React.CSSProperties}
+        >
+          {/* Trial badge */}
+          <span className="absolute top-5 right-5 text-[10px] tracking-widest uppercase font-bold px-3 py-1 rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/20">
+            {t('landing.premium_price')}
+          </span>
+
+          <h3 className="text-sm tracking-[0.3em] uppercase text-muted-foreground font-medium mb-6">
+            {t('landing.premium')}
+          </h3>
+
+          {/* Price */}
+          <div className="mb-2">
+            <span className="text-5xl md:text-6xl font-bold text-foreground font-space tracking-tight">
+              {displayPrice}
+            </span>
+            <span className="text-muted-foreground text-sm ml-2">{t('pricing.per_month')}</span>
+          </div>
+          {billingNote && (
+            <p className="text-muted-foreground/60 text-xs mb-8">
+              {t('trial.then_prefix')} {billingNote}
+              {` · ${t('pricing.save')} ~${pricing.savingsPercent}%`}
+            </p>
+          )}
+          {!billingNote && <div className="mb-8" />}
+
+          {/* Divider */}
+          <div className="h-px bg-white/[0.06] mb-8" />
+
+          {/* Feature Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10">
+            {FEATURES.map(({ icon: Icon, label }) => (
+              <div key={label} className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                <Icon size={15} strokeWidth={1.5} className="text-foreground/60 shrink-0" />
+                <span>{t(label as any)}</span>
+              </div>
+            ))}
           </div>
 
-          {/* Premium */}
-          <div className="rounded-2xl bg-white text-[#030305] p-8 md:p-10 flex flex-col reveal-up relative" style={{ '--reveal-delay': '280ms' } as React.CSSProperties}>
-            <span className="absolute top-4 right-4 text-[10px] tracking-widest uppercase font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-200">
-              {t('landing.premium_badge')}
-            </span>
-            <h3 className="text-lg font-semibold tracking-tight font-space">{t('landing.premium')}</h3>
-            <div className="mt-4 mb-2">
-              <span className="text-4xl font-bold font-space">{t('landing.premium_price')}</span>
-              <span className="text-[#030305]/50 text-sm ml-1">{t('landing.premium_for')}</span>
-            </div>
-            <p className="text-[#030305]/40 text-xs mb-6">
-              {t('trial.then_prefix')} {yearly ? pricing.yearly + t('pricing.per_year') : pricing.monthly + t('pricing.per_month')}
-              {yearly && ` · ${t('pricing.save')} ~${pricing.savingsPercent}%`}
-            </p>
-            <ul className="space-y-3 text-sm text-[#030305]/60 flex-1">
-              {[t('landing.premium_f1'), t('landing.premium_f2'), t('landing.premium_f3'), t('landing.premium_f4'), t('landing.premium_f5')].map(f => (
-                <li key={f} className="flex items-center gap-2.5">
-                  <Check size={14} strokeWidth={2} className="text-[#030305] shrink-0" />{f}
-                </li>
-              ))}
-            </ul>
-            <button onClick={() => navigate('/auth')} className="mt-8 w-full py-3.5 bg-[#030305] text-white rounded-full font-medium hover:opacity-90 transition-all duration-300 text-sm">
-              {t('landing.start_trial')}
-            </button>
-          </div>
+          {/* CTA */}
+          <button
+            onClick={() => navigate('/auth')}
+            className="w-full py-3.5 bg-foreground text-background rounded-full font-medium text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all duration-300"
+          >
+            {t('landing.start_trial')}
+            <ArrowRight size={15} strokeWidth={2} />
+          </button>
         </div>
 
+        {/* Free footnote */}
+        <p className="text-center text-muted-foreground/50 text-xs mt-6 reveal-up" style={{ '--reveal-delay': '300ms' } as React.CSSProperties}>
+          {t('landing.free_f1')} · {t('landing.free_f2')} · {t('landing.free_f3')}.{' '}
+          <button onClick={() => navigate('/auth')} className="underline underline-offset-2 hover:text-foreground transition-colors">
+            {t('landing.get_started')}
+          </button>
+        </p>
+
+        {/* Comparison */}
         <div className="mt-8 text-center">
           <ComparisonTable />
         </div>

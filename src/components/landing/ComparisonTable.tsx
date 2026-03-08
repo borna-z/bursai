@@ -21,36 +21,36 @@ export function ComparisonTable() {
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="flex items-center gap-2 mx-auto text-sm text-gray-400 hover:text-white transition-colors py-4">
+      <CollapsibleTrigger className="flex items-center gap-2 mx-auto text-sm text-muted-foreground/50 hover:text-foreground transition-colors py-4">
         {t('landing.compare_plans')}
         <ChevronDown size={16} className={`transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="glass-panel rounded-2xl overflow-hidden max-w-2xl mx-auto mt-4 mb-8 reveal-scale" style={{ '--reveal-delay': '0ms' } as React.CSSProperties}>
+        <div className="rounded-xl overflow-hidden max-w-2xl mx-auto mt-4 mb-8 border border-white/[0.06] reveal-scale" style={{ '--reveal-delay': '0ms' } as React.CSSProperties}>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/5">
-                <th className="text-left py-4 px-6 text-gray-500 font-normal">{t('landing.comp_feature')}</th>
-                <th className="py-4 px-4 text-gray-500 font-normal text-center">{t('landing.free')}</th>
-                <th className="py-4 px-4 text-white font-medium text-center">{t('landing.premium')}</th>
+              <tr className="border-b border-white/[0.06]">
+                <th className="text-left py-3 px-5 text-muted-foreground/60 font-normal text-xs">{t('landing.comp_feature')}</th>
+                <th className="py-3 px-4 text-muted-foreground/60 font-normal text-xs text-center">{t('landing.free')}</th>
+                <th className="py-3 px-4 text-foreground/80 font-medium text-xs text-center">{t('landing.premium')}</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row, i) => (
-                <tr key={i} className="border-b border-white/5 last:border-0">
-                  <td className="py-3.5 px-6 text-gray-300">{row.feature}</td>
-                  <td className="py-3.5 px-4 text-center">
+                <tr key={i} className={`border-b border-white/[0.04] last:border-0 ${i % 2 === 0 ? 'bg-white/[0.01]' : ''}`}>
+                  <td className="py-3 px-5 text-muted-foreground text-xs">{row.feature}</td>
+                  <td className="py-3 px-4 text-center">
                     {typeof row.free === 'boolean' ? (
-                      row.free ? <Check size={16} className="mx-auto text-gray-400" /> : <XIcon size={16} className="mx-auto text-gray-600" />
+                      row.free ? <Check size={14} className="mx-auto text-muted-foreground/60" /> : <XIcon size={14} className="mx-auto text-muted-foreground/20" />
                     ) : (
-                      <span className="text-gray-400">{row.free}</span>
+                      <span className="text-muted-foreground/60 text-xs">{row.free}</span>
                     )}
                   </td>
-                  <td className="py-3.5 px-4 text-center">
+                  <td className="py-3 px-4 text-center">
                     {typeof row.premium === 'boolean' ? (
-                      row.premium ? <Check size={16} className="mx-auto text-white" /> : <XIcon size={16} className="mx-auto text-gray-600" />
+                      row.premium ? <Check size={14} className="mx-auto text-foreground" /> : <XIcon size={14} className="mx-auto text-muted-foreground/20" />
                     ) : (
-                      <span className="text-white font-medium">{row.premium}</span>
+                      <span className="text-foreground font-medium text-xs">{row.premium}</span>
                     )}
                   </td>
                 </tr>
