@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Star, Bookmark, BookmarkCheck, Check, RefreshCw, Share2, Loader2,
   Sparkles, Copy, Download, Link, Link2Off, Calendar, Thermometer, ThermometerSnowflake, Shirt, Briefcase,
+  Heart, Frown, Palette, Meh,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
