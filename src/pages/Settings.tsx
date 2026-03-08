@@ -64,6 +64,9 @@ export default function SettingsPage() {
             <ChevronRight className="w-4 h-4 text-destructive/30" />
           </SettingsRow>
         </SettingsGroup>
+
+        {/* App version */}
+        <p className="text-[11px] text-muted-foreground/30 text-center pt-4">BURS v{APP_VERSION}</p>
       </AnimatedPage>
     </AppLayout>
   );
