@@ -4339,6 +4339,22 @@ export const translations: Record<Locale, Record<string, string>> = {
     'privacy.s6_title': 'Sletting', 'privacy.s6_content': 'Du kan slette kontoen din og all tilknyttet data når som helst fra innstillingene. Sletting er permanent.',
     'privacy.contact_title': 'Kontakt', 'privacy.contact_text': 'For spørsmål om personvern, kontakt oss på',
     'privacy.gdpr_note': 'BURS overholder GDPR. Dine data lagres sikkert og deles aldri med tredjeparter.',
+    // Error boundary
+    'error.title': 'Noe gikk galt', 'error.desc': 'En uventet feil oppstod. Prøv å laste siden på nytt.', 'error.try_again': 'Prøv igjen', 'error.reload': 'Last på nytt',
+    // Seed
+    'seed.deleted': 'Alle gamle plagg slettet', 'seed.delete_error': 'Kunne ikke slette gamle plagg', 'seed.created': 'Opprettet {done} plagg ({failed} feilet)', 'seed.batch_failed': 'Batch feilet', 'seed.retry_failed': 'Forsøk feilet',
+    // Generate images
+    'genimg.title': 'Generer unike bilder', 'genimg.desc': 'Generer AI-produktbilder for alle plagg basert på attributter (farge, materiale, type). Erstatter duplikatbilder med unike.', 'genimg.total': 'Totalt plagg', 'genimg.generated': 'Generert', 'genimg.failed': 'Feilet', 'genimg.processing': 'Behandler…', 'genimg.done': 'Ferdig', 'genimg.generating': 'Genererer…', 'genimg.generate_all': 'Generer alle bilder', 'genimg.retry': 'Prøv igjen',
+    // Contact
+    'contact.title': 'Kontakt', 'contact.subtitle': 'Har du spørsmål? Vi hjelper gjerne.', 'contact.success': 'Takk for meldingen din. Vi svarer så snart som mulig.', 'contact.name': 'Ditt navn', 'contact.email': 'Din e-postadresse', 'contact.message': 'Din melding', 'contact.send': 'Send melding', 'contact.rights': 'Alle rettigheter forbeholdt.', 'contact.gdpr_note': 'BURS følger GDPR. Dine data lagres sikkert og deles aldri med tredjeparter.',
+    // Footer
+    'footer.privacy': 'Personvernerklæring', 'footer.terms': 'Bruksvilkår', 'footer.agree': 'Ved å bruke BURS godtar du vår', 'footer.rights': 'Alle rettigheter forbeholdt.',
+    // Calendar
+    'calendar.google_privacy': 'BURS leser kalenderhendelsene dine for å hjelpe med å planlegge antrekk rundt timeplanen din. Du kan koble fra når som helst.',
+    // Reactions
+    'reaction.styled': 'Stilig', 'reaction.creative': 'Kreativt', 'reaction.sustainable': 'Bærekraftig',
+    // Reel
+    'wardrobe.reel_save_error': 'Kunne ikke lagre bilde',
   },
 
   da: {
@@ -4664,6 +4680,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'privacy.s6_title': 'Sletning', 'privacy.s6_content': 'Du kan slette din konto og alle tilknyttede data når som helst fra indstillingerne.',
     'privacy.contact_title': 'Kontakt', 'privacy.contact_text': 'For spørgsmål om privatliv, kontakt os på',
     'privacy.gdpr_note': 'BURS overholder GDPR. Dine data opbevares sikkert og deles aldrig med tredjeparter.',
+    'error.title': 'Noget gik galt', 'error.desc': 'En uventet fejl opstod. Prøv at genindlæse siden.', 'error.try_again': 'Prøv igen', 'error.reload': 'Genindlæs',
+    'seed.deleted': 'Alle gamle beklædningsgenstande slettet', 'seed.delete_error': 'Kunne ikke slette gamle beklædningsgenstande', 'seed.created': 'Oprettet {done} beklædningsgenstande ({failed} fejlede)', 'seed.batch_failed': 'Batch fejlede', 'seed.retry_failed': 'Forsøg fejlede',
+    'genimg.title': 'Generer unikke billeder', 'genimg.desc': 'Generer AI-produktfotos for alle beklædningsgenstande baseret på attributter (farve, materiale, type).', 'genimg.total': 'Antal i alt', 'genimg.generated': 'Genereret', 'genimg.failed': 'Fejlede', 'genimg.processing': 'Behandler…', 'genimg.done': 'Færdig', 'genimg.generating': 'Genererer…', 'genimg.generate_all': 'Generer alle billeder', 'genimg.retry': 'Prøv igen',
+    'contact.title': 'Kontakt', 'contact.subtitle': 'Har du spørgsmål? Vi hjælper gerne.', 'contact.success': 'Tak for din besked. Vi vender tilbage hurtigst muligt.', 'contact.name': 'Dit navn', 'contact.email': 'Din e-mailadresse', 'contact.message': 'Din besked', 'contact.send': 'Send besked', 'contact.rights': 'Alle rettigheder forbeholdes.', 'contact.gdpr_note': 'BURS overholder GDPR. Dine data opbevares sikkert og deles aldrig med tredjeparter.',
+    'footer.privacy': 'Privatlivspolitik', 'footer.terms': 'Brugsvilkår', 'footer.agree': 'Ved at bruge BURS accepterer du vores', 'footer.rights': 'Alle rettigheder forbeholdes.',
+    'calendar.google_privacy': 'BURS læser dine kalenderbegivenheder for at hjælpe med at planlægge outfits omkring din tidsplan. Du kan afbryde forbindelsen når som helst.',
+    'reaction.styled': 'Stilfuldt', 'reaction.creative': 'Kreativt', 'reaction.sustainable': 'Bæredygtigt',
+    'wardrobe.reel_save_error': 'Kunne ikke gemme billede',
   },
 
   fi: {
@@ -4989,6 +5013,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'privacy.s6_title': 'Poisto', 'privacy.s6_content': 'Voit poistaa tilisi ja kaikki siihen liittyvät tiedot milloin tahansa asetuksista.',
     'privacy.contact_title': 'Yhteystiedot', 'privacy.contact_text': 'Tietosuojakysymyksissä ota yhteyttä',
     'privacy.gdpr_note': 'BURS noudattaa GDPR:ää. Tietosi tallennetaan turvallisesti eikä niitä koskaan jaeta kolmansille osapuolille.',
+    'error.title': 'Jokin meni pieleen', 'error.desc': 'Odottamaton virhe tapahtui. Yritä ladata sivu uudelleen.', 'error.try_again': 'Yritä uudelleen', 'error.reload': 'Lataa uudelleen',
+    'seed.deleted': 'Kaikki vanhat vaatteet poistettu', 'seed.delete_error': 'Vanhojen vaatteiden poisto epäonnistui', 'seed.created': 'Luotiin {done} vaatetta ({failed} epäonnistui)', 'seed.batch_failed': 'Erä epäonnistui', 'seed.retry_failed': 'Uudelleenyritys epäonnistui',
+    'genimg.title': 'Luo uniikit kuvat', 'genimg.desc': 'Luo AI-tuotekuvat kaikille vaatteille ominaisuuksien perusteella (väri, materiaali, tyyppi).', 'genimg.total': 'Vaatteita yhteensä', 'genimg.generated': 'Luotu', 'genimg.failed': 'Epäonnistui', 'genimg.processing': 'Käsitellään…', 'genimg.done': 'Valmis', 'genimg.generating': 'Luodaan…', 'genimg.generate_all': 'Luo kaikki kuvat', 'genimg.retry': 'Yritä uudelleen',
+    'contact.title': 'Yhteystiedot', 'contact.subtitle': 'Onko kysyttävää? Autamme mielellämme.', 'contact.success': 'Kiitos viestistäsi. Palaamme asiaan mahdollisimman pian.', 'contact.name': 'Nimesi', 'contact.email': 'Sähköpostiosoitteesi', 'contact.message': 'Viestisi', 'contact.send': 'Lähetä viesti', 'contact.rights': 'Kaikki oikeudet pidätetään.', 'contact.gdpr_note': 'BURS noudattaa GDPR:ää. Tietosi tallennetaan turvallisesti eikä niitä jaeta kolmansille osapuolille.',
+    'footer.privacy': 'Tietosuojakäytäntö', 'footer.terms': 'Käyttöehdot', 'footer.agree': 'Käyttämällä BURSia hyväksyt meidän', 'footer.rights': 'Kaikki oikeudet pidätetään.',
+    'calendar.google_privacy': 'BURS lukee kalenteritapahtumasi auttaakseen suunnittelemaan asuja aikataulusi ympärille. Voit katkaista yhteyden milloin tahansa.',
+    'reaction.styled': 'Tyylikäs', 'reaction.creative': 'Luova', 'reaction.sustainable': 'Kestävä',
+    'wardrobe.reel_save_error': 'Kuvan tallennus epäonnistui',
   },
 
   de: {
@@ -5314,6 +5346,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'privacy.s6_title': 'Löschung', 'privacy.s6_content': 'Du kannst dein Konto und alle zugehörigen Daten jederzeit in den Einstellungen löschen.',
     'privacy.contact_title': 'Kontakt', 'privacy.contact_text': 'Bei Datenschutzfragen kontaktiere uns unter',
     'privacy.gdpr_note': 'BURS entspricht der DSGVO. Deine Daten werden sicher gespeichert und nie an Dritte weitergegeben.',
+    'error.title': 'Etwas ist schiefgelaufen', 'error.desc': 'Ein unerwarteter Fehler ist aufgetreten. Versuche die Seite neu zu laden.', 'error.try_again': 'Erneut versuchen', 'error.reload': 'Neu laden',
+    'seed.deleted': 'Alle alten Kleidungsstücke gelöscht', 'seed.delete_error': 'Alte Kleidungsstücke konnten nicht gelöscht werden', 'seed.created': '{done} Kleidungsstücke erstellt ({failed} fehlgeschlagen)', 'seed.batch_failed': 'Batch fehlgeschlagen', 'seed.retry_failed': 'Wiederholung fehlgeschlagen',
+    'genimg.title': 'Einzigartige Bilder generieren', 'genimg.desc': 'Generiere AI-Produktfotos für alle Kleidungsstücke basierend auf Attributen (Farbe, Material, Typ).', 'genimg.total': 'Gesamt', 'genimg.generated': 'Generiert', 'genimg.failed': 'Fehlgeschlagen', 'genimg.processing': 'Verarbeitung…', 'genimg.done': 'Fertig', 'genimg.generating': 'Generierung…', 'genimg.generate_all': 'Alle Bilder generieren', 'genimg.retry': 'Erneut versuchen',
+    'contact.title': 'Kontakt', 'contact.subtitle': 'Hast du Fragen? Wir helfen gerne.', 'contact.success': 'Danke für deine Nachricht. Wir melden uns so schnell wie möglich.', 'contact.name': 'Dein Name', 'contact.email': 'Deine E-Mail-Adresse', 'contact.message': 'Deine Nachricht', 'contact.send': 'Nachricht senden', 'contact.rights': 'Alle Rechte vorbehalten.', 'contact.gdpr_note': 'BURS entspricht der DSGVO. Deine Daten werden sicher gespeichert und nie an Dritte weitergegeben.',
+    'footer.privacy': 'Datenschutzerklärung', 'footer.terms': 'Nutzungsbedingungen', 'footer.agree': 'Durch die Nutzung von BURS stimmst du unseren', 'footer.rights': 'Alle Rechte vorbehalten.',
+    'calendar.google_privacy': 'BURS liest deine Kalendereinträge, um Outfits rund um deinen Zeitplan zu planen. Du kannst die Verbindung jederzeit trennen.',
+    'reaction.styled': 'Stilvoll', 'reaction.creative': 'Kreativ', 'reaction.sustainable': 'Nachhaltig',
+    'wardrobe.reel_save_error': 'Bild konnte nicht gespeichert werden',
   },
 
   fr: {
@@ -5616,6 +5656,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'terms.title': 'Conditions d\'utilisation', 'terms.s1_title': 'Acceptation', 'terms.s1_content': 'En utilisant BURS vous acceptez ces conditions.', 'terms.s2_title': 'Le service', 'terms.s2_content': 'BURS est un gestionnaire de garde-robe numérique et styliste IA personnel.', 'terms.s3_title': 'Votre contenu', 'terms.s3_content': 'Vous conservez la propriété des images et du contenu que vous téléchargez.', 'terms.s4_title': 'Mensurations et données personnelles', 'terms.s4_content': 'Les mensurations sont facultatives et utilisées uniquement pour améliorer les conseils de l\'IA.', 'terms.s5_title': 'Limitations', 'terms.s5_content': 'Nous ne sommes pas responsables des dommages découlant de l\'utilisation du service.', 'terms.s6_title': 'Modifications', 'terms.s6_content': 'Nous pouvons mettre à jour ces conditions.',
     'privacy.title': 'Politique de confidentialité', 'privacy.s1_title': 'Données collectées', 'privacy.s1_content': 'Nous collectons les informations que vous fournissez directement.', 'privacy.s2_title': 'Stockage', 'privacy.s2_content': 'Toutes les données sont stockées de manière sécurisée.', 'privacy.s3_title': 'Données de calendrier', 'privacy.s3_content': 'Si vous connectez votre calendrier, l\'app lit les titres et dates.', 'privacy.s4_title': 'Styliste IA', 'privacy.s4_content': 'Les conversations sont enregistrées chiffrées.', 'privacy.s5_title': 'Analytique', 'privacy.s5_content': 'Nous utilisons des analyses anonymes.', 'privacy.s6_title': 'Suppression', 'privacy.s6_content': 'Vous pouvez supprimer votre compte et toutes les données à tout moment.',
     'privacy.contact_title': 'Contact', 'privacy.contact_text': 'Pour les questions de confidentialité, contactez-nous à', 'privacy.gdpr_note': 'BURS est conforme au RGPD.',
+    'error.title': 'Une erreur est survenue', 'error.desc': 'Une erreur inattendue s\'est produite. Essayez de recharger la page.', 'error.try_again': 'Réessayer', 'error.reload': 'Recharger',
+    'seed.deleted': 'Tous les anciens vêtements supprimés', 'seed.delete_error': 'Impossible de supprimer les anciens vêtements', 'seed.created': '{done} vêtements créés ({failed} échoués)', 'seed.batch_failed': 'Lot échoué', 'seed.retry_failed': 'Nouvelle tentative échouée',
+    'genimg.title': 'Générer des images uniques', 'genimg.desc': 'Générez des photos IA pour tous les vêtements selon leurs attributs (couleur, matière, type).', 'genimg.total': 'Total vêtements', 'genimg.generated': 'Générées', 'genimg.failed': 'Échouées', 'genimg.processing': 'Traitement…', 'genimg.done': 'Terminé', 'genimg.generating': 'Génération…', 'genimg.generate_all': 'Générer toutes les images', 'genimg.retry': 'Réessayer',
+    'contact.title': 'Contact', 'contact.subtitle': 'Des questions ? Nous sommes là pour vous aider.', 'contact.success': 'Merci pour votre message. Nous vous répondrons dès que possible.', 'contact.name': 'Votre nom', 'contact.email': 'Votre adresse e-mail', 'contact.message': 'Votre message', 'contact.send': 'Envoyer le message', 'contact.rights': 'Tous droits réservés.', 'contact.gdpr_note': 'BURS est conforme au RGPD. Vos données sont stockées en toute sécurité et jamais partagées avec des tiers.',
+    'footer.privacy': 'Politique de confidentialité', 'footer.terms': 'Conditions d\'utilisation', 'footer.agree': 'En utilisant BURS, vous acceptez notre', 'footer.rights': 'Tous droits réservés.',
+    'calendar.google_privacy': 'BURS lit vos événements de calendrier pour vous aider à planifier des tenues autour de votre emploi du temps. Vous pouvez vous déconnecter à tout moment.',
+    'reaction.styled': 'Stylé', 'reaction.creative': 'Créatif', 'reaction.sustainable': 'Durable',
+    'wardrobe.reel_save_error': 'Impossible d\'enregistrer l\'image',
   },
 
   es: {
@@ -5746,6 +5794,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'insights.wardrobe_usage': 'Uso del armario', 'insights.used_label': 'usadas', 'insights.unused_label': 'sin usar',
     'wardrobe.import_link': 'Importar desde enlace', 'wardrobe.live_scan': 'BURS Live Scan',
     'settings.row.insights': 'Estadísticas del armario', 'settings.row.insights_sub': 'Estadísticas y análisis',
+    'error.title': 'Algo salió mal', 'error.desc': 'Ocurrió un error inesperado. Intenta recargar la página.', 'error.try_again': 'Reintentar', 'error.reload': 'Recargar',
+    'seed.deleted': 'Todas las prendas antiguas eliminadas', 'seed.delete_error': 'No se pudieron eliminar las prendas antiguas', 'seed.created': '{done} prendas creadas ({failed} fallaron)', 'seed.batch_failed': 'Lote fallido', 'seed.retry_failed': 'Reintento fallido',
+    'genimg.title': 'Generar imágenes únicas', 'genimg.desc': 'Genera fotos IA para todas las prendas según sus atributos (color, material, tipo).', 'genimg.total': 'Total prendas', 'genimg.generated': 'Generadas', 'genimg.failed': 'Fallidas', 'genimg.processing': 'Procesando…', 'genimg.done': 'Listo', 'genimg.generating': 'Generando…', 'genimg.generate_all': 'Generar todas las imágenes', 'genimg.retry': 'Reintentar',
+    'contact.title': 'Contacto', 'contact.subtitle': '¿Tienes preguntas? Estamos encantados de ayudar.', 'contact.success': 'Gracias por tu mensaje. Te responderemos lo antes posible.', 'contact.name': 'Tu nombre', 'contact.email': 'Tu correo electrónico', 'contact.message': 'Tu mensaje', 'contact.send': 'Enviar mensaje', 'contact.rights': 'Todos los derechos reservados.', 'contact.gdpr_note': 'BURS cumple con el RGPD. Tus datos se almacenan de forma segura y nunca se comparten con terceros.',
+    'footer.privacy': 'Política de privacidad', 'footer.terms': 'Términos de uso', 'footer.agree': 'Al usar BURS aceptas nuestra', 'footer.rights': 'Todos los derechos reservados.',
+    'calendar.google_privacy': 'BURS lee tus eventos de calendario para ayudarte a planificar outfits según tu agenda. Puedes desconectarte en cualquier momento.',
+    'reaction.styled': 'Con estilo', 'reaction.creative': 'Creativo', 'reaction.sustainable': 'Sostenible',
+    'wardrobe.reel_save_error': 'No se pudo guardar la imagen',
   },
 
   it: {
@@ -5816,6 +5872,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'insights.wardrobe_usage': 'Utilizzo guardaroba', 'insights.used_label': 'usati', 'insights.unused_label': 'non usati',
     'wardrobe.import_link': 'Importa da link', 'wardrobe.live_scan': 'BURS Live Scan',
     'settings.row.insights': 'Panoramica guardaroba', 'settings.row.insights_sub': 'Statistiche e analisi',
+    'error.title': 'Qualcosa è andato storto', 'error.desc': 'Si è verificato un errore imprevisto. Prova a ricaricare la pagina.', 'error.try_again': 'Riprova', 'error.reload': 'Ricarica',
+    'seed.deleted': 'Tutti i vecchi capi eliminati', 'seed.delete_error': 'Impossibile eliminare i vecchi capi', 'seed.created': '{done} capi creati ({failed} falliti)', 'seed.batch_failed': 'Batch fallito', 'seed.retry_failed': 'Nuovo tentativo fallito',
+    'genimg.title': 'Genera immagini uniche', 'genimg.desc': 'Genera foto AI per tutti i capi in base agli attributi (colore, materiale, tipo).', 'genimg.total': 'Totale capi', 'genimg.generated': 'Generate', 'genimg.failed': 'Fallite', 'genimg.processing': 'Elaborazione…', 'genimg.done': 'Fatto', 'genimg.generating': 'Generazione…', 'genimg.generate_all': 'Genera tutte le immagini', 'genimg.retry': 'Riprova',
+    'contact.title': 'Contatto', 'contact.subtitle': 'Hai domande? Siamo felici di aiutarti.', 'contact.success': 'Grazie per il tuo messaggio. Ti risponderemo il prima possibile.', 'contact.name': 'Il tuo nome', 'contact.email': 'Il tuo indirizzo e-mail', 'contact.message': 'Il tuo messaggio', 'contact.send': 'Invia messaggio', 'contact.rights': 'Tutti i diritti riservati.', 'contact.gdpr_note': 'BURS è conforme al GDPR. I tuoi dati sono archiviati in modo sicuro e mai condivisi con terze parti.',
+    'footer.privacy': 'Informativa sulla privacy', 'footer.terms': 'Condizioni d\'uso', 'footer.agree': 'Utilizzando BURS accetti la nostra', 'footer.rights': 'Tutti i diritti riservati.',
+    'calendar.google_privacy': 'BURS legge i tuoi eventi del calendario per aiutarti a pianificare outfit in base ai tuoi impegni. Puoi disconnetterti in qualsiasi momento.',
+    'reaction.styled': 'Stiloso', 'reaction.creative': 'Creativo', 'reaction.sustainable': 'Sostenibile',
+    'wardrobe.reel_save_error': 'Impossibile salvare l\'immagine',
   },
 
   pt: {
@@ -5886,6 +5950,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'insights.wardrobe_usage': 'Uso do guarda-roupa', 'insights.used_label': 'usadas', 'insights.unused_label': 'não usadas',
     'wardrobe.import_link': 'Importar via link', 'wardrobe.live_scan': 'BURS Live Scan',
     'settings.row.insights': 'Visão do guarda-roupa', 'settings.row.insights_sub': 'Estatísticas e análise',
+    'error.title': 'Algo deu errado', 'error.desc': 'Ocorreu um erro inesperado. Tente recarregar a página.', 'error.try_again': 'Tentar novamente', 'error.reload': 'Recarregar',
+    'seed.deleted': 'Todas as peças antigas eliminadas', 'seed.delete_error': 'Não foi possível eliminar as peças antigas', 'seed.created': '{done} peças criadas ({failed} falharam)', 'seed.batch_failed': 'Lote falhou', 'seed.retry_failed': 'Nova tentativa falhou',
+    'genimg.title': 'Gerar imagens únicas', 'genimg.desc': 'Gera fotos IA para todas as peças com base nos atributos (cor, material, tipo).', 'genimg.total': 'Total de peças', 'genimg.generated': 'Geradas', 'genimg.failed': 'Falharam', 'genimg.processing': 'A processar…', 'genimg.done': 'Concluído', 'genimg.generating': 'A gerar…', 'genimg.generate_all': 'Gerar todas as imagens', 'genimg.retry': 'Tentar novamente',
+    'contact.title': 'Contacto', 'contact.subtitle': 'Tem perguntas? Estamos cá para ajudar.', 'contact.success': 'Obrigado pela sua mensagem. Responderemos o mais breve possível.', 'contact.name': 'O seu nome', 'contact.email': 'O seu e-mail', 'contact.message': 'A sua mensagem', 'contact.send': 'Enviar mensagem', 'contact.rights': 'Todos os direitos reservados.', 'contact.gdpr_note': 'BURS cumpre o RGPD. Os seus dados são armazenados com segurança e nunca partilhados com terceiros.',
+    'footer.privacy': 'Política de Privacidade', 'footer.terms': 'Termos de Utilização', 'footer.agree': 'Ao usar o BURS aceita a nossa', 'footer.rights': 'Todos os direitos reservados.',
+    'calendar.google_privacy': 'BURS lê os seus eventos de calendário para ajudar a planear outfits em torno da sua agenda. Pode desligar a qualquer momento.',
+    'reaction.styled': 'Estiloso', 'reaction.creative': 'Criativo', 'reaction.sustainable': 'Sustentável',
+    'wardrobe.reel_save_error': 'Não foi possível guardar a imagem',
   },
 
   nl: {
@@ -5956,6 +6028,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'landing.showcase_home_title': 'Je dagelijkse outfit, klaar om te dragen', 'landing.showcase_home_desc': 'AI kiest je look op basis van weer & stijl.',
     'landing.showcase_planner_title': 'Plan je week moeiteloos', 'landing.showcase_planner_desc': 'Weerbewuste suggesties, dag voor dag.',
     'settings.row.insights': 'Kledingkast inzichten', 'settings.row.insights_sub': 'Statistieken & analyse',
+    'error.title': 'Er is iets misgegaan', 'error.desc': 'Er is een onverwachte fout opgetreden. Probeer de pagina opnieuw te laden.', 'error.try_again': 'Opnieuw proberen', 'error.reload': 'Herladen',
+    'seed.deleted': 'Alle oude kledingstukken verwijderd', 'seed.delete_error': 'Kon oude kledingstukken niet verwijderen', 'seed.created': '{done} kledingstukken aangemaakt ({failed} mislukt)', 'seed.batch_failed': 'Batch mislukt', 'seed.retry_failed': 'Nieuwe poging mislukt',
+    'genimg.title': 'Unieke afbeeldingen genereren', 'genimg.desc': 'Genereer AI-productfoto\'s voor alle kledingstukken op basis van attributen (kleur, materiaal, type).', 'genimg.total': 'Totaal', 'genimg.generated': 'Gegenereerd', 'genimg.failed': 'Mislukt', 'genimg.processing': 'Verwerken…', 'genimg.done': 'Klaar', 'genimg.generating': 'Genereren…', 'genimg.generate_all': 'Alle afbeeldingen genereren', 'genimg.retry': 'Opnieuw proberen',
+    'contact.title': 'Contact', 'contact.subtitle': 'Heb je vragen? We helpen je graag.', 'contact.success': 'Bedankt voor je bericht. We nemen zo snel mogelijk contact op.', 'contact.name': 'Je naam', 'contact.email': 'Je e-mailadres', 'contact.message': 'Je bericht', 'contact.send': 'Bericht versturen', 'contact.rights': 'Alle rechten voorbehouden.', 'contact.gdpr_note': 'BURS voldoet aan de AVG. Je gegevens worden veilig opgeslagen en nooit gedeeld met derden.',
+    'footer.privacy': 'Privacybeleid', 'footer.terms': 'Gebruiksvoorwaarden', 'footer.agree': 'Door BURS te gebruiken ga je akkoord met ons', 'footer.rights': 'Alle rechten voorbehouden.',
+    'calendar.google_privacy': 'BURS leest je agenda-evenementen om outfits te plannen rondom je schema. Je kunt de verbinding op elk moment verbreken.',
+    'reaction.styled': 'Stijlvol', 'reaction.creative': 'Creatief', 'reaction.sustainable': 'Duurzaam',
+    'wardrobe.reel_save_error': 'Kon afbeelding niet opslaan',
   },
 
   pl: {
@@ -6026,6 +6106,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'insights.wardrobe_usage': 'Wykorzystanie garderoby', 'insights.used_label': 'noszonych', 'insights.unused_label': 'nienoszonych',
     'wardrobe.import_link': 'Importuj z linku', 'wardrobe.live_scan': 'BURS Live Scan',
     'settings.row.insights': 'Statystyki garderoby', 'settings.row.insights_sub': 'Statystyki i analiza',
+    'error.title': 'Coś poszło nie tak', 'error.desc': 'Wystąpił nieoczekiwany błąd. Spróbuj ponownie załadować stronę.', 'error.try_again': 'Spróbuj ponownie', 'error.reload': 'Przeładuj',
+    'seed.deleted': 'Wszystkie stare ubrania usunięte', 'seed.delete_error': 'Nie udało się usunąć starych ubrań', 'seed.created': 'Utworzono {done} ubrań ({failed} nieudanych)', 'seed.batch_failed': 'Partia nie powiodła się', 'seed.retry_failed': 'Ponowna próba nie powiodła się',
+    'genimg.title': 'Generuj unikalne obrazy', 'genimg.desc': 'Generuj zdjęcia AI dla wszystkich ubrań na podstawie atrybutów (kolor, materiał, typ).', 'genimg.total': 'Łącznie ubrań', 'genimg.generated': 'Wygenerowano', 'genimg.failed': 'Nieudane', 'genimg.processing': 'Przetwarzanie…', 'genimg.done': 'Gotowe', 'genimg.generating': 'Generowanie…', 'genimg.generate_all': 'Generuj wszystkie obrazy', 'genimg.retry': 'Spróbuj ponownie',
+    'contact.title': 'Kontakt', 'contact.subtitle': 'Masz pytania? Chętnie pomożemy.', 'contact.success': 'Dziękujemy za wiadomość. Odpowiemy tak szybko, jak to możliwe.', 'contact.name': 'Twoje imię', 'contact.email': 'Twój adres e-mail', 'contact.message': 'Twoja wiadomość', 'contact.send': 'Wyślij wiadomość', 'contact.rights': 'Wszelkie prawa zastrzeżone.', 'contact.gdpr_note': 'BURS jest zgodny z RODO. Twoje dane są przechowywane bezpiecznie i nigdy nie są udostępniane stronom trzecim.',
+    'footer.privacy': 'Polityka prywatności', 'footer.terms': 'Warunki użytkowania', 'footer.agree': 'Korzystając z BURS akceptujesz naszą', 'footer.rights': 'Wszelkie prawa zastrzeżone.',
+    'calendar.google_privacy': 'BURS odczytuje wydarzenia z kalendarza, aby pomóc w planowaniu strojów wokół Twojego harmonogramu. Możesz się odłączyć w dowolnym momencie.',
+    'reaction.styled': 'Stylowy', 'reaction.creative': 'Kreatywny', 'reaction.sustainable': 'Zrównoważony',
+    'wardrobe.reel_save_error': 'Nie udało się zapisać obrazu',
   },
 
   ar: {
@@ -6226,6 +6314,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'landing.showcase_home_title': 'إطلالتك اليومية، جاهزة للارتداء', 'landing.showcase_home_desc': 'الذكاء الاصطناعي يختار لك حسب الطقس والأسلوب.',
     'landing.showcase_planner_title': 'خطط لأسبوعك بسهولة', 'landing.showcase_planner_desc': 'اقتراحات حسب الطقس، يومًا بيوم.',
     'landing.free_price': '0 د.إ', 'landing.premium_price': '0 د.إ', 'landing.premium_then': 'ثم 19 د.إ/شهر · أو 169 د.إ/سنة — وفّر ~30%',
+    'error.title': 'حدث خطأ ما', 'error.desc': 'حدث خطأ غير متوقع. حاول إعادة تحميل الصفحة.', 'error.try_again': 'حاول مجدداً', 'error.reload': 'إعادة تحميل',
+    'seed.deleted': 'تم حذف جميع الملابس القديمة', 'seed.delete_error': 'تعذر حذف الملابس القديمة', 'seed.created': 'تم إنشاء {done} قطعة ({failed} فشلت)', 'seed.batch_failed': 'فشلت الدفعة', 'seed.retry_failed': 'فشلت إعادة المحاولة',
+    'genimg.title': 'إنشاء صور فريدة', 'genimg.desc': 'أنشئ صور منتجات بالذكاء الاصطناعي لجميع الملابس بناءً على السمات (اللون، المادة، النوع).', 'genimg.total': 'إجمالي القطع', 'genimg.generated': 'تم إنشاؤها', 'genimg.failed': 'فشلت', 'genimg.processing': 'جارٍ المعالجة…', 'genimg.done': 'تم', 'genimg.generating': 'جارٍ الإنشاء…', 'genimg.generate_all': 'إنشاء جميع الصور', 'genimg.retry': 'إعادة المحاولة',
+    'contact.title': 'اتصل بنا', 'contact.subtitle': 'هل لديك أسئلة؟ يسعدنا مساعدتك.', 'contact.success': 'شكراً لرسالتك. سنعود إليك في أقرب وقت ممكن.', 'contact.name': 'اسمك', 'contact.email': 'بريدك الإلكتروني', 'contact.message': 'رسالتك', 'contact.send': 'إرسال الرسالة', 'contact.rights': 'جميع الحقوق محفوظة.', 'contact.gdpr_note': 'BURS متوافق مع GDPR. بياناتك مخزنة بأمان ولا تُشارك مع أطراف ثالثة.',
+    'footer.privacy': 'سياسة الخصوصية', 'footer.terms': 'شروط الاستخدام', 'footer.agree': 'باستخدام BURS أنت توافق على', 'footer.rights': 'جميع الحقوق محفوظة.',
+    'calendar.google_privacy': 'يقرأ BURS أحداث تقويمك للمساعدة في تخطيط الإطلالات حول جدولك. يمكنك قطع الاتصال في أي وقت.',
+    'reaction.styled': 'أنيق', 'reaction.creative': 'إبداعي', 'reaction.sustainable': 'مستدام',
+    'wardrobe.reel_save_error': 'تعذر حفظ الصورة',
   },
 
   fa: {
@@ -6426,5 +6522,13 @@ export const translations: Record<Locale, Record<string, string>> = {
     'landing.showcase_home_title': 'ست روزانه شما، آماده پوشیدن', 'landing.showcase_home_desc': 'هوش مصنوعی بر اساس آب‌و‌هوا و سبک انتخاب می‌کند.',
     'landing.showcase_planner_title': 'هفته‌تان را بدون استرس برنامه‌ریزی کنید', 'landing.showcase_planner_desc': 'پیشنهادات هوشمند بر اساس آب‌و‌هوا، روز به روز.',
     'landing.free_price': '€0', 'landing.premium_price': '€0', 'landing.premium_then': 'سپس €4,99/ماه · یا €44,99/سال — ۳۰٪ صرفه‌جویی',
+    'error.title': 'مشکلی پیش آمد', 'error.desc': 'خطای غیرمنتظره‌ای رخ داد. صفحه را مجدداً بارگذاری کنید.', 'error.try_again': 'دوباره امتحان کنید', 'error.reload': 'بارگذاری مجدد',
+    'seed.deleted': 'تمام لباس‌های قدیمی حذف شدند', 'seed.delete_error': 'حذف لباس‌های قدیمی ممکن نبود', 'seed.created': '{done} لباس ایجاد شد ({failed} ناموفق)', 'seed.batch_failed': 'دسته ناموفق بود', 'seed.retry_failed': 'تلاش مجدد ناموفق بود',
+    'genimg.title': 'ایجاد تصاویر منحصربه‌فرد', 'genimg.desc': 'تصاویر محصول با هوش مصنوعی برای همه لباس‌ها بر اساس ویژگی‌ها (رنگ، جنس، نوع) ایجاد کنید.', 'genimg.total': 'کل لباس‌ها', 'genimg.generated': 'ایجاد شده', 'genimg.failed': 'ناموفق', 'genimg.processing': 'در حال پردازش…', 'genimg.done': 'انجام شد', 'genimg.generating': 'در حال ایجاد…', 'genimg.generate_all': 'ایجاد تمام تصاویر', 'genimg.retry': 'دوباره امتحان کنید',
+    'contact.title': 'تماس با ما', 'contact.subtitle': 'سؤالی دارید؟ خوشحال می‌شویم کمک کنیم.', 'contact.success': 'از پیام شما متشکریم. در اسرع وقت پاسخ خواهیم داد.', 'contact.name': 'نام شما', 'contact.email': 'آدرس ایمیل شما', 'contact.message': 'پیام شما', 'contact.send': 'ارسال پیام', 'contact.rights': 'تمامی حقوق محفوظ است.', 'contact.gdpr_note': 'BURS با GDPR سازگار است. داده‌های شما با امنیت ذخیره شده و هرگز با اشخاص ثالث به اشتراک گذاشته نمی‌شود.',
+    'footer.privacy': 'سیاست حفظ حریم خصوصی', 'footer.terms': 'شرایط استفاده', 'footer.agree': 'با استفاده از BURS شرایط ما را می‌پذیرید', 'footer.rights': 'تمامی حقوق محفوظ است.',
+    'calendar.google_privacy': 'BURS رویدادهای تقویم شما را می‌خواند تا به برنامه‌ریزی لباس‌ها کمک کند. می‌توانید هر زمان قطع اتصال کنید.',
+    'reaction.styled': 'شیک', 'reaction.creative': 'خلاقانه', 'reaction.sustainable': 'پایدار',
+    'wardrobe.reel_save_error': 'ذخیره تصویر ممکن نبود',
   },
 };
