@@ -275,6 +275,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'home.unused_hint': '{count} plagg har inte använts på 30 dagar',
     'home.use_them': 'Använd dem idag',
     'home.suggestions': 'Fler outfits',
+    'home.see_details': 'Se detaljer',
 
     // Auth
     'auth.tagline': 'Din personliga stylist.',
