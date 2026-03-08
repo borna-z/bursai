@@ -44,8 +44,8 @@ Use height/weight data + fit preferences to build a BodyProfile. Applies proport
 ### Step 11: Multi-Event Day Planning ✅
 For days with multiple calendar events (e.g., work meeting → gym → dinner), suggest outfit transitions or versatile pieces that work across contexts. The `summarize_day` edge function now returns a `transitions` object with time blocks, per-block style tips, transition tips between blocks, and versatile pieces. The `DaySummaryCard` renders a visual timeline with per-block generate buttons.
 
-### Step 12: Travel Capsule Generation
-Given a trip duration + destination weather, generate a minimal set of garments that creates maximum outfit combinations.
+### Step 12: Travel Capsule Generation ✅
+Given a trip duration + destination weather, the `travel_capsule` edge function selects the minimum garments from the user's wardrobe that maximize outfit combinations. A dedicated `/plan/travel-capsule` page lets users input destination, duration, and occasions. Results show a visual packing grid, day-by-day outfit plan with expandable details, and AI packing tips. Accessible via luggage icon in Plan header.
 
 ### Step 13: Social Context Awareness
 Track what was worn to events with recurring attendees (weekly team meetings, friend dinners). Avoid repeating outfits in front of the same people.
