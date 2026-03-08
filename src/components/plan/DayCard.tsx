@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { hapticLight, hapticMedium, hapticSuccess, hapticHeavy } from '@/lib/haptics';
 import { format, isToday, isTomorrow } from 'date-fns';
 import { Calendar, Repeat, Info, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
