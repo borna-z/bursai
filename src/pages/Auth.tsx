@@ -19,15 +19,15 @@ function PasswordRequirements({ password, t }: { password: string; t: (k: string
   ], [password]);
 
   return (
-    <div className="space-y-1.5 pt-1">
+    <div className="flex flex-wrap gap-x-4 gap-y-1 pt-0.5">
       {rules.map(r => (
-        <div key={r.key} className="flex items-center gap-2 transition-colors duration-200">
+        <div key={r.key} className="flex items-center gap-1.5 transition-colors duration-200">
           {r.met ? (
-            <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <Check className="w-3 h-3 text-emerald-400 shrink-0" />
           ) : (
-            <div className="w-3.5 h-3.5 rounded-full border border-white/20 shrink-0" />
+            <div className="w-3 h-3 rounded-full border border-white/20 shrink-0" />
           )}
-          <span className={`text-xs transition-colors duration-200 ${r.met ? 'text-white/70' : 'text-white/40'}`}>
+          <span className={`text-[11px] transition-colors duration-200 ${r.met ? 'text-white/60' : 'text-white/30'}`}>
             {t(r.key)}
           </span>
         </div>
@@ -40,8 +40,6 @@ export default function AuthPage() {
   const { user, loading, signIn, signUp } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -75,12 +73,11 @@ export default function AuthPage() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) { toast.error(t('auth.fill_all')); return; }
-    if (password !== confirmPassword) { toast.error(t('auth.passwords_no_match')); return; }
     const passOk = password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password);
     if (!passOk) { toast.error(t('auth.password_too_short')); return; }
     localStorage.setItem('remember_me', rememberMe ? 'true' : 'false');
     setIsLoading(true);
-    const { data, error } = await signUp(email, password, username || undefined);
+    const { data, error } = await signUp(email, password);
     setIsLoading(false);
     if (error) {
       if (error.message.includes('already registered')) toast.error(t('auth.already_exists'));
@@ -116,47 +113,42 @@ export default function AuthPage() {
 
   const isLogin = tab === 'login';
 
-  const inputClass = "w-full h-11 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3.5 text-base text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-white/15 transition-colors disabled:opacity-40";
+  const inputClass = "w-full h-12 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 text-[15px] text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-white/15 transition-colors disabled:opacity-40";
 
   return (
-    <div className="dark-landing min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
+    <div className="dark-landing min-h-screen flex flex-col items-center justify-center p-5 relative overflow-hidden">
       {/* Aurora glow */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] rounded-full bg-[radial-gradient(ellipse,rgba(99,102,241,0.12)_0%,transparent_70%)] blur-3xl" />
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[500px] h-[250px] rounded-full bg-[radial-gradient(ellipse,rgba(139,92,246,0.08)_0%,transparent_70%)] blur-3xl" />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] rounded-full bg-[radial-gradient(ellipse,rgba(99,102,241,0.10)_0%,transparent_70%)] blur-3xl" />
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[500px] h-[250px] rounded-full bg-[radial-gradient(ellipse,rgba(139,92,246,0.06)_0%,transparent_70%)] blur-3xl" />
       </div>
 
-      <div className="relative z-10 w-full max-w-sm space-y-8">
-        {/* Logo + wordmark */}
+      <div className="relative z-10 w-full max-w-sm space-y-10">
+        {/* Logo */}
         <motion.div
-          className="flex flex-col items-center gap-4"
+          className="flex flex-col items-center gap-3"
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, ease: EASE_CURVE }}
         >
           <img src={bursLogoWhite} alt="BURS" className="h-10 w-auto opacity-90" />
-          <p className="text-white/40 text-sm tracking-wide">
+          <p className="text-white/35 text-sm tracking-wide">
             {t('auth.tagline')}
           </p>
         </motion.div>
 
-        {/* Glass card */}
+        {/* Card */}
         <motion.div
-          className="rounded-2xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] overflow-hidden"
+          className="rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl shadow-[0_8px_40px_rgba(0,0,0,0.5)] overflow-hidden"
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.15, ease: EASE_CURVE }}
         >
           {/* OAuth */}
-          <motion.div
-            className="p-6 pb-4 space-y-2.5"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-          >
+          <div className="p-6 pb-4 space-y-2.5">
             <button
               type="button"
-              className="w-full h-11 rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/80 text-sm font-medium flex items-center justify-center gap-3 hover:bg-white/[0.08] transition-colors disabled:opacity-40"
+              className="w-full h-12 rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/80 text-sm font-medium flex items-center justify-center gap-3 hover:bg-white/[0.08] transition-colors disabled:opacity-40"
               disabled={isLoading}
               onClick={() => handleOAuth('google')}
             >
@@ -170,7 +162,7 @@ export default function AuthPage() {
             </button>
             <button
               type="button"
-              className="w-full h-11 rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/80 text-sm font-medium flex items-center justify-center gap-3 hover:bg-white/[0.08] transition-colors disabled:opacity-40"
+              className="w-full h-12 rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/80 text-sm font-medium flex items-center justify-center gap-3 hover:bg-white/[0.08] transition-colors disabled:opacity-40"
               disabled={isLoading}
               onClick={() => handleOAuth('apple')}
             >
@@ -179,7 +171,7 @@ export default function AuthPage() {
               </svg>
               {t('auth.continue_apple')}
             </button>
-          </motion.div>
+          </div>
 
           {/* Divider */}
           <div className="px-6">
@@ -188,21 +180,21 @@ export default function AuthPage() {
                 <div className="w-full border-t border-white/[0.06]" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-transparent px-3 text-white/25">{t('auth.or')}</span>
+                <span className="bg-transparent px-3 text-white/20">{t('auth.or')}</span>
               </div>
             </div>
           </div>
 
           {/* Tabs */}
           <div className="px-6 pt-4">
-            <div className="flex rounded-xl bg-white/[0.04] border border-white/[0.06] p-0.5">
+            <div className="flex rounded-xl bg-white/[0.03] border border-white/[0.06] p-0.5">
               <button
                 type="button"
                 onClick={() => setTab('login')}
                 className={`flex-1 text-sm font-medium py-2 rounded-[10px] transition-all duration-200 ${
                   isLogin
                     ? 'bg-white/[0.1] text-white shadow-sm'
-                    : 'text-white/40 hover:text-white/60'
+                    : 'text-white/35 hover:text-white/55'
                 }`}
               >
                 {t('auth.login')}
@@ -213,7 +205,7 @@ export default function AuthPage() {
                 className={`flex-1 text-sm font-medium py-2 rounded-[10px] transition-all duration-200 ${
                   !isLogin
                     ? 'bg-white/[0.1] text-white shadow-sm'
-                    : 'text-white/40 hover:text-white/60'
+                    : 'text-white/35 hover:text-white/55'
                 }`}
               >
                 {t('auth.signup')}
@@ -226,41 +218,27 @@ export default function AuthPage() {
             key={tab}
             onSubmit={isLogin ? handleSignIn : handleSignUp}
             className="p-6 space-y-4"
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25 }}
+            transition={{ duration: 0.2 }}
           >
-            {/* Username - signup only */}
-            {!isLogin && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-white/50 pl-0.5">{t('auth.username')}</label>
-                <input
-                  type="text"
-                  placeholder={t('auth.username_placeholder')}
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  disabled={isLoading}
-                  className={inputClass}
-                />
-              </div>
-            )}
-
             {/* Email */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-white/50 pl-0.5">{t('auth.email')}</label>
+              <label className="text-xs font-medium text-white/40 pl-0.5">{t('auth.email')}</label>
               <input
                 type="email"
-                placeholder="din@email.se"
+                placeholder="you@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isLoading}
                 className={inputClass}
+                autoComplete="email"
               />
             </div>
 
-            {/* Password with show/hide */}
+            {/* Password */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-white/50 pl-0.5">{t('auth.password')}</label>
+              <label className="text-xs font-medium text-white/40 pl-0.5">{t('auth.password')}</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -268,69 +246,57 @@ export default function AuthPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
-                  className={`${inputClass} pr-10`}
+                  className={`${inputClass} pr-11`}
+                  autoComplete={isLogin ? 'current-password' : 'new-password'}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/50 transition-colors"
                   aria-label={showPassword ? t('auth.hide_password') : t('auth.show_password')}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {/* Compact password requirements for signup */}
+              {!isLogin && password.length > 0 && (
+                <PasswordRequirements password={password} t={t} />
+              )}
             </div>
 
-            {/* Confirm password - signup only */}
-            {!isLogin && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-white/50 pl-0.5">{t('auth.confirm_password')}</label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="••••••••"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    disabled={isLoading}
-                    className={`${inputClass} pr-10`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+            {/* Remember me + Forgot */}
+            <div className="flex items-center justify-between pt-0.5">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div
+                  onClick={() => setRememberMe(!rememberMe)}
+                  className={`w-4 h-4 rounded border flex items-center justify-center transition-all duration-200 ${
+                    rememberMe
+                      ? 'bg-white/90 border-white/90'
+                      : 'border-white/20 bg-transparent hover:border-white/40'
+                  }`}
+                >
+                  {rememberMe && <Check className="w-3 h-3 text-[#030305]" />}
                 </div>
-              </div>
-            )}
+                <span className="text-xs text-white/40 group-hover:text-white/60 transition-colors select-none">
+                  {t('auth.remember_me')}
+                </span>
+              </label>
+              {isLogin && (
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-xs text-white/30 hover:text-white/50 transition-colors"
+                >
+                  {t('auth.forgot_password')}
+                </button>
+              )}
+            </div>
 
-            {/* Password requirements checklist - signup only */}
-            {!isLogin && (
-              <PasswordRequirements password={password} t={t} />
-            )}
-
-            {/* Remember me checkbox */}
-            <label className="flex items-center gap-2.5 cursor-pointer group pt-1">
-              <div
-                onClick={() => setRememberMe(!rememberMe)}
-                className={`w-4 h-4 rounded border flex items-center justify-center transition-all duration-200 ${
-                  rememberMe
-                    ? 'bg-white/90 border-white/90'
-                    : 'border-white/20 bg-transparent hover:border-white/40'
-                }`}
-              >
-                {rememberMe && <Check className="w-3 h-3 text-[#030305]" />}
-              </div>
-              <span className="text-xs text-white/50 group-hover:text-white/70 transition-colors select-none">
-                {t('auth.remember_me')}
-              </span>
-            </label>
-
+            {/* Submit */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-11 rounded-full bg-white text-[#030305] text-sm font-semibold hover:bg-white/90 active:scale-[0.97] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+              className="w-full h-[52px] rounded-xl bg-white text-[#030305] text-[15px] font-semibold hover:bg-white/90 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2 mt-2"
             >
               {isLoading ? (
                 <>
@@ -341,16 +307,6 @@ export default function AuthPage() {
                 isLogin ? t('auth.login') : t('auth.signup')
               )}
             </button>
-
-            {isLogin && (
-              <button
-                type="button"
-                onClick={handleForgotPassword}
-                className="w-full text-xs text-white/30 hover:text-white/50 transition-colors text-center pt-1"
-              >
-                {t('auth.forgot_password')}
-              </button>
-            )}
           </motion.form>
         </motion.div>
       </div>

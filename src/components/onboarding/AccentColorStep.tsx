@@ -2,7 +2,6 @@ import { Check, Heart, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { useTheme, ACCENT_COLORS } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -20,26 +19,31 @@ export function AccentColorStep({ onComplete }: AccentColorStepProps) {
   const { t } = useLanguage();
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <div className="pt-16 pb-8 px-6 flex flex-col items-center text-center">
-        <motion.h1 variants={fadeUp} initial="hidden" animate="show" custom={0} className="text-xl font-bold mb-2 tracking-tight">
+    <div className="dark-landing min-h-screen flex flex-col relative overflow-hidden">
+      {/* Aurora */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] rounded-full bg-[radial-gradient(ellipse,rgba(99,102,241,0.06)_0%,transparent_70%)] blur-3xl" />
+      </div>
+
+      <div className="relative z-10 pt-16 pb-6 px-6 flex flex-col items-center text-center">
+        <motion.h1 variants={fadeUp} initial="hidden" animate="show" custom={0} className="text-xl font-bold text-white mb-2 tracking-tight">
           {t('onboarding.accent.title')}
         </motion.h1>
-        <motion.p variants={fadeUp} initial="hidden" animate="show" custom={1} className="text-muted-foreground text-sm leading-relaxed max-w-xs mb-8">
+        <motion.p variants={fadeUp} initial="hidden" animate="show" custom={1} className="text-white/35 text-sm leading-relaxed max-w-xs mb-8">
           {t('onboarding.accent.subtitle')}
         </motion.p>
 
-        {/* Live UI preview */}
-        <motion.div variants={fadeUp} initial="hidden" animate="show" custom={2} className="w-full max-w-sm rounded-2xl border border-border bg-card p-5 space-y-4 transition-all duration-300">
+        {/* Live preview */}
+        <motion.div variants={fadeUp} initial="hidden" animate="show" custom={2} className="w-full max-w-sm rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 space-y-4 transition-all duration-300">
           <div className="flex items-center gap-2 flex-wrap">
             <button
-              className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors duration-300"
+              className="px-4 py-2 rounded-xl text-sm font-medium text-white transition-colors duration-300"
               style={{ backgroundColor: accentColor.hex }}
             >
               {t('onboarding.body.continue')}
             </button>
             <button
-              className="px-4 py-2 rounded-lg text-sm font-medium border-2 bg-transparent transition-colors duration-300"
+              className="px-4 py-2 rounded-xl text-sm font-medium border-2 bg-transparent transition-colors duration-300"
               style={{ borderColor: accentColor.hex, color: accentColor.hex }}
             >
               Outline
@@ -58,18 +62,12 @@ export function AccentColorStep({ onComplete }: AccentColorStepProps) {
             >
               <Star className="w-3 h-3" /> Premium
             </span>
-            <span
-              className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium border transition-colors duration-300"
-              style={{ borderColor: accentColor.hex + '40', color: accentColor.hex }}
-            >
-              Casual
-            </span>
           </div>
         </motion.div>
       </div>
 
       {/* Color grid */}
-      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={3} className="flex-1 px-6 pb-10">
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={3} className="relative z-10 flex-1 px-6 pb-10">
         <div className="grid grid-cols-4 gap-3 max-w-sm mx-auto">
           {ACCENT_COLORS.map((color) => {
             const isSelected = accentColor.id === color.id;
@@ -80,8 +78,8 @@ export function AccentColorStep({ onComplete }: AccentColorStepProps) {
                 className={cn(
                   'flex flex-col items-center gap-2 py-3 rounded-xl border transition-all',
                   isSelected
-                    ? 'border-foreground/30 bg-secondary/80 scale-105 shadow-sm'
-                    : 'border-transparent hover:bg-secondary/40'
+                    ? 'border-white/20 bg-white/[0.06] scale-105'
+                    : 'border-transparent hover:bg-white/[0.04]'
                 )}
                 aria-label={color.name}
               >
@@ -96,7 +94,7 @@ export function AccentColorStep({ onComplete }: AccentColorStepProps) {
                     </div>
                   )}
                 </div>
-                <span className="text-[10px] font-medium text-muted-foreground leading-none">
+                <span className="text-[10px] font-medium text-white/35 leading-none">
                   {color.name}
                 </span>
               </button>
@@ -106,13 +104,13 @@ export function AccentColorStep({ onComplete }: AccentColorStepProps) {
 
         {/* Continue */}
         <div className="mt-8 max-w-sm mx-auto">
-          <Button
-            className="w-full h-14 text-base font-medium text-white transition-colors duration-300"
+          <button
+            className="w-full h-[52px] rounded-xl text-[15px] font-semibold text-white transition-colors duration-300 hover:opacity-90 active:scale-[0.98]"
             style={{ backgroundColor: accentColor.hex }}
             onClick={onComplete}
           >
             {t('onboarding.body.continue')}
-          </Button>
+          </button>
         </div>
       </motion.div>
     </div>
