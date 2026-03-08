@@ -1,91 +1,65 @@
 project_id = "dvrdxjmnydcjzpcwjxgv"
 
-[functions.analyze_garment]
-verify_jwt = false
-
-[functions.import_garments_from_links]
-verify_jwt = false
-
-[functions.delete_user_account]
-verify_jwt = false
-
-[functions.create_checkout_session]
-verify_jwt = false
-
-[functions.create_portal_session]
-verify_jwt = false
-
-[functions.stripe_webhook]
-verify_jwt = false
-
-[functions.restore_subscription]
-verify_jwt = false
-
-[functions.suggest_outfit_combinations]
-verify_jwt = false
-
-[functions.sync_calendar]
-verify_jwt = false
-
-[functions.sync_all_calendars]
-verify_jwt = false
-
-[functions.style_chat]
-verify_jwt = false
-
-[functions.summarize_day]
-verify_jwt = false
-
-[functions.shopping_chat]
-verify_jwt = false
-
-[functions.google_calendar_auth]
-verify_jwt = false
-
-[functions.sync_google_calendar]
-verify_jwt = false
-
-[functions.burs_style_engine]
-verify_jwt = false
-
-[functions.generate_flatlay]
-verify_jwt = false
-
-[functions.outfit_photo_feedback]
-verify_jwt = false
-
-[functions.assess_garment_condition]
-verify_jwt = false
-
-[functions.clone_outfit_dna]
-verify_jwt = false
-
-[functions.suggest_accessories]
-verify_jwt = false
-
-[functions.wardrobe_gap_analysis]
-verify_jwt = false
-
-[functions.visual_search]
-verify_jwt = false
-
-[functions.mood_outfit]
-verify_jwt = false
-
-[functions.smart_shopping_list]
-verify_jwt = false
-
-[functions.wardrobe_aging]
-verify_jwt = false
-
-[functions.style_twin]
-verify_jwt = false
-
-[functions.send_push_notification]
-verify_jwt = false
-
-[functions.daily_reminders]
-verify_jwt = false
-
-[functions.get_vapid_public_key]
-verify_jwt = false
+[functions]
+  [functions.analyze_garment]
+    verify_jwt = false
+  [functions.assess_garment_condition]
+    verify_jwt = false
+  [functions.auth-email-hook]
+    verify_jwt = false
+  [functions.burs_style_engine]
+    verify_jwt = false
+  [functions.clone_outfit_dna]
+    verify_jwt = false
+  [functions.create_checkout_session]
+    verify_jwt = false
+  [functions.create_portal_session]
+    verify_jwt = false
+  [functions.daily_reminders]
+    verify_jwt = false
+  [functions.delete_user_account]
+    verify_jwt = false
+  [functions.generate_flatlay]
+    verify_jwt = false
+  [functions.get_vapid_public_key]
+    verify_jwt = false
+  [functions.google_calendar_auth]
+    verify_jwt = false
+  [functions.import_garments_from_links]
+    verify_jwt = false
+  [functions.mood_outfit]
+    verify_jwt = false
+  [functions.outfit_photo_feedback]
+    verify_jwt = false
+  [functions.restore_subscription]
+    verify_jwt = false
+  [functions.send_push_notification]
+    verify_jwt = false
+  [functions.shopping_chat]
+    verify_jwt = false
+  [functions.smart_shopping_list]
+    verify_jwt = false
+  [functions.stripe_webhook]
+    verify_jwt = false
+  [functions.style_chat]
+    verify_jwt = false
+  [functions.style_twin]
+    verify_jwt = false
+  [functions.suggest_accessories]
+    verify_jwt = false
+  [functions.suggest_outfit_combinations]
+    verify_jwt = false
+  [functions.summarize_day]
+    verify_jwt = false
+  [functions.sync_all_calendars]
+    verify_jwt = false
+  [functions.sync_calendar]
+    verify_jwt = false
+  [functions.sync_google_calendar]
+    verify_jwt = false
+  [functions.visual_search]
+    verify_jwt = false
+  [functions.wardrobe_aging]
+    verify_jwt = false
+  [functions.wardrobe_gap_analysis]
+    verify_jwt = false
