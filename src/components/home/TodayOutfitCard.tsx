@@ -169,6 +169,16 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
         )}
       </AnimatePresence>
 
+      {/* View outfit details link */}
+      {outfit && (
+        <button
+          onClick={() => navigate(`/outfits/${outfit.id}`)}
+          className="text-xs text-center text-muted-foreground/60 hover:text-foreground transition-colors w-full"
+        >
+          {t('home.see_details')} →
+        </button>
+      )}
+
       {/* Inline upgrade hint */}
       {showUpgradeHint && (
         <p className="text-xs text-center text-muted-foreground">

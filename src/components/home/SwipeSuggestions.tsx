@@ -29,6 +29,7 @@ export function SwipeSuggestions() {
 }
 
 function SuggestionCard({ outfit, onTap }: { outfit: OutfitWithItems; onTap: () => void }) {
+  const { t } = useLanguage();
   const items = outfit.outfit_items?.slice(0, 4) || [];
 
   return (

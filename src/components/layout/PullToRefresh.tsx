@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, type ReactNode } from 'react';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { DrapeLogo } from '@/components/ui/DrapeLogo';
+import { hapticLight } from '@/lib/haptics';
 
 interface PullToRefreshProps {
   onRefresh: () => Promise<void>;

@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Palette, Shirt, Bell, User, Shield, LogOut, ChevronRight, Loader2, TrendingUp } from 'lucide-react';
+
+const APP_VERSION = __APP_VERSION__;
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useLanguage } from '@/contexts/LanguageContext';
