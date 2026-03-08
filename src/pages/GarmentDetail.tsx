@@ -1,20 +1,15 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { Edit, Trash2, WashingMachine, Check, Loader2, ExternalLink, Calendar, Hash } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, WashingMachine, Check, Loader2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 import { useGarment, useUpdateGarment, useDeleteGarment, useMarkGarmentWorn } from '@/hooks/useGarments';
 import { LazyImage } from '@/components/ui/lazy-image';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
 
@@ -22,24 +17,25 @@ export default function GarmentDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { t, locale } = useLanguage();
-  const { data: garment, isLoading, refetch } = useGarment(id);
+  const { data: garment, isLoading } = useGarment(id);
   const updateGarment = useUpdateGarment();
   const deleteGarment = useDeleteGarment();
   const markWorn = useMarkGarmentWorn();
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background pb-24">
-        <div className="sticky top-0 z-10 bg-background border-b">
-          <div className="p-4 flex items-center justify-between">
-            <Skeleton className="w-10 h-10 rounded-lg" />
-            <Skeleton className="w-24 h-10 rounded-lg" />
+      <div className="min-h-screen bg-background pb-32">
+        <Skeleton className="aspect-[3/4] w-full rounded-b-3xl" />
+        <div className="px-6 pt-8 space-y-6">
+          <div>
+            <Skeleton className="h-7 w-2/3 mb-2" />
+            <Skeleton className="h-4 w-1/3" />
           </div>
-        </div>
-        <Skeleton className="aspect-square max-w-lg mx-auto" />
-        <div className="p-4 space-y-4 max-w-lg mx-auto">
-          <Skeleton className="h-6 w-1/2" />
-          <div className="flex gap-2"><Skeleton className="h-6 w-16 rounded-full" /><Skeleton className="h-6 w-16 rounded-full" /></div>
+          <Skeleton className="h-4 w-3/4" />
+          <div className="flex gap-8">
+            <Skeleton className="h-12 w-20" />
+            <Skeleton className="h-12 w-20" />
+          </div>
         </div>
       </div>
     );
@@ -76,109 +72,137 @@ export default function GarmentDetailPage() {
     } catch { toast.error(t('common.something_wrong')); }
   };
 
-  return (
-    <div className="min-h-screen bg-background pb-24">
-      <PageHeader 
-        title={garment.title} showBack
-        actions={
-          <div className="flex gap-1">
-            <Button variant="ghost" size="icon" onClick={() => navigate(`/wardrobe/${garment.id}/edit`)}>
-              <Edit className="w-5 h-5" />
-            </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon"><Trash2 className="w-5 h-5 text-destructive" /></Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{t('garment.delete_confirm')}</AlertDialogTitle>
-                  <AlertDialogDescription>"{garment.title}" {t('garment.delete_desc')}</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">{t('common.delete')}</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        }
-      />
+  // Build metadata string
+  const metaParts: string[] = [];
+  if (garment.color_primary) metaParts.push(t(`color.${garment.color_primary}`));
+  if (garment.color_secondary) metaParts.push(t(`color.${garment.color_secondary}`));
+  if (garment.material) metaParts.push(t(`garment.material.${garment.material}`));
+  if (garment.pattern && garment.pattern !== 'solid') metaParts.push(t(`garment.pattern.${garment.pattern}`));
+  if (garment.fit) metaParts.push(t(`garment.fit.${garment.fit}`));
 
-      <div className="max-w-lg mx-auto">
-        <LazyImage imagePath={garment.image_path} alt={garment.title} aspectRatio="square" className="w-full rounded-2xl mx-auto px-4" />
+  const seasonParts: string[] = [];
+  garment.season_tags?.forEach((season) => {
+    const key = season === 'vår' ? 'spring' : season === 'sommar' ? 'summer' : season === 'höst' ? 'autumn' : season === 'vinter' ? 'winter' : season;
+    seasonParts.push(t(`garment.season.${key}`));
+  });
+  if (garment.formality) seasonParts.push(`${t('garment.formality')} ${garment.formality}/5`);
+
+  return (
+    <div className="min-h-screen bg-background pb-32">
+      {/* Hero image with floating controls */}
+      <div className="relative rounded-b-3xl overflow-hidden">
+        <LazyImage imagePath={garment.image_path} alt={garment.title} aspectRatio="3/4" className="w-full !rounded-none" />
+        
+        {/* Floating back button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate(-1)}
+          className="absolute top-4 left-4 z-10 backdrop-blur-xl bg-background/40 rounded-full h-10 w-10 shadow-lg"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+
+        {/* Floating action buttons */}
+        <div className="absolute top-4 right-4 z-10 flex gap-1.5">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(`/wardrobe/${garment.id}/edit`)}
+            className="backdrop-blur-xl bg-background/40 rounded-full h-10 w-10 shadow-lg"
+          >
+            <Edit className="w-4 h-4" />
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="backdrop-blur-xl bg-background/40 rounded-full h-10 w-10 shadow-lg">
+                <Trash2 className="w-4 h-4 text-destructive" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t('garment.delete_confirm')}</AlertDialogTitle>
+                <AlertDialogDescription>"{garment.title}" {t('garment.delete_desc')}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">{t('common.delete')}</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
 
-      <div className="p-4 pt-6 space-y-6 max-w-lg mx-auto">
-        <div><p className="text-muted-foreground capitalize text-sm">{t(`garment.category.${garment.category}`) || garment.subcategory || garment.category}</p></div>
-
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary" className="capitalize px-3 py-1">{t(`color.${garment.color_primary}`)}</Badge>
-          {garment.color_secondary && <Badge variant="secondary" className="capitalize px-3 py-1">{t(`color.${garment.color_secondary}`)}</Badge>}
-          {garment.pattern && garment.pattern !== 'solid' && <Badge variant="secondary" className="capitalize px-3 py-1">{t(`garment.pattern.${garment.pattern}`)}</Badge>}
-          {garment.material && <Badge variant="secondary" className="capitalize px-3 py-1">{t(`garment.material.${garment.material}`)}</Badge>}
-          {garment.fit && <Badge variant="secondary" className="capitalize px-3 py-1">{t(`garment.fit.${garment.fit}`)}</Badge>}
-          {garment.season_tags?.map((season) => <Badge key={season} variant="outline" className="capitalize px-3 py-1">{t(`garment.season.${season === 'vår' ? 'spring' : season === 'sommar' ? 'summer' : season === 'höst' ? 'autumn' : season === 'vinter' ? 'winter' : season}`)}</Badge>)}
-          {garment.formality && <Badge variant="outline" className="px-3 py-1">{t('garment.formality')} {garment.formality}/5</Badge>}
+      {/* Content */}
+      <div className="px-6 pt-8 space-y-8 max-w-lg mx-auto">
+        {/* Title + category */}
+        <div>
+          <h1 className="text-2xl font-semibold">{garment.title}</h1>
+          <p className="text-[13px] text-muted-foreground/60 uppercase tracking-wide mt-1">
+            {t(`garment.category.${garment.category}`) || garment.subcategory || garment.category}
+          </p>
         </div>
 
-        {garment.source_url && (
-          <Card>
-            <CardContent className="p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-0">
-                <ExternalLink className="w-4 h-4 shrink-0" />
-                <span className="truncate">{t('garment.imported')}</span>
-              </div>
-              <Button variant="ghost" size="sm" asChild>
-                <a href={garment.source_url} target="_blank" rel="noopener noreferrer">{t('garment.open')}</a>
-              </Button>
-            </CardContent>
-          </Card>
+        {/* Metadata — dot-separated */}
+        {metaParts.length > 0 && (
+          <p className="text-[13px] text-muted-foreground capitalize">
+            {metaParts.join(' · ')}
+          </p>
+        )}
+        {seasonParts.length > 0 && (
+          <p className="text-[13px] text-muted-foreground/60 capitalize -mt-4">
+            {seasonParts.join(' · ')}
+          </p>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <Hash className="w-4 h-4 text-muted-foreground" />
-                <span className="text-2xl font-bold">{garment.wear_count || 0}</span>
-              </div>
-              <p className="text-xs text-muted-foreground">{t('garment.worn_count')}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <Calendar className="w-4 h-4 text-muted-foreground" />
-              </div>
-              <p className="text-sm font-medium">
-                {garment.last_worn_at
-                  ? new Date(garment.last_worn_at).toLocaleDateString(getBCP47(locale), { day: 'numeric', month: 'short' })
-                  : t('garment.never_worn')}
-              </p>
-              <p className="text-xs text-muted-foreground">{t('garment.last_worn')}</p>
-            </CardContent>
-          </Card>
+        {/* Stats */}
+        <div className="flex">
+          <div className="flex-1 text-center">
+            <p className="text-3xl font-light tabular-nums">{garment.wear_count || 0}</p>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 mt-1">{t('garment.worn_count')}</p>
+          </div>
+          <div className="w-px bg-border/20" />
+          <div className="flex-1 text-center">
+            <p className="text-3xl font-light tabular-nums">
+              {garment.last_worn_at
+                ? new Date(garment.last_worn_at).toLocaleDateString(getBCP47(locale), { day: 'numeric', month: 'short' })
+                : '—'}
+            </p>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 mt-1">{t('garment.last_worn')}</p>
+          </div>
         </div>
 
-        <Card>
-          <CardContent className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <WashingMachine className="w-5 h-5 text-muted-foreground" />
-              <Label className="font-normal">{t('garment.in_laundry')}</Label>
-            </div>
-            <Switch checked={garment.in_laundry || false} onCheckedChange={handleToggleLaundry} disabled={updateGarment.isPending} />
-          </CardContent>
-        </Card>
+        {/* Source URL */}
+        {garment.source_url && (
+          <a
+            href={garment.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-[13px] text-muted-foreground/60 hover:text-foreground transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>{t('garment.imported')}</span>
+          </a>
+        )}
 
-        <div className="space-y-3">
-          <Button variant="outline" className="w-full" onClick={handleMarkWorn} disabled={markWorn.isPending}>
-            {markWorn.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-            {t('garment.mark_worn')}
-          </Button>
+        {/* Laundry toggle */}
+        <div className="flex items-center justify-between py-4 border-t border-border/10">
+          <div className="flex items-center gap-3">
+            <WashingMachine className="w-5 h-5 text-muted-foreground/50" />
+            <span className="text-sm">{t('garment.in_laundry')}</span>
+          </div>
+          <Switch checked={garment.in_laundry || false} onCheckedChange={handleToggleLaundry} disabled={updateGarment.isPending} />
         </div>
 
+        {/* Mark worn */}
+        <Button variant="outline" className="w-full rounded-2xl h-12" onClick={handleMarkWorn} disabled={markWorn.isPending}>
+          {markWorn.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+          {t('garment.mark_worn')}
+        </Button>
+
+        {/* AI analyzed */}
         {garment.ai_analyzed_at && (
-          <p className="text-xs text-muted-foreground text-center">
+          <p className="text-[11px] text-muted-foreground/40 text-center">
             {t('garment.analyzed_at')} {new Date(garment.ai_analyzed_at).toLocaleDateString(getBCP47(locale))}
           </p>
         )}
