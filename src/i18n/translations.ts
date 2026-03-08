@@ -2472,6 +2472,17 @@ export const translations: Record<Locale, Record<string, string>> = {
     'settings.inspiration': 'Inspiration',
     'settings.challenges': 'Style Challenges',
 
+    // Discover
+    'discover.title': 'Discover',
+    'discover.subtitle': 'Community, challenges & AI tools',
+    'discover.trending': 'Trending outfits',
+    'discover.see_all': 'See all',
+    'discover.ai_tools': 'AI Tools',
+    'discover.your_profile': 'Your profile',
+    'discover.setup_profile': 'Set a username to share your style',
+    'discover.saved': 'Saved inspiration',
+    'challenges.joined_label': 'Joined',
+
     'wardrobe.import_link': 'Import from link',
     'wardrobe.live_scan': 'BURS Live Scan',
     'settings.row.insights': 'Wardrobe Insights',
