@@ -108,13 +108,18 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
           className="grid grid-cols-2 gap-1.5"
         >
           {outfit.items.slice(0, 4).map((item) => (
-            <LazyImage
+            <div
               key={item.garment.id}
-              imagePath={item.garment.image_path}
-              alt={item.garment.title}
-              aspectRatio="4/5"
-              className="rounded-xl cursor-pointer"
-            />
+              onClick={() => navigate(`/wardrobe/${item.garment.id}`)}
+              className="cursor-pointer active:scale-[0.97] transition-transform"
+            >
+              <LazyImage
+                imagePath={item.garment.image_path}
+                alt={item.garment.title}
+                aspectRatio="4/5"
+                className="rounded-xl"
+              />
+            </div>
           ))}
         </motion.div>
       </AnimatePresence>
