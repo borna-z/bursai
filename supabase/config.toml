@@ -80,3 +80,12 @@ verify_jwt = false
 
 [functions.style_twin]
 verify_jwt = false
+
+[functions.send_push_notification]
+verify_jwt = false
+
+[functions.daily_reminders]
+verify_jwt = false
+
+[functions.get_vapid_public_key]
+verify_jwt = false
