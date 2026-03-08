@@ -48,7 +48,18 @@ export function PageHeader({
             </Button>
           )}
           <div>
-            <h1 className="text-lg font-semibold truncate">{title}</h1>
+            <AnimatePresence mode="wait">
+              <motion.h1
+                key={title}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.2 }}
+                className="text-lg font-semibold truncate"
+              >
+                {title}
+              </motion.h1>
+            </AnimatePresence>
             {subtitle && (
               <p className="text-xs text-muted-foreground leading-relaxed">{subtitle}</p>
             )}

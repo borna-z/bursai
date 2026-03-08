@@ -316,6 +316,15 @@ export default function AIChat() {
           </DropdownMenu>
         </div>
 
+        {/* Wardrobe context badge */}
+        {garmentCount != null && garmentCount > 0 && (
+          <div className="px-4 pb-1">
+            <p className="text-[11px] text-muted-foreground/40 text-center">
+              {t('chat.based_on')} {garmentCount} {t('chat.garments_label')}
+            </p>
+          </div>
+        )}
+
         {/* Messages or Welcome */}
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
