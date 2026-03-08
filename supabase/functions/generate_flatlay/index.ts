@@ -61,7 +61,12 @@ serve(async (req) => {
       const imgResp = await fetch(signedData.signedUrl);
       if (!imgResp.ok) continue;
       const imgBytes = new Uint8Array(await imgResp.arrayBuffer());
-      const base64 = btoa(String.fromCharCode(...imgBytes));
+      let binary = "";
+      for (let i = 0; i < imgBytes.length; i += 8192) {
+        const chunk = imgBytes.subarray(i, Math.min(i + 8192, imgBytes.length));
+        for (let j = 0; j < chunk.length; j++) binary += String.fromCharCode(chunk[j]);
+      }
+      const base64 = btoa(binary);
       const mimeType = garment.image_path.endsWith(".png") ? "image/png" : "image/jpeg";
 
       imageContents.push({
@@ -122,9 +127,7 @@ Generate a single flat-lay image arranging these exact garments together.`;
     const base64Image = imageData.split(",")[1];
     const binaryStr = atob(base64Image);
     const bytes = new Uint8Array(binaryStr.length);
-    for (let i = 0; i < binaryStr.length; i++) {
-      bytes[i] = binaryStr.charCodeAt(i);
-    }
+    for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
 
     const filePath = `${user.id}/flatlay_${outfit_id}.png`;
 

@@ -78,9 +78,7 @@ serve(async (req) => {
         const base64 = imageData.split(",")[1];
         const binaryStr = atob(base64);
         const bytes = new Uint8Array(binaryStr.length);
-        for (let i = 0; i < binaryStr.length; i++) {
-          bytes[i] = binaryStr.charCodeAt(i);
-        }
+        for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
 
         const filePath = `${user.id}/${garment.id}.png`;
         const { error: uploadErr } = await supabase.storage
