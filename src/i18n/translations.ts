@@ -3824,16 +3824,16 @@ export const translations: Record<Locale, Record<string, string>> = {
     'seed.retry_failed': 'Retry failed',
 
     // Generate images
-    'generate.title': 'Generate Unique Images',
-    'generate.desc': 'Generate AI product photos for every garment based on its attributes (color, material, type). This replaces duplicate placeholder images with unique ones.',
-    'generate.total': 'Total garments',
-    'generate.generated': 'Generated',
-    'generate.failed': 'Failed',
-    'generate.processing': 'Processing… {count} of {total}',
-    'generate.done': 'Done — {done} generated, {failed} failed',
-    'generate.generating': 'Generating…',
-    'generate.generate_all': 'Generate All Images',
-    'generate.retry': 'Retry',
+    'genimg.title': 'Generate Unique Images',
+    'genimg.desc': 'Generate AI product photos for every garment based on its attributes (color, material, type). This replaces duplicate placeholder images with unique ones.',
+    'genimg.total': 'Total garments',
+    'genimg.generated': 'Generated',
+    'genimg.failed': 'Failed',
+    'genimg.processing': 'Processing…',
+    'genimg.done': 'Done',
+    'genimg.generating': 'Generating…',
+    'genimg.generate_all': 'Generate All Images',
+    'genimg.retry': 'Retry',
 
     // Contact
     'contact.title': 'Contact',
