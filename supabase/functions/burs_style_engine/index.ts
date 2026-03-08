@@ -1130,7 +1130,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const [garmentsRes, profileRes, recentOutfitsRes, feedbackRes] = await Promise.all([
+    const [garmentsRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes] = await Promise.all([
       supabase
         .from("garments")
         .select("id, title, category, subcategory, color_primary, color_secondary, pattern, material, fit, formality, season_tags, wear_count, last_worn_at, image_path")
@@ -1151,6 +1151,14 @@ serve(async (req) => {
         .not("rating", "is", null)
         .order("generated_at", { ascending: false })
         .limit(30),
+      // Fetch wear logs for pattern analysis (last 6 months)
+      supabase
+        .from("wear_logs")
+        .select("garment_id, worn_at, occasion")
+        .eq("user_id", userId)
+        .gte("worn_at", new Date(Date.now() - 180 * 86400000).toISOString().split("T")[0])
+        .order("worn_at", { ascending: false })
+        .limit(500),
     ]);
 
     if (garmentsRes.error) throw garmentsRes.error;
