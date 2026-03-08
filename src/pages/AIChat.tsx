@@ -330,7 +330,7 @@ export default function AIChat() {
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         ) : isWelcomeState ? (
-          <ChatWelcome mode={mode} onSuggestion={sendMessage} />
+          <ChatWelcome mode={mode} onSuggestion={sendMessage} garmentCount={garmentCount ?? undefined} />
         ) : (
           <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-6 space-y-8">
             {messages.map((msg, idx) => {
