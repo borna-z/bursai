@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
+import { hapticMedium, hapticSuccess } from '@/lib/haptics';
 import type { GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
 
 export interface ScanResult {

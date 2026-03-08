@@ -40,7 +40,7 @@ export function SwipeableGarmentCard({ garment, onEdit, onLaundry, onDelete }: S
     const velocity = info.velocity.x;
 
     if (offset < -SNAP_THRESHOLD || velocity < -300) {
-      // Snap open
+      hapticLight();
       animate(x, -TOTAL_WIDTH, { type: 'spring', stiffness: 400, damping: 35 });
       setIsOpen(true);
     } else {

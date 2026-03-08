@@ -139,10 +139,10 @@ export function DayCard({
           <>
             {!daySummary && (<p className="text-sm text-muted-foreground mb-4">{t('plan.no_outfit')}</p>)}
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={onPlan} disabled={isLoading} className="flex-1">
+              <Button size="sm" onClick={() => { hapticLight(); onPlan(); }} disabled={isLoading} className="flex-1">
                 <Plus className="w-3.5 h-3.5 mr-1.5" />{t('plan.plan')}
               </Button>
-              <Button variant="outline" size="sm" onClick={onQuickGenerate} disabled={isLoading} className="flex-1">
+              <Button variant="outline" size="sm" onClick={() => { hapticLight(); onQuickGenerate(); }} disabled={isLoading} className="flex-1">
                 <Sparkles className="w-3.5 h-3.5 mr-1.5" />{t('plan.generate')}
               </Button>
             </div>

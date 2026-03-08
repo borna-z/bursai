@@ -194,6 +194,7 @@ export default function OutfitDetailPage() {
 
   const handleMarkWorn = async () => {
     if (!outfit) return;
+    hapticSuccess();
     try {
       const garmentIds = outfit.outfit_items.map((item) => item.garment_id);
       const result = await markWorn.mutateAsync({ outfitId: outfit.id, garmentIds, occasion: outfit.occasion });

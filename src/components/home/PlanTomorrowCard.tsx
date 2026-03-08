@@ -17,7 +17,7 @@ export function PlanTomorrowCard() {
     <motion.button
       whileTap={{ scale: 0.98 }}
       transition={TAP_TRANSITION}
-      onClick={() => navigate('/plan', { state: { initialDate: tomorrow.toISOString() } })}
+      onClick={() => { hapticLight(); navigate('/plan', { state: { initialDate: tomorrow.toISOString() } }); }}
       className="w-full flex items-center gap-3.5 rounded-2xl bg-card/50 backdrop-blur border border-border/20 p-4 text-left will-change-transform"
     >
       <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
