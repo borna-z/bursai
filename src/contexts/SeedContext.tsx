@@ -142,7 +142,7 @@ export function SeedProvider({ children }: { children: ReactNode }) {
 
     setStep('done');
     setCurrentItem('');
-    toast.success(`Created ${doneCount} garments (${failCount} failed)`);
+    toast.success(t('seed.created').replace('{done}', String(doneCount)).replace('{failed}', String(failCount)));
   }, [user, isRunning]);
 
   const retryFailed = useCallback(async () => {
