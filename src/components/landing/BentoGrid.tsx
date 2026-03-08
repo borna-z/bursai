@@ -2,12 +2,12 @@ import { Camera, Sparkles, CalendarDays, BarChart3, Layers, MessageCircle } from
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const FEATURES = [
-  { icon: Camera, key: 'snap', large: true },
-  { icon: Sparkles, key: 'ai_stylist', large: true },
-  { icon: CalendarDays, key: 'planner', large: false },
-  { icon: BarChart3, key: 'insights_feat', large: false },
-  { icon: Layers, key: 'outfits_feat', large: false },
-  { icon: MessageCircle, key: 'chat_feat', large: false },
+  { icon: Camera, key: 'snap' },
+  { icon: Sparkles, key: 'ai_stylist' },
+  { icon: CalendarDays, key: 'planner' },
+  { icon: BarChart3, key: 'insights_feat' },
+  { icon: Layers, key: 'outfits_feat' },
+  { icon: MessageCircle, key: 'chat_feat' },
 ];
 
 export function BentoGrid() {
@@ -23,35 +23,14 @@ export function BentoGrid() {
           {t('landing.features_title')}
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          {FEATURES.filter(f => f.large).map((feat, i) => {
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {FEATURES.map((feat, i) => {
             const Icon = feat.icon;
             return (
               <div
                 key={feat.key}
-                className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 md:p-10 hover:border-white/[0.12] transition-all duration-500 reveal-up"
-                style={{ '--reveal-delay': `${i * 100}ms` } as React.CSSProperties}
-              >
-                <Icon size={24} strokeWidth={1.5} className="text-indigo-400 mb-5" />
-                <h3 className="text-lg font-semibold text-white font-space mb-2">
-                  {t(`landing.bento_${feat.key}_title`)}
-                </h3>
-                <p className="text-sm text-gray-400 leading-relaxed">
-                  {t(`landing.bento_${feat.key}_desc`)}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          {FEATURES.filter(f => !f.large).map((feat, i) => {
-            const Icon = feat.icon;
-            return (
-              <div
-                key={feat.key}
-                className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 hover:border-white/[0.12] transition-all duration-500 reveal-up"
-                style={{ '--reveal-delay': `${(i + 2) * 100}ms` } as React.CSSProperties}
+                className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-7 hover:bg-white/[0.04] hover:-translate-y-1 transition-all duration-300 reveal-up"
+                style={{ '--reveal-delay': `${i * 80}ms` } as React.CSSProperties}
               >
                 <Icon size={20} strokeWidth={1.5} className="text-indigo-400 mb-4" />
                 <h3 className="text-sm font-semibold text-white font-space mb-1.5">

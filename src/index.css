@@ -697,15 +697,6 @@
   50% { transform: translateY(-12px); }
 }
 
-/* Ticker marquee */
-@keyframes ticker-scroll {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-33.33%); }
-}
-
-.ticker-track {
-  animation: ticker-scroll 30s linear infinite;
-}
 
 /* Pulsing dot */
 @keyframes dot-pulse {

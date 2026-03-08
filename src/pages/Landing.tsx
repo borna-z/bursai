@@ -7,10 +7,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { CookieConsent } from '@/components/landing/CookieConsent';
 
-const SocialTicker = lazy(() => import('@/components/landing/SocialTicker').then(m => ({ default: m.SocialTicker })));
 const BentoGrid = lazy(() => import('@/components/landing/BentoGrid').then(m => ({ default: m.BentoGrid })));
 const ProductShowcase = lazy(() => import('@/components/landing/ProductShowcase').then(m => ({ default: m.ProductShowcase })));
-const StatsCounter = lazy(() => import('@/components/landing/StatsCounter').then(m => ({ default: m.StatsCounter })));
 const TestimonialsCarousel = lazy(() => import('@/components/landing/TestimonialsCarousel').then(m => ({ default: m.TestimonialsCarousel })));
 const PricingSection = lazy(() => import('@/components/landing/PricingSection').then(m => ({ default: m.PricingSection })));
 const FooterCTA = lazy(() => import('@/components/landing/FooterCTA').then(m => ({ default: m.FooterCTA })));
@@ -24,7 +22,7 @@ export default function Landing() {
   const [scrolled, setScrolled] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const REVEAL_SELECTOR = '.reveal-up, .reveal-down, .reveal-left, .reveal-right, .reveal-scale, .scroll-reveal';
+  const REVEAL_SELECTOR = '.reveal-up, .reveal-scale, .scroll-reveal';
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -165,11 +163,9 @@ export default function Landing() {
           {/* Sections */}
           <HeroSection />
 
-          <Suspense fallback={<div style={{ minHeight: '200vh' }} aria-hidden="true" />}>
-            <SocialTicker />
-            <BentoGrid />
+          <Suspense fallback={<div style={{ minHeight: '100vh' }} aria-hidden="true" />}>
             <ProductShowcase />
-            <StatsCounter />
+            <BentoGrid />
             <TestimonialsCarousel />
             <PricingSection />
             <FooterCTA />
