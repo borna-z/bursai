@@ -56,8 +56,12 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
   if (!isGridView) {
     return (
       <motion.button
+        variants={cardReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: '-20px' }}
+        transition={{ ease: EASE_CURVE, duration: 0.3, delay: (index % 6) * STAGGER_DELAY }}
         whileTap={{ scale: 0.975 }}
-        transition={TAP_TRANSITION}
         onClick={handleClick}
         className={cn(
           'w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left will-change-transform',
