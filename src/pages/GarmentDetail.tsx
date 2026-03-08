@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { hapticMedium, hapticHeavy, hapticSuccess } from '@/lib/haptics';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Edit, Trash2, WashingMachine, Check, Loader2, ExternalLink, Sparkles, Shield, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
