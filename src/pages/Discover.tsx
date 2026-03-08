@@ -1,16 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Compass, Shirt, Bookmark, BookmarkCheck, Trophy, Check, Sparkles,
+  Compass, Shirt, Bookmark, BookmarkCheck, Trophy, Check, Sparkles, Lock,
   Search, Heart, ShoppingBag, Clock, Users, ChevronRight, User
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useProfile } from '@/hooks/useProfile';
+import { useGarmentCount } from '@/hooks/useGarments';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { OutfitReactions } from '@/components/social/OutfitReactions';
@@ -44,10 +46,20 @@ const AI_TOOLS = [
   { path: '/ai/style-twin', icon: Users, labelKey: 'ai.twin_title', color: 'bg-violet-500/10 text-violet-500' },
 ];
 
+// Challenges unlock at these garment milestones (index = challenge order)
+const UNLOCK_THRESHOLDS = [
+  1, 1, 3, 3, 3, 5, 5, 5, 5, 7,
+  10, 10, 10, 12, 12, 15, 15, 15, 18, 18,
+  20, 20, 22, 22, 25,
+];
+
+const TRENDING_USER_THRESHOLD = 500;
+
 export default function DiscoverPage() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const { data: profile } = useProfile();
+  const { data: garmentCount } = useGarmentCount();
   const navigate = useNavigate();
 
   // Feed state
@@ -55,42 +67,54 @@ export default function DiscoverPage() {
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [feedLoading, setFeedLoading] = useState(true);
+  const [totalUsers, setTotalUsers] = useState(0);
 
   // Challenges state
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [participations, setParticipations] = useState<Record<string, Participation>>({});
   const [challengesLoading, setChallengesLoading] = useState(true);
 
+  const myGarments = garmentCount || 0;
+
   // Load feed (limited preview)
   const loadFeed = useCallback(async () => {
     setFeedLoading(true);
-    const query = supabase
-      .from('outfits')
-      .select('id, occasion, style_vibe, outfit_items(id, slot, garment:garments(id, image_path))')
-      .eq('share_enabled', true)
-      .order('generated_at', { ascending: false })
-      .limit(6);
 
-    if (user) query.neq('user_id', user.id);
-    const { data } = await query;
-    setFeedOutfits((data || []) as any);
+    // Check total user count for trending gate
+    const { count: userCount } = await supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: true });
+    setTotalUsers(userCount || 0);
 
-    for (const outfit of (data || []) as any[]) {
-      const firstItem = outfit.outfit_items?.find((i: any) => i.garment?.image_path);
-      if (firstItem?.garment?.image_path) {
-        const { data: urlData } = await supabase.storage.from('garments').createSignedUrl(firstItem.garment.image_path, 3600);
-        if (urlData) setImageUrls(prev => ({ ...prev, [outfit.id]: urlData.signedUrl }));
+    if ((userCount || 0) >= TRENDING_USER_THRESHOLD) {
+      const query = supabase
+        .from('outfits')
+        .select('id, occasion, style_vibe, outfit_items(id, slot, garment:garments(id, image_path))')
+        .eq('share_enabled', true)
+        .order('generated_at', { ascending: false })
+        .limit(6);
+
+      if (user) query.neq('user_id', user.id);
+      const { data } = await query;
+      setFeedOutfits((data || []) as any);
+
+      for (const outfit of (data || []) as any[]) {
+        const firstItem = outfit.outfit_items?.find((i: any) => i.garment?.image_path);
+        if (firstItem?.garment?.image_path) {
+          const { data: urlData } = await supabase.storage.from('garments').createSignedUrl(firstItem.garment.image_path, 3600);
+          if (urlData) setImageUrls(prev => ({ ...prev, [outfit.id]: urlData.signedUrl }));
+        }
       }
-    }
 
-    if (user) {
-      const { data: saves } = await supabase.from('inspiration_saves').select('outfit_id').eq('user_id', user.id);
-      setSavedIds(new Set(saves?.map(s => s.outfit_id) || []));
+      if (user) {
+        const { data: saves } = await supabase.from('inspiration_saves').select('outfit_id').eq('user_id', user.id);
+        setSavedIds(new Set(saves?.map(s => s.outfit_id) || []));
+      }
     }
     setFeedLoading(false);
   }, [user]);
 
-  // Load challenges
+  // Load challenges (all 25, always active)
   const loadChallenges = useCallback(async () => {
     setChallengesLoading(true);
     const today = new Date().toISOString().split('T')[0];
@@ -99,8 +123,8 @@ export default function DiscoverPage() {
       .select('id, title, description')
       .lte('week_start', today)
       .gte('week_end', today)
-      .order('week_start', { ascending: false })
-      .limit(3);
+      .order('created_at', { ascending: true })
+      .limit(25);
 
     setChallenges(chals || []);
 
