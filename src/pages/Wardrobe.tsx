@@ -46,7 +46,7 @@ interface GarmentCardProps {
   index?: number;
 }
 
-function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }: GarmentCardProps) {
+function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, index = 0 }: GarmentCardProps) {
   const navigate = useNavigate();
 
   const handleClick = () => {
