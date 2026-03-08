@@ -49,6 +49,11 @@ function applyAccent(accent: AccentColor, resolved: 'light' | 'dark') {
   const hsl = resolved === 'dark' ? accent.hslDark : accent.hsl;
   root.style.setProperty('--accent', hsl);
   root.style.setProperty('--accent-indigo', hsl);
+  // Ensure accent-foreground contrasts properly with accent background
+  root.style.setProperty('--accent-foreground', resolved === 'dark' ? '0 0% 5%' : '0 0% 100%');
+  // Also update primary to match accent for consistency
+  root.style.setProperty('--primary', hsl);
+  root.style.setProperty('--primary-foreground', resolved === 'dark' ? '0 0% 5%' : '0 0% 100%');
   const parts = hsl.split(' ');
   root.style.setProperty('--accent-indigo-muted', `${parts[0]} ${parseInt(parts[1]) * 0.6}% ${resolved === 'dark' ? '16' : '94'}%`);
 }
