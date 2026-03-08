@@ -269,17 +269,17 @@ export default function AIChat() {
     <AppLayout>
       <div className="flex flex-col" style={{ height: 'calc(100dvh - 4rem)' }}>
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/20 shrink-0 sticky top-0 z-10 bg-background/70 backdrop-blur-lg">
-          <div className="w-9" /> {/* spacer */}
-          {/* Mode switcher */}
-          <div className="flex gap-1">
+        <div className="flex items-center justify-between px-4 py-3 shrink-0 sticky top-0 z-10 bg-background/80 backdrop-blur-xl">
+          <div className="w-9" />
+          {/* Pill segmented control */}
+          <div className="flex gap-0.5 rounded-full bg-foreground/[0.04] p-1">
             <button
               onClick={() => setMode('stylist')}
               className={cn(
-                'flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium transition-all border-b-2',
+                'flex items-center gap-1.5 py-1.5 px-4 text-xs font-medium rounded-full transition-all duration-200',
                 mode === 'stylist'
-                  ? 'text-foreground border-foreground'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
             >
               <Sparkles className="w-3.5 h-3.5" />
@@ -288,17 +288,16 @@ export default function AIChat() {
             <button
               onClick={() => setMode('shopping')}
               className={cn(
-                'flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium transition-all border-b-2',
+                'flex items-center gap-1.5 py-1.5 px-4 text-xs font-medium rounded-full transition-all duration-200',
                 mode === 'shopping'
-                  ? 'text-foreground border-foreground'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
             >
               <ShoppingBag className="w-3.5 h-3.5" />
               {t('chat.mode_shopping')}
             </button>
           </div>
-          {/* Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground">
