@@ -9,6 +9,8 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
+import { useGarmentCount } from '@/hooks/useGarments';
+import { useCreateOutfit } from '@/hooks/useOutfits';
 import { useCreateOutfit } from '@/hooks/useOutfits';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ChatWelcome } from '@/components/chat/ChatWelcome';
