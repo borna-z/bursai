@@ -20,6 +20,7 @@ import { InsightsBanner } from '@/components/home/InsightsBanner';
 
 export default function HomePage() {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const { data: garmentCount } = useGarmentCount();
   const { weather } = useWeather();
   const { data: profile } = useProfile();
