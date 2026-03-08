@@ -44,16 +44,27 @@ function getSystemTheme(): 'light' | 'dark' {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
+function getContrastForeground(hsl: string, resolved: 'light' | 'dark'): string {
+  // Parse lightness from HSL string like "234 51% 37%"
+  const parts = hsl.split(' ');
+  const lightness = parseInt(parts[2]);
+  if (resolved === 'dark') {
+    // In dark mode, accent colors are lighter; use dark foreground when lightness > 55%
+    return lightness > 55 ? '0 0% 5%' : '0 0% 100%';
+  }
+  // In light mode, use dark foreground when lightness > 38% for better contrast
+  return lightness > 38 ? '0 0% 7%' : '0 0% 100%';
+}
+
 function applyAccent(accent: AccentColor, resolved: 'light' | 'dark') {
   const root = document.documentElement;
   const hsl = resolved === 'dark' ? accent.hslDark : accent.hsl;
+  const fg = getContrastForeground(hsl, resolved);
   root.style.setProperty('--accent', hsl);
   root.style.setProperty('--accent-indigo', hsl);
-  // Ensure accent-foreground contrasts properly with accent background
-  root.style.setProperty('--accent-foreground', resolved === 'dark' ? '0 0% 5%' : '0 0% 100%');
-  // Also update primary to match accent for consistency
+  root.style.setProperty('--accent-foreground', fg);
   root.style.setProperty('--primary', hsl);
-  root.style.setProperty('--primary-foreground', resolved === 'dark' ? '0 0% 5%' : '0 0% 100%');
+  root.style.setProperty('--primary-foreground', fg);
   const parts = hsl.split(' ');
   root.style.setProperty('--accent-indigo-muted', `${parts[0]} ${parseInt(parts[1]) * 0.6}% ${resolved === 'dark' ? '16' : '94'}%`);
 }
