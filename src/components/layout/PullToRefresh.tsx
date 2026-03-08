@@ -28,11 +28,20 @@ export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
     pulling.current = true;
   }, [refreshing]);
 
+  const hapticTriggered = useRef(false);
+
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!pulling.current || refreshing) return;
     const delta = Math.max(0, e.touches[0].clientY - touchStartY.current);
-    // Damped pull
-    y.set(delta * 0.5);
+    const dampedDelta = delta * 0.5;
+    y.set(dampedDelta);
+    // Haptic at threshold
+    if (dampedDelta >= THRESHOLD && !hapticTriggered.current) {
+      hapticTriggered.current = true;
+      hapticLight();
+    } else if (dampedDelta < THRESHOLD) {
+      hapticTriggered.current = false;
+    }
   }, [refreshing, y]);
 
   const handleTouchEnd = useCallback(async () => {
