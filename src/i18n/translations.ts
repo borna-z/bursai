@@ -6095,6 +6095,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'calendar.google_privacy': 'BURS leest je agenda-evenementen om outfits te plannen rondom je schema. Je kunt de verbinding op elk moment verbreken.',
     'reaction.styled': 'Stijlvol', 'reaction.creative': 'Creatief', 'reaction.sustainable': 'Duurzaam',
     'wardrobe.reel_save_error': 'Kon afbeelding niet opslaan',
+    'duplicate.title': 'Mogelijk duplicaat gedetecteerd', 'duplicate.subtitle': 'We vonden vergelijkbare items in je kledingkast. Wat wil je doen?',
+    'duplicate.match': 'overeenkomst', 'duplicate.visual_and_attribute': 'Visuele + eigenschap-overeenkomst', 'duplicate.visual_match': 'Visuele overeenkomst', 'duplicate.attribute_match': 'Eigenschap-overeenkomst',
+    'duplicate.replace': 'Vervangen', 'duplicate.keep_both': 'Beide houden — geen duplicaat', 'duplicate.cancel': 'Upload annuleren', 'duplicate.replaced': 'Oud kledingstuk vervangen',
   },
 
   pl: {
