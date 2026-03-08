@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Infinity, Brain, CalendarDays, BarChart3, Image, Sparkles, ArrowRight } from 'lucide-react';
+import { Infinity, Brain, CalendarDays, BarChart3, Image, Sparkles, ArrowRight, ChevronDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getLocalizedPricing } from '@/lib/localizedPricing';
 import { ComparisonTable } from './ComparisonTable';
@@ -122,6 +122,11 @@ export function PricingSection() {
                   <span>{t(label as any)}</span>
                 </div>
               ))}
+            </div>
+
+            {/* Mobile scroll hint */}
+            <div className="flex md:hidden justify-center mb-4 animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]">
+              <ChevronDown size={18} className="text-muted-foreground/30" />
             </div>
 
             {/* CTA */}
