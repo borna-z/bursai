@@ -27,9 +27,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { WardrobeOutfitsTab } from '@/components/wardrobe/WardrobeOutfitsTab';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { AnimatedTab } from '@/components/ui/animated-tab';
-import { SmartGroupings } from '@/components/wardrobe/SmartGroupings';
 import { FilterSheet } from '@/components/wardrobe/FilterSheet';
-import { SectionHeader } from '@/components/ui/section-header';
+import { Chip } from '@/components/ui/chip';
 
 // ── Garment Card ──
 
