@@ -1812,6 +1812,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'nav.wardrobe': 'Wardrobe',
     'nav.plan': 'Plan',
     'nav.stylist': 'Stylist',
+    'nav.discover': 'Discover',
     'nav.settings': 'Settings',
     'nav.outfits': 'Outfits',
     'onboarding.language.title': 'Choose language',
