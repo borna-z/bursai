@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format, addDays, isSameDay, isToday, isTomorrow } from 'date-fns';
@@ -14,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { WeekStrip } from '@/components/plan/WeekStrip';
 import { PlanningSheet } from '@/components/plan/PlanningSheet';
@@ -60,6 +62,7 @@ export default function PlanPage() {
   useBackgroundSyncNotification();
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const { t, locale } = useLanguage();
   const initialDate = (location.state as { initialDate?: string })?.initialDate;
   const [selectedDate, setSelectedDate] = useState(() =>
@@ -218,6 +221,14 @@ export default function PlanPage() {
 
   const hasGarments = garments.length > 0;
 
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['planned-outfits'] }),
+      queryClient.invalidateQueries({ queryKey: ['garments'] }),
+      queryClient.invalidateQueries({ queryKey: ['day-summary'] }),
+    ]);
+  }, [queryClient]);
+
   return (
     <AppLayout>
       {/* ─── Sticky header ─── */}
@@ -265,6 +276,7 @@ export default function PlanPage() {
       </header>
 
       {/* ─── Content ─── */}
+      <PullToRefresh onRefresh={handleRefresh}>
       <AnimatedPage className="max-w-lg mx-auto px-4 pt-4 pb-6">
         {/* Calendar connect nudge */}
         <CalendarConnectBanner />
@@ -424,6 +436,7 @@ export default function PlanPage() {
           )}
         </motion.div>
       </AnimatedPage>
+      </PullToRefresh>
 
       {/* ─── Sheets ─── */}
       <PlanningSheet

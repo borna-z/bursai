@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Shirt, Sparkles, TrendingUp, Lock, Palette, Gem, Trophy, Thermometer, Sun, Snowflake } from 'lucide-react';
 import { InsightsPageSkeleton } from '@/components/ui/skeletons';
@@ -7,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useInsights, type Garment, type ColorTemperatureData } from '@/hooks/useInsights';
 import { useSubscription } from '@/hooks/useSubscription';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { AISuggestions } from '@/components/insights/AISuggestions';
@@ -221,10 +223,15 @@ function ColorTemperatureWidget({ data, isPremium, t }: { data: ColorTemperature
 
 /* ─── Main page ─── */
 export default function InsightsPage() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { t } = useLanguage();
   const { data: insights, isLoading } = useInsights();
   const { isPremium, isLoading: subLoading } = useSubscription();
+  
+  const handleRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['insights'] });
+  }, [queryClient]);
 
   if (isLoading || subLoading) {
     return (
@@ -254,7 +261,7 @@ export default function InsightsPage() {
   return (
     <AppLayout>
       <PageHeader title={t('insights.title')} showBack />
-
+      <PullToRefresh onRefresh={handleRefresh}>
       <AnimatedPage className="max-w-lg mx-auto px-4 pb-8 pt-6">
         {/* ─── Hero: Usage ring + stats ─── */}
         <div className="flex flex-col items-center pb-10">
@@ -276,7 +283,8 @@ export default function InsightsPage() {
           </div>
         </div>
 
-        <div className="space-y-10">
+        <div className="space-y-10" style={{ '--stagger-base': '0.08s' } as React.CSSProperties}>
+          {/* Sections get staggered entrance via drape-in */}
           {/* ─── Top worn ─── */}
           {insights.topFiveWorn.length > 0 && (
             <Section>
@@ -359,6 +367,7 @@ export default function InsightsPage() {
           </Button>
         </div>
       </AnimatedPage>
+      </PullToRefresh>
     </AppLayout>
   );
 }
