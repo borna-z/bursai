@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Compass, Shirt, Bookmark, BookmarkCheck, Trophy, Check, Sparkles,
+  Compass, Shirt, Bookmark, BookmarkCheck, Trophy, Check, Sparkles, Lock,
   Search, Heart, ShoppingBag, Clock, Users, ChevronRight, User, PartyPopper
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
