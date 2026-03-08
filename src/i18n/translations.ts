@@ -6177,6 +6177,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'calendar.google_privacy': 'BURS odczytuje wydarzenia z kalendarza, aby pomóc w planowaniu strojów wokół Twojego harmonogramu. Możesz się odłączyć w dowolnym momencie.',
     'reaction.styled': 'Stylowy', 'reaction.creative': 'Kreatywny', 'reaction.sustainable': 'Zrównoważony',
     'wardrobe.reel_save_error': 'Nie udało się zapisać obrazu',
+    'duplicate.title': 'Wykryto możliwy duplikat', 'duplicate.subtitle': 'Znaleźliśmy podobne ubrania w Twojej garderobie. Co chcesz zrobić?',
+    'duplicate.match': 'dopasowanie', 'duplicate.visual_and_attribute': 'Dopasowanie wizualne + cech', 'duplicate.visual_match': 'Dopasowanie wizualne', 'duplicate.attribute_match': 'Dopasowanie cech',
+    'duplicate.replace': 'Zastąp', 'duplicate.keep_both': 'Zachowaj oba — to nie duplikat', 'duplicate.cancel': 'Anuluj przesyłanie', 'duplicate.replaced': 'Stare ubranie zastąpione',
   },
 
   ar: {
