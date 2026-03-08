@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Users, Sparkles, Shirt, TrendingUp } from 'lucide-react';
 
 function AnimatedCount({ target, suffix = '' }: { target: number; suffix?: string }) {
   const [count, setCount] = useState(0);
@@ -29,18 +28,11 @@ function AnimatedCount({ target, suffix = '' }: { target: number; suffix?: strin
   }, [target]);
 
   return (
-    <div ref={ref} className="text-3xl md:text-5xl font-bold gradient-text font-space tabular-nums">
+    <div ref={ref} className="text-3xl md:text-5xl font-bold text-white font-space tabular-nums">
       {count.toLocaleString()}{suffix}
     </div>
   );
 }
-
-const STATS_CONFIG = [
-  { icon: Users, color: 'rgba(6,182,212,0.4)', glow: 'rgba(6,182,212,0.15)' },
-  { icon: Sparkles, color: 'rgba(245,158,11,0.4)', glow: 'rgba(245,158,11,0.15)' },
-  { icon: Shirt, color: 'rgba(244,63,94,0.4)', glow: 'rgba(244,63,94,0.15)' },
-  { icon: TrendingUp, color: 'rgba(16,185,129,0.4)', glow: 'rgba(16,185,129,0.15)' },
-];
 
 export function StatsCounter() {
   const { t } = useLanguage();
@@ -53,25 +45,14 @@ export function StatsCounter() {
   ];
 
   return (
-    <section className="px-6 py-16 md:py-24 relative border-y border-white/5" style={{ zIndex: 10 }}>
-      <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-6 text-center">
-        {stats.map((s, i) => {
-          const cfg = STATS_CONFIG[i];
-          const Icon = cfg.icon;
-          return (
-            <div key={i} className="reveal-up flex flex-col items-center gap-3 relative" style={{ '--reveal-delay': `${i * 100}ms` } as React.CSSProperties}>
-              {/* Radial glow behind */}
-              <div className="absolute inset-0 rounded-xl" style={{ background: `radial-gradient(circle, ${cfg.glow} 0%, transparent 70%)` }} aria-hidden="true" />
-              <div className="w-10 h-10 rounded-xl hyper-glass flex items-center justify-center mb-1 relative z-10">
-                <Icon size={18} strokeWidth={1.5} style={{ color: cfg.color, filter: `drop-shadow(0 0 4px ${cfg.color})` }} />
-              </div>
-              <AnimatedCount target={s.target} suffix={s.suffix} />
-              <p className="text-[11px] md:text-xs text-gray-500 tracking-widest uppercase relative z-10">{s.label}</p>
-              {/* Desktop divider */}
-              {i < 3 && <div className="hidden md:block absolute right-0 top-1/4 h-1/2 w-px bg-white/5" />}
-            </div>
-          );
-        })}
+    <section className="px-6 py-16 md:py-24 border-y border-white/[0.04]">
+      <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-10 md:gap-6 text-center">
+        {stats.map((s, i) => (
+          <div key={i} className="flex flex-col items-center gap-2 reveal-up" style={{ '--reveal-delay': `${i * 80}ms` } as React.CSSProperties}>
+            <AnimatedCount target={s.target} suffix={s.suffix} />
+            <p className="text-[11px] text-gray-500 tracking-[0.2em] uppercase">{s.label}</p>
+          </div>
+        ))}
       </div>
     </section>
   );
