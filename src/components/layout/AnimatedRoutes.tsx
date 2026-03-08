@@ -133,6 +133,9 @@ export function AnimatedRoutes() {
             <Route path="/billing/success" element={<ProtectedRoute><BillingSuccess /></ProtectedRoute>} />
             <Route path="/billing/cancel" element={<ProtectedRoute><BillingCancel /></ProtectedRoute>} />
             <Route path="/share/:id" element={<ShareOutfit />} />
+            <Route path="/u/:username" element={<PublicProfile />} />
+            <Route path="/feed" element={<ProtectedRoute><InspirationFeed /></ProtectedRoute>} />
+            <Route path="/challenges" element={<ProtectedRoute><StyleChallenges /></ProtectedRoute>} />
             <Route path="/calendar/callback" element={<ProtectedRoute><GoogleCalendarCallback /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
