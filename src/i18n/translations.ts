@@ -2230,6 +2230,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     'plan.removed': 'Removed',
     'plan.remove_error': 'Could not remove',
     'plan.undone': 'Undone',
+    'laundry.wash_alert_title': 'Laundry alert',
+    'laundry.needed_for': 'needed',
     'plan.plan_week': 'Plan your week',
     'plan.undo': 'Undo',
     'plan.versatile_pieces': 'Works all day',
