@@ -589,6 +589,12 @@ export default function OutfitDetailPage() {
           ))}
         </div>
 
+        {/* ── Step 19: Outfit DNA Cloning ── */}
+        <OutfitDNASection outfitId={outfit.id} />
+
+        {/* ── Step 20: Smart Accessory Pairing ── */}
+        <AccessoryPairingSection outfitId={outfit.id} />
+
         {/* ── Rating ── */}
         <div className="space-y-3">
           <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">{t('outfit.rating')}</p>

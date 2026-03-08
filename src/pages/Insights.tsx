@@ -336,6 +336,15 @@ export default function InsightsPage() {
           {/* ─── Color Distribution ─── */}
           <ColorDistribution garments={allGarments} isPremium={isPremium} t={t} />
 
+          {/* ── Step 21: Wardrobe Gap Analysis ── */}
+          <WardrobeGapSection isPremium={isPremium} />
+
+          {/* ── Step 23: Sustainability Score ── */}
+          <SustainabilitySection isPremium={isPremium} />
+
+          {/* ── Step 24: Style Evolution Timeline ── */}
+          <StyleEvolutionSection isPremium={isPremium} />
+
           {/* ─── Subtle premium link ─── */}
           {!isPremium && (
             <p className="text-center text-xs text-muted-foreground/40 pt-2">
