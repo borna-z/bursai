@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,7 +34,6 @@ serve(async (req) => {
     }
     const userId = claimsData.claims.sub;
 
-    // Get user's style vector from their wardrobe
     const { data: garments } = await supabase
       .from("garments")
       .select("category, color_primary, material, formality")
@@ -45,7 +45,6 @@ serve(async (req) => {
       });
     }
 
-    // Build style vector
     const colorCounts: Record<string, number> = {};
     const materialCounts: Record<string, number> = {};
     const categoryCounts: Record<string, number> = {};
@@ -62,13 +61,8 @@ serve(async (req) => {
     const topMaterials = Object.entries(materialCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k);
     const avgFormality = formalityCount > 0 ? Math.round(formalitySum / formalityCount * 10) / 10 : 3;
 
-    // Find shared outfits from other users with similar style vectors
-    const serviceSupabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const serviceSupabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // Get shared outfits with their items for inspiration
     const { data: sharedOutfits } = await serviceSupabase
       .from("outfits")
       .select("id, occasion, style_vibe, explanation")
@@ -77,25 +71,14 @@ serve(async (req) => {
       .order("generated_at", { ascending: false })
       .limit(20);
 
-    // Determine style archetype based on their dominant attributes
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
     const { locale = "sv" } = await req.json();
     const langName = locale === "sv" ? "svenska" : "English";
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
-        messages: [
-          {
-            role: "system",
-            content: `You are a style analyst. Based on a user's style vector, identify their "style twin" archetype. Respond in ${langName}.
+    const { data: result } = await callBursAI({
+      messages: [
+        {
+          role: "system",
+          content: `You are a style analyst. Based on a user's style vector, identify their "style twin" archetype. Respond in ${langName}.
 
 STYLE VECTOR:
 - Top colors: ${topColors.join(", ")}
@@ -103,63 +86,36 @@ STYLE VECTOR:
 - Average formality: ${avgFormality}/5
 - Wardrobe size: ${garments.length} items
 - Category spread: ${Object.entries(categoryCounts).map(([k, v]) => `${k}: ${v}`).join(", ")}`,
-          },
-          { role: "user", content: "What is my style twin archetype and what defines it?" },
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "style_twin_result",
-            description: "Return style twin analysis",
-            parameters: {
-              type: "object",
-              properties: {
-                twin_archetype: { type: "string", description: "Creative archetype name e.g. 'The Scandinavian Minimalist'" },
-                archetype_description: { type: "string", description: "2-3 sentence description of this style type" },
-                shared_traits: {
-                  type: "array",
-                  items: { type: "string" },
-                  description: "4-6 defining style traits",
-                },
-                style_icons: {
-                  type: "array",
-                  items: { type: "string" },
-                  description: "2-3 real-world style icons with similar taste",
-                },
-                signature_moves: {
-                  type: "array",
-                  items: { type: "string" },
-                  description: "3-4 signature styling moves to try",
-                },
-              },
-              required: ["twin_archetype", "archetype_description", "shared_traits", "style_icons", "signature_moves"],
-              additionalProperties: false,
+        },
+        { role: "user", content: "What is my style twin archetype and what defines it?" },
+      ],
+      tools: [{
+        type: "function",
+        function: {
+          name: "style_twin_result",
+          description: "Return style twin analysis",
+          parameters: {
+            type: "object",
+            properties: {
+              twin_archetype: { type: "string", description: "Creative archetype name" },
+              archetype_description: { type: "string", description: "2-3 sentence description" },
+              shared_traits: { type: "array", items: { type: "string" }, description: "4-6 defining style traits" },
+              style_icons: { type: "array", items: { type: "string" }, description: "2-3 real-world style icons" },
+              signature_moves: { type: "array", items: { type: "string" }, description: "3-4 signature styling moves" },
             },
+            required: ["twin_archetype", "archetype_description", "shared_traits", "style_icons", "signature_moves"],
+            additionalProperties: false,
           },
-        }],
-        tool_choice: { type: "function", function: { name: "style_twin_result" } },
-      }),
+        },
+      }],
+      tool_choice: { type: "function", function: { name: "style_twin_result" } },
+      modelType: "fast",
+      cacheTtlSeconds: 7200,
+      cacheNamespace: "style_twin",
     });
 
-    if (!resp.ok) {
-      if (resp.status === 429) return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (resp.status === 402) return new Response(JSON.stringify({ error: "Credits exhausted" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      throw new Error(`AI error: ${resp.status}`);
-    }
-
-    const aiData = await resp.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    let result: any = null;
-    if (toolCall?.function?.arguments) {
-      try { result = JSON.parse(toolCall.function.arguments); } catch { /* ignore */ }
-    }
-    if (!result) throw new Error("AI did not return structured result");
-
-    // Add community outfits as inspiration
     result.inspiration_outfits = (sharedOutfits || []).slice(0, 5).map((o: any) => ({
-      id: o.id,
-      occasion: o.occasion,
-      style_vibe: o.style_vibe,
+      id: o.id, occasion: o.occasion, style_vibe: o.style_vibe,
     }));
 
     return new Response(JSON.stringify(result), {
@@ -167,9 +123,6 @@ STYLE VECTOR:
     });
   } catch (e) {
     console.error("style_twin error:", e);
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return bursAIErrorResponse(e, corsHeaders);
   }
 });
