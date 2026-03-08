@@ -2023,6 +2023,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'onboarding.complete.title': 'You\'re ready!',
     'onboarding.complete.desc': 'Congratulations! You can now start using your digital wardrobe.',
     'onboarding.complete.cta': 'Start using the app',
+    'onboarding.skip': 'Skip for now',
     'onboarding.skip_all': 'Skip introduction',
     'onboarding.demo_success': '6 sample garments added!',
     'onboarding.demo_success_desc': 'Now you can try creating outfits',
