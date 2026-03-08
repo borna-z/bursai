@@ -85,6 +85,10 @@ export function useCalendarSync() {
       setIsSyncing(true);
       const { data, error } = await supabase.functions.invoke('sync_google_calendar');
       if (error) throw error;
+      // Check for reconnect signal from backend
+      if (data?.reconnect) {
+        throw Object.assign(new Error('reconnect_required'), { reconnect: true });
+      }
       if (data?.error) throw new Error(data.error);
       return data;
     },
@@ -93,8 +97,20 @@ export function useCalendarSync() {
       queryClient.invalidateQueries({ queryKey: ['profile-calendar'] });
       toast.success(t('calsync.synced_google').replace('{count}', String(data.synced)));
     },
-    onError: (error: Error) => {
-      toast.error(error.message || t('calsync.sync_google_error'));
+    onError: (error: any) => {
+      if (error?.reconnect) {
+        // Token revoked — clear local state and prompt reconnect
+        queryClient.invalidateQueries({ queryKey: ['google-calendar-connection'] });
+        toast.error(t('calsync.reconnect_required') || 'Google Calendar disconnected. Please reconnect.', {
+          duration: 8000,
+          action: {
+            label: t('calsync.reconnect_action') || 'Reconnect',
+            onClick: () => connectGoogle(),
+          },
+        });
+      } else {
+        toast.error(error.message || t('calsync.sync_google_error'));
+      }
     },
     onSettled: () => setIsSyncing(false),
   });

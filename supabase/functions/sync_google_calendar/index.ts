@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 // Refresh the access token using the refresh token
@@ -83,7 +83,7 @@ export async function syncGoogleCalendarForUser(
   refreshToken: string | null,
   tokenExpiresAt: string | null,
   connectionId: string
-): Promise<{ success: boolean; synced: number; error?: string }> {
+): Promise<{ success: boolean; synced: number; error?: string; reconnect?: boolean }> {
   const clientId = Deno.env.get('GOOGLE_CLIENT_ID')!;
   const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')!;
 
@@ -93,7 +93,10 @@ export async function syncGoogleCalendarForUser(
   if (tokenExpiresAt && new Date(tokenExpiresAt) < new Date() && refreshToken) {
     const refreshed = await refreshAccessToken(refreshToken, clientId, clientSecret);
     if (!refreshed) {
-      return { success: false, synced: 0, error: 'Token refresh failed' };
+      // Token revoked or expired — delete stale connection
+      console.error(`Token refresh failed for user ${userId.substring(0, 8)}, deleting stale connection`);
+      await supabase.from('calendar_connections').delete().eq('id', connectionId);
+      return { success: false, synced: 0, error: 'reconnect_required', reconnect: true };
     }
     currentToken = refreshed.access_token;
     const newExpiry = new Date(Date.now() + refreshed.expires_in * 1000).toISOString();
@@ -234,8 +237,9 @@ Deno.serve(async (req) => {
     );
 
     if (!result.success) {
-      return new Response(JSON.stringify({ error: result.error }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      const status = result.reconnect ? 401 : 500;
+      return new Response(JSON.stringify({ error: result.error, reconnect: result.reconnect || false }), {
+        status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
