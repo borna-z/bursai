@@ -1,101 +1,115 @@
 
-# BURS Roadmap v2 — 25 Steps
 
-## Phase 1: UX Polish & Performance (Steps 1–7)
+# Hyperreality Landing Page Redesign
 
-### Step 1: Skeleton & Loading State Audit ✅
-Audited all data-fetching views. Replaced raw `Loader2` spinners with contextual shimmer skeletons on Insights, Plan, Settings, and AIChat pages. Added `InsightsPageSkeleton`, `PlanPageSkeleton`, `SettingsPageSkeleton`, and `ChatPageSkeleton` to shared skeletons file. Home, Wardrobe, GarmentDetail, and OutfitDetail already had proper skeletons.
-
-### Step 2: Haptic & Micro-Interaction Pass ✅
-Added haptic feedback to: GarmentDetail (toggle laundry, mark worn, delete), OutfitDetail (save/unsave, rating, mark worn), DayCard (swap, mark worn, remove, plan, generate), PlanTomorrowCard, InsightsBanner, SmartInsightCard, SwipeableGarmentCard (swipe open). Replaced raw `navigator.vibrate` calls in LiveScan with standardized haptics. Added spring `whileTap` animations to SmartInsightCard.
-
-### Step 3: Offline Mode & Queued Actions ✅
-Created `lib/offlineQueue.ts` with localStorage-backed mutation queue (enqueue, replay, clear). Added `useOfflineQueue` hook for auto-replay on reconnect. Upgraded `OfflineBanner` to show queue count and syncing state. Configured React Query with `networkMode: 'offlineFirst'` and extended `gcTime` to 30 minutes for offline data access.
-
-### Step 4: Pull-to-Refresh & Infinite Scroll ✅
-Added PullToRefresh to Plan and Insights pages (Home and Wardrobe already had it). Wardrobe already has virtualized lists via @tanstack/react-virtual and infinite scroll with IntersectionObserver.
-
-### Step 5: Gesture Navigation ✅
-Added swipe-right-to-wear gesture on TodayOutfitCard with 100px threshold. Added "Swipe right to wear" hint text. Wardrobe already has swipe-left actions. Plan already has day navigation.
-
-### Step 6: Accessibility Deep Pass ✅
-Added `prefers-reduced-motion` CSS media query to disable all animations/transitions for users who prefer reduced motion. Updated AnimatedPage to respect `useReducedMotion()` from framer-motion (simpler fade-only with shorter duration). Existing aria-labels and focus-visible rings remain intact.
-
-### Step 7: Transition & Animation Polish ✅
-Wardrobe grid already uses staggered `animate-drape-in` with per-item delays (capped at 12 items). DayCard uses the same. Home page sections have individual motion.div entrance animations. All interactive cards have `whileTap` spring animations. Route transitions use 0.4s ease with scale.
+A full visual overhaul of every landing section to create an immersive, cinematic, high-contrast experience with glowing gradients, animated mesh backgrounds, dramatic typography, and depth-rich visuals.
 
 ---
 
-## Phase 2: Advanced Analytics & Insights (Steps 8–13)
+## Design Direction
 
-### Step 8: Spending Dashboard ✅
-Created SpendingDashboard component with total wardrobe value, cost-per-category bars, best/worst CPW garments. Premium-gated.
-
-### Step 9: Seasonal Wardrobe Report ✅
-Covered by Style Evolution + Category Balance + Sustainability + Heatmap widgets combined.
-
-### Step 10: Outfit Repeat Tracker ✅
-Created OutfitRepeatTracker showing most-repeated outfits and stale outfits (60+ days). Premium-gated.
-
-### Step 11: Wear Heatmap Calendar ✅
-Created WearHeatmap with 90-day grid, streak counter, and consistency score. Premium-gated.
-
-### Step 12: Category Balance Chart ✅
-Created CategoryRadar with animated horizontal bars per category. Premium-gated.
-
-### Step 13: Personal Style Report Card ✅
-Created StyleReportCard calling burs_style_engine for AI archetype, scores, and summary. Premium-gated.
+Dark cinematic canvas (#030305) with vivid accent glows (indigo, cyan, amber), animated gradient meshes, large bold typography, frosted-glass panels with luminous borders, and smooth scroll-triggered reveals. Think: Apple Vision Pro marketing meets high-fashion editorial.
 
 ---
 
-## Phase 3: Social & Community (Steps 14–19)
+## Changes
 
-### Step 14: Public Style Profile ✅
-Created PublicProfile page at `/u/:username`. Added `username` column to profiles. Shows avatar, display name, shared outfits grid with reactions. Public access via RLS policy.
+### 1. New CSS — Hyperreality Effects (`index.css`)
+- **Animated gradient mesh** background keyframes (slow-moving multi-color blobs)
+- **Glow orb** utility classes with pulsing radial gradients (indigo, cyan, amber)
+- **Luminous border** class — borders that glow on hover with colored halos
+- **Text shimmer** keyframe — a light sweep across headline text
+- **Noise texture overlay** — subtle grain for depth via a CSS pseudo-element
+- **Hyper-glass** panel class — stronger glass with colored border glow and inner shadow
 
-### Step 15: Outfit Inspiration Feed ✅
-Created InspirationFeed page at `/feed`. Shows community shared outfits with occasion filters, save-to-inspiration feature, and outfit reactions. Excludes own outfits. Uses `inspiration_saves` table.
+### 2. Hero Section — Full Rewrite (`HeroSection.tsx`)
+- **Background**: Animated gradient mesh with 3 overlapping radial gradients (indigo, cyan, violet) that slowly orbit
+- **Badge**: Glowing pill with pulsing dot and luminous border
+- **Headline**: Massive (text-6xl/8xl) with text-shimmer animation, white-to-transparent gradient
+- **Subtext**: Slightly larger, softer gray, wider letter-spacing
+- **CTA button**: Gradient border (indigo→cyan) with inner white fill, hover glow halo effect
+- **SSO buttons**: Hyper-glass panels with subtle colored borders
+- **Right side**: Replace empty glow with an animated orb cluster — 3 overlapping gradient circles that float and pulse (pure CSS, no 3D)
+- **Scroll indicator**: Animated line instead of chevron
 
-### Step 16: Outfit Reactions & Kudos ✅
-Created `OutfitReactions` component with 🔥 styled, 💎 creative, 🌿 sustainable reactions. Toggle on/off with optimistic UI. Used on share pages, public profiles, and feed. `outfit_reactions` table with RLS.
+### 3. Header — Floating Capsule (`Landing.tsx`)
+- Detach from edges — `mx-4 mt-4 rounded-2xl` floating capsule style
+- Hyper-glass background with luminous bottom border
+- Logo glow on hover
+- Nav links with underline-on-hover animation
+- CTA button: gradient border pill
 
-### Step 17: Style Challenge System ✅
-Created StyleChallenges page at `/challenges`. Shows active weekly challenges with join/complete actions. `style_challenges` + `challenge_participations` tables with proper RLS.
+### 4. Social Ticker — Glow Accents (`SocialTicker.tsx`)
+- Each stat icon gets a subtle colored glow (Users=cyan, Shirt=rose, Sparkles=amber, Globe=indigo)
+- Separator dots between items with glow
+- Slightly larger text
 
-### Step 18: Outfit Request / Style Advice ✅
-Covered by existing AI chat stylist which handles outfit requests with context from user's wardrobe.
+### 5. Trust Logos — Luminous on Hover (`TrustLogos.tsx`)
+- Each logo gets a colored underline glow on hover
+- Staggered fade-in animation
+- "Featured in" label with line accents on both sides
 
-### Step 19: Friend Wardrobe Peek ✅
-Created `friendships` table with pending/accepted/declined status and proper RLS. UI deferred — DB foundation ready for future friend features.
+### 6. How It Works — Cinematic Cards (`HowItWorks.tsx`)
+- Replace glass-panel cards with hyper-glass cards that have colored top-edge glows (blue, amber, emerald)
+- Number nodes get pulsing glow rings
+- Vertical connector line becomes a gradient (indigo→cyan→emerald)
+- Cards get subtle parallax offset on scroll
+
+### 7. Features Showcase — Glow Grid (`FeaturesShowcase.tsx`)
+- Each card gets a subtle animated gradient border on hover
+- Icon containers get colored background glow matching their accent
+- Add a floating orb behind the grid (ambient decoration)
+- Increase card padding and add inner glow shadow
+
+### 8. Stats Counter — Dramatic Numbers (`StatsCounter.tsx`)
+- Numbers use gradient text (white→gray shimmer)
+- Each stat gets a subtle radial glow behind it
+- Divider lines between stats on desktop
+- Icons get colored tints matching their meaning
+
+### 9. Sustainability — Split Glow (`SustainabilitySection.tsx`)
+- Leaf icon gets emerald glow halo
+- Stats cards get luminous borders
+- Quote text uses text-shimmer effect
+- Background gets a subtle emerald gradient mesh
+
+### 10. Testimonials — Cinematic Slides (`TestimonialsCarousel.tsx`)
+- Quote card gets hyper-glass treatment with colored border
+- Star ratings glow amber
+- Navigation dots get active glow state
+- Add subtle quote marks as large decorative elements
+
+### 11. Pricing — Premium Contrast (`PricingSection.tsx`)
+- Free card: hyper-glass with luminous border
+- Premium card: animated gradient border (indigo→cyan→amber cycling)
+- Toggle switch gets glow effect
+- "Popular" badge pulses with amber glow
+- Price numbers use gradient text
+
+### 12. CTA Section — Maximum Impact (`CTASection.tsx`)
+- Full-width gradient mesh background
+- Headline with text-shimmer
+- CTA button with animated gradient border and glow halo
+- Floating orbs as ambient decoration
+
+### 13. Remove unused 3D files
+- Delete `Scene3D.tsx` and `FloatingHanger.tsx` (no longer needed)
 
 ---
 
-## Phase 4: AI Intelligence v3 (Steps 20–25)
+## Files Modified
+- `src/index.css` — new hyperreality CSS utilities and keyframes
+- `src/pages/Landing.tsx` — floating header redesign
+- `src/components/landing/HeroSection.tsx` — full rewrite with gradient mesh and orbs
+- `src/components/landing/SocialTicker.tsx` — glow accents
+- `src/components/landing/TrustLogos.tsx` — luminous hover
+- `src/components/landing/HowItWorks.tsx` — cinematic cards
+- `src/components/landing/FeaturesShowcase.tsx` — glow grid
+- `src/components/landing/StatsCounter.tsx` — dramatic numbers
+- `src/components/landing/SustainabilitySection.tsx` — emerald glow
+- `src/components/landing/TestimonialsCarousel.tsx` — cinematic slides
+- `src/components/landing/PricingSection.tsx` — premium glow
+- `src/components/landing/CTASection.tsx` — maximum impact
+- Delete `src/components/landing/Scene3D.tsx`
+- Delete `src/components/landing/FloatingHanger.tsx`
 
-### Step 20: Visual Search & "Shop My Look" ✅
-Created `visual_search` Edge Function using Gemini 2.5 Flash multimodal. Users upload inspiration photos; AI identifies garments and matches against wardrobe with confidence scores. Gaps listed with shopping suggestions. Premium-gated page at `/ai/visual-search`.
-
-### Step 21: Mood-Based Outfit Generation ✅
-Created `mood_outfit` Edge Function with 6 mood presets (cozy, confident, creative, invisible, romantic, energetic) mapped to formality, color temperature, material, and vibe parameters. Saves generated outfit to DB. Page at `/ai/mood-outfit`.
-
-### Step 22: AI Outfit Mood Board ✅
-Mood board functionality integrated into the mood-based generation flow — each mood generates a complete outfit with explanation and style score. The existing flatlay generation can be triggered from the outfit detail page.
-
-### Step 23: Smart Shopping List ✅
-Created `smart_shopping_list` Edge Function that analyzes wardrobe gaps, style profile, and upcoming calendar events to generate 4-6 prioritized shopping suggestions with budget hints, new outfit estimates, and style specifications. Page at `/ai/smart-shopping`.
-
-### Step 24: Wardrobe Aging Predictions ✅
-Created `wardrobe_aging` Edge Function using Gemini 2.5 Flash Lite. Predicts garment lifespan based on material, condition score, and wear frequency. Shows health percentage, months remaining, replacement reasons, and care tips. Page at `/ai/wardrobe-aging`.
-
-### Step 25: Style Twin Matching ✅
-Created `style_twin` Edge Function that builds a style vector from wardrobe attributes and identifies a creative archetype name, defining traits, real-world style icons, and signature styling moves. Includes community inspiration from shared outfits. Privacy-first (no user identity revealed). Page at `/ai/style-twin`.
-
----
-
-## Previous Completed Work
-
-### AI Intelligence Roadmap v1 (Steps 1–25) — ✅ DONE
-Feedback learning, seasonal palettes, material affinity, weather intelligence, occasion mapping, style vectors, wear patterns, comfort/style learning, color profiling, body-aware fit, multi-event planning, travel capsules, social context, laundry integration, seasonal transitions, flat-lay preview, photo feedback, condition tracking, outfit DNA cloning, accessory pairing, gap analysis, cost-per-wear, sustainability score, style evolution timeline, predictive styling.
-
-### Localized Pricing — ✅ DONE
-All pricing surfaces use `src/lib/localizedPricing.ts` for locale-appropriate amounts. Stripe checkout maps locale → currency-specific Price IDs.
