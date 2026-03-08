@@ -95,7 +95,16 @@ export default function HomePage() {
             <h1 className="text-lg font-semibold tracking-tight" style={{ fontFamily: "'Sora', sans-serif" }}>
               {getGreeting()}
             </h1>
-            <WeatherPill />
+            <div className="flex items-center gap-2">
+              <WeatherPill />
+              <button
+                onClick={() => navigate('/settings')}
+                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted/40 transition-colors active:scale-95"
+                aria-label="Settings"
+              >
+                <Settings className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
           </motion.div>
 
           {/* ── Primary Outfit Card ── */}

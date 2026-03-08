@@ -447,6 +447,7 @@ export default function WardrobePage() {
   const isOverLimit = !isPremium && (displayGarments?.length || 0) >= PLAN_LIMITS.free.maxGarments;
 
   const hasActiveFilters = selectedCategory !== 'all' || selectedColor || selectedSeason || sortBy !== 'created_at' || showLaundry;
+  const activeFilterCount = [selectedCategory !== 'all', !!selectedColor, !!selectedSeason, sortBy !== 'created_at', showLaundry].filter(Boolean).length;
 
   const clearFilters = () => {
     setSelectedCategory('all');
