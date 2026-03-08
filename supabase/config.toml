@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.generate_flatlay]
 verify_jwt = false
+
+[functions.outfit_photo_feedback]
+verify_jwt = false

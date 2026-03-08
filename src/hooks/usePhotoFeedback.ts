@@ -22,8 +22,8 @@ export function useOutfitFeedback(outfitId: string | undefined) {
   return useQuery({
     queryKey: ['outfit-feedback', outfitId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('outfit_feedback' as any)
+      const { data, error } = await (supabase as any)
+        .from('outfit_feedback')
         .select('*')
         .eq('outfit_id', outfitId!)
         .eq('user_id', user!.id)
