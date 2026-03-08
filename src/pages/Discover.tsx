@@ -75,43 +75,36 @@ export default function DiscoverPage() {
 
   const myGarments = garmentCount || 0;
 
-  // Load feed (limited preview)
+  // Load feed only if trending is unlocked
   const loadFeed = useCallback(async () => {
+    if (!trendingUnlocked) { setFeedLoading(false); return; }
     setFeedLoading(true);
 
-    // Check total user count for trending gate
-    const { count: userCount } = await supabase
-      .from('profiles')
-      .select('id', { count: 'exact', head: true });
-    setTotalUsers(userCount || 0);
+    const query = supabase
+      .from('outfits')
+      .select('id, occasion, style_vibe, outfit_items(id, slot, garment:garments(id, image_path))')
+      .eq('share_enabled', true)
+      .order('generated_at', { ascending: false })
+      .limit(6);
 
-    if ((userCount || 0) >= TRENDING_USER_THRESHOLD) {
-      const query = supabase
-        .from('outfits')
-        .select('id, occasion, style_vibe, outfit_items(id, slot, garment:garments(id, image_path))')
-        .eq('share_enabled', true)
-        .order('generated_at', { ascending: false })
-        .limit(6);
+    if (user) query.neq('user_id', user.id);
+    const { data } = await query;
+    setFeedOutfits((data || []) as any);
 
-      if (user) query.neq('user_id', user.id);
-      const { data } = await query;
-      setFeedOutfits((data || []) as any);
-
-      for (const outfit of (data || []) as any[]) {
-        const firstItem = outfit.outfit_items?.find((i: any) => i.garment?.image_path);
-        if (firstItem?.garment?.image_path) {
-          const { data: urlData } = await supabase.storage.from('garments').createSignedUrl(firstItem.garment.image_path, 3600);
-          if (urlData) setImageUrls(prev => ({ ...prev, [outfit.id]: urlData.signedUrl }));
-        }
-      }
-
-      if (user) {
-        const { data: saves } = await supabase.from('inspiration_saves').select('outfit_id').eq('user_id', user.id);
-        setSavedIds(new Set(saves?.map(s => s.outfit_id) || []));
+    for (const outfit of (data || []) as any[]) {
+      const firstItem = outfit.outfit_items?.find((i: any) => i.garment?.image_path);
+      if (firstItem?.garment?.image_path) {
+        const { data: urlData } = await supabase.storage.from('garments').createSignedUrl(firstItem.garment.image_path, 3600);
+        if (urlData) setImageUrls(prev => ({ ...prev, [outfit.id]: urlData.signedUrl }));
       }
     }
+
+    if (user) {
+      const { data: saves } = await supabase.from('inspiration_saves').select('outfit_id').eq('user_id', user.id);
+      setSavedIds(new Set(saves?.map(s => s.outfit_id) || []));
+    }
     setFeedLoading(false);
-  }, [user]);
+  }, [user, trendingUnlocked]);
 
   // Load challenges (all 25, always active)
   const loadChallenges = useCallback(async () => {
@@ -141,6 +134,13 @@ export default function DiscoverPage() {
   }, [user]);
 
   useEffect(() => { loadFeed(); loadChallenges(); }, [loadFeed, loadChallenges]);
+
+  // Show celebration banner once when trending first unlocks
+  useEffect(() => {
+    if (showNewBadge) {
+      setShowCelebration(true);
+    }
+  }, [showNewBadge]);
 
   const toggleSave = async (outfitId: string) => {
     if (!user) return;
