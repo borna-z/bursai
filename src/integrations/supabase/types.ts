@@ -110,6 +110,48 @@ export type Database = {
         }
         Relationships: []
       }
+      challenge_participations: {
+        Row: {
+          challenge_id: string
+          completed: boolean
+          created_at: string
+          id: string
+          outfit_id: string | null
+          user_id: string
+        }
+        Insert: {
+          challenge_id: string
+          completed?: boolean
+          created_at?: string
+          id?: string
+          outfit_id?: string | null
+          user_id: string
+        }
+        Update: {
+          challenge_id?: string
+          completed?: boolean
+          created_at?: string
+          id?: string
+          outfit_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_participations_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "style_challenges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_participations_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "outfits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_messages: {
         Row: {
           content: string
@@ -152,6 +194,30 @@ export type Database = {
           created_at?: string | null
           id?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      friendships: {
+        Row: {
+          addressee_id: string
+          created_at: string
+          id: string
+          requester_id: string
+          status: string
+        }
+        Insert: {
+          addressee_id: string
+          created_at?: string
+          id?: string
+          requester_id: string
+          status?: string
+        }
+        Update: {
+          addressee_id?: string
+          created_at?: string
+          id?: string
+          requester_id?: string
+          status?: string
         }
         Relationships: []
       }
@@ -249,6 +315,35 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspiration_saves: {
+        Row: {
+          created_at: string
+          id: string
+          outfit_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          outfit_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          outfit_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspiration_saves_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "outfits"
             referencedColumns: ["id"]
           },
         ]
@@ -408,6 +503,38 @@ export type Database = {
           },
         ]
       }
+      outfit_reactions: {
+        Row: {
+          created_at: string
+          id: string
+          outfit_id: string
+          reaction: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          outfit_id: string
+          reaction: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          outfit_id?: string
+          reaction?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outfit_reactions_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "outfits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       outfits: {
         Row: {
           explanation: string | null
@@ -523,6 +650,7 @@ export type Database = {
           preferences: Json | null
           stripe_customer_id: string | null
           updated_at: string | null
+          username: string | null
           weight_kg: number | null
         }
         Insert: {
@@ -539,6 +667,7 @@ export type Database = {
           preferences?: Json | null
           stripe_customer_id?: string | null
           updated_at?: string | null
+          username?: string | null
           weight_kg?: number | null
         }
         Update: {
@@ -555,6 +684,7 @@ export type Database = {
           preferences?: Json | null
           stripe_customer_id?: string | null
           updated_at?: string | null
+          username?: string | null
           weight_kg?: number | null
         }
         Relationships: []
@@ -586,6 +716,33 @@ export type Database = {
           processed_at?: string | null
           processed_ok?: boolean | null
           stripe_mode?: string | null
+        }
+        Relationships: []
+      }
+      style_challenges: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          title: string
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          title: string
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          title?: string
+          week_end?: string
+          week_start?: string
         }
         Relationships: []
       }
