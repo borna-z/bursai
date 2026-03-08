@@ -603,13 +603,24 @@ export default function WardrobePage() {
             )}
           </AnimatedTab>
 
-          {/* Single FAB with menu */}
-          {activeTab === 'garments' && (
+          {/* FAB */}
+          {activeTab === 'garments' ? (
             <AddFAB
               onPhoto={handleAddGarment}
               onScan={() => navigate('/wardrobe/scan')}
               isOverLimit={isOverLimit}
             />
+          ) : (
+            <div className="fixed bottom-24 right-4 z-50">
+              <motion.button
+                whileTap={{ scale: 0.92 }}
+                transition={TAP_TRANSITION}
+                onClick={() => navigate('/')}
+                className="h-14 w-14 rounded-full shadow-lg shadow-accent/25 bg-accent text-accent-foreground flex items-center justify-center"
+              >
+                <Sparkles className="w-6 h-6" />
+              </motion.button>
+            </div>
           )}
         </AnimatedPage>
       </PullToRefresh>
