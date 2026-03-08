@@ -53,13 +53,12 @@ const UNLOCK_THRESHOLDS = [
   20, 20, 22, 22, 25,
 ];
 
-const TRENDING_USER_THRESHOLD = 500;
-
 export default function DiscoverPage() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const { data: profile } = useProfile();
   const { data: garmentCount } = useGarmentCount();
+  const { isUnlocked: trendingUnlocked, showNewBadge, markSeen } = useTrendingUnlocked();
   const navigate = useNavigate();
 
   // Feed state
@@ -67,7 +66,7 @@ export default function DiscoverPage() {
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [feedLoading, setFeedLoading] = useState(true);
-  const [totalUsers, setTotalUsers] = useState(0);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   // Challenges state
   const [challenges, setChallenges] = useState<Challenge[]>([]);
