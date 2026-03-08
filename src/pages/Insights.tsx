@@ -258,6 +258,9 @@ export default function InsightsPage() {
           {/* ─── AI Suggestions ─── */}
           <AISuggestions isPremium={isPremium} />
 
+          {/* ─── Color Temperature ─── */}
+          <ColorTemperatureWidget data={insights.colorTemperature} isPremium={isPremium} t={t} />
+
           {/* ─── Color Distribution ─── */}
           <ColorDistribution garments={allGarments} isPremium={isPremium} t={t} />
 
