@@ -87,8 +87,12 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
   // Grid view — clean gallery, name on tap only
   return (
     <motion.button
+      variants={cardReveal}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, margin: '-20px' }}
+      transition={{ ease: EASE_CURVE, duration: 0.3, delay: (index % 6) * STAGGER_DELAY }}
       whileTap={{ scale: 0.97, y: -2 }}
-      transition={TAP_TRANSITION}
       onClick={handleClick}
       className={cn(
         'w-full rounded-2xl overflow-hidden transition-colors text-left will-change-transform relative group',
