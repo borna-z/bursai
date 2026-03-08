@@ -6161,6 +6161,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'onboarding.getstarted.generate_outfit': 'أنشئ إطلالة', 'onboarding.getstarted.generate_outfit_desc': 'دع الذكاء الاصطناعي ينسّق لك اليوم',
     'onboarding.getstarted.talk_stylist': 'تحدّث مع مصمّمك', 'onboarding.getstarted.talk_stylist_desc': 'احصل على نصائح أزياء مخصصة',
     'onboarding.accent.title': 'اختر لون التمييز', 'onboarding.accent.subtitle': 'أضف لمسة شخصية – يظهر اللون في الأزرار والتفاصيل.',
+    'onboarding.quickUpload.title': 'ارفع ملابسك الأولى', 'onboarding.quickUpload.subtitle': 'التقط صورًا أو اختر من المعرض — حتى 5 قطع. ذكاؤنا الاصطناعي يتعرّف على كل قطعة تلقائيًا.',
     'onboarding.style.title': 'أسلوبك', 'onboarding.style.subtitle': 'ساعد المصمّم الذكي على فهم ذوقك',
     'onboarding.style.favorite_colors': 'الألوان المفضلة', 'onboarding.style.disliked_colors': 'ألوان تتجنبها',
     'onboarding.style.fit': 'المقاس', 'onboarding.style.vibe': 'اتجاه الأسلوب', 'onboarding.style.gender_neutral': 'اقتراحات محايدة',
