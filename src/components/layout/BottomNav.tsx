@@ -1,4 +1,4 @@
-import { Home, Shirt, CalendarDays, Bot, Layers } from 'lucide-react';
+import { Home, Shirt, CalendarDays, Bot } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -11,7 +11,6 @@ const tabKeys = [
   { path: '/wardrobe', labelKey: 'nav.wardrobe', icon: Shirt },
   { path: '/plan', labelKey: 'nav.plan', icon: CalendarDays },
   { path: '/ai', labelKey: 'nav.stylist', icon: Bot },
-  { path: '/outfits', labelKey: 'nav.outfits', icon: Layers },
 ];
 
 export function BottomNav() {

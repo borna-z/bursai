@@ -3,10 +3,10 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TAP_TRANSITION } from '@/lib/motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Plus, Search, X, Trash2, Shirt, ScanLine, Camera, Link,
-  SlidersHorizontal, Grid3X3, List, WashingMachine, Loader2, BarChart3,
+  SlidersHorizontal, Grid3X3, List, WashingMachine, Loader2, BarChart3, Sparkles,
 } from 'lucide-react';
 import { SwipeableGarmentCard } from '@/components/wardrobe/SwipeableGarmentCard';
 import { Button } from '@/components/ui/button';
@@ -365,9 +365,11 @@ function AddFAB({ onPhoto, onScan, isOverLimit }: { onPhoto: () => void; onScan:
 
 export default function WardrobePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useLanguage();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'garments' | 'outfits'>('garments');
+  const locationState = location.state as { tab?: string } | null;
+  const [activeTab, setActiveTab] = useState<'garments' | 'outfits'>(locationState?.tab === 'outfits' ? 'outfits' : 'garments');
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
@@ -603,13 +605,24 @@ export default function WardrobePage() {
             )}
           </AnimatedTab>
 
-          {/* Single FAB with menu */}
-          {activeTab === 'garments' && (
+          {/* FAB */}
+          {activeTab === 'garments' ? (
             <AddFAB
               onPhoto={handleAddGarment}
               onScan={() => navigate('/wardrobe/scan')}
               isOverLimit={isOverLimit}
             />
+          ) : (
+            <div className="fixed bottom-24 right-4 z-50">
+              <motion.button
+                whileTap={{ scale: 0.92 }}
+                transition={TAP_TRANSITION}
+                onClick={() => navigate('/')}
+                className="h-14 w-14 rounded-full shadow-lg shadow-accent/25 bg-accent text-accent-foreground flex items-center justify-center"
+              >
+                <Sparkles className="w-6 h-6" />
+              </motion.button>
+            </div>
           )}
         </AnimatedPage>
       </PullToRefresh>
