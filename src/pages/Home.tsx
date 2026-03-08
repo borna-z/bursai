@@ -124,6 +124,9 @@ export default function HomePage() {
           {/* ── Swipe Suggestions ── */}
           <SwipeSuggestions />
 
+          {/* ── Plan Tomorrow ── */}
+          <PlanTomorrowCard />
+
           {/* ── Insights Banner ── */}
           <InsightsBanner />
 

@@ -59,7 +59,10 @@ export default function PlanPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { t, locale } = useLanguage();
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const initialDate = (location.state as { initialDate?: string })?.initialDate;
+  const [selectedDate, setSelectedDate] = useState(() =>
+    initialDate ? new Date(initialDate) : new Date()
+  );
   const [calendarOpen, setCalendarOpen] = useState(false);
   
   const preselectedOutfitId = (location.state as { preselectedOutfitId?: string })?.preselectedOutfitId;
