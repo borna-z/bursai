@@ -974,6 +974,109 @@ function comfortStyleScore(garment: GarmentRow, profile: ComfortStyleProfile | n
 }
 
 // ─────────────────────────────────────────────
+// BODY-AWARE FIT INTELLIGENCE (Step 10)
+// ─────────────────────────────────────────────
+// Uses height/weight to determine body type and recommends
+// proportionally balanced silhouettes (e.g., oversized top + slim bottom).
+
+interface BodyProfile {
+  heightCm: number | null;
+  weightKg: number | null;
+  bmi: number | null;           // rough proxy for build
+  buildCategory: 'slim' | 'average' | 'athletic' | 'broad' | null;
+  fitPreference: string | null; // from quiz
+}
+
+function buildBodyProfile(profileData: Record<string, any> | null): BodyProfile {
+  const heightCm = profileData?.height_cm || null;
+  const weightKg = profileData?.weight_kg || null;
+  const prefs = profileData?.preferences || {};
+  const sp = prefs.styleProfile || prefs;
+  const fitPreference = sp.fit || null;
+
+  let bmi: number | null = null;
+  let buildCategory: BodyProfile['buildCategory'] = null;
+
+  if (heightCm && weightKg && heightCm > 0) {
+    const heightM = heightCm / 100;
+    bmi = weightKg / (heightM * heightM);
+    if (bmi < 20) buildCategory = 'slim';
+    else if (bmi < 25) buildCategory = 'average';
+    else if (bmi < 28) buildCategory = 'athletic';
+    else buildCategory = 'broad';
+  }
+
+  return { heightCm, weightKg, bmi, buildCategory, fitPreference };
+}
+
+// Proportional balance rules: which fit combos create good silhouettes
+const FIT_BALANCE_RULES: Record<string, Record<string, number>> = {
+  // top fit → bottom fit → bonus (-2 to +2)
+  oversized:  { slim: 2, skinny: 2, regular: 1, relaxed: -1, oversized: -2, wide: -1 },
+  relaxed:    { slim: 1, skinny: 1, regular: 1, relaxed: 0, oversized: -1, wide: -1 },
+  regular:    { slim: 1, skinny: 0, regular: 1, relaxed: 1, oversized: 0, wide: 0 },
+  slim:       { slim: 0, skinny: -1, regular: 1, relaxed: 1, oversized: 1, wide: 1 },
+  fitted:     { slim: 0, skinny: -1, regular: 1, relaxed: 1, oversized: 1, wide: 1 },
+};
+
+// Body-specific fit recommendations
+const BODY_FIT_PREFERENCES: Record<string, { favors: string[]; avoids: string[] }> = {
+  slim:     { favors: ['regular', 'relaxed', 'oversized'], avoids: ['skinny'] },
+  average:  { favors: ['regular', 'slim', 'relaxed'], avoids: [] },
+  athletic: { favors: ['regular', 'slim', 'fitted'], avoids: ['oversized'] },
+  broad:    { favors: ['regular', 'relaxed', 'straight'], avoids: ['skinny', 'fitted'] },
+};
+
+function fitProportionScore(
+  items: { slot: string; garment: GarmentRow }[],
+  body: BodyProfile | null
+): number {
+  let score = 7; // neutral baseline
+
+  // 1. Proportional balance between top and bottom
+  const top = items.find(i => i.slot === 'top' || i.slot === 'dress');
+  const bottom = items.find(i => i.slot === 'bottom');
+
+  if (top?.garment.fit && bottom?.garment.fit) {
+    const topFit = top.garment.fit.toLowerCase();
+    const bottomFit = bottom.garment.fit.toLowerCase();
+    const balance = FIT_BALANCE_RULES[topFit]?.[bottomFit];
+    if (balance !== undefined) {
+      score += balance; // -2 to +2
+    }
+  }
+
+  // 2. Body-aware adjustments
+  if (body?.buildCategory) {
+    const bodyPrefs = BODY_FIT_PREFERENCES[body.buildCategory];
+    if (bodyPrefs) {
+      for (const item of items) {
+        const fit = item.garment.fit?.toLowerCase();
+        if (!fit) continue;
+        if (bodyPrefs.favors.includes(fit)) score += 0.5;
+        if (bodyPrefs.avoids.includes(fit)) score -= 1;
+      }
+    }
+  }
+
+  // 3. Height-aware: tall users can pull off more volume, shorter users benefit from streamlined looks
+  if (body?.heightCm) {
+    const hasOversized = items.some(i => ['oversized', 'wide', 'relaxed'].includes(i.garment.fit?.toLowerCase() || ''));
+    if (body.heightCm >= 180 && hasOversized) score += 0.5;  // tall + volume = works
+    if (body.heightCm < 165 && hasOversized) score -= 0.5;   // shorter + too much volume = risky
+  }
+
+  // 4. Respect user's stated fit preference if available
+  if (body?.fitPreference) {
+    const pref = body.fitPreference.toLowerCase();
+    const matchCount = items.filter(i => i.garment.fit?.toLowerCase() === pref).length;
+    if (matchCount > 0) score += 0.5;
+  }
+
+  return Math.max(0, Math.min(10, score));
+}
+
+// ─────────────────────────────────────────────
 // COMPOSITE SCORING
 // ─────────────────────────────────────────────
 
@@ -1029,7 +1132,8 @@ function buildCombos(
   slotCandidates: Record<string, ScoredGarment[]>,
   recentOutfitSets: Set<string>[],
   weather: WeatherInput,
-  maxCombos: number = 10
+  maxCombos: number = 10,
+  body: BodyProfile | null = null
 ): ScoredCombo[] {
   const tops = slotCandidates["top"] || [];
   const bottoms = slotCandidates["bottom"] || [];
@@ -1052,7 +1156,7 @@ function buildCombos(
       if (needsOuterwear && outerwear.length > 0) {
         items.push({ slot: "outerwear", garment: outerwear[0].garment });
       }
-      combos.push(scoreCombo(items, recentOutfitSets));
+      combos.push(scoreCombo(items, recentOutfitSets, body));
     }
   }
 
@@ -1068,7 +1172,7 @@ function buildCombos(
         if (needsOuterwear && outerwear.length > 0) {
           items.push({ slot: "outerwear", garment: outerwear[0].garment });
         }
-        combos.push(scoreCombo(items, recentOutfitSets));
+        combos.push(scoreCombo(items, recentOutfitSets, body));
       }
     }
   }
@@ -1079,7 +1183,7 @@ function buildCombos(
     for (const ow of outerwear.slice(1, 3)) {
       const newItems = best.items.filter(i => i.slot !== "outerwear");
       newItems.push({ slot: "outerwear", garment: ow.garment });
-      combos.push(scoreCombo(newItems, recentOutfitSets));
+      combos.push(scoreCombo(newItems, recentOutfitSets, body));
     }
   }
 
@@ -1089,7 +1193,8 @@ function buildCombos(
 
 function scoreCombo(
   items: { slot: string; garment: GarmentRow }[],
-  recentSets: Set<string>[]
+  recentSets: Set<string>[],
+  body: BodyProfile | null = null
 ): ScoredCombo {
   // Color harmony across all items
   const colors = items
@@ -1117,13 +1222,13 @@ function scoreCombo(
     else if (sim >= 0.4) repetitionPenalty += 1;
   }
 
-  // Average individual scores (already computed, approximate by averaging component scores)
-  const avgIndividual = items.reduce((sum, i) => {
-    // Use a rough heuristic since we don't have individual scores in this context
-    return sum + 7;
-  }, 0) / items.length;
+  // Fit proportion score (body-aware)
+  const fitScore = fitProportionScore(items, body);
 
-  const totalScore = colorScore * 0.25 + matScore * 0.15 + formalityConsistency * 0.2 + avgIndividual * 0.25 - repetitionPenalty + 0.15 * 7;
+  // Average individual scores
+  const avgIndividual = items.reduce((sum, i) => sum + 7, 0) / items.length;
+
+  const totalScore = colorScore * 0.22 + matScore * 0.13 + formalityConsistency * 0.18 + avgIndividual * 0.22 + fitScore * 0.10 - repetitionPenalty + 0.15 * 7;
 
   return {
     items,
@@ -1132,6 +1237,7 @@ function scoreCombo(
       color: colorScore,
       material: matScore,
       formalityConsistency,
+      fitProportion: fitScore,
       repetitionPenalty,
     },
   };
@@ -1442,6 +1548,7 @@ serve(async (req) => {
     }
 
     const preferences = (profileRes.data?.preferences as Record<string, any>) || null;
+    const bodyProfile = buildBodyProfile(profileRes.data);
 
     // Build feedback penalties from historical ratings
     const feedbackSignals: FeedbackSignal[] = [];
@@ -1533,7 +1640,7 @@ serve(async (req) => {
     }
 
     // Build combos
-    const combos = buildCombos(slotCandidates, recentOutfitSets, weather, 10);
+    const combos = buildCombos(slotCandidates, recentOutfitSets, weather, 10, bodyProfile);
 
     if (combos.length === 0) {
       return new Response(

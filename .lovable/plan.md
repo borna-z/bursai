@@ -34,8 +34,8 @@ Observe which garments get re-worn frequently (comfort signals) vs which get hig
 ### Step 9: Color Temperature Profiling ✅
 Automatically detects if user gravitates toward warm palette (earth tones, reds, oranges) or cool palette (blues, greys, lavender). Surfaces a visual color temperature widget on the Insights dashboard with gradient indicator, percentage breakdown, and palette label. Premium-gated.
 
-### Step 10: Body-Aware Fit Intelligence
-Use height/weight data + fit preferences to recommend proportionally balanced outfits (e.g., oversized top + slim bottom).
+### Step 10: Body-Aware Fit Intelligence ✅
+Use height/weight data + fit preferences to build a BodyProfile. Applies proportional balance rules (e.g., oversized top + slim bottom), body-type fit preferences, and height-aware volume adjustments. Feeds a `fitProportionScore` (10% weight) into combo scoring.
 
 ---
 
