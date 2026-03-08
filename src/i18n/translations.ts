@@ -4017,7 +4017,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   da: {
-    'nav.today': 'I dag', 'nav.wardrobe': 'Garderobe', 'nav.plan': 'Plan', 'nav.stylist': 'Stylisten', 'nav.settings': 'Indstillinger',
+    'nav.today': 'I dag', 'nav.wardrobe': 'Garderobe', 'nav.plan': 'Plan', 'nav.stylist': 'Stylisten', 'nav.settings': 'Indstillinger', 'nav.discover': 'Opdag',
     'onboarding.language.title': 'Vælg sprog', 'onboarding.language.subtitle': 'Du kan ændre dette senere i indstillinger',
     'onboarding.body.title': 'Din krop, din stil', 'onboarding.body.subtitle': 'Din AI-stylist bruger dine mål til at rådgive om pasform, proportioner og stilvalg.',
     'onboarding.body.height': 'Højde', 'onboarding.body.weight': 'Vægt', 'onboarding.body.weight_optional': '(valgfrit)',
