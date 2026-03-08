@@ -91,7 +91,7 @@ export function AnimatedRoutes() {
   if (isFirstRender.current) isFirstRender.current = false;
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
+    <AnimatePresence mode="sync" initial={false}>
       <motion.div
         key={location.pathname}
         variants={variants}

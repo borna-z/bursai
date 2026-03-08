@@ -68,28 +68,23 @@ export function ProductShowcase() {
         </div>
 
         {/* Animated labels */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto text-center mt-10">
-          {SCREENS.map((screen, i) => {
-            const isCenter = i === 1;
-            const hide = isCenter ? '' : 'hidden sm:block';
-
-            return (
-              <div
-                key={i}
-                className={`${hide} reveal-up`}
-                style={{ '--reveal-delay': `${i * 100 + 500}ms` } as React.CSSProperties}
-              >
-                <div className="inline-flex flex-col items-center gap-1.5 px-5 py-3 rounded-2xl bg-white/[0.04] border border-white/[0.06] backdrop-blur-sm">
-                  <span className="text-[13px] font-semibold text-white tracking-wide">
-                    {t(screen.titleKey)}
-                  </span>
-                  <span className="text-[11px] text-gray-500 leading-snug">
-                    {t(screen.descKey)}
-                  </span>
-                </div>
+        <div className="grid grid-cols-3 gap-2 sm:gap-6 max-w-3xl mx-auto text-center mt-10">
+          {SCREENS.map((screen, i) => (
+            <div
+              key={i}
+              className="reveal-up"
+              style={{ '--reveal-delay': `${i * 100 + 500}ms` } as React.CSSProperties}
+            >
+              <div className="inline-flex flex-col items-center gap-1 sm:gap-1.5 px-2 sm:px-5 py-2 sm:py-3 rounded-xl sm:rounded-2xl bg-white/[0.04] border border-white/[0.06]">
+                <span className="text-[11px] sm:text-[13px] font-semibold text-white tracking-wide">
+                  {t(screen.titleKey)}
+                </span>
+                <span className="text-[10px] sm:text-[11px] text-gray-500 leading-snug hidden sm:block">
+                  {t(screen.descKey)}
+                </span>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       </div>
     </section>

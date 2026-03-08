@@ -84,7 +84,7 @@ export function PricingSection() {
             <Sparkles size={16} className="text-amber-400 animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]" />
           </div>
 
-          <div className="p-8 md:p-10">
+          <div className="p-5 sm:p-8 md:p-10">
             <h3 className="text-sm tracking-[0.3em] uppercase text-muted-foreground font-medium mb-6">
               {t('landing.premium')}
             </h3>

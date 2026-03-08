@@ -467,7 +467,7 @@ export default function WardrobePage() {
   return (
     <AppLayout>
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="px-6 pb-36 pt-12 space-y-8 max-w-lg mx-auto">
+        <AnimatedPage className="px-4 pb-36 pt-4 space-y-6">
           {/* Title row */}
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-semibold">{t('wardrobe.title')}</h1>
