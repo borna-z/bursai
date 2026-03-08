@@ -132,7 +132,7 @@ export default function WardrobeAgingPage() {
           </div>
         )}
       </AnimatedPage>
-      <PaywallModal open={showPaywall} onOpenChange={setShowPaywall} feature="wardrobe_aging" />
+      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="outfits" />
     </AppLayout>
   );
 }

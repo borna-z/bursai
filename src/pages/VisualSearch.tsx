@@ -220,7 +220,7 @@ export default function VisualSearchPage() {
           </div>
         )}
       </AnimatedPage>
-      <PaywallModal open={showPaywall} onOpenChange={setShowPaywall} feature="visual_search" />
+      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="outfits" />
     </AppLayout>
   );
 }

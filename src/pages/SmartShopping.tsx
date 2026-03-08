@@ -127,7 +127,7 @@ export default function SmartShoppingPage() {
           </div>
         )}
       </AnimatedPage>
-      <PaywallModal open={showPaywall} onOpenChange={setShowPaywall} feature="smart_shopping" />
+      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="outfits" />
     </AppLayout>
   );
 }

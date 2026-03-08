@@ -157,7 +157,7 @@ export default function StyleTwinPage() {
           </div>
         )}
       </AnimatedPage>
-      <PaywallModal open={showPaywall} onOpenChange={setShowPaywall} feature="style_twin" />
+      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="outfits" />
     </AppLayout>
   );
 }

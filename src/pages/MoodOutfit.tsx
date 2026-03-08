@@ -134,7 +134,7 @@ export default function MoodOutfitPage() {
           })}
         </div>
       </AnimatedPage>
-      <PaywallModal open={showPaywall} onOpenChange={setShowPaywall} feature="mood_outfit" />
+      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="outfits" />
     </AppLayout>
   );
 }
