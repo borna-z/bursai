@@ -1,102 +1,101 @@
 
-# BURS AI Intelligence Roadmap — 25 Steps
+# BURS Roadmap v2 — 25 Steps
 
-## Phase 1: Foundation (Scoring Engine) — ✅ DONE
+## Phase 1: UX Polish & Performance (Steps 1–7)
 
-### Step 1: Feedback Learning v2 ✅
-Exponential time-decay (14-day half-life) so recent feedback weighs more. Positive signal tracking. Context-aware tags (weather/formality/fit penalties separately).
+### Step 1: Skeleton & Loading State Audit 🔲
+Audit every data-fetching view for proper skeleton/shimmer states. Replace any raw spinners with contextual skeletons matching content layout. Ensure no flash-of-empty-content on slow networks.
 
-### Step 2: Seasonal Color Palette ✅
-Color harmony awards bonus when chromatic colors match the current season's palette (warm earth tones in autumn, cool pastels in spring, jewel tones in winter, fresh brights in summer).
+### Step 2: Haptic & Micro-Interaction Pass 🔲
+Add subtle haptic feedback (via `lib/haptics.ts`) to key actions: save outfit, mark worn, swipe dismiss, toggle laundry. Add spring animations to interactive cards (press-scale on tap, bounce on save).
 
-### Step 3: Material Affinity Matrix ✅
-Full 5×5 affinity scoring between material groups (refined, casual, technical, rugged, knit). Replaces simple clash detection with nuanced compatibility scoring.
+### Step 3: Offline Mode & Queued Actions 🔲
+Detect offline state and show a persistent offline banner. Queue mutations (add garment, save outfit, mark worn) locally and replay when back online. Cache critical data (garments, planned outfits) in localStorage for offline viewing.
 
-### Step 4: Weather Microclimate Intelligence ✅
-6 temperature bands using feels-like temp (wind chill). Wind awareness, precipitation-specific penalties (suede in rain), breathability scoring, layering piece detection, boot/sandal weather logic.
+### Step 4: Pull-to-Refresh & Infinite Scroll 🔲
+Implement native-feeling pull-to-refresh on Home, Wardrobe, and Plan pages. Add infinite scroll / virtualized lists for large wardrobes (100+ garments) using `@tanstack/react-virtual`.
 
-### Step 5: Occasion Intelligence ✅
-30+ occasion types with style hints and confidence scoring. Expanded calendar keyword mapping. Style direction fed to AI refinement prompt.
+### Step 5: Gesture Navigation 🔲
+Swipe-left to archive/delete garments in wardrobe grid. Swipe-right on Today outfit card to mark as worn. Swipe between days in Plan page (already partially done, refine smoothness). Add gesture affordance hints for first-time users.
 
----
+### Step 6: Accessibility Deep Pass 🔲
+Full WCAG 2.1 AA audit: keyboard navigation for all flows, screen reader announcements for dynamic content (toast, sheet open, outfit generated), reduced-motion media query support, contrast ratio fixes.
 
-## Phase 2: Personal Style DNA 🔲
-
-### Step 6: Multi-Dimensional Style Vector ✅
-Behavioral style embedding built from wear_logs: color temperature (-1 cool to +1 warm), formality center, pattern tolerance, material group affinities, category diversity, neutral-vs-chromatic ratio. Confidence-weighted so quiz preferences fade as real usage data grows.
-
-### Step 7: Wear Pattern Analysis ✅
-Track day-of-week and seasonal correlations. Analyzes 6 months of wear_logs to detect per-garment day affinity, seasonal preference, category-by-day patterns, and color-by-season trends. Feeds a `wearPatternScore` (12% weight) into composite scoring.
-
-### Step 8: Comfort vs Style Learning ✅
-Observe which garments get re-worn frequently (comfort signals) vs which get high ratings but low rewear (aspiration pieces). Builds a per-garment comfort/aspiration signal and detects user tendency. Feeds a `comfortStyleScore` (10% weight) into composite scoring, balancing both signals based on user behavior.
-
-### Step 9: Color Temperature Profiling ✅
-Automatically detects if user gravitates toward warm palette (earth tones, reds, oranges) or cool palette (blues, greys, lavender). Surfaces a visual color temperature widget on the Insights dashboard with gradient indicator, percentage breakdown, and palette label. Premium-gated.
-
-### Step 10: Body-Aware Fit Intelligence ✅
-Use height/weight data + fit preferences to build a BodyProfile. Applies proportional balance rules (e.g., oversized top + slim bottom), body-type fit preferences, and height-aware volume adjustments. Feeds a `fitProportionScore` (10% weight) into combo scoring.
+### Step 7: Transition & Animation Polish 🔲
+Refine route transitions with shared-element animations (garment card → detail page). Add staggered entrance animations to grid views. Smooth sheet/drawer open animations. Ensure 60fps on mid-range devices.
 
 ---
 
-## Phase 3: Contextual Intelligence 🔲
+## Phase 2: Advanced Analytics & Insights (Steps 8–13)
 
-### Step 11: Multi-Event Day Planning ✅
-For days with multiple calendar events (e.g., work meeting → gym → dinner), suggest outfit transitions or versatile pieces that work across contexts. The `summarize_day` edge function now returns a `transitions` object with time blocks, per-block style tips, transition tips between blocks, and versatile pieces. The `DaySummaryCard` renders a visual timeline with per-block generate buttons.
+### Step 8: Spending Dashboard 🔲
+Track total wardrobe value from `purchase_price`. Monthly/yearly spending trends chart. Cost-per-category breakdown. Compare spending vs. wear value (most worn items vs. most expensive).
 
-### Step 12: Travel Capsule Generation ✅
-Given a trip duration + destination weather, the `travel_capsule` edge function selects the minimum garments from the user's wardrobe that maximize outfit combinations. A dedicated `/plan/travel-capsule` page lets users input destination, duration, and occasions. Results show a visual packing grid, day-by-day outfit plan with expandable details, and AI packing tips. Accessible via luggage icon in Plan header.
+### Step 9: Seasonal Wardrobe Report 🔲
+Quarterly auto-generated report: which garments were most/least worn, color palette shifts, formality trends, new additions vs. unused. Exportable as shareable image or PDF-style view.
 
-### Step 13: Social Context Awareness ✅
-Track what was worn to events with recurring attendees. Added `event_title` column to `wear_logs`. When marking an outfit as worn, the top calendar event title is stored. The style engine normalizes event titles to detect recurring events (stripping dates/numbers) and applies a garment penalty (0.5-1.5 score points) when a piece was recently worn at the same recurring event. Stronger penalties for more recent repeats (< 2 weeks: 3×, < 1 month: 2×, < 2 months: 1×).
+### Step 10: Outfit Repeat Tracker 🔲
+Visualize how often outfits are repeated. Show "outfit freshness" — days since last worn. Flag outfits that haven't been worn in 60+ days. Suggest remixing stale outfits with DNA cloning.
 
-### Step 14: Laundry Cycle Integration ✅
-Garments marked as in-laundry are automatically excluded from outfit generation (style engine filters `in_laundry = false`). A `useLaundryCycle` hook detects garments in laundry that are needed for upcoming planned outfits. The `LaundryAlertBanner` component on the Plan page warns users to wash specific garments before their planned date. The style engine now returns laundry metadata (count + items) in its response for client-side awareness. Translations added for sv/en.
+### Step 11: Wear Heatmap Calendar 🔲
+Calendar view showing daily outfit status: wore planned outfit (green), improvised (yellow), no data (grey). Monthly wear consistency score. Streaks for planning ahead.
 
-### Step 15: Seasonal Transition Intelligence ✅
-During season changes (spring→summer), gradually shift suggestions. Detect transitional garments that bridge seasons. Implemented `getSeasonTransitionInfo()` with 8 transition months mapping progress 0→1. `isTransitionalGarment()` detects versatile pieces (multi-season tags, layering categories, bridge materials). `seasonalTransitionScore()` blends from/to season affinity based on progress, rewarding transitional garments. Integrated as 8% weight in composite scoring.
+### Step 12: Category Balance Radar Chart 🔲
+Radar/spider chart showing wardrobe balance across categories (tops, bottoms, outerwear, shoes, accessories). Highlight gaps and over-represented areas. Compare to "ideal" distribution.
 
----
-
-## Phase 4: Visual & Advanced Intelligence 🔲
-
-### Step 16: AI Flat-Lay Preview ✅
-Generate visual flat-lay mockups of suggested outfits using garment images.
-
-### Step 17: Photo Feedback Loop ✅
-Let users snap a mirror selfie wearing the outfit. AI compares actual look to expectation via Gemini Vision, returns structured scores (fit, color match, overall) and actionable commentary. Scores stored in `outfit_feedback` table for future style engine refinement.
-
-### Step 18: Garment Condition Tracking ✅
-AI detects wear-and-tear from photos. Added `condition_score` and `condition_notes` columns to garments. Edge function `assess_garment_condition` uses Gemini Vision to evaluate fabric pilling, fading, stretching. Condition check button on GarmentDetail page.
-
-### Step 19: Outfit DNA Cloning ✅
-When user loves an outfit, analyze its DNA (color ratios, formality balance, material mix) and generate similar-but-different variations. Edge function `clone_outfit_dna` returns 3 variations using available wardrobe pieces. UI section on OutfitDetail.
-
-### Step 20: Smart Accessory Pairing ✅
-Dedicated accessory intelligence: edge function `suggest_accessories` matches scarves, watches, bags, jewelry to outfit mood and color palette. UI section on OutfitDetail with garment cards.
+### Step 13: Personal Style Report Card 🔲
+AI-generated monthly style report: dominant style archetype, color confidence score, formality range, adventurousness rating (how often user tries new combos vs. repeats). Premium-gated with shareable card.
 
 ---
 
-## Phase 5: Ecosystem & Monetization ✅
+## Phase 3: Social & Community (Steps 14–19)
 
-### Step 21: Wardrobe Gap Analysis ✅
-AI identifies missing pieces that would unlock the most new outfit combinations. Edge function `wardrobe_gap_analysis` analyzes category/color/material distribution. Premium-gated section in Insights dashboard.
+### Step 14: Public Style Profile 🔲
+Optional public profile page showing curated outfits, style stats, and wardrobe size. Username-based URL (`/u/username`). Privacy controls: choose which outfits to showcase.
 
-### Step 22: Cost-Per-Wear Tracking ✅
-Added `purchase_price` and `purchase_currency` columns to garments. Client-side cost-per-wear calculation. Editable price field on GarmentDetail page.
+### Step 15: Outfit Inspiration Feed 🔲
+Browse community outfits by occasion, style vibe, or season. Anonymous by default (no usernames unless profile is public). Filter by similar wardrobe size/style. "Save to inspiration board" feature.
 
-### Step 23: Sustainability Score ✅
-Client-side sustainability score (0-100) based on utilization rate, average wears, and underused items. Premium-gated section in Insights dashboard with breakdown pills.
+### Step 16: Outfit Reactions & Kudos 🔲
+Simple reaction system on shared outfits (🔥 styled, 💎 creative, 🌿 sustainable). No comments (keep it calm/non-toxic). Weekly "most styled" leaderboard for opted-in users.
 
-### Step 24: Style Evolution Timeline ✅
-Visualizes how user's style has evolved over 6 months from wear_logs: monthly top color, formality trend, outfit count. Premium-gated animated timeline in Insights.
+### Step 17: Style Challenge System 🔲
+Weekly opt-in challenges: "All neutrals week", "Rewear your least-used item", "Monochrome Monday". Track participation and show completion badges. Community-wide stats (X% completed).
 
-### Step 25: Predictive Styling ✅
-Predictive banner on Home page that detects when tomorrow has no planned outfit and nudges users to plan ahead. Navigates to Plan page with focus on tomorrow's date.
+### Step 18: Outfit Request / Style Advice 🔲
+Users can post anonymous outfit requests: "Going to a wedding in June, warm weather, semi-formal". AI generates 3 suggestions from hypothetical pieces. Community can upvote best suggestion.
+
+### Step 19: Friend Wardrobe Peek (Premium) 🔲
+Connect with friends via invite code. See each other's public outfits. "Borrow" feature: mark a friend's garment as available for lending. Premium-only social feature.
+
+---
+
+## Phase 4: AI Intelligence v3 (Steps 20–25)
+
+### Step 20: Visual Search & "Shop My Look" 🔲
+Upload any inspiration photo (Instagram screenshot, magazine). AI identifies garment types, colors, and styles. Matches against user's wardrobe for closest alternatives. Highlights gaps where no match exists.
+
+### Step 21: Mood-Based Outfit Generation 🔲
+Generate outfits based on mood/energy: "I feel cozy", "I want to stand out", "Keep it invisible". Maps moods to formality, color temperature, material softness, and pattern boldness.
+
+### Step 22: AI Outfit Mood Board 🔲
+Given an event description, AI creates a visual mood board: color palette, style direction, 3 outfit options with explanations. Exportable as a shareable image. Uses `generate_flatlay` for each option.
+
+### Step 23: Smart Shopping List 🔲
+Based on gap analysis + style DNA + upcoming calendar events, AI generates a prioritized shopping list. Each item includes: why it's needed, what it unlocks (X new outfits), budget range, and style specifications.
+
+### Step 24: Wardrobe Aging Predictions 🔲
+Based on material, wear frequency, and condition scores, predict when each garment will need replacing. Timeline view showing expected garment "retirement dates". Proactive replacement suggestions.
+
+### Step 25: Style Twin Matching 🔲
+Analyze user's style vector (color temp, formality center, material preferences) and match with anonymous "style twins" — users with similar DNA. Show "Looks your style twin is wearing" as inspiration. Privacy-first: no identity revealed.
 
 ---
 
 ## Previous Completed Work
+
+### AI Intelligence Roadmap v1 (Steps 1–25) — ✅ DONE
+Feedback learning, seasonal palettes, material affinity, weather intelligence, occasion mapping, style vectors, wear patterns, comfort/style learning, color profiling, body-aware fit, multi-event planning, travel capsules, social context, laundry integration, seasonal transitions, flat-lay preview, photo feedback, condition tracking, outfit DNA cloning, accessory pairing, gap analysis, cost-per-wear, sustainability score, style evolution timeline, predictive styling.
 
 ### Localized Pricing — ✅ DONE
 All pricing surfaces use `src/lib/localizedPricing.ts` for locale-appropriate amounts. Stripe checkout maps locale → currency-specific Price IDs.
