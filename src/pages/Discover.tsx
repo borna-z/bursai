@@ -245,13 +245,21 @@ export default function DiscoverPage() {
           )}
         </section>
 
-        {/* ── Active Challenges ── */}
+        {/* ── Challenges (garment-gated) ── */}
         <section>
-          <SectionHeader
-            title={t('challenges.title')}
-            action={t('discover.see_all')}
-            onAction={() => navigate('/challenges')}
-          />
+          <div className="flex items-center justify-between px-1 mb-2.5">
+            <div>
+              <h3 className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
+                {t('challenges.title')}
+              </h3>
+              <p className="text-[10px] text-muted-foreground/50 mt-0.5">
+                {t('discover.challenges_progress').replace('{unlocked}', String(challenges.filter((_, i) => myGarments >= (UNLOCK_THRESHOLDS[i] || 999)).length)).replace('{total}', String(challenges.length))}
+              </p>
+            </div>
+            <button onClick={() => navigate('/challenges')} className="text-[11px] font-medium text-accent">
+              {t('discover.see_all')}
+            </button>
+          </div>
           {challengesLoading ? (
             <div className="space-y-3">
               {[1, 2].map(i => <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />)}
@@ -262,26 +270,40 @@ export default function DiscoverPage() {
               <p className="text-xs text-muted-foreground">{t('challenges.none')}</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {challenges.map((ch, i) => {
+            <div className="space-y-2.5">
+              {challenges.slice(0, 5).map((ch, i) => {
                 const part = participations[ch.id];
+                const threshold = UNLOCK_THRESHOLDS[i] || 999;
+                const isLocked = myGarments < threshold;
                 return (
                   <motion.div
                     key={ch.id}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.06 }}
+                    transition={{ delay: i * 0.05 }}
                     className={cn(
                       'rounded-xl border p-3.5 flex items-center gap-3',
-                      part?.completed ? 'bg-green-500/5 border-green-500/20' : 'bg-card'
+                      isLocked ? 'opacity-50 bg-muted/30' :
+                      part?.completed ? 'bg-accent/5 border-accent/20' : 'bg-card'
                     )}
                   >
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium truncate">{ch.title}</h3>
-                      {ch.description && <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">{ch.description}</p>}
+                      <div className="flex items-center gap-1.5">
+                        {isLocked && <Lock className="w-3 h-3 text-muted-foreground/40 shrink-0" />}
+                        <h3 className="text-sm font-medium truncate">{ch.title}</h3>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
+                        {isLocked
+                          ? t('discover.challenge_locked').replace('{count}', String(threshold))
+                          : ch.description}
+                      </p>
                     </div>
-                    {part?.completed ? (
-                      <Badge className="bg-green-500 text-white border-0 shrink-0">
+                    {isLocked ? (
+                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                        {myGarments}/{threshold}
+                      </Badge>
+                    ) : part?.completed ? (
+                      <Badge className="bg-accent text-accent-foreground border-0 shrink-0">
                         <Check className="w-3 h-3 mr-1" />{t('challenges.done')}
                       </Badge>
                     ) : !part ? (
