@@ -4065,6 +4065,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'outfit.swap': 'Vaihda', 'outfit.swap_slot': 'Vaihda', 'outfit.just_created': 'Uusi asu luotu!',
     'outfit.why_works': 'Miksi tämä toimii', 'outfit.rating': 'Arvio', 'outfit.feedback': 'Palaute',
     'outfit.too_warm': 'Liian lämmin', 'outfit.too_cold': 'Liian kylmä', 'outfit.too_formal': 'Liian muodollinen', 'outfit.too_casual': 'Liian rento',
+    'outfit.uncomfortable': 'Epämukava', 'outfit.loved_it': 'Rakastin', 'outfit.bad_color': 'Huono väri', 'outfit.boring': 'Tylsä',
     'outfit.mark_worn': 'Merkitse käytetyksi', 'outfit.worn': 'Käytetty', 'outfit.plan': 'Suunnittele', 'outfit.similar': 'Samanlainen', 'outfit.share': 'Jaa',
     'outfit.sharing': 'Jakaminen', 'outfit.share_active': 'Julkinen linkki aktiivinen', 'outfit.private': 'Yksityinen',
     'outfit.link': 'Linkki', 'outfit.copy': 'Kopioi', 'outfit.copied': 'Kopioitu!', 'outfit.download': 'Lataa',
