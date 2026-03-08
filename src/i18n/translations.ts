@@ -1913,6 +1913,59 @@ export const translations: Record<Locale, Record<string, string>> = {
     'ai.twin_view': 'Visa',
     'ai.twin_rediscover': 'Upptäck igen',
     'ai.twin_settings_sub': 'Din stil-arketyp',
+
+    // Error boundary
+    'error.title': 'Något gick fel',
+    'error.desc': 'Ett oväntat fel uppstod. Prova att ladda om sidan.',
+    'error.try_again': 'Försök igen',
+    'error.reload': 'Ladda om',
+
+    // Seed wardrobe
+    'seed.deleted': 'Alla gamla plagg borttagna',
+    'seed.delete_error': 'Kunde inte ta bort gamla plagg',
+    'seed.created': 'Skapade {done} plagg ({failed} misslyckades)',
+    'seed.batch_failed': 'Batch misslyckades',
+    'seed.retry_failed': 'Försök misslyckades',
+
+    // Generate images
+    'generate.title': 'Generera unika bilder',
+    'generate.desc': 'Generera AI-produktfoton för alla plagg baserat på attribut (färg, material, typ). Ersätter dubblettbilder med unika.',
+    'generate.total': 'Totalt plagg',
+    'generate.generated': 'Genererade',
+    'generate.failed': 'Misslyckades',
+    'generate.processing': 'Bearbetar… {count} av {total}',
+    'generate.done': 'Klart — {done} genererade, {failed} misslyckades',
+    'generate.generating': 'Genererar…',
+    'generate.generate_all': 'Generera alla bilder',
+    'generate.retry': 'Försök igen',
+
+    // Contact
+    'contact.title': 'Kontakt',
+    'contact.subtitle': 'Har du frågor? Vi hjälper gärna.',
+    'contact.success': 'Tack för ditt meddelande. Vi återkommer så snart som möjligt.',
+    'contact.name': 'Ditt namn',
+    'contact.email': 'Din e-postadress',
+    'contact.message': 'Ditt meddelande',
+    'contact.send': 'Skicka meddelande',
+    'contact.rights': 'Alla rättigheter förbehållna.',
+    'contact.gdpr_note': 'BURS följer GDPR. Din data lagras säkert och delas aldrig med tredje part.',
+
+    // Footer
+    'footer.privacy': 'Integritetspolicy',
+    'footer.terms': 'Användarvillkor',
+    'footer.agree': 'Genom att använda BURS godkänner du vår',
+    'footer.rights': 'Alla rättigheter förbehållna.',
+
+    // Calendar
+    'calendar.google_privacy': 'BURS läser dina kalenderhändelser för att hjälpa planera outfits runt ditt schema. Du kan koppla bort när som helst.',
+
+    // Reactions
+    'reaction.styled': 'Stilfullt',
+    'reaction.creative': 'Kreativt',
+    'reaction.sustainable': 'Hållbart',
+
+    // Reel
+    'wardrobe.reel_save_error': 'Kunde inte spara bild',
   },
 
   en: {
