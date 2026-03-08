@@ -151,6 +151,7 @@ export default function Landing() {
           <Suspense fallback={<div style={{ minHeight: '400vh' }} aria-hidden="true" />}>
             <TrialBanner />
             <HowItWorks />
+            <FeaturesShowcase />
             <SustainabilitySection />
             <MissionSection />
             <PricingSection />
