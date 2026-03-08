@@ -9,7 +9,6 @@ import {
   SlidersHorizontal, Grid3X3, List, WashingMachine, Loader2,
 } from 'lucide-react';
 import { SwipeableGarmentCard } from '@/components/wardrobe/SwipeableGarmentCard';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
