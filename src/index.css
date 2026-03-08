@@ -1038,9 +1038,9 @@
 .lv2-section-divider {
   height: 1px;
   max-width: 60%;
-  margin: 0 auto;
+  margin: 8px auto;
   background: linear-gradient(90deg, transparent, var(--lv2-cyan), transparent);
-  opacity: 0.15;
+  opacity: 0.22;
 }
 
 /* ── Text gradient ── */
