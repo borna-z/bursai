@@ -279,31 +279,49 @@ export function useBackgroundSyncNotification() {
   }, [profile?.last_calendar_sync]);
 }
 
-export function inferOccasionFromEvent(title: string): { occasion: string; formality: number } | null {
+export function inferOccasionFromEvent(title: string): { occasion: string; formality: number; confidence: number } | null {
   const t = title.toLowerCase();
 
-  const rules: { occasion: string; formality: number; keywords: string[] }[] = [
-    { occasion: 'fest', formality: 5, keywords: [
-      'fest', 'party', 'gala', 'bröllop', 'wedding', 'AW', 'afterwork', 'after work',
-      'middag', 'dinner', 'bankett', 'mingel', 'release', 'invigning',
+  const rules: { occasion: string; formality: number; keywords: string[]; confidence: number }[] = [
+    // High confidence: very specific event types
+    { occasion: 'fest', formality: 5, confidence: 0.95, keywords: [
+      'gala', 'bröllop', 'wedding', 'bankett', 'invigning', 'release party',
     ]},
-    { occasion: 'jobb', formality: 4, keywords: [
-      'möte', 'meeting', 'presentation', 'konferens', 'intervju', 'arbete', 'jobb',
-      'workshop', 'standup', 'stand-up', 'retrospektiv', 'sprint', 'demo',
-      'lunch', 'brunch', 'fika', 'kundmöte', 'boardmöte',
+    { occasion: 'fest', formality: 4, confidence: 0.85, keywords: [
+      'fest', 'party', 'AW', 'afterwork', 'after work', 'mingel',
+      'middag', 'dinner', 'kvällsevent', 'vernissage',
     ]},
-    { occasion: 'dejt', formality: 4, keywords: [
-      'dejt', 'date', 'romantisk', 'anniversary', 'årsdag',
+    { occasion: 'dejt', formality: 4, confidence: 0.9, keywords: [
+      'dejt', 'date', 'romantisk', 'anniversary', 'årsdag', 'valentines',
     ]},
-    { occasion: 'traning', formality: 1, keywords: [
+    { occasion: 'jobb', formality: 4, confidence: 0.9, keywords: [
+      'möte', 'meeting', 'presentation', 'konferens', 'intervju', 'interview',
+      'workshop', 'boardmöte', 'kundmöte', 'pitch', 'demo', 'keynote',
+    ]},
+    { occasion: 'jobb', formality: 3, confidence: 0.75, keywords: [
+      'arbete', 'jobb', 'standup', 'stand-up', 'retrospektiv', 'sprint',
+      'sync', 'planning', '1:1', 'one-on-one', 'daily', 'weekly',
+    ]},
+    { occasion: 'brunch', formality: 3, confidence: 0.8, keywords: [
+      'brunch', 'fika', 'lunch', 'kafé', 'café',
+    ]},
+    { occasion: 'traning', formality: 1, confidence: 0.95, keywords: [
       'träning', 'gym', 'yoga', 'löpning', 'sport', 'padel', 'tennis',
-      'fotboll', 'basket', 'simning', 'crossfit', 'spinning', 'promenad', 'vandring',
+      'fotboll', 'basket', 'simning', 'crossfit', 'spinning', 'promenad',
+      'vandring', 'klättring', 'dans', 'dance', 'pilates', 'boxing',
+    ]},
+    { occasion: 'resa', formality: 2, confidence: 0.8, keywords: [
+      'flyg', 'flight', 'tåg', 'train', 'resa', 'travel', 'airport',
+    ]},
+    { occasion: 'skola', formality: 2, confidence: 0.7, keywords: [
+      'skola', 'school', 'föreläsning', 'lecture', 'seminarium', 'uni',
+      'tentamen', 'exam', 'klass', 'class',
     ]},
   ];
 
   for (const rule of rules) {
     if (rule.keywords.some(kw => t.includes(kw.toLowerCase()))) {
-      return { occasion: rule.occasion, formality: rule.formality };
+      return { occasion: rule.occasion, formality: rule.formality, confidence: rule.confidence };
     }
   }
 

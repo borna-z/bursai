@@ -338,30 +338,78 @@ function weatherSuitability(garment: GarmentRow, weather: WeatherInput): number 
 // FORMALITY MATCHING
 // ─────────────────────────────────────────────
 
-const OCCASION_FORMALITY: Record<string, [number, number]> = {
-  vardag: [1, 3], casual: [1, 3], everyday: [1, 3],
-  jobb: [2, 4], work: [2, 4], office: [2, 4], kontor: [2, 4],
-  fest: [3, 5], party: [3, 5],
-  dejt: [3, 5], date: [3, 5],
-  middag: [3, 5], dinner: [3, 5],
-  träning: [1, 1], gym: [1, 1], sport: [1, 1],
-  resa: [1, 3], travel: [1, 3],
-  möte: [3, 5], meeting: [3, 5],
-  bröllop: [4, 5], wedding: [4, 5],
-  "after work": [2, 4],
-  weekend: [1, 3],
-  helg: [1, 3],
-  promenad: [1, 2], walk: [1, 2],
-  skola: [1, 3], school: [1, 3],
-  intervju: [3, 5], interview: [3, 5],
+// Expanded occasion mapping with granular formality and style hints
+const OCCASION_FORMALITY: Record<string, { range: [number, number]; styleHints: string[] }> = {
+  // Casual / everyday
+  vardag: { range: [1, 3], styleHints: ["relaxed", "comfortable"] },
+  casual: { range: [1, 3], styleHints: ["relaxed"] },
+  everyday: { range: [1, 3], styleHints: ["relaxed"] },
+  weekend: { range: [1, 3], styleHints: ["relaxed", "layered"] },
+  helg: { range: [1, 3], styleHints: ["relaxed", "layered"] },
+  promenad: { range: [1, 2], styleHints: ["comfortable", "outdoor"] },
+  walk: { range: [1, 2], styleHints: ["comfortable", "outdoor"] },
+  // Sport
+  träning: { range: [1, 1], styleHints: ["athletic", "performance"] },
+  gym: { range: [1, 1], styleHints: ["athletic"] },
+  sport: { range: [1, 1], styleHints: ["athletic"] },
+  yoga: { range: [1, 1], styleHints: ["stretchy", "breathable"] },
+  löpning: { range: [1, 1], styleHints: ["athletic", "breathable"] },
+  // Work
+  jobb: { range: [2, 4], styleHints: ["polished", "professional"] },
+  work: { range: [2, 4], styleHints: ["polished"] },
+  office: { range: [2, 4], styleHints: ["polished"] },
+  kontor: { range: [2, 4], styleHints: ["polished"] },
+  möte: { range: [3, 5], styleHints: ["sharp", "confident"] },
+  meeting: { range: [3, 5], styleHints: ["sharp"] },
+  presentation: { range: [3, 5], styleHints: ["authoritative", "sharp"] },
+  intervju: { range: [3, 5], styleHints: ["confident", "polished"] },
+  interview: { range: [3, 5], styleHints: ["confident"] },
+  konferens: { range: [3, 4], styleHints: ["professional", "comfortable"] },
+  conference: { range: [3, 4], styleHints: ["professional"] },
+  // Social
+  fest: { range: [3, 5], styleHints: ["expressive", "statement"] },
+  party: { range: [3, 5], styleHints: ["expressive"] },
+  dejt: { range: [3, 5], styleHints: ["attractive", "intentional"] },
+  date: { range: [3, 5], styleHints: ["attractive"] },
+  middag: { range: [3, 5], styleHints: ["elegant"] },
+  dinner: { range: [3, 5], styleHints: ["elegant"] },
+  brunch: { range: [2, 3], styleHints: ["smart casual", "relaxed"] },
+  fika: { range: [2, 3], styleHints: ["casual chic"] },
+  "after work": { range: [2, 4], styleHints: ["transitional"] },
+  afterwork: { range: [2, 4], styleHints: ["transitional"] },
+  mingel: { range: [3, 5], styleHints: ["social", "polished"] },
+  // Formal
+  bröllop: { range: [4, 5], styleHints: ["elegant", "formal"] },
+  wedding: { range: [4, 5], styleHints: ["elegant", "formal"] },
+  gala: { range: [5, 5], styleHints: ["black tie", "formal"] },
+  ceremoni: { range: [4, 5], styleHints: ["formal", "respectful"] },
+  ceremony: { range: [4, 5], styleHints: ["formal"] },
+  // Travel
+  resa: { range: [1, 3], styleHints: ["versatile", "comfortable"] },
+  travel: { range: [1, 3], styleHints: ["versatile"] },
+  flygresa: { range: [1, 2], styleHints: ["comfortable", "layered"] },
+  flight: { range: [1, 2], styleHints: ["comfortable", "layered"] },
+  // Education
+  skola: { range: [1, 3], styleHints: ["casual"] },
+  school: { range: [1, 3], styleHints: ["casual"] },
+  universitet: { range: [1, 3], styleHints: ["casual", "smart"] },
+  university: { range: [1, 3], styleHints: ["casual"] },
 };
 
 function getFormalityRange(occasion: string): [number, number] {
   const occ = occasion.toLowerCase();
-  for (const [key, range] of Object.entries(OCCASION_FORMALITY)) {
-    if (occ.includes(key)) return range;
+  for (const [key, entry] of Object.entries(OCCASION_FORMALITY)) {
+    if (occ.includes(key)) return entry.range;
   }
   return [1, 4]; // default permissive
+}
+
+function getOccasionStyleHints(occasion: string): string[] {
+  const occ = occasion.toLowerCase();
+  for (const [key, entry] of Object.entries(OCCASION_FORMALITY)) {
+    if (occ.includes(key)) return entry.styleHints;
+  }
+  return [];
 }
 
 function formalityScore(garment: GarmentRow, occasion: string): number {
