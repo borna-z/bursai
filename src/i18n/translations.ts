@@ -1594,6 +1594,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'nav.plan': 'Plan',
     'nav.stylist': 'Stylist',
     'nav.settings': 'Settings',
+    'nav.outfits': 'Outfits',
     'onboarding.language.title': 'Choose language',
     'onboarding.language.subtitle': 'You can change this later in settings',
     'onboarding.body.title': 'Your body, your style',
