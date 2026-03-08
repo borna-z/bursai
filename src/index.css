@@ -809,13 +809,13 @@
   background: var(--lv2-surface-elevated);
   border: 1px solid var(--lv2-border);
   border-radius: 1rem;
-  transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1), border-color 0.4s ease, box-shadow 0.4s ease;
+  transition: transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1), border-color 0.4s ease, box-shadow 0.5s ease;
 }
 
 .lv2-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-6px) scale(1.01);
   border-color: var(--lv2-border-hover);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 /* ── Shimmer border effect ── */
@@ -909,11 +909,15 @@
   width: 220px;
   height: 440px;
   border-radius: 2rem;
-  border: 2px solid var(--lv2-border);
-  background: rgba(10, 12, 18, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 12, 18, 0.95);
   position: relative;
   overflow: hidden;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow:
+    0 40px 100px rgba(0, 0, 0, 0.6),
+    0 10px 40px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.02);
 }
 
 .lv2-phone-notch {
@@ -952,20 +956,22 @@
 /* ── Section reveal ── */
 .lv2-reveal {
   opacity: 0;
-  transform: translateY(30px);
-  transition: opacity 0.7s cubic-bezier(0.25, 0.1, 0.25, 1), transform 0.7s cubic-bezier(0.25, 0.1, 0.25, 1);
+  transform: translateY(50px);
+  filter: blur(4px);
+  transition: opacity 1s cubic-bezier(0.25, 0.1, 0.25, 1), transform 1s cubic-bezier(0.25, 0.1, 0.25, 1), filter 1s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .lv2-reveal.visible {
   opacity: 1;
   transform: translateY(0);
+  filter: blur(0);
 }
 
-.lv2-reveal-delay-1 { transition-delay: 100ms; }
-.lv2-reveal-delay-2 { transition-delay: 200ms; }
-.lv2-reveal-delay-3 { transition-delay: 300ms; }
-.lv2-reveal-delay-4 { transition-delay: 400ms; }
-.lv2-reveal-delay-5 { transition-delay: 500ms; }
+.lv2-reveal-delay-1 { transition-delay: 150ms; }
+.lv2-reveal-delay-2 { transition-delay: 300ms; }
+.lv2-reveal-delay-3 { transition-delay: 450ms; }
+.lv2-reveal-delay-4 { transition-delay: 600ms; }
+.lv2-reveal-delay-5 { transition-delay: 750ms; }
 
 /* ── Orbit ring ── */
 .lv2-orbit-ring {
@@ -1021,6 +1027,96 @@
   z-index: -1;
   filter: blur(20px);
   opacity: 0.5;
+}
+
+/* ── Section divider ── */
+.lv2-section-divider {
+  height: 1px;
+  max-width: 60%;
+  margin: 0 auto;
+  background: linear-gradient(90deg, transparent, var(--lv2-cyan), transparent);
+  opacity: 0.15;
+}
+
+/* ── Text gradient ── */
+.lv2-text-gradient {
+  background: linear-gradient(135deg, #F5F7FA 30%, #1ED0E7 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── 3D hover lift ── */
+.lv2-hover-lift {
+  perspective: 800px;
+  transition: transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.lv2-hover-lift:hover {
+  transform: perspective(800px) rotateX(-2deg) rotateY(2deg) translateY(-8px) scale(1.02);
+}
+
+/* ── Light beam sweep ── */
+.lv2-light-beam {
+  position: relative;
+  overflow: hidden;
+}
+
+.lv2-light-beam::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.03) 45%, rgba(255, 255, 255, 0.06) 50%, rgba(255, 255, 255, 0.03) 55%, transparent 60%);
+  animation: lv2-beam-sweep 6s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+@keyframes lv2-beam-sweep {
+  0% { left: -100%; }
+  100% { left: 200%; }
+}
+
+/* ── Stagger grid children ── */
+.lv2-stagger-grid > *:nth-child(1) { transition-delay: 0ms; }
+.lv2-stagger-grid > *:nth-child(2) { transition-delay: 80ms; }
+.lv2-stagger-grid > *:nth-child(3) { transition-delay: 160ms; }
+.lv2-stagger-grid > *:nth-child(4) { transition-delay: 240ms; }
+.lv2-stagger-grid > *:nth-child(5) { transition-delay: 320ms; }
+.lv2-stagger-grid > *:nth-child(6) { transition-delay: 400ms; }
+.lv2-stagger-grid > *:nth-child(7) { transition-delay: 480ms; }
+.lv2-stagger-grid > *:nth-child(8) { transition-delay: 560ms; }
+.lv2-stagger-grid > *:nth-child(9) { transition-delay: 640ms; }
+
+/* ── Accent top line for cards ── */
+.lv2-accent-top {
+  position: relative;
+}
+.lv2-accent-top::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 1rem;
+  right: 50%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--lv2-cyan), transparent);
+  border-radius: 0 0 2px 2px;
+  opacity: 0.5;
+}
+
+/* ── Background watermark text ── */
+.lv2-watermark {
+  position: absolute;
+  font-size: clamp(4rem, 12vw, 10rem);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.02);
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
 }
 
 /* ── Reduced motion ── */

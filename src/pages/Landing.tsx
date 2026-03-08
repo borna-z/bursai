@@ -27,6 +27,8 @@ const NAV_LINKS = [
   { id: 'ai-stylist', label: 'AI Stylist' },
 ];
 
+const SectionDivider = () => <div className="lv2-section-divider" aria-hidden="true" />;
+
 export default function Landing() {
   const navigate = useNavigate();
   const { t } = useLanguage();
@@ -34,7 +36,6 @@ export default function Landing() {
   const [scrolled, setScrolled] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Scroll detection for navbar
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
@@ -43,7 +44,6 @@ export default function Landing() {
     return () => container.removeEventListener('scroll', onScroll);
   }, []);
 
-  // IntersectionObserver for reveal elements
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
@@ -116,7 +116,6 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* Mobile menu */}
           {mobileOpen && (
             <div className="md:hidden border-t border-[--lv2-border] animate-fade-in" style={{ background: 'rgba(5,7,10,0.95)', backdropFilter: 'blur(20px)' }}>
               <div className="flex flex-col gap-1 px-6 py-4 text-sm" style={{ color: 'var(--lv2-text-secondary)' }}>
@@ -135,13 +134,20 @@ export default function Landing() {
 
         <Suspense fallback={<div style={{ minHeight: '300vh' }} aria-hidden="true" />}>
           <TrustStrip />
+          <SectionDivider />
           <ProblemSection />
+          <SectionDivider />
           <SystemSection />
+          <SectionDivider />
           <AIStylistSection />
+          <SectionDivider />
           <WardrobeVisualSection />
           <OutfitBuilderSection />
+          <SectionDivider />
           <WeeklyPlannerSection />
+          <SectionDivider />
           <HowItWorksSection />
+          <SectionDivider />
           <PricingSection />
           <SocialProofSection />
           <FinalCTASection />
