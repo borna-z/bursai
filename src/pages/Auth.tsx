@@ -40,7 +40,7 @@ export default function AuthPage() {
   const { user, loading, signIn, signUp } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
-  const [confirmEmail, setConfirmEmail] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -75,7 +75,7 @@ export default function AuthPage() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) { toast.error(t('auth.fill_all')); return; }
-    if (email !== confirmEmail) { toast.error(t('auth.emails_no_match')); return; }
+    if (password !== confirmPassword) { toast.error(t('auth.passwords_no_match')); return; }
     const passOk = password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password);
     if (!passOk) { toast.error(t('auth.password_too_short')); return; }
     localStorage.setItem('remember_me', rememberMe ? 'true' : 'false');
@@ -258,18 +258,27 @@ export default function AuthPage() {
               />
             </div>
 
-            {/* Confirm email - signup only */}
+            {/* Confirm password - signup only */}
             {!isLogin && (
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-white/50 pl-0.5">{t('auth.confirm_email')}</label>
-                <input
-                  type="email"
-                  placeholder="din@email.se"
-                  value={confirmEmail}
-                  onChange={(e) => setConfirmEmail(e.target.value)}
-                  disabled={isLoading}
-                  className={inputClass}
-                />
+                <label className="text-xs font-medium text-white/50 pl-0.5">{t('auth.confirm_password')}</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={isLoading}
+                    className={`${inputClass} pr-10`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
             )}
 
