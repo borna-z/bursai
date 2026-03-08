@@ -180,6 +180,7 @@ export default function OutfitDetailPage() {
 
   const handleRating = async (value: number) => {
     if (!outfit) return;
+    hapticLight();
     setRating(value);
     try { await updateOutfit.mutateAsync({ id: outfit.id, updates: { rating: value } }); toast.success(t('outfit.rating_saved')); } catch { toast.error(t('common.something_wrong')); }
   };
