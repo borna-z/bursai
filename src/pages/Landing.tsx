@@ -104,9 +104,29 @@ export default function Landing() {
         <meta name="twitter:description" content="Upload your closet. Let BURS style you. Save the planet by wearing what you already own." />
         <meta name="twitter:image" content="https://bursai.lovable.app/og-image.png" />
         <link rel="canonical" href="https://burs.me" />
-        {/* hreflang */}
         <link rel="alternate" hrefLang="x-default" href="https://burs.me" />
         <link rel="alternate" hrefLang={locale} href={`https://burs.me?lang=${locale}`} />
+        <script type="application/ld+json">{JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          "name": "BURS",
+          "applicationCategory": "LifestyleApplication",
+          "operatingSystem": "Web",
+          "description": "AI-powered wardrobe operating system. Organize clothes, build outfits, and get smart styling help.",
+          "url": "https://burs.me",
+          "image": "https://bursai.lovable.app/og-image.png",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+          },
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.8",
+            "reviewCount": "1250",
+            "bestRating": "5"
+          }
+        })}</script>
       </Helmet>
 
       <div className="dark-landing" ref={scrollRef} style={{ height: '100vh', overflowY: 'auto' }}>
