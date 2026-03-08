@@ -82,6 +82,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'onboarding.complete.title': 'Du är redo!',
     'onboarding.complete.desc': 'Grattis! Nu kan du börja använda din digitala garderob.',
     'onboarding.complete.cta': 'Börja använda appen',
+    'onboarding.skip': 'Hoppa över nu',
     'onboarding.skip_all': 'Hoppa över introduktionen',
     'onboarding.demo_success': '6 exempelplagg tillagda!',
     'onboarding.demo_success_desc': 'Nu kan du testa att skapa outfits',
