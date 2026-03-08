@@ -433,10 +433,14 @@ export default function OutfitDetailPage() {
             {feedbackOptions.map(({ id, label, icon: Icon }) => {
               const isSelected = selectedFeedback.includes(id);
               const colorClass = isSelected
-                ? (id === 'too_warm' ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                ? (id === 'loved_it' ? 'bg-pink-500/10 text-pink-500 border-pink-500/20'
+                  : id === 'too_warm' ? 'bg-red-500/10 text-red-500 border-red-500/20'
                   : id === 'too_cold' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20'
                   : id === 'too_formal' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
                   : id === 'too_casual' ? 'bg-green-500/10 text-green-600 border-green-500/20'
+                  : id === 'uncomfortable' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20'
+                  : id === 'bad_color' ? 'bg-purple-500/10 text-purple-500 border-purple-500/20'
+                  : id === 'boring' ? 'bg-slate-500/10 text-slate-500 border-slate-500/20'
                   : '')
                 : '';
               return (
