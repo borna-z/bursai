@@ -285,6 +285,13 @@ export const translations: Record<Locale, Record<string, string>> = {
     'home.suggestions': 'Fler outfits',
     'home.see_details': 'Se detaljer',
     'home.plan_tomorrow': 'Planera imorgon',
+    'home.quick_add': 'Lägg till',
+    'home.quick_build': 'Skapa',
+    'home.quick_ai': 'AI Stylist',
+    'home.quick_plan': 'Planera',
+    'home.recent': 'Senaste',
+    'home.saved_outfits': 'Sparade outfits',
+    'home.see_all': 'Visa alla',
 
     // Auth
     'auth.tagline': 'Din personliga stylist.',
