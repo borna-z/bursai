@@ -127,9 +127,7 @@ Generate a single flat-lay image arranging these exact garments together.`;
     const base64Image = imageData.split(",")[1];
     const binaryStr = atob(base64Image);
     const bytes = new Uint8Array(binaryStr.length);
-    for (let i = 0; i < binaryStr.length; i++) {
-      bytes[i] = binaryStr.charCodeAt(i);
-    }
+    for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
 
     const filePath = `${user.id}/flatlay_${outfit_id}.png`;
 
