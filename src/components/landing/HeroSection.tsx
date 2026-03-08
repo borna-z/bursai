@@ -97,15 +97,11 @@ export function HeroSection() {
           </p>
         </div>
 
-        {/* Right — 3D Scene */}
-        <div className="hidden md:block relative h-[500px] lg:h-[600px] reveal-scale visible" style={{ '--reveal-delay': '100ms' } as React.CSSProperties}>
-          <Scene3D className="w-full h-full">
-            <FloatingHanger />
-          </Scene3D>
-          {/* Ambient glow behind 3D */}
-          <div className="absolute inset-0 -z-10" style={{
-            background: 'radial-gradient(circle at 50% 50%, rgba(99,102,241,0.08) 0%, transparent 60%)',
-            filter: 'blur(40px)',
+        {/* Right — decorative glow */}
+        <div className="hidden md:flex relative h-[500px] lg:h-[600px] items-center justify-center reveal-scale visible" style={{ '--reveal-delay': '100ms' } as React.CSSProperties}>
+          <div className="absolute inset-0" style={{
+            background: 'radial-gradient(circle at 50% 50%, rgba(99,102,241,0.12) 0%, rgba(99,102,241,0.04) 30%, transparent 60%)',
+            filter: 'blur(60px)',
           }} />
         </div>
       </div>
