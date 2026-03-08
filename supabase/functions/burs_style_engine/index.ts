@@ -223,53 +223,112 @@ function materialCompatibility(materials: (string | null)[]): number {
 }
 
 // ─────────────────────────────────────────────
-// WEATHER → GARMENT FILTERING
+// WEATHER MICROCLIMATE INTELLIGENCE
 // ─────────────────────────────────────────────
 
 const WARM_MATERIALS = ["wool", "ull", "fleece", "cashmere", "kashmir", "flanell", "flannel", "tweed", "dun", "down"];
 const LIGHT_MATERIALS = ["cotton", "bomull", "linen", "linne", "silk", "siden", "jersey", "chiffon", "mesh"];
 const WATERPROOF_MATERIALS = ["gore-tex", "polyester", "nylon", "softshell", "regn", "rain"];
+const WINDPROOF_MATERIALS = ["gore-tex", "softshell", "nylon", "leather", "läder", "dun", "down"];
+const BREATHABLE_MATERIALS = ["cotton", "bomull", "linen", "linne", "mesh", "jersey", "silk", "siden"];
+
+// Wind chill approximation: feels-like temperature
+function feelsLikeTemp(temp: number, wind: string | undefined): number {
+  if (!wind) return temp;
+  const w = wind.toLowerCase();
+  if (w === "high" || w === "hög") return temp - 6;
+  if (w === "medium" || w === "medel") return temp - 3;
+  return temp;
+}
+
+// Layering intelligence: does the garment serve as a good layer?
+function isLayeringPiece(category: string): boolean {
+  const cat = category.toLowerCase();
+  return ["cardigan", "blazer", "vest", "väst", "hoodie", "sweater", "tröja"].some(k => cat.includes(k));
+}
 
 function weatherSuitability(garment: GarmentRow, weather: WeatherInput): number {
-  const temp = weather.temperature;
-  if (temp === undefined) return 7;
+  const rawTemp = weather.temperature;
+  if (rawTemp === undefined) return 7;
 
+  const feelsLike = feelsLikeTemp(rawTemp, weather.wind);
   const mat = (garment.material || "").toLowerCase();
   const cat = (garment.category || "").toLowerCase();
+  const sub = (garment.subcategory || "").toLowerCase();
+  const both = `${cat} ${sub}`;
   const isWarm = WARM_MATERIALS.some(w => mat.includes(w));
   const isLight = LIGHT_MATERIALS.some(l => mat.includes(l));
   const isWaterproof = WATERPROOF_MATERIALS.some(w => mat.includes(w));
+  const isWindproof = WINDPROOF_MATERIALS.some(w => mat.includes(w));
+  const isBreathable = BREATHABLE_MATERIALS.some(b => mat.includes(b));
   const seasonTags = garment.season_tags || [];
 
   let score = 7;
 
-  // Temperature matching
-  if (temp < 5) {
+  // ── TEMPERATURE BANDS (using feels-like) ──
+  if (feelsLike < -5) {
+    // Extreme cold
+    if (isWarm) score += 3;
+    if (isLight && !isWarm) score -= 4;
+    if (seasonTags.includes("summer")) score -= 5;
+    if (seasonTags.includes("winter")) score += 2;
+    if (both.includes("short") || both.includes("tank") || both.includes("sandal")) score -= 5;
+  } else if (feelsLike < 5) {
+    // Cold
     if (isWarm) score += 2;
     if (isLight && !isWarm) score -= 2;
     if (seasonTags.includes("summer")) score -= 3;
     if (seasonTags.includes("winter")) score += 1;
-    if (cat.includes("short") || cat.includes("tank")) score -= 4;
-  } else if (temp < 15) {
+    if (both.includes("short") || both.includes("tank")) score -= 4;
+    if (isLayeringPiece(cat)) score += 1; // layering weather
+  } else if (feelsLike < 12) {
+    // Cool — prime layering weather
+    if (isLayeringPiece(cat)) score += 2;
     if (seasonTags.includes("summer") && !seasonTags.includes("spring")) score -= 1;
     if (seasonTags.includes("winter") && !isLight) score -= 1;
-    if (isWarm && cat.includes("sweater")) score += 1; // layering weather
-  } else if (temp < 25) {
+    if (isWarm && cat.includes("sweater")) score += 1;
+  } else if (feelsLike < 20) {
+    // Mild
     if (isLight) score += 1;
-    if (isWarm && cat.includes("coat")) score -= 3;
+    if (isBreathable) score += 0.5;
+    if (isWarm && (cat.includes("coat") || cat.includes("parka"))) score -= 3;
     if (seasonTags.includes("winter")) score -= 2;
-  } else {
-    // Hot weather
+  } else if (feelsLike < 28) {
+    // Warm
     if (isLight) score += 2;
+    if (isBreathable) score += 1;
     if (isWarm) score -= 3;
-    if (cat.includes("shorts") || cat.includes("tank")) score += 1;
+    if (both.includes("shorts") || both.includes("tank")) score += 1;
     if (seasonTags.includes("winter")) score -= 4;
+  } else {
+    // Extreme heat
+    if (isLight && isBreathable) score += 3;
+    if (isWarm) score -= 5;
+    if (both.includes("shorts") || both.includes("tank") || both.includes("sandal")) score += 2;
+    if (seasonTags.includes("winter")) score -= 5;
   }
 
-  // Precipitation
+  // ── WIND AWARENESS ──
+  const wind = (weather.wind || "").toLowerCase();
+  if (wind === "high" || wind === "hög") {
+    if (isWindproof) score += 2;
+    // Light fabrics suffer in high wind
+    if (["chiffon", "silk", "siden"].some(f => mat.includes(f))) score -= 1;
+  }
+
+  // ── PRECIPITATION ──
   const precip = (weather.precipitation || "").toLowerCase();
-  if (precip.includes("rain") || precip.includes("regn") || precip.includes("snow") || precip.includes("snö")) {
+  if (precip.includes("rain") || precip.includes("regn")) {
     if (isWaterproof) score += 2;
+    // Suede/leather penalized in rain
+    if (["suede", "mocka"].some(f => mat.includes(f))) score -= 2;
+    if (["leather", "läder"].some(f => mat.includes(f)) && !isWaterproof) score -= 1;
+  }
+  if (precip.includes("snow") || precip.includes("snö")) {
+    if (isWaterproof) score += 2;
+    if (isWarm) score += 1;
+    if (both.includes("boot") || both.includes("stövel")) score += 2;
+    if (both.includes("sandal") || both.includes("loafer")) score -= 3;
   }
 
   return Math.max(0, Math.min(10, score));
