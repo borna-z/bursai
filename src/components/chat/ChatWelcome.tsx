@@ -6,6 +6,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 interface ChatWelcomeProps {
   mode: 'stylist' | 'shopping';
   onSuggestion: (text: string) => void;
+  displayName?: string;
+  garmentCount?: number;
 }
 
 const containerVariants = {
