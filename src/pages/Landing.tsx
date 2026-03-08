@@ -6,21 +6,14 @@ import bursLandingLogo from '@/assets/burs-logo-white.png';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { CookieConsent } from '@/components/landing/CookieConsent';
-import { ScrollProgress } from '@/components/landing/ScrollProgress';
-import { LanguageSwitcher } from '@/components/landing/LanguageSwitcher';
 
-// Lazy-load below-fold sections
 const SocialTicker = lazy(() => import('@/components/landing/SocialTicker').then(m => ({ default: m.SocialTicker })));
-const TrustLogos = lazy(() => import('@/components/landing/TrustLogos').then(m => ({ default: m.TrustLogos })));
-const HowItWorks = lazy(() => import('@/components/landing/HowItWorks').then(m => ({ default: m.HowItWorks })));
-const FeaturesShowcase = lazy(() => import('@/components/landing/FeaturesShowcase').then(m => ({ default: m.FeaturesShowcase })));
+const BentoGrid = lazy(() => import('@/components/landing/BentoGrid').then(m => ({ default: m.BentoGrid })));
+const ProductShowcase = lazy(() => import('@/components/landing/ProductShowcase').then(m => ({ default: m.ProductShowcase })));
 const StatsCounter = lazy(() => import('@/components/landing/StatsCounter').then(m => ({ default: m.StatsCounter })));
-const SustainabilitySection = lazy(() => import('@/components/landing/SustainabilitySection').then(m => ({ default: m.SustainabilitySection })));
 const TestimonialsCarousel = lazy(() => import('@/components/landing/TestimonialsCarousel').then(m => ({ default: m.TestimonialsCarousel })));
 const PricingSection = lazy(() => import('@/components/landing/PricingSection').then(m => ({ default: m.PricingSection })));
-const FAQSection = lazy(() => import('@/components/landing/FAQSection').then(m => ({ default: m.FAQSection })));
-const CTASection = lazy(() => import('@/components/landing/CTASection').then(m => ({ default: m.CTASection })));
-const LandingFooter = lazy(() => import('@/components/landing/LandingFooter').then(m => ({ default: m.LandingFooter })));
+const FooterCTA = lazy(() => import('@/components/landing/FooterCTA').then(m => ({ default: m.FooterCTA })));
 const StickyMobileCTA = lazy(() => import('@/components/landing/StickyMobileCTA').then(m => ({ default: m.StickyMobileCTA })));
 const ExitIntentModal = lazy(() => import('@/components/landing/ExitIntentModal').then(m => ({ default: m.ExitIntentModal })));
 
@@ -31,9 +24,8 @@ export default function Landing() {
   const [scrolled, setScrolled] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const REVEAL_SELECTOR = '.reveal-up, .reveal-down, .reveal-left, .reveal-right, .reveal-scale, .reveal-rotate, .scroll-reveal, .line-grow, .word-reveal';
+  const REVEAL_SELECTOR = '.reveal-up, .reveal-down, .reveal-left, .reveal-right, .reveal-scale, .scroll-reveal';
 
-  // Unified IntersectionObserver + MutationObserver for reveals
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
@@ -58,7 +50,6 @@ export default function Landing() {
     return () => { io.disconnect(); mo.disconnect(); };
   }, []);
 
-  // Parallax scroll + header scroll detection
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
@@ -66,7 +57,6 @@ export default function Landing() {
     const onScroll = () => {
       if (!ticking) {
         requestAnimationFrame(() => {
-          document.documentElement.style.setProperty('--scroll-y', String(container.scrollTop));
           setScrolled(container.scrollTop > 60);
           ticking = false;
         });
@@ -83,9 +73,7 @@ export default function Landing() {
   };
 
   const navLinks = [
-    { id: 'how-it-works', label: t('landing.nav.how') },
     { id: 'features', label: t('landing.nav.features') },
-    { id: 'sustainability', label: t('landing.nav.sustainability') },
     { id: 'pricing', label: t('landing.nav.pricing') },
   ];
 
@@ -103,7 +91,7 @@ export default function Landing() {
         <meta property="og:image:height" content="630" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="BURS | Your Personal Stylist" />
-        <meta name="twitter:description" content="Upload your closet. Let BURS style you. Save the planet by wearing what you already own." />
+        <meta name="twitter:description" content="Upload your closet. Let BURS style you." />
         <meta name="twitter:image" content="https://bursai.lovable.app/og-image.png" />
         <link rel="canonical" href="https://burs.me" />
         <link rel="alternate" hrefLang="x-default" href="https://burs.me" />
@@ -114,70 +102,56 @@ export default function Landing() {
           "name": "BURS",
           "applicationCategory": "LifestyleApplication",
           "operatingSystem": "Web",
-          "description": "AI-powered wardrobe operating system. Organize clothes, build outfits, and get smart styling help.",
+          "description": "AI-powered wardrobe operating system.",
           "url": "https://burs.me",
           "image": "https://bursai.lovable.app/og-image.png",
-          "offers": {
-            "@type": "Offer",
-            "price": "0",
-            "priceCurrency": "USD"
-          },
-          "aggregateRating": {
-            "@type": "AggregateRating",
-            "ratingValue": "4.8",
-            "reviewCount": "1250",
-            "bestRating": "5"
-          }
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+          "aggregateRating": { "@type": "AggregateRating", "ratingValue": "4.8", "reviewCount": "1250", "bestRating": "5" }
         })}</script>
       </Helmet>
 
-      <div className="dark-landing noise-overlay" ref={scrollRef} style={{ height: '100vh', overflowY: 'auto' }}>
-        <ScrollProgress />
+      <div className="dark-landing" ref={scrollRef} style={{ height: '100vh', overflowY: 'auto' }}>
         <div className="font-space selection:bg-indigo-500/20">
 
-          {/* ── Floating Capsule Header ── */}
+          {/* ── Header ── */}
           <header
             className={`fixed z-50 transition-all duration-500 ease-out ${
               scrolled
-                ? 'top-3 left-3 right-3 rounded-2xl hyper-glass'
+                ? 'top-3 left-3 right-3 rounded-2xl'
                 : 'top-0 left-0 right-0'
             }`}
             style={{
-              background: scrolled ? 'rgba(3,3,5,0.7)' : 'transparent',
-              borderBottom: scrolled ? 'none' : '1px solid rgba(255,255,255,0.04)',
+              background: scrolled ? 'rgba(3,3,5,0.8)' : 'transparent',
+              backdropFilter: scrolled ? 'blur(20px) saturate(1.2)' : 'none',
+              borderBottom: scrolled ? 'none' : '1px solid rgba(255,255,255,0.03)',
+              border: scrolled ? '1px solid rgba(255,255,255,0.06)' : undefined,
             }}
             role="navigation"
             aria-label="Main navigation"
           >
             <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-3.5">
-              <div className="flex items-center gap-3 cursor-pointer group" onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} role="button" aria-label="Scroll to top">
-                <img src={bursLandingLogo} alt="BURS home" className="h-6 object-contain transition-all duration-300 group-hover:drop-shadow-[0_0_8px_rgba(99,102,241,0.4)]" width={80} height={24} loading="eager" fetchPriority="high" />
+              <div className="flex items-center gap-3 cursor-pointer" onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} role="button" aria-label="Scroll to top">
+                <img src={bursLandingLogo} alt="BURS home" className="h-5 object-contain" width={80} height={20} loading="eager" fetchPriority="high" />
               </div>
               <nav className="hidden md:flex items-center gap-10 text-sm font-light tracking-wide text-gray-400" aria-label="Page sections">
                 {navLinks.map(l => (
-                  <button key={l.id} onClick={() => scrollTo(l.id)} className="relative hover:text-white transition-colors duration-300 after:absolute after:bottom-[-4px] after:left-0 after:w-0 after:h-px after:bg-indigo-400 after:transition-all after:duration-300 hover:after:w-full">{l.label}</button>
+                  <button key={l.id} onClick={() => scrollTo(l.id)} className="hover:text-white transition-colors duration-300">{l.label}</button>
                 ))}
               </nav>
               <div className="flex items-center gap-3">
-                <LanguageSwitcher />
                 <button
                   onClick={() => navigate('/auth')}
-                  className="hidden md:block px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-300 hover:scale-105 text-white"
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(6,182,212,0.1))',
-                    border: '1px solid rgba(99,102,241,0.3)',
-                    boxShadow: '0 0 20px rgba(99,102,241,0.1)',
-                  }}
+                  className="hidden md:block px-6 py-2 rounded-full text-sm font-medium text-white border border-white/[0.08] hover:border-white/[0.16] transition-all duration-300"
                 >
                   {t('landing.login')}
                 </button>
                 <button className="md:hidden text-gray-400 hover:text-white p-2" onClick={() => setMobileOpen(!mobileOpen)} aria-expanded={mobileOpen} aria-label={mobileOpen ? 'Close menu' : 'Open menu'}>
-                  {mobileOpen ? <X size={24} strokeWidth={1.5} /> : <Menu size={24} strokeWidth={1.5} />}
+                  {mobileOpen ? <X size={22} strokeWidth={1.5} /> : <Menu size={22} strokeWidth={1.5} />}
                 </button>
               </div>
             </div>
             {mobileOpen && (
-              <div className="md:hidden border-t border-white/5 animate-fade-in" role="menu">
+              <div className="md:hidden border-t border-white/[0.04] animate-fade-in" role="menu">
                 <div className="flex flex-col gap-1 px-6 py-4 text-sm text-gray-400">
                   {navLinks.map(l => (
                     <button key={l.id} onClick={() => scrollTo(l.id)} className="py-3 text-left hover:text-white transition-colors" role="menuitem">{l.label}</button>
@@ -191,18 +165,14 @@ export default function Landing() {
           {/* Sections */}
           <HeroSection />
 
-          <Suspense fallback={<div style={{ minHeight: '400vh' }} aria-hidden="true" />}>
+          <Suspense fallback={<div style={{ minHeight: '200vh' }} aria-hidden="true" />}>
             <SocialTicker />
-            <TrustLogos />
-            <HowItWorks />
-            <FeaturesShowcase />
+            <BentoGrid />
+            <ProductShowcase />
             <StatsCounter />
-            <SustainabilitySection />
             <TestimonialsCarousel />
             <PricingSection />
-            <FAQSection />
-            <CTASection />
-            <LandingFooter />
+            <FooterCTA />
             <StickyMobileCTA />
             <ExitIntentModal />
           </Suspense>

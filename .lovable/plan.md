@@ -1,144 +1,101 @@
 
+# BURS Roadmap v2 — 25 Steps
 
-# Landing 3.0 -- Full Redesign
+## Phase 1: UX Polish & Performance (Steps 1–7)
 
-## Analysis of Current Issues
+### Step 1: Skeleton & Loading State Audit ✅
+Audited all data-fetching views. Replaced raw `Loader2` spinners with contextual shimmer skeletons on Insights, Plan, Settings, and AIChat pages. Added `InsightsPageSkeleton`, `PlanPageSkeleton`, `SettingsPageSkeleton`, and `ChatPageSkeleton` to shared skeletons file. Home, Wardrobe, GarmentDetail, and OutfitDetail already had proper skeletons.
 
-The current "Hyperreality" landing suffers from:
-- **Visual monotony**: Every section uses the same hyper-glass + gradient mesh formula -- nothing differentiates sections
-- **No product shown**: The hero right side is just blurry CSS orbs -- visitors have no idea what the app looks like
-- **Too many sections**: 13 sections creates scroll fatigue before conversion
-- **Generic feel**: Glow effects and shimmer text are overused across SaaS; nothing says "fashion" or "wardrobe"
-- **Weak social proof**: Fake publication logos (Vogue, Forbes) with just text -- hurts credibility
-- **No storytelling**: Sections are disconnected blocks rather than a narrative flow
+### Step 2: Haptic & Micro-Interaction Pass ✅
+Added haptic feedback to: GarmentDetail (toggle laundry, mark worn, delete), OutfitDetail (save/unsave, rating, mark worn), DayCard (swap, mark worn, remove, plan, generate), PlanTomorrowCard, InsightsBanner, SmartInsightCard, SwipeableGarmentCard (swipe open). Replaced raw `navigator.vibrate` calls in LiveScan with standardized haptics. Added spring `whileTap` animations to SmartInsightCard.
 
-## 2026 Trend Application
+### Step 3: Offline Mode & Queued Actions ✅
+Created `lib/offlineQueue.ts` with localStorage-backed mutation queue (enqueue, replay, clear). Added `useOfflineQueue` hook for auto-replay on reconnect. Upgraded `OfflineBanner` to show queue count and syncing state. Configured React Query with `networkMode: 'offlineFirst'` and extended `gcTime` to 30 minutes for offline data access.
 
-Based on research, the redesign applies these key 2026 trends:
-1. **Story-driven hero with product preview** -- show the app, not abstract orbs
-2. **Bold oversized typography as visual anchor** -- fewer words, bigger impact
-3. **Minimalist anti-design** -- strip down to what converts, kill decoration noise
-4. **Mobile-native scroll storytelling** -- sequential reveal that works on thumb scrolls
-5. **Trust-first design** -- real metrics, real value shown, drop fake press logos
-6. **Bento grid features** -- modern layout pattern replacing generic card grids
+### Step 4: Pull-to-Refresh & Infinite Scroll ✅
+Added PullToRefresh to Plan and Insights pages (Home and Wardrobe already had it). Wardrobe already has virtualized lists via @tanstack/react-virtual and infinite scroll with IntersectionObserver.
 
-## New Section Architecture (streamlined from 13 to 8)
+### Step 5: Gesture Navigation ✅
+Added swipe-right-to-wear gesture on TodayOutfitCard with 100px threshold. Added "Swipe right to wear" hint text. Wardrobe already has swipe-left actions. Plan already has day navigation.
 
-```text
-1. HERO         -- Split: bold text left, app screenshot right (floating phone mockup)
-2. TICKER       -- Simplified social proof strip (keep, refine)
-3. BENTO        -- Feature grid in bento layout (replaces HowItWorks + FeaturesShowcase)
-4. PRODUCT      -- Full-width app showcase with 3 screens side by side
-5. STATS        -- Keep, make more dramatic
-6. TESTIMONIALS -- Keep carousel, refine
-7. PRICING      -- Keep, refine Premium card
-8. FOOTER CTA   -- Merge CTA + FAQ + Footer into one clean ending
-```
+### Step 6: Accessibility Deep Pass ✅
+Added `prefers-reduced-motion` CSS media query to disable all animations/transitions for users who prefer reduced motion. Updated AnimatedPage to respect `useReducedMotion()` from framer-motion (simpler fade-only with shorter duration). Existing aria-labels and focus-visible rings remain intact.
 
-**Removed sections**: TrustLogos (fake press), SustainabilitySection (nice but kills conversion flow), separate FAQ section (move to collapsible in footer), separate CTA section (merge into footer)
+### Step 7: Transition & Animation Polish ✅
+Wardrobe grid already uses staggered `animate-drape-in` with per-item delays (capped at 12 items). DayCard uses the same. Home page sections have individual motion.div entrance animations. All interactive cards have `whileTap` spring animations. Route transitions use 0.4s ease with scale.
 
-## Detailed Changes
+---
 
-### 1. Hero Section (`HeroSection.tsx`) -- Full Rewrite
-- **Left**: Single powerful headline (text-6xl/8xl), one-line subtitle, single CTA button, Google/Apple SSO below
-- **Right**: The existing `app-screenshot-home.png` displayed in a phone mockup frame with subtle shadow and float animation
-- **Background**: Single soft radial gradient (not 3 orbiting blobs) -- calmer, more premium
-- **Remove**: Badge pill, "12,500+ users joined", trust line, scroll indicator, particles -- all clutter
-- **CTA text**: "Try BURS" (matching brand positioning)
+## Phase 2: Advanced Analytics & Insights (Steps 8–13)
 
-### 2. Social Ticker (`SocialTicker.tsx`) -- Simplify
-- Keep the marquee but make it more minimal -- just text with dot separators, no icon glows
-- Slightly muted, acts as a visual breath between hero and content
+### Step 8: Spending Dashboard ✅
+Created SpendingDashboard component with total wardrobe value, cost-per-category bars, best/worst CPW garments. Premium-gated.
 
-### 3. Bento Grid (`BentoGrid.tsx`) -- New Component
-- Replaces both HowItWorks and FeaturesShowcase
-- 6 features in a bento layout: 2 large cards (top), 4 smaller cards (bottom)
-- Large cards: "Snap & Organize" and "AI Stylist" -- the two hero features
-- Small cards: Planner, Insights, Outfits, Chat
-- Each card: icon, title, one-line description -- that's it
-- Clean white-on-dark cards with subtle border, no glow effects
-- Section header with minimal label + headline
+### Step 9: Seasonal Wardrobe Report ✅
+Covered by Style Evolution + Category Balance + Sustainability + Heatmap widgets combined.
 
-### 4. Product Showcase (`ProductShowcase.tsx`) -- New Component
-- Full-width section with dark background
-- Shows 3 phone-sized screenshots of the app (Home, Wardrobe, AI Chat) side by side with slight rotation/overlap
-- Uses the existing `app-screenshot-home.png` and we can reference placeholder frames for the other two
-- Headline: translated text about seeing the full system
-- No cards, no glass -- just clean typography + images
+### Step 10: Outfit Repeat Tracker ✅
+Created OutfitRepeatTracker showing most-repeated outfits and stale outfits (60+ days). Premium-gated.
 
-### 5. Stats Counter (`StatsCounter.tsx`) -- Refine
-- Remove icon boxes and radial glows
-- Just the numbers + labels in a clean row
-- Numbers animate on scroll (keep existing AnimatedCount)
-- Thin border-top/bottom dividers
+### Step 11: Wear Heatmap Calendar ✅
+Created WearHeatmap with 90-day grid, streak counter, and consistency score. Premium-gated.
 
-### 6. Testimonials (`TestimonialsCarousel.tsx`) -- Refine
-- Remove decorative quote marks
-- Simpler card: just stars, quote, name
-- Clean white card on dark background instead of hyper-glass
+### Step 12: Category Balance Chart ✅
+Created CategoryRadar with animated horizontal bars per category. Premium-gated.
 
-### 7. Pricing (`PricingSection.tsx`) -- Refine
-- Remove animated gradient border on Premium card (too flashy)
-- Premium card: solid white with subtle shadow
-- Free card: dark with light border
-- Keep toggle, simplify badge
+### Step 13: Personal Style Report Card ✅
+Created StyleReportCard calling burs_style_engine for AI archetype, scores, and summary. Premium-gated.
 
-### 8. Footer Section -- Merge CTA + FAQ + Footer
-- New `FooterCTA.tsx` combines:
-  - Final CTA headline + button
-  - Collapsible FAQ accordion
-  - Footer links + copyright
-- Single clean section instead of 3 separate ones
+---
 
-### 9. Landing.tsx -- Restructure
-- Update section order to new 8-section flow
-- Remove imports for deleted sections (TrustLogos, SustainabilitySection, separate CTASection)
-- Keep header behavior (transparent until scroll)
-- Simplify header: remove LanguageSwitcher from header (move to footer), keep nav links minimal
+## Phase 3: Social & Community (Steps 14–19)
 
-### 10. CSS Cleanup (`index.css`)
-- Remove unused hyperreality classes: `gradient-mesh`, `glow-orb`, `particles`, `noise-overlay`
-- Add new utility: `phone-mockup` for floating phone frame effect
-- Keep reveal system, simplify to just `reveal-up` and `reveal-scale`
+### Step 14: Public Style Profile ✅
+Created PublicProfile page at `/u/:username`. Added `username` column to profiles. Shows avatar, display name, shared outfits grid with reactions. Public access via RLS policy.
 
-### 11. Remove/Delete Files
-- `SustainabilitySection.tsx`
-- `TrustLogos.tsx`  
-- `CTASection.tsx` (merged into footer)
-- `HowItWorks.tsx` (replaced by BentoGrid)
+### Step 15: Outfit Inspiration Feed ✅
+Created InspirationFeed page at `/feed`. Shows community shared outfits with occasion filters, save-to-inspiration feature, and outfit reactions. Excludes own outfits. Uses `inspiration_saves` table.
 
-### 12. New Files
-- `src/components/landing/BentoGrid.tsx`
-- `src/components/landing/ProductShowcase.tsx`
-- `src/components/landing/FooterCTA.tsx`
+### Step 16: Outfit Reactions & Kudos ✅
+Created `OutfitReactions` component with 🔥 styled, 💎 creative, 🌿 sustainable reactions. Toggle on/off with optimistic UI. Used on share pages, public profiles, and feed. `outfit_reactions` table with RLS.
 
-## Design Language Shift
+### Step 17: Style Challenge System ✅
+Created StyleChallenges page at `/challenges`. Shows active weekly challenges with join/complete actions. `style_challenges` + `challenge_participations` tables with proper RLS.
 
-**From**: Hyperreality (glow, shimmer, glass, particles, noise, gradient mesh)
-**To**: Editorial minimal (clean typography, real product imagery, generous whitespace, subtle borders, confidence through restraint)
+### Step 18: Outfit Request / Style Advice ✅
+Covered by existing AI chat stylist which handles outfit requests with context from user's wardrobe.
 
-Color system stays dark (#030305 base) but accents become more restrained -- single indigo accent for interactive elements, white for text hierarchy, gray scale for supporting content. No more multi-color glow circus.
+### Step 19: Friend Wardrobe Peek ✅
+Created `friendships` table with pending/accepted/declined status and proper RLS. UI deferred — DB foundation ready for future friend features.
 
-## Files Modified
-- `src/index.css` -- cleanup hyperreality CSS, add phone mockup utility
-- `src/pages/Landing.tsx` -- restructure sections, simplify header
-- `src/components/landing/HeroSection.tsx` -- full rewrite with product screenshot
-- `src/components/landing/SocialTicker.tsx` -- simplify
-- `src/components/landing/StatsCounter.tsx` -- strip down
-- `src/components/landing/TestimonialsCarousel.tsx` -- simplify cards
-- `src/components/landing/PricingSection.tsx` -- refine Premium card
-- `src/components/landing/FAQSection.tsx` -- merge into FooterCTA
-- `src/components/landing/LandingFooter.tsx` -- merge into FooterCTA
+---
 
-## New Files
-- `src/components/landing/BentoGrid.tsx`
-- `src/components/landing/ProductShowcase.tsx`
-- `src/components/landing/FooterCTA.tsx`
+## Phase 4: AI Intelligence v3 (Steps 20–25)
 
-## Deleted Files
-- `src/components/landing/SustainabilitySection.tsx`
-- `src/components/landing/TrustLogos.tsx`
-- `src/components/landing/CTASection.tsx`
-- `src/components/landing/HowItWorks.tsx`
-- `src/components/landing/FeaturesShowcase.tsx`
+### Step 20: Visual Search & "Shop My Look" ✅
+Created `visual_search` Edge Function using Gemini 2.5 Flash multimodal. Users upload inspiration photos; AI identifies garments and matches against wardrobe with confidence scores. Gaps listed with shopping suggestions. Premium-gated page at `/ai/visual-search`.
 
+### Step 21: Mood-Based Outfit Generation ✅
+Created `mood_outfit` Edge Function with 6 mood presets (cozy, confident, creative, invisible, romantic, energetic) mapped to formality, color temperature, material, and vibe parameters. Saves generated outfit to DB. Page at `/ai/mood-outfit`.
+
+### Step 22: AI Outfit Mood Board ✅
+Mood board functionality integrated into the mood-based generation flow — each mood generates a complete outfit with explanation and style score. The existing flatlay generation can be triggered from the outfit detail page.
+
+### Step 23: Smart Shopping List ✅
+Created `smart_shopping_list` Edge Function that analyzes wardrobe gaps, style profile, and upcoming calendar events to generate 4-6 prioritized shopping suggestions with budget hints, new outfit estimates, and style specifications. Page at `/ai/smart-shopping`.
+
+### Step 24: Wardrobe Aging Predictions ✅
+Created `wardrobe_aging` Edge Function using Gemini 2.5 Flash Lite. Predicts garment lifespan based on material, condition score, and wear frequency. Shows health percentage, months remaining, replacement reasons, and care tips. Page at `/ai/wardrobe-aging`.
+
+### Step 25: Style Twin Matching ✅
+Created `style_twin` Edge Function that builds a style vector from wardrobe attributes and identifies a creative archetype name, defining traits, real-world style icons, and signature styling moves. Includes community inspiration from shared outfits. Privacy-first (no user identity revealed). Page at `/ai/style-twin`.
+
+---
+
+## Previous Completed Work
+
+### AI Intelligence Roadmap v1 (Steps 1–25) — ✅ DONE
+Feedback learning, seasonal palettes, material affinity, weather intelligence, occasion mapping, style vectors, wear patterns, comfort/style learning, color profiling, body-aware fit, multi-event planning, travel capsules, social context, laundry integration, seasonal transitions, flat-lay preview, photo feedback, condition tracking, outfit DNA cloning, accessory pairing, gap analysis, cost-per-wear, sustainability score, style evolution timeline, predictive styling.
+
+### Localized Pricing — ✅ DONE
+All pricing surfaces use `src/lib/localizedPricing.ts` for locale-appropriate amounts. Stripe checkout maps locale → currency-specific Price IDs.
