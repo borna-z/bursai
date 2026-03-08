@@ -86,8 +86,7 @@ export function useLiveScan() {
         blob,
       });
 
-      // Haptic feedback
-      if (navigator.vibrate) navigator.vibrate(50);
+      hapticMedium();
     } catch (err) {
       console.error('Capture error:', err);
       setError('Kunde inte fånga bilden');
