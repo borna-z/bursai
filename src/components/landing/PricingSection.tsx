@@ -124,6 +124,11 @@ export function PricingSection() {
               ))}
             </div>
 
+            {/* Mobile scroll hint */}
+            <div className="flex md:hidden justify-center mb-4 animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]">
+              <ChevronDown size={18} className="text-muted-foreground/30" />
+            </div>
+
             {/* CTA */}
             <button
               onClick={() => navigate('/auth')}
