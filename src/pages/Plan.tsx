@@ -3,8 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format, addDays, isSameDay, isToday, isTomorrow } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
-import { Wand2, Shirt, Loader2, CalendarDays, Repeat, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart, Luggage } from 'lucide-react';
+import { Wand2, Shirt, CalendarDays, Repeat, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart, Luggage } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { PlanPageSkeleton } from '@/components/ui/skeletons';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -308,9 +309,7 @@ export default function PlanPage() {
 
           {/* ─── Outfit section ─── */}
           {isLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground/40" />
-            </div>
+            <PlanPageSkeleton />
           ) : !hasGarments ? (
             <EmptyState
               icon={Shirt}

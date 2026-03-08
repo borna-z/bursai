@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Sparkles, ShoppingBag, MoreVertical, Trash2 } from 'lucide-react';
+import { Sparkles, ShoppingBag, MoreVertical, Trash2 } from 'lucide-react';
+import { ChatPageSkeleton } from '@/components/ui/skeletons';
 import { motion } from 'framer-motion';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
@@ -326,9 +327,7 @@ export default function AIChat() {
 
         {/* Messages or Welcome */}
         {isLoading ? (
-          <div className="flex-1 flex items-center justify-center">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-          </div>
+          <ChatPageSkeleton />
         ) : isWelcomeState ? (
           <ChatWelcome mode={mode} onSuggestion={sendMessage} garmentCount={garmentCount ?? undefined} />
         ) : (

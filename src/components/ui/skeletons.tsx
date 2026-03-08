@@ -89,3 +89,126 @@ export function StatGridSkeleton() {
     </div>
   );
 }
+
+/* ─── Insights page skeleton ─── */
+export function InsightsPageSkeleton() {
+  return (
+    <div className="max-w-lg mx-auto px-4 pb-8 pt-6 space-y-10">
+      {/* Usage ring */}
+      <div className="flex flex-col items-center pb-10">
+        <Skeleton className="w-[140px] h-[140px] rounded-full" />
+        <Skeleton className="h-3 w-24 mt-3" />
+        <div className="flex items-center w-full mt-8 gap-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+              <Skeleton className="h-7 w-10" />
+              <Skeleton className="h-2.5 w-12" />
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Top worn */}
+      <div className="space-y-4">
+        <Skeleton className="h-3 w-28" />
+        {[1, 2, 3, 4, 5].map(i => (
+          <div key={i} className="flex items-center gap-3 py-3">
+            <Skeleton className="w-6 h-4" />
+            <Skeleton className="w-12 h-14 rounded-xl" />
+            <div className="flex-1 space-y-1.5">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/3" />
+            </div>
+            <Skeleton className="h-5 w-8 rounded-full" />
+          </div>
+        ))}
+      </div>
+      {/* Color bar */}
+      <div className="space-y-4">
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-3 w-full rounded-full" />
+        <div className="grid grid-cols-2 gap-2">
+          {[1, 2, 3, 4].map(i => (
+            <Skeleton key={i} className="h-3 w-full" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Plan page skeleton ─── */
+export function PlanPageSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* Weather + status */}
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-6 w-28 rounded-full" />
+      </div>
+      {/* Day summary */}
+      <div className="space-y-3">
+        <Skeleton className="h-4 w-2/3" />
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-4/5" />
+      </div>
+      {/* Outfit grid */}
+      <div className="rounded-2xl overflow-hidden">
+        <div className="grid grid-cols-2 gap-1 p-1">
+          {[1, 2, 3, 4].map(i => (
+            <Skeleton key={i} className="aspect-[4/5] rounded-xl" />
+          ))}
+        </div>
+      </div>
+      {/* Action buttons */}
+      <div className="flex gap-3">
+        <Skeleton className="h-11 flex-1 rounded-xl" />
+        <Skeleton className="h-11 flex-1 rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
+/* ─── Settings page skeleton ─── */
+export function SettingsPageSkeleton() {
+  return (
+    <div className="px-6 pb-8 pt-12 space-y-10 max-w-lg mx-auto">
+      {/* Profile card */}
+      <div className="flex items-center gap-4">
+        <Skeleton className="w-16 h-16 rounded-full" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-3 w-48" />
+        </div>
+      </div>
+      {/* Settings rows */}
+      <div className="rounded-2xl border border-border/10 overflow-hidden">
+        {[1, 2, 3, 4, 5, 6].map(i => (
+          <div key={i} className="flex items-center gap-3 px-4 py-4 border-b border-border/5 last:border-0">
+            <Skeleton className="w-9 h-9 rounded-xl" />
+            <div className="flex-1 space-y-1.5">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-3 w-40" />
+            </div>
+            <Skeleton className="w-4 h-4" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── AI Chat skeleton ─── */
+export function ChatPageSkeleton() {
+  return (
+    <div className="flex-1 px-4 py-6 space-y-6">
+      {[1, 2, 3].map(i => (
+        <div key={i} className={cn("flex gap-3", i % 2 === 0 ? "justify-end" : "")}>
+          <div className={cn("space-y-2 max-w-[80%]", i % 2 === 0 ? "items-end" : "")}>
+            <Skeleton className={cn("h-4", i % 2 === 0 ? "w-32" : "w-48")} />
+            <Skeleton className={cn("h-4", i % 2 === 0 ? "w-24" : "w-40")} />
+            {i === 1 && <Skeleton className="h-4 w-36" />}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
