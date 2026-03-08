@@ -70,6 +70,7 @@ async function generateOutfitViaEngine(
       style: request.style,
       weather: request.weather,
       locale: request.locale || 'sv',
+      event_title: request.eventTitle || null,
     },
   });
 
