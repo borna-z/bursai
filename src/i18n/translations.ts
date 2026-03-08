@@ -3269,6 +3269,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'outfit.swap': 'Bytt', 'outfit.swap_slot': 'Bytt', 'outfit.just_created': 'Nytt antrekk opprettet!',
     'outfit.why_works': 'Hvorfor dette fungerer', 'outfit.rating': 'Vurdering', 'outfit.feedback': 'Tilbakemelding',
     'outfit.too_warm': 'For varmt', 'outfit.too_cold': 'For kaldt', 'outfit.too_formal': 'For formelt', 'outfit.too_casual': 'For avslappet',
+    'outfit.uncomfortable': 'Ukomfortabel', 'outfit.loved_it': 'Elsket det', 'outfit.bad_color': 'Dårlig farge', 'outfit.boring': 'Kjedelig',
     'outfit.mark_worn': 'Merk som brukt', 'outfit.worn': 'Brukt', 'outfit.plan': 'Planlegg', 'outfit.similar': 'Lignende', 'outfit.share': 'Del',
     'outfit.sharing': 'Deling', 'outfit.share_active': 'Offentlig lenke aktiv', 'outfit.private': 'Privat',
     'outfit.link': 'Lenke', 'outfit.copy': 'Kopier', 'outfit.copied': 'Kopiert!', 'outfit.download': 'Last ned',
