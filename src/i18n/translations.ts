@@ -2485,6 +2485,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'discover.your_profile': 'Your profile',
     'discover.setup_profile': 'Set a username to share your style',
     'discover.saved': 'Saved inspiration',
+    'discover.trending_locked': 'Trending outfits unlock soon',
+    'discover.trending_locked_sub': '{count} more users until the community opens',
+    'discover.challenges_progress': '{unlocked} of {total} unlocked',
+    'discover.challenge_locked': 'Upload {count} garments to unlock',
     'challenges.joined_label': 'Joined',
 
     'wardrobe.import_link': 'Import from link',
