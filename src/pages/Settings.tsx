@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { Palette, Shirt, Bell, User, Shield, LogOut, ChevronRight, Loader2, TrendingUp, Database } from 'lucide-react';
+import { Palette, Shirt, Bell, User, Shield, LogOut, ChevronRight, TrendingUp, Database } from 'lucide-react';
+import { SettingsPageSkeleton } from '@/components/ui/skeletons';
 import { useQuery } from '@tanstack/react-query';
 
 const APP_VERSION = (globalThis as any).__APP_VERSION__ ?? '1.0.0';
