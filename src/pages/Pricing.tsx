@@ -145,6 +145,38 @@ export default function PricingPage() {
           ))}
         </div>
 
+        {/* Feature comparison table */}
+        <div className="space-y-3">
+          <h3 className="font-semibold text-lg">{t('pricing.compare_title') || 'Free vs Premium'}</h3>
+          <div className="rounded-xl border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/30">
+                  <th className="text-left p-3 font-medium">{t('pricing.feature') || 'Feature'}</th>
+                  <th className="text-center p-3 font-medium">{t('pricing.free_title')}</th>
+                  <th className="text-center p-3 font-medium text-amber-500">Premium</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {[
+                  [t('pricing.feature_garments') || 'Garments', '15', '∞'],
+                  [t('pricing.feature_outfits') || 'Outfits/month', '5', '∞'],
+                  [t('pricing.feature_ai') || 'AI Stylist', <Check key="f" className="w-4 h-4 mx-auto text-green-500" />, <Check key="p" className="w-4 h-4 mx-auto text-green-500" />],
+                  [t('pricing.feature_planner') || 'Planner', <Check key="f" className="w-4 h-4 mx-auto text-green-500" />, <Check key="p" className="w-4 h-4 mx-auto text-green-500" />],
+                  [t('pricing.feature_insights') || 'Insights', '—', <Check key="p" className="w-4 h-4 mx-auto text-green-500" />],
+                  [t('pricing.feature_priority') || 'Priority support', '—', <Check key="p" className="w-4 h-4 mx-auto text-green-500" />],
+                ].map(([feature, free, premium], i) => (
+                  <tr key={i}>
+                    <td className="p-3 text-muted-foreground">{feature}</td>
+                    <td className="p-3 text-center">{free}</td>
+                    <td className="p-3 text-center font-medium">{premium}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <Card className="bg-secondary/50">
           <CardContent className="p-4">
             <h4 className="font-medium mb-2">{t('pricing.free_title')}</h4>
