@@ -189,24 +189,36 @@ function getMaterialGroup(material: string | null): string | null {
   return null;
 }
 
-const MATERIAL_CLASH: [string, string][] = [
-  ["refined", "technical"],
-  ["refined", "casual"],  // mild tension, low penalty
-];
+// Full affinity matrix: score from -2 (clash) to +2 (great pairing)
+const MATERIAL_AFFINITY: Record<string, Record<string, number>> = {
+  refined:   { refined: 2, casual: -1, technical: -2, rugged: 0, knit: 1 },
+  casual:    { refined: -1, casual: 1, technical: 0, rugged: 1, knit: 1 },
+  technical: { refined: -2, casual: 0, technical: 1, rugged: 0, knit: -1 },
+  rugged:    { refined: 0, casual: 1, technical: 0, rugged: 1, knit: 1 },
+  knit:      { refined: 1, casual: 1, technical: -1, rugged: 1, knit: 1 },
+};
 
 function materialCompatibility(materials: (string | null)[]): number {
   const groups = materials.map(getMaterialGroup).filter(Boolean) as string[];
   if (groups.length < 2) return 8;
-  let score = 8;
+
+  let affinitySum = 0;
+  let pairCount = 0;
   const unique = [...new Set(groups)];
+
   for (let i = 0; i < unique.length; i++) {
     for (let j = i + 1; j < unique.length; j++) {
-      const pair: [string, string] = [unique[i], unique[j]];
-      if (MATERIAL_CLASH.some(c => (c[0] === pair[0] && c[1] === pair[1]) || (c[0] === pair[1] && c[1] === pair[0]))) {
-        score -= 2;
-      }
+      const affinity = MATERIAL_AFFINITY[unique[i]]?.[unique[j]] ?? 0;
+      affinitySum += affinity;
+      pairCount++;
     }
   }
+
+  if (pairCount === 0) return 8;
+
+  // Map affinity range (-2 to +2) to score range (2 to 10)
+  const avgAffinity = affinitySum / pairCount;
+  const score = 6 + avgAffinity * 2; // -2→2, 0→6, +2→10
   return Math.max(0, Math.min(10, score));
 }
 
