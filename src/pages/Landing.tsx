@@ -28,6 +28,7 @@ export default function Landing() {
   const navigate = useNavigate();
   const { t, locale } = useLanguage();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const REVEAL_SELECTOR = '.reveal-up, .reveal-down, .reveal-left, .reveal-right, .reveal-scale, .reveal-rotate, .scroll-reveal, .line-grow, .word-reveal';
@@ -57,7 +58,7 @@ export default function Landing() {
     return () => { io.disconnect(); mo.disconnect(); };
   }, []);
 
-  // Parallax scroll
+  // Parallax scroll + header scroll detection
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
@@ -66,6 +67,7 @@ export default function Landing() {
       if (!ticking) {
         requestAnimationFrame(() => {
           document.documentElement.style.setProperty('--scroll-y', String(container.scrollTop));
+          setScrolled(container.scrollTop > 60);
           ticking = false;
         });
         ticking = true;
@@ -135,8 +137,15 @@ export default function Landing() {
 
           {/* ── Floating Capsule Header ── */}
           <header
-            className="fixed top-3 left-3 right-3 z-50 rounded-2xl hyper-glass"
-            style={{ background: 'rgba(3,3,5,0.7)' }}
+            className={`fixed z-50 transition-all duration-500 ease-out ${
+              scrolled
+                ? 'top-3 left-3 right-3 rounded-2xl hyper-glass'
+                : 'top-0 left-0 right-0'
+            }`}
+            style={{
+              background: scrolled ? 'rgba(3,3,5,0.7)' : 'transparent',
+              borderBottom: scrolled ? 'none' : '1px solid rgba(255,255,255,0.04)',
+            }}
             role="navigation"
             aria-label="Main navigation"
           >
