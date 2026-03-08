@@ -258,6 +258,29 @@ export default function AuthPage() {
               />
             </div>
 
+            {/* Password with show/hide */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-white/50 pl-0.5">{t('auth.password')}</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder={isLogin ? '••••••••' : t('auth.min_password')}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
+                  className={`${inputClass} pr-10`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                  aria-label={showPassword ? t('auth.hide_password') : t('auth.show_password')}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
             {/* Confirm password - signup only */}
             {!isLogin && (
               <div className="space-y-1.5">
@@ -281,29 +304,6 @@ export default function AuthPage() {
                 </div>
               </div>
             )}
-
-            {/* Password with show/hide */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-white/50 pl-0.5">{t('auth.password')}</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder={isLogin ? '••••••••' : t('auth.min_password')}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading}
-                  className={`${inputClass} pr-10`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
-                  aria-label={showPassword ? t('auth.hide_password') : t('auth.show_password')}
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
 
             {/* Password requirements checklist - signup only */}
             {!isLogin && (
