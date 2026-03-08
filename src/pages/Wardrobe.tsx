@@ -600,6 +600,9 @@ export default function WardrobePage() {
                         className="whitespace-nowrap flex-shrink-0"
                       >
                         {chip.label}
+                        {smartFilterCounts[chip.key] > 0 && (
+                          <span className="text-[11px] opacity-60">{smartFilterCounts[chip.key]}</span>
+                        )}
                       </Chip>
                     ))}
                   </div>
