@@ -53,3 +53,15 @@ verify_jwt = false
 
 [functions.outfit_photo_feedback]
 verify_jwt = false
+
+[functions.assess_garment_condition]
+verify_jwt = false
+
+[functions.clone_outfit_dna]
+verify_jwt = false
+
+[functions.suggest_accessories]
+verify_jwt = false
+
+[functions.wardrobe_gap_analysis]
+verify_jwt = false
