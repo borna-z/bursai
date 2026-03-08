@@ -444,35 +444,38 @@ export default function WardrobePage() {
 
   return (
     <AppLayout>
-      <PageHeader
-        title={t('wardrobe.title')}
-        actions={
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => setIsGridView(!isGridView)} aria-label={isGridView ? 'List view' : 'Grid view'}>
-              {isGridView ? <List className="w-5 h-5" /> : <Grid3X3 className="w-5 h-5" />}
-            </Button>
-            {!isSelecting ? (
-              <Button variant="ghost" size="sm" onClick={() => setIsSelecting(true)}>{t('wardrobe.select')}</Button>
-            ) : (
-              <Button variant="ghost" size="sm" onClick={() => { setIsSelecting(false); setSelectedIds(new Set()); }}>{t('common.cancel')}</Button>
-            )}
-          </div>
-        }
-      />
-
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="px-4 pb-36 pt-5 space-y-5 max-w-lg mx-auto">
-          {/* Slim segmented control */}
-          <div className="flex p-0.5 rounded-xl bg-foreground/[0.04]">
+        <AnimatedPage className="px-6 pb-36 pt-12 space-y-8 max-w-lg mx-auto">
+          {/* Title row */}
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-semibold">{t('wardrobe.title')}</h1>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setIsGridView(!isGridView)}
+                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted/40 transition-colors active:scale-95"
+                aria-label={isGridView ? 'List view' : 'Grid view'}
+              >
+                {isGridView ? <List className="w-[18px] h-[18px] text-muted-foreground" /> : <Grid3X3 className="w-[18px] h-[18px] text-muted-foreground" />}
+              </button>
+              {!isSelecting ? (
+                <button onClick={() => setIsSelecting(true)} className="text-[13px] font-medium text-muted-foreground px-2 py-1 rounded-lg hover:bg-muted/40 transition-colors">{t('wardrobe.select')}</button>
+              ) : (
+                <button onClick={() => { setIsSelecting(false); setSelectedIds(new Set()); }} className="text-[13px] font-medium text-primary px-2 py-1 rounded-lg hover:bg-muted/40 transition-colors">{t('common.cancel')}</button>
+              )}
+            </div>
+          </div>
+
+          {/* Segmented control */}
+          <div className="flex p-0.5 rounded-xl bg-muted/30">
             {(['garments', 'outfits'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={cn(
-                  'flex-1 py-1.5 text-xs font-medium rounded-lg transition-all duration-200',
+                  'flex-1 py-2 text-[13px] font-medium rounded-[10px] transition-all duration-200',
                   activeTab === tab
-                    ? 'bg-foreground/[0.06] text-foreground'
-                    : 'text-muted-foreground'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground/60'
                 )}
               >
                 {t(`wardrobe.tab_${tab}`)}
