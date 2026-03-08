@@ -179,6 +179,9 @@ export default function ShareOutfitPage() {
             ))}
           </div>
           {outfit.explanation && <Card className="bg-primary/5 border-primary/20"><CardContent className="p-3"><p className="text-sm">{outfit.explanation}</p></CardContent></Card>}
+          <div className="mt-4">
+            <OutfitReactions outfitId={outfit.id} />
+          </div>
           <div className="mt-6 text-center text-xs text-muted-foreground">{t('share.watermark')}</div>
         </div>
 
