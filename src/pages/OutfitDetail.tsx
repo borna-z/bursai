@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Star, Bookmark, BookmarkCheck, Check, RefreshCw, Share2, Loader2,
   Sparkles, Copy, Download, Link, Link2Off, Calendar, Thermometer, ThermometerSnowflake, Shirt, Briefcase,
+  Heart, Frown, Palette, Meh,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
@@ -131,10 +132,14 @@ export default function OutfitDetailPage() {
   const shareUrl = outfit ? `${window.location.origin}/share/${outfit.id}` : '';
 
   const feedbackOptions = [
+    { id: 'loved_it', label: t('outfit.loved_it'), icon: Heart },
     { id: 'too_warm', label: t('outfit.too_warm'), icon: Thermometer },
     { id: 'too_cold', label: t('outfit.too_cold'), icon: ThermometerSnowflake },
     { id: 'too_formal', label: t('outfit.too_formal'), icon: Briefcase },
     { id: 'too_casual', label: t('outfit.too_casual'), icon: Shirt },
+    { id: 'uncomfortable', label: t('outfit.uncomfortable'), icon: Frown },
+    { id: 'bad_color', label: t('outfit.bad_color'), icon: Palette },
+    { id: 'boring', label: t('outfit.boring'), icon: Meh },
   ];
 
   useEffect(() => {
@@ -428,10 +433,14 @@ export default function OutfitDetailPage() {
             {feedbackOptions.map(({ id, label, icon: Icon }) => {
               const isSelected = selectedFeedback.includes(id);
               const colorClass = isSelected
-                ? (id === 'too_warm' ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                ? (id === 'loved_it' ? 'bg-pink-500/10 text-pink-500 border-pink-500/20'
+                  : id === 'too_warm' ? 'bg-red-500/10 text-red-500 border-red-500/20'
                   : id === 'too_cold' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20'
                   : id === 'too_formal' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
                   : id === 'too_casual' ? 'bg-green-500/10 text-green-600 border-green-500/20'
+                  : id === 'uncomfortable' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20'
+                  : id === 'bad_color' ? 'bg-purple-500/10 text-purple-500 border-purple-500/20'
+                  : id === 'boring' ? 'bg-slate-500/10 text-slate-500 border-slate-500/20'
                   : '')
                 : '';
               return (
