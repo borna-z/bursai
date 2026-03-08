@@ -1818,6 +1818,8 @@ serve(async (req) => {
       : null;
     // Build social context map for recurring event awareness
     const socialMap = wearLogs.length > 0 ? buildSocialContextMap(wearLogs) : null;
+    // Seasonal transition info
+    const transInfo = getSeasonTransitionInfo();
 
     // Build recent outfit sets for anti-repetition
     const recentOutfitSets: Set<string>[] = [];
