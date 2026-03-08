@@ -4339,6 +4339,22 @@ export const translations: Record<Locale, Record<string, string>> = {
     'privacy.s6_title': 'Sletting', 'privacy.s6_content': 'Du kan slette kontoen din og all tilknyttet data når som helst fra innstillingene. Sletting er permanent.',
     'privacy.contact_title': 'Kontakt', 'privacy.contact_text': 'For spørsmål om personvern, kontakt oss på',
     'privacy.gdpr_note': 'BURS overholder GDPR. Dine data lagres sikkert og deles aldri med tredjeparter.',
+    // Error boundary
+    'error.title': 'Noe gikk galt', 'error.desc': 'En uventet feil oppstod. Prøv å laste siden på nytt.', 'error.try_again': 'Prøv igjen', 'error.reload': 'Last på nytt',
+    // Seed
+    'seed.deleted': 'Alle gamle plagg slettet', 'seed.delete_error': 'Kunne ikke slette gamle plagg', 'seed.created': 'Opprettet {done} plagg ({failed} feilet)', 'seed.batch_failed': 'Batch feilet', 'seed.retry_failed': 'Forsøk feilet',
+    // Generate images
+    'genimg.title': 'Generer unike bilder', 'genimg.desc': 'Generer AI-produktbilder for alle plagg basert på attributter (farge, materiale, type). Erstatter duplikatbilder med unike.', 'genimg.total': 'Totalt plagg', 'genimg.generated': 'Generert', 'genimg.failed': 'Feilet', 'genimg.processing': 'Behandler…', 'genimg.done': 'Ferdig', 'genimg.generating': 'Genererer…', 'genimg.generate_all': 'Generer alle bilder', 'genimg.retry': 'Prøv igjen',
+    // Contact
+    'contact.title': 'Kontakt', 'contact.subtitle': 'Har du spørsmål? Vi hjelper gjerne.', 'contact.success': 'Takk for meldingen din. Vi svarer så snart som mulig.', 'contact.name': 'Ditt navn', 'contact.email': 'Din e-postadresse', 'contact.message': 'Din melding', 'contact.send': 'Send melding', 'contact.rights': 'Alle rettigheter forbeholdt.', 'contact.gdpr_note': 'BURS følger GDPR. Dine data lagres sikkert og deles aldri med tredjeparter.',
+    // Footer
+    'footer.privacy': 'Personvernerklæring', 'footer.terms': 'Bruksvilkår', 'footer.agree': 'Ved å bruke BURS godtar du vår', 'footer.rights': 'Alle rettigheter forbeholdt.',
+    // Calendar
+    'calendar.google_privacy': 'BURS leser kalenderhendelsene dine for å hjelpe med å planlegge antrekk rundt timeplanen din. Du kan koble fra når som helst.',
+    // Reactions
+    'reaction.styled': 'Stilig', 'reaction.creative': 'Kreativt', 'reaction.sustainable': 'Bærekraftig',
+    // Reel
+    'wardrobe.reel_save_error': 'Kunne ikke lagre bilde',
   },
 
   da: {
