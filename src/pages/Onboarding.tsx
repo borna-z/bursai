@@ -8,9 +8,34 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageStep } from '@/components/onboarding/LanguageStep';
 import { AccentColorStep } from '@/components/onboarding/AccentColorStep';
 import { QuickStyleQuiz } from '@/components/onboarding/QuickStyleQuiz';
+import { QuickUploadStep } from '@/components/onboarding/QuickUploadStep';
 import { GetStartedStep } from '@/components/onboarding/GetStartedStep';
 import type { StyleProfileV3 } from '@/components/onboarding/StyleQuizV3';
 import { toast } from 'sonner';
+
+const STEPS = ['lang', 'accent', 'quiz', 'upload', 'getstarted'] as const;
+type StepKey = typeof STEPS[number];
+
+function StepProgress({ current }: { current: StepKey }) {
+  const idx = STEPS.indexOf(current);
+  return (
+    <div className="fixed top-0 left-0 right-0 z-50 flex gap-1.5 px-6 pt-3 pb-2">
+      {STEPS.map((step, i) => (
+        <motion.div
+          key={step}
+          className="h-[3px] flex-1 rounded-full overflow-hidden bg-white/[0.06]"
+        >
+          <motion.div
+            className="h-full bg-white/40 rounded-full"
+            initial={{ width: '0%' }}
+            animate={{ width: i <= idx ? '100%' : '0%' }}
+            transition={{ duration: 0.4, ease: EASE_CURVE }}
+          />
+        </motion.div>
+      ))}
+    </div>
+  );
+}
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
@@ -21,6 +46,7 @@ export default function OnboardingPage() {
   const [languageStepDone, setLanguageStepDone] = useState(false);
   const [accentStepDone, setAccentStepDone] = useState(false);
   const [quizDone, setQuizDone] = useState(false);
+  const [uploadDone, setUploadDone] = useState(false);
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
 
   const completeOnboarding = async () => {
@@ -88,28 +114,45 @@ export default function OnboardingPage() {
     return <Navigate to="/" replace />;
   }
 
-  const stepKey = !languageStepDone ? 'lang' : !accentStepDone ? 'accent' : !quizDone ? 'quiz' : 'getstarted';
+  const stepKey: StepKey = !languageStepDone
+    ? 'lang'
+    : !accentStepDone
+      ? 'accent'
+      : !quizDone
+        ? 'quiz'
+        : !uploadDone
+          ? 'upload'
+          : 'getstarted';
 
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={stepKey}
-        initial={{ opacity: 0, x: 40 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -40 }}
-        transition={{ duration: 0.3, ease: EASE_CURVE }}
-      >
-        {stepKey === 'lang' && <LanguageStep onComplete={() => setLanguageStepDone(true)} />}
-        {stepKey === 'accent' && <AccentColorStep onComplete={() => setAccentStepDone(true)} />}
-        {stepKey === 'quiz' && (
-          <QuickStyleQuiz
-            onComplete={handleQuizComplete}
-            onSkip={async () => setQuizDone(true)}
-            isSaving={isSavingQuiz}
-          />
-        )}
-        {stepKey === 'getstarted' && <GetStartedStep onAction={handleGetStartedAction} />}
-      </motion.div>
-    </AnimatePresence>
+    <>
+      <StepProgress current={stepKey} />
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={stepKey}
+          initial={{ opacity: 0, x: 40 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -40 }}
+          transition={{ duration: 0.3, ease: EASE_CURVE }}
+        >
+          {stepKey === 'lang' && <LanguageStep onComplete={() => setLanguageStepDone(true)} />}
+          {stepKey === 'accent' && <AccentColorStep onComplete={() => setAccentStepDone(true)} />}
+          {stepKey === 'quiz' && (
+            <QuickStyleQuiz
+              onComplete={handleQuizComplete}
+              onSkip={async () => setQuizDone(true)}
+              isSaving={isSavingQuiz}
+            />
+          )}
+          {stepKey === 'upload' && (
+            <QuickUploadStep
+              onComplete={() => setUploadDone(true)}
+              onSkip={() => setUploadDone(true)}
+            />
+          )}
+          {stepKey === 'getstarted' && <GetStartedStep onAction={handleGetStartedAction} />}
+        </motion.div>
+      </AnimatePresence>
+    </>
   );
 }
