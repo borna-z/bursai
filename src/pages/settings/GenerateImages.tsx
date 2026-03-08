@@ -129,9 +129,6 @@ export default function GenerateImages() {
   const failedItems = items.filter(i => i.status === 'error');
 
   return (
-    const { t } = useLanguage();
-
-    return (
     <AppLayout hideNav>
       <AnimatedPage className="px-6 pb-8 pt-12 max-w-lg mx-auto space-y-6">
         {/* Header */}
