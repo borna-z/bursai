@@ -276,9 +276,6 @@ Svara ENDAST med JSON, ingen förklarande text.`
       );
     }
 
-    const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content;
-
     if (!content) {
       console.error('No content in AI response');
       return new Response(

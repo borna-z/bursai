@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,14 +14,10 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing authorization");
     const token = authHeader.replace("Bearer ", "");
@@ -30,7 +27,6 @@ serve(async (req) => {
     const { outfit_id } = await req.json();
     if (!outfit_id) throw new Error("Missing outfit_id");
 
-    // Fetch outfit with items and garments
     const { data: outfit, error: outfitErr } = await supabase
       .from("outfits")
       .select(`
@@ -49,7 +45,6 @@ serve(async (req) => {
     const items = (outfit as any).outfit_items || [];
     if (items.length === 0) throw new Error("No items in outfit");
 
-    // Get signed URLs for garment images
     const imageContents: { role: string; content: any }[] = [];
     const garmentDescriptions: string[] = [];
 
@@ -57,14 +52,12 @@ serve(async (req) => {
       const garment = item.garment;
       if (!garment?.image_path) continue;
 
-      // Get signed URL
       const { data: signedData } = await supabase.storage
         .from("garments")
         .createSignedUrl(garment.image_path, 600);
 
       if (!signedData?.signedUrl) continue;
 
-      // Download image and convert to base64
       const imgResp = await fetch(signedData.signedUrl);
       if (!imgResp.ok) continue;
       const imgBytes = new Uint8Array(await imgResp.arrayBuffer());
@@ -74,14 +67,8 @@ serve(async (req) => {
       imageContents.push({
         role: "user",
         content: [
-          {
-            type: "image_url",
-            image_url: { url: `data:${mimeType};base64,${base64}` },
-          },
-          {
-            type: "text",
-            text: `This is the ${item.slot}: ${garment.title} (${garment.color_primary} ${garment.category})`,
-          },
+          { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}` } },
+          { type: "text", text: `This is the ${item.slot}: ${garment.title} (${garment.color_primary} ${garment.category})` },
         ],
       });
 
@@ -90,7 +77,6 @@ serve(async (req) => {
       );
     }
 
-    // Build the flat-lay generation prompt
     const occasion = outfit.occasion || "casual";
     const style = (outfit as any).style_vibe || "";
 
@@ -111,50 +97,22 @@ ${garmentDescriptions.join("\n")}
 
 Generate a single flat-lay image arranging these exact garments together.`;
 
-    // Send all images + prompt to AI
     const messages = [
       ...imageContents,
-      {
-        role: "user",
-        content: systemPrompt,
-      },
+      { role: "user", content: systemPrompt },
     ];
 
     console.log(`Generating flat-lay for outfit ${outfit_id} with ${items.length} items`);
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-pro-image-preview",
-        messages,
-        modalities: ["image", "text"],
-      }),
+    const { data: aiResult } = await callBursAI({
+      messages,
+      modelType: "image-gen",
+      extraBody: { modalities: ["image", "text"] },
     });
 
-    if (!aiResponse.ok) {
-      const errText = await aiResponse.text();
-      console.error(`AI error: ${aiResponse.status} ${errText}`);
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error(`AI generation failed: ${aiResponse.status}`);
-    }
-
-    const aiData = await aiResponse.json();
-    const imageData = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    // Extract image from response
+    const imageData = aiResult?.images?.[0]?.image_url?.url
+      || aiResult?.__raw?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
     if (!imageData || !imageData.startsWith("data:image")) {
       throw new Error("No image returned from AI");
@@ -176,7 +134,6 @@ Generate a single flat-lay image arranging these exact garments together.`;
 
     if (uploadErr) throw new Error(`Upload failed: ${uploadErr.message}`);
 
-    // Update outfit with flatlay path
     const { error: updateErr } = await supabase
       .from("outfits")
       .update({ flatlay_image_path: filePath })
@@ -192,9 +149,6 @@ Generate a single flat-lay image arranging these exact garments together.`;
     );
   } catch (e) {
     console.error("generate_flatlay error:", e);
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return bursAIErrorResponse(e, corsHeaders);
   }
 });

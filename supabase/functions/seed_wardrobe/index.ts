@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,9 +28,6 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -42,7 +40,7 @@ serve(async (req) => {
 
     const { action, garments, garment_index } = await req.json();
 
-    // Action: delete_all — remove all garments + storage files for user
+    // Action: delete_all
     if (action === "delete_all") {
       const { data: existing } = await supabase
         .from("garments")
@@ -68,7 +66,6 @@ serve(async (req) => {
       });
     }
 
-    // Action: create_batch — create garments with AI images (one at a time)
     if (action !== "create_batch" || !Array.isArray(garments)) {
       throw new Error("Invalid action or missing garments array");
     }
@@ -79,7 +76,6 @@ serve(async (req) => {
     for (let idx = 0; idx < garments.length; idx++) {
       const def = garments[idx] as GarmentDef;
       try {
-        // Build hyper-specific prompt with unique hint and index
         const parts = [def.color_primary];
         if (def.color_secondary) parts.push(`with ${def.color_secondary} accents`);
         if (def.material) parts.push(def.material);
@@ -93,36 +89,20 @@ serve(async (req) => {
 
         console.log(`[${itemIndex}] Generating: ${def.title}`);
 
-        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-3-pro-image-preview",
-            messages: [{ role: "user", content: prompt }],
-            modalities: ["image", "text"],
-          }),
+        const { data: aiResult } = await callBursAI({
+          messages: [{ role: "user", content: prompt }],
+          modelType: "image-gen",
+          extraBody: { modalities: ["image", "text"] },
         });
 
-        if (!aiResponse.ok) {
-          const errText = await aiResponse.text();
-          console.error(`AI error for ${def.title}: ${aiResponse.status} ${errText}`);
-          results.push({ title: def.title, success: false, error: `AI ${aiResponse.status}` });
-          await new Promise(r => setTimeout(r, 2000));
-          continue;
-        }
-
-        const aiData = await aiResponse.json();
-        const imageData = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        const imageData = aiResult?.images?.[0]?.image_url?.url
+          || aiResult?.__raw?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
         if (!imageData || !imageData.startsWith("data:image")) {
           results.push({ title: def.title, success: false, error: "No image returned" });
           continue;
         }
 
-        // Decode base64
         const base64 = imageData.split(",")[1];
         const binaryStr = atob(base64);
         const bytes = new Uint8Array(binaryStr.length);
@@ -182,9 +162,6 @@ serve(async (req) => {
     });
   } catch (e) {
     console.error("seed_wardrobe error:", e);
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return bursAIErrorResponse(e, corsHeaders);
   }
 });
