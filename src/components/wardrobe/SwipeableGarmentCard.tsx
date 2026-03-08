@@ -6,6 +6,7 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
+import { hapticLight } from '@/lib/haptics';
 import type { Garment } from '@/hooks/useGarments';
 
 const ACTION_WIDTH = 72; // width per action button
