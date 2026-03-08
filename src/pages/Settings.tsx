@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Palette, Shirt, Bell, User, Shield, LogOut, ChevronRight, TrendingUp, Database, Compass, Trophy } from 'lucide-react';
+import { Palette, Shirt, Bell, User, Shield, LogOut, ChevronRight, TrendingUp, Database, Compass, Trophy, Search, Heart, ShoppingBag, Clock, Users } from 'lucide-react';
 import { SettingsPageSkeleton } from '@/components/ui/skeletons';
 import { useQuery } from '@tanstack/react-query';
 
