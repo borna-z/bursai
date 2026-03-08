@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { OutfitReactions } from '@/components/social/OutfitReactions';
 
 interface OutfitItem {
   id: string;
