@@ -447,6 +447,7 @@ export default function WardrobePage() {
   const isOverLimit = !isPremium && (displayGarments?.length || 0) >= PLAN_LIMITS.free.maxGarments;
 
   const hasActiveFilters = selectedCategory !== 'all' || selectedColor || selectedSeason || sortBy !== 'created_at' || showLaundry;
+  const activeFilterCount = [selectedCategory !== 'all', !!selectedColor, !!selectedSeason, sortBy !== 'created_at', showLaundry].filter(Boolean).length;
 
   const clearFilters = () => {
     setSelectedCategory('all');
@@ -536,8 +537,10 @@ export default function WardrobePage() {
                     )}
                   >
                     <SlidersHorizontal className="w-4 h-4" />
-                    {hasActiveFilters && (
-                      <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-primary" />
+                    {activeFilterCount > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center px-1">
+                        {activeFilterCount}
+                      </span>
                     )}
                   </button>
                 </div>

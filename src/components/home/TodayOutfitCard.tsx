@@ -108,13 +108,18 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
           className="grid grid-cols-2 gap-1.5"
         >
           {outfit.items.slice(0, 4).map((item) => (
-            <LazyImage
+            <div
               key={item.garment.id}
-              imagePath={item.garment.image_path}
-              alt={item.garment.title}
-              aspectRatio="4/5"
-              className="rounded-xl cursor-pointer"
-            />
+              onClick={() => navigate(`/wardrobe/${item.garment.id}`)}
+              className="cursor-pointer active:scale-[0.97] transition-transform"
+            >
+              <LazyImage
+                imagePath={item.garment.image_path}
+                alt={item.garment.title}
+                aspectRatio="4/5"
+                className="rounded-xl"
+              />
+            </div>
           ))}
         </motion.div>
       </AnimatePresence>
@@ -163,6 +168,16 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
           </motion.p>
         )}
       </AnimatePresence>
+
+      {/* View outfit details link */}
+      {outfit && (
+        <button
+          onClick={() => navigate(`/outfits/${outfit.id}`)}
+          className="text-xs text-center text-muted-foreground/60 hover:text-foreground transition-colors w-full"
+        >
+          {t('home.see_details')} →
+        </button>
+      )}
 
       {/* Inline upgrade hint */}
       {showUpgradeHint && (

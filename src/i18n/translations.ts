@@ -34,6 +34,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'nav.plan': 'Plan',
     'nav.stylist': 'Stylisten',
     'nav.settings': 'Inställningar',
+    'nav.outfits': 'Outfits',
 
     // Onboarding - Language step
     'onboarding.language.title': 'Välj språk',
@@ -274,6 +275,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'home.unused_hint': '{count} plagg har inte använts på 30 dagar',
     'home.use_them': 'Använd dem idag',
     'home.suggestions': 'Fler outfits',
+    'home.see_details': 'Se detaljer',
 
     // Auth
     'auth.tagline': 'Din personliga stylist.',
@@ -526,6 +528,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'garment.deleted': 'Borttaget',
     'garment.marked': 'Markerat ✓',
      'garment.analyzed_at': 'Analyserat',
+    'garment.use_in_outfit': 'Använd i outfit',
     'garment.edit_title': 'Redigera plagg',
     'garment.edit_save': 'Spara',
     'garment.edit_saved': 'Plagg uppdaterat',
@@ -551,6 +554,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'chat.shopping_welcome': 'Hej! Jag är din shopping-assistent. Ta en bild på plagget du överväger att köpa så hjälper jag dig avgöra om det matchar din garderob!',
     'chat.shopping_placeholder': 'Beskriv plagget du överväger...',
     'chat.outfit_from_stylist': 'Skapad från stylistens förslag',
+    'chat.based_on': 'Baserat på',
+    'chat.garments_label': 'plagg',
+    'chat.garments_in_wardrobe': 'plagg i din garderob',
 
     // Live Scan
     'scan.auto': 'Auto',
@@ -1588,6 +1594,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'nav.plan': 'Plan',
     'nav.stylist': 'Stylist',
     'nav.settings': 'Settings',
+    'nav.outfits': 'Outfits',
     'onboarding.language.title': 'Choose language',
     'onboarding.language.subtitle': 'You can change this later in settings',
     'onboarding.body.title': 'Your body, your style',
@@ -1822,6 +1829,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'home.unused_hint': "{count} items haven't been worn in 30 days",
     'home.use_them': 'Use them today',
     'home.suggestions': 'More outfits',
+    'home.see_details': 'See details',
     'auth.tagline': 'Your personal stylist.',
     'auth.or': 'or',
     'auth.login': 'Log in',
@@ -2058,6 +2066,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'garment.deleted': 'Deleted',
     'garment.marked': 'Marked ✓',
      'garment.analyzed_at': 'Analyzed',
+    'garment.use_in_outfit': 'Use in outfit',
     'garment.edit_title': 'Edit garment',
     'garment.edit_save': 'Save',
     'garment.edit_saved': 'Garment updated',
@@ -2081,6 +2090,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'chat.shopping_welcome': 'Hi! I\'m your shopping assistant. Take a photo of the item you\'re considering and I\'ll help you decide if it matches your wardrobe!',
     'chat.shopping_placeholder': 'Describe the item you\'re considering...',
     'chat.outfit_from_stylist': 'Created from stylist\'s suggestion',
+    'chat.based_on': 'Based on',
+    'chat.garments_label': 'garments',
+    'chat.garments_in_wardrobe': 'garments in your wardrobe',
     'scan.auto': 'Auto',
     'scan.scanned': 'scanned',
     'scan.done': 'Done',

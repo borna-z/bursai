@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, WashingMachine, Check, Loader2, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, WashingMachine, Check, Loader2, ExternalLink, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -193,6 +193,12 @@ export default function GarmentDetailPage() {
           </div>
           <Switch checked={garment.in_laundry || false} onCheckedChange={handleToggleLaundry} disabled={updateGarment.isPending} />
         </div>
+
+        {/* Use in outfit */}
+        <Button className="w-full rounded-2xl h-12 bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => navigate('/', { state: { prefillGarmentId: garment.id } })}>
+          <Sparkles className="w-4 h-4 mr-2" />
+          {t('garment.use_in_outfit')}
+        </Button>
 
         {/* Mark worn */}
         <Button variant="outline" className="w-full rounded-2xl h-12" onClick={handleMarkWorn} disabled={markWorn.isPending}>

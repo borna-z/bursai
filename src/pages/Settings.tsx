@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Palette, Shirt, Bell, User, Shield, LogOut, ChevronRight, Loader2, TrendingUp } from 'lucide-react';
+
+const APP_VERSION = (globalThis as any).__APP_VERSION__ ?? '1.0.0';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -64,6 +66,9 @@ export default function SettingsPage() {
             <ChevronRight className="w-4 h-4 text-destructive/30" />
           </SettingsRow>
         </SettingsGroup>
+
+        {/* App version */}
+        <p className="text-[11px] text-muted-foreground/30 text-center pt-4">BURS v{APP_VERSION}</p>
       </AnimatedPage>
     </AppLayout>
   );

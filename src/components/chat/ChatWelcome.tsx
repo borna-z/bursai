@@ -6,6 +6,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 interface ChatWelcomeProps {
   mode: 'stylist' | 'shopping';
   onSuggestion: (text: string) => void;
+  displayName?: string;
+  garmentCount?: number;
 }
 
 const containerVariants = {
@@ -24,10 +26,16 @@ const itemVariants = {
   },
 };
 
-export function ChatWelcome({ mode, onSuggestion }: ChatWelcomeProps) {
+export function ChatWelcome({ mode, onSuggestion, displayName, garmentCount }: ChatWelcomeProps) {
   const { t } = useLanguage();
   const Icon = mode === 'shopping' ? ShoppingBag : Sparkles;
-  const welcomeText = mode === 'shopping' ? t('chat.shopping_welcome') : t('chat.welcome');
+  const baseWelcome = mode === 'shopping' ? t('chat.shopping_welcome') : t('chat.welcome');
+  const personalizedWelcome = displayName
+    ? baseWelcome.replace(/^/, `${displayName}, `)
+    : baseWelcome;
+  const welcomeText = garmentCount && garmentCount > 0
+    ? `${personalizedWelcome}\n${garmentCount} ${t('chat.garments_in_wardrobe')}`
+    : personalizedWelcome;
   const suggestions = [t('chat.suggestion_1'), t('chat.suggestion_2'), t('chat.suggestion_3')];
 
   return (

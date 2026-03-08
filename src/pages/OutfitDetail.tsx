@@ -381,11 +381,21 @@ export default function OutfitDetailPage() {
         <div className="space-y-3">
           <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">{t('outfit.feedback')}</p>
           <div className="flex flex-wrap gap-2">
-            {feedbackOptions.map(({ id, label, icon: Icon }) => (
-              <Chip key={id} selected={selectedFeedback.includes(id)} onClick={() => handleFeedbackToggle(id)}>
-                <Icon className="w-3.5 h-3.5 mr-1" />{label}
-              </Chip>
-            ))}
+            {feedbackOptions.map(({ id, label, icon: Icon }) => {
+              const isSelected = selectedFeedback.includes(id);
+              const colorClass = isSelected
+                ? (id === 'too_warm' ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                  : id === 'too_cold' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                  : id === 'too_formal' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                  : id === 'too_casual' ? 'bg-green-500/10 text-green-600 border-green-500/20'
+                  : '')
+                : '';
+              return (
+                <Chip key={id} selected={isSelected} onClick={() => handleFeedbackToggle(id)} className={colorClass}>
+                  <Icon className="w-3.5 h-3.5 mr-1" />{label}
+                </Chip>
+              );
+            })}
           </div>
         </div>
 

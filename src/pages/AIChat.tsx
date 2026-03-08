@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
+import { useGarmentCount } from '@/hooks/useGarments';
 import { useCreateOutfit } from '@/hooks/useOutfits';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ChatWelcome } from '@/components/chat/ChatWelcome';
@@ -95,6 +96,7 @@ export default function AIChat() {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const createOutfit = useCreateOutfit();
+  const { data: garmentCount } = useGarmentCount();
 
   const [mode, setMode] = useState<ChatMode>('stylist');
 
@@ -313,13 +315,22 @@ export default function AIChat() {
           </DropdownMenu>
         </div>
 
+        {/* Wardrobe context badge */}
+        {garmentCount != null && garmentCount > 0 && (
+          <div className="px-4 pb-1">
+            <p className="text-[11px] text-muted-foreground/40 text-center">
+              {t('chat.based_on')} {garmentCount} {t('chat.garments_label')}
+            </p>
+          </div>
+        )}
+
         {/* Messages or Welcome */}
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         ) : isWelcomeState ? (
-          <ChatWelcome mode={mode} onSuggestion={sendMessage} />
+          <ChatWelcome mode={mode} onSuggestion={sendMessage} garmentCount={garmentCount ?? undefined} />
         ) : (
           <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-6 space-y-8">
             {messages.map((msg, idx) => {
