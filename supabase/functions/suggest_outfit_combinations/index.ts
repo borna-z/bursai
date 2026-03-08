@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,23 +20,19 @@ serve(async (req) => {
   }
 
   try {
-    // Parse request body for locale
     let locale = "sv";
     try {
       const body = await req.json();
       if (body?.locale && typeof body.locale === "string") {
         locale = body.locale;
       }
-    } catch {
-      // No body or invalid JSON — use default
-    }
+    } catch { /* use default */ }
     const lang = LOCALE_NAMES[locale] || "English";
 
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing authorization" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -47,18 +44,13 @@ serve(async (req) => {
 
     const token = authHeader.replace("Bearer ", "");
     const { data, error: claimsError } = await supabase.auth.getClaims(token);
-    
     if (claimsError || !data?.claims) {
-      console.error("JWT validation error:", claimsError);
       return new Response(JSON.stringify({ error: "Invalid token" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
     const user = { id: data.claims.sub as string };
 
-    // Fetch garments, profile, and recent outfits in parallel
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
@@ -82,15 +74,11 @@ serve(async (req) => {
     const garments = garmentsRes.data || [];
 
     if (garments.length < 3) {
-      return new Response(JSON.stringify({ 
-        suggestions: [],
-        message: "Not enough garments to create suggestions." 
-      }), {
+      return new Response(JSON.stringify({ suggestions: [], message: "Not enough garments to create suggestions." }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Build recent outfits context
     let recentContext = "";
     if (recentRes.data?.length) {
       const outfitMap = new Map<string, string[]>();
@@ -104,13 +92,10 @@ serve(async (req) => {
       }
     }
 
-    // Prioritize unused garments but include all for complete outfits
     const unusedGarments = garments.filter(g => !g.last_worn_at || g.last_worn_at < thirtyDaysAgoStr);
-
     const preferences = (profileRes.data?.preferences as Record<string, any>) || {};
     const sp = preferences.styleProfile || {};
 
-    // Build comprehensive style context from quiz v3
     const styleContextParts: string[] = [];
     if (sp.gender) styleContextParts.push(`Gender: ${sp.gender}`);
     if (sp.ageRange) styleContextParts.push(`Age: ${sp.ageRange}`);
@@ -135,10 +120,7 @@ serve(async (req) => {
     if (sp.freeNote) styleContextParts.push(`Personal note: ${sp.freeNote}`);
     const styleContext = styleContextParts.length > 0 ? `\nUSER STYLE PROFILE:\n${styleContextParts.join(". ")}` : "";
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-
-    const garmentList = garments.map(g => 
+    const garmentList = garments.map(g =>
       `ID:${g.id} | ${g.title} | cat:${g.category}${g.subcategory ? "/" + g.subcategory : ""} | color:${g.color_primary} | worn:${g.wear_count || 0}x | last:${g.last_worn_at || "never"}`
     ).join("\n");
 
@@ -162,100 +144,57 @@ ${styleContext}
 WARDROBE:
 ${garmentList}`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Create 2-3 complete outfit suggestions using my unused garments. Respond in ${lang}.` },
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "suggest_outfits",
-            description: "Return 2-3 complete outfit suggestions",
-            parameters: {
-              type: "object",
-              properties: {
-                suggestions: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      title: { type: "string", description: `Short descriptive title in ${lang}` },
-                      garment_ids: { type: "array", items: { type: "string" }, description: "Array of garment UUIDs" },
-                      explanation: { type: "string", description: `Why this combination works (2 sentences, in ${lang})` },
-                      occasion: { type: "string", description: `Suitable occasion in ${lang}` },
-                    },
-                    required: ["title", "garment_ids", "explanation", "occasion"],
-                    additionalProperties: false,
+    const { data: result } = await callBursAI({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Create 2-3 complete outfit suggestions using my unused garments. Respond in ${lang}.` },
+      ],
+      tools: [{
+        type: "function",
+        function: {
+          name: "suggest_outfits",
+          description: "Return 2-3 complete outfit suggestions",
+          parameters: {
+            type: "object",
+            properties: {
+              suggestions: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string", description: `Short descriptive title in ${lang}` },
+                    garment_ids: { type: "array", items: { type: "string" }, description: "Array of garment UUIDs" },
+                    explanation: { type: "string", description: `Why this combination works (2 sentences, in ${lang})` },
+                    occasion: { type: "string", description: `Suitable occasion in ${lang}` },
                   },
+                  required: ["title", "garment_ids", "explanation", "occasion"],
+                  additionalProperties: false,
                 },
               },
-              required: ["suggestions"],
-              additionalProperties: false,
             },
+            required: ["suggestions"],
+            additionalProperties: false,
           },
-        }],
-        tool_choice: { type: "function", function: { name: "suggest_outfits" } },
-      }),
+        },
+      }],
+      tool_choice: { type: "function", function: { name: "suggest_outfits" } },
     });
-
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "AI service overloaded. Try again later." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Contact support." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const errorText = await aiResponse.text();
-      console.error("AI gateway error:", aiResponse.status, errorText);
-      throw new Error("AI gateway error");
-    }
-
-    const aiData = await aiResponse.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-
-    if (!toolCall?.function?.arguments) {
-      throw new Error("No structured AI response");
-    }
-
-    let parsed: { suggestions: { title: string; garment_ids: string[]; explanation: string; occasion: string }[] };
-    try {
-      parsed = JSON.parse(toolCall.function.arguments);
-    } catch {
-      throw new Error("Failed to parse AI suggestions");
-    }
 
     // Validate and enrich
     const garmentMap = new Map(garments.map(g => [g.id, g]));
-    const enrichedSuggestions = (parsed.suggestions || [])
-      .map(s => {
-        const validIds = s.garment_ids.filter(id => garmentMap.has(id));
-        const garmentDetails = validIds.map(id => garmentMap.get(id)!);
+    const enrichedSuggestions = (result.suggestions || [])
+      .map((s: any) => {
+        const validIds = s.garment_ids.filter((id: string) => garmentMap.has(id));
+        const garmentDetails = validIds.map((id: string) => garmentMap.get(id)!);
         return { ...s, garment_ids: validIds, garments: garmentDetails };
       })
-      .filter(s => s.garment_ids.length >= 3); // Must be complete outfit
+      .filter((s: any) => s.garment_ids.length >= 3);
 
     return new Response(JSON.stringify({ suggestions: enrichedSuggestions }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
     console.error("Error in suggest_outfit_combinations:", error);
-    return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : "Unknown error" 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return bursAIErrorResponse(error, corsHeaders);
   }
 });

@@ -1,16 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-const MODELS = [
-  "google/gemini-2.5-flash-lite",
-  "openai/gpt-5-nano",
-  "google/gemini-2.5-flash",
-];
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -26,9 +21,6 @@ serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const LOCALE_NAMES: Record<string, string> = {
       sv: "svenska", en: "English", no: "norsk", da: "dansk", fi: "finska",
@@ -50,9 +42,7 @@ serve(async (req) => {
       )
       .join("\n");
 
-    // Detect if this is a multi-event day requiring transitions
     const isMultiEvent = events.length >= 2;
-
     const occasionValues = isSv ? "jobb|fest|dejt|träning|vardag" : "work|party|date|workout|casual";
 
     const transitionsSchema = isSv
@@ -94,14 +84,14 @@ serve(async (req) => {
         ? `
 - VIKTIGT: Denna dag har ${events.length} händelser. Analysera om de kräver olika klädstilar.
 - Om formalitetsnivån skiljer sig med 2+ poäng mellan händelser, sätt needs_change=true.
-- Föreslå "versatile_pieces" — plagg som fungerar i flera sammanhang (t.ex. en mörk blazer som fungerar på kontoret och på middag).
-- Ge konkreta "transition_tip" — vad man kan byta/lägga till mellan block (t.ex. "Byt jeans mot chinos och lägg till en kavaj").
+- Föreslå "versatile_pieces" — plagg som fungerar i flera sammanhang.
+- Ge konkreta "transition_tip" — vad man kan byta/lägga till mellan block.
 - Gruppera närliggande händelser med liknande formalitet i samma block.`
         : `
 - IMPORTANT: This day has ${events.length} events. Analyze whether they require different outfit styles.
 - If formality differs by 2+ points between events, set needs_change=true.
-- Suggest "versatile_pieces" — garments that work across contexts (e.g. a dark blazer that works at office and dinner).
-- Give concrete "transition_tip" — what to swap/add between blocks (e.g. "Swap jeans for chinos and add a blazer").
+- Suggest "versatile_pieces" — garments that work across contexts.
+- Give concrete "transition_tip" — what to swap/add between blocks.
 - Group nearby events with similar formality into the same block.`)
       : "";
 
@@ -121,11 +111,10 @@ Svara ALLTID med giltig JSON i exakt detta format:
 }
 
 Regler:
-- Identifiera dagens övergripande tema (arbetsfokuserad, blandad, social, aktiv)
-- Ranka händelser efter hur mycket de påverkar klädseln (viktigast först)
+- Identifiera dagens övergripande tema
+- Ranka händelser efter hur mycket de påverkar klädseln
 - Max 3 priorities och 2 outfit_hints
-- Koppla varje outfit_hint till en occasion-typ
-- Om flera aktiviteter kräver olika klädsel, nämn det i sammanfattningen${multiEventRules}
+- Koppla varje outfit_hint till en occasion-typ${multiEventRules}
 - Skriv på svenska
 - Var kortfattad men insiktsfull`
       : `You are a style-conscious day planner. Analyze the user's calendar events and provide a short, insightful summary of the day.
@@ -143,93 +132,52 @@ ALWAYS respond with valid JSON in exactly this format:
 }
 
 Rules:
-- Identify the day's overall theme (work-focused, mixed, social, active)
-- Rank events by how much they affect clothing choices (most important first)
+- Identify the day's overall theme
+- Rank events by how much they affect clothing choices
 - Max 3 priorities and 2 outfit_hints
-- Link each outfit_hint to an occasion type
-- If multiple activities require different outfits, mention it in the summary${multiEventRules}
+- Link each outfit_hint to an occasion type${multiEventRules}
 - Write in ${localeName}
 - Be concise but insightful`;
 
     const userPrompt = `Dagens händelser:\n${eventsText}\n\n${weatherContext}`;
 
-    // Try models in order until one works
-    let lastError = "";
-    for (const model of MODELS) {
-      try {
-        const response = await fetch(
-          "https://ai.gateway.lovable.dev/v1/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${LOVABLE_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model,
-              messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userPrompt },
-              ],
-            }),
-          }
-        );
+    try {
+      const { data: content } = await callBursAI({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        modelType: "fast",
+      });
 
-        if (response.status === 429) {
-          return new Response(
-            JSON.stringify({ error: "Rate limit exceeded, try again later." }),
-            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        if (response.status === 402) {
-          return new Response(
-            JSON.stringify({ error: "Payment required." }),
-            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`AI gateway error (${model}):`, response.status, errorText);
-          lastError = `${model}: ${response.status}`;
-          continue;
-        }
-
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content || "";
-        let result;
+      let result;
+      if (typeof content === "string") {
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           result = JSON.parse(jsonMatch[0]);
         } else {
           result = { summary: content, priorities: [], outfit_hints: [], transitions: null };
         }
-
-        // Ensure transitions field exists
-        if (!result.transitions) {
-          result.transitions = null;
-        }
-
-        return new Response(JSON.stringify(result), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      } catch (modelErr) {
-        console.error(`Model ${model} failed:`, modelErr);
-        lastError = `${model}: ${modelErr}`;
-        continue;
+      } else {
+        result = content;
       }
-    }
 
-    console.error("All AI models failed. Last error:", lastError);
-    return new Response(
-      JSON.stringify({ summary: null, priorities: [], outfit_hints: [], transitions: null }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+      if (!result.transitions) {
+        result.transitions = null;
+      }
+
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (aiErr) {
+      console.error("AI failed for summarize_day:", aiErr);
+      return new Response(
+        JSON.stringify({ summary: null, priorities: [], outfit_hints: [], transitions: null }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
   } catch (e) {
     console.error("summarize_day error:", e);
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return bursAIErrorResponse(e, corsHeaders);
   }
 });
