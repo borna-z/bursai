@@ -3604,7 +3604,6 @@ export const translations: Record<Locale, Record<string, string>> = {
     'landing.exit_title': 'Before you go...',
     'landing.exit_desc': 'Try BURS Premium free for 30 days. No commitment, cancel anytime.',
     'landing.urgency_counter': 'Join the 2,400+ who signed up this week',
-    'landing.nav.features': 'Features',
 
     // Terms page
     'terms.title': 'Terms of Service',
