@@ -11,6 +11,7 @@ import { LanguageSwitcher } from '@/components/landing/LanguageSwitcher';
 
 // Lazy-load below-fold sections
 const SocialTicker = lazy(() => import('@/components/landing/SocialTicker').then(m => ({ default: m.SocialTicker })));
+const TrustLogos = lazy(() => import('@/components/landing/TrustLogos').then(m => ({ default: m.TrustLogos })));
 const HowItWorks = lazy(() => import('@/components/landing/HowItWorks').then(m => ({ default: m.HowItWorks })));
 const FeaturesShowcase = lazy(() => import('@/components/landing/FeaturesShowcase').then(m => ({ default: m.FeaturesShowcase })));
 const StatsCounter = lazy(() => import('@/components/landing/StatsCounter').then(m => ({ default: m.StatsCounter })));
