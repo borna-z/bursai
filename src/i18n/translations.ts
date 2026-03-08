@@ -554,6 +554,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'chat.shopping_welcome': 'Hej! Jag är din shopping-assistent. Ta en bild på plagget du överväger att köpa så hjälper jag dig avgöra om det matchar din garderob!',
     'chat.shopping_placeholder': 'Beskriv plagget du överväger...',
     'chat.outfit_from_stylist': 'Skapad från stylistens förslag',
+    'chat.based_on': 'Baserat på',
+    'chat.garments_label': 'plagg',
+    'chat.garments_in_wardrobe': 'plagg i din garderob',
 
     // Live Scan
     'scan.auto': 'Auto',
