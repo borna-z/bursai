@@ -9,7 +9,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { useGarment, useUpdateGarment, useDeleteGarment, useMarkGarmentWorn } from '@/hooks/useGarments';
+import { useSimilarGarments } from '@/hooks/useSimilarGarments';
 import { LazyImage } from '@/components/ui/lazy-image';
+import { SectionHeader } from '@/components/ui/section-header';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
 
@@ -18,6 +20,7 @@ export default function GarmentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { t, locale } = useLanguage();
   const { data: garment, isLoading } = useGarment(id);
+  const { data: similarGarments } = useSimilarGarments(garment);
   const updateGarment = useUpdateGarment();
   const deleteGarment = useDeleteGarment();
   const markWorn = useMarkGarmentWorn();
@@ -193,6 +196,30 @@ export default function GarmentDetailPage() {
           </div>
           <Switch checked={garment.in_laundry || false} onCheckedChange={handleToggleLaundry} disabled={updateGarment.isPending} />
         </div>
+
+        {/* Similar items */}
+        {similarGarments && similarGarments.length > 0 && (
+          <div className="space-y-3">
+            <SectionHeader title={t('garment.similar_items') || 'Similar items'} />
+            <div className="flex gap-2.5 overflow-x-auto -mx-6 px-6 pb-1 scrollbar-hide">
+              {similarGarments.map((g) => (
+                <button
+                  key={g.id}
+                  onClick={() => navigate(`/wardrobe/${g.id}`)}
+                  className="flex-shrink-0 w-[88px] space-y-1.5 active:scale-[0.97] transition-transform"
+                >
+                  <LazyImage
+                    imagePath={g.image_path}
+                    alt={g.title}
+                    aspectRatio="3/4"
+                    className="rounded-xl"
+                  />
+                  <p className="text-[11px] text-muted-foreground truncate">{g.title}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Use in outfit */}
         <Button className="w-full rounded-2xl h-12 bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => navigate('/', { state: { prefillGarmentId: garment.id } })}>
