@@ -6106,6 +6106,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'insights.wardrobe_usage': 'Wykorzystanie garderoby', 'insights.used_label': 'noszonych', 'insights.unused_label': 'nienoszonych',
     'wardrobe.import_link': 'Importuj z linku', 'wardrobe.live_scan': 'BURS Live Scan',
     'settings.row.insights': 'Statystyki garderoby', 'settings.row.insights_sub': 'Statystyki i analiza',
+    'error.title': 'Coś poszło nie tak', 'error.desc': 'Wystąpił nieoczekiwany błąd. Spróbuj ponownie załadować stronę.', 'error.try_again': 'Spróbuj ponownie', 'error.reload': 'Przeładuj',
+    'seed.deleted': 'Wszystkie stare ubrania usunięte', 'seed.delete_error': 'Nie udało się usunąć starych ubrań', 'seed.created': 'Utworzono {done} ubrań ({failed} nieudanych)', 'seed.batch_failed': 'Partia nie powiodła się', 'seed.retry_failed': 'Ponowna próba nie powiodła się',
+    'genimg.title': 'Generuj unikalne obrazy', 'genimg.desc': 'Generuj zdjęcia AI dla wszystkich ubrań na podstawie atrybutów (kolor, materiał, typ).', 'genimg.total': 'Łącznie ubrań', 'genimg.generated': 'Wygenerowano', 'genimg.failed': 'Nieudane', 'genimg.processing': 'Przetwarzanie…', 'genimg.done': 'Gotowe', 'genimg.generating': 'Generowanie…', 'genimg.generate_all': 'Generuj wszystkie obrazy', 'genimg.retry': 'Spróbuj ponownie',
+    'contact.title': 'Kontakt', 'contact.subtitle': 'Masz pytania? Chętnie pomożemy.', 'contact.success': 'Dziękujemy za wiadomość. Odpowiemy tak szybko, jak to możliwe.', 'contact.name': 'Twoje imię', 'contact.email': 'Twój adres e-mail', 'contact.message': 'Twoja wiadomość', 'contact.send': 'Wyślij wiadomość', 'contact.rights': 'Wszelkie prawa zastrzeżone.', 'contact.gdpr_note': 'BURS jest zgodny z RODO. Twoje dane są przechowywane bezpiecznie i nigdy nie są udostępniane stronom trzecim.',
+    'footer.privacy': 'Polityka prywatności', 'footer.terms': 'Warunki użytkowania', 'footer.agree': 'Korzystając z BURS akceptujesz naszą', 'footer.rights': 'Wszelkie prawa zastrzeżone.',
+    'calendar.google_privacy': 'BURS odczytuje wydarzenia z kalendarza, aby pomóc w planowaniu strojów wokół Twojego harmonogramu. Możesz się odłączyć w dowolnym momencie.',
+    'reaction.styled': 'Stylowy', 'reaction.creative': 'Kreatywny', 'reaction.sustainable': 'Zrównoważony',
+    'wardrobe.reel_save_error': 'Nie udało się zapisać obrazu',
   },
 
   ar: {
