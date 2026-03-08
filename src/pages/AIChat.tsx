@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Sparkles, ShoppingBag, MoreVertical, Trash2 } from 'lucide-react';
+import { Sparkles, ShoppingBag, MoreVertical, Trash2 } from 'lucide-react';
+import { ChatPageSkeleton } from '@/components/ui/skeletons';
 import { motion } from 'framer-motion';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
