@@ -5476,7 +5476,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   pt: {
-    'nav.today': 'Hoje', 'nav.wardrobe': 'Guarda-roupa', 'nav.plan': 'Plano', 'nav.stylist': 'Estilista', 'nav.settings': 'Definições',
+    'nav.today': 'Hoje', 'nav.wardrobe': 'Guarda-roupa', 'nav.plan': 'Plano', 'nav.stylist': 'Estilista', 'nav.settings': 'Definições', 'nav.discover': 'Descobrir',
     'onboarding.language.title': 'Escolher idioma', 'onboarding.language.subtitle': 'Pode alterar mais tarde nas definições',
     'onboarding.body.title': 'O seu corpo, o seu estilo', 'onboarding.body.subtitle': 'O seu estilista IA usa as suas medidas para aconselhar sobre corte e estilo.',
     'onboarding.body.height': 'Altura', 'onboarding.body.weight': 'Peso', 'onboarding.body.weight_optional': '(opcional)',
