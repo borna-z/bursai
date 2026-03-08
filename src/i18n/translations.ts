@@ -6370,6 +6370,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'onboarding.getstarted.generate_outfit': 'یک ست بسازید', 'onboarding.getstarted.generate_outfit_desc': 'بگذارید هوش مصنوعی امروز شما را استایل کند',
     'onboarding.getstarted.talk_stylist': 'با استایلیست خود صحبت کنید', 'onboarding.getstarted.talk_stylist_desc': 'مشاوره سبک شخصی دریافت کنید',
     'onboarding.accent.title': 'رنگ تأکیدی را انتخاب کنید', 'onboarding.accent.subtitle': 'لمس شخصی به اپ بدهید.',
+    'onboarding.quickUpload.title': 'اولین لباس‌هایتان را بارگذاری کنید', 'onboarding.quickUpload.subtitle': 'عکس بگیرید یا از گالری انتخاب کنید — تا ۵ قطعه. هوش مصنوعی ما هر قطعه را خودکار شناسایی می‌کند.',
     'onboarding.style.title': 'سبک شما', 'onboarding.style.subtitle': 'به استایلیست هوشمند کمک کنید سلیقه شما را بشناسد',
     'onboarding.style.favorite_colors': 'رنگ‌های مورد علاقه', 'onboarding.style.disliked_colors': 'رنگ‌هایی که اجتناب می‌کنید',
     'onboarding.style.fit': 'اندازه', 'onboarding.style.vibe': 'جهت سبک', 'onboarding.style.gender_neutral': 'پیشنهادات خنثی',
