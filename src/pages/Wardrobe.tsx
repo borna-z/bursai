@@ -403,9 +403,33 @@ export default function WardrobePage() {
   const { canAddGarment, isPremium } = useSubscription();
   const { data: totalCount } = useGarmentCount();
 
-  const displayGarments = useMemo(() => {
+  const allGarments = useMemo(() => {
     return infiniteData?.pages.flatMap(p => p.items) ?? [];
   }, [infiniteData]);
+
+  // Apply smart filter on top of query results
+  const displayGarments = useMemo(() => {
+    if (!smartFilter) return allGarments;
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const cutoff = thirtyDaysAgo.toISOString();
+
+    switch (smartFilter) {
+      case 'rarely_worn':
+        return allGarments
+          .filter(g => !g.last_worn_at || g.last_worn_at < cutoff)
+          .sort((a, b) => (a.wear_count || 0) - (b.wear_count || 0));
+      case 'most_worn':
+        return [...allGarments]
+          .filter(g => (g.wear_count || 0) > 0)
+          .sort((a, b) => (b.wear_count || 0) - (a.wear_count || 0));
+      case 'new':
+        return [...allGarments]
+          .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+      default:
+        return allGarments;
+    }
+  }, [allGarments, smartFilter]);
 
   const categories = [
     { id: 'all', label: t('wardrobe.all') },
