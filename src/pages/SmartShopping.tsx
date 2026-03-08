@@ -76,7 +76,7 @@ export default function SmartShoppingPage() {
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground text-center mb-6">
-              {t('ai.shopping_results', { count: String(items.length) })}
+              {t('ai.shopping_results').replace('{count}', String(items.length))}
             </p>
 
             {items.map((item, i) => (
