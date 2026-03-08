@@ -163,6 +163,8 @@ export type Database = {
           category: string
           color_primary: string
           color_secondary: string | null
+          condition_notes: string | null
+          condition_score: number | null
           created_at: string | null
           fit: string | null
           formality: number | null
@@ -173,6 +175,8 @@ export type Database = {
           last_worn_at: string | null
           material: string | null
           pattern: string | null
+          purchase_currency: string | null
+          purchase_price: number | null
           season_tags: string[] | null
           source_url: string | null
           subcategory: string | null
@@ -188,6 +192,8 @@ export type Database = {
           category: string
           color_primary: string
           color_secondary?: string | null
+          condition_notes?: string | null
+          condition_score?: number | null
           created_at?: string | null
           fit?: string | null
           formality?: number | null
@@ -198,6 +204,8 @@ export type Database = {
           last_worn_at?: string | null
           material?: string | null
           pattern?: string | null
+          purchase_currency?: string | null
+          purchase_price?: number | null
           season_tags?: string[] | null
           source_url?: string | null
           subcategory?: string | null
@@ -213,6 +221,8 @@ export type Database = {
           category?: string
           color_primary?: string
           color_secondary?: string | null
+          condition_notes?: string | null
+          condition_score?: number | null
           created_at?: string | null
           fit?: string | null
           formality?: number | null
@@ -223,6 +233,8 @@ export type Database = {
           last_worn_at?: string | null
           material?: string | null
           pattern?: string | null
+          purchase_currency?: string | null
+          purchase_price?: number | null
           season_tags?: string[] | null
           source_url?: string | null
           subcategory?: string | null
