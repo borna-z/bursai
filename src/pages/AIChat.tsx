@@ -321,7 +321,7 @@ export default function AIChat() {
         ) : isWelcomeState ? (
           <ChatWelcome mode={mode} onSuggestion={sendMessage} />
         ) : (
-          <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-4 space-y-6">
+          <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-6 space-y-8">
             {messages.map((msg, idx) => {
               // Skip the initial welcome message in conversation view
               if (idx === 0 && msg.role === 'assistant' && !isStreaming) {
