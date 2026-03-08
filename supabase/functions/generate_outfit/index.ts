@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -290,47 +291,20 @@ Write the explanation in ${localeName}.
 WARDROBE (choose ONLY from these):
 ${garmentList}`;
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
-    // Call AI with gemini-3-flash-preview for fast structured selection
+    // Call AI with BURS AI abstraction
     async function callAI(messages: { role: string; content: string }[]) {
-      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+      try {
+        const { data } = await callBursAI({
           messages,
           tools: [TOOL_DEF],
           tool_choice: { type: "function", function: { name: "select_outfit" } },
-        }),
-      });
-
-      if (!resp.ok) {
-        if (resp.status === 429) {
-          return { error: "rate_limit", status: 429 };
-        }
-        if (resp.status === 402) {
-          return { error: "payment", status: 402 };
-        }
-        const errText = await resp.text();
-        console.error("AI gateway error:", resp.status, errText);
+        });
+        return { data: data as { items: { slot: string; garment_id: string }[]; explanation: string } };
+      } catch (e: any) {
+        if (e.status === 429) return { error: "rate_limit", status: 429 };
+        if (e.status === 402) return { error: "payment", status: 402 };
+        console.error("AI error:", e);
         return { error: "ai_error", status: 500 };
-      }
-
-      const data = await resp.json();
-      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-      if (!toolCall?.function?.arguments) {
-        return { error: "no_output", status: 500 };
-      }
-
-      try {
-        return { data: JSON.parse(toolCall.function.arguments) as { items: { slot: string; garment_id: string }[]; explanation: string } };
-      } catch {
-        return { error: "parse_error", status: 500 };
       }
     }
 

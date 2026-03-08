@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callBursAI } from "../_shared/burs-ai.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -133,112 +134,89 @@ serve(async (req) => {
     const duplicates: DuplicateMatch[] = [];
 
     if (image_path && topAttributeMatches.length > 0) {
-      const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-      
-      if (lovableApiKey) {
-        try {
-          // Get signed URL for the new image
-          const { data: newImageUrl } = await serviceClient.storage
+      try {
+        // Get signed URL for the new image
+        const { data: newImageUrl } = await serviceClient.storage
+          .from('garments')
+          .createSignedUrl(image_path, 600);
+
+        // Get signed URLs for candidate images
+        const candidateUrls: { id: string; url: string; title: string; imagePath: string }[] = [];
+        for (const match of topAttributeMatches) {
+          const { data: url } = await serviceClient.storage
             .from('garments')
-            .createSignedUrl(image_path, 600);
-
-          // Get signed URLs for candidate images
-          const candidateUrls: { id: string; url: string; title: string; imagePath: string }[] = [];
-          for (const match of topAttributeMatches) {
-            const { data: url } = await serviceClient.storage
-              .from('garments')
-              .createSignedUrl(match.garment.image_path, 600);
-            if (url?.signedUrl) {
-              candidateUrls.push({
-                id: match.garment.id,
-                url: url.signedUrl,
-                title: match.garment.title,
-                imagePath: match.garment.image_path,
-              });
-            }
+            .createSignedUrl(match.garment.image_path, 600);
+          if (url?.signedUrl) {
+            candidateUrls.push({
+              id: match.garment.id,
+              url: url.signedUrl,
+              title: match.garment.title,
+              imagePath: match.garment.image_path,
+            });
           }
+        }
 
-          if (newImageUrl?.signedUrl && candidateUrls.length > 0) {
-            // Ask AI to compare
-            const candidateList = candidateUrls.map((c, i) => `Candidate ${i + 1} (ID: ${c.id}): "${c.title}"`).join('\n');
+        if (newImageUrl?.signedUrl && candidateUrls.length > 0) {
+          const candidateList = candidateUrls.map((c, i) => `Candidate ${i + 1} (ID: ${c.id}): "${c.title}"`).join('\n');
 
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 20000);
-
-            const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${lovableApiKey}`,
-                'Content-Type': 'application/json',
-              },
-              signal: controller.signal,
-              body: JSON.stringify({
-                model: 'google/gemini-2.5-flash-lite',
-                messages: [
-                  {
-                    role: 'system',
-                    content: `You compare garment images to detect duplicates. For each candidate, rate visual similarity to the new garment from 0.0 to 1.0.
+          const { data: content } = await callBursAI({
+            messages: [
+              {
+                role: 'system',
+                content: `You compare garment images to detect duplicates. For each candidate, rate visual similarity to the new garment from 0.0 to 1.0.
 Return ONLY valid JSON: { "matches": [{ "id": "garment-id", "similarity": 0.0-1.0 }] }
 Consider: same garment photographed differently = 0.8+, very similar style/color = 0.5-0.7, different garment = 0.0-0.3.`
-                  },
-                  {
-                    role: 'user',
-                    content: [
-                      { type: 'text', text: `Compare this new garment image against these candidates:\n${candidateList}\n\nRate visual similarity for each.` },
-                      { type: 'image_url', image_url: { url: newImageUrl.signedUrl } },
-                      ...candidateUrls.map(c => ({
-                        type: 'image_url' as const,
-                        image_url: { url: c.url }
-                      }))
-                    ]
-                  }
-                ],
-                max_tokens: 200,
-                temperature: 0.1,
-              }),
-            });
+              },
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: `Compare this new garment image against these candidates:\n${candidateList}\n\nRate visual similarity for each.` },
+                  { type: 'image_url', image_url: { url: newImageUrl.signedUrl } },
+                  ...candidateUrls.map(c => ({
+                    type: 'image_url' as const,
+                    image_url: { url: c.url }
+                  }))
+                ]
+              }
+            ],
+            modelType: "fast",
+            extraBody: { max_tokens: 200, temperature: 0.1 },
+            timeout: 20000,
+          });
 
-            clearTimeout(timeout);
+          try {
+            const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
+            const cleaned = contentStr.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+            const parsed = JSON.parse(cleaned);
 
-            if (aiResponse.ok) {
-              const aiData = await aiResponse.json();
-              const content = aiData.choices?.[0]?.message?.content || '';
-              
-              try {
-                const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-                const parsed = JSON.parse(cleaned);
-                
-                if (parsed.matches && Array.isArray(parsed.matches)) {
-                  for (const aiMatch of parsed.matches) {
-                    const attrMatch = topAttributeMatches.find(m => m.garment.id === aiMatch.id);
-                    const candidateUrl = candidateUrls.find(c => c.id === aiMatch.id);
-                    
-                    if (attrMatch && candidateUrl) {
-                      const visualSim = Math.min(1, Math.max(0, aiMatch.similarity || 0));
-                      const combinedScore = Math.min(1, attrMatch.score * 0.4 + visualSim * 0.6);
-                      
-                      if (combinedScore >= 0.45) {
-                        duplicates.push({
-                          garment_id: aiMatch.id,
-                          title: attrMatch.garment.title,
-                          image_path: candidateUrl.imagePath,
-                          confidence: Math.round(combinedScore * 100) / 100,
-                          match_type: visualSim >= 0.5 && attrMatch.score >= 0.5 ? 'both' : visualSim >= 0.5 ? 'visual' : 'attribute',
-                          reasons: attrMatch.reasons,
-                        });
-                      }
-                    }
+            if (parsed.matches && Array.isArray(parsed.matches)) {
+              for (const aiMatch of parsed.matches) {
+                const attrMatch = topAttributeMatches.find(m => m.garment.id === aiMatch.id);
+                const candidateUrl = candidateUrls.find(c => c.id === aiMatch.id);
+
+                if (attrMatch && candidateUrl) {
+                  const visualSim = Math.min(1, Math.max(0, aiMatch.similarity || 0));
+                  const combinedScore = Math.min(1, attrMatch.score * 0.4 + visualSim * 0.6);
+
+                  if (combinedScore >= 0.45) {
+                    duplicates.push({
+                      garment_id: aiMatch.id,
+                      title: attrMatch.garment.title,
+                      image_path: candidateUrl.imagePath,
+                      confidence: Math.round(combinedScore * 100) / 100,
+                      match_type: visualSim >= 0.5 && attrMatch.score >= 0.5 ? 'both' : visualSim >= 0.5 ? 'visual' : 'attribute',
+                      reasons: attrMatch.reasons,
+                    });
                   }
                 }
-              } catch (parseErr) {
-                console.error('Failed to parse AI duplicate response:', parseErr);
               }
             }
+          } catch (parseErr) {
+            console.error('Failed to parse AI duplicate response:', parseErr);
           }
-        } catch (aiErr) {
-          console.error('AI duplicate detection error:', aiErr);
-          // Fall back to attribute-only matches
         }
+      } catch (aiErr) {
+        console.error('AI duplicate detection error:', aiErr);
       }
 
       // If AI didn't run or failed, use attribute matches as fallback

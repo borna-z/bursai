@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callBursAI } from "../_shared/burs-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1552,9 +1553,6 @@ async function aiRefine(
   styleContext: string,
   locale: string
 ): Promise<any> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
   const localeName = LOCALE_NAMES[locale] || "English";
 
   const comboDescriptions = combos.map((combo, idx) => {
@@ -1592,39 +1590,21 @@ ${comboDescriptions}`;
   const tool = mode === "generate" ? TOOL_SELECT : TOOL_SUGGEST;
   const toolName = mode === "generate" ? "select_outfit" : "suggest_outfits";
 
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
+  try {
+    const { data } = await callBursAI({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: mode === "generate" ? "Pick the best outfit." : "Select the best 2-3 outfits." },
       ],
       tools: [tool],
       tool_choice: { type: "function", function: { name: toolName } },
-    }),
-  });
-
-  if (!resp.ok) {
-    if (resp.status === 429) return { error: "rate_limit", status: 429 };
-    if (resp.status === 402) return { error: "payment", status: 402 };
-    const errText = await resp.text();
-    console.error("AI gateway error:", resp.status, errText);
+    });
+    return { data };
+  } catch (e: any) {
+    if (e.status === 429) return { error: "rate_limit", status: 429 };
+    if (e.status === 402) return { error: "payment", status: 402 };
+    console.error("AI gateway error:", e);
     return { error: "ai_error", status: 500 };
-  }
-
-  const data = await resp.json();
-  const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-  if (!toolCall?.function?.arguments) return { error: "no_output", status: 500 };
-
-  try {
-    return { data: JSON.parse(toolCall.function.arguments) };
-  } catch {
-    return { error: "parse_error", status: 500 };
   }
 }
 
