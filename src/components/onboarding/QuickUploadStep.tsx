@@ -7,7 +7,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useStorage } from '@/hooks/useStorage';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { cn } from '@/lib/utils';
 
 interface QuickUploadStepProps {
   onComplete: () => void;
