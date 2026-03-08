@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { SEED_GARMENTS } from '@/data/seedGarments';
 
 const BATCH_SIZE = 1;
-const DELAY_MS = 5000;
+const DELAY_MS = 2000;
 
 type StepStatus = 'idle' | 'deleting' | 'generating' | 'done' | 'error';
 
