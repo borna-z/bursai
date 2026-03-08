@@ -1479,6 +1479,9 @@ serve(async (req) => {
     const styleVector = wearLogs.length >= 5
       ? buildStyleVector(wearLogs, garments)
       : null;
+    const comfortProfile = wearLogs.length >= 5
+      ? buildComfortStyleProfile(wearLogs, garments, feedbackSignals)
+      : null;
 
     // Build recent outfit sets for anti-repetition
     const recentOutfitSets: Set<string>[] = [];
