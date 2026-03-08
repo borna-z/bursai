@@ -5543,7 +5543,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   nl: {
-    'nav.today': 'Vandaag', 'nav.wardrobe': 'Kledingkast', 'nav.plan': 'Planning', 'nav.stylist': 'Stylist', 'nav.settings': 'Instellingen',
+    'nav.today': 'Vandaag', 'nav.wardrobe': 'Kledingkast', 'nav.plan': 'Planning', 'nav.stylist': 'Stylist', 'nav.settings': 'Instellingen', 'nav.discover': 'Ontdek',
     'onboarding.language.title': 'Kies taal', 'onboarding.language.subtitle': 'Je kunt dit later wijzigen in instellingen',
     'onboarding.body.title': 'Je lichaam, jouw stijl', 'onboarding.body.subtitle': 'Je AI-stylist gebruikt je maten voor advies over pasvorm en stijl.',
     'onboarding.body.height': 'Lengte', 'onboarding.body.weight': 'Gewicht', 'onboarding.body.weight_optional': '(optioneel)',
