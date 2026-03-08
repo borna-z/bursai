@@ -5874,7 +5874,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   fa: {
-    'nav.today': 'امروز', 'nav.wardrobe': 'کمد لباس', 'nav.plan': 'برنامه', 'nav.stylist': 'استایلیست', 'nav.settings': 'تنظیمات',
+    'nav.today': 'امروز', 'nav.wardrobe': 'کمد لباس', 'nav.plan': 'برنامه', 'nav.stylist': 'استایلیست', 'nav.settings': 'تنظیمات', 'nav.discover': 'کشف',
     'onboarding.language.title': 'زبان را انتخاب کنید', 'onboarding.language.subtitle': 'بعداً در تنظیمات قابل تغییر است',
     'onboarding.body.title': 'بدن شما، سبک شما', 'onboarding.body.subtitle': 'استایلیست هوشمند از اندازه‌های شما برای مشاوره استفاده می‌کند.',
     'onboarding.body.height': 'قد', 'onboarding.body.weight': 'وزن', 'onboarding.body.weight_optional': '(اختیاری)',
