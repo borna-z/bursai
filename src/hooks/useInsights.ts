@@ -74,12 +74,16 @@ export function useInsights() {
       // Unused garments (not worn in last 30 days)
       const unusedGarments = garments?.filter(g => !wornGarmentIds.has(g.id)) || [];
       
+      // Color temperature profiling
+      const colorTemperature = computeColorTemperature(garments || []);
+      
       return {
         totalGarments,
         garmentsUsedLast30Days,
         usageRate,
         topFiveWorn,
         unusedGarments,
+        colorTemperature,
       };
     },
     enabled: !!user,
