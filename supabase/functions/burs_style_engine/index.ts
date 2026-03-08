@@ -974,6 +974,109 @@ function comfortStyleScore(garment: GarmentRow, profile: ComfortStyleProfile | n
 }
 
 // ─────────────────────────────────────────────
+// BODY-AWARE FIT INTELLIGENCE (Step 10)
+// ─────────────────────────────────────────────
+// Uses height/weight to determine body type and recommends
+// proportionally balanced silhouettes (e.g., oversized top + slim bottom).
+
+interface BodyProfile {
+  heightCm: number | null;
+  weightKg: number | null;
+  bmi: number | null;           // rough proxy for build
+  buildCategory: 'slim' | 'average' | 'athletic' | 'broad' | null;
+  fitPreference: string | null; // from quiz
+}
+
+function buildBodyProfile(profileData: Record<string, any> | null): BodyProfile {
+  const heightCm = profileData?.height_cm || null;
+  const weightKg = profileData?.weight_kg || null;
+  const prefs = profileData?.preferences || {};
+  const sp = prefs.styleProfile || prefs;
+  const fitPreference = sp.fit || null;
+
+  let bmi: number | null = null;
+  let buildCategory: BodyProfile['buildCategory'] = null;
+
+  if (heightCm && weightKg && heightCm > 0) {
+    const heightM = heightCm / 100;
+    bmi = weightKg / (heightM * heightM);
+    if (bmi < 20) buildCategory = 'slim';
+    else if (bmi < 25) buildCategory = 'average';
+    else if (bmi < 28) buildCategory = 'athletic';
+    else buildCategory = 'broad';
+  }
+
+  return { heightCm, weightKg, bmi, buildCategory, fitPreference };
+}
+
+// Proportional balance rules: which fit combos create good silhouettes
+const FIT_BALANCE_RULES: Record<string, Record<string, number>> = {
+  // top fit → bottom fit → bonus (-2 to +2)
+  oversized:  { slim: 2, skinny: 2, regular: 1, relaxed: -1, oversized: -2, wide: -1 },
+  relaxed:    { slim: 1, skinny: 1, regular: 1, relaxed: 0, oversized: -1, wide: -1 },
+  regular:    { slim: 1, skinny: 0, regular: 1, relaxed: 1, oversized: 0, wide: 0 },
+  slim:       { slim: 0, skinny: -1, regular: 1, relaxed: 1, oversized: 1, wide: 1 },
+  fitted:     { slim: 0, skinny: -1, regular: 1, relaxed: 1, oversized: 1, wide: 1 },
+};
+
+// Body-specific fit recommendations
+const BODY_FIT_PREFERENCES: Record<string, { favors: string[]; avoids: string[] }> = {
+  slim:     { favors: ['regular', 'relaxed', 'oversized'], avoids: ['skinny'] },
+  average:  { favors: ['regular', 'slim', 'relaxed'], avoids: [] },
+  athletic: { favors: ['regular', 'slim', 'fitted'], avoids: ['oversized'] },
+  broad:    { favors: ['regular', 'relaxed', 'straight'], avoids: ['skinny', 'fitted'] },
+};
+
+function fitProportionScore(
+  items: { slot: string; garment: GarmentRow }[],
+  body: BodyProfile | null
+): number {
+  let score = 7; // neutral baseline
+
+  // 1. Proportional balance between top and bottom
+  const top = items.find(i => i.slot === 'top' || i.slot === 'dress');
+  const bottom = items.find(i => i.slot === 'bottom');
+
+  if (top?.garment.fit && bottom?.garment.fit) {
+    const topFit = top.garment.fit.toLowerCase();
+    const bottomFit = bottom.garment.fit.toLowerCase();
+    const balance = FIT_BALANCE_RULES[topFit]?.[bottomFit];
+    if (balance !== undefined) {
+      score += balance; // -2 to +2
+    }
+  }
+
+  // 2. Body-aware adjustments
+  if (body?.buildCategory) {
+    const bodyPrefs = BODY_FIT_PREFERENCES[body.buildCategory];
+    if (bodyPrefs) {
+      for (const item of items) {
+        const fit = item.garment.fit?.toLowerCase();
+        if (!fit) continue;
+        if (bodyPrefs.favors.includes(fit)) score += 0.5;
+        if (bodyPrefs.avoids.includes(fit)) score -= 1;
+      }
+    }
+  }
+
+  // 3. Height-aware: tall users can pull off more volume, shorter users benefit from streamlined looks
+  if (body?.heightCm) {
+    const hasOversized = items.some(i => ['oversized', 'wide', 'relaxed'].includes(i.garment.fit?.toLowerCase() || ''));
+    if (body.heightCm >= 180 && hasOversized) score += 0.5;  // tall + volume = works
+    if (body.heightCm < 165 && hasOversized) score -= 0.5;   // shorter + too much volume = risky
+  }
+
+  // 4. Respect user's stated fit preference if available
+  if (body?.fitPreference) {
+    const pref = body.fitPreference.toLowerCase();
+    const matchCount = items.filter(i => i.garment.fit?.toLowerCase() === pref).length;
+    if (matchCount > 0) score += 0.5;
+  }
+
+  return Math.max(0, Math.min(10, score));
+}
+
+// ─────────────────────────────────────────────
 // COMPOSITE SCORING
 // ─────────────────────────────────────────────
 
