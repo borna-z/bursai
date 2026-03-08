@@ -115,6 +115,7 @@ export function AnimatedRoutes() {
             <Route path="/outfits/generate" element={<ProtectedRoute><OutfitGenerate /></ProtectedRoute>} />
             <Route path="/outfits/:id" element={<ProtectedRoute><OutfitDetail /></ProtectedRoute>} />
             <Route path="/plan" element={<ProtectedRoute><Plan /></ProtectedRoute>} />
+            <Route path="/plan/travel-capsule" element={<ProtectedRoute><TravelCapsule /></ProtectedRoute>} />
             <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
             <Route path="/ai" element={<ProtectedRoute><AIChat /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
