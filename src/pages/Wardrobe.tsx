@@ -21,7 +21,6 @@ import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -174,7 +173,7 @@ function GarmentListContent({
 
   return (
     <>
-      <div className={cn(isGridView ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2')}>
+      <div className={cn(isGridView ? 'grid grid-cols-2 gap-2.5' : 'flex flex-col gap-1')}>
         {garments.map((garment, index) => (
           <div key={garment.id} className="animate-drape-in" style={{ animationDelay: `${Math.min(index, 12) * 40}ms`, animationFillMode: 'both' }}>
             {!isGridView && !isSelecting ? (
@@ -264,7 +263,7 @@ function VirtualGarmentGrid({
               key={virtualRow.index}
               style={{ position: 'absolute', top: virtualRow.start, left: 0, width: '100%', height: virtualRow.size, paddingBottom: GAP }}
             >
-              <div className={cn(isGridView ? 'grid grid-cols-2 gap-3 h-full' : 'flex flex-col gap-2')}>
+              <div className={cn(isGridView ? 'grid grid-cols-2 gap-2.5 h-full' : 'flex flex-col gap-1')}>
                 {rowGarments.map((garment) => (
                   <Fragment key={garment.id}>
                     {!isGridView && !isSelecting ? (
@@ -333,7 +332,7 @@ function AddFAB({ onPhoto, onScan, isOverLimit }: { onPhoto: () => void; onScan:
       </AnimatePresence>
       <Button
         size="lg"
-        className="h-14 w-14 rounded-xl shadow-lg bg-accent text-accent-foreground hover:bg-accent/90 relative z-30"
+        className="h-14 w-14 rounded-full shadow-lg shadow-primary/20 bg-primary text-primary-foreground hover:bg-primary/90 relative z-30"
         onClick={() => setOpen(!open)}
       >
         <Plus className={cn("w-6 h-6 transition-transform duration-200", open && "rotate-45")} />
@@ -444,35 +443,38 @@ export default function WardrobePage() {
 
   return (
     <AppLayout>
-      <PageHeader
-        title={t('wardrobe.title')}
-        actions={
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => setIsGridView(!isGridView)} aria-label={isGridView ? 'List view' : 'Grid view'}>
-              {isGridView ? <List className="w-5 h-5" /> : <Grid3X3 className="w-5 h-5" />}
-            </Button>
-            {!isSelecting ? (
-              <Button variant="ghost" size="sm" onClick={() => setIsSelecting(true)}>{t('wardrobe.select')}</Button>
-            ) : (
-              <Button variant="ghost" size="sm" onClick={() => { setIsSelecting(false); setSelectedIds(new Set()); }}>{t('common.cancel')}</Button>
-            )}
-          </div>
-        }
-      />
-
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="px-4 pb-36 pt-5 space-y-5 max-w-lg mx-auto">
-          {/* Slim segmented control */}
-          <div className="flex p-0.5 rounded-xl bg-foreground/[0.04]">
+        <AnimatedPage className="px-6 pb-36 pt-12 space-y-8 max-w-lg mx-auto">
+          {/* Title row */}
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-semibold">{t('wardrobe.title')}</h1>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setIsGridView(!isGridView)}
+                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted/40 transition-colors active:scale-95"
+                aria-label={isGridView ? 'List view' : 'Grid view'}
+              >
+                {isGridView ? <List className="w-[18px] h-[18px] text-muted-foreground" /> : <Grid3X3 className="w-[18px] h-[18px] text-muted-foreground" />}
+              </button>
+              {!isSelecting ? (
+                <button onClick={() => setIsSelecting(true)} className="text-[13px] font-medium text-muted-foreground px-2 py-1 rounded-lg hover:bg-muted/40 transition-colors">{t('wardrobe.select')}</button>
+              ) : (
+                <button onClick={() => { setIsSelecting(false); setSelectedIds(new Set()); }} className="text-[13px] font-medium text-primary px-2 py-1 rounded-lg hover:bg-muted/40 transition-colors">{t('common.cancel')}</button>
+              )}
+            </div>
+          </div>
+
+          {/* Segmented control */}
+          <div className="flex p-0.5 rounded-xl bg-muted/30">
             {(['garments', 'outfits'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={cn(
-                  'flex-1 py-1.5 text-xs font-medium rounded-lg transition-all duration-200',
+                  'flex-1 py-2 text-[13px] font-medium rounded-[10px] transition-all duration-200',
                   activeTab === tab
-                    ? 'bg-foreground/[0.06] text-foreground'
-                    : 'text-muted-foreground'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground/60'
                 )}
               >
                 {t(`wardrobe.tab_${tab}`)}
@@ -482,37 +484,35 @@ export default function WardrobePage() {
 
           <AnimatedTab tabKey={activeTab}>
             {activeTab === 'garments' ? (
-              <div className="space-y-5">
-                {/* Search bar full width + filter icon */}
-                <div className="flex gap-2">
+              <div className="space-y-6">
+                {/* Search bar + filter */}
+                <div className="flex gap-2.5">
                   <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 pointer-events-none" />
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40 pointer-events-none" />
                     <Input
                       placeholder={`${t('wardrobe.search')} ${totalCount ?? ''} ${t('wardrobe.garments_count_label')}...`}
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="pl-9 bg-foreground/[0.04] border-0 h-10 rounded-xl text-sm"
+                      className="pl-10 bg-muted/30 border-0 h-11 rounded-xl text-[14px] placeholder:text-muted-foreground/40"
                     />
                     {search && (
-                      <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <X className="w-4 h-4 text-muted-foreground" />
+                      <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 active:scale-90 transition-transform">
+                        <X className="w-4 h-4 text-muted-foreground/50" />
                       </button>
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
+                  <button
                     onClick={() => setShowFilterSheet(true)}
                     className={cn(
-                      'h-10 w-10 rounded-xl flex-shrink-0',
-                      hasActiveFilters && 'bg-accent/10 text-accent'
+                      'h-11 w-11 rounded-xl flex-shrink-0 flex items-center justify-center transition-colors relative',
+                      hasActiveFilters ? 'bg-primary/10 text-primary' : 'bg-muted/30 text-muted-foreground/60 hover:bg-muted/50'
                     )}
                   >
                     <SlidersHorizontal className="w-4 h-4" />
                     {hasActiveFilters && (
-                      <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-accent" />
+                      <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-primary" />
                     )}
-                  </Button>
+                  </button>
                 </div>
 
                 {/* Smart groupings — only when no search/filters active */}
@@ -527,14 +527,14 @@ export default function WardrobePage() {
 
                 {/* Bulk select bar */}
                 {isSelecting && selectedIds.size > 0 && (
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-foreground/[0.04]">
-                    <span className="text-sm font-medium">{selectedIds.size} {t('wardrobe.selected')}</span>
+                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-muted/30">
+                    <span className="text-[13px] font-medium">{selectedIds.size} {t('wardrobe.selected')}</span>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={handleBulkLaundry} className="rounded-xl">
-                        <WashingMachine className="w-4 h-4 mr-1" />{t('wardrobe.laundry')}
+                      <Button size="sm" variant="outline" onClick={handleBulkLaundry} className="rounded-xl h-8 text-xs">
+                        <WashingMachine className="w-3.5 h-3.5 mr-1" />{t('wardrobe.laundry')}
                       </Button>
-                      <Button size="sm" variant="destructive" onClick={handleBulkDelete} className="rounded-xl">
-                        <Trash2 className="w-4 h-4 mr-1" />{t('wardrobe.remove')}
+                      <Button size="sm" variant="destructive" onClick={handleBulkDelete} className="rounded-xl h-8 text-xs">
+                        <Trash2 className="w-3.5 h-3.5 mr-1" />{t('wardrobe.remove')}
                       </Button>
                     </div>
                   </div>
