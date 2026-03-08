@@ -1679,6 +1679,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'privacy.contact_title': 'Kontakt',
     'privacy.contact_text': 'För frågor om integritet, kontakta oss på',
     'privacy.gdpr_note': 'BURS följer GDPR. Din data lagras säkert och delas aldrig med tredje part.',
+    'offline.banner': 'Du är offline',
+    'offline.syncing': 'Synkar ändringar…',
+    'offline.pending': 'väntande',
   },
 
   en: {
@@ -3288,6 +3291,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'privacy.contact_title': 'Contact',
     'privacy.contact_text': 'For questions about privacy, contact us at',
     'privacy.gdpr_note': 'BURS complies with GDPR. Your data is stored securely and never shared with third parties.',
+    'offline.banner': "You're offline",
+    'offline.syncing': 'Syncing changes…',
+    'offline.pending': 'pending',
   },
 
   no: {

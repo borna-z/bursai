@@ -16,10 +16,14 @@ import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 2, // 2 minutes
-      gcTime: 1000 * 60 * 10,   // 10 minutes
+      staleTime: 1000 * 60 * 2,      // 2 minutes
+      gcTime: 1000 * 60 * 30,         // 30 minutes — keep cache longer for offline
       refetchOnWindowFocus: false,
       retry: 1,
+      networkMode: 'offlineFirst',     // serve cached data when offline
+    },
+    mutations: {
+      networkMode: 'offlineFirst',
     },
   },
 });

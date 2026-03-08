@@ -9,8 +9,8 @@ Audited all data-fetching views. Replaced raw `Loader2` spinners with contextual
 ### Step 2: Haptic & Micro-Interaction Pass ✅
 Added haptic feedback to: GarmentDetail (toggle laundry, mark worn, delete), OutfitDetail (save/unsave, rating, mark worn), DayCard (swap, mark worn, remove, plan, generate), PlanTomorrowCard, InsightsBanner, SmartInsightCard, SwipeableGarmentCard (swipe open). Replaced raw `navigator.vibrate` calls in LiveScan with standardized haptics. Added spring `whileTap` animations to SmartInsightCard.
 
-### Step 3: Offline Mode & Queued Actions 🔲
-Detect offline state and show a persistent offline banner. Queue mutations (add garment, save outfit, mark worn) locally and replay when back online. Cache critical data (garments, planned outfits) in localStorage for offline viewing.
+### Step 3: Offline Mode & Queued Actions ✅
+Created `lib/offlineQueue.ts` with localStorage-backed mutation queue (enqueue, replay, clear). Added `useOfflineQueue` hook for auto-replay on reconnect. Upgraded `OfflineBanner` to show queue count and syncing state. Configured React Query with `networkMode: 'offlineFirst'` and extended `gcTime` to 30 minutes for offline data access.
 
 ### Step 4: Pull-to-Refresh & Infinite Scroll 🔲
 Implement native-feeling pull-to-refresh on Home, Wardrobe, and Plan pages. Add infinite scroll / virtualized lists for large wardrobes (100+ garments) using `@tanstack/react-virtual`.
