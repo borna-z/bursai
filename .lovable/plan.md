@@ -31,8 +31,8 @@ Track day-of-week and seasonal correlations. Analyzes 6 months of wear_logs to d
 ### Step 8: Comfort vs Style Learning ✅
 Observe which garments get re-worn frequently (comfort signals) vs which get high ratings but low rewear (aspiration pieces). Builds a per-garment comfort/aspiration signal and detects user tendency. Feeds a `comfortStyleScore` (10% weight) into composite scoring, balancing both signals based on user behavior.
 
-### Step 9: Color Temperature Profiling
-Automatically detect if user gravitates toward warm palette (earth tones, reds, oranges) or cool palette (blues, greys, lavender). Weight suggestions accordingly.
+### Step 9: Color Temperature Profiling ✅
+Automatically detects if user gravitates toward warm palette (earth tones, reds, oranges) or cool palette (blues, greys, lavender). Surfaces a visual color temperature widget on the Insights dashboard with gradient indicator, percentage breakdown, and palette label. Premium-gated.
 
 ### Step 10: Body-Aware Fit Intelligence
 Use height/weight data + fit preferences to recommend proportionally balanced outfits (e.g., oversized top + slim bottom).

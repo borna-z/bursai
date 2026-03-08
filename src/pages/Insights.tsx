@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Shirt, Sparkles, TrendingUp, Lock, Palette, Gem, Trophy } from 'lucide-react';
+import { Loader2, Shirt, Sparkles, TrendingUp, Lock, Palette, Gem, Trophy, Thermometer, Sun, Snowflake } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useInsights, type Garment } from '@/hooks/useInsights';
+import { useInsights, type Garment, type ColorTemperatureData } from '@/hooks/useInsights';
 import { useSubscription } from '@/hooks/useSubscription';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -146,6 +146,77 @@ function ColorDistribution({ garments, isPremium, t }: { garments: Garment[]; is
   );
 }
 
+/* ─── Color Temperature Widget ─── */
+function ColorTemperatureWidget({ data, isPremium, t }: { data: ColorTemperatureData; isPremium: boolean; t: (k: string) => string }) {
+  // Map temperature (-1 to +1) to a percentage position (0-100)
+  const position = Math.round((data.temperature + 1) * 50);
+  const total = data.warmCount + data.coolCount + data.neutralCount;
+  const warmPct = total > 0 ? Math.round((data.warmCount / total) * 100) : 0;
+  const coolPct = total > 0 ? Math.round((data.coolCount / total) * 100) : 0;
+  const neutralPct = total > 0 ? Math.round((data.neutralCount / total) * 100) : 0;
+
+  const paletteLabel = t(`insights.palette_${data.dominantPalette}`);
+
+  return (
+    <Section>
+      <SectionLabel icon={Thermometer} label={t('insights.color_temp')} />
+      <div className={cn(!isPremium && "relative")}>
+        <div className={cn("space-y-5", !isPremium && "blur-sm select-none")}>
+          {/* Gradient bar with indicator */}
+          <div className="space-y-3">
+            <div className="relative h-3 rounded-full overflow-hidden bg-gradient-to-r from-blue-400 via-slate-300 to-orange-400">
+              <motion.div
+                className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-background border-2 border-foreground shadow-md"
+                initial={{ left: '50%' }}
+                animate={{ left: `${position}%` }}
+                transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1], delay: 0.3 }}
+                style={{ marginLeft: '-10px' }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground/60 uppercase tracking-wider">
+              <div className="flex items-center gap-1">
+                <Snowflake className="w-3 h-3" />
+                <span>{t('insights.cool')}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Sun className="w-3 h-3" />
+                <span>{t('insights.warm')}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Palette label */}
+          <div className="text-center">
+            <p className="text-sm font-semibold">{paletteLabel}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{t('insights.temp_desc')}</p>
+          </div>
+
+          {/* Breakdown pills */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 rounded-xl bg-orange-500/8 border border-orange-500/10 p-3 text-center">
+              <span className="text-lg font-bold tabular-nums text-orange-500">{warmPct}%</span>
+              <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.warm')}</p>
+            </div>
+            <div className="flex-1 rounded-xl bg-muted/40 border border-border/10 p-3 text-center">
+              <span className="text-lg font-bold tabular-nums">{neutralPct}%</span>
+              <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.neutral')}</p>
+            </div>
+            <div className="flex-1 rounded-xl bg-blue-500/8 border border-blue-500/10 p-3 text-center">
+              <span className="text-lg font-bold tabular-nums text-blue-500">{coolPct}%</span>
+              <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.cool')}</p>
+            </div>
+          </div>
+        </div>
+        {!isPremium && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Lock className="w-5 h-5 text-muted-foreground/40" />
+          </div>
+        )}
+      </div>
+    </Section>
+  );
+}
+
 /* ─── Main page ─── */
 export default function InsightsPage() {
   const navigate = useNavigate();
@@ -257,6 +328,9 @@ export default function InsightsPage() {
 
           {/* ─── AI Suggestions ─── */}
           <AISuggestions isPremium={isPremium} />
+
+          {/* ─── Color Temperature ─── */}
+          <ColorTemperatureWidget data={insights.colorTemperature} isPremium={isPremium} t={t} />
 
           {/* ─── Color Distribution ─── */}
           <ColorDistribution garments={allGarments} isPremium={isPremium} t={t} />
