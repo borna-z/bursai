@@ -5013,6 +5013,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'privacy.s6_title': 'Poisto', 'privacy.s6_content': 'Voit poistaa tilisi ja kaikki siihen liittyvät tiedot milloin tahansa asetuksista.',
     'privacy.contact_title': 'Yhteystiedot', 'privacy.contact_text': 'Tietosuojakysymyksissä ota yhteyttä',
     'privacy.gdpr_note': 'BURS noudattaa GDPR:ää. Tietosi tallennetaan turvallisesti eikä niitä koskaan jaeta kolmansille osapuolille.',
+    'error.title': 'Jokin meni pieleen', 'error.desc': 'Odottamaton virhe tapahtui. Yritä ladata sivu uudelleen.', 'error.try_again': 'Yritä uudelleen', 'error.reload': 'Lataa uudelleen',
+    'seed.deleted': 'Kaikki vanhat vaatteet poistettu', 'seed.delete_error': 'Vanhojen vaatteiden poisto epäonnistui', 'seed.created': 'Luotiin {done} vaatetta ({failed} epäonnistui)', 'seed.batch_failed': 'Erä epäonnistui', 'seed.retry_failed': 'Uudelleenyritys epäonnistui',
+    'genimg.title': 'Luo uniikit kuvat', 'genimg.desc': 'Luo AI-tuotekuvat kaikille vaatteille ominaisuuksien perusteella (väri, materiaali, tyyppi).', 'genimg.total': 'Vaatteita yhteensä', 'genimg.generated': 'Luotu', 'genimg.failed': 'Epäonnistui', 'genimg.processing': 'Käsitellään…', 'genimg.done': 'Valmis', 'genimg.generating': 'Luodaan…', 'genimg.generate_all': 'Luo kaikki kuvat', 'genimg.retry': 'Yritä uudelleen',
+    'contact.title': 'Yhteystiedot', 'contact.subtitle': 'Onko kysyttävää? Autamme mielellämme.', 'contact.success': 'Kiitos viestistäsi. Palaamme asiaan mahdollisimman pian.', 'contact.name': 'Nimesi', 'contact.email': 'Sähköpostiosoitteesi', 'contact.message': 'Viestisi', 'contact.send': 'Lähetä viesti', 'contact.rights': 'Kaikki oikeudet pidätetään.', 'contact.gdpr_note': 'BURS noudattaa GDPR:ää. Tietosi tallennetaan turvallisesti eikä niitä jaeta kolmansille osapuolille.',
+    'footer.privacy': 'Tietosuojakäytäntö', 'footer.terms': 'Käyttöehdot', 'footer.agree': 'Käyttämällä BURSia hyväksyt meidän', 'footer.rights': 'Kaikki oikeudet pidätetään.',
+    'calendar.google_privacy': 'BURS lukee kalenteritapahtumasi auttaakseen suunnittelemaan asuja aikataulusi ympärille. Voit katkaista yhteyden milloin tahansa.',
+    'reaction.styled': 'Tyylikäs', 'reaction.creative': 'Luova', 'reaction.sustainable': 'Kestävä',
+    'wardrobe.reel_save_error': 'Kuvan tallennus epäonnistui',
   },
 
   de: {
