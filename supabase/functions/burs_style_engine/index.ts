@@ -997,10 +997,10 @@ serve(async (req) => {
         .eq("outfits.user_id", userId)
         .order("outfits(generated_at)", { ascending: false })
         .limit(50),
-      // Fetch outfits with ratings/feedback for learning
+      // Fetch outfits with ratings/feedback for learning (include generated_at for decay)
       supabase
         .from("outfits")
-        .select("id, rating, feedback, weather")
+        .select("id, rating, feedback, weather, generated_at")
         .eq("user_id", userId)
         .not("rating", "is", null)
         .order("generated_at", { ascending: false })
