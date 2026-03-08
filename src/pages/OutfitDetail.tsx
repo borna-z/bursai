@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Star, Bookmark, BookmarkCheck, Check, RefreshCw, Share2, Loader2,
   Sparkles, Copy, Download, Link, Link2Off, Calendar, Thermometer, ThermometerSnowflake, Shirt, Briefcase,
-  Heart, Frown, Palette, Meh, ImageIcon,
+  Heart, Frown, Palette, Meh, ImageIcon, Camera,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
@@ -19,6 +19,7 @@ import { useWeather } from '@/hooks/useWeather';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useGenerateFlatlay } from '@/hooks/useFlatlay';
+import { useOutfitFeedback, useSubmitPhotoFeedback } from '@/hooks/usePhotoFeedback';
 
 /* ── Swap Sheet ─────────────────────────────────────── */
 
@@ -121,6 +122,9 @@ export default function OutfitDetailPage() {
   const undoMarkWorn = useUndoMarkWorn();
   const { candidates, isLoadingCandidates, fetchCandidates, swapGarment, isSwapping, clearCandidates } = useSwapGarment();
   const { generateFlatlay, isGenerating: isGeneratingFlatlay } = useGenerateFlatlay();
+  const { data: photoFeedback, isLoading: isLoadingFeedback } = useOutfitFeedback(id);
+  const submitFeedback = useSubmitPhotoFeedback();
+  const selfieInputRef = useRef<HTMLInputElement>(null);
 
   const [rating, setRating] = useState<number | null>(null);
   const [swapSheet, setSwapSheet] = useState<{ isOpen: boolean; slot: string; outfitItemId: string }>({ isOpen: false, slot: '', outfitItemId: '' });
@@ -452,6 +456,118 @@ export default function OutfitDetailPage() {
                 <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
                 <p className="text-sm text-muted-foreground">{t('outfit.flatlay_generating')}</p>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Photo Feedback (Mirror Check) ── */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Camera className="w-4 h-4 text-primary" />
+              <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">
+                {t('outfit.photo_feedback')}
+              </p>
+            </div>
+            {!photoFeedback && !submitFeedback.isPending && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-xl h-8 text-xs"
+                onClick={() => selfieInputRef.current?.click()}
+              >
+                <Camera className="w-3 h-3 mr-1.5" />{t('outfit.photo_feedback_upload')}
+              </Button>
+            )}
+          </div>
+
+          <input
+            ref={selfieInputRef}
+            type="file"
+            accept="image/*"
+            capture="user"
+            className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file || !id) return;
+              try {
+                await submitFeedback.mutateAsync({ outfitId: id, selfieFile: file });
+                toast.success(t('outfit.photo_feedback_success'));
+              } catch {
+                toast.error(t('outfit.photo_feedback_error'));
+              }
+              e.target.value = '';
+            }}
+          />
+
+          {submitFeedback.isPending && (
+            <div className="rounded-2xl bg-muted/20 p-8 flex flex-col items-center justify-center gap-3">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">{t('outfit.photo_feedback_analyzing')}</p>
+            </div>
+          )}
+
+          {photoFeedback && (
+            <div className="space-y-4">
+              {/* Selfie preview */}
+              <div className="rounded-2xl overflow-hidden bg-muted/20">
+                <LazyImageSimple
+                  imagePath={photoFeedback.selfie_path}
+                  alt="Your selfie"
+                  className="w-full aspect-[3/4] object-cover"
+                />
+              </div>
+
+              {/* Scores */}
+              <div className="space-y-3">
+                {[
+                  { key: 'fit_score', label: t('outfit.photo_feedback_fit'), value: photoFeedback.fit_score },
+                  { key: 'color_match_score', label: t('outfit.photo_feedback_color'), value: photoFeedback.color_match_score },
+                  { key: 'overall_score', label: t('outfit.photo_feedback_overall'), value: photoFeedback.overall_score },
+                ].filter(m => m.value != null).map(({ key, label, value }) => (
+                  <div key={key} className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">{label}</span>
+                      <span className="text-sm font-semibold">{Number(value).toFixed(1)}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all duration-700"
+                        style={{ width: `${Math.round(Number(value) * 10)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Commentary */}
+              {photoFeedback.commentary && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                    <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">AI Feedback</p>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{photoFeedback.commentary}</p>
+                </div>
+              )}
+
+              {/* Retake */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-xl text-xs w-full"
+                onClick={() => selfieInputRef.current?.click()}
+                disabled={submitFeedback.isPending}
+              >
+                <Camera className="w-3 h-3 mr-1.5" />{t('outfit.photo_feedback_upload')}
+              </Button>
+            </div>
+          )}
+
+          {!photoFeedback && !submitFeedback.isPending && (
+            <div className="rounded-2xl border border-dashed border-border/40 bg-muted/10 p-8 flex flex-col items-center justify-center gap-2">
+              <Camera className="w-8 h-8 text-muted-foreground/20" />
+              <p className="text-xs text-muted-foreground/40">{t('outfit.photo_feedback_hint')}</p>
             </div>
           )}
         </div>
