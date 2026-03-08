@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Palette, Shirt, Bell, User, Shield, LogOut, ChevronRight, TrendingUp, Database, Compass, Trophy, Search, Heart, ShoppingBag, Clock, Users } from 'lucide-react';
+import { Palette, Shirt, Bell, User, Shield, LogOut, ChevronRight, TrendingUp, Database } from 'lucide-react';
 import { SettingsPageSkeleton } from '@/components/ui/skeletons';
 import { useQuery } from '@tanstack/react-query';
 
@@ -79,35 +79,6 @@ export default function SettingsPage() {
               <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
             </SettingsRow>
           )}
-        </SettingsGroup>
-
-        {/* Social */}
-        <SettingsGroup>
-          <SettingsRow icon={<Compass />} label={t('settings.inspiration')} sublabel={t('feed.title')} onClick={() => navigate('/feed')}>
-            <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
-          </SettingsRow>
-          <SettingsRow icon={<Trophy />} label={t('settings.challenges')} sublabel={t('challenges.title')} onClick={() => navigate('/challenges')} last>
-            <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
-          </SettingsRow>
-        </SettingsGroup>
-
-        {/* AI Tools */}
-        <SettingsGroup>
-          <SettingsRow icon={<Search />} label={t('ai.visual_search')} sublabel={t('ai.vs_settings_sub')} onClick={() => navigate('/ai/visual-search')}>
-            <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
-          </SettingsRow>
-          <SettingsRow icon={<Heart />} label={t('ai.mood_title')} sublabel={t('ai.mood_settings_sub')} onClick={() => navigate('/ai/mood-outfit')}>
-            <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
-          </SettingsRow>
-          <SettingsRow icon={<ShoppingBag />} label={t('ai.shopping_title')} sublabel={t('ai.shopping_settings_sub')} onClick={() => navigate('/ai/smart-shopping')}>
-            <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
-          </SettingsRow>
-          <SettingsRow icon={<Clock />} label={t('ai.aging_title')} sublabel={t('ai.aging_settings_sub')} onClick={() => navigate('/ai/wardrobe-aging')}>
-            <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
-          </SettingsRow>
-          <SettingsRow icon={<Users />} label={t('ai.twin_title')} sublabel={t('ai.twin_settings_sub')} onClick={() => navigate('/ai/style-twin')} last>
-            <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
-          </SettingsRow>
         </SettingsGroup>
 
         {/* Sign out */}

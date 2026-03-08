@@ -35,6 +35,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'nav.stylist': 'Stylisten',
     'nav.settings': 'Inställningar',
     'nav.outfits': 'Outfits',
+    'nav.discover': 'Upptäck',
 
     // Onboarding - Language step
     'onboarding.language.title': 'Välj språk',
@@ -719,6 +720,17 @@ export const translations: Record<Locale, Record<string, string>> = {
     'settings.social': 'Socialt',
     'settings.inspiration': 'Inspiration',
     'settings.challenges': 'Stilutmaningar',
+
+    // Discover
+    'discover.title': 'Upptäck',
+    'discover.subtitle': 'Community, utmaningar och AI-verktyg',
+    'discover.trending': 'Trendande outfits',
+    'discover.see_all': 'Visa alla',
+    'discover.ai_tools': 'AI-verktyg',
+    'discover.your_profile': 'Din profil',
+    'discover.setup_profile': 'Välj ett användarnamn för att dela',
+    'discover.saved': 'Sparad inspiration',
+    'challenges.joined_label': 'Deltar',
 
     'wardrobe.import_link': 'Importera via länk',
     'wardrobe.live_scan': 'BURS Live Scan',
@@ -1800,6 +1812,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'nav.wardrobe': 'Wardrobe',
     'nav.plan': 'Plan',
     'nav.stylist': 'Stylist',
+    'nav.discover': 'Discover',
     'nav.settings': 'Settings',
     'nav.outfits': 'Outfits',
     'onboarding.language.title': 'Choose language',
@@ -2458,6 +2471,17 @@ export const translations: Record<Locale, Record<string, string>> = {
     'settings.social': 'Social',
     'settings.inspiration': 'Inspiration',
     'settings.challenges': 'Style Challenges',
+
+    // Discover
+    'discover.title': 'Discover',
+    'discover.subtitle': 'Community, challenges & AI tools',
+    'discover.trending': 'Trending outfits',
+    'discover.see_all': 'See all',
+    'discover.ai_tools': 'AI Tools',
+    'discover.your_profile': 'Your profile',
+    'discover.setup_profile': 'Set a username to share your style',
+    'discover.saved': 'Saved inspiration',
+    'challenges.joined_label': 'Joined',
 
     'wardrobe.import_link': 'Import from link',
     'wardrobe.live_scan': 'BURS Live Scan',
@@ -3519,7 +3543,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   no: {
-    'nav.today': 'I dag', 'nav.wardrobe': 'Garderobe', 'nav.plan': 'Plan', 'nav.stylist': 'Stylisten', 'nav.settings': 'Innstillinger',
+    'nav.today': 'I dag', 'nav.wardrobe': 'Garderobe', 'nav.plan': 'Plan', 'nav.stylist': 'Stylisten', 'nav.settings': 'Innstillinger', 'nav.discover': 'Oppdag',
     'onboarding.language.title': 'Velg språk', 'onboarding.language.subtitle': 'Du kan endre dette senere i innstillinger',
     'onboarding.body.title': 'Din kropp, din stil', 'onboarding.body.subtitle': 'AI-stylisten din bruker målene dine for å gi råd om passform, proporsjoner og stilvalg – akkurat som en personlig stylist.',
     'onboarding.body.height': 'Høyde', 'onboarding.body.weight': 'Vekt', 'onboarding.body.weight_optional': '(valgfritt)',
@@ -3993,7 +4017,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   da: {
-    'nav.today': 'I dag', 'nav.wardrobe': 'Garderobe', 'nav.plan': 'Plan', 'nav.stylist': 'Stylisten', 'nav.settings': 'Indstillinger',
+    'nav.today': 'I dag', 'nav.wardrobe': 'Garderobe', 'nav.plan': 'Plan', 'nav.stylist': 'Stylisten', 'nav.settings': 'Indstillinger', 'nav.discover': 'Opdag',
     'onboarding.language.title': 'Vælg sprog', 'onboarding.language.subtitle': 'Du kan ændre dette senere i indstillinger',
     'onboarding.body.title': 'Din krop, din stil', 'onboarding.body.subtitle': 'Din AI-stylist bruger dine mål til at rådgive om pasform, proportioner og stilvalg.',
     'onboarding.body.height': 'Højde', 'onboarding.body.weight': 'Vægt', 'onboarding.body.weight_optional': '(valgfrit)',
@@ -4315,7 +4339,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   fi: {
-    'nav.today': 'Tänään', 'nav.wardrobe': 'Vaatekaappi', 'nav.plan': 'Suunnitelma', 'nav.stylist': 'Stylisti', 'nav.settings': 'Asetukset',
+    'nav.today': 'Tänään', 'nav.wardrobe': 'Vaatekaappi', 'nav.plan': 'Suunnitelma', 'nav.stylist': 'Stylisti', 'nav.settings': 'Asetukset', 'nav.discover': 'Löydä',
     'onboarding.language.title': 'Valitse kieli', 'onboarding.language.subtitle': 'Voit muuttaa tämän myöhemmin asetuksissa',
     'onboarding.body.title': 'Sinun kehosi, sinun tyylisi', 'onboarding.body.subtitle': 'AI-stylistisi käyttää mittojasi antaakseen neuvoja istuvuudesta ja tyylivalinnoista.',
     'onboarding.body.height': 'Pituus', 'onboarding.body.weight': 'Paino', 'onboarding.body.weight_optional': '(valinnainen)',
@@ -4637,7 +4661,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   de: {
-    'nav.today': 'Heute', 'nav.wardrobe': 'Kleiderschrank', 'nav.plan': 'Planen', 'nav.stylist': 'Stylist', 'nav.settings': 'Einstellungen',
+    'nav.today': 'Heute', 'nav.wardrobe': 'Kleiderschrank', 'nav.plan': 'Planen', 'nav.stylist': 'Stylist', 'nav.settings': 'Einstellungen', 'nav.discover': 'Entdecken',
     'onboarding.language.title': 'Sprache wählen', 'onboarding.language.subtitle': 'Du kannst dies später in den Einstellungen ändern',
     'onboarding.body.title': 'Dein Körper, dein Stil', 'onboarding.body.subtitle': 'Dein KI-Stylist nutzt deine Maße für Passform-, Proportions- und Stilberatung.',
     'onboarding.body.height': 'Größe', 'onboarding.body.weight': 'Gewicht', 'onboarding.body.weight_optional': '(optional)',
@@ -4959,7 +4983,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   fr: {
-    'nav.today': 'Aujourd\'hui', 'nav.wardrobe': 'Garde-robe', 'nav.plan': 'Planning', 'nav.stylist': 'Styliste', 'nav.settings': 'Paramètres',
+    'nav.today': 'Aujourd\'hui', 'nav.wardrobe': 'Garde-robe', 'nav.plan': 'Planning', 'nav.stylist': 'Styliste', 'nav.settings': 'Paramètres', 'nav.discover': 'Découvrir',
     'onboarding.language.title': 'Choisir la langue', 'onboarding.language.subtitle': 'Vous pouvez changer ceci plus tard dans les paramètres',
     'onboarding.body.title': 'Votre corps, votre style', 'onboarding.body.subtitle': 'Votre styliste IA utilise vos mensurations pour conseiller coupe, proportions et style.',
     'onboarding.body.height': 'Taille', 'onboarding.body.weight': 'Poids', 'onboarding.body.weight_optional': '(facultatif)',
@@ -5258,7 +5282,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   es: {
-    'nav.today': 'Hoy', 'nav.wardrobe': 'Armario', 'nav.plan': 'Plan', 'nav.stylist': 'Estilista', 'nav.settings': 'Ajustes',
+    'nav.today': 'Hoy', 'nav.wardrobe': 'Armario', 'nav.plan': 'Plan', 'nav.stylist': 'Estilista', 'nav.settings': 'Ajustes', 'nav.discover': 'Descubrir',
     'onboarding.language.title': 'Elige idioma', 'onboarding.language.subtitle': 'Puedes cambiarlo después en ajustes',
     'onboarding.body.title': 'Tu cuerpo, tu estilo', 'onboarding.body.subtitle': 'Tu estilista IA usa tus medidas para asesorarte.',
     'onboarding.body.height': 'Altura', 'onboarding.body.weight': 'Peso', 'onboarding.body.weight_optional': '(opcional)',
@@ -5385,7 +5409,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   it: {
-    'nav.today': 'Oggi', 'nav.wardrobe': 'Guardaroba', 'nav.plan': 'Piano', 'nav.stylist': 'Stilista', 'nav.settings': 'Impostazioni',
+    'nav.today': 'Oggi', 'nav.wardrobe': 'Guardaroba', 'nav.plan': 'Piano', 'nav.stylist': 'Stilista', 'nav.settings': 'Impostazioni', 'nav.discover': 'Scopri',
     'onboarding.language.title': 'Scegli la lingua', 'onboarding.language.subtitle': 'Puoi cambiare in seguito nelle impostazioni',
     'onboarding.body.title': 'Il tuo corpo, il tuo stile', 'onboarding.body.subtitle': 'Il tuo stilista IA usa le tue misure per consigli su vestibilità e stile.',
     'onboarding.body.height': 'Altezza', 'onboarding.body.weight': 'Peso', 'onboarding.body.weight_optional': '(facoltativo)',
@@ -5452,7 +5476,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   pt: {
-    'nav.today': 'Hoje', 'nav.wardrobe': 'Guarda-roupa', 'nav.plan': 'Plano', 'nav.stylist': 'Estilista', 'nav.settings': 'Definições',
+    'nav.today': 'Hoje', 'nav.wardrobe': 'Guarda-roupa', 'nav.plan': 'Plano', 'nav.stylist': 'Estilista', 'nav.settings': 'Definições', 'nav.discover': 'Descobrir',
     'onboarding.language.title': 'Escolher idioma', 'onboarding.language.subtitle': 'Pode alterar mais tarde nas definições',
     'onboarding.body.title': 'O seu corpo, o seu estilo', 'onboarding.body.subtitle': 'O seu estilista IA usa as suas medidas para aconselhar sobre corte e estilo.',
     'onboarding.body.height': 'Altura', 'onboarding.body.weight': 'Peso', 'onboarding.body.weight_optional': '(opcional)',
@@ -5519,7 +5543,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   nl: {
-    'nav.today': 'Vandaag', 'nav.wardrobe': 'Kledingkast', 'nav.plan': 'Planning', 'nav.stylist': 'Stylist', 'nav.settings': 'Instellingen',
+    'nav.today': 'Vandaag', 'nav.wardrobe': 'Kledingkast', 'nav.plan': 'Planning', 'nav.stylist': 'Stylist', 'nav.settings': 'Instellingen', 'nav.discover': 'Ontdek',
     'onboarding.language.title': 'Kies taal', 'onboarding.language.subtitle': 'Je kunt dit later wijzigen in instellingen',
     'onboarding.body.title': 'Je lichaam, jouw stijl', 'onboarding.body.subtitle': 'Je AI-stylist gebruikt je maten voor advies over pasvorm en stijl.',
     'onboarding.body.height': 'Lengte', 'onboarding.body.weight': 'Gewicht', 'onboarding.body.weight_optional': '(optioneel)',
@@ -5586,7 +5610,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   pl: {
-    'nav.today': 'Dziś', 'nav.wardrobe': 'Garderoba', 'nav.plan': 'Plan', 'nav.stylist': 'Stylista', 'nav.settings': 'Ustawienia',
+    'nav.today': 'Dziś', 'nav.wardrobe': 'Garderoba', 'nav.plan': 'Plan', 'nav.stylist': 'Stylista', 'nav.settings': 'Ustawienia', 'nav.discover': 'Odkryj',
     'onboarding.language.title': 'Wybierz język', 'onboarding.language.subtitle': 'Możesz to zmienić później w ustawieniach',
     'onboarding.body.title': 'Twoje ciało, Twój styl', 'onboarding.body.subtitle': 'Twój stylista AI używa Twoich wymiarów do porad o kroju i stylu.',
     'onboarding.body.height': 'Wzrost', 'onboarding.body.weight': 'Waga', 'onboarding.body.weight_optional': '(opcjonalnie)',
@@ -5653,7 +5677,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   ar: {
-    'nav.today': 'اليوم', 'nav.wardrobe': 'خزانة الملابس', 'nav.plan': 'الخطة', 'nav.stylist': 'المصمّم', 'nav.settings': 'الإعدادات',
+    'nav.today': 'اليوم', 'nav.wardrobe': 'خزانة الملابس', 'nav.plan': 'الخطة', 'nav.stylist': 'المصمّم', 'nav.settings': 'الإعدادات', 'nav.discover': 'اكتشف',
     'onboarding.language.title': 'اختر اللغة', 'onboarding.language.subtitle': 'يمكنك تغيير ذلك لاحقًا في الإعدادات',
     'onboarding.body.title': 'جسمك، أسلوبك', 'onboarding.body.subtitle': 'يستخدم المصمّم الذكي قياساتك لتقديم نصائح حول المقاس والتناسق والأناقة.',
     'onboarding.body.height': 'الطول', 'onboarding.body.weight': 'الوزن', 'onboarding.body.weight_optional': '(اختياري)',
@@ -5850,7 +5874,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   fa: {
-    'nav.today': 'امروز', 'nav.wardrobe': 'کمد لباس', 'nav.plan': 'برنامه', 'nav.stylist': 'استایلیست', 'nav.settings': 'تنظیمات',
+    'nav.today': 'امروز', 'nav.wardrobe': 'کمد لباس', 'nav.plan': 'برنامه', 'nav.stylist': 'استایلیست', 'nav.settings': 'تنظیمات', 'nav.discover': 'کشف',
     'onboarding.language.title': 'زبان را انتخاب کنید', 'onboarding.language.subtitle': 'بعداً در تنظیمات قابل تغییر است',
     'onboarding.body.title': 'بدن شما، سبک شما', 'onboarding.body.subtitle': 'استایلیست هوشمند از اندازه‌های شما برای مشاوره استفاده می‌کند.',
     'onboarding.body.height': 'قد', 'onboarding.body.weight': 'وزن', 'onboarding.body.weight_optional': '(اختیاری)',

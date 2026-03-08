@@ -1,4 +1,4 @@
-import { Home, Shirt, CalendarDays, Bot } from 'lucide-react';
+import { Home, Shirt, CalendarDays, Bot, Compass } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,7 @@ const tabKeys = [
   { path: '/wardrobe', labelKey: 'nav.wardrobe', icon: Shirt },
   { path: '/plan', labelKey: 'nav.plan', icon: CalendarDays },
   { path: '/ai', labelKey: 'nav.stylist', icon: Bot },
+  { path: '/discover', labelKey: 'nav.discover', icon: Compass },
 ];
 
 export function BottomNav() {
@@ -26,7 +27,7 @@ export function BottomNav() {
             onClick={() => hapticLight()}
             className={({ isActive }) =>
               cn(
-                'relative flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[11px] font-medium transition-colors duration-200',
+                'relative flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[10px] font-medium transition-colors duration-200',
                 isActive
                   ? 'text-accent'
                   : 'text-muted-foreground hover:text-foreground'
