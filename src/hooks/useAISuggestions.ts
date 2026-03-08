@@ -34,13 +34,14 @@ export function useAISuggestions() {
         throw new Error('Not authenticated');
       }
 
+      // Use BURS style engine in suggest mode
       const response = await supabase.functions.invoke<AISuggestionsResponse>(
-        'suggest_outfit_combinations',
+        'burs_style_engine',
         {
           headers: {
             Authorization: `Bearer ${session.access_token}`,
           },
-          body: { locale },
+          body: { mode: 'suggest', locale, occasion: 'vardag' },
         }
       );
 

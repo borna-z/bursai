@@ -360,6 +360,7 @@ export type Database = {
           rating: number | null
           saved: boolean | null
           share_enabled: boolean | null
+          style_score: Json | null
           style_vibe: string | null
           user_id: string
           weather: Json | null
@@ -375,6 +376,7 @@ export type Database = {
           rating?: number | null
           saved?: boolean | null
           share_enabled?: boolean | null
+          style_score?: Json | null
           style_vibe?: string | null
           user_id: string
           weather?: Json | null
@@ -390,6 +392,7 @@ export type Database = {
           rating?: number | null
           saved?: boolean | null
           share_enabled?: boolean | null
+          style_score?: Json | null
           style_vibe?: string | null
           user_id?: string
           weather?: Json | null

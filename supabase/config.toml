@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.sync_google_calendar]
 verify_jwt = false
+
+[functions.burs_style_engine]
+verify_jwt = false
