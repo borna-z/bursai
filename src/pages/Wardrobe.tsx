@@ -253,7 +253,7 @@ function VirtualGarmentGrid({
   });
 
   return (
-    <div ref={parentRef} className="w-full overflow-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+    <div ref={parentRef} className="w-full overflow-visible">
       <div style={{ height: virtualizer.getTotalSize(), width: '100%', position: 'relative' }}>
         {virtualizer.getVirtualItems().map((virtualRow) => {
           const startIdx = virtualRow.index * cols;
