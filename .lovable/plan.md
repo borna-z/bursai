@@ -53,8 +53,8 @@ Track what was worn to events with recurring attendees. Added `event_title` colu
 ### Step 14: Laundry Cycle Integration ✅
 Garments marked as in-laundry are automatically excluded from outfit generation (style engine filters `in_laundry = false`). A `useLaundryCycle` hook detects garments in laundry that are needed for upcoming planned outfits. The `LaundryAlertBanner` component on the Plan page warns users to wash specific garments before their planned date. The style engine now returns laundry metadata (count + items) in its response for client-side awareness. Translations added for sv/en.
 
-### Step 15: Seasonal Transition Intelligence
-During season changes (spring→summer), gradually shift suggestions. Detect transitional garments that bridge seasons.
+### Step 15: Seasonal Transition Intelligence ✅
+During season changes (spring→summer), gradually shift suggestions. Detect transitional garments that bridge seasons. Implemented `getSeasonTransitionInfo()` with 8 transition months mapping progress 0→1. `isTransitionalGarment()` detects versatile pieces (multi-season tags, layering categories, bridge materials). `seasonalTransitionScore()` blends from/to season affinity based on progress, rewarding transitional garments. Integrated as 8% weight in composite scoring.
 
 ---
 
