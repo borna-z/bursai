@@ -143,6 +143,9 @@ export default function HomePage() {
 
           {/* ── Smart Insight ── */}
           <SmartInsightCard onUseUnused={handleUseUnused} />
+
+          {/* ── Step 25: Predictive Styling ── */}
+          <PredictiveStylingBanner />
         </AnimatedPage>
       </PullToRefresh>
     </AppLayout>

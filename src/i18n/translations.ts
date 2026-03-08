@@ -1908,6 +1908,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     'insights.used_30d_suffix': 'used in the last 30 days',
     'home.create_outfit': 'Create outfit',
     'home.min_garments': 'Add at least 3 garments to generate outfits',
+    'home.predictive_title': 'Tomorrow looks good',
+    'home.predictive_desc': 'Plan tomorrow\'s outfit now — AI is ready',
     'home.latest_outfit': 'Latest outfit',
     'home.get_started': 'Get started',
     'home.your_wardrobe': 'Your wardrobe',
