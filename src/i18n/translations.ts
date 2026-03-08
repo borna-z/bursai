@@ -1928,16 +1928,16 @@ export const translations: Record<Locale, Record<string, string>> = {
     'seed.retry_failed': 'Försök misslyckades',
 
     // Generate images
-    'generate.title': 'Generera unika bilder',
-    'generate.desc': 'Generera AI-produktfoton för alla plagg baserat på attribut (färg, material, typ). Ersätter dubblettbilder med unika.',
-    'generate.total': 'Totalt plagg',
-    'generate.generated': 'Genererade',
-    'generate.failed': 'Misslyckades',
-    'generate.processing': 'Bearbetar… {count} av {total}',
-    'generate.done': 'Klart — {done} genererade, {failed} misslyckades',
-    'generate.generating': 'Genererar…',
-    'generate.generate_all': 'Generera alla bilder',
-    'generate.retry': 'Försök igen',
+    'genimg.title': 'Generera unika bilder',
+    'genimg.desc': 'Generera AI-produktfoton för alla plagg baserat på attribut (färg, material, typ). Ersätter dubblettbilder med unika.',
+    'genimg.total': 'Totalt plagg',
+    'genimg.generated': 'Genererade',
+    'genimg.failed': 'Misslyckades',
+    'genimg.processing': 'Bearbetar…',
+    'genimg.done': 'Klart',
+    'genimg.generating': 'Genererar…',
+    'genimg.generate_all': 'Generera alla bilder',
+    'genimg.retry': 'Försök igen',
 
     // Contact
     'contact.title': 'Kontakt',
