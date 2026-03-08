@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Shirt, Sparkles, TrendingUp, Lock, Palette, Gem, Trophy, Thermometer, Sun, Snowflake } from 'lucide-react';
+import { Shirt, Sparkles, TrendingUp, Lock, Palette, Gem, Trophy, Thermometer, Sun, Snowflake } from 'lucide-react';
+import { InsightsPageSkeleton } from '@/components/ui/skeletons';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useInsights, type Garment, type ColorTemperatureData } from '@/hooks/useInsights';
