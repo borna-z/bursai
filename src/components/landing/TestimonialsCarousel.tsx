@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Star, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const TESTIMONIALS = [
   { nameKey: 'landing.test1_name', quoteKey: 'landing.test1_quote', stars: 5 },
@@ -14,98 +14,48 @@ const TESTIMONIALS = [
 export function TestimonialsCarousel() {
   const { t } = useLanguage();
   const [current, setCurrent] = useState(0);
-  const [direction, setDirection] = useState(1);
 
   const next = useCallback(() => {
-    setDirection(1);
     setCurrent(c => (c + 1) % TESTIMONIALS.length);
   }, []);
 
-  const prev = useCallback(() => {
-    setDirection(-1);
-    setCurrent(c => (c - 1 + TESTIMONIALS.length) % TESTIMONIALS.length);
-  }, []);
-
   useEffect(() => {
-    const timer = setInterval(next, 6000);
+    const timer = setInterval(next, 5000);
     return () => clearInterval(timer);
   }, [next]);
 
-  const variants = {
-    enter: (d: number) => ({ opacity: 0, x: d > 0 ? 40 : -40 }),
-    center: { opacity: 1, x: 0 },
-    exit: (d: number) => ({ opacity: 0, x: d > 0 ? -40 : 40 }),
-  };
+  const testimonial = TESTIMONIALS[current];
 
   return (
-    <section className="px-6 py-20 md:py-28">
-      <div className="max-w-3xl mx-auto text-center">
-        <p className="text-[10px] tracking-[0.4em] uppercase text-gray-500 mb-4 reveal-up">
-          {t('landing.testimonials_label')}
-        </p>
-        <h2 className="text-2xl md:text-4xl font-bold tracking-tight text-white font-space mb-14 reveal-up" style={{ '--reveal-delay': '80ms' } as React.CSSProperties}>
-          {t('landing.testimonials_title')}
-        </h2>
-
-        <div className="relative min-h-[220px] flex items-center justify-center">
-          {/* Nav arrows */}
-          <button
-            onClick={prev}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full border border-white/[0.06] text-gray-500 hover:text-white hover:border-white/[0.12] transition-all hidden md:flex"
-            aria-label="Previous testimonial"
+    <section className="px-6 py-20 md:py-28 border-y border-white/[0.04]">
+      <div className="max-w-2xl mx-auto text-center">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={current}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            className="flex flex-col items-center"
           >
-            <ChevronLeft size={18} strokeWidth={1.5} />
-          </button>
-          <button
-            onClick={next}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full border border-white/[0.06] text-gray-500 hover:text-white hover:border-white/[0.12] transition-all hidden md:flex"
-            aria-label="Next testimonial"
-          >
-            <ChevronRight size={18} strokeWidth={1.5} />
-          </button>
-
-          <AnimatePresence mode="wait" custom={direction}>
-            <motion.div
-              key={current}
-              custom={direction}
-              variants={variants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
-              className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 md:p-10 max-w-2xl mx-auto md:mx-12"
-            >
-              <div className="flex justify-center gap-0.5 mb-5">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    size={14}
-                    fill={i < TESTIMONIALS[current].stars ? '#fbbf24' : 'transparent'}
-                    stroke={i < TESTIMONIALS[current].stars ? '#fbbf24' : '#374151'}
-                  />
-                ))}
-              </div>
-              <blockquote className="text-base md:text-lg text-gray-300 leading-relaxed mb-5 font-light">
-                "{t(TESTIMONIALS[current].quoteKey)}"
-              </blockquote>
-              <p className="text-xs text-gray-500 tracking-wide">
-                — {t(TESTIMONIALS[current].nameKey)}
-              </p>
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        {/* Dots */}
-        <div className="flex justify-center gap-1.5 mt-8">
-          {TESTIMONIALS.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => { setDirection(i > current ? 1 : -1); setCurrent(i); }}
-              className={`h-1.5 rounded-full transition-all duration-300 ${i === current ? 'bg-white w-5' : 'bg-white/15 hover:bg-white/30 w-1.5'}`}
-              aria-label={`Testimonial ${i + 1}`}
-            />
-          ))}
-        </div>
+            <div className="flex gap-0.5 mb-6">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star
+                  key={i}
+                  size={14}
+                  fill={i < testimonial.stars ? '#fbbf24' : 'transparent'}
+                  stroke={i < testimonial.stars ? '#fbbf24' : '#374151'}
+                />
+              ))}
+            </div>
+            <blockquote className="text-xl md:text-2xl text-gray-300 leading-relaxed font-light mb-6">
+              "{t(testimonial.quoteKey)}"
+            </blockquote>
+            <p className="text-xs text-gray-500 tracking-wide">
+              — {t(testimonial.nameKey)}
+            </p>
+          </motion.div>
+        </AnimatePresence>
       </div>
     </section>
   );
