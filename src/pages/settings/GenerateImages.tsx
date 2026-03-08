@@ -25,6 +25,7 @@ export default function GenerateImages() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: garments } = useFlatGarments();
+  const { t } = useLanguage();
   const [items, setItems] = useState<BatchItem[]>([]);
   const [running, setRunning] = useState(false);
   const [completed, setCompleted] = useState(0);
