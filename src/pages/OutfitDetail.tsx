@@ -296,7 +296,7 @@ export default function OutfitDetailPage() {
       </div>
 
       {/* ── Hero: outfit image grid ── */}
-      <div ref={outfitRef} className="relative rounded-b-3xl overflow-hidden bg-muted/20">
+      <div ref={outfitRef} className="relative sm:rounded-b-3xl overflow-hidden bg-muted/20">
         <div className={cn(
           "grid gap-0.5",
           outfit.outfit_items.length <= 2 ? "grid-cols-2" :
