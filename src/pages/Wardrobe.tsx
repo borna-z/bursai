@@ -381,6 +381,7 @@ export default function WardrobePage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sortBy, setSortBy] = useState<'created_at' | 'last_worn_at' | 'wear_count'>('created_at');
   const [showLaundry, setShowLaundry] = useState(false);
+  const [smartFilter, setSmartFilter] = useState<'rarely_worn' | 'most_worn' | 'new' | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
