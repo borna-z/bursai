@@ -528,14 +528,14 @@ export default function WardrobePage() {
 
                 {/* Bulk select bar */}
                 {isSelecting && selectedIds.size > 0 && (
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-foreground/[0.04]">
-                    <span className="text-sm font-medium">{selectedIds.size} {t('wardrobe.selected')}</span>
+                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-muted/30">
+                    <span className="text-[13px] font-medium">{selectedIds.size} {t('wardrobe.selected')}</span>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={handleBulkLaundry} className="rounded-xl">
-                        <WashingMachine className="w-4 h-4 mr-1" />{t('wardrobe.laundry')}
+                      <Button size="sm" variant="outline" onClick={handleBulkLaundry} className="rounded-xl h-8 text-xs">
+                        <WashingMachine className="w-3.5 h-3.5 mr-1" />{t('wardrobe.laundry')}
                       </Button>
-                      <Button size="sm" variant="destructive" onClick={handleBulkDelete} className="rounded-xl">
-                        <Trash2 className="w-4 h-4 mr-1" />{t('wardrobe.remove')}
+                      <Button size="sm" variant="destructive" onClick={handleBulkDelete} className="rounded-xl h-8 text-xs">
+                        <Trash2 className="w-3.5 h-3.5 mr-1" />{t('wardrobe.remove')}
                       </Button>
                     </div>
                   </div>
