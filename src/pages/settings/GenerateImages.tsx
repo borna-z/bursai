@@ -4,6 +4,7 @@ import { ArrowLeft, ImagePlus, Loader2, CheckCircle, AlertCircle, RotateCcw } fr
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFlatGarments } from '@/hooks/useGarments';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
