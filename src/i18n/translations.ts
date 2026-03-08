@@ -3809,6 +3809,59 @@ export const translations: Record<Locale, Record<string, string>> = {
     'ai.twin_view': 'View',
     'ai.twin_rediscover': 'Rediscover',
     'ai.twin_settings_sub': 'Your style archetype',
+
+    // Error boundary
+    'error.title': 'Something went wrong',
+    'error.desc': 'An unexpected error occurred. Try reloading the page.',
+    'error.try_again': 'Try again',
+    'error.reload': 'Reload',
+
+    // Seed wardrobe
+    'seed.deleted': 'All old garments deleted',
+    'seed.delete_error': 'Failed to delete old garments',
+    'seed.created': 'Created {done} garments ({failed} failed)',
+    'seed.batch_failed': 'Batch failed',
+    'seed.retry_failed': 'Retry failed',
+
+    // Generate images
+    'generate.title': 'Generate Unique Images',
+    'generate.desc': 'Generate AI product photos for every garment based on its attributes (color, material, type). This replaces duplicate placeholder images with unique ones.',
+    'generate.total': 'Total garments',
+    'generate.generated': 'Generated',
+    'generate.failed': 'Failed',
+    'generate.processing': 'Processing… {count} of {total}',
+    'generate.done': 'Done — {done} generated, {failed} failed',
+    'generate.generating': 'Generating…',
+    'generate.generate_all': 'Generate All Images',
+    'generate.retry': 'Retry',
+
+    // Contact
+    'contact.title': 'Contact',
+    'contact.subtitle': 'Have questions? We\'re happy to help.',
+    'contact.success': 'Thank you for your message. We\'ll get back to you shortly.',
+    'contact.name': 'Your name',
+    'contact.email': 'Your email address',
+    'contact.message': 'Your message',
+    'contact.send': 'Send message',
+    'contact.rights': 'All rights reserved.',
+    'contact.gdpr_note': 'BURS complies with GDPR. Your data is stored securely and never shared with third parties.',
+
+    // Footer
+    'footer.privacy': 'Privacy Policy',
+    'footer.terms': 'Terms of Use',
+    'footer.agree': 'By using BURS you agree to our',
+    'footer.rights': 'All rights reserved.',
+
+    // Calendar
+    'calendar.google_privacy': 'BURS will read your calendar events to help plan outfits around your schedule. You can disconnect at any time.',
+
+    // Reactions
+    'reaction.styled': 'Styled',
+    'reaction.creative': 'Creative',
+    'reaction.sustainable': 'Sustainable',
+
+    // Reel
+    'wardrobe.reel_save_error': 'Could not save image',
   },
 
   no: {
