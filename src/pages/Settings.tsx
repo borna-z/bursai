@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Palette, Shirt, Bell, User, Shield, LogOut, ChevronRight, Loader2, TrendingUp } from 'lucide-react';
 
-const APP_VERSION = __APP_VERSION__;
+const APP_VERSION = (globalThis as any).__APP_VERSION__ ?? '1.0.0';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useLanguage } from '@/contexts/LanguageContext';
