@@ -4393,6 +4393,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'onboarding.getstarted.generate_outfit': 'Generer et outfit', 'onboarding.getstarted.generate_outfit_desc': 'Lad AI style dig til i dag',
     'onboarding.getstarted.talk_stylist': 'Tal med din stylist', 'onboarding.getstarted.talk_stylist_desc': 'Få personlige stiltips',
     'onboarding.accent.title': 'Vælg accentfarve', 'onboarding.accent.subtitle': 'Giv din app et personligt præg – farven vises i logoet, knapper og detaljer.',
+    'onboarding.quickUpload.title': 'Upload dit første tøj', 'onboarding.quickUpload.subtitle': 'Tag billeder eller vælg fra galleriet – op til 5 stykker. Vores AI genkender hver del automatisk.',
     'onboarding.style.title': 'Din stil', 'onboarding.style.subtitle': 'Hjælp din AI-stylist med at forstå din smag',
     'onboarding.style.favorite_colors': 'Yndlingsfarver', 'onboarding.style.disliked_colors': 'Farver du undgår',
     'onboarding.style.fit': 'Pasform', 'onboarding.style.vibe': 'Stilretning', 'onboarding.style.gender_neutral': 'Kønsneutrale forslag',
