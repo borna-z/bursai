@@ -5990,6 +5990,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'onboarding.getstarted.generate_outfit': 'Genereer een outfit', 'onboarding.getstarted.generate_outfit_desc': 'Laat AI je stylen voor vandaag',
     'onboarding.getstarted.talk_stylist': 'Praat met je stylist', 'onboarding.getstarted.talk_stylist_desc': 'Krijg persoonlijk stijladvies',
     'onboarding.accent.title': 'Kies accentkleur', 'onboarding.accent.subtitle': 'Geef je app een persoonlijk tintje.',
+    'onboarding.quickUpload.title': 'Upload je eerste kleding', 'onboarding.quickUpload.subtitle': 'Maak foto\'s of kies uit je galerij — tot 5 stuks. Onze AI herkent elk kledingstuk automatisch.',
     'onboarding.style.title': 'Jouw stijl', 'onboarding.style.subtitle': 'Help je AI-stylist je smaak te begrijpen',
     'onboarding.style.favorite_colors': 'Favoriete kleuren', 'onboarding.style.disliked_colors': 'Kleuren die je vermijdt',
     'onboarding.style.fit': 'Pasvorm', 'onboarding.style.vibe': 'Stijlrichting', 'onboarding.style.gender_neutral': 'Genderneutrale suggesties',
