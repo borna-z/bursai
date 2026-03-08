@@ -2068,6 +2068,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'garment.marked': 'Marked ✓',
      'garment.analyzed_at': 'Analyzed',
     'garment.use_in_outfit': 'Use in outfit',
+    'garment.similar_items': 'Similar items',
     'garment.edit_title': 'Edit garment',
     'garment.edit_save': 'Save',
     'garment.edit_saved': 'Garment updated',
