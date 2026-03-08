@@ -22,6 +22,7 @@ import { QuickPlanSheet } from '@/components/plan/QuickPlanSheet';
 import { PreselectDateSheet } from '@/components/plan/PreselectDateSheet';
 import { CalendarConnectBanner } from '@/components/plan/CalendarConnectBanner';
 import { DaySummaryCard } from '@/components/plan/DaySummaryCard';
+import { LaundryAlertBanner } from '@/components/plan/LaundryAlertBanner';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useDaySummary } from '@/hooks/useDaySummary';
