@@ -180,69 +180,82 @@ export default function DiscoverPage() {
           <p className="text-xs text-muted-foreground mt-0.5">{t('discover.subtitle')}</p>
         </motion.div>
 
-        {/* ── Community Feed Preview ── */}
-        <section>
-          <SectionHeader
-            title={t('discover.trending')}
-            action={totalUsers >= TRENDING_USER_THRESHOLD ? t('discover.see_all') : undefined}
-            onAction={totalUsers >= TRENDING_USER_THRESHOLD ? () => navigate('/feed') : undefined}
-          />
-          {totalUsers < TRENDING_USER_THRESHOLD ? (
-            <div className="text-center py-10 rounded-2xl border border-dashed border-border/40 bg-muted/20">
-              <Lock className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-sm font-medium text-muted-foreground">{t('discover.trending_locked')}</p>
-              <p className="text-[11px] text-muted-foreground/60 mt-1">
-                {t('discover.trending_locked_sub').replace('{count}', String(TRENDING_USER_THRESHOLD - totalUsers))}
-              </p>
-              <div className="mt-4 px-8">
-                <Progress value={(totalUsers / TRENDING_USER_THRESHOLD) * 100} className="h-1.5" />
-                <p className="text-[10px] text-muted-foreground/50 mt-1.5">{totalUsers} / {TRENDING_USER_THRESHOLD}</p>
-              </div>
-            </div>
-          ) : feedLoading ? (
-            <div className="grid grid-cols-3 gap-2">
-              {[1, 2, 3].map(i => <div key={i} className="aspect-square rounded-xl bg-muted animate-pulse" />)}
-            </div>
-          ) : feedOutfits.length === 0 ? (
-            <div className="text-center py-8 rounded-xl border border-dashed border-border/40">
-              <Compass className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2" />
-              <p className="text-xs text-muted-foreground">{t('feed.empty')}</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-2">
-              {feedOutfits.slice(0, 6).map((outfit, i) => (
-                <motion.div
-                  key={outfit.id}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="relative rounded-xl overflow-hidden border border-border/20 cursor-pointer active:scale-[0.97] transition-transform"
-                  onClick={() => navigate(`/share/${outfit.id}`)}
-                >
-                  <div className="aspect-square bg-muted overflow-hidden">
-                    {imageUrls[outfit.id] ? (
-                      <img src={imageUrls[outfit.id]} alt={outfit.occasion} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Shirt className="w-6 h-6 text-muted-foreground/20" />
-                      </div>
-                    )}
-                  </div>
-                  {user && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); toggleSave(outfit.id); }}
-                      className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center"
-                    >
-                      {savedIds.has(outfit.id)
-                        ? <BookmarkCheck className="w-3 h-3 text-primary" />
-                        : <Bookmark className="w-3 h-3 text-muted-foreground" />}
-                    </button>
-                  )}
-                </motion.div>
-              ))}
-            </div>
+        {/* ── Celebration Banner (when trending just unlocked) ── */}
+        <AnimatePresence>
+          {showCelebration && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: -10 }}
+              className="rounded-2xl bg-accent/10 border border-accent/20 p-4 text-center"
+            >
+              <PartyPopper className="w-8 h-8 text-accent mx-auto mb-2" />
+              <h3 className="text-sm font-semibold">{t('discover.trending_unlocked')}</h3>
+              <p className="text-[11px] text-muted-foreground mt-1">{t('discover.trending_unlocked_sub')}</p>
+              <Button
+                size="sm"
+                className="mt-3 rounded-xl"
+                onClick={() => { markSeen(); setShowCelebration(false); }}
+              >
+                {t('discover.see_trending')}
+              </Button>
+            </motion.div>
           )}
-        </section>
+        </AnimatePresence>
+
+        {/* ── Community Feed Preview (only visible after 500 users) ── */}
+        {trendingUnlocked && !showCelebration && (
+          <section>
+            <SectionHeader
+              title={t('discover.trending')}
+              action={t('discover.see_all')}
+              onAction={() => navigate('/feed')}
+            />
+            {feedLoading ? (
+              <div className="grid grid-cols-3 gap-2">
+                {[1, 2, 3].map(i => <div key={i} className="aspect-square rounded-xl bg-muted animate-pulse" />)}
+              </div>
+            ) : feedOutfits.length === 0 ? (
+              <div className="text-center py-8 rounded-xl border border-dashed border-border/40">
+                <Compass className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">{t('feed.empty')}</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {feedOutfits.slice(0, 6).map((outfit, i) => (
+                  <motion.div
+                    key={outfit.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="relative rounded-xl overflow-hidden border border-border/20 cursor-pointer active:scale-[0.97] transition-transform"
+                    onClick={() => navigate(`/share/${outfit.id}`)}
+                  >
+                    <div className="aspect-square bg-muted overflow-hidden">
+                      {imageUrls[outfit.id] ? (
+                        <img src={imageUrls[outfit.id]} alt={outfit.occasion} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Shirt className="w-6 h-6 text-muted-foreground/20" />
+                        </div>
+                      )}
+                    </div>
+                    {user && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleSave(outfit.id); }}
+                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center"
+                      >
+                        {savedIds.has(outfit.id)
+                          ? <BookmarkCheck className="w-3 h-3 text-primary" />
+                          : <Bookmark className="w-3 h-3 text-muted-foreground" />}
+                      </button>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* ── Challenges (garment-gated) ── */}
         <section>
