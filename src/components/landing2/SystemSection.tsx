@@ -108,7 +108,7 @@ export function SystemSection() {
   const feat = FEATURES[active];
 
   return (
-    <section className="relative py-28 md:py-40 px-6" id="features">
+    <section className="relative py-32 md:py-44 px-6" id="features">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-20">
           <p className="lv2-reveal text-[11px] tracking-[0.25em] uppercase mb-5" style={{ color: 'var(--lv2-text-tertiary)' }}>The system</p>

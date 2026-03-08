@@ -26,6 +26,9 @@ export function FinalCTASection() {
         ))}
       </div>
 
+      {/* Watermark */}
+      <div className="lv2-watermark top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" aria-hidden="true">BURS</div>
+
       <div className="max-w-lg mx-auto text-center relative z-10">
         <h2 className="lv2-reveal text-4xl md:text-6xl font-bold tracking-tight mb-6 leading-[1.08]" style={{ color: 'var(--lv2-text-primary)' }}>
           Your wardrobe has more potential than you think.

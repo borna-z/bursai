@@ -1125,6 +1125,19 @@
 }
 
 /* ── Reduced motion ── */
+/* ── Decorative quote mark ── */
+.lv2-quote-mark {
+  font-size: 4rem;
+  line-height: 1;
+  font-family: Georgia, 'Times New Roman', serif;
+  color: rgba(30, 208, 231, 0.15);
+  position: absolute;
+  top: 1rem;
+  left: 1.5rem;
+  pointer-events: none;
+  user-select: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lv2-mesh-blob,
   .lv2-float,

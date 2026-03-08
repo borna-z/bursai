@@ -20,7 +20,7 @@ const CARDS = [
 
 export function ProblemSection() {
   return (
-    <section className="relative py-28 md:py-40 px-6 overflow-hidden">
+    <section className="relative py-32 md:py-44 px-6 overflow-hidden">
       {/* Watermark */}
       <div className="lv2-watermark top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" aria-hidden="true">
         THE PROBLEM

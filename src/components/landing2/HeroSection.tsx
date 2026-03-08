@@ -77,7 +77,7 @@ export function HeroSection() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: EASE, delay: 0.7 }}
-          className="text-base sm:text-lg md:text-xl max-w-xl mx-auto mb-12 leading-[1.7]"
+          className="text-base sm:text-lg md:text-xl max-w-xl mx-auto mb-14 leading-[1.7]"
           style={{ color: 'var(--lv2-text-secondary)' }}
         >
           Digitize your wardrobe, generate better outfits, and plan what to wear with an AI stylist built around your real clothes.
