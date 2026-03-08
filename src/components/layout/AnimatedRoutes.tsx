@@ -147,6 +147,7 @@ export function AnimatedRoutes() {
             <Route path="/ai/smart-shopping" element={<ProtectedRoute><SmartShopping /></ProtectedRoute>} />
             <Route path="/ai/wardrobe-aging" element={<ProtectedRoute><WardrobeAging /></ProtectedRoute>} />
             <Route path="/ai/style-twin" element={<ProtectedRoute><StyleTwin /></ProtectedRoute>} />
+            <Route path="/discover" element={<ProtectedRoute><Discover /></ProtectedRoute>} />
             <Route path="/calendar/callback" element={<ProtectedRoute><GoogleCalendarCallback /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

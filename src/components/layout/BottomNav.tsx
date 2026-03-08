@@ -27,7 +27,7 @@ export function BottomNav() {
             onClick={() => hapticLight()}
             className={({ isActive }) =>
               cn(
-                'relative flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[11px] font-medium transition-colors duration-200',
+                'relative flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[10px] font-medium transition-colors duration-200',
                 isActive
                   ? 'text-accent'
                   : 'text-muted-foreground hover:text-foreground'
