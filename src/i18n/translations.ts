@@ -5282,7 +5282,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   es: {
-    'nav.today': 'Hoy', 'nav.wardrobe': 'Armario', 'nav.plan': 'Plan', 'nav.stylist': 'Estilista', 'nav.settings': 'Ajustes',
+    'nav.today': 'Hoy', 'nav.wardrobe': 'Armario', 'nav.plan': 'Plan', 'nav.stylist': 'Estilista', 'nav.settings': 'Ajustes', 'nav.discover': 'Descubrir',
     'onboarding.language.title': 'Elige idioma', 'onboarding.language.subtitle': 'Puedes cambiarlo después en ajustes',
     'onboarding.body.title': 'Tu cuerpo, tu estilo', 'onboarding.body.subtitle': 'Tu estilista IA usa tus medidas para asesorarte.',
     'onboarding.body.height': 'Altura', 'onboarding.body.weight': 'Peso', 'onboarding.body.weight_optional': '(opcional)',
