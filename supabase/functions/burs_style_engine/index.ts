@@ -1192,7 +1192,8 @@ function buildCombos(
 
 function scoreCombo(
   items: { slot: string; garment: GarmentRow }[],
-  recentSets: Set<string>[]
+  recentSets: Set<string>[],
+  body: BodyProfile | null = null
 ): ScoredCombo {
   // Color harmony across all items
   const colors = items
@@ -1220,13 +1221,13 @@ function scoreCombo(
     else if (sim >= 0.4) repetitionPenalty += 1;
   }
 
-  // Average individual scores (already computed, approximate by averaging component scores)
-  const avgIndividual = items.reduce((sum, i) => {
-    // Use a rough heuristic since we don't have individual scores in this context
-    return sum + 7;
-  }, 0) / items.length;
+  // Fit proportion score (body-aware)
+  const fitScore = fitProportionScore(items, body);
 
-  const totalScore = colorScore * 0.25 + matScore * 0.15 + formalityConsistency * 0.2 + avgIndividual * 0.25 - repetitionPenalty + 0.15 * 7;
+  // Average individual scores
+  const avgIndividual = items.reduce((sum, i) => sum + 7, 0) / items.length;
+
+  const totalScore = colorScore * 0.22 + matScore * 0.13 + formalityConsistency * 0.18 + avgIndividual * 0.22 + fitScore * 0.10 - repetitionPenalty + 0.15 * 7;
 
   return {
     items,
@@ -1235,6 +1236,7 @@ function scoreCombo(
       color: colorScore,
       material: matScore,
       formalityConsistency,
+      fitProportion: fitScore,
       repetitionPenalty,
     },
   };
