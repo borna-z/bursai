@@ -171,6 +171,7 @@ export default function OutfitDetailPage() {
 
   const handleToggleSave = async () => {
     if (!outfit) return;
+    hapticMedium();
     try {
       await updateOutfit.mutateAsync({ id: outfit.id, updates: { saved: !outfit.saved } });
       toast.success(outfit.saved ? t('outfit.removed') : t('outfit.saved'));
