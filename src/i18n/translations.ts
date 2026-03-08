@@ -5409,7 +5409,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   it: {
-    'nav.today': 'Oggi', 'nav.wardrobe': 'Guardaroba', 'nav.plan': 'Piano', 'nav.stylist': 'Stilista', 'nav.settings': 'Impostazioni',
+    'nav.today': 'Oggi', 'nav.wardrobe': 'Guardaroba', 'nav.plan': 'Piano', 'nav.stylist': 'Stilista', 'nav.settings': 'Impostazioni', 'nav.discover': 'Scopri',
     'onboarding.language.title': 'Scegli la lingua', 'onboarding.language.subtitle': 'Puoi cambiare in seguito nelle impostazioni',
     'onboarding.body.title': 'Il tuo corpo, il tuo stile', 'onboarding.body.subtitle': 'Il tuo stilista IA usa le tue misure per consigli su vestibilità e stile.',
     'onboarding.body.height': 'Altezza', 'onboarding.body.weight': 'Peso', 'onboarding.body.weight_optional': '(facoltativo)',
