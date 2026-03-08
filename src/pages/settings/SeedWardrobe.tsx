@@ -190,9 +190,9 @@ export default function SeedWardrobe() {
         </div>
 
         <p className="text-sm text-muted-foreground">
-          This will <strong>delete all existing garments</strong> and create {SEED_GARMENTS.length} unique ones
-          with AI-generated product photos. Each garment gets a unique image prompt.
-          Estimated time: ~17 minutes.
+          This will <strong>delete all existing garments</strong> and create {SEED_GARMENTS.length} clothing items
+          with AI-generated product photos. Distribution: 40 tops, 20 bottoms, 10 shoes, 20 accessories, 10 specials.
+          Estimated time: ~10 minutes.
         </p>
 
         {/* Stats */}
