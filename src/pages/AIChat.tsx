@@ -377,6 +377,7 @@ export default function AIChat() {
           isUploading={isUploading}
           mode={mode}
         />
+        <div className="pb-2 shrink-0" />
       </div>
     </AppLayout>
   );
