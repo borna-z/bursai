@@ -570,6 +570,9 @@ export default function OutfitDetailPage() {
               <p className="text-xs text-muted-foreground/40">{t('outfit.photo_feedback_hint')}</p>
             </div>
           )}
+        </div>
+
+        {/* ── Garment list ── */}
         <div>
           {outfit.outfit_items.map((item) => (
             <SlotRow
