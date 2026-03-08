@@ -1078,6 +1078,73 @@ function fitProportionScore(
 }
 
 // ─────────────────────────────────────────────
+// SOCIAL CONTEXT AWARENESS (Step 13)
+// ─────────────────────────────────────────────
+
+interface SocialContextMap {
+  // Normalized event title → Set of garment IDs worn at that event
+  contextGarments: Map<string, Set<string>>;
+  // Normalized event title → most recent date worn
+  contextLastSeen: Map<string, string>;
+}
+
+function normalizeEventTitle(title: string): string {
+  // Normalize to detect recurring events: lowercase, strip dates/numbers, trim
+  return title
+    .toLowerCase()
+    .replace(/\d{1,2}[\/\-\.]\d{1,2}([\/\-\.]\d{2,4})?/g, "") // strip dates
+    .replace(/\b(mon|tue|wed|thu|fri|sat|sun|mån|tis|ons|tor|fre|lör|sön)\w*/gi, "") // strip day names
+    .replace(/\b\d+\b/g, "") // strip standalone numbers
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildSocialContextMap(wearLogs: WearLog[]): SocialContextMap {
+  const contextGarments = new Map<string, Set<string>>();
+  const contextLastSeen = new Map<string, string>();
+
+  for (const log of wearLogs) {
+    if (!log.event_title) continue;
+    const key = normalizeEventTitle(log.event_title);
+    if (key.length < 3) continue; // skip very short/empty
+
+    if (!contextGarments.has(key)) contextGarments.set(key, new Set());
+    contextGarments.get(key)!.add(log.garment_id);
+
+    const existing = contextLastSeen.get(key);
+    if (!existing || log.worn_at > existing) {
+      contextLastSeen.set(key, log.worn_at);
+    }
+  }
+
+  return { contextGarments, contextLastSeen };
+}
+
+function socialContextPenalty(
+  garmentId: string,
+  currentEventTitle: string | null,
+  socialMap: SocialContextMap
+): number {
+  if (!currentEventTitle) return 0; // no event context → no penalty
+  const key = normalizeEventTitle(currentEventTitle);
+  if (key.length < 3) return 0;
+
+  const wornGarments = socialMap.contextGarments.get(key);
+  if (!wornGarments || !wornGarments.has(garmentId)) return 0;
+
+  // Garment was worn at this recurring event before → penalty
+  // Stronger penalty if it was recent
+  const lastSeen = socialMap.contextLastSeen.get(key);
+  if (!lastSeen) return 1;
+
+  const daysSince = Math.max(0, (Date.now() - new Date(lastSeen).getTime()) / 86400000);
+  if (daysSince < 14) return 3; // worn at same event within 2 weeks
+  if (daysSince < 30) return 2; // within a month
+  if (daysSince < 60) return 1; // within 2 months
+  return 0; // long ago, no penalty
+}
+
+// ─────────────────────────────────────────────
 // COMPOSITE SCORING
 // ─────────────────────────────────────────────
 
@@ -1089,7 +1156,9 @@ function scoreGarment(
   prefs: Record<string, any> | null,
   patterns: WearPatternProfile | null = null,
   styleVector: StyleVector | null = null,
-  comfortProfile: ComfortStyleProfile | null = null
+  comfortProfile: ComfortStyleProfile | null = null,
+  socialMap: SocialContextMap | null = null,
+  currentEventTitle: string | null = null
 ): ScoredGarment {
   const ws = weatherSuitability(garment, weather);
   const fs = formalityScore(garment, occasion);
@@ -1100,17 +1169,20 @@ function scoreGarment(
   const sv = styleVectorScore(garment, styleVector);
   const cs = comfortStyleScore(garment, comfortProfile);
 
-  // Weighted composite: 9 factors
+  // Social context penalty (avoid repeating at same recurring event)
+  const scp = socialMap ? socialContextPenalty(garment.id, currentEventTitle, socialMap) : 0;
+
+  // Weighted composite: 9 factors + social penalty
   const vectorConf = styleVector?.confidence || 0;
   const saWeight = 0.08 * (1 - vectorConf * 0.5);
   const svWeight = 0.08 + vectorConf * 0.04;
 
-  const score = ws * 0.18 + fs * 0.18 + wr * 0.14 + fb * 0.10 + sa * saWeight + wp * 0.10 + sv * svWeight + cs * 0.10 + 0.02 * 7;
+  const score = ws * 0.18 + fs * 0.18 + wr * 0.14 + fb * 0.10 + sa * saWeight + wp * 0.10 + sv * svWeight + cs * 0.10 + 0.02 * 7 - scp * 0.5;
 
   return {
     garment,
     score,
-    breakdown: { weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp, vector: sv, comfort: cs },
+    breakdown: { weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp, vector: sv, comfort: cs, socialPenalty: scp },
   };
 }
 
