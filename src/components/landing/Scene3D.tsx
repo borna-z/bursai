@@ -1,5 +1,6 @@
 import { Suspense, useRef, useEffect, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
+import { Environment } from '@react-three/drei';
 
 interface Scene3DProps {
   children: React.ReactNode;
@@ -38,13 +39,17 @@ export function Scene3D({ children, className = '', style }: Scene3DProps) {
           frameloop="always"
           dpr={[1, 1.5]}
           gl={{ antialias: true, alpha: true }}
-          camera={{ position: [0, 0, 5], fov: 45 }}
+          camera={{ position: [0, 1.2, 4], fov: 40 }}
           style={{ pointerEvents: 'none' }}
         >
           <Suspense fallback={null}>
-            <ambientLight intensity={0.4} />
-            <directionalLight position={[5, 5, 5]} intensity={0.8} />
-            <pointLight position={[-3, 2, 4]} intensity={0.3} color="#6366f1" />
+            {/* Strong key + fill + rim lighting */}
+            <ambientLight intensity={0.6} />
+            <directionalLight position={[3, 5, 4]} intensity={1.8} color="#ffffff" />
+            <directionalLight position={[-3, 3, 2]} intensity={0.6} color="#cbd5e1" />
+            <pointLight position={[0, 2, 5]} intensity={0.8} color="#e2e8f0" />
+            <pointLight position={[2, 0, 3]} intensity={0.3} color="#818cf8" />
+            <Environment preset="city" />
             {children}
           </Suspense>
         </Canvas>
