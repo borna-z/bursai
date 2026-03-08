@@ -1041,6 +1041,7 @@ serve(async (req) => {
           rating: outfit.rating,
           feedback: outfit.feedback,
           weather: outfit.weather as WeatherInput | null,
+          generatedAt: (outfit as any).generated_at || null,
         });
       }
     }
