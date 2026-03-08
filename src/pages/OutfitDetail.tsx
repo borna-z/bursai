@@ -122,6 +122,9 @@ export default function OutfitDetailPage() {
   const undoMarkWorn = useUndoMarkWorn();
   const { candidates, isLoadingCandidates, fetchCandidates, swapGarment, isSwapping, clearCandidates } = useSwapGarment();
   const { generateFlatlay, isGenerating: isGeneratingFlatlay } = useGenerateFlatlay();
+  const { data: photoFeedback, isLoading: isLoadingFeedback } = useOutfitFeedback(id);
+  const submitFeedback = useSubmitPhotoFeedback();
+  const selfieInputRef = useRef<HTMLInputElement>(null);
 
   const [rating, setRating] = useState<number | null>(null);
   const [swapSheet, setSwapSheet] = useState<{ isOpen: boolean; slot: string; outfitItemId: string }>({ isOpen: false, slot: '', outfitItemId: '' });
