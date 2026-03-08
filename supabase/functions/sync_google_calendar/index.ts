@@ -237,8 +237,9 @@ Deno.serve(async (req) => {
     );
 
     if (!result.success) {
-      return new Response(JSON.stringify({ error: result.error }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      const status = result.reconnect ? 401 : 500;
+      return new Response(JSON.stringify({ error: result.error, reconnect: result.reconnect || false }), {
+        status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
