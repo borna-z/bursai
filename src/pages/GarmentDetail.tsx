@@ -28,6 +28,13 @@ export default function GarmentDetailPage() {
   const updateGarment = useUpdateGarment();
   const deleteGarment = useDeleteGarment();
   const markWorn = useMarkGarmentWorn();
+  const assessCondition = useAssessCondition();
+  const costPerWear = useCostPerWear(
+    (garment as any)?.purchase_price ?? null,
+    garment?.wear_count ?? null
+  );
+  const [editingPrice, setEditingPrice] = useState(false);
+  const [priceInput, setPriceInput] = useState('');
 
   if (isLoading) {
     return (
