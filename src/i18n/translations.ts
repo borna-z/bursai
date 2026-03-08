@@ -2208,6 +2208,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'plan.undone': 'Undone',
     'plan.plan_week': 'Plan your week',
     'plan.undo': 'Undo',
+    'plan.versatile_pieces': 'Works all day',
     'plan.no_planned': 'None planned',
     'plan.plan_via_calendar': 'Plan outfits via the date picker.',
     'plan.plan_whole_week': 'Plan the whole week',

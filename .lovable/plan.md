@@ -41,8 +41,8 @@ Use height/weight data + fit preferences to build a BodyProfile. Applies proport
 
 ## Phase 3: Contextual Intelligence 🔲
 
-### Step 11: Multi-Event Day Planning
-For days with multiple calendar events (e.g., work meeting → gym → dinner), suggest outfit transitions or versatile pieces that work across contexts.
+### Step 11: Multi-Event Day Planning ✅
+For days with multiple calendar events (e.g., work meeting → gym → dinner), suggest outfit transitions or versatile pieces that work across contexts. The `summarize_day` edge function now returns a `transitions` object with time blocks, per-block style tips, transition tips between blocks, and versatile pieces. The `DaySummaryCard` renders a visual timeline with per-block generate buttons.
 
 ### Step 12: Travel Capsule Generation
 Given a trip duration + destination weather, generate a minimal set of garments that creates maximum outfit combinations.
