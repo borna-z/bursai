@@ -1601,10 +1601,10 @@ serve(async (req) => {
         .not("rating", "is", null)
         .order("generated_at", { ascending: false })
         .limit(30),
-      // Fetch wear logs for pattern analysis (last 6 months)
+      // Fetch wear logs for pattern analysis + social context (last 6 months)
       supabase
         .from("wear_logs")
-        .select("garment_id, worn_at, occasion")
+        .select("garment_id, worn_at, occasion, event_title")
         .eq("user_id", userId)
         .gte("worn_at", new Date(Date.now() - 180 * 86400000).toISOString().split("T")[0])
         .order("worn_at", { ascending: false })
