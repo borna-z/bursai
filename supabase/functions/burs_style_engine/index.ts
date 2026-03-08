@@ -1783,6 +1783,7 @@ serve(async (req) => {
         items: chosen.items.map(i => ({ slot: i.slot, garment_id: i.garment.id })),
         explanation: aiResult.data.explanation || "",
         style_score: chosen.breakdown,
+        laundry: laundryCount > 0 ? { count: laundryCount, items: laundryItems.slice(0, 5).map(i => ({ id: i.id, title: i.title, category: i.category })) } : undefined,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
