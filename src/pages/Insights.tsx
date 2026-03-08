@@ -223,10 +223,15 @@ function ColorTemperatureWidget({ data, isPremium, t }: { data: ColorTemperature
 
 /* ─── Main page ─── */
 export default function InsightsPage() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { t } = useLanguage();
   const { data: insights, isLoading } = useInsights();
   const { isPremium, isLoading: subLoading } = useSubscription();
+  
+  const handleRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['insights'] });
+  }, [queryClient]);
 
   if (isLoading || subLoading) {
     return (
