@@ -203,70 +203,21 @@ serve(async (req) => {
       );
     }
 
-    // Get Lovable AI API key
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-    if (!lovableApiKey) {
-      console.error('LOVABLE_API_KEY not configured');
-      return new Response(
-        JSON.stringify({ error: "AI-tjänsten är inte konfigurerad" }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Determine image URL for AI analysis
-    let imageUrl: string;
-
-    if (base64Image) {
-      // Use base64 directly as data URL
-      const prefix = base64Image.startsWith('data:') ? '' : 'data:image/jpeg;base64,';
-      imageUrl = `${prefix}${base64Image}`;
-      console.log('Using base64 image for analysis (Live Scan mode)');
-    } else {
-      // Create Supabase client with service role for storage access
-      const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
-
-      const { data: signedUrlData, error: signedUrlError } = await serviceClient.storage
-        .from('garments')
-        .createSignedUrl(storagePath!, 3600);
-
-      if (signedUrlError || !signedUrlData?.signedUrl) {
-        console.error('Failed to create signed URL:', signedUrlError);
-        return new Response(
-          JSON.stringify({ error: "Kunde inte hämta bilden" }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      imageUrl = signedUrlData.signedUrl;
-      console.log('Created signed URL for image analysis');
-    }
-
-    // Determine model and settings based on scan mode
+    // Determine model based on scan mode
     const isLiveScan = !!base64Image;
-    const aiModel = isLiveScan ? 'google/gemini-2.5-flash-lite' : 'google/gemini-3-flash-preview';
-    const aiMaxTokens = isLiveScan ? 300 : 500;
+    const aiModelType = isLiveScan ? "fast" : "vision";
     const aiTimeout = isLiveScan ? 15000 : 30000;
+    const aiMaxTokens = isLiveScan ? 300 : 500;
 
-    console.log(`Using model: ${aiModel}, max_tokens: ${aiMaxTokens}, timeout: ${aiTimeout}ms`);
+    console.log(`Using modelType: ${aiModelType}, timeout: ${aiTimeout}ms`);
 
-    // Call Lovable AI Gateway with vision-capable model (with timeout)
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), aiTimeout);
-
-    let aiResponse;
+    let content: string;
     try {
-      aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${lovableApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: aiModel,
-          messages: [
-            {
-              role: 'system',
-              content: `Du är en modeexpert som analyserar klädesplagg från bilder.
+      const { data } = await callBursAI({
+        messages: [
+          {
+            role: 'system',
+            content: `Du är en modeexpert som analyserar klädesplagg från bilder.
 Svara ENDAST med valid JSON enligt detta schema:
 {
   "title": "${titleInstruction}",
@@ -282,57 +233,43 @@ Svara ENDAST med valid JSON enligt detta schema:
 }
 Formalitet: 1=mycket casual, 5=mycket formellt.
 Svara ENDAST med JSON, ingen förklarande text.`
-            },
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: 'Analysera detta klädesplagg och returnera strukturerad JSON.'
-                },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: imageUrl
-                  }
-                }
-              ]
-            }
-          ],
-          max_tokens: aiMaxTokens,
-          temperature: 0.2,
-        }),
+          },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Analysera detta klädesplagg och returnera strukturerad JSON.' },
+              { type: 'image_url', image_url: { url: imageUrl } }
+            ]
+          }
+        ],
+        modelType: aiModelType,
+        timeout: aiTimeout,
+        extraBody: { max_tokens: aiMaxTokens, temperature: 0.2 },
       });
-    } catch (fetchError) {
-      clearTimeout(timeout);
-      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-        console.error('AI request timed out');
+
+      content = typeof data === 'string' ? data : JSON.stringify(data);
+    } catch (aiErr) {
+      if (aiErr instanceof BursAIError) {
+        if (aiErr.status === 429) {
+          return new Response(
+            JSON.stringify({ error: "För många förfrågningar, försök igen senare" }),
+            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        if (aiErr.status === 402) {
+          return new Response(
+            JSON.stringify({ error: "AI-krediter slut, kontakta support" }),
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+      if (aiErr instanceof Error && aiErr.message.includes('timed out')) {
         return new Response(
           JSON.stringify({ error: "AI-analysen tog för lång tid" }),
           { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      throw fetchError;
-    }
-    clearTimeout(timeout);
-
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('Lovable AI API error:', aiResponse.status, errorText);
-      
-      if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "För många förfrågningar, försök igen senare" }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI-krediter slut, kontakta support" }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
+      console.error('AI analysis error:', aiErr);
       return new Response(
         JSON.stringify({ error: "AI-analysen misslyckades" }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
