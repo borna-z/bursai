@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Palette, Shirt, Bell, User, Shield, LogOut, ChevronRight, Loader2 } from 'lucide-react';
+import { Palette, Shirt, Bell, User, Shield, LogOut, ChevronRight, Loader2, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -50,7 +50,10 @@ export default function SettingsPage() {
           <SettingsRow icon={<User />} label={t('settings.row.account')} sublabel={t('settings.row.account_sub')} onClick={() => navigate('/settings/account')}>
             <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
           </SettingsRow>
-          <SettingsRow icon={<Shield />} label={t('settings.row.privacy')} sublabel={t('settings.row.privacy_sub')} onClick={() => navigate('/settings/privacy')} last>
+          <SettingsRow icon={<Shield />} label={t('settings.row.privacy')} sublabel={t('settings.row.privacy_sub')} onClick={() => navigate('/settings/privacy')}>
+            <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
+          </SettingsRow>
+          <SettingsRow icon={<TrendingUp />} label={t('settings.row.insights') || 'Wardrobe Insights'} sublabel={t('settings.row.insights_sub') || 'Usage stats & analytics'} onClick={() => navigate('/insights')} last>
             <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
           </SettingsRow>
         </SettingsGroup>
