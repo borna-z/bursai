@@ -86,9 +86,9 @@ export default function Landing() {
 
   const navLinks = [
     { id: 'how-it-works', label: t('landing.nav.how') },
+    { id: 'features', label: t('landing.nav.features') },
     { id: 'sustainability', label: t('landing.nav.sustainability') },
     { id: 'pricing', label: t('landing.nav.pricing') },
-    { id: 'download', label: t('landing.nav.download') },
   ];
 
   return (
