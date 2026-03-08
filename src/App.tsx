@@ -32,6 +32,7 @@ const App = () => (
           <AuthProvider>
             <LanguageProvider>
               <LocationProvider>
+              <SeedProvider>
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
@@ -40,6 +41,7 @@ const App = () => (
                   <AnimatedRoutes />
                 </BrowserRouter>
               </TooltipProvider>
+              </SeedProvider>
               </LocationProvider>
             </LanguageProvider>
           </AuthProvider>

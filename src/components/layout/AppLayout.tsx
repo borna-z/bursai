@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { BottomNav } from './BottomNav';
 import { OfflineBanner } from './OfflineBanner';
+import { SeedProgressPill } from './SeedProgressPill';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -15,6 +16,7 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
         {children}
       </main>
       {!hideNav && <BottomNav />}
+      <SeedProgressPill />
     </div>
   );
 }
