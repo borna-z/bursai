@@ -27,31 +27,30 @@ export interface GeneratedOutfit {
   }[];
 }
 
-async function generateOutfitViaAI(
+async function generateOutfitViaEngine(
   userId: string,
   request: OutfitRequest
 ): Promise<GeneratedOutfit> {
-  // Call AI edge function
-  const { data, error: fnError } = await supabase.functions.invoke('generate_outfit', {
-    body: { occasion: request.occasion, style: request.style, weather: request.weather, locale: request.locale || 'sv' },
+  const { data, error: fnError } = await supabase.functions.invoke('burs_style_engine', {
+    body: {
+      mode: 'generate',
+      occasion: request.occasion,
+      style: request.style,
+      weather: request.weather,
+      locale: request.locale || 'sv',
+    },
   });
 
-  if (fnError) {
-    throw new Error(fnError.message || 'Kunde inte generera outfit');
-  }
-
-  if (data?.error) {
-    throw new Error(data.error);
-  }
+  if (fnError) throw new Error(fnError.message || 'Kunde inte generera outfit');
+  if (data?.error) throw new Error(data.error);
 
   const aiItems: { slot: string; garment_id: string }[] = data.items;
   const explanation: string = data.explanation;
+  const styleScore = data.style_score || null;
 
-  if (!aiItems?.length) {
-    throw new Error('AI returnerade inga plagg');
-  }
+  if (!aiItems?.length) throw new Error('AI returnerade inga plagg');
 
-  // Fetch full garment data for the selected IDs
+  // Fetch full garment data
   const garmentIds = aiItems.map((i) => i.garment_id);
   const { data: garments, error: gError } = await supabase
     .from('garments')
@@ -61,44 +60,31 @@ async function generateOutfitViaAI(
   if (gError) throw gError;
 
   const garmentMap = new Map((garments || []).map((g) => [g.id, g]));
-
   const selectedItems = aiItems
-    .map((item) => ({
-      slot: item.slot,
-      garment: garmentMap.get(item.garment_id) as Garment,
-    }))
+    .map((item) => ({ slot: item.slot, garment: garmentMap.get(item.garment_id) as Garment }))
     .filter((item) => item.garment);
 
-  if (selectedItems.length < 3) {
-    throw new Error('Inte tillräckligt med matchande plagg – minst överdel, underdel och skor krävs');
+  if (selectedItems.length < 2) {
+    throw new Error('Inte tillräckligt med matchande plagg');
   }
 
-  // Save outfit to database
+  // Save outfit
   const weatherJson = {
     temperature: request.weather.temperature,
     precipitation: request.weather.precipitation,
     wind: request.weather.wind,
   };
 
-  const outfitInsert: {
-    user_id: string;
-    occasion: string;
-    style_vibe: string | null;
-    weather: typeof weatherJson;
-    explanation: string;
-    saved: boolean;
-  } = {
-    user_id: userId,
-    occasion: request.occasion,
-    style_vibe: request.style || null,
-    weather: weatherJson,
-    explanation,
-    saved: true,
-  };
-
   const { data: outfit, error: outfitError } = await supabase
     .from('outfits')
-    .insert([outfitInsert])
+    .insert([{
+      user_id: userId,
+      occasion: request.occasion,
+      style_vibe: request.style || null,
+      weather: weatherJson,
+      explanation,
+      saved: true,
+    }])
     .select()
     .single();
 
@@ -134,7 +120,7 @@ export function useOutfitGenerator() {
       if (!user) throw new Error('Inte inloggad');
       setIsGenerating(true);
       try {
-        return await generateOutfitViaAI(user.id, request);
+        return await generateOutfitViaEngine(user.id, request);
       } finally {
         setIsGenerating(false);
       }

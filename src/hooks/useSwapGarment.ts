@@ -4,36 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Garment } from './useGarments';
 
-// Slot categories mapping
-const SLOT_CATEGORIES: Record<string, string[]> = {
-  top: ['top'],
-  bottom: ['bottom'],
-  shoes: ['shoes'],
-  outerwear: ['outerwear'],
-  accessory: ['accessory'],
-};
-
-// Neutral colors that go with everything
-const NEUTRAL_COLORS = ['svart', 'vit', 'grå', 'beige', 'marin', 'marinblå'];
-
-// Strong colors that can clash
-const STRONG_COLORS = ['röd', 'rosa', 'lila', 'gul', 'orange', 'grön', 'blå'];
-
-// Check if two colors clash
-function colorsClash(color1: string, color2: string): boolean {
-  const c1 = color1.toLowerCase();
-  const c2 = color2.toLowerCase();
-  
-  if (NEUTRAL_COLORS.includes(c1) && NEUTRAL_COLORS.includes(c2)) return false;
-  if (NEUTRAL_COLORS.includes(c1) || NEUTRAL_COLORS.includes(c2)) return false;
-  if (STRONG_COLORS.includes(c1) && STRONG_COLORS.includes(c2) && c1 !== c2) return true;
-  
-  return false;
-}
-
 export interface SwapCandidate {
   garment: Garment;
   score: number;
+  breakdown?: Record<string, number>;
 }
 
 export function useSwapGarment() {
@@ -41,91 +15,96 @@ export function useSwapGarment() {
   const queryClient = useQueryClient();
   const [candidates, setCandidates] = useState<SwapCandidate[]>([]);
   const [isLoadingCandidates, setIsLoadingCandidates] = useState(false);
-  
-  // Fetch swap candidates for a slot
+
   const fetchCandidates = async (
-    slot: string, 
+    slot: string,
     currentGarmentId: string,
-    otherGarmentColors: string[]
+    otherGarmentColors: string[],
+    otherItems?: { slot: string; garment_id: string }[],
+    occasion?: string,
+    weather?: { temperature?: number; precipitation?: string; wind?: string }
   ): Promise<SwapCandidate[]> => {
     if (!user) return [];
-    
+
     setIsLoadingCandidates(true);
     try {
-      const categories = SLOT_CATEGORIES[slot] || [slot];
-      
-      // Fetch available garments for this slot
-      const { data: garments, error } = await supabase
-        .from('garments')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('in_laundry', false)
-        .in('category', categories)
-        .neq('id', currentGarmentId);
-      
-      if (error) throw error;
-      if (!garments) return [];
-      
-      // Score each garment
-      const scored = garments.map(garment => {
-        let score = 5;
-        
-        // Color harmony with other items
-        const color = garment.color_primary?.toLowerCase() || '';
-        const hasClash = otherGarmentColors.some(c => colorsClash(color, c));
-        if (hasClash) {
-          score -= 3;
-        } else if (NEUTRAL_COLORS.includes(color)) {
-          score += 2;
-        }
-        
-        // Prefer less worn items
-        const wearCount = garment.wear_count || 0;
-        if (wearCount === 0) score += 2;
-        else if (wearCount < 5) score += 1;
-        
-        // Prefer items not worn recently
-        if (garment.last_worn_at) {
-          const daysSince = Math.floor(
-            (Date.now() - new Date(garment.last_worn_at).getTime()) / (1000 * 60 * 60 * 24)
-          );
-          if (daysSince > 14) score += 1;
-        } else {
-          score += 1;
-        }
-        
-        return { garment, score };
+      // Use the BURS style engine for smart swap scoring
+      const { data, error } = await supabase.functions.invoke('burs_style_engine', {
+        body: {
+          mode: 'swap',
+          swap_slot: slot,
+          current_garment_id: currentGarmentId,
+          other_items: otherItems || [],
+          occasion: occasion || 'vardag',
+          weather: weather || { precipitation: 'none', wind: 'low' },
+        },
       });
-      
-      // Sort by score
-      scored.sort((a, b) => b.score - a.score);
-      
+
+      if (error || data?.error) {
+        console.error('Swap engine error, falling back to basic scoring:', error || data?.error);
+        return await fallbackFetchCandidates(slot, currentGarmentId, otherGarmentColors);
+      }
+
+      const scored: SwapCandidate[] = (data.candidates || []).map((c: any) => ({
+        garment: c.garment as Garment,
+        score: c.score,
+        breakdown: c.breakdown,
+      }));
+
       setCandidates(scored);
       return scored;
+    } catch (err) {
+      console.error('Swap fetch failed:', err);
+      return await fallbackFetchCandidates(slot, currentGarmentId, otherGarmentColors);
     } finally {
       setIsLoadingCandidates(false);
     }
   };
-  
-  // Swap mutation
+
+  // Fallback: basic client-side scoring if engine fails
+  const fallbackFetchCandidates = async (
+    slot: string,
+    currentGarmentId: string,
+    otherGarmentColors: string[]
+  ): Promise<SwapCandidate[]> => {
+    if (!user) return [];
+
+    const SLOT_CATEGORIES: Record<string, string[]> = {
+      top: ['top'], bottom: ['bottom'], shoes: ['shoes'],
+      outerwear: ['outerwear'], accessory: ['accessory'],
+    };
+    const categories = SLOT_CATEGORIES[slot] || [slot];
+
+    const { data: garments, error } = await supabase
+      .from('garments')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('in_laundry', false)
+      .in('category', categories)
+      .neq('id', currentGarmentId);
+
+    if (error || !garments) return [];
+
+    const scored = garments.map(garment => ({
+      garment,
+      score: 5 + (garment.wear_count === 0 ? 2 : garment.wear_count < 5 ? 1 : 0),
+    }));
+
+    scored.sort((a, b) => b.score - a.score);
+    setCandidates(scored);
+    return scored;
+  };
+
   const swapMutation = useMutation({
-    mutationFn: async ({ 
-      outfitItemId, 
-      newGarmentId 
-    }: { 
-      outfitItemId: string; 
-      newGarmentId: string;
-    }) => {
+    mutationFn: async ({ outfitItemId, newGarmentId }: { outfitItemId: string; newGarmentId: string }) => {
       const { data, error } = await supabase
         .from('outfit_items')
         .update({ garment_id: newGarmentId })
         .eq('id', outfitItemId)
         .select('id');
-      
+
       if (error) throw error;
-      if (!data || data.length === 0) {
-        throw new Error('Swap failed — no row was updated. Please try again.');
-      }
+      if (!data || data.length === 0) throw new Error('Swap failed — no row was updated.');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['outfit'] });
@@ -133,7 +112,7 @@ export function useSwapGarment() {
       setCandidates([]);
     },
   });
-  
+
   return {
     candidates,
     isLoadingCandidates,
