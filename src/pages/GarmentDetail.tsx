@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, WashingMachine, Check, Loader2, ExternalLink, Sparkles } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, WashingMachine, Check, Loader2, ExternalLink, Sparkles, Shield, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -10,10 +12,12 @@ import {
 import { toast } from 'sonner';
 import { useGarment, useUpdateGarment, useDeleteGarment, useMarkGarmentWorn } from '@/hooks/useGarments';
 import { useSimilarGarments } from '@/hooks/useSimilarGarments';
+import { useAssessCondition, useCostPerWear } from '@/hooks/useAdvancedFeatures';
 import { LazyImage } from '@/components/ui/lazy-image';
 import { SectionHeader } from '@/components/ui/section-header';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
+import { cn } from '@/lib/utils';
 
 export default function GarmentDetailPage() {
   const navigate = useNavigate();
