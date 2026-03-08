@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Infinity, Brain, CalendarDays, BarChart3, Image, Sparkles, ArrowRight } from 'lucide-react';
+import { Infinity, Brain, CalendarDays, BarChart3, Image, Sparkles, ArrowRight, ChevronDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getLocalizedPricing } from '@/lib/localizedPricing';
 import { ComparisonTable } from './ComparisonTable';
