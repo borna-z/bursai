@@ -35,6 +35,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'nav.stylist': 'Stylisten',
     'nav.settings': 'Inställningar',
     'nav.outfits': 'Outfits',
+    'nav.discover': 'Upptäck',
 
     // Onboarding - Language step
     'onboarding.language.title': 'Välj språk',
