@@ -97,6 +97,7 @@ export default function AIChat() {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const createOutfit = useCreateOutfit();
+  const { data: garmentCount } = useGarmentCount();
 
   const [mode, setMode] = useState<ChatMode>('stylist');
 
