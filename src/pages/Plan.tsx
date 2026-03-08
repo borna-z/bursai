@@ -149,11 +149,14 @@ export default function PlanPage() {
   const handleMarkWorn = async () => {
     if (!plannedOutfit?.outfit) return;
     const garmentIds = plannedOutfit.outfit.outfit_items.map(item => item.garment_id);
+    // Capture the top calendar event title for social context tracking
+    const topEventTitle = daySummary?.priorities?.[0]?.title || undefined;
     try {
       const result = await markWorn.mutateAsync({
         outfitId: plannedOutfit.outfit.id,
         garmentIds,
         occasion: plannedOutfit.outfit.occasion,
+        eventTitle: topEventTitle,
       });
       await updateStatus.mutateAsync({ id: plannedOutfit.id, status: 'worn' });
       toast.success(t('plan.worn'), {
