@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { WeekStrip } from '@/components/plan/WeekStrip';
 import { PlanningSheet } from '@/components/plan/PlanningSheet';
