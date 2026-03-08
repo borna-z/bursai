@@ -36,7 +36,7 @@ export function RecentGarments() {
             <LazyImage
               imagePath={garment.image_path}
               alt={garment.title}
-              aspectRatio="1/1"
+              aspectRatio="square"
               className="rounded-xl"
             />
           </button>
