@@ -47,6 +47,11 @@ const Admin = lazy(() => import('@/pages/marketing/Admin'));
 const PublicProfile = lazy(() => import('@/pages/PublicProfile'));
 const InspirationFeed = lazy(() => import('@/pages/InspirationFeed'));
 const StyleChallenges = lazy(() => import('@/pages/StyleChallenges'));
+const VisualSearch = lazy(() => import('@/pages/VisualSearch'));
+const MoodOutfit = lazy(() => import('@/pages/MoodOutfit'));
+const SmartShopping = lazy(() => import('@/pages/SmartShopping'));
+const WardrobeAging = lazy(() => import('@/pages/WardrobeAging'));
+const StyleTwin = lazy(() => import('@/pages/StyleTwin'));
 
 const routeTransition = {
   type: 'tween' as const,
