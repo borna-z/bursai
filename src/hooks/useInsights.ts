@@ -5,12 +5,22 @@ import type { Tables } from '@/integrations/supabase/types';
 
 export type Garment = Tables<'garments'>;
 
+export interface ColorTemperatureData {
+  temperature: number;       // -1 (cool) to +1 (warm)
+  warmCount: number;
+  coolCount: number;
+  neutralCount: number;
+  totalChromatic: number;
+  dominantPalette: 'warm' | 'cool' | 'neutral' | 'balanced';
+}
+
 export interface InsightsData {
   totalGarments: number;
   garmentsUsedLast30Days: number;
   usageRate: number;
   topFiveWorn: (Garment & { wearCountLast30: number })[];
   unusedGarments: Garment[];
+  colorTemperature: ColorTemperatureData;
 }
 
 export function useInsights() {
