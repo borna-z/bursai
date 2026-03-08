@@ -35,7 +35,7 @@ export function Scene3D({ children, className = '', style }: Scene3DProps) {
     <div ref={containerRef} className={className} style={style}>
       {visible && (
         <Canvas
-          frameloop="demand"
+          frameloop="always"
           dpr={[1, 1.5]}
           gl={{ antialias: true, alpha: true }}
           camera={{ position: [0, 0, 5], fov: 45 }}
