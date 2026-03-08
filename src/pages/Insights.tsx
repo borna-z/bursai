@@ -261,7 +261,7 @@ export default function InsightsPage() {
   return (
     <AppLayout>
       <PageHeader title={t('insights.title')} showBack />
-
+      <PullToRefresh onRefresh={handleRefresh}>
       <AnimatedPage className="max-w-lg mx-auto px-4 pb-8 pt-6">
         {/* ─── Hero: Usage ring + stats ─── */}
         <div className="flex flex-col items-center pb-10">
