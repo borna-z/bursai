@@ -32,6 +32,7 @@ const SettingsNotifications = lazy(() => import('@/pages/settings/SettingsNotifi
 const SettingsAccount = lazy(() => import('@/pages/settings/SettingsAccount'));
 const SettingsPrivacy = lazy(() => import('@/pages/settings/SettingsPrivacy'));
 const GenerateImages = lazy(() => import('@/pages/settings/GenerateImages'));
+const SeedWardrobe = lazy(() => import('@/pages/settings/SeedWardrobe'));
 const ShareOutfit = lazy(() => import('@/pages/ShareOutfit'));
 const BillingSuccess = lazy(() => import('@/pages/BillingSuccess'));
 const BillingCancel = lazy(() => import('@/pages/BillingCancel'));
@@ -122,6 +123,7 @@ export function AnimatedRoutes() {
             <Route path="/settings/account" element={<ProtectedRoute><SettingsAccount /></ProtectedRoute>} />
             <Route path="/settings/privacy" element={<ProtectedRoute><SettingsPrivacy /></ProtectedRoute>} />
             <Route path="/settings/generate-images" element={<ProtectedRoute><GenerateImages /></ProtectedRoute>} />
+            <Route path="/settings/seed-wardrobe" element={<ProtectedRoute><SeedWardrobe /></ProtectedRoute>} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/billing/success" element={<ProtectedRoute><BillingSuccess /></ProtectedRoute>} />
             <Route path="/billing/cancel" element={<ProtectedRoute><BillingCancel /></ProtectedRoute>} />
