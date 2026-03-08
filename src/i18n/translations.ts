@@ -4709,6 +4709,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'outfit.swap': 'Échanger', 'outfit.swap_slot': 'Échanger', 'outfit.just_created': 'Nouvelle tenue créée !',
     'outfit.why_works': 'Pourquoi ça fonctionne', 'outfit.rating': 'Note', 'outfit.feedback': 'Retour',
     'outfit.too_warm': 'Trop chaud', 'outfit.too_cold': 'Trop froid', 'outfit.too_formal': 'Trop formel', 'outfit.too_casual': 'Trop décontracté',
+    'outfit.uncomfortable': 'Inconfortable', 'outfit.loved_it': 'Adoré', 'outfit.bad_color': 'Mauvaise couleur', 'outfit.boring': 'Ennuyeux',
     'outfit.mark_worn': 'Marquer comme porté', 'outfit.worn': 'Porté', 'outfit.plan': 'Planifier', 'outfit.similar': 'Similaire', 'outfit.share': 'Partager',
     'outfit.sharing': 'Partage', 'outfit.share_active': 'Lien public actif', 'outfit.private': 'Privé',
     'outfit.link': 'Lien', 'outfit.copy': 'Copier', 'outfit.copied': 'Copié !', 'outfit.download': 'Télécharger',
