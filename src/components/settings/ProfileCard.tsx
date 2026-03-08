@@ -3,8 +3,6 @@ import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { Crown } from 'lucide-react';
 
 export function ProfileCard() {
@@ -18,24 +16,24 @@ export function ProfileCard() {
   const email = user?.email || '';
 
   return (
-    <Card>
-      <CardContent className="flex items-center gap-4 p-5">
-        <Avatar className="w-14 h-14">
-          <AvatarFallback className="bg-accent/10 text-accent font-semibold text-base">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1 min-w-0">
-          <p className="text-base font-semibold truncate">{displayName}</p>
-          <p className="text-xs text-muted-foreground truncate">{email}</p>
+    <div className="flex items-center gap-4 py-2">
+      <Avatar className="w-16 h-16">
+        <AvatarFallback className="bg-primary/8 text-primary font-semibold text-lg">
+          {initials}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="text-lg font-semibold truncate">{displayName}</p>
+          {isPremium && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary uppercase tracking-wide">
+              <Crown className="w-3 h-3" />
+              {t('common.premium')}
+            </span>
+          )}
         </div>
-        {isPremium && (
-          <Badge variant="secondary" className="bg-premium/10 text-premium border-premium/20 text-[10px] gap-1">
-            <Crown className="w-3 h-3" />
-            {t('common.premium')}
-          </Badge>
-        )}
-      </CardContent>
-    </Card>
+        <p className="text-[13px] text-muted-foreground/60 truncate">{email}</p>
+      </div>
+    </div>
   );
 }

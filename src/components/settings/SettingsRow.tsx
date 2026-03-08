@@ -16,11 +16,15 @@ interface SettingsRowProps {
 export function SettingsRow({ icon, label, sublabel, children, last, onClick, className }: SettingsRowProps) {
   const content = (
     <>
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        {icon && <span className="flex-shrink-0 [&>svg]:w-[18px] [&>svg]:h-[18px] text-muted-foreground">{icon}</span>}
+      <div className="flex items-center gap-3.5 min-w-0 flex-1">
+        {icon && (
+          <span className="flex-shrink-0 w-8 h-8 rounded-lg bg-muted/40 flex items-center justify-center [&>svg]:w-[16px] [&>svg]:h-[16px] text-foreground/70">
+            {icon}
+          </span>
+        )}
         <div className="min-w-0">
-          <span className="text-sm font-medium text-foreground">{label}</span>
-          {sublabel && <p className="text-xs text-muted-foreground mt-0.5">{sublabel}</p>}
+          <span className="text-[15px] font-medium text-foreground">{label}</span>
+          {sublabel && <p className="text-[12px] text-muted-foreground/50 mt-0.5 leading-tight">{sublabel}</p>}
         </div>
       </div>
       {children && <div className="flex-shrink-0">{children}</div>}
@@ -28,8 +32,9 @@ export function SettingsRow({ icon, label, sublabel, children, last, onClick, cl
   );
 
   const baseClass = cn(
-    'flex items-center justify-between gap-3 px-4 py-4 w-full text-left',
-    onClick && 'transition-colors',
+    'flex items-center justify-between gap-3 px-4 py-3.5 w-full text-left',
+    !last && 'border-b border-border/5',
+    onClick && 'transition-colors active:bg-muted/30',
     className,
   );
 
