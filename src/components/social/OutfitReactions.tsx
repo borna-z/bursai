@@ -3,11 +3,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { hapticLight } from '@/lib/haptics';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const REACTIONS = [
-  { key: 'styled', emoji: '🔥', label: 'Styled' },
-  { key: 'creative', emoji: '💎', label: 'Creative' },
-  { key: 'sustainable', emoji: '🌿', label: 'Sustainable' },
+  { key: 'styled', emoji: '🔥', labelKey: 'reaction.styled' },
+  { key: 'creative', emoji: '💎', labelKey: 'reaction.creative' },
+  { key: 'sustainable', emoji: '🌿', labelKey: 'reaction.sustainable' },
 ] as const;
 
 interface Props {
@@ -17,6 +18,7 @@ interface Props {
 
 export function OutfitReactions({ outfitId, compact }: Props) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [userReactions, setUserReactions] = useState<Set<string>>(new Set());
 
@@ -82,7 +84,7 @@ export function OutfitReactions({ outfitId, compact }: Props) {
                 ? "border-primary/30 bg-primary/10"
                 : "border-border/40 bg-muted/30 hover:bg-muted/60"
             )}
-            title={r.label}
+            title={t(r.labelKey)}
           >
             <span>{r.emoji}</span>
             {count > 0 && <span className="tabular-nums text-muted-foreground">{count}</span>}

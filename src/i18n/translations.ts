@@ -1913,6 +1913,59 @@ export const translations: Record<Locale, Record<string, string>> = {
     'ai.twin_view': 'Visa',
     'ai.twin_rediscover': 'Upptäck igen',
     'ai.twin_settings_sub': 'Din stil-arketyp',
+
+    // Error boundary
+    'error.title': 'Något gick fel',
+    'error.desc': 'Ett oväntat fel uppstod. Prova att ladda om sidan.',
+    'error.try_again': 'Försök igen',
+    'error.reload': 'Ladda om',
+
+    // Seed wardrobe
+    'seed.deleted': 'Alla gamla plagg borttagna',
+    'seed.delete_error': 'Kunde inte ta bort gamla plagg',
+    'seed.created': 'Skapade {done} plagg ({failed} misslyckades)',
+    'seed.batch_failed': 'Batch misslyckades',
+    'seed.retry_failed': 'Försök misslyckades',
+
+    // Generate images
+    'genimg.title': 'Generera unika bilder',
+    'genimg.desc': 'Generera AI-produktfoton för alla plagg baserat på attribut (färg, material, typ). Ersätter dubblettbilder med unika.',
+    'genimg.total': 'Totalt plagg',
+    'genimg.generated': 'Genererade',
+    'genimg.failed': 'Misslyckades',
+    'genimg.processing': 'Bearbetar…',
+    'genimg.done': 'Klart',
+    'genimg.generating': 'Genererar…',
+    'genimg.generate_all': 'Generera alla bilder',
+    'genimg.retry': 'Försök igen',
+
+    // Contact
+    'contact.title': 'Kontakt',
+    'contact.subtitle': 'Har du frågor? Vi hjälper gärna.',
+    'contact.success': 'Tack för ditt meddelande. Vi återkommer så snart som möjligt.',
+    'contact.name': 'Ditt namn',
+    'contact.email': 'Din e-postadress',
+    'contact.message': 'Ditt meddelande',
+    'contact.send': 'Skicka meddelande',
+    'contact.rights': 'Alla rättigheter förbehållna.',
+    'contact.gdpr_note': 'BURS följer GDPR. Din data lagras säkert och delas aldrig med tredje part.',
+
+    // Footer
+    'footer.privacy': 'Integritetspolicy',
+    'footer.terms': 'Användarvillkor',
+    'footer.agree': 'Genom att använda BURS godkänner du vår',
+    'footer.rights': 'Alla rättigheter förbehållna.',
+
+    // Calendar
+    'calendar.google_privacy': 'BURS läser dina kalenderhändelser för att hjälpa planera outfits runt ditt schema. Du kan koppla bort när som helst.',
+
+    // Reactions
+    'reaction.styled': 'Stilfullt',
+    'reaction.creative': 'Kreativt',
+    'reaction.sustainable': 'Hållbart',
+
+    // Reel
+    'wardrobe.reel_save_error': 'Kunde inte spara bild',
   },
 
   en: {
@@ -3756,6 +3809,59 @@ export const translations: Record<Locale, Record<string, string>> = {
     'ai.twin_view': 'View',
     'ai.twin_rediscover': 'Rediscover',
     'ai.twin_settings_sub': 'Your style archetype',
+
+    // Error boundary
+    'error.title': 'Something went wrong',
+    'error.desc': 'An unexpected error occurred. Try reloading the page.',
+    'error.try_again': 'Try again',
+    'error.reload': 'Reload',
+
+    // Seed wardrobe
+    'seed.deleted': 'All old garments deleted',
+    'seed.delete_error': 'Failed to delete old garments',
+    'seed.created': 'Created {done} garments ({failed} failed)',
+    'seed.batch_failed': 'Batch failed',
+    'seed.retry_failed': 'Retry failed',
+
+    // Generate images
+    'genimg.title': 'Generate Unique Images',
+    'genimg.desc': 'Generate AI product photos for every garment based on its attributes (color, material, type). This replaces duplicate placeholder images with unique ones.',
+    'genimg.total': 'Total garments',
+    'genimg.generated': 'Generated',
+    'genimg.failed': 'Failed',
+    'genimg.processing': 'Processing…',
+    'genimg.done': 'Done',
+    'genimg.generating': 'Generating…',
+    'genimg.generate_all': 'Generate All Images',
+    'genimg.retry': 'Retry',
+
+    // Contact
+    'contact.title': 'Contact',
+    'contact.subtitle': 'Have questions? We\'re happy to help.',
+    'contact.success': 'Thank you for your message. We\'ll get back to you shortly.',
+    'contact.name': 'Your name',
+    'contact.email': 'Your email address',
+    'contact.message': 'Your message',
+    'contact.send': 'Send message',
+    'contact.rights': 'All rights reserved.',
+    'contact.gdpr_note': 'BURS complies with GDPR. Your data is stored securely and never shared with third parties.',
+
+    // Footer
+    'footer.privacy': 'Privacy Policy',
+    'footer.terms': 'Terms of Use',
+    'footer.agree': 'By using BURS you agree to our',
+    'footer.rights': 'All rights reserved.',
+
+    // Calendar
+    'calendar.google_privacy': 'BURS will read your calendar events to help plan outfits around your schedule. You can disconnect at any time.',
+
+    // Reactions
+    'reaction.styled': 'Styled',
+    'reaction.creative': 'Creative',
+    'reaction.sustainable': 'Sustainable',
+
+    // Reel
+    'wardrobe.reel_save_error': 'Could not save image',
   },
 
   no: {

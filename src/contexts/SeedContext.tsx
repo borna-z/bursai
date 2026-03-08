@@ -3,6 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { SEED_GARMENTS } from '@/data/seedGarments';
+import { translations, type Locale } from '@/i18n/translations';
+
+function t(key: string): string {
+  const stored = localStorage.getItem('burs-locale') as Locale | null;
+  const locale = (stored && translations[stored]) ? stored : 'sv';
+  return translations[locale]?.[key] ?? translations['sv']?.[key] ?? key;
+}
 
 const BATCH_SIZE = 1;
 const DELAY_MS = 2000;
@@ -83,9 +90,9 @@ export function SeedProvider({ children }: { children: ReactNode }) {
         body: { action: 'delete_all' },
       });
       if (error) throw error;
-      toast.success('All old garments deleted');
+      toast.success(t('seed.deleted'));
     } catch {
-      toast.error('Failed to delete old garments');
+      toast.error(t('seed.delete_error'));
       setStep('error');
       return;
     }
@@ -135,7 +142,7 @@ export function SeedProvider({ children }: { children: ReactNode }) {
 
     setStep('done');
     setCurrentItem('');
-    toast.success(`Created ${doneCount} garments (${failCount} failed)`);
+    toast.success(t('seed.created').replace('{done}', String(doneCount)).replace('{failed}', String(failCount)));
   }, [user, isRunning]);
 
   const retryFailed = useCallback(async () => {

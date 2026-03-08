@@ -4,6 +4,7 @@ import { ArrowLeft, ImagePlus, Loader2, CheckCircle, AlertCircle, RotateCcw } fr
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFlatGarments } from '@/hooks/useGarments';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -24,6 +25,7 @@ export default function GenerateImages() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: garments } = useFlatGarments();
+  const { t } = useLanguage();
   const [items, setItems] = useState<BatchItem[]>([]);
   const [running, setRunning] = useState(false);
   const [completed, setCompleted] = useState(0);
@@ -134,29 +136,28 @@ export default function GenerateImages() {
           <button onClick={() => navigate('/settings')} className="p-2 -ml-2 rounded-xl hover:bg-muted">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-xl font-semibold">Generate Unique Images</h1>
+          <h1 className="text-xl font-semibold">{t('genimg.title')}</h1>
         </div>
 
         <p className="text-sm text-muted-foreground">
-          Generate AI product photos for every garment based on its attributes (color, material, type).
-          This replaces duplicate placeholder images with unique ones.
+          {t('genimg.desc')}
         </p>
 
         {/* Stats */}
         <div className="flex gap-4 text-sm">
           <div className="bg-muted/50 rounded-xl px-4 py-3 flex-1 text-center">
             <p className="text-2xl font-semibold">{garments?.length || 0}</p>
-            <p className="text-muted-foreground text-xs">Total garments</p>
+            <p className="text-muted-foreground text-xs">{t('genimg.total')}</p>
           </div>
           {total > 0 && (
             <>
               <div className="bg-emerald-500/10 rounded-xl px-4 py-3 flex-1 text-center">
                 <p className="text-2xl font-semibold text-emerald-600">{completed}</p>
-                <p className="text-muted-foreground text-xs">Generated</p>
+                <p className="text-muted-foreground text-xs">{t('genimg.generated')}</p>
               </div>
               <div className="bg-destructive/10 rounded-xl px-4 py-3 flex-1 text-center">
                 <p className="text-2xl font-semibold text-destructive">{failed}</p>
-                <p className="text-muted-foreground text-xs">Failed</p>
+                <p className="text-muted-foreground text-xs">{t('genimg.failed')}</p>
               </div>
             </>
           )}
@@ -167,7 +168,7 @@ export default function GenerateImages() {
           <div className="space-y-2">
             <Progress value={progress} className="h-2" />
             <p className="text-xs text-muted-foreground text-center">
-              {running ? `Processing... ${completed + failed} of ${total}` : `Done — ${completed} generated, ${failed} failed`}
+              {running ? `${t('genimg.processing')} ${completed + failed} / ${total}` : `${t('genimg.done')} — ${completed} / ${failed}`}
             </p>
           </div>
         )}
@@ -180,15 +181,15 @@ export default function GenerateImages() {
             className="flex-1"
           >
             {running ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</>
+              <><Loader2 className="w-4 h-4 animate-spin" /> {t('genimg.generating')}</>
             ) : (
-              <><ImagePlus className="w-4 h-4" /> Generate All Images</>
+              <><ImagePlus className="w-4 h-4" /> {t('genimg.generate_all')}</>
             )}
           </Button>
 
           {failedItems.length > 0 && !running && (
             <Button variant="outline" onClick={retryFailed}>
-              <RotateCcw className="w-4 h-4" /> Retry {failedItems.length}
+              <RotateCcw className="w-4 h-4" /> {t('genimg.retry')} {failedItems.length}
             </Button>
           )}
         </div>

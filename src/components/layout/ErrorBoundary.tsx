@@ -1,6 +1,15 @@
 import { Component, ReactNode } from 'react';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { translations, type Locale } from '@/i18n/translations';
+
+function getLocale(): Locale {
+  const stored = localStorage.getItem('burs-locale') as Locale | null;
+  if (stored && translations[stored]) return stored;
+  const browserLang = navigator.language.split('-')[0] as Locale;
+  if (translations[browserLang]) return browserLang;
+  return 'sv';
+}
 
 interface Props {
   children: ReactNode;
@@ -29,6 +38,11 @@ export class ErrorBoundary extends Component<Props, State> {
     this.setState({ hasError: false, error: null });
   };
 
+  t = (key: string): string => {
+    const locale = getLocale();
+    return translations[locale]?.[key] ?? translations['sv']?.[key] ?? key;
+  };
+
   render() {
     if (this.state.hasError) {
       return (
@@ -38,9 +52,9 @@ export class ErrorBoundary extends Component<Props, State> {
               <AlertTriangle className="w-7 h-7 text-destructive" />
             </div>
             <div className="space-y-2">
-              <h1 className="text-xl font-semibold text-foreground">Something went wrong</h1>
+              <h1 className="text-xl font-semibold text-foreground">{this.t('error.title')}</h1>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                An unexpected error occurred. Try reloading the page.
+                {this.t('error.desc')}
               </p>
             </div>
             {process.env.NODE_ENV === 'development' && this.state.error && (
@@ -50,11 +64,11 @@ export class ErrorBoundary extends Component<Props, State> {
             )}
             <div className="flex gap-3 justify-center">
               <Button variant="outline" size="sm" onClick={this.handleReset}>
-                Try again
+                {this.t('error.try_again')}
               </Button>
               <Button size="sm" onClick={this.handleReload} className="bg-accent text-accent-foreground hover:bg-accent/90">
                 <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                Reload
+                {this.t('error.reload')}
               </Button>
             </div>
           </div>

@@ -6,38 +6,36 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { BursMonogram } from '@/components/ui/BursMonogram';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function Contact() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle');
   const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+  const { t } = useLanguage();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('loading');
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Simulate sending
+    await new Promise(r => setTimeout(r, 1000));
     setStatus('success');
-    setFormData({ name: '', email: '', message: '' });
   };
 
   return (
     <div className="force-light">
       <Helmet>
-        <title>Contact | BURS</title>
-        <meta name="description" content="Get in touch with the BURS team." />
+        <title>{t('contact.title')} — BURS</title>
+        <meta name="description" content={t('contact.subtitle')} />
       </Helmet>
 
-      <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <div className="min-h-screen bg-background flex flex-col">
         {/* Header */}
-        <header className="w-full border-b border-border/60">
-          <div className="max-w-xl mx-auto px-4 py-4 flex items-center justify-between">
-            <Link to="/welcome" className="flex items-center gap-2">
-              <BursMonogram size={28} />
-              <span className="font-bold tracking-[0.12em] text-sm" style={{ fontFamily: "'Sora', sans-serif" }}>BURS</span>
+        <header className="border-b border-border/60">
+          <div className="max-w-xl mx-auto px-4 py-4 flex items-center gap-3">
+            <Link to="/" className="p-2 -ml-2 rounded-xl hover:bg-muted">
+              <ArrowLeft className="w-5 h-5" />
             </Link>
-            <Link to="/welcome" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </Link>
+            <BursMonogram size={24} />
           </div>
         </header>
 
@@ -47,8 +45,8 @@ export default function Contact() {
             <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-6">
               <Mail className="w-7 h-7 text-accent" />
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold mb-3">Contact</h1>
-            <p className="text-muted-foreground">Have questions? We're happy to help.</p>
+            <h1 className="text-3xl md:text-4xl font-bold mb-3">{t('contact.title')}</h1>
+            <p className="text-muted-foreground">{t('contact.subtitle')}</p>
           </div>
 
           <div className="text-center mb-10">
@@ -60,15 +58,15 @@ export default function Contact() {
           {status === 'success' ? (
             <div className="flex items-center justify-center gap-3 p-6 bg-accent/10 text-accent rounded-xl animate-fade-in">
               <Check className="w-5 h-5" />
-              <span className="font-medium">Thank you for your message. We'll get back to you shortly.</span>
+              <span className="font-medium">{t('contact.success')}</span>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
-              <Input type="text" placeholder="Your name" value={formData.name} onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))} className="h-12" required />
-              <Input type="email" placeholder="Your email address" value={formData.email} onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))} className="h-12" required />
-              <Textarea placeholder="Your message" value={formData.message} onChange={(e) => setFormData(prev => ({ ...prev, message: e.target.value }))} rows={5} required />
+              <Input type="text" placeholder={t('contact.name')} value={formData.name} onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))} className="h-12" required />
+              <Input type="email" placeholder={t('contact.email')} value={formData.email} onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))} className="h-12" required />
+              <Textarea placeholder={t('contact.message')} value={formData.message} onChange={(e) => setFormData(prev => ({ ...prev, message: e.target.value }))} rows={5} required />
               <Button type="submit" className="w-full h-12 font-semibold" disabled={status === 'loading'}>
-                {status === 'loading' ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Send className="w-4 h-4 mr-2" />Send message</>}
+                {status === 'loading' ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Send className="w-4 h-4 mr-2" />{t('contact.send')}</>}
               </Button>
             </form>
           )}
@@ -78,12 +76,12 @@ export default function Contact() {
         <footer className="border-t border-border/60">
           <div className="max-w-xl mx-auto px-4 py-8 flex flex-col items-center gap-4 text-xs text-muted-foreground">
             <div className="flex gap-6">
-              <Link to="/privacy" className="hover:text-foreground">Privacy Policy</Link>
-              <Link to="/terms" className="hover:text-foreground">Terms</Link>
-              <Link to="/contact" className="hover:text-foreground font-medium text-foreground">Contact</Link>
+              <Link to="/privacy" className="hover:text-foreground">{t('footer.privacy')}</Link>
+              <Link to="/terms" className="hover:text-foreground">{t('footer.terms')}</Link>
+              <Link to="/contact" className="hover:text-foreground font-medium text-foreground">{t('contact.title')}</Link>
             </div>
-            <p>© {new Date().getFullYear()} BURS. All rights reserved.</p>
-            <p className="text-center max-w-md">BURS complies with GDPR. Your data is stored securely and never shared with third parties.</p>
+            <p>© {new Date().getFullYear()} BURS. {t('contact.rights')}</p>
+            <p className="text-center max-w-md">{t('contact.gdpr_note')}</p>
           </div>
         </footer>
       </div>
