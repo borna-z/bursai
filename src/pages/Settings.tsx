@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { Palette, Shirt, Bell, User, Shield, LogOut, ChevronRight, Loader2, TrendingUp } from 'lucide-react';
+import { Palette, Shirt, Bell, User, Shield, LogOut, ChevronRight, Loader2, TrendingUp, Database } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 const APP_VERSION = (globalThis as any).__APP_VERSION__ ?? '1.0.0';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,12 +11,28 @@ import { SettingsRow } from '@/components/settings/SettingsRow';
 import { SettingsGroup } from '@/components/settings/SettingsGroup';
 import { ProfileCard } from '@/components/settings/ProfileCard';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { supabase } from '@/integrations/supabase/client';
+
+function useIsAdmin() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['is-admin', user?.id],
+    queryFn: async () => {
+      if (!user) return false;
+      const { data } = await supabase.rpc('is_admin', { _user_id: user.id });
+      return !!data;
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60 * 10,
+  });
+}
 
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const { data: profile, isLoading } = useProfile();
   const { t } = useLanguage();
+  const { data: isAdmin } = useIsAdmin();
 
   const handleSignOut = async () => {
     await signOut();
@@ -55,9 +72,14 @@ export default function SettingsPage() {
           <SettingsRow icon={<Shield />} label={t('settings.row.privacy')} sublabel={t('settings.row.privacy_sub')} onClick={() => navigate('/settings/privacy')}>
             <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
           </SettingsRow>
-          <SettingsRow icon={<TrendingUp />} label={t('settings.row.insights') || 'Wardrobe Insights'} sublabel={t('settings.row.insights_sub') || 'Usage stats & analytics'} onClick={() => navigate('/insights')} last>
+          <SettingsRow icon={<TrendingUp />} label={t('settings.row.insights') || 'Wardrobe Insights'} sublabel={t('settings.row.insights_sub') || 'Usage stats & analytics'} onClick={() => navigate('/insights')} last={!isAdmin}>
             <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
           </SettingsRow>
+          {isAdmin && (
+            <SettingsRow icon={<Database />} label="Seed Wardrobe" sublabel="Generate demo garments with AI" onClick={() => navigate('/settings/seed-wardrobe')} last>
+              <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
+            </SettingsRow>
+          )}
         </SettingsGroup>
 
         {/* Sign out */}
