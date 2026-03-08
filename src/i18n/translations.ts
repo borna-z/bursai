@@ -652,6 +652,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     'plan.removed': 'Borttagen',
     'plan.remove_error': 'Kunde inte ta bort',
     'plan.undone': 'Ångrad',
+    'laundry.wash_alert_title': 'Tvättvarning',
+    'laundry.needed_for': 'behövs',
     'plan.plan_week': 'Planera din vecka',
     'plan.undo': 'Ångra',
     'plan.versatile_pieces': 'Fungerar hela dagen',
