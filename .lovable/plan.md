@@ -28,8 +28,8 @@ Behavioral style embedding built from wear_logs: color temperature (-1 cool to +
 ### Step 7: Wear Pattern Analysis ✅
 Track day-of-week and seasonal correlations. Analyzes 6 months of wear_logs to detect per-garment day affinity, seasonal preference, category-by-day patterns, and color-by-season trends. Feeds a `wearPatternScore` (12% weight) into composite scoring.
 
-### Step 8: Comfort vs Style Learning
-Observe which garments get re-worn frequently (comfort signals) vs which get high ratings but low rewear (aspiration pieces). Balance both in suggestions.
+### Step 8: Comfort vs Style Learning ✅
+Observe which garments get re-worn frequently (comfort signals) vs which get high ratings but low rewear (aspiration pieces). Builds a per-garment comfort/aspiration signal and detects user tendency. Feeds a `comfortStyleScore` (10% weight) into composite scoring, balancing both signals based on user behavior.
 
 ### Step 9: Color Temperature Profiling
 Automatically detect if user gravitates toward warm palette (earth tones, reds, oranges) or cool palette (blues, greys, lavender). Weight suggestions accordingly.
