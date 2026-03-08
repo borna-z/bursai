@@ -112,6 +112,9 @@ export default function HomePage() {
           {/* ── Swipe Suggestions ── */}
           <SwipeSuggestions />
 
+          {/* ── Insights Banner ── */}
+          <InsightsBanner />
+
           {/* ── Adjust Your Day (collapsed) ── */}
           <AdjustDaySection
             occasion={occasion}
