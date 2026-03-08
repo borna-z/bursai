@@ -8,6 +8,7 @@ export interface OutfitRequest {
   occasion: string;
   style?: string | null;
   locale?: string;
+  eventTitle?: string | null;
   weather: {
     temperature?: number;
     precipitation: string;
