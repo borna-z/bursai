@@ -94,7 +94,7 @@ function extractGarmentIds(messages: Message[]): string[] {
 
 export default function AIChat() {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const navigate = useNavigate();
   const createOutfit = useCreateOutfit();
   const { data: garmentCount } = useGarmentCount();
