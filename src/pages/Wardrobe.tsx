@@ -173,7 +173,7 @@ function GarmentListContent({
 
   return (
     <>
-      <div className={cn(isGridView ? 'grid grid-cols-2 gap-2.5' : 'flex flex-col gap-1')}>
+      <div className={cn(isGridView ? 'grid grid-cols-3 gap-1.5' : 'flex flex-col gap-1')}>
         {garments.map((garment, index) => (
           <div key={garment.id} className="animate-drape-in" style={{ animationDelay: `${Math.min(index, 12) * 40}ms`, animationFillMode: 'both' }}>
             {!isGridView && !isSelecting ? (
