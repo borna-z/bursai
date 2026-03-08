@@ -2,30 +2,48 @@ import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Menu, X } from 'lucide-react';
-import bursLandingLogo from '@/assets/burs-logo-white.png';
+import bursLogo from '@/assets/burs-logo-white.png';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { HeroSection } from '@/components/landing/HeroSection';
 import { CookieConsent } from '@/components/landing/CookieConsent';
+import { HeroSection } from '@/components/landing2/HeroSection';
 
-// Lazy-load below-fold sections for faster initial paint
-const TrialBanner = lazy(() => import('@/components/landing/TrialBanner').then(m => ({ default: m.TrialBanner })));
-const HowItWorks = lazy(() => import('@/components/landing/HowItWorks').then(m => ({ default: m.HowItWorks })));
-const SustainabilitySection = lazy(() => import('@/components/landing/SustainabilitySection').then(m => ({ default: m.SustainabilitySection })));
-const MissionSection = lazy(() => import('@/components/landing/MissionSection').then(m => ({ default: m.MissionSection })));
-const PricingSection = lazy(() => import('@/components/landing/PricingSection').then(m => ({ default: m.PricingSection })));
-const CTASection = lazy(() => import('@/components/landing/CTASection').then(m => ({ default: m.CTASection })));
-const DownloadSection = lazy(() => import('@/components/landing/DownloadSection').then(m => ({ default: m.DownloadSection })));
-const LandingFooter = lazy(() => import('@/components/landing/LandingFooter').then(m => ({ default: m.LandingFooter })));
+const TrustStrip = lazy(() => import('@/components/landing2/TrustStrip').then(m => ({ default: m.TrustStrip })));
+const ProblemSection = lazy(() => import('@/components/landing2/ProblemSection').then(m => ({ default: m.ProblemSection })));
+const SystemSection = lazy(() => import('@/components/landing2/SystemSection').then(m => ({ default: m.SystemSection })));
+const AIStylistSection = lazy(() => import('@/components/landing2/AIStylistSection').then(m => ({ default: m.AIStylistSection })));
+const WardrobeVisualSection = lazy(() => import('@/components/landing2/WardrobeVisualSection').then(m => ({ default: m.WardrobeVisualSection })));
+const OutfitBuilderSection = lazy(() => import('@/components/landing2/OutfitBuilderSection').then(m => ({ default: m.OutfitBuilderSection })));
+const WeeklyPlannerSection = lazy(() => import('@/components/landing2/WeeklyPlannerSection').then(m => ({ default: m.WeeklyPlannerSection })));
+const HowItWorksSection = lazy(() => import('@/components/landing2/HowItWorksSection').then(m => ({ default: m.HowItWorksSection })));
+const PricingSection = lazy(() => import('@/components/landing2/PricingSection').then(m => ({ default: m.PricingSection })));
+const SocialProofSection = lazy(() => import('@/components/landing2/SocialProofSection').then(m => ({ default: m.SocialProofSection })));
+const FinalCTASection = lazy(() => import('@/components/landing2/FinalCTASection').then(m => ({ default: m.FinalCTASection })));
+const LandingFooter = lazy(() => import('@/components/landing2/LandingFooter').then(m => ({ default: m.LandingFooter })));
+
+const NAV_LINKS = [
+  { id: 'features', label: 'Features' },
+  { id: 'how-it-works', label: 'How it Works' },
+  { id: 'pricing', label: 'Pricing' },
+  { id: 'ai-stylist', label: 'AI Stylist' },
+];
 
 export default function Landing() {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const REVEAL_SELECTOR = '.reveal-up, .reveal-down, .reveal-left, .reveal-right, .reveal-scale, .reveal-rotate, .scroll-reveal, .line-grow, .word-reveal';
+  // Scroll detection for navbar
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const onScroll = () => setScrolled(container.scrollTop > 80);
+    container.addEventListener('scroll', onScroll, { passive: true });
+    return () => container.removeEventListener('scroll', onScroll);
+  }, []);
 
-  // Single unified IntersectionObserver + MutationObserver
+  // IntersectionObserver for reveal elements
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
@@ -33,49 +51,19 @@ export default function Landing() {
     const io = new IntersectionObserver(
       (entries) => {
         entries.forEach(e => {
-          if (e.isIntersecting) {
-            e.target.classList.add('visible');
-          } else {
-            e.target.classList.remove('visible');
-          }
+          if (e.isIntersecting) e.target.classList.add('visible');
         });
       },
       { root: container, threshold: 0.08 }
     );
 
-    // Observe all current reveal elements
-    container.querySelectorAll(REVEAL_SELECTOR).forEach(el => io.observe(el));
+    const observe = () => container.querySelectorAll('.lv2-reveal').forEach(el => io.observe(el));
+    observe();
 
-    // Watch for lazy-loaded sections adding new reveal elements
-    const mo = new MutationObserver(() => {
-      container.querySelectorAll(REVEAL_SELECTOR).forEach(el => {
-        io.observe(el); // safe to call multiple times on same element
-      });
-    });
+    const mo = new MutationObserver(observe);
     mo.observe(container, { childList: true, subtree: true });
 
-    return () => {
-      io.disconnect();
-      mo.disconnect();
-    };
-  }, []);
-
-  // Parallax scroll listener
-  useEffect(() => {
-    const container = scrollRef.current;
-    if (!container) return;
-    let ticking = false;
-    const onScroll = () => {
-      if (!ticking) {
-        requestAnimationFrame(() => {
-          document.documentElement.style.setProperty('--scroll-y', String(container.scrollTop));
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-    container.addEventListener('scroll', onScroll, { passive: true });
-    return () => container.removeEventListener('scroll', onScroll);
+    return () => { io.disconnect(); mo.disconnect(); };
   }, []);
 
   const scrollTo = (id: string) => {
@@ -83,18 +71,11 @@ export default function Landing() {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const navLinks = [
-    { id: 'how-it-works', label: t('landing.nav.how') },
-    { id: 'sustainability', label: t('landing.nav.sustainability') },
-    { id: 'pricing', label: t('landing.nav.pricing') },
-    { id: 'download', label: t('landing.nav.download') },
-  ];
-
   return (
     <>
       <Helmet>
-        <title>{t('landing.title')}</title>
-        <meta name="description" content={t('landing.meta')} />
+        <title>BURS — AI Wardrobe Operating System</title>
+        <meta name="description" content="Digitize your wardrobe, generate better outfits, and plan what to wear with an AI stylist built around your real clothes." />
         <meta property="og:title" content="BURS | Your Personal Stylist" />
         <meta property="og:description" content="Upload your closet. Let BURS style you. Save the planet by wearing what you already own." />
         <meta property="og:type" content="website" />
@@ -104,60 +85,69 @@ export default function Landing() {
         <meta property="og:image:height" content="630" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="BURS | Your Personal Stylist" />
-        <meta name="twitter:description" content="Upload your closet. Let BURS style you. Save the planet by wearing what you already own." />
+        <meta name="twitter:description" content="Upload your closet. Let BURS style you." />
         <meta name="twitter:image" content="https://bursai.lovable.app/og-image.png" />
       </Helmet>
 
-      <div className="dark-landing" ref={scrollRef} style={{ height: '100vh', overflowY: 'auto' }}>
-        <div className="font-space selection:bg-white/10">
+      <div className="landing-v2" ref={scrollRef} style={{ height: '100vh', overflowY: 'auto' }}>
+        {/* ── Navbar ── */}
+        <header className={`fixed top-0 w-full z-50 lv2-navbar ${scrolled ? 'lv2-navbar--scrolled' : ''}`}>
+          <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
+            <button onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Scroll to top">
+              <img src={bursLogo} alt="BURS" className="h-5 object-contain" />
+            </button>
 
-          {/* ── Header ── */}
-          <header className="fixed top-0 w-full z-50 glass-panel border-b border-white/5" role="navigation" aria-label="Main navigation">
-            <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
-              <div className="flex items-center gap-3 cursor-pointer" onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} role="button" aria-label="Scroll to top">
-                <img src={bursLandingLogo} alt="BURS home" className="h-6 object-contain" width={80} height={24} loading="eager" fetchPriority="high" />
-              </div>
-              <nav className="hidden md:flex items-center gap-10 text-sm font-light tracking-wide text-gray-400" aria-label="Page sections">
-                {navLinks.map(l => (
-                  <button key={l.id} onClick={() => scrollTo(l.id)} className="hover:text-white transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">{l.label}</button>
+            <nav className="hidden md:flex items-center gap-10 text-sm tracking-wide" style={{ color: 'var(--lv2-text-tertiary)' }}>
+              {NAV_LINKS.map(l => (
+                <button key={l.id} onClick={() => scrollTo(l.id)} className="hover:text-white transition-colors duration-300">{l.label}</button>
+              ))}
+            </nav>
+
+            <div className="flex items-center gap-4">
+              <button onClick={() => navigate('/auth')} className="hidden md:block text-sm transition-colors duration-300 hover:text-white" style={{ color: 'var(--lv2-text-secondary)' }}>
+                Sign In
+              </button>
+              <button onClick={() => navigate('/auth')} className="hidden md:block lv2-cta-primary px-5 py-2 rounded-full text-xs font-semibold tracking-wide">
+                Start Free
+              </button>
+              <button className="md:hidden p-2" onClick={() => setMobileOpen(!mobileOpen)} aria-expanded={mobileOpen} aria-label={mobileOpen ? 'Close menu' : 'Open menu'} style={{ color: 'var(--lv2-text-secondary)' }}>
+                {mobileOpen ? <X size={22} strokeWidth={1.5} /> : <Menu size={22} strokeWidth={1.5} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Mobile menu */}
+          {mobileOpen && (
+            <div className="md:hidden border-t border-[--lv2-border] animate-fade-in" style={{ background: 'rgba(5,7,10,0.95)', backdropFilter: 'blur(20px)' }}>
+              <div className="flex flex-col gap-1 px-6 py-4 text-sm" style={{ color: 'var(--lv2-text-secondary)' }}>
+                {NAV_LINKS.map(l => (
+                  <button key={l.id} onClick={() => scrollTo(l.id)} className="py-3 text-left hover:text-white transition-colors">{l.label}</button>
                 ))}
-              </nav>
-              <div className="flex items-center gap-4">
-                <button onClick={() => navigate('/auth')} className="hidden md:block bg-white text-[#030305] px-6 py-2.5 rounded-full text-sm font-medium hover:opacity-90 transition-all duration-300 hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-                  {t('landing.login')}
-                </button>
-                <button className="md:hidden text-gray-400 hover:text-white p-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" onClick={() => setMobileOpen(!mobileOpen)} aria-expanded={mobileOpen} aria-label={mobileOpen ? 'Close menu' : 'Open menu'}>
-                  {mobileOpen ? <X size={24} strokeWidth={1.5} aria-hidden="true" /> : <Menu size={24} strokeWidth={1.5} aria-hidden="true" />}
+                <button onClick={() => { setMobileOpen(false); navigate('/auth'); }} className="mt-2 lv2-cta-primary py-3 rounded-full text-center text-sm font-semibold">
+                  Start Free
                 </button>
               </div>
             </div>
-            {mobileOpen && (
-              <div className="md:hidden border-t border-white/5 glass-panel animate-fade-in" role="menu">
-                <div className="flex flex-col gap-1 px-6 py-4 text-sm text-gray-400">
-                  {navLinks.map(l => (
-                    <button key={l.id} onClick={() => scrollTo(l.id)} className="py-3 text-left hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" role="menuitem">{l.label}</button>
-                  ))}
-                  <button onClick={() => { setMobileOpen(false); navigate('/auth'); }} className="mt-2 bg-white text-[#030305] py-3 rounded-full text-center font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" role="menuitem">{t('landing.login')}</button>
-                </div>
-              </div>
-            )}
-          </header>
+          )}
+        </header>
 
-          {/* Hero loads eagerly */}
-          <HeroSection />
+        <HeroSection />
 
-          {/* Below-fold sections lazy-loaded with min-height to prevent CLS */}
-          <Suspense fallback={<div style={{ minHeight: '400vh' }} aria-hidden="true" />}>
-            <TrialBanner />
-            <HowItWorks />
-            <SustainabilitySection />
-            <MissionSection />
-            <PricingSection />
-            <CTASection />
-            <DownloadSection />
-            <LandingFooter />
-          </Suspense>
-        </div>
+        <Suspense fallback={<div style={{ minHeight: '300vh' }} aria-hidden="true" />}>
+          <TrustStrip />
+          <ProblemSection />
+          <SystemSection />
+          <AIStylistSection />
+          <WardrobeVisualSection />
+          <OutfitBuilderSection />
+          <WeeklyPlannerSection />
+          <HowItWorksSection />
+          <PricingSection />
+          <SocialProofSection />
+          <FinalCTASection />
+          <LandingFooter />
+        </Suspense>
+
         <CookieConsent />
       </div>
     </>
