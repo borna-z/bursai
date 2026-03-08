@@ -57,20 +57,18 @@ export async function replayQueue(): Promise<number> {
 
   for (const mutation of queue) {
     try {
-      let query;
+      let result: { error: { message: string } | null } = { error: null };
       if (mutation.type === 'insert') {
-        query = supabase.from(mutation.table).insert(mutation.payload as any);
+        result = await supabase.from(mutation.table as any).insert(mutation.payload as any);
       } else if (mutation.type === 'update' && mutation.match) {
-        query = supabase.from(mutation.table).update(mutation.payload as any).match(mutation.match as any);
+        result = await supabase.from(mutation.table as any).update(mutation.payload as any).match(mutation.match as any);
       } else if (mutation.type === 'upsert') {
-        query = supabase.from(mutation.table).upsert(mutation.payload as any);
+        result = await supabase.from(mutation.table as any).upsert(mutation.payload as any);
       } else if (mutation.type === 'delete' && mutation.match) {
-        query = supabase.from(mutation.table).delete().match(mutation.match as any);
+        result = await supabase.from(mutation.table as any).delete().match(mutation.match as any);
       }
 
-      if (query) {
-        const { error } = await query;
-        if (error) {
+      if (result.error) {
           console.warn('[offline-queue] Replay failed:', error.message);
           failed.push(mutation);
         } else {
