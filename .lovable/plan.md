@@ -1,20 +1,17 @@
 
 
-# Localized Pricing — ✅ DONE
+## Replace "Confirm Email" with "Confirm Password" on Signup
 
-## Display prices (landing, pricing page, paywall, premium section)
+### Change
+In `src/pages/Auth.tsx`, replace the "confirm email" field with a "confirm password" field during signup, and update the validation logic accordingly.
 
-All pricing surfaces use `src/lib/localizedPricing.ts` to show locale-appropriate amounts:
+### Files to Edit
 
-| Language | Currency | Monthly | Yearly |
-|----------|----------|---------|--------|
-| sv, no | SEK/NOK | 59 kr | 499 kr |
-| da | DKK | 39 kr | 329 kr |
-| fi, de, fr, es, it, pt, nl, fa | EUR | €4,99 | €44,99 |
-| en | GBP | £3.99 | £34.99 |
-| pl | PLN | 19,99 zł | 179 zł |
-| ar | AED | 19 د.إ | 169 د.إ |
+1. **`src/pages/Auth.tsx`**:
+   - Remove `confirmEmail` state, replace with `confirmPassword` state
+   - Replace the "Confirm email" input field with a "Confirm password" input (with show/hide toggle, matching the main password field)
+   - Update `handleSignUp` validation: check `password === confirmPassword` instead of `email === confirmEmail`
+   - Use existing translation keys `auth.confirm_password` and `auth.passwords_no_match` (already in translations.ts) instead of `auth.confirm_email` / `auth.emails_no_match`
 
-## Stripe checkout (multi-currency charging)
+No translation file changes needed — `auth.confirm_password` and `auth.passwords_no_match` keys already exist in all languages.
 
-The `create_checkout_session` edge function maps `locale` → currency-specific Stripe Price IDs so users are charged in their local currency (not just SEK).
