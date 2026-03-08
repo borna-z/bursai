@@ -113,9 +113,9 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
 // ── Virtualization ──
 
 const VIRTUALIZE_THRESHOLD = 30;
-const GRID_ROW_HEIGHT = 220;
+const GRID_ROW_HEIGHT = 180;
 const LIST_ROW_HEIGHT = 74;
-const GAP = 12;
+const GAP = 6;
 
 interface VirtualizedGarmentListProps {
   garments: Garment[];
