@@ -8,7 +8,6 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { supabase } from '@/integrations/supabase/client';
