@@ -18,6 +18,7 @@ import { useSwapGarment, type SwapCandidate } from '@/hooks/useSwapGarment';
 import { useWeather } from '@/hooks/useWeather';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useGenerateFlatlay } from '@/hooks/useFlatlay';
 
 /* ── Swap Sheet ─────────────────────────────────────── */
 
