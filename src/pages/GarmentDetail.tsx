@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { hapticMedium, hapticHeavy, hapticSuccess } from '@/lib/haptics';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Edit, Trash2, WashingMachine, Check, Loader2, ExternalLink, Sparkles, Shield, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -66,6 +67,7 @@ export default function GarmentDetailPage() {
 
   const handleToggleLaundry = async () => {
     try {
+      hapticMedium();
       await updateGarment.mutateAsync({ id: garment.id, updates: { in_laundry: !garment.in_laundry } });
       toast.success(garment.in_laundry ? t('garment.available') : t('garment.in_laundry'));
     } catch { toast.error(t('common.something_wrong')); }
@@ -73,6 +75,7 @@ export default function GarmentDetailPage() {
 
   const handleMarkWorn = async () => {
     try {
+      hapticSuccess();
       await markWorn.mutateAsync(garment.id);
       toast.success(t('garment.marked'));
     } catch { toast.error(t('common.something_wrong')); }
@@ -80,6 +83,7 @@ export default function GarmentDetailPage() {
 
   const handleDelete = async () => {
     try {
+      hapticHeavy();
       await deleteGarment.mutateAsync(garment.id);
       toast.success(t('garment.deleted'));
       navigate('/wardrobe');

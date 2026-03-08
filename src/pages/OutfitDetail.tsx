@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { hapticLight, hapticMedium, hapticSuccess, hapticHeavy } from '@/lib/haptics';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Star, Bookmark, BookmarkCheck, Check, RefreshCw, Share2, Loader2,
@@ -170,6 +171,7 @@ export default function OutfitDetailPage() {
 
   const handleToggleSave = async () => {
     if (!outfit) return;
+    hapticMedium();
     try {
       await updateOutfit.mutateAsync({ id: outfit.id, updates: { saved: !outfit.saved } });
       toast.success(outfit.saved ? t('outfit.removed') : t('outfit.saved'));
@@ -178,6 +180,7 @@ export default function OutfitDetailPage() {
 
   const handleRating = async (value: number) => {
     if (!outfit) return;
+    hapticLight();
     setRating(value);
     try { await updateOutfit.mutateAsync({ id: outfit.id, updates: { rating: value } }); toast.success(t('outfit.rating_saved')); } catch { toast.error(t('common.something_wrong')); }
   };
@@ -191,6 +194,7 @@ export default function OutfitDetailPage() {
 
   const handleMarkWorn = async () => {
     if (!outfit) return;
+    hapticSuccess();
     try {
       const garmentIds = outfit.outfit_items.map((item) => item.garment_id);
       const result = await markWorn.mutateAsync({ outfitId: outfit.id, garmentIds, occasion: outfit.occasion });

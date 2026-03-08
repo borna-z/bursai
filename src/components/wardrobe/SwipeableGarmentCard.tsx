@@ -6,6 +6,7 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
+import { hapticLight } from '@/lib/haptics';
 import type { Garment } from '@/hooks/useGarments';
 
 const ACTION_WIDTH = 72; // width per action button
@@ -39,7 +40,7 @@ export function SwipeableGarmentCard({ garment, onEdit, onLaundry, onDelete }: S
     const velocity = info.velocity.x;
 
     if (offset < -SNAP_THRESHOLD || velocity < -300) {
-      // Snap open
+      hapticLight();
       animate(x, -TOTAL_WIDTH, { type: 'spring', stiffness: 400, damping: 35 });
       setIsOpen(true);
     } else {

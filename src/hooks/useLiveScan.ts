@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
+import { hapticMedium, hapticSuccess } from '@/lib/haptics';
 import type { GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
 
 export interface ScanResult {
@@ -86,8 +87,7 @@ export function useLiveScan() {
         blob,
       });
 
-      // Haptic feedback
-      if (navigator.vibrate) navigator.vibrate(50);
+      hapticMedium();
     } catch (err) {
       console.error('Capture error:', err);
       setError('Kunde inte fånga bilden');
@@ -105,8 +105,7 @@ export function useLiveScan() {
     setLastResult(null);
     setScanCount((c) => c + 1);
 
-    // Haptic on accept
-    if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+    hapticSuccess();
 
     // Background save
     const savePromise = (async () => {

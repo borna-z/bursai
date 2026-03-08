@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { hapticLight, hapticMedium, hapticSuccess, hapticHeavy } from '@/lib/haptics';
 import { format, isToday, isTomorrow } from 'date-fns';
 import { Calendar, Repeat, Info, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -115,7 +116,7 @@ export function DayCard({
             {outfit.explanation && (<p className="text-xs text-muted-foreground line-clamp-1 mb-3">{outfit.explanation}</p>)}
 
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={onSwap} className="flex-1">
+              <Button variant="outline" size="sm" onClick={() => { hapticLight(); onSwap(); }} className="flex-1">
                 <Repeat className="w-3.5 h-3.5 mr-1.5" />{t('plan.swap')}
               </Button>
               <Button variant="ghost" size="sm" onClick={() => navigate(`/outfits/${outfit.id}`)}>
@@ -125,11 +126,11 @@ export function DayCard({
 
             <div className="flex items-center gap-3 mt-2 pt-2 border-t">
               {!isWorn && (
-                <button onClick={onMarkWorn} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
+                <button onClick={() => { hapticSuccess(); onMarkWorn(); }} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
                   <Check className="w-3 h-3" />{t('plan.mark_worn')}
                 </button>
               )}
-              <button onClick={onRemove} className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1 transition-colors ml-auto">
+              <button onClick={() => { hapticHeavy(); onRemove(); }} className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1 transition-colors ml-auto">
                 <Trash2 className="w-3 h-3" />{t('plan.remove')}
               </button>
             </div>
@@ -138,10 +139,10 @@ export function DayCard({
           <>
             {!daySummary && (<p className="text-sm text-muted-foreground mb-4">{t('plan.no_outfit')}</p>)}
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={onPlan} disabled={isLoading} className="flex-1">
+              <Button size="sm" onClick={() => { hapticLight(); onPlan(); }} disabled={isLoading} className="flex-1">
                 <Plus className="w-3.5 h-3.5 mr-1.5" />{t('plan.plan')}
               </Button>
-              <Button variant="outline" size="sm" onClick={onQuickGenerate} disabled={isLoading} className="flex-1">
+              <Button variant="outline" size="sm" onClick={() => { hapticLight(); onQuickGenerate(); }} disabled={isLoading} className="flex-1">
                 <Sparkles className="w-3.5 h-3.5 mr-1.5" />{t('plan.generate')}
               </Button>
             </div>
