@@ -83,7 +83,7 @@ export function OutfitReactions({ outfitId, compact }: Props) {
                 ? "border-primary/30 bg-primary/10"
                 : "border-border/40 bg-muted/30 hover:bg-muted/60"
             )}
-            title={r.label}
+            title={t(r.labelKey)}
           >
             <span>{r.emoji}</span>
             {count > 0 && <span className="tabular-nums text-muted-foreground">{count}</span>}
