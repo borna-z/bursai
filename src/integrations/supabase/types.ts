@@ -353,6 +353,7 @@ export type Database = {
         Row: {
           explanation: string | null
           feedback: string[] | null
+          flatlay_image_path: string | null
           generated_at: string | null
           id: string
           occasion: string
@@ -369,6 +370,7 @@ export type Database = {
         Insert: {
           explanation?: string | null
           feedback?: string[] | null
+          flatlay_image_path?: string | null
           generated_at?: string | null
           id?: string
           occasion: string
@@ -385,6 +387,7 @@ export type Database = {
         Update: {
           explanation?: string | null
           feedback?: string[] | null
+          flatlay_image_path?: string | null
           generated_at?: string | null
           id?: string
           occasion?: string

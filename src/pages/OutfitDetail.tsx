@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Star, Bookmark, BookmarkCheck, Check, RefreshCw, Share2, Loader2,
   Sparkles, Copy, Download, Link, Link2Off, Calendar, Thermometer, ThermometerSnowflake, Shirt, Briefcase,
-  Heart, Frown, Palette, Meh,
+  Heart, Frown, Palette, Meh, ImageIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
@@ -18,6 +18,7 @@ import { useSwapGarment, type SwapCandidate } from '@/hooks/useSwapGarment';
 import { useWeather } from '@/hooks/useWeather';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useGenerateFlatlay } from '@/hooks/useFlatlay';
 
 /* ── Swap Sheet ─────────────────────────────────────── */
 
@@ -119,6 +120,7 @@ export default function OutfitDetailPage() {
   const markWorn = useMarkOutfitWorn();
   const undoMarkWorn = useUndoMarkWorn();
   const { candidates, isLoadingCandidates, fetchCandidates, swapGarment, isSwapping, clearCandidates } = useSwapGarment();
+  const { generateFlatlay, isGenerating: isGeneratingFlatlay } = useGenerateFlatlay();
 
   const [rating, setRating] = useState<number | null>(null);
   const [swapSheet, setSwapSheet] = useState<{ isOpen: boolean; slot: string; outfitItemId: string }>({ isOpen: false, slot: '', outfitItemId: '' });
@@ -397,6 +399,62 @@ export default function OutfitDetailPage() {
             </div>
           );
         })()}
+
+        {/* ── AI Flat-Lay Preview ── */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ImageIcon className="w-4 h-4 text-primary" />
+              <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">
+                {t('outfit.flatlay')}
+              </p>
+            </div>
+            {!(outfit as any).flatlay_image_path && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-xl h-8 text-xs"
+                onClick={async () => {
+                  try {
+                    await generateFlatlay(outfit.id);
+                    toast.success(t('outfit.flatlay_success'));
+                    refetch();
+                  } catch {
+                    toast.error(t('outfit.flatlay_error'));
+                  }
+                }}
+                disabled={isGeneratingFlatlay}
+              >
+                {isGeneratingFlatlay ? (
+                  <><Loader2 className="w-3 h-3 mr-1.5 animate-spin" />{t('outfit.flatlay_generating')}</>
+                ) : (
+                  <><Sparkles className="w-3 h-3 mr-1.5" />{t('outfit.flatlay_generate')}</>
+                )}
+              </Button>
+            )}
+          </div>
+          {(outfit as any).flatlay_image_path ? (
+            <div className="rounded-2xl overflow-hidden bg-muted/20">
+              <LazyImageSimple
+                imagePath={(outfit as any).flatlay_image_path}
+                alt="Flat-lay preview"
+                className="w-full aspect-square object-cover"
+              />
+            </div>
+          ) : !isGeneratingFlatlay ? (
+            <div className="rounded-2xl border border-dashed border-border/40 bg-muted/10 p-8 flex flex-col items-center justify-center gap-2">
+              <ImageIcon className="w-8 h-8 text-muted-foreground/20" />
+              <p className="text-xs text-muted-foreground/40">{t('outfit.flatlay_generate')}</p>
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-muted/20 aspect-square flex items-center justify-center">
+              <div className="text-center space-y-3">
+                <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
+                <p className="text-sm text-muted-foreground">{t('outfit.flatlay_generating')}</p>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* ── Garment list ── */}
         <div>
