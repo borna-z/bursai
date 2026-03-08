@@ -3543,7 +3543,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   no: {
-    'nav.today': 'I dag', 'nav.wardrobe': 'Garderobe', 'nav.plan': 'Plan', 'nav.stylist': 'Stylisten', 'nav.settings': 'Innstillinger',
+    'nav.today': 'I dag', 'nav.wardrobe': 'Garderobe', 'nav.plan': 'Plan', 'nav.stylist': 'Stylisten', 'nav.settings': 'Innstillinger', 'nav.discover': 'Oppdag',
     'onboarding.language.title': 'Velg språk', 'onboarding.language.subtitle': 'Du kan endre dette senere i innstillinger',
     'onboarding.body.title': 'Din kropp, din stil', 'onboarding.body.subtitle': 'AI-stylisten din bruker målene dine for å gi råd om passform, proporsjoner og stilvalg – akkurat som en personlig stylist.',
     'onboarding.body.height': 'Høyde', 'onboarding.body.weight': 'Vekt', 'onboarding.body.weight_optional': '(valgfritt)',
