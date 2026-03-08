@@ -1201,6 +1201,11 @@ serve(async (req) => {
     }
     const penalties = buildFeedbackPenalties(feedbackSignals);
 
+    // Build wear pattern profile from historical wear logs
+    const wearPatterns = (wearLogsRes.data?.length)
+      ? buildWearPatternProfile(wearLogsRes.data as WearLog[], garments)
+      : null;
+
     // Build recent outfit sets for anti-repetition
     const recentOutfitSets: Set<string>[] = [];
     if (recentOutfitsRes.data?.length) {
