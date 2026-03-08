@@ -3,6 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { SEED_GARMENTS } from '@/data/seedGarments';
+import { translations, type Locale } from '@/i18n/translations';
+
+function t(key: string): string {
+  const stored = localStorage.getItem('burs-locale') as Locale | null;
+  const locale = (stored && translations[stored]) ? stored : 'sv';
+  return translations[locale]?.[key] ?? translations['sv']?.[key] ?? key;
+}
 
 const BATCH_SIZE = 1;
 const DELAY_MS = 2000;
