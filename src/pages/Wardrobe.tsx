@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { TAP_TRANSITION } from '@/lib/motion';
 import { useNavigate } from 'react-router-dom';
 import {
-  Plus, Search, X, Trash2, Shirt, ScanLine, Camera,
+  Plus, Search, X, Trash2, Shirt, ScanLine, Camera, Link,
   SlidersHorizontal, Grid3X3, List, WashingMachine, Loader2, BarChart3,
 } from 'lucide-react';
 import { SwipeableGarmentCard } from '@/components/wardrobe/SwipeableGarmentCard';

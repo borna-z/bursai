@@ -16,7 +16,7 @@ function MiniUsageRing({ percentage }: { percentage: number }) {
       <circle cx="24" cy="24" r={radius} fill="none" stroke="hsl(var(--muted))" strokeWidth="3" />
       <circle
         cx="24" cy="24" r={radius} fill="none"
-        stroke="hsl(var(--primary))" strokeWidth="3"
+        stroke="hsl(var(--accent))" strokeWidth="3"
         strokeLinecap="round"
         strokeDasharray={circumference}
         strokeDashoffset={offset}
