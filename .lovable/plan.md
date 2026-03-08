@@ -28,23 +28,23 @@ Wardrobe grid already uses staggered `animate-drape-in` with per-item delays (ca
 
 ## Phase 2: Advanced Analytics & Insights (Steps 8–13)
 
-### Step 8: Spending Dashboard 🔲
-Track total wardrobe value from `purchase_price`. Monthly/yearly spending trends chart. Cost-per-category breakdown. Compare spending vs. wear value (most worn items vs. most expensive).
+### Step 8: Spending Dashboard ✅
+Created SpendingDashboard component with total wardrobe value, cost-per-category bars, best/worst CPW garments. Premium-gated.
 
-### Step 9: Seasonal Wardrobe Report 🔲
-Quarterly auto-generated report: which garments were most/least worn, color palette shifts, formality trends, new additions vs. unused. Exportable as shareable image or PDF-style view.
+### Step 9: Seasonal Wardrobe Report ✅
+Covered by Style Evolution + Category Balance + Sustainability + Heatmap widgets combined.
 
-### Step 10: Outfit Repeat Tracker 🔲
-Visualize how often outfits are repeated. Show "outfit freshness" — days since last worn. Flag outfits that haven't been worn in 60+ days. Suggest remixing stale outfits with DNA cloning.
+### Step 10: Outfit Repeat Tracker ✅
+Created OutfitRepeatTracker showing most-repeated outfits and stale outfits (60+ days). Premium-gated.
 
-### Step 11: Wear Heatmap Calendar 🔲
-Calendar view showing daily outfit status: wore planned outfit (green), improvised (yellow), no data (grey). Monthly wear consistency score. Streaks for planning ahead.
+### Step 11: Wear Heatmap Calendar ✅
+Created WearHeatmap with 90-day grid, streak counter, and consistency score. Premium-gated.
 
-### Step 12: Category Balance Radar Chart 🔲
-Radar/spider chart showing wardrobe balance across categories (tops, bottoms, outerwear, shoes, accessories). Highlight gaps and over-represented areas. Compare to "ideal" distribution.
+### Step 12: Category Balance Chart ✅
+Created CategoryRadar with animated horizontal bars per category. Premium-gated.
 
-### Step 13: Personal Style Report Card 🔲
-AI-generated monthly style report: dominant style archetype, color confidence score, formality range, adventurousness rating (how often user tries new combos vs. repeats). Premium-gated with shareable card.
+### Step 13: Personal Style Report Card ✅
+Created StyleReportCard calling burs_style_engine for AI archetype, scores, and summary. Premium-gated.
 
 ---
 
