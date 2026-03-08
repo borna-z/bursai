@@ -194,6 +194,12 @@ export default function GarmentDetailPage() {
           <Switch checked={garment.in_laundry || false} onCheckedChange={handleToggleLaundry} disabled={updateGarment.isPending} />
         </div>
 
+        {/* Use in outfit */}
+        <Button className="w-full rounded-2xl h-12 bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => navigate('/', { state: { prefillGarmentId: garment.id } })}>
+          <Sparkles className="w-4 h-4 mr-2" />
+          {t('garment.use_in_outfit')}
+        </Button>
+
         {/* Mark worn */}
         <Button variant="outline" className="w-full rounded-2xl h-12" onClick={handleMarkWorn} disabled={markWorn.isPending}>
           {markWorn.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
