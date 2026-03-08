@@ -68,16 +68,17 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
 
     for (const item of items) {
       try {
-        // Update status to uploading
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'uploading' } : i));
 
-        const path = await uploadGarmentImage(item.file, user.id);
+        // Generate a garment ID for the file path
+        const garmentId = crypto.randomUUID();
+        const path = await uploadGarmentImage(item.file, garmentId);
 
-        // Update status to analyzing
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'analyzing' } : i));
 
-        // Create garment with basic info, AI will analyze later
+        // Insert garment with the same ID
         await supabase.from('garments').insert({
+          id: garmentId,
           user_id: user.id,
           image_path: path,
           title: item.file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') || 'New garment',
@@ -85,13 +86,13 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
           color_primary: 'black',
         });
 
-        // Try to trigger AI analysis
+        // Trigger AI analysis (non-blocking)
         try {
           await supabase.functions.invoke('analyze_garment', {
             body: { image_path: path, user_id: user.id },
           });
         } catch {
-          // Non-critical — garment is saved, analysis can happen later
+          // Non-critical
         }
 
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'done' } : i));
@@ -101,11 +102,6 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
     }
 
     setIsProcessing(false);
-    const successCount = items.filter(i => i.status !== 'error').length;
-    if (successCount > 0) {
-      toast.success(`${successCount} garment${successCount > 1 ? 's' : ''} added to your wardrobe`);
-    }
-    // Small delay so user sees the "done" state
     setTimeout(onComplete, 800);
   };
 
