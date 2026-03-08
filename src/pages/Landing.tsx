@@ -137,8 +137,15 @@ export default function Landing() {
 
           {/* ── Floating Capsule Header ── */}
           <header
-            className="fixed top-3 left-3 right-3 z-50 rounded-2xl hyper-glass"
-            style={{ background: 'rgba(3,3,5,0.7)' }}
+            className={`fixed z-50 transition-all duration-500 ease-out ${
+              scrolled
+                ? 'top-3 left-3 right-3 rounded-2xl hyper-glass'
+                : 'top-0 left-0 right-0'
+            }`}
+            style={{
+              background: scrolled ? 'rgba(3,3,5,0.7)' : 'transparent',
+              borderBottom: scrolled ? 'none' : '1px solid rgba(255,255,255,0.04)',
+            }}
             role="navigation"
             aria-label="Main navigation"
           >
