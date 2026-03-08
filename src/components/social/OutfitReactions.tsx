@@ -18,6 +18,7 @@ interface Props {
 
 export function OutfitReactions({ outfitId, compact }: Props) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [userReactions, setUserReactions] = useState<Set<string>>(new Set());
 
