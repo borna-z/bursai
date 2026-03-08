@@ -6314,6 +6314,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'landing.showcase_home_title': 'إطلالتك اليومية، جاهزة للارتداء', 'landing.showcase_home_desc': 'الذكاء الاصطناعي يختار لك حسب الطقس والأسلوب.',
     'landing.showcase_planner_title': 'خطط لأسبوعك بسهولة', 'landing.showcase_planner_desc': 'اقتراحات حسب الطقس، يومًا بيوم.',
     'landing.free_price': '0 د.إ', 'landing.premium_price': '0 د.إ', 'landing.premium_then': 'ثم 19 د.إ/شهر · أو 169 د.إ/سنة — وفّر ~30%',
+    'error.title': 'حدث خطأ ما', 'error.desc': 'حدث خطأ غير متوقع. حاول إعادة تحميل الصفحة.', 'error.try_again': 'حاول مجدداً', 'error.reload': 'إعادة تحميل',
+    'seed.deleted': 'تم حذف جميع الملابس القديمة', 'seed.delete_error': 'تعذر حذف الملابس القديمة', 'seed.created': 'تم إنشاء {done} قطعة ({failed} فشلت)', 'seed.batch_failed': 'فشلت الدفعة', 'seed.retry_failed': 'فشلت إعادة المحاولة',
+    'genimg.title': 'إنشاء صور فريدة', 'genimg.desc': 'أنشئ صور منتجات بالذكاء الاصطناعي لجميع الملابس بناءً على السمات (اللون، المادة، النوع).', 'genimg.total': 'إجمالي القطع', 'genimg.generated': 'تم إنشاؤها', 'genimg.failed': 'فشلت', 'genimg.processing': 'جارٍ المعالجة…', 'genimg.done': 'تم', 'genimg.generating': 'جارٍ الإنشاء…', 'genimg.generate_all': 'إنشاء جميع الصور', 'genimg.retry': 'إعادة المحاولة',
+    'contact.title': 'اتصل بنا', 'contact.subtitle': 'هل لديك أسئلة؟ يسعدنا مساعدتك.', 'contact.success': 'شكراً لرسالتك. سنعود إليك في أقرب وقت ممكن.', 'contact.name': 'اسمك', 'contact.email': 'بريدك الإلكتروني', 'contact.message': 'رسالتك', 'contact.send': 'إرسال الرسالة', 'contact.rights': 'جميع الحقوق محفوظة.', 'contact.gdpr_note': 'BURS متوافق مع GDPR. بياناتك مخزنة بأمان ولا تُشارك مع أطراف ثالثة.',
+    'footer.privacy': 'سياسة الخصوصية', 'footer.terms': 'شروط الاستخدام', 'footer.agree': 'باستخدام BURS أنت توافق على', 'footer.rights': 'جميع الحقوق محفوظة.',
+    'calendar.google_privacy': 'يقرأ BURS أحداث تقويمك للمساعدة في تخطيط الإطلالات حول جدولك. يمكنك قطع الاتصال في أي وقت.',
+    'reaction.styled': 'أنيق', 'reaction.creative': 'إبداعي', 'reaction.sustainable': 'مستدام',
+    'wardrobe.reel_save_error': 'تعذر حفظ الصورة',
   },
 
   fa: {
