@@ -5113,6 +5113,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'scan.camera_error': 'Kan de camera niet openen. Controleer de machtigingen.',
     'scan.move_closer': 'Kom dichterbij', 'scan.move_back': 'Ga verder weg', 'scan.more_light': 'Betere verlichting nodig', 'scan.ready': 'Houd stil om te scannen…',
     'landing.free_price': '€0', 'landing.premium_price': '€0', 'landing.premium_then': 'Dan €4,99/maand · of €44,99/jaar — bespaar ~30%',
+    'insights.wardrobe_usage': 'Kledingkastgebruik', 'insights.used_label': 'gedragen', 'insights.unused_label': 'ongedragen',
+    'wardrobe.import_link': 'Importeren via link', 'wardrobe.live_scan': 'BURS Live Scan',
+    'settings.row.insights': 'Kledingkast inzichten', 'settings.row.insights_sub': 'Statistieken & analyse',
   },
 
   pl: {
