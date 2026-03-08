@@ -4339,7 +4339,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   fi: {
-    'nav.today': 'Tänään', 'nav.wardrobe': 'Vaatekaappi', 'nav.plan': 'Suunnitelma', 'nav.stylist': 'Stylisti', 'nav.settings': 'Asetukset',
+    'nav.today': 'Tänään', 'nav.wardrobe': 'Vaatekaappi', 'nav.plan': 'Suunnitelma', 'nav.stylist': 'Stylisti', 'nav.settings': 'Asetukset', 'nav.discover': 'Löydä',
     'onboarding.language.title': 'Valitse kieli', 'onboarding.language.subtitle': 'Voit muuttaa tämän myöhemmin asetuksissa',
     'onboarding.body.title': 'Sinun kehosi, sinun tyylisi', 'onboarding.body.subtitle': 'AI-stylistisi käyttää mittojasi antaakseen neuvoja istuvuudesta ja tyylivalinnoista.',
     'onboarding.body.height': 'Pituus', 'onboarding.body.weight': 'Paino', 'onboarding.body.weight_optional': '(valinnainen)',
