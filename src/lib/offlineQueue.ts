@@ -69,11 +69,10 @@ export async function replayQueue(): Promise<number> {
       }
 
       if (result.error) {
-          console.warn('[offline-queue] Replay failed:', error.message);
-          failed.push(mutation);
-        } else {
-          success++;
-        }
+        console.warn('[offline-queue] Replay failed:', result.error.message);
+        failed.push(mutation);
+      } else {
+        success++;
       }
     } catch (err) {
       console.warn('[offline-queue] Replay error:', err);
