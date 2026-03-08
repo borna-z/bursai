@@ -6028,6 +6028,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'landing.showcase_home_title': 'Je dagelijkse outfit, klaar om te dragen', 'landing.showcase_home_desc': 'AI kiest je look op basis van weer & stijl.',
     'landing.showcase_planner_title': 'Plan je week moeiteloos', 'landing.showcase_planner_desc': 'Weerbewuste suggesties, dag voor dag.',
     'settings.row.insights': 'Kledingkast inzichten', 'settings.row.insights_sub': 'Statistieken & analyse',
+    'error.title': 'Er is iets misgegaan', 'error.desc': 'Er is een onverwachte fout opgetreden. Probeer de pagina opnieuw te laden.', 'error.try_again': 'Opnieuw proberen', 'error.reload': 'Herladen',
+    'seed.deleted': 'Alle oude kledingstukken verwijderd', 'seed.delete_error': 'Kon oude kledingstukken niet verwijderen', 'seed.created': '{done} kledingstukken aangemaakt ({failed} mislukt)', 'seed.batch_failed': 'Batch mislukt', 'seed.retry_failed': 'Nieuwe poging mislukt',
+    'genimg.title': 'Unieke afbeeldingen genereren', 'genimg.desc': 'Genereer AI-productfoto\'s voor alle kledingstukken op basis van attributen (kleur, materiaal, type).', 'genimg.total': 'Totaal', 'genimg.generated': 'Gegenereerd', 'genimg.failed': 'Mislukt', 'genimg.processing': 'Verwerken…', 'genimg.done': 'Klaar', 'genimg.generating': 'Genereren…', 'genimg.generate_all': 'Alle afbeeldingen genereren', 'genimg.retry': 'Opnieuw proberen',
+    'contact.title': 'Contact', 'contact.subtitle': 'Heb je vragen? We helpen je graag.', 'contact.success': 'Bedankt voor je bericht. We nemen zo snel mogelijk contact op.', 'contact.name': 'Je naam', 'contact.email': 'Je e-mailadres', 'contact.message': 'Je bericht', 'contact.send': 'Bericht versturen', 'contact.rights': 'Alle rechten voorbehouden.', 'contact.gdpr_note': 'BURS voldoet aan de AVG. Je gegevens worden veilig opgeslagen en nooit gedeeld met derden.',
+    'footer.privacy': 'Privacybeleid', 'footer.terms': 'Gebruiksvoorwaarden', 'footer.agree': 'Door BURS te gebruiken ga je akkoord met ons', 'footer.rights': 'Alle rechten voorbehouden.',
+    'calendar.google_privacy': 'BURS leest je agenda-evenementen om outfits te plannen rondom je schema. Je kunt de verbinding op elk moment verbreken.',
+    'reaction.styled': 'Stijlvol', 'reaction.creative': 'Creatief', 'reaction.sustainable': 'Duurzaam',
+    'wardrobe.reel_save_error': 'Kon afbeelding niet opslaan',
   },
 
   pl: {
