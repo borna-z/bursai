@@ -99,6 +99,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     'onboarding.getstarted.talk_stylist_desc': 'Få personliga stilråd direkt',
     'onboarding.accent.title': 'Välj accentfärg',
     'onboarding.accent.subtitle': 'Ge din app en personlig touch – färgen syns i knappar och detaljer.',
+    'onboarding.quickUpload.title': 'Ladda upp dina första kläder',
+    'onboarding.quickUpload.subtitle': 'Ta foton eller välj från galleriet – upp till 5 plagg. Vår AI känner igen varje del automatiskt.',
     'onboarding.style.title': 'Din stil',
     'onboarding.style.subtitle': 'Hjälp din AI-stylist förstå din smak',
     'onboarding.style.favorite_colors': 'Favoritfärger',
