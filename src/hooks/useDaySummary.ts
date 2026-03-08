@@ -18,10 +18,26 @@ export interface OutfitHint {
   note: string;
 }
 
+export interface TransitionBlock {
+  time_range: string;
+  occasion: string;
+  formality: number;
+  label: string;
+  style_tip: string;
+  transition_tip: string | null;
+}
+
+export interface DayTransitions {
+  needs_change: boolean;
+  blocks: TransitionBlock[];
+  versatile_pieces: string[];
+}
+
 export interface DaySummary {
   summary: string;
   priorities: DayPriority[];
   outfit_hints: OutfitHint[];
+  transitions: DayTransitions | null;
 }
 
 export function useDaySummary(date: string) {
@@ -72,7 +88,7 @@ export function useDaySummary(date: string) {
       return data as DaySummary;
     },
     enabled: hasEvents,
-    staleTime: 30 * 60 * 1000, // 30 minutes
+    staleTime: 30 * 60 * 1000,
     retry: 1,
   });
 }
