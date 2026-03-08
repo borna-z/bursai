@@ -485,37 +485,35 @@ export default function WardrobePage() {
 
           <AnimatedTab tabKey={activeTab}>
             {activeTab === 'garments' ? (
-              <div className="space-y-5">
-                {/* Search bar full width + filter icon */}
-                <div className="flex gap-2">
+              <div className="space-y-6">
+                {/* Search bar + filter */}
+                <div className="flex gap-2.5">
                   <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 pointer-events-none" />
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40 pointer-events-none" />
                     <Input
                       placeholder={`${t('wardrobe.search')} ${totalCount ?? ''} ${t('wardrobe.garments_count_label')}...`}
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="pl-9 bg-foreground/[0.04] border-0 h-10 rounded-xl text-sm"
+                      className="pl-10 bg-muted/30 border-0 h-11 rounded-xl text-[14px] placeholder:text-muted-foreground/40"
                     />
                     {search && (
-                      <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <X className="w-4 h-4 text-muted-foreground" />
+                      <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 active:scale-90 transition-transform">
+                        <X className="w-4 h-4 text-muted-foreground/50" />
                       </button>
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
+                  <button
                     onClick={() => setShowFilterSheet(true)}
                     className={cn(
-                      'h-10 w-10 rounded-xl flex-shrink-0',
-                      hasActiveFilters && 'bg-accent/10 text-accent'
+                      'h-11 w-11 rounded-xl flex-shrink-0 flex items-center justify-center transition-colors relative',
+                      hasActiveFilters ? 'bg-primary/10 text-primary' : 'bg-muted/30 text-muted-foreground/60 hover:bg-muted/50'
                     )}
                   >
                     <SlidersHorizontal className="w-4 h-4" />
                     {hasActiveFilters && (
-                      <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-accent" />
+                      <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-primary" />
                     )}
-                  </Button>
+                  </button>
                 </div>
 
                 {/* Smart groupings — only when no search/filters active */}
