@@ -113,7 +113,33 @@ function hueDiff(h1: number, h2: number): number {
   return Math.min(d, 360 - d);
 }
 
-function colorHarmonyScore(colors: [number, number, number][]): number {
+// Seasonal palette definitions (hue ranges that feel right per season)
+const SEASONAL_PALETTES: Record<string, { hueRanges: [number, number][]; satRange: [number, number]; lightRange: [number, number] }> = {
+  winter: { hueRanges: [[200, 280], [0, 30]], satRange: [20, 70], lightRange: [10, 40] },    // deep jewel tones, navy, burgundy
+  spring: { hueRanges: [[80, 200], [320, 360]], satRange: [30, 70], lightRange: [55, 85] },   // pastels, fresh greens, soft pinks
+  summer: { hueRanges: [[0, 60], [160, 220]], satRange: [40, 90], lightRange: [50, 80] },     // warm brights, ocean blues
+  autumn: { hueRanges: [[10, 60], [70, 100]], satRange: [30, 70], lightRange: [25, 55] },      // earth tones, rust, olive, mustard
+};
+
+function getCurrentSeason(): string {
+  const month = new Date().getMonth(); // 0-11
+  if (month >= 2 && month <= 4) return "spring";
+  if (month >= 5 && month <= 7) return "summer";
+  if (month >= 8 && month <= 10) return "autumn";
+  return "winter";
+}
+
+function isInSeasonalPalette(hsl: [number, number, number], season: string): boolean {
+  const palette = SEASONAL_PALETTES[season];
+  if (!palette) return false;
+  const [h, s, l] = hsl;
+  const hueMatch = palette.hueRanges.some(([min, max]) => h >= min && h <= max);
+  const satMatch = s >= palette.satRange[0] && s <= palette.satRange[1];
+  const lightMatch = l >= palette.lightRange[0] && l <= palette.lightRange[1];
+  return hueMatch && satMatch && lightMatch;
+}
+
+function colorHarmonyScore(colors: [number, number, number][], seasonBoost = true): number {
   if (colors.length < 2) return 8;
   const chromatic = colors.filter(c => !isNeutral(c));
   if (chromatic.length === 0) return 9; // all neutral = safe
@@ -129,6 +155,16 @@ function colorHarmonyScore(colors: [number, number, number][]): number {
       else if (hd > 50 && hd < 90) score -= 1;     // tension
     }
   }
+
+  // Seasonal palette bonus: reward outfits that match the current season's color mood
+  if (seasonBoost) {
+    const season = getCurrentSeason();
+    const seasonalCount = chromatic.filter(c => isInSeasonalPalette(c, season)).length;
+    if (seasonalCount > 0) {
+      score += Math.min(2, seasonalCount * 0.7); // up to +2 for seasonal harmony
+    }
+  }
+
   return Math.max(0, Math.min(10, score));
 }
 
@@ -153,75 +189,146 @@ function getMaterialGroup(material: string | null): string | null {
   return null;
 }
 
-const MATERIAL_CLASH: [string, string][] = [
-  ["refined", "technical"],
-  ["refined", "casual"],  // mild tension, low penalty
-];
+// Full affinity matrix: score from -2 (clash) to +2 (great pairing)
+const MATERIAL_AFFINITY: Record<string, Record<string, number>> = {
+  refined:   { refined: 2, casual: -1, technical: -2, rugged: 0, knit: 1 },
+  casual:    { refined: -1, casual: 1, technical: 0, rugged: 1, knit: 1 },
+  technical: { refined: -2, casual: 0, technical: 1, rugged: 0, knit: -1 },
+  rugged:    { refined: 0, casual: 1, technical: 0, rugged: 1, knit: 1 },
+  knit:      { refined: 1, casual: 1, technical: -1, rugged: 1, knit: 1 },
+};
 
 function materialCompatibility(materials: (string | null)[]): number {
   const groups = materials.map(getMaterialGroup).filter(Boolean) as string[];
   if (groups.length < 2) return 8;
-  let score = 8;
+
+  let affinitySum = 0;
+  let pairCount = 0;
   const unique = [...new Set(groups)];
+
   for (let i = 0; i < unique.length; i++) {
     for (let j = i + 1; j < unique.length; j++) {
-      const pair: [string, string] = [unique[i], unique[j]];
-      if (MATERIAL_CLASH.some(c => (c[0] === pair[0] && c[1] === pair[1]) || (c[0] === pair[1] && c[1] === pair[0]))) {
-        score -= 2;
-      }
+      const affinity = MATERIAL_AFFINITY[unique[i]]?.[unique[j]] ?? 0;
+      affinitySum += affinity;
+      pairCount++;
     }
   }
+
+  if (pairCount === 0) return 8;
+
+  // Map affinity range (-2 to +2) to score range (2 to 10)
+  const avgAffinity = affinitySum / pairCount;
+  const score = 6 + avgAffinity * 2; // -2→2, 0→6, +2→10
   return Math.max(0, Math.min(10, score));
 }
 
 // ─────────────────────────────────────────────
-// WEATHER → GARMENT FILTERING
+// WEATHER MICROCLIMATE INTELLIGENCE
 // ─────────────────────────────────────────────
 
 const WARM_MATERIALS = ["wool", "ull", "fleece", "cashmere", "kashmir", "flanell", "flannel", "tweed", "dun", "down"];
 const LIGHT_MATERIALS = ["cotton", "bomull", "linen", "linne", "silk", "siden", "jersey", "chiffon", "mesh"];
 const WATERPROOF_MATERIALS = ["gore-tex", "polyester", "nylon", "softshell", "regn", "rain"];
+const WINDPROOF_MATERIALS = ["gore-tex", "softshell", "nylon", "leather", "läder", "dun", "down"];
+const BREATHABLE_MATERIALS = ["cotton", "bomull", "linen", "linne", "mesh", "jersey", "silk", "siden"];
+
+// Wind chill approximation: feels-like temperature
+function feelsLikeTemp(temp: number, wind: string | undefined): number {
+  if (!wind) return temp;
+  const w = wind.toLowerCase();
+  if (w === "high" || w === "hög") return temp - 6;
+  if (w === "medium" || w === "medel") return temp - 3;
+  return temp;
+}
+
+// Layering intelligence: does the garment serve as a good layer?
+function isLayeringPiece(category: string): boolean {
+  const cat = category.toLowerCase();
+  return ["cardigan", "blazer", "vest", "väst", "hoodie", "sweater", "tröja"].some(k => cat.includes(k));
+}
 
 function weatherSuitability(garment: GarmentRow, weather: WeatherInput): number {
-  const temp = weather.temperature;
-  if (temp === undefined) return 7;
+  const rawTemp = weather.temperature;
+  if (rawTemp === undefined) return 7;
 
+  const feelsLike = feelsLikeTemp(rawTemp, weather.wind);
   const mat = (garment.material || "").toLowerCase();
   const cat = (garment.category || "").toLowerCase();
+  const sub = (garment.subcategory || "").toLowerCase();
+  const both = `${cat} ${sub}`;
   const isWarm = WARM_MATERIALS.some(w => mat.includes(w));
   const isLight = LIGHT_MATERIALS.some(l => mat.includes(l));
   const isWaterproof = WATERPROOF_MATERIALS.some(w => mat.includes(w));
+  const isWindproof = WINDPROOF_MATERIALS.some(w => mat.includes(w));
+  const isBreathable = BREATHABLE_MATERIALS.some(b => mat.includes(b));
   const seasonTags = garment.season_tags || [];
 
   let score = 7;
 
-  // Temperature matching
-  if (temp < 5) {
+  // ── TEMPERATURE BANDS (using feels-like) ──
+  if (feelsLike < -5) {
+    // Extreme cold
+    if (isWarm) score += 3;
+    if (isLight && !isWarm) score -= 4;
+    if (seasonTags.includes("summer")) score -= 5;
+    if (seasonTags.includes("winter")) score += 2;
+    if (both.includes("short") || both.includes("tank") || both.includes("sandal")) score -= 5;
+  } else if (feelsLike < 5) {
+    // Cold
     if (isWarm) score += 2;
     if (isLight && !isWarm) score -= 2;
     if (seasonTags.includes("summer")) score -= 3;
     if (seasonTags.includes("winter")) score += 1;
-    if (cat.includes("short") || cat.includes("tank")) score -= 4;
-  } else if (temp < 15) {
+    if (both.includes("short") || both.includes("tank")) score -= 4;
+    if (isLayeringPiece(cat)) score += 1; // layering weather
+  } else if (feelsLike < 12) {
+    // Cool — prime layering weather
+    if (isLayeringPiece(cat)) score += 2;
     if (seasonTags.includes("summer") && !seasonTags.includes("spring")) score -= 1;
     if (seasonTags.includes("winter") && !isLight) score -= 1;
-    if (isWarm && cat.includes("sweater")) score += 1; // layering weather
-  } else if (temp < 25) {
+    if (isWarm && cat.includes("sweater")) score += 1;
+  } else if (feelsLike < 20) {
+    // Mild
     if (isLight) score += 1;
-    if (isWarm && cat.includes("coat")) score -= 3;
+    if (isBreathable) score += 0.5;
+    if (isWarm && (cat.includes("coat") || cat.includes("parka"))) score -= 3;
     if (seasonTags.includes("winter")) score -= 2;
-  } else {
-    // Hot weather
+  } else if (feelsLike < 28) {
+    // Warm
     if (isLight) score += 2;
+    if (isBreathable) score += 1;
     if (isWarm) score -= 3;
-    if (cat.includes("shorts") || cat.includes("tank")) score += 1;
+    if (both.includes("shorts") || both.includes("tank")) score += 1;
     if (seasonTags.includes("winter")) score -= 4;
+  } else {
+    // Extreme heat
+    if (isLight && isBreathable) score += 3;
+    if (isWarm) score -= 5;
+    if (both.includes("shorts") || both.includes("tank") || both.includes("sandal")) score += 2;
+    if (seasonTags.includes("winter")) score -= 5;
   }
 
-  // Precipitation
+  // ── WIND AWARENESS ──
+  const wind = (weather.wind || "").toLowerCase();
+  if (wind === "high" || wind === "hög") {
+    if (isWindproof) score += 2;
+    // Light fabrics suffer in high wind
+    if (["chiffon", "silk", "siden"].some(f => mat.includes(f))) score -= 1;
+  }
+
+  // ── PRECIPITATION ──
   const precip = (weather.precipitation || "").toLowerCase();
-  if (precip.includes("rain") || precip.includes("regn") || precip.includes("snow") || precip.includes("snö")) {
+  if (precip.includes("rain") || precip.includes("regn")) {
     if (isWaterproof) score += 2;
+    // Suede/leather penalized in rain
+    if (["suede", "mocka"].some(f => mat.includes(f))) score -= 2;
+    if (["leather", "läder"].some(f => mat.includes(f)) && !isWaterproof) score -= 1;
+  }
+  if (precip.includes("snow") || precip.includes("snö")) {
+    if (isWaterproof) score += 2;
+    if (isWarm) score += 1;
+    if (both.includes("boot") || both.includes("stövel")) score += 2;
+    if (both.includes("sandal") || both.includes("loafer")) score -= 3;
   }
 
   return Math.max(0, Math.min(10, score));
@@ -231,30 +338,78 @@ function weatherSuitability(garment: GarmentRow, weather: WeatherInput): number 
 // FORMALITY MATCHING
 // ─────────────────────────────────────────────
 
-const OCCASION_FORMALITY: Record<string, [number, number]> = {
-  vardag: [1, 3], casual: [1, 3], everyday: [1, 3],
-  jobb: [2, 4], work: [2, 4], office: [2, 4], kontor: [2, 4],
-  fest: [3, 5], party: [3, 5],
-  dejt: [3, 5], date: [3, 5],
-  middag: [3, 5], dinner: [3, 5],
-  träning: [1, 1], gym: [1, 1], sport: [1, 1],
-  resa: [1, 3], travel: [1, 3],
-  möte: [3, 5], meeting: [3, 5],
-  bröllop: [4, 5], wedding: [4, 5],
-  "after work": [2, 4],
-  weekend: [1, 3],
-  helg: [1, 3],
-  promenad: [1, 2], walk: [1, 2],
-  skola: [1, 3], school: [1, 3],
-  intervju: [3, 5], interview: [3, 5],
+// Expanded occasion mapping with granular formality and style hints
+const OCCASION_FORMALITY: Record<string, { range: [number, number]; styleHints: string[] }> = {
+  // Casual / everyday
+  vardag: { range: [1, 3], styleHints: ["relaxed", "comfortable"] },
+  casual: { range: [1, 3], styleHints: ["relaxed"] },
+  everyday: { range: [1, 3], styleHints: ["relaxed"] },
+  weekend: { range: [1, 3], styleHints: ["relaxed", "layered"] },
+  helg: { range: [1, 3], styleHints: ["relaxed", "layered"] },
+  promenad: { range: [1, 2], styleHints: ["comfortable", "outdoor"] },
+  walk: { range: [1, 2], styleHints: ["comfortable", "outdoor"] },
+  // Sport
+  träning: { range: [1, 1], styleHints: ["athletic", "performance"] },
+  gym: { range: [1, 1], styleHints: ["athletic"] },
+  sport: { range: [1, 1], styleHints: ["athletic"] },
+  yoga: { range: [1, 1], styleHints: ["stretchy", "breathable"] },
+  löpning: { range: [1, 1], styleHints: ["athletic", "breathable"] },
+  // Work
+  jobb: { range: [2, 4], styleHints: ["polished", "professional"] },
+  work: { range: [2, 4], styleHints: ["polished"] },
+  office: { range: [2, 4], styleHints: ["polished"] },
+  kontor: { range: [2, 4], styleHints: ["polished"] },
+  möte: { range: [3, 5], styleHints: ["sharp", "confident"] },
+  meeting: { range: [3, 5], styleHints: ["sharp"] },
+  presentation: { range: [3, 5], styleHints: ["authoritative", "sharp"] },
+  intervju: { range: [3, 5], styleHints: ["confident", "polished"] },
+  interview: { range: [3, 5], styleHints: ["confident"] },
+  konferens: { range: [3, 4], styleHints: ["professional", "comfortable"] },
+  conference: { range: [3, 4], styleHints: ["professional"] },
+  // Social
+  fest: { range: [3, 5], styleHints: ["expressive", "statement"] },
+  party: { range: [3, 5], styleHints: ["expressive"] },
+  dejt: { range: [3, 5], styleHints: ["attractive", "intentional"] },
+  date: { range: [3, 5], styleHints: ["attractive"] },
+  middag: { range: [3, 5], styleHints: ["elegant"] },
+  dinner: { range: [3, 5], styleHints: ["elegant"] },
+  brunch: { range: [2, 3], styleHints: ["smart casual", "relaxed"] },
+  fika: { range: [2, 3], styleHints: ["casual chic"] },
+  "after work": { range: [2, 4], styleHints: ["transitional"] },
+  afterwork: { range: [2, 4], styleHints: ["transitional"] },
+  mingel: { range: [3, 5], styleHints: ["social", "polished"] },
+  // Formal
+  bröllop: { range: [4, 5], styleHints: ["elegant", "formal"] },
+  wedding: { range: [4, 5], styleHints: ["elegant", "formal"] },
+  gala: { range: [5, 5], styleHints: ["black tie", "formal"] },
+  ceremoni: { range: [4, 5], styleHints: ["formal", "respectful"] },
+  ceremony: { range: [4, 5], styleHints: ["formal"] },
+  // Travel
+  resa: { range: [1, 3], styleHints: ["versatile", "comfortable"] },
+  travel: { range: [1, 3], styleHints: ["versatile"] },
+  flygresa: { range: [1, 2], styleHints: ["comfortable", "layered"] },
+  flight: { range: [1, 2], styleHints: ["comfortable", "layered"] },
+  // Education
+  skola: { range: [1, 3], styleHints: ["casual"] },
+  school: { range: [1, 3], styleHints: ["casual"] },
+  universitet: { range: [1, 3], styleHints: ["casual", "smart"] },
+  university: { range: [1, 3], styleHints: ["casual"] },
 };
 
 function getFormalityRange(occasion: string): [number, number] {
   const occ = occasion.toLowerCase();
-  for (const [key, range] of Object.entries(OCCASION_FORMALITY)) {
-    if (occ.includes(key)) return range;
+  for (const [key, entry] of Object.entries(OCCASION_FORMALITY)) {
+    if (occ.includes(key)) return entry.range;
   }
   return [1, 4]; // default permissive
+}
+
+function getOccasionStyleHints(occasion: string): string[] {
+  const occ = occasion.toLowerCase();
+  for (const [key, entry] of Object.entries(OCCASION_FORMALITY)) {
+    if (occ.includes(key)) return entry.styleHints;
+  }
+  return [];
 }
 
 function formalityScore(garment: GarmentRow, occasion: string): number {
@@ -281,7 +436,7 @@ function wearRotationScore(garment: GarmentRow): number {
 }
 
 // ─────────────────────────────────────────────
-// FEEDBACK LEARNING
+// FEEDBACK LEARNING v2 (Exponential Decay)
 // ─────────────────────────────────────────────
 
 interface FeedbackSignal {
@@ -289,34 +444,83 @@ interface FeedbackSignal {
   rating: number | null;
   feedback: string[] | null;
   weather: WeatherInput | null;
+  generatedAt?: string | null;
 }
 
-function buildFeedbackPenalties(feedbackHistory: FeedbackSignal[]): Map<string, number> {
-  const penalties = new Map<string, number>();
+// Exponential decay: half-life of 14 days
+const FEEDBACK_HALF_LIFE_DAYS = 14;
+
+function decayWeight(generatedAt: string | null | undefined): number {
+  if (!generatedAt) return 0.5; // unknown age → half weight
+  const daysSince = Math.max(0, (Date.now() - new Date(generatedAt).getTime()) / 86400000);
+  return Math.pow(0.5, daysSince / FEEDBACK_HALF_LIFE_DAYS);
+}
+
+// Context-aware tags: map feedback to specific conditions
+const CONTEXTUAL_TAGS: Record<string, string> = {
+  "too_warm": "weather", "för varm": "weather",
+  "too_cold": "weather", "för kall": "weather",
+  "too_formal": "formality", "för formell": "formality",
+  "too_casual": "formality", "för casual": "formality",
+  "uncomfortable": "fit", "obekväm": "fit",
+  "bad_color": "color", "dålig färg": "color",
+  "boring": "style", "tråkig": "style",
+  "loved_it": "positive", "älskade den": "positive",
+};
+
+interface GarmentPenalty {
+  total: number;
+  weatherPenalty: number;
+  formalityPenalty: number;
+  fitPenalty: number;
+  positiveBoost: number;
+}
+
+function buildFeedbackPenalties(feedbackHistory: FeedbackSignal[]): Map<string, GarmentPenalty> {
+  const penalties = new Map<string, GarmentPenalty>();
+
+  const getOrInit = (id: string): GarmentPenalty => {
+    if (!penalties.has(id)) {
+      penalties.set(id, { total: 0, weatherPenalty: 0, formalityPenalty: 0, fitPenalty: 0, positiveBoost: 0 });
+    }
+    return penalties.get(id)!;
+  };
+
   for (const signal of feedbackHistory) {
     if (!signal.rating && !signal.feedback?.length) continue;
 
+    const weight = decayWeight(signal.generatedAt);
     const isNegative = (signal.rating && signal.rating <= 2) || false;
+    const isPositive = (signal.rating && signal.rating >= 4) || false;
     const feedbackTags = signal.feedback || [];
 
     for (const gId of signal.garmentIds) {
-      let penalty = 0;
-      if (isNegative) penalty += 2;
-      if (feedbackTags.includes("too_warm") || feedbackTags.includes("för varm")) penalty += 1;
-      if (feedbackTags.includes("too_formal") || feedbackTags.includes("för formell")) penalty += 1;
-      if (feedbackTags.includes("too_casual") || feedbackTags.includes("för casual")) penalty += 1;
-      if (feedbackTags.includes("uncomfortable") || feedbackTags.includes("obekväm")) penalty += 1;
-      if (penalty > 0) {
-        penalties.set(gId, (penalties.get(gId) || 0) + penalty);
+      const p = getOrInit(gId);
+
+      if (isNegative) p.total += 2 * weight;
+      if (isPositive) p.positiveBoost += 1.5 * weight;
+
+      for (const tag of feedbackTags) {
+        const ctx = CONTEXTUAL_TAGS[tag];
+        const tagWeight = weight * 1;
+        if (ctx === "weather") p.weatherPenalty += tagWeight;
+        else if (ctx === "formality") p.formalityPenalty += tagWeight;
+        else if (ctx === "fit") p.fitPenalty += tagWeight;
+        else if (ctx === "positive") p.positiveBoost += tagWeight;
+        else if (ctx) p.total += tagWeight;
       }
+
+      p.total += p.weatherPenalty + p.formalityPenalty + p.fitPenalty;
     }
   }
   return penalties;
 }
 
-function feedbackScore(garmentId: string, penalties: Map<string, number>): number {
-  const p = penalties.get(garmentId) || 0;
-  return Math.max(0, 10 - p * 2);
+function feedbackScore(garmentId: string, penalties: Map<string, GarmentPenalty>): number {
+  const p = penalties.get(garmentId);
+  if (!p) return 8; // no data = slight optimism
+  const net = p.positiveBoost - p.total;
+  return Math.max(0, Math.min(10, 8 + net));
 }
 
 // ─────────────────────────────────────────────
@@ -376,7 +580,7 @@ function scoreGarment(
   garment: GarmentRow,
   occasion: string,
   weather: WeatherInput,
-  penalties: Map<string, number>,
+  penalties: Map<string, GarmentPenalty>,
   prefs: Record<string, any> | null
 ): ScoredGarment {
   const ws = weatherSuitability(garment, weather);
@@ -627,11 +831,16 @@ async function aiRefine(
     return `Combo ${idx}: [score: ${combo.totalScore.toFixed(1)}] ${parts.join(" + ")}`;
   }).join("\n");
 
-  const systemPrompt = mode === "generate"
-    ? `You are a world-class stylist. Pick the SINGLE best outfit from the pre-scored candidates below. Consider overall aesthetic, color harmony, and suitability for the occasion.
+  const styleHints = getOccasionStyleHints(occasion);
+  const season = getCurrentSeason();
+  const hintsStr = styleHints.length > 0 ? `\nSTYLE DIRECTION: ${styleHints.join(", ")}` : "";
+  const seasonStr = `\nSEASON: ${season}`;
 
-OCCASION: ${occasion}${style ? `\nSTYLE: ${style}` : ""}
-WEATHER: ${weather.temperature !== undefined ? weather.temperature + "°C" : "unknown"}${weather.precipitation ? ", " + weather.precipitation : ""}
+  const systemPrompt = mode === "generate"
+    ? `You are a world-class stylist. Pick the SINGLE best outfit from the pre-scored candidates below. Consider overall aesthetic, color harmony, seasonal appropriateness, and suitability for the occasion.
+
+OCCASION: ${occasion}${style ? `\nSTYLE: ${style}` : ""}${hintsStr}${seasonStr}
+WEATHER: ${weather.temperature !== undefined ? weather.temperature + "°C" : "unknown"}${weather.precipitation ? ", " + weather.precipitation : ""}${weather.wind ? ", wind: " + weather.wind : ""}
 ${styleContext ? `\nUSER PROFILE: ${styleContext}` : ""}
 
 Write the explanation in ${localeName}.
@@ -697,7 +906,7 @@ function scoreSwapCandidates(
   allGarments: GarmentRow[],
   occasion: string,
   weather: WeatherInput,
-  penalties: Map<string, number>,
+  penalties: Map<string, GarmentPenalty>,
   prefs: Record<string, any> | null
 ): ScoredGarment[] {
   const slotGarments = allGarments.filter(g => {
@@ -793,10 +1002,10 @@ serve(async (req) => {
         .eq("outfits.user_id", userId)
         .order("outfits(generated_at)", { ascending: false })
         .limit(50),
-      // Fetch outfits with ratings/feedback for learning
+      // Fetch outfits with ratings/feedback for learning (include generated_at for decay)
       supabase
         .from("outfits")
-        .select("id, rating, feedback, weather")
+        .select("id, rating, feedback, weather, generated_at")
         .eq("user_id", userId)
         .not("rating", "is", null)
         .order("generated_at", { ascending: false })
@@ -837,6 +1046,7 @@ serve(async (req) => {
           rating: outfit.rating,
           feedback: outfit.feedback,
           weather: outfit.weather as WeatherInput | null,
+          generatedAt: (outfit as any).generated_at || null,
         });
       }
     }
