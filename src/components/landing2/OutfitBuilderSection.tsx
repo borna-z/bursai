@@ -7,7 +7,7 @@ const PIECES = [
 
 export function OutfitBuilderSection() {
   return (
-    <section className="relative py-28 md:py-40 px-6">
+    <section className="relative py-32 md:py-44 px-6">
       <div className="max-w-4xl mx-auto text-center mb-20">
         <p className="lv2-reveal text-[11px] tracking-[0.25em] uppercase mb-5" style={{ color: 'var(--lv2-text-tertiary)' }}>Outfit builder</p>
         <h2 className="lv2-reveal lv2-reveal-delay-1 text-3xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-6 leading-[1.08]" style={{ color: 'var(--lv2-text-primary)' }}>

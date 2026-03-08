@@ -12,7 +12,7 @@ const OUTFIT_COLORS = [
 
 export function WeeklyPlannerSection() {
   return (
-    <section className="relative py-28 md:py-40 px-6">
+    <section className="relative py-32 md:py-44 px-6">
       {/* Background gradient strip */}
       <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[60%] pointer-events-none" style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(30,208,231,0.02) 50%, transparent 100%)' }} aria-hidden="true" />
 

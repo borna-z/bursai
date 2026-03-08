@@ -43,12 +43,21 @@ export function HeroSection() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: EASE, delay: 0.2 }}
-          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[--lv2-border] bg-[--lv2-surface] text-[11px] tracking-[0.25em] uppercase mb-10"
+          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[--lv2-border] bg-[--lv2-surface] text-[11px] tracking-[0.25em] uppercase mb-4"
           style={{ color: 'var(--lv2-text-secondary)' }}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-[--lv2-cyan] animate-pulse" />
           AI wardrobe intelligence
         </motion.div>
+
+        {/* Visual anchor line */}
+        <motion.div
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ duration: 0.8, ease: EASE, delay: 0.5 }}
+          className="w-10 h-px mx-auto mb-10"
+          style={{ background: 'linear-gradient(90deg, transparent, var(--lv2-cyan), transparent)' }}
+        />
 
         {/* Headline */}
         <motion.h1
@@ -68,7 +77,7 @@ export function HeroSection() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: EASE, delay: 0.7 }}
-          className="text-base sm:text-lg md:text-xl max-w-xl mx-auto mb-12 leading-[1.7]"
+          className="text-base sm:text-lg md:text-xl max-w-xl mx-auto mb-14 leading-[1.7]"
           style={{ color: 'var(--lv2-text-secondary)' }}
         >
           Digitize your wardrobe, generate better outfits, and plan what to wear with an AI stylist built around your real clothes.

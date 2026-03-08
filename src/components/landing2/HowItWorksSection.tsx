@@ -8,12 +8,15 @@ const STEPS = [
 
 export function HowItWorksSection() {
   return (
-    <section className="relative py-28 md:py-40 px-6" id="how-it-works">
+    <section className="relative py-32 md:py-44 px-6" id="how-it-works">
       <div className="max-w-4xl mx-auto text-center mb-20">
         <p className="lv2-reveal text-[11px] tracking-[0.25em] uppercase mb-5" style={{ color: 'var(--lv2-text-tertiary)' }}>How it works</p>
         <h2 className="lv2-reveal lv2-reveal-delay-1 text-3xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-6 leading-[1.08]" style={{ color: 'var(--lv2-text-primary)' }}>
           From closet to clarity in three steps
         </h2>
+        <p className="lv2-reveal lv2-reveal-delay-2 text-base md:text-lg max-w-lg mx-auto leading-[1.7]" style={{ color: 'var(--lv2-text-secondary)' }}>
+          No learning curve. No complexity. Just a smarter way to dress.
+        </p>
       </div>
 
       <div className="max-w-4xl mx-auto relative">
