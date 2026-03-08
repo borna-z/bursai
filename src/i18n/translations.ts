@@ -654,6 +654,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'plan.undone': 'Ångrad',
     'plan.plan_week': 'Planera din vecka',
     'plan.undo': 'Ångra',
+    'plan.versatile_pieces': 'Fungerar hela dagen',
     'plan.no_planned': 'Inga planerade',
     'plan.plan_via_calendar': 'Planera outfits via datumväljaren.',
     'plan.plan_whole_week': 'Planera hela veckan',
