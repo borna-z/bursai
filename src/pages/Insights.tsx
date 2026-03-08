@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useInsights, type Garment, type ColorTemperatureData } from '@/hooks/useInsights';
 import { useSubscription } from '@/hooks/useSubscription';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { AISuggestions } from '@/components/insights/AISuggestions';
