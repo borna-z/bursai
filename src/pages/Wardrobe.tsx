@@ -431,6 +431,18 @@ export default function WardrobePage() {
     }
   }, [allGarments, smartFilter]);
 
+  // Pre-calculate counts for smart filter chips
+  const smartFilterCounts = useMemo(() => {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const cutoff = thirtyDaysAgo.toISOString();
+    return {
+      rarely_worn: allGarments.filter(g => !g.last_worn_at || g.last_worn_at < cutoff).length,
+      most_worn: allGarments.filter(g => (g.wear_count || 0) > 0).length,
+      new: allGarments.length,
+    };
+  }, [allGarments]);
+
   const categories = [
     { id: 'all', label: t('wardrobe.all') },
     { id: 'top', label: t('wardrobe.top') },
