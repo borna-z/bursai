@@ -48,7 +48,7 @@ export function InsightsBanner() {
     <motion.button
       whileTap={{ scale: 0.98 }}
       transition={TAP_TRANSITION}
-      onClick={() => navigate('/insights')}
+      onClick={() => { hapticLight(); navigate('/insights'); }}
       className="w-full flex items-center gap-4 rounded-2xl bg-card/50 backdrop-blur border border-border/20 p-4 text-left will-change-transform"
     >
       <MiniUsageRing percentage={insights.usageRate} />
