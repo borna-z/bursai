@@ -17,6 +17,7 @@ import { AnimatedPage } from '@/components/ui/animated-page';
 import { OutfitReactions } from '@/components/social/OutfitReactions';
 import { SectionHeader } from '@/components/ui/section-header';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
+import { useTrendingUnlocked } from '@/hooks/useTrendingUnlocked';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
