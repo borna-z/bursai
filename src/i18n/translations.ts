@@ -5610,7 +5610,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   pl: {
-    'nav.today': 'Dziś', 'nav.wardrobe': 'Garderoba', 'nav.plan': 'Plan', 'nav.stylist': 'Stylista', 'nav.settings': 'Ustawienia',
+    'nav.today': 'Dziś', 'nav.wardrobe': 'Garderoba', 'nav.plan': 'Plan', 'nav.stylist': 'Stylista', 'nav.settings': 'Ustawienia', 'nav.discover': 'Odkryj',
     'onboarding.language.title': 'Wybierz język', 'onboarding.language.subtitle': 'Możesz to zmienić później w ustawieniach',
     'onboarding.body.title': 'Twoje ciało, Twój styl', 'onboarding.body.subtitle': 'Twój stylista AI używa Twoich wymiarów do porad o kroju i stylu.',
     'onboarding.body.height': 'Wzrost', 'onboarding.body.weight': 'Waga', 'onboarding.body.weight_optional': '(opcjonalnie)',
