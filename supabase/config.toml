@@ -65,3 +65,18 @@ verify_jwt = false
 
 [functions.wardrobe_gap_analysis]
 verify_jwt = false
+
+[functions.visual_search]
+verify_jwt = false
+
+[functions.mood_outfit]
+verify_jwt = false
+
+[functions.smart_shopping_list]
+verify_jwt = false
+
+[functions.wardrobe_aging]
+verify_jwt = false
+
+[functions.style_twin]
+verify_jwt = false
