@@ -856,6 +856,124 @@ function wearPatternScore(garment: GarmentRow, patterns: WearPatternProfile | nu
 }
 
 // ─────────────────────────────────────────────
+// COMFORT VS STYLE LEARNING (Step 8)
+// ─────────────────────────────────────────────
+// Identifies "comfort" garments (high rewear, moderate ratings)
+// vs "aspiration" garments (high ratings, low rewear).
+// Balances both signals to avoid suggesting only safe picks.
+
+interface ComfortStyleProfile {
+  // garment_id → { comfortSignal, aspirationSignal }
+  garmentSignals: Map<string, { comfort: number; aspiration: number }>;
+  // Overall user tendency: -1 (prefers comfort) to +1 (prefers style)
+  userTendency: number;
+}
+
+function buildComfortStyleProfile(
+  wearLogs: WearLog[],
+  garments: GarmentRow[],
+  feedbackHistory: FeedbackSignal[]
+): ComfortStyleProfile {
+  const garmentMap = new Map(garments.map(g => [g.id, g]));
+  const signals = new Map<string, { comfort: number; aspiration: number }>();
+
+  // Build rating map: garment_id → weighted avg rating
+  const garmentRatings = new Map<string, { sum: number; weight: number }>();
+  for (const signal of feedbackHistory) {
+    if (!signal.rating) continue;
+    const w = decayWeight(signal.generatedAt);
+    for (const gId of signal.garmentIds) {
+      const existing = garmentRatings.get(gId) || { sum: 0, weight: 0 };
+      existing.sum += signal.rating * w;
+      existing.weight += w;
+      garmentRatings.set(gId, existing);
+    }
+  }
+
+  // Build rewear frequency: garment_id → recency-weighted wear count
+  const rewearCounts = new Map<string, number>();
+  const sixMonthsAgo = Date.now() - 180 * 86400000;
+  for (const log of wearLogs) {
+    const logTime = new Date(log.worn_at).getTime();
+    if (logTime < sixMonthsAgo) continue;
+    const recency = Math.pow(0.5, (Date.now() - logTime) / (60 * 86400000));
+    rewearCounts.set(log.garment_id, (rewearCounts.get(log.garment_id) || 0) + recency);
+  }
+
+  // Compute percentiles for normalization
+  const allRewears = [...rewearCounts.values()];
+  const allRatings = [...garmentRatings.entries()]
+    .map(([_, v]) => v.weight > 0 ? v.sum / v.weight : 0)
+    .filter(r => r > 0);
+
+  const rewearP75 = percentile(allRewears, 0.75) || 1;
+  const ratingP75 = percentile(allRatings, 0.75) || 4;
+
+  let totalComfort = 0;
+  let totalAspiration = 0;
+  let count = 0;
+
+  for (const g of garments) {
+    const rewear = rewearCounts.get(g.id) || 0;
+    const ratingEntry = garmentRatings.get(g.id);
+    const avgRating = ratingEntry && ratingEntry.weight > 0 ? ratingEntry.sum / ratingEntry.weight : 0;
+
+    // Comfort: high rewear relative to peers (normalized 0-1)
+    const comfortSignal = Math.min(1, rewear / rewearP75);
+
+    // Aspiration: high rating but not proportionally reworn
+    let aspirationSignal = 0;
+    if (avgRating > 0) {
+      const normalizedRating = Math.min(1, avgRating / ratingP75);
+      const rewearRatio = rewearP75 > 0 ? Math.min(1, rewear / rewearP75) : 0;
+      // High rating + low rewear = aspiration piece
+      aspirationSignal = normalizedRating * Math.max(0, 1 - rewearRatio * 0.7);
+    }
+
+    if (comfortSignal > 0.1 || aspirationSignal > 0.1) {
+      signals.set(g.id, { comfort: comfortSignal, aspiration: aspirationSignal });
+      totalComfort += comfortSignal;
+      totalAspiration += aspirationSignal;
+      count++;
+    }
+  }
+
+  // User tendency: do they rewear favorites (comfort) or chase high-rated items (style)?
+  const userTendency = count > 0
+    ? Math.max(-1, Math.min(1, (totalAspiration - totalComfort) / count * 2))
+    : 0;
+
+  return { garmentSignals: signals, userTendency };
+}
+
+function percentile(arr: number[], p: number): number {
+  if (arr.length === 0) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const idx = Math.floor(sorted.length * p);
+  return sorted[Math.min(idx, sorted.length - 1)];
+}
+
+function comfortStyleScore(garment: GarmentRow, profile: ComfortStyleProfile | null): number {
+  if (!profile) return 7;
+  const signal = profile.garmentSignals.get(garment.id);
+  if (!signal) return 7;
+
+  let score = 7;
+  const tendency = profile.userTendency;
+
+  // Blend: comfort-leaning users get boosted comfort picks;
+  // style-leaning users get boosted aspiration picks;
+  // balanced users get both.
+  const comfortWeight = 0.5 - tendency * 0.3;  // 0.2–0.8
+  const aspirationWeight = 0.5 + tendency * 0.3; // 0.2–0.8
+
+  score += signal.comfort * comfortWeight * 3;     // up to +2.4
+  score += signal.aspiration * aspirationWeight * 2; // up to +1.6
+
+  return Math.max(0, Math.min(10, score));
+}
+
+// ─────────────────────────────────────────────
 // COMPOSITE SCORING
 // ─────────────────────────────────────────────
 
@@ -866,7 +984,8 @@ function scoreGarment(
   penalties: Map<string, GarmentPenalty>,
   prefs: Record<string, any> | null,
   patterns: WearPatternProfile | null = null,
-  styleVector: StyleVector | null = null
+  styleVector: StyleVector | null = null,
+  comfortProfile: ComfortStyleProfile | null = null
 ): ScoredGarment {
   const ws = weatherSuitability(garment, weather);
   const fs = formalityScore(garment, occasion);
@@ -875,19 +994,19 @@ function scoreGarment(
   const sa = styleAlignmentScore(garment, prefs);
   const wp = wearPatternScore(garment, patterns);
   const sv = styleVectorScore(garment, styleVector);
+  const cs = comfortStyleScore(garment, comfortProfile);
 
-  // Weighted composite: 8 factors
-  // Quiz-based style (sa) gets less weight when behavioral vector (sv) has high confidence
+  // Weighted composite: 9 factors
   const vectorConf = styleVector?.confidence || 0;
-  const saWeight = 0.10 * (1 - vectorConf * 0.5); // reduces as vector confidence grows
-  const svWeight = 0.10 + vectorConf * 0.05;       // grows with confidence (0.10 → 0.15)
+  const saWeight = 0.08 * (1 - vectorConf * 0.5);
+  const svWeight = 0.08 + vectorConf * 0.04;
 
-  const score = ws * 0.20 + fs * 0.20 + wr * 0.16 + fb * 0.12 + sa * saWeight + wp * 0.10 + sv * svWeight + 0.02 * 7;
+  const score = ws * 0.18 + fs * 0.18 + wr * 0.14 + fb * 0.10 + sa * saWeight + wp * 0.10 + sv * svWeight + cs * 0.10 + 0.02 * 7;
 
   return {
     garment,
     score,
-    breakdown: { weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp, vector: sv },
+    breakdown: { weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp, vector: sv, comfort: cs },
   };
 }
 
