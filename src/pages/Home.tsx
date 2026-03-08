@@ -17,6 +17,7 @@ import { SwipeSuggestions } from '@/components/home/SwipeSuggestions';
 import { AdjustDaySection } from '@/components/home/AdjustDaySection';
 import { SmartInsightCard } from '@/components/home/SmartInsightCard';
 import { InsightsBanner } from '@/components/home/InsightsBanner';
+import { PlanTomorrowCard } from '@/components/home/PlanTomorrowCard';
 
 export default function HomePage() {
   const { t } = useLanguage();
@@ -123,6 +124,9 @@ export default function HomePage() {
 
           {/* ── Swipe Suggestions ── */}
           <SwipeSuggestions />
+
+          {/* ── Plan Tomorrow ── */}
+          <PlanTomorrowCard />
 
           {/* ── Insights Banner ── */}
           <InsightsBanner />
