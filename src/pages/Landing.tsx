@@ -10,6 +10,7 @@ import { CookieConsent } from '@/components/landing/CookieConsent';
 // Lazy-load below-fold sections for faster initial paint
 const TrialBanner = lazy(() => import('@/components/landing/TrialBanner').then(m => ({ default: m.TrialBanner })));
 const HowItWorks = lazy(() => import('@/components/landing/HowItWorks').then(m => ({ default: m.HowItWorks })));
+const FeaturesShowcase = lazy(() => import('@/components/landing/FeaturesShowcase').then(m => ({ default: m.FeaturesShowcase })));
 const SustainabilitySection = lazy(() => import('@/components/landing/SustainabilitySection').then(m => ({ default: m.SustainabilitySection })));
 const MissionSection = lazy(() => import('@/components/landing/MissionSection').then(m => ({ default: m.MissionSection })));
 const PricingSection = lazy(() => import('@/components/landing/PricingSection').then(m => ({ default: m.PricingSection })));
@@ -85,9 +86,9 @@ export default function Landing() {
 
   const navLinks = [
     { id: 'how-it-works', label: t('landing.nav.how') },
+    { id: 'features', label: t('landing.nav.features') },
     { id: 'sustainability', label: t('landing.nav.sustainability') },
     { id: 'pricing', label: t('landing.nav.pricing') },
-    { id: 'download', label: t('landing.nav.download') },
   ];
 
   return (
@@ -150,6 +151,7 @@ export default function Landing() {
           <Suspense fallback={<div style={{ minHeight: '400vh' }} aria-hidden="true" />}>
             <TrialBanner />
             <HowItWorks />
+            <FeaturesShowcase />
             <SustainabilitySection />
             <MissionSection />
             <PricingSection />
