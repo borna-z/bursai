@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Shirt, Sparkles, TrendingUp, Lock, Palette, Gem, Trophy, Thermometer, Sun, Snowflake } from 'lucide-react';
 import { InsightsPageSkeleton } from '@/components/ui/skeletons';
