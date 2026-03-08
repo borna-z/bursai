@@ -94,18 +94,26 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
   const showUpgradeHint = !isPremium && regenCount >= 3;
 
   return (
-    <div className="rounded-2xl bg-foreground/[0.02] border border-border/30 p-4 space-y-4">
+    <div className="rounded-2xl bg-foreground/[0.02] border border-border/30 p-4 space-y-4 relative overflow-hidden">
       <p className="text-xs text-muted-foreground/70 font-medium">{t('home.todays_outfit')}</p>
 
-      {/* Garment grid */}
+      {/* Garment grid — swipe right to wear */}
       <AnimatePresence mode="wait">
         <motion.div
           key={outfitKey}
           initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
+          animate={{ opacity: 1, scale: 1, x: 0 }}
           exit={{ opacity: 0, scale: 0.96 }}
           transition={{ duration: 0.35, ease: EASE_CURVE }}
-          className="grid grid-cols-2 gap-1.5"
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.3}
+          onDragEnd={(_, info) => {
+            if (info.offset.x > 100 && !markWorn.isPending) {
+              handleWearThis();
+            }
+          }}
+          className="grid grid-cols-2 gap-1.5 cursor-grab active:cursor-grabbing"
         >
           {outfit.items.slice(0, 4).map((item) => (
             <div
@@ -123,6 +131,11 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
           ))}
         </motion.div>
       </AnimatePresence>
+
+      {/* Swipe hint */}
+      <p className="text-[10px] text-muted-foreground/40 text-center -mt-1">
+        {t('home.swipe_to_wear') || 'Swipe right to wear →'}
+      </p>
 
       {/* Shimmer overlay during regeneration */}
       {isGenerating && outfit && (
