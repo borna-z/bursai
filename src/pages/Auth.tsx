@@ -75,7 +75,7 @@ export default function AuthPage() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) { toast.error(t('auth.fill_all')); return; }
-    if (email !== confirmEmail) { toast.error(t('auth.emails_no_match')); return; }
+    if (password !== confirmPassword) { toast.error(t('auth.passwords_no_match')); return; }
     const passOk = password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password);
     if (!passOk) { toast.error(t('auth.password_too_short')); return; }
     localStorage.setItem('remember_me', rememberMe ? 'true' : 'false');
