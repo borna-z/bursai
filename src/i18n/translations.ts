@@ -721,6 +721,17 @@ export const translations: Record<Locale, Record<string, string>> = {
     'settings.inspiration': 'Inspiration',
     'settings.challenges': 'Stilutmaningar',
 
+    // Discover
+    'discover.title': 'Upptäck',
+    'discover.subtitle': 'Community, utmaningar och AI-verktyg',
+    'discover.trending': 'Trendande outfits',
+    'discover.see_all': 'Visa alla',
+    'discover.ai_tools': 'AI-verktyg',
+    'discover.your_profile': 'Din profil',
+    'discover.setup_profile': 'Välj ett användarnamn för att dela',
+    'discover.saved': 'Sparad inspiration',
+    'challenges.joined_label': 'Deltar',
+
     'wardrobe.import_link': 'Importera via länk',
     'wardrobe.live_scan': 'BURS Live Scan',
     'settings.row.insights': 'Garderobsinsikter',
