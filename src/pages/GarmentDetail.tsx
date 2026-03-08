@@ -20,6 +20,7 @@ export default function GarmentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { t, locale } = useLanguage();
   const { data: garment, isLoading } = useGarment(id);
+  const { data: similarGarments } = useSimilarGarments(garment);
   const updateGarment = useUpdateGarment();
   const deleteGarment = useDeleteGarment();
   const markWorn = useMarkGarmentWorn();
