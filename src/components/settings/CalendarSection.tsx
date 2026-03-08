@@ -105,8 +105,8 @@ function GoogleCalendarCard({
         ) : (
           <>
             <p className="text-[11px] text-muted-foreground leading-snug">
-              BURS will read your calendar events to help plan outfits around your schedule. You can disconnect at any time.{' '}
-              <a href="/terms" className="underline hover:text-foreground">Privacy Policy</a>
+              {t('calendar.google_privacy')}{' '}
+              <a href="/terms" className="underline hover:text-foreground">{t('footer.privacy')}</a>
             </p>
             <Button onClick={onConnect} variant="outline" size="sm" className="w-full justify-start gap-2">
               {t('calendar.connect_google')}

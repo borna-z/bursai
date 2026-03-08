@@ -136,7 +136,7 @@ export function OutfitReel({ outfits, onClose }: OutfitReelProps) {
       link.click();
       toast.success(t('wardrobe.reel_download'));
     } catch {
-      toast.error('Could not save image');
+      toast.error(t('wardrobe.reel_save_error'));
     }
   };
 

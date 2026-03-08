@@ -88,8 +88,8 @@ export function FooterCTA() {
             <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-6">
               <img src={bursLandingLogo} alt="BURS" className="h-5 object-contain" />
               <div className="flex flex-wrap justify-center gap-6 text-xs text-gray-500 tracking-wide">
-                <a href="/privacy" className="hover:text-white transition-colors">Privacy Policy</a>
-                <a href="/terms" className="hover:text-white transition-colors">Terms of Use</a>
+                <a href="/privacy" className="hover:text-white transition-colors">{t('footer.privacy')}</a>
+                <a href="/terms" className="hover:text-white transition-colors">{t('footer.terms')}</a>
                 <a href="/contact" className="hover:text-white transition-colors">{t('landing.footer_contact')}</a>
               </div>
               <div className="flex items-center gap-4">
@@ -100,7 +100,7 @@ export function FooterCTA() {
               </div>
             </div>
             <div className="flex flex-col md:flex-row items-center justify-between gap-3 text-[10px] text-gray-600">
-              <p>By using BURS you agree to our <a href="/privacy" className="underline hover:text-white transition-colors">Privacy Policy</a>.</p>
+              <p>{t('footer.agree')} <a href="/privacy" className="underline hover:text-white transition-colors">{t('footer.privacy')}</a>.</p>
               <span className="text-gray-500">© {new Date().getFullYear()} BURS AB</span>
               <span>{t('landing.footer_gdpr')}</span>
             </div>

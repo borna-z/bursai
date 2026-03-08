@@ -83,9 +83,9 @@ export function SeedProvider({ children }: { children: ReactNode }) {
         body: { action: 'delete_all' },
       });
       if (error) throw error;
-      toast.success('All old garments deleted');
+      toast.success(t('seed.deleted'));
     } catch {
-      toast.error('Failed to delete old garments');
+      toast.error(t('seed.delete_error'));
       setStep('error');
       return;
     }
