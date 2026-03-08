@@ -123,6 +123,7 @@ export function AnimatedRoutes() {
             <Route path="/settings/account" element={<ProtectedRoute><SettingsAccount /></ProtectedRoute>} />
             <Route path="/settings/privacy" element={<ProtectedRoute><SettingsPrivacy /></ProtectedRoute>} />
             <Route path="/settings/generate-images" element={<ProtectedRoute><GenerateImages /></ProtectedRoute>} />
+            <Route path="/settings/seed-wardrobe" element={<ProtectedRoute><SeedWardrobe /></ProtectedRoute>} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/billing/success" element={<ProtectedRoute><BillingSuccess /></ProtectedRoute>} />
             <Route path="/billing/cancel" element={<ProtectedRoute><BillingCancel /></ProtectedRoute>} />
