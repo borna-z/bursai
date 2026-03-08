@@ -3,6 +3,7 @@ import { CalendarDays, ChevronRight } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { motion } from 'framer-motion';
 import { TAP_TRANSITION } from '@/lib/motion';
+import { hapticLight } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getDateFnsLocale } from '@/lib/dateLocale';
 
