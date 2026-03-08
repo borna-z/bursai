@@ -3295,6 +3295,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'offline.banner': "You're offline",
     'offline.syncing': 'Syncing changes…',
     'offline.pending': 'pending',
+    'home.swipe_to_wear': 'Swipe right to wear →',
   },
 
   no: {
