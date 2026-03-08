@@ -3,7 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TAP_TRANSITION } from '@/lib/motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Plus, Search, X, Trash2, Shirt, ScanLine, Camera, Link,
   SlidersHorizontal, Grid3X3, List, WashingMachine, Loader2, BarChart3, Sparkles,
