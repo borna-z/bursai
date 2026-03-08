@@ -348,6 +348,18 @@ export default function InsightsPage() {
           {/* ─── Color Distribution ─── */}
           <ColorDistribution garments={allGarments} isPremium={isPremium} t={t} />
 
+          {/* ── Step 8: Spending Dashboard ── */}
+          <SpendingDashboard isPremium={isPremium} />
+
+          {/* ── Step 10: Outfit Repeat Tracker ── */}
+          <OutfitRepeatTracker isPremium={isPremium} />
+
+          {/* ── Step 11: Wear Heatmap Calendar ── */}
+          <WearHeatmap isPremium={isPremium} />
+
+          {/* ── Step 12: Category Balance ── */}
+          <CategoryRadar isPremium={isPremium} />
+
           {/* ── Step 21: Wardrobe Gap Analysis ── */}
           <WardrobeGapSection isPremium={isPremium} />
 
@@ -356,6 +368,9 @@ export default function InsightsPage() {
 
           {/* ── Step 24: Style Evolution Timeline ── */}
           <StyleEvolutionSection isPremium={isPremium} />
+
+          {/* ── Step 13: Style Report Card ── */}
+          <StyleReportCard isPremium={isPremium} />
 
           {/* ─── Subtle premium link ─── */}
           {!isPremium && (
