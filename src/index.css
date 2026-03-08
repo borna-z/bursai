@@ -909,11 +909,15 @@
   width: 220px;
   height: 440px;
   border-radius: 2rem;
-  border: 2px solid var(--lv2-border);
-  background: rgba(10, 12, 18, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 12, 18, 0.95);
   position: relative;
   overflow: hidden;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow:
+    0 40px 100px rgba(0, 0, 0, 0.6),
+    0 10px 40px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.02);
 }
 
 .lv2-phone-notch {
