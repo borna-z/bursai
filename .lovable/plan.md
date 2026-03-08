@@ -22,8 +22,8 @@ Full 5×5 affinity scoring between material groups (refined, casual, technical, 
 
 ## Phase 2: Personal Style DNA 🔲
 
-### Step 6: Multi-Dimensional Style Vector
-Build a style embedding from user behavior: what they wear, when, what they rate highly. Track dimensions like color temperature preference, formality comfort zone, pattern tolerance, material affinity.
+### Step 6: Multi-Dimensional Style Vector ✅
+Behavioral style embedding built from wear_logs: color temperature (-1 cool to +1 warm), formality center, pattern tolerance, material group affinities, category diversity, neutral-vs-chromatic ratio. Confidence-weighted so quiz preferences fade as real usage data grows.
 
 ### Step 7: Wear Pattern Analysis ✅
 Track day-of-week and seasonal correlations. Analyzes 6 months of wear_logs to detect per-garment day affinity, seasonal preference, category-by-day patterns, and color-by-season trends. Feeds a `wearPatternScore` (12% weight) into composite scoring.

@@ -524,7 +524,7 @@ function feedbackScore(garmentId: string, penalties: Map<string, GarmentPenalty>
 }
 
 // ─────────────────────────────────────────────
-// STYLE PROFILE ALIGNMENT
+// STYLE PROFILE ALIGNMENT (Quiz-based)
 // ─────────────────────────────────────────────
 
 function styleAlignmentScore(garment: GarmentRow, prefs: Record<string, any> | null): number {
@@ -542,6 +542,150 @@ function styleAlignmentScore(garment: GarmentRow, prefs: Record<string, any> | n
   // Fit preference
   if (sp.fit && garment.fit) {
     if (sp.fit === garment.fit) score += 1;
+  }
+
+  return Math.max(0, Math.min(10, score));
+}
+
+// ─────────────────────────────────────────────
+// BEHAVIORAL STYLE VECTOR (learned from usage)
+// ─────────────────────────────────────────────
+
+interface StyleVector {
+  colorTemperature: number;    // -1 (cool) to +1 (warm)
+  formalityCenter: number;     // 1-5 average formality worn
+  patternTolerance: number;    // 0 (solid only) to 1 (loves patterns)
+  materialAffinities: Record<string, number>; // normalized weights per group
+  categoryDiversity: number;   // 0-1 variety score
+  neutralRatio: number;        // 0 (all chromatic) to 1 (all neutral)
+  confidence: number;          // 0-1 based on data quantity
+}
+
+function getColorTemperature(colorName: string): number {
+  const hsl = getHSL(colorName);
+  if (!hsl) return 0;
+  if (isNeutral(hsl)) return 0;
+  const h = hsl[0];
+  if (h <= 60 || h >= 330) return 0.8;   // warm (reds, oranges, yellows)
+  if (h >= 180 && h <= 270) return -0.8;  // cool (blues, purples)
+  if (h > 60 && h < 120) return 0.3;      // warm-leaning greens
+  if (h >= 120 && h < 180) return -0.3;    // cool-leaning greens
+  if (h > 270 && h < 330) return -0.4;     // cool purples
+  return 0;
+}
+
+function buildStyleVector(wearLogs: WearLog[], garments: GarmentRow[]): StyleVector | null {
+  if (wearLogs.length < 5) return null;
+
+  const garmentMap = new Map(garments.map(g => [g.id, g]));
+  const garmentWearWeights = new Map<string, number>();
+
+  for (const log of wearLogs) {
+    const daysSince = Math.max(0, (Date.now() - new Date(log.worn_at).getTime()) / 86400000);
+    const recencyWeight = Math.pow(0.5, daysSince / 60); // 60-day half-life
+    garmentWearWeights.set(log.garment_id, (garmentWearWeights.get(log.garment_id) || 0) + recencyWeight);
+  }
+
+  let totalWeight = 0;
+  let colorTempSum = 0;
+  let formalitySum = 0;
+  let formalityCount = 0;
+  let patternCount = 0;
+  let neutralCount = 0;
+  let chromaticCount = 0;
+  const materialGroupCounts: Record<string, number> = {};
+  const categoriesUsed = new Set<string>();
+
+  for (const [garmentId, weight] of garmentWearWeights) {
+    const g = garmentMap.get(garmentId);
+    if (!g) continue;
+    totalWeight += weight;
+
+    colorTempSum += getColorTemperature(g.color_primary) * weight;
+
+    const hsl = getHSL(g.color_primary);
+    if (hsl) {
+      if (isNeutral(hsl)) neutralCount += weight;
+      else chromaticCount += weight;
+    }
+
+    if (g.formality) {
+      formalitySum += g.formality * weight;
+      formalityCount += weight;
+    }
+
+    if (g.pattern && g.pattern !== "solid" && g.pattern !== "enfärgad") {
+      patternCount += weight;
+    }
+
+    const matGroup = getMaterialGroup(g.material);
+    if (matGroup) {
+      materialGroupCounts[matGroup] = (materialGroupCounts[matGroup] || 0) + weight;
+    }
+
+    categoriesUsed.add(g.category.toLowerCase());
+  }
+
+  if (totalWeight === 0) return null;
+
+  const totalMatWeight = Object.values(materialGroupCounts).reduce((a, b) => a + b, 0);
+  const materialAffinities: Record<string, number> = {};
+  if (totalMatWeight > 0) {
+    for (const [group, count] of Object.entries(materialGroupCounts)) {
+      materialAffinities[group] = count / totalMatWeight;
+    }
+  }
+
+  return {
+    colorTemperature: colorTempSum / totalWeight,
+    formalityCenter: formalityCount > 0 ? formalitySum / formalityCount : 3,
+    patternTolerance: patternCount / totalWeight,
+    materialAffinities,
+    categoryDiversity: Math.min(1, categoriesUsed.size / 8),
+    neutralRatio: (neutralCount + chromaticCount) > 0 ? neutralCount / (neutralCount + chromaticCount) : 0.5,
+    confidence: Math.min(1, wearLogs.length / 50),
+  };
+}
+
+function styleVectorScore(garment: GarmentRow, vector: StyleVector | null): number {
+  if (!vector || vector.confidence < 0.2) return 7;
+
+  let score = 7;
+  const conf = vector.confidence;
+
+  // Color temperature alignment
+  const garmentTemp = getColorTemperature(garment.color_primary);
+  if (garmentTemp !== 0) {
+    score += (garmentTemp * vector.colorTemperature) * 1.5 * conf;
+  }
+
+  // Formality proximity
+  if (garment.formality) {
+    const dist = Math.abs(garment.formality - vector.formalityCenter);
+    if (dist <= 1) score += 0.5 * conf;
+    else if (dist >= 3) score -= 1 * conf;
+  }
+
+  // Pattern alignment
+  const hasPattern = garment.pattern && garment.pattern !== "solid" && garment.pattern !== "enfärgad";
+  if (hasPattern) {
+    score += (vector.patternTolerance - 0.3) * 2 * conf;
+  }
+
+  // Material affinity
+  const matGroup = getMaterialGroup(garment.material);
+  if (matGroup && vector.materialAffinities[matGroup]) {
+    const affinity = vector.materialAffinities[matGroup];
+    if (affinity > 0.3) score += 1 * conf;
+    else if (affinity > 0.15) score += 0.5 * conf;
+  }
+
+  // Neutral vs chromatic alignment
+  const hsl = getHSL(garment.color_primary);
+  if (hsl) {
+    const garmentIsNeutral = isNeutral(hsl);
+    if (garmentIsNeutral && vector.neutralRatio > 0.6) score += 0.5 * conf;
+    if (!garmentIsNeutral && vector.neutralRatio < 0.3) score += 0.5 * conf;
   }
 
   return Math.max(0, Math.min(10, score));
@@ -721,7 +865,8 @@ function scoreGarment(
   weather: WeatherInput,
   penalties: Map<string, GarmentPenalty>,
   prefs: Record<string, any> | null,
-  patterns: WearPatternProfile | null = null
+  patterns: WearPatternProfile | null = null,
+  styleVector: StyleVector | null = null
 ): ScoredGarment {
   const ws = weatherSuitability(garment, weather);
   const fs = formalityScore(garment, occasion);
@@ -729,14 +874,20 @@ function scoreGarment(
   const fb = feedbackScore(garment.id, penalties);
   const sa = styleAlignmentScore(garment, prefs);
   const wp = wearPatternScore(garment, patterns);
+  const sv = styleVectorScore(garment, styleVector);
 
-  // Weighted composite (rebalanced to include pattern score)
-  const score = ws * 0.22 + fs * 0.22 + wr * 0.18 + fb * 0.13 + sa * 0.13 + wp * 0.12;
+  // Weighted composite: 8 factors
+  // Quiz-based style (sa) gets less weight when behavioral vector (sv) has high confidence
+  const vectorConf = styleVector?.confidence || 0;
+  const saWeight = 0.10 * (1 - vectorConf * 0.5); // reduces as vector confidence grows
+  const svWeight = 0.10 + vectorConf * 0.05;       // grows with confidence (0.10 → 0.15)
+
+  const score = ws * 0.20 + fs * 0.20 + wr * 0.16 + fb * 0.12 + sa * saWeight + wp * 0.10 + sv * svWeight + 0.02 * 7;
 
   return {
     garment,
     score,
-    breakdown: { weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp },
+    breakdown: { weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp, vector: sv },
   };
 }
 
@@ -1201,9 +1352,13 @@ serve(async (req) => {
     }
     const penalties = buildFeedbackPenalties(feedbackSignals);
 
-    // Build wear pattern profile from historical wear logs
-    const wearPatterns = (wearLogsRes.data?.length)
-      ? buildWearPatternProfile(wearLogsRes.data as WearLog[], garments)
+    // Build wear pattern profile and style vector from historical wear logs
+    const wearLogs = (wearLogsRes.data || []) as WearLog[];
+    const wearPatterns = wearLogs.length > 0
+      ? buildWearPatternProfile(wearLogs, garments)
+      : null;
+    const styleVector = wearLogs.length >= 5
+      ? buildStyleVector(wearLogs, garments)
       : null;
 
     // Build recent outfit sets for anti-repetition
@@ -1247,7 +1402,7 @@ serve(async (req) => {
       const slot = categorizeSlot(garment.category, garment.subcategory);
       if (!slot) continue;
       if (!slotCandidates[slot]) slotCandidates[slot] = [];
-      slotCandidates[slot].push(scoreGarment(garment, occasion, weather, penalties, preferences, wearPatterns));
+      slotCandidates[slot].push(scoreGarment(garment, occasion, weather, penalties, preferences, wearPatterns, styleVector));
     }
 
     // Sort each slot by score
