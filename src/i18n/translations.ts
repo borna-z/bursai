@@ -5346,6 +5346,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'privacy.s6_title': 'Löschung', 'privacy.s6_content': 'Du kannst dein Konto und alle zugehörigen Daten jederzeit in den Einstellungen löschen.',
     'privacy.contact_title': 'Kontakt', 'privacy.contact_text': 'Bei Datenschutzfragen kontaktiere uns unter',
     'privacy.gdpr_note': 'BURS entspricht der DSGVO. Deine Daten werden sicher gespeichert und nie an Dritte weitergegeben.',
+    'error.title': 'Etwas ist schiefgelaufen', 'error.desc': 'Ein unerwarteter Fehler ist aufgetreten. Versuche die Seite neu zu laden.', 'error.try_again': 'Erneut versuchen', 'error.reload': 'Neu laden',
+    'seed.deleted': 'Alle alten Kleidungsstücke gelöscht', 'seed.delete_error': 'Alte Kleidungsstücke konnten nicht gelöscht werden', 'seed.created': '{done} Kleidungsstücke erstellt ({failed} fehlgeschlagen)', 'seed.batch_failed': 'Batch fehlgeschlagen', 'seed.retry_failed': 'Wiederholung fehlgeschlagen',
+    'genimg.title': 'Einzigartige Bilder generieren', 'genimg.desc': 'Generiere AI-Produktfotos für alle Kleidungsstücke basierend auf Attributen (Farbe, Material, Typ).', 'genimg.total': 'Gesamt', 'genimg.generated': 'Generiert', 'genimg.failed': 'Fehlgeschlagen', 'genimg.processing': 'Verarbeitung…', 'genimg.done': 'Fertig', 'genimg.generating': 'Generierung…', 'genimg.generate_all': 'Alle Bilder generieren', 'genimg.retry': 'Erneut versuchen',
+    'contact.title': 'Kontakt', 'contact.subtitle': 'Hast du Fragen? Wir helfen gerne.', 'contact.success': 'Danke für deine Nachricht. Wir melden uns so schnell wie möglich.', 'contact.name': 'Dein Name', 'contact.email': 'Deine E-Mail-Adresse', 'contact.message': 'Deine Nachricht', 'contact.send': 'Nachricht senden', 'contact.rights': 'Alle Rechte vorbehalten.', 'contact.gdpr_note': 'BURS entspricht der DSGVO. Deine Daten werden sicher gespeichert und nie an Dritte weitergegeben.',
+    'footer.privacy': 'Datenschutzerklärung', 'footer.terms': 'Nutzungsbedingungen', 'footer.agree': 'Durch die Nutzung von BURS stimmst du unseren', 'footer.rights': 'Alle Rechte vorbehalten.',
+    'calendar.google_privacy': 'BURS liest deine Kalendereinträge, um Outfits rund um deinen Zeitplan zu planen. Du kannst die Verbindung jederzeit trennen.',
+    'reaction.styled': 'Stilvoll', 'reaction.creative': 'Kreativ', 'reaction.sustainable': 'Nachhaltig',
+    'wardrobe.reel_save_error': 'Bild konnte nicht gespeichert werden',
   },
 
   fr: {
