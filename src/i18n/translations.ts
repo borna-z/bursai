@@ -3743,6 +3743,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'outfit.swap': 'Byt', 'outfit.swap_slot': 'Byt', 'outfit.just_created': 'Nyt outfit oprettet!',
     'outfit.why_works': 'Hvorfor dette virker', 'outfit.rating': 'Bedømmelse', 'outfit.feedback': 'Feedback',
     'outfit.too_warm': 'For varmt', 'outfit.too_cold': 'For koldt', 'outfit.too_formal': 'For formelt', 'outfit.too_casual': 'For afslappet',
+    'outfit.uncomfortable': 'Ubehagelig', 'outfit.loved_it': 'Elskede det', 'outfit.bad_color': 'Dårlig farve', 'outfit.boring': 'Kedelig',
     'outfit.mark_worn': 'Markér som brugt', 'outfit.worn': 'Brugt', 'outfit.plan': 'Planlæg', 'outfit.similar': 'Lignende', 'outfit.share': 'Del',
     'outfit.sharing': 'Deling', 'outfit.share_active': 'Offentligt link aktivt', 'outfit.private': 'Privat',
     'outfit.link': 'Link', 'outfit.copy': 'Kopiér', 'outfit.copied': 'Kopieret!', 'outfit.download': 'Download',
