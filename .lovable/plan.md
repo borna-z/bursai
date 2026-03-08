@@ -60,11 +60,11 @@ During season changes (spring→summer), gradually shift suggestions. Detect tra
 
 ## Phase 4: Visual & Advanced Intelligence 🔲
 
-### Step 16: AI Flat-Lay Preview
+### Step 16: AI Flat-Lay Preview ✅
 Generate visual flat-lay mockups of suggested outfits using garment images.
 
-### Step 17: Photo Feedback Loop
-Let users snap a mirror selfie wearing the outfit. AI compares actual look to expectation and refines future suggestions.
+### Step 17: Photo Feedback Loop ✅
+Let users snap a mirror selfie wearing the outfit. AI compares actual look to expectation via Gemini Vision, returns structured scores (fit, color match, overall) and actionable commentary. Scores stored in `outfit_feedback` table for future style engine refinement.
 
 ### Step 18: Garment Condition Tracking
 AI detects wear-and-tear from photos over time. Suggest replacing garments showing age.
