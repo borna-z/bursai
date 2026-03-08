@@ -366,6 +366,7 @@ export default function InsightsPage() {
           </Button>
         </div>
       </AnimatedPage>
+      </PullToRefresh>
     </AppLayout>
   );
 }
