@@ -717,3 +717,328 @@
   animation-delay: var(--delay);
   opacity: var(--particle-opacity);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   LANDING V2 — Premium 2026 Visual System
+   ═══════════════════════════════════════════════════════════ */
+
+.landing-v2 {
+  --lv2-bg: #05070A;
+  --lv2-surface: rgba(15, 18, 24, 0.68);
+  --lv2-surface-elevated: rgba(21, 25, 34, 0.82);
+  --lv2-border: rgba(255, 255, 255, 0.08);
+  --lv2-border-hover: rgba(255, 255, 255, 0.14);
+  --lv2-text-primary: #F5F7FA;
+  --lv2-text-secondary: #A7B1C2;
+  --lv2-text-tertiary: #6F7A8C;
+  --lv2-cyan: #1ED0E7;
+  --lv2-violet: #8B7CFF;
+  --lv2-white-beam: rgba(255, 255, 255, 0.18);
+  --lv2-glow-cyan: 0 0 60px rgba(30, 208, 231, 0.15);
+  --lv2-glow-violet: 0 0 60px rgba(139, 124, 255, 0.12);
+
+  background: var(--lv2-bg);
+  color: var(--lv2-text-primary);
+  font-family: 'Inter', 'SF Pro Display', -apple-system, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ── Mesh gradient blobs ── */
+.lv2-mesh-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.4;
+  pointer-events: none;
+  will-change: transform;
+  animation: lv2-mesh-drift 20s ease-in-out infinite alternate;
+}
+
+.lv2-mesh-blob--cyan {
+  background: radial-gradient(circle, rgba(30, 208, 231, 0.18) 0%, transparent 70%);
+}
+
+.lv2-mesh-blob--violet {
+  background: radial-gradient(circle, rgba(139, 124, 255, 0.15) 0%, transparent 70%);
+  animation-delay: -7s;
+  animation-direction: alternate-reverse;
+}
+
+.lv2-mesh-blob--warm {
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.04) 0%, transparent 70%);
+  animation-delay: -13s;
+}
+
+@keyframes lv2-mesh-drift {
+  0% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -20px) scale(1.05); }
+  66% { transform: translate(-20px, 15px) scale(0.95); }
+  100% { transform: translate(10px, -10px) scale(1.02); }
+}
+
+/* ── Glass surface ── */
+.lv2-glass {
+  background: var(--lv2-surface);
+  border: 1px solid var(--lv2-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.lv2-glass-elevated {
+  background: var(--lv2-surface-elevated);
+  border: 1px solid var(--lv2-border);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+/* ── Navbar ── */
+.lv2-navbar {
+  transition: background 0.4s ease, border-color 0.4s ease, backdrop-filter 0.4s ease;
+}
+
+.lv2-navbar--scrolled {
+  background: rgba(5, 7, 10, 0.85);
+  border-bottom: 1px solid var(--lv2-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ── Cards with shimmer border ── */
+.lv2-card {
+  background: var(--lv2-surface-elevated);
+  border: 1px solid var(--lv2-border);
+  border-radius: 1rem;
+  transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1), border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.lv2-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--lv2-border-hover);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Shimmer border effect ── */
+.lv2-shimmer-border {
+  position: relative;
+  overflow: hidden;
+}
+
+.lv2-shimmer-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, transparent 20%, var(--lv2-cyan) 50%, transparent 80%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  animation: lv2-shimmer-move 3s linear infinite;
+}
+
+.lv2-shimmer-border:hover::before {
+  opacity: 0.6;
+}
+
+@keyframes lv2-shimmer-move {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ── Marquee ── */
+.lv2-marquee {
+  display: flex;
+  animation: lv2-marquee-scroll 30s linear infinite;
+}
+
+@keyframes lv2-marquee-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* ── Float animation ── */
+.lv2-float {
+  animation: lv2-float-gentle 6s ease-in-out infinite;
+}
+
+.lv2-float-delay-1 { animation-delay: -1s; }
+.lv2-float-delay-2 { animation-delay: -2.5s; }
+.lv2-float-delay-3 { animation-delay: -4s; }
+
+@keyframes lv2-float-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+/* ── Glow breathe ── */
+.lv2-glow-breathe {
+  animation: lv2-glow-breathe 4s ease-in-out infinite;
+}
+
+@keyframes lv2-glow-breathe {
+  0%, 100% { box-shadow: 0 0 20px rgba(30, 208, 231, 0.08); }
+  50% { box-shadow: 0 0 40px rgba(30, 208, 231, 0.18); }
+}
+
+/* ── Scan line ── */
+.lv2-scan-line::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--lv2-cyan), transparent);
+  opacity: 0.4;
+  animation: lv2-scan-sweep 4s ease-in-out infinite;
+}
+
+@keyframes lv2-scan-sweep {
+  0%, 100% { top: 0; opacity: 0; }
+  10% { opacity: 0.4; }
+  90% { opacity: 0.4; }
+  50% { top: 100%; }
+}
+
+/* ── Phone mockup ── */
+.lv2-phone {
+  width: 220px;
+  height: 440px;
+  border-radius: 2rem;
+  border: 2px solid var(--lv2-border);
+  background: rgba(10, 12, 18, 0.9);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.lv2-phone-notch {
+  width: 80px;
+  height: 20px;
+  background: var(--lv2-bg);
+  border-radius: 0 0 12px 12px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+/* ── CTA glow hover ── */
+.lv2-cta-primary {
+  background: var(--lv2-text-primary);
+  color: var(--lv2-bg);
+  transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.3s ease;
+}
+
+.lv2-cta-primary:hover {
+  transform: scale(1.04);
+  box-shadow: 0 0 30px rgba(245, 247, 250, 0.15);
+}
+
+.lv2-cta-ghost {
+  border: 1px solid var(--lv2-border);
+  color: var(--lv2-text-primary);
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.lv2-cta-ghost:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--lv2-border-hover);
+}
+
+/* ── Section reveal ── */
+.lv2-reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.7s cubic-bezier(0.25, 0.1, 0.25, 1), transform 0.7s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.lv2-reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.lv2-reveal-delay-1 { transition-delay: 100ms; }
+.lv2-reveal-delay-2 { transition-delay: 200ms; }
+.lv2-reveal-delay-3 { transition-delay: 300ms; }
+.lv2-reveal-delay-4 { transition-delay: 400ms; }
+.lv2-reveal-delay-5 { transition-delay: 500ms; }
+
+/* ── Orbit ring ── */
+.lv2-orbit-ring {
+  border-radius: 50%;
+  border: 1px solid var(--lv2-border);
+  position: relative;
+}
+
+.lv2-orbit-ring::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lv2-cyan);
+  transform: translateX(-50%);
+  animation: lv2-orbit-rotate 8s linear infinite;
+}
+
+@keyframes lv2-orbit-rotate {
+  0% { transform: translateX(-50%) rotate(0deg) translateY(-50px) rotate(0deg); }
+  100% { transform: translateX(-50%) rotate(360deg) translateY(-50px) rotate(-360deg); }
+}
+
+/* ── Typing cursor ── */
+.lv2-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--lv2-cyan);
+  animation: lv2-cursor-blink 1s step-end infinite;
+  margin-left: 2px;
+}
+
+@keyframes lv2-cursor-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* ── Premium card glow ── */
+.lv2-premium-glow {
+  position: relative;
+}
+
+.lv2-premium-glow::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(30, 208, 231, 0.15), rgba(139, 124, 255, 0.1));
+  z-index: -1;
+  filter: blur(20px);
+  opacity: 0.5;
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .lv2-mesh-blob,
+  .lv2-float,
+  .lv2-marquee,
+  .lv2-glow-breathe,
+  .lv2-scan-line::after,
+  .lv2-orbit-ring::before,
+  .lv2-cursor,
+  .lv2-shimmer-border::before {
+    animation: none !important;
+  }
+  .lv2-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .particle { animation: none !important; }
+}
