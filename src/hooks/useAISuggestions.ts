@@ -23,6 +23,15 @@ interface AISuggestionsResponse {
   error?: string;
 }
 
+function isInsufficientGarmentsError(message?: string | null) {
+  if (!message) return false;
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes('inte tillräckligt med matchande plagg') ||
+    normalized.includes('not enough matching garments')
+  );
+}
+
 export function useAISuggestions() {
   const { user, session } = useAuth();
   const { locale } = useLanguage();
@@ -45,6 +54,13 @@ export function useAISuggestions() {
         }
       );
 
+      const functionErrorMessage = response.error?.message;
+      const payloadErrorMessage = response.data?.error;
+
+      if (isInsufficientGarmentsError(functionErrorMessage) || isInsufficientGarmentsError(payloadErrorMessage)) {
+        return [];
+      }
+
       if (response.error) {
         throw new Error(response.error.message);
       }
@@ -61,3 +77,4 @@ export function useAISuggestions() {
     retry: 1,
   });
 }
+

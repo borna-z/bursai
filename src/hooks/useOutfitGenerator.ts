@@ -27,10 +27,41 @@ export interface GeneratedOutfit {
   }[];
 }
 
+const INSUFFICIENT_GARMENTS_MESSAGE =
+  'Lägg till fler plagg i olika kategorier (topp, underdel, skor) innan du genererar en outfit.';
+
+function isInsufficientGarmentsError(message?: string | null) {
+  if (!message) return false;
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes('inte tillräckligt med matchande plagg') ||
+    normalized.includes('not enough matching garments')
+  );
+}
+
+async function validateWardrobeForGeneration(userId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('garments')
+    .select('category')
+    .eq('user_id', userId)
+    .in('category', ['top', 'bottom', 'shoes']);
+
+  if (error) throw error;
+
+  const categories = new Set((data || []).map((item) => item.category));
+  const hasRequiredCategories = ['top', 'bottom', 'shoes'].every((cat) => categories.has(cat));
+
+  if (!hasRequiredCategories) {
+    throw new Error(INSUFFICIENT_GARMENTS_MESSAGE);
+  }
+}
+
 async function generateOutfitViaEngine(
   userId: string,
   request: OutfitRequest
 ): Promise<GeneratedOutfit> {
+  await validateWardrobeForGeneration(userId);
+
   const { data, error: fnError } = await supabase.functions.invoke('burs_style_engine', {
     body: {
       mode: 'generate',
@@ -41,8 +72,19 @@ async function generateOutfitViaEngine(
     },
   });
 
-  if (fnError) throw new Error(fnError.message || 'Kunde inte generera outfit');
-  if (data?.error) throw new Error(data.error);
+  if (fnError) {
+    if (isInsufficientGarmentsError(fnError.message)) {
+      throw new Error(INSUFFICIENT_GARMENTS_MESSAGE);
+    }
+    throw new Error(fnError.message || 'Kunde inte generera outfit');
+  }
+
+  if (data?.error) {
+    if (isInsufficientGarmentsError(data.error)) {
+      throw new Error(INSUFFICIENT_GARMENTS_MESSAGE);
+    }
+    throw new Error(data.error);
+  }
 
   const aiItems: { slot: string; garment_id: string }[] = data.items;
   const explanation: string = data.explanation;
@@ -84,6 +126,7 @@ async function generateOutfitViaEngine(
       weather: weatherJson,
       explanation,
       saved: true,
+      style_score: styleScore,
     }])
     .select()
     .single();
@@ -136,3 +179,4 @@ export function useOutfitGenerator() {
     error: mutation.error,
   };
 }
+
