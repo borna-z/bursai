@@ -1627,6 +1627,10 @@ serve(async (req) => {
       );
     }
 
+    // Step 14: Laundry cycle info
+    const laundryItems = (laundryCountRes.data || []) as { id: string; title: string; category: string }[];
+    const laundryCount = laundryItems.length;
+
     const preferences = (profileRes.data?.preferences as Record<string, any>) || null;
     const bodyProfile = buildBodyProfile(profileRes.data);
 
