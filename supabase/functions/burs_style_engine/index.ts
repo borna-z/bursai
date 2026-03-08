@@ -724,6 +724,7 @@ interface WearLog {
   garment_id: string;
   worn_at: string; // date string
   occasion: string | null;
+  event_title: string | null;
 }
 
 interface WearPatternProfile {
