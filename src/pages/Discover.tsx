@@ -1,16 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Compass, Shirt, Bookmark, BookmarkCheck, Trophy, Check, Sparkles,
+  Compass, Shirt, Bookmark, BookmarkCheck, Trophy, Check, Sparkles, Lock,
   Search, Heart, ShoppingBag, Clock, Users, ChevronRight, User
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useProfile } from '@/hooks/useProfile';
+import { useGarmentCount } from '@/hooks/useGarments';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { OutfitReactions } from '@/components/social/OutfitReactions';
@@ -44,10 +46,20 @@ const AI_TOOLS = [
   { path: '/ai/style-twin', icon: Users, labelKey: 'ai.twin_title', color: 'bg-violet-500/10 text-violet-500' },
 ];
 
+// Challenges unlock at these garment milestones (index = challenge order)
+const UNLOCK_THRESHOLDS = [
+  1, 1, 3, 3, 3, 5, 5, 5, 5, 7,
+  10, 10, 10, 12, 12, 15, 15, 15, 18, 18,
+  20, 20, 22, 22, 25,
+];
+
+const TRENDING_USER_THRESHOLD = 500;
+
 export default function DiscoverPage() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const { data: profile } = useProfile();
+  const { data: garmentCount } = useGarmentCount();
   const navigate = useNavigate();
 
   // Feed state
@@ -55,42 +67,54 @@ export default function DiscoverPage() {
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [feedLoading, setFeedLoading] = useState(true);
+  const [totalUsers, setTotalUsers] = useState(0);
 
   // Challenges state
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [participations, setParticipations] = useState<Record<string, Participation>>({});
   const [challengesLoading, setChallengesLoading] = useState(true);
 
+  const myGarments = garmentCount || 0;
+
   // Load feed (limited preview)
   const loadFeed = useCallback(async () => {
     setFeedLoading(true);
-    const query = supabase
-      .from('outfits')
-      .select('id, occasion, style_vibe, outfit_items(id, slot, garment:garments(id, image_path))')
-      .eq('share_enabled', true)
-      .order('generated_at', { ascending: false })
-      .limit(6);
 
-    if (user) query.neq('user_id', user.id);
-    const { data } = await query;
-    setFeedOutfits((data || []) as any);
+    // Check total user count for trending gate
+    const { count: userCount } = await supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: true });
+    setTotalUsers(userCount || 0);
 
-    for (const outfit of (data || []) as any[]) {
-      const firstItem = outfit.outfit_items?.find((i: any) => i.garment?.image_path);
-      if (firstItem?.garment?.image_path) {
-        const { data: urlData } = await supabase.storage.from('garments').createSignedUrl(firstItem.garment.image_path, 3600);
-        if (urlData) setImageUrls(prev => ({ ...prev, [outfit.id]: urlData.signedUrl }));
+    if ((userCount || 0) >= TRENDING_USER_THRESHOLD) {
+      const query = supabase
+        .from('outfits')
+        .select('id, occasion, style_vibe, outfit_items(id, slot, garment:garments(id, image_path))')
+        .eq('share_enabled', true)
+        .order('generated_at', { ascending: false })
+        .limit(6);
+
+      if (user) query.neq('user_id', user.id);
+      const { data } = await query;
+      setFeedOutfits((data || []) as any);
+
+      for (const outfit of (data || []) as any[]) {
+        const firstItem = outfit.outfit_items?.find((i: any) => i.garment?.image_path);
+        if (firstItem?.garment?.image_path) {
+          const { data: urlData } = await supabase.storage.from('garments').createSignedUrl(firstItem.garment.image_path, 3600);
+          if (urlData) setImageUrls(prev => ({ ...prev, [outfit.id]: urlData.signedUrl }));
+        }
       }
-    }
 
-    if (user) {
-      const { data: saves } = await supabase.from('inspiration_saves').select('outfit_id').eq('user_id', user.id);
-      setSavedIds(new Set(saves?.map(s => s.outfit_id) || []));
+      if (user) {
+        const { data: saves } = await supabase.from('inspiration_saves').select('outfit_id').eq('user_id', user.id);
+        setSavedIds(new Set(saves?.map(s => s.outfit_id) || []));
+      }
     }
     setFeedLoading(false);
   }, [user]);
 
-  // Load challenges
+  // Load challenges (all 25, always active)
   const loadChallenges = useCallback(async () => {
     setChallengesLoading(true);
     const today = new Date().toISOString().split('T')[0];
@@ -99,8 +123,8 @@ export default function DiscoverPage() {
       .select('id, title, description')
       .lte('week_start', today)
       .gte('week_end', today)
-      .order('week_start', { ascending: false })
-      .limit(3);
+      .order('created_at', { ascending: true })
+      .limit(25);
 
     setChallenges(chals || []);
 
@@ -161,10 +185,22 @@ export default function DiscoverPage() {
         <section>
           <SectionHeader
             title={t('discover.trending')}
-            action={t('discover.see_all')}
-            onAction={() => navigate('/feed')}
+            action={totalUsers >= TRENDING_USER_THRESHOLD ? t('discover.see_all') : undefined}
+            onAction={totalUsers >= TRENDING_USER_THRESHOLD ? () => navigate('/feed') : undefined}
           />
-          {feedLoading ? (
+          {totalUsers < TRENDING_USER_THRESHOLD ? (
+            <div className="text-center py-10 rounded-2xl border border-dashed border-border/40 bg-muted/20">
+              <Lock className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm font-medium text-muted-foreground">{t('discover.trending_locked')}</p>
+              <p className="text-[11px] text-muted-foreground/60 mt-1">
+                {t('discover.trending_locked_sub').replace('{count}', String(TRENDING_USER_THRESHOLD - totalUsers))}
+              </p>
+              <div className="mt-4 px-8">
+                <Progress value={(totalUsers / TRENDING_USER_THRESHOLD) * 100} className="h-1.5" />
+                <p className="text-[10px] text-muted-foreground/50 mt-1.5">{totalUsers} / {TRENDING_USER_THRESHOLD}</p>
+              </div>
+            </div>
+          ) : feedLoading ? (
             <div className="grid grid-cols-3 gap-2">
               {[1, 2, 3].map(i => <div key={i} className="aspect-square rounded-xl bg-muted animate-pulse" />)}
             </div>
@@ -209,13 +245,21 @@ export default function DiscoverPage() {
           )}
         </section>
 
-        {/* ── Active Challenges ── */}
+        {/* ── Challenges (garment-gated) ── */}
         <section>
-          <SectionHeader
-            title={t('challenges.title')}
-            action={t('discover.see_all')}
-            onAction={() => navigate('/challenges')}
-          />
+          <div className="flex items-center justify-between px-1 mb-2.5">
+            <div>
+              <h3 className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
+                {t('challenges.title')}
+              </h3>
+              <p className="text-[10px] text-muted-foreground/50 mt-0.5">
+                {t('discover.challenges_progress').replace('{unlocked}', String(challenges.filter((_, i) => myGarments >= (UNLOCK_THRESHOLDS[i] || 999)).length)).replace('{total}', String(challenges.length))}
+              </p>
+            </div>
+            <button onClick={() => navigate('/challenges')} className="text-[11px] font-medium text-accent">
+              {t('discover.see_all')}
+            </button>
+          </div>
           {challengesLoading ? (
             <div className="space-y-3">
               {[1, 2].map(i => <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />)}
@@ -226,26 +270,40 @@ export default function DiscoverPage() {
               <p className="text-xs text-muted-foreground">{t('challenges.none')}</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {challenges.map((ch, i) => {
+            <div className="space-y-2.5">
+              {challenges.slice(0, 5).map((ch, i) => {
                 const part = participations[ch.id];
+                const threshold = UNLOCK_THRESHOLDS[i] || 999;
+                const isLocked = myGarments < threshold;
                 return (
                   <motion.div
                     key={ch.id}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.06 }}
+                    transition={{ delay: i * 0.05 }}
                     className={cn(
                       'rounded-xl border p-3.5 flex items-center gap-3',
-                      part?.completed ? 'bg-green-500/5 border-green-500/20' : 'bg-card'
+                      isLocked ? 'opacity-50 bg-muted/30' :
+                      part?.completed ? 'bg-accent/5 border-accent/20' : 'bg-card'
                     )}
                   >
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium truncate">{ch.title}</h3>
-                      {ch.description && <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">{ch.description}</p>}
+                      <div className="flex items-center gap-1.5">
+                        {isLocked && <Lock className="w-3 h-3 text-muted-foreground/40 shrink-0" />}
+                        <h3 className="text-sm font-medium truncate">{ch.title}</h3>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
+                        {isLocked
+                          ? t('discover.challenge_locked').replace('{count}', String(threshold))
+                          : ch.description}
+                      </p>
                     </div>
-                    {part?.completed ? (
-                      <Badge className="bg-green-500 text-white border-0 shrink-0">
+                    {isLocked ? (
+                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                        {myGarments}/{threshold}
+                      </Badge>
+                    ) : part?.completed ? (
+                      <Badge className="bg-accent text-accent-foreground border-0 shrink-0">
                         <Check className="w-3 h-3 mr-1" />{t('challenges.done')}
                       </Badge>
                     ) : !part ? (
