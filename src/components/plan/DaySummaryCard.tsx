@@ -1,8 +1,9 @@
-import { Briefcase, Dumbbell, PartyPopper, Heart, ShoppingBag } from 'lucide-react';
+import { Briefcase, Dumbbell, PartyPopper, Heart, ShoppingBag, ArrowRight, Shirt } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
-import type { DaySummary } from '@/hooks/useDaySummary';
+import type { DaySummary, TransitionBlock } from '@/hooks/useDaySummary';
 
 interface DaySummaryCardProps {
   summary: DaySummary | null | undefined;
@@ -14,10 +15,15 @@ interface DaySummaryCardProps {
 
 const occasionIcons: Record<string, React.ElementType> = {
   jobb: Briefcase,
+  work: Briefcase,
   träning: Dumbbell,
+  workout: Dumbbell,
   fest: PartyPopper,
+  party: PartyPopper,
   dejt: Heart,
+  date: Heart,
   vardag: ShoppingBag,
+  casual: ShoppingBag,
 };
 
 function SummarySkeleton({ compact }: { compact?: boolean }) {
@@ -28,6 +34,85 @@ function SummarySkeleton({ compact }: { compact?: boolean }) {
         <Skeleton className="h-7 w-20 rounded-full" />
         <Skeleton className="h-7 w-16 rounded-full" />
       </div>
+    </div>
+  );
+}
+
+function TransitionTimeline({
+  blocks,
+  versatilePieces,
+  onGenerateFromHint,
+}: {
+  blocks: TransitionBlock[];
+  versatilePieces: string[];
+  onGenerateFromHint?: (occasion: string) => void;
+}) {
+  const { t } = useLanguage();
+
+  return (
+    <div className="space-y-2">
+      {/* Timeline blocks */}
+      <div className="relative pl-4 space-y-3">
+        {/* Vertical line */}
+        <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
+
+        {blocks.map((block, idx) => {
+          const Icon = occasionIcons[block.occasion] || ShoppingBag;
+          return (
+            <div key={idx} className="relative">
+              {/* Dot */}
+              <div className={cn(
+                "absolute -left-4 top-1.5 w-3 h-3 rounded-full border-2 border-background",
+                idx === 0 ? "bg-primary" : "bg-muted-foreground/40"
+              )} />
+
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono text-muted-foreground">{block.time_range}</span>
+                  <Badge variant="secondary" className="text-[10px] gap-1 py-0">
+                    <Icon className="w-3 h-3" />
+                    {block.label}
+                  </Badge>
+                </div>
+                <p className="text-xs text-foreground/80">{block.style_tip}</p>
+                {block.transition_tip && (
+                  <p className="text-[11px] text-primary/80 flex items-center gap-1">
+                    <ArrowRight className="w-3 h-3 shrink-0" />
+                    {block.transition_tip}
+                  </p>
+                )}
+              </div>
+
+              {/* Generate button per block */}
+              {onGenerateFromHint && (
+                <button
+                  onClick={() => onGenerateFromHint(block.occasion)}
+                  className="mt-1 inline-flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 transition-colors"
+                >
+                  <Shirt className="w-3 h-3" />
+                  {t('plan.generate')}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Versatile pieces */}
+      {versatilePieces.length > 0 && (
+        <div className="pt-2 border-t border-border/50">
+          <p className="text-[11px] text-muted-foreground mb-1.5 font-medium">
+            {t('plan.versatile_pieces') || 'Works all day'}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {versatilePieces.map((piece, idx) => (
+              <Badge key={idx} variant="outline" className="text-[10px] font-normal">
+                {piece}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -44,6 +129,8 @@ export function DaySummaryCard({
   if (isLoading) return <SummarySkeleton compact={compact} />;
   if (!summary) return null;
 
+  const hasTransitions = summary.transitions?.needs_change && summary.transitions.blocks.length > 0;
+
   return (
     <div className={cn(
       'rounded-xl glass-card p-4 space-y-3',
@@ -51,12 +138,22 @@ export function DaySummaryCard({
     )}>
       <p className={cn(
         'text-sm text-foreground/85 leading-relaxed',
-        compact && 'line-clamp-2'
+        compact && !hasTransitions && 'line-clamp-2'
       )}>
         {summary.summary}
       </p>
 
-      {summary.outfit_hints.length > 0 && (
+      {/* Multi-event transition timeline */}
+      {hasTransitions && (
+        <TransitionTimeline
+          blocks={summary.transitions!.blocks}
+          versatilePieces={summary.transitions!.versatile_pieces}
+          onGenerateFromHint={onGenerateFromHint}
+        />
+      )}
+
+      {/* Standard outfit hints (shown when no transitions) */}
+      {!hasTransitions && summary.outfit_hints.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {summary.outfit_hints.map((hint, idx) => {
             const Icon = occasionIcons[hint.occasion] || occasionIcons.vardag;

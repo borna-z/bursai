@@ -22,7 +22,7 @@ serve(async (req) => {
 
     if (!events || events.length === 0) {
       return new Response(
-        JSON.stringify({ summary: null, priorities: [], outfit_hints: [] }),
+        JSON.stringify({ summary: null, priorities: [], outfit_hints: [], transitions: null }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -50,10 +50,60 @@ serve(async (req) => {
       )
       .join("\n");
 
-    const summaryDesc = isSv ? "2-3 meningar som sammanfattar dagens tema och ger klädtips" : "2-3 sentences summarizing the day's theme and clothing tips";
+    // Detect if this is a multi-event day requiring transitions
+    const isMultiEvent = events.length >= 2;
+
     const occasionValues = isSv ? "jobb|fest|dejt|träning|vardag" : "work|party|date|workout|casual";
+
+    const transitionsSchema = isSv
+      ? `"transitions": {
+    "needs_change": true/false,
+    "blocks": [
+      {
+        "time_range": "HH:MM–HH:MM",
+        "occasion": "${occasionValues}",
+        "formality": 1-5,
+        "label": "Kort beskrivning, t.ex. 'Morgon: kontor'",
+        "style_tip": "Kort klädstyltips för detta block",
+        "transition_tip": "Hur man övergår från förra blocket (null för första)"
+      }
+    ],
+    "versatile_pieces": ["Plagg som fungerar över flera block"]
+  }`
+      : `"transitions": {
+    "needs_change": true/false,
+    "blocks": [
+      {
+        "time_range": "HH:MM–HH:MM",
+        "occasion": "${occasionValues}",
+        "formality": 1-5,
+        "label": "Short description, e.g. 'Morning: office'",
+        "style_tip": "Short outfit tip for this block",
+        "transition_tip": "How to transition from previous block (null for first)"
+      }
+    ],
+    "versatile_pieces": ["Garments that work across multiple blocks"]
+  }`;
+
+    const summaryDesc = isSv ? "2-3 meningar som sammanfattar dagens tema och ger klädtips" : "2-3 sentences summarizing the day's theme and clothing tips";
     const styleDesc = isSv ? "Kort stilbeskrivning" : "Short style description";
     const noteDesc = isSv ? "Praktiskt tips" : "Practical tip";
+
+    const multiEventRules = isMultiEvent
+      ? (isSv
+        ? `
+- VIKTIGT: Denna dag har ${events.length} händelser. Analysera om de kräver olika klädstilar.
+- Om formalitetsnivån skiljer sig med 2+ poäng mellan händelser, sätt needs_change=true.
+- Föreslå "versatile_pieces" — plagg som fungerar i flera sammanhang (t.ex. en mörk blazer som fungerar på kontoret och på middag).
+- Ge konkreta "transition_tip" — vad man kan byta/lägga till mellan block (t.ex. "Byt jeans mot chinos och lägg till en kavaj").
+- Gruppera närliggande händelser med liknande formalitet i samma block.`
+        : `
+- IMPORTANT: This day has ${events.length} events. Analyze whether they require different outfit styles.
+- If formality differs by 2+ points between events, set needs_change=true.
+- Suggest "versatile_pieces" — garments that work across contexts (e.g. a dark blazer that works at office and dinner).
+- Give concrete "transition_tip" — what to swap/add between blocks (e.g. "Swap jeans for chinos and add a blazer").
+- Group nearby events with similar formality into the same block.`)
+      : "";
 
     const systemPrompt = isSv
       ? `Du är en stilmedveten dagplanerare. Analysera användarens kalenderhändelser och ge en kort, insiktsfull sammanfattning av dagen.
@@ -66,7 +116,8 @@ Svara ALLTID med giltig JSON i exakt detta format:
   ],
   "outfit_hints": [
     { "occasion": "${occasionValues}", "style": "${styleDesc}", "note": "${noteDesc}" }
-  ]
+  ],
+  ${transitionsSchema}
 }
 
 Regler:
@@ -74,7 +125,7 @@ Regler:
 - Ranka händelser efter hur mycket de påverkar klädseln (viktigast först)
 - Max 3 priorities och 2 outfit_hints
 - Koppla varje outfit_hint till en occasion-typ
-- Om flera aktiviteter kräver olika klädsel, nämn det i sammanfattningen
+- Om flera aktiviteter kräver olika klädsel, nämn det i sammanfattningen${multiEventRules}
 - Skriv på svenska
 - Var kortfattad men insiktsfull`
       : `You are a style-conscious day planner. Analyze the user's calendar events and provide a short, insightful summary of the day.
@@ -87,7 +138,8 @@ ALWAYS respond with valid JSON in exactly this format:
   ],
   "outfit_hints": [
     { "occasion": "${occasionValues}", "style": "${styleDesc}", "note": "${noteDesc}" }
-  ]
+  ],
+  ${transitionsSchema}
 }
 
 Rules:
@@ -95,7 +147,7 @@ Rules:
 - Rank events by how much they affect clothing choices (most important first)
 - Max 3 priorities and 2 outfit_hints
 - Link each outfit_hint to an occasion type
-- If multiple activities require different outfits, mention it in the summary
+- If multiple activities require different outfits, mention it in the summary${multiEventRules}
 - Write in ${localeName}
 - Be concise but insightful`;
 
@@ -140,7 +192,7 @@ Rules:
           const errorText = await response.text();
           console.error(`AI gateway error (${model}):`, response.status, errorText);
           lastError = `${model}: ${response.status}`;
-          continue; // try next model
+          continue;
         }
 
         const data = await response.json();
@@ -150,7 +202,12 @@ Rules:
         if (jsonMatch) {
           result = JSON.parse(jsonMatch[0]);
         } else {
-          result = { summary: content, priorities: [], outfit_hints: [] };
+          result = { summary: content, priorities: [], outfit_hints: [], transitions: null };
+        }
+
+        // Ensure transitions field exists
+        if (!result.transitions) {
+          result.transitions = null;
         }
 
         return new Response(JSON.stringify(result), {
@@ -163,10 +220,9 @@ Rules:
       }
     }
 
-    // All models failed - return graceful fallback
     console.error("All AI models failed. Last error:", lastError);
     return new Response(
-      JSON.stringify({ summary: null, priorities: [], outfit_hints: [] }),
+      JSON.stringify({ summary: null, priorities: [], outfit_hints: [], transitions: null }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
