@@ -943,7 +943,7 @@
 
 .lv2-cta-primary:hover {
   transform: scale(1.04);
-  box-shadow: 0 0 30px rgba(245, 247, 250, 0.15);
+  box-shadow: 0 0 40px rgba(245, 247, 250, 0.2), 0 0 80px rgba(30, 208, 231, 0.08);
 }
 
 .lv2-cta-ghost {
