@@ -5872,6 +5872,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'insights.wardrobe_usage': 'Utilizzo guardaroba', 'insights.used_label': 'usati', 'insights.unused_label': 'non usati',
     'wardrobe.import_link': 'Importa da link', 'wardrobe.live_scan': 'BURS Live Scan',
     'settings.row.insights': 'Panoramica guardaroba', 'settings.row.insights_sub': 'Statistiche e analisi',
+    'error.title': 'Qualcosa è andato storto', 'error.desc': 'Si è verificato un errore imprevisto. Prova a ricaricare la pagina.', 'error.try_again': 'Riprova', 'error.reload': 'Ricarica',
+    'seed.deleted': 'Tutti i vecchi capi eliminati', 'seed.delete_error': 'Impossibile eliminare i vecchi capi', 'seed.created': '{done} capi creati ({failed} falliti)', 'seed.batch_failed': 'Batch fallito', 'seed.retry_failed': 'Nuovo tentativo fallito',
+    'genimg.title': 'Genera immagini uniche', 'genimg.desc': 'Genera foto AI per tutti i capi in base agli attributi (colore, materiale, tipo).', 'genimg.total': 'Totale capi', 'genimg.generated': 'Generate', 'genimg.failed': 'Fallite', 'genimg.processing': 'Elaborazione…', 'genimg.done': 'Fatto', 'genimg.generating': 'Generazione…', 'genimg.generate_all': 'Genera tutte le immagini', 'genimg.retry': 'Riprova',
+    'contact.title': 'Contatto', 'contact.subtitle': 'Hai domande? Siamo felici di aiutarti.', 'contact.success': 'Grazie per il tuo messaggio. Ti risponderemo il prima possibile.', 'contact.name': 'Il tuo nome', 'contact.email': 'Il tuo indirizzo e-mail', 'contact.message': 'Il tuo messaggio', 'contact.send': 'Invia messaggio', 'contact.rights': 'Tutti i diritti riservati.', 'contact.gdpr_note': 'BURS è conforme al GDPR. I tuoi dati sono archiviati in modo sicuro e mai condivisi con terze parti.',
+    'footer.privacy': 'Informativa sulla privacy', 'footer.terms': 'Condizioni d\'uso', 'footer.agree': 'Utilizzando BURS accetti la nostra', 'footer.rights': 'Tutti i diritti riservati.',
+    'calendar.google_privacy': 'BURS legge i tuoi eventi del calendario per aiutarti a pianificare outfit in base ai tuoi impegni. Puoi disconnetterti in qualsiasi momento.',
+    'reaction.styled': 'Stiloso', 'reaction.creative': 'Creativo', 'reaction.sustainable': 'Sostenibile',
+    'wardrobe.reel_save_error': 'Impossibile salvare l\'immagine',
   },
 
   pt: {
