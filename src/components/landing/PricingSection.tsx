@@ -69,57 +69,74 @@ export function PricingSection() {
 
         {/* Premium Card */}
         <div
-          className="relative rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-sm p-8 md:p-10 reveal-scale"
+          className="relative rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-sm overflow-hidden reveal-scale"
           style={{
             '--reveal-delay': '200ms',
             boxShadow: '0 0 80px -20px hsl(var(--primary) / 0.12), inset 0 1px 0 0 rgba(255,255,255,0.04)',
           } as React.CSSProperties}
         >
-          {/* Trial badge */}
-          <span className="absolute top-5 right-5 text-[10px] tracking-widest uppercase font-bold px-3 py-1 rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/20">
-            {t('landing.premium_price')}
-          </span>
-
-          <h3 className="text-sm tracking-[0.3em] uppercase text-muted-foreground font-medium mb-6">
-            {t('landing.premium')}
-          </h3>
-
-          {/* Price */}
-          <div className="mb-2">
-            <span className="text-5xl md:text-6xl font-bold text-foreground font-space tracking-tight">
-              {displayPrice}
+          {/* Hero Trial Banner */}
+          <div className="w-full py-3 px-6 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500/15 via-amber-400/10 to-amber-500/15 border-b border-amber-400/20">
+            <Sparkles size={14} className="text-amber-400" />
+            <span className="text-sm font-semibold tracking-wide text-amber-400">
+              {t('trial.first_free')}
             </span>
-            <span className="text-muted-foreground text-sm ml-2">{t('pricing.per_month')}</span>
           </div>
-          {billingNote && (
-            <p className="text-muted-foreground/60 text-xs mb-8">
-              {t('trial.then_prefix')} {billingNote}
-              {` · ${t('pricing.save')} ~${pricing.savingsPercent}%`}
+
+          <div className="p-8 md:p-10">
+            <h3 className="text-sm tracking-[0.3em] uppercase text-muted-foreground font-medium mb-6">
+              {t('landing.premium')}
+            </h3>
+
+            {/* Price */}
+            <div className="mb-3">
+              <span className="text-5xl md:text-6xl font-bold text-foreground font-space tracking-tight">
+                {displayPrice}
+              </span>
+              <span className="text-muted-foreground text-sm ml-2">{t('pricing.per_month')}</span>
+            </div>
+
+            {/* Step-by-step pricing journey */}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground/70 mb-8">
+              <span className="text-amber-400 font-medium">{t('trial.first_free')}</span>
+              <ArrowRight size={10} className="text-muted-foreground/40" />
+              <span>
+                {t('trial.then_prefix')} {billingNote || `${displayPrice}${t('pricing.per_month')}`}
+              </span>
+              {yearly && (
+                <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium text-amber-400 bg-amber-400/10 border border-amber-400/20">
+                  -{pricing.savingsPercent}%
+                </span>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div className="h-px bg-white/[0.06] mb-8" />
+
+            {/* Feature Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10">
+              {FEATURES.map(({ icon: Icon, label }) => (
+                <div key={label} className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                  <Icon size={15} strokeWidth={1.5} className="text-foreground/60 shrink-0" />
+                  <span>{t(label as any)}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* CTA */}
+            <button
+              onClick={() => navigate('/auth')}
+              className="w-full py-3.5 bg-foreground text-background rounded-full font-medium text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all duration-300"
+            >
+              {t('trial.start_button')}
+              <ArrowRight size={15} strokeWidth={2} />
+            </button>
+
+            {/* Reassurance */}
+            <p className="text-center text-muted-foreground/40 text-[11px] mt-3 tracking-wide">
+              {t('trial.banner_desc')}
             </p>
-          )}
-          {!billingNote && <div className="mb-8" />}
-
-          {/* Divider */}
-          <div className="h-px bg-white/[0.06] mb-8" />
-
-          {/* Feature Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10">
-            {FEATURES.map(({ icon: Icon, label }) => (
-              <div key={label} className="flex items-center gap-2.5 text-sm text-muted-foreground">
-                <Icon size={15} strokeWidth={1.5} className="text-foreground/60 shrink-0" />
-                <span>{t(label as any)}</span>
-              </div>
-            ))}
           </div>
-
-          {/* CTA */}
-          <button
-            onClick={() => navigate('/auth')}
-            className="w-full py-3.5 bg-foreground text-background rounded-full font-medium text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all duration-300"
-          >
-            {t('landing.start_trial')}
-            <ArrowRight size={15} strokeWidth={2} />
-          </button>
         </div>
 
         {/* Free footnote */}

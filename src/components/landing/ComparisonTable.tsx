@@ -32,7 +32,12 @@ export function ComparisonTable() {
               <tr className="border-b border-white/[0.06]">
                 <th className="text-left py-3 px-5 text-muted-foreground/60 font-normal text-xs">{t('landing.comp_feature')}</th>
                 <th className="py-3 px-4 text-muted-foreground/60 font-normal text-xs text-center">{t('landing.free')}</th>
-                <th className="py-3 px-4 text-foreground/80 font-medium text-xs text-center">{t('landing.premium')}</th>
+                <th className="py-3 px-4 text-foreground/80 font-medium text-xs text-center">
+                  {t('landing.premium')}
+                  <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded-full font-medium text-amber-400 bg-amber-400/10 border border-amber-400/20 align-middle">
+                    {t('trial.badge')}
+                  </span>
+                </th>
               </tr>
             </thead>
             <tbody>
