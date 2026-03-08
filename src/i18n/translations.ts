@@ -1789,7 +1789,6 @@ export const translations: Record<Locale, Record<string, string>> = {
     'landing.exit_title': 'Innan du går...',
     'landing.exit_desc': 'Testa BURS Premium gratis i 30 dagar. Ingen bindningstid, avsluta när du vill.',
     'landing.urgency_counter': 'Gå med de 2 400+ som registrerade sig den här veckan',
-    'landing.nav.features': 'Funktioner',
 
     // Terms page
     'terms.title': 'Användarvillkor',
