@@ -903,6 +903,33 @@ export default function AddGarmentPage() {
         onClose={() => setShowPaywall(false)}
         reason="garments"
       />
+
+      {/* Duplicate Warning Sheet */}
+      <DuplicateWarningSheet
+        open={showDuplicateSheet}
+        onOpenChange={setShowDuplicateSheet}
+        duplicates={duplicates}
+        onKeepBoth={() => {
+          setShowDuplicateSheet(false);
+          clearDuplicates();
+        }}
+        onReplace={async (existingGarmentId) => {
+          // Delete the existing garment and keep the new one
+          setShowDuplicateSheet(false);
+          clearDuplicates();
+          try {
+            await supabase.from('garments').delete().eq('id', existingGarmentId);
+            toast.success(t('duplicate.replaced') || 'Old garment replaced');
+          } catch {
+            toast.error(t('common.something_wrong'));
+          }
+        }}
+        onCancel={() => {
+          setShowDuplicateSheet(false);
+          clearDuplicates();
+          resetForm();
+        }}
+      />
     </div>
   );
 }
