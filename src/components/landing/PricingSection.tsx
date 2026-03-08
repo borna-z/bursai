@@ -1,25 +1,47 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getLocalizedPricing } from '@/lib/localizedPricing';
+import { ComparisonTable } from './ComparisonTable';
 import type { Locale } from '@/i18n/translations';
 
 export function PricingSection() {
   const navigate = useNavigate();
   const { t, locale } = useLanguage();
   const pricing = getLocalizedPricing(locale as Locale);
+  const [yearly, setYearly] = useState(true);
 
   return (
-    <section id="pricing" className="section-full px-6 section-gradient-top section-gradient-bottom" style={{ zIndex: 13 }}>
-      <div className="max-w-4xl mx-auto w-full py-20">
-        <p className="text-[10px] tracking-[0.4em] uppercase text-gray-500 text-center mb-4 reveal-down" style={{ '--reveal-delay': '0ms' } as React.CSSProperties}>{t('landing.pricing_label')}</p>
+    <section id="pricing" className="px-6 py-20 md:py-32 relative section-gradient-top section-gradient-bottom" style={{ zIndex: 13 }}>
+      <div className="max-w-4xl mx-auto w-full">
+        <p className="text-[10px] tracking-[0.4em] uppercase text-gray-500 text-center mb-4 reveal-down" style={{ '--reveal-delay': '0ms' } as React.CSSProperties}>
+          {t('landing.pricing_label')}
+        </p>
         <h2 className="text-3xl md:text-4xl font-bold text-center tracking-tight mb-6 text-white font-space reveal-up" style={{ '--reveal-delay': '80ms' } as React.CSSProperties}>
           {t('landing.pricing_title')}
         </h2>
         <p className="text-center text-gray-400 text-sm mb-4 reveal-up" style={{ '--reveal-delay': '120ms' } as React.CSSProperties}>
           {t('landing.pricing_desc')}
         </p>
-        <div className="line-grow w-24 mx-auto mb-16" style={{ '--reveal-delay': '200ms' } as React.CSSProperties} />
+        <div className="line-grow w-24 mx-auto mb-10" style={{ '--reveal-delay': '200ms' } as React.CSSProperties} />
+
+        {/* Monthly/Yearly Toggle */}
+        <div className="flex items-center justify-center gap-4 mb-12 reveal-scale" style={{ '--reveal-delay': '250ms' } as React.CSSProperties}>
+          <span className={`text-sm transition-colors ${!yearly ? 'text-white' : 'text-gray-500'}`}>{t('pricing.monthly_label')}</span>
+          <button
+            onClick={() => setYearly(!yearly)}
+            className="relative w-14 h-7 rounded-full bg-white/10 border border-white/10 transition-colors"
+            role="switch"
+            aria-checked={yearly}
+          >
+            <div className={`absolute top-0.5 w-6 h-6 rounded-full bg-white transition-transform duration-300 ${yearly ? 'translate-x-7' : 'translate-x-0.5'}`} />
+          </button>
+          <span className={`text-sm transition-colors flex items-center gap-2 ${yearly ? 'text-white' : 'text-gray-500'}`}>
+            {t('pricing.yearly_label')}
+            {yearly && <span className="text-[10px] bg-amber-400 text-[#030305] px-2 py-0.5 rounded-full font-bold tracking-wider animate-pulse">-{pricing.savingsPercent}%</span>}
+          </span>
+        </div>
 
         <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
           {/* Free */}
@@ -43,7 +65,7 @@ export function PricingSection() {
 
           {/* Premium */}
           <div className="bg-white text-[#030305] rounded-2xl p-8 md:p-10 flex flex-col relative overflow-hidden reveal-right" style={{ '--reveal-delay': '200ms' } as React.CSSProperties}>
-            <div className="absolute top-4 right-4 bg-amber-400 text-[#030305] text-[10px] tracking-widest uppercase font-bold px-3 py-1 rounded-full reveal-scale" style={{ '--reveal-delay': '600ms' } as React.CSSProperties}>
+            <div className="absolute top-4 right-4 bg-amber-400 text-[#030305] text-[10px] tracking-widest uppercase font-bold px-3 py-1 rounded-full">
               {t('landing.premium_badge')}
             </div>
             <h3 className="text-lg font-semibold tracking-tight font-space">{t('landing.premium')}</h3>
@@ -52,7 +74,8 @@ export function PricingSection() {
               <span className="text-[#030305]/60 text-sm ml-1">{t('landing.premium_for')}</span>
             </div>
             <p className="text-[#030305]/50 text-xs mb-6">
-              {t('trial.then_prefix')} {pricing.monthly}{t('pricing.per_month')} · {t('common.or')} {pricing.yearly}{t('pricing.per_year')} — {t('pricing.save')} ~{pricing.savingsPercent}%
+              {t('trial.then_prefix')} {yearly ? pricing.yearly + t('pricing.per_year') : pricing.monthly + t('pricing.per_month')}
+              {yearly && ` · ${t('pricing.save')} ~${pricing.savingsPercent}%`}
             </p>
             <ul className="space-y-3 text-sm text-[#030305]/70 flex-1">
               {[t('landing.premium_f1'), t('landing.premium_f2'), t('landing.premium_f3'), t('landing.premium_f4'), t('landing.premium_f5')].map(f => (
@@ -65,6 +88,11 @@ export function PricingSection() {
               {t('landing.start_trial')}
             </button>
           </div>
+        </div>
+
+        {/* Comparison table toggle */}
+        <div className="mt-8 text-center">
+          <ComparisonTable />
         </div>
       </div>
     </section>
