@@ -573,6 +573,145 @@ function categorizeSlot(category: string, subcategory: string | null): string | 
 }
 
 // ─────────────────────────────────────────────
+// WEAR PATTERN ANALYSIS (Day-of-Week + Seasonal)
+// ─────────────────────────────────────────────
+
+interface WearLog {
+  garment_id: string;
+  worn_at: string; // date string
+  occasion: string | null;
+}
+
+interface WearPatternProfile {
+  // Day-of-week: garment_id → Map<dayOfWeek(0-6), count>
+  dayOfWeekByGarment: Map<string, Map<number, number>>;
+  // Season: garment_id → Map<season, count>
+  seasonByGarment: Map<string, Map<string, number>>;
+  // Category frequency by day: category → Map<dayOfWeek, count>
+  categoryByDay: Map<string, Map<number, number>>;
+  // Color frequency by season: color → Map<season, count>
+  colorBySeason: Map<string, Map<string, number>>;
+}
+
+function getSeasonFromDate(dateStr: string): string {
+  const month = new Date(dateStr).getMonth();
+  if (month >= 2 && month <= 4) return "spring";
+  if (month >= 5 && month <= 7) return "summer";
+  if (month >= 8 && month <= 10) return "autumn";
+  return "winter";
+}
+
+function buildWearPatternProfile(wearLogs: WearLog[], garments: GarmentRow[]): WearPatternProfile {
+  const garmentMap = new Map(garments.map(g => [g.id, g]));
+  const profile: WearPatternProfile = {
+    dayOfWeekByGarment: new Map(),
+    seasonByGarment: new Map(),
+    categoryByDay: new Map(),
+    colorBySeason: new Map(),
+  };
+
+  for (const log of wearLogs) {
+    const date = new Date(log.worn_at);
+    const dayOfWeek = date.getDay(); // 0=Sun, 6=Sat
+    const season = getSeasonFromDate(log.worn_at);
+    const garment = garmentMap.get(log.garment_id);
+
+    // Per-garment day-of-week frequency
+    if (!profile.dayOfWeekByGarment.has(log.garment_id)) {
+      profile.dayOfWeekByGarment.set(log.garment_id, new Map());
+    }
+    const dayMap = profile.dayOfWeekByGarment.get(log.garment_id)!;
+    dayMap.set(dayOfWeek, (dayMap.get(dayOfWeek) || 0) + 1);
+
+    // Per-garment seasonal frequency
+    if (!profile.seasonByGarment.has(log.garment_id)) {
+      profile.seasonByGarment.set(log.garment_id, new Map());
+    }
+    const seasonMap = profile.seasonByGarment.get(log.garment_id)!;
+    seasonMap.set(season, (seasonMap.get(season) || 0) + 1);
+
+    if (!garment) continue;
+
+    // Category by day-of-week
+    const cat = garment.category.toLowerCase();
+    if (!profile.categoryByDay.has(cat)) {
+      profile.categoryByDay.set(cat, new Map());
+    }
+    const catDayMap = profile.categoryByDay.get(cat)!;
+    catDayMap.set(dayOfWeek, (catDayMap.get(dayOfWeek) || 0) + 1);
+
+    // Color by season
+    const color = garment.color_primary.toLowerCase();
+    if (!profile.colorBySeason.has(color)) {
+      profile.colorBySeason.set(color, new Map());
+    }
+    const colorSeasonMap = profile.colorBySeason.get(color)!;
+    colorSeasonMap.set(season, (colorSeasonMap.get(season) || 0) + 1);
+  }
+
+  return profile;
+}
+
+function wearPatternScore(garment: GarmentRow, patterns: WearPatternProfile | null): number {
+  if (!patterns) return 7; // neutral if no history
+
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const currentSeason = getCurrentSeason();
+  let score = 7;
+
+  // 1. Does user tend to wear THIS specific garment on this day of week?
+  const garmentDayMap = patterns.dayOfWeekByGarment.get(garment.id);
+  if (garmentDayMap) {
+    const totalWears = Array.from(garmentDayMap.values()).reduce((a, b) => a + b, 0);
+    const todayWears = garmentDayMap.get(dayOfWeek) || 0;
+    if (totalWears >= 3) { // need enough data
+      const dayRatio = todayWears / totalWears;
+      const expectedRatio = 1 / 7;
+      if (dayRatio > expectedRatio * 2) score += 1; // strong affinity for this day
+      else if (dayRatio < expectedRatio * 0.3 && totalWears >= 5) score -= 0.5; // avoids this day
+    }
+  }
+
+  // 2. Does user tend to wear THIS garment in this season?
+  const garmentSeasonMap = patterns.seasonByGarment.get(garment.id);
+  if (garmentSeasonMap) {
+    const totalWears = Array.from(garmentSeasonMap.values()).reduce((a, b) => a + b, 0);
+    const seasonWears = garmentSeasonMap.get(currentSeason) || 0;
+    if (totalWears >= 3) {
+      const seasonRatio = seasonWears / totalWears;
+      const expectedRatio = 1 / 4;
+      if (seasonRatio > expectedRatio * 2) score += 1.5; // strong seasonal preference
+      else if (seasonRatio < expectedRatio * 0.2 && totalWears >= 5) score -= 1; // avoids this season
+    }
+  }
+
+  // 3. Does the user wear this CATEGORY more on this day? (e.g., casual on Fridays)
+  const catDayMap = patterns.categoryByDay.get(garment.category.toLowerCase());
+  if (catDayMap) {
+    const totalCatWears = Array.from(catDayMap.values()).reduce((a, b) => a + b, 0);
+    const todayCatWears = catDayMap.get(dayOfWeek) || 0;
+    if (totalCatWears >= 5) {
+      const dayRatio = todayCatWears / totalCatWears;
+      if (dayRatio > 1 / 7 * 2) score += 0.5; // category popular today
+    }
+  }
+
+  // 4. Is this COLOR popular in the current season? (e.g., dark colors in winter)
+  const colorSeasonMap = patterns.colorBySeason.get(garment.color_primary.toLowerCase());
+  if (colorSeasonMap) {
+    const totalColorWears = Array.from(colorSeasonMap.values()).reduce((a, b) => a + b, 0);
+    const seasonColorWears = colorSeasonMap.get(currentSeason) || 0;
+    if (totalColorWears >= 3) {
+      const seasonRatio = seasonColorWears / totalColorWears;
+      if (seasonRatio > 1 / 4 * 2) score += 0.5; // color favored this season
+    }
+  }
+
+  return Math.max(0, Math.min(10, score));
+}
+
+// ─────────────────────────────────────────────
 // COMPOSITE SCORING
 // ─────────────────────────────────────────────
 
@@ -581,21 +720,23 @@ function scoreGarment(
   occasion: string,
   weather: WeatherInput,
   penalties: Map<string, GarmentPenalty>,
-  prefs: Record<string, any> | null
+  prefs: Record<string, any> | null,
+  patterns: WearPatternProfile | null = null
 ): ScoredGarment {
   const ws = weatherSuitability(garment, weather);
   const fs = formalityScore(garment, occasion);
   const wr = wearRotationScore(garment);
   const fb = feedbackScore(garment.id, penalties);
   const sa = styleAlignmentScore(garment, prefs);
+  const wp = wearPatternScore(garment, patterns);
 
-  // Weighted composite
-  const score = ws * 0.25 + fs * 0.25 + wr * 0.2 + fb * 0.15 + sa * 0.15;
+  // Weighted composite (rebalanced to include pattern score)
+  const score = ws * 0.22 + fs * 0.22 + wr * 0.18 + fb * 0.13 + sa * 0.13 + wp * 0.12;
 
   return {
     garment,
     score,
-    breakdown: { weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa },
+    breakdown: { weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp },
   };
 }
 
@@ -989,7 +1130,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const [garmentsRes, profileRes, recentOutfitsRes, feedbackRes] = await Promise.all([
+    const [garmentsRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes] = await Promise.all([
       supabase
         .from("garments")
         .select("id, title, category, subcategory, color_primary, color_secondary, pattern, material, fit, formality, season_tags, wear_count, last_worn_at, image_path")
@@ -1010,6 +1151,14 @@ serve(async (req) => {
         .not("rating", "is", null)
         .order("generated_at", { ascending: false })
         .limit(30),
+      // Fetch wear logs for pattern analysis (last 6 months)
+      supabase
+        .from("wear_logs")
+        .select("garment_id, worn_at, occasion")
+        .eq("user_id", userId)
+        .gte("worn_at", new Date(Date.now() - 180 * 86400000).toISOString().split("T")[0])
+        .order("worn_at", { ascending: false })
+        .limit(500),
     ]);
 
     if (garmentsRes.error) throw garmentsRes.error;
@@ -1052,6 +1201,11 @@ serve(async (req) => {
     }
     const penalties = buildFeedbackPenalties(feedbackSignals);
 
+    // Build wear pattern profile from historical wear logs
+    const wearPatterns = (wearLogsRes.data?.length)
+      ? buildWearPatternProfile(wearLogsRes.data as WearLog[], garments)
+      : null;
+
     // Build recent outfit sets for anti-repetition
     const recentOutfitSets: Set<string>[] = [];
     if (recentOutfitsRes.data?.length) {
@@ -1093,7 +1247,7 @@ serve(async (req) => {
       const slot = categorizeSlot(garment.category, garment.subcategory);
       if (!slot) continue;
       if (!slotCandidates[slot]) slotCandidates[slot] = [];
-      slotCandidates[slot].push(scoreGarment(garment, occasion, weather, penalties, preferences));
+      slotCandidates[slot].push(scoreGarment(garment, occasion, weather, penalties, preferences, wearPatterns));
     }
 
     // Sort each slot by score

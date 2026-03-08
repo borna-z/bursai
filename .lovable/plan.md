@@ -25,8 +25,8 @@ Full 5×5 affinity scoring between material groups (refined, casual, technical, 
 ### Step 6: Multi-Dimensional Style Vector
 Build a style embedding from user behavior: what they wear, when, what they rate highly. Track dimensions like color temperature preference, formality comfort zone, pattern tolerance, material affinity.
 
-### Step 7: Wear Pattern Analysis
-Track day-of-week and seasonal correlations. Learn that user wears casual on Fridays, always picks dark colors in winter, prefers light layers in spring.
+### Step 7: Wear Pattern Analysis ✅
+Track day-of-week and seasonal correlations. Analyzes 6 months of wear_logs to detect per-garment day affinity, seasonal preference, category-by-day patterns, and color-by-season trends. Feeds a `wearPatternScore` (12% weight) into composite scoring.
 
 ### Step 8: Comfort vs Style Learning
 Observe which garments get re-worn frequently (comfort signals) vs which get high ratings but low rewear (aspiration pieces). Balance both in suggestions.
