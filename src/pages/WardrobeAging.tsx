@@ -96,13 +96,9 @@ export default function WardrobeAgingPage() {
                 >
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-center gap-3">
-                      <LazyImageSimple
-                        imagePath=""
-                        garmentId={pred.garment_id}
-                        alt="Garment"
-                        className="w-14 h-16 rounded-xl flex-shrink-0"
-                        fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/50" />}
-                      />
+                      <div className="w-14 h-16 rounded-xl flex-shrink-0 bg-muted flex items-center justify-center">
+                        <Shirt className="w-5 h-5 text-muted-foreground/50" />
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <span className={cn('text-2xl font-bold tabular-nums', healthColor(pred.health_pct))}>
