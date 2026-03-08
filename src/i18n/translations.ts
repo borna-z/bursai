@@ -4727,6 +4727,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'onboarding.getstarted.generate_outfit': 'Luo asu', 'onboarding.getstarted.generate_outfit_desc': 'Anna tekoälyn stailata sinut tänään',
     'onboarding.getstarted.talk_stylist': 'Keskustele stylistisi kanssa', 'onboarding.getstarted.talk_stylist_desc': 'Saat henkilökohtaisia tyylineuvoja',
     'onboarding.accent.title': 'Valitse korostusväri', 'onboarding.accent.subtitle': 'Anna sovelluksellesi persoonallinen ilme – väri näkyy logossa, painikkeissa ja yksityiskohdissa.',
+    'onboarding.quickUpload.title': 'Lataa ensimmäiset vaatteesi', 'onboarding.quickUpload.subtitle': 'Ota kuvia tai valitse galleriasta – enintään 5 vaatetta. Tekoälymme tunnistaa jokaisen automaattisesti.',
     'onboarding.style.title': 'Sinun tyylisi', 'onboarding.style.subtitle': 'Auta AI-stylistiasi ymmärtämään makuasi',
     'onboarding.style.favorite_colors': 'Suosikkivärit', 'onboarding.style.disliked_colors': 'Värit joita vältät',
     'onboarding.style.fit': 'Istuvuus', 'onboarding.style.vibe': 'Tyylisuunta', 'onboarding.style.gender_neutral': 'Sukupuolineutraalit ehdotukset',
