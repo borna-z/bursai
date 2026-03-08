@@ -75,10 +75,20 @@ export default function SettingsPage() {
             <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
           </SettingsRow>
           {isAdmin && (
-            <SettingsRow icon={<Database />} label="Seed Wardrobe" sublabel="Generate demo garments with AI" onClick={() => navigate('/settings/seed-wardrobe')} last>
+            <SettingsRow icon={<Database />} label="Seed Wardrobe" sublabel="Generate demo garments with AI" onClick={() => navigate('/settings/seed-wardrobe')}>
               <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
             </SettingsRow>
           )}
+        </SettingsGroup>
+
+        {/* Social */}
+        <SettingsGroup>
+          <SettingsRow icon={<Compass />} label={t('settings.inspiration')} sublabel={t('feed.title')} onClick={() => navigate('/feed')}>
+            <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
+          </SettingsRow>
+          <SettingsRow icon={<Trophy />} label={t('settings.challenges')} sublabel={t('challenges.title')} onClick={() => navigate('/challenges')} last>
+            <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
+          </SettingsRow>
         </SettingsGroup>
 
         {/* Sign out */}
