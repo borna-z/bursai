@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { Sparkles, ShoppingBag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GarmentInlineCard } from '@/components/chat/GarmentInlineCard';
 import { OutfitSuggestionCard } from '@/components/chat/OutfitSuggestionCard';
@@ -39,9 +38,7 @@ export function ChatMessage({ message, isStreaming, garmentMap, isShopping, onTr
     const cards: GarmentBasic[] = [];
     const outfits: { garments: GarmentBasic[]; explanation: string }[] = [];
 
-    // First, extract outfit tags
     const outfitRe = /\[\[outfit:([a-f0-9-,]+)\|([^\]]*)\]\]/gi;
-    // Build a clean text without outfit tags, but track where they were
     let cleanText = text;
     const outfitMatches: { fullMatch: string; ids: string[]; explanation: string }[] = [];
     let oMatch: RegExpExecArray | null;
@@ -50,14 +47,12 @@ export function ChatMessage({ message, isStreaming, garmentMap, isShopping, onTr
       outfitMatches.push({ fullMatch: oMatch[0], ids, explanation: oMatch[2].trim() });
     }
 
-    // Build outfit card data
     for (const om of outfitMatches) {
       const gs = om.ids.map(id => garmentMap.get(id)).filter(Boolean) as GarmentBasic[];
       if (gs.length > 0) outfits.push({ garments: gs, explanation: om.explanation });
       cleanText = cleanText.replace(om.fullMatch, '');
     }
 
-    // Now parse garment tags from remaining text
     let lastIndex = 0;
     const re = /\[\[garment:([a-f0-9-]+)\]\]/gi;
     let match: RegExpExecArray | null;
@@ -84,12 +79,12 @@ export function ChatMessage({ message, isStreaming, garmentMap, isShopping, onTr
           {images.length > 0 && (
             <div className="flex gap-2 flex-wrap justify-end">
               {images.map((url, i) => (
-                <img key={i} src={url} alt="Upload" className="h-28 w-28 object-cover rounded-xl" />
+                <img key={i} src={url} alt="Upload" className="h-32 w-32 object-cover rounded-2xl" />
               ))}
             </div>
           )}
           {text && (
-            <div className="bg-muted/60 rounded-2xl rounded-br-md px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+            <div className="bg-foreground/[0.06] rounded-2xl rounded-br-sm px-4 py-3 text-[15px] leading-[1.7] whitespace-pre-wrap text-foreground">
               {text}
             </div>
           )}
@@ -98,23 +93,18 @@ export function ChatMessage({ message, isStreaming, garmentMap, isShopping, onTr
     );
   }
 
-  // Assistant message
+  // Assistant message — clean left-aligned, no avatar
   return (
-    <div className="flex gap-3 items-start animate-fade-in">
-      <div className="flex items-center justify-center w-7 h-7 rounded-full bg-accent/10 shrink-0 mt-0.5 animate-scale-in">
-        {isShopping
-          ? <ShoppingBag className="w-3.5 h-3.5 text-accent" />
-          : <Sparkles className="w-3.5 h-3.5 text-accent" />}
-      </div>
-      <div className="flex-1 min-w-0 space-y-2">
+    <div className="animate-fade-in">
+      <div className="space-y-2 max-w-[92%]">
         {isStreaming && !text ? (
-          <span className="inline-block w-0.5 h-5 bg-foreground/70 animate-pulse" />
+          <span className="inline-block w-0.5 h-5 bg-accent/60 animate-pulse rounded-full" />
         ) : (
           <>
-            <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+            <div className="text-[15px] leading-[1.7] whitespace-pre-wrap text-foreground">
               {textParts}
               {isStreaming && (
-                <span className="inline-block w-0.5 h-4 bg-foreground/70 animate-pulse ml-0.5 align-text-bottom" />
+                <span className="inline-block w-[1.5px] h-[18px] bg-accent/60 animate-pulse ml-0.5 align-text-bottom rounded-full" />
               )}
             </div>
             {garmentCards.length > 0 && (

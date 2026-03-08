@@ -269,17 +269,17 @@ export default function AIChat() {
     <AppLayout>
       <div className="flex flex-col" style={{ height: 'calc(100dvh - 4rem)' }}>
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/20 shrink-0 sticky top-0 z-10 bg-background/70 backdrop-blur-lg">
-          <div className="w-9" /> {/* spacer */}
-          {/* Mode switcher */}
-          <div className="flex gap-1">
+        <div className="flex items-center justify-between px-4 py-3 shrink-0 sticky top-0 z-10 bg-background/80 backdrop-blur-xl">
+          <div className="w-9" />
+          {/* Pill segmented control */}
+          <div className="flex gap-0.5 rounded-full bg-foreground/[0.04] p-1">
             <button
               onClick={() => setMode('stylist')}
               className={cn(
-                'flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium transition-all border-b-2',
+                'flex items-center gap-1.5 py-1.5 px-4 text-xs font-medium rounded-full transition-all duration-200',
                 mode === 'stylist'
-                  ? 'text-foreground border-foreground'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
             >
               <Sparkles className="w-3.5 h-3.5" />
@@ -288,17 +288,16 @@ export default function AIChat() {
             <button
               onClick={() => setMode('shopping')}
               className={cn(
-                'flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium transition-all border-b-2',
+                'flex items-center gap-1.5 py-1.5 px-4 text-xs font-medium rounded-full transition-all duration-200',
                 mode === 'shopping'
-                  ? 'text-foreground border-foreground'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
             >
               <ShoppingBag className="w-3.5 h-3.5" />
               {t('chat.mode_shopping')}
             </button>
           </div>
-          {/* Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground">
@@ -322,7 +321,7 @@ export default function AIChat() {
         ) : isWelcomeState ? (
           <ChatWelcome mode={mode} onSuggestion={sendMessage} />
         ) : (
-          <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-4 space-y-6">
+          <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-6 space-y-8">
             {messages.map((msg, idx) => {
               // Skip the initial welcome message in conversation view
               if (idx === 0 && msg.role === 'assistant' && !isStreaming) {
@@ -339,13 +338,13 @@ export default function AIChat() {
                   transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
                 >
                   {isStreamingMsg && isEmpty ? (
-                    <div className="flex items-center gap-1.5 py-2 px-1">
+                    <div className="flex items-center gap-2 py-3 px-1">
                       {[0, 1, 2].map((i) => (
                         <motion.div
                           key={i}
-                          className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50"
-                          animate={{ scale: [1, 1.4, 1] }}
-                          transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }}
+                          className="w-1 h-1 rounded-full bg-muted-foreground/30"
+                          animate={{ opacity: [0.3, 1, 0.3] }}
+                          transition={{ duration: 1, repeat: Infinity, delay: i * 0.2, ease: 'easeInOut' }}
                         />
                       ))}
                     </div>
@@ -378,6 +377,7 @@ export default function AIChat() {
           isUploading={isUploading}
           mode={mode}
         />
+        <div className="pb-2 shrink-0" />
       </div>
     </AppLayout>
   );
