@@ -107,7 +107,7 @@ function SuggestionCard({ suggestion, onTryIt, onPlan, isCreating }: SuggestionC
   const { t } = useLanguage();
 
   return (
-    <div className="p-4 bg-card/50 backdrop-blur-sm rounded-xl space-y-3 border border-border/40 animate-fade-in">
+    <div className="min-w-[85%] snap-center p-4 bg-card/50 backdrop-blur-sm rounded-xl space-y-3 border border-border/40 animate-fade-in">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <h4 className="font-semibold text-sm truncate">{suggestion.title}</h4>
