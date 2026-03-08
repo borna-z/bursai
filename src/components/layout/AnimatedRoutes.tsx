@@ -38,6 +38,7 @@ const BillingSuccess = lazy(() => import('@/pages/BillingSuccess'));
 const BillingCancel = lazy(() => import('@/pages/BillingCancel'));
 const Pricing = lazy(() => import('@/pages/Pricing'));
 const LiveScan = lazy(() => import('@/pages/LiveScan'));
+const TravelCapsule = lazy(() => import('@/pages/TravelCapsule'));
 const GoogleCalendarCallback = lazy(() => import('@/pages/GoogleCalendarCallback'));
 const PrivacyPolicy = lazy(() => import('@/pages/marketing/PrivacyPolicy'));
 const Terms = lazy(() => import('@/pages/marketing/Terms'));
