@@ -2066,6 +2066,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'garment.deleted': 'Deleted',
     'garment.marked': 'Marked ✓',
      'garment.analyzed_at': 'Analyzed',
+    'garment.use_in_outfit': 'Use in outfit',
     'garment.edit_title': 'Edit garment',
     'garment.edit_save': 'Save',
     'garment.edit_saved': 'Garment updated',
