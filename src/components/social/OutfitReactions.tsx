@@ -3,11 +3,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { hapticLight } from '@/lib/haptics';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const REACTIONS = [
-  { key: 'styled', emoji: '🔥', label: 'Styled' },
-  { key: 'creative', emoji: '💎', label: 'Creative' },
-  { key: 'sustainable', emoji: '🌿', label: 'Sustainable' },
+  { key: 'styled', emoji: '🔥', labelKey: 'reaction.styled' },
+  { key: 'creative', emoji: '💎', labelKey: 'reaction.creative' },
+  { key: 'sustainable', emoji: '🌿', labelKey: 'reaction.sustainable' },
 ] as const;
 
 interface Props {
