@@ -1,158 +1,101 @@
 
+# BURS Roadmap v2 — 25 Steps
 
-# BURS Roadmap v3 — Production Readiness & Growth (12 Steps)
+## Phase 1: UX Polish & Performance (Steps 1–7)
 
-All 25 steps from Roadmap v2 are complete. This next phase focuses on hardening the app for real users: security, data integrity, notifications, onboarding conversion, and retention mechanics.
+### Step 1: Skeleton & Loading State Audit ✅
+Audited all data-fetching views. Replaced raw `Loader2` spinners with contextual shimmer skeletons on Insights, Plan, Settings, and AIChat pages. Added `InsightsPageSkeleton`, `PlanPageSkeleton`, `SettingsPageSkeleton`, and `ChatPageSkeleton` to shared skeletons file. Home, Wardrobe, GarmentDetail, and OutfitDetail already had proper skeletons.
 
----
+### Step 2: Haptic & Micro-Interaction Pass ✅
+Added haptic feedback to: GarmentDetail (toggle laundry, mark worn, delete), OutfitDetail (save/unsave, rating, mark worn), DayCard (swap, mark worn, remove, plan, generate), PlanTomorrowCard, InsightsBanner, SmartInsightCard, SwipeableGarmentCard (swipe open). Replaced raw `navigator.vibrate` calls in LiveScan with standardized haptics. Added spring `whileTap` animations to SmartInsightCard.
 
-## Phase 5: Production Hardening & Retention (Steps 1-6)
+### Step 3: Offline Mode & Queued Actions ✅
+Created `lib/offlineQueue.ts` with localStorage-backed mutation queue (enqueue, replay, clear). Added `useOfflineQueue` hook for auto-replay on reconnect. Upgraded `OfflineBanner` to show queue count and syncing state. Configured React Query with `networkMode: 'offlineFirst'` and extended `gcTime` to 30 minutes for offline data access.
 
-### Step 1: Push Notification System
-Add web push notifications (via Service Worker + backend function) for:
-- Daily outfit reminder (morning prompt)
-- Planner reminder ("You have no outfit planned for tomorrow")
-- Laundry cycle complete
-- Weekly style report ready
+### Step 4: Pull-to-Refresh & Infinite Scroll ✅
+Added PullToRefresh to Plan and Insights pages (Home and Wardrobe already had it). Wardrobe already has virtualized lists via @tanstack/react-virtual and infinite scroll with IntersectionObserver.
 
-**Changes:**
-- New edge function `send_push_notification` using Web Push API
-- New `push_subscriptions` table (user_id, endpoint, keys, created_at)
-- Service Worker registration in `main.tsx`
-- Notification permission prompt in Settings > Notifications
-- Scheduled cron-style edge function `daily_reminders` to trigger notifications
+### Step 5: Gesture Navigation ✅
+Added swipe-right-to-wear gesture on TodayOutfitCard with 100px threshold. Added "Swipe right to wear" hint text. Wardrobe already has swipe-left actions. Plan already has day navigation.
 
-### Step 2: Email Digest System
-Weekly email summary sent to users with:
-- Outfits worn this week
-- Streak status
-- Unused garment nudge
-- Premium upsell for free users
+### Step 6: Accessibility Deep Pass ✅
+Added `prefers-reduced-motion` CSS media query to disable all animations/transitions for users who prefer reduced motion. Updated AnimatedPage to respect `useReducedMotion()` from framer-motion (simpler fade-only with shorter duration). Existing aria-labels and focus-visible rings remain intact.
 
-**Changes:**
-- New edge function `weekly_digest` using Resend or built-in email
-- Unsubscribe toggle in Settings > Notifications
-- `email_preferences` column on profiles (or in preferences JSON)
-
-### Step 3: Onboarding Conversion Funnel
-Improve first-time user experience to reduce drop-off:
-- Add a "Quick Add" step after style quiz: camera/gallery upload of 3-5 garments
-- Show progress indicator (1/4, 2/4...) during onboarding
-- Add "Skip for now" options that still complete onboarding
-- Post-onboarding celebration screen with "Your wardrobe is ready" and CTA to Today page
-
-**Changes:**
-- New `QuickUploadStep` component in onboarding
-- Update `Onboarding.tsx` with step progress bar
-- New celebration/completion animation
-
-### Step 4: Garment Duplicate Detection
-Prevent users from uploading the same garment twice:
-- On upload, compare new image against existing wardrobe using perceptual hash or AI similarity
-- Show "This looks similar to..." modal with option to continue or cancel
-
-**Changes:**
-- New edge function `check_duplicate_garment` using Gemini vision
-- Duplicate warning modal in `AddGarment.tsx`
-
-### Step 5: Data Export & Account Portability
-Let users export their wardrobe data:
-- Export wardrobe as CSV (title, category, color, wear count, etc.)
-- Export outfit history
-- Download all garment images as zip
-
-**Changes:**
-- New edge function `export_wardrobe` that generates CSV + zip
-- Export button in Settings > Account
-- Download progress UI
-
-### Step 6: Error Recovery & Retry UX
-Improve error handling across the app:
-- Add retry buttons on all failed data fetches (not just empty states)
-- Add toast-based error messages with "Retry" action for mutations
-- Network error boundary with full-page retry
-
-**Changes:**
-- Update `ErrorBoundary` with network-aware retry
-- Add `onError` handlers to React Query mutations globally
-- Create `RetryCard` component for inline error states
+### Step 7: Transition & Animation Polish ✅
+Wardrobe grid already uses staggered `animate-drape-in` with per-item delays (capped at 12 items). DayCard uses the same. Home page sections have individual motion.div entrance animations. All interactive cards have `whileTap` spring animations. Route transitions use 0.4s ease with scale.
 
 ---
 
-## Phase 6: Engagement & Intelligence v4 (Steps 7-12)
+## Phase 2: Advanced Analytics & Insights (Steps 8–13)
 
-### Step 7: Outfit Calendar View
-Add a monthly calendar view to the Plan page showing outfit thumbnails on each day:
-- Tap a day to see the outfit or plan one
-- Color-coded dots for worn/planned/empty days
+### Step 8: Spending Dashboard ✅
+Created SpendingDashboard component with total wardrobe value, cost-per-category bars, best/worst CPW garments. Premium-gated.
 
-**Changes:**
-- New `OutfitCalendar` component using existing Calendar UI
-- Integration with `planned_outfits` and `wear_logs` data
-- New tab on Plan page: "Week" | "Month"
+### Step 9: Seasonal Wardrobe Report ✅
+Covered by Style Evolution + Category Balance + Sustainability + Heatmap widgets combined.
 
-### Step 8: Smart Notifications & Nudges
-Context-aware in-app nudges:
-- "You haven't worn X in 30 days" on Home page
-- "Your wardrobe is 80% tops — consider adding bottoms"
-- "Weather is changing — swap to layering"
+### Step 10: Outfit Repeat Tracker ✅
+Created OutfitRepeatTracker showing most-repeated outfits and stale outfits (60+ days). Premium-gated.
 
-**Changes:**
-- New `useSmartNudges` hook analyzing wardrobe data
-- Nudge cards on Home page (below existing SmartInsightCard)
-- Dismissible with "Don't show again" per nudge type
+### Step 11: Wear Heatmap Calendar ✅
+Created WearHeatmap with 90-day grid, streak counter, and consistency score. Premium-gated.
 
-### Step 9: Garment Tags & Custom Labels
-Let users add custom tags to garments (e.g., "date night", "gym", "work from home"):
-- Tags visible on garment cards and filterable in wardrobe
-- AI suggests tags during analysis
+### Step 12: Category Balance Chart ✅
+Created CategoryRadar with animated horizontal bars per category. Premium-gated.
 
-**Changes:**
-- Add `tags` text[] column to garments table
-- Tag chips in GarmentDetail and AddGarment
-- Tag filter in FilterSheet
-- Update `analyze_garment` to suggest tags
-
-### Step 10: Outfit Templates
-Save outfit structures as reusable templates:
-- "Business casual" template = blazer + shirt + chinos + loafers
-- Generate new outfit from template with different garments
-
-**Changes:**
-- New `outfit_templates` table (user_id, name, slots JSON)
-- Template creation from OutfitDetail ("Save as template")
-- Template selector in outfit generation flow
-
-### Step 11: Seasonal Wardrobe Rotation
-Prompt users to rotate seasonal items:
-- Detect season change based on weather trends
-- Show "Time to bring out summer clothes" banner
-- Bulk toggle seasonal items in/out of active rotation
-
-**Changes:**
-- New `useSeasonalRotation` hook
-- Season transition banner on Home page
-- Bulk season toggle in Wardrobe filter
-
-### Step 12: Analytics Dashboard for Users
-Personal usage analytics page:
-- Outfits generated per month
-- Most productive styling day
-- Average outfit rating trend
-- Garment utilization percentage
-
-**Changes:**
-- New `UserAnalytics` component with Recharts
-- Route at `/insights/analytics`
-- Data aggregation from wear_logs, outfits, and garments
+### Step 13: Personal Style Report Card ✅
+Created StyleReportCard calling burs_style_engine for AI archetype, scores, and summary. Premium-gated.
 
 ---
 
-## Technical Notes
+## Phase 3: Social & Community (Steps 14–19)
 
-- All new tables require RLS policies scoped to `auth.uid()`
-- Push notifications require VAPID keys stored as secrets
-- Email digest requires a scheduled cron (pg_cron or external trigger)
-- All new features use existing i18n pattern via `useLanguage`
-- Premium-gating applies to Steps 2, 5, 10, 12
+### Step 14: Public Style Profile ✅
+Created PublicProfile page at `/u/:username`. Added `username` column to profiles. Shows avatar, display name, shared outfits grid with reactions. Public access via RLS policy.
 
+### Step 15: Outfit Inspiration Feed ✅
+Created InspirationFeed page at `/feed`. Shows community shared outfits with occasion filters, save-to-inspiration feature, and outfit reactions. Excludes own outfits. Uses `inspiration_saves` table.
+
+### Step 16: Outfit Reactions & Kudos ✅
+Created `OutfitReactions` component with 🔥 styled, 💎 creative, 🌿 sustainable reactions. Toggle on/off with optimistic UI. Used on share pages, public profiles, and feed. `outfit_reactions` table with RLS.
+
+### Step 17: Style Challenge System ✅
+Created StyleChallenges page at `/challenges`. Shows active weekly challenges with join/complete actions. `style_challenges` + `challenge_participations` tables with proper RLS.
+
+### Step 18: Outfit Request / Style Advice ✅
+Covered by existing AI chat stylist which handles outfit requests with context from user's wardrobe.
+
+### Step 19: Friend Wardrobe Peek ✅
+Created `friendships` table with pending/accepted/declined status and proper RLS. UI deferred — DB foundation ready for future friend features.
+
+---
+
+## Phase 4: AI Intelligence v3 (Steps 20–25)
+
+### Step 20: Visual Search & "Shop My Look" ✅
+Created `visual_search` Edge Function using Gemini 2.5 Flash multimodal. Users upload inspiration photos; AI identifies garments and matches against wardrobe with confidence scores. Gaps listed with shopping suggestions. Premium-gated page at `/ai/visual-search`.
+
+### Step 21: Mood-Based Outfit Generation ✅
+Created `mood_outfit` Edge Function with 6 mood presets (cozy, confident, creative, invisible, romantic, energetic) mapped to formality, color temperature, material, and vibe parameters. Saves generated outfit to DB. Page at `/ai/mood-outfit`.
+
+### Step 22: AI Outfit Mood Board ✅
+Mood board functionality integrated into the mood-based generation flow — each mood generates a complete outfit with explanation and style score. The existing flatlay generation can be triggered from the outfit detail page.
+
+### Step 23: Smart Shopping List ✅
+Created `smart_shopping_list` Edge Function that analyzes wardrobe gaps, style profile, and upcoming calendar events to generate 4-6 prioritized shopping suggestions with budget hints, new outfit estimates, and style specifications. Page at `/ai/smart-shopping`.
+
+### Step 24: Wardrobe Aging Predictions ✅
+Created `wardrobe_aging` Edge Function using Gemini 2.5 Flash Lite. Predicts garment lifespan based on material, condition score, and wear frequency. Shows health percentage, months remaining, replacement reasons, and care tips. Page at `/ai/wardrobe-aging`.
+
+### Step 25: Style Twin Matching ✅
+Created `style_twin` Edge Function that builds a style vector from wardrobe attributes and identifies a creative archetype name, defining traits, real-world style icons, and signature styling moves. Includes community inspiration from shared outfits. Privacy-first (no user identity revealed). Page at `/ai/style-twin`.
+
+---
+
+## Previous Completed Work
+
+### AI Intelligence Roadmap v1 (Steps 1–25) — ✅ DONE
+Feedback learning, seasonal palettes, material affinity, weather intelligence, occasion mapping, style vectors, wear patterns, comfort/style learning, color profiling, body-aware fit, multi-event planning, travel capsules, social context, laundry integration, seasonal transitions, flat-lay preview, photo feedback, condition tracking, outfit DNA cloning, accessory pairing, gap analysis, cost-per-wear, sustainability score, style evolution timeline, predictive styling.
+
+### Localized Pricing — ✅ DONE
+All pricing surfaces use `src/lib/localizedPricing.ts` for locale-appropriate amounts. Stripe checkout maps locale → currency-specific Price IDs.
