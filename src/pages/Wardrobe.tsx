@@ -203,6 +203,7 @@ function GarmentListContent({
                 isSelecting={isSelecting}
                 isSelected={selectedIds.has(garment.id)}
                 onSelect={() => onSelect(garment.id)}
+                index={index}
               />
             )}
           </div>
