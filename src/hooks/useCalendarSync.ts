@@ -84,8 +84,23 @@ export function useCalendarSync() {
     mutationFn: async () => {
       setIsSyncing(true);
       const { data, error } = await supabase.functions.invoke('sync_google_calendar');
-      if (error) throw error;
-      // Check for reconnect signal from backend
+      // supabase.functions.invoke sets error on non-2xx responses
+      // Parse the response body to check for reconnect signal
+      if (error) {
+        // Try to extract JSON body from the FunctionsHttpError
+        let body: any = null;
+        try {
+          if (error.context?.body) {
+            const reader = error.context.body.getReader();
+            const { value } = await reader.read();
+            body = JSON.parse(new TextDecoder().decode(value));
+          }
+        } catch { /* ignore parse errors */ }
+        if (body?.reconnect || data?.reconnect) {
+          throw Object.assign(new Error('reconnect_required'), { reconnect: true });
+        }
+        throw error;
+      }
       if (data?.reconnect) {
         throw Object.assign(new Error('reconnect_required'), { reconnect: true });
       }
@@ -99,7 +114,6 @@ export function useCalendarSync() {
     },
     onError: (error: any) => {
       if (error?.reconnect) {
-        // Token revoked — clear local state and prompt reconnect
         queryClient.invalidateQueries({ queryKey: ['google-calendar-connection'] });
         toast.error(t('calsync.reconnect_required') || 'Google Calendar disconnected. Please reconnect.', {
           duration: 8000,
