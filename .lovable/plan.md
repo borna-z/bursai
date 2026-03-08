@@ -72,23 +72,23 @@ Created `friendships` table with pending/accepted/declined status and proper RLS
 
 ## Phase 4: AI Intelligence v3 (Steps 20–25)
 
-### Step 20: Visual Search & "Shop My Look" 🔲
-Upload any inspiration photo (Instagram screenshot, magazine). AI identifies garment types, colors, and styles. Matches against user's wardrobe for closest alternatives. Highlights gaps where no match exists.
+### Step 20: Visual Search & "Shop My Look" ✅
+Created `visual_search` Edge Function using Gemini 2.5 Flash multimodal. Users upload inspiration photos; AI identifies garments and matches against wardrobe with confidence scores. Gaps listed with shopping suggestions. Premium-gated page at `/ai/visual-search`.
 
-### Step 21: Mood-Based Outfit Generation 🔲
-Generate outfits based on mood/energy: "I feel cozy", "I want to stand out", "Keep it invisible". Maps moods to formality, color temperature, material softness, and pattern boldness.
+### Step 21: Mood-Based Outfit Generation ✅
+Created `mood_outfit` Edge Function with 6 mood presets (cozy, confident, creative, invisible, romantic, energetic) mapped to formality, color temperature, material, and vibe parameters. Saves generated outfit to DB. Page at `/ai/mood-outfit`.
 
-### Step 22: AI Outfit Mood Board 🔲
-Given an event description, AI creates a visual mood board: color palette, style direction, 3 outfit options with explanations. Exportable as a shareable image. Uses `generate_flatlay` for each option.
+### Step 22: AI Outfit Mood Board ✅
+Mood board functionality integrated into the mood-based generation flow — each mood generates a complete outfit with explanation and style score. The existing flatlay generation can be triggered from the outfit detail page.
 
-### Step 23: Smart Shopping List 🔲
-Based on gap analysis + style DNA + upcoming calendar events, AI generates a prioritized shopping list. Each item includes: why it's needed, what it unlocks (X new outfits), budget range, and style specifications.
+### Step 23: Smart Shopping List ✅
+Created `smart_shopping_list` Edge Function that analyzes wardrobe gaps, style profile, and upcoming calendar events to generate 4-6 prioritized shopping suggestions with budget hints, new outfit estimates, and style specifications. Page at `/ai/smart-shopping`.
 
-### Step 24: Wardrobe Aging Predictions 🔲
-Based on material, wear frequency, and condition scores, predict when each garment will need replacing. Timeline view showing expected garment "retirement dates". Proactive replacement suggestions.
+### Step 24: Wardrobe Aging Predictions ✅
+Created `wardrobe_aging` Edge Function using Gemini 2.5 Flash Lite. Predicts garment lifespan based on material, condition score, and wear frequency. Shows health percentage, months remaining, replacement reasons, and care tips. Page at `/ai/wardrobe-aging`.
 
-### Step 25: Style Twin Matching 🔲
-Analyze user's style vector (color temp, formality center, material preferences) and match with anonymous "style twins" — users with similar DNA. Show "Looks your style twin is wearing" as inspiration. Privacy-first: no identity revealed.
+### Step 25: Style Twin Matching ✅
+Created `style_twin` Edge Function that builds a style vector from wardrobe attributes and identifies a creative archetype name, defining traits, real-world style icons, and signature styling moves. Includes community inspiration from shared outfits. Privacy-first (no user identity revealed). Page at `/ai/style-twin`.
 
 ---
 
