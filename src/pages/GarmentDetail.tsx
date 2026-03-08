@@ -208,7 +208,92 @@ export default function GarmentDetailPage() {
           <Switch checked={garment.in_laundry || false} onCheckedChange={handleToggleLaundry} disabled={updateGarment.isPending} />
         </div>
 
-        {/* Similar items */}
+        {/* Step 18: Condition Assessment */}
+        <div className="flex items-center justify-between py-4 border-t border-border/10">
+          <div className="flex items-center gap-3">
+            <Shield className="w-5 h-5 text-muted-foreground/50" />
+            <div>
+              <span className="text-sm">{t('insights.condition')}</span>
+              {(garment as any).condition_score && (
+                <p className="text-xs text-muted-foreground">
+                  {Number((garment as any).condition_score).toFixed(1)}/10 — {(garment as any).condition_notes}
+                </p>
+              )}
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-xl text-xs"
+            onClick={async () => {
+              try {
+                await assessCondition.mutateAsync(garment.id);
+                toast.success(t('insights.condition'));
+              } catch {
+                toast.error(t('insights.condition_error'));
+              }
+            }}
+            disabled={assessCondition.isPending}
+          >
+            {assessCondition.isPending ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              t('insights.condition_check')
+            )}
+          </Button>
+        </div>
+
+        {/* Step 22: Cost-per-wear */}
+        <div className="flex items-center justify-between py-4 border-t border-border/10">
+          <div className="flex items-center gap-3">
+            <DollarSign className="w-5 h-5 text-muted-foreground/50" />
+            <div>
+              <span className="text-sm">{t('insights.cost_per_wear')}</span>
+              {costPerWear !== null && (
+                <p className="text-xs text-primary font-medium">
+                  {costPerWear.toFixed(0)} {(garment as any).purchase_currency || 'SEK'}/{t('garment.worn_count')}
+                </p>
+              )}
+            </div>
+          </div>
+          {editingPrice ? (
+            <div className="flex items-center gap-1.5">
+              <Input
+                type="number"
+                value={priceInput}
+                onChange={(e) => setPriceInput(e.target.value)}
+                placeholder="0"
+                className="w-20 h-8 text-xs"
+              />
+              <Button
+                size="sm"
+                className="h-8 text-xs"
+                onClick={async () => {
+                  const price = parseFloat(priceInput);
+                  if (isNaN(price) || price < 0) return;
+                  try {
+                    await updateGarment.mutateAsync({ id: garment.id, updates: { purchase_price: price } as any });
+                    setEditingPrice(false);
+                  } catch { toast.error(t('common.something_wrong')); }
+                }}
+              >
+                <Check className="w-3 h-3" />
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-xl text-xs"
+              onClick={() => {
+                setPriceInput(String((garment as any).purchase_price || ''));
+                setEditingPrice(true);
+              }}
+            >
+              {(garment as any).purchase_price ? `${Number((garment as any).purchase_price).toFixed(0)} SEK` : t('insights.purchase_price')}
+            </Button>
+          )}
+        </div>
         {similarGarments && similarGarments.length > 0 && (
           <div className="space-y-3">
             <SectionHeader title={t('garment.similar_items') || 'Similar items'} />
