@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Compass, Shirt, Bookmark, BookmarkCheck, Trophy, Check, Sparkles, Lock,
-  Search, Heart, ShoppingBag, Clock, Users, ChevronRight, User
+  Compass, Shirt, Bookmark, BookmarkCheck, Trophy, Check, Sparkles,
+  Search, Heart, ShoppingBag, Clock, Users, ChevronRight, User, PartyPopper
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
