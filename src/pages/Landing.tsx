@@ -129,24 +129,37 @@ export default function Landing() {
         })}</script>
       </Helmet>
 
-      <div className="dark-landing" ref={scrollRef} style={{ height: '100vh', overflowY: 'auto' }}>
+      <div className="dark-landing noise-overlay" ref={scrollRef} style={{ height: '100vh', overflowY: 'auto' }}>
         <ScrollProgress />
-        <div className="font-space selection:bg-white/10">
+        <div className="font-space selection:bg-indigo-500/20">
 
-          {/* ── Header ── */}
-          <header className="fixed top-0 w-full z-50 border-b border-white/10 backdrop-blur-xl backdrop-saturate-150" style={{ background: 'rgba(3,3,5,0.75)' }} role="navigation" aria-label="Main navigation">
-            <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
-              <div className="flex items-center gap-3 cursor-pointer" onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} role="button" aria-label="Scroll to top">
-                <img src={bursLandingLogo} alt="BURS home" className="h-6 object-contain" width={80} height={24} loading="eager" fetchPriority="high" />
+          {/* ── Floating Capsule Header ── */}
+          <header
+            className="fixed top-3 left-3 right-3 z-50 rounded-2xl hyper-glass"
+            style={{ background: 'rgba(3,3,5,0.7)' }}
+            role="navigation"
+            aria-label="Main navigation"
+          >
+            <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-3.5">
+              <div className="flex items-center gap-3 cursor-pointer group" onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} role="button" aria-label="Scroll to top">
+                <img src={bursLandingLogo} alt="BURS home" className="h-6 object-contain transition-all duration-300 group-hover:drop-shadow-[0_0_8px_rgba(99,102,241,0.4)]" width={80} height={24} loading="eager" fetchPriority="high" />
               </div>
               <nav className="hidden md:flex items-center gap-10 text-sm font-light tracking-wide text-gray-400" aria-label="Page sections">
                 {navLinks.map(l => (
-                  <button key={l.id} onClick={() => scrollTo(l.id)} className="hover:text-white transition-colors duration-300">{l.label}</button>
+                  <button key={l.id} onClick={() => scrollTo(l.id)} className="relative hover:text-white transition-colors duration-300 after:absolute after:bottom-[-4px] after:left-0 after:w-0 after:h-px after:bg-indigo-400 after:transition-all after:duration-300 hover:after:w-full">{l.label}</button>
                 ))}
               </nav>
               <div className="flex items-center gap-3">
                 <LanguageSwitcher />
-                <button onClick={() => navigate('/auth')} className="hidden md:block bg-white text-[#030305] px-6 py-2.5 rounded-full text-sm font-medium hover:opacity-90 transition-all duration-300 hover:scale-105">
+                <button
+                  onClick={() => navigate('/auth')}
+                  className="hidden md:block px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-300 hover:scale-105 text-white"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(6,182,212,0.1))',
+                    border: '1px solid rgba(99,102,241,0.3)',
+                    boxShadow: '0 0 20px rgba(99,102,241,0.1)',
+                  }}
+                >
                   {t('landing.login')}
                 </button>
                 <button className="md:hidden text-gray-400 hover:text-white p-2" onClick={() => setMobileOpen(!mobileOpen)} aria-expanded={mobileOpen} aria-label={mobileOpen ? 'Close menu' : 'Open menu'}>
@@ -155,7 +168,7 @@ export default function Landing() {
               </div>
             </div>
             {mobileOpen && (
-              <div className="md:hidden border-t border-white/5 glass-panel animate-fade-in" role="menu">
+              <div className="md:hidden border-t border-white/5 animate-fade-in" role="menu">
                 <div className="flex flex-col gap-1 px-6 py-4 text-sm text-gray-400">
                   {navLinks.map(l => (
                     <button key={l.id} onClick={() => scrollTo(l.id)} className="py-3 text-left hover:text-white transition-colors" role="menuitem">{l.label}</button>
