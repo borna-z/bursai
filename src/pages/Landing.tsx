@@ -134,7 +134,7 @@ export default function Landing() {
         <div className="font-space selection:bg-white/10">
 
           {/* ── Header ── */}
-          <header className="fixed top-0 w-full z-50 glass-panel border-b border-white/5" role="navigation" aria-label="Main navigation">
+          <header className="fixed top-0 w-full z-50 border-b border-white/10 backdrop-blur-xl backdrop-saturate-150" style={{ background: 'rgba(3,3,5,0.75)' }} role="navigation" aria-label="Main navigation">
             <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
               <div className="flex items-center gap-3 cursor-pointer" onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} role="button" aria-label="Scroll to top">
                 <img src={bursLandingLogo} alt="BURS home" className="h-6 object-contain" width={80} height={24} loading="eager" fetchPriority="high" />
