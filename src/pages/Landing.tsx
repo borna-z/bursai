@@ -10,6 +10,7 @@ import { CookieConsent } from '@/components/landing/CookieConsent';
 // Lazy-load below-fold sections for faster initial paint
 const TrialBanner = lazy(() => import('@/components/landing/TrialBanner').then(m => ({ default: m.TrialBanner })));
 const HowItWorks = lazy(() => import('@/components/landing/HowItWorks').then(m => ({ default: m.HowItWorks })));
+const FeaturesShowcase = lazy(() => import('@/components/landing/FeaturesShowcase').then(m => ({ default: m.FeaturesShowcase })));
 const SustainabilitySection = lazy(() => import('@/components/landing/SustainabilitySection').then(m => ({ default: m.SustainabilitySection })));
 const MissionSection = lazy(() => import('@/components/landing/MissionSection').then(m => ({ default: m.MissionSection })));
 const PricingSection = lazy(() => import('@/components/landing/PricingSection').then(m => ({ default: m.PricingSection })));
