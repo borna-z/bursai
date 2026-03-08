@@ -5176,6 +5176,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'scan.camera_error': 'Nie można otworzyć kamery. Sprawdź uprawnienia.',
     'scan.move_closer': 'Podejdź bliżej', 'scan.move_back': 'Odsuń się', 'scan.more_light': 'Potrzeba lepszego oświetlenia', 'scan.ready': 'Trzymaj nieruchomo, aby skanować…',
     'landing.free_price': '0 zł', 'landing.premium_price': '0 zł', 'landing.premium_then': 'Potem 19,99 zł/mies. · lub 179 zł/rok — oszczędź ~30%',
+    'insights.wardrobe_usage': 'Wykorzystanie garderoby', 'insights.used_label': 'noszonych', 'insights.unused_label': 'nienoszonych',
+    'wardrobe.import_link': 'Importuj z linku', 'wardrobe.live_scan': 'BURS Live Scan',
+    'settings.row.insights': 'Statystyki garderoby', 'settings.row.insights_sub': 'Statystyki i analiza',
   },
 
   ar: {
