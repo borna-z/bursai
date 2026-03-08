@@ -104,8 +104,7 @@ export function useLiveScan() {
     setLastResult(null);
     setScanCount((c) => c + 1);
 
-    // Haptic on accept
-    if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+    hapticSuccess();
 
     // Background save
     const savePromise = (async () => {
