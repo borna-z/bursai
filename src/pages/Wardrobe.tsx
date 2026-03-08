@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback, Fragment } from 'rea
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TAP_TRANSITION } from '@/lib/motion';
+import { TAP_TRANSITION, EASE_CURVE, STAGGER_DELAY } from '@/lib/motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Plus, Search, X, Trash2, Shirt, ScanLine, Camera, Link,
@@ -32,15 +32,21 @@ import { Chip } from '@/components/ui/chip';
 
 // ── Garment Card ──
 
+const cardReveal = {
+  hidden: { opacity: 0, y: 12, scale: 0.97 },
+  visible: { opacity: 1, y: 0, scale: 1 },
+};
+
 interface GarmentCardProps {
   garment: Garment;
   isGridView: boolean;
   isSelecting: boolean;
   isSelected: boolean;
   onSelect: () => void;
+  index?: number;
 }
 
-function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }: GarmentCardProps) {
+function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, index = 0 }: GarmentCardProps) {
   const navigate = useNavigate();
 
   const handleClick = () => {
@@ -50,8 +56,12 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
   if (!isGridView) {
     return (
       <motion.button
+        variants={cardReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: '-20px' }}
+        transition={{ ease: EASE_CURVE, duration: 0.3, delay: (index % 6) * STAGGER_DELAY }}
         whileTap={{ scale: 0.975 }}
-        transition={TAP_TRANSITION}
         onClick={handleClick}
         className={cn(
           'w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left will-change-transform',
@@ -77,8 +87,12 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
   // Grid view — clean gallery, name on tap only
   return (
     <motion.button
+      variants={cardReveal}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, margin: '-20px' }}
+      transition={{ ease: EASE_CURVE, duration: 0.3, delay: (index % 6) * STAGGER_DELAY }}
       whileTap={{ scale: 0.97, y: -2 }}
-      transition={TAP_TRANSITION}
       onClick={handleClick}
       className={cn(
         'w-full rounded-2xl overflow-hidden transition-colors text-left will-change-transform relative group',
@@ -189,6 +203,7 @@ function GarmentListContent({
                 isSelecting={isSelecting}
                 isSelected={selectedIds.has(garment.id)}
                 onSelect={() => onSelect(garment.id)}
+                index={index}
               />
             )}
           </div>
@@ -263,12 +278,12 @@ function VirtualGarmentGrid({
               style={{ position: 'absolute', top: virtualRow.start, left: 0, width: '100%', height: virtualRow.size, paddingBottom: GAP }}
             >
               <div className={cn(isGridView ? 'grid grid-cols-3 gap-1.5 h-full' : 'flex flex-col gap-1')}>
-                {rowGarments.map((garment) => (
+                {rowGarments.map((garment, colIdx) => (
                   <Fragment key={garment.id}>
                     {!isGridView && !isSelecting ? (
                       <SwipeableGarmentCard garment={garment} onEdit={() => onEdit(garment.id)} onLaundry={() => onLaundry(garment)} onDelete={() => onDelete(garment.id)} />
                     ) : (
-                      <GarmentCard garment={garment} isGridView={isGridView} isSelecting={isSelecting} isSelected={selectedIds.has(garment.id)} onSelect={() => onSelect(garment.id)} />
+                      <GarmentCard garment={garment} isGridView={isGridView} isSelecting={isSelecting} isSelected={selectedIds.has(garment.id)} onSelect={() => onSelect(garment.id)} index={startIdx + colIdx} />
                     )}
                   </Fragment>
                 ))}
