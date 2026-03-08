@@ -718,6 +718,26 @@
   opacity: var(--particle-opacity);
 }
 
+/* Ticker marquee */
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-33.33%); }
+}
+
+.ticker-track {
+  animation: ticker-scroll 30s linear infinite;
+}
+
+/* Scale-in animation for modals */
+@keyframes scale-in-modal {
+  0% { transform: scale(0.9); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-scale-in {
+  animation: scale-in-modal 0.3s ease-out;
+}
+
 /* ─── Reduced motion ─── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

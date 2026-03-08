@@ -6,27 +6,32 @@ import bursLandingLogo from '@/assets/burs-logo-white.png';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { CookieConsent } from '@/components/landing/CookieConsent';
+import { ScrollProgress } from '@/components/landing/ScrollProgress';
+import { LanguageSwitcher } from '@/components/landing/LanguageSwitcher';
 
-// Lazy-load below-fold sections for faster initial paint
-const TrialBanner = lazy(() => import('@/components/landing/TrialBanner').then(m => ({ default: m.TrialBanner })));
+// Lazy-load below-fold sections
+const SocialTicker = lazy(() => import('@/components/landing/SocialTicker').then(m => ({ default: m.SocialTicker })));
 const HowItWorks = lazy(() => import('@/components/landing/HowItWorks').then(m => ({ default: m.HowItWorks })));
 const FeaturesShowcase = lazy(() => import('@/components/landing/FeaturesShowcase').then(m => ({ default: m.FeaturesShowcase })));
+const StatsCounter = lazy(() => import('@/components/landing/StatsCounter').then(m => ({ default: m.StatsCounter })));
 const SustainabilitySection = lazy(() => import('@/components/landing/SustainabilitySection').then(m => ({ default: m.SustainabilitySection })));
-const MissionSection = lazy(() => import('@/components/landing/MissionSection').then(m => ({ default: m.MissionSection })));
+const TestimonialsCarousel = lazy(() => import('@/components/landing/TestimonialsCarousel').then(m => ({ default: m.TestimonialsCarousel })));
 const PricingSection = lazy(() => import('@/components/landing/PricingSection').then(m => ({ default: m.PricingSection })));
+const FAQSection = lazy(() => import('@/components/landing/FAQSection').then(m => ({ default: m.FAQSection })));
 const CTASection = lazy(() => import('@/components/landing/CTASection').then(m => ({ default: m.CTASection })));
-const DownloadSection = lazy(() => import('@/components/landing/DownloadSection').then(m => ({ default: m.DownloadSection })));
 const LandingFooter = lazy(() => import('@/components/landing/LandingFooter').then(m => ({ default: m.LandingFooter })));
+const StickyMobileCTA = lazy(() => import('@/components/landing/StickyMobileCTA').then(m => ({ default: m.StickyMobileCTA })));
+const ExitIntentModal = lazy(() => import('@/components/landing/ExitIntentModal').then(m => ({ default: m.ExitIntentModal })));
 
 export default function Landing() {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const [mobileOpen, setMobileOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const REVEAL_SELECTOR = '.reveal-up, .reveal-down, .reveal-left, .reveal-right, .reveal-scale, .reveal-rotate, .scroll-reveal, .line-grow, .word-reveal';
 
-  // Single unified IntersectionObserver + MutationObserver
+  // Unified IntersectionObserver + MutationObserver for reveals
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
@@ -34,34 +39,24 @@ export default function Landing() {
     const io = new IntersectionObserver(
       (entries) => {
         entries.forEach(e => {
-          if (e.isIntersecting) {
-            e.target.classList.add('visible');
-          } else {
-            e.target.classList.remove('visible');
-          }
+          if (e.isIntersecting) e.target.classList.add('visible');
+          else e.target.classList.remove('visible');
         });
       },
       { root: container, threshold: 0.08 }
     );
 
-    // Observe all current reveal elements
     container.querySelectorAll(REVEAL_SELECTOR).forEach(el => io.observe(el));
 
-    // Watch for lazy-loaded sections adding new reveal elements
     const mo = new MutationObserver(() => {
-      container.querySelectorAll(REVEAL_SELECTOR).forEach(el => {
-        io.observe(el); // safe to call multiple times on same element
-      });
+      container.querySelectorAll(REVEAL_SELECTOR).forEach(el => io.observe(el));
     });
     mo.observe(container, { childList: true, subtree: true });
 
-    return () => {
-      io.disconnect();
-      mo.disconnect();
-    };
+    return () => { io.disconnect(); mo.disconnect(); };
   }, []);
 
-  // Parallax scroll listener
+  // Parallax scroll
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
@@ -107,9 +102,14 @@ export default function Landing() {
         <meta name="twitter:title" content="BURS | Your Personal Stylist" />
         <meta name="twitter:description" content="Upload your closet. Let BURS style you. Save the planet by wearing what you already own." />
         <meta name="twitter:image" content="https://bursai.lovable.app/og-image.png" />
+        <link rel="canonical" href="https://burs.me" />
+        {/* hreflang */}
+        <link rel="alternate" hrefLang="x-default" href="https://burs.me" />
+        <link rel="alternate" hrefLang={locale} href={`https://burs.me?lang=${locale}`} />
       </Helmet>
 
       <div className="dark-landing" ref={scrollRef} style={{ height: '100vh', overflowY: 'auto' }}>
+        <ScrollProgress />
         <div className="font-space selection:bg-white/10">
 
           {/* ── Header ── */}
@@ -120,15 +120,16 @@ export default function Landing() {
               </div>
               <nav className="hidden md:flex items-center gap-10 text-sm font-light tracking-wide text-gray-400" aria-label="Page sections">
                 {navLinks.map(l => (
-                  <button key={l.id} onClick={() => scrollTo(l.id)} className="hover:text-white transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">{l.label}</button>
+                  <button key={l.id} onClick={() => scrollTo(l.id)} className="hover:text-white transition-colors duration-300">{l.label}</button>
                 ))}
               </nav>
-              <div className="flex items-center gap-4">
-                <button onClick={() => navigate('/auth')} className="hidden md:block bg-white text-[#030305] px-6 py-2.5 rounded-full text-sm font-medium hover:opacity-90 transition-all duration-300 hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+              <div className="flex items-center gap-3">
+                <LanguageSwitcher />
+                <button onClick={() => navigate('/auth')} className="hidden md:block bg-white text-[#030305] px-6 py-2.5 rounded-full text-sm font-medium hover:opacity-90 transition-all duration-300 hover:scale-105">
                   {t('landing.login')}
                 </button>
-                <button className="md:hidden text-gray-400 hover:text-white p-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" onClick={() => setMobileOpen(!mobileOpen)} aria-expanded={mobileOpen} aria-label={mobileOpen ? 'Close menu' : 'Open menu'}>
-                  {mobileOpen ? <X size={24} strokeWidth={1.5} aria-hidden="true" /> : <Menu size={24} strokeWidth={1.5} aria-hidden="true" />}
+                <button className="md:hidden text-gray-400 hover:text-white p-2" onClick={() => setMobileOpen(!mobileOpen)} aria-expanded={mobileOpen} aria-label={mobileOpen ? 'Close menu' : 'Open menu'}>
+                  {mobileOpen ? <X size={24} strokeWidth={1.5} /> : <Menu size={24} strokeWidth={1.5} />}
                 </button>
               </div>
             </div>
@@ -136,28 +137,30 @@ export default function Landing() {
               <div className="md:hidden border-t border-white/5 glass-panel animate-fade-in" role="menu">
                 <div className="flex flex-col gap-1 px-6 py-4 text-sm text-gray-400">
                   {navLinks.map(l => (
-                    <button key={l.id} onClick={() => scrollTo(l.id)} className="py-3 text-left hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" role="menuitem">{l.label}</button>
+                    <button key={l.id} onClick={() => scrollTo(l.id)} className="py-3 text-left hover:text-white transition-colors" role="menuitem">{l.label}</button>
                   ))}
-                  <button onClick={() => { setMobileOpen(false); navigate('/auth'); }} className="mt-2 bg-white text-[#030305] py-3 rounded-full text-center font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" role="menuitem">{t('landing.login')}</button>
+                  <button onClick={() => { setMobileOpen(false); navigate('/auth'); }} className="mt-2 bg-white text-[#030305] py-3 rounded-full text-center font-medium" role="menuitem">{t('landing.login')}</button>
                 </div>
               </div>
             )}
           </header>
 
-          {/* Hero loads eagerly */}
+          {/* Sections */}
           <HeroSection />
 
-          {/* Below-fold sections lazy-loaded with min-height to prevent CLS */}
           <Suspense fallback={<div style={{ minHeight: '400vh' }} aria-hidden="true" />}>
-            <TrialBanner />
+            <SocialTicker />
             <HowItWorks />
             <FeaturesShowcase />
+            <StatsCounter />
             <SustainabilitySection />
-            <MissionSection />
+            <TestimonialsCarousel />
             <PricingSection />
+            <FAQSection />
             <CTASection />
-            <DownloadSection />
             <LandingFooter />
+            <StickyMobileCTA />
+            <ExitIntentModal />
           </Suspense>
         </div>
         <CookieConsent />
