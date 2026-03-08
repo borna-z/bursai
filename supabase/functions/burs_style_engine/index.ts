@@ -1548,6 +1548,7 @@ serve(async (req) => {
     }
 
     const preferences = (profileRes.data?.preferences as Record<string, any>) || null;
+    const bodyProfile = buildBodyProfile(profileRes.data);
 
     // Build feedback penalties from historical ratings
     const feedbackSignals: FeedbackSignal[] = [];
