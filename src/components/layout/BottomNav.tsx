@@ -1,4 +1,4 @@
-import { Home, Shirt, CalendarDays, Bot, Settings } from 'lucide-react';
+import { Home, Shirt, CalendarDays, Bot, Layers } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
