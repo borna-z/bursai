@@ -670,6 +670,28 @@ export const translations: Record<Locale, Record<string, string>> = {
     'plan.prioritizes_unused': 'Prioriterar oanvända favoriter',
     'plan.adapts_weather': 'Anpassar till väderprognos',
     'plan.plan_7_days': 'Planera 7 dagar',
+    'plan.travel_capsule': 'Resekapsel',
+
+    // Travel Capsule
+    'capsule.title': 'Resekapsel',
+    'capsule.subtitle': 'Minimal packning, maximala outfits',
+    'capsule.destination': 'Destination',
+    'capsule.enter_city': 'Ange stad...',
+    'capsule.enter_destination': 'Ange en destination',
+    'capsule.duration': 'Längd',
+    'capsule.days': 'dagar',
+    'capsule.occasions': 'Tillfällen under resan',
+    'capsule.generating': 'Bygger kapsel...',
+    'capsule.generate': 'Bygg resekapsel',
+    'capsule.created': 'Resekapsel skapad!',
+    'capsule.create_error': 'Kunde inte skapa resekapsel',
+    'capsule.items': 'plagg',
+    'capsule.combinations': 'kombos',
+    'capsule.pack_these': 'Packa dessa',
+    'capsule.day_plan': 'Dag-för-dag-plan',
+    'capsule.day_label': 'Dag',
+    'capsule.tips': 'Packningstips',
+    'capsule.new_trip': 'Planera ny resa',
 
     // Swap sheet
     'swap.title': 'Byt outfit',
