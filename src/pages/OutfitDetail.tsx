@@ -132,10 +132,14 @@ export default function OutfitDetailPage() {
   const shareUrl = outfit ? `${window.location.origin}/share/${outfit.id}` : '';
 
   const feedbackOptions = [
+    { id: 'loved_it', label: t('outfit.loved_it'), icon: Heart },
     { id: 'too_warm', label: t('outfit.too_warm'), icon: Thermometer },
     { id: 'too_cold', label: t('outfit.too_cold'), icon: ThermometerSnowflake },
     { id: 'too_formal', label: t('outfit.too_formal'), icon: Briefcase },
     { id: 'too_casual', label: t('outfit.too_casual'), icon: Shirt },
+    { id: 'uncomfortable', label: t('outfit.uncomfortable'), icon: Frown },
+    { id: 'bad_color', label: t('outfit.bad_color'), icon: Palette },
+    { id: 'boring', label: t('outfit.boring'), icon: Meh },
   ];
 
   useEffect(() => {
