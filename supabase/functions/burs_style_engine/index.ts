@@ -113,7 +113,33 @@ function hueDiff(h1: number, h2: number): number {
   return Math.min(d, 360 - d);
 }
 
-function colorHarmonyScore(colors: [number, number, number][]): number {
+// Seasonal palette definitions (hue ranges that feel right per season)
+const SEASONAL_PALETTES: Record<string, { hueRanges: [number, number][]; satRange: [number, number]; lightRange: [number, number] }> = {
+  winter: { hueRanges: [[200, 280], [0, 30]], satRange: [20, 70], lightRange: [10, 40] },    // deep jewel tones, navy, burgundy
+  spring: { hueRanges: [[80, 200], [320, 360]], satRange: [30, 70], lightRange: [55, 85] },   // pastels, fresh greens, soft pinks
+  summer: { hueRanges: [[0, 60], [160, 220]], satRange: [40, 90], lightRange: [50, 80] },     // warm brights, ocean blues
+  autumn: { hueRanges: [[10, 60], [70, 100]], satRange: [30, 70], lightRange: [25, 55] },      // earth tones, rust, olive, mustard
+};
+
+function getCurrentSeason(): string {
+  const month = new Date().getMonth(); // 0-11
+  if (month >= 2 && month <= 4) return "spring";
+  if (month >= 5 && month <= 7) return "summer";
+  if (month >= 8 && month <= 10) return "autumn";
+  return "winter";
+}
+
+function isInSeasonalPalette(hsl: [number, number, number], season: string): boolean {
+  const palette = SEASONAL_PALETTES[season];
+  if (!palette) return false;
+  const [h, s, l] = hsl;
+  const hueMatch = palette.hueRanges.some(([min, max]) => h >= min && h <= max);
+  const satMatch = s >= palette.satRange[0] && s <= palette.satRange[1];
+  const lightMatch = l >= palette.lightRange[0] && l <= palette.lightRange[1];
+  return hueMatch && satMatch && lightMatch;
+}
+
+function colorHarmonyScore(colors: [number, number, number][], seasonBoost = true): number {
   if (colors.length < 2) return 8;
   const chromatic = colors.filter(c => !isNeutral(c));
   if (chromatic.length === 0) return 9; // all neutral = safe
@@ -129,6 +155,16 @@ function colorHarmonyScore(colors: [number, number, number][]): number {
       else if (hd > 50 && hd < 90) score -= 1;     // tension
     }
   }
+
+  // Seasonal palette bonus: reward outfits that match the current season's color mood
+  if (seasonBoost) {
+    const season = getCurrentSeason();
+    const seasonalCount = chromatic.filter(c => isInSeasonalPalette(c, season)).length;
+    if (seasonalCount > 0) {
+      score += Math.min(2, seasonalCount * 0.7); // up to +2 for seasonal harmony
+    }
+  }
+
   return Math.max(0, Math.min(10, score));
 }
 
