@@ -52,7 +52,7 @@ function SuggestionCard({ outfit, onTap }: { outfit: OutfitWithItems; onTap: () 
       {/* Occasion pill */}
       <div className="px-2.5 pb-2.5 pt-1">
         <span className="inline-block px-2 py-0.5 rounded-full bg-foreground/[0.05] text-[10px] font-medium text-muted-foreground">
-          {outfit.occasion}
+          {t(`occasion.${outfit.occasion}`) || outfit.occasion}
         </span>
       </div>
     </motion.button>
