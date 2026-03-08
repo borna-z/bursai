@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,9 +12,6 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -27,7 +25,6 @@ serve(async (req) => {
     const { outfit_id } = await req.json();
     if (!outfit_id) throw new Error("Missing outfit_id");
 
-    // Fetch outfit with items and garments
     const { data: outfit, error: oErr } = await supabase
       .from("outfits")
       .select("*, outfit_items(slot, garment_id, garments:garment_id(title, category, color_primary, color_secondary, material, pattern, formality, fit))")
@@ -37,7 +34,6 @@ serve(async (req) => {
 
     if (oErr || !outfit) throw new Error("Outfit not found");
 
-    // Fetch all user garments for variation pool
     const { data: allGarments } = await supabase
       .from("garments")
       .select("id, title, category, color_primary, color_secondary, material, pattern, formality, fit, in_laundry")
@@ -68,71 +64,48 @@ Generate 3 outfit variations that preserve the DNA (similar color ratios, formal
 
 For each variation, select garment IDs from the available list and explain what makes it similar.`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: prompt },
-          { role: "user", content: "Generate 3 similar outfit variations using my available garments." },
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "suggest_variations",
-            description: "Return 3 outfit variations",
-            parameters: {
-              type: "object",
-              properties: {
-                variations: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      name: { type: "string", description: "Short variation name" },
-                      garment_ids: { type: "array", items: { type: "string" }, description: "Selected garment UUIDs" },
-                      explanation: { type: "string", description: "Why this variation works" },
-                    },
-                    required: ["name", "garment_ids", "explanation"],
-                    additionalProperties: false,
+    const { data: result } = await callBursAI({
+      messages: [
+        { role: "system", content: prompt },
+        { role: "user", content: "Generate 3 similar outfit variations using my available garments." },
+      ],
+      tools: [{
+        type: "function",
+        function: {
+          name: "suggest_variations",
+          description: "Return 3 outfit variations",
+          parameters: {
+            type: "object",
+            properties: {
+              variations: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string", description: "Short variation name" },
+                    garment_ids: { type: "array", items: { type: "string" }, description: "Selected garment UUIDs" },
+                    explanation: { type: "string", description: "Why this variation works" },
                   },
+                  required: ["name", "garment_ids", "explanation"],
+                  additionalProperties: false,
                 },
               },
-              required: ["variations"],
-              additionalProperties: false,
             },
+            required: ["variations"],
+            additionalProperties: false,
           },
-        }],
-        tool_choice: { type: "function", function: { name: "suggest_variations" } },
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (aiResponse.status === 402) return new Response(JSON.stringify({ error: "Credits exhausted" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      throw new Error(`AI error: ${aiResponse.status}`);
-    }
-
-    const aiData = await aiResponse.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    let result: any = null;
-    if (toolCall?.function?.arguments) {
-      try { result = JSON.parse(toolCall.function.arguments); } catch { /* ignore */ }
-    }
-    if (!result) throw new Error("AI did not return structured result");
+        },
+      }],
+      tool_choice: { type: "function", function: { name: "suggest_variations" } },
+      cacheTtlSeconds: 1800,
+      cacheNamespace: "clone_dna",
+    }, supabase);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("clone_outfit_dna error:", e);
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return bursAIErrorResponse(e, corsHeaders);
   }
 });
