@@ -5677,7 +5677,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   ar: {
-    'nav.today': 'اليوم', 'nav.wardrobe': 'خزانة الملابس', 'nav.plan': 'الخطة', 'nav.stylist': 'المصمّم', 'nav.settings': 'الإعدادات',
+    'nav.today': 'اليوم', 'nav.wardrobe': 'خزانة الملابس', 'nav.plan': 'الخطة', 'nav.stylist': 'المصمّم', 'nav.settings': 'الإعدادات', 'nav.discover': 'اكتشف',
     'onboarding.language.title': 'اختر اللغة', 'onboarding.language.subtitle': 'يمكنك تغيير ذلك لاحقًا في الإعدادات',
     'onboarding.body.title': 'جسمك، أسلوبك', 'onboarding.body.subtitle': 'يستخدم المصمّم الذكي قياساتك لتقديم نصائح حول المقاس والتناسق والأناقة.',
     'onboarding.body.height': 'الطول', 'onboarding.body.weight': 'الوزن', 'onboarding.body.weight_optional': '(اختياري)',
