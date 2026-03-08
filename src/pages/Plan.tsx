@@ -436,6 +436,7 @@ export default function PlanPage() {
           )}
         </motion.div>
       </AnimatedPage>
+      </PullToRefresh>
 
       {/* ─── Sheets ─── */}
       <PlanningSheet
