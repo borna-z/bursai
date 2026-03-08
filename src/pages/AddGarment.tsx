@@ -167,6 +167,8 @@ export default function AddGarmentPage() {
   const { analyzeGarment, isAnalyzing, analysisProgress } = useAnalyzeGarment();
   const { user } = useAuth();
   const { canAddGarment, remainingGarments, refresh: refreshSubscription } = useSubscription();
+  const { checkDuplicates, duplicates, clearDuplicates } = useDuplicateDetection();
+  const [showDuplicateSheet, setShowDuplicateSheet] = useState(false);
 
   const [step, setStep] = useState<'upload' | 'analyzing' | 'form' | 'batch'>('upload');
   const [imageFile, setImageFile] = useState<File | null>(null);
