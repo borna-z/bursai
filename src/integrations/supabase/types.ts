@@ -620,6 +620,7 @@ export type Database = {
       wear_logs: {
         Row: {
           created_at: string | null
+          event_title: string | null
           garment_id: string
           id: string
           occasion: string | null
@@ -629,6 +630,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          event_title?: string | null
           garment_id: string
           id?: string
           occasion?: string | null
@@ -638,6 +640,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          event_title?: string | null
           garment_id?: string
           id?: string
           occasion?: string | null
