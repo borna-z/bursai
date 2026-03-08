@@ -809,13 +809,13 @@
   background: var(--lv2-surface-elevated);
   border: 1px solid var(--lv2-border);
   border-radius: 1rem;
-  transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1), border-color 0.4s ease, box-shadow 0.4s ease;
+  transition: transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1), border-color 0.4s ease, box-shadow 0.5s ease;
 }
 
 .lv2-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-6px) scale(1.01);
   border-color: var(--lv2-border-hover);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 /* ── Shimmer border effect ── */
