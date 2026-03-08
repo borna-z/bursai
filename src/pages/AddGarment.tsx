@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, Image as ImageIcon, ArrowLeft, Loader2, X, Sparkles, RefreshCw, Link2, Upload, Palette, CheckCircle, Images } from 'lucide-react';
@@ -21,6 +22,8 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { LinkImportForm } from '@/components/LinkImportForm';
 import { BatchUploadProgress } from '@/components/wardrobe/BatchUploadProgress';
+import { DuplicateWarningSheet } from '@/components/wardrobe/DuplicateWarningSheet';
+import { useDuplicateDetection } from '@/hooks/useDuplicateDetection';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
@@ -165,6 +168,8 @@ export default function AddGarmentPage() {
   const { analyzeGarment, isAnalyzing, analysisProgress } = useAnalyzeGarment();
   const { user } = useAuth();
   const { canAddGarment, remainingGarments, refresh: refreshSubscription } = useSubscription();
+  const { checkDuplicates, duplicates, clearDuplicates } = useDuplicateDetection();
+  const [showDuplicateSheet, setShowDuplicateSheet] = useState(false);
 
   const [step, setStep] = useState<'upload' | 'analyzing' | 'form' | 'batch'>('upload');
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -250,6 +255,20 @@ export default function AddGarmentPage() {
       await new Promise(resolve => setTimeout(resolve, 1500));
       toast.success(t('addgarment.ai_success'), {
         description: t('addgarment.ai_review'),
+      });
+
+      // Run duplicate detection in background (non-blocking)
+      checkDuplicates({
+        image_path: path,
+        category: analysisData.category,
+        color_primary: analysisData.color_primary,
+        title: analysisData.title,
+        subcategory: analysisData.subcategory,
+        material: analysisData.material || undefined,
+      }).then((matches) => {
+        if (matches.length > 0) {
+          setShowDuplicateSheet(true);
+        }
       });
     }
     
@@ -884,6 +903,33 @@ export default function AddGarmentPage() {
         isOpen={showPaywall}
         onClose={() => setShowPaywall(false)}
         reason="garments"
+      />
+
+      {/* Duplicate Warning Sheet */}
+      <DuplicateWarningSheet
+        open={showDuplicateSheet}
+        onOpenChange={setShowDuplicateSheet}
+        duplicates={duplicates}
+        onKeepBoth={() => {
+          setShowDuplicateSheet(false);
+          clearDuplicates();
+        }}
+        onReplace={async (existingGarmentId) => {
+          // Delete the existing garment and keep the new one
+          setShowDuplicateSheet(false);
+          clearDuplicates();
+          try {
+            await supabase.from('garments').delete().eq('id', existingGarmentId);
+            toast.success(t('duplicate.replaced') || 'Old garment replaced');
+          } catch {
+            toast.error(t('common.something_wrong'));
+          }
+        }}
+        onCancel={() => {
+          setShowDuplicateSheet(false);
+          clearDuplicates();
+          resetForm();
+        }}
       />
     </div>
   );
