@@ -4661,7 +4661,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   de: {
-    'nav.today': 'Heute', 'nav.wardrobe': 'Kleiderschrank', 'nav.plan': 'Planen', 'nav.stylist': 'Stylist', 'nav.settings': 'Einstellungen',
+    'nav.today': 'Heute', 'nav.wardrobe': 'Kleiderschrank', 'nav.plan': 'Planen', 'nav.stylist': 'Stylist', 'nav.settings': 'Einstellungen', 'nav.discover': 'Entdecken',
     'onboarding.language.title': 'Sprache wählen', 'onboarding.language.subtitle': 'Du kannst dies später in den Einstellungen ändern',
     'onboarding.body.title': 'Dein Körper, dein Stil', 'onboarding.body.subtitle': 'Dein KI-Stylist nutzt deine Maße für Passform-, Proportions- und Stilberatung.',
     'onboarding.body.height': 'Größe', 'onboarding.body.weight': 'Gewicht', 'onboarding.body.weight_optional': '(optional)',
