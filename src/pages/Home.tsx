@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -13,11 +13,9 @@ import { WeatherPill } from '@/components/weather/WeatherPill';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 import { TodayOutfitCard } from '@/components/home/TodayOutfitCard';
+import { QuickActionsGrid } from '@/components/home/QuickActionsGrid';
+import { RecentGarments } from '@/components/home/RecentGarments';
 import { SwipeSuggestions } from '@/components/home/SwipeSuggestions';
-import { AdjustDaySection } from '@/components/home/AdjustDaySection';
-import { SmartInsightCard } from '@/components/home/SmartInsightCard';
-import { InsightsBanner } from '@/components/home/InsightsBanner';
-import { PlanTomorrowCard } from '@/components/home/PlanTomorrowCard';
 
 export default function HomePage() {
   const { t } = useLanguage();
@@ -30,17 +28,13 @@ export default function HomePage() {
   const [occasion, setOccasion] = useState<string>(
     () => localStorage.getItem('burs_last_occasion') || 'vardag'
   );
-  const [style, setStyle] = useState<string | null>(
-    () => localStorage.getItem('burs_last_style') || null
-  );
 
-  // Force re-key the outfit card on "Update outfit"
   const [outfitKey, setOutfitKey] = useState(0);
 
   const handleRefresh = useCallback(async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['garments-count'] }),
-      queryClient.invalidateQueries({ queryKey: ['insights'] }),
+      queryClient.invalidateQueries({ queryKey: ['garments'] }),
       queryClient.invalidateQueries({ queryKey: ['weather'] }),
       queryClient.invalidateQueries({ queryKey: ['outfits'] }),
     ]);
@@ -58,21 +52,6 @@ export default function HomePage() {
   const handleOccasionChange = (id: string) => {
     setOccasion(id);
     localStorage.setItem('burs_last_occasion', id);
-  };
-
-  const handleStyleChange = (id: string | null) => {
-    setStyle(id);
-    if (id) localStorage.setItem('burs_last_style', id);
-    else localStorage.removeItem('burs_last_style');
-  };
-
-  const handleUpdateOutfit = () => {
-    setOutfitKey((k) => k + 1);
-  };
-
-  const handleUseUnused = () => {
-    // Generate with 'vardag' occasion – the edge function will prioritize unused items
-    setOccasion('vardag');
     setOutfitKey((k) => k + 1);
   };
 
@@ -85,13 +64,13 @@ export default function HomePage() {
   return (
     <AppLayout>
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="px-4 pb-8 pt-6 space-y-6 max-w-lg mx-auto">
+        <AnimatedPage className="px-4 pb-8 pt-6 space-y-8 max-w-lg mx-auto">
           {/* ── Header ── */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
-            className="flex items-center justify-between overflow-visible"
+            className="flex items-center justify-between"
           >
             <h1 className="text-lg font-semibold tracking-tight" style={{ fontFamily: "'Sora', sans-serif" }}>
               {getGreeting()}
@@ -108,40 +87,28 @@ export default function HomePage() {
             </div>
           </motion.div>
 
-          {/* ── Primary Outfit Card ── */}
+          {/* ── Today's Outfit Hero ── */}
           {hasEnoughGarments ? (
             <TodayOutfitCard
               key={outfitKey}
               weather={weatherData}
               occasion={occasion}
-              style={style}
+              onOccasionChange={handleOccasionChange}
             />
           ) : (
-            <div className="rounded-2xl bg-foreground/[0.02] border border-border/30 p-6 text-center space-y-2">
+            <div className="rounded-2xl bg-card border border-border/20 p-8 text-center space-y-2">
               <p className="text-sm text-muted-foreground">{t('home.min_garments')}</p>
             </div>
           )}
 
-          {/* ── Swipe Suggestions ── */}
+          {/* ── Quick Actions ── */}
+          <QuickActionsGrid />
+
+          {/* ── Recent Garments ── */}
+          <RecentGarments />
+
+          {/* ── Saved Outfits ── */}
           <SwipeSuggestions />
-
-          {/* ── Plan Tomorrow ── */}
-          <PlanTomorrowCard />
-
-          {/* ── Insights Banner ── */}
-          <InsightsBanner />
-
-          {/* ── Adjust Your Day (collapsed) ── */}
-          <AdjustDaySection
-            occasion={occasion}
-            style={style}
-            onOccasionChange={handleOccasionChange}
-            onStyleChange={handleStyleChange}
-            onUpdate={handleUpdateOutfit}
-          />
-
-          {/* ── Smart Insight ── */}
-          <SmartInsightCard onUseUnused={handleUseUnused} />
         </AnimatedPage>
       </PullToRefresh>
     </AppLayout>
