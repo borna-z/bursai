@@ -6116,6 +6116,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.edit': 'تعديل', 'common.close': 'إغلاق', 'common.back': 'رجوع', 'common.next': 'التالي',
     'common.done': 'تم', 'common.search': 'بحث', 'common.something_wrong': 'حدث خطأ', 'common.premium': 'بريميوم', 'common.or': 'أو',
     'trial.then_prefix': 'ثم', 'pricing.save': 'وفّر', 'pricing.per_month': '/شهر', 'pricing.per_year': '/سنة',
+    'landing.showcase_wardrobe_title': 'خزانة ملابسك بالكامل، منظّمة', 'landing.showcase_wardrobe_desc': 'فئات ذكية وفلاتر — اعثر على كل شيء فورًا.',
+    'landing.showcase_home_title': 'إطلالتك اليومية، جاهزة للارتداء', 'landing.showcase_home_desc': 'الذكاء الاصطناعي يختار لك حسب الطقس والأسلوب.',
+    'landing.showcase_planner_title': 'خطط لأسبوعك بسهولة', 'landing.showcase_planner_desc': 'اقتراحات حسب الطقس، يومًا بيوم.',
     'landing.free_price': '0 د.إ', 'landing.premium_price': '0 د.إ', 'landing.premium_then': 'ثم 19 د.إ/شهر · أو 169 د.إ/سنة — وفّر ~30%',
   },
 
