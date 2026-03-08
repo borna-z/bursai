@@ -5,7 +5,7 @@ export function FinalCTASection() {
   const navigate = useNavigate();
 
   return (
-    <section className="relative py-36 md:py-48 px-6 overflow-hidden">
+    <section className="relative py-40 md:py-52 px-6 overflow-hidden">
       {/* Dual radial bloom */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
         <div className="absolute top-1/2 left-[45%] -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(30,208,231,0.1) 0%, transparent 60%)' }} />
