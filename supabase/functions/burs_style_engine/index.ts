@@ -1663,6 +1663,8 @@ serve(async (req) => {
     const comfortProfile = wearLogs.length >= 5
       ? buildComfortStyleProfile(wearLogs, garments, feedbackSignals)
       : null;
+    // Build social context map for recurring event awareness
+    const socialMap = wearLogs.length > 0 ? buildSocialContextMap(wearLogs) : null;
 
     // Build recent outfit sets for anti-repetition
     const recentOutfitSets: Set<string>[] = [];
