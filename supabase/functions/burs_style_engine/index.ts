@@ -865,7 +865,8 @@ function scoreGarment(
   weather: WeatherInput,
   penalties: Map<string, GarmentPenalty>,
   prefs: Record<string, any> | null,
-  patterns: WearPatternProfile | null = null
+  patterns: WearPatternProfile | null = null,
+  styleVector: StyleVector | null = null
 ): ScoredGarment {
   const ws = weatherSuitability(garment, weather);
   const fs = formalityScore(garment, occasion);
@@ -873,14 +874,20 @@ function scoreGarment(
   const fb = feedbackScore(garment.id, penalties);
   const sa = styleAlignmentScore(garment, prefs);
   const wp = wearPatternScore(garment, patterns);
+  const sv = styleVectorScore(garment, styleVector);
 
-  // Weighted composite (rebalanced to include pattern score)
-  const score = ws * 0.22 + fs * 0.22 + wr * 0.18 + fb * 0.13 + sa * 0.13 + wp * 0.12;
+  // Weighted composite: 8 factors
+  // Quiz-based style (sa) gets less weight when behavioral vector (sv) has high confidence
+  const vectorConf = styleVector?.confidence || 0;
+  const saWeight = 0.10 * (1 - vectorConf * 0.5); // reduces as vector confidence grows
+  const svWeight = 0.10 + vectorConf * 0.05;       // grows with confidence (0.10 → 0.15)
+
+  const score = ws * 0.20 + fs * 0.20 + wr * 0.16 + fb * 0.12 + sa * saWeight + wp * 0.10 + sv * svWeight + 0.02 * 7;
 
   return {
     garment,
     score,
-    breakdown: { weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp },
+    breakdown: { weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp, vector: sv },
   };
 }
 
