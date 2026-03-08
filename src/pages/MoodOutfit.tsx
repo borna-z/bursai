@@ -29,7 +29,7 @@ export default function MoodOutfitPage() {
   const { t, locale } = useLanguage();
   const { isPremium } = useSubscription();
   const { user } = useAuth();
-  const { data: weather } = useWeather();
+  const { weather } = useWeather();
   const navigate = useNavigate();
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
