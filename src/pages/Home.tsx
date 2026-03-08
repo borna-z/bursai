@@ -18,6 +18,7 @@ import { AdjustDaySection } from '@/components/home/AdjustDaySection';
 import { SmartInsightCard } from '@/components/home/SmartInsightCard';
 import { InsightsBanner } from '@/components/home/InsightsBanner';
 import { PlanTomorrowCard } from '@/components/home/PlanTomorrowCard';
+import { PredictiveStylingBanner } from '@/components/home/PredictiveStylingBanner';
 
 export default function HomePage() {
   const { t } = useLanguage();
@@ -142,6 +143,9 @@ export default function HomePage() {
 
           {/* ── Smart Insight ── */}
           <SmartInsightCard onUseUnused={handleUseUnused} />
+
+          {/* ── Step 25: Predictive Styling ── */}
+          <PredictiveStylingBanner />
         </AnimatedPage>
       </PullToRefresh>
     </AppLayout>

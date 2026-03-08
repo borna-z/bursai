@@ -9,6 +9,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { AISuggestions } from '@/components/insights/AISuggestions';
+import { WardrobeGapSection, SustainabilitySection, StyleEvolutionSection } from '@/components/insights/AdvancedInsights';
 import { ColorBar } from '@/components/insights/MiniBar';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { cn } from '@/lib/utils';
@@ -334,6 +335,15 @@ export default function InsightsPage() {
 
           {/* ─── Color Distribution ─── */}
           <ColorDistribution garments={allGarments} isPremium={isPremium} t={t} />
+
+          {/* ── Step 21: Wardrobe Gap Analysis ── */}
+          <WardrobeGapSection isPremium={isPremium} />
+
+          {/* ── Step 23: Sustainability Score ── */}
+          <SustainabilitySection isPremium={isPremium} />
+
+          {/* ── Step 24: Style Evolution Timeline ── */}
+          <StyleEvolutionSection isPremium={isPremium} />
 
           {/* ─── Subtle premium link ─── */}
           {!isPremium && (

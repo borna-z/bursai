@@ -20,6 +20,7 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useGenerateFlatlay } from '@/hooks/useFlatlay';
 import { useOutfitFeedback, useSubmitPhotoFeedback } from '@/hooks/usePhotoFeedback';
+import { OutfitDNASection, AccessoryPairingSection } from '@/components/outfit/AdvancedOutfitFeatures';
 
 /* ── Swap Sheet ─────────────────────────────────────── */
 
@@ -587,6 +588,12 @@ export default function OutfitDetailPage() {
             />
           ))}
         </div>
+
+        {/* ── Step 19: Outfit DNA Cloning ── */}
+        <OutfitDNASection outfitId={outfit.id} />
+
+        {/* ── Step 20: Smart Accessory Pairing ── */}
+        <AccessoryPairingSection outfitId={outfit.id} />
 
         {/* ── Rating ── */}
         <div className="space-y-3">

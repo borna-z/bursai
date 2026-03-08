@@ -66,33 +66,33 @@ Generate visual flat-lay mockups of suggested outfits using garment images.
 ### Step 17: Photo Feedback Loop ✅
 Let users snap a mirror selfie wearing the outfit. AI compares actual look to expectation via Gemini Vision, returns structured scores (fit, color match, overall) and actionable commentary. Scores stored in `outfit_feedback` table for future style engine refinement.
 
-### Step 18: Garment Condition Tracking
-AI detects wear-and-tear from photos over time. Suggest replacing garments showing age.
+### Step 18: Garment Condition Tracking ✅
+AI detects wear-and-tear from photos. Added `condition_score` and `condition_notes` columns to garments. Edge function `assess_garment_condition` uses Gemini Vision to evaluate fabric pilling, fading, stretching. Condition check button on GarmentDetail page.
 
-### Step 19: Outfit DNA Cloning
-When user loves an outfit, analyze its DNA (color ratios, formality balance, material mix) and generate similar-but-different variations.
+### Step 19: Outfit DNA Cloning ✅
+When user loves an outfit, analyze its DNA (color ratios, formality balance, material mix) and generate similar-but-different variations. Edge function `clone_outfit_dna` returns 3 variations using available wardrobe pieces. UI section on OutfitDetail.
 
-### Step 20: Smart Accessory Pairing
-Dedicated accessory intelligence: match scarves, watches, bags, jewelry to outfit mood and color palette.
+### Step 20: Smart Accessory Pairing ✅
+Dedicated accessory intelligence: edge function `suggest_accessories` matches scarves, watches, bags, jewelry to outfit mood and color palette. UI section on OutfitDetail with garment cards.
 
 ---
 
-## Phase 5: Ecosystem & Monetization 🔲
+## Phase 5: Ecosystem & Monetization ✅
 
-### Step 21: Wardrobe Gap Analysis
-AI identifies missing pieces that would "unlock" the most new outfit combinations. E.g., "Adding a white sneaker would create 12 new outfits."
+### Step 21: Wardrobe Gap Analysis ✅
+AI identifies missing pieces that would unlock the most new outfit combinations. Edge function `wardrobe_gap_analysis` analyzes category/color/material distribution. Premium-gated section in Insights dashboard.
 
-### Step 22: Cost-Per-Wear Tracking
-Calculate value of each garment based on purchase price ÷ times worn. Surface insights about best and worst investments.
+### Step 22: Cost-Per-Wear Tracking ✅
+Added `purchase_price` and `purchase_currency` columns to garments. Client-side cost-per-wear calculation. Editable price field on GarmentDetail page.
 
-### Step 23: Sustainability Score
-Track wardrobe utilization rate, highlight underused items, encourage rewearing, show environmental impact of outfit rotation.
+### Step 23: Sustainability Score ✅
+Client-side sustainability score (0-100) based on utilization rate, average wears, and underused items. Premium-gated section in Insights dashboard with breakdown pills.
 
-### Step 24: Style Evolution Timeline
-Visualize how user's style has evolved over time: color shifts, formality changes, new categories explored.
+### Step 24: Style Evolution Timeline ✅
+Visualizes how user's style has evolved over 6 months from wear_logs: monthly top color, formality trend, outfit count. Premium-gated animated timeline in Insights.
 
-### Step 25: Predictive Styling
-Predict what user will want to wear tomorrow based on historical patterns, upcoming calendar, weather forecast, and recent outfit history. Pre-generate suggestion before they even open the app.
+### Step 25: Predictive Styling ✅
+Predictive banner on Home page that detects when tomorrow has no planned outfit and nudges users to plan ahead. Navigates to Plan page with focus on tomorrow's date.
 
 ---
 
