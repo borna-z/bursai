@@ -1829,6 +1829,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'home.unused_hint': "{count} items haven't been worn in 30 days",
     'home.use_them': 'Use them today',
     'home.suggestions': 'More outfits',
+    'home.see_details': 'See details',
     'auth.tagline': 'Your personal stylist.',
     'auth.or': 'or',
     'auth.login': 'Log in',
