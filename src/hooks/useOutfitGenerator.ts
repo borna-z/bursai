@@ -8,6 +8,7 @@ export interface OutfitRequest {
   occasion: string;
   style?: string | null;
   locale?: string;
+  eventTitle?: string | null;
   weather: {
     temperature?: number;
     precipitation: string;
@@ -69,6 +70,7 @@ async function generateOutfitViaEngine(
       style: request.style,
       weather: request.weather,
       locale: request.locale || 'sv',
+      event_title: request.eventTitle || null,
     },
   });
 

@@ -184,11 +184,13 @@ export function useMarkOutfitWorn() {
     mutationFn: async ({ 
       outfitId, 
       garmentIds,
-      occasion 
+      occasion,
+      eventTitle,
     }: { 
       outfitId: string; 
       garmentIds: string[];
       occasion?: string;
+      eventTitle?: string;
     }): Promise<WornResult> => {
       if (!user) throw new Error('Not authenticated');
       
@@ -230,13 +232,14 @@ export function useMarkOutfitWorn() {
           .eq('id', garmentId);
       }));
       
-      // Batch: upsert all wear logs
+      // Batch: upsert all wear logs (with event_title for social context)
       const wearLogRows = garmentIds.map(garmentId => ({
         user_id: user.id,
         garment_id: garmentId,
         outfit_id: outfitId,
         worn_at: today,
         occasion: occasion || null,
+        event_title: eventTitle || null,
       }));
       
       const { data: wearLogs, error: wearLogError } = await supabase

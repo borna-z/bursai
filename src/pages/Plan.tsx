@@ -131,11 +131,13 @@ export default function PlanPage() {
     temperature: number | undefined;
   }) => {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    const topEventTitle = daySummary?.priorities?.[0]?.title || null;
     try {
       const o = await generateOutfit({
         occasion: request.occasion,
         style: request.style,
         locale,
+        eventTitle: topEventTitle,
         weather: { temperature: request.temperature, precipitation: 'none', wind: 'low' },
       });
       await upsertPlanned.mutateAsync({ date: dateStr, outfitId: o.id });
@@ -149,11 +151,14 @@ export default function PlanPage() {
   const handleMarkWorn = async () => {
     if (!plannedOutfit?.outfit) return;
     const garmentIds = plannedOutfit.outfit.outfit_items.map(item => item.garment_id);
+    // Capture the top calendar event title for social context tracking
+    const topEventTitle = daySummary?.priorities?.[0]?.title || undefined;
     try {
       const result = await markWorn.mutateAsync({
         outfitId: plannedOutfit.outfit.id,
         garmentIds,
         occasion: plannedOutfit.outfit.occasion,
+        eventTitle: topEventTitle,
       });
       await updateStatus.mutateAsync({ id: plannedOutfit.id, status: 'worn' });
       toast.success(t('plan.worn'), {
