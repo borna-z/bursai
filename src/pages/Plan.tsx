@@ -268,6 +268,9 @@ export default function PlanPage() {
         {/* Calendar connect nudge */}
         <CalendarConnectBanner />
 
+        {/* Laundry alert */}
+        <LaundryAlertBanner />
+
         {/* Week navigation */}
         <div className="py-2">
           <WeekStrip 
