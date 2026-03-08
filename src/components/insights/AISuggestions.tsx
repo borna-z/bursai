@@ -287,24 +287,26 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
             <p className="text-sm text-muted-foreground">{t('insights.add_more_garments')}</p>
           </div>
         ) : (
-          <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-6 px-6 pb-1">
-            {suggestions.map((suggestion, index) => (
-              <SuggestionCard 
-                key={index}
-                suggestion={suggestion}
-                onTryIt={() => handleTryIt(suggestion, index)}
-                onPlan={() => handlePlan(suggestion)}
-                isCreating={creatingOutfitId === index}
-              />
-            ))}
-          </div>
-          {suggestions.length > 1 && (
-            <div className="flex justify-center gap-1.5 pt-2">
-              {suggestions.map((_, i) => (
-                <div key={i} className="w-1.5 h-1.5 rounded-full bg-muted-foreground/20" />
+          <>
+            <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-6 px-6 pb-1">
+              {suggestions.map((suggestion, index) => (
+                <SuggestionCard 
+                  key={index}
+                  suggestion={suggestion}
+                  onTryIt={() => handleTryIt(suggestion, index)}
+                  onPlan={() => handlePlan(suggestion)}
+                  isCreating={creatingOutfitId === index}
+                />
               ))}
             </div>
-          )}
+            {suggestions.length > 1 && (
+              <div className="flex justify-center gap-1.5 pt-2">
+                {suggestions.map((_, i) => (
+                  <div key={i} className="w-1.5 h-1.5 rounded-full bg-muted-foreground/20" />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
