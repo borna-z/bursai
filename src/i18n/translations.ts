@@ -592,6 +592,13 @@ export const translations: Record<Locale, Record<string, string>> = {
     'insights.more': 'fler',
     'insights.show_all': 'Visa alla',
     'insights.unused_60d': 'plagg ej använda 60+ dagar',
+    'insights.wardrobe_usage': 'Garderobutnyttjande',
+    'insights.used_label': 'använda',
+    'insights.unused_label': 'oanvända',
+    'wardrobe.import_link': 'Importera via länk',
+    'wardrobe.live_scan': 'BURS Live Scan',
+    'settings.row.insights': 'Garderobsinsikter',
+    'settings.row.insights_sub': 'Statistik & analys',
 
     // Plan
     'plan.today': 'Idag',
