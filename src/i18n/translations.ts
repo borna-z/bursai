@@ -5050,6 +5050,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'scan.camera_error': 'Não foi possível abrir a câmara. Verifique as permissões.',
     'scan.move_closer': 'Aproxime-se', 'scan.move_back': 'Afaste-se', 'scan.more_light': 'Melhor iluminação necessária', 'scan.ready': 'Mantenha parado para digitalizar…',
     'landing.free_price': '€0', 'landing.premium_price': '€0', 'landing.premium_then': 'Depois €4,99/mês · ou €44,99/ano — poupe ~30%',
+    'insights.wardrobe_usage': 'Uso do guarda-roupa', 'insights.used_label': 'usadas', 'insights.unused_label': 'não usadas',
+    'wardrobe.import_link': 'Importar via link', 'wardrobe.live_scan': 'BURS Live Scan',
+    'settings.row.insights': 'Visão do guarda-roupa', 'settings.row.insights_sub': 'Estatísticas e análise',
   },
 
   nl: {
