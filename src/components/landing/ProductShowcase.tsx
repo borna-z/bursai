@@ -41,19 +41,18 @@ export function ProductShowcase() {
         </h2>
 
         {/* Phone trio + labels */}
-        <div className="flex justify-center items-end gap-4 md:gap-8 mb-6">
+        <div className="flex justify-center items-end gap-2 sm:gap-4 md:gap-8 mb-6">
           {SCREENS.map((screen, i) => {
             const isCenter = i === 1;
             const rotation = i === 0 ? '-rotate-3' : i === 2 ? 'rotate-3' : '';
             const size = isCenter ? 'phone-mockup phone-mockup-lg' : 'phone-mockup phone-mockup-sm';
             const opacity = isCenter ? '' : 'opacity-70';
             const translate = isCenter ? '' : 'translate-y-4';
-            const hide = isCenter ? '' : 'hidden sm:block';
 
             return (
               <div
                 key={i}
-                className={`${size} ${rotation} ${opacity} ${translate} ${hide} ${isCenter ? 'relative z-10' : ''} reveal-up`}
+                className={`${size} ${rotation} ${opacity} ${translate} ${isCenter ? 'relative z-10' : ''} reveal-up`}
                 style={{ '--reveal-delay': `${i * 120 + 200}ms` } as React.CSSProperties}
               >
                 <img
