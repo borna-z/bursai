@@ -44,6 +44,9 @@ const PrivacyPolicy = lazy(() => import('@/pages/marketing/PrivacyPolicy'));
 const Terms = lazy(() => import('@/pages/marketing/Terms'));
 const Contact = lazy(() => import('@/pages/marketing/Contact'));
 const Admin = lazy(() => import('@/pages/marketing/Admin'));
+const PublicProfile = lazy(() => import('@/pages/PublicProfile'));
+const InspirationFeed = lazy(() => import('@/pages/InspirationFeed'));
+const StyleChallenges = lazy(() => import('@/pages/StyleChallenges'));
 
 const routeTransition = {
   type: 'tween' as const,
