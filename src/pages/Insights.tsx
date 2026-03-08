@@ -283,7 +283,8 @@ export default function InsightsPage() {
           </div>
         </div>
 
-        <div className="space-y-10">
+        <div className="space-y-10" style={{ '--stagger-base': '0.08s' } as React.CSSProperties}>
+          {/* Sections get staggered entrance via drape-in */}
           {/* ─── Top worn ─── */}
           {insights.topFiveWorn.length > 0 && (
             <Section>
