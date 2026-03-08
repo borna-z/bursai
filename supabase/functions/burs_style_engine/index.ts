@@ -281,7 +281,7 @@ function wearRotationScore(garment: GarmentRow): number {
 }
 
 // ─────────────────────────────────────────────
-// FEEDBACK LEARNING
+// FEEDBACK LEARNING v2 (Exponential Decay)
 // ─────────────────────────────────────────────
 
 interface FeedbackSignal {
@@ -289,34 +289,83 @@ interface FeedbackSignal {
   rating: number | null;
   feedback: string[] | null;
   weather: WeatherInput | null;
+  generatedAt?: string | null;
 }
 
-function buildFeedbackPenalties(feedbackHistory: FeedbackSignal[]): Map<string, number> {
-  const penalties = new Map<string, number>();
+// Exponential decay: half-life of 14 days
+const FEEDBACK_HALF_LIFE_DAYS = 14;
+
+function decayWeight(generatedAt: string | null | undefined): number {
+  if (!generatedAt) return 0.5; // unknown age → half weight
+  const daysSince = Math.max(0, (Date.now() - new Date(generatedAt).getTime()) / 86400000);
+  return Math.pow(0.5, daysSince / FEEDBACK_HALF_LIFE_DAYS);
+}
+
+// Context-aware tags: map feedback to specific conditions
+const CONTEXTUAL_TAGS: Record<string, string> = {
+  "too_warm": "weather", "för varm": "weather",
+  "too_cold": "weather", "för kall": "weather",
+  "too_formal": "formality", "för formell": "formality",
+  "too_casual": "formality", "för casual": "formality",
+  "uncomfortable": "fit", "obekväm": "fit",
+  "bad_color": "color", "dålig färg": "color",
+  "boring": "style", "tråkig": "style",
+  "loved_it": "positive", "älskade den": "positive",
+};
+
+interface GarmentPenalty {
+  total: number;
+  weatherPenalty: number;
+  formalityPenalty: number;
+  fitPenalty: number;
+  positiveBoost: number;
+}
+
+function buildFeedbackPenalties(feedbackHistory: FeedbackSignal[]): Map<string, GarmentPenalty> {
+  const penalties = new Map<string, GarmentPenalty>();
+
+  const getOrInit = (id: string): GarmentPenalty => {
+    if (!penalties.has(id)) {
+      penalties.set(id, { total: 0, weatherPenalty: 0, formalityPenalty: 0, fitPenalty: 0, positiveBoost: 0 });
+    }
+    return penalties.get(id)!;
+  };
+
   for (const signal of feedbackHistory) {
     if (!signal.rating && !signal.feedback?.length) continue;
 
+    const weight = decayWeight(signal.generatedAt);
     const isNegative = (signal.rating && signal.rating <= 2) || false;
+    const isPositive = (signal.rating && signal.rating >= 4) || false;
     const feedbackTags = signal.feedback || [];
 
     for (const gId of signal.garmentIds) {
-      let penalty = 0;
-      if (isNegative) penalty += 2;
-      if (feedbackTags.includes("too_warm") || feedbackTags.includes("för varm")) penalty += 1;
-      if (feedbackTags.includes("too_formal") || feedbackTags.includes("för formell")) penalty += 1;
-      if (feedbackTags.includes("too_casual") || feedbackTags.includes("för casual")) penalty += 1;
-      if (feedbackTags.includes("uncomfortable") || feedbackTags.includes("obekväm")) penalty += 1;
-      if (penalty > 0) {
-        penalties.set(gId, (penalties.get(gId) || 0) + penalty);
+      const p = getOrInit(gId);
+
+      if (isNegative) p.total += 2 * weight;
+      if (isPositive) p.positiveBoost += 1.5 * weight;
+
+      for (const tag of feedbackTags) {
+        const ctx = CONTEXTUAL_TAGS[tag];
+        const tagWeight = weight * 1;
+        if (ctx === "weather") p.weatherPenalty += tagWeight;
+        else if (ctx === "formality") p.formalityPenalty += tagWeight;
+        else if (ctx === "fit") p.fitPenalty += tagWeight;
+        else if (ctx === "positive") p.positiveBoost += tagWeight;
+        else if (ctx) p.total += tagWeight;
       }
+
+      p.total += p.weatherPenalty + p.formalityPenalty + p.fitPenalty;
     }
   }
   return penalties;
 }
 
-function feedbackScore(garmentId: string, penalties: Map<string, number>): number {
-  const p = penalties.get(garmentId) || 0;
-  return Math.max(0, 10 - p * 2);
+function feedbackScore(garmentId: string, penalties: Map<string, GarmentPenalty>): number {
+  const p = penalties.get(garmentId);
+  if (!p) return 8; // no data = slight optimism
+  const net = p.positiveBoost - p.total;
+  return Math.max(0, Math.min(10, 8 + net));
 }
 
 // ─────────────────────────────────────────────
