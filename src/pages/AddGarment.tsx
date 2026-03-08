@@ -21,6 +21,8 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { LinkImportForm } from '@/components/LinkImportForm';
 import { BatchUploadProgress } from '@/components/wardrobe/BatchUploadProgress';
+import { DuplicateWarningSheet } from '@/components/wardrobe/DuplicateWarningSheet';
+import { useDuplicateDetection } from '@/hooks/useDuplicateDetection';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
