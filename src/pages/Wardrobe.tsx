@@ -27,9 +27,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { WardrobeOutfitsTab } from '@/components/wardrobe/WardrobeOutfitsTab';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { AnimatedTab } from '@/components/ui/animated-tab';
-import { SmartGroupings } from '@/components/wardrobe/SmartGroupings';
 import { FilterSheet } from '@/components/wardrobe/FilterSheet';
-import { SectionHeader } from '@/components/ui/section-header';
+import { Chip } from '@/components/ui/chip';
 
 // ── Garment Card ──
 
@@ -382,6 +381,7 @@ export default function WardrobePage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sortBy, setSortBy] = useState<'created_at' | 'last_worn_at' | 'wear_count'>('created_at');
   const [showLaundry, setShowLaundry] = useState(false);
+  const [smartFilter, setSmartFilter] = useState<'rarely_worn' | 'most_worn' | 'new' | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
@@ -403,9 +403,33 @@ export default function WardrobePage() {
   const { canAddGarment, isPremium } = useSubscription();
   const { data: totalCount } = useGarmentCount();
 
-  const displayGarments = useMemo(() => {
+  const allGarments = useMemo(() => {
     return infiniteData?.pages.flatMap(p => p.items) ?? [];
   }, [infiniteData]);
+
+  // Apply smart filter on top of query results
+  const displayGarments = useMemo(() => {
+    if (!smartFilter) return allGarments;
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const cutoff = thirtyDaysAgo.toISOString();
+
+    switch (smartFilter) {
+      case 'rarely_worn':
+        return allGarments
+          .filter(g => !g.last_worn_at || g.last_worn_at < cutoff)
+          .sort((a, b) => (a.wear_count || 0) - (b.wear_count || 0));
+      case 'most_worn':
+        return [...allGarments]
+          .filter(g => (g.wear_count || 0) > 0)
+          .sort((a, b) => (b.wear_count || 0) - (a.wear_count || 0));
+      case 'new':
+        return [...allGarments]
+          .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+      default:
+        return allGarments;
+    }
+  }, [allGarments, smartFilter]);
 
   const categories = [
     { id: 'all', label: t('wardrobe.all') },
@@ -448,7 +472,7 @@ export default function WardrobePage() {
 
   const isOverLimit = !isPremium && (displayGarments?.length || 0) >= PLAN_LIMITS.free.maxGarments;
 
-  const hasActiveFilters = selectedCategory !== 'all' || selectedColor || selectedSeason || sortBy !== 'created_at' || showLaundry;
+  const hasActiveFilters = selectedCategory !== 'all' || selectedColor || selectedSeason || sortBy !== 'created_at' || showLaundry || !!smartFilter;
   const activeFilterCount = [selectedCategory !== 'all', !!selectedColor, !!selectedSeason, sortBy !== 'created_at', showLaundry].filter(Boolean).length;
 
   const clearFilters = () => {
@@ -457,6 +481,7 @@ export default function WardrobePage() {
     setSelectedSeason(null);
     setSortBy('created_at');
     setShowLaundry(false);
+    setSmartFilter(null);
   };
 
   const handleRefresh = useCallback(async () => {
@@ -547,14 +572,25 @@ export default function WardrobePage() {
                   </button>
                 </div>
 
-                {/* Smart groupings — only when no search/filters active */}
-                {!search && !hasActiveFilters && displayGarments.length > 5 && (
-                  <SmartGroupings garments={displayGarments} />
-                )}
-
-                {/* All garments section header */}
-                {!search && !hasActiveFilters && displayGarments.length > 5 && (
-                  <SectionHeader title={t('wardrobe.all_garments')} />
+                {/* Smart filter chips */}
+                {allGarments.length > 5 && (
+                  <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-1">
+                    {([
+                      { key: 'rarely_worn' as const, label: t('wardrobe.rarely_worn') },
+                      { key: 'most_worn' as const, label: t('wardrobe.most_worn') },
+                      { key: 'new' as const, label: t('wardrobe.recently_added') },
+                    ]).map((chip) => (
+                      <Chip
+                        key={chip.key}
+                        size="lg"
+                        selected={smartFilter === chip.key}
+                        onClick={() => setSmartFilter(smartFilter === chip.key ? null : chip.key)}
+                        className="whitespace-nowrap flex-shrink-0"
+                      >
+                        {chip.label}
+                      </Chip>
+                    ))}
+                  </div>
                 )}
 
                 {/* Bulk select bar */}
