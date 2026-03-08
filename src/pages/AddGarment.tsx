@@ -255,6 +255,20 @@ export default function AddGarmentPage() {
       toast.success(t('addgarment.ai_success'), {
         description: t('addgarment.ai_review'),
       });
+
+      // Run duplicate detection in background (non-blocking)
+      checkDuplicates({
+        image_path: path,
+        category: analysisData.category,
+        color_primary: analysisData.color_primary,
+        title: analysisData.title,
+        subcategory: analysisData.subcategory,
+        material: analysisData.material || undefined,
+      }).then((matches) => {
+        if (matches.length > 0) {
+          setShowDuplicateSheet(true);
+        }
+      });
     }
     
     setStep('form');
