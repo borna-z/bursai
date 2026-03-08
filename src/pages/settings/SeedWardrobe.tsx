@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Trash2, ImagePlus, Loader2, CheckCircle, AlertCircle, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Trash2, Loader2, CheckCircle, AlertCircle, RotateCcw, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -10,7 +10,8 @@ import { AnimatedPage } from '@/components/ui/animated-page';
 import { toast } from 'sonner';
 import { SEED_GARMENTS } from '@/data/seedGarments';
 
-const BATCH_SIZE = 4;
+const BATCH_SIZE = 1;
+const DELAY_MS = 5000;
 
 type StepStatus = 'idle' | 'deleting' | 'generating' | 'done' | 'error';
 
@@ -18,6 +19,12 @@ interface ItemResult {
   title: string;
   success: boolean;
   error?: string;
+}
+
+function formatTimeRemaining(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return m > 0 ? `~${m}m ${s}s remaining` : `~${s}s remaining`;
 }
 
 export default function SeedWardrobe() {
@@ -28,9 +35,19 @@ export default function SeedWardrobe() {
   const [completed, setCompleted] = useState(0);
   const [failed, setFailed] = useState(0);
   const [totalToProcess, setTotalToProcess] = useState(0);
+  const [startTime, setStartTime] = useState<number>(0);
+  const [currentItem, setCurrentItem] = useState('');
   const cancelRef = useRef(false);
 
   const progress = totalToProcess > 0 ? Math.round(((completed + failed) / totalToProcess) * 100) : 0;
+
+  const getTimeRemaining = () => {
+    if (completed + failed === 0 || startTime === 0) return '';
+    const elapsed = (Date.now() - startTime) / 1000;
+    const rate = (completed + failed) / elapsed;
+    const remaining = (totalToProcess - completed - failed) / rate;
+    return formatTimeRemaining(remaining);
+  };
 
   const run = useCallback(async () => {
     if (!user) return;
@@ -39,6 +56,7 @@ export default function SeedWardrobe() {
     setCompleted(0);
     setFailed(0);
     setTotalToProcess(SEED_GARMENTS.length);
+    setStartTime(Date.now());
 
     // Step 1: Delete all existing
     setStep('deleting');
@@ -54,7 +72,7 @@ export default function SeedWardrobe() {
       return;
     }
 
-    // Step 2: Create new garments in batches
+    // Step 2: Create garments one at a time
     setStep('generating');
     let doneCount = 0;
     let failCount = 0;
@@ -63,10 +81,11 @@ export default function SeedWardrobe() {
       if (cancelRef.current) break;
 
       const batch = SEED_GARMENTS.slice(i, i + BATCH_SIZE);
-      
+      setCurrentItem(batch[0]?.title || '');
+
       try {
         const { data, error } = await supabase.functions.invoke('seed_wardrobe', {
-          body: { action: 'create_batch', garments: batch },
+          body: { action: 'create_batch', garments: batch, garment_index: i },
         });
 
         if (error) throw error;
@@ -79,10 +98,10 @@ export default function SeedWardrobe() {
           else failCount++;
         }
       } catch (err) {
-        const errorResults = batch.map(g => ({ 
-          title: g.title, 
-          success: false, 
-          error: err instanceof Error ? err.message : 'Batch failed' 
+        const errorResults = batch.map(g => ({
+          title: g.title,
+          success: false,
+          error: err instanceof Error ? err.message : 'Batch failed',
         }));
         setResults(prev => [...prev, ...errorResults]);
         failCount += batch.length;
@@ -91,13 +110,14 @@ export default function SeedWardrobe() {
       setCompleted(doneCount);
       setFailed(failCount);
 
-      // Delay between batches
+      // Delay between items to avoid rate limiting
       if (i + BATCH_SIZE < SEED_GARMENTS.length && !cancelRef.current) {
-        await new Promise(r => setTimeout(r, 3000));
+        await new Promise(r => setTimeout(r, DELAY_MS));
       }
     }
 
     setStep('done');
+    setCurrentItem('');
     toast.success(`Created ${doneCount} garments (${failCount} failed)`);
   }, [user]);
 
@@ -113,17 +133,19 @@ export default function SeedWardrobe() {
     cancelRef.current = false;
     setStep('generating');
     setTotalToProcess(failedDefs.length);
-    setResults(prev => prev.filter(r => r.success)); // keep only successes
+    setResults(prev => prev.filter(r => r.success));
+    setStartTime(Date.now());
     let doneCount = completed;
     let failCount = 0;
 
     for (let i = 0; i < failedDefs.length; i += BATCH_SIZE) {
       if (cancelRef.current) break;
       const batch = failedDefs.slice(i, i + BATCH_SIZE);
+      setCurrentItem(batch[0]?.title || '');
 
       try {
         const { data, error } = await supabase.functions.invoke('seed_wardrobe', {
-          body: { action: 'create_batch', garments: batch },
+          body: { action: 'create_batch', garments: batch, garment_index: 1000 + i },
         });
         if (error) throw error;
 
@@ -147,11 +169,12 @@ export default function SeedWardrobe() {
       setFailed(failCount);
 
       if (i + BATCH_SIZE < failedDefs.length) {
-        await new Promise(r => setTimeout(r, 3000));
+        await new Promise(r => setTimeout(r, DELAY_MS));
       }
     }
 
     setStep('done');
+    setCurrentItem('');
   }, [user, results, completed]);
 
   const isRunning = step === 'deleting' || step === 'generating';
@@ -167,9 +190,9 @@ export default function SeedWardrobe() {
         </div>
 
         <p className="text-sm text-muted-foreground">
-          This will <strong>delete all existing garments</strong> and create 200 unique new ones 
-          with AI-generated product photos. Each garment has unique attributes and its own image.
-          This takes ~20-30 minutes.
+          This will <strong>delete all existing garments</strong> and create {SEED_GARMENTS.length} unique ones
+          with AI-generated product photos. Each garment gets a unique image prompt.
+          Estimated time: ~17 minutes.
         </p>
 
         {/* Stats */}
@@ -193,10 +216,20 @@ export default function SeedWardrobe() {
           <div className="space-y-2">
             <Progress value={step === 'deleting' ? undefined : progress} className="h-2" />
             <p className="text-xs text-muted-foreground text-center">
-              {step === 'deleting' 
-                ? 'Deleting old garments...' 
+              {step === 'deleting'
+                ? 'Deleting old garments...'
                 : `Generating... ${completed + failed} of ${totalToProcess}`}
             </p>
+            {step === 'generating' && currentItem && (
+              <p className="text-xs text-muted-foreground text-center truncate">
+                Current: {currentItem}
+              </p>
+            )}
+            {step === 'generating' && completed + failed > 0 && (
+              <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1">
+                <Clock className="w-3 h-3" /> {getTimeRemaining()}
+              </p>
+            )}
           </div>
         )}
 
@@ -214,7 +247,7 @@ export default function SeedWardrobe() {
             {isRunning ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> {step === 'deleting' ? 'Deleting...' : 'Generating...'}</>
             ) : (
-              <><Trash2 className="w-4 h-4" /> Delete All & Create 200</>
+              <><Trash2 className="w-4 h-4" /> Delete All & Create {SEED_GARMENTS.length}</>
             )}
           </Button>
 
