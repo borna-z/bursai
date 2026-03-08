@@ -18,7 +18,7 @@ export function LazyImage({
   fallbackIcon,
   aspectRatio = 'square'
 }: LazyImageProps) {
-  const { signedUrl, isLoading, hasError, setRef } = useCachedSignedUrl(imagePath);
+  const { signedUrl, placeholderUrl, isLoading, hasError, setRef } = useCachedSignedUrl(imagePath);
   const [imageLoaded, setImageLoaded] = React.useState(false);
 
   const aspectClasses = {
@@ -37,8 +37,18 @@ export function LazyImage({
         className
       )}
     >
-      {/* Blurred placeholder / skeleton */}
-      {(isLoading || !imageLoaded) && !hasError && (
+      {/* Blur-up placeholder thumbnail */}
+      {placeholderUrl && !imageLoaded && !hasError && (
+        <img
+          src={placeholderUrl}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-60"
+        />
+      )}
+
+      {/* Skeleton when no placeholder yet */}
+      {isLoading && !placeholderUrl && !hasError && (
         <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted via-muted/80 to-muted" />
       )}
       
@@ -78,13 +88,23 @@ export function LazyImageSimple({
   fallbackIcon,
   ...props
 }: LazyImageSimpleProps) {
-  const { signedUrl, isLoading, hasError, setRef } = useCachedSignedUrl(imagePath);
+  const { signedUrl, placeholderUrl, isLoading, hasError, setRef } = useCachedSignedUrl(imagePath);
   const [imageLoaded, setImageLoaded] = React.useState(false);
 
   return (
     <div ref={setRef} className={cn("relative overflow-hidden bg-muted", className)}>
+      {/* Blur-up placeholder */}
+      {placeholderUrl && !imageLoaded && !hasError && (
+        <img
+          src={placeholderUrl}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-60"
+        />
+      )}
+
       {/* Loading skeleton */}
-      {isLoading && (
+      {isLoading && !placeholderUrl && (
         <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted via-muted/80 to-muted" />
       )}
       
