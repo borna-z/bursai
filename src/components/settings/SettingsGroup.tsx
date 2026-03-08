@@ -9,13 +9,13 @@ interface SettingsGroupProps {
 
 export function SettingsGroup({ title, children, className }: SettingsGroupProps) {
   return (
-    <div className={cn('mb-6', className)}>
+    <div className={cn('space-y-0', className)}>
       {title && (
-        <h3 className="text-[11px] font-medium text-muted-foreground/70 tracking-wide px-4 mb-1.5">
+        <p className="text-[11px] font-medium text-muted-foreground/50 uppercase tracking-widest px-1 mb-3">
           {title}
-        </h3>
+        </p>
       )}
-      <div>
+      <div className="rounded-2xl bg-card/50 overflow-hidden">
         {children}
       </div>
     </div>
