@@ -221,6 +221,14 @@ export default function PlanPage() {
 
   const hasGarments = garments.length > 0;
 
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['planned-outfits'] }),
+      queryClient.invalidateQueries({ queryKey: ['garments'] }),
+      queryClient.invalidateQueries({ queryKey: ['day-summary'] }),
+    ]);
+  }, [queryClient]);
+
   return (
     <AppLayout>
       {/* ─── Sticky header ─── */}
