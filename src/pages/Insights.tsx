@@ -230,9 +230,7 @@ export default function InsightsPage() {
     return (
       <AppLayout>
         <PageHeader title={t('insights.title')} showBack />
-        <div className="flex items-center justify-center py-32">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground/50" />
-        </div>
+        <InsightsPageSkeleton />
       </AppLayout>
     );
   }

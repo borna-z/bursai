@@ -327,9 +327,7 @@ export default function AIChat() {
 
         {/* Messages or Welcome */}
         {isLoading ? (
-          <div className="flex-1 flex items-center justify-center">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-          </div>
+          <ChatPageSkeleton />
         ) : isWelcomeState ? (
           <ChatWelcome mode={mode} onSuggestion={sendMessage} garmentCount={garmentCount ?? undefined} />
         ) : (
