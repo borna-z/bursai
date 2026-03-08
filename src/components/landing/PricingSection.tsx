@@ -76,11 +76,12 @@ export function PricingSection() {
           } as React.CSSProperties}
         >
           {/* Hero Trial Banner */}
-          <div className="w-full py-3 px-6 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500/15 via-amber-400/10 to-amber-500/15 border-b border-amber-400/20">
-            <Sparkles size={14} className="text-amber-400" />
-            <span className="text-sm font-semibold tracking-wide text-amber-400">
+          <div className="w-full py-4 px-6 flex items-center justify-center gap-3 bg-gradient-to-r from-amber-500/20 via-amber-400/15 to-amber-500/20 border-b border-amber-400/25">
+            <Sparkles size={16} className="text-amber-400 animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]" />
+            <span className="text-base md:text-lg font-bold tracking-wide text-amber-400">
               {t('trial.first_free')}
             </span>
+            <Sparkles size={16} className="text-amber-400 animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]" />
           </div>
 
           <div className="p-8 md:p-10">
