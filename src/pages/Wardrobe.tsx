@@ -365,9 +365,11 @@ function AddFAB({ onPhoto, onScan, isOverLimit }: { onPhoto: () => void; onScan:
 
 export default function WardrobePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useLanguage();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'garments' | 'outfits'>('garments');
+  const locationState = location.state as { tab?: string } | null;
+  const [activeTab, setActiveTab] = useState<'garments' | 'outfits'>(locationState?.tab === 'outfits' ? 'outfits' : 'garments');
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
