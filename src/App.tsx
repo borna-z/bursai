@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { LocationProvider } from "@/contexts/LocationContext";
+import { SeedProvider } from "@/contexts/SeedContext";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import { AnimatedRoutes } from "@/components/layout/AnimatedRoutes";
 import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
@@ -31,6 +32,7 @@ const App = () => (
           <AuthProvider>
             <LanguageProvider>
               <LocationProvider>
+              <SeedProvider>
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
@@ -39,6 +41,7 @@ const App = () => (
                   <AnimatedRoutes />
                 </BrowserRouter>
               </TooltipProvider>
+              </SeedProvider>
               </LocationProvider>
             </LanguageProvider>
           </AuthProvider>
