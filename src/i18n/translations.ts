@@ -261,6 +261,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     'insights.used_30d_suffix': 'använda senaste 30 dagarna',
     'home.create_outfit': 'Skapa outfit',
     'home.min_garments': 'Lägg till minst 3 plagg för att generera outfits',
+    'home.predictive_title': 'Imorgon ser bra ut',
+    'home.predictive_desc': 'Planera morgondagens outfit nu — AI:n förbereder sig',
     'home.latest_outfit': 'Senaste outfit',
     'home.get_started': 'Kom igång',
     'home.your_wardrobe': 'Din garderob',
