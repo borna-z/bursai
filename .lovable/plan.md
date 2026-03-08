@@ -47,8 +47,8 @@ For days with multiple calendar events (e.g., work meeting → gym → dinner), 
 ### Step 12: Travel Capsule Generation ✅
 Given a trip duration + destination weather, the `travel_capsule` edge function selects the minimum garments from the user's wardrobe that maximize outfit combinations. A dedicated `/plan/travel-capsule` page lets users input destination, duration, and occasions. Results show a visual packing grid, day-by-day outfit plan with expandable details, and AI packing tips. Accessible via luggage icon in Plan header.
 
-### Step 13: Social Context Awareness
-Track what was worn to events with recurring attendees (weekly team meetings, friend dinners). Avoid repeating outfits in front of the same people.
+### Step 13: Social Context Awareness ✅
+Track what was worn to events with recurring attendees. Added `event_title` column to `wear_logs`. When marking an outfit as worn, the top calendar event title is stored. The style engine normalizes event titles to detect recurring events (stripping dates/numbers) and applies a garment penalty (0.5-1.5 score points) when a piece was recently worn at the same recurring event. Stronger penalties for more recent repeats (< 2 weeks: 3×, < 1 month: 2×, < 2 months: 1×).
 
 ### Step 14: Laundry Cycle Integration
 Factor in laundry schedules: suggest outfits from clean garments, predict when favorites will be available again, suggest wash timing.

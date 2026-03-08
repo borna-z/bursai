@@ -1707,7 +1707,7 @@ serve(async (req) => {
       const slot = categorizeSlot(garment.category, garment.subcategory);
       if (!slot) continue;
       if (!slotCandidates[slot]) slotCandidates[slot] = [];
-      slotCandidates[slot].push(scoreGarment(garment, occasion, weather, penalties, preferences, wearPatterns, styleVector, comfortProfile));
+      slotCandidates[slot].push(scoreGarment(garment, occasion, weather, penalties, preferences, wearPatterns, styleVector, comfortProfile, socialMap, eventTitle));
     }
 
     // Sort each slot by score
