@@ -571,14 +571,25 @@ export default function WardrobePage() {
                   </button>
                 </div>
 
-                {/* Smart groupings — only when no search/filters active */}
-                {!search && !hasActiveFilters && displayGarments.length > 5 && (
-                  <SmartGroupings garments={displayGarments} />
-                )}
-
-                {/* All garments section header */}
-                {!search && !hasActiveFilters && displayGarments.length > 5 && (
-                  <SectionHeader title={t('wardrobe.all_garments')} />
+                {/* Smart filter chips */}
+                {allGarments.length > 5 && (
+                  <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-1">
+                    {([
+                      { key: 'rarely_worn' as const, label: t('wardrobe.rarely_worn') },
+                      { key: 'most_worn' as const, label: t('wardrobe.most_worn') },
+                      { key: 'new' as const, label: t('wardrobe.recently_added') },
+                    ]).map((chip) => (
+                      <Chip
+                        key={chip.key}
+                        size="lg"
+                        selected={smartFilter === chip.key}
+                        onClick={() => setSmartFilter(smartFilter === chip.key ? null : chip.key)}
+                        className="whitespace-nowrap flex-shrink-0"
+                      >
+                        {chip.label}
+                      </Chip>
+                    ))}
+                  </div>
                 )}
 
                 {/* Bulk select bar */}
