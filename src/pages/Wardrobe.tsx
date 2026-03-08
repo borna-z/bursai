@@ -20,6 +20,7 @@ import { useGarments, useUpdateGarment, useDeleteGarment, useGarmentCount, type 
 import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
