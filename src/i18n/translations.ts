@@ -2039,6 +2039,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     'onboarding.getstarted.talk_stylist_desc': 'Get personalized style advice',
     'onboarding.accent.title': 'Choose accent color',
     'onboarding.accent.subtitle': 'Give your app a personal touch – the color appears in the logo, buttons and details.',
+    'onboarding.quickUpload.title': 'Upload your first clothes',
+    'onboarding.quickUpload.subtitle': 'Take photos or pick from your gallery — up to 5 items. Our AI will recognize each piece automatically.',
     'onboarding.style.title': 'Your style',
     'onboarding.style.subtitle': 'Help your AI stylist understand your taste',
     'onboarding.style.favorite_colors': 'Favorite colors',
