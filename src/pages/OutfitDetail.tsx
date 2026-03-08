@@ -349,6 +349,50 @@ export default function OutfitDetailPage() {
           </div>
         )}
 
+        {/* ── Style Score Breakdown ── */}
+        {outfit.style_score && (() => {
+          const score = outfit.style_score as Record<string, number | undefined>;
+          const metrics = [
+            { key: 'color_harmony', label: t('outfit.score.color') || 'Color Harmony', color: 'bg-primary' },
+            { key: 'material_compatibility', label: t('outfit.score.material') || 'Material Match', color: 'bg-accent' },
+            { key: 'formality', label: t('outfit.score.formality') || 'Formality Fit', color: 'bg-secondary-foreground/60' },
+            { key: 'overall', label: t('outfit.score.overall') || 'Overall', color: 'bg-primary' },
+          ].filter(m => typeof score[m.key] === 'number');
+
+          if (metrics.length === 0) return null;
+
+          return (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">
+                  {t('outfit.score.title') || 'Style Score'}
+                </p>
+              </div>
+              <div className="space-y-3">
+                {metrics.map(({ key, label, color }) => {
+                  const val = (score[key] as number) ?? 0;
+                  const pct = Math.round(val * 10); // assuming 0-10 scale
+                  return (
+                    <div key={key} className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">{label}</span>
+                        <span className="text-sm font-semibold">{val.toFixed(1)}</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={cn("h-full rounded-full transition-all duration-700", color)}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ── Garment list ── */}
         <div>
           {outfit.outfit_items.map((item) => (
