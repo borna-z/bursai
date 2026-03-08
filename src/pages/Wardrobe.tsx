@@ -241,7 +241,7 @@ function VirtualGarmentGrid({
   onSelect, onEdit, onLaundry, onDelete, isFetchingNextPage, sentinelRef,
 }: VirtualGarmentGridProps) {
   const parentRef = useRef<HTMLDivElement>(null);
-  const cols = isGridView ? 2 : 1;
+  const cols = isGridView ? 3 : 1;
   const rowCount = Math.ceil(garments.length / cols);
   const estimateSize = isGridView ? GRID_ROW_HEIGHT : LIST_ROW_HEIGHT;
 
