@@ -1297,7 +1297,8 @@ function scoreGarment(
   styleVector: StyleVector | null = null,
   comfortProfile: ComfortStyleProfile | null = null,
   socialMap: SocialContextMap | null = null,
-  currentEventTitle: string | null = null
+  currentEventTitle: string | null = null,
+  transInfo: SeasonTransitionInfo | null = null
 ): ScoredGarment {
   const ws = weatherSuitability(garment, weather);
   const fs = formalityScore(garment, occasion);
@@ -1311,17 +1312,20 @@ function scoreGarment(
   // Social context penalty (avoid repeating at same recurring event)
   const scp = socialMap ? socialContextPenalty(garment.id, currentEventTitle, socialMap) : 0;
 
-  // Weighted composite: 9 factors + social penalty
-  const vectorConf = styleVector?.confidence || 0;
-  const saWeight = 0.08 * (1 - vectorConf * 0.5);
-  const svWeight = 0.08 + vectorConf * 0.04;
+  // Seasonal transition score
+  const sts = transInfo ? seasonalTransitionScore(garment, transInfo) : 7;
 
-  const score = ws * 0.18 + fs * 0.18 + wr * 0.14 + fb * 0.10 + sa * saWeight + wp * 0.10 + sv * svWeight + cs * 0.10 + 0.02 * 7 - scp * 0.5;
+  // Weighted composite: 10 factors + social penalty
+  const vectorConf = styleVector?.confidence || 0;
+  const saWeight = 0.07 * (1 - vectorConf * 0.5);
+  const svWeight = 0.07 + vectorConf * 0.04;
+
+  const score = ws * 0.16 + fs * 0.16 + wr * 0.12 + fb * 0.09 + sa * saWeight + wp * 0.09 + sv * svWeight + cs * 0.09 + sts * 0.08 - scp * 0.5;
 
   return {
     garment,
     score,
-    breakdown: { weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp, vector: sv, comfort: cs, socialPenalty: scp },
+    breakdown: { weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp, vector: sv, comfort: cs, socialPenalty: scp, seasonalTransition: sts },
   };
 }
 
