@@ -286,58 +286,79 @@ function VirtualGarmentGrid({
 
 // ── FAB Menu ──
 
+const fabItems = [
+  { icon: Link, labelKey: 'wardrobe.import_link', fallback: 'Import from Link', action: 'link' as const },
+  { icon: ScanLine, labelKey: 'wardrobe.live_scan', fallback: 'BURS Live Scan', action: 'scan' as const },
+  { icon: Camera, labelKey: 'wardrobe.add', fallback: 'Add from Photo', action: 'photo' as const },
+];
+
 function AddFAB({ onPhoto, onScan, isOverLimit }: { onPhoto: () => void; onScan: () => void; isOverLimit: boolean }) {
   const [open, setOpen] = useState(false);
   const { t } = useLanguage();
+  const navigate = useNavigate();
+
+  const handleAction = (action: 'photo' | 'scan' | 'link') => {
+    setOpen(false);
+    if (action === 'photo') onPhoto();
+    else if (action === 'scan') onScan();
+    else navigate('/add-garment', { state: { mode: 'link' } });
+  };
 
   return (
-    <div className="fixed bottom-24 right-4 z-30">
+    <>
+      {/* Backdrop */}
       <AnimatePresence>
         {open && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-20"
-              onClick={() => setOpen(false)}
-            />
-            <motion.div
-              initial={{ opacity: 0, y: 10, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.9 }}
-              transition={{ duration: 0.15 }}
-              className="absolute bottom-16 right-0 flex flex-col gap-2 items-end z-30"
-            >
-              <button
-                onClick={() => { setOpen(false); onScan(); }}
-                className="flex items-center gap-2.5 bg-card border border-border/40 rounded-xl px-4 py-3 shadow-lg text-sm font-medium"
-              >
-                <ScanLine className="w-4 h-4 text-accent" />
-                BURS Live Scan
-              </button>
-              <button
-                onClick={() => { setOpen(false); onPhoto(); }}
-                className={cn(
-                  "flex items-center gap-2.5 bg-card border border-border/40 rounded-xl px-4 py-3 shadow-lg text-sm font-medium",
-                  isOverLimit && "opacity-50"
-                )}
-              >
-                <Camera className="w-4 h-4 text-accent" />
-                {t('wardrobe.add') || 'Lägg till'}
-              </button>
-            </motion.div>
-          </>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm"
+            onClick={() => setOpen(false)}
+          />
         )}
       </AnimatePresence>
-      <Button
-        size="lg"
-        className="h-14 w-14 rounded-full shadow-lg shadow-primary/20 bg-primary text-primary-foreground hover:bg-primary/90 relative z-30"
-        onClick={() => setOpen(!open)}
-      >
-        <Plus className={cn("w-6 h-6 transition-transform duration-200", open && "rotate-45")} />
-      </Button>
-    </div>
+
+      <div className="fixed bottom-24 right-4 z-50">
+        <AnimatePresence>
+          {open && (
+            <div className="absolute bottom-16 right-0 flex flex-col gap-3 items-end mb-2">
+              {fabItems.map((item, i) => (
+                <motion.button
+                  key={item.action}
+                  initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                  transition={{ duration: 0.25, delay: i * 0.06, ease: [0.25, 0.1, 0.25, 1] }}
+                  onClick={() => handleAction(item.action)}
+                  className={cn(
+                    "flex items-center gap-3 pr-5 pl-1.5 py-1.5 rounded-full bg-card border border-border/30 shadow-xl",
+                    item.action === 'photo' && isOverLimit && "opacity-50"
+                  )}
+                >
+                  <span className="w-10 h-10 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
+                    <item.icon className="w-[18px] h-[18px] text-accent-foreground" />
+                  </span>
+                  <span className="text-[13px] font-medium text-foreground whitespace-nowrap">
+                    {t(item.labelKey) || item.fallback}
+                  </span>
+                </motion.button>
+              ))}
+            </div>
+          )}
+        </AnimatePresence>
+
+        <motion.button
+          whileTap={{ scale: 0.92 }}
+          transition={TAP_TRANSITION}
+          onClick={() => setOpen(!open)}
+          className="h-14 w-14 rounded-full shadow-lg shadow-accent/25 bg-accent text-accent-foreground flex items-center justify-center"
+        >
+          <Plus className={cn("w-6 h-6 transition-transform duration-200", open && "rotate-45")} />
+        </motion.button>
+      </div>
+    </>
   );
 }
 
