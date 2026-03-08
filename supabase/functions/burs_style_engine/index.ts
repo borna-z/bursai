@@ -1580,7 +1580,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const [garmentsRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes] = await Promise.all([
+    const [garmentsRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes, laundryCountRes] = await Promise.all([
       supabase
         .from("garments")
         .select("id, title, category, subcategory, color_primary, color_secondary, pattern, material, fit, formality, season_tags, wear_count, last_worn_at, image_path")
@@ -1609,6 +1609,12 @@ serve(async (req) => {
         .gte("worn_at", new Date(Date.now() - 180 * 86400000).toISOString().split("T")[0])
         .order("worn_at", { ascending: false })
         .limit(500),
+      // Count garments currently in laundry (Step 14: Laundry Cycle)
+      supabase
+        .from("garments")
+        .select("id, title, category", { count: "exact", head: false })
+        .eq("user_id", userId)
+        .eq("in_laundry", true),
     ]);
 
     if (garmentsRes.error) throw garmentsRes.error;
