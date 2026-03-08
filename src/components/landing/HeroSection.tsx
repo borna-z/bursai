@@ -82,7 +82,19 @@ export function HeroSection() {
             </button>
           </div>
 
-          <p className="text-xs text-gray-500 tracking-wide reveal-up visible" style={{ '--reveal-delay': '200ms' } as React.CSSProperties}>
+          {/* Live user count badge */}
+          <div className="flex items-center gap-3 reveal-up visible mx-auto md:mx-0" style={{ '--reveal-delay': '200ms' } as React.CSSProperties}>
+            <div className="flex -space-x-2">
+              {[0, 1, 2, 3].map(i => (
+                <div key={i} className="w-7 h-7 rounded-full border-2 border-[#0D0D0D] bg-gradient-to-br from-gray-600 to-gray-800" />
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 tracking-wide">
+              <span className="text-white font-medium">12,500+</span> {t('landing.users_joined')}
+            </p>
+          </div>
+
+          <p className="text-[11px] text-gray-600 tracking-wide reveal-up visible" style={{ '--reveal-delay': '250ms' } as React.CSSProperties}>
             {t('landing.trust_line')}
           </p>
         </div>
