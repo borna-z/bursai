@@ -83,7 +83,7 @@ export async function syncGoogleCalendarForUser(
   refreshToken: string | null,
   tokenExpiresAt: string | null,
   connectionId: string
-): Promise<{ success: boolean; synced: number; error?: string }> {
+): Promise<{ success: boolean; synced: number; error?: string; reconnect?: boolean }> {
   const clientId = Deno.env.get('GOOGLE_CLIENT_ID')!;
   const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')!;
 
@@ -93,7 +93,10 @@ export async function syncGoogleCalendarForUser(
   if (tokenExpiresAt && new Date(tokenExpiresAt) < new Date() && refreshToken) {
     const refreshed = await refreshAccessToken(refreshToken, clientId, clientSecret);
     if (!refreshed) {
-      return { success: false, synced: 0, error: 'Token refresh failed' };
+      // Token revoked or expired — delete stale connection
+      console.error(`Token refresh failed for user ${userId.substring(0, 8)}, deleting stale connection`);
+      await supabase.from('calendar_connections').delete().eq('id', connectionId);
+      return { success: false, synced: 0, error: 'reconnect_required', reconnect: true };
     }
     currentToken = refreshed.access_token;
     const newExpiry = new Date(Date.now() + refreshed.expires_in * 1000).toISOString();
