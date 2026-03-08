@@ -41,7 +41,8 @@ export function ProductShowcase() {
                 <img
                   src={screen.src}
                   alt={t(screen.altKey)}
-                  className="w-full h-full object-cover object-top"
+                  className="w-full h-full object-cover"
+                  style={{ objectPosition: 'center 8%' }}
                   loading="lazy"
                 />
               </div>
