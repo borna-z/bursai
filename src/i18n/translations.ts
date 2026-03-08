@@ -5911,6 +5911,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'onboarding.getstarted.generate_outfit': 'Gerar um outfit', 'onboarding.getstarted.generate_outfit_desc': 'Deixe a IA vestir-te para hoje',
     'onboarding.getstarted.talk_stylist': 'Fale com o seu estilista', 'onboarding.getstarted.talk_stylist_desc': 'Receba conselhos de estilo personalizados',
     'onboarding.accent.title': 'Escolher cor de destaque', 'onboarding.accent.subtitle': 'Dê um toque pessoal à sua app.',
+    'onboarding.quickUpload.title': 'Carregue as suas primeiras roupas', 'onboarding.quickUpload.subtitle': 'Tire fotos ou escolha da galeria — até 5 peças. A nossa IA reconhece cada peça automaticamente.',
     'onboarding.style.title': 'O seu estilo', 'onboarding.style.subtitle': 'Ajude o seu estilista IA a compreender os seus gostos',
     'onboarding.style.favorite_colors': 'Cores favoritas', 'onboarding.style.disliked_colors': 'Cores a evitar',
     'onboarding.style.fit': 'Corte', 'onboarding.style.vibe': 'Direção de estilo', 'onboarding.style.gender_neutral': 'Sugestões neutras',
