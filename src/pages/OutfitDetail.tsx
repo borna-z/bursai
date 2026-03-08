@@ -296,7 +296,7 @@ export default function OutfitDetailPage() {
       </div>
 
       {/* ── Hero: outfit image grid ── */}
-      <div ref={outfitRef} className="relative rounded-b-3xl overflow-hidden bg-muted/20">
+      <div ref={outfitRef} className="relative sm:rounded-b-3xl overflow-hidden bg-muted/20">
         <div className={cn(
           "grid gap-0.5",
           outfit.outfit_items.length <= 2 ? "grid-cols-2" :
@@ -345,7 +345,7 @@ export default function OutfitDetailPage() {
       </div>
 
       {/* ── Content ── */}
-      <div className="px-6 pt-8 pb-32 space-y-8">
+      <div className="px-4 sm:px-6 pt-6 pb-24 space-y-8">
         {/* Title + meta */}
         <div>
           <h1 className="text-2xl font-semibold capitalize">{displayOccasion}</h1>

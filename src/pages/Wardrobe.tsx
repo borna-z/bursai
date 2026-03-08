@@ -113,9 +113,9 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect }:
 // ── Virtualization ──
 
 const VIRTUALIZE_THRESHOLD = 30;
-const GRID_ROW_HEIGHT = 220;
+const GRID_ROW_HEIGHT = 180;
 const LIST_ROW_HEIGHT = 74;
-const GAP = 12;
+const GAP = 6;
 
 interface VirtualizedGarmentListProps {
   garments: Garment[];
@@ -173,7 +173,7 @@ function GarmentListContent({
 
   return (
     <>
-      <div className={cn(isGridView ? 'grid grid-cols-2 gap-2.5' : 'flex flex-col gap-1')}>
+      <div className={cn(isGridView ? 'grid grid-cols-3 gap-1.5' : 'flex flex-col gap-1')}>
         {garments.map((garment, index) => (
           <div key={garment.id} className="animate-drape-in" style={{ animationDelay: `${Math.min(index, 12) * 40}ms`, animationFillMode: 'both' }}>
             {!isGridView && !isSelecting ? (
@@ -203,7 +203,7 @@ function GarmentListContent({
 
 function LoadingSkeletons({ isGridView }: { isGridView: boolean }) {
   return isGridView ? (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-3 gap-1.5">
       {[1, 2].map(i => (
         <Skeleton key={i} className="aspect-[3/4] w-full rounded-2xl" />
       ))}
@@ -241,7 +241,7 @@ function VirtualGarmentGrid({
   onSelect, onEdit, onLaundry, onDelete, isFetchingNextPage, sentinelRef,
 }: VirtualGarmentGridProps) {
   const parentRef = useRef<HTMLDivElement>(null);
-  const cols = isGridView ? 2 : 1;
+  const cols = isGridView ? 3 : 1;
   const rowCount = Math.ceil(garments.length / cols);
   const estimateSize = isGridView ? GRID_ROW_HEIGHT : LIST_ROW_HEIGHT;
 
@@ -253,7 +253,7 @@ function VirtualGarmentGrid({
   });
 
   return (
-    <div ref={parentRef} className="w-full overflow-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+    <div ref={parentRef} className="w-full overflow-visible">
       <div style={{ height: virtualizer.getTotalSize(), width: '100%', position: 'relative' }}>
         {virtualizer.getVirtualItems().map((virtualRow) => {
           const startIdx = virtualRow.index * cols;
@@ -263,7 +263,7 @@ function VirtualGarmentGrid({
               key={virtualRow.index}
               style={{ position: 'absolute', top: virtualRow.start, left: 0, width: '100%', height: virtualRow.size, paddingBottom: GAP }}
             >
-              <div className={cn(isGridView ? 'grid grid-cols-2 gap-2.5 h-full' : 'flex flex-col gap-1')}>
+              <div className={cn(isGridView ? 'grid grid-cols-3 gap-1.5 h-full' : 'flex flex-col gap-1')}>
                 {rowGarments.map((garment) => (
                   <Fragment key={garment.id}>
                     {!isGridView && !isSelecting ? (
@@ -467,7 +467,7 @@ export default function WardrobePage() {
   return (
     <AppLayout>
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="px-6 pb-36 pt-12 space-y-8 max-w-lg mx-auto">
+        <AnimatedPage className="px-4 pb-36 pt-4 space-y-6">
           {/* Title row */}
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-semibold">{t('wardrobe.title')}</h1>

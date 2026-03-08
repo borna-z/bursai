@@ -30,7 +30,7 @@ export function HeroSection() {
       />
 
       <div className="relative z-10 max-w-3xl mx-auto px-6 text-center pt-28 pb-20">
-        <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[6rem] font-bold tracking-[-0.04em] leading-[0.92] text-white font-space reveal-up visible">
+        <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-[6rem] font-bold tracking-[-0.04em] leading-[0.92] text-white font-space reveal-up visible">
           {t('landing.hero')}
         </h1>
 

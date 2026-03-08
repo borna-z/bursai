@@ -41,19 +41,18 @@ export function ProductShowcase() {
         </h2>
 
         {/* Phone trio + labels */}
-        <div className="flex justify-center items-end gap-4 md:gap-8 mb-6">
+        <div className="flex justify-center items-end gap-2 sm:gap-4 md:gap-8 mb-6">
           {SCREENS.map((screen, i) => {
             const isCenter = i === 1;
             const rotation = i === 0 ? '-rotate-3' : i === 2 ? 'rotate-3' : '';
             const size = isCenter ? 'phone-mockup phone-mockup-lg' : 'phone-mockup phone-mockup-sm';
             const opacity = isCenter ? '' : 'opacity-70';
             const translate = isCenter ? '' : 'translate-y-4';
-            const hide = isCenter ? '' : 'hidden sm:block';
 
             return (
               <div
                 key={i}
-                className={`${size} ${rotation} ${opacity} ${translate} ${hide} ${isCenter ? 'relative z-10' : ''} reveal-up`}
+                className={`${size} ${rotation} ${opacity} ${translate} ${isCenter ? 'relative z-10' : ''} reveal-up`}
                 style={{ '--reveal-delay': `${i * 120 + 200}ms` } as React.CSSProperties}
               >
                 <img
@@ -69,28 +68,23 @@ export function ProductShowcase() {
         </div>
 
         {/* Animated labels */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto text-center mt-10">
-          {SCREENS.map((screen, i) => {
-            const isCenter = i === 1;
-            const hide = isCenter ? '' : 'hidden sm:block';
-
-            return (
-              <div
-                key={i}
-                className={`${hide} reveal-up`}
-                style={{ '--reveal-delay': `${i * 100 + 500}ms` } as React.CSSProperties}
-              >
-                <div className="inline-flex flex-col items-center gap-1.5 px-5 py-3 rounded-2xl bg-white/[0.04] border border-white/[0.06] backdrop-blur-sm">
-                  <span className="text-[13px] font-semibold text-white tracking-wide">
-                    {t(screen.titleKey)}
-                  </span>
-                  <span className="text-[11px] text-gray-500 leading-snug">
-                    {t(screen.descKey)}
-                  </span>
-                </div>
+        <div className="grid grid-cols-3 gap-2 sm:gap-6 max-w-3xl mx-auto text-center mt-10">
+          {SCREENS.map((screen, i) => (
+            <div
+              key={i}
+              className="reveal-up"
+              style={{ '--reveal-delay': `${i * 100 + 500}ms` } as React.CSSProperties}
+            >
+              <div className="inline-flex flex-col items-center gap-1 sm:gap-1.5 px-2 sm:px-5 py-2 sm:py-3 rounded-xl sm:rounded-2xl bg-white/[0.04] border border-white/[0.06]">
+                <span className="text-[11px] sm:text-[13px] font-semibold text-white tracking-wide">
+                  {t(screen.titleKey)}
+                </span>
+                <span className="text-[10px] sm:text-[11px] text-gray-500 leading-snug hidden sm:block">
+                  {t(screen.descKey)}
+                </span>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       </div>
     </section>
