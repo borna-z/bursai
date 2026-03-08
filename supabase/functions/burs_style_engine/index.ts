@@ -1132,7 +1132,8 @@ function buildCombos(
   slotCandidates: Record<string, ScoredGarment[]>,
   recentOutfitSets: Set<string>[],
   weather: WeatherInput,
-  maxCombos: number = 10
+  maxCombos: number = 10,
+  body: BodyProfile | null = null
 ): ScoredCombo[] {
   const tops = slotCandidates["top"] || [];
   const bottoms = slotCandidates["bottom"] || [];
@@ -1155,7 +1156,7 @@ function buildCombos(
       if (needsOuterwear && outerwear.length > 0) {
         items.push({ slot: "outerwear", garment: outerwear[0].garment });
       }
-      combos.push(scoreCombo(items, recentOutfitSets));
+      combos.push(scoreCombo(items, recentOutfitSets, body));
     }
   }
 
@@ -1171,7 +1172,7 @@ function buildCombos(
         if (needsOuterwear && outerwear.length > 0) {
           items.push({ slot: "outerwear", garment: outerwear[0].garment });
         }
-        combos.push(scoreCombo(items, recentOutfitSets));
+        combos.push(scoreCombo(items, recentOutfitSets, body));
       }
     }
   }
@@ -1182,7 +1183,7 @@ function buildCombos(
     for (const ow of outerwear.slice(1, 3)) {
       const newItems = best.items.filter(i => i.slot !== "outerwear");
       newItems.push({ slot: "outerwear", garment: ow.garment });
-      combos.push(scoreCombo(newItems, recentOutfitSets));
+      combos.push(scoreCombo(newItems, recentOutfitSets, body));
     }
   }
 
