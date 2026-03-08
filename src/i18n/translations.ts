@@ -3291,6 +3291,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'privacy.contact_title': 'Contact',
     'privacy.contact_text': 'For questions about privacy, contact us at',
     'privacy.gdpr_note': 'BURS complies with GDPR. Your data is stored securely and never shared with third parties.',
+    'offline.banner': "You're offline",
+    'offline.syncing': 'Syncing changes…',
+    'offline.pending': 'pending',
   },
 
   no: {
