@@ -2,8 +2,6 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight, ChevronDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { lovable } from '@/integrations/lovable/index';
-import { Scene3D } from './Scene3D';
-import { FloatingHanger } from './FloatingHanger';
 
 export function HeroSection() {
   const navigate = useNavigate();
