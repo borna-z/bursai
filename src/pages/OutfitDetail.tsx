@@ -120,6 +120,7 @@ export default function OutfitDetailPage() {
   const markWorn = useMarkOutfitWorn();
   const undoMarkWorn = useUndoMarkWorn();
   const { candidates, isLoadingCandidates, fetchCandidates, swapGarment, isSwapping, clearCandidates } = useSwapGarment();
+  const { generateFlatlay, isGenerating: isGeneratingFlatlay } = useGenerateFlatlay();
 
   const [rating, setRating] = useState<number | null>(null);
   const [swapSheet, setSwapSheet] = useState<{ isOpen: boolean; slot: string; outfitItemId: string }>({ isOpen: false, slot: '', outfitItemId: '' });
