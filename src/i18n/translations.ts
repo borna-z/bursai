@@ -4680,6 +4680,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'privacy.s6_title': 'Sletning', 'privacy.s6_content': 'Du kan slette din konto og alle tilknyttede data når som helst fra indstillingerne.',
     'privacy.contact_title': 'Kontakt', 'privacy.contact_text': 'For spørgsmål om privatliv, kontakt os på',
     'privacy.gdpr_note': 'BURS overholder GDPR. Dine data opbevares sikkert og deles aldrig med tredjeparter.',
+    'error.title': 'Noget gik galt', 'error.desc': 'En uventet fejl opstod. Prøv at genindlæse siden.', 'error.try_again': 'Prøv igen', 'error.reload': 'Genindlæs',
+    'seed.deleted': 'Alle gamle beklædningsgenstande slettet', 'seed.delete_error': 'Kunne ikke slette gamle beklædningsgenstande', 'seed.created': 'Oprettet {done} beklædningsgenstande ({failed} fejlede)', 'seed.batch_failed': 'Batch fejlede', 'seed.retry_failed': 'Forsøg fejlede',
+    'genimg.title': 'Generer unikke billeder', 'genimg.desc': 'Generer AI-produktfotos for alle beklædningsgenstande baseret på attributter (farve, materiale, type).', 'genimg.total': 'Antal i alt', 'genimg.generated': 'Genereret', 'genimg.failed': 'Fejlede', 'genimg.processing': 'Behandler…', 'genimg.done': 'Færdig', 'genimg.generating': 'Genererer…', 'genimg.generate_all': 'Generer alle billeder', 'genimg.retry': 'Prøv igen',
+    'contact.title': 'Kontakt', 'contact.subtitle': 'Har du spørgsmål? Vi hjælper gerne.', 'contact.success': 'Tak for din besked. Vi vender tilbage hurtigst muligt.', 'contact.name': 'Dit navn', 'contact.email': 'Din e-mailadresse', 'contact.message': 'Din besked', 'contact.send': 'Send besked', 'contact.rights': 'Alle rettigheder forbeholdes.', 'contact.gdpr_note': 'BURS overholder GDPR. Dine data opbevares sikkert og deles aldrig med tredjeparter.',
+    'footer.privacy': 'Privatlivspolitik', 'footer.terms': 'Brugsvilkår', 'footer.agree': 'Ved at bruge BURS accepterer du vores', 'footer.rights': 'Alle rettigheder forbeholdes.',
+    'calendar.google_privacy': 'BURS læser dine kalenderbegivenheder for at hjælpe med at planlægge outfits omkring din tidsplan. Du kan afbryde forbindelsen når som helst.',
+    'reaction.styled': 'Stilfuldt', 'reaction.creative': 'Kreativt', 'reaction.sustainable': 'Bæredygtigt',
+    'wardrobe.reel_save_error': 'Kunne ikke gemme billede',
   },
 
   fi: {
