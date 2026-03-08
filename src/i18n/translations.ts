@@ -4983,7 +4983,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 
   fr: {
-    'nav.today': 'Aujourd\'hui', 'nav.wardrobe': 'Garde-robe', 'nav.plan': 'Planning', 'nav.stylist': 'Styliste', 'nav.settings': 'Paramètres',
+    'nav.today': 'Aujourd\'hui', 'nav.wardrobe': 'Garde-robe', 'nav.plan': 'Planning', 'nav.stylist': 'Styliste', 'nav.settings': 'Paramètres', 'nav.discover': 'Découvrir',
     'onboarding.language.title': 'Choisir la langue', 'onboarding.language.subtitle': 'Vous pouvez changer ceci plus tard dans les paramètres',
     'onboarding.body.title': 'Votre corps, votre style', 'onboarding.body.subtitle': 'Votre styliste IA utilise vos mensurations pour conseiller coupe, proportions et style.',
     'onboarding.body.height': 'Taille', 'onboarding.body.weight': 'Poids', 'onboarding.body.weight_optional': '(facultatif)',
