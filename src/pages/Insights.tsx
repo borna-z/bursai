@@ -13,6 +13,11 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { AISuggestions } from '@/components/insights/AISuggestions';
 import { WardrobeGapSection, SustainabilitySection, StyleEvolutionSection } from '@/components/insights/AdvancedInsights';
+import { SpendingDashboard } from '@/components/insights/SpendingDashboard';
+import { OutfitRepeatTracker } from '@/components/insights/OutfitRepeatTracker';
+import { WearHeatmap } from '@/components/insights/WearHeatmap';
+import { CategoryRadar } from '@/components/insights/CategoryRadar';
+import { StyleReportCard } from '@/components/insights/StyleReportCard';
 import { ColorBar } from '@/components/insights/MiniBar';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { cn } from '@/lib/utils';
@@ -343,6 +348,18 @@ export default function InsightsPage() {
           {/* ─── Color Distribution ─── */}
           <ColorDistribution garments={allGarments} isPremium={isPremium} t={t} />
 
+          {/* ── Step 8: Spending Dashboard ── */}
+          <SpendingDashboard isPremium={isPremium} />
+
+          {/* ── Step 10: Outfit Repeat Tracker ── */}
+          <OutfitRepeatTracker isPremium={isPremium} />
+
+          {/* ── Step 11: Wear Heatmap Calendar ── */}
+          <WearHeatmap isPremium={isPremium} />
+
+          {/* ── Step 12: Category Balance ── */}
+          <CategoryRadar isPremium={isPremium} />
+
           {/* ── Step 21: Wardrobe Gap Analysis ── */}
           <WardrobeGapSection isPremium={isPremium} />
 
@@ -351,6 +368,9 @@ export default function InsightsPage() {
 
           {/* ── Step 24: Style Evolution Timeline ── */}
           <StyleEvolutionSection isPremium={isPremium} />
+
+          {/* ── Step 13: Style Report Card ── */}
+          <StyleReportCard isPremium={isPremium} />
 
           {/* ─── Subtle premium link ─── */}
           {!isPremium && (
