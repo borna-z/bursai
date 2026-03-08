@@ -6316,6 +6316,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.edit': 'ویرایش', 'common.close': 'بستن', 'common.back': 'بازگشت', 'common.next': 'بعدی',
     'common.done': 'انجام شد', 'common.search': 'جستجو', 'common.something_wrong': 'خطایی رخ داد', 'common.premium': 'پریمیوم', 'common.or': 'یا',
     'trial.then_prefix': 'سپس', 'pricing.save': 'صرفه‌جویی', 'pricing.per_month': '/ماه', 'pricing.per_year': '/سال',
+    'landing.showcase_wardrobe_title': 'تمام کمد لباس شما، مرتب', 'landing.showcase_wardrobe_desc': 'دسته‌بندی‌های هوشمند و فیلترها — همه چیز را فوری پیدا کنید.',
+    'landing.showcase_home_title': 'ست روزانه شما، آماده پوشیدن', 'landing.showcase_home_desc': 'هوش مصنوعی بر اساس آب‌و‌هوا و سبک انتخاب می‌کند.',
+    'landing.showcase_planner_title': 'هفته‌تان را بدون استرس برنامه‌ریزی کنید', 'landing.showcase_planner_desc': 'پیشنهادات هوشمند بر اساس آب‌و‌هوا، روز به روز.',
     'landing.free_price': '€0', 'landing.premium_price': '€0', 'landing.premium_then': 'سپس €4,99/ماه · یا €44,99/سال — ۳۰٪ صرفه‌جویی',
   },
 };
