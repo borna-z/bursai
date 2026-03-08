@@ -5846,6 +5846,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'landing.free_price': '€0', 'landing.premium_price': '€0', 'landing.premium_then': 'Dan €4,99/maand · of €44,99/jaar — bespaar ~30%',
     'insights.wardrobe_usage': 'Kledingkastgebruik', 'insights.used_label': 'gedragen', 'insights.unused_label': 'ongedragen',
     'wardrobe.import_link': 'Importeren via link', 'wardrobe.live_scan': 'BURS Live Scan',
+    'landing.showcase_wardrobe_title': 'Je hele kledingkast, georganiseerd', 'landing.showcase_wardrobe_desc': 'Slimme categorieën & filters — vind alles direct.',
+    'landing.showcase_home_title': 'Je dagelijkse outfit, klaar om te dragen', 'landing.showcase_home_desc': 'AI kiest je look op basis van weer & stijl.',
+    'landing.showcase_planner_title': 'Plan je week moeiteloos', 'landing.showcase_planner_desc': 'Weerbewuste suggesties, dag voor dag.',
     'settings.row.insights': 'Kledingkast inzichten', 'settings.row.insights_sub': 'Statistieken & analyse',
   },
 
