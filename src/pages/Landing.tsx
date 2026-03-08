@@ -28,6 +28,7 @@ export default function Landing() {
   const navigate = useNavigate();
   const { t, locale } = useLanguage();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const REVEAL_SELECTOR = '.reveal-up, .reveal-down, .reveal-left, .reveal-right, .reveal-scale, .reveal-rotate, .scroll-reveal, .line-grow, .word-reveal';
