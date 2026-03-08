@@ -831,11 +831,16 @@ async function aiRefine(
     return `Combo ${idx}: [score: ${combo.totalScore.toFixed(1)}] ${parts.join(" + ")}`;
   }).join("\n");
 
-  const systemPrompt = mode === "generate"
-    ? `You are a world-class stylist. Pick the SINGLE best outfit from the pre-scored candidates below. Consider overall aesthetic, color harmony, and suitability for the occasion.
+  const styleHints = getOccasionStyleHints(occasion);
+  const season = getCurrentSeason();
+  const hintsStr = styleHints.length > 0 ? `\nSTYLE DIRECTION: ${styleHints.join(", ")}` : "";
+  const seasonStr = `\nSEASON: ${season}`;
 
-OCCASION: ${occasion}${style ? `\nSTYLE: ${style}` : ""}
-WEATHER: ${weather.temperature !== undefined ? weather.temperature + "°C" : "unknown"}${weather.precipitation ? ", " + weather.precipitation : ""}
+  const systemPrompt = mode === "generate"
+    ? `You are a world-class stylist. Pick the SINGLE best outfit from the pre-scored candidates below. Consider overall aesthetic, color harmony, seasonal appropriateness, and suitability for the occasion.
+
+OCCASION: ${occasion}${style ? `\nSTYLE: ${style}` : ""}${hintsStr}${seasonStr}
+WEATHER: ${weather.temperature !== undefined ? weather.temperature + "°C" : "unknown"}${weather.precipitation ? ", " + weather.precipitation : ""}${weather.wind ? ", wind: " + weather.wind : ""}
 ${styleContext ? `\nUSER PROFILE: ${styleContext}` : ""}
 
 Write the explanation in ${localeName}.
