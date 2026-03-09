@@ -26,9 +26,7 @@ export async function getCachedSignedUrl(imagePath: string): Promise<{ url: stri
     const [mainResult, thumbResult] = await Promise.all([
       supabase.storage
         .from('garments')
-        .createSignedUrl(imagePath, 3600, {
-          transform: { width: 600, quality: 85 },
-        }),
+        .createSignedUrl(imagePath, 3600),
       supabase.storage
         .from('garments')
         .createSignedUrl(imagePath, 3600, {
