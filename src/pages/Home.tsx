@@ -126,29 +126,21 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* ── Swipe Suggestions ── */}
-          <SwipeSuggestions />
-
-          {/* ── Plan Tomorrow ── */}
-          <PlanTomorrowCard />
-
-          {/* ── Insights Banner ── */}
-          <InsightsBanner />
-
-          {/* ── Adjust Your Day (collapsed) ── */}
-          <AdjustDaySection
-            occasion={occasion}
-            style={style}
-            onOccasionChange={handleOccasionChange}
-            onStyleChange={handleStyleChange}
-            onUpdate={handleUpdateOutfit}
-          />
-
-          {/* ── Smart Insight ── */}
-          <SmartInsightCard onUseUnused={handleUseUnused} />
-
-          {/* ── Step 25: Predictive Styling ── */}
-          <PredictiveStylingBanner />
+          {/* ── Below-fold (lazy) ── */}
+          <Suspense fallback={null}>
+            <SwipeSuggestions />
+            <PlanTomorrowCard />
+            <InsightsBanner />
+            <AdjustDaySection
+              occasion={occasion}
+              style={style}
+              onOccasionChange={handleOccasionChange}
+              onStyleChange={handleStyleChange}
+              onUpdate={handleUpdateOutfit}
+            />
+            <SmartInsightCard onUseUnused={handleUseUnused} />
+            <PredictiveStylingBanner />
+          </Suspense>
         </AnimatedPage>
       </PullToRefresh>
     </AppLayout>
