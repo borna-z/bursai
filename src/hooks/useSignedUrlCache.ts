@@ -132,19 +132,20 @@ export function useCachedSignedUrl(imagePath: string | undefined) {
 
   // Lazy load with IntersectionObserver
   useEffect(() => {
-    if (!imagePath || signedUrl || !elementRef.current) return;
+    const node = elementRef.current;
+    if (!imagePath || signedUrl || hasStartedFetch.current || !node) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
+        if (entries[0].isIntersecting && !hasStartedFetch.current) {
           fetchUrl();
           observer.disconnect();
         }
       },
-      { rootMargin: '100px' }
+      { rootMargin: '100px', threshold: 0 }
     );
 
-    observer.observe(elementRef.current);
+    observer.observe(node);
 
     return () => {
       observer.disconnect();
@@ -154,14 +155,19 @@ export function useCachedSignedUrl(imagePath: string | undefined) {
   const setRef = useCallback((node: HTMLDivElement | null) => {
     elementRef.current = node;
     
-    if (node && imagePath && !signedUrl && !hasStartedFetch.current) {
-      const rect = node.getBoundingClientRect();
-      const isInViewport = rect.top < window.innerHeight + 100 && rect.bottom > -100;
-      if (isInViewport) {
-        fetchUrl();
-      }
+    // Immediately check visibility when ref is attached - handles items already in viewport
+    if (node && imagePath && !hasStartedFetch.current) {
+      // Use requestAnimationFrame to ensure layout is complete
+      requestAnimationFrame(() => {
+        if (hasStartedFetch.current) return;
+        const rect = node.getBoundingClientRect();
+        const isInViewport = rect.top < window.innerHeight + 100 && rect.bottom > -100;
+        if (isInViewport) {
+          fetchUrl();
+        }
+      });
     }
-  }, [imagePath, signedUrl, fetchUrl]);
+  }, [imagePath, fetchUrl]);
 
   return { signedUrl, placeholderUrl, isLoading, hasError, setRef, refetch: fetchUrl };
 }
