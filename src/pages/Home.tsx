@@ -12,13 +12,16 @@ import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { WeatherPill } from '@/components/weather/WeatherPill';
 import { useLanguage } from '@/contexts/LanguageContext';
 
+import { lazy, Suspense } from 'react';
 import { TodayOutfitCard } from '@/components/home/TodayOutfitCard';
-import { SwipeSuggestions } from '@/components/home/SwipeSuggestions';
-import { AdjustDaySection } from '@/components/home/AdjustDaySection';
-import { SmartInsightCard } from '@/components/home/SmartInsightCard';
-import { InsightsBanner } from '@/components/home/InsightsBanner';
-import { PlanTomorrowCard } from '@/components/home/PlanTomorrowCard';
-import { PredictiveStylingBanner } from '@/components/home/PredictiveStylingBanner';
+
+// Below-fold components – lazy loaded to speed up cold start
+const SwipeSuggestions = lazy(() => import('@/components/home/SwipeSuggestions').then(m => ({ default: m.SwipeSuggestions })));
+const AdjustDaySection = lazy(() => import('@/components/home/AdjustDaySection').then(m => ({ default: m.AdjustDaySection })));
+const SmartInsightCard = lazy(() => import('@/components/home/SmartInsightCard').then(m => ({ default: m.SmartInsightCard })));
+const InsightsBanner = lazy(() => import('@/components/home/InsightsBanner').then(m => ({ default: m.InsightsBanner })));
+const PlanTomorrowCard = lazy(() => import('@/components/home/PlanTomorrowCard').then(m => ({ default: m.PlanTomorrowCard })));
+const PredictiveStylingBanner = lazy(() => import('@/components/home/PredictiveStylingBanner').then(m => ({ default: m.PredictiveStylingBanner })));
 
 export default function HomePage() {
   const { t } = useLanguage();
@@ -123,29 +126,21 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* ── Swipe Suggestions ── */}
-          <SwipeSuggestions />
-
-          {/* ── Plan Tomorrow ── */}
-          <PlanTomorrowCard />
-
-          {/* ── Insights Banner ── */}
-          <InsightsBanner />
-
-          {/* ── Adjust Your Day (collapsed) ── */}
-          <AdjustDaySection
-            occasion={occasion}
-            style={style}
-            onOccasionChange={handleOccasionChange}
-            onStyleChange={handleStyleChange}
-            onUpdate={handleUpdateOutfit}
-          />
-
-          {/* ── Smart Insight ── */}
-          <SmartInsightCard onUseUnused={handleUseUnused} />
-
-          {/* ── Step 25: Predictive Styling ── */}
-          <PredictiveStylingBanner />
+          {/* ── Below-fold (lazy) ── */}
+          <Suspense fallback={null}>
+            <SwipeSuggestions />
+            <PlanTomorrowCard />
+            <InsightsBanner />
+            <AdjustDaySection
+              occasion={occasion}
+              style={style}
+              onOccasionChange={handleOccasionChange}
+              onStyleChange={handleStyleChange}
+              onUpdate={handleUpdateOutfit}
+            />
+            <SmartInsightCard onUseUnused={handleUseUnused} />
+            <PredictiveStylingBanner />
+          </Suspense>
         </AnimatedPage>
       </PullToRefresh>
     </AppLayout>

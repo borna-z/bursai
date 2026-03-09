@@ -4,54 +4,73 @@ import { supabase } from '@/integrations/supabase/client';
 // In-memory cache for signed URLs with expiration
 interface CacheEntry {
   url: string;
-  placeholderUrl: string;
   expiresAt: number;
 }
 
 const urlCache = new Map<string, CacheEntry>();
 const CACHE_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 
-/**
- * Gets a cached signed URL or fetches a new one (with placeholder thumbnail)
- */
-export async function getCachedSignedUrl(imagePath: string): Promise<{ url: string; placeholderUrl: string } | null> {
-  const cached = urlCache.get(imagePath);
-  
-  // Return cached URL if still valid
-  if (cached && cached.expiresAt > Date.now()) {
-    return { url: cached.url, placeholderUrl: cached.placeholderUrl };
-  }
-  
-  try {
-    const [mainResult, thumbResult] = await Promise.all([
-      supabase.storage
-        .from('garments')
-        .createSignedUrl(imagePath, 3600),
-      supabase.storage
-        .from('garments')
-        .createSignedUrl(imagePath, 3600, {
-          transform: { width: 50, quality: 20 },
-        }),
-    ]);
-    
-    if (mainResult.error) throw mainResult.error;
-    
-    const entry: CacheEntry = {
-      url: mainResult.data.signedUrl,
-      placeholderUrl: thumbResult.data?.signedUrl || mainResult.data.signedUrl,
-      expiresAt: Date.now() + CACHE_DURATION_MS,
-    };
-    
-    urlCache.set(imagePath, entry);
-    
-    return { url: entry.url, placeholderUrl: entry.placeholderUrl };
-  } catch {
-    return null;
-  }
+// Batch queue: collects paths to sign in a single request
+let batchQueue: { path: string; resolve: (url: string | null) => void }[] = [];
+let batchTimer: ReturnType<typeof setTimeout> | null = null;
+const BATCH_DELAY_MS = 50; // Collect requests for 50ms then fire one batch
+
+function flushBatch() {
+  batchTimer = null;
+  const queue = batchQueue;
+  batchQueue = [];
+
+  if (queue.length === 0) return;
+
+  // Deduplicate
+  const uniquePaths = [...new Set(queue.map((q) => q.path))];
+
+  supabase.storage
+    .from('garments')
+    .createSignedUrls(uniquePaths, 3600)
+    .then(({ data, error }) => {
+      if (error || !data) {
+        queue.forEach((q) => q.resolve(null));
+        return;
+      }
+
+      const urlMap = new Map<string, string>();
+      for (const item of data) {
+        if (item.signedUrl && item.path) {
+          urlMap.set(item.path, item.signedUrl);
+          urlCache.set(item.path, {
+            url: item.signedUrl,
+            expiresAt: Date.now() + CACHE_DURATION_MS,
+          });
+        }
+      }
+
+      queue.forEach((q) => q.resolve(urlMap.get(q.path) || null));
+    })
+    .catch(() => {
+      queue.forEach((q) => q.resolve(null));
+    });
 }
 
 /**
- * Hook to get a signed URL with caching, lazy loading, and retry logic
+ * Gets a cached signed URL or queues it for batch fetching
+ */
+export async function getCachedSignedUrl(imagePath: string): Promise<{ url: string } | null> {
+  const cached = urlCache.get(imagePath);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { url: cached.url };
+  }
+
+  return new Promise((resolve) => {
+    batchQueue.push({ path: imagePath, resolve: (url) => resolve(url ? { url } : null) });
+    if (!batchTimer) {
+      batchTimer = setTimeout(flushBatch, BATCH_DELAY_MS);
+    }
+  });
+}
+
+/**
+ * Hook to get a signed URL with caching, lazy loading, and batch fetching
  */
 export function useCachedSignedUrl(imagePath: string | undefined) {
   const [signedUrl, setSignedUrl] = useState<string | null>(() => {
@@ -59,15 +78,6 @@ export function useCachedSignedUrl(imagePath: string | undefined) {
       const cached = urlCache.get(imagePath);
       if (cached && cached.expiresAt > Date.now()) {
         return cached.url;
-      }
-    }
-    return null;
-  });
-  const [placeholderUrl, setPlaceholderUrl] = useState<string | null>(() => {
-    if (imagePath) {
-      const cached = urlCache.get(imagePath);
-      if (cached && cached.expiresAt > Date.now()) {
-        return cached.placeholderUrl;
       }
     }
     return null;
@@ -80,16 +90,15 @@ export function useCachedSignedUrl(imagePath: string | undefined) {
 
   const fetchUrl = useCallback(async () => {
     if (!imagePath || hasStartedFetch.current) return;
-    
+
     hasStartedFetch.current = true;
     setIsLoading(true);
     setHasError(false);
-    
+
     const result = await getCachedSignedUrl(imagePath);
-    
+
     if (result) {
       setSignedUrl(result.url);
-      setPlaceholderUrl(result.placeholderUrl);
       setHasError(false);
       retryCount.current = 0;
     } else if (retryCount.current < 1) {
@@ -98,7 +107,6 @@ export function useCachedSignedUrl(imagePath: string | undefined) {
       const retryResult = await getCachedSignedUrl(imagePath);
       if (retryResult) {
         setSignedUrl(retryResult.url);
-        setPlaceholderUrl(retryResult.placeholderUrl);
         setHasError(false);
       } else {
         setHasError(true);
@@ -106,7 +114,7 @@ export function useCachedSignedUrl(imagePath: string | undefined) {
     } else {
       setHasError(true);
     }
-    
+
     setIsLoading(false);
   }, [imagePath]);
 
@@ -116,16 +124,13 @@ export function useCachedSignedUrl(imagePath: string | undefined) {
       const cached = urlCache.get(imagePath);
       if (cached && cached.expiresAt > Date.now()) {
         setSignedUrl(cached.url);
-        setPlaceholderUrl(cached.placeholderUrl);
         hasStartedFetch.current = true;
       } else {
         hasStartedFetch.current = false;
         setSignedUrl(null);
-        setPlaceholderUrl(null);
       }
     } else {
       setSignedUrl(null);
-      setPlaceholderUrl(null);
       hasStartedFetch.current = false;
     }
   }, [imagePath]);
@@ -142,26 +147,21 @@ export function useCachedSignedUrl(imagePath: string | undefined) {
           observer.disconnect();
         }
       },
-      { rootMargin: '100px', threshold: 0 }
+      { rootMargin: '200px', threshold: 0 }
     );
 
     observer.observe(node);
-
-    return () => {
-      observer.disconnect();
-    };
+    return () => observer.disconnect();
   }, [imagePath, signedUrl, fetchUrl]);
 
   const setRef = useCallback((node: HTMLDivElement | null) => {
     elementRef.current = node;
-    
-    // Immediately check visibility when ref is attached - handles items already in viewport
+
     if (node && imagePath && !hasStartedFetch.current) {
-      // Use requestAnimationFrame to ensure layout is complete
       requestAnimationFrame(() => {
         if (hasStartedFetch.current) return;
         const rect = node.getBoundingClientRect();
-        const isInViewport = rect.top < window.innerHeight + 100 && rect.bottom > -100;
+        const isInViewport = rect.top < window.innerHeight + 200 && rect.bottom > -200;
         if (isInViewport) {
           fetchUrl();
         }
@@ -169,23 +169,40 @@ export function useCachedSignedUrl(imagePath: string | undefined) {
     }
   }, [imagePath, fetchUrl]);
 
-  return { signedUrl, placeholderUrl, isLoading, hasError, setRef, refetch: fetchUrl };
+  // Backwards compat: placeholderUrl is null (we use CSS shimmer now)
+  return { signedUrl, placeholderUrl: null as string | null, isLoading, hasError, setRef, refetch: fetchUrl };
 }
 
 /**
- * Batch fetch multiple signed URLs
+ * Batch fetch multiple signed URLs (for pre-warming)
  */
 export async function batchGetSignedUrls(imagePaths: string[]): Promise<Map<string, string>> {
   const results = new Map<string, string>();
-  
-  await Promise.all(
-    imagePaths.map(async (path) => {
-      const result = await getCachedSignedUrl(path);
-      if (result) {
-        results.set(path, result.url);
+  const uncached: string[] = [];
+
+  for (const path of imagePaths) {
+    const cached = urlCache.get(path);
+    if (cached && cached.expiresAt > Date.now()) {
+      results.set(path, cached.url);
+    } else {
+      uncached.push(path);
+    }
+  }
+
+  if (uncached.length > 0) {
+    const { data } = await supabase.storage.from('garments').createSignedUrls(uncached, 3600);
+    if (data) {
+      for (const item of data) {
+        if (item.signedUrl && item.path) {
+          results.set(item.path, item.signedUrl);
+          urlCache.set(item.path, {
+            url: item.signedUrl,
+            expiresAt: Date.now() + CACHE_DURATION_MS,
+          });
+        }
       }
-    })
-  );
-  
+    }
+  }
+
   return results;
 }
