@@ -83,18 +83,8 @@ export function LazyImageSimple({
 
   return (
     <div ref={setRef} className={cn("relative overflow-hidden bg-muted", className)}>
-      {/* Blur-up placeholder */}
-      {placeholderUrl && !imageLoaded && !hasError && (
-        <img
-          src={placeholderUrl}
-          alt=""
-          aria-hidden
-          className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-60"
-        />
-      )}
-
-      {/* Loading skeleton */}
-      {isLoading && !placeholderUrl && (
+      {/* Shimmer skeleton while loading */}
+      {!imageLoaded && !hasError && (
         <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted via-muted/80 to-muted" />
       )}
       
