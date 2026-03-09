@@ -211,6 +211,27 @@ serve(async (req) => {
 
     console.log(`Using modelType: ${aiModelType}, timeout: ${aiTimeout}ms`);
 
+    // Resolve image URL from base64 or storage path
+    let resolvedImageUrl: string;
+    if (base64Image) {
+      // base64Image is already a data URL from the client
+      resolvedImageUrl = base64Image;
+    } else {
+      // Get a signed URL from storage
+      const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+      const { data: signedData, error: signedError } = await serviceClient.storage
+        .from('garments')
+        .createSignedUrl(storagePath!, 300);
+      if (signedError || !signedData?.signedUrl) {
+        console.error('Failed to create signed URL:', signedError);
+        return new Response(
+          JSON.stringify({ error: "Kunde inte hämta bilden" }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      resolvedImageUrl = signedData.signedUrl;
+    }
+
     let content: string;
     try {
       const { data } = await callBursAI({
@@ -238,7 +259,7 @@ Svara ENDAST med JSON, ingen förklarande text.`
             role: 'user',
             content: [
               { type: 'text', text: 'Analysera detta klädesplagg och returnera strukturerad JSON.' },
-              { type: 'image_url', image_url: { url: imageUrl } }
+              { type: 'image_url', image_url: { url: resolvedImageUrl } }
             ]
           }
         ],
