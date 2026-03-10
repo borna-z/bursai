@@ -1,31 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Compass, Shirt, Bookmark, BookmarkCheck, Trophy, Check, Sparkles, Lock,
-  Search, Heart, ShoppingBag, Clock, Users, ChevronRight, User, PartyPopper
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useProfile } from '@/hooks/useProfile';
 import { useGarmentCount } from '@/hooks/useGarments';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { OutfitReactions } from '@/components/social/OutfitReactions';
-import { SectionHeader } from '@/components/ui/section-header';
-import { hapticLight, hapticSuccess } from '@/lib/haptics';
-import { useTrendingUnlocked } from '@/hooks/useTrendingUnlocked';
-import { cn } from '@/lib/utils';
+import { hapticSuccess } from '@/lib/haptics';
+import { EASE_CURVE } from '@/lib/motion';
 import { toast } from 'sonner';
 
-interface FeedOutfit {
-  id: string;
-  occasion: string;
-  style_vibe: string | null;
-}
+import { DiscoverHero } from '@/components/discover/DiscoverHero';
+import { DiscoverSecondaryRow } from '@/components/discover/DiscoverSecondaryRow';
+import { DiscoverChallenges } from '@/components/discover/DiscoverChallenges';
+import { DiscoverStyleTools } from '@/components/discover/DiscoverStyleTools';
 
 interface Challenge {
   id: string;
@@ -38,15 +27,6 @@ interface Participation {
   completed: boolean;
 }
 
-const AI_TOOLS = [
-  { path: '/ai/visual-search', icon: Search, labelKey: 'ai.visual_search', color: 'bg-blue-500/10 text-blue-500' },
-  { path: '/ai/mood-outfit', icon: Heart, labelKey: 'ai.mood_title', color: 'bg-pink-500/10 text-pink-500' },
-  { path: '/ai/smart-shopping', icon: ShoppingBag, labelKey: 'ai.shopping_title', color: 'bg-emerald-500/10 text-emerald-500' },
-  { path: '/ai/wardrobe-aging', icon: Clock, labelKey: 'ai.aging_title', color: 'bg-amber-500/10 text-amber-500' },
-  { path: '/ai/style-twin', icon: Users, labelKey: 'ai.twin_title', color: 'bg-violet-500/10 text-violet-500' },
-];
-
-// Challenges unlock at these garment milestones (index = challenge order)
 const UNLOCK_THRESHOLDS = [
   1, 1, 3, 3, 3, 5, 5, 5, 5, 7,
   10, 10, 10, 12, 12, 15, 15, 15, 18, 18,
@@ -56,57 +36,15 @@ const UNLOCK_THRESHOLDS = [
 export default function DiscoverPage() {
   const { user } = useAuth();
   const { t } = useLanguage();
-  const { data: profile } = useProfile();
   const { data: garmentCount } = useGarmentCount();
-  const { isUnlocked: trendingUnlocked, showNewBadge, markSeen } = useTrendingUnlocked();
   const navigate = useNavigate();
 
-  // Feed state
-  const [feedOutfits, setFeedOutfits] = useState<FeedOutfit[]>([]);
-  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
-  const [feedLoading, setFeedLoading] = useState(true);
-  const [showCelebration, setShowCelebration] = useState(false);
-
-  // Challenges state
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [participations, setParticipations] = useState<Record<string, Participation>>({});
   const [challengesLoading, setChallengesLoading] = useState(true);
 
   const myGarments = garmentCount || 0;
 
-  // Load feed only if trending is unlocked
-  const loadFeed = useCallback(async () => {
-    if (!trendingUnlocked) { setFeedLoading(false); return; }
-    setFeedLoading(true);
-
-    const query = supabase
-      .from('outfits')
-      .select('id, occasion, style_vibe, outfit_items(id, slot, garment:garments(id, image_path))')
-      .eq('share_enabled', true)
-      .order('generated_at', { ascending: false })
-      .limit(6);
-
-    if (user) query.neq('user_id', user.id);
-    const { data } = await query;
-    setFeedOutfits((data || []) as any);
-
-    for (const outfit of (data || []) as any[]) {
-      const firstItem = outfit.outfit_items?.find((i: any) => i.garment?.image_path);
-      if (firstItem?.garment?.image_path) {
-        const { data: urlData } = await supabase.storage.from('garments').createSignedUrl(firstItem.garment.image_path, 3600);
-        if (urlData) setImageUrls(prev => ({ ...prev, [outfit.id]: urlData.signedUrl }));
-      }
-    }
-
-    if (user) {
-      const { data: saves } = await supabase.from('inspiration_saves').select('outfit_id').eq('user_id', user.id);
-      setSavedIds(new Set(saves?.map(s => s.outfit_id) || []));
-    }
-    setFeedLoading(false);
-  }, [user, trendingUnlocked]);
-
-  // Load challenges (all 25, always active)
   const loadChallenges = useCallback(async () => {
     setChallengesLoading(true);
     const today = new Date().toISOString().split('T')[0];
@@ -133,27 +71,7 @@ export default function DiscoverPage() {
     setChallengesLoading(false);
   }, [user]);
 
-  useEffect(() => { loadFeed(); loadChallenges(); }, [loadFeed, loadChallenges]);
-
-  // Show celebration banner once when trending first unlocks
-  useEffect(() => {
-    if (showNewBadge) {
-      setShowCelebration(true);
-    }
-  }, [showNewBadge]);
-
-  const toggleSave = async (outfitId: string) => {
-    if (!user) return;
-    hapticLight();
-    if (savedIds.has(outfitId)) {
-      await supabase.from('inspiration_saves').delete().eq('user_id', user.id).eq('outfit_id', outfitId);
-      setSavedIds(prev => { const n = new Set(prev); n.delete(outfitId); return n; });
-    } else {
-      await supabase.from('inspiration_saves').insert({ user_id: user.id, outfit_id: outfitId });
-      setSavedIds(prev => new Set(prev).add(outfitId));
-      toast.success(t('feed.saved'));
-    }
-  };
+  useEffect(() => { loadChallenges(); }, [loadChallenges]);
 
   const joinChallenge = async (challengeId: string) => {
     if (!user) return;
@@ -165,219 +83,51 @@ export default function DiscoverPage() {
     }
   };
 
+  // Pick featured challenge: first non-completed, non-locked
+  const featuredChallenge = challenges.find((ch, i) => {
+    const threshold = UNLOCK_THRESHOLDS[i] || 999;
+    return myGarments >= threshold && !participations[ch.id]?.completed;
+  });
+
   return (
     <AppLayout>
-      <AnimatedPage className="px-4 pb-8 pt-6 space-y-8 max-w-lg mx-auto">
-        {/* Header */}
+      <AnimatedPage className="px-4 pb-24 pt-8 space-y-8 max-w-lg mx-auto">
+        {/* ── Header ── */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
+          transition={{ duration: 0.5, ease: EASE_CURVE }}
+          className="space-y-1"
         >
-          <h1 className="text-lg font-semibold tracking-tight" style={{ fontFamily: "'Sora', sans-serif" }}>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground" style={{ fontFamily: "'Sora', sans-serif" }}>
             {t('discover.title')}
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">{t('discover.subtitle')}</p>
+          <p className="text-[12px] text-muted-foreground/60">{t('discover.subtitle')}</p>
         </motion.div>
 
-        {/* ── Celebration Banner (when trending just unlocked) ── */}
-        <AnimatePresence>
-          {showCelebration && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: -10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: -10 }}
-              className="rounded-2xl bg-accent/10 border border-accent/20 p-4 text-center"
-            >
-              <PartyPopper className="w-8 h-8 text-accent mx-auto mb-2" />
-              <h3 className="text-sm font-semibold">{t('discover.trending_unlocked')}</h3>
-              <p className="text-[11px] text-muted-foreground mt-1">{t('discover.trending_unlocked_sub')}</p>
-              <Button
-                size="sm"
-                className="mt-3 rounded-xl"
-                onClick={() => { markSeen(); setShowCelebration(false); }}
-              >
-                {t('discover.see_trending')}
-              </Button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* ── Featured Hero ── */}
+        <DiscoverHero
+          challengeTitle={featuredChallenge?.title}
+          challengeDescription={featuredChallenge?.description}
+          challengeId={featuredChallenge?.id}
+          onJoin={joinChallenge}
+        />
 
-        {/* ── Community Feed Preview (only visible after 500 users) ── */}
-        {trendingUnlocked && !showCelebration && (
-          <section>
-            <SectionHeader
-              title={t('discover.trending')}
-              action={t('discover.see_all')}
-              onAction={() => navigate('/feed')}
-            />
-            {feedLoading ? (
-              <div className="grid grid-cols-3 gap-2">
-                {[1, 2, 3].map(i => <div key={i} className="aspect-square rounded-xl bg-muted animate-pulse" />)}
-              </div>
-            ) : feedOutfits.length === 0 ? (
-              <div className="text-center py-8 rounded-xl border border-dashed border-border/40">
-                <Compass className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2" />
-                <p className="text-xs text-muted-foreground">{t('feed.empty')}</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-2">
-                {feedOutfits.slice(0, 6).map((outfit, i) => (
-                  <motion.div
-                    key={outfit.id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="relative rounded-xl overflow-hidden border border-border/20 cursor-pointer active:scale-[0.97] transition-transform"
-                    onClick={() => navigate(`/share/${outfit.id}`)}
-                  >
-                    <div className="aspect-square bg-muted overflow-hidden">
-                      {imageUrls[outfit.id] ? (
-                        <img src={imageUrls[outfit.id]} alt={outfit.occasion} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Shirt className="w-6 h-6 text-muted-foreground/20" />
-                        </div>
-                      )}
-                    </div>
-                    {user && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); toggleSave(outfit.id); }}
-                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center"
-                      >
-                        {savedIds.has(outfit.id)
-                          ? <BookmarkCheck className="w-3 h-3 text-primary" />
-                          : <Bookmark className="w-3 h-3 text-muted-foreground" />}
-                      </button>
-                    )}
-                  </motion.div>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
+        {/* ── Secondary Discovery Row ── */}
+        <DiscoverSecondaryRow />
 
-        {/* ── Challenges (garment-gated) ── */}
-        <section>
-          <div className="flex items-center justify-between px-1 mb-2.5">
-            <div>
-              <h3 className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
-                {t('challenges.title')}
-              </h3>
-              <p className="text-[10px] text-muted-foreground/50 mt-0.5">
-                {t('discover.challenges_progress').replace('{unlocked}', String(challenges.filter((_, i) => myGarments >= (UNLOCK_THRESHOLDS[i] || 999)).length)).replace('{total}', String(challenges.length))}
-              </p>
-            </div>
-            <button onClick={() => navigate('/challenges')} className="text-[11px] font-medium text-accent">
-              {t('discover.see_all')}
-            </button>
-          </div>
-          {challengesLoading ? (
-            <div className="space-y-3">
-              {[1, 2].map(i => <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />)}
-            </div>
-          ) : challenges.length === 0 ? (
-            <div className="text-center py-8 rounded-xl border border-dashed border-border/40">
-              <Trophy className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2" />
-              <p className="text-xs text-muted-foreground">{t('challenges.none')}</p>
-            </div>
-          ) : (
-            <div className="space-y-2.5">
-              {challenges.slice(0, 5).map((ch, i) => {
-                const part = participations[ch.id];
-                const threshold = UNLOCK_THRESHOLDS[i] || 999;
-                const isLocked = myGarments < threshold;
-                return (
-                  <motion.div
-                    key={ch.id}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    className={cn(
-                      'rounded-xl border p-3.5 flex items-center gap-3',
-                      isLocked ? 'opacity-50 bg-muted/30' :
-                      part?.completed ? 'bg-accent/5 border-accent/20' : 'bg-card'
-                    )}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        {isLocked && <Lock className="w-3 h-3 text-muted-foreground/40 shrink-0" />}
-                        <h3 className="text-sm font-medium truncate">{ch.title}</h3>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
-                        {isLocked
-                          ? t('discover.challenge_locked').replace('{count}', String(threshold))
-                          : ch.description}
-                      </p>
-                    </div>
-                    {isLocked ? (
-                      <Badge variant="outline" className="shrink-0 text-[10px]">
-                        {myGarments}/{threshold}
-                      </Badge>
-                    ) : part?.completed ? (
-                      <Badge className="bg-accent text-accent-foreground border-0 shrink-0">
-                        <Check className="w-3 h-3 mr-1" />{t('challenges.done')}
-                      </Badge>
-                    ) : !part ? (
-                      <Button size="sm" variant="outline" className="rounded-xl shrink-0 h-8 text-xs" onClick={() => joinChallenge(ch.id)}>
-                        <Sparkles className="w-3 h-3 mr-1" />{t('challenges.join')}
-                      </Button>
-                    ) : (
-                      <Badge variant="secondary" className="shrink-0">{t('challenges.joined_label') || 'Joined'}</Badge>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
-        </section>
+        {/* ── Challenges ── */}
+        <DiscoverChallenges
+          challenges={challenges}
+          participations={participations}
+          garmentCount={myGarments}
+          thresholds={UNLOCK_THRESHOLDS}
+          loading={challengesLoading}
+          onJoin={joinChallenge}
+        />
 
-        {/* ── AI Tools ── */}
-        <section>
-          <SectionHeader title={t('discover.ai_tools')} />
-          <div className="grid grid-cols-2 gap-2.5">
-            {AI_TOOLS.map((tool, i) => (
-              <motion.button
-                key={tool.path}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 + i * 0.04 }}
-                onClick={() => { hapticLight(); navigate(tool.path); }}
-                className="flex items-center gap-3 rounded-xl border border-border/20 bg-card p-3.5 text-left active:scale-[0.97] transition-transform"
-              >
-                <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', tool.color)}>
-                  <tool.icon className="w-4.5 h-4.5" />
-                </div>
-                <span className="text-xs font-medium leading-tight">{t(tool.labelKey)}</span>
-              </motion.button>
-            ))}
-          </div>
-        </section>
-
-        {/* ── Your Profile ── */}
-        <section>
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            onClick={() => {
-              if (profile?.username) navigate(`/u/${profile.username}`);
-              else navigate('/settings/account');
-            }}
-            className="rounded-xl border border-border/20 bg-card p-4 flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-transform"
-          >
-            <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
-              <User className="w-5 h-5 text-accent" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-medium">{t('discover.your_profile')}</h3>
-              <p className="text-[11px] text-muted-foreground">
-                {profile?.username ? `@${profile.username}` : t('discover.setup_profile')}
-              </p>
-            </div>
-            <ChevronRight className="w-4 h-4 text-muted-foreground/30 shrink-0" />
-          </motion.div>
-        </section>
+        {/* ── Style Tools ── */}
+        <DiscoverStyleTools />
       </AnimatedPage>
     </AppLayout>
   );
