@@ -71,3 +71,9 @@ project_id = "dvrdxjmnydcjzpcwjxgv"
     verify_jwt = false
   [functions.seed_wardrobe]
     verify_jwt = false
+  [functions.cleanup_ai_cache]
+    verify_jwt = false
+  [functions.generate_outfit]
+    verify_jwt = false
+  [functions.travel_capsule]
+    verify_jwt = false
