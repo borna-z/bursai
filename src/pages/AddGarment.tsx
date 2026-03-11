@@ -199,7 +199,6 @@ export default function AddGarmentPage() {
     fileInputRef,
     onCapture: processNativeCapture,
   });
-  const { checkDuplicates, duplicates, clearDuplicates } = useDuplicateDetection();
   const [showDuplicateSheet, setShowDuplicateSheet] = useState(false);
 
   const [step, setStep] = useState<'upload' | 'analyzing' | 'form' | 'batch'>('upload');
