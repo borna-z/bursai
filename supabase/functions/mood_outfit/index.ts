@@ -95,6 +95,8 @@ WARDROBE:
 ${garmentList}`;
 
     const { data: result } = await callBursAI({
+      complexity: "standard",
+      max_tokens: 300,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: `I'm feeling ${mood} today. Create an outfit that matches.` },

@@ -70,6 +70,8 @@ ${events.length > 0 ? events.map((e: any) => `${e.date}: ${e.title}${e.descripti
 Create 4-6 prioritized shopping suggestions.`;
 
     const { data: result } = await callBursAI({
+      complexity: "standard",
+      max_tokens: 600,
       messages: [
         { role: "system", content: prompt },
         { role: "user", content: "Generate my smart shopping list." },

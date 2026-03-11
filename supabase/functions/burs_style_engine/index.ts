@@ -1598,6 +1598,8 @@ ${comboDescriptions}`;
       ],
       tools: [tool],
       tool_choice: { type: "function", function: { name: toolName } },
+      complexity: "standard",
+      max_tokens: mode === "generate" ? 200 : 500,
     });
     return { data };
   } catch (e: any) {

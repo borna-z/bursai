@@ -110,7 +110,8 @@ Also provide a short, helpful commentary (2-3 sentences) with actionable styling
         },
       }],
       tool_choice: { type: "function", function: { name: "outfit_photo_feedback" } },
-      modelType: "vision",
+      complexity: "complex",
+      max_tokens: 300,
     });
 
     if (!feedback) throw new Error("AI did not return structured feedback");

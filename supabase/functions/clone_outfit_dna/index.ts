@@ -97,6 +97,8 @@ For each variation, select garment IDs from the available list and explain what 
         },
       }],
       tool_choice: { type: "function", function: { name: "suggest_variations" } },
+      complexity: "standard",
+      max_tokens: 500,
       cacheTtlSeconds: 1800,
       cacheNamespace: "clone_dna",
     }, supabase);

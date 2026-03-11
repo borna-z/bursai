@@ -118,7 +118,8 @@ ${garmentList}`,
         },
       }],
       tool_choice: { type: "function", function: { name: "visual_match" } },
-      modelType: "vision",
+      complexity: "complex",
+      max_tokens: 600,
     });
 
     const garmentIdSet = new Set(garments.map(g => g.id));

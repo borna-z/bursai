@@ -179,8 +179,9 @@ Consider: same garment photographed differently = 0.8+, very similar style/color
                 ]
               }
             ],
-            modelType: "fast",
-            extraBody: { max_tokens: 200, temperature: 0.1 },
+            complexity: "trivial",
+            max_tokens: 200,
+            extraBody: { temperature: 0.1 },
             timeout: 20000,
           });
 

@@ -145,6 +145,8 @@ WARDROBE:
 ${garmentList}`;
 
     const { data: result } = await callBursAI({
+      complexity: "standard",
+      max_tokens: 500,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: `Create 2-3 complete outfit suggestions using my unused garments. Respond in ${lang}.` },
