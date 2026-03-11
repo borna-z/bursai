@@ -250,28 +250,6 @@ export default function PlanPage() {
               />
             </PopoverContent>
           </Popover>
-
-          <div className="flex items-center gap-1">
-            <Button 
-              size="sm" 
-              variant="ghost"
-              onClick={() => navigate('/plan/travel-capsule')}
-              disabled={!hasGarments}
-              className="press h-9 w-9 p-0"
-              title={t('plan.travel_capsule')}
-            >
-              <Luggage className="w-4 h-4 text-muted-foreground" />
-            </Button>
-            <Button 
-              size="sm" 
-              variant="ghost"
-              onClick={() => setQuickPlanSheetOpen(true)}
-              disabled={!hasGarments}
-              className="press h-9 w-9 p-0"
-            >
-              <Wand2 className="w-4 h-4 text-muted-foreground" />
-            </Button>
-          </div>
         </div>
       </header>
 
