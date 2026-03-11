@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { BursDrawLogo } from '@/components/ui/BursDrawLogo';
+import { isMedianApp } from '@/lib/median';
 import Landing from './Landing';
 import Home from './Home';
 
@@ -19,7 +20,8 @@ const Index = () => {
   // After both animation and auth resolve, decide what to show
   const content = (() => {
     if (showSplash) return null;
-    if (!user) return <Landing />;
+    // In Median native app, skip marketing landing — go straight to auth
+    if (!user) return isMedianApp() ? <Navigate to="/auth" replace /> : <Landing />;
     const prefs = profile?.preferences as Record<string, any> | null;
     const onboardingCompleted = prefs?.onboarding?.completed === true;
     if (!onboardingCompleted) return <Navigate to="/onboarding" replace />;
