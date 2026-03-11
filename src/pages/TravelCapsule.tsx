@@ -25,7 +25,7 @@ import { usePlannedOutfits } from '@/hooks/usePlannedOutfits';
 import { getCoordinatesFromCity, fetchForecast, type ForecastDay } from '@/hooks/useForecast';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { getDateLocale } from '@/lib/dateLocale';
+import { getDateFnsLocale } from '@/lib/dateLocale';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
 import type { DateRange } from 'react-day-picker';
 
