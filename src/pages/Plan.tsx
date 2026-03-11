@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format, addDays, isSameDay, isToday, isTomorrow } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
-import { Wand2, Shirt, CalendarDays, Repeat, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart, Luggage } from 'lucide-react';
+import { Wand2, Shirt, CalendarDays, Repeat, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart, Luggage, CalendarRange } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PlanPageSkeleton } from '@/components/ui/skeletons';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -250,28 +250,6 @@ export default function PlanPage() {
               />
             </PopoverContent>
           </Popover>
-
-          <div className="flex items-center gap-1">
-            <Button 
-              size="sm" 
-              variant="ghost"
-              onClick={() => navigate('/plan/travel-capsule')}
-              disabled={!hasGarments}
-              className="press h-9 w-9 p-0"
-              title={t('plan.travel_capsule')}
-            >
-              <Luggage className="w-4 h-4 text-muted-foreground" />
-            </Button>
-            <Button 
-              size="sm" 
-              variant="ghost"
-              onClick={() => setQuickPlanSheetOpen(true)}
-              disabled={!hasGarments}
-              className="press h-9 w-9 p-0"
-            >
-              <Wand2 className="w-4 h-4 text-muted-foreground" />
-            </Button>
-          </div>
         </div>
       </header>
 
@@ -311,6 +289,26 @@ export default function PlanPage() {
               </Badge>
             )}
           </div>
+
+          {/* Action row */}
+          {hasGarments && (
+            <div className="flex gap-2.5">
+              <button
+                onClick={() => setQuickPlanSheetOpen(true)}
+                className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-card/60 border border-border/10 text-sm font-medium text-foreground transition-colors hover:bg-card/80 active:scale-[0.98]"
+              >
+                <CalendarRange className="w-4 h-4 text-muted-foreground/60" />
+                {t('plan.plan_week_btn')}
+              </button>
+              <button
+                onClick={() => navigate('/plan/travel-capsule')}
+                className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-card/60 border border-border/10 text-sm font-medium text-foreground transition-colors hover:bg-card/80 active:scale-[0.98]"
+              >
+                <Luggage className="w-4 h-4 text-muted-foreground/60" />
+                {t('plan.pack_trip_btn')}
+              </button>
+            </div>
+          )}
 
           {/* AI Day Summary */}
           <DaySummaryCard
