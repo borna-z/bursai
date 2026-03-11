@@ -37,9 +37,7 @@ serve(async (req) => {
     const isSv = locale === "sv";
 
     const weatherContext = weather
-      ? (isSv
-        ? `Väder:${weather.temperature}°C,${weather.precipitation === "none" ? "uppehåll" : weather.precipitation === "rain" ? "regn" : "snö"}`
-        : `Weather:${weather.temperature}°C,${weather.precipitation === "none" ? "clear" : weather.precipitation}`)
+      ? `${weather.temperature}°C, ${weather.precipitation === "none" ? (isSv ? "uppehåll" : "clear") : weather.precipitation}`
       : "";
 
     const eventsText = events
@@ -49,43 +47,93 @@ serve(async (req) => {
       .join("\n");
 
     const isMultiEvent = events.length >= 2;
-    const occasionValues = isSv ? "jobb|fest|dejt|träning|vardag" : "work|party|date|workout|casual";
 
     const systemPrompt = isSv
-      ? `Stilmedveten dagplanerare. Analysera kalendern, ge kort sammanfattning.
-Svara med JSON: {"summary":"2-3 meningar","priorities":[{"title":"","occasion":"${occasionValues}","formality":1-5,"time":"HH:MM"}],"outfit_hints":[{"occasion":"","style":"","note":""}],"transitions":${isMultiEvent ? '{"needs_change":bool,"blocks":[{"time_range":"","occasion":"","formality":1-5,"label":"","style_tip":"","transition_tip":""}],"versatile_pieces":[]}' : 'null'}}
-Max 3 priorities, 2 hints.${isMultiEvent ? ` ${events.length} händelser, analysera klädbyten.` : ""} Svenska.`
-      : `Style-conscious day planner. Analyze calendar, give brief summary.
-Respond with JSON: {"summary":"2-3 sentences","priorities":[{"title":"","occasion":"${occasionValues}","formality":1-5,"time":"HH:MM"}],"outfit_hints":[{"occasion":"","style":"","note":""}],"transitions":${isMultiEvent ? '{"needs_change":bool,"blocks":[{"time_range":"","occasion":"","formality":1-5,"label":"","style_tip":"","transition_tip":""}],"versatile_pieces":[]}' : 'null'}}
-Max 3 priorities, 2 hints.${isMultiEvent ? ` ${events.length} events, analyze outfit changes.` : ""} ${localeName}.`;
+      ? `Du är en stilmedveten dagplanerare. Analysera kalenderhändelserna och ge en kort sammanfattning med klädtips. Svara på svenska.`
+      : `You are a style-conscious day planner. Analyze the calendar events and provide a brief summary with outfit tips. Respond in ${localeName}.`;
 
-    // Build cache key from events to cache same-day requests
-    const eventsCacheKey = events.map((e: any) => e.title).sort().join(",");
+    const eventsCacheKey = events.map((e: any) => e.title).sort().join(",").slice(0, 40);
+
+    // Build transitions schema for tool
+    const transitionItemSchema: any = {
+      type: "object",
+      properties: {
+        time_range: { type: "string" },
+        occasion: { type: "string" },
+        formality: { type: "number" },
+        label: { type: "string" },
+        style_tip: { type: "string" },
+        transition_tip: { type: "string" },
+      },
+      required: ["time_range", "occasion", "formality", "label", "style_tip"],
+      additionalProperties: false,
+    };
 
     try {
-      const { data: content } = await callBursAI({
+      const { data: result } = await callBursAI({
         complexity: "trivial",
-        max_tokens: 400,
+        max_tokens: 500,
         functionName: "summarize_day",
         cacheTtlSeconds: 3600,
-        cacheNamespace: `summarize_day_${eventsCacheKey.slice(0, 20)}`,
+        cacheNamespace: `summarize_day_${eventsCacheKey}`,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `${eventsText}\n${weatherContext}` },
+          { role: "user", content: `Events:\n${eventsText}${weatherContext ? `\nWeather: ${weatherContext}` : ""}${isMultiEvent ? `\nNote: ${events.length} events — analyze if outfit changes needed.` : ""}` },
         ],
+        tools: [{
+          type: "function",
+          function: {
+            name: "day_summary",
+            description: "Return day summary with outfit priorities and hints",
+            parameters: {
+              type: "object",
+              properties: {
+                summary: { type: "string", description: "2-3 sentence summary of the day's theme and outfit direction" },
+                priorities: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      title: { type: "string" },
+                      occasion: { type: "string" },
+                      formality: { type: "number" },
+                      time: { type: "string" },
+                    },
+                    required: ["title", "occasion", "formality", "time"],
+                    additionalProperties: false,
+                  },
+                },
+                outfit_hints: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      occasion: { type: "string" },
+                      style: { type: "string" },
+                      note: { type: "string" },
+                    },
+                    required: ["occasion", "style", "note"],
+                    additionalProperties: false,
+                  },
+                },
+                transitions: isMultiEvent ? {
+                  type: "object",
+                  properties: {
+                    needs_change: { type: "boolean" },
+                    blocks: { type: "array", items: transitionItemSchema },
+                    versatile_pieces: { type: "array", items: { type: "string" } },
+                  },
+                  required: ["needs_change", "blocks", "versatile_pieces"],
+                  additionalProperties: false,
+                } : { type: "null" },
+              },
+              required: ["summary", "priorities", "outfit_hints"],
+              additionalProperties: false,
+            },
+          },
+        }],
+        tool_choice: { type: "function", function: { name: "day_summary" } },
       }, serviceClient);
-
-      let result;
-      if (typeof content === "string") {
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          result = JSON.parse(jsonMatch[0]);
-        } else {
-          result = { summary: content, priorities: [], outfit_hints: [], transitions: null };
-        }
-      } else {
-        result = content;
-      }
 
       if (!result.transitions) result.transitions = null;
 
