@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -11,13 +11,13 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { WeatherPill } from '@/components/weather/WeatherPill';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useSubscription } from '@/hooks/useSubscription';
+import { AISuggestions } from '@/components/insights/AISuggestions';
 
 import { lazy, Suspense } from 'react';
-import { TodayOutfitCard } from '@/components/home/TodayOutfitCard';
 
 // Below-fold components – lazy loaded to speed up cold start
 const SwipeSuggestions = lazy(() => import('@/components/home/SwipeSuggestions').then(m => ({ default: m.SwipeSuggestions })));
-const AdjustDaySection = lazy(() => import('@/components/home/AdjustDaySection').then(m => ({ default: m.AdjustDaySection })));
 const SmartInsightCard = lazy(() => import('@/components/home/SmartInsightCard').then(m => ({ default: m.SmartInsightCard })));
 const InsightsBanner = lazy(() => import('@/components/home/InsightsBanner').then(m => ({ default: m.InsightsBanner })));
 const PlanTomorrowCard = lazy(() => import('@/components/home/PlanTomorrowCard').then(m => ({ default: m.PlanTomorrowCard })));
@@ -30,16 +30,7 @@ export default function HomePage() {
   const { weather } = useWeather();
   const { data: profile } = useProfile();
   const queryClient = useQueryClient();
-
-  const [occasion, setOccasion] = useState<string>(
-    () => localStorage.getItem('burs_last_occasion') || 'vardag'
-  );
-  const [style, setStyle] = useState<string | null>(
-    () => localStorage.getItem('burs_last_style') || null
-  );
-
-  // Force re-key the outfit card on "Update outfit"
-  const [outfitKey, setOutfitKey] = useState(0);
+  const { isPremium } = useSubscription();
 
   const handleRefresh = useCallback(async () => {
     await Promise.all([
@@ -47,6 +38,7 @@ export default function HomePage() {
       queryClient.invalidateQueries({ queryKey: ['insights'] }),
       queryClient.invalidateQueries({ queryKey: ['weather'] }),
       queryClient.invalidateQueries({ queryKey: ['outfits'] }),
+      queryClient.invalidateQueries({ queryKey: ['ai-suggestions'] }),
     ]);
   }, [queryClient]);
 
@@ -58,31 +50,6 @@ export default function HomePage() {
     if (hour < 18) return t('home.greeting_afternoon') + suffix;
     return t('home.greeting_evening') + suffix;
   }
-
-  const handleOccasionChange = (id: string) => {
-    setOccasion(id);
-    localStorage.setItem('burs_last_occasion', id);
-  };
-
-  const handleStyleChange = (id: string | null) => {
-    setStyle(id);
-    if (id) localStorage.setItem('burs_last_style', id);
-    else localStorage.removeItem('burs_last_style');
-  };
-
-  const handleUpdateOutfit = () => {
-    setOutfitKey((k) => k + 1);
-  };
-
-  const handleUseUnused = () => {
-    // Generate with 'vardag' occasion – the edge function will prioritize unused items
-    setOccasion('vardag');
-    setOutfitKey((k) => k + 1);
-  };
-
-  const weatherData = weather
-    ? { temperature: weather.temperature, precipitation: weather.precipitation, wind: weather.wind }
-    : undefined;
 
   const hasEnoughGarments = (garmentCount || 0) >= 3;
 
@@ -112,14 +79,9 @@ export default function HomePage() {
             </div>
           </motion.div>
 
-          {/* ── Primary Outfit Card ── */}
+          {/* ── AI Suggestions ── */}
           {hasEnoughGarments ? (
-            <TodayOutfitCard
-              key={outfitKey}
-              weather={weatherData}
-              occasion={occasion}
-              style={style}
-            />
+            <AISuggestions isPremium={isPremium} />
           ) : (
             <div className="rounded-2xl bg-foreground/[0.02] border border-border/30 p-6 text-center space-y-2">
               <p className="text-sm text-muted-foreground">{t('home.min_garments')}</p>
@@ -131,14 +93,7 @@ export default function HomePage() {
             <SwipeSuggestions />
             <PlanTomorrowCard />
             <InsightsBanner />
-            <AdjustDaySection
-              occasion={occasion}
-              style={style}
-              onOccasionChange={handleOccasionChange}
-              onStyleChange={handleStyleChange}
-              onUpdate={handleUpdateOutfit}
-            />
-            <SmartInsightCard onUseUnused={handleUseUnused} />
+            <SmartInsightCard />
             <PredictiveStylingBanner />
           </Suspense>
         </AnimatedPage>
