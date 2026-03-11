@@ -25,6 +25,7 @@ import { BatchUploadProgress } from '@/components/wardrobe/BatchUploadProgress';
 import { DuplicateWarningSheet } from '@/components/wardrobe/DuplicateWarningSheet';
 import { useDuplicateDetection } from '@/hooks/useDuplicateDetection';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useMedianCamera } from '@/hooks/useMedianCamera';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
 const PATTERN_IDS = ['enfärgad', 'randig', 'rutig', 'prickig', 'blommig', 'mönstrad', 'kamouflage'] as const;
@@ -169,6 +170,35 @@ export default function AddGarmentPage() {
   const { user } = useAuth();
   const { canAddGarment, remainingGarments, refresh: refreshSubscription } = useSubscription();
   const { checkDuplicates, duplicates, clearDuplicates } = useDuplicateDetection();
+
+  // Process a captured file from the Median camera bridge
+  const processNativeCapture = async (result: { file: File; previewUrl: string }) => {
+    if (!user || !canAddGarment()) { setShowPaywall(true); return; }
+    const file = result.file;
+    setImageFile(file);
+    setImagePreview(result.previewUrl);
+    const newGarmentId = crypto.randomUUID();
+    setGarmentId(newGarmentId);
+    setStep('analyzing');
+    try {
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const path = `${user.id}/${newGarmentId}.${fileExt}`;
+      await uploadGarmentImage(file, newGarmentId);
+      setStoragePath(path);
+      const signedUrl = await getGarmentSignedUrl(path);
+      setImagePreview(signedUrl);
+      await runAnalysis(path);
+    } catch (err) {
+      console.error('Upload/analysis error:', err);
+      toast.error(t('addgarment.upload_error'));
+      setStep('upload');
+    }
+  };
+
+  const { takePhoto, pickFromGallery } = useMedianCamera({
+    fileInputRef,
+    onCapture: processNativeCapture,
+  });
   const [showDuplicateSheet, setShowDuplicateSheet] = useState(false);
 
   const [step, setStep] = useState<'upload' | 'analyzing' | 'form' | 'batch'>('upload');
@@ -487,12 +517,7 @@ export default function AddGarmentPage() {
                   <Button
                     size="lg"
                     className="h-24 w-32 flex-col gap-2"
-                    onClick={() => {
-                      if (fileInputRef.current) {
-                        fileInputRef.current.capture = 'environment';
-                        fileInputRef.current.click();
-                      }
-                    }}
+                    onClick={() => takePhoto()}
                   >
                     <Camera className="w-8 h-8" />
                     {t('addgarment.camera')}
@@ -501,12 +526,7 @@ export default function AddGarmentPage() {
                     size="lg"
                     variant="outline"
                     className="h-24 w-32 flex-col gap-2"
-                    onClick={() => {
-                      if (fileInputRef.current) {
-                        fileInputRef.current.removeAttribute('capture');
-                        fileInputRef.current.click();
-                      }
-                    }}
+                    onClick={() => pickFromGallery()}
                   >
                     <ImageIcon className="w-8 h-8" />
                     {t('addgarment.gallery')}
