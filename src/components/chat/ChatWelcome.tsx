@@ -1,7 +1,13 @@
+import { useMemo } from 'react';
 import { Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useWeather, type WeatherData } from '@/hooks/useWeather';
+import { useProfile } from '@/hooks/useProfile';
+import { useFlatGarments } from '@/hooks/useGarments';
+import { useAuth } from '@/contexts/AuthContext';
+import type { Tables } from '@/integrations/supabase/types';
 
 interface ChatWelcomeProps {
   onSuggestion: (text: string) => void;
@@ -25,8 +31,104 @@ const itemVariants = {
   },
 };
 
+type Garment = Tables<'garments'>;
+
+function findLeastWorn(garments: Garment[]): Garment | null {
+  if (!garments.length) return null;
+  const eligible = garments.filter(g => g.category !== 'accessories');
+  if (!eligible.length) return null;
+  return eligible.reduce((best, g) => {
+    const bCount = best.wear_count ?? 0;
+    const gCount = g.wear_count ?? 0;
+    return gCount < bCount ? g : best;
+  }, eligible[0]);
+}
+
+function findMostWorn(garments: Garment[]): Garment | null {
+  if (!garments.length) return null;
+  const eligible = garments.filter(g => (g.wear_count ?? 0) > 0);
+  if (!eligible.length) return null;
+  return eligible.reduce((best, g) => {
+    const bCount = best.wear_count ?? 0;
+    const gCount = g.wear_count ?? 0;
+    return gCount > bCount ? g : best;
+  }, eligible[0]);
+}
+
+function buildWeatherSuggestion(weather: WeatherData | undefined, locale: string): string {
+  if (!weather) {
+    return locale === 'sv' ? 'Vad ska jag ha på mig idag?' : 'What should I wear today?';
+  }
+  const temp = Math.round(weather.temperature);
+  const condKey = weather.condition;
+  // Build a natural sentence
+  if (locale === 'sv') {
+    const cond = condKey.includes('rain') || condKey.includes('drizzle') ? 'regnigt'
+      : condKey.includes('snow') ? 'snöigt'
+      : condKey.includes('cloud') ? 'mulet'
+      : 'soligt';
+    return `${temp}°C och ${cond} — vad funkar?`;
+  }
+  const cond = condKey.includes('rain') || condKey.includes('drizzle') ? 'rainy'
+    : condKey.includes('snow') ? 'snowy'
+    : condKey.includes('cloud') ? 'cloudy'
+    : 'sunny';
+  return `It's ${temp}°C and ${cond} — what works?`;
+}
+
+function buildCalendarSuggestion(locale: string): string {
+  return locale === 'sv' ? 'Jag har ett möte idag' : 'I have a meeting today';
+}
+
+function buildLeastWornSuggestion(garment: Garment | null, locale: string): string {
+  if (!garment) {
+    return locale === 'sv' ? 'Styla mitt minst använda plagg' : 'Style my least worn item';
+  }
+  const name = garment.title.toLowerCase();
+  return locale === 'sv' ? `Styla mina ${name}` : `Style my ${name}`;
+}
+
+function buildMostWornSuggestion(garment: Garment | null, locale: string): string {
+  if (!garment) {
+    return locale === 'sv' ? 'Nya sätt att bära min favorit' : 'New ways to wear my favorite';
+  }
+  const name = garment.title.toLowerCase();
+  return locale === 'sv' ? `Nya sätt att bära ${name}` : `New ways to wear my ${name}`;
+}
+
 export function ChatWelcome({ onSuggestion, displayName, garmentCount }: ChatWelcomeProps) {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
+  const { user } = useAuth();
+  const { data: profile } = useProfile();
+  const city = profile?.home_city || 'Stockholm';
+  const { data: weather } = useWeather({ city });
+  const garments = useFlatGarments();
+
+  const suggestions = useMemo(() => {
+    const allGarments = garments ?? [];
+
+    // Row 1: contextual (weather + calendar)
+    const weatherChip = buildWeatherSuggestion(weather ?? undefined, locale);
+    const calendarChip = buildCalendarSuggestion(locale);
+
+    // Row 2: wardrobe-aware
+    const leastWorn = findLeastWorn(allGarments);
+    const mostWorn = findMostWorn(allGarments);
+    const leastWornChip = buildLeastWornSuggestion(leastWorn, locale);
+    const mostWornChip = buildMostWornSuggestion(mostWorn, locale);
+
+    // Row 3: discovery (static)
+    const discoveryChips = locale === 'sv'
+      ? ['Vad saknas i min garderob?', 'Hitta en dejt-outfit']
+      : ['What\'s missing in my wardrobe?', 'Find me a date night outfit'];
+
+    return [
+      [weatherChip, calendarChip],
+      [leastWornChip, mostWornChip],
+      discoveryChips,
+    ];
+  }, [weather, garments, locale]);
+
   const baseWelcome = t('chat.welcome');
   const personalizedWelcome = displayName
     ? baseWelcome.replace(/^/, `${displayName}, `)
@@ -34,7 +136,6 @@ export function ChatWelcome({ onSuggestion, displayName, garmentCount }: ChatWel
   const welcomeText = garmentCount && garmentCount > 0
     ? `${personalizedWelcome}\n${garmentCount} ${t('chat.garments_in_wardrobe')}`
     : personalizedWelcome;
-  const suggestions = [t('chat.suggestion_1'), t('chat.suggestion_2'), t('chat.suggestion_3')];
 
   return (
     <motion.div
@@ -55,17 +156,26 @@ export function ChatWelcome({ onSuggestion, displayName, garmentCount }: ChatWel
       >
         {welcomeText}
       </motion.p>
-      <motion.div variants={itemVariants} className="flex flex-wrap gap-2.5 justify-center mt-8 max-w-sm">
-        {suggestions.map((s) => (
-          <motion.button
-            key={s}
-            variants={itemVariants}
-            onClick={() => onSuggestion(s)}
-            className="px-5 py-3 text-[13px] rounded-2xl border border-border/30 bg-foreground/[0.02] hover:bg-foreground/[0.06] text-foreground transition-colors"
-            whileTap={{ scale: 0.96 }}
+
+      {/* Suggestion rows */}
+      <motion.div variants={itemVariants} className="w-full mt-8 space-y-2.5 max-w-sm mx-auto">
+        {suggestions.map((row, rowIdx) => (
+          <div
+            key={rowIdx}
+            className="flex gap-2 overflow-x-auto scrollbar-hide px-1 snap-x snap-mandatory"
           >
-            {s}
-          </motion.button>
+            {row.map((chip) => (
+              <motion.button
+                key={chip}
+                variants={itemVariants}
+                onClick={() => onSuggestion(chip)}
+                className="shrink-0 snap-start px-4 py-2.5 text-[13px] leading-snug rounded-2xl border border-border/30 bg-foreground/[0.02] hover:bg-foreground/[0.06] text-foreground transition-colors whitespace-nowrap"
+                whileTap={{ scale: 0.96 }}
+              >
+                {chip}
+              </motion.button>
+            ))}
+          </div>
         ))}
       </motion.div>
     </motion.div>
