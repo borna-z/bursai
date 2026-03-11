@@ -290,6 +290,26 @@ export default function PlanPage() {
             )}
           </div>
 
+          {/* Action row */}
+          {hasGarments && (
+            <div className="flex gap-2.5">
+              <button
+                onClick={() => setQuickPlanSheetOpen(true)}
+                className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-card/60 border border-border/10 text-sm font-medium text-foreground transition-colors hover:bg-card/80 active:scale-[0.98]"
+              >
+                <CalendarRange className="w-4 h-4 text-muted-foreground/60" />
+                {t('plan.plan_week_btn')}
+              </button>
+              <button
+                onClick={() => navigate('/plan/travel-capsule')}
+                className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-card/60 border border-border/10 text-sm font-medium text-foreground transition-colors hover:bg-card/80 active:scale-[0.98]"
+              >
+                <Luggage className="w-4 h-4 text-muted-foreground/60" />
+                {t('plan.pack_trip_btn')}
+              </button>
+            </div>
+          )}
+
           {/* AI Day Summary */}
           <DaySummaryCard
             summary={daySummary}
