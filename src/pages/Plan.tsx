@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format, addDays, isSameDay, isToday, isTomorrow } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
-import { Wand2, Shirt, CalendarDays, Repeat, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart, Luggage } from 'lucide-react';
+import { Wand2, Shirt, CalendarDays, Repeat, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart, Luggage, CalendarRange } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PlanPageSkeleton } from '@/components/ui/skeletons';
 import { AnimatedPage } from '@/components/ui/animated-page';
