@@ -250,7 +250,7 @@ export default function AIChat() {
 
   return (
     <AppLayout>
-      <div className="absolute inset-0 flex flex-col overflow-hidden">
+      <div className="absolute inset-0 flex flex-col overflow-hidden pb-20">
         {/* Header — simple title + menu */}
         <div className="flex items-center justify-between px-4 py-3 shrink-0 sticky top-0 z-10 bg-background/80 backdrop-blur-xl">
           <div className="w-9" />
