@@ -262,14 +262,64 @@ export default function TravelCapsule() {
     setIsAddingToCalendar(true);
     try {
       const userId = (await supabase.auth.getUser()).data.user!.id;
-      for (const outfit of result.outfits) {
-        await supabase.from('planned_outfits').insert({
-          user_id: userId,
-          date: format(addDays(dateRange.from!, outfit.day - 1), 'yyyy-MM-dd'),
-          note: `${destination} – ${outfit.occasion}`,
-          status: 'planned',
+
+      for (const capsuleOutfit of result.outfits) {
+        const outfitDate = format(addDays(dateRange.from!, capsuleOutfit.day - 1), 'yyyy-MM-dd');
+
+        // Resolve valid garment IDs for this outfit
+        const validItems = capsuleOutfit.items.filter(id => garmentMap.has(id));
+        if (validItems.length === 0) continue;
+
+        // 1. Create an outfit record
+        const { data: outfitRow, error: outfitErr } = await supabase
+          .from('outfits')
+          .insert({
+            user_id: userId,
+            occasion: capsuleOutfit.occasion || 'vardag',
+            explanation: capsuleOutfit.note || `${destination} – Day ${capsuleOutfit.day}`,
+            saved: true,
+            planned_for: outfitDate,
+          })
+          .select('id')
+          .single();
+
+        if (outfitErr || !outfitRow) {
+          console.error('Failed to create outfit:', outfitErr);
+          continue;
+        }
+
+        // 2. Create outfit_items with slot derived from garment category
+        const slotMap: Record<string, string> = {
+          tops: 'top', bottoms: 'bottom', shoes: 'shoes', outerwear: 'outerwear',
+          accessories: 'accessory', dresses: 'dress', activewear: 'top',
+        };
+
+        const outfitItems = validItems.map(gId => {
+          const g = garmentMap.get(gId);
+          const slot = slotMap[g?.category?.toLowerCase() || ''] || 'other';
+          return { outfit_id: outfitRow.id, garment_id: gId, slot };
         });
+
+        const { error: itemsErr } = await supabase
+          .from('outfit_items')
+          .insert(outfitItems);
+
+        if (itemsErr) console.error('Failed to create outfit items:', itemsErr);
+
+        // 3. Create planned_outfit linked to the real outfit
+        const { error: planErr } = await supabase
+          .from('planned_outfits')
+          .upsert({
+            user_id: userId,
+            date: outfitDate,
+            outfit_id: outfitRow.id,
+            note: `${destination} – ${capsuleOutfit.occasion}`,
+            status: 'planned',
+          }, { onConflict: 'user_id,date' });
+
+        if (planErr) console.error('Failed to plan outfit:', planErr);
       }
+
       hapticSuccess();
       toast.success(t('capsule.added_to_calendar'));
     } catch {
