@@ -683,6 +683,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'insights.more': 'fler',
     'insights.show_all': 'Visa alla',
     'insights.unused_60d': 'plagg ej använda 60+ dagar',
+    'insights.unused_nudge': 'Rediscover forgotten favorites in your wardrobe',
     'insights.wardrobe_usage': 'Garderobutnyttjande',
     'insights.used_label': 'använda',
     'insights.unused_label': 'oanvända',
