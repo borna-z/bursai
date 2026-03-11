@@ -12,62 +12,58 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing authorization");
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user }, error: authError } = await serviceClient.auth.getUser(token);
     if (authError || !user) throw new Error("Unauthorized");
 
     const { outfit_id } = await req.json();
     if (!outfit_id) throw new Error("Missing outfit_id");
 
-    const { data: outfit, error: oErr } = await supabase
-      .from("outfits")
-      .select("*, outfit_items(slot, garment_id, garments:garment_id(title, category, color_primary, color_secondary, material, pattern, formality, fit))")
-      .eq("id", outfit_id)
-      .eq("user_id", user.id)
-      .single();
+    // Parallel DB queries
+    const [outfitRes, allGarmentsRes] = await Promise.all([
+      serviceClient
+        .from("outfits")
+        .select("*, outfit_items(slot, garment_id, garments:garment_id(title, category, color_primary, color_secondary, material, pattern, formality, fit))")
+        .eq("id", outfit_id)
+        .eq("user_id", user.id)
+        .single(),
+      serviceClient
+        .from("garments")
+        .select("id, title, category, color_primary, color_secondary, material, pattern, formality, fit, in_laundry")
+        .eq("user_id", user.id)
+        .eq("in_laundry", false),
+    ]);
 
-    if (oErr || !outfit) throw new Error("Outfit not found");
-
-    const { data: allGarments } = await supabase
-      .from("garments")
-      .select("id, title, category, color_primary, color_secondary, material, pattern, formality, fit, in_laundry")
-      .eq("user_id", user.id)
-      .eq("in_laundry", false);
+    const outfit = outfitRes.data;
+    if (outfitRes.error || !outfit) throw new Error("Outfit not found");
 
     const outfitDNA = outfit.outfit_items.map((item: any) => {
       const g = item.garments;
-      return `${item.slot}: ${g?.title} — ${g?.color_primary}, ${g?.material || "unknown"}, ${g?.pattern || "solid"}, formality ${g?.formality || 3}`;
+      return `${item.slot}:${g?.title}|${g?.color_primary}|${g?.material || "?"}|f${g?.formality || 3}`;
     }).join("\n");
 
-    const availableGarments = (allGarments || [])
+    const availableGarments = (allGarmentsRes.data || [])
       .filter((g: any) => !outfit.outfit_items.some((item: any) => item.garment_id === g.id))
-      .map((g: any) => `[${g.id}] ${g.title} (${g.category}, ${g.color_primary}, ${g.material || "?"})`)
+      .map((g: any) => `${g.id}|${g.title}|${g.category}|${g.color_primary}|${g.material || "?"}`)
       .join("\n");
 
-    const prompt = `You are a fashion DNA analyst. The user loves this outfit and wants similar-but-different variations.
-
-ORIGINAL OUTFIT DNA:
-${outfitDNA}
-Occasion: ${outfit.occasion}
-Style: ${outfit.style_vibe || "casual"}
-
-AVAILABLE GARMENTS (from user's wardrobe):
-${availableGarments}
-
-Generate 3 outfit variations that preserve the DNA (similar color ratios, formality balance, material harmony) but swap in different pieces. Each variation should feel like a cousin of the original.
-
-For each variation, select garment IDs from the available list and explain what makes it similar.`;
-
     const { data: result } = await callBursAI({
+      complexity: "standard",
+      max_tokens: 500,
+      functionName: "clone_outfit_dna",
+      cacheTtlSeconds: 1800,
+      cacheNamespace: "clone_dna",
       messages: [
-        { role: "system", content: prompt },
-        { role: "user", content: "Generate 3 similar outfit variations using my available garments." },
+        { role: "system", content: `Fashion DNA analyst. User loves this outfit, wants similar variations.
+DNA:\n${outfitDNA}\nOccasion:${outfit.occasion} Style:${outfit.style_vibe || "casual"}
+AVAILABLE:\n${availableGarments}
+Generate 3 variations preserving DNA (color ratios, formality, material harmony) with different pieces.` },
+        { role: "user", content: "Generate 3 similar outfit variations." },
       ],
       tools: [{
         type: "function",
@@ -82,9 +78,9 @@ For each variation, select garment IDs from the available list and explain what 
                 items: {
                   type: "object",
                   properties: {
-                    name: { type: "string", description: "Short variation name" },
-                    garment_ids: { type: "array", items: { type: "string" }, description: "Selected garment UUIDs" },
-                    explanation: { type: "string", description: "Why this variation works" },
+                    name: { type: "string" },
+                    garment_ids: { type: "array", items: { type: "string" } },
+                    explanation: { type: "string" },
                   },
                   required: ["name", "garment_ids", "explanation"],
                   additionalProperties: false,
@@ -97,11 +93,7 @@ For each variation, select garment IDs from the available list and explain what 
         },
       }],
       tool_choice: { type: "function", function: { name: "suggest_variations" } },
-      complexity: "standard",
-      max_tokens: 500,
-      cacheTtlSeconds: 1800,
-      cacheNamespace: "clone_dna",
-    }, supabase);
+    }, serviceClient);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

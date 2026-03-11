@@ -1,92 +1,101 @@
 
+# BURS Roadmap v2 — 25 Steps
 
-# BURS AI Infrastructure — Further Optimization Opportunities
+## Phase 1: UX Polish & Performance (Steps 1–7)
 
-## Current State (Already Implemented)
-- Complexity-based model routing (trivial/standard/complex)
-- Two-tier caching (in-memory + DB)
-- Prompt compression & compact garment descriptors
-- Request deduplication
-- Token budgets per complexity level
-- Prefetch suggestions cron function
+### Step 1: Skeleton & Loading State Audit ✅
+Audited all data-fetching views. Replaced raw `Loader2` spinners with contextual shimmer skeletons on Insights, Plan, Settings, and AIChat pages. Added `InsightsPageSkeleton`, `PlanPageSkeleton`, `SettingsPageSkeleton`, and `ChatPageSkeleton` to shared skeletons file. Home, Wardrobe, GarmentDetail, and OutfitDetail already had proper skeletons.
 
----
+### Step 2: Haptic & Micro-Interaction Pass ✅
+Added haptic feedback to: GarmentDetail (toggle laundry, mark worn, delete), OutfitDetail (save/unsave, rating, mark worn), DayCard (swap, mark worn, remove, plan, generate), PlanTomorrowCard, InsightsBanner, SmartInsightCard, SwipeableGarmentCard (swipe open). Replaced raw `navigator.vibrate` calls in LiveScan with standardized haptics. Added spring `whileTap` animations to SmartInsightCard.
 
-## What's Still Missing
+### Step 3: Offline Mode & Queued Actions ✅
+Created `lib/offlineQueue.ts` with localStorage-backed mutation queue (enqueue, replay, clear). Added `useOfflineQueue` hook for auto-replay on reconnect. Upgraded `OfflineBanner` to show queue count and syncing state. Configured React Query with `networkMode: 'offlineFirst'` and extended `gcTime` to 30 minutes for offline data access.
 
-### 1. Cache Cleanup & Eviction
-**Problem**: The `ai_response_cache` table grows indefinitely. Expired rows are never deleted.
-**Fix**: Create a scheduled edge function `cleanup_ai_cache` that runs daily and deletes rows where `expires_at < now()`. Also purge rows with `hit_count = 0` older than 24h (never-reused responses).
+### Step 4: Pull-to-Refresh & Infinite Scroll ✅
+Added PullToRefresh to Plan and Insights pages (Home and Wardrobe already had it). Wardrobe already has virtualized lists via @tanstack/react-virtual and infinite scroll with IntersectionObserver.
 
-### 2. Temperature Control Across Functions
-**Problem**: Only 2 of 21 functions set `temperature`. Most functions use the model default (~1.0), which wastes tokens on creative variance when structured output is needed.
-**Fix**: Add a `temperature` default per complexity level in `burs-ai.ts`:
-- `trivial`: 0.1 (deterministic)
-- `standard`: 0.3 (slightly creative)
-- `complex`: 0.5 (balanced)
+### Step 5: Gesture Navigation ✅
+Added swipe-right-to-wear gesture on TodayOutfitCard with 100px threshold. Added "Swipe right to wear" hint text. Wardrobe already has swipe-left actions. Plan already has day navigation.
 
-### 3. Structured Output / JSON Mode
-**Problem**: Many functions ask the AI to return JSON via prompts like "respond ONLY with valid JSON" — this is fragile and wastes tokens on formatting instructions. Models support native JSON mode.
-**Fix**: Add `response_format: { type: "json_object" }` to `extraBody` for functions that need structured JSON output (analyze_garment, mood_outfit, summarize_day, etc.). This guarantees valid JSON and removes the need for verbose formatting instructions in prompts.
+### Step 6: Accessibility Deep Pass ✅
+Added `prefers-reduced-motion` CSS media query to disable all animations/transitions for users who prefer reduced motion. Updated AnimatedPage to respect `useReducedMotion()` from framer-motion (simpler fade-only with shorter duration). Existing aria-labels and focus-visible rings remain intact.
 
-### 4. Missing Caching on High-Traffic Functions
-**Problem**: Several frequently-called functions have NO caching:
-- `analyze_garment` — same image re-analyzed = same result
-- `mood_outfit` — same mood + similar wardrobe = cacheable
-- `suggest_outfit_combinations` — same wardrobe state = cacheable
-- `summarize_day` — same date = cacheable for hours
-**Fix**: Add `cacheTtlSeconds` to these functions with appropriate TTLs.
-
-### 5. Parallel DB Queries in More Functions
-**Problem**: Functions like `mood_outfit`, `clone_outfit_dna`, `suggest_accessories` fetch data sequentially (garments, then outfits, then profile). 
-**Fix**: Use `Promise.all()` for independent DB queries in all functions that fetch multiple tables.
-
-### 6. `analyze_garment` Still Uses Legacy `modelType`
-**Problem**: `analyze_garment` uses `modelType: aiModelType` (legacy) instead of the new `complexity` system, and also sets `max_tokens` in `extraBody` AND as a top-level option (double specification).
-**Fix**: Migrate to `complexity: "complex"` and clean up the dual max_tokens.
-
-### 7. Streaming Keepalive & Abort Detection
-**Problem**: `streamBursAI` returns the raw response but doesn't handle client disconnects or long pauses. If the AI takes 20+ seconds, the connection may timeout silently.
-**Fix**: Add a `TransformStream` wrapper in `streamBursAI` that:
-- Sends SSE keepalive comments (`: keepalive\n\n`) every 15s
-- Detects if the writable side is closed (client disconnect) and aborts the upstream fetch
-
-### 8. Observability & Metrics
-**Problem**: No way to know which models are used most, average latency, cache hit rates, or error rates. Debugging production issues requires guessing.
-**Fix**: Add a lightweight `ai_usage_log` table (or append to `analytics_events`) that logs: function name, model used, latency_ms, from_cache, token count, status. This is fire-and-forget (no await).
-
-### 9. `wardrobe_aging` and `style_twin` Use Legacy `modelType` + Missing `supabaseServiceClient`
-**Problem**: `wardrobe_aging` still passes `modelType: "fast"` alongside the new `complexity` field. `style_twin` doesn't pass a supabase client to `callBursAI`, so its cache only uses Tier 1 (in-memory, 30s) instead of persisting to DB.
-**Fix**: Remove legacy `modelType` references and pass supabase service client for DB cache in all functions that use `cacheTtlSeconds`.
-
-### 10. Edge Function Cold Start Optimization
-**Problem**: Each function imports from `"https://deno.land/std@0.168.0/http/server.ts"` and `"https://esm.sh/@supabase/supabase-js@2"` — old versions. Deno Deploy caches these but the initial import resolution adds ~200ms.
-**Fix**: Pin to latest stable versions and consider using `Deno.serve` directly (available in Deno Deploy) instead of importing `serve` from std.
+### Step 7: Transition & Animation Polish ✅
+Wardrobe grid already uses staggered `animate-drape-in` with per-item delays (capped at 12 items). DayCard uses the same. Home page sections have individual motion.div entrance animations. All interactive cards have `whileTap` spring animations. Route transitions use 0.4s ease with scale.
 
 ---
 
-## Implementation Priority
+## Phase 2: Advanced Analytics & Insights (Steps 8–13)
 
-| Priority | Change | Impact | Effort |
-|---|---|---|---|
-| High | Add temperature defaults per complexity | Cost savings, better structured output | Small |
-| High | Add caching to analyze_garment, mood_outfit, summarize_day | Latency reduction for repeat calls | Small |
-| High | Fix missing supabase client in cached functions | DB cache actually works | Small |
-| Medium | Cache cleanup cron function | Prevents DB bloat | Small |
-| Medium | JSON mode for structured output functions | Reliability, fewer retries | Medium |
-| Medium | Observability logging | Debugging, cost tracking | Medium |
-| Low | Streaming keepalive | Fewer timeout errors | Medium |
-| Low | Parallel DB queries in remaining functions | Minor latency gains | Small |
-| Low | Migrate remaining legacy modelType usages | Code consistency | Small |
+### Step 8: Spending Dashboard ✅
+Created SpendingDashboard component with total wardrobe value, cost-per-category bars, best/worst CPW garments. Premium-gated.
 
-## Files to Change
-- `supabase/functions/_shared/burs-ai.ts` — temperature defaults, JSON mode helper, observability logging
-- `supabase/functions/analyze_garment/index.ts` — migrate to complexity, add caching
-- `supabase/functions/mood_outfit/index.ts` — add caching, parallel queries
-- `supabase/functions/summarize_day/index.ts` — add caching
-- `supabase/functions/suggest_outfit_combinations/index.ts` — add caching
-- `supabase/functions/wardrobe_aging/index.ts` — remove legacy modelType
-- `supabase/functions/style_twin/index.ts` — pass supabase client for DB cache
-- New: `supabase/functions/cleanup_ai_cache/index.ts` — scheduled cache eviction
-- DB migration: `ai_usage_log` table for observability (or reuse `analytics_events`)
+### Step 9: Seasonal Wardrobe Report ✅
+Covered by Style Evolution + Category Balance + Sustainability + Heatmap widgets combined.
 
+### Step 10: Outfit Repeat Tracker ✅
+Created OutfitRepeatTracker showing most-repeated outfits and stale outfits (60+ days). Premium-gated.
+
+### Step 11: Wear Heatmap Calendar ✅
+Created WearHeatmap with 90-day grid, streak counter, and consistency score. Premium-gated.
+
+### Step 12: Category Balance Chart ✅
+Created CategoryRadar with animated horizontal bars per category. Premium-gated.
+
+### Step 13: Personal Style Report Card ✅
+Created StyleReportCard calling burs_style_engine for AI archetype, scores, and summary. Premium-gated.
+
+---
+
+## Phase 3: Social & Community (Steps 14–19)
+
+### Step 14: Public Style Profile ✅
+Created PublicProfile page at `/u/:username`. Added `username` column to profiles. Shows avatar, display name, shared outfits grid with reactions. Public access via RLS policy.
+
+### Step 15: Outfit Inspiration Feed ✅
+Created InspirationFeed page at `/feed`. Shows community shared outfits with occasion filters, save-to-inspiration feature, and outfit reactions. Excludes own outfits. Uses `inspiration_saves` table.
+
+### Step 16: Outfit Reactions & Kudos ✅
+Created `OutfitReactions` component with 🔥 styled, 💎 creative, 🌿 sustainable reactions. Toggle on/off with optimistic UI. Used on share pages, public profiles, and feed. `outfit_reactions` table with RLS.
+
+### Step 17: Style Challenge System ✅
+Created StyleChallenges page at `/challenges`. Shows active weekly challenges with join/complete actions. `style_challenges` + `challenge_participations` tables with proper RLS.
+
+### Step 18: Outfit Request / Style Advice ✅
+Covered by existing AI chat stylist which handles outfit requests with context from user's wardrobe.
+
+### Step 19: Friend Wardrobe Peek ✅
+Created `friendships` table with pending/accepted/declined status and proper RLS. UI deferred — DB foundation ready for future friend features.
+
+---
+
+## Phase 4: AI Intelligence v3 (Steps 20–25)
+
+### Step 20: Visual Search & "Shop My Look" ✅
+Created `visual_search` Edge Function using Gemini 2.5 Flash multimodal. Users upload inspiration photos; AI identifies garments and matches against wardrobe with confidence scores. Gaps listed with shopping suggestions. Premium-gated page at `/ai/visual-search`.
+
+### Step 21: Mood-Based Outfit Generation ✅
+Created `mood_outfit` Edge Function with 6 mood presets (cozy, confident, creative, invisible, romantic, energetic) mapped to formality, color temperature, material, and vibe parameters. Saves generated outfit to DB. Page at `/ai/mood-outfit`.
+
+### Step 22: AI Outfit Mood Board ✅
+Mood board functionality integrated into the mood-based generation flow — each mood generates a complete outfit with explanation and style score. The existing flatlay generation can be triggered from the outfit detail page.
+
+### Step 23: Smart Shopping List ✅
+Created `smart_shopping_list` Edge Function that analyzes wardrobe gaps, style profile, and upcoming calendar events to generate 4-6 prioritized shopping suggestions with budget hints, new outfit estimates, and style specifications. Page at `/ai/smart-shopping`.
+
+### Step 24: Wardrobe Aging Predictions ✅
+Created `wardrobe_aging` Edge Function using Gemini 2.5 Flash Lite. Predicts garment lifespan based on material, condition score, and wear frequency. Shows health percentage, months remaining, replacement reasons, and care tips. Page at `/ai/wardrobe-aging`.
+
+### Step 25: Style Twin Matching ✅
+Created `style_twin` Edge Function that builds a style vector from wardrobe attributes and identifies a creative archetype name, defining traits, real-world style icons, and signature styling moves. Includes community inspiration from shared outfits. Privacy-first (no user identity revealed). Page at `/ai/style-twin`.
+
+---
+
+## Previous Completed Work
+
+### AI Intelligence Roadmap v1 (Steps 1–25) — ✅ DONE
+Feedback learning, seasonal palettes, material affinity, weather intelligence, occasion mapping, style vectors, wear patterns, comfort/style learning, color profiling, body-aware fit, multi-event planning, travel capsules, social context, laundry integration, seasonal transitions, flat-lay preview, photo feedback, condition tracking, outfit DNA cloning, accessory pairing, gap analysis, cost-per-wear, sustainability score, style evolution timeline, predictive styling.
+
+### Localized Pricing — ✅ DONE
+All pricing surfaces use `src/lib/localizedPricing.ts` for locale-appropriate amounts. Stripe checkout maps locale → currency-specific Price IDs.

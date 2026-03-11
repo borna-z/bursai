@@ -13,7 +13,6 @@ interface AnalyzeRequest {
   locale?: string;
 }
 
-// Map locale to title language instruction
 const TITLE_LANG_MAP: Record<string, string> = {
   sv: 'kort beskrivande titel på svenska (max 30 tecken)',
   en: 'short descriptive title in English (max 30 characters)',
@@ -44,39 +43,22 @@ interface GarmentAnalysis {
   formality: number;
 }
 
-// Standardize category to allowed values
 function normalizeCategory(cat: string): string {
   const catLower = cat.toLowerCase().trim();
   const categoryMap: Record<string, string> = {
-    'top': 'top',
-    'överdel': 'top',
-    'tröja': 'top',
-    'skjorta': 'top',
-    't-shirt': 'top',
-    'blus': 'top',
-    'bottom': 'bottom',
-    'underdel': 'bottom',
-    'byxa': 'bottom',
-    'byxor': 'bottom',
-    'jeans': 'bottom',
-    'kjol': 'bottom',
-    'shoes': 'shoes',
-    'skor': 'shoes',
-    'sko': 'shoes',
-    'outerwear': 'outerwear',
-    'ytterkläder': 'outerwear',
-    'jacka': 'outerwear',
-    'kappa': 'outerwear',
-    'accessory': 'accessory',
-    'accessoar': 'accessory',
-    'väska': 'accessory',
-    'dress': 'dress',
-    'klänning': 'dress',
+    'top': 'top', 'överdel': 'top', 'tröja': 'top', 'skjorta': 'top',
+    't-shirt': 'top', 'blus': 'top',
+    'bottom': 'bottom', 'underdel': 'bottom', 'byxa': 'bottom',
+    'byxor': 'bottom', 'jeans': 'bottom', 'kjol': 'bottom',
+    'shoes': 'shoes', 'skor': 'shoes', 'sko': 'shoes',
+    'outerwear': 'outerwear', 'ytterkläder': 'outerwear',
+    'jacka': 'outerwear', 'kappa': 'outerwear',
+    'accessory': 'accessory', 'accessoar': 'accessory', 'väska': 'accessory',
+    'dress': 'dress', 'klänning': 'dress',
   };
   return categoryMap[catLower] || 'top';
 }
 
-// Standardize color to Swedish simple words
 function normalizeColor(color: string): string {
   const colorLower = color.toLowerCase().trim();
   const colorMap: Record<string, string> = {
@@ -97,53 +79,39 @@ function normalizeColor(color: string): string {
   return colorMap[colorLower] || colorLower;
 }
 
-// Standardize season tags
 function normalizeSeasonTags(tags: string[]): string[] {
   const normalized: Set<string> = new Set();
-  
   for (const tag of tags) {
     const tagLower = tag.toLowerCase().trim();
-    
     if (tagLower.includes('sommar') || tagLower === 'summer') {
       normalized.add('sommar');
     } else if (tagLower.includes('vinter') || tagLower === 'winter') {
       normalized.add('vinter');
-    } else if (tagLower.includes('vår') || tagLower.includes('höst') || 
+    } else if (tagLower.includes('vår') || tagLower.includes('höst') ||
                tagLower === 'spring' || tagLower === 'fall' || tagLower === 'autumn') {
       normalized.add('vår');
       normalized.add('höst');
     } else if (tagLower.includes('året') || tagLower.includes('all') || tagLower.includes('year')) {
-      normalized.add('vår');
-      normalized.add('sommar');
-      normalized.add('höst');
-      normalized.add('vinter');
+      normalized.add('vår'); normalized.add('sommar');
+      normalized.add('höst'); normalized.add('vinter');
     }
   }
-  
-  // Default to all seasons if none specified
-  if (normalized.size === 0) {
-    return ['vår', 'sommar', 'höst', 'vinter'];
-  }
-  
+  if (normalized.size === 0) return ['vår', 'sommar', 'höst', 'vinter'];
   return Array.from(normalized);
 }
 
-// Normalize formality to 1-5
 function normalizeFormality(formality: number): number {
   return Math.max(1, Math.min(5, Math.round(formality)));
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // SECURITY: Get authenticated user from Authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
-      console.error('Missing or invalid Authorization header');
       return new Response(
         JSON.stringify({ error: "Ej auktoriserad" }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -154,31 +122,23 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Create client with user's token to verify identity
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Verify user from JWT - this is the ONLY source of truth for user identity
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
     if (claimsError || !claimsData?.claims) {
-      console.error('Auth error:', claimsError);
       return new Response(
         JSON.stringify({ error: "Ej auktoriserad" }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    const user = { id: claimsData.claims.sub as string };
+    const userId = claimsData.claims.sub as string;
 
-    const userId = user.id;
-    console.log(`Authenticated user: ${userId}`);
-
-    // Get storagePath, base64Image, and locale from request body
     const { storagePath, base64Image, locale } = await req.json() as AnalyzeRequest;
     const titleInstruction = TITLE_LANG_MAP[locale || 'sv'] || TITLE_LANG_MAP['sv'];
 
-    // Validate input - need either storagePath or base64Image
     if (!storagePath && !base64Image) {
       return new Response(
         JSON.stringify({ error: "storagePath eller base64Image krävs" }),
@@ -186,16 +146,13 @@ serve(async (req) => {
       );
     }
 
-    // SECURITY: Validate storagePath starts with AUTHENTICATED user's ID (only if storagePath provided)
     if (storagePath && !storagePath.startsWith(`${userId}/`)) {
-      console.error(`Security violation: User ${userId} tried to access path ${storagePath}`);
       return new Response(
         JSON.stringify({ error: "Åtkomst nekad" }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Validate base64Image size (max ~5MB base64 ≈ ~3.75MB image)
     if (base64Image && base64Image.length > 5 * 1024 * 1024) {
       return new Response(
         JSON.stringify({ error: "Bilden är för stor" }),
@@ -203,27 +160,18 @@ serve(async (req) => {
       );
     }
 
-    // Determine model based on scan mode
     const isLiveScan = !!base64Image;
-    const aiModelType = isLiveScan ? "fast" : "vision";
-    const aiTimeout = isLiveScan ? 15000 : 30000;
-    const aiMaxTokens = isLiveScan ? 300 : 500;
+    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log(`Using modelType: ${aiModelType}, timeout: ${aiTimeout}ms`);
-
-    // Resolve image URL from base64 or storage path
+    // Resolve image URL
     let resolvedImageUrl: string;
     if (base64Image) {
-      // base64Image is already a data URL from the client
       resolvedImageUrl = base64Image;
     } else {
-      // Get a signed URL from storage
-      const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
       const { data: signedData, error: signedError } = await serviceClient.storage
         .from('garments')
         .createSignedUrl(storagePath!, 300);
       if (signedError || !signedData?.signedUrl) {
-        console.error('Failed to create signed URL:', signedError);
         return new Response(
           JSON.stringify({ error: "Kunde inte hämta bilden" }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -235,24 +183,26 @@ serve(async (req) => {
     let content: string;
     try {
       const { data } = await callBursAI({
-        complexity: "complex",
-        max_tokens: 300,
+        complexity: isLiveScan ? "standard" : "complex",
+        max_tokens: isLiveScan ? 300 : 500,
+        timeout: isLiveScan ? 15000 : 30000,
+        functionName: "analyze_garment",
         messages: [
           {
             role: 'system',
             content: `Du är en modeexpert som analyserar klädesplagg från bilder.
 Svara ENDAST med valid JSON enligt detta schema:
 {
-  "title": "${titleInstruction}",
-  "category": "EXAKT en av: top, bottom, shoes, outerwear, accessory, dress",
-  "subcategory": "specifik typ på svenska, t.ex. t-shirt, jeans, sneakers, jacka",
-  "color_primary": "EXAKT en av: svart, vit, grå, blå, marinblå, beige, brun, grön, röd, rosa, lila, gul, orange",
-  "color_secondary": "samma färgval som ovan, eller null om ej tillämpligt",
-  "pattern": "en av: enfärgad, randig, rutig, prickig, blommig, mönstrad, null",
-  "material": "en av: bomull, polyester, lin, denim, läder, ull, siden, syntet, null",
-  "fit": "en av: slim, regular, loose, oversized, null",
-  "season_tags": ["lista med: vår, sommar, höst, vinter"],
-  "formality": 3
+"title": "${titleInstruction}",
+"category": "EXAKT en av: top, bottom, shoes, outerwear, accessory, dress",
+"subcategory": "specifik typ på svenska, t.ex. t-shirt, jeans, sneakers, jacka",
+"color_primary": "EXAKT en av: svart, vit, grå, blå, marinblå, beige, brun, grön, röd, rosa, lila, gul, orange",
+"color_secondary": "samma färgval som ovan, eller null om ej tillämpligt",
+"pattern": "en av: enfärgad, randig, rutig, prickig, blommig, mönstrad, null",
+"material": "en av: bomull, polyester, lin, denim, läder, ull, siden, syntet, null",
+"fit": "en av: slim, regular, loose, oversized, null",
+"season_tags": ["lista med: vår, sommar, höst, vinter"],
+"formality": 3
 }
 Formalitet: 1=mycket casual, 5=mycket formellt.
 Svara ENDAST med JSON, ingen förklarande text.`
@@ -265,10 +215,7 @@ Svara ENDAST med JSON, ingen förklarande text.`
             ]
           }
         ],
-        modelType: aiModelType,
-        timeout: aiTimeout,
-        extraBody: { max_tokens: aiMaxTokens, temperature: 0.2 },
-      });
+      }, serviceClient);
 
       content = typeof data === 'string' ? data : JSON.stringify(data);
     } catch (aiErr) {
@@ -300,31 +247,22 @@ Svara ENDAST med JSON, ingen förklarande text.`
     }
 
     if (!content) {
-      console.error('No content in AI response');
       return new Response(
         JSON.stringify({ error: "Inget svar från AI" }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('AI raw response:', content);
-
-    // Parse the JSON response
     let rawAnalysis: GarmentAnalysis;
     try {
-      // Clean potential markdown code blocks
       const cleanedContent = content
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
         .trim();
-      
       rawAnalysis = JSON.parse(cleanedContent);
-      
-      // Validate required fields exist
       if (!rawAnalysis.title || !rawAnalysis.category || !rawAnalysis.color_primary) {
         throw new Error('Missing required fields');
       }
-
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError, content);
       return new Response(
@@ -333,7 +271,6 @@ Svara ENDAST med JSON, ingen förklarande text.`
       );
     }
 
-    // Normalize and standardize the analysis
     const analysis: GarmentAnalysis = {
       title: rawAnalysis.title.substring(0, 50),
       category: normalizeCategory(rawAnalysis.category),
@@ -347,17 +284,10 @@ Svara ENDAST med JSON, ingen förklarande text.`
       formality: normalizeFormality(rawAnalysis.formality || 3),
     };
 
-    console.log('Successfully analyzed and normalized garment:', analysis);
-
     return new Response(
-      JSON.stringify({
-        ...analysis,
-        ai_provider: 'lovable_ai',
-        ai_raw: rawAnalysis,
-      }),
+      JSON.stringify({ ...analysis, ai_provider: 'lovable_ai', ai_raw: rawAnalysis }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     console.error('Unexpected error:', error);
     return new Response(

@@ -19,11 +19,11 @@ serve(async (req) => {
       });
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const serviceClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
@@ -49,23 +49,22 @@ serve(async (req) => {
     }
 
     const langName = locale === "sv" ? "svenska" : "English";
-    const garmentList = garments.map(g => {
-      const parts = [g.title, `material:${g.material || "unknown"}`, `condition:${g.condition_score ?? "unknown"}/10`, `worn:${g.wear_count ?? 0}x`, `added:${g.created_at?.split("T")[0] || "unknown"}`];
-      return `${g.id}: ${parts.join(" | ")}`;
-    }).join("\n");
+    const garmentList = garments.map(g =>
+      `${g.id.slice(0, 8)}|${g.title}|${g.material || "?"}|cond:${g.condition_score ?? "?"}|worn:${g.wear_count ?? 0}|added:${g.created_at?.split("T")[0] || "?"}`
+    ).join("\n");
 
     const { data: result } = await callBursAI({
       complexity: "trivial",
       max_tokens: 500,
+      functionName: "wardrobe_aging",
+      cacheTtlSeconds: 3600,
+      cacheNamespace: "wardrobe_aging",
       messages: [
         {
           role: "system",
-          content: `You are a garment longevity expert. Predict when garments will need replacing based on material durability, wear frequency, and condition. Respond in ${langName}.
-
-GARMENTS:
-${garmentList}`,
+          content: `Garment longevity expert. Predict replacement needs based on material, wear, condition. Respond in ${langName}.\nGARMENTS:\n${garmentList}`,
         },
-        { role: "user", content: "Predict the lifespan of my garments. Focus on the 5 items closest to needing replacement." },
+        { role: "user", content: "Predict lifespan. Focus on 5 items closest to needing replacement." },
       ],
       tools: [{
         type: "function",
@@ -81,10 +80,10 @@ ${garmentList}`,
                   type: "object",
                   properties: {
                     garment_id: { type: "string" },
-                    months_remaining: { type: "number", description: "Estimated months until replacement needed" },
-                    health_pct: { type: "number", description: "Current health 0-100" },
-                    tip: { type: "string", description: "Care tip to extend life" },
-                    replacement_reason: { type: "string", description: "What will wear out" },
+                    months_remaining: { type: "number" },
+                    health_pct: { type: "number" },
+                    tip: { type: "string" },
+                    replacement_reason: { type: "string" },
                   },
                   required: ["garment_id", "months_remaining", "health_pct", "tip", "replacement_reason"],
                   additionalProperties: false,
@@ -97,10 +96,7 @@ ${garmentList}`,
         },
       }],
       tool_choice: { type: "function", function: { name: "aging_predictions" } },
-      modelType: "fast",
-      cacheTtlSeconds: 3600,
-      cacheNamespace: "wardrobe_aging",
-    });
+    }, serviceClient);
 
     // Validate IDs
     const idSet = new Set(garments.map(g => g.id));
