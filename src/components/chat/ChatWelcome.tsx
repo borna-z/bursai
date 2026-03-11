@@ -127,7 +127,7 @@ export function ChatWelcome({ onSuggestion, displayName, garmentCount }: ChatWel
       [leastWornChip, mostWornChip],
       discoveryChips,
     ];
-  }, [weather, garments, locale]);
+  }, [weather, garmentList, locale]);
 
   const baseWelcome = t('chat.welcome');
   const personalizedWelcome = displayName
