@@ -80,7 +80,7 @@ export function useLanguage() {
       locale: fallbackLocale,
       setLocale: () => {},
       t: (key: string) =>
-        translations[fallbackLocale]?.[key] ?? translations['sv']?.[key] ?? key,
+        translations[fallbackLocale]?.[key] ?? translations['en']?.[key] ?? translations['sv']?.[key] ?? key,
     };
   }
   return ctx;
