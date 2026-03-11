@@ -835,6 +835,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     'plan.adapts_weather': 'Anpassar till väderprognos',
     'plan.plan_7_days': 'Planera 7 dagar',
     'plan.travel_capsule': 'Resekapsel',
+    'plan.plan_week_btn': 'Planera vecka',
+    'plan.pack_trip_btn': 'Packa för resa',
 
     // Travel Capsule
     'capsule.title': 'Resekapsel',
