@@ -1,23 +1,17 @@
 import { useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Shirt, Sparkles, TrendingUp, Lock, Palette, Gem, Trophy, Thermometer, Sun, Snowflake } from 'lucide-react';
+import { Shirt, Sparkles, Lock, Palette, Gem, Trophy, Leaf, ChevronRight } from 'lucide-react';
 import { InsightsPageSkeleton } from '@/components/ui/skeletons';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useInsights, type Garment, type ColorTemperatureData } from '@/hooks/useInsights';
+import { useInsights, type Garment } from '@/hooks/useInsights';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useSustainabilityScore } from '@/hooks/useAdvancedFeatures';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
-import { AISuggestions } from '@/components/insights/AISuggestions';
-import { WardrobeGapSection, SustainabilitySection, StyleEvolutionSection } from '@/components/insights/AdvancedInsights';
-import { SpendingDashboard } from '@/components/insights/SpendingDashboard';
-import { OutfitRepeatTracker } from '@/components/insights/OutfitRepeatTracker';
-import { WearHeatmap } from '@/components/insights/WearHeatmap';
-import { CategoryRadar } from '@/components/insights/CategoryRadar';
-import { StyleReportCard } from '@/components/insights/StyleReportCard';
 import { ColorBar } from '@/components/insights/MiniBar';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { cn } from '@/lib/utils';
@@ -25,8 +19,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { motion } from 'framer-motion';
 import { AnimatedPage } from '@/components/ui/animated-page';
 
-/* ─── Animated ring for usage rate ─── */
-function UsageRing({ value, size = 120 }: { value: number; size?: number }) {
+/* ─── Animated ring ─── */
+function UsageRing({ value, size = 140 }: { value: number; size?: number }) {
   const stroke = 6;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -35,23 +29,10 @@ function UsageRing({ value, size = 120 }: { value: number; size?: number }) {
 
   return (
     <svg width={size} height={size} className="transform -rotate-90">
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="hsl(var(--muted))"
-        strokeWidth={stroke}
-      />
+      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="hsl(var(--muted))" strokeWidth={stroke} />
       <motion.circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke={color}
-        strokeWidth={stroke}
-        strokeLinecap="round"
-        strokeDasharray={circumference}
+        cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color}
+        strokeWidth={stroke} strokeLinecap="round" strokeDasharray={circumference}
         initial={{ strokeDashoffset: circumference }}
         animate={{ strokeDashoffset: offset }}
         transition={{ duration: 1.2, ease: [0.25, 0.1, 0.25, 1], delay: 0.3 }}
@@ -70,11 +51,7 @@ function StatPill({ value, label }: { value: number | string; label: string }) {
   );
 }
 
-/* ─── Section wrapper ─── */
-function Section({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn("space-y-4", className)}>{children}</div>;
-}
-
+/* ─── Section label ─── */
 function SectionLabel({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
   return (
     <div className="flex items-center gap-2">
@@ -84,147 +61,18 @@ function SectionLabel({ icon: Icon, label }: { icon: React.ElementType; label: s
   );
 }
 
-/* ─── Top garment row ─── */
-function TopGarmentRow({ garment, rank, wearCount }: { garment: Garment; rank: number; wearCount?: number }) {
-  const navigate = useNavigate();
-  return (
-    <div
-      className="flex items-center gap-3 py-3 cursor-pointer hover:opacity-70 transition-opacity active:scale-[0.99]"
-      onClick={() => navigate(`/wardrobe/${garment.id}`)}
-    >
-      <span className="w-6 text-center text-xs font-bold text-muted-foreground/40 tabular-nums">{rank}</span>
-      <LazyImageSimple
-        imagePath={garment.image_path}
-        alt={garment.title}
-        className="w-12 h-14 rounded-xl flex-shrink-0"
-        fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/50" />}
-      />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{garment.title}</p>
-        <p className="text-xs text-muted-foreground capitalize">{garment.category}</p>
-      </div>
-      {wearCount !== undefined && (
-        <Badge variant="secondary" className="font-semibold tabular-nums text-xs">{wearCount}×</Badge>
-      )}
-    </div>
-  );
-}
+/* ─── Color map ─── */
+const COLOR_MAP: Record<string, string> = {
+  svart: 'bg-gray-900', vit: 'bg-gray-100', grå: 'bg-gray-400', marinblå: 'bg-blue-900',
+  blå: 'bg-blue-500', röd: 'bg-red-500', grön: 'bg-green-600', beige: 'bg-amber-100',
+  brun: 'bg-amber-800', rosa: 'bg-pink-400', lila: 'bg-purple-500', gul: 'bg-yellow-400', orange: 'bg-orange-500',
+};
 
-/* ─── Color distribution ─── */
 const COLOR_I18N: Record<string, string> = {
   svart: 'color.svart', vit: 'color.vit', grå: 'color.grå', marinblå: 'color.marinblå',
   blå: 'color.blå', röd: 'color.röd', grön: 'color.grön', beige: 'color.beige',
   brun: 'color.brun', rosa: 'color.rosa', gul: 'color.gul', orange: 'color.orange', lila: 'color.lila',
 };
-
-function ColorDistribution({ garments, isPremium, t }: { garments: Garment[]; isPremium: boolean; t: (k: string) => string }) {
-  const { colorBars, colorCounts, total } = useMemo(() => {
-    const counts: Record<string, number> = {};
-    garments.forEach(g => { const c = g.color_primary?.toLowerCase() || 'unknown'; counts[c] = (counts[c] || 0) + 1; });
-    const colorMap: Record<string, string> = { svart: 'bg-gray-900', vit: 'bg-gray-100', grå: 'bg-gray-400', marinblå: 'bg-blue-900', blå: 'bg-blue-500', röd: 'bg-red-500', grön: 'bg-green-600', beige: 'bg-amber-100', brun: 'bg-amber-800', rosa: 'bg-pink-400', lila: 'bg-purple-500', gul: 'bg-yellow-400', orange: 'bg-orange-500' };
-    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6);
-    return {
-      colorBars: sorted.map(([color, count]) => ({ color, count, colorClass: colorMap[color] || 'bg-muted' })),
-      colorCounts: sorted,
-      total: garments.length,
-    };
-  }, [garments]);
-
-  return (
-    <Section>
-      <SectionLabel icon={Palette} label={t('insights.colors')} />
-      <div className={cn(!isPremium && "relative")}>
-        <div className={cn(!isPremium && "blur-sm select-none")}>
-          <ColorBar colors={colorBars} total={total} />
-          <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2">
-            {colorCounts.map(([color, count]) => (
-              <div key={color} className="flex items-center justify-between">
-                <span className="text-xs capitalize text-muted-foreground">{t(COLOR_I18N[color] || color)}</span>
-                <span className="text-xs tabular-nums font-medium">{Math.round((count / total) * 100)}%</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        {!isPremium && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Lock className="w-5 h-5 text-muted-foreground/40" />
-          </div>
-        )}
-      </div>
-    </Section>
-  );
-}
-
-/* ─── Color Temperature Widget ─── */
-function ColorTemperatureWidget({ data, isPremium, t }: { data: ColorTemperatureData; isPremium: boolean; t: (k: string) => string }) {
-  // Map temperature (-1 to +1) to a percentage position (0-100)
-  const position = Math.round((data.temperature + 1) * 50);
-  const total = data.warmCount + data.coolCount + data.neutralCount;
-  const warmPct = total > 0 ? Math.round((data.warmCount / total) * 100) : 0;
-  const coolPct = total > 0 ? Math.round((data.coolCount / total) * 100) : 0;
-  const neutralPct = total > 0 ? Math.round((data.neutralCount / total) * 100) : 0;
-
-  const paletteLabel = t(`insights.palette_${data.dominantPalette}`);
-
-  return (
-    <Section>
-      <SectionLabel icon={Thermometer} label={t('insights.color_temp')} />
-      <div className={cn(!isPremium && "relative")}>
-        <div className={cn("space-y-5", !isPremium && "blur-sm select-none")}>
-          {/* Gradient bar with indicator */}
-          <div className="space-y-3">
-            <div className="relative h-3 rounded-full overflow-hidden bg-gradient-to-r from-blue-400 via-slate-300 to-orange-400">
-              <motion.div
-                className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-background border-2 border-foreground shadow-md"
-                initial={{ left: '50%' }}
-                animate={{ left: `${position}%` }}
-                transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1], delay: 0.3 }}
-                style={{ marginLeft: '-10px' }}
-              />
-            </div>
-            <div className="flex items-center justify-between text-[10px] text-muted-foreground/60 uppercase tracking-wider">
-              <div className="flex items-center gap-1">
-                <Snowflake className="w-3 h-3" />
-                <span>{t('insights.cool')}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Sun className="w-3 h-3" />
-                <span>{t('insights.warm')}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Palette label */}
-          <div className="text-center">
-            <p className="text-sm font-semibold">{paletteLabel}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{t('insights.temp_desc')}</p>
-          </div>
-
-          {/* Breakdown pills */}
-          <div className="flex items-center gap-3">
-            <div className="flex-1 rounded-xl bg-orange-500/8 border border-orange-500/10 p-3 text-center">
-              <span className="text-lg font-bold tabular-nums text-orange-500">{warmPct}%</span>
-              <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.warm')}</p>
-            </div>
-            <div className="flex-1 rounded-xl bg-muted/40 border border-border/10 p-3 text-center">
-              <span className="text-lg font-bold tabular-nums">{neutralPct}%</span>
-              <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.neutral')}</p>
-            </div>
-            <div className="flex-1 rounded-xl bg-blue-500/8 border border-blue-500/10 p-3 text-center">
-              <span className="text-lg font-bold tabular-nums text-blue-500">{coolPct}%</span>
-              <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.cool')}</p>
-            </div>
-          </div>
-        </div>
-        {!isPremium && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Lock className="w-5 h-5 text-muted-foreground/40" />
-          </div>
-        )}
-      </div>
-    </Section>
-  );
-}
 
 /* ─── Main page ─── */
 export default function InsightsPage() {
@@ -233,10 +81,25 @@ export default function InsightsPage() {
   const { t } = useLanguage();
   const { data: insights, isLoading } = useInsights();
   const { isPremium, isLoading: subLoading } = useSubscription();
-  
+  const { data: sustainability } = useSustainabilityScore();
+
   const handleRefresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['insights'] });
   }, [queryClient]);
+
+  /* ── Color data ── */
+  const colorData = useMemo(() => {
+    if (!insights) return { bars: [], entries: [], total: 0 };
+    const allGarments = [...insights.topFiveWorn, ...insights.unusedGarments];
+    const counts: Record<string, number> = {};
+    allGarments.forEach(g => { const c = g.color_primary?.toLowerCase() || 'unknown'; counts[c] = (counts[c] || 0) + 1; });
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    return {
+      bars: sorted.map(([color, count]) => ({ color, count, colorClass: COLOR_MAP[color] || 'bg-muted' })),
+      entries: sorted,
+      total: allGarments.length,
+    };
+  }, [insights]);
 
   if (isLoading || subLoading) {
     return (
@@ -261,74 +124,138 @@ export default function InsightsPage() {
     );
   }
 
-  const allGarments = [...insights.topFiveWorn, ...insights.unusedGarments];
+  const sustainScore = sustainability?.score;
+  const sustainColor = sustainScore != null
+    ? (sustainScore >= 70 ? 'text-green-500' : sustainScore >= 40 ? 'text-primary' : 'text-orange-500')
+    : '';
 
   return (
     <AppLayout>
       <PageHeader title={t('insights.title')} showBack />
       <PullToRefresh onRefresh={handleRefresh}>
-      <AnimatedPage className="max-w-lg mx-auto px-4 pb-8 pt-6">
-        {/* ─── Hero: Usage ring + stats ─── */}
-        <div className="flex flex-col items-center pb-10">
-          <div className="relative">
-            <UsageRing value={insights.usageRate} size={140} />
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-4xl font-bold tracking-tight tabular-nums">{insights.usageRate}</span>
-              <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wider">%</span>
+        <AnimatedPage className="max-w-lg mx-auto px-4 pb-8 pt-6 space-y-10">
+
+          {/* ─── 1. Usage Ring + Stats ─── */}
+          <div className="flex flex-col items-center">
+            <div className="relative">
+              <UsageRing value={insights.usageRate} size={140} />
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-4xl font-bold tracking-tight tabular-nums">{insights.usageRate}</span>
+                <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wider">%</span>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">{t('insights.last_30d')}</p>
+
+            <div className="flex items-center w-full mt-8">
+              <StatPill value={insights.totalGarments} label={t('insights.total')} />
+              <div className="w-px h-8 bg-border/20" />
+              <StatPill value={insights.garmentsUsedLast30Days} label={t('insights.used_30d')} />
+              <div className="w-px h-8 bg-border/20" />
+              <StatPill value={insights.unusedGarments.length} label={t('insights.unused')} />
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-3">{t('insights.last_30d')}</p>
 
-          <div className="flex items-center w-full mt-8">
-            <StatPill value={insights.totalGarments} label={t('insights.total')} />
-            <div className="w-px h-8 bg-border/20" />
-            <StatPill value={insights.garmentsUsedLast30Days} label={t('insights.used_30d')} />
-            <div className="w-px h-8 bg-border/20" />
-            <StatPill value={insights.unusedGarments.length} label={t('insights.unused')} />
-          </div>
-        </div>
-
-        <div className="space-y-10" style={{ '--stagger-base': '0.08s' } as React.CSSProperties}>
-          {/* Sections get staggered entrance via drape-in */}
-          {/* ─── Top worn ─── */}
+          {/* ─── 2. Top 5 Garments (horizontal scroll) ─── */}
           {insights.topFiveWorn.length > 0 && (
-            <Section>
+            <div className="space-y-3">
               <SectionLabel icon={Trophy} label={t('insights.top_garments')} />
-              <div className="divide-y divide-border/10">
-                {insights.topFiveWorn.map((garment, i) => (
-                  <TopGarmentRow key={garment.id} garment={garment} rank={i + 1} wearCount={garment.wearCountLast30} />
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {/* ─── Unused gems ─── */}
-          {insights.unusedGarments.length > 0 && (
-            <Section>
-              <div className="flex items-center justify-between">
-                <SectionLabel icon={Gem} label={t('insights.unused_gems')} />
-                <span className="text-[10px] text-muted-foreground/50">{insights.unusedGarments.length} {t('insights.unused_60d')}</span>
-              </div>
-              <div className={cn(!isPremium && "relative")}>
-                <div className={cn("divide-y divide-border/10", !isPremium && "blur-sm select-none")}>
-                  {insights.unusedGarments.slice(0, isPremium ? 5 : 3).map((garment) => (
-                    <div
-                      key={garment.id}
-                      className="flex items-center gap-3 py-3 cursor-pointer hover:opacity-70 transition-opacity"
-                      onClick={() => navigate(`/wardrobe/${garment.id}`)}
-                    >
+              <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-4 px-4">
+                {insights.topFiveWorn.map((garment) => (
+                  <div
+                    key={garment.id}
+                    className="flex-shrink-0 w-[72px] cursor-pointer"
+                    onClick={() => navigate(`/wardrobe/${garment.id}`)}
+                  >
+                    <div className="relative">
                       <LazyImageSimple
                         imagePath={garment.image_path}
                         alt={garment.title}
-                        className="w-12 h-14 rounded-xl flex-shrink-0"
+                        className="w-[72px] h-24 rounded-xl"
                         fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/50" />}
                       />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{garment.title}</p>
-                        <p className="text-xs text-muted-foreground capitalize">{garment.category}</p>
-                      </div>
+                      <Badge
+                        variant="secondary"
+                        className="absolute -top-1.5 -right-1.5 text-[10px] font-bold tabular-nums px-1.5 py-0 min-w-0 h-5"
+                      >
+                        {garment.wearCountLast30}×
+                      </Badge>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground truncate mt-1.5 text-center">{garment.title}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ─── 3. Color Breakdown (horizontal bar + percentages) ─── */}
+          <div className="space-y-3">
+            <SectionLabel icon={Palette} label={t('insights.colors')} />
+            <div className={cn(!isPremium && "relative")}>
+              <div className={cn(!isPremium && "blur-sm select-none")}>
+                <ColorBar colors={colorData.bars} total={colorData.total} />
+                <div className="mt-3 grid grid-cols-3 gap-x-4 gap-y-1.5">
+                  {colorData.entries.map(([color, count]) => (
+                    <div key={color} className="flex items-center justify-between">
+                      <span className="text-[11px] capitalize text-muted-foreground truncate">{t(COLOR_I18N[color] || color)}</span>
+                      <span className="text-[11px] tabular-nums font-medium ml-1">{Math.round((count / colorData.total) * 100)}%</span>
                     </div>
                   ))}
+                </div>
+              </div>
+              {!isPremium && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Lock className="w-5 h-5 text-muted-foreground/40" />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ─── 4. Underused Items (single consolidated card) ─── */}
+          {insights.unusedGarments.length > 0 && (
+            <button
+              onClick={() => navigate('/wardrobe', { state: { filter: 'unused' } })}
+              className="w-full flex items-center gap-4 rounded-2xl bg-foreground/[0.03] border border-border/20 p-4 hover:bg-foreground/[0.05] transition-colors text-left"
+            >
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Gem className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">
+                  {insights.unusedGarments.length} {t('insights.unused_60d')}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('insights.unused_nudge')}</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
+            </button>
+          )}
+
+          {/* ─── 5. Sustainability Score ─── */}
+          {sustainability && (
+            <div className="space-y-3">
+              <SectionLabel icon={Leaf} label={t('insights.sustainability')} />
+              <div className={cn(!isPremium && "relative")}>
+                <div className={cn(!isPremium && "blur-sm select-none")}>
+                  <div className="text-center py-3">
+                    <span className={cn("text-5xl font-bold tabular-nums", sustainColor)}>
+                      {sustainability.score}
+                    </span>
+                    <span className="text-lg text-muted-foreground/60">/100</span>
+                    <p className="text-xs text-muted-foreground mt-1.5">{t('insights.sustainability_desc')}</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 mt-3">
+                    <div className="rounded-xl bg-muted/40 p-3 text-center">
+                      <span className="text-lg font-bold tabular-nums">{sustainability.utilizationRate}%</span>
+                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.utilization')}</p>
+                    </div>
+                    <div className="rounded-xl bg-muted/40 p-3 text-center">
+                      <span className="text-lg font-bold tabular-nums">{sustainability.avgWearCount}×</span>
+                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.avg_wears')}</p>
+                    </div>
+                    <div className="rounded-xl bg-muted/40 p-3 text-center">
+                      <span className="text-lg font-bold tabular-nums">{sustainability.underusedCount}</span>
+                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.underused')}</p>
+                    </div>
+                  </div>
                 </div>
                 {!isPremium && (
                   <div className="absolute inset-0 flex items-center justify-center">
@@ -336,43 +263,10 @@ export default function InsightsPage() {
                   </div>
                 )}
               </div>
-            </Section>
+            </div>
           )}
 
-          {/* ─── AI Suggestions ─── */}
-          <AISuggestions isPremium={isPremium} />
-
-          {/* ─── Color Temperature ─── */}
-          <ColorTemperatureWidget data={insights.colorTemperature} isPremium={isPremium} t={t} />
-
-          {/* ─── Color Distribution ─── */}
-          <ColorDistribution garments={allGarments} isPremium={isPremium} t={t} />
-
-          {/* ── Step 8: Spending Dashboard ── */}
-          <SpendingDashboard isPremium={isPremium} />
-
-          {/* ── Step 10: Outfit Repeat Tracker ── */}
-          <OutfitRepeatTracker isPremium={isPremium} />
-
-          {/* ── Step 11: Wear Heatmap Calendar ── */}
-          <WearHeatmap isPremium={isPremium} />
-
-          {/* ── Step 12: Category Balance ── */}
-          <CategoryRadar isPremium={isPremium} />
-
-          {/* ── Step 21: Wardrobe Gap Analysis ── */}
-          <WardrobeGapSection isPremium={isPremium} />
-
-          {/* ── Step 23: Sustainability Score ── */}
-          <SustainabilitySection isPremium={isPremium} />
-
-          {/* ── Step 24: Style Evolution Timeline ── */}
-          <StyleEvolutionSection isPremium={isPremium} />
-
-          {/* ── Step 13: Style Report Card ── */}
-          <StyleReportCard isPremium={isPremium} />
-
-          {/* ─── Subtle premium link ─── */}
+          {/* ─── Premium link ─── */}
           {!isPremium && (
             <p className="text-center text-xs text-muted-foreground/40 pt-2">
               <button onClick={() => navigate('/pricing')} className="underline underline-offset-2 hover:text-foreground transition-colors">
@@ -385,8 +279,8 @@ export default function InsightsPage() {
           <Button className="w-full rounded-xl" size="lg" onClick={() => navigate('/')}>
             <Sparkles className="w-4 h-4 mr-2" />{t('insights.get_outfits')}
           </Button>
-        </div>
-      </AnimatedPage>
+
+        </AnimatedPage>
       </PullToRefresh>
     </AppLayout>
   );
