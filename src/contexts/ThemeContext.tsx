@@ -68,6 +68,12 @@ function applyAccent(accent: AccentColor, resolved: 'light' | 'dark') {
   root.style.setProperty('--primary-foreground', fg);
   const parts = hsl.split(' ');
   root.style.setProperty('--accent-indigo-muted', `${parts[0]} ${parseInt(parts[1]) * 0.6}% ${resolved === 'dark' ? '16' : '94'}%`);
+
+  // Sync Median native status bar with current theme
+  if (isMedianApp() && window.median?.statusbar?.set) {
+    // Median convention: 'light' = light text (for dark bg), 'dark' = dark text (for light bg)
+    window.median.statusbar.set({ style: resolved === 'dark' ? 'light' : 'dark' });
+  }
 }
 
 /** Fire-and-forget: merge partial prefs into profiles.preferences JSONB */
