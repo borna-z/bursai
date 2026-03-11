@@ -5,11 +5,11 @@ import { motion } from 'framer-motion';
 import { hapticLight } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-const actions = [
+const actions: { key: string; icon: typeof CalendarDays; path: string; tomorrow?: boolean }[] = [
   { key: 'plan_today', icon: CalendarDays, path: '/plan' },
   { key: 'plan_tomorrow', icon: CalendarDays, path: '/plan', tomorrow: true },
   { key: 'what_to_wear', icon: Sparkles, path: '/generate' },
-] as const;
+];
 
 export function QuickActionsRow() {
   const navigate = useNavigate();

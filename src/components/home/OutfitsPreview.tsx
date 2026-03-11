@@ -53,7 +53,7 @@ function OutfitMiniCard({ outfit, onTap }: { outfit: OutfitWithItems; onTap: () 
             key={item.id}
             imagePath={item.garment?.image_path}
             alt={item.garment?.title || ''}
-            aspectRatio="1/1"
+            aspectRatio="square"
             className="rounded-lg"
           />
         ))}
