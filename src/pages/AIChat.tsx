@@ -1,13 +1,12 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, ShoppingBag, MoreVertical, Trash2 } from 'lucide-react';
+import { Sparkles, MoreVertical, Trash2 } from 'lucide-react';
 import { ChatPageSkeleton } from '@/components/ui/skeletons';
 import { motion } from 'framer-motion';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
 import { useGarmentCount } from '@/hooks/useGarments';
@@ -32,19 +31,16 @@ type Message = {
   content: string | MultimodalPart[];
 };
 
-type ChatMode = 'stylist' | 'shopping';
-
 const STYLE_CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/style_chat`;
-const SHOPPING_CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shopping_chat`;
 
 function getTextContent(content: string | MultimodalPart[]): string {
   if (typeof content === 'string') return content;
   return content.filter(p => p.type === 'text').map(p => (p as { type: 'text'; text: string }).text).join(' ');
 }
 
-async function loadMessages(userId: string, mode: ChatMode): Promise<Message[]> {
+async function loadMessages(userId: string): Promise<Message[]> {
   const res = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/chat_messages?user_id=eq.${userId}&mode=eq.${mode}&order=created_at.asc&limit=100`,
+    `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/chat_messages?user_id=eq.${userId}&mode=eq.stylist&order=created_at.asc&limit=100`,
     { headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}` } }
   );
   if (!res.ok) return [];
@@ -57,16 +53,16 @@ async function loadMessages(userId: string, mode: ChatMode): Promise<Message[]> 
   });
 }
 
-async function persistMessages(userId: string, msgs: Message[], accessToken: string, mode: ChatMode) {
+async function persistMessages(userId: string, msgs: Message[], accessToken: string) {
   await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/chat_messages`, {
     method: 'POST',
     headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-    body: JSON.stringify(msgs.map(m => ({ user_id: userId, role: m.role, content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content), mode }))),
+    body: JSON.stringify(msgs.map(m => ({ user_id: userId, role: m.role, content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content), mode: 'stylist' }))),
   });
 }
 
-async function deleteMessagesByMode(userId: string, accessToken: string, mode: ChatMode) {
-  await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/chat_messages?user_id=eq.${userId}&mode=eq.${mode}`, {
+async function deleteHistory(userId: string, accessToken: string) {
+  await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/chat_messages?user_id=eq.${userId}&mode=eq.stylist`, {
     method: 'DELETE',
     headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${accessToken}` },
   });
@@ -79,11 +75,9 @@ function extractGarmentIds(messages: Message[]): string[] {
   const ids = new Set<string>();
   for (const m of messages) {
     const text = getTextContent(m.content);
-    // Extract from garment tags
     let match: RegExpExecArray | null;
     GARMENT_TAG_RE.lastIndex = 0;
     while ((match = GARMENT_TAG_RE.exec(text)) !== null) ids.add(match[1]);
-    // Extract from outfit tags
     OUTFIT_TAG_RE.lastIndex = 0;
     while ((match = OUTFIT_TAG_RE.exec(text)) !== null) {
       match[1].split(',').forEach(id => ids.add(id.trim()));
@@ -99,13 +93,9 @@ export default function AIChat() {
   const createOutfit = useCreateOutfit();
   const { data: garmentCount } = useGarmentCount();
 
-  const [mode, setMode] = useState<ChatMode>('stylist');
+  const welcomeMessage: Message = { role: 'assistant', content: t('chat.welcome') };
 
-  const stylistWelcome: Message = { role: 'assistant', content: t('chat.welcome') };
-  const shoppingWelcome: Message = { role: 'assistant', content: t('chat.shopping_welcome') };
-
-  const [stylistMessages, setStylistMessages] = useState<Message[]>([stylistWelcome]);
-  const [shoppingMessages, setShoppingMessages] = useState<Message[]>([shoppingWelcome]);
+  const [messages, setMessages] = useState<Message[]>([welcomeMessage]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -113,21 +103,12 @@ export default function AIChat() {
   const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const messages = mode === 'stylist' ? stylistMessages : shoppingMessages;
-  const setMessages = mode === 'stylist' ? setStylistMessages : setShoppingMessages;
-  const welcomeMessage = mode === 'stylist' ? stylistWelcome : shoppingWelcome;
-  const chatUrl = mode === 'stylist' ? STYLE_CHAT_URL : SHOPPING_CHAT_URL;
-
   const isWelcomeState = messages.length === 1 && messages[0].role === 'assistant' && !isStreaming;
 
   useEffect(() => {
     if (!user) { setIsLoading(false); return; }
-    Promise.all([
-      loadMessages(user.id, 'stylist'),
-      loadMessages(user.id, 'shopping'),
-    ]).then(([sMsgs, shMsgs]) => {
-      if (sMsgs.length > 0) setStylistMessages(sMsgs);
-      if (shMsgs.length > 0) setShoppingMessages(shMsgs);
+    loadMessages(user.id).then(msgs => {
+      if (msgs.length > 0) setMessages(msgs);
       setIsLoading(false);
     }).catch(() => setIsLoading(false));
   }, [user]);
@@ -168,13 +149,13 @@ export default function AIChat() {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-    const welcomeText = mode === 'stylist' ? t('chat.welcome') : t('chat.shopping_welcome');
+    const welcomeText = t('chat.welcome');
 
     let userContent: string | MultimodalPart[];
     if (pendingImage) {
       const parts: MultimodalPart[] = [{ type: 'image_url', image_url: { url: pendingImage.url } }];
       if (trimmed) parts.push({ type: 'text', text: trimmed });
-      else parts.push({ type: 'text', text: mode === 'shopping' ? t('chat.shopping_placeholder') : t('chat.image_default') });
+      else parts.push({ type: 'text', text: t('chat.image_default') });
       userContent = parts;
     } else { userContent = trimmed; }
 
@@ -186,7 +167,7 @@ export default function AIChat() {
 
     let assistantContent = '';
     try {
-      const resp = await fetch(chatUrl, {
+      const resp = await fetch(STYLE_CHAT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ messages: newMessages, locale }),
@@ -226,7 +207,7 @@ export default function AIChat() {
         }
       }
       const assistantMsg: Message = { role: 'assistant', content: assistantContent };
-      if (user && session) await persistMessages(user.id, [userMsg, assistantMsg], session.access_token, mode);
+      if (user && session) await persistMessages(user.id, [userMsg, assistantMsg], session.access_token);
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('chat.unknown_error');
       toast.error(`${t('chat.error')} ${msg}`);
@@ -239,7 +220,7 @@ export default function AIChat() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     try {
-      await deleteMessagesByMode(user.id, session.access_token, mode);
+      await deleteHistory(user.id, session.access_token);
       setMessages([welcomeMessage]);
       toast.success(t('chat.history_cleared'));
     } catch { toast.error(t('chat.history_error')); }
@@ -249,7 +230,6 @@ export default function AIChat() {
     if (!garmentIds.length) return;
     try {
       const SLOT_ORDER = ['top', 'bottom', 'shoes', 'outerwear', 'accessory'];
-      // Map garment IDs to slots based on their category
       const items = garmentIds.map((id, i) => {
         const garment = garmentMap.get(id);
         const slot = garment?.category && SLOT_ORDER.includes(garment.category)
@@ -271,35 +251,12 @@ export default function AIChat() {
   return (
     <AppLayout>
       <div className="flex flex-col" style={{ height: 'calc(100dvh - 4rem)' }}>
-        {/* Header */}
+        {/* Header — simple title + menu */}
         <div className="flex items-center justify-between px-4 py-3 shrink-0 sticky top-0 z-10 bg-background/80 backdrop-blur-xl">
           <div className="w-9" />
-          {/* Pill segmented control */}
-          <div className="flex gap-0.5 rounded-full bg-foreground/[0.04] p-1">
-            <button
-              onClick={() => setMode('stylist')}
-              className={cn(
-                'flex items-center gap-1.5 py-1.5 px-4 text-xs font-medium rounded-full transition-all duration-200',
-                mode === 'stylist'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              {t('chat.mode_stylist')}
-            </button>
-            <button
-              onClick={() => setMode('shopping')}
-              className={cn(
-                'flex items-center gap-1.5 py-1.5 px-4 text-xs font-medium rounded-full transition-all duration-200',
-                mode === 'shopping'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <ShoppingBag className="w-3.5 h-3.5" />
-              {t('chat.mode_shopping')}
-            </button>
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <span className="text-[15px] font-semibold">{t('chat.mode_stylist')}</span>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -329,20 +286,18 @@ export default function AIChat() {
         {isLoading ? (
           <ChatPageSkeleton />
         ) : isWelcomeState ? (
-          <ChatWelcome mode={mode} onSuggestion={sendMessage} garmentCount={garmentCount ?? undefined} />
+          <ChatWelcome onSuggestion={sendMessage} garmentCount={garmentCount ?? undefined} />
         ) : (
           <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-6 space-y-8">
             {messages.map((msg, idx) => {
-              // Skip the initial welcome message in conversation view
               if (idx === 0 && msg.role === 'assistant' && !isStreaming) {
-                const welcomeText = mode === 'stylist' ? t('chat.welcome') : t('chat.shopping_welcome');
-                if (getTextContent(msg.content) === welcomeText) return null;
+                if (getTextContent(msg.content) === t('chat.welcome')) return null;
               }
               const isStreamingMsg = isStreaming && idx === messages.length - 1 && msg.role === 'assistant';
               const isEmpty = getTextContent(msg.content) === '';
               return (
                 <motion.div
-                  key={`${mode}-${idx}`}
+                  key={idx}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
@@ -363,7 +318,6 @@ export default function AIChat() {
                       message={msg}
                       isStreaming={isStreamingMsg}
                       garmentMap={garmentMap}
-                      isShopping={mode === 'shopping'}
                       onTryOutfit={handleTryOutfit}
                       isCreatingOutfit={createOutfit.isPending}
                     />
@@ -385,7 +339,6 @@ export default function AIChat() {
           onClearImage={() => setPendingImage(null)}
           isStreaming={isStreaming}
           isUploading={isUploading}
-          mode={mode}
         />
         <div className="pb-2 shrink-0" />
       </div>
