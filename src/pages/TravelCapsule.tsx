@@ -56,10 +56,10 @@ const OCCASIONS = [
 ];
 
 const WeatherIcon = ({ condition }: { condition?: string }) => {
-  if (!condition) return <Sun className="w-4 h-4 text-amber-400" />;
-  if (condition.includes('rain')) return <CloudRain className="w-4 h-4 text-blue-400" />;
+  if (!condition) return <Sun className="w-4 h-4 text-primary" />;
+  if (condition.includes('rain')) return <CloudRain className="w-4 h-4 text-accent" />;
   if (condition.includes('cloud')) return <Umbrella className="w-4 h-4 text-muted-foreground" />;
-  return <Sun className="w-4 h-4 text-amber-400" />;
+  return <Sun className="w-4 h-4 text-primary" />;
 };
 
 export default function TravelCapsule() {
