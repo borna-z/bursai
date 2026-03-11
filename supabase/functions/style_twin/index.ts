@@ -19,11 +19,11 @@ serve(async (req) => {
       });
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const serviceClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
@@ -34,11 +34,22 @@ serve(async (req) => {
     }
     const userId = claimsData.claims.sub;
 
-    const { data: garments } = await supabase
-      .from("garments")
-      .select("category, color_primary, material, formality")
-      .eq("user_id", userId);
+    // Parallel DB queries
+    const [garmentsRes, sharedRes] = await Promise.all([
+      supabase
+        .from("garments")
+        .select("category, color_primary, material, formality")
+        .eq("user_id", userId),
+      serviceClient
+        .from("outfits")
+        .select("id, occasion, style_vibe, explanation")
+        .eq("share_enabled", true)
+        .neq("user_id", userId)
+        .order("generated_at", { ascending: false })
+        .limit(20),
+    ]);
 
+    const garments = garmentsRes.data;
     if (!garments || garments.length < 5) {
       return new Response(JSON.stringify({ twin_archetype: null, shared_traits: [], inspiration_outfits: [] }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -61,33 +72,22 @@ serve(async (req) => {
     const topMaterials = Object.entries(materialCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k);
     const avgFormality = formalityCount > 0 ? Math.round(formalitySum / formalityCount * 10) / 10 : 3;
 
-    const serviceSupabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-
-    const { data: sharedOutfits } = await serviceSupabase
-      .from("outfits")
-      .select("id, occasion, style_vibe, explanation")
-      .eq("share_enabled", true)
-      .neq("user_id", userId)
-      .order("generated_at", { ascending: false })
-      .limit(20);
-
     const { locale = "sv" } = await req.json();
     const langName = locale === "sv" ? "svenska" : "English";
 
     const { data: result } = await callBursAI({
+      complexity: "trivial",
+      max_tokens: 400,
+      functionName: "style_twin",
+      cacheTtlSeconds: 7200,
+      cacheNamespace: "style_twin",
       messages: [
         {
           role: "system",
-          content: `You are a style analyst. Based on a user's style vector, identify their "style twin" archetype. Respond in ${langName}.
-
-STYLE VECTOR:
-- Top colors: ${topColors.join(", ")}
-- Top materials: ${topMaterials.join(", ")}
-- Average formality: ${avgFormality}/5
-- Wardrobe size: ${garments.length} items
-- Category spread: ${Object.entries(categoryCounts).map(([k, v]) => `${k}: ${v}`).join(", ")}`,
+          content: `Style analyst. Based on style vector, identify "style twin" archetype. Respond in ${langName}.
+STYLE VECTOR: colors:${topColors.join(",")} materials:${topMaterials.join(",")} formality:${avgFormality}/5 items:${garments.length} cats:${Object.entries(categoryCounts).map(([k, v]) => `${k}:${v}`).join(",")}`,
         },
-        { role: "user", content: "What is my style twin archetype and what defines it?" },
+        { role: "user", content: "What is my style twin archetype?" },
       ],
       tools: [{
         type: "function",
@@ -97,11 +97,11 @@ STYLE VECTOR:
           parameters: {
             type: "object",
             properties: {
-              twin_archetype: { type: "string", description: "Creative archetype name" },
-              archetype_description: { type: "string", description: "2-3 sentence description" },
-              shared_traits: { type: "array", items: { type: "string" }, description: "4-6 defining style traits" },
-              style_icons: { type: "array", items: { type: "string" }, description: "2-3 real-world style icons" },
-              signature_moves: { type: "array", items: { type: "string" }, description: "3-4 signature styling moves" },
+              twin_archetype: { type: "string" },
+              archetype_description: { type: "string" },
+              shared_traits: { type: "array", items: { type: "string" } },
+              style_icons: { type: "array", items: { type: "string" } },
+              signature_moves: { type: "array", items: { type: "string" } },
             },
             required: ["twin_archetype", "archetype_description", "shared_traits", "style_icons", "signature_moves"],
             additionalProperties: false,
@@ -109,13 +109,9 @@ STYLE VECTOR:
         },
       }],
       tool_choice: { type: "function", function: { name: "style_twin_result" } },
-      complexity: "trivial",
-      max_tokens: 400,
-      cacheTtlSeconds: 7200,
-      cacheNamespace: "style_twin",
-    });
+    }, serviceClient);
 
-    result.inspiration_outfits = (sharedOutfits || []).slice(0, 5).map((o: any) => ({
+    result.inspiration_outfits = (sharedRes.data || []).slice(0, 5).map((o: any) => ({
       id: o.id, occasion: o.occasion, style_vibe: o.style_vibe,
     }));
 

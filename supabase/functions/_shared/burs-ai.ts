@@ -1,9 +1,10 @@
 /**
- * BURS AI — Unified AI abstraction layer v2
+ * BURS AI — Unified AI abstraction layer v3
  *
  * Features: complexity-based model routing, prompt compression,
  * two-tier caching (in-memory + DB), request deduplication,
- * token budgets, retry with backoff, rate limit handling.
+ * token budgets, temperature defaults, observability logging,
+ * streaming keepalive, retry with backoff, rate limit handling.
  */
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -47,13 +48,20 @@ const DEFAULT_MAX_TOKENS: Record<Complexity, number> = {
   complex: 1200,
 };
 
+// ─── Temperature defaults per complexity ──────────────────────
+const DEFAULT_TEMPERATURE: Record<Complexity, number> = {
+  trivial: 0.1,
+  standard: 0.3,
+  complex: 0.5,
+};
+
 // ─── Types ────────────────────────────────────────────────────
 export interface BursAIOptions {
   messages: Array<{ role: string; content: any }>;
   tools?: any[];
   tool_choice?: any;
   stream?: boolean;
-  /** Complexity level — auto-selects model chain & token budget */
+  /** Complexity level — auto-selects model chain, token budget & temperature */
   complexity?: Complexity;
   /** Legacy model chain type (overridden by complexity if set) */
   modelType?: string;
@@ -69,6 +77,8 @@ export interface BursAIOptions {
   cacheNamespace?: string;
   /** Extra body params like temperature, modalities */
   extraBody?: Record<string, any>;
+  /** Function name for observability logging */
+  functionName?: string;
 }
 
 export interface BursAIResponse {
@@ -87,26 +97,16 @@ export class BursAIError extends Error {
 }
 
 // ─── Prompt Compression ───────────────────────────────────────
-/**
- * Compress a prompt string by stripping redundant whitespace,
- * collapsing blank lines, and trimming formatting noise.
- * Reduces token count ~20-40% on typical wardrobe prompts.
- */
 export function compressPrompt(text: string): string {
   return text
     .replace(/\r\n/g, "\n")
-    .replace(/[ \t]+/g, " ")          // collapse horizontal whitespace
-    .replace(/\n{3,}/g, "\n\n")        // max 1 blank line
-    .replace(/^ +/gm, "")             // strip leading spaces per line
-    .replace(/ +$/gm, "")             // strip trailing spaces per line
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/^ +/gm, "")
+    .replace(/ +$/gm, "")
     .trim();
 }
 
-/**
- * Build a compact garment descriptor string for AI prompts.
- * Format: "id|title|cat|color|mat|form"
- * Cuts token count ~60% vs verbose descriptions.
- */
 export function compactGarment(g: {
   id: string;
   title: string;
@@ -129,7 +129,7 @@ export function compactGarment(g: {
 
 // ─── In-Memory Cache (Tier 1) ─────────────────────────────────
 const MEM_CACHE = new Map<string, { data: any; model_used: string; expires: number }>();
-const MEM_TTL_MS = 30_000; // 30 seconds
+const MEM_TTL_MS = 30_000;
 const MEM_MAX_SIZE = 50;
 
 function memGet(key: string): { data: any; model_used: string } | null {
@@ -143,7 +143,6 @@ function memGet(key: string): { data: any; model_used: string } | null {
 }
 
 function memSet(key: string, data: any, model_used: string): void {
-  // Evict oldest if at capacity
   if (MEM_CACHE.size >= MEM_MAX_SIZE) {
     const firstKey = MEM_CACHE.keys().next().value;
     if (firstKey) MEM_CACHE.delete(firstKey);
@@ -176,7 +175,7 @@ async function checkCache(supabase: any, cacheKey: string): Promise<any | null> 
       .single();
 
     if (data) {
-      // Bump hit_count and extend TTL (sliding window)
+      // Bump hit_count and extend TTL (sliding window) — fire and forget
       supabase
         .from("ai_response_cache")
         .update({
@@ -218,6 +217,39 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// ─── Observability (fire-and-forget) ──────────────────────────
+function logUsage(
+  supabase: any | null,
+  opts: {
+    functionName?: string;
+    model_used: string;
+    latency_ms: number;
+    from_cache: boolean;
+    status: "ok" | "error";
+    error_message?: string;
+  }
+): void {
+  if (!supabase) return;
+  try {
+    supabase
+      .from("analytics_events")
+      .insert({
+        event_type: "ai_usage",
+        metadata: {
+          fn: opts.functionName || "unknown",
+          model: opts.model_used,
+          latency_ms: opts.latency_ms,
+          cached: opts.from_cache,
+          status: opts.status,
+          ...(opts.error_message ? { error: opts.error_message } : {}),
+        },
+      })
+      .then(() => {});
+  } catch {
+    // Never block on observability
+  }
+}
+
 // ─── Core AI Call ─────────────────────────────────────────────
 function resolveModelChain(options: BursAIOptions): string[] {
   if (options.models) return options.models;
@@ -228,12 +260,16 @@ function resolveModelChain(options: BursAIOptions): string[] {
 function resolveMaxTokens(options: BursAIOptions): number | undefined {
   if (options.max_tokens) return options.max_tokens;
   if (options.complexity) return DEFAULT_MAX_TOKENS[options.complexity];
-  return undefined; // let model decide for legacy calls
+  return undefined;
 }
 
-/**
- * Call BURS AI with automatic fallback, retry, caching, dedup, and error handling.
- */
+function resolveTemperature(options: BursAIOptions): number | undefined {
+  // Explicit temperature in extraBody takes precedence
+  if (options.extraBody?.temperature != null) return undefined; // already set
+  if (options.complexity) return DEFAULT_TEMPERATURE[options.complexity];
+  return undefined;
+}
+
 export async function callBursAI(
   options: BursAIOptions,
   supabaseServiceClient?: any
@@ -241,6 +277,7 @@ export async function callBursAI(
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) throw new BursAIError("LOVABLE_API_KEY not configured", 500);
 
+  const startTime = Date.now();
   const {
     messages, tools, tool_choice, stream = false,
     cacheTtlSeconds = 0, cacheNamespace = "",
@@ -249,6 +286,7 @@ export async function callBursAI(
 
   const modelChain = resolveModelChain(options);
   const maxTokens = resolveMaxTokens(options);
+  const temperature = resolveTemperature(options);
   const timeout = options.timeout ?? 30000;
 
   // ── Build cache key ──
@@ -262,6 +300,10 @@ export async function callBursAI(
     if (cacheTtlSeconds > 0) {
       const memHit = memGet(cacheKey);
       if (memHit) {
+        logUsage(supabaseServiceClient, {
+          functionName: options.functionName, model_used: memHit.model_used,
+          latency_ms: Date.now() - startTime, from_cache: true, status: "ok",
+        });
         return { data: memHit.data, model_used: memHit.model_used, from_cache: true };
       }
     }
@@ -271,6 +313,10 @@ export async function callBursAI(
       const cached = await checkCache(supabaseServiceClient, cacheKey);
       if (cached) {
         memSet(cacheKey, cached.response, cached.model_used);
+        logUsage(supabaseServiceClient, {
+          functionName: options.functionName, model_used: cached.model_used,
+          latency_ms: Date.now() - startTime, from_cache: true, status: "ok",
+        });
         return { data: cached.response, model_used: cached.model_used, from_cache: true };
       }
     }
@@ -298,6 +344,7 @@ export async function callBursAI(
           if (tool_choice) body.tool_choice = tool_choice;
           if (stream) body.stream = true;
           if (maxTokens) body.max_tokens = maxTokens;
+          if (temperature != null && !extraBody.temperature) body.temperature = temperature;
 
           const resp = await fetch(GATEWAY_URL, {
             method: "POST",
@@ -367,6 +414,11 @@ export async function callBursAI(
             }
           }
 
+          logUsage(supabaseServiceClient, {
+            functionName: options.functionName, model_used: model,
+            latency_ms: Date.now() - startTime, from_cache: false, status: "ok",
+          });
+
           return { data: result, model_used: model, from_cache: false };
         } catch (e) {
           if (e instanceof BursAIError && e.status === 402) throw e;
@@ -380,6 +432,12 @@ export async function callBursAI(
         }
       }
     }
+
+    logUsage(supabaseServiceClient, {
+      functionName: options.functionName, model_used: modelChain[0] || "unknown",
+      latency_ms: Date.now() - startTime, from_cache: false, status: "error",
+      error_message: lastError?.message,
+    });
 
     throw lastError || new BursAIError("All AI models failed", 503);
   };
@@ -401,7 +459,7 @@ export async function callBursAI(
 
 /**
  * Call BURS AI for streaming responses (style_chat, shopping_chat).
- * Returns the raw Response to pipe back to client.
+ * Returns a Response with keepalive pings and abort detection.
  */
 export async function streamBursAI(
   options: Omit<BursAIOptions, "stream" | "tools" | "tool_choice" | "cacheTtlSeconds">
@@ -412,7 +470,51 @@ export async function streamBursAI(
     complexity: options.complexity || "standard",
     max_tokens: options.max_tokens || 1000,
   });
-  return result.data as Response;
+
+  const upstreamResponse = result.data as Response;
+  const upstreamBody = upstreamResponse.body;
+  if (!upstreamBody) return upstreamResponse;
+
+  // Wrap with keepalive pings every 15s
+  const reader = upstreamBody.getReader();
+  let keepaliveInterval: number | undefined;
+  let aborted = false;
+
+  const stream = new ReadableStream({
+    start(controller) {
+      keepaliveInterval = setInterval(() => {
+        try {
+          controller.enqueue(new TextEncoder().encode(": keepalive\n\n"));
+        } catch {
+          aborted = true;
+          clearInterval(keepaliveInterval);
+        }
+      }, 15000) as unknown as number;
+    },
+    async pull(controller) {
+      if (aborted) { controller.close(); return; }
+      try {
+        const { done, value } = await reader.read();
+        if (done) {
+          clearInterval(keepaliveInterval);
+          controller.close();
+          return;
+        }
+        controller.enqueue(value);
+      } catch {
+        clearInterval(keepaliveInterval);
+        controller.close();
+      }
+    },
+    cancel() {
+      clearInterval(keepaliveInterval);
+      reader.cancel();
+    },
+  });
+
+  return new Response(stream, {
+    headers: upstreamResponse.headers,
+  });
 }
 
 /**

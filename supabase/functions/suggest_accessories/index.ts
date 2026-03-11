@@ -12,33 +12,36 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing authorization");
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user }, error: authError } = await serviceClient.auth.getUser(token);
     if (authError || !user) throw new Error("Unauthorized");
 
     const { outfit_id } = await req.json();
     if (!outfit_id) throw new Error("Missing outfit_id");
 
-    const { data: outfitItems } = await supabase
-      .from("outfit_items")
-      .select("slot, garment_id, garments:garment_id(title, category, color_primary, material)")
-      .eq("outfit_id", outfit_id);
+    // Parallel DB queries
+    const [outfitItemsRes, accessoriesRes] = await Promise.all([
+      serviceClient
+        .from("outfit_items")
+        .select("slot, garment_id, garments:garment_id(title, category, color_primary, material)")
+        .eq("outfit_id", outfit_id),
+      serviceClient
+        .from("garments")
+        .select("id, title, category, subcategory, color_primary, material, pattern")
+        .eq("user_id", user.id)
+        .eq("category", "accessories")
+        .eq("in_laundry", false),
+    ]);
 
+    const outfitItems = outfitItemsRes.data;
     if (!outfitItems || outfitItems.length === 0) throw new Error("Outfit empty");
 
-    const { data: accessories } = await supabase
-      .from("garments")
-      .select("id, title, category, subcategory, color_primary, material, pattern")
-      .eq("user_id", user.id)
-      .eq("category", "accessories")
-      .eq("in_laundry", false);
-
+    const accessories = accessoriesRes.data;
     if (!accessories || accessories.length === 0) {
       return new Response(JSON.stringify({ suggestions: [], message: "No accessories in wardrobe" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -47,28 +50,21 @@ serve(async (req) => {
 
     const outfitDesc = outfitItems.map((i: any) => {
       const g = i.garments;
-      return `${i.slot}: ${g?.title} (${g?.color_primary}, ${g?.material || "?"})`;
-    }).join("\n");
+      return `${i.slot}:${g?.title}(${g?.color_primary},${g?.material || "?"})`;
+    }).join("|");
 
     const accessoryList = accessories.map((a: any) =>
-      `[${a.id}] ${a.title} (${a.subcategory || a.category}, ${a.color_primary}, ${a.material || "?"})`
+      `${a.id}|${a.title}|${a.subcategory || a.category}|${a.color_primary}|${a.material || "?"}`
     ).join("\n");
-
-    const prompt = `You are a premium fashion accessory stylist. Given an outfit, suggest the best accessories to complete the look.
-
-OUTFIT:
-${outfitDesc}
-
-AVAILABLE ACCESSORIES:
-${accessoryList}
-
-Select up to 3 accessories that elevate this outfit. Consider color harmony, material compatibility, and occasion appropriateness.`;
 
     const { data: result } = await callBursAI({
       complexity: "trivial",
       max_tokens: 300,
+      functionName: "suggest_accessories",
+      cacheTtlSeconds: 1800,
+      cacheNamespace: "suggest_accessories",
       messages: [
-        { role: "system", content: prompt },
+        { role: "system", content: `Accessory stylist. Outfit:${outfitDesc}\nACCESSORIES:\n${accessoryList}\nSelect up to 3. Consider color, material, occasion.` },
         { role: "user", content: "Suggest accessories for this outfit." },
       ],
       tools: [{
@@ -85,7 +81,7 @@ Select up to 3 accessories that elevate this outfit. Consider color harmony, mat
                   type: "object",
                   properties: {
                     garment_id: { type: "string" },
-                    reason: { type: "string", description: "Why this accessory works" },
+                    reason: { type: "string" },
                   },
                   required: ["garment_id", "reason"],
                   additionalProperties: false,
@@ -98,9 +94,7 @@ Select up to 3 accessories that elevate this outfit. Consider color harmony, mat
         },
       }],
       tool_choice: { type: "function", function: { name: "suggest_accessories" } },
-      cacheTtlSeconds: 1800,
-      cacheNamespace: "suggest_accessories",
-    }, supabase);
+    }, serviceClient);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
