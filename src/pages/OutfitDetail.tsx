@@ -406,63 +406,23 @@ export default function OutfitDetailPage() {
           );
         })()}
 
-        {/* ── AI Flat-Lay Preview ── */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ImageIcon className="w-4 h-4 text-primary" />
-              <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">
-                {t('outfit.flatlay')}
-              </p>
-            </div>
-            {!(outfit as any).flatlay_image_path && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-xl h-8 text-xs"
-                onClick={async () => {
-                  try {
-                    await generateFlatlay(outfit.id);
-                    toast.success(t('outfit.flatlay_success'));
-                    refetch();
-                  } catch {
-                    toast.error(t('outfit.flatlay_error'));
-                  }
-                }}
-                disabled={isGeneratingFlatlay}
-              >
-                {isGeneratingFlatlay ? (
-                  <><Loader2 className="w-3 h-3 mr-1.5 animate-spin" />{t('outfit.flatlay_generating')}</>
-                ) : (
-                  <><Sparkles className="w-3 h-3 mr-1.5" />{t('outfit.flatlay_generate')}</>
-                )}
-              </Button>
-            )}
-          </div>
-          {(outfit as any).flatlay_image_path ? (
-            <div className="rounded-2xl overflow-hidden bg-muted/20">
-              <LazyImageSimple
-                imagePath={(outfit as any).flatlay_image_path}
-                alt="Flat-lay preview"
-                className="w-full aspect-square object-cover"
-              />
-            </div>
-          ) : !isGeneratingFlatlay ? (
-            <div className="rounded-2xl border border-dashed border-border/40 bg-muted/10 p-8 flex flex-col items-center justify-center gap-2">
-              <ImageIcon className="w-8 h-8 text-muted-foreground/20" />
-              <p className="text-xs text-muted-foreground/40">{t('outfit.flatlay_generate')}</p>
-            </div>
-          ) : (
-            <div className="rounded-2xl bg-muted/20 aspect-square flex items-center justify-center">
-              <div className="text-center space-y-3">
-                <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
-                <p className="text-sm text-muted-foreground">{t('outfit.flatlay_generating')}</p>
-              </div>
-            </div>
-          )}
+        {/* ── Garment list ── */}
+        <div>
+          {outfit.outfit_items.map((item) => (
+            <SlotRow
+              key={item.id}
+              slot={item.slot}
+              garmentId={item.garment_id}
+              garmentTitle={item.garment?.title}
+              garmentColor={item.garment?.color_primary}
+              imagePath={item.garment?.image_path}
+              onSwap={() => handleOpenSwap(item.slot, item.id, item.garment_id)}
+              t={t}
+            />
+          ))}
         </div>
 
-        {/* ── Photo Feedback (Mirror Check) ── */}
+        {/* ── Photo Feedback (Mirror Check) — compact ── */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -503,15 +463,14 @@ export default function OutfitDetailPage() {
           />
 
           {submitFeedback.isPending && (
-            <div className="rounded-2xl bg-muted/20 p-8 flex flex-col items-center justify-center gap-3">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <div className="rounded-2xl bg-muted/20 p-6 flex items-center justify-center gap-3">
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
               <p className="text-sm text-muted-foreground">{t('outfit.photo_feedback_analyzing')}</p>
             </div>
           )}
 
           {photoFeedback && (
             <div className="space-y-4">
-              {/* Selfie preview */}
               <div className="rounded-2xl overflow-hidden bg-muted/20">
                 <LazyImageSimple
                   imagePath={photoFeedback.selfie_path}
@@ -519,8 +478,6 @@ export default function OutfitDetailPage() {
                   className="w-full aspect-[3/4] object-cover"
                 />
               </div>
-
-              {/* Scores */}
               <div className="space-y-3">
                 {[
                   { key: 'fit_score', label: t('outfit.photo_feedback_fit'), value: photoFeedback.fit_score },
@@ -541,8 +498,6 @@ export default function OutfitDetailPage() {
                   </div>
                 ))}
               </div>
-
-              {/* Commentary */}
               {photoFeedback.commentary && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
@@ -552,8 +507,6 @@ export default function OutfitDetailPage() {
                   <p className="text-sm text-muted-foreground leading-relaxed">{photoFeedback.commentary}</p>
                 </div>
               )}
-
-              {/* Retake */}
               <Button
                 variant="outline"
                 size="sm"
@@ -567,34 +520,15 @@ export default function OutfitDetailPage() {
           )}
 
           {!photoFeedback && !submitFeedback.isPending && (
-            <div className="rounded-2xl border border-dashed border-border/40 bg-muted/10 p-8 flex flex-col items-center justify-center gap-2">
-              <Camera className="w-8 h-8 text-muted-foreground/20" />
-              <p className="text-xs text-muted-foreground/40">{t('outfit.photo_feedback_hint')}</p>
-            </div>
+            <button
+              onClick={() => selfieInputRef.current?.click()}
+              className="w-full flex items-center gap-3 rounded-xl bg-muted/10 border border-border/20 px-4 py-3 hover:bg-muted/20 transition-colors"
+            >
+              <Camera className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
+              <span className="text-xs text-muted-foreground/50">{t('outfit.photo_feedback_hint')}</span>
+            </button>
           )}
         </div>
-
-        {/* ── Garment list ── */}
-        <div>
-          {outfit.outfit_items.map((item) => (
-            <SlotRow
-              key={item.id}
-              slot={item.slot}
-              garmentId={item.garment_id}
-              garmentTitle={item.garment?.title}
-              garmentColor={item.garment?.color_primary}
-              imagePath={item.garment?.image_path}
-              onSwap={() => handleOpenSwap(item.slot, item.id, item.garment_id)}
-              t={t}
-            />
-          ))}
-        </div>
-
-        {/* ── Step 19: Outfit DNA Cloning ── */}
-        <OutfitDNASection outfitId={outfit.id} />
-
-        {/* ── Step 20: Smart Accessory Pairing ── */}
-        <AccessoryPairingSection outfitId={outfit.id} />
 
         {/* ── Rating ── */}
         <div className="space-y-3">
