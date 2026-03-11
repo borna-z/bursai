@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { BursDrawLogo } from '@/components/ui/BursDrawLogo';
+import { isMedianApp } from '@/lib/median';
 import Landing from './Landing';
 import Home from './Home';
 
