@@ -62,7 +62,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [profile, updateProfile]);
 
   const t = useCallback((key: string): string => {
-    return translations[locale]?.[key] ?? translations['sv']?.[key] ?? key;
+    return translations[locale]?.[key] ?? translations['en']?.[key] ?? translations['sv']?.[key] ?? key;
   }, [locale]);
 
   return (
