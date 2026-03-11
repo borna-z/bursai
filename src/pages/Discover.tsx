@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,8 +10,6 @@ import { hapticSuccess } from '@/lib/haptics';
 import { EASE_CURVE } from '@/lib/motion';
 import { toast } from 'sonner';
 
-import { DiscoverHero } from '@/components/discover/DiscoverHero';
-import { DiscoverSecondaryRow } from '@/components/discover/DiscoverSecondaryRow';
 import { DiscoverChallenges } from '@/components/discover/DiscoverChallenges';
 import { DiscoverStyleTools } from '@/components/discover/DiscoverStyleTools';
 
@@ -37,7 +34,6 @@ export default function DiscoverPage() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const { data: garmentCount } = useGarmentCount();
-  const navigate = useNavigate();
 
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [participations, setParticipations] = useState<Record<string, Participation>>({});
@@ -83,15 +79,9 @@ export default function DiscoverPage() {
     }
   };
 
-  // Pick featured challenge: first non-completed, non-locked
-  const featuredChallenge = challenges.find((ch, i) => {
-    const threshold = UNLOCK_THRESHOLDS[i] || 999;
-    return myGarments >= threshold && !participations[ch.id]?.completed;
-  });
-
   return (
     <AppLayout>
-      <AnimatedPage className="px-4 pb-24 pt-8 space-y-8 max-w-lg mx-auto">
+      <AnimatedPage className="px-4 pb-24 pt-8 space-y-10 max-w-lg mx-auto">
         {/* ── Header ── */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -102,21 +92,10 @@ export default function DiscoverPage() {
           <h1 className="text-xl font-semibold tracking-tight text-foreground" style={{ fontFamily: "'Sora', sans-serif" }}>
             {t('discover.title')}
           </h1>
-          <p className="text-[12px] text-muted-foreground/60">{t('discover.subtitle')}</p>
+          <p className="text-[12px] text-muted-foreground/60">{t('discover.subtitle_new')}</p>
         </motion.div>
 
-        {/* ── Featured Hero ── */}
-        <DiscoverHero
-          challengeTitle={featuredChallenge?.title}
-          challengeDescription={featuredChallenge?.description}
-          challengeId={featuredChallenge?.id}
-          onJoin={joinChallenge}
-        />
-
-        {/* ── Secondary Discovery Row ── */}
-        <DiscoverSecondaryRow />
-
-        {/* ── Challenges ── */}
+        {/* ── Challenges (horizontal scroll) ── */}
         <DiscoverChallenges
           challenges={challenges}
           participations={participations}
@@ -126,7 +105,7 @@ export default function DiscoverPage() {
           onJoin={joinChallenge}
         />
 
-        {/* ── Style Tools ── */}
+        {/* ── Style Tools (2×2 grid) ── */}
         <DiscoverStyleTools />
       </AnimatedPage>
     </AppLayout>
