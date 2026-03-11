@@ -873,6 +873,18 @@ export const translations: Record<Locale, Record<string, string>> = {
     'capsule.add_to_calendar': 'Lägg till i kalendern',
     'capsule.added_to_calendar': 'Outfits tillagda i kalendern',
     'capsule.calendar_error': 'Kunde inte lägga till i kalendern',
+    'capsule.tab_packing': 'Packlista',
+    'capsule.tab_outfits': 'Dagliga outfits',
+    'capsule.trip_suffix': 'Resa',
+    'capsule.outfits_count': 'outfits',
+    'capsule.used_in': 'i',
+    'capsule.outfits_label': 'outfits',
+    'capsule.creates': 'Skapar',
+    'capsule.unique_outfits': 'unika outfits',
+    'capsule.add_to_plan': 'Lägg till i planen',
+    'capsule.swap_outfit': 'Byt outfit',
+    'capsule.swap_coming_soon': 'Byte kommer snart',
+    'capsule.share_coming_soon': 'Delning kommer snart',
 
     // Swap sheet
     'swap.title': 'Byt outfit',
