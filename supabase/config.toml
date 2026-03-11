@@ -63,3 +63,11 @@ project_id = "dvrdxjmnydcjzpcwjxgv"
     verify_jwt = false
   [functions.wardrobe_gap_analysis]
     verify_jwt = false
+  [functions.prefetch_suggestions]
+    verify_jwt = false
+  [functions.detect_duplicate_garment]
+    verify_jwt = false
+  [functions.generate_garment_images]
+    verify_jwt = false
+  [functions.seed_wardrobe]
+    verify_jwt = false
