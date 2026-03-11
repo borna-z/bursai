@@ -49,6 +49,8 @@ Evaluate: fabric pilling, color fading, stretching, stains, loose threads, struc
 Consider that some materials age differently (leather improves, cotton pills, synthetics stretch).`;
 
     const { data: result } = await callBursAI({
+      complexity: "complex",
+      max_tokens: 200,
       messages: [
         { role: "system", content: prompt },
         {

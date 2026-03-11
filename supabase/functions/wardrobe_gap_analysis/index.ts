@@ -60,6 +60,8 @@ Focus on:
 For each gap, estimate how many new outfits it would unlock.`;
 
     const { data: result } = await callBursAI({
+      complexity: "standard",
+      max_tokens: 600,
       messages: [
         { role: "system", content: prompt },
         { role: "user", content: "Identify wardrobe gaps." },

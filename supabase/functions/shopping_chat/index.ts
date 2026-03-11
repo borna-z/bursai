@@ -226,7 +226,8 @@ IMPORTANT – Garment display:
         { role: "system", content: systemPrompt },
         ...preparedMessages,
       ],
-      modelType: "streaming",
+      complexity: "standard",
+      max_tokens: 1000,
     });
 
     return new Response(response.body, {

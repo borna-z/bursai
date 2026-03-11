@@ -235,6 +235,8 @@ serve(async (req) => {
     let content: string;
     try {
       const { data } = await callBursAI({
+        complexity: "complex",
+        max_tokens: 300,
         messages: [
           {
             role: 'system',

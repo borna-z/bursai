@@ -65,6 +65,8 @@ ${accessoryList}
 Select up to 3 accessories that elevate this outfit. Consider color harmony, material compatibility, and occasion appropriateness.`;
 
     const { data: result } = await callBursAI({
+      complexity: "trivial",
+      max_tokens: 300,
       messages: [
         { role: "system", content: prompt },
         { role: "user", content: "Suggest accessories for this outfit." },

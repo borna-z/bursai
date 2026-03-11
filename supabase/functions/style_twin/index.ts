@@ -109,7 +109,8 @@ STYLE VECTOR:
         },
       }],
       tool_choice: { type: "function", function: { name: "style_twin_result" } },
-      modelType: "fast",
+      complexity: "trivial",
+      max_tokens: 400,
       cacheTtlSeconds: 7200,
       cacheNamespace: "style_twin",
     });

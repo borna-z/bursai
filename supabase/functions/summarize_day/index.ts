@@ -147,7 +147,8 @@ Rules:
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        modelType: "fast",
+        complexity: "trivial",
+        max_tokens: 400,
       });
 
       let result;

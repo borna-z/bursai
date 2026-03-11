@@ -55,6 +55,8 @@ serve(async (req) => {
     }).join("\n");
 
     const { data: result } = await callBursAI({
+      complexity: "trivial",
+      max_tokens: 500,
       messages: [
         {
           role: "system",

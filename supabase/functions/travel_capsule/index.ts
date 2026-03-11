@@ -133,6 +133,8 @@ Write in ${localeName}.`;
         { role: "system", content: systemPrompt },
         { role: "user", content: `User wardrobe:\n${wardrobeDescription}` },
       ],
+      complexity: "standard",
+      max_tokens: 800,
     });
 
     let result: any;
