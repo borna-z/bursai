@@ -2700,6 +2700,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     // Discover
     'discover.title': 'Discover',
     'discover.subtitle': 'Explore challenges, inspiration and smart style tools',
+    'discover.subtitle_new': 'Explore your style',
     'discover.trending': 'Trending outfits',
     'discover.see_all': 'See all',
     'discover.ai_tools': 'AI Tools',
