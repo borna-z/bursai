@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-
-const VAPID_PUBLIC_KEY = 'pending'; // Will be set after VAPID keys are generated
+import { isMedianApp } from '@/lib/median';
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -25,6 +24,13 @@ export function usePushNotifications() {
   const [supported, setSupported] = useState(false);
 
   useEffect(() => {
+    // Median handles push natively — mark as supported via its bridge
+    if (isMedianApp()) {
+      setSupported(true);
+      setIsSubscribed(true); // Median manages subscription state natively
+      return;
+    }
+
     const isSupported =
       'serviceWorker' in navigator &&
       'PushManager' in window &&
@@ -54,8 +60,20 @@ export function usePushNotifications() {
     if (!user || !supported) return false;
     setLoading(true);
 
+    // Median native push — delegate to native bridge
+    if (isMedianApp()) {
+      try {
+        window.median?.onesignal?.register?.() ?? window.median?.push?.register?.();
+        setIsSubscribed(true);
+        setPermission('granted');
+      } catch {
+        // silent
+      }
+      setLoading(false);
+      return true;
+    }
+
     try {
-      // Request permission
       const perm = await Notification.requestPermission();
       setPermission(perm);
       if (perm !== 'granted') {
@@ -63,11 +81,9 @@ export function usePushNotifications() {
         return false;
       }
 
-      // Register service worker
       const registration = await navigator.serviceWorker.register('/sw.js');
       await navigator.serviceWorker.ready;
 
-      // Get VAPID public key from edge function config
       const { data: configData } = await supabase.functions.invoke('get_vapid_public_key');
       const vapidKey = configData?.publicKey;
       if (!vapidKey) {
@@ -76,7 +92,6 @@ export function usePushNotifications() {
         return false;
       }
 
-      // Subscribe to push
       const appServerKey = urlBase64ToUint8Array(vapidKey);
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
@@ -85,7 +100,6 @@ export function usePushNotifications() {
 
       const subJson = subscription.toJSON();
 
-      // Store in database
       await supabase.from('push_subscriptions').upsert(
         {
           user_id: user.id,
@@ -110,13 +124,18 @@ export function usePushNotifications() {
     if (!user) return;
     setLoading(true);
 
+    // Median doesn't support web-based unsubscribe — manage via app settings
+    if (isMedianApp()) {
+      setLoading(false);
+      return;
+    }
+
     try {
       const registration = await navigator.serviceWorker.getRegistration('/sw.js');
       if (registration) {
         const subscription = await registration.pushManager.getSubscription();
         if (subscription) {
           await subscription.unsubscribe();
-          // Remove from database
           await supabase
             .from('push_subscriptions')
             .delete()

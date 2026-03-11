@@ -1,7 +1,8 @@
 /**
- * Haptic-feedback utility using the Vibration API.
- * Falls back silently on unsupported browsers / desktop.
+ * Haptic-feedback utility.
+ * Uses Median.co native haptics when available, falls back to Vibration API.
  */
+import { isMedianApp } from './median';
 
 function vibrate(pattern: number | number[]) {
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
@@ -9,22 +10,30 @@ function vibrate(pattern: number | number[]) {
   }
 }
 
+function medianHaptic(style: 'light' | 'medium' | 'heavy') {
+  if (isMedianApp() && window.median?.haptics?.impact) {
+    window.median.haptics.impact(style);
+    return true;
+  }
+  return false;
+}
+
 /** Light tap – button presses, selections */
 export function hapticLight() {
-  vibrate(10);
+  if (!medianHaptic('light')) vibrate(10);
 }
 
 /** Medium tap – confirmations, saves */
 export function hapticMedium() {
-  vibrate(20);
+  if (!medianHaptic('medium')) vibrate(20);
 }
 
 /** Heavy tap – deletes, errors */
 export function hapticHeavy() {
-  vibrate([30, 50, 30]);
+  if (!medianHaptic('heavy')) vibrate([30, 50, 30]);
 }
 
 /** Success pattern – outfit generated, garment saved */
 export function hapticSuccess() {
-  vibrate([10, 60, 20]);
+  if (!medianHaptic('medium')) vibrate([10, 60, 20]);
 }

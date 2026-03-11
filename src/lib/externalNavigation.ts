@@ -1,11 +1,21 @@
 /**
- * Opens external URLs safely from within Lovable's preview (which runs inside an iframe).
- *
- * IMPORTANT: Call `prepareExternalNavigation()` synchronously inside a user gesture (e.g. onClick)
- * BEFORE awaiting anything, otherwise popups may be blocked.
+ * Opens external URLs safely — supports Median.co native browser bridge,
+ * Lovable preview iframe handling, and regular browser tabs.
  */
+import { isMedianApp } from './median';
 
 export function prepareExternalNavigation() {
+  // In Median, external links use the native bridge — no popup needed
+  if (isMedianApp()) {
+    return {
+      popup: null,
+      go: (url: string) => {
+        window.median?.open?.externalBrowser?.(url) ?? (window.location.href = url);
+      },
+      closePopup: () => {},
+    };
+  }
+
   const inIframe = (() => {
     try {
       return window.self !== window.top;
@@ -14,7 +24,6 @@ export function prepareExternalNavigation() {
     }
   })();
 
-  // Stripe Checkout can get stuck inside the preview iframe. Pre-open a new tab in that case.
   const popup = inIframe ? window.open('', '_blank', 'noopener,noreferrer') : null;
   try {
     if (popup) popup.opener = null;
@@ -36,7 +45,6 @@ export function prepareExternalNavigation() {
       popup.focus?.();
       return;
     }
-    // Fallback (may still be inside iframe)
     window.location.href = url;
   };
 

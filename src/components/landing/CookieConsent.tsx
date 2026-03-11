@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { isMedianApp } from '@/lib/median';
 
 const STORAGE_KEY = 'burs-cookie-consent';
 
@@ -7,6 +8,8 @@ export function CookieConsent() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    // Not needed inside native app wrapper
+    if (isMedianApp()) return;
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) setVisible(true);
   }, []);
