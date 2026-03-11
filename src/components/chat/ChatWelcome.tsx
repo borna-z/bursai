@@ -101,11 +101,11 @@ export function ChatWelcome({ onSuggestion, displayName, garmentCount }: ChatWel
   const { user } = useAuth();
   const { data: profile } = useProfile();
   const city = profile?.home_city || 'Stockholm';
-  const { data: weather } = useWeather({ city });
-  const garments = useFlatGarments();
+  const { weather } = useWeather({ city });
+  const { data: garmentList } = useFlatGarments();
 
   const suggestions = useMemo(() => {
-    const allGarments = garments ?? [];
+    const allGarments = garmentList ?? [];
 
     // Row 1: contextual (weather + calendar)
     const weatherChip = buildWeatherSuggestion(weather ?? undefined, locale);
