@@ -518,12 +518,7 @@ export default function AddGarmentPage() {
                   <Button
                     size="lg"
                     className="h-24 w-32 flex-col gap-2"
-                    onClick={() => {
-                      if (fileInputRef.current) {
-                        fileInputRef.current.capture = 'environment';
-                        fileInputRef.current.click();
-                      }
-                    }}
+                    onClick={() => takePhoto()}
                   >
                     <Camera className="w-8 h-8" />
                     {t('addgarment.camera')}
@@ -532,12 +527,7 @@ export default function AddGarmentPage() {
                     size="lg"
                     variant="outline"
                     className="h-24 w-32 flex-col gap-2"
-                    onClick={() => {
-                      if (fileInputRef.current) {
-                        fileInputRef.current.removeAttribute('capture');
-                        fileInputRef.current.click();
-                      }
-                    }}
+                    onClick={() => pickFromGallery()}
                   >
                     <ImageIcon className="w-8 h-8" />
                     {t('addgarment.gallery')}
