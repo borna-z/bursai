@@ -2823,6 +2823,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     'plan.adapts_weather': 'Adapts to weather forecast',
     'plan.plan_7_days': 'Plan 7 days',
     'plan.travel_capsule': 'Travel Capsule',
+    'plan.plan_week_btn': 'Plan Week',
+    'plan.pack_trip_btn': 'Pack for Trip',
 
     // Travel Capsule
     'capsule.title': 'Travel Capsule',
