@@ -741,6 +741,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     // Discover
     'discover.title': 'Upptäck',
     'discover.subtitle': 'Utmaningar, inspiration och smarta stilverktyg',
+    'discover.subtitle_new': 'Utforska din stil',
     'discover.trending': 'Trendande outfits',
     'discover.see_all': 'Visa alla',
     'discover.ai_tools': 'AI-verktyg',
