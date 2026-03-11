@@ -141,6 +141,9 @@ export default function LiveScan() {
   });
 
   useEffect(() => {
+    // In Median native app, the web camera may be restricted — if getUserMedia
+    // fails we can still use the native camera bridge via AddGarment flow.
+    // LiveScan's continuous video feed works best with browser camera access.
     let cancelled = false;
     async function startCamera() {
       try {
@@ -150,7 +153,12 @@ export default function LiveScan() {
         if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); setCameraReady(true); }
       } catch (err) {
         console.error('Camera error:', err);
-        setCameraError(t('scan.camera_error'));
+        // In Median, suggest using the single-capture flow instead
+        if (isMedianApp()) {
+          setCameraError(t('scan.use_add_garment'));
+        } else {
+          setCameraError(t('scan.camera_error'));
+        }
       }
     }
     startCamera();
