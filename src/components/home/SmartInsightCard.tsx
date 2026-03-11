@@ -7,10 +7,10 @@ import { hapticLight } from '@/lib/haptics';
 import { TAP_TRANSITION } from '@/lib/motion';
 
 interface SmartInsightCardProps {
-  onUseUnused: () => void;
+  onUseUnused?: () => void;
 }
 
-export function SmartInsightCard({ onUseUnused }: SmartInsightCardProps) {
+export function SmartInsightCard({ onUseUnused }: SmartInsightCardProps = {}) {
   const { t } = useLanguage();
   const { data: insights } = useInsights();
 
