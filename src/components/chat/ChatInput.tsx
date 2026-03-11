@@ -12,20 +12,17 @@ interface ChatInputProps {
   onClearImage: () => void;
   isStreaming: boolean;
   isUploading: boolean;
-  mode: 'stylist' | 'shopping';
 }
 
 export function ChatInput({
   input, onInputChange, onSend, onImageSelect,
-  pendingImage, onClearImage, isStreaming, isUploading, mode,
+  pendingImage, onClearImage, isStreaming, isUploading,
 }: ChatInputProps) {
   const { t } = useLanguage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const placeholder = mode === 'shopping'
-    ? (pendingImage ? t('chat.image_placeholder') : t('chat.shopping_placeholder'))
-    : (pendingImage ? t('chat.image_placeholder') : t('chat.placeholder'));
+  const placeholder = pendingImage ? t('chat.image_placeholder') : t('chat.placeholder');
 
   useEffect(() => {
     const el = textareaRef.current;

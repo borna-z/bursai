@@ -1,10 +1,9 @@
-import { Sparkles, ShoppingBag } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface ChatWelcomeProps {
-  mode: 'stylist' | 'shopping';
   onSuggestion: (text: string) => void;
   displayName?: string;
   garmentCount?: number;
@@ -26,10 +25,9 @@ const itemVariants = {
   },
 };
 
-export function ChatWelcome({ mode, onSuggestion, displayName, garmentCount }: ChatWelcomeProps) {
+export function ChatWelcome({ onSuggestion, displayName, garmentCount }: ChatWelcomeProps) {
   const { t } = useLanguage();
-  const Icon = mode === 'shopping' ? ShoppingBag : Sparkles;
-  const baseWelcome = mode === 'shopping' ? t('chat.shopping_welcome') : t('chat.welcome');
+  const baseWelcome = t('chat.welcome');
   const personalizedWelcome = displayName
     ? baseWelcome.replace(/^/, `${displayName}, `)
     : baseWelcome;
@@ -49,7 +47,7 @@ export function ChatWelcome({ mode, onSuggestion, displayName, garmentCount }: C
         variants={itemVariants}
         className="w-24 h-24 rounded-[28px] bg-accent/[0.05] flex items-center justify-center mb-8"
       >
-        <Icon className="w-9 h-9 text-accent/80" />
+        <Sparkles className="w-9 h-9 text-accent/80" />
       </motion.div>
       <motion.p
         variants={itemVariants}
