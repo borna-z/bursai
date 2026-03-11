@@ -19,9 +19,7 @@ import { useSwapGarment, type SwapCandidate } from '@/hooks/useSwapGarment';
 import { useWeather } from '@/hooks/useWeather';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useGenerateFlatlay } from '@/hooks/useFlatlay';
 import { useOutfitFeedback, useSubmitPhotoFeedback } from '@/hooks/usePhotoFeedback';
-import { OutfitDNASection, AccessoryPairingSection } from '@/components/outfit/AdvancedOutfitFeatures';
 
 /* ── Swap Sheet ─────────────────────────────────────── */
 
