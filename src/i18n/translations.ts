@@ -2635,6 +2635,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'insights.more': 'more',
     'insights.show_all': 'Show all',
     'insights.unused_60d': 'garments unused 60+ days',
+    'insights.unused_nudge': 'Rediscover forgotten favorites in your wardrobe',
     'insights.wardrobe_usage': 'Wardrobe usage',
     'insights.used_label': 'used',
     'insights.unused_label': 'unused',
