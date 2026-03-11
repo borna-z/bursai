@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -6,28 +6,22 @@ import { Settings } from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { useGarmentCount } from '@/hooks/useGarments';
-import { useWeather } from '@/hooks/useWeather';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { WeatherPill } from '@/components/weather/WeatherPill';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { AISuggestions } from '@/components/insights/AISuggestions';
+import { QuickActionsRow } from '@/components/home/QuickActionsRow';
 
-import { lazy, Suspense } from 'react';
-
-// Below-fold components – lazy loaded to speed up cold start
-const SwipeSuggestions = lazy(() => import('@/components/home/SwipeSuggestions').then(m => ({ default: m.SwipeSuggestions })));
-const SmartInsightCard = lazy(() => import('@/components/home/SmartInsightCard').then(m => ({ default: m.SmartInsightCard })));
+const OutfitsPreview = lazy(() => import('@/components/home/OutfitsPreview').then(m => ({ default: m.OutfitsPreview })));
 const InsightsBanner = lazy(() => import('@/components/home/InsightsBanner').then(m => ({ default: m.InsightsBanner })));
-const PlanTomorrowCard = lazy(() => import('@/components/home/PlanTomorrowCard').then(m => ({ default: m.PlanTomorrowCard })));
-const PredictiveStylingBanner = lazy(() => import('@/components/home/PredictiveStylingBanner').then(m => ({ default: m.PredictiveStylingBanner })));
+const SmartInsightCard = lazy(() => import('@/components/home/SmartInsightCard').then(m => ({ default: m.SmartInsightCard })));
 
 export default function HomePage() {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { data: garmentCount } = useGarmentCount();
-  const { weather } = useWeather();
   const { data: profile } = useProfile();
   const queryClient = useQueryClient();
   const { isPremium } = useSubscription();
@@ -56,8 +50,8 @@ export default function HomePage() {
   return (
     <AppLayout>
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="px-4 pb-8 pt-6 space-y-6 max-w-lg mx-auto">
-          {/* ── Header ── */}
+        <AnimatedPage className="px-4 pb-24 pt-6 space-y-5 max-w-lg mx-auto">
+          {/* ── 1. Greeting ── */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -79,7 +73,7 @@ export default function HomePage() {
             </div>
           </motion.div>
 
-          {/* ── AI Suggestions ── */}
+          {/* ── 2. AI Hero ── */}
           {hasEnoughGarments ? (
             <AISuggestions isPremium={isPremium} />
           ) : (
@@ -88,13 +82,14 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* ── Below-fold (lazy) ── */}
+          {/* ── 3. Quick Actions ── */}
+          <QuickActionsRow />
+
+          {/* ── 4 & 5. Below-fold (lazy) ── */}
           <Suspense fallback={null}>
-            <SwipeSuggestions />
-            <PlanTomorrowCard />
+            <OutfitsPreview />
             <InsightsBanner />
             <SmartInsightCard />
-            <PredictiveStylingBanner />
           </Suspense>
         </AnimatedPage>
       </PullToRefresh>

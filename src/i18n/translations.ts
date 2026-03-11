@@ -290,7 +290,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'home.use_them': 'Använd dem idag',
     'home.suggestions': 'Fler outfits',
     'home.see_details': 'Se detaljer',
+    'home.plan_today': 'Planera idag',
     'home.plan_tomorrow': 'Planera imorgon',
+    'home.what_to_wear': 'Vad ska jag ha på mig?',
+    'common.see_all': 'Visa alla',
 
     // Auth
     'auth.tagline': 'Din personliga stylist.',
@@ -2260,7 +2263,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'home.use_them': 'Use them today',
     'home.suggestions': 'More outfits',
     'home.see_details': 'See details',
+    'home.plan_today': 'Plan today',
     'home.plan_tomorrow': 'Plan tomorrow',
+    'home.what_to_wear': 'What to wear?',
+    'common.see_all': 'See all',
     'auth.tagline': 'Your personal stylist.',
     'auth.or': 'or',
     'auth.login': 'Log in',
