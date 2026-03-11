@@ -8,7 +8,7 @@ import { translations, type Locale } from '@/i18n/translations';
 function t(key: string): string {
   const stored = localStorage.getItem('burs-locale') as Locale | null;
   const locale = (stored && translations[stored]) ? stored : 'sv';
-  return translations[locale]?.[key] ?? translations['sv']?.[key] ?? key;
+  return translations[locale]?.[key] ?? translations['en']?.[key] ?? translations['sv']?.[key] ?? key;
 }
 
 const BATCH_SIZE = 1;
