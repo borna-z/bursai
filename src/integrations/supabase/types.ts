@@ -17,24 +17,30 @@ export type Database = {
       ai_response_cache: {
         Row: {
           cache_key: string
+          compressed: boolean
           created_at: string
           expires_at: string
+          hit_count: number
           id: string
           model_used: string
           response: Json
         }
         Insert: {
           cache_key: string
+          compressed?: boolean
           created_at?: string
           expires_at: string
+          hit_count?: number
           id?: string
           model_used: string
           response: Json
         }
         Update: {
           cache_key?: string
+          compressed?: boolean
           created_at?: string
           expires_at?: string
+          hit_count?: number
           id?: string
           model_used?: string
           response?: Json
