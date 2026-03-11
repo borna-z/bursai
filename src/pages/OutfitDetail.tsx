@@ -121,7 +121,6 @@ export default function OutfitDetailPage() {
   const markWorn = useMarkOutfitWorn();
   const undoMarkWorn = useUndoMarkWorn();
   const { candidates, isLoadingCandidates, fetchCandidates, swapGarment, isSwapping, clearCandidates } = useSwapGarment();
-  const { generateFlatlay, isGenerating: isGeneratingFlatlay } = useGenerateFlatlay();
   const { data: photoFeedback, isLoading: isLoadingFeedback } = useOutfitFeedback(id);
   const submitFeedback = useSubmitPhotoFeedback();
   const selfieInputRef = useRef<HTMLInputElement>(null);
