@@ -170,6 +170,36 @@ export default function AddGarmentPage() {
   const { user } = useAuth();
   const { canAddGarment, remainingGarments, refresh: refreshSubscription } = useSubscription();
   const { checkDuplicates, duplicates, clearDuplicates } = useDuplicateDetection();
+
+  // Process a captured file from the Median camera bridge
+  const processNativeCapture = async (result: { file: File; previewUrl: string }) => {
+    if (!user || !canAddGarment()) { setShowPaywall(true); return; }
+    const file = result.file;
+    setImageFile(file);
+    setImagePreview(result.previewUrl);
+    const newGarmentId = crypto.randomUUID();
+    setGarmentId(newGarmentId);
+    setStep('analyzing');
+    try {
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const path = `${user.id}/${newGarmentId}.${fileExt}`;
+      await uploadGarmentImage(file, newGarmentId);
+      setStoragePath(path);
+      const signedUrl = await getGarmentSignedUrl(path);
+      setImagePreview(signedUrl);
+      await runAnalysis(path);
+    } catch (err) {
+      console.error('Upload/analysis error:', err);
+      toast.error(t('addgarment.upload_error'));
+      setStep('upload');
+    }
+  };
+
+  const { takePhoto, pickFromGallery } = useMedianCamera({
+    fileInputRef,
+    onCapture: processNativeCapture,
+  });
+  const { checkDuplicates, duplicates, clearDuplicates } = useDuplicateDetection();
   const [showDuplicateSheet, setShowDuplicateSheet] = useState(false);
 
   const [step, setStep] = useState<'upload' | 'analyzing' | 'form' | 'batch'>('upload');
