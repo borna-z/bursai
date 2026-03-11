@@ -66,7 +66,7 @@ export default function TravelCapsule() {
   const navigate = useNavigate();
   const { t, locale } = useLanguage();
   const { data: profile } = useProfile();
-  const dateLocale = getDateLocale(locale);
+  const dateLocale = getDateFnsLocale(locale);
 
   const [destination, setDestination] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
