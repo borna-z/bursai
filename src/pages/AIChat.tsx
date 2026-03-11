@@ -250,7 +250,7 @@ export default function AIChat() {
 
   return (
     <AppLayout>
-      <div className="flex flex-col overflow-hidden" style={{ height: 'calc(100dvh - 4rem)' }}>
+      <div className="flex flex-col overflow-hidden h-full">
         {/* Header — simple title + menu */}
         <div className="flex items-center justify-between px-4 py-3 shrink-0 sticky top-0 z-10 bg-background/80 backdrop-blur-xl">
           <div className="w-9" />
