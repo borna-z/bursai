@@ -5391,7 +5391,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'garment.material.silk': 'Silkki', 'garment.material.synthetic': 'Synteettinen',
     'garment.fit.slim': 'Kapea', 'garment.fit.regular': 'Normaali', 'garment.fit.loose': 'Väljä', 'garment.fit.oversized': 'Ylisuuri',
     'garment.season.spring': 'Kevät', 'garment.season.summer': 'Kesä', 'garment.season.autumn': 'Syksy', 'garment.season.winter': 'Talvi',
-    'settings.row.appearance': 'Ulkoasu', 'settings.row.appearance_sub': 'Teema, korostusväri, kieli',
+    'calendar.connect_apple': 'Yhdistä Apple-kalenteri',
     'calendar.connect_google': 'Yhdistä Google-kalenteri', 'calendar.connect_ics': 'Lisää ICS-linkki',
     'calendar.connect_apple_desc': 'Yhdistä Apple-kalenteri, Outlook tai muu ICS-lähde',
     'calendar.paste_ics': 'Liitä ICS-linkkisi', 'calendar.auto_every_6h': 'Automaattisesti joka 6. tunti',
