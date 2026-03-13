@@ -12,7 +12,21 @@ if (dsn) {
       tracesSampleRate: 0.2,
       environment: import.meta.env.MODE,
     });
+
+    // Capture unhandled promise rejections
+    window.addEventListener("unhandledrejection", (event) => {
+      Sentry.captureException(event.reason);
+    });
   });
 }
+
+// Global fallback for unhandled errors (even without Sentry)
+window.addEventListener("error", (event) => {
+  console.error("[GlobalError]", event.error?.message || event.message);
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  console.error("[UnhandledRejection]", event.reason);
+});
 
 createRoot(document.getElementById("root")!).render(<App />);

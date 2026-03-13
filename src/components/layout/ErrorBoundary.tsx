@@ -11,6 +11,20 @@ function getLocale(): Locale {
   return 'sv';
 }
 
+/** Report error to Sentry if loaded (lazy-loaded, so may not be available) */
+async function reportToSentry(error: Error, componentStack?: string) {
+  try {
+    const Sentry = await import('@sentry/react');
+    Sentry.captureException(error, {
+      contexts: {
+        react: { componentStack: componentStack || 'N/A' },
+      },
+    });
+  } catch {
+    // Sentry not available — silently ignore
+  }
+}
+
 interface Props {
   children: ReactNode;
 }
@@ -28,6 +42,11 @@ export class ErrorBoundary extends Component<Props, State> {
 
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: { componentStack?: string }) {
+    console.error('[ErrorBoundary]', error.message, info.componentStack);
+    reportToSentry(error, info.componentStack ?? undefined);
   }
 
   handleReload = () => {
