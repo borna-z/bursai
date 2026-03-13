@@ -8255,6 +8255,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.loading': 'A carregar...', 'common.save': 'Guardar', 'common.cancel': 'Cancelar', 'common.delete': 'Eliminar',
     'common.edit': 'Editar', 'common.close': 'Fechar', 'common.back': 'Voltar', 'common.next': 'Seguinte',
     'common.done': 'Feito', 'common.search': 'Pesquisar', 'common.something_wrong': 'Algo correu mal', 'common.premium': 'Premium', 'common.or': 'ou',
+    'common.read_more': 'Ler mais', 'common.less': 'Menos', 'common.retry': 'Tentar novamente', 'common.error': 'Algo correu mal',
     'trial.then_prefix': 'Depois', 'pricing.save': 'poupe', 'pricing.per_month': '/mês', 'pricing.per_year': '/ano',
     'weather.enter_city': 'Escreva uma cidade...', 'weather.estimate': 'estimativa', 'weather.bring_umbrella': 'Leve um guarda-chuva!', 'weather.cold_warning': 'Frio! Agasalhe-se', 'weather.hot_warning': 'Calor! Cuidado com o sol',
     'weather.unavailable': 'Previsão indisponível', 'weather.outfit_created_for': 'O outfit foi criado para', 'weather.differs': 'o clima difere em', 'weather.fetching': 'A carregar previsão...',
