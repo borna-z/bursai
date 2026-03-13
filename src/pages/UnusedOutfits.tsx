@@ -228,6 +228,24 @@ export default function UnusedOutfits() {
             ))}
           </div>
         )}
+
+        {/* Partial failure — some outfits generated but not all 6 */}
+        {!generating && outfits.length > 0 && outfits.length < 6 && (
+          <div className="flex items-center justify-center gap-3 py-4">
+            <p className="text-xs text-muted-foreground">
+              {outfits.length}/6
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-xl h-9 press"
+              onClick={() => { hapticLight(); startedRef.current = false; generate(); }}
+            >
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+              {t('common.retry')}
+            </Button>
+          </div>
+        )}
       </div>
     </AnimatedPage>
   );
