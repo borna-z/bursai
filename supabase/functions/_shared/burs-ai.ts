@@ -295,23 +295,13 @@ export async function callBursAI(
   if ((cacheTtlSeconds > 0 || !stream) && !stream) {
     cacheKey = await hashKey(cacheInput);
 
-    // Tier 1: in-memory
-    if (cacheTtlSeconds > 0) {
-      const memHit = memGet(cacheKey);
-      if (memHit) {
-        logUsage(supabaseServiceClient, {
-          functionName: options.functionName, model_used: memHit.model_used,
-          latency_ms: Date.now() - startTime, from_cache: true, status: "ok",
-        });
-        return { data: memHit.data, model_used: memHit.model_used, from_cache: true };
-      }
-    }
+    // Tier 1: in-memory cache removed — Edge Function isolates are
+    // stateless, so in-memory Maps reset on every cold start.
 
-    // Tier 2: DB cache
+    // DB cache
     if (cacheTtlSeconds > 0 && supabaseServiceClient) {
       const cached = await checkCache(supabaseServiceClient, cacheKey);
       if (cached) {
-        memSet(cacheKey, cached.response, cached.model_used);
         logUsage(supabaseServiceClient, {
           functionName: options.functionName, model_used: cached.model_used,
           latency_ms: Date.now() - startTime, from_cache: true, status: "ok",
