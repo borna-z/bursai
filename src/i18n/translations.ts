@@ -8205,6 +8205,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.done': 'Klaar', 'common.search': 'Zoeken', 'common.something_wrong': 'Er ging iets mis', 'common.premium': 'Premium', 'common.or': 'of',
     'trial.then_prefix': 'Daarna', 'pricing.save': 'bespaar', 'pricing.per_month': '/maand', 'pricing.per_year': '/jaar',
     'weather.enter_city': 'Voer een stad in...',
+    'weather.estimate': 'schatting', 'weather.bring_umbrella': 'Neem een paraplu mee!', 'weather.cold_warning': 'Koud! Kleed je warm', 'weather.hot_warning': 'Warm! Let op de zon',
+    'weather.unavailable': 'Voorspelling niet beschikbaar', 'weather.outfit_created_for': 'Outfit gemaakt voor', 'weather.differs': 'weer verschilt met', 'weather.fetching': 'Voorspelling laden...',
     'chat.suggestion_1': 'Wat moet ik vandaag dragen?', 'chat.suggestion_2': 'Analyseer mijn stijl', 'chat.suggestion_3': 'Help me kiezen voor werk',
     'chat.outfit_from_stylist': 'Gemaakt op basis van het voorstel van de stylist',
     'garment.category.top': 'Bovenstuk', 'garment.category.bottom': 'Onderstuk', 'garment.category.shoes': 'Schoenen',
