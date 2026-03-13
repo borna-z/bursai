@@ -2,9 +2,14 @@
  * BURS AI — Unified AI abstraction layer v3
  *
  * Features: complexity-based model routing, prompt compression,
- * two-tier caching (in-memory + DB), request deduplication,
+ * DB caching (via ai_response_cache table), request deduplication,
  * token budgets, temperature defaults, observability logging,
  * streaming keepalive, retry with backoff, rate limit handling.
+ *
+ * NOTE: No in-memory cache — Supabase Edge Function isolates are
+ * stateless and cold-start on every invocation, so in-memory Maps
+ * are always empty when a request arrives. DB cache is the only
+ * caching layer.
  */
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
