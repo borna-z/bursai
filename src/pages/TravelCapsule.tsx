@@ -87,6 +87,7 @@ export default function TravelCapsule() {
   const [includeTravelDays, setIncludeTravelDays] = useState(false);
   const [outfitsPerDay, setOutfitsPerDay] = useState(1);
   const [mustHaveItems, setMustHaveItems] = useState<string[]>([]);
+  const [showAllMustHaves, setShowAllMustHaves] = useState(false);
 
   // ── Generation state ──
   const [isGenerating, setIsGenerating] = useState(false);
