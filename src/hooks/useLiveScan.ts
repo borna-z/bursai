@@ -76,7 +76,7 @@ export function useLiveScan() {
       });
 
       if (fnError || data?.error) {
-        setError(fnError?.message || data?.error || 'Analysen misslyckades');
+        setError(fnError?.message || data?.error || 'Analysis failed');
         URL.revokeObjectURL(thumbnailUrl);
         return;
       }
