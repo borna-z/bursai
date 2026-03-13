@@ -31,7 +31,6 @@ export default defineConfig(({ mode }) => ({
           'vendor-motion': ['framer-motion'],
           'vendor-charts': ['recharts'],
           'vendor-supabase': ['@supabase/supabase-js'],
-          'vendor-stripe': ['@stripe/stripe-js'],
           'vendor-sentry': ['@sentry/react'],
           'vendor-date': ['date-fns'],
         },
