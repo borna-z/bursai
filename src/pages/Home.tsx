@@ -89,7 +89,6 @@ export default function HomePage() {
 
           {/* ── 4 & 5. Below-fold (lazy) ── */}
           <Suspense fallback={null}>
-            <OutfitsPreview />
             <InsightsBanner />
             <SmartInsightCard />
           </Suspense>
