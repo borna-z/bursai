@@ -131,6 +131,7 @@ export default function OutfitDetailPage() {
   const [copied, setCopied] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [selectedFeedback, setSelectedFeedback] = useState<string[]>([]);
+  const [explExpanded, setExplExpanded] = useState(false);
   const outfitRef = useRef<HTMLDivElement>(null);
 
   const justGenerated = (location.state as { justGenerated?: boolean })?.justGenerated;
