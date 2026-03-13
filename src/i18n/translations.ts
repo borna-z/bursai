@@ -5408,6 +5408,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'calendar.or_ics': 'Tai yhdistä ICS-linkillä (Apple, Outlook)', 'calendar.sync': 'Synkronoi kalenteri',
     'weather.bring_umbrella': 'Ota sateenvarjo mukaan!', 'weather.cold_warning': 'Kylmää! Pukeudu lämpimästi',
     'weather.hot_warning': 'Kuumaa! Varo aurinkoa', 'weather.unavailable': 'Ennuste ei saatavilla',
+    'weather.estimate': 'arvio',
     'weather.outfit_created_for': 'Asu luotiin säällä', 'weather.differs': 'sää eroaa',
     'weather.fetching': 'Haetaan ennustetta...',
     'weather.condition.clear': 'Selkeä', 'weather.condition.cloudy': 'Pilvinen', 'weather.condition.fog': 'Sumu',
