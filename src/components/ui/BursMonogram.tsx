@@ -1,5 +1,7 @@
 import { cn } from '@/lib/utils';
-import hangerLogo from '@/assets/burs-logo-white.png';
+import { useTheme } from '@/contexts/ThemeContext';
+import monogramDark from '@/assets/burs-monogram.png';
+import monogramWhite from '@/assets/burs-logo-white.png';
 
 interface BursMonogramProps {
   size?: number;
@@ -7,9 +9,12 @@ interface BursMonogramProps {
 }
 
 export function BursMonogram({ size = 40, className }: BursMonogramProps) {
+  const { isDark } = useTheme();
+  const src = isDark ? monogramWhite : monogramDark;
+
   return (
     <img
-      src={hangerLogo}
+      src={src}
       alt="BURS"
       width={size}
       height={size}

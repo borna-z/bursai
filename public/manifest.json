@@ -1,33 +1,45 @@
 {
   "name": "BURS",
   "short_name": "BURS",
-  "description": "Din personliga AI-stylist",
+  "description": "Your personal AI stylist",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#F6F4F1",
-  "theme_color": "#F6F4F1",
+  "background_color": "#F5F0E8",
+  "theme_color": "#F5F0E8",
   "icons": [
     {
-      "src": "/icons/icon-192.png",
-      "sizes": "192x192",
+      "src": "/logo-48.png",
+      "sizes": "48x48",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/logo-128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-256.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-192.png",
-      "sizes": "192x192",
+      "src": "/logo-256.png",
+      "sizes": "256x256",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/logo-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import bursLogo from '@/assets/burs-hanger-logo.png';
+import bursLogo from '@/assets/burs-monogram.png';
 
 interface BursDrawLogoProps {
   onComplete?: () => void;
@@ -26,7 +26,6 @@ export function BursDrawLogo({ onComplete }: BursDrawLogoProps) {
         className="text-foreground overflow-visible"
         aria-label="BURS"
       >
-        {/* Stroke draws in like a pen */}
         <motion.text
           x="110"
           y="33"
@@ -45,7 +44,6 @@ export function BursDrawLogo({ onComplete }: BursDrawLogoProps) {
           BURS
         </motion.text>
 
-        {/* Fill fades in after stroke */}
         <motion.text
           x="110"
           y="33"
