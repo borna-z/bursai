@@ -1,6 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Heart, Search, Puzzle } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { EASE_CURVE, STAGGER_DELAY } from '@/lib/motion';
+import { hapticLight } from '@/lib/haptics';
 
 const TOOLS = [
   {
