@@ -117,8 +117,13 @@ Added tests for:
 - **Fixed CRITICAL**: Removed `user_subscriptions` UPDATE policy that allowed users to self-upgrade to premium. Subscription mutations are now server-side only.
 - Remaining WARN-level findings are intentional service-role-only policies.
 
-### Step 7: Error Monitoring ⏳
-Sentry is initialized. Enhanced error boundaries and edge function logging deferred to next sprint.
+### Step 7: Error Monitoring ✅
+Enhanced error monitoring across the stack:
+- ErrorBoundary now reports crashes to Sentry via lazy `import('@sentry/react')` with component stack traces
+- Added `componentDidCatch` lifecycle for proper React error reporting
+- Global `window.error` and `unhandledrejection` handlers in `main.tsx` for uncaught errors
+- Created `supabase/functions/_shared/logger.ts` structured logging utility with JSON output, timed operations, and safe exception serialization
+- Sentry remains lazy-loaded to keep it off the critical path
 
 ### Step 8: AI Rate Limiting ✅
 Created `ai_rate_limits` table with per-user, per-function tracking. Added `checkRateLimit()` utility to `burs-ai.ts` shared module. Includes auto-cleanup function and probabilistic garbage collection.
