@@ -6190,6 +6190,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'weather.yes': 'Ja', 'weather.change': 'Ändern', 'weather.your_location': 'Dein Standort',
     'weather.bring_umbrella': 'Regenschirm mitnehmen!', 'weather.cold_warning': 'Kalt! Warm anziehen',
     'weather.hot_warning': 'Heiß! An Sonnenschutz denken', 'weather.unavailable': 'Prognose nicht verfügbar',
+    'weather.estimate': 'Schätzung',
     'weather.outfit_created_for': 'Outfit wurde erstellt für', 'weather.differs': 'Wetter unterscheidet sich',
     'weather.fetching': 'Prognose wird geladen...',
     'weather.condition.clear': 'Klar', 'weather.condition.cloudy': 'Bewölkt', 'weather.condition.fog': 'Nebel',
