@@ -39,7 +39,7 @@ export default function PrivacyPolicy() {
 
             {/* 1 */}
             <section>
-              <h2 className="text-xl font-semibold text-foreground mb-3">1. Who We Are</h2>
+              <h2 className="text-xl font-semibold text-[#1C1917] mb-3">1. Who We Are</h2>
               <p>BURS ("BURS", "we", "us", "our") is a digital wardrobe and AI styling platform available via web and/or progressive web app at burs.me (the "Service").</p>
               <p className="mt-3">This Privacy Policy explains how we collect, use, store, share, and protect personal data when you use BURS, including when you connect your Google Calendar for contextual outfit recommendations.</p>
               <p className="mt-3 font-medium text-foreground">Data Controller (GDPR):</p>
