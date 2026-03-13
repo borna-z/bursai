@@ -14,6 +14,7 @@ import { SettingsGroup } from '@/components/settings/SettingsGroup';
 export default function SettingsAppearance() {
   const { theme, setTheme } = useTheme();
   const { locale, setLocale, t } = useLanguage();
+  const { data: isAdmin } = useIsAdmin();
 
   return (
     <AppLayout>
