@@ -650,7 +650,7 @@
         <div class="pricing-grid">
           <div class="price-card free reveal">
             <div class="price-tag">Free forever</div>
-            <div class="price-amount">0 kr</div>
+            <div class="price-amount" id="price-free">0 kr</div>
             <div class="price-period">No credit card needed</div>
             <ul class="price-features">
               <li>Up to 10 garments</li>
@@ -662,8 +662,8 @@
           </div>
           <div class="price-card premium reveal d1">
             <div class="price-tag">Premium</div>
-            <div class="price-amount">79 kr</div>
-            <div class="price-period">per month · or 699 kr/year (save 26%)</div>
+            <div class="price-amount" id="price-premium">79 kr</div>
+            <div class="price-period" id="price-period">per month · or 699 kr/year (save 26%)</div>
             <ul class="price-features">
               <li>Unlimited garments</li>
               <li>Unlimited outfit recommendations</li>
@@ -676,6 +676,33 @@
             </ul>
             <a href="/auth" class="btn-pric-fill">Get Premium</a>
           </div>
+          <script>
+          (function(){
+            var P={
+              sv:{m:'79 kr',y:'699 kr',s:'0 kr',pf:false},
+              no:{m:'79 kr',y:'699 kr',s:'0 kr',pf:false},
+              da:{m:'59 kr',y:'499 kr',s:'0 kr',pf:false},
+              fi:{m:'6,99 €',y:'59,99 €',s:'0 €',pf:false},
+              de:{m:'6,99 €',y:'59,99 €',s:'0 €',pf:false},
+              fr:{m:'6,99 €',y:'59,99 €',s:'0 €',pf:false},
+              es:{m:'6,99 €',y:'59,99 €',s:'0 €',pf:false},
+              it:{m:'6,99 €',y:'59,99 €',s:'0 €',pf:false},
+              pt:{m:'6,99 €',y:'59,99 €',s:'0 €',pf:false},
+              nl:{m:'6,99 €',y:'59,99 €',s:'0 €',pf:false},
+              en:{m:'$6.99',y:'$59.99',s:'$0',pf:true},
+              pl:{m:'29,99 zł',y:'249 zł',s:'0 zł',pf:false},
+              ar:{m:'25 د.إ',y:'219 د.إ',s:'0 د.إ',pf:false}
+            };
+            var lang=(navigator.language||'sv').split('-')[0].toLowerCase();
+            var p=P[lang]||P['sv'];
+            var sv=Math.round((1-parseFloat(p.y.replace(/[^\d.,]/g,'').replace(',','.'))/
+              (parseFloat(p.m.replace(/[^\d.,]/g,'').replace(',','.'))*12))*100);
+            document.getElementById('price-free').textContent=p.s;
+            document.getElementById('price-premium').textContent=p.m;
+            document.getElementById('price-period').textContent=
+              'per month · or '+p.y+'/year (save '+sv+'%)';
+          })();
+          </script>
         </div>
       </div>
     </section>
