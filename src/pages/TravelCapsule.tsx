@@ -529,7 +529,7 @@ export default function TravelCapsule() {
                           );
                         }}
                         className={cn(
-                          'flex-shrink-0 w-16 flex flex-col items-center gap-1 rounded-xl p-1.5 border transition-all',
+                          'relative flex-shrink-0 w-16 flex flex-col items-center gap-1 rounded-xl p-1.5 border transition-all',
                           selected
                             ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
                             : 'border-border/10 bg-card/40'
