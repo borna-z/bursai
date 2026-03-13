@@ -891,6 +891,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     'capsule.outfits_per_day_desc': 'Hur många ombytesoutfits behöver du per dag?',
     'capsule.must_haves': 'Måste ha med',
     'capsule.must_haves_desc': 'Välj plagg som måste ingå i kapseln',
+    'capsule.show_all_garments': 'Visa alla plagg',
+    'capsule.show_less': 'Visa färre',
 
     // Swap sheet
     'swap.title': 'Byt outfit',
