@@ -329,8 +329,9 @@ export default function TravelCapsule() {
 
         // 2. Create outfit_items with slot derived from garment category
         const slotMap: Record<string, string> = {
-          tops: 'top', bottoms: 'bottom', shoes: 'shoes', outerwear: 'outerwear',
-          accessories: 'accessory', dresses: 'dress', activewear: 'top',
+          top: 'top', bottom: 'bottom', shoes: 'shoes', outerwear: 'outerwear',
+          accessory: 'accessory', accessories: 'accessory', dress: 'dress',
+          activewear: 'top', bag: 'accessory', jewelry: 'accessory',
         };
 
         const outfitItems = validItems.map(gId => {
