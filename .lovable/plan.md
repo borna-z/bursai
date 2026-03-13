@@ -1,101 +1,38 @@
 
-# BURS Roadmap v2 — 25 Steps
 
-## Phase 1: UX Polish & Performance (Steps 1–7)
+# Redesign /auth to Match Landing Page Design
 
-### Step 1: Skeleton & Loading State Audit ✅
-Audited all data-fetching views. Replaced raw `Loader2` spinners with contextual shimmer skeletons on Insights, Plan, Settings, and AIChat pages. Added `InsightsPageSkeleton`, `PlanPageSkeleton`, `SettingsPageSkeleton`, and `ChatPageSkeleton` to shared skeletons file. Home, Wardrobe, GarmentDetail, and OutfitDetail already had proper skeletons.
+## Current State
+The auth page uses a **dark theme** (`dark-landing` class, `#030305` background, white text, glassmorphic card) — completely mismatched with the landing page's warm editorial aesthetic.
 
-### Step 2: Haptic & Micro-Interaction Pass ✅
-Added haptic feedback to: GarmentDetail (toggle laundry, mark worn, delete), OutfitDetail (save/unsave, rating, mark worn), DayCard (swap, mark worn, remove, plan, generate), PlanTomorrowCard, InsightsBanner, SmartInsightCard, SwipeableGarmentCard (swipe open). Replaced raw `navigator.vibrate` calls in LiveScan with standardized haptics. Added spring `whileTap` animations to SmartInsightCard.
+## Landing Page Design Language
+- **Palette**: `--bg: #F5F0E8` (warm cream), `--surf: #EDE8DF`, `--ink: #1C1917` (near-black), `--muted: #6B6560`, `--border: #DDD8CF`
+- **Typography**: Playfair Display (serif, headlines), DM Sans (body)
+- **Style**: Editorial, uppercase eyebrows with letter-spacing, thin borders, no rounded cards — rectangular/sharp buttons with border outlines
+- **Buttons**: `btn-primary` = solid ink bg, uppercase, wide letter-spacing; `btn-ghost` = underline on hover
 
-### Step 3: Offline Mode & Queued Actions ✅
-Created `lib/offlineQueue.ts` with localStorage-backed mutation queue (enqueue, replay, clear). Added `useOfflineQueue` hook for auto-replay on reconnect. Upgraded `OfflineBanner` to show queue count and syncing state. Configured React Query with `networkMode: 'offlineFirst'` and extended `gcTime` to 30 minutes for offline data access.
+## Plan
 
-### Step 4: Pull-to-Refresh & Infinite Scroll ✅
-Added PullToRefresh to Plan and Insights pages (Home and Wardrobe already had it). Wardrobe already has virtualized lists via @tanstack/react-virtual and infinite scroll with IntersectionObserver.
+### Rewrite `src/pages/Auth.tsx` visual layer
 
-### Step 5: Gesture Navigation ✅
-Added swipe-right-to-wear gesture on TodayOutfitCard with 100px threshold. Added "Swipe right to wear" hint text. Wardrobe already has swipe-left actions. Plan already has day navigation.
+Keep all auth logic (signIn, signUp, handleOAuth, handleForgotPassword, PasswordRequirements) intact. Redesign the JSX and styling:
 
-### Step 6: Accessibility Deep Pass ✅
-Added `prefers-reduced-motion` CSS media query to disable all animations/transitions for users who prefer reduced motion. Updated AnimatedPage to respect `useReducedMotion()` from framer-motion (simpler fade-only with shorter duration). Existing aria-labels and focus-visible rings remain intact.
+1. **Background**: Replace `dark-landing` + aurora glows with `bg-[#F5F0E8]` warm cream, matching landing `--bg`
+2. **Logo**: Switch from `burs-logo-white.png` to `burs-landing-logo.png` (dark version for light bg)
+3. **Typography**: 
+   - Tagline uses DM Sans, `text-[#6B6560]` (muted), uppercase with letter-spacing
+   - Labels use DM Sans, `text-[#6B6560]`
+4. **Card container**: Replace glassmorphic dark card with a clean bordered container: `border border-[#DDD8CF] bg-[#EDE8DF]` — no rounded-2xl, use subtle rounding or none
+5. **Inputs**: Restyle from dark glass inputs to light: `bg-white/60 border-[#DDD8CF] text-[#1C1917] placeholder:text-[#6B6560]/50` 
+6. **Tab switcher**: Match editorial style — uppercase, letter-spaced, with underline indicator instead of pill background
+7. **OAuth buttons**: Bordered rectangular style matching `nav-cta` — `border border-[#1C1917] text-[#1C1917]` uppercase, letter-spaced
+8. **Primary submit button**: Solid ink style — `bg-[#1C1917] text-[#F5F0E8]` uppercase, letter-spaced, rectangular
+9. **Forgot password / Remember me**: Use `text-[#6B6560]` and `text-[rgba(28,25,23,0.35)]` for faint elements
+10. **Password requirements**: Adapt check colors from emerald to ink-based indicators
+11. **Loading state**: Change spinner bg from dark to `bg-[#F5F0E8]` with ink-colored spinner
+12. **Add Google Fonts link** for Playfair Display + DM Sans in `index.html` (or check if already present)
 
-### Step 7: Transition & Animation Polish ✅
-Wardrobe grid already uses staggered `animate-drape-in` with per-item delays (capped at 12 items). DayCard uses the same. Home page sections have individual motion.div entrance animations. All interactive cards have `whileTap` spring animations. Route transitions use 0.4s ease with scale.
+### Files to edit
+- `src/pages/Auth.tsx` — full visual redesign
+- `index.html` — add Playfair Display + DM Sans font imports if not already present
 
----
-
-## Phase 2: Advanced Analytics & Insights (Steps 8–13)
-
-### Step 8: Spending Dashboard ✅
-Created SpendingDashboard component with total wardrobe value, cost-per-category bars, best/worst CPW garments. Premium-gated.
-
-### Step 9: Seasonal Wardrobe Report ✅
-Covered by Style Evolution + Category Balance + Sustainability + Heatmap widgets combined.
-
-### Step 10: Outfit Repeat Tracker ✅
-Created OutfitRepeatTracker showing most-repeated outfits and stale outfits (60+ days). Premium-gated.
-
-### Step 11: Wear Heatmap Calendar ✅
-Created WearHeatmap with 90-day grid, streak counter, and consistency score. Premium-gated.
-
-### Step 12: Category Balance Chart ✅
-Created CategoryRadar with animated horizontal bars per category. Premium-gated.
-
-### Step 13: Personal Style Report Card ✅
-Created StyleReportCard calling burs_style_engine for AI archetype, scores, and summary. Premium-gated.
-
----
-
-## Phase 3: Social & Community (Steps 14–19)
-
-### Step 14: Public Style Profile ✅
-Created PublicProfile page at `/u/:username`. Added `username` column to profiles. Shows avatar, display name, shared outfits grid with reactions. Public access via RLS policy.
-
-### Step 15: Outfit Inspiration Feed ✅
-Created InspirationFeed page at `/feed`. Shows community shared outfits with occasion filters, save-to-inspiration feature, and outfit reactions. Excludes own outfits. Uses `inspiration_saves` table.
-
-### Step 16: Outfit Reactions & Kudos ✅
-Created `OutfitReactions` component with 🔥 styled, 💎 creative, 🌿 sustainable reactions. Toggle on/off with optimistic UI. Used on share pages, public profiles, and feed. `outfit_reactions` table with RLS.
-
-### Step 17: Style Challenge System ✅
-Created StyleChallenges page at `/challenges`. Shows active weekly challenges with join/complete actions. `style_challenges` + `challenge_participations` tables with proper RLS.
-
-### Step 18: Outfit Request / Style Advice ✅
-Covered by existing AI chat stylist which handles outfit requests with context from user's wardrobe.
-
-### Step 19: Friend Wardrobe Peek ✅
-Created `friendships` table with pending/accepted/declined status and proper RLS. UI deferred — DB foundation ready for future friend features.
-
----
-
-## Phase 4: AI Intelligence v3 (Steps 20–25)
-
-### Step 20: Visual Search & "Shop My Look" ✅
-Created `visual_search` Edge Function using Gemini 2.5 Flash multimodal. Users upload inspiration photos; AI identifies garments and matches against wardrobe with confidence scores. Gaps listed with shopping suggestions. Premium-gated page at `/ai/visual-search`.
-
-### Step 21: Mood-Based Outfit Generation ✅
-Created `mood_outfit` Edge Function with 6 mood presets (cozy, confident, creative, invisible, romantic, energetic) mapped to formality, color temperature, material, and vibe parameters. Saves generated outfit to DB. Page at `/ai/mood-outfit`.
-
-### Step 22: AI Outfit Mood Board ✅
-Mood board functionality integrated into the mood-based generation flow — each mood generates a complete outfit with explanation and style score. The existing flatlay generation can be triggered from the outfit detail page.
-
-### Step 23: Smart Shopping List ✅
-Created `smart_shopping_list` Edge Function that analyzes wardrobe gaps, style profile, and upcoming calendar events to generate 4-6 prioritized shopping suggestions with budget hints, new outfit estimates, and style specifications. Page at `/ai/smart-shopping`.
-
-### Step 24: Wardrobe Aging Predictions ✅
-Created `wardrobe_aging` Edge Function using Gemini 2.5 Flash Lite. Predicts garment lifespan based on material, condition score, and wear frequency. Shows health percentage, months remaining, replacement reasons, and care tips. Page at `/ai/wardrobe-aging`.
-
-### Step 25: Style Twin Matching ✅
-Created `style_twin` Edge Function that builds a style vector from wardrobe attributes and identifies a creative archetype name, defining traits, real-world style icons, and signature styling moves. Includes community inspiration from shared outfits. Privacy-first (no user identity revealed). Page at `/ai/style-twin`.
-
----
-
-## Previous Completed Work
-
-### AI Intelligence Roadmap v1 (Steps 1–25) — ✅ DONE
-Feedback learning, seasonal palettes, material affinity, weather intelligence, occasion mapping, style vectors, wear patterns, comfort/style learning, color profiling, body-aware fit, multi-event planning, travel capsules, social context, laundry integration, seasonal transitions, flat-lay preview, photo feedback, condition tracking, outfit DNA cloning, accessory pairing, gap analysis, cost-per-wear, sustainability score, style evolution timeline, predictive styling.
-
-### Localized Pricing — ✅ DONE
-All pricing surfaces use `src/lib/localizedPricing.ts` for locale-appropriate amounts. Stripe checkout maps locale → currency-specific Price IDs.
