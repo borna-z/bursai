@@ -201,7 +201,7 @@ export default function UnusedOutfits() {
                       <div key={j} className="relative overflow-hidden bg-muted/20">
                         <LazyImageSimple
                           imagePath={item.garment.image_path}
-                          alt={item.garment.title}
+                          alt={stripBrands(item.garment.title)}
                           className="w-full h-full object-cover"
                         />
                         {isUnused && (

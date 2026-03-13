@@ -420,7 +420,7 @@ export default function OutfitDetailPage() {
               key={item.id}
               slot={item.slot}
               garmentId={item.garment_id}
-              garmentTitle={item.garment?.title}
+              garmentTitle={stripBrands(item.garment?.title || '')}
               garmentColor={item.garment?.color_primary}
               imagePath={item.garment?.image_path}
               onSwap={() => handleOpenSwap(item.slot, item.id, item.garment_id)}
