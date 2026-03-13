@@ -59,7 +59,7 @@ serve(async (req) => {
 
     const { data: result } = await callBursAI({
       complexity: "trivial",
-      max_tokens: 300,
+      max_tokens: estimateMaxTokens({ outputItems: Math.min(accessories.length, 3), perItemTokens: 60, baseTokens: 120 }),
       functionName: "suggest_accessories",
       cacheTtlSeconds: 1800,
       cacheNamespace: "suggest_accessories",

@@ -97,6 +97,20 @@ export class BursAIError extends Error {
   }
 }
 
+// ─── Smart Token Estimation ───────────────────────────────────
+export function estimateMaxTokens(opts: {
+  inputItems?: number;
+  outputItems?: number;
+  perItemTokens?: number;
+  baseTokens?: number;
+  cap?: number;
+}): number {
+  const base = opts.baseTokens ?? 150;
+  const perItem = opts.perItemTokens ?? 60;
+  const items = opts.outputItems ?? Math.ceil((opts.inputItems ?? 5) * 0.6);
+  return Math.min(base + items * perItem, opts.cap ?? 4096);
+}
+
 // ─── Prompt Compression ───────────────────────────────────────
 export function compressPrompt(text: string): string {
   return text

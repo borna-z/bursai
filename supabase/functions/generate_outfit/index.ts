@@ -298,8 +298,8 @@ ${garmentList}`;
           messages,
           tools: [TOOL_DEF],
           tool_choice: { type: "function", function: { name: "select_outfit" } },
-          complexity: "standard",
-          max_tokens: 300,
+      complexity: "standard",
+      max_tokens: estimateMaxTokens({ outputItems: needsOuterwear ? 5 : 4, perItemTokens: 40, baseTokens: 120 }),
         });
         return { data: data as { items: { slot: string; garment_id: string }[]; explanation: string } };
       } catch (e: any) {

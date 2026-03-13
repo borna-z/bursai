@@ -119,7 +119,7 @@ ${garmentList}`,
       }],
       tool_choice: { type: "function", function: { name: "visual_match" } },
       complexity: "complex",
-      max_tokens: 600,
+      max_tokens: estimateMaxTokens({ inputItems: garments.length, outputItems: 5, perItemTokens: 80, baseTokens: 200 }),
     });
 
     const garmentIdSet = new Set(garments.map(g => g.id));

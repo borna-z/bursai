@@ -54,7 +54,7 @@ serve(async (req) => {
 
     const { data: result } = await callBursAI({
       complexity: "standard",
-      max_tokens: 500,
+      max_tokens: estimateMaxTokens({ outputItems: 3, perItemTokens: 120, baseTokens: 150 }),
       functionName: "clone_outfit_dna",
       cacheTtlSeconds: 1800,
       cacheNamespace: "clone_dna",

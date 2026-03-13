@@ -108,7 +108,7 @@ serve(async (req) => {
 
     const { data: result } = await callBursAI({
       complexity: "standard",
-      max_tokens: 500,
+      max_tokens: estimateMaxTokens({ outputItems: 3, perItemTokens: 100, baseTokens: 150 }),
       functionName: "suggest_outfit_combinations",
       cacheTtlSeconds: 1800,
       cacheNamespace: `suggest_combos_${user.id.slice(0, 8)}`,

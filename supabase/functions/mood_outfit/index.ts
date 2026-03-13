@@ -65,7 +65,7 @@ serve(async (req) => {
 
     const { data: result } = await callBursAI({
       complexity: "standard",
-      max_tokens: 300,
+      max_tokens: estimateMaxTokens({ outputItems: 5, perItemTokens: 40, baseTokens: 120 }),
       functionName: "mood_outfit",
       cacheTtlSeconds: 900,
       cacheNamespace: `mood_${mood}_${userId?.slice(0, 8)}`,

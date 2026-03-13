@@ -72,7 +72,7 @@ serve(async (req) => {
     try {
       const { data: result } = await callBursAI({
         complexity: "trivial",
-        max_tokens: 500,
+        max_tokens: estimateMaxTokens({ inputItems: events.length, perItemTokens: 80, baseTokens: 200 }),
         functionName: "summarize_day",
         cacheTtlSeconds: 3600,
         cacheNamespace: `summarize_day_${eventsCacheKey}`,

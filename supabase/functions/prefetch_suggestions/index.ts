@@ -92,7 +92,7 @@ ${garmentList}`);
           }],
           tool_choice: { type: "function", function: { name: "suggest_outfits" } },
           complexity: "trivial",
-          max_tokens: 400,
+          max_tokens: estimateMaxTokens({ outputItems: 2, perItemTokens: 80, baseTokens: 150 }),
           cacheTtlSeconds: 43200, // 12 hours
           cacheNamespace: `daily_suggestions_${user.id}`,
         }, supabase);

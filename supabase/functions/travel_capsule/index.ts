@@ -99,8 +99,8 @@ serve(async (req) => {
     const targetOutfits = Math.min(duration_days * occasionCount, 20);
     const maxItems = Math.min(Math.ceil(duration_days * 2.5), 25);
 
-    // Scale max_tokens based on trip length
-    const maxTokens = Math.min(1200 + duration_days * 250, 4096);
+    // Scale max_tokens based on trip length and outfit count
+    const maxTokens = estimateMaxTokens({ outputItems: targetOutfits + maxItems, perItemTokens: 40, baseTokens: 400, cap: 4096 });
     // Use stronger model for longer trips
     const complexity = duration_days > 5 ? "complex" : "standard";
 
