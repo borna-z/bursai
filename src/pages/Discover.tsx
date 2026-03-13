@@ -35,6 +35,7 @@ const UNLOCK_THRESHOLDS = [
 export default function DiscoverPage() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const { data: garmentCount } = useGarmentCount();
 
   const [challenges, setChallenges] = useState<Challenge[]>([]);
