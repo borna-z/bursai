@@ -14,7 +14,6 @@ import { cn } from '@/lib/utils';
 
 interface GapResult {
   item: string;
-  brand: string;
   category: string;
   color: string;
   reason: string;
