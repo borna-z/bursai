@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowRight, Instagram } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { LanguageSwitcher } from "./LanguageSwitcher";
+
 import { Helmet } from "react-helmet-async";
 import bursFooterLogo from "@/assets/burs-monogram.png";
 
@@ -97,7 +97,6 @@ export function FooterCTA() {
                 </a>
               </div>
               <div className="flex items-center gap-4">
-                <LanguageSwitcher />
                 <a
                   href="https://www.instagram.com/burs_style"
                   target="_blank"

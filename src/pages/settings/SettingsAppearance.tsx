@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { SUPPORTED_LOCALES, Locale } from '@/i18n/translations';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { AccentColorPicker } from '@/components/settings/AccentColorPicker';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -13,6 +14,7 @@ import { SettingsGroup } from '@/components/settings/SettingsGroup';
 export default function SettingsAppearance() {
   const { theme, setTheme } = useTheme();
   const { locale, setLocale, t } = useLanguage();
+  const { data: isAdmin } = useIsAdmin();
 
   return (
     <AppLayout>
@@ -38,20 +40,22 @@ export default function SettingsAppearance() {
           </div>
         </SettingsGroup>
 
-        <SettingsGroup title={t('settings.language')}>
-          <SettingsRow icon={<Globe />} label={t('settings.language')} last>
-            <Select value={locale} onValueChange={(v) => setLocale(v as Locale)}>
-              <SelectTrigger className="w-[130px] h-8 text-xs border-0 bg-muted/50">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SUPPORTED_LOCALES.map((loc) => (
-                  <SelectItem key={loc.code} value={loc.code}>{loc.flag} {loc.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SettingsRow>
-        </SettingsGroup>
+        {isAdmin && (
+          <SettingsGroup title={t('settings.language')}>
+            <SettingsRow icon={<Globe />} label={t('settings.language')} last>
+              <Select value={locale} onValueChange={(v) => setLocale(v as Locale)}>
+                <SelectTrigger className="w-[130px] h-8 text-xs border-0 bg-muted/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUPPORTED_LOCALES.map((loc) => (
+                    <SelectItem key={loc.code} value={loc.code}>{loc.flag} {loc.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+          </SettingsGroup>
+        )}
       </div>
     </AppLayout>
   );

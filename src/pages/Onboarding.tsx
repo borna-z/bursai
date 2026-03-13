@@ -5,6 +5,7 @@ import { EASE_CURVE } from '@/lib/motion';
 import { Loader2 } from 'lucide-react';
 import { useUpdateProfile, useProfile } from '@/hooks/useProfile';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { LanguageStep } from '@/components/onboarding/LanguageStep';
 import { AccentColorStep } from '@/components/onboarding/AccentColorStep';
 import { QuickStyleQuiz } from '@/components/onboarding/QuickStyleQuiz';
@@ -43,6 +44,7 @@ export default function OnboardingPage() {
   const updateProfile = useUpdateProfile();
   const { data: profile, isLoading: profileLoading } = useProfile();
 
+  const { data: isAdmin, isLoading: adminLoading } = useIsAdmin();
   const [languageStepDone, setLanguageStepDone] = useState(false);
   const [accentStepDone, setAccentStepDone] = useState(false);
   const [quizDone, setQuizDone] = useState(false);
@@ -102,7 +104,7 @@ export default function OnboardingPage() {
   const prefs = profile?.preferences as Record<string, any> | null;
   const onboardingCompleted = prefs?.onboarding?.completed === true;
 
-  if (profileLoading) {
+  if (profileLoading || adminLoading) {
     return (
       <div className="dark-landing min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-white/40" />
@@ -114,7 +116,10 @@ export default function OnboardingPage() {
     return <Navigate to="/" replace />;
   }
 
-  const stepKey: StepKey = !languageStepDone
+  // Skip language step for non-admin users
+  const effectiveLanguageDone = isAdmin ? languageStepDone : true;
+
+  const stepKey: StepKey = !effectiveLanguageDone
     ? 'lang'
     : !accentStepDone
       ? 'accent'
