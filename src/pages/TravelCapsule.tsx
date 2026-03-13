@@ -517,40 +517,65 @@ export default function TravelCapsule() {
                   {t('capsule.must_haves')}
                 </Label>
                 <p className="text-[11px] text-muted-foreground/50">{t('capsule.must_haves_desc')}</p>
-                <div className="flex gap-2.5 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
-                  {allGarments?.slice(0, 30).map(g => {
-                    const selected = mustHaveItems.includes(g.id);
-                    return (
-                      <button
-                        key={g.id}
-                        onClick={() => {
-                          hapticLight();
-                          setMustHaveItems(prev =>
-                            prev.includes(g.id) ? prev.filter(id => id !== g.id) : [...prev, g.id]
+                {(() => {
+                  const displayedGarments = showAllMustHaves ? allGarments : allGarments?.slice(0, 20);
+                  const totalCount = allGarments?.length ?? 0;
+                  const hasMore = totalCount > 20;
+
+                  return (
+                    <>
+                      <div className={cn(
+                        showAllMustHaves
+                          ? 'flex flex-wrap gap-2.5 pb-2'
+                          : 'flex gap-2.5 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide'
+                      )}>
+                        {displayedGarments?.map(g => {
+                          const selected = mustHaveItems.includes(g.id);
+                          return (
+                            <button
+                              key={g.id}
+                              onClick={() => {
+                                hapticLight();
+                                setMustHaveItems(prev =>
+                                  prev.includes(g.id) ? prev.filter(id => id !== g.id) : [...prev, g.id]
+                                );
+                              }}
+                              className={cn(
+                                'relative flex-shrink-0 w-16 flex flex-col items-center gap-1 rounded-xl p-1.5 border transition-all',
+                                selected
+                                  ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                                  : 'border-border/10 bg-card/40'
+                              )}
+                            >
+                              <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted/20">
+                                <LazyImageSimple imagePath={g.image_path} alt={g.title} className="w-full h-full object-cover" />
+                              </div>
+                              <span className="text-[9px] text-muted-foreground leading-tight truncate w-full text-center">
+                                {g.title}
+                              </span>
+                              {selected && (
+                                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+                                  <Check className="w-2.5 h-2.5 text-primary-foreground" />
+                                </div>
+                              )}
+                            </button>
                           );
-                        }}
-                        className={cn(
-                          'relative flex-shrink-0 w-16 flex flex-col items-center gap-1 rounded-xl p-1.5 border transition-all',
-                          selected
-                            ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                            : 'border-border/10 bg-card/40'
-                        )}
-                      >
-                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted/20">
-                          <LazyImageSimple imagePath={g.image_path} alt={g.title} className="w-full h-full object-cover" />
-                        </div>
-                        <span className="text-[9px] text-muted-foreground leading-tight truncate w-full text-center">
-                          {g.title}
-                        </span>
-                        {selected && (
-                          <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
-                            <Check className="w-2.5 h-2.5 text-primary-foreground" />
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                        })}
+                      </div>
+                      {hasMore && (
+                        <button
+                          type="button"
+                          onClick={() => { hapticLight(); setShowAllMustHaves(prev => !prev); }}
+                          className="text-[11px] text-primary font-medium mt-1"
+                        >
+                          {showAllMustHaves
+                            ? t('capsule.show_less')
+                            : `${t('capsule.show_all_garments')} (${totalCount})`}
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             )}
 
