@@ -331,105 +331,166 @@ export async function callBursAI(
     }
   }
 
+  // Shared fetch logic for a single model attempt against a given endpoint
+  async function tryModel(
+    url: string,
+    authHeader: Record<string, string>,
+    model: string,
+    body: any,
+    timeout: number,
+  ): Promise<{ resp: Response } | { retry: true } | { error: Error; fatal?: boolean }> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+    try {
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { ...authHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ ...body, model }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+
+      if (resp.status === 429) {
+        const retryAfter = parseInt(resp.headers.get("Retry-After") || "2");
+        await resp.text();
+        await sleep(retryAfter * 1000);
+        return { retry: true };
+      }
+      if (resp.status === 402) {
+        await resp.text();
+        return { error: new BursAIError("AI credits exhausted. Please add funds.", 402), fatal: true };
+      }
+      if (resp.status >= 500) {
+        await resp.text();
+        return { error: new BursAIError(`AI server error: ${resp.status}`, resp.status) };
+      }
+      if (!resp.ok) {
+        const txt = await resp.text();
+        return { error: new BursAIError(`AI error ${resp.status}: ${txt}`, resp.status) };
+      }
+      return { resp };
+    } catch (e) {
+      clearTimeout(timer);
+      if (e instanceof BursAIError && e.status === 402) return { error: e, fatal: true };
+      if (e instanceof DOMException && e.name === "AbortError") {
+        return { error: new Error(`Model ${model} timed out`) };
+      }
+      return { error: e instanceof Error ? e : new Error(String(e)) };
+    }
+  }
+
+  function buildBody(): any {
+    const body: any = { messages, ...extraBody };
+    if (tools) body.tools = tools;
+    if (tool_choice) body.tool_choice = tool_choice;
+    if (stream) body.stream = true;
+    if (maxTokens) body.max_tokens = maxTokens;
+    if (temperature != null && !extraBody.temperature) body.temperature = temperature;
+    return body;
+  }
+
+  function parseResult(aiData: any): any {
+    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+    let result: any;
+    if (toolCall?.function?.arguments) {
+      try { result = JSON.parse(toolCall.function.arguments); }
+      catch { return { __parseError: true }; }
+    } else if (aiData.choices?.[0]?.message?.content !== undefined) {
+      result = aiData.choices[0].message.content;
+    } else {
+      result = aiData;
+    }
+    const images = aiData.choices?.[0]?.message?.images;
+    if (images) result = { __raw: aiData, content: result, images };
+    return result;
+  }
+
   const executeCall = async (): Promise<BursAIResponse> => {
     let lastError: Error | null = null;
+    let gatewayHad5xxOrTimeout = false;
+    const body = buildBody();
 
+    // ── Phase 1: Lovable Gateway ──
     for (const model of modelChain) {
       for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), timeout);
+        const outcome = await tryModel(
+          GATEWAY_URL,
+          { Authorization: `Bearer ${apiKey}` },
+          model, body, timeout,
+        );
 
-          const body: any = { model, messages, ...extraBody };
-          if (tools) body.tools = tools;
-          if (tool_choice) body.tool_choice = tool_choice;
-          if (stream) body.stream = true;
-          if (maxTokens) body.max_tokens = maxTokens;
-          if (temperature != null && !extraBody.temperature) body.temperature = temperature;
-
-          const resp = await fetch(GATEWAY_URL, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-            signal: controller.signal,
-          });
-
-          clearTimeout(timer);
-
-          if (resp.status === 429) {
-            const retryAfter = parseInt(resp.headers.get("Retry-After") || "2");
-            await resp.text();
-            if (attempt === 0) { await sleep(retryAfter * 1000); continue; }
-            lastError = new BursAIError("Rate limited", 429);
-            break;
-          }
-
-          if (resp.status === 402) {
-            await resp.text();
-            throw new BursAIError("AI credits exhausted. Please add funds.", 402);
-          }
-
-          if (resp.status >= 500) {
-            await resp.text();
-            if (attempt === 0) { await sleep(1000); continue; }
-            lastError = new BursAIError(`AI server error: ${resp.status}`, resp.status);
-            break;
-          }
-
-          if (!resp.ok) {
-            const txt = await resp.text();
-            lastError = new BursAIError(`AI error ${resp.status}: ${txt}`, resp.status);
-            break;
-          }
-
-          // Streaming — return raw response
-          if (stream) {
-            return { data: resp, model_used: model, from_cache: false };
-          }
-
-          const aiData = await resp.json();
-
-          // Extract tool call result if present
-          const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-          let result: any;
-          if (toolCall?.function?.arguments) {
-            try { result = JSON.parse(toolCall.function.arguments); }
-            catch { lastError = new Error("Failed to parse AI tool call response"); break; }
-          } else if (aiData.choices?.[0]?.message?.content !== undefined) {
-            result = aiData.choices[0].message.content;
-          } else {
-            result = aiData;
-          }
-
-          // Expose images if present (for image generation)
-          const images = aiData.choices?.[0]?.message?.images;
-          if (images) {
-            result = { __raw: aiData, content: result, images };
-          }
-
-          // Store in caches
-          if (cacheTtlSeconds > 0 && cacheKey) {
-            memSet(cacheKey, result, model);
-            if (supabaseServiceClient) {
-              storeCache(supabaseServiceClient, cacheKey, result, model, cacheTtlSeconds);
-            }
-          }
-
-          logUsage(supabaseServiceClient, {
-            functionName: options.functionName, model_used: model,
-            latency_ms: Date.now() - startTime, from_cache: false, status: "ok",
-          });
-
-          return { data: result, model_used: model, from_cache: false };
-        } catch (e) {
-          if (e instanceof BursAIError && e.status === 402) throw e;
-          if (e instanceof DOMException && e.name === "AbortError") {
-            lastError = new Error(`Model ${model} timed out`);
-            break;
-          }
-          lastError = e instanceof Error ? e : new Error(String(e));
+        if ("fatal" in outcome && outcome.fatal) throw (outcome as any).error;
+        if ("retry" in outcome) continue;
+        if ("error" in outcome) {
+          const err = outcome.error;
+          if (err instanceof BursAIError && err.status >= 500) gatewayHad5xxOrTimeout = true;
+          if (err.message.includes("timed out")) gatewayHad5xxOrTimeout = true;
+          lastError = err;
           if (attempt === 0) { await sleep(500); continue; }
           break;
+        }
+
+        // Success
+        const resp = outcome.resp;
+        if (stream) return { data: resp, model_used: model, from_cache: false };
+
+        const aiData = await resp.json();
+        const result = parseResult(aiData);
+        if (result?.__parseError) { lastError = new Error("Failed to parse AI tool call response"); break; }
+
+        if (cacheTtlSeconds > 0 && cacheKey) {
+          memSet(cacheKey, result, model);
+          if (supabaseServiceClient) storeCache(supabaseServiceClient, cacheKey, result, model, cacheTtlSeconds);
+        }
+        logUsage(supabaseServiceClient, {
+          functionName: options.functionName, model_used: model,
+          latency_ms: Date.now() - startTime, from_cache: false, status: "ok",
+        });
+        return { data: result, model_used: model, from_cache: false };
+      }
+    }
+
+    // ── Phase 2: Google AI Studio direct fallback ──
+    const googleApiKey = Deno.env.get("GOOGLE_API_KEY");
+    const googleModels = modelChain.filter((m) => m.startsWith("google/"));
+
+    if (gatewayHad5xxOrTimeout && googleApiKey && googleModels.length > 0) {
+      console.log("BURS AI: Lovable gateway failed with 5xx/timeout, falling back to Google AI Studio");
+
+      for (const model of googleModels) {
+        const directModel = model.replace(/^google\//, "");
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const outcome = await tryModel(
+            GOOGLE_DIRECT_URL,
+            { Authorization: `Bearer ${googleApiKey}` },
+            directModel, body, timeout,
+          );
+
+          if ("fatal" in outcome && outcome.fatal) throw (outcome as any).error;
+          if ("retry" in outcome) continue;
+          if ("error" in outcome) {
+            lastError = outcome.error;
+            if (attempt === 0) { await sleep(500); continue; }
+            break;
+          }
+
+          const resp = outcome.resp;
+          const usedModel = `google/${directModel} (direct)`;
+          if (stream) return { data: resp, model_used: usedModel, from_cache: false };
+
+          const aiData = await resp.json();
+          const result = parseResult(aiData);
+          if (result?.__parseError) { lastError = new Error("Failed to parse AI tool call response"); break; }
+
+          if (cacheTtlSeconds > 0 && cacheKey) {
+            memSet(cacheKey, result, usedModel);
+            if (supabaseServiceClient) storeCache(supabaseServiceClient, cacheKey, result, usedModel, cacheTtlSeconds);
+          }
+          logUsage(supabaseServiceClient, {
+            functionName: options.functionName, model_used: usedModel,
+            latency_ms: Date.now() - startTime, from_cache: false, status: "ok",
+          });
+          return { data: result, model_used: usedModel, from_cache: false };
         }
       }
     }
