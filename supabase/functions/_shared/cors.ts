@@ -31,7 +31,10 @@ export function resolveOrigin(requestOrigin: string | null): string {
 }
 
 /**
- * Legacy static export — kept for backward compatibility.
- * Prefer resolveOrigin(req.headers.get("origin")) for per-request CORS.
+ * Static export used by all edge functions.
+ *
+ * We use "*" because JWT authentication is the real security boundary.
+ * CORS origin restrictions on authenticated API endpoints provide minimal
+ * additional security and cause issues with preview/staging domains.
  */
-export const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") || "*";
+export const allowedOrigin = "*";
