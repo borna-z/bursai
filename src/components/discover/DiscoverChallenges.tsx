@@ -47,19 +47,6 @@ export function DiscoverChallenges({ challenges, participations, garmentCount, t
 
   return (
     <section className="space-y-3">
-      {/* Section header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
-          {t('discover.challenges_heading')}
-        </h3>
-        <button
-          onClick={() => navigate('/discover')}
-          className="text-[11px] font-medium text-accent flex items-center gap-0.5"
-        >
-          {t('discover.see_all')}
-          <ChevronRight className="w-3 h-3" />
-        </button>
-      </div>
 
       {/* Horizontal scroll */}
       <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-none">

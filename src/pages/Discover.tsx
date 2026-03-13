@@ -84,7 +84,7 @@ export default function DiscoverPage() {
 
   return (
     <AppLayout>
-      <AnimatedPage className="px-4 pb-24 pt-8 space-y-10 max-w-lg mx-auto">
+      <AnimatedPage className="px-4 pb-24 pt-8 space-y-8 max-w-lg mx-auto">
         {/* ── Header ── */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -98,7 +98,7 @@ export default function DiscoverPage() {
           <p className="text-[12px] text-muted-foreground/60">{t('discover.subtitle_new')}</p>
         </motion.div>
 
-        {/* ── Challenges (horizontal scroll) ── */}
+        {/* ── Challenges ── */}
         <DiscoverChallenges
           challenges={challenges}
           participations={participations}
@@ -111,8 +111,27 @@ export default function DiscoverPage() {
         {/* ── Wardrobe Gap Analysis ── */}
         <WardrobeGapSection />
 
-        {/* ── Style Tools (2×2 grid) ── */}
-        <DiscoverStyleTools />
+        {/* ── Mood Outfit — inline card ── */}
+        <motion.button
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15, duration: 0.4, ease: EASE_CURVE }}
+          whileTap={{ scale: 0.97 }}
+          onClick={() => { hapticLight(); navigate('/ai/mood-outfit'); }}
+          className="w-full relative overflow-hidden rounded-xl border border-border/10 bg-card/60 p-5 text-left flex items-center gap-4 transition-colors"
+        >
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10 shrink-0">
+            <Heart className="w-5 h-5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <h4 className="text-[13px] font-medium text-foreground leading-tight">
+              {t('discover.tool_mood')}
+            </h4>
+            <p className="text-[11px] text-muted-foreground/60 leading-snug mt-0.5">
+              {t('discover.tool_mood_desc')}
+            </p>
+          </div>
+        </motion.button>
       </AnimatedPage>
     </AppLayout>
   );
