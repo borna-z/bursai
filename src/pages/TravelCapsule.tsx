@@ -84,6 +84,8 @@ export default function TravelCapsule() {
   const [selectedOccasions, setSelectedOccasions] = useState<string[]>(['vardag']);
   const [minimizeItems, setMinimizeItems] = useState(true);
   const [includeTravelDays, setIncludeTravelDays] = useState(false);
+  const [outfitsPerDay, setOutfitsPerDay] = useState(1);
+  const [mustHaveItems, setMustHaveItems] = useState<string[]>([]);
 
   // ── Generation state ──
   const [isGenerating, setIsGenerating] = useState(false);
