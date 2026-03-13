@@ -1,27 +1,28 @@
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { BursMonogram } from '@/components/ui/BursMonogram';
+import bursLogo from '@/assets/burs-monogram.png';
 
 export default function PrivacyPolicy() {
   return (
-    <div className="force-light">
+    <div style={{ background: '#F5F0E8', color: '#1C1917' }}>
       <Helmet>
         <title>Privacy Policy for BURS</title>
         <meta name="description" content="Privacy Policy for BURS — how we collect, use, store, share, and protect your personal data." />
         <meta name="robots" content="index, follow" />
         <link rel="canonical" href="https://burs.me/privacy" />
+        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
       </Helmet>
 
-      <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <div className="min-h-screen flex flex-col" style={{ fontFamily: "'DM Sans', sans-serif" }}>
         {/* Header */}
-        <header className="w-full border-b border-border/60">
+        <header className="w-full" style={{ borderBottom: '1px solid #DDD8CF' }}>
           <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
             <Link to="/welcome" className="flex items-center gap-2">
-              <BursMonogram size={28} />
-              <span className="font-bold tracking-[0.12em] text-sm" style={{ fontFamily: "'Sora', sans-serif" }}>BURS</span>
+              <img src={bursLogo} alt="BURS" className="h-7 object-contain" style={{ opacity: 0.8 }} />
+              <span className="font-bold tracking-[0.12em] text-sm" style={{ fontFamily: "'DM Sans', sans-serif", color: '#1C1917' }}>BURS</span>
             </Link>
-            <Link to="/welcome" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+            <Link to="/welcome" className="inline-flex items-center gap-1.5 text-sm transition-colors" style={{ color: '#6B6560' }}>
               <ArrowLeft className="w-4 h-4" />
               Back
             </Link>
@@ -30,11 +31,11 @@ export default function PrivacyPolicy() {
 
         {/* Content */}
         <main className="flex-1 max-w-3xl mx-auto px-4 py-12 md:py-20 w-full">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">Privacy Policy for BURS</h1>
-          <p className="text-muted-foreground mb-2">Effective date: 25 February 2026</p>
-          <p className="text-muted-foreground mb-10">Last updated: 25 February 2026</p>
+          <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{ fontFamily: "'Playfair Display', serif", color: '#1C1917' }}>Privacy Policy for BURS</h1>
+          <p className="mb-2" style={{ color: '#6B6560' }}>Effective date: 25 February 2026</p>
+          <p className="mb-10" style={{ color: '#6B6560' }}>Last updated: 25 February 2026</p>
 
-          <div className="space-y-10 text-[15px] leading-relaxed text-muted-foreground">
+          <div className="space-y-10 text-[15px] leading-relaxed" style={{ color: '#6B6560' }}>
 
             {/* 1 */}
             <section>
