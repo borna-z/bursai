@@ -22,6 +22,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useFlatGarments } from '@/hooks/useGarments';
 import { useProfile } from '@/hooks/useProfile';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
 import { getCoordinatesFromCity, fetchForecast, fetchHistoricalWeather, type ForecastDay } from '@/hooks/useForecast';
