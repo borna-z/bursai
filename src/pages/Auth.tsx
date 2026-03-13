@@ -8,7 +8,7 @@ import { Loader2, Eye, EyeOff, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 import { useLanguage } from '@/contexts/LanguageContext';
-import bursLogoWhite from '@/assets/burs-logo-white.png';
+import bursLogo from '@/assets/burs-landing-logo.png';
 
 function PasswordRequirements({ password, t }: { password: string; t: (k: string) => string }) {
   const rules = useMemo(() => [
@@ -23,11 +23,11 @@ function PasswordRequirements({ password, t }: { password: string; t: (k: string
       {rules.map(r => (
         <div key={r.key} className="flex items-center gap-1.5 transition-colors duration-200">
           {r.met ? (
-            <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+            <Check className="w-3 h-3 text-[#1C1917] shrink-0" />
           ) : (
-            <div className="w-3 h-3 rounded-full border border-white/20 shrink-0" />
+            <div className="w-3 h-3 rounded-full border border-[#DDD8CF] shrink-0" />
           )}
-          <span className={`text-[11px] transition-colors duration-200 ${r.met ? 'text-white/60' : 'text-white/30'}`}>
+          <span className={`text-[11px] font-['DM_Sans'] transition-colors duration-200 ${r.met ? 'text-[#1C1917]' : 'text-[#6B6560]/50'}`}>
             {t(r.key)}
           </span>
         </div>
@@ -48,8 +48,8 @@ export default function AuthPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#030305]">
-        <Loader2 className="w-8 h-8 animate-spin text-white/40" />
+      <div className="flex items-center justify-center min-h-screen bg-[#F5F0E8]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#1C1917]/40" />
       </div>
     );
   }
@@ -113,33 +113,27 @@ export default function AuthPage() {
 
   const isLogin = tab === 'login';
 
-  const inputClass = "w-full h-12 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 text-[15px] text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-white/15 transition-colors disabled:opacity-40";
+  const inputClass = "w-full h-12 border border-[#DDD8CF] bg-white/60 px-4 text-[15px] font-['DM_Sans'] text-[#1C1917] placeholder:text-[#6B6560]/40 focus:outline-none focus:ring-1 focus:ring-[#1C1917]/20 focus:border-[#1C1917]/30 transition-colors disabled:opacity-40";
 
   return (
-    <div className="dark-landing min-h-screen flex flex-col items-center justify-center p-5 relative overflow-hidden">
-      {/* Aurora glow */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] rounded-full bg-[radial-gradient(ellipse,rgba(99,102,241,0.10)_0%,transparent_70%)] blur-3xl" />
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[500px] h-[250px] rounded-full bg-[radial-gradient(ellipse,rgba(139,92,246,0.06)_0%,transparent_70%)] blur-3xl" />
-      </div>
-
-      <div className="relative z-10 w-full max-w-sm space-y-10">
+    <div className="min-h-screen flex flex-col items-center justify-center p-5 bg-[#F5F0E8] font-['DM_Sans']">
+      <div className="w-full max-w-sm space-y-10">
         {/* Logo */}
         <motion.div
-          className="flex flex-col items-center gap-3"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
+          className="flex flex-col items-center gap-4"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: EASE_CURVE }}
         >
-          <img src={bursLogoWhite} alt="BURS" className="h-10 w-auto opacity-90" />
-          <p className="text-white/35 text-sm tracking-wide">
+          <img src={bursLogo} alt="BURS" className="h-8 w-auto" />
+          <p className="text-[#6B6560] text-[11px] uppercase tracking-[0.2em]">
             {t('auth.tagline')}
           </p>
         </motion.div>
 
         {/* Card */}
         <motion.div
-          className="rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl shadow-[0_8px_40px_rgba(0,0,0,0.5)] overflow-hidden"
+          className="border border-[#DDD8CF] bg-[#EDE8DF] overflow-hidden"
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.15, ease: EASE_CURVE }}
@@ -148,11 +142,11 @@ export default function AuthPage() {
           <div className="p-6 pb-4 space-y-2.5">
             <button
               type="button"
-              className="w-full h-12 rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/80 text-sm font-medium flex items-center justify-center gap-3 hover:bg-white/[0.08] transition-colors disabled:opacity-40"
+              className="w-full h-12 border border-[#1C1917] text-[#1C1917] text-[11px] font-medium uppercase tracking-[0.15em] flex items-center justify-center gap-3 hover:bg-[#1C1917] hover:text-[#F5F0E8] transition-colors disabled:opacity-40"
               disabled={isLoading}
               onClick={() => handleOAuth('google')}
             >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
@@ -162,11 +156,11 @@ export default function AuthPage() {
             </button>
             <button
               type="button"
-              className="w-full h-12 rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/80 text-sm font-medium flex items-center justify-center gap-3 hover:bg-white/[0.08] transition-colors disabled:opacity-40"
+              className="w-full h-12 border border-[#1C1917] text-[#1C1917] text-[11px] font-medium uppercase tracking-[0.15em] flex items-center justify-center gap-3 hover:bg-[#1C1917] hover:text-[#F5F0E8] transition-colors disabled:opacity-40"
               disabled={isLoading}
               onClick={() => handleOAuth('apple')}
             >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
               </svg>
               {t('auth.continue_apple')}
@@ -177,24 +171,24 @@ export default function AuthPage() {
           <div className="px-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/[0.06]" />
+                <div className="w-full border-t border-[#DDD8CF]" />
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-transparent px-3 text-white/20">{t('auth.or')}</span>
+              <div className="relative flex justify-center">
+                <span className="bg-[#EDE8DF] px-3 text-[10px] uppercase tracking-[0.15em] text-[#6B6560]/60">{t('auth.or')}</span>
               </div>
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="px-6 pt-4">
-            <div className="flex rounded-xl bg-white/[0.03] border border-white/[0.06] p-0.5">
+          {/* Tabs — underline style */}
+          <div className="px-6 pt-5">
+            <div className="flex border-b border-[#DDD8CF]">
               <button
                 type="button"
                 onClick={() => setTab('login')}
-                className={`flex-1 text-sm font-medium py-2 rounded-[10px] transition-all duration-200 ${
+                className={`flex-1 text-[11px] uppercase tracking-[0.15em] font-medium pb-3 transition-all duration-200 border-b-2 -mb-px ${
                   isLogin
-                    ? 'bg-white/[0.1] text-white shadow-sm'
-                    : 'text-white/35 hover:text-white/55'
+                    ? 'border-[#1C1917] text-[#1C1917]'
+                    : 'border-transparent text-[#6B6560]/50 hover:text-[#6B6560]'
                 }`}
               >
                 {t('auth.login')}
@@ -202,10 +196,10 @@ export default function AuthPage() {
               <button
                 type="button"
                 onClick={() => setTab('signup')}
-                className={`flex-1 text-sm font-medium py-2 rounded-[10px] transition-all duration-200 ${
+                className={`flex-1 text-[11px] uppercase tracking-[0.15em] font-medium pb-3 transition-all duration-200 border-b-2 -mb-px ${
                   !isLogin
-                    ? 'bg-white/[0.1] text-white shadow-sm'
-                    : 'text-white/35 hover:text-white/55'
+                    ? 'border-[#1C1917] text-[#1C1917]'
+                    : 'border-transparent text-[#6B6560]/50 hover:text-[#6B6560]'
                 }`}
               >
                 {t('auth.signup')}
@@ -224,7 +218,7 @@ export default function AuthPage() {
           >
             {/* Email */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-white/40 pl-0.5">{t('auth.email')}</label>
+              <label className="text-[10px] uppercase tracking-[0.15em] font-medium text-[#6B6560] pl-0.5">{t('auth.email')}</label>
               <input
                 type="email"
                 placeholder="you@email.com"
@@ -238,7 +232,7 @@ export default function AuthPage() {
 
             {/* Password */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-white/40 pl-0.5">{t('auth.password')}</label>
+              <label className="text-[10px] uppercase tracking-[0.15em] font-medium text-[#6B6560] pl-0.5">{t('auth.password')}</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -252,13 +246,12 @@ export default function AuthPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/50 transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#6B6560]/40 hover:text-[#1C1917] transition-colors"
                   aria-label={showPassword ? t('auth.hide_password') : t('auth.show_password')}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              {/* Compact password requirements for signup */}
               {!isLogin && password.length > 0 && (
                 <PasswordRequirements password={password} t={t} />
               )}
@@ -269,15 +262,15 @@ export default function AuthPage() {
               <label className="flex items-center gap-2 cursor-pointer group">
                 <div
                   onClick={() => setRememberMe(!rememberMe)}
-                  className={`w-4 h-4 rounded border flex items-center justify-center transition-all duration-200 ${
+                  className={`w-4 h-4 border flex items-center justify-center transition-all duration-200 ${
                     rememberMe
-                      ? 'bg-white/90 border-white/90'
-                      : 'border-white/20 bg-transparent hover:border-white/40'
+                      ? 'bg-[#1C1917] border-[#1C1917]'
+                      : 'border-[#DDD8CF] bg-transparent hover:border-[#6B6560]'
                   }`}
                 >
-                  {rememberMe && <Check className="w-3 h-3 text-[#030305]" />}
+                  {rememberMe && <Check className="w-3 h-3 text-[#F5F0E8]" />}
                 </div>
-                <span className="text-xs text-white/40 group-hover:text-white/60 transition-colors select-none">
+                <span className="text-[11px] text-[#6B6560] group-hover:text-[#1C1917] transition-colors select-none">
                   {t('auth.remember_me')}
                 </span>
               </label>
@@ -285,7 +278,7 @@ export default function AuthPage() {
                 <button
                   type="button"
                   onClick={handleForgotPassword}
-                  className="text-xs text-white/30 hover:text-white/50 transition-colors"
+                  className="text-[11px] text-[#6B6560]/60 hover:text-[#1C1917] transition-colors underline-offset-2 hover:underline"
                 >
                   {t('auth.forgot_password')}
                 </button>
@@ -296,7 +289,7 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-[52px] rounded-xl bg-white text-[#030305] text-[15px] font-semibold hover:bg-white/90 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2 mt-2"
+              className="w-full h-[52px] bg-[#1C1917] text-[#F5F0E8] text-[11px] uppercase tracking-[0.15em] font-semibold hover:bg-[#1C1917]/90 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2 mt-2"
             >
               {isLoading ? (
                 <>
