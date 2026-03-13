@@ -8510,6 +8510,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     'insights.wardrobe_usage': 'استخدام الخزانة', 'insights.used_label': 'مستخدمة', 'insights.unused_label': 'غير مستخدمة',
     'wardrobe.import_link': 'استيراد عبر رابط', 'wardrobe.live_scan': 'BURS Live Scan',
     'settings.row.insights': 'إحصائيات الخزانة', 'settings.row.insights_sub': 'إحصائيات وتحليلات',
+    'weather.enter_city': 'اكتب مدينة...', 'weather.estimate': 'تقدير', 'weather.bring_umbrella': 'خذ مظلة!', 'weather.cold_warning': 'بارد! ارتدِ ملابس دافئة', 'weather.hot_warning': 'حار! انتبه للشمس',
+    'weather.unavailable': 'التوقعات غير متاحة', 'weather.outfit_created_for': 'تم إنشاء الإطلالة لـ', 'weather.differs': 'الطقس يختلف بـ', 'weather.fetching': 'جارٍ جلب التوقعات...',
     'plan.today': 'اليوم', 'plan.tomorrow': 'غدًا', 'plan.your_day': 'يومك', 'plan.plan_from_this': 'خطّط من هذا',
     'plan.no_outfit': 'لا إطلالة مخططة', 'plan.plan': 'خطّط', 'plan.generate': 'أنشئ لي',
     'plan.swap': 'تبديل', 'plan.details': 'التفاصيل', 'plan.mark_worn': 'تحديد كمُرتدى', 'plan.remove': 'إزالة',
