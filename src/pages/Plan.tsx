@@ -320,6 +320,11 @@ export default function PlanPage() {
             onGenerateFromHint={() => setQuickGenerateSheetOpen(true)}
           />
 
+          {/* Fallback: show raw events only when no AI summary available */}
+          {calendarEvents.length > 0 && !daySummary && !isSummaryLoading && (
+            <CalendarEventsList events={calendarEvents} maxDisplay={4} />
+          )}
+
           {/* ─── Outfit section ─── */}
           {isLoading ? (
             <PlanPageSkeleton />
