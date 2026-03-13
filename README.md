@@ -1,73 +1,176 @@
-# Welcome to your Lovable project
+# BURS — AI-Powered Wardrobe & Styling Platform
 
-## Project info
+BURS is a premium fashion-tech platform that helps users digitize their wardrobe, generate smart outfits, plan what to wear, and get AI styling assistance. Think of it as a personal styling operating system.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+🌐 **Live**: [burs.me](https://burs.me)
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## Architecture Overview
 
-**Use Lovable**
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Frontend (React/Vite)                 │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐ │
+│  │ Wardrobe │  │ Outfits  │  │ Planner  │  │ AI Chat │ │
+│  └──────────┘  └──────────┘  └──────────┘  └─────────┘ │
+│        ↓              ↓            ↓            ↓       │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │         React Query (Offline-First Cache)        │   │
+│  └──────────────────────────────────────────────────┘   │
+└─────────────────────────┬───────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────┐
+│                  Supabase (Backend)                      │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐ │
+│  │   Auth   │  │    DB    │  │ Storage  │  │   Edge  │ │
+│  │ (Email)  │  │ (25 tbl) │  │ (Images) │  │Functions│ │
+│  └──────────┘  └──────────┘  └──────────┘  └─────────┘ │
+│                                                 ↓       │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │     BURS AI Engine (burs-ai.ts)                  │   │
+│  │  Complexity routing · Model chains · DB caching  │   │
+│  │  Retry/backoff · Token budgets · Rate limits     │   │
+│  └──────────────────────────────────────────────────┘   │
+│                          ↓                              │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │         Lovable AI Gateway / Google AI           │   │
+│  └──────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────┐
+│                    Stripe (Billing)                      │
+│  Checkout · Webhooks · Customer Portal · Multi-currency │
+└─────────────────────────────────────────────────────────┘
+```
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Tech Stack
 
-Changes made via Lovable will be committed automatically to this repo.
+| Layer | Technology |
+|-------|-----------|
+| Framework | React 18 + TypeScript |
+| Build | Vite 5 |
+| Styling | Tailwind CSS + shadcn/ui |
+| State | TanStack React Query (offline-first) |
+| Auth | Supabase Auth (email + password) |
+| Database | PostgreSQL via Supabase (25 tables, 80+ RLS policies) |
+| Storage | Supabase Storage (private buckets) |
+| Backend | 36 Supabase Edge Functions (Deno) |
+| AI | Custom abstraction layer with complexity-based model routing |
+| Billing | Stripe (subscriptions, webhooks, customer portal) |
+| Animations | Framer Motion |
+| PWA | Service worker, manifest, push notifications |
+| i18n | Custom translation system (EN, SV, NO, DA, FI, DE, FR, ES) |
 
-**Use your preferred IDE**
+## Key Features
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- **Wardrobe Management** — Upload, categorize, and organize clothing with AI analysis
+- **AI Outfit Generation** — Context-aware suggestions based on weather, occasion, and calendar
+- **Weekly Planning** — 7-day outfit planner with calendar integration
+- **AI Style Chat** — Personal stylist assistant powered by the BURS AI Engine
+- **Smart Shopping** — Wardrobe gap analysis and personalized recommendations
+- **Social** — Public profiles, outfit sharing, reactions, style challenges
+- **Insights** — Wear heatmaps, spending dashboards, style reports
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Local Development
 
-Follow these steps:
+### Prerequisites
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
+- Node.js 18+ (install via [nvm](https://github.com/nvm-sh/nvm))
+- npm 9+
+
+### Setup
+
+```bash
+# Clone the repository
 git clone <YOUR_GIT_URL>
+cd burs
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Install dependencies
+npm install
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The app runs at `http://localhost:8080`.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Environment Variables
 
-**Use GitHub Codespaces**
+The following environment variables are required (set via `.env`):
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+| Variable | Description |
+|----------|-------------|
+| `VITE_SUPABASE_URL` | Supabase project URL |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase anon/public key |
+| `VITE_SUPABASE_PROJECT_ID` | Supabase project ID |
 
-## What technologies are used for this project?
+Edge functions require additional secrets configured in the Supabase dashboard (Stripe keys, VAPID keys, Google OAuth credentials, etc.).
 
-This project is built with:
+### Scripts
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start dev server with HMR |
+| `npm run build` | Production build |
+| `npm run lint` | ESLint check |
+| `npm run test` | Run test suite |
+| `npm run preview` | Preview production build |
 
-## How can I deploy this project?
+## Project Structure
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+```
+src/
+├── components/       # UI components (159 components)
+│   ├── ui/           # shadcn/ui primitives
+│   ├── layout/       # App shell, navigation, skeletons
+│   ├── wardrobe/     # Wardrobe management
+│   ├── outfit/       # Outfit generation & display
+│   ├── plan/         # Weekly planner
+│   ├── chat/         # AI stylist chat
+│   ├── insights/     # Analytics dashboards
+│   ├── home/         # Home screen widgets
+│   └── ...
+├── pages/            # Route pages (46 pages)
+├── hooks/            # Custom hooks (36 hooks)
+├── contexts/         # React contexts (Auth, Theme, Language, Location, Seed)
+├── integrations/     # Supabase client & types
+├── lib/              # Utilities, haptics, motion, offline queue
+├── i18n/             # Translation strings
+└── assets/           # Static assets
 
-## Can I connect a custom domain to my Lovable project?
+supabase/
+├── functions/        # 36 Edge Functions
+│   ├── _shared/      # Shared utilities (burs-ai.ts, cors.ts, stripe-config.ts)
+│   ├── generate_outfit/
+│   ├── style_chat/
+│   ├── stripe_webhook/
+│   └── ...
+└── config.toml       # Edge function configuration
+```
 
-Yes, you can!
+## Security
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+- **Row Level Security (RLS)** on all tables (80+ policies)
+- **RBAC** via `user_roles` table with security-definer functions
+- **JWT validation** in all sensitive edge functions
+- **SSRF protection** on external URL fetching
+- **Rate limiting** on AI and billing endpoints
+- **Stripe webhook signature** verification
+- **Private storage buckets** for user images
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Deployment
+
+The app is deployed via Lovable's publishing system:
+
+1. **Frontend**: Click "Publish" → "Update" in the Lovable editor
+2. **Backend**: Edge functions deploy automatically on save
+3. **Database**: Migrations run automatically
+
+Custom domain: Configure in Project → Settings → Domains.
+
+## License
+
+Proprietary. All rights reserved.
