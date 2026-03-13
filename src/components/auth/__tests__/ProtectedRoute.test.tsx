@@ -118,4 +118,56 @@ describe('ProtectedRoute', () => {
     renderWithRouter();
     expect(screen.getByText('Onboarding Page')).toBeInTheDocument();
   });
+
+  it('renders children when skipOnboardingCheck is true even if onboarding incomplete', () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: 'user-1' } as any,
+      session: {} as any,
+      loading: false,
+      signUp: vi.fn(),
+      signIn: vi.fn(),
+      signOut: vi.fn(),
+    });
+    vi.mocked(useProfile).mockReturnValue({
+      data: { preferences: { onboarding: { completed: false } } },
+      isLoading: false,
+    } as any);
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/protected']}>
+          <Routes>
+            <Route path="/onboarding" element={<div>Onboarding Page</div>} />
+            <Route
+              path="/protected"
+              element={
+                <ProtectedRoute skipOnboardingCheck>
+                  <div>Protected Content</div>
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    expect(screen.getByText('Protected Content')).toBeInTheDocument();
+  });
+
+  it('renders children when profile has no preferences (null)', () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: 'user-1' } as any,
+      session: {} as any,
+      loading: false,
+      signUp: vi.fn(),
+      signIn: vi.fn(),
+      signOut: vi.fn(),
+    });
+    vi.mocked(useProfile).mockReturnValue({
+      data: { preferences: null },
+      isLoading: false,
+    } as any);
+
+    renderWithRouter();
+    expect(screen.getByText('Protected Content')).toBeInTheDocument();
+  });
 });
