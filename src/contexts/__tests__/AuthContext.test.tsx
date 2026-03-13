@@ -126,4 +126,44 @@ describe('AuthContext', () => {
       })
     );
   });
+
+  it('signOut clears local state even when server returns an error', async () => {
+    const mockUser = { id: 'user-1', email: 'test@test.com' };
+    const mockSession = { user: mockUser };
+
+    mockGetSession.mockResolvedValue({ data: { session: mockSession } });
+    mockSignOut.mockResolvedValue({ error: new Error('Session not found') });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await waitFor(() => expect(result.current.user).toEqual(mockUser));
+
+    await act(async () => {
+      await result.current.signOut();
+    });
+
+    // User and session should be cleared even though server errored
+    expect(result.current.user).toBeNull();
+    expect(result.current.session).toBeNull();
+  });
+
+  it('signUp without display name does not include data in options', async () => {
+    mockSignUp.mockResolvedValue({ data: { user: {} }, error: null });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.signUp('test@test.com', 'pass123');
+    });
+
+    expect(mockSignUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          data: undefined,
+        }),
+      })
+    );
+  });
 });
