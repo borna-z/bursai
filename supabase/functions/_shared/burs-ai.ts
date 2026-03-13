@@ -2,9 +2,14 @@
  * BURS AI — Unified AI abstraction layer v3
  *
  * Features: complexity-based model routing, prompt compression,
- * two-tier caching (in-memory + DB), request deduplication,
+ * DB caching (via ai_response_cache table), request deduplication,
  * token budgets, temperature defaults, observability logging,
  * streaming keepalive, retry with backoff, rate limit handling.
+ *
+ * NOTE: No in-memory cache — Supabase Edge Function isolates are
+ * stateless and cold-start on every invocation, so in-memory Maps
+ * are always empty when a request arrives. DB cache is the only
+ * caching layer.
  */
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -142,28 +147,7 @@ export function compactGarment(g: {
   return parts.join("|");
 }
 
-// ─── In-Memory Cache (Tier 1) ─────────────────────────────────
-const MEM_CACHE = new Map<string, { data: any; model_used: string; expires: number }>();
-const MEM_TTL_MS = 30_000;
-const MEM_MAX_SIZE = 50;
-
-function memGet(key: string): { data: any; model_used: string } | null {
-  const entry = MEM_CACHE.get(key);
-  if (!entry) return null;
-  if (Date.now() > entry.expires) {
-    MEM_CACHE.delete(key);
-    return null;
-  }
-  return { data: entry.data, model_used: entry.model_used };
-}
-
-function memSet(key: string, data: any, model_used: string): void {
-  if (MEM_CACHE.size >= MEM_MAX_SIZE) {
-    const firstKey = MEM_CACHE.keys().next().value;
-    if (firstKey) MEM_CACHE.delete(firstKey);
-  }
-  MEM_CACHE.set(key, { data, model_used, expires: Date.now() + MEM_TTL_MS });
-}
+// ─── DB Cache ─────────────────────────────────────────────────
 
 // ─── Request Deduplication ────────────────────────────────────
 const IN_FLIGHT = new Map<string, Promise<BursAIResponse>>();
@@ -311,23 +295,13 @@ export async function callBursAI(
   if ((cacheTtlSeconds > 0 || !stream) && !stream) {
     cacheKey = await hashKey(cacheInput);
 
-    // Tier 1: in-memory
-    if (cacheTtlSeconds > 0) {
-      const memHit = memGet(cacheKey);
-      if (memHit) {
-        logUsage(supabaseServiceClient, {
-          functionName: options.functionName, model_used: memHit.model_used,
-          latency_ms: Date.now() - startTime, from_cache: true, status: "ok",
-        });
-        return { data: memHit.data, model_used: memHit.model_used, from_cache: true };
-      }
-    }
+    // Tier 1: in-memory cache removed — Edge Function isolates are
+    // stateless, so in-memory Maps reset on every cold start.
 
-    // Tier 2: DB cache
+    // DB cache
     if (cacheTtlSeconds > 0 && supabaseServiceClient) {
       const cached = await checkCache(supabaseServiceClient, cacheKey);
       if (cached) {
-        memSet(cacheKey, cached.response, cached.model_used);
         logUsage(supabaseServiceClient, {
           functionName: options.functionName, model_used: cached.model_used,
           latency_ms: Date.now() - startTime, from_cache: true, status: "ok",
@@ -453,7 +427,6 @@ export async function callBursAI(
         if (result?.__parseError) { lastError = new Error("Failed to parse AI tool call response"); break; }
 
         if (cacheTtlSeconds > 0 && cacheKey) {
-          memSet(cacheKey, result, model);
           if (supabaseServiceClient) storeCache(supabaseServiceClient, cacheKey, result, model, cacheTtlSeconds);
         }
         logUsage(supabaseServiceClient, {
@@ -497,7 +470,6 @@ export async function callBursAI(
           if (result?.__parseError) { lastError = new Error("Failed to parse AI tool call response"); break; }
 
           if (cacheTtlSeconds > 0 && cacheKey) {
-            memSet(cacheKey, result, usedModel);
             if (supabaseServiceClient) storeCache(supabaseServiceClient, cacheKey, result, usedModel, cacheTtlSeconds);
           }
           logUsage(supabaseServiceClient, {
