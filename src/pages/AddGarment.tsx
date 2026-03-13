@@ -197,7 +197,6 @@ export default function AddGarmentPage() {
 
   const { takePhoto, pickFromGallery } = useMedianCamera({
     fileInputRef,
-    onCapture: processNativeCapture,
   });
   const [showDuplicateSheet, setShowDuplicateSheet] = useState(false);
 

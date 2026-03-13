@@ -23,10 +23,6 @@ declare global {
       push?: {
         register: () => void;
       };
-      camera?: {
-        takePhoto: (opts?: { quality?: number }) => Promise<{ image: string }>;
-        openPhotoLibrary: () => Promise<{ image: string }>;
-      };
       share?: {
         open: (opts: { url: string }) => void;
       };
