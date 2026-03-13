@@ -147,28 +147,7 @@ export function compactGarment(g: {
   return parts.join("|");
 }
 
-// ─── In-Memory Cache (Tier 1) ─────────────────────────────────
-const MEM_CACHE = new Map<string, { data: any; model_used: string; expires: number }>();
-const MEM_TTL_MS = 30_000;
-const MEM_MAX_SIZE = 50;
-
-function memGet(key: string): { data: any; model_used: string } | null {
-  const entry = MEM_CACHE.get(key);
-  if (!entry) return null;
-  if (Date.now() > entry.expires) {
-    MEM_CACHE.delete(key);
-    return null;
-  }
-  return { data: entry.data, model_used: entry.model_used };
-}
-
-function memSet(key: string, data: any, model_used: string): void {
-  if (MEM_CACHE.size >= MEM_MAX_SIZE) {
-    const firstKey = MEM_CACHE.keys().next().value;
-    if (firstKey) MEM_CACHE.delete(firstKey);
-  }
-  MEM_CACHE.set(key, { data, model_used, expires: Date.now() + MEM_TTL_MS });
-}
+// ─── DB Cache ─────────────────────────────────────────────────
 
 // ─── Request Deduplication ────────────────────────────────────
 const IN_FLIGHT = new Map<string, Promise<BursAIResponse>>();
