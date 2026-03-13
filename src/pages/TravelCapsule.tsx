@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, differenceInCalendarDays, addDays } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Minus, Plus } from 'lucide-react';
 import {
   ArrowLeft, MapPin, CalendarIcon, Loader2, Shirt,
   LightbulbIcon, Plane, Umbrella, Sun, CloudRain, Cloud,
