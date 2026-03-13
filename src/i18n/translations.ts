@@ -893,6 +893,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'capsule.must_haves_desc': 'Välj plagg som måste ingå i kapseln',
     'capsule.show_all_garments': 'Visa alla plagg',
     'capsule.show_less': 'Visa färre',
+    'capsule.browse_wardrobe': 'Bläddra i garderoben',
+    'capsule.pick_must_haves': 'Välj måste-ha plagg',
+    'capsule.n_selected': '{n} valda',
+    'capsule.done': 'Klar',
 
     // Swap sheet
     'swap.title': 'Byt outfit',
