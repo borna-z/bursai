@@ -153,10 +153,6 @@ export function WardrobeGapSection() {
                       {gap.item}
                     </h4>
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                        {gap.brand}
-                      </Badge>
-                      <span className="text-[10px] text-muted-foreground/50">·</span>
                       <span className="text-[10px] text-muted-foreground/60 capitalize">{gap.category}</span>
                       <span className="text-[10px] text-muted-foreground/50">·</span>
                       <span className="text-[10px] text-muted-foreground/60">{gap.color}</span>
