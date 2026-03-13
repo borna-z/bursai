@@ -40,7 +40,7 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) throw new Error("Unauthorized");
 
-    const { duration_days, destination, weather, occasions, locale = "sv" } = await req.json();
+    const { duration_days, destination, weather, occasions, locale = "sv", outfits_per_day = 1, must_have_items = [] } = await req.json();
 
     if (!duration_days || duration_days < 1 || duration_days > 30) {
       throw new Error("duration_days must be 1-30");
@@ -95,14 +95,28 @@ serve(async (req) => {
       : "unknown";
 
     const occasionsList = occasions?.length > 0 ? occasions.join(", ") : "mixed casual/semi-formal";
-    const occasionCount = occasions?.length || 2;
-    const targetOutfits = Math.min(duration_days * occasionCount, 20);
+    const outfitsPerDay = Math.max(1, Math.min(4, outfits_per_day || 1));
+    const targetOutfits = Math.min(duration_days * outfitsPerDay, 20);
     const maxItems = Math.min(Math.ceil(duration_days * 2.5), 25);
+
+    // Build valid ID set and lookup structures early
+    const validIds = new Set(garments.map(g => g.id));
+    const titleIndex = new Map(garments.map(g => [g.title.toLowerCase().trim(), g.id]));
+
+    // Must-have items filtering
+    const mustHaveIds: string[] = (must_have_items || []).filter((id: string) => validIds.has(id));
 
     // Scale max_tokens based on trip length and outfit count
     const maxTokens = estimateMaxTokens({ outputItems: targetOutfits + maxItems, perItemTokens: 40, baseTokens: 400, cap: 4096 });
     // Use stronger model for longer trips
     const complexity = duration_days > 5 ? "complex" : "standard";
+
+    const mustHavePromptSv = mustHaveIds.length > 0
+      ? `\n- OBLIGATORISKA plagg som MÅSTE inkluderas i capsule_items: ${mustHaveIds.join(", ")}`
+      : "";
+    const mustHavePromptEn = mustHaveIds.length > 0
+      ? `\nMUST-HAVE items that MUST be included in capsule_items: ${mustHaveIds.join(", ")}`
+      : "";
 
     const systemPrompt = isSv
       ? `Du är en resepackningsexpert och stilist. Din uppgift: välj det MINSTA antalet plagg från användarens garderob som skapar FLEST outfitkombinationer för en resa.
@@ -111,10 +125,11 @@ Regler:
 - Resa: ${duration_days} dagar till ${destination || "okänd destination"}
 - Väder: ${weatherDesc}
 - Tillfällen: ${occasionsList}
+- ${outfitsPerDay} outfit(s) per dag
 - Maximera kombinerbarhet
 - Max ${maxItems} plagg totalt
 - Generera minst ${targetOutfits} outfits som täcker alla tillfällen och dagar
-- Varje outfit MÅSTE ha minst 2 plagg
+- Varje outfit MÅSTE ha minst 2 plagg${mustHavePromptSv}
 
 VIKTIGT: Använd de EXAKTA garment ID:na (fullständiga UUID) från garderoben. Kopiera dem exakt.
 
@@ -130,9 +145,10 @@ Skriv på svenska.`
       : `You are a travel packing expert and stylist. Select the MINIMUM garments for the MOST combinations.
 
 Trip: ${duration_days} days to ${destination || "unknown"}, Weather: ${weatherDesc}, Occasions: ${occasionsList}
+${outfitsPerDay} outfit(s) per day.
 Max ${maxItems} items.
 Generate at least ${targetOutfits} outfits covering all occasions across all ${duration_days} days.
-Each outfit MUST have at least 2 items.
+Each outfit MUST have at least 2 items.${mustHavePromptEn}
 
 IMPORTANT: Use the EXACT garment IDs (full UUIDs) from the wardrobe. Copy them exactly as shown.
 
@@ -145,10 +161,6 @@ Respond with valid JSON:
   "reasoning": "..."
 }
 Write in ${localeName}.`;
-
-    // Build valid ID set and lookup structures early
-    const validIds = new Set(garments.map(g => g.id));
-    const titleIndex = new Map(garments.map(g => [g.title.toLowerCase().trim(), g.id]));
 
     // Use tool calling for guaranteed structured output
     const tools = [{
@@ -197,6 +209,7 @@ Write in ${localeName}.`;
       const accessories = garments.filter(g => g.category === "accessory" || g.category === "accessories" || g.category === "bag").slice(0, 2);
 
       const capsuleItems = Array.from(new Set([
+        ...mustHaveIds,
         ...tops.map(g => g.id),
         ...bottoms.map(g => g.id),
         ...shoes.map(g => g.id),

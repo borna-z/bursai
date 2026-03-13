@@ -887,6 +887,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'capsule.swap_outfit': 'Byt outfit',
     'capsule.swap_coming_soon': 'Byte kommer snart',
     'capsule.share_coming_soon': 'Delning kommer snart',
+    'capsule.outfits_per_day': 'Outfits per dag',
+    'capsule.outfits_per_day_desc': 'Hur många ombytesoutfits behöver du per dag?',
+    'capsule.must_haves': 'Måste ha med',
+    'capsule.must_haves_desc': 'Välj plagg som måste ingå i kapseln',
 
     // Swap sheet
     'swap.title': 'Byt outfit',
@@ -2876,6 +2880,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'capsule.swap_outfit': 'Swap outfit',
     'capsule.swap_coming_soon': 'Swap coming soon',
     'capsule.share_coming_soon': 'Share coming soon',
+    'capsule.outfits_per_day': 'Outfits per day',
+    'capsule.outfits_per_day_desc': 'How many outfit changes do you need per day?',
+    'capsule.must_haves': 'Must-haves',
+    'capsule.must_haves_desc': 'Select garments that must be included',
     'swap.title': 'Swap outfit',
     'swap.desc': 'Choose how to change the planned outfit',
     'swap.create_similar': 'Create similar',

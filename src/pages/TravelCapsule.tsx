@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, differenceInCalendarDays, addDays } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Minus, Plus } from 'lucide-react';
 import {
   ArrowLeft, MapPin, CalendarIcon, Loader2, Shirt,
   LightbulbIcon, Plane, Umbrella, Sun, CloudRain, Cloud,
@@ -21,6 +22,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useFlatGarments } from '@/hooks/useGarments';
 import { useProfile } from '@/hooks/useProfile';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
 import { getCoordinatesFromCity, fetchForecast, fetchHistoricalWeather, type ForecastDay } from '@/hooks/useForecast';
@@ -74,6 +76,7 @@ export default function TravelCapsule() {
   const navigate = useNavigate();
   const { t, locale } = useLanguage();
   const { data: profile } = useProfile();
+  const { data: allGarments } = useFlatGarments();
   const dateLocale = getDateFnsLocale(locale);
 
   // ── Form state ──
@@ -82,6 +85,8 @@ export default function TravelCapsule() {
   const [selectedOccasions, setSelectedOccasions] = useState<string[]>(['vardag']);
   const [minimizeItems, setMinimizeItems] = useState(true);
   const [includeTravelDays, setIncludeTravelDays] = useState(false);
+  const [outfitsPerDay, setOutfitsPerDay] = useState(1);
+  const [mustHaveItems, setMustHaveItems] = useState<string[]>([]);
 
   // ── Generation state ──
   const [isGenerating, setIsGenerating] = useState(false);
@@ -276,6 +281,8 @@ export default function TravelCapsule() {
             condition: weatherForecast.condition,
           } : null,
           occasions: selectedOccasions,
+          outfits_per_day: outfitsPerDay,
+          must_have_items: mustHaveItems.length > 0 ? mustHaveItems : undefined,
           minimize_items: minimizeItems,
           include_travel_days: includeTravelDays,
           locale: userLocale,
@@ -476,6 +483,75 @@ export default function TravelCapsule() {
                 ))}
               </div>
             </div>
+
+            {/* Step 3b: Outfits per day */}
+            <div className="space-y-2">
+              <Label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
+                {t('capsule.outfits_per_day')}
+              </Label>
+              <p className="text-[11px] text-muted-foreground/50">{t('capsule.outfits_per_day_desc')}</p>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => { hapticLight(); setOutfitsPerDay(Math.max(1, outfitsPerDay - 1)); }}
+                  disabled={outfitsPerDay <= 1}
+                  className="w-10 h-10 rounded-xl bg-card/60 border border-border/15 flex items-center justify-center disabled:opacity-30 transition-opacity"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span className="text-2xl font-semibold w-8 text-center">{outfitsPerDay}</span>
+                <button
+                  onClick={() => { hapticLight(); setOutfitsPerDay(Math.min(4, outfitsPerDay + 1)); }}
+                  disabled={outfitsPerDay >= 4}
+                  className="w-10 h-10 rounded-xl bg-card/60 border border-border/15 flex items-center justify-center disabled:opacity-30 transition-opacity"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Step 3c: Must-haves */}
+            {(allGarments?.length ?? 0) > 0 && (
+              <div className="space-y-2">
+                <Label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
+                  {t('capsule.must_haves')}
+                </Label>
+                <p className="text-[11px] text-muted-foreground/50">{t('capsule.must_haves_desc')}</p>
+                <div className="flex gap-2.5 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
+                  {allGarments?.slice(0, 30).map(g => {
+                    const selected = mustHaveItems.includes(g.id);
+                    return (
+                      <button
+                        key={g.id}
+                        onClick={() => {
+                          hapticLight();
+                          setMustHaveItems(prev =>
+                            prev.includes(g.id) ? prev.filter(id => id !== g.id) : [...prev, g.id]
+                          );
+                        }}
+                        className={cn(
+                          'relative flex-shrink-0 w-16 flex flex-col items-center gap-1 rounded-xl p-1.5 border transition-all',
+                          selected
+                            ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                            : 'border-border/10 bg-card/40'
+                        )}
+                      >
+                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted/20">
+                          <LazyImageSimple imagePath={g.image_path} alt={g.title} className="w-full h-full object-cover" />
+                        </div>
+                        <span className="text-[9px] text-muted-foreground leading-tight truncate w-full text-center">
+                          {g.title}
+                        </span>
+                        {selected && (
+                          <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+                            <Check className="w-2.5 h-2.5 text-primary-foreground" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Step 4: Preferences */}
             <div className="space-y-3">
