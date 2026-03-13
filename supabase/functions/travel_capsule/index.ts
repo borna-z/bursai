@@ -164,7 +164,7 @@ Write in ${localeName}.`;
 
         const { data: content } = await callBursAI({
           messages,
-          complexity: attempt === 0 ? complexity : "fast",
+          complexity: attempt === 0 ? complexity : "trivial",
           max_tokens: maxTokens,
         });
 
