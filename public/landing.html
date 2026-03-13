@@ -811,5 +811,45 @@
         btn.classList.add("active");
       }
     </script>
+
+    <!-- GDPR Cookie Consent Banner -->
+    <style>
+      #cookie-banner{position:fixed;bottom:0;left:0;right:0;z-index:60;padding:16px;opacity:0;transform:translateY(20px);transition:opacity .4s ease,transform .4s ease;pointer-events:none;}
+      #cookie-banner.visible{opacity:1;transform:translateY(0);pointer-events:auto;}
+      #cookie-inner{max-width:560px;margin:0 auto;background:rgba(28,25,23,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:20px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:16px;font-size:14px;color:rgba(255,255,255,.75);line-height:1.5;}
+      #cookie-inner a{color:#fff;text-decoration:underline;text-underline-offset:2px;}
+      #cookie-inner a:hover{opacity:.8;}
+      .cookie-btns{display:flex;gap:12px;flex-shrink:0;}
+      .cookie-btn{padding:8px 20px;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;font-family:inherit;border:none;}
+      .cookie-decline{background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.75);}
+      .cookie-decline:hover{border-color:rgba(255,255,255,.4);color:#fff;}
+      .cookie-accept{background:#fff;color:#1C1917;}
+      .cookie-accept:hover{opacity:.9;}
+      @media(max-width:640px){#cookie-inner{flex-direction:column;align-items:flex-start;}}
+    </style>
+    <div id="cookie-banner">
+      <div id="cookie-inner">
+        <p style="flex:1;">We use cookies to improve your experience. <a href="/privacy">Privacy&nbsp;Policy</a></p>
+        <div class="cookie-btns">
+          <button class="cookie-btn cookie-decline" onclick="cookieRespond('declined')">Decline</button>
+          <button class="cookie-btn cookie-accept" onclick="cookieRespond('accepted')">Accept</button>
+        </div>
+      </div>
+    </div>
+    <script>
+      (function(){
+        var KEY='burs-cookie-consent';
+        if(!localStorage.getItem(KEY)){
+          var b=document.getElementById('cookie-banner');
+          requestAnimationFrame(function(){b.classList.add('visible');});
+        }
+        window.cookieRespond=function(c){
+          localStorage.setItem(KEY,c);
+          var b=document.getElementById('cookie-banner');
+          b.classList.remove('visible');
+          setTimeout(function(){b.remove();},400);
+        };
+      })();
+    </script>
   </body>
 </html>
