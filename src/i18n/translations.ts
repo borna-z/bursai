@@ -3050,6 +3050,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.search': 'Search',
     'common.something_wrong': 'Something went wrong',
     'common.premium': 'Premium',
+    'common.read_more': 'Read more',
+    'common.less': 'Less',
+    'common.retry': 'Retry',
+    'common.error': 'Something went wrong',
 
     // Step 3 UX additions
     'home.select_occasion_hint': 'Select occasion above',
