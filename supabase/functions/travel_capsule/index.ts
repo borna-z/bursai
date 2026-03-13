@@ -99,6 +99,10 @@ serve(async (req) => {
     const targetOutfits = Math.min(duration_days * outfitsPerDay, 20);
     const maxItems = Math.min(Math.ceil(duration_days * 2.5), 25);
 
+    // Build valid ID set and lookup structures early
+    const validIds = new Set(garments.map(g => g.id));
+    const titleIndex = new Map(garments.map(g => [g.title.toLowerCase().trim(), g.id]));
+
     // Must-have items filtering
     const mustHaveIds: string[] = (must_have_items || []).filter((id: string) => validIds.has(id));
 
