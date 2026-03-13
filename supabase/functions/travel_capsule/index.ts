@@ -162,10 +162,6 @@ Respond with valid JSON:
 }
 Write in ${localeName}.`;
 
-    // Build valid ID set and lookup structures early
-    const validIds = new Set(garments.map(g => g.id));
-    const titleIndex = new Map(garments.map(g => [g.title.toLowerCase().trim(), g.id]));
-
     // Use tool calling for guaranteed structured output
     const tools = [{
       type: "function",
