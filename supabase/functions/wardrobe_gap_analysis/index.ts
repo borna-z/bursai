@@ -78,15 +78,15 @@ User locale/market: ${locale}
 SAMPLE GARMENT TITLES (to understand style level):
 ${garments.slice(0, 15).map((g: any) => `- ${g.title} (${g.category}, ${g.color_primary}${g.material ? ', ' + g.material : ''})`).join("\n")}`;
 
-    const prompt = `You are an elite wardrobe gap analyst for a premium styling app. Your job is to identify 3-5 SPECIFIC, real products that would unlock the most new outfit combinations from this wardrobe.
+    const prompt = `You are an elite wardrobe gap analyst for a premium styling app. Your job is to identify 3-5 generic garment types that would unlock the most new outfit combinations from this wardrobe.
 
 ${wardrobeProfile}
 
 CRITICAL RULES:
-1. Suggest REAL, specific products with brand + model + color. Example: "Nike Air Force 1 '07 Triple White" NOT "White sneakers"
-2. Match the user's style level and price range based on their existing garments
-3. The search_query must be an exact Google-searchable string that finds the product
-4. Consider the user's market/locale (${locale}) for brand availability
+1. Do NOT include brand names. Use generic garment descriptions with color, material, and style. Example: "Navy slim-fit chinos" NOT "Dockers Alpha Khaki Navy"
+2. Match the user's style level based on their existing garments
+3. The search_query must be a generic Google-searchable string (e.g., "navy slim fit chinos men")
+4. Consider the user's market/locale (${locale}) for price ranges
 5. Focus on versatility — each suggestion should create many new outfit combinations
 6. Consider: category gaps, color palette gaps, formality range gaps, seasonal gaps
 7. Be specific about color: "Navy" not "Blue", "Ecru" not "White"
@@ -112,16 +112,15 @@ CRITICAL RULES:
                 items: {
                   type: "object",
                   properties: {
-                    item: { type: "string", description: "Specific product name with brand, model, and color (e.g., 'Nike Air Force 1 07 Triple White')" },
-                    brand: { type: "string", description: "Brand name (e.g., 'Nike')" },
+                    item: { type: "string", description: "Generic garment name with color and style (e.g., 'Navy slim-fit chinos', 'White low-top canvas sneakers')" },
                     category: { type: "string", description: "Category: tops, bottoms, shoes, accessories, outerwear" },
                     color: { type: "string", description: "Specific color (e.g., 'Navy', 'Ecru', 'Olive')" },
                     reason: { type: "string", description: "Why this fills a gap — reference what's missing and what it pairs with" },
                     new_outfits: { type: "number", description: "Estimated new outfits unlocked" },
                     price_range: { type: "string", description: "Price range like '$50-80' or '€40-70'" },
-                    search_query: { type: "string", description: "Exact Google search query to find this product (e.g., 'Nike Air Force 1 07 triple white buy')" },
+                    search_query: { type: "string", description: "Generic Google search query (e.g., 'navy slim fit chinos men buy')" },
                   },
-                  required: ["item", "brand", "category", "color", "reason", "new_outfits", "price_range", "search_query"],
+                  required: ["item", "category", "color", "reason", "new_outfits", "price_range", "search_query"],
                   additionalProperties: false,
                 },
               },

@@ -53,7 +53,7 @@ export function useWardrobeGapAnalysis() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return data as { gaps: Array<{ item: string; brand: string; category: string; color: string; reason: string; new_outfits: number; price_range: string; search_query: string }> };
+      return data as { gaps: Array<{ item: string; category: string; color: string; reason: string; new_outfits: number; price_range: string; search_query: string }> };
     },
   });
 }
