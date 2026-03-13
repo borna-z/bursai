@@ -84,7 +84,7 @@ export function FooterCTA() {
           {/* Footer */}
           <footer className="border-t border-white/[0.04] pt-8 pb-6">
             <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-6">
-              <img src={bursLandingLogo} alt="BURS" className="h-5 object-contain" />
+              <img src={bursFooterLogo} alt="BURS" className="h-10 object-contain opacity-80" />
               <div className="flex flex-wrap justify-center gap-6 text-xs text-gray-500 tracking-wide">
                 <a href="/privacy" className="hover:text-white transition-colors">
                   {t("footer.privacy")}
