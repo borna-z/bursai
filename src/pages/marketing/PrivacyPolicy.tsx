@@ -394,12 +394,12 @@ export default function PrivacyPolicy() {
         </main>
 
         {/* Footer */}
-        <footer className="border-t border-border/60">
-          <div className="max-w-3xl mx-auto px-4 py-8 flex flex-col items-center gap-4 text-xs text-muted-foreground">
+        <footer style={{ borderTop: '1px solid #DDD8CF' }}>
+          <div className="max-w-3xl mx-auto px-4 py-8 flex flex-col items-center gap-4 text-xs" style={{ color: '#6B6560' }}>
             <div className="flex gap-6">
-              <Link to="/privacy" className="hover:text-foreground font-medium text-foreground">Privacy Policy</Link>
-              <Link to="/terms" className="hover:text-foreground">Terms of Service</Link>
-              <Link to="/contact" className="hover:text-foreground">Contact</Link>
+              <span className="font-medium" style={{ color: '#1C1917' }}>Privacy Policy</span>
+              <Link to="/terms" className="hover:text-[#1C1917] transition-colors">Terms of Service</Link>
+              <Link to="/contact" className="hover:text-[#1C1917] transition-colors">Contact</Link>
             </div>
             <p>© {new Date().getFullYear()} BURS. All rights reserved.</p>
           </div>
