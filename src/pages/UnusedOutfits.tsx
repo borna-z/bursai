@@ -40,6 +40,7 @@ export default function UnusedOutfits() {
   const startedRef = useRef(false);
 
   const unusedIds = insights?.unusedGarments?.map(g => g.id) || [];
+  const unusedSet = new Set(unusedIds);
 
   const generate = useCallback(async () => {
     if (!user || unusedIds.length === 0) return;
