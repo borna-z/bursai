@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { hapticLight } from '@/lib/haptics';
-import { occasionLabel } from '@/lib/occasionLabel';
+import { getOccasionLabel } from '@/lib/occasionLabel';
 import type { Garment } from '@/hooks/useGarments';
 
 const OCCASIONS = ['vardag', 'jobb', 'dejt', 'fest', 'casual', 'smart_casual'];
