@@ -7867,6 +7867,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.loading': 'Caricamento...', 'common.save': 'Salva', 'common.cancel': 'Annulla', 'common.delete': 'Elimina',
     'common.edit': 'Modifica', 'common.close': 'Chiudi', 'common.back': 'Indietro', 'common.next': 'Avanti',
     'common.done': 'Fatto', 'common.search': 'Cerca', 'common.something_wrong': 'Qualcosa è andato storto', 'common.premium': 'Premium', 'common.or': 'oppure',
+    'common.read_more': 'Leggi di più', 'common.less': 'Meno', 'common.retry': 'Riprova', 'common.error': 'Qualcosa è andato storto',
     'common.last_updated': 'Ultimo aggiornamento:',
     'weather.enter_city': 'Inserisci una città...', 'weather.located_in': 'Posizione: {city}', 'weather.is_this_your_city': 'È la tua città?',
     'weather.yes': 'Sì', 'weather.change': 'Cambia', 'weather.your_location': 'La tua posizione',
