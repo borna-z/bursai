@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { hapticLight, hapticMedium, hapticSuccess, hapticHeavy } from '@/lib/haptics';
+import { stripBrands } from '@/lib/stripBrands';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Star, Bookmark, BookmarkCheck, Check, RefreshCw, Share2, Loader2,
