@@ -8,6 +8,7 @@
  */
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const GOOGLE_DIRECT_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 
 // ─── Complexity-based model routing ───────────────────────────
 type Complexity = "trivial" | "standard" | "complex";
