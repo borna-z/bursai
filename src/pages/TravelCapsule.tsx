@@ -4,7 +4,7 @@ import { format, differenceInCalendarDays, addDays } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Minus, Plus } from 'lucide-react';
 import {
-  ArrowLeft, Globe, CalendarIcon, Loader2, Shirt,
+  ArrowLeft, CalendarIcon, Loader2, Shirt,
   LightbulbIcon, Plane, Umbrella, Sun, CloudRain, Cloud,
   CalendarPlus, Package, SlidersHorizontal, Pencil,
   Check, Share2, Snowflake, RefreshCw,
