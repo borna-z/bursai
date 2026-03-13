@@ -53,6 +53,7 @@ const SmartShopping = lazy(() => import('@/pages/SmartShopping'));
 const WardrobeAging = lazy(() => import('@/pages/WardrobeAging'));
 const StyleTwin = lazy(() => import('@/pages/StyleTwin'));
 const Discover = lazy(() => import('@/pages/Discover'));
+const PickMustHaves = lazy(() => import('@/pages/PickMustHaves'));
 
 const routeTransition = {
   type: 'tween' as const,
@@ -125,6 +126,7 @@ export function AnimatedRoutes() {
             <Route path="/outfits/:id" element={<ProtectedRoute><OutfitDetail /></ProtectedRoute>} />
             <Route path="/plan" element={<ProtectedRoute><Plan /></ProtectedRoute>} />
             <Route path="/plan/travel-capsule" element={<ProtectedRoute><TravelCapsule /></ProtectedRoute>} />
+            <Route path="/plan/travel-capsule/pick-must-haves" element={<ProtectedRoute><PickMustHaves /></ProtectedRoute>} />
             <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
             <Route path="/ai" element={<ProtectedRoute><AIChat /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
