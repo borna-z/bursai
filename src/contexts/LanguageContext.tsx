@@ -13,15 +13,11 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 function getInitialLocale(): Locale {
-  // Check localStorage first
+  // Admin may have a stored locale override
   const stored = localStorage.getItem('burs-locale') as Locale | null;
   if (stored && translations[stored]) return stored;
 
-  // Try browser language
-  const browserLang = navigator.language.split('-')[0] as Locale;
-  if (translations[browserLang]) return browserLang;
-
-  return 'sv'; // default
+  return 'en'; // default to English
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
