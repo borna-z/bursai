@@ -107,6 +107,13 @@ serve(async (req) => {
     // Use stronger model for longer trips
     const complexity = duration_days > 5 ? "complex" : "standard";
 
+    const mustHavePromptSv = mustHaveIds.length > 0
+      ? `\n- OBLIGATORISKA plagg som MÅSTE inkluderas i capsule_items: ${mustHaveIds.join(", ")}`
+      : "";
+    const mustHavePromptEn = mustHaveIds.length > 0
+      ? `\nMUST-HAVE items that MUST be included in capsule_items: ${mustHaveIds.join(", ")}`
+      : "";
+
     const systemPrompt = isSv
       ? `Du är en resepackningsexpert och stilist. Din uppgift: välj det MINSTA antalet plagg från användarens garderob som skapar FLEST outfitkombinationer för en resa.
 
@@ -114,10 +121,11 @@ Regler:
 - Resa: ${duration_days} dagar till ${destination || "okänd destination"}
 - Väder: ${weatherDesc}
 - Tillfällen: ${occasionsList}
+- ${outfitsPerDay} outfit(s) per dag
 - Maximera kombinerbarhet
 - Max ${maxItems} plagg totalt
 - Generera minst ${targetOutfits} outfits som täcker alla tillfällen och dagar
-- Varje outfit MÅSTE ha minst 2 plagg
+- Varje outfit MÅSTE ha minst 2 plagg${mustHavePromptSv}
 
 VIKTIGT: Använd de EXAKTA garment ID:na (fullständiga UUID) från garderoben. Kopiera dem exakt.
 
@@ -133,9 +141,10 @@ Skriv på svenska.`
       : `You are a travel packing expert and stylist. Select the MINIMUM garments for the MOST combinations.
 
 Trip: ${duration_days} days to ${destination || "unknown"}, Weather: ${weatherDesc}, Occasions: ${occasionsList}
+${outfitsPerDay} outfit(s) per day.
 Max ${maxItems} items.
 Generate at least ${targetOutfits} outfits covering all occasions across all ${duration_days} days.
-Each outfit MUST have at least 2 items.
+Each outfit MUST have at least 2 items.${mustHavePromptEn}
 
 IMPORTANT: Use the EXACT garment IDs (full UUIDs) from the wardrobe. Copy them exactly as shown.
 
