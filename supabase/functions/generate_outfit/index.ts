@@ -378,13 +378,13 @@ ${garmentList}`;
     }
 
     if (validItems.length < 2) {
-      throw new Error("Kunde inte skapa en komplett outfit med din garderob");
+      throw new Error("Could not create a complete outfit with your wardrobe");
     }
 
     return new Response(
       JSON.stringify({
         items: validItems,
-        explanation: explanation || "Snygg kombination!",
+        explanation: explanation || "Great combination!",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

@@ -64,19 +64,23 @@ function normalizeCategory(cat: string): string {
 function normalizeColor(color: string): string {
   const colorLower = color.toLowerCase().trim();
   const colorMap: Record<string, string> = {
-    'black': 'svart', 'svart': 'svart',
-    'white': 'vit', 'vit': 'vit', 'vitt': 'vit',
-    'gray': 'grå', 'grey': 'grå', 'grå': 'grå', 'grått': 'grå',
-    'blue': 'blå', 'blå': 'blå', 'blått': 'blå',
-    'navy': 'marinblå', 'marinblå': 'marinblå', 'marin': 'marinblå', 'navy blue': 'marinblå',
-    'beige': 'beige', 'cream': 'beige', 'kräm': 'beige',
-    'brown': 'brun', 'brun': 'brun', 'brunt': 'brun',
-    'green': 'grön', 'grön': 'grön', 'grönt': 'grön',
-    'red': 'röd', 'röd': 'röd', 'rött': 'röd',
-    'pink': 'rosa', 'rosa': 'rosa',
-    'purple': 'lila', 'lila': 'lila', 'violet': 'lila',
-    'yellow': 'gul', 'gul': 'gul', 'gult': 'gul',
-    'orange': 'orange',
+    // English standardized values (kept as-is)
+    'black': 'black', 'white': 'white', 'grey': 'grey', 'gray': 'grey',
+    'blue': 'blue', 'navy': 'navy', 'beige': 'beige', 'cream': 'beige',
+    'brown': 'brown', 'green': 'green', 'red': 'red', 'pink': 'pink',
+    'purple': 'purple', 'yellow': 'yellow', 'orange': 'orange',
+    // Legacy Swedish values mapped to English
+    'svart': 'black', 'vit': 'white', 'vitt': 'white',
+    'grå': 'grey', 'grått': 'grey',
+    'blå': 'blue', 'blått': 'blue',
+    'marinblå': 'navy', 'marin': 'navy',
+    'kräm': 'beige',
+    'brun': 'brown', 'brunt': 'brown',
+    'grön': 'green', 'grönt': 'green',
+    'röd': 'red', 'rött': 'red',
+    'rosa': 'pink',
+    'lila': 'purple', 'violet': 'purple',
+    'gul': 'yellow', 'gult': 'yellow',
   };
   return colorMap[colorLower] || colorLower;
 }
@@ -85,20 +89,20 @@ function normalizeSeasonTags(tags: string[]): string[] {
   const normalized: Set<string> = new Set();
   for (const tag of tags) {
     const tagLower = tag.toLowerCase().trim();
-    if (tagLower.includes('sommar') || tagLower === 'summer') {
-      normalized.add('sommar');
-    } else if (tagLower.includes('vinter') || tagLower === 'winter') {
-      normalized.add('vinter');
-    } else if (tagLower.includes('vår') || tagLower.includes('höst') ||
-               tagLower === 'spring' || tagLower === 'fall' || tagLower === 'autumn') {
-      normalized.add('vår');
-      normalized.add('höst');
-    } else if (tagLower.includes('året') || tagLower.includes('all') || tagLower.includes('year')) {
-      normalized.add('vår'); normalized.add('sommar');
-      normalized.add('höst'); normalized.add('vinter');
+    if (tagLower.includes('summer') || tagLower.includes('sommar')) {
+      normalized.add('summer');
+    } else if (tagLower.includes('winter') || tagLower.includes('vinter')) {
+      normalized.add('winter');
+    } else if (tagLower.includes('spring') || tagLower.includes('vår') ||
+               tagLower.includes('autumn') || tagLower.includes('fall') || tagLower.includes('höst')) {
+      normalized.add('spring');
+      normalized.add('autumn');
+    } else if (tagLower.includes('all') || tagLower.includes('year') || tagLower.includes('året')) {
+      normalized.add('spring'); normalized.add('summer');
+      normalized.add('autumn'); normalized.add('winter');
     }
   }
-  if (normalized.size === 0) return ['vår', 'sommar', 'höst', 'vinter'];
+  if (normalized.size === 0) return ['spring', 'summer', 'autumn', 'winter'];
   return Array.from(normalized);
 }
 
@@ -115,7 +119,7 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
-        JSON.stringify({ error: "Ej auktoriserad" }),
+        JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -132,32 +136,32 @@ serve(async (req) => {
     const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
     if (claimsError || !claimsData?.claims) {
       return new Response(
-        JSON.stringify({ error: "Ej auktoriserad" }),
+        JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     const userId = claimsData.claims.sub as string;
 
     const { storagePath, base64Image, locale } = await req.json() as AnalyzeRequest;
-    const titleInstruction = TITLE_LANG_MAP[locale || 'sv'] || TITLE_LANG_MAP['sv'];
+    const titleInstruction = TITLE_LANG_MAP[locale || 'en'] || TITLE_LANG_MAP['en'];
 
     if (!storagePath && !base64Image) {
       return new Response(
-        JSON.stringify({ error: "storagePath eller base64Image krävs" }),
+        JSON.stringify({ error: "storagePath or base64Image is required" }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (storagePath && !storagePath.startsWith(`${userId}/`)) {
       return new Response(
-        JSON.stringify({ error: "Åtkomst nekad" }),
+        JSON.stringify({ error: "Access denied" }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (base64Image && base64Image.length > 5 * 1024 * 1024) {
       return new Response(
-        JSON.stringify({ error: "Bilden är för stor" }),
+        JSON.stringify({ error: "Image is too large" }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -175,7 +179,7 @@ serve(async (req) => {
         .createSignedUrl(storagePath!, 300);
       if (signedError || !signedData?.signedUrl) {
         return new Response(
-          JSON.stringify({ error: "Kunde inte hämta bilden" }),
+          JSON.stringify({ error: "Could not fetch image" }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -192,27 +196,27 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `Du är en modeexpert som analyserar klädesplagg från bilder.
-Svara ENDAST med valid JSON enligt detta schema:
+            content: `You are a fashion expert analyzing garments from images.
+Respond ONLY with valid JSON matching this schema:
 {
 "title": "${titleInstruction}",
-"category": "EXAKT en av: top, bottom, shoes, outerwear, accessory, dress",
-"subcategory": "specifik typ på svenska, t.ex. t-shirt, jeans, sneakers, jacka",
-"color_primary": "EXAKT en av: svart, vit, grå, blå, marinblå, beige, brun, grön, röd, rosa, lila, gul, orange",
-"color_secondary": "samma färgval som ovan, eller null om ej tillämpligt",
-"pattern": "en av: enfärgad, randig, rutig, prickig, blommig, mönstrad, null",
-"material": "en av: bomull, polyester, lin, denim, läder, ull, siden, syntet, null",
-"fit": "en av: slim, regular, loose, oversized, null",
-"season_tags": ["lista med: vår, sommar, höst, vinter"],
+"category": "EXACTLY one of: top, bottom, shoes, outerwear, accessory, dress",
+"subcategory": "specific type in English, e.g. t-shirt, jeans, sneakers, jacket",
+"color_primary": "EXACTLY one of: black, white, grey, blue, navy, beige, brown, green, red, pink, purple, yellow, orange",
+"color_secondary": "same color choices as above, or null if not applicable",
+"pattern": "one of: solid, striped, checked, dotted, floral, patterned, null",
+"material": "one of: cotton, polyester, linen, denim, leather, wool, silk, synthetic, null",
+"fit": "one of: slim, regular, loose, oversized, null",
+"season_tags": ["list from: spring, summer, autumn, winter"],
 "formality": 3
 }
-Formalitet: 1=mycket casual, 5=mycket formellt.
-Svara ENDAST med JSON, ingen förklarande text.`
+Formality: 1=very casual, 5=very formal.
+Respond ONLY with JSON, no explanatory text.`
           },
           {
             role: 'user',
             content: [
-              { type: 'text', text: 'Analysera detta klädesplagg och returnera strukturerad JSON.' },
+              { type: 'text', text: 'Analyze this garment and return structured JSON.' },
               { type: 'image_url', image_url: { url: resolvedImageUrl } }
             ]
           }
@@ -224,33 +228,33 @@ Svara ENDAST med JSON, ingen förklarande text.`
       if (aiErr instanceof BursAIError) {
         if (aiErr.status === 429) {
           return new Response(
-            JSON.stringify({ error: "För många förfrågningar, försök igen senare" }),
+            JSON.stringify({ error: "Too many requests, try again later" }),
             { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
         if (aiErr.status === 402) {
           return new Response(
-            JSON.stringify({ error: "AI-krediter slut, kontakta support" }),
+            JSON.stringify({ error: "AI credits exhausted, contact support" }),
             { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
       }
       if (aiErr instanceof Error && aiErr.message.includes('timed out')) {
         return new Response(
-          JSON.stringify({ error: "AI-analysen tog för lång tid" }),
+          JSON.stringify({ error: "AI analysis timed out" }),
           { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       console.error('AI analysis error:', aiErr);
       return new Response(
-        JSON.stringify({ error: "AI-analysen misslyckades" }),
+        JSON.stringify({ error: "AI analysis failed" }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (!content) {
       return new Response(
-        JSON.stringify({ error: "Inget svar från AI" }),
+        JSON.stringify({ error: "No response from AI" }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -268,7 +272,7 @@ Svara ENDAST med JSON, ingen förklarande text.`
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError, content);
       return new Response(
-        JSON.stringify({ error: "Kunde inte tolka AI-svaret" }),
+        JSON.stringify({ error: "Could not parse AI response" }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -293,7 +297,7 @@ Svara ENDAST med JSON, ingen förklarande text.`
   } catch (error) {
     console.error('Unexpected error:', error);
     return new Response(
-      JSON.stringify({ error: "Ett oväntat fel uppstod" }),
+      JSON.stringify({ error: "An unexpected error occurred" }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

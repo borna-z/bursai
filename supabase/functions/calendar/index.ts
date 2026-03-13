@@ -329,8 +329,8 @@ async function handleSyncIcs(authHeader: string): Promise<Response> {
   const { data: profile, error: profileError } = await supabase
     .from('profiles').select('ics_url').eq('id', userId).single();
 
-  if (profileError) return jsonResponse({ error: 'Kunde inte hämta profil' }, 500);
-  if (!profile?.ics_url) return jsonResponse({ error: 'Ingen kalender-URL konfigurerad', synced: 0, upcoming: 0 }, 400);
+  if (profileError) return jsonResponse({ error: 'Could not fetch profile' }, 500);
+  if (!profile?.ics_url) return jsonResponse({ error: 'No calendar URL configured', synced: 0, upcoming: 0 }, 400);
 
   const result = await syncIcsForUser(supabase, userId, profile.ics_url);
   if (!result.success) return jsonResponse({ error: result.error }, 500);
@@ -354,7 +354,7 @@ async function handleSyncGoogle(authHeader: string): Promise<Response> {
     .eq('user_id', userId).eq('provider', 'google').single();
 
   if (connError || !connection) {
-    return jsonResponse({ error: 'Ingen Google Calendar-koppling hittades' }, 400);
+    return jsonResponse({ error: 'No Google Calendar connection found' }, 400);
   }
 
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;

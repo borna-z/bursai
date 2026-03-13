@@ -76,7 +76,7 @@ export function useLiveScan() {
       });
 
       if (fnError || data?.error) {
-        setError(fnError?.message || data?.error || 'Analysen misslyckades');
+        setError(fnError?.message || data?.error || 'Analysis failed');
         URL.revokeObjectURL(thumbnailUrl);
         return;
       }
@@ -90,7 +90,7 @@ export function useLiveScan() {
       hapticMedium();
     } catch (err) {
       console.error('Capture error:', err);
-      setError('Kunde inte fånga bilden');
+      setError('Could not capture image');
     } finally {
       setIsProcessing(false);
     }
