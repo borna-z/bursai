@@ -362,7 +362,7 @@ export default function OutfitDetailPage() {
             <p className={`text-sm text-muted-foreground leading-relaxed ${!explExpanded ? 'line-clamp-2' : ''}`}>{outfit.explanation}</p>
             {outfit.explanation.length > 120 && (
               <button onClick={() => setExplExpanded(v => !v)} className="text-xs text-primary/70 hover:text-primary transition-colors">
-                {explExpanded ? t('common.less') || 'Less' : t('common.read_more') || 'Read more'}
+                {explExpanded ? t('common.less') : t('common.read_more')}
               </button>
             )}
           </div>
