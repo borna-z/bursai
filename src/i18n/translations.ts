@@ -9416,6 +9416,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.loading': 'جارٍ التحميل...', 'common.save': 'حفظ', 'common.cancel': 'إلغاء', 'common.delete': 'حذف',
     'common.edit': 'تعديل', 'common.close': 'إغلاق', 'common.back': 'رجوع', 'common.next': 'التالي',
     'common.done': 'تم', 'common.search': 'بحث', 'common.something_wrong': 'حدث خطأ', 'common.premium': 'بريميوم', 'common.or': 'أو',
+    'common.read_more': 'اقرأ المزيد', 'common.less': 'أقل', 'common.retry': 'إعادة المحاولة', 'common.error': 'حدث خطأ',
     'trial.then_prefix': 'ثم', 'pricing.save': 'وفّر', 'pricing.per_month': '/شهر', 'pricing.per_year': '/سنة',
     'landing.showcase_wardrobe_title': 'خزانة ملابسك بالكامل، منظّمة', 'landing.showcase_wardrobe_desc': 'فئات ذكية وفلاتر — اعثر على كل شيء فورًا.',
     'landing.showcase_home_title': 'إطلالتك اليومية، جاهزة للارتداء', 'landing.showcase_home_desc': 'الذكاء الاصطناعي يختار لك حسب الطقس والأسلوب.',
