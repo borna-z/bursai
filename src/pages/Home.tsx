@@ -15,7 +15,6 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { AISuggestions } from '@/components/insights/AISuggestions';
 import { QuickActionsRow } from '@/components/home/QuickActionsRow';
 
-const OutfitsPreview = lazy(() => import('@/components/home/OutfitsPreview').then(m => ({ default: m.OutfitsPreview })));
 const InsightsBanner = lazy(() => import('@/components/home/InsightsBanner').then(m => ({ default: m.InsightsBanner })));
 const SmartInsightCard = lazy(() => import('@/components/home/SmartInsightCard').then(m => ({ default: m.SmartInsightCard })));
 
