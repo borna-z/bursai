@@ -48,6 +48,7 @@ const PublicProfile = lazy(() => import('@/pages/PublicProfile'));
 const MoodOutfit = lazy(() => import('@/pages/MoodOutfit'));
 const Discover = lazy(() => import('@/pages/Discover'));
 const PickMustHaves = lazy(() => import('@/pages/PickMustHaves'));
+const UnusedOutfits = lazy(() => import('@/pages/UnusedOutfits'));
 
 const routeTransition = {
   type: 'tween' as const,

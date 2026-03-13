@@ -1847,7 +1847,12 @@ serve(async (req) => {
       const slot = categorizeSlot(garment.category, garment.subcategory);
       if (!slot) continue;
       if (!slotCandidates[slot]) slotCandidates[slot] = [];
-      slotCandidates[slot].push(scoreGarment(garment, occasion, weather, penalties, preferences, wearPatterns, styleVector, comfortProfile, socialMap, eventTitle, transInfo));
+      const scored = scoreGarment(garment, occasion, weather, penalties, preferences, wearPatterns, styleVector, comfortProfile, socialMap, eventTitle, transInfo);
+      // Boost preferred (unused) garments
+      if (preferGarmentIds.size > 0 && preferGarmentIds.has(garment.id)) {
+        scored.score += 2.5;
+      }
+      slotCandidates[slot].push(scored);
     }
 
     // Sort each slot by score

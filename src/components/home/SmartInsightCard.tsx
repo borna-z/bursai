@@ -1,4 +1,5 @@
 import { Lightbulb } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -6,13 +7,10 @@ import { useInsights } from '@/hooks/useInsights';
 import { hapticLight } from '@/lib/haptics';
 import { TAP_TRANSITION } from '@/lib/motion';
 
-interface SmartInsightCardProps {
-  onUseUnused?: () => void;
-}
-
-export function SmartInsightCard({ onUseUnused }: SmartInsightCardProps = {}) {
+export function SmartInsightCard() {
   const { t } = useLanguage();
   const { data: insights } = useInsights();
+  const navigate = useNavigate();
 
   const unusedCount = insights?.unusedGarments?.length || 0;
 
@@ -35,7 +33,7 @@ export function SmartInsightCard({ onUseUnused }: SmartInsightCardProps = {}) {
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => { hapticLight(); onUseUnused(); }}
+        onClick={() => { hapticLight(); navigate('/outfits/unused'); }}
         className="text-xs text-accent font-medium flex-shrink-0 h-8 px-3"
       >
         {t('home.use_them')}
