@@ -679,22 +679,23 @@
           <script>
           (function(){
             var P={
-              sv:{m:'79 kr',y:'699 kr',s:'0 kr',pf:false},
-              no:{m:'79 kr',y:'699 kr',s:'0 kr',pf:false},
-              da:{m:'59 kr',y:'499 kr',s:'0 kr',pf:false},
-              fi:{m:'6,99 €',y:'59,99 €',s:'0 €',pf:false},
-              de:{m:'6,99 €',y:'59,99 €',s:'0 €',pf:false},
-              fr:{m:'6,99 €',y:'59,99 €',s:'0 €',pf:false},
-              es:{m:'6,99 €',y:'59,99 €',s:'0 €',pf:false},
-              it:{m:'6,99 €',y:'59,99 €',s:'0 €',pf:false},
-              pt:{m:'6,99 €',y:'59,99 €',s:'0 €',pf:false},
-              nl:{m:'6,99 €',y:'59,99 €',s:'0 €',pf:false},
-              en:{m:'$6.99',y:'$59.99',s:'$0',pf:true},
-              pl:{m:'29,99 zł',y:'249 zł',s:'0 zł',pf:false},
-              ar:{m:'25 د.إ',y:'219 د.إ',s:'0 د.إ',pf:false}
+              sv:{m:'79 kr',y:'699 kr',s:'0 kr'},
+              no:{m:'79 kr',y:'699 kr',s:'0 kr'},
+              da:{m:'59 kr',y:'499 kr',s:'0 kr'},
+              fi:{m:'6,99 €',y:'59,99 €',s:'0 €'},
+              de:{m:'6,99 €',y:'59,99 €',s:'0 €'},
+              fr:{m:'6,99 €',y:'59,99 €',s:'0 €'},
+              es:{m:'6,99 €',y:'59,99 €',s:'0 €'},
+              it:{m:'6,99 €',y:'59,99 €',s:'0 €'},
+              pt:{m:'6,99 €',y:'59,99 €',s:'0 €'},
+              nl:{m:'6,99 €',y:'59,99 €',s:'0 €'},
+              en:{m:'$6.99',y:'$59.99',s:'$0'},
+              'en-gb':{m:'£6.99',y:'£59.99',s:'£0'},
+              pl:{m:'29,99 zł',y:'249 zł',s:'0 zł'},
+              ar:{m:'25 د.إ',y:'219 د.إ',s:'0 د.إ'}
             };
-            var lang=(navigator.language||'sv').split('-')[0].toLowerCase();
-            var p=P[lang]||P['sv'];
+            var raw=(navigator.language||'sv').toLowerCase();
+            var p=P[raw]||P[raw.split('-')[0]]||P['sv'];
             var sv=Math.round((1-parseFloat(p.y.replace(/[^\d.,]/g,'').replace(',','.'))/
               (parseFloat(p.m.replace(/[^\d.,]/g,'').replace(',','.'))*12))*100);
             document.getElementById('price-free').textContent=p.s;

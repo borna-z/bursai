@@ -30,6 +30,7 @@ const PRICE_MAP: Record<string, PriceEntry> = {
   nl: { monthly: 6.99, yearly: 59.99, symbol: '€', prefix: false, decimals: 2, separator: ',' },
   fa: { monthly: 6.99, yearly: 59.99, symbol: '€', prefix: false, decimals: 2, separator: ',' },
   en: { monthly: 6.99, yearly: 59.99, symbol: '$', prefix: true, decimals: 2, separator: '.' },
+  'en-gb': { monthly: 6.99, yearly: 59.99, symbol: '£', prefix: true, decimals: 2, separator: '.' },
   pl: { monthly: 29.99, yearly: 249, symbol: 'zł', prefix: false, decimals: 0, separator: ',' },
   ar: { monthly: 25, yearly: 219, symbol: 'د.إ', prefix: false, decimals: 0, separator: '.' },
 };
