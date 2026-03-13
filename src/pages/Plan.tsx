@@ -95,6 +95,7 @@ export default function PlanPage() {
   // Selected day data
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
   const { data: daySummary, isLoading: isSummaryLoading } = useDaySummary(selectedDateStr);
+  const { data: calendarEvents = [] } = useCalendarEvents(selectedDateStr);
   
   // Mutation hooks
   const upsertPlanned = useUpsertPlannedOutfit();
