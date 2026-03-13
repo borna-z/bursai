@@ -66,6 +66,7 @@ export function WeatherForecastBadge({
   }
 
   if (!forecast) {
+    // For dates beyond forecast range, try historical lookup
     return (
       <div className={cn("flex items-center gap-1 text-muted-foreground", className)}>
         <Cloud className="w-3.5 h-3.5 opacity-50" />
@@ -73,6 +74,8 @@ export function WeatherForecastBadge({
       </div>
     );
   }
+
+  const isEstimate = forecast.isHistorical;
 
   const WeatherIcon = getWeatherIcon(forecast.weather_code);
   const tempDiff = originalTemp !== undefined ? Math.abs(forecast.temperature_avg - originalTemp) : 0;

@@ -190,7 +190,7 @@ export default function TravelCapsule() {
     );
   };
 
-  // ── Weather lookup ──
+  // ── Weather lookup — supports up to 1 year via historical data ──
   const lookupWeather = useCallback(async () => {
     if (!destination || destination.length < 2) return;
     setIsFetchingWeather(true);
@@ -198,16 +198,55 @@ export default function TravelCapsule() {
     try {
       const coords = await getCoordinatesFromCity(destination);
       if (!coords) { setWeatherError(t('qgen.place_not_found')); return; }
-      const days = await fetchForecast(coords.lat, coords.lon);
-      setForecastDays(days);
-      if (days.length > 0) {
-        const avgMax = Math.round(days.reduce((s, d) => s + d.temperature_max, 0) / days.length);
-        const avgMin = Math.round(days.reduce((s, d) => s + d.temperature_min, 0) / days.length);
-        const avgPrecip = days.reduce((s, d) => s + (d.precipitation_probability || 0), 0) / days.length;
+
+      // Fetch live 16-day forecast
+      const liveDays = await fetchForecast(coords.lat, coords.lon);
+      const lastLiveDate = liveDays[liveDays.length - 1]?.date;
+
+      let allDays = liveDays;
+
+      // If trip dates extend beyond 16-day window, fetch historical weather
+      if (dateRange?.from && dateRange?.to) {
+        const startStr = format(dateRange.from, 'yyyy-MM-dd');
+        const endStr = format(dateRange.to, 'yyyy-MM-dd');
+
+        if (lastLiveDate && endStr > lastLiveDate) {
+          const histStart = startStr > lastLiveDate
+            ? startStr
+            : format(addDays(new Date(lastLiveDate), 1), 'yyyy-MM-dd');
+          try {
+            const historicalDays = await fetchHistoricalWeather(
+              coords.lat, coords.lon, histStart, endStr
+            );
+            const liveSet = new Set(liveDays.map(d => d.date));
+            allDays = [...liveDays, ...historicalDays.filter(h => !liveSet.has(h.date))];
+          } catch {
+            // Historical fetch failed — proceed with live data only
+          }
+        }
+      }
+
+      setForecastDays(allDays);
+      if (allDays.length > 0) {
+        // Filter to trip date range if available
+        let relevantDays = allDays;
+        if (dateRange?.from && dateRange?.to) {
+          const startStr = format(dateRange.from, 'yyyy-MM-dd');
+          const endStr = format(dateRange.to, 'yyyy-MM-dd');
+          relevantDays = allDays.filter(d => d.date >= startStr && d.date <= endStr);
+          if (relevantDays.length === 0) relevantDays = allDays;
+        }
+        const avgMax = Math.round(relevantDays.reduce((s, d) => s + d.temperature_max, 0) / relevantDays.length);
+        const avgMin = Math.round(relevantDays.reduce((s, d) => s + d.temperature_min, 0) / relevantDays.length);
+        const avgPrecip = relevantDays.reduce((s, d) => s + (d.precipitation_probability || 0), 0) / relevantDays.length;
         const condition = avgPrecip > 50 ? 'rain' : avgPrecip > 25 ? 'partly cloudy' : 'clear';
+        const hasHistorical = relevantDays.some(d => d.isHistorical);
         setWeatherForecast({
-          date: days[0].date, temperature_max: avgMax, temperature_min: avgMin,
+          date: relevantDays[0].date, temperature_max: avgMax, temperature_min: avgMin,
+          temperature_avg: Math.round((avgMax + avgMin) / 2),
+          weather_code: 0,
           condition, precipitation_probability: avgPrecip,
+          isHistorical: hasHistorical,
         } as ForecastDay);
       }
     } catch {
@@ -215,7 +254,7 @@ export default function TravelCapsule() {
     } finally {
       setIsFetchingWeather(false);
     }
-  }, [destination, t]);
+  }, [destination, dateRange, t]);
 
   // ── Generate ──
   const handleGenerate = async () => {
