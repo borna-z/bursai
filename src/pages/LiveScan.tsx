@@ -19,7 +19,7 @@ function AcceptedOverlay({ onDone, label }: { onDone: () => void; label: string 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      className="absolute inset-0 z-30 flex items-center justify-center bg-background/60 backdrop-blur-sm"
     >
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
@@ -27,10 +27,10 @@ function AcceptedOverlay({ onDone, label }: { onDone: () => void; label: string 
         transition={{ duration: 0.2 }}
         className="flex flex-col items-center gap-3"
       >
-        <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center">
-          <Check className="w-10 h-10 text-emerald-400" strokeWidth={3} />
+        <div className="w-20 h-20 rounded-full bg-accent/20 flex items-center justify-center">
+          <Check className="w-10 h-10 text-accent" strokeWidth={3} />
         </div>
-        <p className="text-white text-sm font-medium">{label}</p>
+        <p className="text-foreground text-sm font-medium">{label}</p>
       </motion.div>
     </motion.div>
   );
@@ -42,8 +42,8 @@ function AutoProgressRing({ progress }: { progress: number }) {
   const offset = circumference * (1 - progress);
   return (
     <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 72 72">
-      <circle cx="36" cy="36" r="30" fill="none" stroke="rgba(34,197,94,0.2)" strokeWidth="3" />
-      <circle cx="36" cy="36" r="30" fill="none" stroke="#22c55e" strokeWidth="3" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} style={{ transition: 'stroke-dashoffset 80ms ease-out' }} />
+      <circle cx="36" cy="36" r="30" fill="none" stroke="hsl(var(--accent) / 0.2)" strokeWidth="3" />
+      <circle cx="36" cy="36" r="30" fill="none" stroke="hsl(var(--accent))" strokeWidth="3" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} style={{ transition: 'stroke-dashoffset 80ms ease-out' }} />
     </svg>
   );
 }
@@ -58,10 +58,9 @@ function ScanOverlay({ label }: { label: string }) {
 
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-center">
-      {/* Radial pulse */}
-      <div className="w-48 h-48 rounded-full border border-emerald-400/30 animate-ping" />
+      <div className="w-48 h-48 rounded-full border border-accent/30 animate-ping" />
       <div className="absolute">
-        <span className="text-white text-sm font-medium bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm animate-pulse">
+        <span className="text-foreground text-sm font-medium bg-background/60 px-4 py-2 rounded-full backdrop-blur-sm animate-pulse">
           {label}
         </span>
       </div>
@@ -76,8 +75,8 @@ function Reticle({ stable }: { stable: boolean }) {
       <div className={cn(
         'w-[200px] h-[200px] rounded-full border-2 transition-all duration-300',
         stable
-          ? 'border-emerald-400/60 shadow-[0_0_30px_rgba(34,197,94,0.15)]'
-          : 'border-white/20'
+          ? 'border-accent/60 shadow-[0_0_30px_hsl(var(--accent)/0.15)]'
+          : 'border-foreground/20'
       )} />
     </div>
   );
@@ -99,9 +98,9 @@ function ScanGuidance({ hint, autoMode }: { hint: FramingHint; autoMode: boolean
     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-[120px] pointer-events-none z-10">
       <div className={cn(
         'px-4 py-2 rounded-full backdrop-blur-sm text-xs font-medium transition-all duration-300',
-        hint === 'ready' ? 'bg-emerald-500/20 text-emerald-300' :
-        hint === 'more_light' ? 'bg-amber-500/20 text-amber-300' :
-        'bg-white/10 text-white/70'
+        hint === 'ready' ? 'bg-accent/20 text-accent' :
+        hint === 'more_light' ? 'bg-warning/20 text-warning' :
+        'bg-foreground/10 text-muted-foreground'
       )}>
         {labels[hint] || labels.ready}
       </div>
@@ -141,9 +140,6 @@ export default function LiveScan() {
   });
 
   useEffect(() => {
-    // In Median native app, the web camera may be restricted — if getUserMedia
-    // fails we can still use the native camera bridge via AddGarment flow.
-    // LiveScan's continuous video feed works best with browser camera access.
     let cancelled = false;
     async function startCamera() {
       try {
@@ -153,7 +149,6 @@ export default function LiveScan() {
         if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); setCameraReady(true); }
       } catch (err) {
         console.error('Camera error:', err);
-        // In Median, suggest using the single-capture flow instead
         if (isMedianApp()) {
           setCameraError(t('scan.use_add_garment'));
         } else {
@@ -185,26 +180,25 @@ export default function LiveScan() {
   }, [finish, navigate]);
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col">
-      {/* Top bar — minimal */}
-      <div className="relative z-10 flex items-center justify-between px-4 py-3 bg-black/30 backdrop-blur-xl">
-        <Button variant="ghost" size="icon" className="text-white hover:bg-white/10" onClick={handleClose}>
+    <div className="fixed inset-0 bg-background z-50 flex flex-col">
+      {/* Top bar — glass */}
+      <div className="relative z-10 flex items-center justify-between px-4 py-3 bg-background/70 backdrop-blur-xl border-b border-border/10">
+        <Button variant="ghost" size="icon" className="text-foreground hover:bg-foreground/[0.06]" onClick={handleClose}>
           <X className="w-5 h-5" />
         </Button>
         <div className="flex items-center gap-2">
-          {/* Auto mode — icon only */}
           <button
             onClick={() => setAutoMode((v) => !v)}
             className={cn(
               'w-9 h-9 rounded-full flex items-center justify-center transition-all',
-              autoMode ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white/50'
+              autoMode ? 'bg-accent/20 text-accent' : 'bg-foreground/10 text-muted-foreground'
             )}
           >
             {autoMode ? <Zap className="w-4 h-4" /> : <ZapOff className="w-4 h-4" />}
           </button>
         </div>
         {scanCount > 0 ? (
-          <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 font-medium text-sm" onClick={handleDone}>{t('scan.done')}</Button>
+          <Button variant="ghost" size="sm" className="text-foreground hover:bg-foreground/[0.06] font-medium text-sm" onClick={handleDone}>{t('scan.done')}</Button>
         ) : <div className="w-12" />}
       </div>
 
@@ -213,9 +207,9 @@ export default function LiveScan() {
         {cameraError ? (
           <div className="absolute inset-0 flex items-center justify-center p-8 text-center">
             <div className="space-y-4">
-              <Camera className="w-16 h-16 text-white/30 mx-auto" />
-              <p className="text-white/70 text-sm">{cameraError}</p>
-              <Button variant="outline" className="text-white border-white/20" onClick={handleClose}>{t('common.back')}</Button>
+              <Camera className="w-16 h-16 text-muted-foreground/50 mx-auto" />
+              <p className="text-muted-foreground text-sm">{cameraError}</p>
+              <Button variant="outline" onClick={handleClose}>{t('common.back')}</Button>
             </div>
           </div>
         ) : (
@@ -251,29 +245,26 @@ export default function LiveScan() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 z-20 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center p-6"
+              className="absolute inset-0 z-20 bg-background/90 backdrop-blur-xl flex flex-col items-center justify-center p-6"
             >
               <div className="w-full max-w-sm space-y-6">
-                {/* Captured image */}
                 <img
                   src={lastResult.thumbnailUrl}
                   alt="Scanned garment"
-                  className="w-full aspect-[3/4] object-cover rounded-2xl shadow-2xl"
+                  className="w-full aspect-[3/4] object-cover rounded-2xl shadow-2xl border border-border/20"
                 />
-                {/* Analysis text */}
                 <div className="text-center space-y-1">
-                  <p className="text-white text-lg font-semibold">{lastResult.analysis.title}</p>
-                  <p className="text-white/60 text-sm capitalize">
+                  <p className="text-foreground text-lg font-semibold">{lastResult.analysis.title}</p>
+                  <p className="text-muted-foreground text-sm capitalize">
                     {lastResult.analysis.category} · {lastResult.analysis.color_primary}
                     {lastResult.analysis.material ? ` · ${lastResult.analysis.material}` : ''}
                   </p>
                 </div>
-                {/* Actions */}
                 <div className="flex gap-3">
-                  <Button variant="outline" className="flex-1 border-white/20 text-white hover:bg-white/10" onClick={retake}>
+                  <Button variant="outline" className="flex-1" onClick={retake}>
                     <RotateCcw className="w-4 h-4 mr-2" />{t('scan.retake')}
                   </Button>
-                  <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleAccept}>
+                  <Button className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground" onClick={handleAccept}>
                     <Check className="w-4 h-4 mr-2" />{t('scan.accept')}
                   </Button>
                 </div>
@@ -285,30 +276,30 @@ export default function LiveScan() {
         {/* Scan counter pill — bottom left */}
         {scanCount > 0 && !lastResult && (
           <div className="absolute bottom-4 left-4 z-10">
-            <div className="flex items-center gap-1.5 bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
-              <Check className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-white text-xs font-medium">{scanCount}</span>
+            <div className="flex items-center gap-1.5 bg-background/60 backdrop-blur-sm px-3 py-1.5 rounded-full border border-border/10">
+              <Check className="w-3.5 h-3.5 text-accent" />
+              <span className="text-foreground text-xs font-medium">{scanCount}</span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Shutter button — smaller, cleaner */}
-      <div className="relative z-10 flex items-center justify-center py-6 bg-black/30 backdrop-blur-xl">
+      {/* Shutter button — glass bar */}
+      <div className="relative z-10 flex items-center justify-center py-6 bg-background/70 backdrop-blur-xl border-t border-border/10">
         <div className="relative w-16 h-16">
           {autoMode && autoProgress > 0 && <AutoProgressRing progress={autoProgress} />}
           <button
             disabled={!canCapture}
             onClick={handleCapture}
             className={cn(
-              'w-16 h-16 rounded-full border-[3px] border-white flex items-center justify-center transition-all active:scale-90',
+              'w-16 h-16 rounded-full border-[3px] border-foreground flex items-center justify-center transition-all active:scale-90',
               !canCapture ? 'opacity-30' : 'opacity-100'
             )}
             aria-label="Scan"
           >
             <div className={cn(
               'w-12 h-12 rounded-full transition-colors',
-              autoMode && autoProgress > 0.5 ? 'bg-emerald-400/80' : 'bg-white/90'
+              autoMode && autoProgress > 0.5 ? 'bg-accent/80' : 'bg-foreground/90'
             )} />
           </button>
         </div>
