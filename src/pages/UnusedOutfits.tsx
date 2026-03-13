@@ -31,7 +31,7 @@ export default function UnusedOutfits() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: insights } = useInsights();
-  const { data: weather } = useWeather();
+  const { weather } = useWeather();
   const queryClient = useQueryClient();
 
   const [outfits, setOutfits] = useState<GeneratedOutfitCard[]>([]);
