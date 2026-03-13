@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/react";
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,6 +13,13 @@ import { SeedProvider } from "@/contexts/SeedContext";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import { AnimatedRoutes } from "@/components/layout/AnimatedRoutes";
 import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
+
+// Lazy-load Sentry ErrorBoundary — only wraps if Sentry is available
+const SentryErrorBoundary = lazy(() =>
+  import("@sentry/react").then((mod) => ({
+    default: mod.ErrorBoundary,
+  }))
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,39 +36,47 @@ const queryClient = new QueryClient({
   },
 });
 
-const SentryFallback = () => (
+const AppInner = () => (
   <ErrorBoundary>
-    <></>
+    <HelmetProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AuthProvider>
+            <LanguageProvider>
+              <LocationProvider>
+              <SeedProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
+                  <ScrollToTop />
+                  <AnimatedRoutes />
+                </BrowserRouter>
+              </TooltipProvider>
+              </SeedProvider>
+              </LocationProvider>
+            </LanguageProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </HelmetProvider>
   </ErrorBoundary>
 );
 
-const App = () => (
-  <Sentry.ErrorBoundary fallback={<SentryFallback />}>
-    <ErrorBoundary>
-      <HelmetProvider>
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider>
-            <AuthProvider>
-              <LanguageProvider>
-                <LocationProvider>
-                <SeedProvider>
-                <TooltipProvider>
-                  <Toaster />
-                  <Sonner />
-                  <BrowserRouter>
-                    <ScrollToTop />
-                    <AnimatedRoutes />
-                  </BrowserRouter>
-                </TooltipProvider>
-                </SeedProvider>
-                </LocationProvider>
-              </LanguageProvider>
-            </AuthProvider>
-          </ThemeProvider>
-        </QueryClientProvider>
-      </HelmetProvider>
-    </ErrorBoundary>
-  </Sentry.ErrorBoundary>
-);
+const App = () => {
+  const hasSentry = !!import.meta.env.VITE_SENTRY_DSN;
+
+  if (hasSentry) {
+    return (
+      <Suspense fallback={<AppInner />}>
+        <SentryErrorBoundary fallback={<ErrorBoundary><></></ErrorBoundary>}>
+          <AppInner />
+        </SentryErrorBoundary>
+      </Suspense>
+    );
+  }
+
+  return <AppInner />;
+};
 
 export default App;
