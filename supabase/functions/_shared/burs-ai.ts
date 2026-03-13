@@ -470,7 +470,6 @@ export async function callBursAI(
           if (result?.__parseError) { lastError = new Error("Failed to parse AI tool call response"); break; }
 
           if (cacheTtlSeconds > 0 && cacheKey) {
-            memSet(cacheKey, result, usedModel);
             if (supabaseServiceClient) storeCache(supabaseServiceClient, cacheKey, result, usedModel, cacheTtlSeconds);
           }
           logUsage(supabaseServiceClient, {
