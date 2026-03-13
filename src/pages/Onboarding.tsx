@@ -5,6 +5,7 @@ import { EASE_CURVE } from '@/lib/motion';
 import { Loader2 } from 'lucide-react';
 import { useUpdateProfile, useProfile } from '@/hooks/useProfile';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { LanguageStep } from '@/components/onboarding/LanguageStep';
 import { AccentColorStep } from '@/components/onboarding/AccentColorStep';
 import { QuickStyleQuiz } from '@/components/onboarding/QuickStyleQuiz';
