@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { hapticLight } from '@/lib/haptics';
+import { stripBrands } from '@/lib/stripBrands';
 import { getOccasionLabel } from '@/lib/occasionLabel';
 import type { Garment } from '@/hooks/useGarments';
 
