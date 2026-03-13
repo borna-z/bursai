@@ -42,12 +42,13 @@ export default function PublicProfile() {
     const load = async () => {
       if (!username) { setNotFound(true); setLoading(false); return; }
 
-      const { data: profileData, error } = await supabase
+      const { data: rawProfile, error } = await supabase
         .from('public_profiles' as any)
         .select('id, username, display_name, avatar_path')
         .eq('username', username)
         .single();
 
+      const profileData = rawProfile as unknown as PublicProfile | null;
       if (error || !profileData) { setNotFound(true); setLoading(false); return; }
       setProfile(profileData);
 
