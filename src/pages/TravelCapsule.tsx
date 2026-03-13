@@ -23,7 +23,7 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
-import { getCoordinatesFromCity, fetchForecast, type ForecastDay } from '@/hooks/useForecast';
+import { getCoordinatesFromCity, fetchForecast, fetchHistoricalWeather, type ForecastDay } from '@/hooks/useForecast';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getDateFnsLocale } from '@/lib/dateLocale';
