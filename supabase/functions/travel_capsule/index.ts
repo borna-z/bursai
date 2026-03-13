@@ -95,9 +95,12 @@ serve(async (req) => {
       : "unknown";
 
     const occasionsList = occasions?.length > 0 ? occasions.join(", ") : "mixed casual/semi-formal";
-    const occasionCount = occasions?.length || 2;
-    const targetOutfits = Math.min(duration_days * occasionCount, 20);
+    const outfitsPerDay = Math.max(1, Math.min(4, outfits_per_day || 1));
+    const targetOutfits = Math.min(duration_days * outfitsPerDay, 20);
     const maxItems = Math.min(Math.ceil(duration_days * 2.5), 25);
+
+    // Must-have items filtering
+    const mustHaveIds: string[] = (must_have_items || []).filter((id: string) => validIds.has(id));
 
     // Scale max_tokens based on trip length and outfit count
     const maxTokens = estimateMaxTokens({ outputItems: targetOutfits + maxItems, perItemTokens: 40, baseTokens: 400, cap: 4096 });
