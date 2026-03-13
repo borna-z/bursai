@@ -4312,6 +4312,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'calendar.or_ics': 'Eller koble med ICS-lenke (Apple, Outlook)', 'calendar.sync': 'Synk kalender',
     'weather.bring_umbrella': 'Ta med paraply!', 'weather.cold_warning': 'Kaldt! Kle deg varmt',
     'weather.hot_warning': 'Varmt! Tenk på solen', 'weather.unavailable': 'Prognose ikke tilgjengelig',
+    'weather.estimate': 'estimat',
     'weather.outfit_created_for': 'Antrekket ble laget for', 'weather.differs': 'været avviker med',
     'weather.fetching': 'Henter prognose...',
     'weather.condition.clear': 'Klart', 'weather.condition.cloudy': 'Skyet', 'weather.condition.fog': 'Tåke',
