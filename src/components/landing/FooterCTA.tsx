@@ -4,7 +4,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { Helmet } from "react-helmet-async";
-import bursLandingLogo from "@/assets/burs-logo-white.png";
+import bursFooterLogo from "@/assets/burs-monogram.png";
 
 const FAQ_KEYS = [
   { q: "landing.faq1_q", a: "landing.faq1_a" },
