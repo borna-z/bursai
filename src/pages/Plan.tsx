@@ -313,17 +313,17 @@ export default function PlanPage() {
             </div>
           )}
 
-          {/* Calendar events */}
-          {calendarEvents.length > 0 && (
-            <CalendarEventsList events={calendarEvents} maxDisplay={4} />
-          )}
-
           {/* AI Day Summary */}
           <DaySummaryCard
             summary={daySummary}
             isLoading={isSummaryLoading}
             onGenerateFromHint={() => setQuickGenerateSheetOpen(true)}
           />
+
+          {/* Fallback: show raw events only when no AI summary available */}
+          {calendarEvents.length > 0 && !daySummary && !isSummaryLoading && (
+            <CalendarEventsList events={calendarEvents} maxDisplay={4} />
+          )}
 
           {/* ─── Outfit section ─── */}
           {isLoading ? (
