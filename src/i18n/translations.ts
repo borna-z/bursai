@@ -8724,6 +8724,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     'insights.wardrobe_usage': 'استفاده از کمد', 'insights.used_label': 'استفاده شده', 'insights.unused_label': 'استفاده نشده',
     'wardrobe.import_link': 'وارد کردن از لینک', 'wardrobe.live_scan': 'BURS Live Scan',
     'settings.row.insights': 'بینش کمد لباس', 'settings.row.insights_sub': 'آمار و تحلیل',
+    'weather.enter_city': 'شهری وارد کنید...', 'weather.estimate': 'تخمین', 'weather.bring_umbrella': 'چتر ببرید!', 'weather.cold_warning': 'سرد! لباس گرم بپوشید', 'weather.hot_warning': 'گرم! مراقب آفتاب باشید',
+    'weather.unavailable': 'پیش‌بینی در دسترس نیست', 'weather.outfit_created_for': 'ست برای دمای', 'weather.differs': 'هوا متفاوت است با', 'weather.fetching': 'در حال دریافت پیش‌بینی...',
     'plan.today': 'امروز', 'plan.tomorrow': 'فردا', 'plan.your_day': 'روز شما', 'plan.plan_from_this': 'برنامه از این',
     'plan.no_outfit': 'ستی برنامه‌ریزی نشده', 'plan.plan': 'برنامه', 'plan.generate': 'برایم بساز',
     'plan.swap': 'تعویض', 'plan.details': 'جزئیات', 'plan.mark_worn': 'علامت پوشیده شده', 'plan.remove': 'حذف',
