@@ -1,101 +1,119 @@
 
-# BURS Roadmap v2 — 25 Steps
 
-## Phase 1: UX Polish & Performance (Steps 1–7)
+## 10-Step Plan: From 72 → 85+ Score
 
-### Step 1: Skeleton & Loading State Audit ✅
-Audited all data-fetching views. Replaced raw `Loader2` spinners with contextual shimmer skeletons on Insights, Plan, Settings, and AIChat pages. Added `InsightsPageSkeleton`, `PlanPageSkeleton`, `SettingsPageSkeleton`, and `ChatPageSkeleton` to shared skeletons file. Home, Wardrobe, GarmentDetail, and OutfitDetail already had proper skeletons.
-
-### Step 2: Haptic & Micro-Interaction Pass ✅
-Added haptic feedback to: GarmentDetail (toggle laundry, mark worn, delete), OutfitDetail (save/unsave, rating, mark worn), DayCard (swap, mark worn, remove, plan, generate), PlanTomorrowCard, InsightsBanner, SmartInsightCard, SwipeableGarmentCard (swipe open). Replaced raw `navigator.vibrate` calls in LiveScan with standardized haptics. Added spring `whileTap` animations to SmartInsightCard.
-
-### Step 3: Offline Mode & Queued Actions ✅
-Created `lib/offlineQueue.ts` with localStorage-backed mutation queue (enqueue, replay, clear). Added `useOfflineQueue` hook for auto-replay on reconnect. Upgraded `OfflineBanner` to show queue count and syncing state. Configured React Query with `networkMode: 'offlineFirst'` and extended `gcTime` to 30 minutes for offline data access.
-
-### Step 4: Pull-to-Refresh & Infinite Scroll ✅
-Added PullToRefresh to Plan and Insights pages (Home and Wardrobe already had it). Wardrobe already has virtualized lists via @tanstack/react-virtual and infinite scroll with IntersectionObserver.
-
-### Step 5: Gesture Navigation ✅
-Added swipe-right-to-wear gesture on TodayOutfitCard with 100px threshold. Added "Swipe right to wear" hint text. Wardrobe already has swipe-left actions. Plan already has day navigation.
-
-### Step 6: Accessibility Deep Pass ✅
-Added `prefers-reduced-motion` CSS media query to disable all animations/transitions for users who prefer reduced motion. Updated AnimatedPage to respect `useReducedMotion()` from framer-motion (simpler fade-only with shorter duration). Existing aria-labels and focus-visible rings remain intact.
-
-### Step 7: Transition & Animation Polish ✅
-Wardrobe grid already uses staggered `animate-drape-in` with per-item delays (capped at 12 items). DayCard uses the same. Home page sections have individual motion.div entrance animations. All interactive cards have `whileTap` spring animations. Route transitions use 0.4s ease with scale.
+Based on your breakdown, here are 10 high-impact steps ordered by effort-to-value ratio.
 
 ---
 
-## Phase 2: Advanced Analytics & Insights (Steps 8–13)
+### Step 1 — Remove `.env` from Git history
+The `.env` file with real keys in the repo is the single biggest diligence red flag. We need to add it to `.gitignore` (it's already there but was committed before). Rotate any leaked keys.
 
-### Step 8: Spending Dashboard ✅
-Created SpendingDashboard component with total wardrobe value, cost-per-category bars, best/worst CPW garments. Premium-gated.
-
-### Step 9: Seasonal Wardrobe Report ✅
-Covered by Style Evolution + Category Balance + Sustainability + Heatmap widgets combined.
-
-### Step 10: Outfit Repeat Tracker ✅
-Created OutfitRepeatTracker showing most-repeated outfits and stale outfits (60+ days). Premium-gated.
-
-### Step 11: Wear Heatmap Calendar ✅
-Created WearHeatmap with 90-day grid, streak counter, and consistency score. Premium-gated.
-
-### Step 12: Category Balance Chart ✅
-Created CategoryRadar with animated horizontal bars per category. Premium-gated.
-
-### Step 13: Personal Style Report Card ✅
-Created StyleReportCard calling burs_style_engine for AI archetype, scores, and summary. Premium-gated.
+**Impact**: Security +10 | Investor readiness +5
 
 ---
 
-## Phase 3: Social & Community (Steps 14–19)
+### Step 2 — Fix lockfile sync
+The `bun.lock`, `bun.lockb`, and `package-lock.json` all exist simultaneously. Pick one package manager, delete the others, and ensure `ci` installs pass cleanly.
 
-### Step 14: Public Style Profile ✅
-Created PublicProfile page at `/u/:username`. Added `username` column to profiles. Shows avatar, display name, shared outfits grid with reactions. Public access via RLS policy.
-
-### Step 15: Outfit Inspiration Feed ✅
-Created InspirationFeed page at `/feed`. Shows community shared outfits with occasion filters, save-to-inspiration feature, and outfit reactions. Excludes own outfits. Uses `inspiration_saves` table.
-
-### Step 16: Outfit Reactions & Kudos ✅
-Created `OutfitReactions` component with 🔥 styled, 💎 creative, 🌿 sustainable reactions. Toggle on/off with optimistic UI. Used on share pages, public profiles, and feed. `outfit_reactions` table with RLS.
-
-### Step 17: Style Challenge System ✅
-Created StyleChallenges page at `/challenges`. Shows active weekly challenges with join/complete actions. `style_challenges` + `challenge_participations` tables with proper RLS.
-
-### Step 18: Outfit Request / Style Advice ✅
-Covered by existing AI chat stylist which handles outfit requests with context from user's wardrobe.
-
-### Step 19: Friend Wardrobe Peek ✅
-Created `friendships` table with pending/accepted/declined status and proper RLS. UI deferred — DB foundation ready for future friend features.
+**Impact**: Code quality +3 | Investor readiness +3
 
 ---
 
-## Phase 4: AI Intelligence v3 (Steps 20–25)
+### Step 3 — Replace placeholder README
+Write a real README with: product description, architecture overview, local dev setup, environment variables needed (without values), deployment instructions, and tech stack summary.
 
-### Step 20: Visual Search & "Shop My Look" ✅
-Created `visual_search` Edge Function using Gemini 2.5 Flash multimodal. Users upload inspiration photos; AI identifies garments and matches against wardrobe with confidence scores. Gaps listed with shopping suggestions. Premium-gated page at `/ai/visual-search`.
-
-### Step 21: Mood-Based Outfit Generation ✅
-Created `mood_outfit` Edge Function with 6 mood presets (cozy, confident, creative, invisible, romantic, energetic) mapped to formality, color temperature, material, and vibe parameters. Saves generated outfit to DB. Page at `/ai/mood-outfit`.
-
-### Step 22: AI Outfit Mood Board ✅
-Mood board functionality integrated into the mood-based generation flow — each mood generates a complete outfit with explanation and style score. The existing flatlay generation can be triggered from the outfit detail page.
-
-### Step 23: Smart Shopping List ✅
-Created `smart_shopping_list` Edge Function that analyzes wardrobe gaps, style profile, and upcoming calendar events to generate 4-6 prioritized shopping suggestions with budget hints, new outfit estimates, and style specifications. Page at `/ai/smart-shopping`.
-
-### Step 24: Wardrobe Aging Predictions ✅
-Created `wardrobe_aging` Edge Function using Gemini 2.5 Flash Lite. Predicts garment lifespan based on material, condition score, and wear frequency. Shows health percentage, months remaining, replacement reasons, and care tips. Page at `/ai/wardrobe-aging`.
-
-### Step 25: Style Twin Matching ✅
-Created `style_twin` Edge Function that builds a style vector from wardrobe attributes and identifies a creative archetype name, defining traits, real-world style icons, and signature styling moves. Includes community inspiration from shared outfits. Privacy-first (no user identity revealed). Page at `/ai/style-twin`.
+**Impact**: Investor readiness +5 | Defensibility +3
 
 ---
 
-## Previous Completed Work
+### Step 4 — Reduce main bundle to under 500KB
+The ~1.6MB chunk is the biggest performance issue. Actions:
+- Audit `AnimatedRoutes.tsx` — several eagerly-imported pages (Auth, Landing, Home) pull in heavy deps like `framer-motion`, `recharts`, `three.js`
+- Lazy-load `@react-three/*`, `recharts`, `three` — these are massive and only used on specific pages
+- Add `manualChunks` in `vite.config.ts` to split vendor libs
+- Tree-shake `lucide-react` (import individual icons, not the barrel)
 
-### AI Intelligence Roadmap v1 (Steps 1–25) — ✅ DONE
-Feedback learning, seasonal palettes, material affinity, weather intelligence, occasion mapping, style vectors, wear patterns, comfort/style learning, color profiling, body-aware fit, multi-event planning, travel capsules, social context, laundry integration, seasonal transitions, flat-lay preview, photo feedback, condition tracking, outfit DNA cloning, accessory pairing, gap analysis, cost-per-wear, sustainability score, style evolution timeline, predictive styling.
+**Impact**: Product scope +3 | Scalability +8 | Code quality +5
 
-### Localized Pricing — ✅ DONE
-All pricing surfaces use `src/lib/localizedPricing.ts` for locale-appropriate amounts. Stripe checkout maps locale → currency-specific Price IDs.
+---
+
+### Step 5 — Add critical-path test coverage (target: 40%)
+No tests = no confidence in refactoring. Priority test targets:
+- `useSubscription` (billing logic)
+- `useGarments` / `useOutfits` (core CRUD)
+- `ProtectedRoute` (auth gating)
+- `AuthContext` (session handling)
+- Key edge functions: `stripe_webhook`, `create_checkout_session`, `delete_user_account`
+
+**Impact**: Code quality +10 | Investor readiness +8 | Scalability +5
+
+---
+
+### Step 6 — Harden RLS and audit edge function auth
+Several edge functions have `verify_jwt = false` in `config.toml` but handle sensitive operations (e.g., `delete_user_account`, `create_checkout_session`). For each:
+- Confirm the function itself validates the JWT internally (most do, but audit all 36)
+- Document which functions are intentionally public (webhooks, VAPID key)
+- Run the security scan tool and resolve all `warn`-level findings
+
+**Impact**: Security +12 | Investor readiness +5
+
+---
+
+### Step 7 — Add error monitoring and observability
+Sentry is initialized but only with `tracesSampleRate: 0.2` and no replay. Add:
+- Sentry session replay for error sessions
+- Structured error boundaries per route section (not just top-level)
+- Edge function error logging to an `error_logs` table or Sentry via `@sentry/deno`
+
+**Impact**: Scalability +5 | Code quality +3
+
+---
+
+### Step 8 — Add rate limiting to AI edge functions
+The AI functions (`style_chat`, `generate_outfit`, `mood_outfit`, etc.) have no rate limiting. A single user could burn through API credits. Add per-user rate limits via a simple counter in the database or in-memory per-request check.
+
+**Impact**: Security +5 | Scalability +5 | Defensibility +3
+
+---
+
+### Step 9 — Implement proper CI pipeline
+Add a GitHub Actions workflow that runs on every PR:
+- `npm ci` (validates lockfile)
+- `npm run build` (catches type errors)
+- `npm run test` (once tests exist from Step 5)
+- `npm run lint`
+- Bundle size check (fail if main chunk exceeds threshold)
+
+**Impact**: Code quality +5 | Investor readiness +5 | Scalability +3
+
+---
+
+### Step 10 — Document architecture and IP
+Create a `/docs` folder with:
+- Architecture diagram (data flow, AI pipeline, billing flow)
+- AI abstraction layer docs (`burs-ai.ts` is genuinely defensible IP — document it)
+- API reference for edge functions
+- Security model documentation (RLS policies, auth flow)
+
+**Impact**: Defensibility +10 | Investor readiness +8
+
+---
+
+### Projected score after all 10 steps
+
+| Category | Current | Projected |
+|---|---|---|
+| Product scope | 82 | 85 |
+| Infrastructure | 78 | 85 |
+| Code quality | 67 | 82 |
+| Scalability | 71 | 84 |
+| Security | 58 | 80 |
+| Defensibility | 62 | 78 |
+| Investor readiness | 60 | 81 |
+| **Overall** | **72** | **~82** |
+
+Steps 1–4 are quick wins (1–2 days each). Steps 5–6 are medium effort (3–5 days). Steps 7–10 are ongoing but each individually moves the needle.
+
+I can start implementing any of these steps. Which ones would you like to tackle first?
+
