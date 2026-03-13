@@ -88,7 +88,7 @@ export function PlanningSheet({ open, onOpenChange, date, onSelectOutfit, onCrea
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="secondary" className="capitalize text-xs">{t(`occasion.${outfit.occasion}`)}</Badge>
+                        <Badge variant="secondary" className="capitalize text-xs">{getOccasionLabel(outfit.occasion, t)}</Badge>
                         {outfit.style_vibe && (<Badge variant="outline" className="text-xs">{outfit.style_vibe}</Badge>)}
                       </div>
                       {outfit.explanation && (<p className="text-xs text-muted-foreground line-clamp-1">{outfit.explanation}</p>)}

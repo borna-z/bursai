@@ -260,8 +260,7 @@ export default function OutfitDetailPage() {
   }
 
   const weather = (outfit as any).weather as { temp?: number; condition?: string; precipitation?: 'none' | 'rain' | 'snow'; wind?: 'low' | 'medium' | 'high' } | null;
-  const occasionLabel = t(`occasion.${outfit.occasion.toLowerCase()}`);
-  const displayOccasion = occasionLabel.startsWith('occasion.') ? outfit.occasion : occasionLabel;
+  const displayOccasion = getOccasionLabel(outfit.occasion, t);
 
   // Build metadata pieces
   const metaParts = [displayOccasion, outfit.style_vibe].filter(Boolean);

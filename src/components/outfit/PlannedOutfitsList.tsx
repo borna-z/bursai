@@ -58,7 +58,7 @@ function PlannedOutfitCard({ outfit, onDelete }: PlannedOutfitCardProps) {
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="secondary" className="capitalize text-xs">{t(`occasion.${outfit.occasion}`)}</Badge>
+              <Badge variant="secondary" className="capitalize text-xs">{getOccasionLabel(outfit.occasion, t)}</Badge>
               {outfit.rating && (
                 <div className="flex items-center gap-0.5 text-sm text-muted-foreground">
                   <Star className="w-3 h-3 fill-primary text-primary" />{outfit.rating}
