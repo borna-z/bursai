@@ -91,15 +91,15 @@ export function AnimatedRoutes() {
   if (isFirstRender.current) isFirstRender.current = false;
 
   return (
-    <AnimatePresence mode="sync" initial={false}>
+    <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={location.pathname}
+        className="min-h-[100dvh] bg-background"
         variants={variants}
         initial={skipInitial ? false : "initial"}
         animate="animate"
         exit="exit"
         transition={transition}
-        style={{ minHeight: '100dvh' }}
       >
         <Suspense fallback={<PageSkeleton />}>
           <Routes location={location}>
