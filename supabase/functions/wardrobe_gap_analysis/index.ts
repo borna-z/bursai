@@ -135,6 +135,36 @@ CRITICAL RULES:
       cacheNamespace: "wardrobe_gap",
     }, supabase);
 
+    // Post-process: strip any brand names the AI may have included
+    const BRAND_NAMES = [
+      "Nike", "Adidas", "Puma", "Reebok", "New Balance", "Converse", "Vans",
+      "Levi's", "Levis", "Levi", "Wrangler", "Lee", "Diesel",
+      "Zara", "H&M", "HM", "Uniqlo", "Mango", "COS", "Arket", "& Other Stories",
+      "Ralph Lauren", "Polo", "Tommy Hilfiger", "Calvin Klein", "Hugo Boss", "Boss",
+      "Gucci", "Prada", "Balenciaga", "Louis Vuitton", "Burberry", "Versace",
+      "Common Projects", "Acne Studios", "A.P.C.", "APC", "Sandro", "AMI",
+      "The North Face", "Patagonia", "Arc'teryx", "Columbia", "Canada Goose",
+      "Timberland", "Dr. Martens", "Doc Martens", "Birkenstock", "Clarks",
+      "Dockers", "Gap", "Old Navy", "Massimo Dutti", "J.Crew", "J Crew",
+      "Under Armour", "Champion", "Carhartt", "Dickies", "Fjällräven",
+      "Ray-Ban", "Oakley", "Lacoste", "Fred Perry", "Stone Island",
+      "Barbour", "Gant", "Tiger of Sweden", "Filippa K", "Nudie Jeans",
+    ];
+    const brandPattern = new RegExp(
+      `\\b(${BRAND_NAMES.map(b => b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})('s)?\\b\\s*`,
+      'gi'
+    );
+    const stripBrands = (s: string) => s.replace(brandPattern, '').replace(/\s{2,}/g, ' ').trim();
+
+    if (result?.gaps && Array.isArray(result.gaps)) {
+      result.gaps = result.gaps.map((gap: any) => ({
+        ...gap,
+        item: stripBrands(gap.item || ''),
+        reason: stripBrands(gap.reason || ''),
+        search_query: stripBrands(gap.search_query || ''),
+      }));
+    }
+
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
