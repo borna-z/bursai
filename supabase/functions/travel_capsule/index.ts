@@ -146,32 +146,71 @@ Respond with valid JSON:
 }
 Write in ${localeName}.`;
 
+    // Build valid ID set and lookup structures early
+    const validIds = new Set(garments.map(g => g.id));
+    const titleIndex = new Map(garments.map(g => [g.title.toLowerCase().trim(), g.id]));
+
+    // Use tool calling for guaranteed structured output
+    const tools = [{
+      type: "function",
+      function: {
+        name: "create_travel_capsule",
+        description: "Create a travel capsule wardrobe with packing list and daily outfits",
+        parameters: {
+          type: "object",
+          properties: {
+            capsule_items: {
+              type: "array",
+              items: { type: "string" },
+              description: "Array of garment UUIDs selected for the capsule"
+            },
+            outfits: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  day: { type: "number" },
+                  occasion: { type: "string" },
+                  items: { type: "array", items: { type: "string" }, description: "Garment UUIDs for this outfit" },
+                  note: { type: "string" }
+                },
+                required: ["day", "occasion", "items", "note"]
+              }
+            },
+            packing_tips: { type: "array", items: { type: "string" } },
+            total_combinations: { type: "number" },
+            reasoning: { type: "string" }
+          },
+          required: ["capsule_items", "outfits", "packing_tips", "total_combinations", "reasoning"]
+        }
+      }
+    }];
+
     let result: any = null;
     let lastError: Error | null = null;
 
-    // Attempt AI call with JSON retry on parse failure
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const messages = attempt === 0
-          ? [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: `User wardrobe:\n${wardrobeDescription}` },
-            ]
-          : [
-              { role: "system", content: "You are a JSON formatter. Fix the following text into valid JSON matching the schema: { capsule_items: string[], outfits: [{day, occasion, items, note}], packing_tips: string[], total_combinations: number, reasoning: string }" },
-              { role: "user", content: lastError?.message || "Fix JSON" },
-            ];
-
         const { data: content } = await callBursAI({
-          messages,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: `User wardrobe:\n${wardrobeDescription}` },
+          ],
+          tools,
+          tool_choice: { type: "function", function: { name: "create_travel_capsule" } },
           complexity: attempt === 0 ? complexity : "trivial",
           max_tokens: maxTokens,
+          functionName: "travel_capsule",
         });
 
-        if (typeof content === "string") {
+        // callBursAI with tools returns parsed tool call arguments directly
+        if (content && typeof content === "object" && content.capsule_items) {
+          result = content;
+        } else if (typeof content === "string") {
+          // Fallback: parse JSON from string
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           if (!jsonMatch) {
-            lastError = new Error(content.slice(0, 500));
+            lastError = new Error("No JSON in response: " + content.slice(0, 300));
             continue;
           }
           result = JSON.parse(jsonMatch[0]);
@@ -181,19 +220,15 @@ Write in ${localeName}.`;
         break;
       } catch (e) {
         lastError = e instanceof Error ? e : new Error(String(e));
+        console.error(`travel_capsule attempt ${attempt} failed:`, lastError.message);
         if (attempt === 1) throw lastError;
       }
     }
 
     if (!result) throw lastError || new Error("Failed to generate capsule");
 
-    console.log("AI raw capsule_items:", JSON.stringify(result.capsule_items?.slice(0, 5)));
-    console.log("AI raw outfits count:", result.outfits?.length);
-    console.log("Valid garment IDs sample:", Array.from(validIds).slice(0, 3));
-
-    // Validate and resolve IDs — handles full UUIDs, prefix matches, and title-based fallback
-    const validIds = new Set(garments.map(g => g.id));
-    const titleIndex = new Map(garments.map(g => [g.title.toLowerCase().trim(), g.id]));
+    console.log("AI capsule_items count:", result.capsule_items?.length, "sample:", JSON.stringify(result.capsule_items?.slice(0, 3)));
+    console.log("AI outfits count:", result.outfits?.length);
 
     const resolveId = (id: string): string => {
       if (!id) return "";
@@ -204,7 +239,7 @@ Write in ${localeName}.`;
         const match = garments.find(g => g.id.startsWith(trimmed) || g.id.includes(trimmed));
         if (match) return match.id;
       }
-      // Title-based fallback (AI sometimes returns titles instead of IDs)
+      // Title-based fallback
       const byTitle = titleIndex.get(trimmed.toLowerCase());
       if (byTitle) return byTitle;
       console.warn("Unresolvable garment ID:", trimmed);
