@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Settings } from 'lucide-react';
-import { BursMonogram } from '@/components/ui/BursMonogram';
+
 import { useProfile } from '@/hooks/useProfile';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { useGarmentCount } from '@/hooks/useGarments';
@@ -60,10 +60,6 @@ export default function HomePage() {
             className="flex items-center justify-between overflow-visible"
           >
             <div className="flex items-center gap-2.5">
-              <a href="/" aria-label="BURS Home">
-                <BursMonogram size={28} className="md:hidden" />
-                <BursMonogram size={36} className="hidden md:block" />
-              </a>
               <h1 className="text-lg font-semibold tracking-tight" style={{ fontFamily: "'Sora', sans-serif" }}>
                 {getGreeting()}
               </h1>
