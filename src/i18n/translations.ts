@@ -4409,6 +4409,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.loading': 'Laster...', 'common.save': 'Lagre', 'common.cancel': 'Avbryt', 'common.delete': 'Slett',
     'common.edit': 'Rediger', 'common.close': 'Lukk', 'common.back': 'Tilbake', 'common.next': 'Neste',
     'common.done': 'Ferdig', 'common.search': 'Søk', 'common.something_wrong': 'Noe gikk galt', 'common.premium': 'Premium', 'common.or': 'eller',
+    'common.read_more': 'Les mer', 'common.less': 'Mindre', 'common.retry': 'Prøv igjen', 'common.error': 'Noe gikk galt',
     'trial.then_prefix': 'Deretter',
     'weather.enter_city': 'Skriv inn en by...',
     'chat.suggestion_1': 'Hva bør jeg ha på meg i dag?', 'chat.suggestion_2': 'Analyser stilen min', 'chat.suggestion_3': 'Hjelp meg velge til jobb',
