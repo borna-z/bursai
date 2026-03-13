@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -28,31 +29,39 @@ const queryClient = new QueryClient({
   },
 });
 
-const App = () => (
+const SentryFallback = () => (
   <ErrorBoundary>
-    <HelmetProvider>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <AuthProvider>
-            <LanguageProvider>
-              <LocationProvider>
-              <SeedProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Sonner />
-                <BrowserRouter>
-                  <ScrollToTop />
-                  <AnimatedRoutes />
-                </BrowserRouter>
-              </TooltipProvider>
-              </SeedProvider>
-              </LocationProvider>
-            </LanguageProvider>
-          </AuthProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    </HelmetProvider>
+    <></>
   </ErrorBoundary>
+);
+
+const App = () => (
+  <Sentry.ErrorBoundary fallback={<SentryFallback />}>
+    <ErrorBoundary>
+      <HelmetProvider>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider>
+            <AuthProvider>
+              <LanguageProvider>
+                <LocationProvider>
+                <SeedProvider>
+                <TooltipProvider>
+                  <Toaster />
+                  <Sonner />
+                  <BrowserRouter>
+                    <ScrollToTop />
+                    <AnimatedRoutes />
+                  </BrowserRouter>
+                </TooltipProvider>
+                </SeedProvider>
+                </LocationProvider>
+              </LanguageProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
+      </HelmetProvider>
+    </ErrorBoundary>
+  </Sentry.ErrorBoundary>
 );
 
 export default App;
