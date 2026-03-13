@@ -97,7 +97,6 @@ export function FooterCTA() {
                 </a>
               </div>
               <div className="flex items-center gap-4">
-                <LanguageSwitcher />
                 <a
                   href="https://www.instagram.com/burs_style"
                   target="_blank"

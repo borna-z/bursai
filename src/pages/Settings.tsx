@@ -1,8 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Palette, Shirt, Bell, User, Shield, LogOut, ChevronRight, TrendingUp, Database } from 'lucide-react';
 import { SettingsPageSkeleton } from '@/components/ui/skeletons';
-import { useQuery } from '@tanstack/react-query';
-
 const APP_VERSION = (globalThis as any).__APP_VERSION__ ?? '1.0.0';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
@@ -12,21 +10,7 @@ import { SettingsRow } from '@/components/settings/SettingsRow';
 import { SettingsGroup } from '@/components/settings/SettingsGroup';
 import { ProfileCard } from '@/components/settings/ProfileCard';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { supabase } from '@/integrations/supabase/client';
-
-function useIsAdmin() {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ['is-admin', user?.id],
-    queryFn: async () => {
-      if (!user) return false;
-      const { data } = await supabase.rpc('is_admin', { _user_id: user.id });
-      return !!data;
-    },
-    enabled: !!user,
-    staleTime: 1000 * 60 * 10,
-  });
-}
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 
 export default function SettingsPage() {
   const navigate = useNavigate();
