@@ -189,6 +189,68 @@ Write in ${localeName}.`;
     let result: any = null;
     let lastError: Error | null = null;
 
+    const buildDeterministicFallback = () => {
+      const tops = garments.filter(g => g.category === "top").slice(0, 6);
+      const bottoms = garments.filter(g => g.category === "bottom").slice(0, 4);
+      const shoes = garments.filter(g => g.category === "shoes").slice(0, 3);
+      const outerwear = garments.filter(g => g.category === "outerwear").slice(0, 2);
+      const accessories = garments.filter(g => g.category === "accessory" || g.category === "accessories" || g.category === "bag").slice(0, 2);
+
+      const capsuleItems = Array.from(new Set([
+        ...tops.map(g => g.id),
+        ...bottoms.map(g => g.id),
+        ...shoes.map(g => g.id),
+        ...outerwear.map(g => g.id),
+        ...accessories.map(g => g.id),
+      ])).slice(0, maxItems);
+
+      const daysToGenerate = Math.min(duration_days, Math.max(3, Math.min(targetOutfits, duration_days * Math.max(1, occasionCount))));
+      const outfits = Array.from({ length: daysToGenerate }).map((_, i) => {
+        const items = [
+          tops[i % Math.max(tops.length, 1)]?.id,
+          bottoms[i % Math.max(bottoms.length, 1)]?.id,
+          shoes[i % Math.max(shoes.length, 1)]?.id,
+        ].filter(Boolean) as string[];
+
+        if ((weather?.temperature_min ?? 15) <= 12 && outerwear.length > 0) {
+          items.push(outerwear[i % outerwear.length].id);
+        }
+
+        if (items.length < 2) {
+          items.push(...capsuleItems.slice(0, Math.max(0, 2 - items.length)));
+        }
+
+        return {
+          day: i + 1,
+          occasion: occasions?.[i % Math.max(occasions?.length || 0, 1)] || (isSv ? "vardag" : "casual"),
+          items: Array.from(new Set(items)).slice(0, 4),
+          note: isSv ? "En flexibel baslook för resedagen." : "A flexible core look for travel day.",
+        };
+      }).filter((o) => o.items.length >= 2);
+
+      return {
+        capsule_items: capsuleItems,
+        outfits,
+        packing_tips: isSv
+          ? [
+              "Välj plagg som fungerar i lager.",
+              "Håll dig till en enhetlig färgpalett för fler kombinationer.",
+              "Packa ett extra par skor för variation och komfort.",
+            ]
+          : [
+              "Choose pieces that layer well.",
+              "Keep a cohesive color palette for more combinations.",
+              "Pack one backup pair of shoes for comfort and variation.",
+            ],
+        total_combinations: outfits.length,
+        reasoning: isSv
+          ? "Automatisk fallback användes för att säkerställa en komplett kapsel från din garderob."
+          : "Automatic fallback was used to guarantee a complete capsule from your wardrobe.",
+      };
+    };
+
+    console.log("travel_capsule v3 start", { duration_days, garment_count: garments.length, targetOutfits, maxItems });
+
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const { data: content } = await callBursAI({
@@ -203,29 +265,41 @@ Write in ${localeName}.`;
           functionName: "travel_capsule",
         });
 
-        // callBursAI with tools returns parsed tool call arguments directly
-        if (content && typeof content === "object" && content.capsule_items) {
-          result = content;
+        let parsed: any = null;
+        if (content && typeof content === "object") {
+          parsed = content;
         } else if (typeof content === "string") {
-          // Fallback: parse JSON from string
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           if (!jsonMatch) {
             lastError = new Error("No JSON in response: " + content.slice(0, 300));
             continue;
           }
-          result = JSON.parse(jsonMatch[0]);
-        } else {
-          result = content;
+          parsed = JSON.parse(jsonMatch[0]);
         }
+
+        if (!parsed || typeof parsed !== "object") {
+          lastError = new Error("AI returned empty capsule payload");
+          continue;
+        }
+
+        if (!Array.isArray(parsed.capsule_items) || !Array.isArray(parsed.outfits)) {
+          lastError = new Error("AI payload missing capsule_items/outfits arrays");
+          continue;
+        }
+
+        result = parsed;
         break;
       } catch (e) {
         lastError = e instanceof Error ? e : new Error(String(e));
         console.error(`travel_capsule attempt ${attempt} failed:`, lastError.message);
-        if (attempt === 1) throw lastError;
+        if (attempt === 1) break;
       }
     }
 
-    if (!result) throw lastError || new Error("Failed to generate capsule");
+    if (!result) {
+      console.warn("AI capsule generation failed, using deterministic fallback", lastError?.message || "unknown");
+      result = buildDeterministicFallback();
+    }
 
     console.log("AI capsule_items count:", result.capsule_items?.length, "sample:", JSON.stringify(result.capsule_items?.slice(0, 3)));
     console.log("AI outfits count:", result.outfits?.length);
@@ -246,11 +320,21 @@ Write in ${localeName}.`;
       return trimmed;
     };
 
-    const resolvedItems = (result.capsule_items || []).map(resolveId).filter((id: string) => validIds.has(id));
-    const resolvedOutfits = (result.outfits || []).map((o: any) => ({
+    let resolvedItems = (result.capsule_items || []).map(resolveId).filter((id: string) => validIds.has(id));
+    let resolvedOutfits = (result.outfits || []).map((o: any) => ({
       ...o,
       items: (o.items || []).map(resolveId).filter((id: string) => validIds.has(id)),
     })).filter((o: any) => o.items.length >= 2);
+
+    if (resolvedItems.length === 0 || resolvedOutfits.length === 0) {
+      console.warn("Resolved capsule is empty, applying deterministic fallback mapping");
+      const fallback = buildDeterministicFallback();
+      resolvedItems = fallback.capsule_items.filter((id: string) => validIds.has(id));
+      resolvedOutfits = fallback.outfits
+        .map((o: any) => ({ ...o, items: (o.items || []).filter((id: string) => validIds.has(id)) }))
+        .filter((o: any) => o.items.length >= 2);
+      result = { ...fallback, ...result };
+    }
 
     console.log("Resolved items:", resolvedItems.length, "Resolved outfits:", resolvedOutfits.length);
 
