@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { hapticLight } from '@/lib/haptics';
+import { stripBrands } from '@/lib/stripBrands';
 import { getOccasionLabel } from '@/lib/occasionLabel';
 import type { Garment } from '@/hooks/useGarments';
 
@@ -200,7 +201,7 @@ export default function UnusedOutfits() {
                       <div key={j} className="relative overflow-hidden bg-muted/20">
                         <LazyImageSimple
                           imagePath={item.garment.image_path}
-                          alt={item.garment.title}
+                          alt={stripBrands(item.garment.title)}
                           className="w-full h-full object-cover"
                         />
                         {isUnused && (

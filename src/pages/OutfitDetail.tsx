@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { hapticLight, hapticMedium, hapticSuccess, hapticHeavy } from '@/lib/haptics';
+import { stripBrands } from '@/lib/stripBrands';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Star, Bookmark, BookmarkCheck, Check, RefreshCw, Share2, Loader2,
@@ -51,7 +52,7 @@ function SwapSheet({ isOpen, onClose, slot, candidates, isLoading, onSelect, isS
                 <button key={candidate.garment.id} onClick={() => onSelect(candidate.garment.id)} disabled={isSwapping} className={cn("w-full flex items-center gap-3 p-3 rounded-xl transition-all hover:bg-secondary/80 bg-secondary/60 backdrop-blur-sm active:scale-[0.99]", isSwapping && "opacity-50")}>
                   <LazyImageSimple imagePath={candidate.garment.image_path} alt={candidate.garment.title} className="w-16 h-16 rounded-lg flex-shrink-0" />
                   <div className="flex-1 text-left min-w-0">
-                    <p className="font-medium truncate">{candidate.garment.title}</p>
+                    <p className="font-medium truncate">{stripBrands(candidate.garment.title)}</p>
                     <p className="text-sm text-muted-foreground capitalize">{candidate.garment.color_primary}</p>
                   </div>
                 </button>
@@ -95,7 +96,7 @@ function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, onSwa
         <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">
           {t(`outfit.slot.${slot}`) || slot}
         </p>
-        <p className="font-semibold text-sm truncate mt-0.5">{garmentTitle || t('outfit.unknown')}</p>
+        <p className="font-semibold text-sm truncate mt-0.5">{stripBrands(garmentTitle || '') || t('outfit.unknown')}</p>
         {garmentColor && <p className="text-[13px] text-muted-foreground capitalize mt-0.5">{garmentColor}</p>}
       </div>
       <button
@@ -419,7 +420,7 @@ export default function OutfitDetailPage() {
               key={item.id}
               slot={item.slot}
               garmentId={item.garment_id}
-              garmentTitle={item.garment?.title}
+              garmentTitle={stripBrands(item.garment?.title || '')}
               garmentColor={item.garment?.color_primary}
               imagePath={item.garment?.image_path}
               onSwap={() => handleOpenSwap(item.slot, item.id, item.garment_id)}
