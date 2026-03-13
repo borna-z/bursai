@@ -19,7 +19,7 @@
     <meta name="theme-color" content="#0D0D0D" media="(prefers-color-scheme: dark)" />
      <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="BURS" />
 
     <!-- Open Graph -->
@@ -38,7 +38,8 @@
     <meta name="twitter:image" content="https://burs.me/og-image.png" />
   </head>
  
-  <body style="background:#0D0D0D">
+   <body style="background:#F5F0E8;background:hsl(36,22%,95%)">
+   <script>if(window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches){document.body.style.background='#0D0D0D'}</script>
     <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:bg-white focus:text-black focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Skip to content</a>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
