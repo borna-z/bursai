@@ -19,7 +19,21 @@ export default function PickMustHaves() {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
-  const { data: allGarments } = useFlatGarments();
+  const { user } = useAuth();
+  const { data: allGarments } = useQuery({
+    queryKey: ['all-garments-picker', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from('garments')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
 
   const initialIds: string[] = (location.state as any)?.mustHaveItems ?? [];
   const [selected, setSelected] = useState<Set<string>>(new Set(initialIds));
