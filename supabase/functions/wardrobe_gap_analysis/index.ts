@@ -83,9 +83,9 @@ ${garments.slice(0, 15).map((g: any) => `- ${g.title} (${g.category}, ${g.color_
 ${wardrobeProfile}
 
 CRITICAL RULES:
-1. Do NOT include brand names. Use generic garment descriptions with color, material, and style. Example: "Navy slim-fit chinos" NOT "Dockers Alpha Khaki Navy"
+1. ABSOLUTELY NO BRAND NAMES in any field (item, reason, search_query). Never mention brands like Nike, Adidas, Levi's, Zara, H&M, Uniqlo, Ralph Lauren, Gucci, etc. Use only generic garment descriptions with color, material, fit and style. Example: "Dark wash slim-fit jeans" NOT "Levi's 501 Original Fit Jeans". "White leather low-top sneakers" NOT "Common Projects Achilles Low".
 2. Match the user's style level based on their existing garments
-3. The search_query must be a generic Google-searchable string (e.g., "navy slim fit chinos men")
+3. The search_query must be a generic Google-searchable string (e.g., "navy slim fit chinos men") — NO brands
 4. Consider the user's market/locale (${locale}) for price ranges
 5. Focus on versatility — each suggestion should create many new outfit combinations
 6. Consider: category gaps, color palette gaps, formality range gaps, seasonal gaps
