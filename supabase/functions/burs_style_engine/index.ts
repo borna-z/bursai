@@ -1599,7 +1599,7 @@ ${comboDescriptions}`;
       tools: [tool],
       tool_choice: { type: "function", function: { name: toolName } },
       complexity: "standard",
-      max_tokens: mode === "generate" ? 200 : 500,
+      max_tokens: mode === "generate" ? 200 : estimateMaxTokens({ outputItems: 3, perItemTokens: 100, baseTokens: 150 }),
     });
     return { data };
   } catch (e: any) {
