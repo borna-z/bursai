@@ -8289,6 +8289,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.done': 'Gotowe', 'common.search': 'Szukaj', 'common.something_wrong': 'Coś poszło nie tak', 'common.premium': 'Premium', 'common.or': 'lub',
     'trial.then_prefix': 'Potem', 'pricing.save': 'oszczędź', 'pricing.per_month': '/mies.', 'pricing.per_year': '/rok',
     'weather.enter_city': 'Wpisz miasto...',
+    'weather.estimate': 'szacunek', 'weather.bring_umbrella': 'Weź parasol!', 'weather.cold_warning': 'Zimno! Ubierz się ciepło', 'weather.hot_warning': 'Gorąco! Uważaj na słońce',
+    'weather.unavailable': 'Prognoza niedostępna', 'weather.outfit_created_for': 'Outfit został stworzony na', 'weather.differs': 'pogoda różni się o', 'weather.fetching': 'Pobieranie prognozy...',
     'chat.suggestion_1': 'Co powinienem dziś założyć?', 'chat.suggestion_2': 'Przeanalizuj mój styl', 'chat.suggestion_3': 'Pomóż mi wybrać do pracy',
     'chat.outfit_from_stylist': 'Utworzono z propozycji stylisty',
     'garment.category.top': 'Góra', 'garment.category.bottom': 'Dół', 'garment.category.shoes': 'Buty',
