@@ -53,6 +53,7 @@ const SmartShopping = lazy(() => import('@/pages/SmartShopping'));
 const WardrobeAging = lazy(() => import('@/pages/WardrobeAging'));
 const StyleTwin = lazy(() => import('@/pages/StyleTwin'));
 const Discover = lazy(() => import('@/pages/Discover'));
+const PickMustHaves = lazy(() => import('@/pages/PickMustHaves'));
 
 const routeTransition = {
   type: 'tween' as const,
