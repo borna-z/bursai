@@ -107,7 +107,7 @@ export function DiscoverHero({ challengeTitle, challengeDescription, challengeId
             onClick={() => {
               hapticLight();
               if (challengeId && onJoin) onJoin(challengeId);
-              else navigate('/challenges');
+              else navigate('/discover');
             }}
           >
             {t('discover.try_challenge')}

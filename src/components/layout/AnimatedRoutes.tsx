@@ -136,13 +136,7 @@ export function AnimatedRoutes() {
             <Route path="/billing/cancel" element={<ProtectedRoute><BillingCancel /></ProtectedRoute>} />
             <Route path="/share/:id" element={<ShareOutfit />} />
             <Route path="/u/:username" element={<PublicProfile />} />
-            <Route path="/feed" element={<ProtectedRoute><InspirationFeed /></ProtectedRoute>} />
-            <Route path="/challenges" element={<ProtectedRoute><StyleChallenges /></ProtectedRoute>} />
-            <Route path="/ai/visual-search" element={<ProtectedRoute><VisualSearch /></ProtectedRoute>} />
             <Route path="/ai/mood-outfit" element={<ProtectedRoute><MoodOutfit /></ProtectedRoute>} />
-            <Route path="/ai/smart-shopping" element={<ProtectedRoute><SmartShopping /></ProtectedRoute>} />
-            <Route path="/ai/wardrobe-aging" element={<ProtectedRoute><WardrobeAging /></ProtectedRoute>} />
-            <Route path="/ai/style-twin" element={<ProtectedRoute><StyleTwin /></ProtectedRoute>} />
             <Route path="/discover" element={<ProtectedRoute><Discover /></ProtectedRoute>} />
             <Route path="/calendar/callback" element={<ProtectedRoute><GoogleCalendarCallback /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />

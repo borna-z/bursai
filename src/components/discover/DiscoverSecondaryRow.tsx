@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Heart, Search } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { EASE_CURVE, STAGGER_DELAY } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
@@ -13,14 +13,6 @@ const CARDS = [
     subtitleKey: 'discover.mood_sub',
     accentClass: 'text-pink-400',
     glowColor: 'hsl(330 60% 50% / 0.08)',
-  },
-  {
-    path: '/ai/visual-search',
-    icon: Search,
-    titleKey: 'discover.visual_title',
-    subtitleKey: 'discover.visual_sub',
-    accentClass: 'text-blue-400',
-    glowColor: 'hsl(210 60% 50% / 0.08)',
   },
 ];
 

@@ -53,7 +53,7 @@ export function DiscoverChallenges({ challenges, participations, garmentCount, t
           {t('discover.challenges_heading')}
         </h3>
         <button
-          onClick={() => navigate('/challenges')}
+          onClick={() => navigate('/discover')}
           className="text-[11px] font-medium text-accent flex items-center gap-0.5"
         >
           {t('discover.see_all')}

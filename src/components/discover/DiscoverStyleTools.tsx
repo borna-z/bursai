@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Heart, Search, Puzzle } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { EASE_CURVE, STAGGER_DELAY } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
@@ -11,18 +11,6 @@ const TOOLS = [
     icon: Heart,
     titleKey: 'discover.tool_mood',
     subtitleKey: 'discover.tool_mood_desc',
-  },
-  {
-    path: '/ai/visual-search',
-    icon: Search,
-    titleKey: 'discover.tool_visual',
-    subtitleKey: 'discover.tool_visual_desc',
-  },
-  {
-    path: '/ai/smart-shopping',
-    icon: Puzzle,
-    titleKey: 'discover.tool_gaps',
-    subtitleKey: 'discover.tool_gaps_desc',
   },
 ];
 
