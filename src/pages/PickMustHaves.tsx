@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Chip } from '@/components/ui/chip';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
-import { useFlatGarments } from '@/hooks/useGarments';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
@@ -17,7 +19,21 @@ export default function PickMustHaves() {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
-  const { data: allGarments } = useFlatGarments();
+  const { user } = useAuth();
+  const { data: allGarments } = useQuery({
+    queryKey: ['all-garments-picker', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from('garments')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
 
   const initialIds: string[] = (location.state as any)?.mustHaveItems ?? [];
   const [selected, setSelected] = useState<Set<string>>(new Set(initialIds));
