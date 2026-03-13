@@ -208,7 +208,7 @@ export default function UnusedOutfits() {
                 </div>
                 <div className="p-3 space-y-1">
                   <span className="text-[10px] uppercase tracking-wider text-accent font-medium">
-                    {getOccasionLabel(outfit.occasion, locale)}
+                    {getOccasionLabel(outfit.occasion, t)}
                   </span>
                   <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                     {outfit.explanation}
