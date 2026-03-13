@@ -6997,6 +6997,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.loading': 'Chargement...', 'common.save': 'Enregistrer', 'common.cancel': 'Annuler', 'common.delete': 'Supprimer',
     'common.edit': 'Modifier', 'common.close': 'Fermer', 'common.back': 'Retour', 'common.next': 'Suivant',
     'common.done': 'Terminé', 'common.search': 'Rechercher', 'common.something_wrong': 'Quelque chose s\'est mal passé', 'common.premium': 'Premium', 'common.or': 'ou',
+    'common.read_more': 'Lire plus', 'common.less': 'Moins', 'common.retry': 'Réessayer', 'common.error': 'Une erreur est survenue',
     'trial.then_prefix': 'Ensuite', 'pricing.save': 'économisez', 'pricing.per_month': '/mois', 'pricing.per_year': '/an',
     'weather.enter_city': 'Entrez une ville...', 'weather.estimate': 'estimation',
     'weather.bring_umbrella': 'Prenez un parapluie !', 'weather.cold_warning': 'Froid ! Couvrez-vous', 'weather.hot_warning': 'Chaud ! Pensez au soleil',
