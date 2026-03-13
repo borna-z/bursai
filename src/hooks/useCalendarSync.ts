@@ -64,8 +64,9 @@ export function useCalendarSync() {
   const syncMutation = useMutation({
     mutationFn: async () => {
       setIsSyncing(true);
-      const { data, error } = await supabase.functions.invoke('sync_calendar');
-      if (error) throw error;
+      const { data, error } = await supabase.functions.invoke('calendar', {
+        body: { action: 'sync_ics' },
+      });
       if (data?.error) throw new Error(data.error);
       return data;
     },
@@ -83,7 +84,9 @@ export function useCalendarSync() {
   const syncGoogleMutation = useMutation({
     mutationFn: async () => {
       setIsSyncing(true);
-      const { data, error } = await supabase.functions.invoke('sync_google_calendar');
+      const { data, error } = await supabase.functions.invoke('calendar', {
+        body: { action: 'sync_google' },
+      });
       // supabase.functions.invoke sets error on non-2xx responses
       // Parse the response body to check for reconnect signal
       if (error) {

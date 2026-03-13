@@ -51,11 +51,7 @@ project_id = "dvrdxjmnydcjzpcwjxgv"
     verify_jwt = false
   [functions.summarize_day]
     verify_jwt = false
-  [functions.sync_all_calendars]
-    verify_jwt = false
-  [functions.sync_calendar]
-    verify_jwt = false
-  [functions.sync_google_calendar]
+  [functions.calendar]
     verify_jwt = false
   [functions.visual_search]
     verify_jwt = false

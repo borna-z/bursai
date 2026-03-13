@@ -41,7 +41,7 @@ export default function GoogleCalendarCallback() {
           throw new Error(data?.error || fnError?.message || 'Exchange failed');
         }
 
-        await supabase.functions.invoke('sync_google_calendar');
+        await supabase.functions.invoke('calendar', { body: { action: 'sync_google' } });
 
         setStatus('success');
         setTimeout(() => navigate('/settings', { replace: true }), 1500);
