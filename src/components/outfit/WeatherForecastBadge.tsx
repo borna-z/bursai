@@ -99,8 +99,11 @@ export function WeatherForecastBadge({
       <div className="flex items-center gap-2">
         <WeatherIcon className="w-4 h-4 text-muted-foreground" />
         <span className="text-sm">
-          {forecast.temperature_avg}°C · {t(forecast.condition)}
+          {isEstimate ? '~' : ''}{forecast.temperature_avg}°C · {t(forecast.condition)}
         </span>
+        {isEstimate && (
+          <span className="text-[10px] text-muted-foreground/50 italic">{t('weather.estimate')}</span>
+        )}
         {forecast.precipitation_probability > 30 && (
           <span className="text-xs text-muted-foreground flex items-center gap-0.5">
             <Droplets className="w-3 h-3" />
