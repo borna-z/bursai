@@ -96,7 +96,7 @@ function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, onSwa
         <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">
           {t(`outfit.slot.${slot}`) || slot}
         </p>
-        <p className="font-semibold text-sm truncate mt-0.5">{garmentTitle || t('outfit.unknown')}</p>
+        <p className="font-semibold text-sm truncate mt-0.5">{stripBrands(garmentTitle || '') || t('outfit.unknown')}</p>
         {garmentColor && <p className="text-[13px] text-muted-foreground capitalize mt-0.5">{garmentColor}</p>}
       </div>
       <button
