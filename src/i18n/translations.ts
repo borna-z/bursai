@@ -3039,6 +3039,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'weather.cold_warning': 'Cold! Dress warmly',
     'weather.hot_warning': 'Hot! Mind the sun',
     'weather.unavailable': 'Forecast unavailable',
+    'weather.estimate': 'estimate',
     'weather.outfit_created_for': 'Outfit was created for',
     'weather.differs': 'weather differs by',
     'weather.fetching': 'Fetching forecast...',
