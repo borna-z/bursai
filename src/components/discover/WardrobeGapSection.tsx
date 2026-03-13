@@ -50,19 +50,16 @@ export function WardrobeGapSection() {
 
   return (
     <section className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
-          {t('discover.gap_heading')}
-        </h3>
-        {results && results.length > 0 && (
+      {results && results.length > 0 && (
+        <div className="flex justify-end">
           <button
             onClick={() => { setResults(null); }}
             className="text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
           >
             {t('discover.gap_reset')}
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Not scanned yet — show CTA */}
       {!results && !gapAnalysis.isPending && (
