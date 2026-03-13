@@ -40,7 +40,7 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) throw new Error("Unauthorized");
 
-    const { duration_days, destination, weather, occasions, locale = "sv" } = await req.json();
+    const { duration_days, destination, weather, occasions, locale = "sv", outfits_per_day = 1, must_have_items = [] } = await req.json();
 
     if (!duration_days || duration_days < 1 || duration_days > 30) {
       throw new Error("duration_days must be 1-30");
