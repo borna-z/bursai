@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, Sparkles } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Sparkles, Gem } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 
