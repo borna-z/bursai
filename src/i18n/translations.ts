@@ -8859,6 +8859,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.edit': 'Bewerken', 'common.close': 'Sluiten', 'common.back': 'Terug', 'common.next': 'Volgende',
     'common.done': 'Klaar', 'common.search': 'Zoeken', 'common.something_wrong': 'Er ging iets mis',
     'common.premium': 'Premium', 'common.last_updated': 'Laatst bijgewerkt:',
+    'common.read_more': 'Lees meer', 'common.less': 'Minder', 'common.retry': 'Opnieuw proberen', 'common.error': 'Er is iets misgegaan',
 
     // Quick edit
     'quickedit.title': 'Snel bewerken', 'quickedit.desc': 'Pas categorie, kleur en formaliteit aan voor je nieuwe kledingstukken',
