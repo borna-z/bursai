@@ -42,7 +42,8 @@ import { useMarkOutfitWorn, useUndoMarkWorn } from '@/hooks/useOutfits';
 import { useFlatGarments } from '@/hooks/useGarments';
 import { useForecast } from '@/hooks/useForecast';
 import { useLocation as useLocationCtx } from '@/contexts/LocationContext';
-import { useBackgroundSyncNotification } from '@/hooks/useCalendarSync';
+import { useBackgroundSyncNotification, useCalendarEvents } from '@/hooks/useCalendarSync';
+import { CalendarEventsList } from '@/components/plan/CalendarEventBadge';
 
 const occasionIcons: Record<string, React.ElementType> = {
   jobb: Briefcase,
@@ -94,6 +95,7 @@ export default function PlanPage() {
   // Selected day data
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
   const { data: daySummary, isLoading: isSummaryLoading } = useDaySummary(selectedDateStr);
+  const { data: calendarEvents = [] } = useCalendarEvents(selectedDateStr);
   
   // Mutation hooks
   const upsertPlanned = useUpsertPlannedOutfit();
@@ -309,6 +311,11 @@ export default function PlanPage() {
                 {t('plan.pack_trip_btn')}
               </button>
             </div>
+          )}
+
+          {/* Calendar events */}
+          {calendarEvents.length > 0 && (
+            <CalendarEventsList events={calendarEvents} maxDisplay={4} />
           )}
 
           {/* AI Day Summary */}
