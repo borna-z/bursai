@@ -8,6 +8,8 @@ export interface ForecastDay {
   weather_code: number;
   condition: string;
   precipitation_probability: number;
+  /** true when data comes from historical averages, not a live forecast */
+  isHistorical?: boolean;
 }
 
 interface UseForecastResult {
@@ -21,6 +23,9 @@ interface UseForecastOptions {
   /** Manual city override (highest priority) */
   city?: string | null;
   enabled?: boolean;
+  /** Optional date range — triggers historical fetch for dates beyond 16 days */
+  startDate?: string;
+  endDate?: string;
 }
 
 // Map Open-Meteo weather codes to translation keys
@@ -75,7 +80,73 @@ export async function fetchForecast(lat: number, lon: number): Promise<ForecastD
     weather_code: daily.weather_code[i],
     condition: getConditionFromCode(daily.weather_code[i]),
     precipitation_probability: daily.precipitation_probability_max[i],
+    isHistorical: false,
   }));
+
+  return forecast;
+}
+
+/**
+ * Fetch historical weather for a date range using Open-Meteo Archive API.
+ * Uses the same dates from the previous year as a climate proxy.
+ * Maps the results back to the requested future dates.
+ */
+export async function fetchHistoricalWeather(
+  lat: number,
+  lon: number,
+  startDate: string,
+  endDate: string
+): Promise<ForecastDay[]> {
+  // Shift dates to previous year
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const histStart = new Date(start);
+  histStart.setFullYear(histStart.getFullYear() - 1);
+  const histEnd = new Date(end);
+  histEnd.setFullYear(histEnd.getFullYear() - 1);
+
+  const histStartStr = histStart.toISOString().split('T')[0];
+  const histEndStr = histEnd.toISOString().split('T')[0];
+
+  const response = await fetch(
+    `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${histStartStr}&end_date=${histEndStr}&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum&timezone=auto`
+  );
+
+  if (!response.ok) {
+    throw new Error('Could not fetch historical weather');
+  }
+
+  const data = await response.json();
+  const daily = data.daily;
+  if (!daily?.time) return [];
+
+  // Map historical dates back to the requested future dates
+  const dayCount = daily.time.length;
+  const forecast: ForecastDay[] = [];
+
+  for (let i = 0; i < dayCount; i++) {
+    // Calculate the corresponding future date
+    const futureDate = new Date(start);
+    futureDate.setDate(futureDate.getDate() + i);
+    const futureDateStr = futureDate.toISOString().split('T')[0];
+
+    const tMax = daily.temperature_2m_max[i];
+    const tMin = daily.temperature_2m_min[i];
+    const wCode = daily.weather_code[i] ?? 0;
+    const precip = daily.precipitation_sum?.[i] ?? 0;
+
+    forecast.push({
+      date: futureDateStr,
+      temperature_max: Math.round(tMax ?? 0),
+      temperature_min: Math.round(tMin ?? 0),
+      temperature_avg: Math.round(((tMax ?? 0) + (tMin ?? 0)) / 2),
+      weather_code: wCode,
+      condition: getConditionFromCode(wCode),
+      // Estimate probability from actual precipitation last year
+      precipitation_probability: precip > 0 ? Math.min(90, Math.round(precip * 10 + 30)) : 10,
+      isHistorical: true,
+    });
+  }
 
   return forecast;
 }
@@ -111,13 +182,46 @@ async function getCoordinates(city?: string | null): Promise<{ lat: number; lon:
 export function useForecast(options: UseForecastOptions = {}): UseForecastResult {
   const city = options.city ?? null;
   const enabled = options.enabled !== false;
+  const { startDate, endDate } = options;
 
   const { data: forecast = [], isLoading, error } = useQuery({
-    queryKey: ['forecast', city],
+    queryKey: ['forecast', city, startDate, endDate],
     queryFn: async () => {
       try {
         const coords = await getCoordinates(city);
-        return fetchForecast(coords.lat, coords.lon);
+        const liveForecast = await fetchForecast(coords.lat, coords.lon);
+
+        // If no date range requested, return just the 16-day forecast
+        if (!startDate || !endDate) return liveForecast;
+
+        // Check if any requested dates fall beyond the 16-day forecast window
+        const lastForecastDate = liveForecast[liveForecast.length - 1]?.date;
+        if (!lastForecastDate || endDate <= lastForecastDate) {
+          return liveForecast;
+        }
+
+        // Determine which dates need historical data
+        const histStart = startDate > lastForecastDate ? startDate : (() => {
+          const d = new Date(lastForecastDate);
+          d.setDate(d.getDate() + 1);
+          return d.toISOString().split('T')[0];
+        })();
+
+        const historicalDays = await fetchHistoricalWeather(
+          coords.lat,
+          coords.lon,
+          histStart,
+          endDate
+        );
+
+        // Merge: live forecast first, then historical for remaining dates
+        const forecastDates = new Set(liveForecast.map(f => f.date));
+        const merged = [
+          ...liveForecast,
+          ...historicalDays.filter(h => !forecastDates.has(h.date)),
+        ];
+
+        return merged;
       } catch (err) {
         console.error('[useForecast] Failed to fetch forecast:', err);
         throw err;
