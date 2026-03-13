@@ -51,7 +51,7 @@ function LoadingIndicator() {
       setProgress(Math.min((elapsed / totalDuration) * 100, 95));
     }, 100);
 
-    let stepTimeout: NodeJS.Timeout;
+    let stepTimeout: ReturnType<typeof setTimeout>;
     const updateStep = (i: number) => {
       if (i < LOADING_STEPS.length) {
         setCurrentStep(i);
