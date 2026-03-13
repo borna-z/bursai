@@ -40,20 +40,22 @@ export default function SettingsAppearance() {
           </div>
         </SettingsGroup>
 
-        <SettingsGroup title={t('settings.language')}>
-          <SettingsRow icon={<Globe />} label={t('settings.language')} last>
-            <Select value={locale} onValueChange={(v) => setLocale(v as Locale)}>
-              <SelectTrigger className="w-[130px] h-8 text-xs border-0 bg-muted/50">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SUPPORTED_LOCALES.map((loc) => (
-                  <SelectItem key={loc.code} value={loc.code}>{loc.flag} {loc.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SettingsRow>
-        </SettingsGroup>
+        {isAdmin && (
+          <SettingsGroup title={t('settings.language')}>
+            <SettingsRow icon={<Globe />} label={t('settings.language')} last>
+              <Select value={locale} onValueChange={(v) => setLocale(v as Locale)}>
+                <SelectTrigger className="w-[130px] h-8 text-xs border-0 bg-muted/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUPPORTED_LOCALES.map((loc) => (
+                    <SelectItem key={loc.code} value={loc.code}>{loc.flag} {loc.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+          </SettingsGroup>
+        )}
       </div>
     </AppLayout>
   );

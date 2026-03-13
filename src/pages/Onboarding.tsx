@@ -44,7 +44,8 @@ export default function OnboardingPage() {
   const updateProfile = useUpdateProfile();
   const { data: profile, isLoading: profileLoading } = useProfile();
 
-  const [languageStepDone, setLanguageStepDone] = useState(false);
+  const { data: isAdmin } = useIsAdmin();
+  const [languageStepDone, setLanguageStepDone] = useState(!isAdmin ? true : false);
   const [accentStepDone, setAccentStepDone] = useState(false);
   const [quizDone, setQuizDone] = useState(false);
   const [uploadDone, setUploadDone] = useState(false);
