@@ -106,6 +106,9 @@ export default function DiscoverPage() {
           onJoin={joinChallenge}
         />
 
+        {/* ── Wardrobe Gap Analysis ── */}
+        <WardrobeGapSection />
+
         {/* ── Style Tools (2×2 grid) ── */}
         <DiscoverStyleTools />
       </AnimatedPage>
