@@ -8,7 +8,7 @@ import { Loader2, Eye, EyeOff, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 import { useLanguage } from '@/contexts/LanguageContext';
-import bursLogo from '@/assets/burs-landing-logo.png';
+import bursLogo from '@/assets/burs-logo-256-2.png';
 
 function PasswordRequirements({ password, t }: { password: string; t: (k: string) => string }) {
   const rules = useMemo(() => [
