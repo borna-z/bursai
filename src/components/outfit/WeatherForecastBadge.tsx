@@ -86,8 +86,9 @@ export function WeatherForecastBadge({
       <div className={cn("flex items-center gap-1.5", className)}>
         <WeatherIcon className="w-4 h-4 text-muted-foreground" />
         <span className="text-sm font-medium">{forecast.temperature_avg}°</span>
+        {isEstimate && <span className="text-[9px] text-muted-foreground/60">~</span>}
         {forecast.precipitation_probability > 50 && (
-          <Droplets className="w-3 h-3 text-blue-500" />
+          <Droplets className="w-3 h-3 text-muted-foreground" />
         )}
       </div>
     );
