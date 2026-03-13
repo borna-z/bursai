@@ -1011,6 +1011,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.search': 'Sök',
     'common.something_wrong': 'Något gick fel',
     'common.premium': 'Premium',
+    'common.read_more': 'Läs mer',
+    'common.less': 'Mindre',
+    'common.retry': 'Försök igen',
+    'common.error': 'Något gick fel',
 
     // Step 3 UX additions
     'home.select_occasion_hint': 'Välj tillfälle ovan',
