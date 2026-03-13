@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { OutfitReactions } from '@/components/social/OutfitReactions';
+import { getOccasionLabel } from '@/lib/occasionLabel';
 
 interface OutfitItem {
   id: string;
@@ -156,7 +157,7 @@ export default function ShareOutfitPage() {
       <div className="max-w-lg mx-auto p-4">
         <div ref={outfitRef} className="bg-background p-4 rounded-lg">
           <div className="mb-6 text-center">
-            <Badge variant="secondary" className="mb-2 capitalize">{t(`occasion.${outfit.occasion}`)}</Badge>
+            <Badge variant="secondary" className="mb-2 capitalize">{getOccasionLabel(outfit.occasion, t)}</Badge>
             {outfit.style_vibe && <p className="text-sm text-muted-foreground capitalize">{t('share.style_label')} {outfit.style_vibe}</p>}
           </div>
           <div className="grid grid-cols-2 gap-3 mb-6">

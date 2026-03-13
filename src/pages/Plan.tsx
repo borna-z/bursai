@@ -14,6 +14,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { getOccasionLabel } from '@/lib/occasionLabel';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { EmptyState } from '@/components/layout/EmptyState';
@@ -351,7 +352,7 @@ export default function PlanPage() {
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant="secondary" className="capitalize text-xs font-medium">
                   <OccasionIcon className="w-3 h-3 mr-1.5" />
-                  {t(OCCASION_I18N[outfit.occasion?.toLowerCase()] || `occasion.${outfit.occasion}`)}
+                  {getOccasionLabel(outfit.occasion || '', t)}
                 </Badge>
                 {outfit.style_vibe && (
                   <Badge variant="outline" className="text-xs font-normal">{outfit.style_vibe}</Badge>
