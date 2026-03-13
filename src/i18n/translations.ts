@@ -4889,6 +4889,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.done': 'Færdig', 'common.search': 'Søg', 'common.something_wrong': 'Noget gik galt', 'common.premium': 'Premium', 'common.or': 'eller',
     'weather.enter_city': 'Skriv en by...', 'weather.located_in': 'Sted: {city}', 'weather.is_this_your_city': 'Er dette din by?', 'weather.yes': 'Ja', 'weather.change': 'Ændr',
     'weather.bring_umbrella': 'Tag en paraply med!', 'weather.cold_warning': 'Koldt! Klæd dig varmt', 'weather.hot_warning': 'Varmt! Tænk på solen',
+    'weather.unavailable': 'Prognose ikke tilgængelig', 'weather.estimate': 'estimat', 'weather.outfit_created_for': 'Outfittet blev lavet til', 'weather.differs': 'vejret afviger med', 'weather.fetching': 'Henter prognose...',
     'weather.condition.clear': 'Klart', 'weather.condition.cloudy': 'Overskyet', 'weather.condition.fog': 'Tåge',
     'weather.condition.drizzle': 'Støvregn', 'weather.condition.rain': 'Regn', 'weather.condition.snow': 'Sne',
     'weather.condition.rain_showers': 'Regnbyger', 'weather.condition.snow_showers': 'Snebyger',
