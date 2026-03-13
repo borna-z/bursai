@@ -581,3 +581,54 @@ export function bursAIErrorResponse(e: unknown, corsHeaders: Record<string, stri
     { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
 }
+
+// ─── Rate Limiting ────────────────────────────────────────────
+/**
+ * Check and enforce per-user rate limits for AI functions.
+ * @param supabaseAdmin - Supabase client with service role
+ * @param userId - The user's ID
+ * @param functionName - Edge function name
+ * @param maxPerHour - Max calls per hour (default 30)
+ * @returns true if allowed, throws BursAIError if rate limited
+ */
+export async function checkRateLimit(
+  supabaseAdmin: any,
+  userId: string,
+  functionName: string,
+  maxPerHour = 30
+): Promise<boolean> {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+  // Count recent calls
+  const { count, error: countError } = await supabaseAdmin
+    .from("ai_rate_limits")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("function_name", functionName)
+    .gte("called_at", oneHourAgo);
+
+  if (countError) {
+    console.warn("Rate limit check failed:", countError.message);
+    // Fail open — don't block users if the check fails
+    return true;
+  }
+
+  if ((count ?? 0) >= maxPerHour) {
+    throw new BursAIError(
+      `Rate limit exceeded. Maximum ${maxPerHour} calls per hour for ${functionName}.`,
+      429
+    );
+  }
+
+  // Record this call
+  await supabaseAdmin
+    .from("ai_rate_limits")
+    .insert({ user_id: userId, function_name: functionName });
+
+  // Periodic cleanup (1% chance per request)
+  if (Math.random() < 0.01) {
+    await supabaseAdmin.rpc("cleanup_old_rate_limits").catch(() => {});
+  }
+
+  return true;
+}

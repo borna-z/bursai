@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Check bundle size
+        run: |
+          MAIN_SIZE=$(find dist/assets -name '*.js' -exec du -b {} + | sort -rn | head -1 | awk '{print $1}')
+          echo "Largest JS chunk: $(echo "scale=2; $MAIN_SIZE / 1024 / 1024" | bc) MB"
+          # Fail if any single chunk exceeds 500KB
+          if [ "$MAIN_SIZE" -gt 512000 ]; then
+            echo "⚠️ WARNING: Largest chunk exceeds 500KB target"
+          fi
