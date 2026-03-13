@@ -52,6 +52,7 @@ const AppInner = () => (
                 <BrowserRouter>
                   <ScrollToTop />
                   <AnimatedRoutes />
+                  <CookieConsent />
                 </BrowserRouter>
               </TooltipProvider>
               </SeedProvider>
