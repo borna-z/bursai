@@ -125,7 +125,7 @@ export default function AuthPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: EASE_CURVE }}
         >
-          <img src={bursLogo} alt="BURS" className="h-8 w-auto" />
+          <img src={bursLogo} alt="BURS" className="h-12 w-auto" />
           <p className="text-[#6B6560] text-[11px] uppercase tracking-[0.2em]">
             {t('auth.tagline')}
           </p>
