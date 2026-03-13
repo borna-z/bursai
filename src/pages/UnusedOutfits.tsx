@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, Sparkles } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Sparkles, Gem } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -40,6 +40,7 @@ export default function UnusedOutfits() {
   const startedRef = useRef(false);
 
   const unusedIds = insights?.unusedGarments?.map(g => g.id) || [];
+  const unusedSet = new Set(unusedIds);
 
   const generate = useCallback(async () => {
     if (!user || unusedIds.length === 0) return;
@@ -193,15 +194,24 @@ export default function UnusedOutfits() {
               >
                 {/* Garment thumbnails grid */}
                 <div className="grid grid-cols-2 aspect-square">
-                  {outfit.items.slice(0, 4).map((item, j) => (
-                    <div key={j} className="relative overflow-hidden bg-muted/20">
-                      <LazyImageSimple
-                        imagePath={item.garment.image_path}
-                        alt={item.garment.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ))}
+                  {outfit.items.slice(0, 4).map((item, j) => {
+                    const isUnused = unusedSet.has(item.garment.id);
+                    return (
+                      <div key={j} className="relative overflow-hidden bg-muted/20">
+                        <LazyImageSimple
+                          imagePath={item.garment.image_path}
+                          alt={item.garment.title}
+                          className="w-full h-full object-cover"
+                        />
+                        {isUnused && (
+                          <span className="absolute top-1.5 left-1.5 flex items-center gap-1 bg-accent/90 text-accent-foreground text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-md backdrop-blur-sm">
+                            <Gem className="w-2.5 h-2.5" />
+                            {t('unused_outfits.unused_badge')}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                   {outfit.items.length < 4 && Array.from({ length: 4 - outfit.items.length }).map((_, j) => (
                     <div key={`empty-${j}`} className="bg-muted/10" />
                   ))}
