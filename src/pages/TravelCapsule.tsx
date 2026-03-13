@@ -4,7 +4,7 @@ import { format, differenceInCalendarDays, addDays } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Minus, Plus } from 'lucide-react';
 import {
-  ArrowLeft, CalendarIcon, Loader2, Shirt,
+  ArrowLeft, Globe, CalendarIcon, Loader2, Shirt,
   LightbulbIcon, Plane, Umbrella, Sun, CloudRain, Cloud,
   CalendarPlus, Package, SlidersHorizontal, Pencil,
   Check, Share2, Snowflake, RefreshCw,
@@ -411,12 +411,13 @@ export default function TravelCapsule() {
                 {t('capsule.destination')}
               </Label>
               <div className="relative">
+                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" strokeWidth={1.5} />
                 <Input
                   placeholder={t('capsule.enter_city')}
                   value={destination}
                   onChange={e => setDestination(e.target.value)}
                   onBlur={() => lookupWeather()}
-                  className="h-12 rounded-xl bg-card/60 border-border/15"
+                  className="pl-10 h-12 rounded-xl bg-card/60 border-border/15"
                 />
               </div>
               {isFetchingWeather && (
