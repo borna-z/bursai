@@ -48,6 +48,8 @@ const CURRENCY_PRICES: Record<string, { monthly: string; yearly: string }> = {
   fa: { monthly: 'price_1TAVbGRfXibG26O7tycQijsb', yearly: 'price_1TAVbHRfXibG26O7mDl1Nu95' },
   // USD ($6.99/month, $59.99/year)
   en: { monthly: 'price_1TAVbIRfXibG26O7j5f2ofxK', yearly: 'price_1TAVbIRfXibG26O7e4CPrhM8' },
+  // GBP (£6.99/month, £59.99/year)
+  'en-gb': { monthly: 'price_1TAVi4RfXibG26O7dmALfyzP', yearly: 'price_1TAVi4RfXibG26O7We2RgVc3' },
   // NOK (79 kr/month, 699 kr/year)
   no: { monthly: 'price_1TAVbJRfXibG26O7fKNigbBC', yearly: 'price_1TAVbKRfXibG26O7N7JKBbp2' },
   // DKK (59 kr/month, 499 kr/year)
