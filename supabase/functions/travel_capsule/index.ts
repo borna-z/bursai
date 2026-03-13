@@ -209,6 +209,7 @@ Write in ${localeName}.`;
       const accessories = garments.filter(g => g.category === "accessory" || g.category === "accessories" || g.category === "bag").slice(0, 2);
 
       const capsuleItems = Array.from(new Set([
+        ...mustHaveIds,
         ...tops.map(g => g.id),
         ...bottoms.map(g => g.id),
         ...shoes.map(g => g.id),
