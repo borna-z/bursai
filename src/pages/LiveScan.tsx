@@ -9,7 +9,6 @@ import { useAutoDetect, type FramingHint } from '@/hooks/useAutoDetect';
 import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { isMedianApp } from '@/lib/median';
 
 /* ─── Accepted overlay — fast checkmark fade ─── */
 function AcceptedOverlay({ onDone, label }: { onDone: () => void; label: string }) {
@@ -115,6 +114,7 @@ export default function LiveScan() {
   const streamRef = useRef<MediaStream | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraStarted, setCameraStarted] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [showAccepted, setShowAccepted] = useState(false);
   const [autoMode, setAutoMode] = useState(true);
@@ -139,25 +139,32 @@ export default function LiveScan() {
     onStable: handleAutoCapture,
   });
 
-  useEffect(() => {
-    let cancelled = false;
-    async function startCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
-        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
-        streamRef.current = stream;
-        if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); setCameraReady(true); }
-      } catch (err) {
-        console.error('Camera error:', err);
-        if (isMedianApp()) {
-          setCameraError(t('scan.use_add_garment'));
-        } else {
-          setCameraError(t('scan.camera_error'));
-        }
+  /** Start camera — must be called from a user gesture (onClick) for Android WebView */
+  const startCamera = useCallback(async () => {
+    setCameraStarted(true);
+    setCameraError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+        setCameraReady(true);
       }
+    } catch (err) {
+      console.error('Camera error:', err);
+      setCameraError(t('scan.camera_error'));
     }
-    startCamera();
-    return () => { cancelled = true; streamRef.current?.getTracks().forEach((t) => t.stop()); };
+  }, [t]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    };
   }, []);
 
   const handleCapture = useCallback(() => {
@@ -187,15 +194,17 @@ export default function LiveScan() {
           <X className="w-5 h-5" />
         </Button>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setAutoMode((v) => !v)}
-            className={cn(
-              'w-9 h-9 rounded-full flex items-center justify-center transition-all',
-              autoMode ? 'bg-accent/20 text-accent' : 'bg-foreground/10 text-muted-foreground'
-            )}
-          >
-            {autoMode ? <Zap className="w-4 h-4" /> : <ZapOff className="w-4 h-4" />}
-          </button>
+          {cameraReady && (
+            <button
+              onClick={() => setAutoMode((v) => !v)}
+              className={cn(
+                'w-9 h-9 rounded-full flex items-center justify-center transition-all',
+                autoMode ? 'bg-accent/20 text-accent' : 'bg-foreground/10 text-muted-foreground'
+              )}
+            >
+              {autoMode ? <Zap className="w-4 h-4" /> : <ZapOff className="w-4 h-4" />}
+            </button>
+          )}
         </div>
         {scanCount > 0 ? (
           <Button variant="ghost" size="sm" className="text-foreground hover:bg-foreground/[0.06] font-medium text-sm" onClick={handleDone}>{t('scan.done')}</Button>
@@ -204,7 +213,18 @@ export default function LiveScan() {
 
       {/* Camera view */}
       <div className="flex-1 relative overflow-hidden">
-        {cameraError ? (
+        {!cameraStarted ? (
+          /* Start Camera button — required for Android WebView user-gesture */
+          <div className="absolute inset-0 flex items-center justify-center p-8 text-center">
+            <div className="space-y-4">
+              <Camera className="w-16 h-16 text-muted-foreground/50 mx-auto" />
+              <p className="text-muted-foreground text-sm">{t('scan.tap_to_start')}</p>
+              <Button onClick={startCamera} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                <Camera className="w-4 h-4 mr-2" />{t('scan.start_camera')}
+              </Button>
+            </div>
+          </div>
+        ) : cameraError ? (
           <div className="absolute inset-0 flex items-center justify-center p-8 text-center">
             <div className="space-y-4">
               <Camera className="w-16 h-16 text-muted-foreground/50 mx-auto" />
@@ -285,25 +305,27 @@ export default function LiveScan() {
       </div>
 
       {/* Shutter button — glass bar */}
-      <div className="relative z-10 flex items-center justify-center py-6 bg-background/70 backdrop-blur-xl border-t border-border/10">
-        <div className="relative w-16 h-16">
-          {autoMode && autoProgress > 0 && <AutoProgressRing progress={autoProgress} />}
-          <button
-            disabled={!canCapture}
-            onClick={handleCapture}
-            className={cn(
-              'w-16 h-16 rounded-full border-[3px] border-foreground flex items-center justify-center transition-all active:scale-90',
-              !canCapture ? 'opacity-30' : 'opacity-100'
-            )}
-            aria-label="Scan"
-          >
-            <div className={cn(
-              'w-12 h-12 rounded-full transition-colors',
-              autoMode && autoProgress > 0.5 ? 'bg-accent/80' : 'bg-foreground/90'
-            )} />
-          </button>
+      {cameraReady && (
+        <div className="relative z-10 flex items-center justify-center py-6 bg-background/70 backdrop-blur-xl border-t border-border/10">
+          <div className="relative w-16 h-16">
+            {autoMode && autoProgress > 0 && <AutoProgressRing progress={autoProgress} />}
+            <button
+              disabled={!canCapture}
+              onClick={handleCapture}
+              className={cn(
+                'w-16 h-16 rounded-full border-[3px] border-foreground flex items-center justify-center transition-all active:scale-90',
+                !canCapture ? 'opacity-30' : 'opacity-100'
+              )}
+              aria-label="Scan"
+            >
+              <div className={cn(
+                'w-12 h-12 rounded-full transition-colors',
+                autoMode && autoProgress > 0.5 ? 'bg-accent/80' : 'bg-foreground/90'
+              )} />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="garments" />
     </div>

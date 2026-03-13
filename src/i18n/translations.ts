@@ -632,6 +632,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'scan.move_back': 'Flytta längre bort',
     'scan.more_light': 'Bättre ljus behövs',
     'scan.ready': 'Håll stilla för att skanna…',
+    'scan.tap_to_start': 'Tryck för att starta kameran',
+    'scan.start_camera': 'Starta kamera',
+    'scan.use_add_garment': 'Använd "Lägg till plagg" istället för live-skanning.',
 
     // Insights
     'insights.title': 'Insikter',
@@ -2635,6 +2638,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'scan.move_back': 'Move further back',
     'scan.more_light': 'Better lighting needed',
     'scan.ready': 'Hold still to scan…',
+    'scan.tap_to_start': 'Tap to start the camera',
+    'scan.start_camera': 'Start Camera',
+    'scan.use_add_garment': 'Use "Add garment" instead of live scanning.',
     'insights.title': 'Insights',
     'insights.total': 'Total garments',
     'insights.used_30d': 'Used (30d)',
