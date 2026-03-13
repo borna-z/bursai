@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Settings } from 'lucide-react';
+import { BursMonogram } from '@/components/ui/BursMonogram';
 import { useProfile } from '@/hooks/useProfile';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { useGarmentCount } from '@/hooks/useGarments';
