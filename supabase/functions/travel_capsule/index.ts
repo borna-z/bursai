@@ -187,14 +187,28 @@ Write in ${localeName}.`;
 
     if (!result) throw lastError || new Error("Failed to generate capsule");
 
-    // Validate and resolve IDs
-    const validIds = new Set(garments.map(g => g.id));
+    console.log("AI raw capsule_items:", JSON.stringify(result.capsule_items?.slice(0, 5)));
+    console.log("AI raw outfits count:", result.outfits?.length);
+    console.log("Valid garment IDs sample:", Array.from(validIds).slice(0, 3));
 
-    const resolveId = (id: string) => {
-      if (validIds.has(id)) return id;
-      // Fallback: prefix match
-      const match = garments.find(g => g.id.startsWith(id));
-      return match?.id || id;
+    // Validate and resolve IDs — handles full UUIDs, prefix matches, and title-based fallback
+    const validIds = new Set(garments.map(g => g.id));
+    const titleIndex = new Map(garments.map(g => [g.title.toLowerCase().trim(), g.id]));
+
+    const resolveId = (id: string): string => {
+      if (!id) return "";
+      const trimmed = id.trim();
+      if (validIds.has(trimmed)) return trimmed;
+      // Prefix match (8+ chars)
+      if (trimmed.length >= 8) {
+        const match = garments.find(g => g.id.startsWith(trimmed) || g.id.includes(trimmed));
+        if (match) return match.id;
+      }
+      // Title-based fallback (AI sometimes returns titles instead of IDs)
+      const byTitle = titleIndex.get(trimmed.toLowerCase());
+      if (byTitle) return byTitle;
+      console.warn("Unresolvable garment ID:", trimmed);
+      return trimmed;
     };
 
     const resolvedItems = (result.capsule_items || []).map(resolveId).filter((id: string) => validIds.has(id));
@@ -202,6 +216,8 @@ Write in ${localeName}.`;
       ...o,
       items: (o.items || []).map(resolveId).filter((id: string) => validIds.has(id)),
     })).filter((o: any) => o.items.length >= 2);
+
+    console.log("Resolved items:", resolvedItems.length, "Resolved outfits:", resolvedOutfits.length);
 
     return new Response(JSON.stringify({
       capsule_items: resolvedItems,
