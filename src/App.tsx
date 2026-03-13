@@ -12,6 +12,7 @@ import { LocationProvider } from "@/contexts/LocationContext";
 import { SeedProvider } from "@/contexts/SeedContext";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import { AnimatedRoutes } from "@/components/layout/AnimatedRoutes";
+import { CookieConsent } from "@/components/landing/CookieConsent";
 import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
 
 // Lazy-load Sentry ErrorBoundary — only wraps if Sentry is available
