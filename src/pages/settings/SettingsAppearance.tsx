@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { SUPPORTED_LOCALES, Locale } from '@/i18n/translations';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { AccentColorPicker } from '@/components/settings/AccentColorPicker';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
