@@ -49,6 +49,7 @@ const MoodOutfit = lazy(() => import('@/pages/MoodOutfit'));
 const Discover = lazy(() => import('@/pages/Discover'));
 const PickMustHaves = lazy(() => import('@/pages/PickMustHaves'));
 const UnusedOutfits = lazy(() => import('@/pages/UnusedOutfits'));
+const StylePicker = lazy(() => import('@/pages/StylePicker'));
 
 const routeTransition = {
   type: 'tween' as const,
@@ -140,6 +141,7 @@ export function AnimatedRoutes() {
             <Route path="/ai/mood-outfit" element={<ProtectedRoute><MoodOutfit /></ProtectedRoute>} />
             <Route path="/discover" element={<ProtectedRoute><Discover /></ProtectedRoute>} />
             <Route path="/outfits/unused" element={<ProtectedRoute><UnusedOutfits /></ProtectedRoute>} />
+            <Route path="/style-picker" element={<ProtectedRoute><StylePicker /></ProtectedRoute>} />
             <Route path="/calendar/callback" element={<ProtectedRoute><GoogleCalendarCallback /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
