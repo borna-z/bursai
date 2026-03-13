@@ -138,7 +138,11 @@ serve(async (req) => {
 
     // Determine price: use locale-based currency in live mode, fallback to default SEK
     let priceId: string;
-    const currencyPrices = locale && stripeConfig.mode === 'live' ? CURRENCY_PRICES[locale] : null;
+    const normalizedLocale = locale?.toLowerCase();
+    const shortLocale = normalizedLocale?.split('-')[0];
+    const currencyPrices = normalizedLocale && stripeConfig.mode === 'live'
+      ? (CURRENCY_PRICES[normalizedLocale] || CURRENCY_PRICES[shortLocale!])
+      : null;
     if (currencyPrices) {
       priceId = plan === 'monthly' ? currencyPrices.monthly : currencyPrices.yearly;
     } else {
