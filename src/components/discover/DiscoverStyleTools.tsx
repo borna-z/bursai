@@ -1,9 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Heart, Search, ShoppingBag, Puzzle } from 'lucide-react';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { EASE_CURVE, STAGGER_DELAY } from '@/lib/motion';
-import { hapticLight } from '@/lib/haptics';
+import { Heart, Search, Puzzle } from 'lucide-react';
 
 const TOOLS = [
   {
@@ -23,12 +20,6 @@ const TOOLS = [
     icon: Puzzle,
     titleKey: 'discover.tool_gaps',
     subtitleKey: 'discover.tool_gaps_desc',
-  },
-  {
-    path: '/ai/smart-shopping',
-    icon: ShoppingBag,
-    titleKey: 'discover.tool_shopping',
-    subtitleKey: 'discover.tool_shopping_desc',
   },
 ];
 
