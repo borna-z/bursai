@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { getOccasionLabel } from '@/lib/occasionLabel';
 import { useOutfit, useUpdateOutfit, useMarkOutfitWorn, useUndoMarkWorn } from '@/hooks/useOutfits';
 import { useSwapGarment, type SwapCandidate } from '@/hooks/useSwapGarment';
 import { useWeather } from '@/hooks/useWeather';

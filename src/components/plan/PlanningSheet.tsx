@@ -12,6 +12,7 @@ import { useOutfits, type OutfitWithItems } from '@/hooks/useOutfits';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
+import { getOccasionLabel } from '@/lib/occasionLabel';
 
 interface PlanningSheetProps {
   open: boolean;

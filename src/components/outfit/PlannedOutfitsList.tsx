@@ -18,6 +18,7 @@ import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
 import { isToday, isTomorrow } from 'date-fns';
+import { getOccasionLabel } from '@/lib/occasionLabel';
 
 interface PlannedGroup {
   label: string;

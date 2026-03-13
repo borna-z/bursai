@@ -6,6 +6,7 @@ import { LazyImage } from '@/components/ui/lazy-image';
 import { useOutfits, type OutfitWithItems } from '@/hooks/useOutfits';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { SectionHeader } from '@/components/ui/section-header';
+import { getOccasionLabel } from '@/lib/occasionLabel';
 
 export function OutfitsPreview() {
   const { t } = useLanguage();
