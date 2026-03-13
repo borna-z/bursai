@@ -42,7 +42,8 @@ import { useMarkOutfitWorn, useUndoMarkWorn } from '@/hooks/useOutfits';
 import { useFlatGarments } from '@/hooks/useGarments';
 import { useForecast } from '@/hooks/useForecast';
 import { useLocation as useLocationCtx } from '@/contexts/LocationContext';
-import { useBackgroundSyncNotification } from '@/hooks/useCalendarSync';
+import { useBackgroundSyncNotification, useCalendarEvents } from '@/hooks/useCalendarSync';
+import { CalendarEventsList } from '@/components/plan/CalendarEventBadge';
 
 const occasionIcons: Record<string, React.ElementType> = {
   jobb: Briefcase,
