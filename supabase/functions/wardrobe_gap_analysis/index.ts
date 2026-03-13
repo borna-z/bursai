@@ -83,9 +83,9 @@ ${garments.slice(0, 15).map((g: any) => `- ${g.title} (${g.category}, ${g.color_
 ${wardrobeProfile}
 
 CRITICAL RULES:
-1. Do NOT include brand names. Use generic garment descriptions with color, material, and style. Example: "Navy slim-fit chinos" NOT "Dockers Alpha Khaki Navy"
+1. ABSOLUTELY NO BRAND NAMES in any field (item, reason, search_query). Never mention brands like Nike, Adidas, Levi's, Zara, H&M, Uniqlo, Ralph Lauren, Gucci, etc. Use only generic garment descriptions with color, material, fit and style. Example: "Dark wash slim-fit jeans" NOT "Levi's 501 Original Fit Jeans". "White leather low-top sneakers" NOT "Common Projects Achilles Low".
 2. Match the user's style level based on their existing garments
-3. The search_query must be a generic Google-searchable string (e.g., "navy slim fit chinos men")
+3. The search_query must be a generic Google-searchable string (e.g., "navy slim fit chinos men") — NO brands
 4. Consider the user's market/locale (${locale}) for price ranges
 5. Focus on versatility — each suggestion should create many new outfit combinations
 6. Consider: category gaps, color palette gaps, formality range gaps, seasonal gaps
@@ -134,6 +134,36 @@ CRITICAL RULES:
       cacheTtlSeconds: 3600,
       cacheNamespace: "wardrobe_gap",
     }, supabase);
+
+    // Post-process: strip any brand names the AI may have included
+    const BRAND_NAMES = [
+      "Nike", "Adidas", "Puma", "Reebok", "New Balance", "Converse", "Vans",
+      "Levi's", "Levis", "Levi", "Wrangler", "Lee", "Diesel",
+      "Zara", "H&M", "HM", "Uniqlo", "Mango", "COS", "Arket", "& Other Stories",
+      "Ralph Lauren", "Polo", "Tommy Hilfiger", "Calvin Klein", "Hugo Boss", "Boss",
+      "Gucci", "Prada", "Balenciaga", "Louis Vuitton", "Burberry", "Versace",
+      "Common Projects", "Acne Studios", "A.P.C.", "APC", "Sandro", "AMI",
+      "The North Face", "Patagonia", "Arc'teryx", "Columbia", "Canada Goose",
+      "Timberland", "Dr. Martens", "Doc Martens", "Birkenstock", "Clarks",
+      "Dockers", "Gap", "Old Navy", "Massimo Dutti", "J.Crew", "J Crew",
+      "Under Armour", "Champion", "Carhartt", "Dickies", "Fjällräven",
+      "Ray-Ban", "Oakley", "Lacoste", "Fred Perry", "Stone Island",
+      "Barbour", "Gant", "Tiger of Sweden", "Filippa K", "Nudie Jeans",
+    ];
+    const brandPattern = new RegExp(
+      `\\b(${BRAND_NAMES.map(b => b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})('s)?\\b\\s*`,
+      'gi'
+    );
+    const stripBrands = (s: string) => s.replace(brandPattern, '').replace(/\s{2,}/g, ' ').trim();
+
+    if (result?.gaps && Array.isArray(result.gaps)) {
+      result.gaps = result.gaps.map((gap: any) => ({
+        ...gap,
+        item: stripBrands(gap.item || ''),
+        reason: stripBrands(gap.reason || ''),
+        search_query: stripBrands(gap.search_query || ''),
+      }));
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
