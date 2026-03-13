@@ -5513,6 +5513,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.loading': 'Ladataan...', 'common.save': 'Tallenna', 'common.cancel': 'Peruuta', 'common.delete': 'Poista',
     'common.edit': 'Muokkaa', 'common.close': 'Sulje', 'common.back': 'Takaisin', 'common.next': 'Seuraava',
     'common.done': 'Valmis', 'common.search': 'Hae', 'common.something_wrong': 'Jokin meni pieleen', 'common.premium': 'Premium',
+    'common.read_more': 'Lue lisää', 'common.less': 'Vähemmän', 'common.retry': 'Yritä uudelleen', 'common.error': 'Jokin meni pieleen',
     'home.select_occasion_hint': 'Valitse tilaisuus yläpuolelta', 'home.cold_hint': 'Kylmä — päällysvaate lisätty automaattisesti',
     'weather.enter_city': 'Syötä kaupunki...', 'weather.located_in': 'Sijainnissasi {city}',
     'weather.is_this_your_city': 'Onko tämä kaupunkisi?', 'weather.yes': 'Kyllä', 'weather.change': 'Vaihda',
