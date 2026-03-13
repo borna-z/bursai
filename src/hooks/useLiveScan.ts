@@ -90,7 +90,7 @@ export function useLiveScan() {
       hapticMedium();
     } catch (err) {
       console.error('Capture error:', err);
-      setError('Kunde inte fånga bilden');
+      setError('Could not capture image');
     } finally {
       setIsProcessing(false);
     }

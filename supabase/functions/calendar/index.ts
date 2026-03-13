@@ -354,7 +354,7 @@ async function handleSyncGoogle(authHeader: string): Promise<Response> {
     .eq('user_id', userId).eq('provider', 'google').single();
 
   if (connError || !connection) {
-    return jsonResponse({ error: 'Ingen Google Calendar-koppling hittades' }, 400);
+    return jsonResponse({ error: 'No Google Calendar connection found' }, 400);
   }
 
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
