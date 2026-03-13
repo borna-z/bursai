@@ -313,6 +313,11 @@ export default function PlanPage() {
             </div>
           )}
 
+          {/* Calendar events */}
+          {calendarEvents.length > 0 && (
+            <CalendarEventsList events={calendarEvents} maxDisplay={4} />
+          )}
+
           {/* AI Day Summary */}
           <DaySummaryCard
             summary={daySummary}
