@@ -9175,6 +9175,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.loading': 'Ładowanie...', 'common.save': 'Zapisz', 'common.cancel': 'Anuluj', 'common.delete': 'Usuń',
     'common.edit': 'Edytuj', 'common.close': 'Zamknij', 'common.back': 'Wstecz', 'common.next': 'Dalej',
     'common.done': 'Gotowe', 'common.search': 'Szukaj', 'common.something_wrong': 'Coś poszło nie tak', 'common.premium': 'Premium', 'common.or': 'lub',
+    'common.read_more': 'Czytaj więcej', 'common.less': 'Mniej', 'common.retry': 'Ponów', 'common.error': 'Coś poszło nie tak',
     'trial.then_prefix': 'Potem', 'pricing.save': 'oszczędź', 'pricing.per_month': '/mies.', 'pricing.per_year': '/rok',
     'weather.enter_city': 'Wpisz miasto...',
     'weather.estimate': 'szacunek', 'weather.bring_umbrella': 'Weź parasol!', 'weather.cold_warning': 'Zimno! Ubierz się ciepło', 'weather.hot_warning': 'Gorąco! Uważaj na słońce',
