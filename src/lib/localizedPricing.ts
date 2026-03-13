@@ -18,8 +18,8 @@ interface PriceEntry {
 }
 
 const PRICE_MAP: Record<string, PriceEntry> = {
-  sv: { monthly: 59, yearly: 499, symbol: 'kr', prefix: false, decimals: 0, separator: ',' },
-  no: { monthly: 59, yearly: 499, symbol: 'kr', prefix: false, decimals: 0, separator: ',' },
+  sv: { monthly: 79, yearly: 699, symbol: 'kr', prefix: false, decimals: 0, separator: ',' },
+  no: { monthly: 79, yearly: 699, symbol: 'kr', prefix: false, decimals: 0, separator: ',' },
   da: { monthly: 39, yearly: 329, symbol: 'kr', prefix: false, decimals: 0, separator: ',' },
   fi: { monthly: 4.99, yearly: 44.99, symbol: '€', prefix: false, decimals: 2, separator: ',' },
   de: { monthly: 4.99, yearly: 44.99, symbol: '€', prefix: false, decimals: 2, separator: ',' },
