@@ -411,13 +411,12 @@ export default function TravelCapsule() {
                 {t('capsule.destination')}
               </Label>
               <div className="relative">
-                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/60" />
                 <Input
                   placeholder={t('capsule.enter_city')}
                   value={destination}
                   onChange={e => setDestination(e.target.value)}
                   onBlur={() => lookupWeather()}
-                  className="pl-9 h-12 rounded-xl bg-card/60 border-border/15"
+                  className="h-12 rounded-xl bg-card/60 border-border/15"
                 />
               </div>
               {isFetchingWeather && (
