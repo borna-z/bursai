@@ -1695,6 +1695,7 @@ serve(async (req) => {
     const weather: WeatherInput = body.weather || { precipitation: "none", wind: "low" };
     const locale: string = body.locale || "sv";
     const eventTitle: string | null = body.event_title || null; // Social context
+    const preferGarmentIds: Set<string> = new Set(body.prefer_garment_ids || []);
 
     // For swap mode
     const swapSlot: string | null = body.swap_slot || null;
