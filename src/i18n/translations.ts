@@ -2370,6 +2370,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'unused_outfits.title': 'Unused garments',
     'unused_outfits.subtitle': '6 outfits using items not worn in 30 days',
     'unused_outfits.generating': 'Creating outfits with your unused garments…',
+    'unused_outfits.unused_badge': 'Unused',
     'home.see_details': 'See details',
     'home.plan_today': 'Plan today',
     'home.plan_tomorrow': 'Plan tomorrow',
