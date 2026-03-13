@@ -4,7 +4,7 @@ import { EASE_CURVE } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { SUPPORTED_LOCALES, type Locale } from '@/i18n/translations';
-import bursLogoWhite from '@/assets/burs-logo-white.png';
+import bursLogoWhite from '@/assets/burs-logo-256-2.png';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
