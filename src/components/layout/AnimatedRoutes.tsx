@@ -45,13 +45,7 @@ const Terms = lazy(() => import('@/pages/marketing/Terms'));
 const Contact = lazy(() => import('@/pages/marketing/Contact'));
 const Admin = lazy(() => import('@/pages/marketing/Admin'));
 const PublicProfile = lazy(() => import('@/pages/PublicProfile'));
-const InspirationFeed = lazy(() => import('@/pages/InspirationFeed'));
-const StyleChallenges = lazy(() => import('@/pages/StyleChallenges'));
-const VisualSearch = lazy(() => import('@/pages/VisualSearch'));
 const MoodOutfit = lazy(() => import('@/pages/MoodOutfit'));
-const SmartShopping = lazy(() => import('@/pages/SmartShopping'));
-const WardrobeAging = lazy(() => import('@/pages/WardrobeAging'));
-const StyleTwin = lazy(() => import('@/pages/StyleTwin'));
 const Discover = lazy(() => import('@/pages/Discover'));
 const PickMustHaves = lazy(() => import('@/pages/PickMustHaves'));
 
@@ -142,13 +136,7 @@ export function AnimatedRoutes() {
             <Route path="/billing/cancel" element={<ProtectedRoute><BillingCancel /></ProtectedRoute>} />
             <Route path="/share/:id" element={<ShareOutfit />} />
             <Route path="/u/:username" element={<PublicProfile />} />
-            <Route path="/feed" element={<ProtectedRoute><InspirationFeed /></ProtectedRoute>} />
-            <Route path="/challenges" element={<ProtectedRoute><StyleChallenges /></ProtectedRoute>} />
-            <Route path="/ai/visual-search" element={<ProtectedRoute><VisualSearch /></ProtectedRoute>} />
             <Route path="/ai/mood-outfit" element={<ProtectedRoute><MoodOutfit /></ProtectedRoute>} />
-            <Route path="/ai/smart-shopping" element={<ProtectedRoute><SmartShopping /></ProtectedRoute>} />
-            <Route path="/ai/wardrobe-aging" element={<ProtectedRoute><WardrobeAging /></ProtectedRoute>} />
-            <Route path="/ai/style-twin" element={<ProtectedRoute><StyleTwin /></ProtectedRoute>} />
             <Route path="/discover" element={<ProtectedRoute><Discover /></ProtectedRoute>} />
             <Route path="/calendar/callback" element={<ProtectedRoute><GoogleCalendarCallback /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
