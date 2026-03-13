@@ -37,19 +37,19 @@ function getStripeConfig() {
 // Multi-currency price mapping (language → Stripe price IDs)
 // Only used in LIVE mode. Test mode uses default SEK prices.
 const CURRENCY_PRICES: Record<string, { monthly: string; yearly: string }> = {
-  // EUR currencies (€6.99/month, €59.99/year)
-  fi: { monthly: 'price_1TAVbGRfXibG26O7tycQijsb', yearly: 'price_1TAVbHRfXibG26O7mDl1Nu95' },
-  de: { monthly: 'price_1TAVbGRfXibG26O7tycQijsb', yearly: 'price_1TAVbHRfXibG26O7mDl1Nu95' },
-  fr: { monthly: 'price_1TAVbGRfXibG26O7tycQijsb', yearly: 'price_1TAVbHRfXibG26O7mDl1Nu95' },
-  es: { monthly: 'price_1TAVbGRfXibG26O7tycQijsb', yearly: 'price_1TAVbHRfXibG26O7mDl1Nu95' },
-  it: { monthly: 'price_1TAVbGRfXibG26O7tycQijsb', yearly: 'price_1TAVbHRfXibG26O7mDl1Nu95' },
-  pt: { monthly: 'price_1TAVbGRfXibG26O7tycQijsb', yearly: 'price_1TAVbHRfXibG26O7mDl1Nu95' },
-  nl: { monthly: 'price_1TAVbGRfXibG26O7tycQijsb', yearly: 'price_1TAVbHRfXibG26O7mDl1Nu95' },
-  fa: { monthly: 'price_1TAVbGRfXibG26O7tycQijsb', yearly: 'price_1TAVbHRfXibG26O7mDl1Nu95' },
-  // USD ($6.99/month, $59.99/year)
-  en: { monthly: 'price_1TAVbIRfXibG26O7j5f2ofxK', yearly: 'price_1TAVbIRfXibG26O7e4CPrhM8' },
-  // GBP (£6.99/month, £59.99/year)
-  'en-gb': { monthly: 'price_1TAVi4RfXibG26O7dmALfyzP', yearly: 'price_1TAVi4RfXibG26O7We2RgVc3' },
+  // EUR currencies (€7.99/month, €69.99/year)
+  fi: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
+  de: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
+  fr: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
+  es: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
+  it: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
+  pt: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
+  nl: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
+  fa: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
+  // USD ($7.99/month, $69.99/year)
+  en: { monthly: 'price_1TAVuvRfXibG26O7DJR2wkuI', yearly: 'price_1TAVuwRfXibG26O7aj2xxdto' },
+  // GBP (£7.99/month, £69.99/year)
+  'en-gb': { monthly: 'price_1TAVuxRfXibG26O75oBJGdLl', yearly: 'price_1TAVuyRfXibG26O7F45XmVBZ' },
   // NOK (79 kr/month, 699 kr/year)
   no: { monthly: 'price_1TAVbJRfXibG26O7fKNigbBC', yearly: 'price_1TAVbKRfXibG26O7N7JKBbp2' },
   // DKK (59 kr/month, 499 kr/year)
