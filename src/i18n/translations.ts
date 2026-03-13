@@ -7733,6 +7733,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'weather.yes': 'Sì', 'weather.change': 'Cambia', 'weather.your_location': 'La tua posizione',
     'weather.bring_umbrella': 'Porta l\'ombrello!', 'weather.cold_warning': 'Freddo! Vestiti caldo',
     'weather.hot_warning': 'Caldo! Pensa al sole', 'weather.unavailable': 'Previsioni non disponibili',
+    'weather.estimate': 'stima',
     'weather.outfit_created_for': 'L\'outfit è stato creato per', 'weather.differs': 'il meteo è diverso',
     'weather.fetching': 'Recupero previsioni...', 'weather.condition.clear': 'Sereno', 'weather.condition.cloudy': 'Nuvoloso',
     'weather.condition.fog': 'Nebbia', 'weather.condition.drizzle': 'Pioggerella', 'weather.condition.rain': 'Pioggia',
