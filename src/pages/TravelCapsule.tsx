@@ -281,6 +281,8 @@ export default function TravelCapsule() {
             condition: weatherForecast.condition,
           } : null,
           occasions: selectedOccasions,
+          outfits_per_day: outfitsPerDay,
+          must_have_items: mustHaveItems.length > 0 ? mustHaveItems : undefined,
           minimize_items: minimizeItems,
           include_travel_days: includeTravelDays,
           locale: userLocale,
