@@ -411,7 +411,7 @@ export default function TravelCapsule() {
                 {t('capsule.destination')}
               </Label>
               <div className="relative">
-                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/60" />
                 <Input
                   placeholder={t('capsule.enter_city')}
                   value={destination}
