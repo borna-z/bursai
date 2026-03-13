@@ -9,8 +9,8 @@ interface BursMonogramProps {
 }
 
 export function BursMonogram({ size = 40, className }: BursMonogramProps) {
-  const { isDark } = useTheme();
-  const src = isDark ? monogramWhite : monogramDark;
+  const { resolvedTheme } = useTheme();
+  const src = resolvedTheme === 'dark' ? monogramWhite : monogramDark;
 
   return (
     <img
