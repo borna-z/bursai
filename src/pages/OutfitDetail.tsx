@@ -52,7 +52,7 @@ function SwapSheet({ isOpen, onClose, slot, candidates, isLoading, onSelect, isS
                 <button key={candidate.garment.id} onClick={() => onSelect(candidate.garment.id)} disabled={isSwapping} className={cn("w-full flex items-center gap-3 p-3 rounded-xl transition-all hover:bg-secondary/80 bg-secondary/60 backdrop-blur-sm active:scale-[0.99]", isSwapping && "opacity-50")}>
                   <LazyImageSimple imagePath={candidate.garment.image_path} alt={candidate.garment.title} className="w-16 h-16 rounded-lg flex-shrink-0" />
                   <div className="flex-1 text-left min-w-0">
-                    <p className="font-medium truncate">{candidate.garment.title}</p>
+                    <p className="font-medium truncate">{stripBrands(candidate.garment.title)}</p>
                     <p className="text-sm text-muted-foreground capitalize">{candidate.garment.color_primary}</p>
                   </div>
                 </button>
