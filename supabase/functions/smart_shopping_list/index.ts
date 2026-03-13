@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
+import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -71,7 +71,7 @@ Create 4-6 prioritized shopping suggestions.`;
 
     const { data: result } = await callBursAI({
       complexity: "standard",
-      max_tokens: 600,
+      max_tokens: estimateMaxTokens({ outputItems: 6, perItemTokens: 80, baseTokens: 150 }),
       messages: [
         { role: "system", content: prompt },
         { role: "user", content: "Generate my smart shopping list." },

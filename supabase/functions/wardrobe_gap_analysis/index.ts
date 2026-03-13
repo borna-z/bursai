@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
+import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -61,7 +61,7 @@ For each gap, estimate how many new outfits it would unlock.`;
 
     const { data: result } = await callBursAI({
       complexity: "standard",
-      max_tokens: 600,
+      max_tokens: estimateMaxTokens({ inputItems: garments.length, outputItems: Math.ceil(garments.length / 10), perItemTokens: 80, baseTokens: 200 }),
       messages: [
         { role: "system", content: prompt },
         { role: "user", content: "Identify wardrobe gaps." },

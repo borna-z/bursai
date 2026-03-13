@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callBursAI, bursAIErrorResponse, compactGarment } from "../_shared/burs-ai.ts";
+import { callBursAI, bursAIErrorResponse, compactGarment, estimateMaxTokens } from "../_shared/burs-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -65,7 +65,7 @@ serve(async (req) => {
 
     const { data: result } = await callBursAI({
       complexity: "standard",
-      max_tokens: 300,
+      max_tokens: estimateMaxTokens({ outputItems: 5, perItemTokens: 40, baseTokens: 120 }),
       functionName: "mood_outfit",
       cacheTtlSeconds: 900,
       cacheNamespace: `mood_${mood}_${userId?.slice(0, 8)}`,

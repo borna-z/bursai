@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callBursAI } from "../_shared/burs-ai.ts";
+import { callBursAI, estimateMaxTokens } from "../_shared/burs-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1599,7 +1599,7 @@ ${comboDescriptions}`;
       tools: [tool],
       tool_choice: { type: "function", function: { name: toolName } },
       complexity: "standard",
-      max_tokens: mode === "generate" ? 200 : 500,
+      max_tokens: mode === "generate" ? 200 : estimateMaxTokens({ outputItems: 3, perItemTokens: 100, baseTokens: 150 }),
     });
     return { data };
   } catch (e: any) {

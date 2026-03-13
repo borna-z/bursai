@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callBursAI, compressPrompt, compactGarment, bursAIErrorResponse } from "../_shared/burs-ai.ts";
+import { callBursAI, compressPrompt, compactGarment, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -92,7 +92,7 @@ ${garmentList}`);
           }],
           tool_choice: { type: "function", function: { name: "suggest_outfits" } },
           complexity: "trivial",
-          max_tokens: 400,
+          max_tokens: estimateMaxTokens({ outputItems: 2, perItemTokens: 80, baseTokens: 150 }),
           cacheTtlSeconds: 43200, // 12 hours
           cacheNamespace: `daily_suggestions_${user.id}`,
         }, supabase);
