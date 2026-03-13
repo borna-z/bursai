@@ -178,7 +178,7 @@ function HeroSlide({ suggestion, onTryIt, onPlan, isCreating }: HeroSlideProps) 
           className="h-11 px-4 text-sm text-muted-foreground"
         >
           <Calendar className="w-4 h-4 mr-1.5" />
-          {t('plan.title')}
+          {t('plan.plan')}
         </Button>
       </div>
     </motion.div>
