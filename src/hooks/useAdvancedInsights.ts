@@ -11,7 +11,14 @@ export interface SpendingData {
   worstCostPerWear: { id: string; title: string; image_path: string; cpw: number; wears: number; price: number }[];
 }
 
-export function useSpendingData() {
+const LOCALE_CURRENCY: Record<string, string> = {
+  sv: 'kr', no: 'kr', da: 'kr',
+  fi: '€', de: '€', fr: '€', es: '€', it: '€', pt: '€', nl: '€', fa: '€',
+  en: '$', 'en-gb': '£',
+  pl: 'zł', ar: 'د.إ',
+};
+
+export function useSpendingData(locale?: string) {
   const { user } = useAuth();
   return useQuery({
     queryKey: ['spending', user?.id],
@@ -26,7 +33,7 @@ export function useSpendingData() {
       const withPrice = garments.filter(g => g.purchase_price && g.purchase_price > 0);
       if (withPrice.length === 0) return null;
 
-      const currency = withPrice[0].purchase_currency || 'SEK';
+      const currency = (locale && LOCALE_CURRENCY[locale]) || withPrice[0].purchase_currency || 'SEK';
       const totalValue = withPrice.reduce((s, g) => s + (g.purchase_price || 0), 0);
 
       // Category breakdown

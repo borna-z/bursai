@@ -7,9 +7,9 @@ import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
 export function SpendingDashboard({ isPremium }: { isPremium: boolean }) {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const navigate = useNavigate();
-  const { data } = useSpendingData();
+  const { data } = useSpendingData(locale);
 
   if (!data) return null;
 
