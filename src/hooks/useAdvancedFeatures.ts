@@ -47,13 +47,13 @@ export function useSuggestAccessories() {
 // Step 21: Wardrobe gap analysis
 export function useWardrobeGapAnalysis() {
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async (params?: { locale?: string }) => {
       const { data, error } = await supabase.functions.invoke('wardrobe_gap_analysis', {
-        body: {},
+        body: { locale: params?.locale || 'en' },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return data as { gaps: Array<{ item: string; category: string; reason: string; new_outfits: number }> };
+      return data as { gaps: Array<{ item: string; brand: string; category: string; color: string; reason: string; new_outfits: number; price_range: string; search_query: string }> };
     },
   });
 }
