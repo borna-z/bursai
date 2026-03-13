@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 
 import { DiscoverChallenges } from '@/components/discover/DiscoverChallenges';
 import { DiscoverStyleTools } from '@/components/discover/DiscoverStyleTools';
+import { WardrobeGapSection } from '@/components/discover/WardrobeGapSection';
 
 interface Challenge {
   id: string;
