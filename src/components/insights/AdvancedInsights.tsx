@@ -17,7 +17,7 @@ export function WardrobeGapSection({ isPremium }: { isPremium: boolean }) {
 
   const handleAnalyze = async () => {
     try {
-      const result = await gapAnalysis.mutateAsync();
+      const result = await gapAnalysis.mutateAsync({});
       setGaps(result.gaps);
     } catch {
       toast.error(t('insights.gap_error'));
