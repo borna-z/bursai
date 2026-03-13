@@ -43,7 +43,8 @@
    (function(){
      // Set initial background to prevent flash, then hand off to CSS variable
      var d=document.documentElement,b=document.body;
-     if(d.classList.contains('dark')||localStorage.getItem('theme')==='dark'||(localStorage.getItem('theme')!=='light'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches)){
+      var storedTheme=localStorage.getItem('garderob-theme');
+      if(d.classList.contains('dark')||storedTheme==='dark'||(storedTheme==='system'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches)){
        b.style.background='#0D0D0D';
      }
      // Once CSS loads, let the variable take over
