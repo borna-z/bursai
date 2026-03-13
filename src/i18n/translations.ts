@@ -9631,6 +9631,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.loading': 'در حال بارگذاری...', 'common.save': 'ذخیره', 'common.cancel': 'لغو', 'common.delete': 'حذف',
     'common.edit': 'ویرایش', 'common.close': 'بستن', 'common.back': 'بازگشت', 'common.next': 'بعدی',
     'common.done': 'انجام شد', 'common.search': 'جستجو', 'common.something_wrong': 'خطایی رخ داد', 'common.premium': 'پریمیوم', 'common.or': 'یا',
+    'common.read_more': 'بیشتر بخوانید', 'common.less': 'کمتر', 'common.retry': 'تلاش مجدد', 'common.error': 'خطایی رخ داد',
     'trial.then_prefix': 'سپس', 'pricing.save': 'صرفه‌جویی', 'pricing.per_month': '/ماه', 'pricing.per_year': '/سال',
     'landing.showcase_wardrobe_title': 'تمام کمد لباس شما، مرتب', 'landing.showcase_wardrobe_desc': 'دسته‌بندی‌های هوشمند و فیلترها — همه چیز را فوری پیدا کنید.',
     'landing.showcase_home_title': 'ست روزانه شما، آماده پوشیدن', 'landing.showcase_home_desc': 'هوش مصنوعی بر اساس آب‌و‌هوا و سبک انتخاب می‌کند.',
