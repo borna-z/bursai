@@ -76,6 +76,7 @@ export default function TravelCapsule() {
   const navigate = useNavigate();
   const { t, locale } = useLanguage();
   const { data: profile } = useProfile();
+  const { data: allGarments } = useFlatGarments();
   const dateLocale = getDateFnsLocale(locale);
 
   // ── Form state ──
