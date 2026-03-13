@@ -5016,6 +5016,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.loading': 'Indlæser...', 'common.save': 'Gem', 'common.cancel': 'Annuller', 'common.delete': 'Slet',
     'common.edit': 'Redigér', 'common.close': 'Luk', 'common.back': 'Tilbage', 'common.next': 'Næste',
     'common.done': 'Færdig', 'common.search': 'Søg', 'common.something_wrong': 'Noget gik galt', 'common.premium': 'Premium', 'common.or': 'eller',
+    'common.read_more': 'Læs mere', 'common.less': 'Mindre', 'common.retry': 'Prøv igen', 'common.error': 'Noget gik galt',
     'weather.enter_city': 'Skriv en by...', 'weather.located_in': 'Sted: {city}', 'weather.is_this_your_city': 'Er dette din by?', 'weather.yes': 'Ja', 'weather.change': 'Ændr',
     'weather.bring_umbrella': 'Tag en paraply med!', 'weather.cold_warning': 'Koldt! Klæd dig varmt', 'weather.hot_warning': 'Varmt! Tænk på solen',
     'weather.unavailable': 'Prognose ikke tilgængelig', 'weather.estimate': 'estimat', 'weather.outfit_created_for': 'Outfittet blev lavet til', 'weather.differs': 'vejret afviger med', 'weather.fetching': 'Henter prognose...',
