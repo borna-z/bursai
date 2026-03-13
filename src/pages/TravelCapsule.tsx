@@ -87,7 +87,14 @@ export default function TravelCapsule() {
   const [includeTravelDays, setIncludeTravelDays] = useState(false);
   const [outfitsPerDay, setOutfitsPerDay] = useState(1);
   const [mustHaveItems, setMustHaveItems] = useState<string[]>([]);
-  const [showAllMustHaves, setShowAllMustHaves] = useState(false);
+
+  // Restore must-haves from picker page
+  const locationState = useLocation().state as { mustHaveItems?: string[] } | null;
+  useEffect(() => {
+    if (locationState?.mustHaveItems) {
+      setMustHaveItems(locationState.mustHaveItems);
+    }
+  }, [locationState]);
 
   // ── Generation state ──
   const [isGenerating, setIsGenerating] = useState(false);
