@@ -66,6 +66,7 @@ export function WeatherForecastBadge({
   }
 
   if (!forecast) {
+    // For dates beyond forecast range, try historical lookup
     return (
       <div className={cn("flex items-center gap-1 text-muted-foreground", className)}>
         <Cloud className="w-3.5 h-3.5 opacity-50" />
@@ -73,6 +74,8 @@ export function WeatherForecastBadge({
       </div>
     );
   }
+
+  const isEstimate = forecast.isHistorical;
 
   const WeatherIcon = getWeatherIcon(forecast.weather_code);
   const tempDiff = originalTemp !== undefined ? Math.abs(forecast.temperature_avg - originalTemp) : 0;
@@ -83,8 +86,9 @@ export function WeatherForecastBadge({
       <div className={cn("flex items-center gap-1.5", className)}>
         <WeatherIcon className="w-4 h-4 text-muted-foreground" />
         <span className="text-sm font-medium">{forecast.temperature_avg}°</span>
+        {isEstimate && <span className="text-[9px] text-muted-foreground/60">~</span>}
         {forecast.precipitation_probability > 50 && (
-          <Droplets className="w-3 h-3 text-blue-500" />
+          <Droplets className="w-3 h-3 text-muted-foreground" />
         )}
       </div>
     );
@@ -95,8 +99,11 @@ export function WeatherForecastBadge({
       <div className="flex items-center gap-2">
         <WeatherIcon className="w-4 h-4 text-muted-foreground" />
         <span className="text-sm">
-          {forecast.temperature_avg}°C · {t(forecast.condition)}
+          {isEstimate ? '~' : ''}{forecast.temperature_avg}°C · {t(forecast.condition)}
         </span>
+        {isEstimate && (
+          <span className="text-[10px] text-muted-foreground/50 italic">{t('weather.estimate')}</span>
+        )}
         {forecast.precipitation_probability > 30 && (
           <span className="text-xs text-muted-foreground flex items-center gap-0.5">
             <Droplets className="w-3 h-3" />

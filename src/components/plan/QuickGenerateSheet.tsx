@@ -9,7 +9,7 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet';
 import { useWeather } from '@/hooks/useWeather';
-import { useForecast, getCoordinatesFromCity, fetchForecast, type ForecastDay } from '@/hooks/useForecast';
+import { useForecast, getCoordinatesFromCity, fetchForecast, fetchHistoricalWeather, type ForecastDay } from '@/hooks/useForecast';
 import { useCalendarEvents, inferOccasionFromEvent } from '@/hooks/useCalendarSync';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useLocation } from '@/contexts/LocationContext';
@@ -80,7 +80,18 @@ export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGen
       const coords = await getCoordinatesFromCity(city);
       if (!coords) { setTravelError(t('qgen.place_not_found')); setTravelForecast(null); return; }
       const days = await fetchForecast(coords.lat, coords.lon);
-      const match = days.find(d => d.date === targetDate) || null;
+      let match = days.find(d => d.date === targetDate) || null;
+      
+      // If date is beyond 16-day forecast, try historical data
+      if (!match) {
+        try {
+          const historicalDays = await fetchHistoricalWeather(coords.lat, coords.lon, targetDate, targetDate);
+          match = historicalDays.find(d => d.date === targetDate) || null;
+        } catch {
+          // Historical fetch failed
+        }
+      }
+      
       setTravelForecast(match);
       if (!match) setTravelError(t('qgen.no_forecast'));
     } catch { setTravelError(t('qgen.weather_error')); setTravelForecast(null); } finally { setIsFetchingTravel(false); }
