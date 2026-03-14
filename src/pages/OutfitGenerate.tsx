@@ -73,6 +73,18 @@ export default function OutfitGeneratePage() {
 
   const CurrentIcon = PHASES[phase]?.icon ?? Sparkles;
   const currentLabel = PHASES[phase]?.label ?? '';
+
+  // Gate: require enough garments (after all hooks)
+  if (!isUnlocked('outfit_gen')) {
+    return (
+      <AppLayout>
+        <div className="p-4 max-w-sm mx-auto pt-16 space-y-6">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">{t('unlock.outfit_gen')}</h2>
+          <WardrobeProgress message={t('unlock.outfit_gen_message')} />
+        </div>
+      </AppLayout>
+    );
+  }
   
   if (error) {
     return (
