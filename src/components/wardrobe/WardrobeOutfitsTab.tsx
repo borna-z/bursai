@@ -15,6 +15,7 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
+import type { Locale as AppLocale } from '@/i18n/translations';
 import { toast } from 'sonner';
 import { TAP_TRANSITION } from '@/lib/motion';
 
