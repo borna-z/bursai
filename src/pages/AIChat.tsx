@@ -242,9 +242,9 @@ export default function AIChat() {
         items,
       });
       navigate(`/outfits/${result.id}`);
-      toast.success(t('outfit.created') || 'Outfit skapad!');
+      toast.success(t('outfit.created') || 'Outfit created!');
     } catch {
-      toast.error(t('outfit.create_error') || 'Kunde inte skapa outfit');
+      toast.error(t('outfit.create_error') || 'Could not create outfit');
     }
   }, [garmentMap, createOutfit, navigate, t]);
 

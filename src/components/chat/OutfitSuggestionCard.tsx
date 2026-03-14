@@ -107,7 +107,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
                     <RefreshCw className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
                   </div>
                 ) : alternatives.length === 0 ? (
-                  <p className="text-[10px] text-muted-foreground px-1 py-2">{t('outfit.no_alternatives') || 'Inga alternativ'}</p>
+                  <p className="text-[10px] text-muted-foreground px-1 py-2">{t('outfit.no_alternatives') || 'No alternatives'}</p>
                 ) : (
                   <div className="flex gap-1.5">
                     {alternatives.map(alt => (

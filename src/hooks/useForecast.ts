@@ -104,7 +104,7 @@ export async function fetchForecast(lat: number, lon: number): Promise<ForecastD
   );
 
   if (!response.ok) {
-    throw new Error('Kunde inte hämta väderprognos');
+    throw new Error('Could not fetch weather forecast');
   }
 
   const data = await response.json();
