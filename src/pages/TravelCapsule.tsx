@@ -666,6 +666,20 @@ export default function TravelCapsule() {
               </div>
             </div>
 
+            {/* Trip Summary */}
+            {destination && dateRange?.from && dateRange?.to && weatherForecast && !isGenerating && (
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-card/60 border border-border/10 text-sm">
+                <WeatherMiniIcon condition={weatherForecast.condition} />
+                <span className="font-medium truncate">{destination}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">{dateLabel}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">{tripNights} {t('capsule.nights')}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">{weatherForecast.temperature_min}–{weatherForecast.temperature_max}°C</span>
+              </div>
+            )}
+
             {/* Generate */}
             <div className="space-y-1">
               {isGenerating ? (
