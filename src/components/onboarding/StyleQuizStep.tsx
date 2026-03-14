@@ -17,19 +17,19 @@ import { cn } from '@/lib/utils';
 // ─── Data ───
 
 const COLORS = [
-  'svart','vit','grå','marinblå','blå','ljusblå','mörkblå',
-  'röd','vinröd','korall','rosa','ljusrosa','magenta',
-  'grön','olivgrön','khaki','mintgrön','skogsgrön',
-  'beige','sand','kamel','brun','mörkbrun','cognac',
-  'gul','senapsgul','guld','orange','rost',
-  'lila','lavendel','plommon',
-  'turkos','teal','silver','kräm','off-white','denim'
+  'black','white','grey','navy','blue','lightblue','darkblue',
+  'red','burgundy','coral','pink','lightpink','magenta',
+  'green','olive','khaki','mint','forest',
+  'beige','sand','camel','brown','darkbrown','cognac',
+  'yellow','mustard','gold','orange','rust',
+  'purple','lavender','plum',
+  'turquoise','teal','silver','cream','off-white','denim'
 ];
 
 const COLOR_I18N: Record<string, string> = {
-  svart:'color.svart', vit:'color.vit', grå:'color.grå', marinblå:'color.marinblå',
-  blå:'color.blå', röd:'color.röd', grön:'color.grön', beige:'color.beige',
-  brun:'color.brun', rosa:'color.rosa', gul:'color.gul', orange:'color.orange', lila:'color.lila',
+  black:'color.black', white:'color.white', grey:'color.grey', navy:'color.navy',
+  blue:'color.blue', red:'color.red', green:'color.green', beige:'color.beige',
+  brown:'color.brown', pink:'color.pink', yellow:'color.yellow', orange:'color.orange', purple:'color.purple',
 };
 
 const PATTERN_OPTIONS = ['stripes','checks','florals','abstract','animal-print'] as const;

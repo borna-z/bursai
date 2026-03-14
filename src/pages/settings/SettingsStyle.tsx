@@ -16,27 +16,27 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { cn } from '@/lib/utils';
 
 const COLOR_MAP: Record<string, string> = {
-  svart: '#111111', vit: '#F6F4F1', grå: '#9CA3AF', marinblå: '#1E3A5F',
-  blå: '#3B82F6', röd: '#EF4444', grön: '#22C55E', beige: '#D2B48C',
-  brun: '#8B4513', rosa: '#F9A8D4', gul: '#FACC15', orange: '#F97316',
-  lila: '#A855F7',
+  black: '#111111', white: '#F6F4F1', grey: '#9CA3AF', navy: '#1E3A5F',
+  blue: '#3B82F6', red: '#EF4444', green: '#22C55E', beige: '#D2B48C',
+  brown: '#8B4513', pink: '#F9A8D4', yellow: '#FACC15', orange: '#F97316',
+  purple: '#A855F7',
   // Neutrals
-  ivory: '#FFFFF0', kräm: '#FFFDD0', sand: '#C2B280', khaki: '#BDB76B',
-  kolgrå: '#54585A', antracit: '#383838',
+  ivory: '#FFFFF0', cream: '#FFFDD0', sand: '#C2B280', khaki: '#BDB76B',
+  charcoal: '#54585A', anthracite: '#383838',
   // Blues
-  himmelsblå: '#87CEEB', turkos: '#40E0D0', petrol: '#006D6F',
-  indigo: '#4B0082', kobolt: '#0047AB',
+  skyblue: '#87CEEB', turquoise: '#40E0D0', petrol: '#006D6F',
+  indigo: '#4B0082', cobalt: '#0047AB',
   // Greens
-  olivgrön: '#6B8E23', skogsgrön: '#228B22', mint: '#98FF98', salviagrön: '#87AE73',
+  olive: '#6B8E23', forest: '#228B22', mint: '#98FF98', sage: '#87AE73',
   // Reds / Pinks
-  vinröd: '#722F37', korall: '#FF7F50', aprikos: '#FBCEB1',
-  fuchsia: '#FF00FF', lavendel: '#E6E6FA',
+  burgundy: '#722F37', coral: '#FF7F50', apricot: '#FBCEB1',
+  fuchsia: '#FF00FF', lavender: '#E6E6FA',
   // Earths
-  kamel: '#C19A6B', rost: '#B7410E', cognac: '#9A463D',
-  choklad: '#7B3F00', terrakotta: '#E2725B',
+  camel: '#C19A6B', rust: '#B7410E', cognac: '#9A463D',
+  chocolate: '#7B3F00', terracotta: '#E2725B',
   // Others
-  guld: '#FFD700', silver: '#C0C0C0', kricka: '#008080',
-  plommon: '#8E4585', senapsgul: '#FFDB58',
+  gold: '#FFD700', silver: '#C0C0C0', teal: '#008080',
+  plum: '#8E4585', mustard: '#FFDB58',
 };
 
 const COLORS = Object.keys(COLOR_MAP);
