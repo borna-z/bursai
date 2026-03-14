@@ -15,8 +15,8 @@ export const profilePreferencesSchema = z.object({
   onboarding: onboardingPrefsSchema.optional(),
   accent_color: z.string().optional(),
   language: z.string().optional(),
-  style_profile: z.record(z.unknown()).optional(),
-  notifications: z.record(z.boolean()).optional(),
+  style_profile: z.record(z.string(), z.unknown()).optional(),
+  notifications: z.record(z.string(), z.boolean()).optional(),
 }).passthrough(); // allow future keys
 
 export type ProfilePreferences = z.infer<typeof profilePreferencesSchema>;
