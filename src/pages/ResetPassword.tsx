@@ -7,6 +7,8 @@ import { motion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import bursLogoWhite from '@/assets/burs-logo-white.png';
+import bursLogoDark from '@/assets/burs-logo-256-2.png';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function ResetPassword() {
   const [password, setPassword] = useState('');
@@ -17,6 +19,9 @@ export default function ResetPassword() {
   const [done, setDone] = useState(false);
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { theme } = useTheme();
+
+  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
@@ -54,20 +59,27 @@ export default function ResetPassword() {
     }
   };
 
-  const inputClass = "w-full h-12 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 text-[15px] text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-white/15 transition-colors disabled:opacity-40";
+  // Dark mode: noir glass inputs | Light mode: editorial warm inputs
+  const inputClass = isDark
+    ? "w-full h-12 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 text-[15px] text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-white/15 transition-colors disabled:opacity-40"
+    : "w-full h-12 px-4 text-[15px] text-foreground placeholder:text-muted-foreground bg-card border border-border focus:outline-none focus:ring-1 focus:ring-border transition-colors disabled:opacity-40";
+
+  const cardClass = isDark
+    ? "rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl"
+    : "border border-border bg-card";
 
   const renderContent = () => {
     if (done) {
       return (
         <motion.div
-          className="rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl p-8 text-center space-y-4"
+          className={`${cardClass} p-8 text-center space-y-4`}
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.4, ease: EASE_CURVE }}
         >
-          <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto" />
-          <p className="text-white font-medium">{t('auth.password_updated')}</p>
-          <p className="text-sm text-white/40">{t('auth.redirecting')}</p>
+          <CheckCircle className={`w-12 h-12 mx-auto ${isDark ? 'text-emerald-400' : 'text-foreground'}`} />
+          <p className="font-medium">{t('auth.password_updated')}</p>
+          <p className="text-sm text-muted-foreground">{t('auth.redirecting')}</p>
         </motion.div>
       );
     }
@@ -75,15 +87,18 @@ export default function ResetPassword() {
     if (!isRecovery) {
       return (
         <motion.div
-          className="rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl p-8 text-center space-y-5"
+          className={`${cardClass} p-8 text-center space-y-5`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: EASE_CURVE }}
         >
-          <p className="text-white/50 text-sm">{t('auth.invalid_reset_link')}</p>
+          <p className="text-sm text-muted-foreground">{t('auth.invalid_reset_link')}</p>
           <button
             onClick={() => navigate('/auth')}
-            className="w-full h-12 rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/70 text-sm font-medium hover:bg-white/[0.08] transition-colors"
+            className={isDark
+              ? "w-full h-12 rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/70 text-sm font-medium hover:bg-white/[0.08] transition-colors"
+              : "w-full h-12 border border-border bg-card text-foreground text-sm font-medium hover:bg-muted transition-colors"
+            }
           >
             {t('auth.back_to_login')}
           </button>
@@ -93,18 +108,18 @@ export default function ResetPassword() {
 
     return (
       <motion.div
-        className="rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl overflow-hidden"
+        className={`${cardClass} overflow-hidden`}
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.15, ease: EASE_CURVE }}
       >
         <div className="p-6 pb-2">
-          <h2 className="text-lg font-semibold text-white">{t('auth.set_new_password')}</h2>
-          <p className="text-sm text-white/40 mt-1">{t('auth.set_new_password_desc')}</p>
+          <h2 className="text-lg font-semibold">{t('auth.set_new_password')}</h2>
+          <p className="text-sm text-muted-foreground mt-1">{t('auth.set_new_password_desc')}</p>
         </div>
         <form onSubmit={handleReset} className="p-6 pt-4 space-y-4">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-white/40 pl-0.5">{t('auth.new_password')}</label>
+            <label className="text-xs font-medium text-muted-foreground pl-0.5">{t('auth.new_password')}</label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -117,14 +132,14 @@ export default function ResetPassword() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/50 transition-colors"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-white/40 pl-0.5">{t('auth.confirm_password')}</label>
+            <label className="text-xs font-medium text-muted-foreground pl-0.5">{t('auth.confirm_password')}</label>
             <input
               type={showPassword ? 'text' : 'password'}
               placeholder="••••••••"
@@ -137,7 +152,10 @@ export default function ResetPassword() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full h-[52px] rounded-xl bg-white text-[#030305] text-[15px] font-semibold hover:bg-white/90 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2 mt-2"
+            className={isDark
+              ? "w-full h-[52px] rounded-xl bg-white text-[#030305] text-[15px] font-semibold hover:bg-white/90 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2 mt-2"
+              : "w-full h-[52px] bg-primary text-primary-foreground text-[15px] font-semibold hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2 mt-2"
+            }
           >
             {isLoading ? (
               <>
@@ -154,11 +172,16 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="dark-landing min-h-screen flex flex-col items-center justify-center p-5 relative overflow-hidden">
-      {/* Aurora glow */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] rounded-full bg-[radial-gradient(ellipse,rgba(99,102,241,0.10)_0%,transparent_70%)] blur-3xl" />
-      </div>
+    <div className={isDark
+      ? "dark-landing min-h-screen flex flex-col items-center justify-center p-5 relative overflow-hidden"
+      : "min-h-screen flex flex-col items-center justify-center p-5 relative overflow-hidden bg-background text-foreground"
+    }>
+      {/* Aurora glow (dark only) */}
+      {isDark && (
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] rounded-full bg-[radial-gradient(ellipse,rgba(99,102,241,0.10)_0%,transparent_70%)] blur-3xl" />
+        </div>
+      )}
 
       <div className="relative z-10 w-full max-w-sm space-y-10">
         <motion.div
@@ -167,7 +190,11 @@ export default function ResetPassword() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, ease: EASE_CURVE }}
         >
-          <img src={bursLogoWhite} alt="BURS" className="h-10 w-auto opacity-90" />
+          <img
+            src={isDark ? bursLogoWhite : bursLogoDark}
+            alt="BURS"
+            className="h-10 w-auto opacity-90"
+          />
         </motion.div>
         {renderContent()}
       </div>

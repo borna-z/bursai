@@ -120,7 +120,7 @@ export default function Contact() {
             <button
               type="submit"
               disabled={status === 'loading'}
-              className="w-full h-12 rounded-full font-semibold text-sm tracking-wide hover:scale-[1.02] active:scale-[0.98] transition-transform duration-300 inline-flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full h-12 font-semibold text-sm tracking-wide hover:opacity-90 active:scale-[0.98] transition-all duration-300 inline-flex items-center justify-center gap-2 disabled:opacity-50"
               style={{ background: '#1C1917', color: '#F5F0E8' }}
             >
               {status === 'loading' ? (

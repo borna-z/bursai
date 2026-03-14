@@ -26,7 +26,7 @@ export default function PrivacyPolicy() {
               <img src={bursLogo} alt="BURS" className="h-7 object-contain" style={{ opacity: 0.8 }} />
               <span className="font-bold tracking-[0.12em] text-sm" style={{ color: ink }}>BURS</span>
             </Link>
-            <Link to="/welcome" className="inline-flex items-center gap-1.5 text-sm transition-colors" style={{ color: muted }}>
+            <Link to="/" className="inline-flex items-center gap-1.5 text-sm transition-colors" style={{ color: muted }}>
               <ArrowLeft className="w-4 h-4" />
               Back
             </Link>

@@ -141,24 +141,61 @@
 
 /* Force light theme on specific containers (e.g. landing page) */
 .force-light {
-  --background: 36 22% 95%;
-  --foreground: 0 0% 7%;
-  --card: 0 0% 100%;
-  --card-foreground: 0 0% 7%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 7%;
-  --primary: 0 0% 7%;
-  --primary-foreground: 36 22% 95%;
+  --background: 36 25% 94%;
+  --foreground: 20 12% 10%;
+  --card: 36 20% 91%;
+  --card-foreground: 20 12% 10%;
+  --popover: 36 20% 91%;
+  --popover-foreground: 20 12% 10%;
+  --primary: 20 12% 10%;
+  --primary-foreground: 36 25% 94%;
   --secondary: 36 15% 93%;
-  --secondary-foreground: 0 0% 7%;
+  --secondary-foreground: 20 12% 10%;
   --muted: 36 12% 90%;
-  --muted-foreground: 0 0% 42%;
+  --muted-foreground: 20 5% 40%;
   --accent: 234 51% 37%;
   --accent-foreground: 0 0% 100%;
-  --border: 36 14% 88%;
-  --input: 36 14% 88%;
-  --ring: 0 0% 7%;
+  --border: 36 15% 85%;
+  --input: 36 15% 85%;
+  --ring: 20 12% 10%;
   color-scheme: light;
+}
+
+/* ── Light-mode editorial overrides (Steps 6-10) ── */
+/* Typography: Playfair Display headings + DM Sans body in light mode */
+:root:not(.dark) h1,
+:root:not(.dark) h2,
+:root:not(.dark) h3,
+:root:not(.dark) h4 {
+  font-family: 'Playfair Display', serif;
+}
+
+:root:not(.dark) body {
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* Square edges in light mode */
+:root:not(.dark) {
+  --radius: 0px;
+}
+
+/* Remove card shadows in light mode */
+:root:not(.dark) .card-clean {
+  box-shadow: none;
+}
+
+/* Light-mode PageHeader: solid border, no blur */
+:root:not(.dark) header[class*="backdrop-blur"] {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Light-mode BottomNav: solid bg, no blur */
+:root:not(.dark) nav[aria-label="Main navigation"] {
+  background: hsl(var(--background)) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-top: 1px solid hsl(var(--border)) !important;
 }
 
 @layer base {

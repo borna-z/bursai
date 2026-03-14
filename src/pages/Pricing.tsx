@@ -3,7 +3,6 @@ import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 import { Crown, Check, Sparkles, Infinity, Shield, Lock, ArrowLeft, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -55,116 +54,115 @@ export default function PricingPage() {
         <meta property="og:description" content="Unlimited garments, unlimited outfits, smarter AI recommendations. Try free for 30 days." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://burs.me/pricing" />
-        <meta property="og:image" content="https://burs.me/og-image.png" />
+        <meta property="og:image" content="/og-image.png" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="BURS Premium | Unlock Your Full Wardrobe" />
         <meta name="twitter:description" content="Unlimited garments, unlimited outfits, smarter AI recommendations. Try free for 30 days." />
       </Helmet>
     <div className="min-h-screen bg-background">
-      <div className="sticky top-0 z-10 bg-background border-b">
-        <div className="p-4 flex items-center gap-4">
+      {/* Header */}
+      <header className="sticky top-0 z-10 bg-background border-b border-border">
+        <div className="p-4 flex items-center gap-4 max-w-lg mx-auto">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="w-5 h-5" /></Button>
           <h1 className="text-lg font-semibold">{t('pricing.title')}</h1>
         </div>
-      </div>
+      </header>
 
-      <div className="p-4 space-y-6 pb-24">
+      <div className="p-4 space-y-8 pb-24 max-w-lg mx-auto">
         {/* Trial banner */}
-        <div className="relative overflow-hidden rounded-xl border border-amber-400/30 bg-gradient-to-br from-amber-500/5 to-orange-500/5 p-6 text-center">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 to-orange-500" />
-          <Badge className="bg-amber-500 text-white mb-3">{t('trial.badge')}</Badge>
-          <h2 className="text-xl font-bold mb-1">{t('trial.banner_title')}</h2>
+        <div className="border border-border bg-card p-6 text-center space-y-3">
+          <Badge className="bg-primary text-primary-foreground">{t('trial.badge')}</Badge>
+          <h2 className="text-xl font-bold">{t('trial.banner_title')}</h2>
           <p className="text-sm text-muted-foreground">{t('trial.banner_desc')}</p>
         </div>
 
+        {/* Hero */}
         <div className="text-center space-y-4 pt-4">
-          <div className="mx-auto w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
-            <Crown className="w-10 h-10 text-white" />
-          </div>
+          <Crown className="w-10 h-10 mx-auto text-foreground" />
           <h2 className="text-2xl font-bold">{t('pricing.hero')}</h2>
           <p className="text-muted-foreground">{t('pricing.hero_desc')}</p>
         </div>
 
-        <div className="flex items-center justify-center gap-2 p-1 bg-secondary rounded-lg">
-          <button className={cn('flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all', billingCycle === 'monthly' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')} onClick={() => setBillingCycle('monthly')}>
+        {/* Billing toggle */}
+        <div className="flex items-center justify-center gap-2 p-1 bg-muted">
+          <button className={cn('flex-1 py-2 px-4 text-sm font-medium transition-all', billingCycle === 'monthly' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')} onClick={() => setBillingCycle('monthly')}>
             {t('pricing.monthly_label')}
           </button>
-          <button className={cn('flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all relative', billingCycle === 'yearly' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')} onClick={() => setBillingCycle('yearly')}>
+          <button className={cn('flex-1 py-2 px-4 text-sm font-medium transition-all relative', billingCycle === 'yearly' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')} onClick={() => setBillingCycle('yearly')}>
             {t('pricing.yearly_label')}
-            <Badge className="absolute -top-2 -right-2 bg-green-500 text-xs px-1.5">-{pricing.savingsPercent}%</Badge>
+            <Badge className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs px-1.5">-{pricing.savingsPercent}%</Badge>
           </button>
         </div>
 
-        <Card className="border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-orange-500/5">
-          <CardHeader className="text-center pb-2">
-            <CardTitle className="flex items-center justify-center gap-2">
-              <Crown className="w-5 h-5 text-amber-500" />Premium
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-center">
-              {billingCycle === 'monthly' ? (
-                <><span className="text-4xl font-bold">{pricing.monthly}</span><span className="text-muted-foreground">{t('pricing.per_month')}</span></>
-              ) : (
-                <><span className="text-4xl font-bold">{pricing.yearly}</span><span className="text-muted-foreground">{t('pricing.per_year')}</span>
-                <p className="text-sm text-green-600 mt-1">≈ {pricing.yearlyMonthlyEquivalent}{t('pricing.per_month')} • {t('common.save') || 'Save'} {pricing.savingsPercent}%</p></>
-              )}
-            </div>
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center"><Infinity className="w-4 h-4 text-amber-500" /></div><span className="text-sm">{t('pricing.unlimited_wardrobe')}</span></div>
-              <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center"><Sparkles className="w-4 h-4 text-amber-500" /></div><span className="text-sm">{t('pricing.unlimited_outfits')}</span></div>
-              <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center"><Crown className="w-4 h-4 text-amber-500" /></div><span className="text-sm">{t('pricing.smarter_ai')}</span></div>
-            </div>
-            <p className="text-center text-sm font-medium text-amber-600">{t('trial.first_free')}</p>
-            <p className="text-center text-xs text-muted-foreground">{t('trial.then_prefix')} {pricing.monthly}{t('pricing.per_month')} {t('common.or')} {pricing.yearly}{t('pricing.per_year')}</p>
-            <Button className="w-full h-12 text-base bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600" onClick={handleCheckout} disabled={isLoading}>
-              {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Crown className="w-5 h-5 mr-2" />}
-              {t('trial.start_button')}
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Pricing card */}
+        <div className="border border-border bg-card p-6 space-y-4">
+          <h3 className="text-center font-semibold flex items-center justify-center gap-2">
+            <Crown className="w-5 h-5" /> Premium
+          </h3>
+          <div className="text-center">
+            {billingCycle === 'monthly' ? (
+              <><span className="text-4xl font-bold">{pricing.monthly}</span><span className="text-muted-foreground">{t('pricing.per_month')}</span></>
+            ) : (
+              <><span className="text-4xl font-bold">{pricing.yearly}</span><span className="text-muted-foreground">{t('pricing.per_year')}</span>
+              <p className="text-sm text-muted-foreground mt-1">≈ {pricing.yearlyMonthlyEquivalent}{t('pricing.per_month')} • {t('common.save') || 'Save'} {pricing.savingsPercent}%</p></>
+            )}
+          </div>
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center gap-3"><Infinity className="w-4 h-4 text-foreground" /><span className="text-sm">{t('pricing.unlimited_wardrobe')}</span></div>
+            <div className="flex items-center gap-3"><Sparkles className="w-4 h-4 text-foreground" /><span className="text-sm">{t('pricing.unlimited_outfits')}</span></div>
+            <div className="flex items-center gap-3"><Crown className="w-4 h-4 text-foreground" /><span className="text-sm">{t('pricing.smarter_ai')}</span></div>
+          </div>
+          <p className="text-center text-sm font-medium text-muted-foreground">{t('trial.first_free')}</p>
+          <p className="text-center text-xs text-muted-foreground">{t('trial.then_prefix')} {pricing.monthly}{t('pricing.per_month')} {t('common.or')} {pricing.yearly}{t('pricing.per_year')}</p>
+          <Button className="w-full h-12 text-base" onClick={handleCheckout} disabled={isLoading}>
+            {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Crown className="w-5 h-5 mr-2" />}
+            {t('trial.start_button')}
+          </Button>
+        </div>
 
+        {/* Trust bullets */}
         <div className="space-y-3">
           {trustBullets.map((bullet, index) => (
             <div key={index} className="flex items-center gap-3 text-sm text-muted-foreground">
-              <bullet.icon className="w-4 h-4 text-green-500 flex-shrink-0" /><span>{bullet.text}</span>
+              <bullet.icon className="w-4 h-4 text-foreground flex-shrink-0" /><span>{bullet.text}</span>
             </div>
           ))}
         </div>
 
-        <div className="space-y-3">
-          <h3 className="font-semibold text-lg">{t('pricing.faq_title')}</h3>
+        {/* FAQ */}
+        <div className="space-y-0">
+          <h3 className="font-semibold text-lg mb-4">{t('pricing.faq_title')}</h3>
           {faqs.map((faq, index) => (
-            <Card key={index} className="overflow-hidden">
-              <button className="w-full p-4 text-left flex items-center justify-between" onClick={() => setOpenFaq(openFaq === index ? null : index)}>
+            <div key={index} className="border-b border-border">
+              <button className="w-full py-4 text-left flex items-center justify-between" onClick={() => setOpenFaq(openFaq === index ? null : index)}>
                 <span className="font-medium text-sm">{faq.question}</span>
                 {openFaq === index ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
               </button>
-              {openFaq === index && <div className="px-4 pb-4 text-sm text-muted-foreground">{faq.answer}</div>}
-            </Card>
+              {openFaq === index && <div className="pb-4 text-sm text-muted-foreground">{faq.answer}</div>}
+            </div>
           ))}
         </div>
 
-        {/* Feature comparison table */}
+        {/* Feature comparison */}
         <div className="space-y-3">
           <h3 className="font-semibold text-lg">{t('pricing.compare_title') || 'Free vs Premium'}</h3>
-          <div className="rounded-xl border overflow-hidden">
+          <div className="border border-border overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-muted/30">
+                <tr className="bg-muted">
                   <th className="text-left p-3 font-medium">{t('pricing.feature') || 'Feature'}</th>
                   <th className="text-center p-3 font-medium">{t('pricing.free_title')}</th>
-                  <th className="text-center p-3 font-medium text-amber-500">Premium</th>
+                  <th className="text-center p-3 font-medium">Premium</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/50">
+              <tbody className="divide-y divide-border">
                 {[
                   [t('pricing.feature_garments') || 'Garments', '15', '∞'],
                   [t('pricing.feature_outfits') || 'Outfits/month', '5', '∞'],
-                  [t('pricing.feature_ai') || 'AI Stylist', <Check key="f" className="w-4 h-4 mx-auto text-green-500" />, <Check key="p" className="w-4 h-4 mx-auto text-green-500" />],
-                  [t('pricing.feature_planner') || 'Planner', <Check key="f" className="w-4 h-4 mx-auto text-green-500" />, <Check key="p" className="w-4 h-4 mx-auto text-green-500" />],
-                  [t('pricing.feature_insights') || 'Insights', '—', <Check key="p" className="w-4 h-4 mx-auto text-green-500" />],
-                  [t('pricing.feature_priority') || 'Priority support', '—', <Check key="p" className="w-4 h-4 mx-auto text-green-500" />],
+                  [t('pricing.feature_ai') || 'AI Stylist', <Check key="f" className="w-4 h-4 mx-auto" />, <Check key="p" className="w-4 h-4 mx-auto" />],
+                  [t('pricing.feature_planner') || 'Planner', <Check key="f" className="w-4 h-4 mx-auto" />, <Check key="p" className="w-4 h-4 mx-auto" />],
+                  [t('pricing.feature_insights') || 'Insights', '—', <Check key="p" className="w-4 h-4 mx-auto" />],
+                  [t('pricing.feature_priority') || 'Priority support', '—', <Check key="p" className="w-4 h-4 mx-auto" />],
                 ].map(([feature, free, premium], i) => (
                   <tr key={i}>
                     <td className="p-3 text-muted-foreground">{feature}</td>
@@ -177,16 +175,15 @@ export default function PricingPage() {
           </div>
         </div>
 
-        <Card className="bg-secondary/50">
-          <CardContent className="p-4">
-            <h4 className="font-medium mb-2">{t('pricing.free_title')}</h4>
-            <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• {t('pricing.free_1')}</li>
-              <li>• {t('pricing.free_2')}</li>
-              <li>• {t('pricing.free_3')}</li>
-            </ul>
-          </CardContent>
-        </Card>
+        {/* Free plan summary */}
+        <div className="bg-muted p-4 border border-border">
+          <h4 className="font-medium mb-2">{t('pricing.free_title')}</h4>
+          <ul className="text-sm text-muted-foreground space-y-1">
+            <li>• {t('pricing.free_1')}</li>
+            <li>• {t('pricing.free_2')}</li>
+            <li>• {t('pricing.free_3')}</li>
+          </ul>
+        </div>
       </div>
     </div>
     </>
