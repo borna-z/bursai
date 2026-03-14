@@ -145,8 +145,6 @@ export default function InsightsPage() {
         <AnimatedPage className="max-w-lg mx-auto px-4 pb-8 pt-6 space-y-10">
 
           {/* ─── 0. Wardrobe Usage Banner + Smart Insight ─── */}
-          <InsightsBanner />
-          <SmartInsightCard />
 
           {/* ─── 1. Usage Ring + Stats ─── */}
           <div className="flex flex-col items-center">
