@@ -21,12 +21,12 @@ export function useAssessCondition() {
 export function useCloneOutfitDNA() {
   return useMutation({
     mutationFn: async (outfitId: string) => {
-      const { data, error } = await supabase.functions.invoke('clone_outfit_dna', {
+      const { data, error } = await invokeEdgeFunction<{ variations: Array<{ name: string; garment_ids: string[]; explanation: string }>; error?: string }>('clone_outfit_dna', {
         body: { outfit_id: outfitId },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return data as { variations: Array<{ name: string; garment_ids: string[]; explanation: string }> };
+      return data!;
     },
   });
 }
