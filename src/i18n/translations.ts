@@ -3373,10 +3373,28 @@ export const translations: Record<Locale, Record<string, string>> = {
     'style.minimal': 'Minimal',
     'style.street': 'Street',
 
-    // Color names
+    // Color names (Swedish-keyed for backward compat)
     'color.svart': 'Black', 'color.vit': 'White', 'color.grå': 'Grey', 'color.marinblå': 'Navy',
     'color.blå': 'Blue', 'color.röd': 'Red', 'color.grön': 'Green', 'color.beige': 'Beige',
     'color.brun': 'Brown', 'color.rosa': 'Pink', 'color.gul': 'Yellow', 'color.orange': 'Orange', 'color.lila': 'Purple',
+    // Color names (English-keyed)
+    'color.black': 'Black', 'color.white': 'White', 'color.grey': 'Grey', 'color.navy': 'Navy',
+    'color.blue': 'Blue', 'color.red': 'Red', 'color.green': 'Green', 'color.beige_en': 'Beige',
+    'color.brown': 'Brown', 'color.pink': 'Pink', 'color.yellow': 'Yellow', 'color.orange_en': 'Orange', 'color.purple': 'Purple',
+    'color.ivory': 'Ivory', 'color.cream': 'Cream', 'color.sand': 'Sand', 'color.khaki': 'Khaki',
+    'color.charcoal': 'Charcoal', 'color.anthracite': 'Anthracite',
+    'color.skyblue': 'Sky blue', 'color.turquoise': 'Turquoise', 'color.petrol': 'Petrol',
+    'color.indigo': 'Indigo', 'color.cobalt': 'Cobalt',
+    'color.olive': 'Olive', 'color.forest': 'Forest green', 'color.mint': 'Mint', 'color.sage': 'Sage',
+    'color.burgundy': 'Burgundy', 'color.coral': 'Coral', 'color.apricot': 'Apricot',
+    'color.fuchsia': 'Fuchsia', 'color.lavender': 'Lavender',
+    'color.camel': 'Camel', 'color.rust': 'Rust', 'color.cognac': 'Cognac',
+    'color.chocolate': 'Chocolate', 'color.terracotta': 'Terracotta',
+    'color.gold': 'Gold', 'color.silver': 'Silver', 'color.teal': 'Teal',
+    'color.plum': 'Plum', 'color.mustard': 'Mustard',
+    'color.lightblue': 'Light blue', 'color.darkblue': 'Dark blue',
+    'color.lightpink': 'Light pink', 'color.magenta': 'Magenta',
+    'color.darkbrown': 'Dark brown', 'color.denim': 'Denim', 'color.off-white': 'Off-white',
 
     // Marketing chrome
     'common.last_updated': 'Last updated:',
