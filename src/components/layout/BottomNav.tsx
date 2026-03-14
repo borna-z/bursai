@@ -1,9 +1,7 @@
 import { Home, Shirt, CalendarDays, Bot, Compass } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { EASE_TWEEN, SPRING_BOUNCE } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
 import { useTrendingUnlocked } from '@/hooks/useTrendingUnlocked';
 import { prefetchRoute } from '@/lib/routePrefetch';
@@ -43,22 +41,16 @@ export function BottomNav() {
               <>
                 <div className="relative flex items-center justify-center w-10 h-7 rounded-2xl">
                   {isActive && (
-                    <motion.div
-                      layoutId="nav-pill"
-                      className="absolute inset-0 bg-accent/10 rounded-2xl will-change-transform"
-                      transition={EASE_TWEEN}
-                    />
+                    <div className="absolute inset-0 bg-accent/10 rounded-2xl transition-all duration-200" />
                   )}
-                  <motion.div
-                    animate={isActive ? { scale: 1.08 } : { scale: 1 }}
-                    transition={SPRING_BOUNCE}
-                    className="relative z-10"
+                  <div
+                    className={cn("relative z-10 transition-transform duration-150", isActive && "scale-[1.08]")}
                   >
                     <tab.icon
                       className="w-5 h-5"
                       strokeWidth={isActive ? 2.5 : 2}
                     />
-                  </motion.div>
+                  </div>
                   {/* NEW badge for Discover when trending unlocks */}
                   {tab.path === '/discover' && showNewBadge && (
                     <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-accent animate-pulse" />

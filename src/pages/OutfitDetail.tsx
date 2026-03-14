@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { hapticLight, hapticMedium, hapticSuccess, hapticHeavy } from '@/lib/haptics';
 import { stripBrands } from '@/lib/stripBrands';
+import { nativeShare } from '@/lib/nativeShare';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Star, Bookmark, BookmarkCheck, Check, RefreshCw, Share2, Loader2,
@@ -213,7 +214,16 @@ export default function OutfitDetailPage() {
   };
 
   const handleCopyShareLink = async () => {
-    try { await navigator.clipboard.writeText(shareUrl); setCopied(true); toast.success(t('outfit.copied')); setTimeout(() => setCopied(false), 2000); } catch { toast.error(t('outfit.copy_error')); }
+    const shared = await nativeShare({
+      title: 'BURS Outfit',
+      text: outfit?.explanation || undefined,
+      url: shareUrl,
+    });
+    if (shared) {
+      setCopied(true);
+      toast.success(t('outfit.copied'));
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   const handleDownloadImage = async () => {
