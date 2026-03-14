@@ -1,9 +1,8 @@
-import { Home, Shirt, CalendarDays, Bot, Compass } from 'lucide-react';
+import { Home, Shirt, CalendarDays, Bot, BarChart3 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { hapticLight } from '@/lib/haptics';
-import { useTrendingUnlocked } from '@/hooks/useTrendingUnlocked';
 import { prefetchRoute } from '@/lib/routePrefetch';
 
 const tabKeys = [
