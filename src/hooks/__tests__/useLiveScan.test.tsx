@@ -286,12 +286,12 @@ describe('useLiveScan', () => {
 
     const mockBlob = new Blob(['file-data'], { type: 'image/jpeg' });
     vi.mocked(compressImage).mockResolvedValue({
-      file: mockBlob as any,
+      file: mockBlob as unknown as File,
       previewUrl: 'blob:mock-preview-url',
     });
 
     // Mock FileReader for base64 conversion inside captureFromFile
-    const MockFileReader = vi.fn(function (this: any) {
+    const MockFileReader = vi.fn(function (this: MockFileReaderInstance) {
       this.result = 'data:image/jpeg;base64,ZmlsZQ==';
       this.onloadend = null;
       this.onerror = null;
