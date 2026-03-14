@@ -58,7 +58,7 @@ export default function OnboardingPage() {
       preferences: {
         ...currentPrefs,
         onboarding: { completed: true },
-      },
+      } as any,
     });
   };
 
