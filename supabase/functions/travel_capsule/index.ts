@@ -82,19 +82,15 @@ serve(async (req) => {
       byCategory[g.category].push(g);
     }
 
-    // Use FULL UUIDs to prevent ID resolution failures
-    const wardrobeDescription = Object.entries(byCategory)
-      .map(([cat, items]) => {
-        const list = items.map(g => {
-          const parts = [g.id, g.title, g.color_primary];
-          if (g.material) parts.push(g.material);
-          if (g.formality) parts.push(`F${g.formality}`);
-          if (g.season_tags?.length) parts.push(`[${g.season_tags.join(",")}]`);
-          return parts.join(" | ");
-        }).join("\n  ");
-        return `${cat.toUpperCase()} (${items.length}):\n  ${list}`;
-      })
-      .join("\n\n");
+    // Compact wardrobe format: one line per garment, reduce input tokens
+    const wardrobeLines = garments.map(g => {
+      const parts = [g.id, g.category, g.title, g.color_primary];
+      if (g.subcategory) parts.push(g.subcategory);
+      if (g.material) parts.push(g.material);
+      if (g.formality != null) parts.push(`f${g.formality}`);
+      if (g.season_tags?.length) parts.push(g.season_tags.join(","));
+      return parts.join("|");
+    }).join("\n");
 
     const weatherDesc = weather
       ? `${weather.temperature_min}–${weather.temperature_max}°C, ${weather.condition || "mixed"}`
@@ -112,61 +108,40 @@ serve(async (req) => {
     // Must-have items filtering
     const mustHaveIds: string[] = (must_have_items || []).filter((id: string) => validIds.has(id));
 
-    // Scale max_tokens based on trip length and outfit count
-    const maxTokens = estimateMaxTokens({ outputItems: targetOutfits + maxItems, perItemTokens: 40, baseTokens: 400, cap: 4096 });
-    // Use stronger model for longer trips
-    const complexity = duration_days > 5 ? "complex" : "standard";
+    // Scale max_tokens generously for large capsules with full UUIDs
+    const maxTokens = estimateMaxTokens({ outputItems: targetOutfits + maxItems, perItemTokens: 80, baseTokens: 600, cap: 8192 });
+    // Use stronger model for longer/more complex trips
+    const complexity: "trivial" | "standard" | "complex" = (duration_days > 5 || outfitsPerDay > 2) ? "complex" : "standard";
 
-    const mustHavePromptSv = mustHaveIds.length > 0
-      ? `\n- OBLIGATORISKA plagg som MÅSTE inkluderas i capsule_items: ${mustHaveIds.join(", ")}`
-      : "";
-    const mustHavePromptEn = mustHaveIds.length > 0
-      ? `\nMUST-HAVE items that MUST be included in capsule_items: ${mustHaveIds.join(", ")}`
+    const mustHaveNote = mustHaveIds.length > 0
+      ? `\nMUST-HAVE items (MUST appear in capsule_items): ${mustHaveIds.join(", ")}`
       : "";
 
-    const systemPrompt = isSv
-      ? `Du är en resepackningsexpert och stilist. Din uppgift: välj det MINSTA antalet plagg från användarens garderob som skapar FLEST outfitkombinationer för en resa.
+    // System prompt: English for reliability, locale instruction for content language only.
+    // No JSON schema here — tool_choice handles structure.
+    const systemPrompt = `You are a travel packing expert. Your task: select the MINIMUM garments from the user's wardrobe that create the MOST outfit combinations for a trip.
 
-Regler:
-- Resa: ${duration_days} dagar till ${destination || "okänd destination"}
-- Väder: ${weatherDesc}
-- Tillfällen: ${occasionsList}
-- ${outfitsPerDay} outfit(s) per dag
-- Maximera kombinerbarhet
-- Max ${maxItems} plagg totalt
-- Generera minst ${targetOutfits} outfits som täcker alla tillfällen och dagar
-- Varje outfit MÅSTE ha minst 2 plagg${mustHavePromptSv}
+TRIP DETAILS:
+- Duration: ${duration_days} days to ${destination || "unknown destination"}
+- Weather: ${weatherDesc}
+- Occasions needed: ${occasionsList}
+- Outfits per day: ${outfitsPerDay}
+- Target: generate exactly ${targetOutfits} outfits across all ${duration_days} days (${outfitsPerDay} per day)
+- Max packing items: ${maxItems}
+- Each outfit MUST have 2-5 items from different categories${mustHaveNote}
 
-VIKTIGT: Använd de EXAKTA garment ID:na (fullständiga UUID) från garderoben. Kopiera dem exakt.
+WARDROBE FORMAT: Each line is id|category|title|color|[subcategory]|[material]|[formality]|[seasons]
 
-Svara med giltig JSON:
-{
-  "capsule_items": ["full-uuid-1", "full-uuid-2", ...],
-  "outfits": [{ "day": 1, "occasion": "...", "items": ["full-uuid-1", "full-uuid-2"], "note": "..." }, ...],
-  "packing_tips": ["..."],
-  "total_combinations": ${targetOutfits},
-  "reasoning": "..."
-}
-Skriv på svenska.`
-      : `You are a travel packing expert and stylist. Select the MINIMUM garments for the MOST combinations.
+CRITICAL RULES:
+1. Copy garment IDs EXACTLY as shown (they are full UUIDs like "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+2. Never invent or modify IDs — only use IDs from the wardrobe list
+3. capsule_items = the packing list (unique garment IDs you'd pack)
+4. Each outfit.items = subset of capsule_items worn together that day
+5. Distribute outfits evenly: ${outfitsPerDay} outfit(s) for each of the ${duration_days} days
+6. Vary items across outfits — maximize reuse of capsule items in different combinations
+7. Consider weather and occasion when pairing items
 
-Trip: ${duration_days} days to ${destination || "unknown"}, Weather: ${weatherDesc}, Occasions: ${occasionsList}
-${outfitsPerDay} outfit(s) per day.
-Max ${maxItems} items.
-Generate at least ${targetOutfits} outfits covering all occasions across all ${duration_days} days.
-Each outfit MUST have at least 2 items.${mustHavePromptEn}
-
-IMPORTANT: Use the EXACT garment IDs (full UUIDs) from the wardrobe. Copy them exactly as shown.
-
-Respond with valid JSON:
-{
-  "capsule_items": ["full-uuid-1", "full-uuid-2", ...],
-  "outfits": [{ "day": 1, "occasion": "...", "items": ["full-uuid-1", "full-uuid-2"], "note": "..." }, ...],
-  "packing_tips": ["..."],
-  "total_combinations": ${targetOutfits},
-  "reasoning": "..."
-}
-Write in ${localeName}.`;
+Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "English"}.`;
 
     // Use tool calling for guaranteed structured output
     const tools = [{
