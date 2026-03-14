@@ -164,7 +164,7 @@ export function useOutfitGenerator() {
 
   const mutation = useMutation({
     mutationFn: async (request: OutfitRequest) => {
-      if (!user) throw new Error('Inte inloggad');
+      if (!user) throw new Error('Not logged in');
       setIsGenerating(true);
       try {
         return await generateOutfitViaEngine(user.id, request);

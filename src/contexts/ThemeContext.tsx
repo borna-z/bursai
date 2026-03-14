@@ -37,8 +37,8 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'garderob-theme';
-const ACCENT_KEY = 'garderob-accent';
+const STORAGE_KEY = 'burs-theme';
+const ACCENT_KEY = 'burs-accent';
 
 function getSystemTheme(): 'light' | 'dark' {
   if (typeof window === 'undefined') return 'light';

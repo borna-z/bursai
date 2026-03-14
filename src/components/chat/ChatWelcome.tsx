@@ -110,9 +110,7 @@ export function ChatWelcome({ onSuggestion, displayName, garmentCount }: ChatWel
     const mostWornChip = buildMostWornSuggestion(mostWorn, locale);
 
     // Row 3: discovery (static)
-    const discoveryChips = locale === 'sv'
-      ? ['Vad saknas i min garderob?', 'Hitta en dejt-outfit']
-      : ['What\'s missing in my wardrobe?', 'Find me a date night outfit'];
+    const discoveryChips = ['What\'s missing in my wardrobe?', 'Find me a date night outfit'];
 
     return [
       [weatherChip, calendarChip],
