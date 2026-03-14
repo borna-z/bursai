@@ -62,7 +62,7 @@ export async function searchCities(query: string, limit = 5): Promise<CitySugges
   if (!query || query.length < 2) return [];
   try {
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=${limit}&addressdetails=1&featuretype=city`
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=${limit}&addressdetails=1`
     );
     if (!response.ok) return [];
     const data = await response.json();
