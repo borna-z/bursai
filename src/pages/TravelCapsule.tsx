@@ -707,6 +707,7 @@ export default function TravelCapsule() {
                   variant="card"
                   phases={travelLoadingPhases}
                   subtitle={`${destination} · ${tripNights} ${t('capsule.nights')}`}
+                  progress={simulatedProgress}
                 />
               ) : (
                 <Button onClick={handleGenerate} disabled={!isFormValid} className="w-full h-12 rounded-xl" size="lg">
