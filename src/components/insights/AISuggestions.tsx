@@ -218,7 +218,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
   const [creatingOutfitId, setCreatingOutfitId] = useState<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const { data: suggestions, isLoading, error, refetch, isFetching } = useAISuggestions();
+  const { data: suggestions, isLoading, error, refetch, isFetching, dataUpdatedAt } = useAISuggestions();
 
   const handleTryIt = async (suggestion: AISuggestion, index: number) => {
     if (!user) return;
