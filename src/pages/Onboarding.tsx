@@ -12,6 +12,7 @@ import { QuickStyleQuiz } from '@/components/onboarding/QuickStyleQuiz';
 import { QuickUploadStep } from '@/components/onboarding/QuickUploadStep';
 import { GetStartedStep } from '@/components/onboarding/GetStartedStep';
 import type { StyleProfileV3 } from '@/components/onboarding/StyleQuizV3';
+import { asPreferences } from '@/types/preferences';
 import { toast } from 'sonner';
 
 const STEPS = ['lang', 'accent', 'quiz', 'upload', 'getstarted'] as const;
