@@ -342,7 +342,7 @@ Deno.serve(async (req) => {
         results.push({
           url: trimmedUrl,
           status: 'failed',
-          reason: 'Redan importerad',
+          reason: 'Already imported',
         });
         continue;
       }
