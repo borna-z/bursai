@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 
-const colorFilters = ['svart', 'vit', 'grå', 'marinblå', 'blå', 'röd', 'grön', 'beige', 'brun'];
-const seasonFilters = ['vår', 'sommar', 'höst', 'vinter'];
+const colorFilters = ['black', 'white', 'grey', 'navy', 'blue', 'red', 'green', 'beige', 'brown'];
+const seasonFilters = ['spring', 'summer', 'autumn', 'winter'];
 
 interface FilterSheetProps {
   open: boolean;
