@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { isMedianApp } from '@/lib/median';
 
@@ -84,7 +85,7 @@ export function usePushNotifications() {
       const registration = await navigator.serviceWorker.register('/sw.js');
       await navigator.serviceWorker.ready;
 
-      const { data: configData } = await supabase.functions.invoke('get_vapid_public_key');
+      const { data: configData } = await invokeEdgeFunction<{ publicKey?: string }>('get_vapid_public_key');
       const vapidKey = configData?.publicKey;
       if (!vapidKey) {
         console.error('VAPID public key not available');

@@ -17,7 +17,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getOccasionLabel } from '@/lib/occasionLabel';
-import { useOutfit, useUpdateOutfit, useMarkOutfitWorn, useUndoMarkWorn } from '@/hooks/useOutfits';
+import { useOutfit, useUpdateOutfit, useMarkOutfitWorn, useUndoMarkWorn, type OutfitWeather } from '@/hooks/useOutfits';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import { useSwapGarment, type SwapCandidate } from '@/hooks/useSwapGarment';
 import { useWeather } from '@/hooks/useWeather';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
@@ -153,8 +154,8 @@ export default function OutfitDetailPage() {
 
   useEffect(() => {
     if (outfit?.rating) setRating(outfit.rating);
-    if ((outfit as any)?.feedback) setSelectedFeedback((outfit as any).feedback);
-  }, [outfit?.rating, (outfit as any)?.feedback]);
+    if (outfit?.feedback) setSelectedFeedback(outfit.feedback);
+  }, [outfit?.rating, outfit?.feedback]);
 
   const handleOpenSwap = async (slot: string, outfitItemId: string, currentGarmentId: string) => {
     const otherColors = outfit?.outfit_items.filter(item => item.id !== outfitItemId && item.garment?.color_primary).map(item => item.garment!.color_primary.toLowerCase()) || [];
@@ -190,7 +191,7 @@ export default function OutfitDetailPage() {
     if (!outfit) return;
     const newFeedback = selectedFeedback.includes(feedbackId) ? selectedFeedback.filter(f => f !== feedbackId) : [...selectedFeedback, feedbackId];
     setSelectedFeedback(newFeedback);
-    try { await updateOutfit.mutateAsync({ id: outfit.id, updates: { feedback: newFeedback } as any }); } catch { setSelectedFeedback(selectedFeedback); }
+    try { await updateOutfit.mutateAsync({ id: outfit.id, updates: { feedback: newFeedback } as TablesUpdate<'outfits'> }); } catch { setSelectedFeedback(selectedFeedback); }
   };
 
   const handleMarkWorn = async () => {
@@ -271,7 +272,7 @@ export default function OutfitDetailPage() {
     );
   }
 
-  const weather = (outfit as any).weather as { temp?: number; condition?: string; precipitation?: 'none' | 'rain' | 'snow'; wind?: 'low' | 'medium' | 'high' } | null;
+  const weather = outfit.weather as OutfitWeather | null;
   const displayOccasion = getOccasionLabel(outfit.occasion, t);
 
   // Build metadata pieces

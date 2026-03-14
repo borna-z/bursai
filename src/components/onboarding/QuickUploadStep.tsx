@@ -5,6 +5,7 @@ import { EASE_CURVE } from '@/lib/motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useStorage } from '@/hooks/useStorage';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -87,7 +88,7 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
 
         // Trigger AI analysis (non-blocking)
         try {
-          await supabase.functions.invoke('analyze_garment', {
+          await invokeEdgeFunction('analyze_garment', {
             body: { image_path: path, user_id: user.id },
           });
         } catch {

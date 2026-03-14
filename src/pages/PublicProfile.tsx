@@ -43,7 +43,7 @@ export default function PublicProfile() {
       if (!username) { setNotFound(true); setLoading(false); return; }
 
       const { data: rawProfile, error } = await supabase
-        .from('public_profiles' as any)
+        .from('public_profiles')
         .select('id, username, display_name, avatar_path')
         .eq('username', username)
         .single();

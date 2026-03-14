@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { format, differenceInCalendarDays, addDays } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -103,6 +103,26 @@ export default function TravelCapsule() {
   // ── Generation state ──
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<CapsuleResult | null>(null);
+  const [loadingPhase, setLoadingPhase] = useState<string | null>(null);
+  const loadingTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  // Progressive loading messages
+  useEffect(() => {
+    if (isGenerating) {
+      setLoadingPhase(null);
+      const t1 = setTimeout(() => setLoadingPhase(t('ai.still_thinking') || 'Still thinking...'), 5000);
+      const t2 = setTimeout(() => setLoadingPhase(t('ai.almost_there') || 'Almost there...'), 15000);
+      loadingTimersRef.current = [t1, t2];
+    } else {
+      setLoadingPhase(null);
+      loadingTimersRef.current.forEach(clearTimeout);
+      loadingTimersRef.current = [];
+    }
+    return () => {
+      loadingTimersRef.current.forEach(clearTimeout);
+      loadingTimersRef.current = [];
+    };
+  }, [isGenerating]);
 
   // ── Weather state ──
   const [weatherForecast, setWeatherForecast] = useState<ForecastDay | null>(null);
@@ -616,13 +636,18 @@ export default function TravelCapsule() {
             </div>
 
             {/* Generate */}
-            <Button onClick={handleGenerate} disabled={isGenerating || !isFormValid} className="w-full h-12 rounded-xl" size="lg">
-              {isGenerating ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('capsule.generating')}</>
-              ) : (
-                <><Package className="w-4 h-4 mr-2" />{t('capsule.generate_new')}</>
+            <div className="space-y-1">
+              <Button onClick={handleGenerate} disabled={isGenerating || !isFormValid} className="w-full h-12 rounded-xl" size="lg">
+                {isGenerating ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('capsule.generating')}</>
+                ) : (
+                  <><Package className="w-4 h-4 mr-2" />{t('capsule.generate_new')}</>
+                )}
+              </Button>
+              {isGenerating && loadingPhase && (
+                <p className="text-muted-foreground text-[12px] text-center">{loadingPhase}</p>
               )}
-            </Button>
+            </div>
           </div>
         </AnimatedPage>
       </AppLayout>

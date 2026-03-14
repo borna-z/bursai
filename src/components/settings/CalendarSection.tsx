@@ -256,7 +256,7 @@ export function CalendarSection() {
         isDisconnecting={isDisconnectingGoogle}
         lastSynced={isGoogleConnected ? lastSynced : null}
         onConnect={connectGoogle}
-        onSync={syncCalendar}
+        onSync={async () => { await syncCalendar(); }}
         onDisconnect={disconnectGoogle}
         t={t}
       />
@@ -269,7 +269,7 @@ export function CalendarSection() {
         lastSynced={isIcsConnected ? lastSynced : null}
         onSave={async (url) => { await saveIcsUrl(url); await syncCalendar(); }}
         onRemove={removeIcsUrl}
-        onSync={syncCalendar}
+        onSync={async () => { await syncCalendar(); }}
         t={t}
       />
     </div>

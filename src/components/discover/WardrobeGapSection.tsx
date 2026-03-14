@@ -7,6 +7,7 @@ import { useWardrobeGapAnalysis } from '@/hooks/useAdvancedFeatures';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
 import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
+import { StaleIndicator } from '@/components/ui/StaleIndicator';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -128,6 +129,7 @@ export function WardrobeGapSection() {
   const { isUnlocked } = useWardrobeUnlocks();
   const gapAnalysis = useWardrobeGapAnalysis();
   const [results, setResults] = useState<GapResult[] | null>(null);
+  const [analysisTimestamp, setAnalysisTimestamp] = useState<string | null>(null);
 
   const count = garmentCount || 0;
   const notEnough = count < 5;
@@ -146,6 +148,7 @@ export function WardrobeGapSection() {
     try {
       const data = await gapAnalysis.mutateAsync({ locale });
       setResults(data?.gaps || []);
+      setAnalysisTimestamp(new Date().toISOString());
     } catch {
       // error handled by mutation state
     }
@@ -158,9 +161,10 @@ export function WardrobeGapSection() {
   return (
     <section className="space-y-3">
       {results && results.length > 0 && (
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between">
+          <StaleIndicator updatedAt={analysisTimestamp} onRefresh={handleScan} />
           <button
-            onClick={() => { setResults(null); }}
+            onClick={() => { setResults(null); setAnalysisTimestamp(null); }}
             className="text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
           >
             {t('discover.gap_reset')}

@@ -1,6 +1,7 @@
 import { useInsights } from '@/hooks/useInsights';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Skeleton } from '@/components/ui/skeleton';
+import { StaleIndicator } from '@/components/ui/StaleIndicator';
 
 function MiniUsageRing({ percentage }: { percentage: number }) {
   const radius = 18;
@@ -30,7 +31,7 @@ function MiniUsageRing({ percentage }: { percentage: number }) {
 
 export function InsightsBanner() {
   const { t } = useLanguage();
-  const { data: insights, isLoading } = useInsights();
+  const { data: insights, isLoading, dataUpdatedAt, refetch } = useInsights();
 
   if (isLoading) {
     return <Skeleton className="h-[72px] w-full rounded-2xl" />;
@@ -47,6 +48,11 @@ export function InsightsBanner() {
       <div className="flex-1 min-w-0 space-y-0.5">
         <p className="text-[13px] font-medium text-foreground">
           {t('insights.wardrobe_usage')}
+          <StaleIndicator
+            updatedAt={dataUpdatedAt ? new Date(dataUpdatedAt).toISOString() : null}
+            onRefresh={() => refetch()}
+            className="ml-2"
+          />
         </p>
         <p className="text-[12px] text-muted-foreground/60">
           {insights.garmentsUsedLast30Days}/{insights.totalGarments} {t('insights.used_label')} · {insights.unusedGarments.length} {t('insights.unused_label')}

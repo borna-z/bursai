@@ -4,6 +4,7 @@ import { ArrowLeft, RefreshCw, Sparkles, Gem } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useInsights } from '@/hooks/useInsights';
@@ -58,7 +59,12 @@ export default function UnusedOutfits() {
     for (let i = 0; i < 6; i++) {
       try {
         const occasion = OCCASIONS[i % OCCASIONS.length];
-        const { data, error: fnErr } = await supabase.functions.invoke('burs_style_engine', {
+        const { data, error: fnErr } = await invokeEdgeFunction<{
+          items?: { garment_id: string; slot: string }[];
+          explanation?: string;
+          style_score?: any;
+          error?: string;
+        }>('burs_style_engine', {
           body: {
             mode: 'generate',
             occasion,

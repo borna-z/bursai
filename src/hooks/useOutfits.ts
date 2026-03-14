@@ -7,10 +7,19 @@ import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase
 export type Outfit = Tables<'outfits'>;
 export type OutfitItem = Tables<'outfit_items'>;
 
-export interface OutfitWithItems extends Outfit {
+export interface OutfitWeather {
+  temp?: number;
+  condition?: string;
+  precipitation?: string;
+  wind?: string;
+}
+
+export interface OutfitWithItems extends Omit<Outfit, 'feedback' | 'weather'> {
   outfit_items: (OutfitItem & {
     garment: Tables<'garments'>;
   })[];
+  feedback?: string[] | null;
+  weather?: OutfitWeather | null;
 }
 
 export function useOutfits(savedOnly = true) {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Garment } from './useGarments';
 
@@ -29,7 +30,7 @@ export function useSwapGarment() {
     setIsLoadingCandidates(true);
     try {
       // Use the BURS style engine for smart swap scoring
-      const { data, error } = await supabase.functions.invoke('burs_style_engine', {
+      const { data, error } = await invokeEdgeFunction<{ candidates?: any[]; error?: string }>('burs_style_engine', {
         body: {
           mode: 'swap',
           swap_slot: slot,
@@ -45,7 +46,7 @@ export function useSwapGarment() {
         return await fallbackFetchCandidates(slot, currentGarmentId, otherGarmentColors);
       }
 
-      const scored: SwapCandidate[] = (data.candidates || []).map((c: any) => ({
+      const scored: SwapCandidate[] = (data?.candidates || []).map((c: any) => ({
         garment: c.garment as Garment,
         score: c.score,
         breakdown: c.breakdown,

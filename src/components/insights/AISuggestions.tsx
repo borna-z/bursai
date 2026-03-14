@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { StaleIndicator } from '@/components/ui/StaleIndicator';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useAISuggestions, type AISuggestion } from '@/hooks/useAISuggestions';
 import { useAuth } from '@/contexts/AuthContext';
@@ -208,7 +209,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
   const [creatingOutfitId, setCreatingOutfitId] = useState<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const { data: suggestions, isLoading, error, refetch, isFetching } = useAISuggestions();
+  const { data: suggestions, isLoading, error, refetch, isFetching, dataUpdatedAt } = useAISuggestions();
 
   const handleTryIt = async (suggestion: AISuggestion, index: number) => {
     if (!user) return;
@@ -294,6 +295,11 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
           <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
             {t('insights.ai_title')}
           </span>
+          <StaleIndicator
+            updatedAt={dataUpdatedAt ? new Date(dataUpdatedAt).toISOString() : null}
+            onRefresh={() => refetch()}
+            className="ml-1"
+          />
         </div>
         <button
           onClick={() => refetch()}
