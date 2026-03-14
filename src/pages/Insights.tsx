@@ -2,7 +2,7 @@ import { useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Shirt, Sparkles, Lock, Palette, Trophy, Leaf } from 'lucide-react';
-import { InsightsBanner } from '@/components/home/InsightsBanner';
+
 import { SmartInsightCard } from '@/components/home/SmartInsightCard';
 import { hapticLight } from '@/lib/haptics';
 import { InsightsPageSkeleton } from '@/components/ui/skeletons';
