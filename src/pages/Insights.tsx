@@ -122,7 +122,7 @@ export default function InsightsPage() {
   if (!insights || insights.totalGarments === 0) {
     return (
       <AppLayout>
-        <PageHeader title={t('insights.title')} showBack />
+        <PageHeader title={t('insights.title')} />
         <EmptyState
           icon={Sparkles}
           title={t('insights.no_insights')}
