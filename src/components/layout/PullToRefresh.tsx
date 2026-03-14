@@ -1,7 +1,8 @@
-import { useState, useRef, useCallback, type ReactNode } from 'react';
+import { useState, useRef, useCallback, useEffect, type ReactNode } from 'react';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { DrapeLogo } from '@/components/ui/DrapeLogo';
 import { hapticLight } from '@/lib/haptics';
+import { isMedianApp } from '@/lib/median';
 
 interface PullToRefreshProps {
   onRefresh: () => Promise<void>;
@@ -11,31 +12,38 @@ interface PullToRefreshProps {
 const THRESHOLD = 80;
 
 export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
+  const [useNative, setUseNative] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const touchStartY = useRef(0);
   const pulling = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hapticTriggered = useRef(false);
   const y = useMotionValue(0);
   const progress = useTransform(y, [0, THRESHOLD], [0, 1]);
   const rotate = useTransform(y, [0, THRESHOLD], [0, 360]);
 
+  useEffect(() => {
+    if (isMedianApp() && (window as any).median?.webview?.pullToRefresh) {
+      setUseNative(true);
+      (window as any).__burs_ptr_callback = async () => {
+        await onRefresh();
+      };
+    }
+  }, [onRefresh]);
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (refreshing) return;
-    // Only enable pull-to-refresh when scrolled to top
     const scrollEl = containerRef.current?.closest('main');
     if (scrollEl && scrollEl.scrollTop > 0) return;
     touchStartY.current = e.touches[0].clientY;
     pulling.current = true;
   }, [refreshing]);
 
-  const hapticTriggered = useRef(false);
-
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!pulling.current || refreshing) return;
     const delta = Math.max(0, e.touches[0].clientY - touchStartY.current);
     const dampedDelta = delta * 0.5;
     y.set(dampedDelta);
-    // Haptic at threshold
     if (dampedDelta >= THRESHOLD && !hapticTriggered.current) {
       hapticTriggered.current = true;
       hapticLight();
@@ -62,6 +70,11 @@ export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
     }
   }, [y, refreshing, onRefresh]);
 
+  // If native Median pull-to-refresh, just render children
+  if (useNative) {
+    return <>{children}</>;
+  }
+
   return (
     <div
       ref={containerRef}
@@ -69,7 +82,6 @@ export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Indicator */}
       <motion.div
         style={{ height: y }}
         className="flex items-center justify-center overflow-hidden"
