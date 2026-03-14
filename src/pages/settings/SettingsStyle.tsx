@@ -237,7 +237,7 @@ export default function SettingsStyle() {
                     <SelectItem value="minimal">{t('style.minimal')}</SelectItem>
                     <SelectItem value="street">{t('style.street')}</SelectItem>
                     <SelectItem value="smart-casual">{t('style.smart_casual')}</SelectItem>
-                    <SelectItem value="klassisk">{t('style.klassisk')}</SelectItem>
+                    <SelectItem value="classic">{t('style.klassisk')}</SelectItem>
                   </SelectContent>
                 </Select>
               </SettingsRow>

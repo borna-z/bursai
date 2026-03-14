@@ -36,8 +36,7 @@ function isInsufficientGarmentsError(message?: string | null) {
   if (!message) return false;
   const normalized = message.toLowerCase();
   return (
-    normalized.includes('not enough matching garments') ||
-    normalized.includes('inte tillräckligt med matchande plagg')
+    normalized.includes('not enough matching garments')
   );
 }
 

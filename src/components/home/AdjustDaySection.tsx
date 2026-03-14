@@ -18,7 +18,7 @@ const STYLES = [
   { id: 'minimal', labelKey: 'home.style.minimal' },
   { id: 'street', labelKey: 'home.style.street' },
   { id: 'smart-casual', labelKey: 'home.style.smart_casual' },
-  { id: 'klassisk', labelKey: 'home.style.klassisk' },
+  { id: 'classic', labelKey: 'home.style.klassisk' },
 ];
 
 interface AdjustDaySectionProps {
