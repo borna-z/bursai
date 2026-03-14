@@ -21,11 +21,13 @@ export function WeekStrip({ selectedDate, onSelectDate, plannedOutfits }: WeekSt
     return Array.from({ length: 7 }, (_, i) => addDays(today, i));
   }, []);
 
-  const getPlannedStatus = (date: Date): 'planned' | 'worn' | null => {
+  const getPlannedCount = (date: Date): { count: number; hasWorn: boolean } => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    const planned = plannedOutfits.find(p => p.date === dateStr);
-    if (!planned || !planned.outfit_id) return null;
-    return planned.status === 'worn' ? 'worn' : 'planned';
+    const planned = plannedOutfits.filter(p => p.date === dateStr && p.outfit_id);
+    return {
+      count: planned.length,
+      hasWorn: planned.some(p => p.status === 'worn'),
+    };
   };
 
   return (
@@ -33,7 +35,7 @@ export function WeekStrip({ selectedDate, onSelectDate, plannedOutfits }: WeekSt
       {days.map((date) => {
         const isSelected = isSameDay(date, selectedDate);
         const isTodayDate = isToday(date);
-        const status = getPlannedStatus(date);
+        const { count, hasWorn } = getPlannedCount(date);
 
         return (
           <motion.button
@@ -58,23 +60,21 @@ export function WeekStrip({ selectedDate, onSelectDate, plannedOutfits }: WeekSt
             </span>
             <span className={cn(
               'text-base font-semibold leading-tight mt-0.5',
-              isSelected ? 'text-background' : status === 'worn' ? 'text-success' : status === 'planned' ? 'text-accent' : 'text-foreground'
+              isSelected ? 'text-background' : hasWorn ? 'text-success' : count > 0 ? 'text-accent' : 'text-foreground'
             )}>
               {format(date, 'd')}
             </span>
-            {/* Minimal dot indicator */}
-            <div className="h-1.5 mt-1 flex items-center justify-center">
-              {status === 'worn' ? (
-                <div className={cn(
-                  'w-1.5 h-1.5 rounded-full',
-                  isSelected ? 'bg-background/50' : 'bg-success'
-                )} />
-              ) : status === 'planned' ? (
-                <div className={cn(
-                  'w-1.5 h-1.5 rounded-full',
-                  isSelected ? 'bg-background/50' : 'bg-accent'
-                )} />
-              ) : null}
+            {/* Dot indicators — up to 4 dots */}
+            <div className="h-1.5 mt-1 flex items-center justify-center gap-0.5">
+              {count > 0 && Array.from({ length: Math.min(count, 4) }, (_, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    'w-1 h-1 rounded-full',
+                    isSelected ? 'bg-background/50' : hasWorn ? 'bg-success' : 'bg-accent'
+                  )}
+                />
+              ))}
             </div>
           </motion.button>
         );
