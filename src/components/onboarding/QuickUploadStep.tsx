@@ -8,6 +8,7 @@ import { useStorage } from '@/hooks/useStorage';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { useIsDark } from '@/hooks/useIsDark';
 
 interface QuickUploadStepProps {
   onComplete: () => void;
@@ -33,6 +34,7 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { uploadGarmentImage } = useStorage();
+  const dark = useIsDark();
   const [items, setItems] = useState<UploadItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -69,32 +71,15 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
     for (const item of items) {
       try {
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'uploading' } : i));
-
-        // Generate a garment ID for the file path
         const garmentId = crypto.randomUUID();
         const path = await uploadGarmentImage(item.file, garmentId);
-
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'analyzing' } : i));
-
-        // Insert garment with the same ID
         await supabase.from('garments').insert({
-          id: garmentId,
-          user_id: user.id,
-          image_path: path,
+          id: garmentId, user_id: user.id, image_path: path,
           title: item.file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') || 'New garment',
-          category: 'tops',
-          color_primary: 'black',
+          category: 'tops', color_primary: 'black',
         });
-
-        // Trigger AI analysis (non-blocking)
-        try {
-          await invokeEdgeFunction('analyze_garment', {
-            body: { image_path: path, user_id: user.id },
-          });
-        } catch {
-          // Non-critical
-        }
-
+        try { await invokeEdgeFunction('analyze_garment', { body: { image_path: path, user_id: user.id } }); } catch { /* non-critical */ }
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'done' } : i));
       } catch {
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'error' } : i));
@@ -108,30 +93,31 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
   const canAdd = items.length < 5;
 
   return (
-    <div className="dark-landing min-h-screen flex flex-col items-center relative overflow-hidden">
-      {/* Aurora */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] rounded-full bg-[radial-gradient(ellipse,rgba(99,102,241,0.08)_0%,transparent_70%)] blur-3xl" />
-      </div>
+    <div className={cn('min-h-screen flex flex-col items-center relative overflow-hidden', dark ? 'dark-landing' : 'bg-background text-foreground')}>
+      {dark && (
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] rounded-full bg-[radial-gradient(ellipse,rgba(99,102,241,0.08)_0%,transparent_70%)] blur-3xl" />
+        </div>
+      )}
 
       <div className="relative z-10 w-full max-w-sm mx-auto px-6 pt-16 pb-12 flex flex-col items-center flex-1">
         <motion.div
           variants={fadeUp} initial="hidden" animate="show" custom={0}
-          className="w-14 h-14 rounded-2xl bg-accent/15 flex items-center justify-center mb-5"
+          className={cn('w-14 h-14 flex items-center justify-center mb-5', dark ? 'rounded-2xl bg-accent/15' : 'bg-muted')}
         >
-          <Camera className="w-7 h-7 text-accent" />
+          <Camera className={cn('w-7 h-7', dark ? 'text-accent' : 'text-foreground')} />
         </motion.div>
 
         <motion.h1
           variants={fadeUp} initial="hidden" animate="show" custom={1}
-          className="text-2xl font-bold text-white tracking-tight mb-2 text-center"
+          className={cn('text-2xl font-bold tracking-tight mb-2 text-center', dark ? 'text-white' : 'text-foreground')}
         >
           {t('onboarding.quickUpload.title') || 'Add a few garments'}
         </motion.h1>
 
         <motion.p
           variants={fadeUp} initial="hidden" animate="show" custom={2}
-          className="text-white/40 text-sm text-center mb-8 max-w-xs"
+          className={cn('text-sm text-center mb-8 max-w-xs', dark ? 'text-white/40' : 'text-muted-foreground')}
         >
           {t('onboarding.quickUpload.subtitle') || 'Snap or pick up to 5 items to kickstart your wardrobe. You can always add more later.'}
         </motion.p>
@@ -142,25 +128,22 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
           className="w-full grid grid-cols-3 gap-3 mb-8"
         >
           {items.map((item) => (
-            <div key={item.id} className="relative aspect-[3/4] rounded-xl overflow-hidden bg-white/[0.04] border border-white/[0.06]">
+            <div key={item.id} className={cn(
+              'relative aspect-[3/4] overflow-hidden border',
+              dark ? 'rounded-xl bg-white/[0.04] border-white/[0.06]' : 'bg-muted border-border'
+            )}>
               <img src={item.preview} alt="" className="w-full h-full object-cover" />
-              {/* Status overlay */}
               {item.status !== 'pending' && (
                 <div className={cn(
                   'absolute inset-0 flex items-center justify-center',
                   item.status === 'done' ? 'bg-emerald-500/20' : item.status === 'error' ? 'bg-red-500/20' : 'bg-black/40'
                 )}>
-                  {item.status === 'uploading' && (
-                    <div className="w-6 h-6 border-2 border-white/60 border-t-transparent rounded-full animate-spin" />
-                  )}
-                  {item.status === 'analyzing' && (
-                    <div className="w-6 h-6 border-2 border-accent/80 border-t-transparent rounded-full animate-spin" />
-                  )}
+                  {item.status === 'uploading' && <div className="w-6 h-6 border-2 border-white/60 border-t-transparent rounded-full animate-spin" />}
+                  {item.status === 'analyzing' && <div className="w-6 h-6 border-2 border-accent/80 border-t-transparent rounded-full animate-spin" />}
                   {item.status === 'done' && <Check className="w-6 h-6 text-emerald-400" />}
                   {item.status === 'error' && <X className="w-6 h-6 text-red-400" />}
                 </div>
               )}
-              {/* Remove button (only when not processing) */}
               {!isProcessing && (
                 <button
                   onClick={() => removeItem(item.id)}
@@ -172,14 +155,18 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
             </div>
           ))}
 
-          {/* Add button */}
           {canAdd && !isProcessing && (
             <button
               onClick={() => inputRef.current?.click()}
-              className="aspect-[3/4] rounded-xl border-2 border-dashed border-white/[0.1] bg-white/[0.02] flex flex-col items-center justify-center gap-2 hover:bg-white/[0.04] hover:border-white/[0.15] transition-colors"
+              className={cn(
+                'aspect-[3/4] border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors',
+                dark
+                  ? 'rounded-xl border-white/[0.1] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.15]'
+                  : 'border-border bg-card hover:bg-muted hover:border-foreground/20'
+              )}
             >
-              <ImagePlus className="w-6 h-6 text-white/30" />
-              <span className="text-[11px] text-white/25 font-medium">Add</span>
+              <ImagePlus className={cn('w-6 h-6', dark ? 'text-white/30' : 'text-muted-foreground')} />
+              <span className={cn('text-[11px] font-medium', dark ? 'text-white/25' : 'text-muted-foreground')}>Add</span>
             </button>
           )}
         </motion.div>
@@ -203,13 +190,15 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
               onClick={processAll}
               disabled={isProcessing}
               className={cn(
-                'w-full h-12 rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2 transition-all',
-                'bg-white text-black hover:bg-white/90 active:scale-[0.98]',
+                'w-full h-12 font-semibold text-[15px] flex items-center justify-center gap-2 transition-all active:scale-[0.98]',
+                dark
+                  ? 'rounded-xl bg-white text-black hover:bg-white/90'
+                  : 'bg-primary text-primary-foreground hover:opacity-90',
                 isProcessing && 'opacity-60 cursor-not-allowed'
               )}
             >
               {isProcessing ? (
-                <div className="w-5 h-5 border-2 border-black/40 border-t-black rounded-full animate-spin" />
+                <div className={cn('w-5 h-5 border-2 border-t-transparent rounded-full animate-spin', dark ? 'border-black/40 border-t-black' : 'border-primary-foreground/40 border-t-primary-foreground')} />
               ) : (
                 <>
                   Add {items.length} garment{items.length > 1 ? 's' : ''}
@@ -220,7 +209,10 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
           ) : (
             <button
               onClick={() => inputRef.current?.click()}
-              className="w-full h-12 rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2 bg-white text-black hover:bg-white/90 active:scale-[0.98] transition-all"
+              className={cn(
+                'w-full h-12 font-semibold text-[15px] flex items-center justify-center gap-2 active:scale-[0.98] transition-all',
+                dark ? 'rounded-xl bg-white text-black hover:bg-white/90' : 'bg-primary text-primary-foreground hover:opacity-90'
+              )}
             >
               <Camera className="w-4.5 h-4.5" />
               Choose photos
@@ -230,7 +222,7 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
           <button
             onClick={onSkip}
             disabled={isProcessing}
-            className="w-full h-10 text-sm text-white/30 hover:text-white/50 transition-colors"
+            className={cn('w-full h-10 text-sm transition-colors', dark ? 'text-white/30 hover:text-white/50' : 'text-muted-foreground hover:text-foreground')}
           >
             {t('onboarding.skip') || 'Skip for now'}
           </button>
