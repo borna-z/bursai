@@ -4,6 +4,7 @@ import { EASE_CURVE } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { useTheme, ACCENT_COLORS } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useIsDark } from '@/hooks/useIsDark';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -17,33 +18,44 @@ interface AccentColorStepProps {
 export function AccentColorStep({ onComplete }: AccentColorStepProps) {
   const { accentColor, setAccentColor } = useTheme();
   const { t } = useLanguage();
+  const dark = useIsDark();
 
   return (
-    <div className="dark-landing min-h-screen flex flex-col relative overflow-hidden">
-      {/* Aurora */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] rounded-full bg-[radial-gradient(ellipse,rgba(99,102,241,0.06)_0%,transparent_70%)] blur-3xl" />
-      </div>
+    <div className={cn('min-h-screen flex flex-col relative overflow-hidden', dark ? 'dark-landing' : 'bg-background text-foreground')}>
+      {dark && (
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] rounded-full bg-[radial-gradient(ellipse,rgba(99,102,241,0.06)_0%,transparent_70%)] blur-3xl" />
+        </div>
+      )}
 
       <div className="relative z-10 pt-16 pb-6 px-6 flex flex-col items-center text-center">
-        <motion.h1 variants={fadeUp} initial="hidden" animate="show" custom={0} className="text-xl font-bold text-white mb-2 tracking-tight">
+        <motion.h1 variants={fadeUp} initial="hidden" animate="show" custom={0}
+          className={cn('text-xl font-bold mb-2 tracking-tight', dark ? 'text-white' : 'text-foreground')}
+        >
           {t('onboarding.accent.title')}
         </motion.h1>
-        <motion.p variants={fadeUp} initial="hidden" animate="show" custom={1} className="text-white/35 text-sm leading-relaxed max-w-xs mb-8">
+        <motion.p variants={fadeUp} initial="hidden" animate="show" custom={1}
+          className={cn('text-sm leading-relaxed max-w-xs mb-8', dark ? 'text-white/35' : 'text-muted-foreground')}
+        >
           {t('onboarding.accent.subtitle')}
         </motion.p>
 
         {/* Live preview */}
-        <motion.div variants={fadeUp} initial="hidden" animate="show" custom={2} className="w-full max-w-sm rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 space-y-4 transition-all duration-300">
+        <motion.div variants={fadeUp} initial="hidden" animate="show" custom={2}
+          className={cn(
+            'w-full max-w-sm p-5 space-y-4 transition-all duration-300 border',
+            dark ? 'rounded-2xl border-white/[0.06] bg-white/[0.03]' : 'border-border bg-card'
+          )}
+        >
           <div className="flex items-center gap-2 flex-wrap">
             <button
-              className="px-4 py-2 rounded-xl text-sm font-medium text-white transition-colors duration-300"
+              className={cn('px-4 py-2 text-sm font-medium text-white transition-colors duration-300', dark && 'rounded-xl')}
               style={{ backgroundColor: accentColor.hex }}
             >
               {t('onboarding.body.continue')}
             </button>
             <button
-              className="px-4 py-2 rounded-xl text-sm font-medium border-2 bg-transparent transition-colors duration-300"
+              className={cn('px-4 py-2 text-sm font-medium border-2 bg-transparent transition-colors duration-300', dark && 'rounded-xl')}
               style={{ borderColor: accentColor.hex, color: accentColor.hex }}
             >
               Outline
@@ -76,10 +88,11 @@ export function AccentColorStep({ onComplete }: AccentColorStepProps) {
                 key={color.id}
                 onClick={() => setAccentColor(color.id)}
                 className={cn(
-                  'flex flex-col items-center gap-2 py-3 rounded-xl border transition-all',
+                  'flex flex-col items-center gap-2 py-3 border transition-all',
+                  dark && 'rounded-xl',
                   isSelected
-                    ? 'border-white/20 bg-white/[0.06] scale-105'
-                    : 'border-transparent hover:bg-white/[0.04]'
+                    ? (dark ? 'border-white/20 bg-white/[0.06] scale-105' : 'border-foreground bg-muted scale-105')
+                    : (dark ? 'border-transparent hover:bg-white/[0.04]' : 'border-transparent hover:bg-muted')
                 )}
                 aria-label={color.name}
               >
@@ -94,7 +107,7 @@ export function AccentColorStep({ onComplete }: AccentColorStepProps) {
                     </div>
                   )}
                 </div>
-                <span className="text-[10px] font-medium text-white/35 leading-none">
+                <span className={cn('text-[10px] font-medium leading-none', dark ? 'text-white/35' : 'text-muted-foreground')}>
                   {color.name}
                 </span>
               </button>
@@ -102,10 +115,12 @@ export function AccentColorStep({ onComplete }: AccentColorStepProps) {
           })}
         </div>
 
-        {/* Continue */}
         <div className="mt-8 max-w-sm mx-auto">
           <button
-            className="w-full h-[52px] rounded-xl text-[15px] font-semibold text-white transition-colors duration-300 hover:opacity-90 active:scale-[0.98]"
+            className={cn(
+              'w-full h-[52px] text-[15px] font-semibold text-white transition-colors duration-300 hover:opacity-90 active:scale-[0.98]',
+              dark && 'rounded-xl'
+            )}
             style={{ backgroundColor: accentColor.hex }}
             onClick={onComplete}
           >
