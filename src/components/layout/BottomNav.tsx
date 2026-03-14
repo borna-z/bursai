@@ -43,16 +43,10 @@ export function BottomNav() {
               <>
                 <div className="relative flex items-center justify-center w-10 h-7 rounded-2xl">
                   {isActive && (
-                    <motion.div
-                      layoutId="nav-pill"
-                      className="absolute inset-0 bg-accent/10 rounded-2xl will-change-transform"
-                      transition={EASE_TWEEN}
-                    />
+                    <div className="absolute inset-0 bg-accent/10 rounded-2xl transition-all duration-200" />
                   )}
-                  <motion.div
-                    animate={isActive ? { scale: 1.08 } : { scale: 1 }}
-                    transition={SPRING_BOUNCE}
-                    className="relative z-10"
+                  <div
+                    className={cn("relative z-10 transition-transform duration-150", isActive && "scale-[1.08]")}
                   >
                     <tab.icon
                       className="w-5 h-5"
