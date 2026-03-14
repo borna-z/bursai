@@ -117,7 +117,7 @@ export const OutfitSlotCard = memo(function OutfitSlotCard({
       </CardContent>
     </Card>
   );
-}
+});
 
 export function OutfitSlotCardSkeleton() {
   return (

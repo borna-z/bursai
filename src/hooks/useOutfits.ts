@@ -139,6 +139,19 @@ export function useUpdateOutfit() {
       if (error) throw error;
       return data;
     },
+    onMutate: async ({ id, updates }) => {
+      await queryClient.cancelQueries({ queryKey: ['outfit', id] });
+      const prevOutfit = queryClient.getQueryData(['outfit', id]);
+      queryClient.setQueryData(['outfit', id], (old: OutfitWithItems | undefined) =>
+        old ? { ...old, ...updates } : old
+      );
+      return { prevOutfit };
+    },
+    onError: (_err, { id }, context) => {
+      if (context?.prevOutfit) {
+        queryClient.setQueryData(['outfit', id], context.prevOutfit);
+      }
+    },
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     onSuccess: (data) => {

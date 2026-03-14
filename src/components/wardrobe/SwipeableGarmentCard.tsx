@@ -136,4 +136,4 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({ garment
       </motion.div>
     </div>
   );
-}
+});
