@@ -57,18 +57,10 @@ function findMostWorn(garments: Garment[]): Garment | null {
 
 function buildWeatherSuggestion(weather: WeatherData | undefined, locale: string): string {
   if (!weather) {
-    return locale === 'sv' ? 'Vad ska jag ha på mig idag?' : 'What should I wear today?';
+    return 'What should I wear today?';
   }
   const temp = Math.round(weather.temperature);
   const condKey = weather.condition;
-  // Build a natural sentence
-  if (locale === 'sv') {
-    const cond = condKey.includes('rain') || condKey.includes('drizzle') ? 'regnigt'
-      : condKey.includes('snow') ? 'snöigt'
-      : condKey.includes('cloud') ? 'mulet'
-      : 'soligt';
-    return `${temp}°C och ${cond} — vad funkar?`;
-  }
   const cond = condKey.includes('rain') || condKey.includes('drizzle') ? 'rainy'
     : condKey.includes('snow') ? 'snowy'
     : condKey.includes('cloud') ? 'cloudy'
@@ -77,23 +69,23 @@ function buildWeatherSuggestion(weather: WeatherData | undefined, locale: string
 }
 
 function buildCalendarSuggestion(locale: string): string {
-  return locale === 'sv' ? 'Jag har ett möte idag' : 'I have a meeting today';
+  return 'I have a meeting today';
 }
 
 function buildLeastWornSuggestion(garment: Garment | null, locale: string): string {
   if (!garment) {
-    return locale === 'sv' ? 'Styla mitt minst använda plagg' : 'Style my least worn item';
+    return 'Style my least worn item';
   }
   const name = garment.title.toLowerCase();
-  return locale === 'sv' ? `Styla mina ${name}` : `Style my ${name}`;
+  return `Style my ${name}`;
 }
 
 function buildMostWornSuggestion(garment: Garment | null, locale: string): string {
   if (!garment) {
-    return locale === 'sv' ? 'Nya sätt att bära min favorit' : 'New ways to wear my favorite';
+    return 'New ways to wear my favorite';
   }
   const name = garment.title.toLowerCase();
-  return locale === 'sv' ? `Nya sätt att bära ${name}` : `New ways to wear my ${name}`;
+  return `New ways to wear my ${name}`;
 }
 
 export function ChatWelcome({ onSuggestion, displayName, garmentCount }: ChatWelcomeProps) {
@@ -118,9 +110,7 @@ export function ChatWelcome({ onSuggestion, displayName, garmentCount }: ChatWel
     const mostWornChip = buildMostWornSuggestion(mostWorn, locale);
 
     // Row 3: discovery (static)
-    const discoveryChips = locale === 'sv'
-      ? ['Vad saknas i min garderob?', 'Hitta en dejt-outfit']
-      : ['What\'s missing in my wardrobe?', 'Find me a date night outfit'];
+    const discoveryChips = ['What\'s missing in my wardrobe?', 'Find me a date night outfit'];
 
     return [
       [weatherChip, calendarChip],

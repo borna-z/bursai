@@ -131,11 +131,13 @@ export function StyleEvolutionSection({ isPremium }: { isPremium: boolean }) {
   if (!evolution || !evolution.timeline || evolution.timeline.length < 2) return null;
 
   const COLOR_CSS: Record<string, string> = {
-    svart: 'bg-gray-900', black: 'bg-gray-900', vit: 'bg-gray-100', white: 'bg-gray-100',
-    grå: 'bg-gray-400', marinblå: 'bg-blue-900', navy: 'bg-blue-900',
-    blå: 'bg-blue-500', blue: 'bg-blue-500', röd: 'bg-red-500', red: 'bg-red-500',
-    grön: 'bg-green-600', green: 'bg-green-600', beige: 'bg-amber-100',
-    brun: 'bg-amber-800', brown: 'bg-amber-800', rosa: 'bg-pink-400', pink: 'bg-pink-400',
+    black: 'bg-gray-900', white: 'bg-gray-100', grey: 'bg-gray-400', navy: 'bg-blue-900',
+    blue: 'bg-blue-500', red: 'bg-red-500', green: 'bg-green-600', beige: 'bg-amber-100',
+    brown: 'bg-amber-800', pink: 'bg-pink-400', purple: 'bg-purple-500', yellow: 'bg-yellow-400', orange: 'bg-orange-500',
+    // Legacy Swedish keys for backward compat
+    svart: 'bg-gray-900', vit: 'bg-gray-100', grå: 'bg-gray-400', marinblå: 'bg-blue-900',
+    blå: 'bg-blue-500', röd: 'bg-red-500', grön: 'bg-green-600',
+    brun: 'bg-amber-800', rosa: 'bg-pink-400',
   };
 
   return (

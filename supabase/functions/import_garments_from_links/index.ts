@@ -52,20 +52,20 @@ function isBlockedUrl(urlString: string): { blocked: boolean; reason?: string } 
     
     // Only allow http/https
     if (!['http:', 'https:'].includes(url.protocol)) {
-      return { blocked: true, reason: 'Ogiltigt protokoll - endast http/https tillåtet' };
+      return { blocked: true, reason: 'Invalid protocol - only http/https allowed' };
     }
     
     const hostname = url.hostname.toLowerCase();
     
     // Block localhost and loopback
     if (BLOCKED_HOSTS.includes(hostname)) {
-      return { blocked: true, reason: 'Lokal adress blockerad' };
+      return { blocked: true, reason: 'Local address blocked' };
     }
     
     // Block private IP ranges
     for (const prefix of BLOCKED_IP_PREFIXES) {
       if (hostname.startsWith(prefix)) {
-        return { blocked: true, reason: 'Privat IP-adress blockerad' };
+        return { blocked: true, reason: 'Private IP address blocked' };
       }
     }
     
@@ -77,13 +77,13 @@ function isBlockedUrl(urlString: string): { blocked: boolean; reason?: string } 
           (parts[0] === 192 && parts[1] === 168) ||
           (parts[0] === 169 && parts[1] === 254) ||
           parts[0] === 127) {
-        return { blocked: true, reason: 'Intern IP-adress blockerad' };
+        return { blocked: true, reason: 'Internal IP address blocked' };
       }
     }
     
     return { blocked: false };
   } catch {
-    return { blocked: true, reason: 'Ogiltig URL' };
+    return { blocked: true, reason: 'Invalid URL' };
   }
 }
 
@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'Saknar auktoriseringsheader' }),
+        JSON.stringify({ error: 'Missing authorization header' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -281,7 +281,7 @@ Deno.serve(async (req) => {
     if (claimsError || !claimsData?.claims) {
       console.error('Auth error:', claimsError);
       return new Response(
-        JSON.stringify({ error: 'Ej auktoriserad' }),
+        JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -294,14 +294,14 @@ Deno.serve(async (req) => {
     // Validate urls array
     if (!urls || !Array.isArray(urls)) {
       return new Response(
-        JSON.stringify({ error: 'urls måste vara en array' }),
+        JSON.stringify({ error: 'urls must be an array' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (urls.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'Inga URLs angivna' }),
+        JSON.stringify({ error: 'No URLs provided' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -342,7 +342,7 @@ Deno.serve(async (req) => {
         results.push({
           url: trimmedUrl,
           status: 'failed',
-          reason: 'Redan importerad',
+          reason: 'Already imported',
         });
         continue;
       }
@@ -353,7 +353,7 @@ Deno.serve(async (req) => {
         results.push({
           url: trimmedUrl,
           status: 'failed',
-          reason: ssrfCheck.reason || 'Blockerad URL',
+          reason: ssrfCheck.reason || 'Blocked URL',
         });
         continue;
       }
@@ -392,7 +392,7 @@ Deno.serve(async (req) => {
           results.push({
             url: trimmedUrl,
             status: 'failed',
-            reason: 'Ingen bild hittades',
+            reason: 'No image found',
           });
           continue;
         }
@@ -403,7 +403,7 @@ Deno.serve(async (req) => {
           results.push({
             url: trimmedUrl,
             status: 'failed',
-            reason: 'Bild-URL blockerad',
+            reason: 'Image URL blocked',
           });
           continue;
         }
@@ -415,7 +415,7 @@ Deno.serve(async (req) => {
           results.push({
             url: trimmedUrl,
             status: 'failed',
-            reason: 'Kunde inte ladda ner bilden',
+            reason: 'Could not download image',
           });
           continue;
         }
@@ -438,13 +438,13 @@ Deno.serve(async (req) => {
           results.push({
             url: trimmedUrl,
             status: 'failed',
-            reason: 'Kunde inte spara bilden',
+            reason: 'Could not save image',
           });
           continue;
         }
 
         // Create garment record with minimal required fields
-        const title = metadata.title || 'Importerat plagg';
+        const title = metadata.title || 'Imported garment';
         
         const { error: insertError } = await supabaseAdmin
           .from('garments')
@@ -454,7 +454,7 @@ Deno.serve(async (req) => {
             image_path: imagePath,
             title: title.substring(0, 200), // Limit title length
             category: 'top', // Default category, user can edit
-            color_primary: 'grå', // Default, user can edit
+            color_primary: 'grey', // Default, user can edit
             source_url: trimmedUrl,
             imported_via: 'link',
           });
@@ -467,7 +467,7 @@ Deno.serve(async (req) => {
           results.push({
             url: trimmedUrl,
             status: 'failed',
-            reason: 'Kunde inte spara plagget',
+            reason: 'Could not save garment',
           });
           continue;
         }
@@ -489,9 +489,9 @@ Deno.serve(async (req) => {
       } catch (error: any) {
         console.error(`Error processing ${trimmedUrl}:`, error);
         
-        let reason = 'Okänt fel';
+        let reason = 'Unknown error';
         if (error.name === 'AbortError') {
-          reason = 'Timeout - sidan svarade inte';
+          reason = 'Timeout - page did not respond';
         } else if (error.message) {
           reason = error.message.substring(0, 100);
         }
@@ -527,7 +527,7 @@ Deno.serve(async (req) => {
   } catch (error: any) {
     console.error('Import error:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internt serverfel' }),
+      JSON.stringify({ error: error.message || 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

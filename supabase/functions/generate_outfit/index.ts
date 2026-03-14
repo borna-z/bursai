@@ -173,7 +173,7 @@ serve(async (req) => {
     }
     const userId = claimsData.claims.sub;
 
-    const { occasion, style, weather, locale = "sv" } = await req.json();
+    const { occasion, style, weather, locale = "en" } = await req.json();
     const localeName = LOCALE_NAMES[locale] || "English";
 
     // Fetch garments, profile, and recent outfits in parallel
@@ -203,7 +203,7 @@ serve(async (req) => {
 
     if (!garments || garments.length < 3) {
       return new Response(
-        JSON.stringify({ error: "Du behöver minst 3 plagg (överdel, underdel, skor) för att generera en outfit" }),
+        JSON.stringify({ error: "You need at least 3 garments (top, bottom, shoes) to generate an outfit" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -320,12 +320,12 @@ ${garmentList}`;
 
     if (result.error) {
       if (result.status === 429) {
-        return new Response(JSON.stringify({ error: "För många förfrågningar, försök igen om en stund." }), {
+        return new Response(JSON.stringify({ error: "Too many requests, please try again shortly." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (result.status === 402) {
-        return new Response(JSON.stringify({ error: "AI-krediter slut. Kontakta support." }), {
+        return new Response(JSON.stringify({ error: "AI credits exhausted. Contact support." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }

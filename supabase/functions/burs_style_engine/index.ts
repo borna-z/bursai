@@ -1750,7 +1750,7 @@ serve(async (req) => {
 
     if (garments.length < 3) {
       return new Response(
-        JSON.stringify({ error: "Du behöver minst 3 plagg för att generera en outfit" }),
+        JSON.stringify({ error: "You need at least 3 garments to generate an outfit" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -1865,7 +1865,7 @@ serve(async (req) => {
 
     if (combos.length === 0) {
       return new Response(
-        JSON.stringify({ error: "Inte tillräckligt med matchande plagg" }),
+        JSON.stringify({ error: "Not enough matching garments" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

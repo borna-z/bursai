@@ -199,7 +199,7 @@ async function syncIcsForUser(
     const ssrfCheck = isBlockedUrl(icsUrl);
     if (ssrfCheck.blocked) return { success: false, synced: 0, error: `SSRF blocked: ${ssrfCheck.reason}` };
 
-    const icsResponse = await fetch(icsUrl, { headers: { 'User-Agent': 'GarderobsAssistent/1.0' } });
+    const icsResponse = await fetch(icsUrl, { headers: { 'User-Agent': 'BURS/1.0' } });
     if (!icsResponse.ok) return { success: false, synced: 0, error: `HTTP ${icsResponse.status}` };
 
     const icsContent = await icsResponse.text();

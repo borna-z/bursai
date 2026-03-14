@@ -30,14 +30,14 @@ export interface GeneratedOutfit {
 }
 
 const INSUFFICIENT_GARMENTS_MESSAGE =
-  'Lägg till fler plagg i olika kategorier (topp, underdel, skor) innan du genererar en outfit.';
+  'Add more garments in different categories (top, bottom, shoes) before generating an outfit.';
 
 function isInsufficientGarmentsError(message?: string | null) {
   if (!message) return false;
   const normalized = message.toLowerCase();
   return (
-    normalized.includes('inte tillräckligt med matchande plagg') ||
-    normalized.includes('not enough matching garments')
+    normalized.includes('not enough matching garments') ||
+    normalized.includes('inte tillräckligt med matchande plagg')
   );
 }
 
@@ -71,7 +71,7 @@ async function generateOutfitViaEngine(
       occasion: request.occasion,
       style: request.style,
       weather: request.weather,
-      locale: request.locale || 'sv',
+      locale: request.locale || 'en',
       event_title: request.eventTitle || null,
     },
   });
@@ -80,7 +80,7 @@ async function generateOutfitViaEngine(
     if (isInsufficientGarmentsError(fnError.message)) {
       throw new Error(INSUFFICIENT_GARMENTS_MESSAGE);
     }
-    throw new Error(fnError.message || 'Kunde inte generera outfit');
+    throw new Error(fnError.message || 'Could not generate outfit');
   }
 
   if (data?.error) {
@@ -94,7 +94,7 @@ async function generateOutfitViaEngine(
   const explanation: string = data.explanation;
   const styleScore = data.style_score || null;
 
-  if (!aiItems?.length) throw new Error('AI returnerade inga plagg');
+  if (!aiItems?.length) throw new Error('AI returned no garments');
 
   // Fetch full garment data
   const garmentIds = aiItems.map((i) => i.garment_id);
@@ -111,7 +111,7 @@ async function generateOutfitViaEngine(
     .filter((item) => item.garment);
 
   if (selectedItems.length < 2) {
-    throw new Error('Inte tillräckligt med matchande plagg');
+    throw new Error('Not enough matching garments');
   }
 
   // Save outfit
@@ -164,7 +164,7 @@ export function useOutfitGenerator() {
 
   const mutation = useMutation({
     mutationFn: async (request: OutfitRequest) => {
-      if (!user) throw new Error('Inte inloggad');
+      if (!user) throw new Error('Not logged in');
       setIsGenerating(true);
       try {
         return await generateOutfitViaEngine(user.id, request);

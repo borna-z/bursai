@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    const { events, weather, locale = "sv" } = await req.json();
+    const { events, weather, locale = "en" } = await req.json();
 
     if (!events || events.length === 0) {
       return new Response(
@@ -39,7 +39,7 @@ serve(async (req) => {
     const isSv = locale === "sv";
 
     const weatherContext = weather
-      ? `${weather.temperature}°C, ${weather.precipitation === "none" ? (isSv ? "uppehåll" : "clear") : weather.precipitation}`
+      ? `${weather.temperature}°C, ${weather.precipitation === "none" ? "clear" : weather.precipitation}`
       : "";
 
     const eventsText = events
@@ -50,9 +50,7 @@ serve(async (req) => {
 
     const isMultiEvent = events.length >= 2;
 
-    const systemPrompt = isSv
-      ? `Du är en stilmedveten dagplanerare. Analysera kalenderhändelserna och ge en kort sammanfattning med klädtips. Svara på svenska.`
-      : `You are a style-conscious day planner. Analyze the calendar events and provide a brief summary with outfit tips. Respond in ${localeName}.`;
+    const systemPrompt = `You are a style-conscious day planner. Analyze the calendar events and provide a brief summary with outfit tips. Respond in ${localeName}.`;
 
     const eventsCacheKey = events.map((e: any) => e.title).sort().join(",").slice(0, 40);
 
