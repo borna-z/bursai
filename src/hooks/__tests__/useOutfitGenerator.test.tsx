@@ -44,18 +44,21 @@ describe('useOutfitGenerator', () => {
   });
 
   it('validates wardrobe has required categories', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as any);
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
     // Only tops, no bottoms/shoes
-    const chain: any = {};
-    chain.select = vi.fn().mockReturnValue(chain);
-    chain.eq = vi.fn().mockReturnValue(chain);
-    chain.in = vi.fn().mockResolvedValue({ data: [{ category: 'top' }], error: null });
-    chain.insert = vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single: vi.fn() }) });
+    const chain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockResolvedValue({ data: [{ category: 'top' }], error: null }),
+      insert: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single: vi.fn() }) }),
+    };
     mockFrom.mockReturnValue(chain);
 
     const { useOutfitGenerator } = await import('../useOutfitGenerator');
     const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
-    await expect(result.current.generateOutfit(baseRequest)).rejects.toThrow(/plagg/);
+    await act(async () => {
+      await expect(result.current.generateOutfit(baseRequest)).rejects.toThrow(/garments/i);
+    });
   });
 
   it('returns generated outfit on success', async () => {
