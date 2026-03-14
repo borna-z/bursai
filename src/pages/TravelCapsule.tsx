@@ -144,12 +144,13 @@ export default function TravelCapsule() {
   const loadingTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Progressive loading phases (~60s total, last phase holds indefinitely)
-  const travelLoadingPhases = [
+  // Memoized so AILoadingOverlay's phase timer isn't reset on re-renders
+  const travelLoadingPhases = useMemo(() => [
     { icon: Cloud, label: t('capsule.phase_weather'), duration: 10000 },
     { icon: Shirt, label: t('capsule.phase_wardrobe'), duration: 10000 },
     { icon: SlidersHorizontal, label: t('capsule.phase_styling'), duration: 20000 },
     { icon: Package, label: t('capsule.phase_packing'), duration: 0 },
-  ];
+  ], [t]);
 
   // Simulated progress (smooth 0→95% over 60s)
   const [simulatedProgress, setSimulatedProgress] = useState(0);
