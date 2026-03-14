@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import {
   Minus, Footprints, Briefcase, Crown, Dumbbell, Heart,
   Flower2, GraduationCap, Flame, Coffee, Building2,
-  PartyPopper, Disc3, Snowflake, Bike,
+  PartyPopper, Disc3, Snowflake, Bike, Shirt, Palette, Wand2,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { AILoadingCard } from '@/components/ui/AILoadingCard';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useWeather } from '@/hooks/useWeather';
 import { useOutfitGenerator } from '@/hooks/useOutfitGenerator';
@@ -62,6 +62,12 @@ export default function StylePickerPage() {
     }
   };
 
+  const loadingPhases = [
+    { icon: Shirt, label: t('generate.phase_analyzing'), duration: 1200 },
+    { icon: Palette, label: t('generate.phase_matching'), duration: 1500 },
+    { icon: Wand2, label: t('generate.phase_creating'), duration: 0 },
+  ];
+
   return (
     <AppLayout>
       <PageHeader title={t('style_picker.title')} showBack />
@@ -92,9 +98,11 @@ export default function StylePickerPage() {
                     <p className="text-xs font-semibold leading-tight">{t(`style_picker.look_${look.key}`)}</p>
                     <p className="text-[10px] text-muted-foreground leading-tight">{t(`style_picker.look_${look.key}_desc`)}</p>
                     {isActive && (
-                      <Badge variant="secondary" className="animate-pulse text-[10px] mt-0.5">
-                        {t('ai.mood_generating')}
-                      </Badge>
+                      <AILoadingCard
+                        phases={loadingPhases}
+                        subtitle={t(`style_picker.look_${look.key}`)}
+                        className="mt-1 border-0 bg-transparent p-0"
+                      />
                     )}
                   </CardContent>
                 </Card>

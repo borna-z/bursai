@@ -136,10 +136,17 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
         {t('home.swipe_to_wear') || 'Swipe right to wear →'}
       </p>
 
-      {/* Shimmer overlay during regeneration */}
+      {/* Regeneration overlay with mini AI loading */}
       {isGenerating && outfit && (
-        <div className="absolute inset-0 rounded-2xl bg-background/40 backdrop-blur-[2px] flex items-center justify-center">
-          <Sparkles className="w-6 h-6 text-accent animate-pulse" />
+        <div className="absolute inset-0 rounded-2xl bg-background/60 backdrop-blur-[2px] flex items-center justify-center z-10">
+          <AILoadingOverlay
+            variant="inline"
+            phases={[
+              { icon: Sparkles, label: t('home.shuffling') || 'Shuffling...', duration: 1500 },
+              { icon: Palette, label: t('home.restyling') || 'Restyling...', duration: 0 },
+            ]}
+            className="py-4"
+          />
         </div>
       )}
 

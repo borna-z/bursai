@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Wand2, Loader2, Check, Calendar } from 'lucide-react';
+import { Wand2, Check, Calendar, CloudSun, Shirt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet';
+import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
 import { addDays } from 'date-fns';
@@ -34,6 +35,12 @@ export function QuickPlanSheet({ open, onOpenChange, onAutoGenerate, isGeneratin
     return date.toLocaleDateString(getBCP47(locale), { weekday: 'long' });
   };
 
+  const planningPhases = [
+    { icon: Calendar, label: `${t('plan.creating_for')} ${getDayLabel(generatingDay)}`, duration: 1500 },
+    { icon: CloudSun, label: t('plan.adapts_weather'), duration: 1200 },
+    { icon: Shirt, label: t('plan.prioritizes_unused'), duration: 0 },
+  ];
+
   return (
     <Sheet open={open} onOpenChange={(o) => {
       if (!isGenerating) { setIsComplete(false); onOpenChange(o); }
@@ -47,10 +54,12 @@ export function QuickPlanSheet({ open, onOpenChange, onAutoGenerate, isGeneratin
         <div className="space-y-6 pb-6">
           {isGenerating ? (
             <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                <span className="text-sm">{t('plan.creating_for')} {getDayLabel(generatingDay)}...</span>
-              </div>
+              <AILoadingOverlay
+                variant="inline"
+                phases={planningPhases}
+                subtitle={`${generatingDay} ${t('plan.of_days')} 7`}
+                className="py-4"
+              />
               <Progress value={progress} className="h-2" />
               <p className="text-xs text-muted-foreground text-center">{generatingDay} {t('plan.of_days')} 7</p>
             </div>

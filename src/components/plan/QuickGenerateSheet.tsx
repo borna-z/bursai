@@ -197,13 +197,20 @@ export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGen
             )}
           </div>
 
-          <Button onClick={handleGenerate} disabled={isGenerating} className="w-full" size="lg">
-            {isGenerating ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('qgen.creating')}</>
-            ) : (
-              <><Sparkles className="w-4 h-4 mr-2" />{t('qgen.generate_outfit')}</>
-            )}
-          </Button>
+          {isGenerating ? (
+            <AILoadingCard
+              phases={[
+                { icon: Sparkles, label: t('qgen.analyzing') || 'Analyzing...', duration: 1200 },
+                { icon: Sparkles, label: t('qgen.creating'), duration: 1500 },
+                { icon: Sparkles, label: t('qgen.saving') || 'Saving...', duration: 0 },
+              ]}
+              subtitle={OCCASIONS.find(o => o.id === occasion)?.label}
+            />
+          ) : (
+            <Button onClick={handleGenerate} className="w-full" size="lg">
+              <Sparkles className="w-4 h-4 mr-2" />{t('qgen.generate_outfit')}
+            </Button>
+          )}
         </div>
       </SheetContent>
     </Sheet>
