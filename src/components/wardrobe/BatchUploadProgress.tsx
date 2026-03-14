@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, AlertCircle, Loader2, ImageIcon, X } from 'lucide-react';
+import { CheckCircle, AlertCircle, Upload, Sparkles, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useStorage } from '@/hooks/useStorage';
