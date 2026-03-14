@@ -57,31 +57,46 @@ export function useWardrobeUnlocks() {
  * when the user crosses a new unlock milestone.
  * Mount once in AppLayout.
  */
+const CELEBRATED_KEY = 'burs_celebrated_milestones';
+
+function getCelebrated(): number[] {
+  try { return JSON.parse(localStorage.getItem(CELEBRATED_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function setCelebrated(milestones: number[]) {
+  localStorage.setItem(CELEBRATED_KEY, JSON.stringify(milestones));
+}
+
+/**
+ * Watches garment count and fires a celebratory toast
+ * when the user crosses a new unlock milestone.
+ * Each milestone is celebrated only once (persisted in localStorage).
+ * Mount once in AppLayout.
+ */
 export function useUnlockCelebration() {
   const { data: garmentCount } = useGarmentCount();
   const { t } = useLanguage();
-  const currentCount = garmentCount ?? 0;
-  const prevCountRef = useRef<number | null>(null);
+  const hasFiredRef = useRef(false);
 
   useEffect(() => {
-    // Skip the initial mount (don't celebrate on page load)
-    if (prevCountRef.current === null) {
-      prevCountRef.current = currentCount;
-      return;
-    }
+    // Wait for the query to resolve
+    if (garmentCount === undefined) return;
 
-    const prev = prevCountRef.current;
-    prevCountRef.current = currentCount;
+    // Guard against double-firing in strict mode
+    if (hasFiredRef.current) return;
 
-    // Only celebrate when count increased
-    if (currentCount <= prev) return;
+    const celebrated = getCelebrated();
+    const newlyReached = MILESTONES.filter(m => garmentCount >= m && !celebrated.includes(m));
+    if (newlyReached.length === 0) return;
 
-    // Find milestones that were just crossed
-    const newlyUnlocked = MILESTONES.filter(m => prev < m && currentCount >= m);
-    if (newlyUnlocked.length === 0) return;
+    hasFiredRef.current = true;
 
-    // Get the features unlocked at the highest new milestone
-    const highestMilestone = Math.max(...newlyUnlocked);
+    // Persist immediately so it never fires again
+    setCelebrated([...celebrated, ...newlyReached]);
+
+    // Show toast for the highest new milestone
+    const highestMilestone = Math.max(...newlyReached);
     const unlockedFeatures = TIERS
       .filter(tier => tier.minGarments === highestMilestone)
       .map(tier => t(tier.labelKey));
@@ -92,5 +107,5 @@ export function useUnlockCelebration() {
       description: t('unlock.celebration_desc').replace('{features}', unlockedFeatures.join(', ')),
       duration: 5000,
     });
-  }, [currentCount, t]);
+  }, [garmentCount, t]);
 }
