@@ -70,9 +70,9 @@ export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGen
     { id: 'minimal', label: t('home.style.minimal') },
     { id: 'street', label: t('home.style.street') },
     { id: 'smart-casual', label: t('home.style.smart_casual') },
-    { id: 'klassisk', label: t('home.style.klassisk') },
-    { id: 'sportig', label: t('qgen.sporty') },
-    { id: 'romantisk', label: t('qgen.romantic') },
+    { id: 'classic', label: t('home.style.klassisk') },
+    { id: 'sporty', label: t('qgen.sporty') },
+    { id: 'romantic', label: t('qgen.romantic') },
   ];
 
   const lookupTravelWeather = useCallback(async (coords: { lat: number; lon: number }, targetDate: string) => {
