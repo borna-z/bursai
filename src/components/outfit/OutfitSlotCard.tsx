@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { RefreshCw, Shirt } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
@@ -28,7 +29,7 @@ interface OutfitSlotCardProps {
   isLoading?: boolean;
 }
 
-export function OutfitSlotCard({
+export const OutfitSlotCard = memo(function OutfitSlotCard({
   slot,
   garmentId,
   garmentTitle,
@@ -116,7 +117,7 @@ export function OutfitSlotCard({
       </CardContent>
     </Card>
   );
-}
+});
 
 export function OutfitSlotCardSkeleton() {
   return (

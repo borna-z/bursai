@@ -161,6 +161,20 @@ export function useUpdateGarment() {
       if (error) throw error;
       return data;
     },
+    onMutate: async ({ id, updates }) => {
+      await queryClient.cancelQueries({ queryKey: ['garments'] });
+      await queryClient.cancelQueries({ queryKey: ['garment', id] });
+      const prevGarment = queryClient.getQueryData(['garment', id]);
+      queryClient.setQueryData(['garment', id], (old: Garment | undefined) =>
+        old ? { ...old, ...updates } : old
+      );
+      return { prevGarment };
+    },
+    onError: (_err, { id }, context) => {
+      if (context?.prevGarment) {
+        queryClient.setQueryData(['garment', id], context.prevGarment);
+      }
+    },
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     onSuccess: (data) => {

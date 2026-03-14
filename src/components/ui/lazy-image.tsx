@@ -47,6 +47,8 @@ export function LazyImage({
         <img
           src={signedUrl}
           alt={alt}
+          loading="lazy"
+          decoding="async"
           className={cn(
             "w-full h-full object-cover transition-opacity duration-300",
             imageLoaded ? "opacity-100" : "opacity-0"
@@ -92,6 +94,8 @@ export function LazyImageSimple({
         <img
           src={signedUrl}
           alt={alt}
+          loading="lazy"
+          decoding="async"
           className={cn(
             "w-full h-full object-cover transition-opacity duration-300",
             imageLoaded ? "opacity-100" : "opacity-0"

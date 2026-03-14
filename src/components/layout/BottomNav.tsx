@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { EASE_TWEEN, SPRING_BOUNCE } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
 import { useTrendingUnlocked } from '@/hooks/useTrendingUnlocked';
+import { prefetchRoute } from '@/lib/routePrefetch';
 
 const tabKeys = [
   { path: '/', labelKey: 'nav.today', icon: Home },
@@ -27,6 +28,8 @@ export function BottomNav() {
             key={tab.path}
             to={tab.path}
             onClick={() => hapticLight()}
+            onPointerEnter={() => prefetchRoute(tab.path)}
+            onFocus={() => prefetchRoute(tab.path)}
             className={({ isActive }) =>
               cn(
                 'relative flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[10px] font-medium transition-colors duration-200',

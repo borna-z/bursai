@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, memo } from 'react';
 import { motion, useMotionValue, useTransform, animate, PanInfo } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Pencil, WashingMachine, Trash2, Shirt } from 'lucide-react';
@@ -20,7 +20,7 @@ interface SwipeableGarmentCardProps {
   onDelete: () => void;
 }
 
-export function SwipeableGarmentCard({ garment, onEdit, onLaundry, onDelete }: SwipeableGarmentCardProps) {
+export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({ garment, onEdit, onLaundry, onDelete }: SwipeableGarmentCardProps) {
   const navigate = useNavigate();
   const { t } = useLanguage();
 
@@ -136,4 +136,4 @@ export function SwipeableGarmentCard({ garment, onEdit, onLaundry, onDelete }: S
       </motion.div>
     </div>
   );
-}
+});

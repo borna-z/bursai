@@ -26,6 +26,7 @@ import { DuplicateWarningSheet } from '@/components/wardrobe/DuplicateWarningShe
 import { useDuplicateDetection } from '@/hooks/useDuplicateDetection';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useMedianCamera } from '@/hooks/useMedianCamera';
+import { compressImage } from '@/lib/imageCompression';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
 const PATTERN_IDS = ['enfärgad', 'randig', 'rutig', 'prickig', 'blommig', 'mönstrad', 'kamouflage'] as const;
@@ -315,8 +316,8 @@ export default function AddGarmentPage() {
   };
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
+    const rawFile = e.target.files?.[0];
+    if (!rawFile || !user) return;
 
     // Check subscription limit
     if (!canAddGarment()) {
@@ -324,14 +325,21 @@ export default function AddGarmentPage() {
       return;
     }
 
+    // Compress image before upload (resize + WebP conversion)
+    let file: File;
+    let previewUrl: string;
+    try {
+      const compressed = await compressImage(rawFile);
+      file = compressed.file;
+      previewUrl = compressed.previewUrl;
+    } catch {
+      // Fallback to original if compression fails
+      file = rawFile;
+      previewUrl = URL.createObjectURL(rawFile);
+    }
+
     setImageFile(file);
-    
-    // Create local preview
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    setImagePreview(previewUrl);
 
     // Generate garment ID
     const newGarmentId = crypto.randomUUID();
