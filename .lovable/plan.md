@@ -1,70 +1,97 @@
 
-# BURS Launch Readiness Plan v4
 
-**Status: ✅ Phases 1-7 COMPLETE | AI Loading Animations COMPLETE**
+# Full i18n Translation Plan — 110 Steps
 
-## Phase 1: Dead Weight Removal (Steps 1-3) ✅
-- Removed `recharts`, `react-resizable-panels`, `next-themes` (~200KB saved)
-- Deleted unused `resizable.tsx` and `chart.tsx`
-- Lazy-imported `html-to-image` in `OutfitReel.tsx`
+## Current State
 
-## Phase 2: Metadata & SEO (Steps 4-5) ✅
-- Fixed OG image URL to relative `/og-image.png`
-- Synced manifest.json lang to `"en"`
+- **14 supported locales**: sv, en, no, da, fi, de, fr, es, it, pt, nl, pl, ar, fa
+- **sv and en** are fully translated (~700+ keys each, expanded format)
+- **Other 12 locales** have partial coverage (~100-200 keys each), missing large sections (premium/billing, insights, discover, plan details, wardrobe advanced features, landing page, privacy/terms, settings GDPR, etc.)
+- The fallback chain is: `locale → en → sv → raw key`
+- File is ~9,800 lines total in `src/i18n/translations.ts`
 
-## Phase 3: Hook Tests (Steps 6-11) ✅
-- `useProfile`: 4 tests (auth, fetch, auto-create, ghost session)
-- `useGarments`: 5 tests (auth, fetch, filters, search, count)
-- `useOutfits`: 4 tests (auth, fetch, single, delete)
-- `useOutfitGenerator`: 3 tests (auth, validation, generation)
-- `useOfflineQueue`: 4 tests (online/offline, replay, events)
-- `useSupabaseQuery`: 4 tests (auth skip, fetch, single, schema)
+## Approach
 
-## Phase 4: Component Tests (Steps 12-18) ✅
-- `Onboarding`: 1 smoke test
-- `Settings`: 1 smoke test
-- `Landing`: 1 smoke test
-- Existing: Auth, Home, Wardrobe, PaywallModal, BottomNav, ProtectedRoute
+Use English as the canonical source. For each of the 12 incomplete locales, identify all missing keys and add professional translations. Split into 110 steps grouped by locale and domain.
 
-## Phase 5: Utility Tests (Steps 19-21) ✅
-- `edgeFunctionClient`: 5 tests (success, retry, exhausted, exceptions, timeout error)
-- `offlineQueue`: 6 tests (enqueue, upload, clear, replay, progress)
-- `schemas`: 11 tests (profile, garment, style score, weather, safeParse, preferences)
-- `nativeShare`: 4 tests (Median, Web Share, clipboard, cancel)
-- Existing: compressFrame, backgroundGarmentSave
+Due to the file size, translations will be split into separate locale files (one per language) that get merged into the main `translations` object. This keeps each file manageable and avoids a single 20K+ line monster.
 
-## Phase 6: Infrastructure (Steps 22-24) ✅
-- Added `test:coverage` script with v8 provider + 30% line threshold
-- Added CSP meta tag to `index.html`
-- Added Sentry `release` tag using `__APP_VERSION__`
+---
 
-## Phase 7: Final Polish (Step 25) ✅
-- All new tests passing individually
-- CI pipeline configured
+## Architecture Change (Steps 1-2)
 
-## AI Loading Animations (35-Step Sprint) ✅
+**Step 1** — Create `src/i18n/locales/` directory structure with one file per locale (e.g. `en.ts`, `sv.ts`, `no.ts`, etc.), each exporting a `Record<string, string>`.
 
-### Foundation
-- Created `AILoadingOverlay` — reusable multi-phase loading with radar pulse rings, bouncing dots, phase cycling
-- Created `AILoadingCard` — compact inline variant for cards/sections
-- Added `shimmer-sweep` CSS keyframe for scanner beam effect
+**Step 2** — Refactor `src/i18n/translations.ts` to import from individual locale files and compose the `translations` object. No functional change.
 
-### Integrated Surfaces (20+ touchpoints)
-- **OutfitGenerate** — 5-phase fullscreen animation
-- **TodayOutfitCard** — AILoadingCard for initial load, AILoadingOverlay for regeneration
-- **StylePicker** — AILoadingCard embedded in active style card
-- **MoodOutfit** — AILoadingCard in selected mood card
-- **QuickGenerateSheet** — AILoadingCard replaces spinner button
-- **QuickPlanSheet** — AILoadingOverlay with day-name subtitle + progress bar
-- **UnusedOutfits** — AILoadingOverlay with skeleton cards
-- **AddGarment** — shimmer-sweep on image + AILoadingOverlay for phases
-- **BatchUploadProgress** — per-item pulse ring animations
-- **LiveScan** — multi-phase ScanOverlay with concentric rings + bouncing dots
-- **AIChat** — bouncing dots + phase text for streaming indicator
-- **AISuggestions** — AILoadingOverlay variant="card" with progress
-- **StyleReportCard** — AILoadingCard with 3 phases
-- **WardrobeGapSection** — refactored to use shared AILoadingOverlay
-- **TravelCapsule** — AILoadingOverlay for generation, AILoadingCard for weather lookup + calendar sync
-- **QuickGenerateSheet** — AILoadingCard for travel weather lookup
+---
 
-**Total tests: ~100+ (48 existing + 52 new across 13 new test files)**
+## Per-Locale Translation (Steps 3-110)
+
+Each locale gets 9 steps, covering these domains:
+
+| Step offset | Domain |
+|---|---|
+| +0 | Navigation, common, auth, error |
+| +1 | Onboarding (all sub-steps, body, style, tutorial) |
+| +2 | Settings (profile, appearance, privacy, GDPR, notifications, account) |
+| +3 | Home, weather, plan, calendar |
+| +4 | Wardrobe, garment details, scan, import, batch, duplicate |
+| +5 | Outfits, outfit generation, stylist/chat |
+| +6 | Insights, discover, premium, billing, pricing, trial |
+| +7 | Landing page (hero, bento, showcase, pricing section, FAQ, footer, comparison) |
+| +8 | Contact, privacy policy, terms, seed/admin, genimg, social reactions |
+
+### Steps 3-11: Norwegian (no)
+### Steps 12-20: Danish (da)
+### Steps 21-29: Finnish (fi)
+### Steps 30-38: German (de)
+### Steps 39-47: French (fr)
+### Steps 48-56: Spanish (es)
+### Steps 57-65: Italian (it)
+### Steps 66-74: Portuguese (pt)
+### Steps 75-83: Dutch (nl)
+### Steps 84-92: Polish (pl)
+### Steps 93-101: Arabic (ar)
+### Steps 102-110: Farsi (fa)
+
+---
+
+## Technical Details
+
+### File structure after refactor
+```text
+src/i18n/
+  translations.ts          ← imports + re-exports composed object
+  locales/
+    sv.ts                  ← ~700 keys (already complete)
+    en.ts                  ← ~700 keys (already complete)
+    no.ts                  ← fill to ~700 keys
+    da.ts                  ← fill to ~700 keys
+    fi.ts                  ← fill to ~700 keys
+    de.ts                  ← fill to ~700 keys
+    fr.ts                  ← fill to ~700 keys
+    es.ts                  ← fill to ~700 keys
+    it.ts                  ← fill to ~700 keys
+    pt.ts                  ← fill to ~700 keys
+    nl.ts                  ← fill to ~700 keys
+    pl.ts                  ← fill to ~700 keys
+    ar.ts                  ← fill to ~700 keys (RTL)
+    fa.ts                  ← fill to ~700 keys (RTL)
+```
+
+### Key count target
+Every locale file must contain the exact same set of keys as `en.ts`. A build-time or test-time check can verify parity.
+
+### Translation quality
+- Use AI-assisted translation with native-quality output
+- Preserve placeholders like `{count}`, `{done}`, `{failed}`
+- RTL languages (ar, fa) keep the same key structure; RTL layout is handled by CSS
+- Currency/number formatting stays locale-aware via `getLocalizedPricing()`
+
+### Edge functions
+Edge functions (`style_chat`, `shopping_chat`, `summarize_day`, etc.) already use `LANG_CONFIG` mappings and respond in the user's language via AI prompts. No changes needed there.
+
+### No new dependencies
+All translations are static strings in TypeScript files. No runtime i18n library needed.
+
