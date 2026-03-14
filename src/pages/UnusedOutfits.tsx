@@ -13,6 +13,7 @@ import { useWeather } from '@/hooks/useWeather';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { hapticLight } from '@/lib/haptics';
 import { stripBrands } from '@/lib/stripBrands';
@@ -159,21 +160,16 @@ export default function UnusedOutfits() {
         {/* Generating state */}
         {generating && outfits.length === 0 && (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Sparkles className="w-4 h-4 animate-pulse text-accent" />
-              <span>{t('unused_outfits.generating')}</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="rounded-xl border border-border/30 overflow-hidden">
-                  <Skeleton className="aspect-[3/4]" />
-                  <div className="p-3 space-y-2">
-                    <Skeleton className="h-3 w-16" />
-                    <Skeleton className="h-3 w-full" />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <AILoadingOverlay
+              variant="inline"
+              phases={[
+                { icon: Sparkles, label: t('unused_outfits.scanning') || 'Scanning unused garments...', duration: 1500 },
+                { icon: Sparkles, label: t('unused_outfits.creating_combos') || 'Creating combinations...', duration: 2000 },
+                { icon: Sparkles, label: t('unused_outfits.generating'), duration: 0 },
+              ]}
+              showSkeletons={3}
+              className="py-4"
+            />
           </div>
         )}
 

@@ -36,6 +36,8 @@ import { getDateFnsLocale } from '@/lib/dateLocale';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
 import { EASE_CURVE, STAGGER_DELAY } from '@/lib/motion';
 import type { DateRange } from 'react-day-picker';
+import { AILoadingCard } from '@/components/ui/AILoadingCard';
+import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 
 /* ─── Types ─── */
 interface CapsuleOutfit {
@@ -106,23 +108,14 @@ export default function TravelCapsule() {
   const [loadingPhase, setLoadingPhase] = useState<string | null>(null);
   const loadingTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  // Progressive loading messages
-  useEffect(() => {
-    if (isGenerating) {
-      setLoadingPhase(null);
-      const t1 = setTimeout(() => setLoadingPhase(t('ai.still_thinking') || 'Still thinking...'), 5000);
-      const t2 = setTimeout(() => setLoadingPhase(t('ai.almost_there') || 'Almost there...'), 15000);
-      loadingTimersRef.current = [t1, t2];
-    } else {
-      setLoadingPhase(null);
-      loadingTimersRef.current.forEach(clearTimeout);
-      loadingTimersRef.current = [];
-    }
-    return () => {
-      loadingTimersRef.current.forEach(clearTimeout);
-      loadingTimersRef.current = [];
-    };
-  }, [isGenerating]);
+  // Progressive loading phases  
+  const travelLoadingPhases = [
+    { icon: Cloud, label: t('capsule.phase_weather') || 'Checking weather...', duration: 1500 },
+    { icon: Shirt, label: t('capsule.phase_wardrobe') || 'Analyzing wardrobe...', duration: 2000 },
+    { icon: CalendarIcon, label: t('capsule.phase_planning') || 'Planning outfits...', duration: 2000 },
+    { icon: Package, label: t('capsule.phase_packing') || 'Optimizing packing...', duration: 1500 },
+    { icon: LightbulbIcon, label: t('capsule.phase_creating') || 'Creating capsule...', duration: 0 },
+  ];
 
   // ── Weather state ──
   const [weatherForecast, setWeatherForecast] = useState<ForecastDay | null>(null);
@@ -463,9 +456,13 @@ export default function TravelCapsule() {
                 />
               </div>
               {isFetchingWeather && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                  <Loader2 className="w-3 h-3 animate-spin" />{t('qgen.fetching_weather')}
-                </p>
+                <AILoadingCard
+                  phases={[
+                    { icon: Globe, label: `${t('capsule.looking_up') || 'Looking up'} ${destination}...`, duration: 1500 },
+                    { icon: Cloud, label: t('qgen.fetching_weather'), duration: 0 },
+                  ]}
+                  className="mt-1"
+                />
               )}
               {weatherError && <p className="text-xs text-destructive">{weatherError}</p>}
               {weatherForecast && !isFetchingWeather && destination && (
@@ -637,15 +634,16 @@ export default function TravelCapsule() {
 
             {/* Generate */}
             <div className="space-y-1">
-              <Button onClick={handleGenerate} disabled={isGenerating || !isFormValid} className="w-full h-12 rounded-xl" size="lg">
-                {isGenerating ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('capsule.generating')}</>
-                ) : (
-                  <><Package className="w-4 h-4 mr-2" />{t('capsule.generate_new')}</>
-                )}
-              </Button>
-              {isGenerating && loadingPhase && (
-                <p className="text-muted-foreground text-[12px] text-center">{loadingPhase}</p>
+              {isGenerating ? (
+                <AILoadingOverlay
+                  variant="card"
+                  phases={travelLoadingPhases}
+                  subtitle={`${destination} · ${tripNights} ${t('capsule.nights')}`}
+                />
+              ) : (
+                <Button onClick={handleGenerate} disabled={!isFormValid} className="w-full h-12 rounded-xl" size="lg">
+                  <Package className="w-4 h-4 mr-2" />{t('capsule.generate_new')}
+                </Button>
               )}
             </div>
           </div>
@@ -953,18 +951,25 @@ export default function TravelCapsule() {
           transition={{ delay: 0.3, duration: 0.4 }}
           className="sticky bottom-0 z-20 bg-background/90 backdrop-blur-xl border-t border-border/10 px-5 py-3 flex gap-2"
         >
-          <Button
-            onClick={handleAddToCalendar}
-            disabled={isAddingToCalendar}
-            className="flex-1 h-11 rounded-xl"
-          >
-            {isAddingToCalendar ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
+          {isAddingToCalendar ? (
+            <div className="flex-1">
+              <AILoadingCard
+                phases={[
+                  { icon: CalendarPlus, label: t('capsule.saving_outfits') || 'Saving outfits...', duration: 1500 },
+                  { icon: CalendarIcon, label: t('capsule.planning_days') || 'Planning days...', duration: 1500 },
+                  { icon: Check, label: t('capsule.syncing') || 'Syncing calendar...', duration: 0 },
+                ]}
+              />
+            </div>
+          ) : (
+            <Button
+              onClick={handleAddToCalendar}
+              className="flex-1 h-11 rounded-xl"
+            >
               <CalendarPlus className="w-4 h-4 mr-2" />
-            )}
-            {t('capsule.add_to_plan')}
-          </Button>
+              {t('capsule.add_to_plan')}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="icon"

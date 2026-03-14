@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { Sparkles, Loader2, Thermometer, CalendarDays, MapPin } from 'lucide-react';
+import { AILoadingCard } from '@/components/ui/AILoadingCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -159,7 +160,15 @@ export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGen
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input placeholder={t('qgen.enter_city')} value={travelCity} onChange={(e) => setTravelCity(e.target.value)} className="pl-9" />
               </div>
-              {isFetchingTravel && (<p className="text-xs text-muted-foreground flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" />{t('qgen.fetching_weather')}</p>)}
+              {isFetchingTravel && (
+                <AILoadingCard
+                  phases={[
+                    { icon: MapPin, label: `${t('qgen.looking_up') || 'Looking up'} ${travelCity}...`, duration: 1500 },
+                    { icon: Thermometer, label: t('qgen.fetching_weather'), duration: 0 },
+                  ]}
+                  className="mt-1"
+                />
+              )}
               {travelError && (<p className="text-xs text-destructive">{travelError}</p>)}
               {travelForecast && !isFetchingTravel && (
                 <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50 text-sm">
@@ -197,13 +206,20 @@ export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGen
             )}
           </div>
 
-          <Button onClick={handleGenerate} disabled={isGenerating} className="w-full" size="lg">
-            {isGenerating ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('qgen.creating')}</>
-            ) : (
-              <><Sparkles className="w-4 h-4 mr-2" />{t('qgen.generate_outfit')}</>
-            )}
-          </Button>
+          {isGenerating ? (
+            <AILoadingCard
+              phases={[
+                { icon: Sparkles, label: t('qgen.analyzing') || 'Analyzing...', duration: 1200 },
+                { icon: Sparkles, label: t('qgen.creating'), duration: 1500 },
+                { icon: Sparkles, label: t('qgen.saving') || 'Saving...', duration: 0 },
+              ]}
+              subtitle={OCCASIONS.find(o => o.id === occasion)?.label}
+            />
+          ) : (
+            <Button onClick={handleGenerate} className="w-full" size="lg">
+              <Sparkles className="w-4 h-4 mr-2" />{t('qgen.generate_outfit')}
+            </Button>
+          )}
         </div>
       </SheetContent>
     </Sheet>

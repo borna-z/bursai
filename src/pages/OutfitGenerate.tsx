@@ -1,16 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Sparkles, AlertCircle, Shirt, Palette, Wand2 } from 'lucide-react';
+import { Sparkles, AlertCircle, Shirt, Palette, Wand2, Eye, CloudSun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 import { useOutfitGenerator, type OutfitRequest } from '@/hooks/useOutfitGenerator';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
 import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { toast } from 'sonner';
-
-// Phase labels are set dynamically via t() in the component
 
 export default function OutfitGeneratePage() {
   const navigate = useNavigate();
@@ -19,14 +18,14 @@ export default function OutfitGeneratePage() {
   const { generateOutfit, isGenerating, error } = useOutfitGenerator();
   const { locale } = useLanguage();
   const { isUnlocked } = useWardrobeUnlocks();
-  const [phase, setPhase] = useState(0);
-  const [phaseKey, setPhaseKey] = useState(0);
   
   const state = location.state as OutfitRequest | null;
   
   const PHASES = [
-    { icon: Shirt, label: t('generate.phase_analyzing'), duration: 600 },
-    { icon: Palette, label: t('generate.phase_matching'), duration: 1000 },
+    { icon: Shirt, label: t('generate.phase_analyzing'), duration: 800 },
+    { icon: Palette, label: t('generate.phase_matching'), duration: 1200 },
+    { icon: CloudSun, label: t('generate.phase_weather') || 'Checking weather...', duration: 1000 },
+    { icon: Eye, label: t('generate.phase_styling') || 'Matching styles...', duration: 1200 },
     { icon: Wand2, label: t('generate.phase_creating'), duration: 0 },
   ];
 
@@ -38,24 +37,9 @@ export default function OutfitGeneratePage() {
     }
     handleGenerate();
   }, []);
-
-  // Phase progression
-  useEffect(() => {
-    if (!isGenerating && phase === 0) return;
-    if (phase >= PHASES.length - 1) return;
-
-    const timer = setTimeout(() => {
-      setPhase((p) => p + 1);
-      setPhaseKey((k) => k + 1);
-    }, PHASES[phase].duration);
-
-    return () => clearTimeout(timer);
-  }, [phase, isGenerating]);
   
   const handleGenerate = async () => {
     if (!state) return;
-    setPhase(0);
-    setPhaseKey(0);
     
     try {
       const outfit = await generateOutfit({ ...state, locale });
@@ -70,9 +54,6 @@ export default function OutfitGeneratePage() {
       });
     }
   };
-
-  const CurrentIcon = PHASES[phase]?.icon ?? Sparkles;
-  const currentLabel = PHASES[phase]?.label ?? '';
 
   // Gate: require enough garments (after all hooks)
   if (!isUnlocked('outfit_gen')) {
@@ -121,66 +102,16 @@ export default function OutfitGeneratePage() {
     );
   }
   
+  const subtitle = [state?.occasion, state?.style].filter(Boolean).join(' · ') +
+    (state?.weather?.temperature !== undefined ? ` · ${state.weather.temperature}°C` : '');
+
   return (
     <AppLayout>
-      <div className="p-4 flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="text-center space-y-6">
-          {/* Animated icon area */}
-          <div className="relative w-28 h-28 mx-auto">
-            {/* Pulsing background rings */}
-            <div className="absolute inset-0 rounded-full bg-primary/5 animate-ping" style={{ animationDuration: '2s' }} />
-            <div className="absolute inset-2 rounded-full bg-primary/8 animate-ping" style={{ animationDuration: '2.5s', animationDelay: '0.3s' }} />
-            
-            {/* Icon container */}
-            <div
-              key={phaseKey}
-              className="relative w-28 h-28 rounded-full bg-primary/10 flex items-center justify-center animate-scale-in"
-            >
-              <CurrentIcon
-                className="w-12 h-12 text-primary transition-all duration-500"
-                strokeWidth={1.5}
-              />
-            </div>
-
-            {/* Orbiting dots */}
-            <div className="absolute inset-0 animate-spin" style={{ animationDuration: '4s' }}>
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-primary/40" />
-            </div>
-            <div className="absolute inset-0 animate-spin" style={{ animationDuration: '6s', animationDirection: 'reverse' }}>
-              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary/25" />
-            </div>
-          </div>
-          
-          {/* Phase text */}
-          <div key={`text-${phaseKey}`} className="space-y-2 animate-fade-in">
-            <h2 className="text-xl font-semibold tracking-tight">{currentLabel}</h2>
-            <p className="text-sm text-muted-foreground">
-              {state?.occasion || ''}
-              {state?.style ? ` · ${state.style}` : ''}
-            </p>
-          </div>
-
-          {/* Progress dots */}
-          <div className="flex justify-center gap-2">
-            {PHASES.map((_, i) => (
-              <div
-                key={i}
-                className={`h-1.5 rounded-full transition-all duration-500 ${
-                  i <= phase
-                    ? 'w-6 bg-primary'
-                    : 'w-1.5 bg-muted-foreground/20'
-                }`}
-              />
-            ))}
-          </div>
-          
-          {state?.weather?.temperature !== undefined && (
-            <p className="text-xs text-muted-foreground/60">
-              {state.weather.temperature}°C
-            </p>
-          )}
-        </div>
-      </div>
+      <AILoadingOverlay
+        variant="fullscreen"
+        phases={PHASES}
+        subtitle={subtitle || undefined}
+      />
     </AppLayout>
   );
 }

@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Check } from 'lucide-react';
+import { Sparkles, Check, Shirt, Palette, Wand2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { LazyImage } from '@/components/ui/lazy-image';
+import { AILoadingCard } from '@/components/ui/AILoadingCard';
+import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOutfitGenerator, type GeneratedOutfit, type OutfitRequest } from '@/hooks/useOutfitGenerator';
 import { useMarkOutfitWorn } from '@/hooks/useOutfits';
@@ -71,20 +72,18 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
     await doGenerate();
   };
 
-  // Skeleton loading state
+  const loadingPhases = [
+    { icon: Shirt, label: t('generate.phase_analyzing'), duration: 1200 },
+    { icon: Palette, label: t('generate.phase_matching'), duration: 1500 },
+    { icon: Wand2, label: t('generate.phase_creating'), duration: 0 },
+  ];
+
+  // Loading state with AI card
   if (isGenerating && !outfit) {
     return (
       <div className="rounded-2xl bg-foreground/[0.02] border border-border/30 p-4 space-y-4">
         <p className="text-xs text-muted-foreground/70 font-medium">{t('home.todays_outfit')}</p>
-        <div className="grid grid-cols-2 gap-1.5">
-          {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="aspect-[4/5] rounded-xl" />
-          ))}
-        </div>
-        <div className="flex gap-3">
-          <Skeleton className="h-12 flex-1 rounded-xl" />
-          <Skeleton className="h-12 flex-1 rounded-xl" />
-        </div>
+        <AILoadingCard phases={loadingPhases} subtitle={occasion} />
       </div>
     );
   }
@@ -137,10 +136,17 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
         {t('home.swipe_to_wear') || 'Swipe right to wear →'}
       </p>
 
-      {/* Shimmer overlay during regeneration */}
+      {/* Regeneration overlay with mini AI loading */}
       {isGenerating && outfit && (
-        <div className="absolute inset-0 rounded-2xl bg-background/40 backdrop-blur-[2px] flex items-center justify-center">
-          <Sparkles className="w-6 h-6 text-accent animate-pulse" />
+        <div className="absolute inset-0 rounded-2xl bg-background/60 backdrop-blur-[2px] flex items-center justify-center z-10">
+          <AILoadingOverlay
+            variant="inline"
+            phases={[
+              { icon: Sparkles, label: t('home.shuffling') || 'Shuffling...', duration: 1500 },
+              { icon: Palette, label: t('home.restyling') || 'Restyling...', duration: 0 },
+            ]}
+            className="py-4"
+          />
         </div>
       )}
 

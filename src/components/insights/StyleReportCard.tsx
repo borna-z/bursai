@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Award, Loader2, Lock, Sparkles } from 'lucide-react';
+import { Award, Lock, Sparkles, BarChart3, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AILoadingCard } from '@/components/ui/AILoadingCard';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
@@ -56,20 +57,25 @@ export function StyleReportCard({ isPremium }: { isPremium: boolean }) {
       </div>
       <div className={cn(!isPremium && "relative")}>
         <div className={cn(!isPremium && "blur-sm select-none")}>
-          {!report && (
+          {!report && !loading && (
             <Button
               variant="outline"
               size="sm"
               className="w-full rounded-xl"
               onClick={generate}
-              disabled={loading}
             >
-              {loading ? (
-                <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />{t('insights.generating')}</>
-              ) : (
-                <><Sparkles className="w-3.5 h-3.5 mr-1.5" />{t('insights.generate_report')}</>
-              )}
+              <Sparkles className="w-3.5 h-3.5 mr-1.5" />{t('insights.generate_report')}
             </Button>
+          )}
+
+          {loading && (
+            <AILoadingCard
+              phases={[
+                { icon: BarChart3, label: t('insights.analyzing_wardrobe') || 'Analyzing wardrobe...', duration: 1500 },
+                { icon: Sparkles, label: t('insights.computing_scores') || 'Computing scores...', duration: 2000 },
+                { icon: Pencil, label: t('insights.writing_report') || 'Writing report...', duration: 0 },
+              ]}
+            />
           )}
 
           {report && (

@@ -651,6 +651,37 @@
   animation: scale-in-modal 0.3s ease-out;
 }
 
+/* ── Shimmer sweep — scanner beam effect for AI analysis ── */
+@keyframes shimmer-sweep {
+  0% {
+    transform: translateX(-100%) rotate(-15deg);
+  }
+  100% {
+    transform: translateX(200%) rotate(-15deg);
+  }
+}
+
+.animate-shimmer-sweep {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-shimmer-sweep::after {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  width: 50%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(var(--primary) / 0.08) 40%,
+    hsl(var(--primary) / 0.15) 50%,
+    hsl(var(--primary) / 0.08) 60%,
+    transparent 100%
+  );
+  animation: shimmer-sweep 2s ease-in-out infinite;
+}
+
 /* ─── Reduced motion ─── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

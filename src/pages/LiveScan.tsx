@@ -48,21 +48,63 @@ function AutoProgressRing({ progress }: { progress: number }) {
   );
 }
 
-/* ─── Scan overlay — radial pulse ─── */
+/* ─── Scan overlay — radial pulse with phase text ─── */
 function ScanOverlay({ label }: { label: string }) {
+  const { t } = useLanguage();
+  const [phase, setPhase] = useState(0);
+  const phases = [
+    t('scan.detecting') || 'Detecting garment...',
+    t('scan.analyzing_details') || 'Analyzing details...',
+    t('scan.identifying') || 'Identifying...',
+  ];
+
   useEffect(() => {
     if (!navigator.vibrate) return;
     const id = setInterval(() => { navigator.vibrate([6, 80, 6]); }, 400);
     return () => { clearInterval(id); navigator.vibrate(0); };
   }, []);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPhase(p => (p + 1) % phases.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [phases.length]);
+
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center">
-      <div className="w-48 h-48 rounded-full border border-accent/30 animate-ping" />
+    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4">
+      {/* Concentric pulse rings */}
+      {[0, 1, 2].map(i => (
+        <div
+          key={i}
+          className="absolute w-48 h-48 rounded-full border border-accent/30 animate-ping"
+          style={{ animationDuration: `${2 + i * 0.5}s`, animationDelay: `${i * 0.4}s` }}
+        />
+      ))}
       <div className="absolute">
-        <span className="text-foreground text-sm font-medium bg-background/60 px-4 py-2 rounded-full backdrop-blur-sm animate-pulse">
-          {label}
-        </span>
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={phase}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.25 }}
+            className="text-foreground text-sm font-medium bg-background/60 px-4 py-2 rounded-full backdrop-blur-sm"
+          >
+            {phases[phase]}
+          </motion.span>
+        </AnimatePresence>
+      </div>
+      {/* Bouncing dots */}
+      <div className="absolute mt-20 flex gap-1.5">
+        {[0, 1, 2].map(i => (
+          <motion.span
+            key={i}
+            className="w-1.5 h-1.5 rounded-full bg-accent/60"
+            animate={{ y: [0, -4, 0] }}
+            transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.12, ease: 'easeInOut' }}
+          />
+        ))}
       </div>
     </div>
   );

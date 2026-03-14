@@ -9,9 +9,11 @@ import {
   ChevronRight,
   Wand2,
   Calendar,
+  Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 import { StaleIndicator } from '@/components/ui/StaleIndicator';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useAISuggestions, type AISuggestion } from '@/hooks/useAISuggestions';
@@ -25,17 +27,18 @@ import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 /* ── Loading indicator ── */
 function LoadingIndicator() {
   const { t } = useLanguage();
+
+  const LOADING_STEPS = [
+    { icon: Wand2, text: t('insights.loading.analyzing'), duration: 1500 },
+    { icon: Eye, text: t('insights.loading.identifying'), duration: 1500 },
+    { icon: Shirt, text: t('insights.loading.matching'), duration: 1500 },
+    { icon: Sparkles, text: t('insights.loading.creating'), duration: 2000 },
+    { icon: Wand2, text: t('insights.loading.almost'), duration: 3000 },
+  ];
+
   const [currentStep, setCurrentStep] = useState(0);
   const [progress, setProgress] = useState(0);
   const startTimeRef = useRef(Date.now());
-
-  const LOADING_STEPS = [
-    { text: t('insights.loading.analyzing'), duration: 1500 },
-    { text: t('insights.loading.identifying'), duration: 1500 },
-    { text: t('insights.loading.matching'), duration: 1500 },
-    { text: t('insights.loading.creating'), duration: 2000 },
-    { text: t('insights.loading.almost'), duration: 3000 },
-  ];
 
   useEffect(() => {
     const totalDuration = LOADING_STEPS.reduce((sum, step) => sum + step.duration, 0);
@@ -57,25 +60,12 @@ function LoadingIndicator() {
   }, []);
 
   return (
-    <div className="py-14 space-y-5">
-      <div className="flex flex-col items-center gap-3">
-        <div className="relative">
-          <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-            <Wand2 className="w-6 h-6 text-muted-foreground animate-pulse" />
-          </div>
-          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-background border-2 border-primary/20 flex items-center justify-center">
-            <Loader2 className="w-2.5 h-2.5 animate-spin text-muted-foreground" />
-          </div>
-        </div>
-        <div className="text-center space-y-0.5">
-          <p className="font-medium text-sm">{LOADING_STEPS[currentStep]?.text}</p>
-          <p className="text-xs text-muted-foreground">{t('insights.loading.working')}</p>
-        </div>
-      </div>
-      <div className="space-y-1.5 px-8">
-        <Progress value={progress} className="h-1.5" />
-        <p className="text-[10px] text-center text-muted-foreground">{Math.round(progress)}%</p>
-      </div>
+    <div className="py-14">
+      <AILoadingOverlay
+        variant="card"
+        phases={LOADING_STEPS.map(s => ({ icon: s.icon, label: s.text, duration: s.duration }))}
+        progress={progress}
+      />
     </div>
   );
 }

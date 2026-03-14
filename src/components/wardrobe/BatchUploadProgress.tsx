@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, AlertCircle, Loader2, ImageIcon, X } from 'lucide-react';
+import { CheckCircle, AlertCircle, Upload, Sparkles, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useStorage } from '@/hooks/useStorage';
@@ -176,12 +176,30 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
                       <span className="text-xs text-muted-foreground">{index + 1}</span>
                     </div>
                   )}
-                  {(item.status === 'uploading' || item.status === 'analyzing') && (
+                  {item.status === 'uploading' && (
                     <div className="flex flex-col items-center gap-1">
-                      <Loader2 className="w-6 h-6 text-white animate-spin" />
-                      <span className="text-[10px] text-white font-medium">
-                        {item.status === 'uploading' ? t('batch.uploading') : t('batch.analyzing')}
-                      </span>
+                      <div className="relative w-7 h-7 flex items-center justify-center">
+                        <motion.div
+                          className="absolute inset-0 rounded-full border border-white/30"
+                          animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
+                          transition={{ duration: 1.2, repeat: Infinity, ease: 'easeOut' }}
+                        />
+                        <Upload className="w-4 h-4 text-white z-10" />
+                      </div>
+                      <span className="text-[10px] text-white font-medium">{t('batch.uploading')}</span>
+                    </div>
+                  )}
+                  {item.status === 'analyzing' && (
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="relative w-7 h-7 flex items-center justify-center">
+                        <motion.div
+                          className="absolute inset-0 rounded-full border border-white/30"
+                          animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
+                          transition={{ duration: 1.2, repeat: Infinity, ease: 'easeOut' }}
+                        />
+                        <Sparkles className="w-4 h-4 text-white z-10" />
+                      </div>
+                      <span className="text-[10px] text-white font-medium">{t('batch.analyzing')}</span>
                     </div>
                   )}
                   {item.status === 'done' && (

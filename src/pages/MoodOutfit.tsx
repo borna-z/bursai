@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Zap, Eye, EyeOff, Flame, Sparkles, Palette, Cloud } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Heart, Zap, EyeOff, Flame, Sparkles, Palette, Cloud, Shirt, Wand2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { AILoadingCard } from '@/components/ui/AILoadingCard';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useWeather } from '@/hooks/useWeather';
@@ -35,26 +34,6 @@ export default function MoodOutfitPage() {
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
-  const [loadingPhase, setLoadingPhase] = useState<string | null>(null);
-  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-  // Progressive loading messages
-  useEffect(() => {
-    if (isGenerating) {
-      setLoadingPhase(null);
-      const t1 = setTimeout(() => setLoadingPhase(t('ai.still_thinking') || 'Still thinking...'), 5000);
-      const t2 = setTimeout(() => setLoadingPhase(t('ai.almost_there') || 'Almost there...'), 15000);
-      timersRef.current = [t1, t2];
-    } else {
-      setLoadingPhase(null);
-      timersRef.current.forEach(clearTimeout);
-      timersRef.current = [];
-    }
-    return () => {
-      timersRef.current.forEach(clearTimeout);
-      timersRef.current = [];
-    };
-  }, [isGenerating]);
 
   const generate = async (mood: string) => {
     if (!isPremium) { setShowPaywall(true); return; }
@@ -82,7 +61,6 @@ export default function MoodOutfitPage() {
 
       if (!data?.items?.length) throw new Error(t('generate.error_desc'));
 
-      // Save the outfit
       const { data: outfit, error: outfitErr } = await supabase
         .from('outfits')
         .insert([{
@@ -113,6 +91,12 @@ export default function MoodOutfitPage() {
       setIsGenerating(false);
     }
   };
+
+  const loadingPhases = [
+    { icon: Sparkles, label: t('ai.mood_feeling') || 'Feeling the mood...', duration: 1200 },
+    { icon: Palette, label: t('generate.phase_matching'), duration: 1500 },
+    { icon: Wand2, label: t('generate.phase_creating'), duration: 0 },
+  ];
 
   return (
     <AppLayout>
@@ -150,14 +134,11 @@ export default function MoodOutfitPage() {
                       <p className="text-[10px] text-muted-foreground mt-0.5">{t(`ai.mood_${mood.key}_desc`)}</p>
                     </div>
                     {isSelected && (
-                      <div className="space-y-1">
-                        <Badge variant="secondary" className="animate-pulse text-xs">
-                          {t('ai.mood_generating')}
-                        </Badge>
-                        {loadingPhase && (
-                          <p className="text-muted-foreground text-[12px]">{loadingPhase}</p>
-                        )}
-                      </div>
+                      <AILoadingCard
+                        phases={loadingPhases}
+                        subtitle={t(`ai.mood_${mood.key}`)}
+                        className="mt-1 w-full"
+                      />
                     )}
                   </CardContent>
                 </Card>
