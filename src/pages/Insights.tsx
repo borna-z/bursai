@@ -113,7 +113,7 @@ export default function InsightsPage() {
   if (isLoading || subLoading) {
     return (
       <AppLayout>
-        <PageHeader title={t('insights.title')} showBack />
+        <PageHeader title={t('insights.title')} />
         <InsightsPageSkeleton />
       </AppLayout>
     );
@@ -122,7 +122,7 @@ export default function InsightsPage() {
   if (!insights || insights.totalGarments === 0) {
     return (
       <AppLayout>
-        <PageHeader title={t('insights.title')} showBack />
+        <PageHeader title={t('insights.title')} />
         <EmptyState
           icon={Sparkles}
           title={t('insights.no_insights')}
@@ -140,7 +140,7 @@ export default function InsightsPage() {
 
   return (
     <AppLayout>
-      <PageHeader title={t('insights.title')} showBack />
+      <PageHeader title={t('insights.title')} />
       <PullToRefresh onRefresh={handleRefresh}>
         <AnimatedPage className="max-w-lg mx-auto px-4 pb-8 pt-6 space-y-10">
 

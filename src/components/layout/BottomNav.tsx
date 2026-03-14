@@ -1,9 +1,8 @@
-import { Home, Shirt, CalendarDays, Bot, Compass } from 'lucide-react';
+import { Home, Shirt, CalendarDays, Bot, BarChart3 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { hapticLight } from '@/lib/haptics';
-import { useTrendingUnlocked } from '@/hooks/useTrendingUnlocked';
 import { prefetchRoute } from '@/lib/routePrefetch';
 
 const tabKeys = [
@@ -11,12 +10,12 @@ const tabKeys = [
   { path: '/wardrobe', labelKey: 'nav.wardrobe', icon: Shirt },
   { path: '/plan', labelKey: 'nav.plan', icon: CalendarDays },
   { path: '/ai', labelKey: 'nav.stylist', icon: Bot },
-  { path: '/discover', labelKey: 'nav.discover', icon: Compass },
+  { path: '/insights', labelKey: 'nav.insights', icon: BarChart3 },
 ];
 
 export function BottomNav() {
   const { t } = useLanguage();
-  const { showNewBadge } = useTrendingUnlocked();
+  
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/50 backdrop-blur-xl backdrop-saturate-150 border-t border-border/10 safe-bottom">
@@ -51,10 +50,6 @@ export function BottomNav() {
                       strokeWidth={isActive ? 2.5 : 2}
                     />
                   </div>
-                  {/* NEW badge for Discover when trending unlocks */}
-                  {tab.path === '/discover' && showNewBadge && (
-                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-accent animate-pulse" />
-                  )}
                 </div>
                 <span>{t(tab.labelKey)}</span>
               </>

@@ -1,83 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useGarmentCount } from '@/hooks/useGarments';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { hapticSuccess } from '@/lib/haptics';
 import { EASE_CURVE } from '@/lib/motion';
-import { toast } from 'sonner';
 
-import { DiscoverChallenges } from '@/components/discover/DiscoverChallenges';
-
-interface Challenge {
-  id: string;
-  title: string;
-  description: string | null;
-}
-
-interface Participation {
-  challenge_id: string;
-  completed: boolean;
-}
-
-const UNLOCK_THRESHOLDS = [
-  1, 1, 3, 3, 3, 5, 5, 5, 5, 7,
-  10, 10, 10, 12, 12, 15, 15, 15, 18, 18,
-  20, 20, 22, 22, 25,
-];
+import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 
 export default function DiscoverPage() {
-  const { user } = useAuth();
   const { t } = useLanguage();
-  
-  const { data: garmentCount } = useGarmentCount();
-
-  const [challenges, setChallenges] = useState<Challenge[]>([]);
-  const [participations, setParticipations] = useState<Record<string, Participation>>({});
-  const [challengesLoading, setChallengesLoading] = useState(true);
-
-  const myGarments = garmentCount || 0;
-
-  const loadChallenges = useCallback(async () => {
-    setChallengesLoading(true);
-    const today = new Date().toISOString().split('T')[0];
-    const { data: chals } = await supabase
-      .from('style_challenges')
-      .select('id, title, description')
-      .lte('week_start', today)
-      .gte('week_end', today)
-      .order('created_at', { ascending: true })
-      .limit(25);
-
-    setChallenges(chals || []);
-
-    if (user && chals?.length) {
-      const { data: parts } = await supabase
-        .from('challenge_participations')
-        .select('challenge_id, completed')
-        .eq('user_id', user.id)
-        .in('challenge_id', chals.map(c => c.id));
-      const map: Record<string, Participation> = {};
-      parts?.forEach(p => { map[p.challenge_id] = p; });
-      setParticipations(map);
-    }
-    setChallengesLoading(false);
-  }, [user]);
-
-  useEffect(() => { loadChallenges(); }, [loadChallenges]);
-
-  const joinChallenge = async (challengeId: string) => {
-    if (!user) return;
-    hapticSuccess();
-    const { error } = await supabase.from('challenge_participations').insert({ challenge_id: challengeId, user_id: user.id });
-    if (!error) {
-      setParticipations(prev => ({ ...prev, [challengeId]: { challenge_id: challengeId, completed: false } }));
-      toast.success(t('challenges.joined'));
-    }
-  };
 
   return (
     <AppLayout>
@@ -95,16 +26,8 @@ export default function DiscoverPage() {
           <p className="text-[12px] text-muted-foreground/60">{t('discover.subtitle_new')}</p>
         </motion.div>
 
-        {/* ── Challenges ── */}
-        <DiscoverChallenges
-          challenges={challenges}
-          participations={participations}
-          garmentCount={myGarments}
-          thresholds={UNLOCK_THRESHOLDS}
-          loading={challengesLoading}
-          onJoin={joinChallenge}
-        />
-
+        {/* ── Wardrobe Progress ── */}
+        <WardrobeProgress />
       </AnimatedPage>
     </AppLayout>
   );

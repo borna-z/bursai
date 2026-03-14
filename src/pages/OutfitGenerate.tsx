@@ -6,6 +6,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useOutfitGenerator, type OutfitRequest } from '@/hooks/useOutfitGenerator';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
+import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { toast } from 'sonner';
 
 // Phase labels are set dynamically via t() in the component
@@ -16,6 +18,7 @@ export default function OutfitGeneratePage() {
   const { t } = useLanguage();
   const { generateOutfit, isGenerating, error } = useOutfitGenerator();
   const { locale } = useLanguage();
+  const { isUnlocked } = useWardrobeUnlocks();
   const [phase, setPhase] = useState(0);
   const [phaseKey, setPhaseKey] = useState(0);
   
@@ -26,8 +29,9 @@ export default function OutfitGeneratePage() {
     { icon: Palette, label: t('generate.phase_matching'), duration: 1000 },
     { icon: Wand2, label: t('generate.phase_creating'), duration: 0 },
   ];
-  
+
   useEffect(() => {
+    if (!isUnlocked('outfit_gen')) return;
     if (!state?.occasion) {
       navigate('/', { replace: true });
       return;
@@ -69,6 +73,18 @@ export default function OutfitGeneratePage() {
 
   const CurrentIcon = PHASES[phase]?.icon ?? Sparkles;
   const currentLabel = PHASES[phase]?.label ?? '';
+
+  // Gate: require enough garments (after all hooks)
+  if (!isUnlocked('outfit_gen')) {
+    return (
+      <AppLayout>
+        <div className="p-4 max-w-sm mx-auto pt-16 space-y-6">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">{t('unlock.outfit_gen')}</h2>
+          <WardrobeProgress message={t('unlock.outfit_gen_message')} />
+        </div>
+      </AppLayout>
+    );
+  }
   
   if (error) {
     return (
