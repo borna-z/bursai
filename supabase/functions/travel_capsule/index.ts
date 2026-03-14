@@ -224,29 +224,36 @@ Write in ${localeName}.`;
         ...accessories.map(g => g.id),
       ])).slice(0, maxItems);
 
-      const daysToGenerate = Math.min(duration_days, Math.max(3, Math.min(targetOutfits, duration_days * Math.max(1, occasionCount))));
-      const outfits = Array.from({ length: daysToGenerate }).map((_, i) => {
-        const items = [
-          tops[i % Math.max(tops.length, 1)]?.id,
-          bottoms[i % Math.max(bottoms.length, 1)]?.id,
-          shoes[i % Math.max(shoes.length, 1)]?.id,
-        ].filter(Boolean) as string[];
+      const totalOutfits = Math.min(targetOutfits, duration_days * outfitsPerDay);
+      const outfits: any[] = [];
+      for (let day = 1; day <= duration_days && outfits.length < totalOutfits; day++) {
+        for (let slot = 0; slot < outfitsPerDay && outfits.length < totalOutfits; slot++) {
+          const idx = outfits.length;
+          const items = [
+            tops[idx % Math.max(tops.length, 1)]?.id,
+            bottoms[idx % Math.max(bottoms.length, 1)]?.id,
+            shoes[idx % Math.max(shoes.length, 1)]?.id,
+          ].filter(Boolean) as string[];
 
-        if ((weather?.temperature_min ?? 15) <= 12 && outerwear.length > 0) {
-          items.push(outerwear[i % outerwear.length].id);
+          if ((weather?.temperature_min ?? 15) <= 12 && outerwear.length > 0) {
+            items.push(outerwear[idx % outerwear.length].id);
+          }
+
+          if (items.length < 2) {
+            items.push(...capsuleItems.slice(0, Math.max(0, 2 - items.length)));
+          }
+
+          const uniqueItems = Array.from(new Set(items)).slice(0, 4);
+          if (uniqueItems.length < 2) continue;
+
+          outfits.push({
+            day,
+            occasion: occasions?.[slot % Math.max(occasions?.length || 0, 1)] || (isSv ? "vardag" : "casual"),
+            items: uniqueItems,
+            note: isSv ? "En flexibel baslook för resedagen." : "A flexible core look for travel day.",
+          });
         }
-
-        if (items.length < 2) {
-          items.push(...capsuleItems.slice(0, Math.max(0, 2 - items.length)));
-        }
-
-        return {
-          day: i + 1,
-          occasion: occasions?.[i % Math.max(occasions?.length || 0, 1)] || (isSv ? "vardag" : "casual"),
-          items: Array.from(new Set(items)).slice(0, 4),
-          note: isSv ? "En flexibel baslook för resedagen." : "A flexible core look for travel day.",
-        };
-      }).filter((o) => o.items.length >= 2);
+      }
 
       return {
         capsule_items: capsuleItems,
