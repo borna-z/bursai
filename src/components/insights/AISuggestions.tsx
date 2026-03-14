@@ -19,7 +19,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 
 /* ── Loading indicator ── */
 function LoadingIndicator() {
