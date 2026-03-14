@@ -1,6 +1,7 @@
 import { useInsights } from '@/hooks/useInsights';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Skeleton } from '@/components/ui/skeleton';
+import { StaleIndicator } from '@/components/ui/StaleIndicator';
 
 function MiniUsageRing({ percentage }: { percentage: number }) {
   const radius = 18;
