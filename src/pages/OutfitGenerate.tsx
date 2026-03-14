@@ -6,6 +6,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useOutfitGenerator, type OutfitRequest } from '@/hooks/useOutfitGenerator';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
+import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { toast } from 'sonner';
 
 // Phase labels are set dynamically via t() in the component
