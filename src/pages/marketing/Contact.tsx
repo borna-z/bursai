@@ -83,7 +83,7 @@ export default function Contact() {
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
               required
-              className="w-full h-12 px-4 rounded-xl text-sm outline-none focus:ring-1 transition-all"
+              className="w-full h-12 px-4 text-sm outline-none focus:ring-1 transition-all"
               style={{
                 background: '#EDE8DF',
                 border: '1px solid #DDD8CF',
