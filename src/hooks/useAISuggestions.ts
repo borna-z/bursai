@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { useWeather } from '@/hooks/useWeather';
 
 export interface AISuggestion {
   title: string;
