@@ -256,7 +256,7 @@ export function CalendarSection() {
         isDisconnecting={isDisconnectingGoogle}
         lastSynced={isGoogleConnected ? lastSynced : null}
         onConnect={connectGoogle}
-        onSync={syncCalendar}
+        onSync={async () => { await syncCalendar(); }}
         onDisconnect={disconnectGoogle}
         t={t}
       />
