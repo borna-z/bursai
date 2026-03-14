@@ -1077,6 +1077,19 @@ export default function TravelCapsule() {
                 ]}
               />
             </div>
+          ) : addedToCalendar ? (
+            <Button
+              onClick={() => {
+                hapticLight();
+                navigate('/plan', {
+                  state: { selectedDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined },
+                });
+              }}
+              className="flex-1 h-11 rounded-xl"
+            >
+              <CalendarIcon className="w-4 h-4 mr-2" />
+              {t('capsule.view_in_planner') || 'View in Planner'}
+            </Button>
           ) : (
             <Button
               onClick={handleAddToCalendar}

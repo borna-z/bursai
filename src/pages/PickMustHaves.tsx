@@ -67,8 +67,10 @@ export default function PickMustHaves() {
 
   const handleDone = () => {
     hapticSuccess();
+    // Forward all state back so TravelCapsule can restore form fields
+    const { mustHaveItems: _drop, ...rest } = incomingState ?? {};
     navigate('/plan/travel-capsule', {
-      state: { mustHaveItems: Array.from(selected) },
+      state: { ...rest, mustHaveItems: Array.from(selected) },
       replace: true,
     });
   };
