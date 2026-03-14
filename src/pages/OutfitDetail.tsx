@@ -214,7 +214,16 @@ export default function OutfitDetailPage() {
   };
 
   const handleCopyShareLink = async () => {
-    try { await navigator.clipboard.writeText(shareUrl); setCopied(true); toast.success(t('outfit.copied')); setTimeout(() => setCopied(false), 2000); } catch { toast.error(t('outfit.copy_error')); }
+    const shared = await nativeShare({
+      title: 'BURS Outfit',
+      text: outfit?.explanation || undefined,
+      url: shareUrl,
+    });
+    if (shared) {
+      setCopied(true);
+      toast.success(t('outfit.copied'));
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   const handleDownloadImage = async () => {
