@@ -58,12 +58,12 @@ export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGen
   const isTravel = occasion === 'resa';
 
   const OCCASIONS = [
-    { id: 'vardag', label: t('home.occasion.vardag') },
-    { id: 'jobb', label: t('home.occasion.jobb') },
-    { id: 'fest', label: t('home.occasion.fest') },
-    { id: 'dejt', label: t('home.occasion.dejt') },
-    { id: 'traning', label: t('home.occasion.traning') },
-    { id: 'resa', label: t('home.occasion.resa') },
+    { id: 'casual', label: t('home.occasion.casual') },
+    { id: 'work', label: t('home.occasion.work') },
+    { id: 'party', label: t('home.occasion.party') },
+    { id: 'date', label: t('home.occasion.date') },
+    { id: 'workout', label: t('home.occasion.workout') },
+    { id: 'travel', label: t('home.occasion.travel') },
   ];
 
   const STYLE_VIBES = [
