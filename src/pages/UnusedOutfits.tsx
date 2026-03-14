@@ -13,6 +13,7 @@ import { useWeather } from '@/hooks/useWeather';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { hapticLight } from '@/lib/haptics';
 import { stripBrands } from '@/lib/stripBrands';
