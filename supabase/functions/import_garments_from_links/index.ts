@@ -454,7 +454,7 @@ Deno.serve(async (req) => {
             image_path: imagePath,
             title: title.substring(0, 200), // Limit title length
             category: 'top', // Default category, user can edit
-            color_primary: 'grå', // Default, user can edit
+            color_primary: 'grey', // Default, user can edit
             source_url: trimmedUrl,
             imported_via: 'link',
           });
