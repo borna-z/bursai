@@ -10,7 +10,7 @@ const tabKeys = [
   { path: '/wardrobe', labelKey: 'nav.wardrobe', icon: Shirt },
   { path: '/plan', labelKey: 'nav.plan', icon: CalendarDays },
   { path: '/ai', labelKey: 'nav.stylist', icon: Bot },
-  { path: '/discover', labelKey: 'nav.discover', icon: Compass },
+  { path: '/insights', labelKey: 'nav.insights', icon: BarChart3 },
 ];
 
 export function BottomNav() {
