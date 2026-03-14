@@ -129,6 +129,7 @@ export function OutfitReel({ outfits, onClose }: OutfitReelProps) {
   const handleDownload = async () => {
     if (!slideRef.current) return;
     try {
+      const { toPng } = await import('html-to-image');
       const dataUrl = await toPng(slideRef.current, { quality: 0.95, pixelRatio: 2 });
       const link = document.createElement('a');
       link.download = `outfit-${currentIndex + 1}.png`;
