@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Check } from 'lucide-react';
+import { Sparkles, Check, Shirt, Palette, Wand2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { LazyImage } from '@/components/ui/lazy-image';
+import { AILoadingCard } from '@/components/ui/AILoadingCard';
+import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOutfitGenerator, type GeneratedOutfit, type OutfitRequest } from '@/hooks/useOutfitGenerator';
 import { useMarkOutfitWorn } from '@/hooks/useOutfits';
