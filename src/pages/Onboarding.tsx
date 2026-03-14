@@ -53,7 +53,7 @@ export default function OnboardingPage() {
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
 
   const completeOnboarding = async () => {
-    const currentPrefs = (profile?.preferences as Record<string, unknown>) || {};
+    const currentPrefs = asPreferences(profile?.preferences);
     await updateProfile.mutateAsync({
       preferences: {
         ...currentPrefs,
