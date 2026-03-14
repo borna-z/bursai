@@ -525,13 +525,6 @@ export default function WardrobePage() {
             <h1 className="text-2xl font-semibold">{t('wardrobe.title')}</h1>
             <div className="flex items-center gap-1">
               <button
-                onClick={() => navigate('/insights')}
-                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted/40 transition-colors active:scale-95"
-                aria-label="Insights"
-              >
-                <BarChart3 className="w-[18px] h-[18px] text-muted-foreground" />
-              </button>
-              <button
                 onClick={() => setIsGridView(!isGridView)}
                 className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted/40 transition-colors active:scale-95"
                 aria-label={isGridView ? 'List view' : 'Grid view'}
