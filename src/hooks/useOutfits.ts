@@ -14,7 +14,7 @@ export interface OutfitWeather {
   wind?: string;
 }
 
-export interface OutfitWithItems extends Outfit {
+export interface OutfitWithItems extends Omit<Outfit, 'feedback' | 'weather'> {
   outfit_items: (OutfitItem & {
     garment: Tables<'garments'>;
   })[];
