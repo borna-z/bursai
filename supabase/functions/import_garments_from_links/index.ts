@@ -83,7 +83,7 @@ function isBlockedUrl(urlString: string): { blocked: boolean; reason?: string } 
     
     return { blocked: false };
   } catch {
-    return { blocked: true, reason: 'Ogiltig URL' };
+    return { blocked: true, reason: 'Invalid URL' };
   }
 }
 
