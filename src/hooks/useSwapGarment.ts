@@ -30,7 +30,7 @@ export function useSwapGarment() {
     setIsLoadingCandidates(true);
     try {
       // Use the BURS style engine for smart swap scoring
-      const { data, error } = await invokeEdgeFunction<{ candidates?: any[]; error?: string }>('burs_style_engine', {
+      const { data, error } = await invokeEdgeFunction<{ candidates?: SwapCandidate[]; error?: string }>('burs_style_engine', {
         body: {
           mode: 'swap',
           swap_slot: slot,
