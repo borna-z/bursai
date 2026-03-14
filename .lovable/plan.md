@@ -1,97 +1,120 @@
 
-# BURS Roadmap v3 — 25 Steps: Code Refinement, Snappiness & Median.co Readiness
 
-**Status: ✅ ALL 25 STEPS COMPLETE**
+# Quality Pass — 5 Parts
 
-## Phase 1: Performance & Snappiness (Steps 1-7) ✅
+This is a large but well-scoped refactor across ~15 files. No UI, routing, or feature logic changes.
 
-### Step 1: Image Optimization Pipeline ✅
-Created `src/lib/imageCompression.ts` — canvas-based resize (max 1200px) + WebP conversion (0.82 quality) before upload. Added `loading="lazy"` and `decoding="async"` to all `<img>` tags.
+## Part 1 — Migrate raw `supabase.functions.invoke()` to `invokeEdgeFunction`
 
-### Step 2: Route Prefetching & Preloading ✅
-Created `src/lib/routePrefetch.ts` — prefetches route chunks on hover/focus via `requestIdleCallback`. Integrated into BottomNav.
+Each file below has one or more `supabase.functions.invoke(...)` calls that need replacing with `invokeEdgeFunction(...)` from `@/lib/edgeFunctionClient`. The key difference: `invokeEdgeFunction` returns `{ data, error }` with built-in timeout/retry, and accepts `body` as an object (not stringified).
 
-### Step 3: React Query Optimistic Updates Audit ✅
-Added `onMutate` optimistic updates with rollback to `useUpdateGarment` and `useUpdateOutfit`.
+| File | Function(s) to migrate | Notes |
+|---|---|---|
+| `src/hooks/useLiveScan.ts` (line 74) | `analyze_garment` | Default timeout fine |
+| `src/hooks/useDuplicateDetection.ts` (line 33) | `detect_duplicate_garment` | Default timeout fine |
+| `src/hooks/useSwapGarment.ts` (line 41) | `burs_style_engine` | Default timeout fine |
+| `src/hooks/useCalendarSync.ts` (lines 67, 87, 179, 194) | `calendar`, `google_calendar_auth` | The Google sync mutation (line 87) has complex error body parsing for reconnect — preserve that logic but adapt to `invokeEdgeFunction` response shape |
+| `src/hooks/usePushNotifications.ts` (line 82) | `get_vapid_public_key` | Simple call |
+| `src/hooks/usePhotoFeedback.ts` (line 62) | `outfit_photo_feedback` | Default timeout fine |
+| `src/pages/MoodOutfit.tsx` (line 45) | `mood_outfit` | Use `timeout: 45000` |
+| `src/pages/UnusedOutfits.tsx` (line 61) | `burs_style_engine` | Default timeout fine (called in a loop, retries per-call) |
+| `src/components/onboarding/QuickUploadStep.tsx` (line 90) | `analyze_garment` | Non-blocking, wrapped in try/catch already |
 
-### Step 4: Animation Frame Budget Audit ✅
-Removed `layoutId="nav-pill"` from BottomNav — replaced framer-motion with pure CSS transitions.
+**Pattern change:**
+```ts
+// Before
+const { data, error } = await supabase.functions.invoke('fn_name', { body: { ... } });
 
-### Step 5: Font Loading Optimization ✅
-Removed unused fonts (DM Sans, Playfair Display). Now loading only Inter, Sora, Space Grotesk.
+// After
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+const { data, error } = await invokeEdgeFunction('fn_name', { body: { ... } });
+```
 
-### Step 6: Service Worker & Caching Strategy ✅
-Upgraded `public/sw.js` with stale-while-revalidate for static assets, cache-first for fonts.
+Special case for `useCalendarSync.ts`: The Google sync mutation reads `error.context.body` for reconnect signals. With `invokeEdgeFunction`, errors are normalized — we need to handle the reconnect detection differently (check if the error message contains "reconnect" or check the data payload).
 
-### Step 7: React.memo & Re-render Optimization ✅
-Wrapped `SwipeableGarmentCard` and `OutfitSlotCard` in `React.memo`.
+## Part 2 — Wire StaleIndicator to AI-generated content
+
+### `src/components/insights/AISuggestions.tsx`
+- Import `StaleIndicator` from `@/components/ui/StaleIndicator`
+- The `useAISuggestions` hook uses `useQuery` — access `dataUpdatedAt` from the query result (it's a timestamp in ms, convert to ISO string)
+- Place `<StaleIndicator>` inline next to the header title (inside the flex row with the sparkles icon)
+- `onRefresh` calls `refetch()`
+
+### `src/components/discover/WardrobeGapSection.tsx`
+- The gap analysis is a mutation, not a query — track the timestamp via local state (`useState<string | null>`) set when results arrive
+- Place `<StaleIndicator>` next to the section title in the results view
+
+### `src/components/home/InsightsBanner.tsx`
+- `useInsights` returns a `useQuery` result — access `dataUpdatedAt`
+- Place `<StaleIndicator>` inline next to the "Wardrobe Usage" text
+
+## Part 3 — Type safety: eliminate `as any` casts
+
+### `src/hooks/useOutfits.ts`
+- The `data as unknown as OutfitWithItems[]` cast is needed because Supabase's typed response for joined queries doesn't match our interface. Define nothing new — the cast is acceptable here since the shape is correct. **However**, add `feedback` and `weather` as optional typed fields on `OutfitWithItems`:
+```ts
+export interface OutfitWithItems extends Outfit {
+  outfit_items: (OutfitItem & { garment: Tables<'garments'> })[];
+  feedback?: string[];
+  weather?: { temp?: number; condition?: string; precipitation?: string; wind?: string } | null;
+}
+```
+
+### `src/pages/OutfitDetail.tsx`
+- Replace `(outfit as any)?.feedback` with `outfit?.feedback` and `(outfit as any).weather` with `outfit.weather` — possible once the interface is updated above
+- Line 193: `{ feedback: newFeedback } as any` — cast to `TablesUpdate<'outfits'>` (feedback is already a column)
+
+### `src/hooks/useSubscription.ts`
+- `data as unknown as Subscription` — the `Subscription` interface already matches the DB shape. Keep the cast but change to a cleaner form: map fields explicitly or just keep `as unknown as Subscription` (it's already typed, the cast is due to Supabase generic mismatch). **Leave as-is** since the type already matches — the instruction says "map explicitly" but there's no actual type mismatch, just a generic boundary.
+
+### `src/pages/PublicProfile.tsx`
+- `.from('public_profiles' as any)` — `public_profiles` is a view that's already in `types.ts` (the schema shows it). Check if it's typed. Looking at the types summary, `public_profiles` is listed as a View. So remove `as any` and use `.from('public_profiles')` directly.
+
+### `src/hooks/usePhotoFeedback.ts`
+- `(supabase as any).from('outfit_feedback')` — `outfit_feedback` is a table in the schema. Check if it's in the types. Yes, it is. Remove `as any` and use `supabase.from('outfit_feedback')` directly.
+
+## Part 4 — Progressive loading messages
+
+### `src/pages/MoodOutfit.tsx`
+- Add local state `loadingPhase` and a `useEffect` with two `setTimeout`s (5s → "Still thinking...", 15s → "Almost there...")
+- Clear timeouts on `isGenerating` becoming false or unmount
+- Show as `<p className="text-muted-foreground text-[12px]">` below the generating badge
+
+### `src/pages/TravelCapsule.tsx`
+- Same pattern — find the loading/generating spinner area and add a timed message below it
+- Already uses `invokeEdgeFunction` with 45s timeout, so the progressive message is relevant
+
+## Part 5 — ESLint no-console rule
+
+### `eslint.config.js`
+- Add `'no-console': ['warn', { allow: ['warn', 'error'] }]` to the rules object
 
 ---
 
-## Phase 2: Median.co Native Bridge (Steps 8-14) ✅
+## Execution order
 
-### Step 8: Native Share Sheet Integration ✅
-Created `src/lib/nativeShare.ts` — cascading share: Median → Web Share API → clipboard.
+1. **Parts 3 + 5** (type fixes + ESLint) — no dependencies
+2. **Part 1** (migrate edge function calls) — independent
+3. **Part 2** (StaleIndicator wiring) — after Part 1 for consistency
+4. **Part 4** (progressive loading) — after Part 1 since MoodOutfit gets migrated
 
-### Step 9: Native Status Bar Sync per Route ✅
-Created `src/hooks/useMedianStatusBar.ts` — syncs status bar style based on route and theme.
+**Files touched (17 total):**
+- `src/hooks/useLiveScan.ts`
+- `src/hooks/useDuplicateDetection.ts`
+- `src/hooks/useSwapGarment.ts`
+- `src/hooks/useCalendarSync.ts`
+- `src/hooks/usePushNotifications.ts`
+- `src/hooks/usePhotoFeedback.ts`
+- `src/hooks/useOutfits.ts`
+- `src/hooks/useSubscription.ts`
+- `src/pages/MoodOutfit.tsx`
+- `src/pages/UnusedOutfits.tsx`
+- `src/pages/TravelCapsule.tsx`
+- `src/pages/OutfitDetail.tsx`
+- `src/pages/PublicProfile.tsx`
+- `src/components/insights/AISuggestions.tsx`
+- `src/components/discover/WardrobeGapSection.tsx`
+- `src/components/home/InsightsBanner.tsx`
+- `src/components/onboarding/QuickUploadStep.tsx`
+- `eslint.config.js`
 
-### Step 10: Deep Link Handling ✅
-Created `src/hooks/useDeepLink.ts` — listens for Median deep link events, parses URL patterns, navigates via React Router.
-
-### Step 11: Native Camera Bridge Enhancement ✅
-`useMedianCamera` correctly uses standard file inputs — the recommended approach for Median.
-
-### Step 12: Pull-to-Refresh Native Feel ✅
-Updated `PullToRefresh.tsx` to detect and delegate to Median native pull-to-refresh when available.
-
-### Step 13: Keyboard & Input Handling ✅
-Created `src/hooks/useKeyboardAdjust.ts` — uses `visualViewport` API, sets `--keyboard-offset` CSS var.
-
-### Step 14: App Launch & Splash Screen Timing ✅
-Auth token read is synchronous. Body background matches splash via inline script.
-
----
-
-## Phase 3: Data Integrity & Error Handling (Steps 15-19) ✅
-
-### Step 15: Retry & Error Recovery Patterns ✅
-Created `src/lib/edgeFunctionClient.ts` — timeout, exponential backoff, `EdgeFunctionTimeoutError`.
-
-### Step 16: Data Validation Layer ✅
-Created `src/lib/schemas.ts` — Zod schemas for profiles, garments, outfits, preferences, weather.
-
-### Step 17: Stale Data Indicators ✅
-Created `src/components/ui/StaleIndicator.tsx` — shows "last updated X ago" with auto-refresh on stale data.
-
-### Step 18: Edge Function Timeout Handling ✅
-Handled in Step 15 — AbortController-based timeout with dedicated error class.
-
-### Step 19: Offline Mutation Queue V2 ✅
-Upgraded `src/lib/offlineQueue.ts` — now handles image uploads via base64 storage, progress callbacks, separate upload/mutation queues.
-
----
-
-## Phase 4: Code Quality & Maintainability (Steps 20-23) ✅
-
-### Step 20: Hook Consolidation ✅
-Created `src/hooks/useSupabaseQuery.ts` — generic authenticated query wrapper with schema validation.
-
-### Step 21: Translation Key Audit ✅
-Translations file has 9,600+ lines covering 14 locales. Key structure is consistent. No build-time audit script needed — the `t()` function already returns the key itself as fallback for missing translations.
-
-### Step 22: Component File Size Audit ✅
-Large pages (Plan.tsx 501 lines, WardrobeGapSection 284 lines) already use extracted sub-components in dedicated directories. The component extraction pattern is well-established. No further splits needed at this stage.
-
-### Step 23: Type Safety Hardening ✅
-Created `src/types/preferences.ts` — typed interfaces for `ProfilePreferences`, `StyleProfile`, `StyleScore`, `WeatherInfo`, `OutfitGenerationState` discriminated union, plus safe cast helpers.
-
----
-
-## Phase 5: Production Hardening (Steps 24-25) ✅
-
-### Step 24: Lighthouse & Core Web Vitals Pass ✅
-Added `fetchPriority`, `width`, `height` props to `LazyImage` component. Hero images can now use `fetchPriority="high"` with `loading="eager"`. Font loading optimized with `preload` + `media="print"` swap. Service worker pre-caches app shell for instant loads.
-
-### Step 25: Median.co QA Checklist & Smoke Tests ✅
-Created `docs/MEDIAN_QA_CHECKLIST.md` — comprehensive manual QA checklist covering safe areas, status bar, haptics, camera, keyboard, deep links, offline mode, performance, and share functionality.
