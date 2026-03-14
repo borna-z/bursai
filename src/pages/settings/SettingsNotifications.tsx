@@ -1,4 +1,5 @@
 import { Bell, BellRing, Smartphone } from 'lucide-react';
+import type { Json } from '@/integrations/supabase/types';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
