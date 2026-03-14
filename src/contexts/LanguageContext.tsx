@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { translations, type Locale, SUPPORTED_LOCALES } from '@/i18n/translations';
+import { asPreferences } from '@/types/preferences';
 
 const RTL_LOCALES = new Set<Locale>(['ar', 'fa']);
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
