@@ -1,16 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
-import { Sparkles, Loader2, Thermometer, CalendarDays, MapPin } from 'lucide-react';
+import { Sparkles, Thermometer, CalendarDays, MapPin } from 'lucide-react';
 import { AILoadingCard } from '@/components/ui/AILoadingCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { LocationAutocomplete } from '@/components/ui/LocationAutocomplete';
 import { Chip } from '@/components/ui/chip';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet';
 import { useWeather } from '@/hooks/useWeather';
-import { useForecast, getCoordinatesFromCity, fetchForecast, fetchHistoricalWeather, type ForecastDay } from '@/hooks/useForecast';
+import { useForecast, type ForecastDay } from '@/hooks/useForecast';
+import { Label } from '@/components/ui/label';
 import { useCalendarEvents, inferOccasionFromEvent } from '@/hooks/useCalendarSync';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useLocation } from '@/contexts/LocationContext';
@@ -74,35 +75,26 @@ export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGen
     { id: 'romantisk', label: t('qgen.romantic') },
   ];
 
-  const lookupTravelWeather = useCallback(async (city: string, targetDate: string) => {
-    if (!city || city.length < 2) { setTravelForecast(null); setTravelError(null); return; }
+  const lookupTravelWeather = useCallback(async (coords: { lat: number; lon: number }, targetDate: string) => {
     setIsFetchingTravel(true); setTravelError(null);
     try {
-      const coords = await getCoordinatesFromCity(city);
-      if (!coords) { setTravelError(t('qgen.place_not_found')); setTravelForecast(null); return; }
+      const { fetchForecast, fetchHistoricalWeather } = await import('@/hooks/useForecast');
       const days = await fetchForecast(coords.lat, coords.lon);
       let match = days.find(d => d.date === targetDate) || null;
-      
-      // If date is beyond 16-day forecast, try historical data
       if (!match) {
         try {
           const historicalDays = await fetchHistoricalWeather(coords.lat, coords.lon, targetDate, targetDate);
           match = historicalDays.find(d => d.date === targetDate) || null;
-        } catch {
-          // Historical fetch failed
-        }
+        } catch { /* Historical fetch failed */ }
       }
-      
       setTravelForecast(match);
       if (!match) setTravelError(t('qgen.no_forecast'));
     } catch { setTravelError(t('qgen.weather_error')); setTravelForecast(null); } finally { setIsFetchingTravel(false); }
   }, [t]);
 
-  useEffect(() => {
-    if (!isTravel || !travelCity) { setTravelForecast(null); return; }
-    const timer = setTimeout(() => { lookupTravelWeather(travelCity, dateStr); }, 500);
-    return () => clearTimeout(timer);
-  }, [travelCity, dateStr, isTravel, lookupTravelWeather]);
+  const handleTravelSelect = useCallback((city: string, coords: { lat: number; lon: number }) => {
+    lookupTravelWeather(coords, dateStr);
+  }, [lookupTravelWeather, dateStr]);
 
   useEffect(() => {
     if (!isTravel) { setTravelCity(''); setTravelForecast(null); setTravelError(null); }
@@ -156,10 +148,12 @@ export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGen
           {isTravel && (
             <div className="space-y-3">
               <Label className="text-sm font-medium">{t('qgen.destination')}</Label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder={t('qgen.enter_city')} value={travelCity} onChange={(e) => setTravelCity(e.target.value)} className="pl-9" />
-              </div>
+              <LocationAutocomplete
+                value={travelCity}
+                onChange={setTravelCity}
+                onSelect={handleTravelSelect}
+                placeholder={t('qgen.enter_city')}
+              />
               {isFetchingTravel && (
                 <AILoadingCard
                   phases={[

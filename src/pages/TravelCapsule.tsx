@@ -18,6 +18,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { LocationAutocomplete } from '@/components/ui/LocationAutocomplete';
 import { Label } from '@/components/ui/label';
 import { Chip } from '@/components/ui/chip';
 import { Badge } from '@/components/ui/badge';
@@ -29,7 +30,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useFlatGarments } from '@/hooks/useGarments';
 import { useProfile } from '@/hooks/useProfile';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
-import { getCoordinatesFromCity, fetchForecast, fetchHistoricalWeather, type ForecastDay } from '@/hooks/useForecast';
+import { getCoordinatesFromCity, fetchForecast, fetchHistoricalWeather, type ForecastDay, type CitySuggestion } from '@/hooks/useForecast';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getDateFnsLocale } from '@/lib/dateLocale';
@@ -87,6 +88,8 @@ export default function TravelCapsule() {
 
   // ── Form state ──
   const [destination, setDestination] = useState('');
+  const [destCoords, setDestCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [hasManualOccasions, setHasManualOccasions] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedOccasions, setSelectedOccasions] = useState<string[]>(['vardag']);
   const [minimizeItems, setMinimizeItems] = useState(true);
@@ -215,20 +218,17 @@ export default function TravelCapsule() {
 
   // ── Toggles ──
   const toggleOccasion = (id: string) => {
+    setHasManualOccasions(true);
     setSelectedOccasions(prev =>
       prev.includes(id) ? prev.filter(o => o !== id) : [...prev, id]
     );
   };
 
   // ── Weather lookup — supports up to 1 year via historical data ──
-  const lookupWeather = useCallback(async () => {
-    if (!destination || destination.length < 2) return;
+  const lookupWeatherWithCoords = useCallback(async (coords: { lat: number; lon: number }) => {
     setIsFetchingWeather(true);
     setWeatherError(null);
     try {
-      const coords = await getCoordinatesFromCity(destination);
-      if (!coords) { setWeatherError(t('qgen.place_not_found')); return; }
-
       // Fetch live 16-day forecast
       const liveDays = await fetchForecast(coords.lat, coords.lon);
       const lastLiveDate = liveDays[liveDays.length - 1]?.date;
@@ -258,7 +258,6 @@ export default function TravelCapsule() {
 
       setForecastDays(allDays);
       if (allDays.length > 0) {
-        // Filter to trip date range if available
         let relevantDays = allDays;
         if (dateRange?.from && dateRange?.to) {
           const startStr = format(dateRange.from, 'yyyy-MM-dd');
@@ -271,20 +270,57 @@ export default function TravelCapsule() {
         const avgPrecip = relevantDays.reduce((s, d) => s + (d.precipitation_probability || 0), 0) / relevantDays.length;
         const condition = avgPrecip > 50 ? 'rain' : avgPrecip > 25 ? 'partly cloudy' : 'clear';
         const hasHistorical = relevantDays.some(d => d.isHistorical);
-        setWeatherForecast({
+        const forecast: ForecastDay = {
           date: relevantDays[0].date, temperature_max: avgMax, temperature_min: avgMin,
           temperature_avg: Math.round((avgMax + avgMin) / 2),
           weather_code: 0,
           condition, precipitation_probability: avgPrecip,
           isHistorical: hasHistorical,
-        } as ForecastDay);
+        };
+        setWeatherForecast(forecast);
+
+        // Smart occasion auto-select (only on first weather load)
+        if (!hasManualOccasions) {
+          const auto: string[] = ['vardag'];
+          if (avgMax > 28) auto.push('beach');
+          if (avgPrecip > 60) { /* keep vardag, skip outdoor */ }
+          else if (avgMax > 20 && avgMax <= 28) auto.push('hiking');
+          setSelectedOccasions(prev => {
+            const merged = new Set([...auto, ...prev]);
+            return [...merged];
+          });
+        }
       }
     } catch {
       setWeatherError(t('qgen.weather_error'));
     } finally {
       setIsFetchingWeather(false);
     }
-  }, [destination, dateRange, t]);
+  }, [dateRange, t, hasManualOccasions]);
+
+  const lookupWeather = useCallback(async () => {
+    if (destCoords) {
+      return lookupWeatherWithCoords(destCoords);
+    }
+    if (!destination || destination.length < 2) return;
+    const coords = await getCoordinatesFromCity(destination);
+    if (!coords) { setWeatherError(t('qgen.place_not_found')); return; }
+    setDestCoords(coords);
+    return lookupWeatherWithCoords(coords);
+  }, [destination, destCoords, lookupWeatherWithCoords, t]);
+
+  // Auto-fetch weather when dates change and destination is set
+  useEffect(() => {
+    if (destCoords && dateRange?.from && dateRange?.to) {
+      lookupWeatherWithCoords(destCoords);
+    }
+  }, [dateRange?.from?.getTime(), dateRange?.to?.getTime()]);
+
+  // Handle location autocomplete selection
+  const handleLocationSelect = useCallback((city: string, coords: { lat: number; lon: number }) => {
+    setDestCoords(coords);
+    lookupWeatherWithCoords(coords);
+  }, [lookupWeatherWithCoords]);
 
   // ── Generate ──
   const handleGenerate = async () => {
@@ -445,16 +481,14 @@ export default function TravelCapsule() {
               <Label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
                 {t('capsule.destination')}
               </Label>
-              <div className="relative">
-                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" strokeWidth={1.5} />
-                <Input
-                  placeholder={t('capsule.enter_city')}
-                  value={destination}
-                  onChange={e => setDestination(e.target.value)}
-                  onBlur={() => lookupWeather()}
-                  className="pl-10 h-12 rounded-xl bg-card/60 border-border/15"
-                />
-              </div>
+              <LocationAutocomplete
+                value={destination}
+                onChange={setDestination}
+                onSelect={handleLocationSelect}
+                placeholder={t('capsule.enter_city')}
+                icon={<Globe className="w-4 h-4" strokeWidth={1.5} />}
+                inputClassName="h-12 rounded-xl bg-card/60 border-border/15"
+              />
               {isFetchingWeather && (
                 <AILoadingCard
                   phases={[
@@ -631,6 +665,20 @@ export default function TravelCapsule() {
                 </label>
               </div>
             </div>
+
+            {/* Trip Summary */}
+            {destination && dateRange?.from && dateRange?.to && weatherForecast && !isGenerating && (
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-card/60 border border-border/10 text-sm">
+                <WeatherMiniIcon condition={weatherForecast.condition} />
+                <span className="font-medium truncate">{destination}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">{dateLabel}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">{tripNights} {t('capsule.nights')}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">{weatherForecast.temperature_min}–{weatherForecast.temperature_max}°C</span>
+              </div>
+            )}
 
             {/* Generate */}
             <div className="space-y-1">

@@ -1,50 +1,70 @@
 
+# BURS Launch Readiness Plan v4
 
-# Travel Capsule — Location Autocomplete & UX Improvements
+**Status: ✅ Phases 1-7 COMPLETE | AI Loading Animations COMPLETE**
 
-## Current State
-The destination field is a plain text `<Input>` that only triggers a Nominatim geocode lookup `onBlur`. No suggestions appear while typing. The Nominatim API already supports `limit=5` for multiple results.
+## Phase 1: Dead Weight Removal (Steps 1-3) ✅
+- Removed `recharts`, `react-resizable-panels`, `next-themes` (~200KB saved)
+- Deleted unused `resizable.tsx` and `chart.tsx`
+- Lazy-imported `html-to-image` in `OutfitReel.tsx`
 
-## Plan (8 Steps)
+## Phase 2: Metadata & SEO (Steps 4-5) ✅
+- Fixed OG image URL to relative `/og-image.png`
+- Synced manifest.json lang to `"en"`
 
-### Step 1 — Add `searchCities` helper to `useForecast.ts`
-Export a new function that queries Nominatim with `limit=5` and `addressdetails=1`, returning `{ display_name, short_name (city+country), lat, lon }[]`. Debounce is handled by the consumer.
+## Phase 3: Hook Tests (Steps 6-11) ✅
+- `useProfile`: 4 tests (auth, fetch, auto-create, ghost session)
+- `useGarments`: 5 tests (auth, fetch, filters, search, count)
+- `useOutfits`: 4 tests (auth, fetch, single, delete)
+- `useOutfitGenerator`: 3 tests (auth, validation, generation)
+- `useOfflineQueue`: 4 tests (online/offline, replay, events)
+- `useSupabaseQuery`: 4 tests (auth skip, fetch, single, schema)
 
-### Step 2 — Create `useLocationSuggestions` hook
-New hook: `src/hooks/useLocationSuggestions.ts`
-- Takes the raw input string, debounces 300ms
-- Calls `searchCities` when input ≥ 2 chars
-- Returns `{ suggestions, isLoading, clear() }`
-- Caches results per query string via React Query with 5-min stale time
+## Phase 4: Component Tests (Steps 12-18) ✅
+- `Onboarding`: 1 smoke test
+- `Settings`: 1 smoke test
+- `Landing`: 1 smoke test
+- Existing: Auth, Home, Wardrobe, PaywallModal, BottomNav, ProtectedRoute
 
-### Step 3 — Build `LocationAutocomplete` component
-New file: `src/components/ui/LocationAutocomplete.tsx`
-- Renders an `<Input>` with a dropdown list of suggestions below it
-- Each suggestion shows city name + country flag emoji (derived from country code)
-- Keyboard navigation (arrow keys + Enter) for accessibility
-- On select: sets value, calls `onSelect(city, coords)`, closes dropdown
-- Click-outside closes dropdown
-- Shows a subtle `Loader2` spinner in the input while fetching
+## Phase 5: Utility Tests (Steps 19-21) ✅
+- `edgeFunctionClient`: 5 tests (success, retry, exhausted, exceptions, timeout error)
+- `offlineQueue`: 6 tests (enqueue, upload, clear, replay, progress)
+- `schemas`: 11 tests (profile, garment, style score, weather, safeParse, preferences)
+- `nativeShare`: 4 tests (Median, Web Share, clipboard, cancel)
+- Existing: compressFrame, backgroundGarmentSave
 
-### Step 4 — Integrate into TravelCapsule form
-Replace the plain `<Input>` (lines 448-457) with `<LocationAutocomplete>`. On select, immediately trigger weather lookup with the returned coords (skip the extra geocode call). Remove the `onBlur` handler.
+## Phase 6: Infrastructure (Steps 22-24) ✅
+- Added `test:coverage` script with v8 provider + 30% line threshold
+- Added CSP meta tag to `index.html`
+- Added Sentry `release` tag using `__APP_VERSION__`
 
-### Step 5 — Auto-fetch weather on date change
-Add a `useEffect` that re-fetches weather when `dateRange` changes AND a destination is already selected, so the forecast updates to match the trip window without manual action.
+## Phase 7: Final Polish (Step 25) ✅
+- All new tests passing individually
+- CI pipeline configured
 
-### Step 6 — Show trip summary chip above Generate button
-Add a compact summary line before the Generate button: `"Paris, France · Jun 5–10 · 5 nights · ☀️ 18–24°C"` — gives users confidence everything is correct before generating.
+## AI Loading Animations (35-Step Sprint) ✅
 
-### Step 7 — Auto-select occasion chips from weather
-When weather loads, auto-suggest relevant occasions: if temp > 28°C auto-select "beach", if rain > 60% keep "vardag". Show as pre-selected but user can toggle off. Only on first weather load, not overriding manual selections.
+### Foundation
+- Created `AILoadingOverlay` — reusable multi-phase loading with radar pulse rings, bouncing dots, phase cycling
+- Created `AILoadingCard` — compact inline variant for cards/sections
+- Added `shimmer-sweep` CSS keyframe for scanner beam effect
 
-### Step 8 — Integrate into QuickGenerateSheet travel input
-Reuse `<LocationAutocomplete>` in `QuickGenerateSheet.tsx` where the travel destination input exists, replacing that plain input too for consistency.
+### Integrated Surfaces (20+ touchpoints)
+- **OutfitGenerate** — 5-phase fullscreen animation
+- **TodayOutfitCard** — AILoadingCard for initial load, AILoadingOverlay for regeneration
+- **StylePicker** — AILoadingCard embedded in active style card
+- **MoodOutfit** — AILoadingCard in selected mood card
+- **QuickGenerateSheet** — AILoadingCard replaces spinner button
+- **QuickPlanSheet** — AILoadingOverlay with day-name subtitle + progress bar
+- **UnusedOutfits** — AILoadingOverlay with skeleton cards
+- **AddGarment** — shimmer-sweep on image + AILoadingOverlay for phases
+- **BatchUploadProgress** — per-item pulse ring animations
+- **LiveScan** — multi-phase ScanOverlay with concentric rings + bouncing dots
+- **AIChat** — bouncing dots + phase text for streaming indicator
+- **AISuggestions** — AILoadingOverlay variant="card" with progress
+- **StyleReportCard** — AILoadingCard with 3 phases
+- **WardrobeGapSection** — refactored to use shared AILoadingOverlay
+- **TravelCapsule** — AILoadingOverlay for generation, AILoadingCard for weather lookup + calendar sync
+- **QuickGenerateSheet** — AILoadingCard for travel weather lookup
 
-### Files Changed
-- `src/hooks/useForecast.ts` — add `searchCities` export
-- `src/hooks/useLocationSuggestions.ts` — new hook
-- `src/components/ui/LocationAutocomplete.tsx` — new component
-- `src/pages/TravelCapsule.tsx` — integrate autocomplete + auto-weather + summary chip + smart occasions
-- `src/components/plan/QuickGenerateSheet.tsx` — reuse autocomplete
-
+**Total tests: ~100+ (48 existing + 52 new across 13 new test files)**
