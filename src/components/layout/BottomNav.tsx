@@ -1,6 +1,5 @@
 import { Home, Shirt, CalendarDays, Bot, Compass } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { EASE_TWEEN, SPRING_BOUNCE } from '@/lib/motion';
