@@ -3,14 +3,12 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode } from 'react';
 
-// Mock supabase
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     from: vi.fn(),
   },
 }));
 
-// Mock auth context
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(),
 }));
@@ -28,41 +26,48 @@ const createWrapper = () => {
   );
 };
 
-const mockAuth = (user: any = null) => {
-  vi.mocked(useAuth).mockReturnValue({
-    user,
-    session: user ? ({} as any) : null,
-    loading: false,
-    signUp: vi.fn(),
-    signIn: vi.fn(),
-    signOut: vi.fn(),
-  });
-};
-
-const mockSubscriptionQuery = (data: any) => {
+function mockSupabaseSubscription(data: object | null) {
   const mockSelect = vi.fn().mockReturnValue({
     eq: vi.fn().mockReturnValue({
       maybeSingle: vi.fn().mockResolvedValue({ data, error: null }),
     }),
   });
   vi.mocked(supabase.from).mockReturnValue({ select: mockSelect } as any);
+}
+
+function mockAuthUser(id = 'user-1', email = 'test@test.com') {
+  vi.mocked(useAuth).mockReturnValue({
+    user: { id, email } as any,
+    session: {} as any,
+    loading: false,
+    signUp: vi.fn(),
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+  });
+}
+
+function mockAuthGuest() {
+  vi.mocked(useAuth).mockReturnValue({
+    user: null,
+    session: null,
+    loading: false,
+    signUp: vi.fn(),
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+  });
+}
+
+const baseSubscription = {
+  id: 'sub-1',
+  user_id: 'user-1',
+  period_start: new Date().toISOString(),
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
 };
 
 describe('useSubscription', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  it('returns null subscription when user is not logged in', () => {
-    mockAuth(null);
-
-    const { result } = renderHook(() => useSubscription(), {
-      wrapper: createWrapper(),
-    });
-
-    expect(result.current.subscription).toBeUndefined();
-    expect(result.current.plan).toBe('free');
-    expect(result.current.isPremium).toBe(false);
   });
 
   it('has correct plan limits defined', () => {
@@ -72,81 +77,102 @@ describe('useSubscription', () => {
     expect(PLAN_LIMITS.premium.maxOutfitsPerMonth).toBe(Infinity);
   });
 
-  it('returns free plan limits correctly', async () => {
-    mockAuth({ id: 'user-1', email: 'test@test.com' });
-    mockSubscriptionQuery({
-      id: 'sub-1',
-      user_id: 'user-1',
+  it('returns default free-plan state when no user is logged in', () => {
+    mockAuthGuest();
+
+    const { result } = renderHook(() => useSubscription(), {
+      wrapper: createWrapper(),
+    });
+
+    expect(result.current.subscription).toBeUndefined();
+    expect(result.current.plan).toBe('free');
+    expect(result.current.isPremium).toBe(false);
+    expect(result.current.canAddGarment()).toBe(true);
+    expect(result.current.canCreateOutfit()).toBe(true);
+  });
+
+  it('returns correct state for a free user with partial usage', async () => {
+    mockAuthUser();
+    mockSupabaseSubscription({
+      ...baseSubscription,
       plan: 'free',
       garments_count: 5,
       outfits_used_month: 3,
-      period_start: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     });
 
     const { result } = renderHook(() => useSubscription(), {
       wrapper: createWrapper(),
     });
 
-    await waitFor(() => {
-      expect(result.current.plan).toBe('free');
-      expect(result.current.isPremium).toBe(false);
-      expect(result.current.canAddGarment()).toBe(true);
-      expect(result.current.canCreateOutfit()).toBe(true);
-      expect(result.current.remainingGarments()).toBe(5);
-      expect(result.current.remainingOutfits()).toBe(7);
-    });
+    await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
+
+    expect(result.current.plan).toBe('free');
+    expect(result.current.isPremium).toBe(false);
+    expect(result.current.canAddGarment()).toBe(true);
+    expect(result.current.canCreateOutfit()).toBe(true);
+    expect(result.current.remainingGarments()).toBe(5);
+    expect(result.current.remainingOutfits()).toBe(7);
   });
 
-  it('premium users have unlimited access', async () => {
-    mockAuth({ id: 'user-1', email: 'test@test.com' });
-    mockSubscriptionQuery({
-      id: 'sub-1',
-      user_id: 'user-1',
-      plan: 'premium',
-      garments_count: 100,
-      outfits_used_month: 50,
-      period_start: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-
-    const { result } = renderHook(() => useSubscription(), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => {
-      expect(result.current.isPremium).toBe(true);
-      expect(result.current.canAddGarment()).toBe(true);
-      expect(result.current.canCreateOutfit()).toBe(true);
-      expect(result.current.remainingGarments()).toBe(Infinity);
-      expect(result.current.remainingOutfits()).toBe(Infinity);
-    });
-  });
-
-  it('free plan blocks when at garment limit', async () => {
-    mockAuth({ id: 'user-1', email: 'test@test.com' });
-    mockSubscriptionQuery({
-      id: 'sub-1',
-      user_id: 'user-1',
+  it('blocks a free user who has hit both garment and outfit limits', async () => {
+    mockAuthUser();
+    mockSupabaseSubscription({
+      ...baseSubscription,
       plan: 'free',
       garments_count: 10,
       outfits_used_month: 10,
-      period_start: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     });
 
     const { result } = renderHook(() => useSubscription(), {
       wrapper: createWrapper(),
     });
 
-    await waitFor(() => {
-      expect(result.current.canAddGarment()).toBe(false);
-      expect(result.current.canCreateOutfit()).toBe(false);
-      expect(result.current.remainingGarments()).toBe(0);
-      expect(result.current.remainingOutfits()).toBe(0);
+    await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
+
+    expect(result.current.canAddGarment()).toBe(false);
+    expect(result.current.canCreateOutfit()).toBe(false);
+    expect(result.current.remainingGarments()).toBe(0);
+    expect(result.current.remainingOutfits()).toBe(0);
+  });
+
+  it('blocks adding a garment at exactly the garment limit (boundary check)', async () => {
+    mockAuthUser();
+    mockSupabaseSubscription({
+      ...baseSubscription,
+      plan: 'free',
+      garments_count: 10,
+      outfits_used_month: 0,
     });
+
+    const { result } = renderHook(() => useSubscription(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
+
+    expect(result.current.canAddGarment()).toBe(false);
+    expect(result.current.canCreateOutfit()).toBe(true);
+  });
+
+  it('gives premium users unlimited access regardless of counts', async () => {
+    mockAuthUser();
+    mockSupabaseSubscription({
+      ...baseSubscription,
+      plan: 'premium',
+      garments_count: 100,
+      outfits_used_month: 50,
+    });
+
+    const { result } = renderHook(() => useSubscription(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
+
+    expect(result.current.isPremium).toBe(true);
+    expect(result.current.canAddGarment()).toBe(true);
+    expect(result.current.canCreateOutfit()).toBe(true);
+    expect(result.current.remainingGarments()).toBe(Infinity);
+    expect(result.current.remainingOutfits()).toBe(Infinity);
   });
 });
