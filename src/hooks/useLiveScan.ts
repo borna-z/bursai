@@ -240,6 +240,7 @@ export function useLiveScan() {
     lastResult,
     error,
     capture,
+    captureFromFile,
     accept,
     retake,
     finish,
