@@ -5,6 +5,7 @@ import { EASE_CURVE } from '@/lib/motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useStorage } from '@/hooks/useStorage';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
