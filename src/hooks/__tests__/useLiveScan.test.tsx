@@ -25,10 +25,15 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }));
 
+vi.mock('@/lib/imageCompression', () => ({
+  compressImage: vi.fn(),
+}));
+
 import { useLiveScan } from '@/hooks/useLiveScan';
 import { useAuth } from '@/contexts/AuthContext';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { supabase } from '@/integrations/supabase/client';
+import { compressImage } from '@/lib/imageCompression';
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -264,5 +269,92 @@ describe('useLiveScan', () => {
     expect(result.current.error).toBe('AI service unavailable');
     expect(result.current.lastResult).toBeNull();
     expect(result.current.isProcessing).toBe(false);
+  });
+
+  it('captureFromFile() analyses a File via compressImage and populates lastResult', async () => {
+    mockAuthUser();
+    setupUrlMock();
+    setupSupabaseMock();
+
+    const mockBlob = new Blob(['file-data'], { type: 'image/jpeg' });
+    vi.mocked(compressImage).mockResolvedValue({
+      file: mockBlob as any,
+      previewUrl: 'blob:mock-preview-url',
+    });
+
+    // Mock FileReader for base64 conversion inside captureFromFile
+    const MockFileReader = vi.fn(function (this: any) {
+      this.result = 'data:image/jpeg;base64,ZmlsZQ==';
+      this.onloadend = null;
+      this.onerror = null;
+      this.readAsDataURL = vi.fn(() => {
+        Promise.resolve().then(() => this.onloadend?.());
+      });
+    });
+    vi.stubGlobal('FileReader', MockFileReader);
+
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: MOCK_ANALYSIS,
+      error: null,
+    });
+
+    const { result } = renderHook(() => useLiveScan(), {
+      wrapper: createWrapper(),
+    });
+
+    const fakeFile = new File(['test'], 'photo.jpg', { type: 'image/jpeg' });
+
+    await act(async () => {
+      await result.current.captureFromFile(fakeFile);
+    });
+
+    await waitFor(() => expect(result.current.lastResult).not.toBeNull());
+
+    expect(compressImage).toHaveBeenCalledWith(fakeFile, { maxDimension: 480, quality: 0.5 });
+    expect(result.current.lastResult?.analysis.title).toBe('Navy Wool Blazer');
+    expect(result.current.lastResult?.thumbnailUrl).toBe('blob:mock-preview-url');
+    expect(result.current.isProcessing).toBe(false);
+    expect(invokeEdgeFunction).toHaveBeenCalledWith('analyze_garment', {
+      body: { base64Image: expect.stringContaining('data:image/jpeg') },
+    });
+  });
+
+  it('captureFromFile() sets error and revokes preview URL on AI failure', async () => {
+    mockAuthUser();
+    setupUrlMock();
+
+    const mockBlob = new Blob(['file-data'], { type: 'image/jpeg' });
+    vi.mocked(compressImage).mockResolvedValue({
+      file: mockBlob as any,
+      previewUrl: 'blob:mock-preview-url',
+    });
+
+    const MockFileReader = vi.fn(function (this: any) {
+      this.result = 'data:image/jpeg;base64,ZmlsZQ==';
+      this.onloadend = null;
+      this.readAsDataURL = vi.fn(() => {
+        Promise.resolve().then(() => this.onloadend?.());
+      });
+    });
+    vi.stubGlobal('FileReader', MockFileReader);
+
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: { error: 'Quota exceeded' },
+      error: null,
+    });
+
+    const { result } = renderHook(() => useLiveScan(), {
+      wrapper: createWrapper(),
+    });
+
+    await act(async () => {
+      await result.current.captureFromFile(new File(['x'], 'img.jpg', { type: 'image/jpeg' }));
+    });
+
+    await waitFor(() => expect(result.current.error).not.toBeNull());
+
+    expect(result.current.error).toBe('Quota exceeded');
+    expect(result.current.lastResult).toBeNull();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-preview-url');
   });
 });
