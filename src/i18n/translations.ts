@@ -1273,10 +1273,28 @@ export const translations: Record<Locale, Record<string, string>> = {
     'style.minimal': 'Minimal',
     'style.street': 'Street',
 
-    // Color names
+    // Color names (Swedish-keyed for backward compat)
     'color.svart': 'Svart', 'color.vit': 'Vit', 'color.grå': 'Grå', 'color.marinblå': 'Marinblå',
     'color.blå': 'Blå', 'color.röd': 'Röd', 'color.grön': 'Grön', 'color.beige': 'Beige',
     'color.brun': 'Brun', 'color.rosa': 'Rosa', 'color.gul': 'Gul', 'color.orange': 'Orange', 'color.lila': 'Lila',
+    // Color names (English-keyed)
+    'color.black': 'Svart', 'color.white': 'Vit', 'color.grey': 'Grå', 'color.navy': 'Marinblå',
+    'color.blue': 'Blå', 'color.red': 'Röd', 'color.green': 'Grön', 'color.beige_en': 'Beige',
+    'color.brown': 'Brun', 'color.pink': 'Rosa', 'color.yellow': 'Gul', 'color.orange_en': 'Orange', 'color.purple': 'Lila',
+    'color.ivory': 'Ivory', 'color.cream': 'Kräm', 'color.sand': 'Sand', 'color.khaki': 'Khaki',
+    'color.charcoal': 'Kolgrå', 'color.anthracite': 'Antracit',
+    'color.skyblue': 'Himmelsblå', 'color.turquoise': 'Turkos', 'color.petrol': 'Petrol',
+    'color.indigo': 'Indigo', 'color.cobalt': 'Kobolt',
+    'color.olive': 'Olivgrön', 'color.forest': 'Skogsgrön', 'color.mint': 'Mint', 'color.sage': 'Salviagrön',
+    'color.burgundy': 'Vinröd', 'color.coral': 'Korall', 'color.apricot': 'Aprikos',
+    'color.fuchsia': 'Fuchsia', 'color.lavender': 'Lavendel',
+    'color.camel': 'Kamel', 'color.rust': 'Rost', 'color.cognac': 'Cognac',
+    'color.chocolate': 'Choklad', 'color.terracotta': 'Terrakotta',
+    'color.gold': 'Guld', 'color.silver': 'Silver', 'color.teal': 'Teal',
+    'color.plum': 'Plommon', 'color.mustard': 'Senapsgul',
+    'color.lightblue': 'Ljusblå', 'color.darkblue': 'Mörkblå',
+    'color.lightpink': 'Ljusrosa', 'color.magenta': 'Magenta',
+    'color.darkbrown': 'Mörkbrun', 'color.denim': 'Denim', 'color.off-white': 'Off-white',
 
     // Marketing chrome
     'common.last_updated': 'Senast uppdaterad:',
