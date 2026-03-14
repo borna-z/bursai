@@ -77,7 +77,7 @@ function isBlockedUrl(urlString: string): { blocked: boolean; reason?: string } 
           (parts[0] === 192 && parts[1] === 168) ||
           (parts[0] === 169 && parts[1] === 254) ||
           parts[0] === 127) {
-        return { blocked: true, reason: 'Intern IP-adress blockerad' };
+        return { blocked: true, reason: 'Internal IP address blocked' };
       }
     }
     
