@@ -6,6 +6,11 @@ import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { z } from 'zod';
+import type { PostgrestFilterBuilder } from '@supabase/postgrest-js';
+import type { Database } from '@/integrations/supabase/types';
+
+/** Loose filter builder type — table name is dynamic so we can't narrow further */
+type SupabaseFilterBuilder = PostgrestFilterBuilder<Database['public'], Record<string, unknown>, unknown[]>;
 
 interface SupabaseQueryOptions<T> {
   /** React Query cache key */
@@ -15,7 +20,7 @@ interface SupabaseQueryOptions<T> {
   /** Supabase select string (default: '*') */
   select?: string;
   /** Additional filters applied to the query builder */
-  filters?: (query: any) => any;
+  filters?: (query: SupabaseFilterBuilder) => SupabaseFilterBuilder;
   /** Whether auth is required (default: true) */
   requireAuth?: boolean;
   /** Zod schema for response validation */
