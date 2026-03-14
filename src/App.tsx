@@ -51,6 +51,7 @@ const AppInner = () => (
                 <Sonner />
                 <BrowserRouter>
                   <ScrollToTop />
+                  <DeepLinkHandler />
                   <AnimatedRoutes />
                   <CookieConsent />
                 </BrowserRouter>
