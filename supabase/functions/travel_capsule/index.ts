@@ -254,22 +254,21 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
 
     console.log("travel_capsule v4 start", { duration_days, outfitsPerDay, garment_count: garments.length, targetOutfits, maxItems, maxTokens, complexity });
 
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        // On retry, drop tool_choice constraint — some models handle it poorly
-        const useToolChoice = attempt === 0;
+    // Single attempt — fall back to deterministic on failure
+    try {
         const callOpts: any = {
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: `WARDROBE (${garments.length} items):\n${wardrobeLines}` },
           ],
           tools,
-          complexity: attempt === 0 ? complexity : "standard",
+          complexity,
           max_tokens: maxTokens,
-          timeout: 50000,
+          timeout: 35000,
           functionName: "travel_capsule",
-          cacheTtlSeconds: 1800, // 30 min cache for identical requests
+          cacheTtlSeconds: 1800,
           cacheNamespace: "travel_capsule",
+          tool_choice: { type: "function", function: { name: "create_travel_capsule" } },
         };
         if (useToolChoice) {
           callOpts.tool_choice = { type: "function", function: { name: "create_travel_capsule" } };

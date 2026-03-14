@@ -111,14 +111,34 @@ export default function TravelCapsule() {
   const [loadingPhase, setLoadingPhase] = useState<string | null>(null);
   const loadingTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  // Progressive loading phases  
+  // Progressive loading phases (~60s total, last phase holds indefinitely)
   const travelLoadingPhases = [
-    { icon: Cloud, label: t('capsule.phase_weather') || 'Checking weather...', duration: 1500 },
-    { icon: Shirt, label: t('capsule.phase_wardrobe') || 'Analyzing wardrobe...', duration: 2000 },
-    { icon: CalendarIcon, label: t('capsule.phase_planning') || 'Planning outfits...', duration: 2000 },
-    { icon: Package, label: t('capsule.phase_packing') || 'Optimizing packing...', duration: 1500 },
-    { icon: LightbulbIcon, label: t('capsule.phase_creating') || 'Creating capsule...', duration: 0 },
+    { icon: Cloud, label: t('capsule.phase_weather'), duration: 5000 },
+    { icon: Shirt, label: t('capsule.phase_wardrobe'), duration: 6000 },
+    { icon: SlidersHorizontal, label: t('capsule.phase_colors'), duration: 7000 },
+    { icon: CalendarIcon, label: t('capsule.phase_planning'), duration: 7000 },
+    { icon: Umbrella, label: t('capsule.phase_layers'), duration: 7000 },
+    { icon: RefreshCw, label: t('capsule.phase_combos'), duration: 8000 },
+    { icon: Package, label: t('capsule.phase_packing'), duration: 7000 },
+    { icon: Check, label: t('capsule.phase_review'), duration: 8000 },
+    { icon: LightbulbIcon, label: t('capsule.phase_final'), duration: 0 },
   ];
+
+  // Simulated progress (smooth 0→95% over 60s)
+  const [simulatedProgress, setSimulatedProgress] = useState(0);
+  useEffect(() => {
+    if (!isGenerating) { setSimulatedProgress(0); return; }
+    const start = Date.now();
+    const duration = 60000;
+    const tick = () => {
+      const elapsed = Date.now() - start;
+      const pct = Math.min(95, (elapsed / duration) * 95);
+      setSimulatedProgress(pct);
+      if (elapsed < duration) requestAnimationFrame(tick);
+    };
+    const raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [isGenerating]);
 
   // ── Weather state ──
   const [weatherForecast, setWeatherForecast] = useState<ForecastDay | null>(null);
