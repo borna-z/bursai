@@ -65,7 +65,7 @@ function isBlockedUrl(urlString: string): { blocked: boolean; reason?: string } 
     // Block private IP ranges
     for (const prefix of BLOCKED_IP_PREFIXES) {
       if (hostname.startsWith(prefix)) {
-        return { blocked: true, reason: 'Privat IP-adress blockerad' };
+        return { blocked: true, reason: 'Private IP address blocked' };
       }
     }
     
