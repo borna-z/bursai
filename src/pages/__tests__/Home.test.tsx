@@ -7,6 +7,10 @@ vi.mock('@/contexts/ThemeContext', () => ({
   useTheme: vi.fn(() => ({ theme: 'light', accentColor: 'blue', setTheme: vi.fn(), setAccentColor: vi.fn() })),
 }));
 
+vi.mock('@/contexts/SeedContext', () => ({
+  useSeed: vi.fn(() => ({ seeding: false, progress: 0 })),
+}));
+
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(() => ({
     user: { id: 'u1' },
