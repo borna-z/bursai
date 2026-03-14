@@ -419,11 +419,28 @@ export default function TravelCapsule() {
     try {
       const userId = (await supabase.auth.getUser()).data.user!.id;
 
+      // Fetch garments directly to avoid stale/empty garmentMap from async hook
+      const { data: freshGarments } = await supabase
+        .from('garments')
+        .select('id, category')
+        .in('id', result.capsule_items)
+        .eq('user_id', userId);
+
+      const freshMap = new Map((freshGarments || []).map(g => [g.id, g]));
+
+      // Deduplicate outfits by day + sorted item fingerprint
+      const createdOutfitKeys = new Set<string>();
+
       for (const capsuleOutfit of result.outfits) {
+        const sortedItems = [...capsuleOutfit.items].sort();
+        const dedupeKey = `${capsuleOutfit.day}-${sortedItems.join(',')}`;
+        if (createdOutfitKeys.has(dedupeKey)) continue;
+        createdOutfitKeys.add(dedupeKey);
+
         const outfitDate = format(addDays(dateRange.from!, capsuleOutfit.day - 1), 'yyyy-MM-dd');
 
         // Resolve valid garment IDs for this outfit
-        const validItems = capsuleOutfit.items.filter(id => garmentMap.has(id));
+        const validItems = capsuleOutfit.items.filter(id => freshMap.has(id));
         if (validItems.length === 0) continue;
 
         // 1. Create an outfit record
@@ -452,7 +469,7 @@ export default function TravelCapsule() {
         };
 
         const outfitItems = validItems.map(gId => {
-          const g = garmentMap.get(gId);
+          const g = freshMap.get(gId);
           const slot = slotMap[g?.category?.toLowerCase() || ''] || 'other';
           return { outfit_id: outfitRow.id, garment_id: gId, slot };
         });
