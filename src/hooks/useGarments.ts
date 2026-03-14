@@ -133,8 +133,8 @@ export function useCreateGarment() {
       if (!navigator.onLine) {
         enqueue({
           table: 'garments',
-          operation: 'insert',
-          data: { ...garment, user_id: user.id },
+          type: 'insert',
+          payload: { ...garment, user_id: user.id },
         });
         return { ...garment, user_id: user.id, id: crypto.randomUUID() } as Tables<'garments'>;
       }
