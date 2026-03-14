@@ -295,6 +295,11 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
           <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
             {t('insights.ai_title')}
           </span>
+          <StaleIndicator
+            updatedAt={dataUpdatedAt ? new Date(dataUpdatedAt).toISOString() : null}
+            onRefresh={() => refetch()}
+            className="ml-1"
+          />
         </div>
         <button
           onClick={() => refetch()}
