@@ -13,7 +13,7 @@ vi.mock('@/contexts/LanguageContext', () => ({
 
 vi.mock('@/hooks/useGarments', () => ({
   useGarments: vi.fn(() => ({
-    data: { pages: [{ garments: [], nextCursor: null }] },
+    data: { pages: [{ items: [], nextPage: undefined }] },
     isLoading: false,
     fetchNextPage: vi.fn(),
     hasNextPage: false,
