@@ -141,7 +141,7 @@ export default function SettingsStyle() {
               className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-foreground/10"
               style={{ backgroundColor: COLOR_MAP[color] }}
             />
-            {color}
+            {t(`color.${color}`) !== `color.${color}` ? t(`color.${color}`) : color}
           </Chip>
         ))}
       </div>
