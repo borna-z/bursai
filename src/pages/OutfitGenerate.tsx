@@ -21,18 +21,6 @@ export default function OutfitGeneratePage() {
   const { isUnlocked } = useWardrobeUnlocks();
   const [phase, setPhase] = useState(0);
   const [phaseKey, setPhaseKey] = useState(0);
-
-  // Gate: require enough garments
-  if (!isUnlocked('outfit_gen')) {
-    return (
-      <AppLayout>
-        <div className="p-4 max-w-sm mx-auto pt-16 space-y-6">
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">{t('unlock.outfit_gen')}</h2>
-          <WardrobeProgress message={t('unlock.outfit_gen_message')} />
-        </div>
-      </AppLayout>
-    );
-  }
   
   const state = location.state as OutfitRequest | null;
   
@@ -41,8 +29,9 @@ export default function OutfitGeneratePage() {
     { icon: Palette, label: t('generate.phase_matching'), duration: 1000 },
     { icon: Wand2, label: t('generate.phase_creating'), duration: 0 },
   ];
-  
+
   useEffect(() => {
+    if (!isUnlocked('outfit_gen')) return;
     if (!state?.occasion) {
       navigate('/', { replace: true });
       return;
