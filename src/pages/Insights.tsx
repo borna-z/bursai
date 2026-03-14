@@ -43,12 +43,18 @@ function UsageRing({ value, size = 140 }: { value: number; size?: number }) {
 }
 
 /* ─── Stat pill ─── */
-function StatPill({ value, label }: { value: number | string; label: string }) {
+function StatPill({ value, label, onClick }: { value: number | string; label: string; onClick?: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-1 flex-1">
+    <button
+      onClick={() => { if (onClick) { hapticLight(); onClick(); } }}
+      className={cn(
+        "flex flex-col items-center gap-1 flex-1 py-2 rounded-xl transition-colors",
+        onClick && "cursor-pointer active:scale-95 hover:bg-foreground/[0.04]"
+      )}
+    >
       <span className="text-2xl font-bold tracking-tight tabular-nums">{value}</span>
       <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">{label}</span>
-    </div>
+    </button>
   );
 }
 
