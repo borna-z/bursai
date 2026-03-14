@@ -467,7 +467,7 @@ Deno.serve(async (req) => {
           results.push({
             url: trimmedUrl,
             status: 'failed',
-            reason: 'Kunde inte spara plagget',
+            reason: 'Could not save garment',
           });
           continue;
         }
