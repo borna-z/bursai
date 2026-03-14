@@ -99,8 +99,8 @@ serve(async (req) => {
 
     const occasionsList = occasions?.length > 0 ? occasions.join(", ") : "mixed casual/semi-formal";
     const outfitsPerDay = Math.max(1, Math.min(4, outfits_per_day || 1));
-    const targetOutfits = Math.min(duration_days * outfitsPerDay, 20);
-    const maxItems = Math.min(Math.ceil(duration_days * 2.5), 25);
+    const targetOutfits = Math.min(duration_days * outfitsPerDay, 35);
+    const maxItems = Math.min(Math.ceil(duration_days * 2.5), 30);
 
     // Build valid ID set and lookup structures early
     const validIds = new Set(garments.map(g => g.id));

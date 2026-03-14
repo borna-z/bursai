@@ -145,15 +145,10 @@ export default function TravelCapsule() {
 
   // Progressive loading phases (~60s total, last phase holds indefinitely)
   const travelLoadingPhases = [
-    { icon: Cloud, label: t('capsule.phase_weather'), duration: 5000 },
-    { icon: Shirt, label: t('capsule.phase_wardrobe'), duration: 6000 },
-    { icon: SlidersHorizontal, label: t('capsule.phase_colors'), duration: 7000 },
-    { icon: CalendarIcon, label: t('capsule.phase_planning'), duration: 7000 },
-    { icon: Umbrella, label: t('capsule.phase_layers'), duration: 7000 },
-    { icon: RefreshCw, label: t('capsule.phase_combos'), duration: 8000 },
-    { icon: Package, label: t('capsule.phase_packing'), duration: 7000 },
-    { icon: Check, label: t('capsule.phase_review'), duration: 8000 },
-    { icon: LightbulbIcon, label: t('capsule.phase_final'), duration: 0 },
+    { icon: Cloud, label: t('capsule.phase_weather'), duration: 10000 },
+    { icon: Shirt, label: t('capsule.phase_wardrobe'), duration: 10000 },
+    { icon: SlidersHorizontal, label: t('capsule.phase_styling'), duration: 20000 },
+    { icon: Package, label: t('capsule.phase_packing'), duration: 0 },
   ];
 
   // Simulated progress (smooth 0→95% over 60s)
@@ -470,13 +465,13 @@ export default function TravelCapsule() {
         // 3. Create planned_outfit linked to the real outfit
         const { error: planErr } = await supabase
           .from('planned_outfits')
-          .upsert({
+          .insert({
             user_id: userId,
             date: outfitDate,
             outfit_id: outfitRow.id,
             note: `${destination} – ${capsuleOutfit.occasion}`,
             status: 'planned',
-          }, { onConflict: 'user_id,date' });
+          });
 
         if (planErr) console.error('Failed to plan outfit:', planErr);
       }

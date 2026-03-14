@@ -20,10 +20,20 @@ interface DateRange {
   endDate: string;
 }
 
+const PLANNED_OUTFIT_SELECT = `
+  *,
+  outfit:outfits (
+    *,
+    outfit_items (
+      *,
+      garment:garments (*)
+    )
+  )
+`;
+
 export function usePlannedOutfits(dateRange?: DateRange) {
   const { user } = useAuth();
   
-  // Default to today + 6 days (7 days total)
   const defaultStart = format(startOfDay(new Date()), 'yyyy-MM-dd');
   const defaultEnd = format(addDays(new Date(), 6), 'yyyy-MM-dd');
   
@@ -37,16 +47,7 @@ export function usePlannedOutfits(dateRange?: DateRange) {
       
       const { data, error } = await supabase
         .from('planned_outfits')
-        .select(`
-          *,
-          outfit:outfits (
-            *,
-            outfit_items (
-              *,
-              garment:garments (*)
-            )
-          )
-        `)
+        .select(PLANNED_OUTFIT_SELECT)
         .eq('user_id', user.id)
         .gte('date', start)
         .lte('date', end)
@@ -59,6 +60,29 @@ export function usePlannedOutfits(dateRange?: DateRange) {
   });
 }
 
+export function usePlannedOutfitsForDate(date: string) {
+  const { user } = useAuth();
+  
+  return useQuery({
+    queryKey: ['planned-outfits-day', user?.id, date],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      const { data, error } = await supabase
+        .from('planned_outfits')
+        .select(PLANNED_OUTFIT_SELECT)
+        .eq('user_id', user.id)
+        .eq('date', date)
+        .order('created_at', { ascending: true });
+      
+      if (error) throw error;
+      return data as PlannedOutfit[];
+    },
+    enabled: !!user && !!date,
+  });
+}
+
+/** @deprecated Use usePlannedOutfitsForDate instead */
 export function usePlannedOutfitForDate(date: string) {
   const { user } = useAuth();
   
@@ -69,16 +93,7 @@ export function usePlannedOutfitForDate(date: string) {
       
       const { data, error } = await supabase
         .from('planned_outfits')
-        .select(`
-          *,
-          outfit:outfits (
-            *,
-            outfit_items (
-              *,
-              garment:garments (*)
-            )
-          )
-        `)
+        .select(PLANNED_OUTFIT_SELECT)
         .eq('user_id', user.id)
         .eq('date', date)
         .maybeSingle();
@@ -89,6 +104,8 @@ export function usePlannedOutfitForDate(date: string) {
     enabled: !!user && !!date,
   });
 }
+
+const MAX_OUTFITS_PER_DAY = 4;
 
 export function useUpsertPlannedOutfit() {
   const { user } = useAuth();
@@ -108,16 +125,26 @@ export function useUpsertPlannedOutfit() {
     }) => {
       if (!user) throw new Error('Not authenticated');
       
+      // Check count for this day
+      const { count, error: countErr } = await supabase
+        .from('planned_outfits')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('date', date);
+      
+      if (countErr) throw countErr;
+      if ((count || 0) >= MAX_OUTFITS_PER_DAY) {
+        throw new Error(`Maximum ${MAX_OUTFITS_PER_DAY} outfits per day`);
+      }
+      
       const { data, error } = await supabase
         .from('planned_outfits')
-        .upsert({
+        .insert({
           user_id: user.id,
           date,
           outfit_id: outfitId,
           status,
           note: note || null,
-        }, {
-          onConflict: 'user_id,date',
         })
         .select()
         .single();
@@ -127,6 +154,7 @@ export function useUpsertPlannedOutfit() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planned-outfits'] });
+      queryClient.invalidateQueries({ queryKey: ['planned-outfits-day'] });
       queryClient.invalidateQueries({ queryKey: ['planned-outfit'] });
     },
   });
@@ -159,6 +187,7 @@ export function useUpdatePlannedOutfitStatus() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planned-outfits'] });
+      queryClient.invalidateQueries({ queryKey: ['planned-outfits-day'] });
       queryClient.invalidateQueries({ queryKey: ['planned-outfit'] });
     },
   });
@@ -182,6 +211,7 @@ export function useDeletePlannedOutfit() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planned-outfits'] });
+      queryClient.invalidateQueries({ queryKey: ['planned-outfits-day'] });
       queryClient.invalidateQueries({ queryKey: ['planned-outfit'] });
     },
   });
