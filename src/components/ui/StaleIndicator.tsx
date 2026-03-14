@@ -24,9 +24,9 @@ function formatRelativeTime(date: Date, t: (k: string) => string): string {
   const diffDays = Math.floor(diffHr / 24);
 
   if (diffMin < 1) return t('common.just_now');
-  if (diffMin < 60) return `${diffMin}m ${t('common.ago')}`;
-  if (diffHr < 24) return `${diffHr}h ${t('common.ago')}`;
-  return `${diffDays}d ${t('common.ago')}`;
+  if (diffMin < 60) return `${diffMin}m ${t('insights.ago')}`;
+  if (diffHr < 24) return `${diffHr}h ${t('insights.ago')}`;
+  return `${diffDays}d ${t('insights.ago')}`;
 }
 
 export function StaleIndicator({
