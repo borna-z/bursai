@@ -218,9 +218,9 @@ export default function GarmentDetailPage() {
             <Shield className="w-5 h-5 text-muted-foreground/50" />
             <div>
               <span className="text-sm">{t('insights.condition')}</span>
-              {(garment as any).condition_score && (
+              {garment.condition_score && (
                 <p className="text-xs text-muted-foreground">
-                  {Number((garment as any).condition_score).toFixed(1)}/10 — {(garment as any).condition_notes}
+                  {Number(garment.condition_score).toFixed(1)}/10 — {garment.condition_notes}
                 </p>
               )}
             </div>
