@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useCalendarEvents } from '@/hooks/useCalendarSync';
 import { useForecast } from '@/hooks/useForecast';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { asPreferences } from '@/types/preferences';
 import { useProfile } from '@/hooks/useProfile';
 import { useLocation } from '@/contexts/LocationContext';
 
