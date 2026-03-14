@@ -31,7 +31,7 @@ export default function GarmentDetailPage() {
   const markWorn = useMarkGarmentWorn();
   const assessCondition = useAssessCondition();
   const costPerWear = useCostPerWear(
-    (garment as any)?.purchase_price ?? null,
+    garment?.purchase_price ?? null,
     garment?.wear_count ?? null
   );
   const [editingPrice, setEditingPrice] = useState(false);
@@ -218,9 +218,9 @@ export default function GarmentDetailPage() {
             <Shield className="w-5 h-5 text-muted-foreground/50" />
             <div>
               <span className="text-sm">{t('insights.condition')}</span>
-              {(garment as any).condition_score && (
+              {garment.condition_score && (
                 <p className="text-xs text-muted-foreground">
-                  {Number((garment as any).condition_score).toFixed(1)}/10 — {(garment as any).condition_notes}
+                  {Number(garment.condition_score).toFixed(1)}/10 — {garment.condition_notes}
                 </p>
               )}
             </div>
@@ -255,7 +255,7 @@ export default function GarmentDetailPage() {
               <span className="text-sm">{t('insights.cost_per_wear')}</span>
               {costPerWear !== null && (
                 <p className="text-xs text-primary font-medium">
-                  {costPerWear.toFixed(0)} {(garment as any).purchase_currency || 'SEK'}/{t('garment.worn_count')}
+                  {costPerWear.toFixed(0)} {garment.purchase_currency || 'SEK'}/{t('garment.worn_count')}
                 </p>
               )}
             </div>
@@ -276,7 +276,7 @@ export default function GarmentDetailPage() {
                   const price = parseFloat(priceInput);
                   if (isNaN(price) || price < 0) return;
                   try {
-                    await updateGarment.mutateAsync({ id: garment.id, updates: { purchase_price: price } as any });
+                    await updateGarment.mutateAsync({ id: garment.id, updates: { purchase_price: price } });
                     setEditingPrice(false);
                   } catch { toast.error(t('common.something_wrong')); }
                 }}
@@ -290,11 +290,11 @@ export default function GarmentDetailPage() {
               size="sm"
               className="rounded-xl text-xs"
               onClick={() => {
-                setPriceInput(String((garment as any).purchase_price || ''));
+                setPriceInput(String(garment.purchase_price || ''));
                 setEditingPrice(true);
               }}
             >
-              {(garment as any).purchase_price ? `${Number((garment as any).purchase_price).toFixed(0)} SEK` : t('insights.purchase_price')}
+              {garment.purchase_price ? `${Number(garment.purchase_price).toFixed(0)} SEK` : t('insights.purchase_price')}
             </Button>
           )}
         </div>

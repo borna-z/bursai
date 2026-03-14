@@ -39,7 +39,7 @@ export function useProfile() {
         if (insertError) {
           console.error('Failed to auto-create profile:', insertError);
           // FK violation means user doesn't exist in auth.users — ghost session
-          if ((insertError as any).code === '23503') {
+          if ((insertError as { code?: string }).code === '23503') {
             console.error('Ghost session detected — signing out');
             await supabase.auth.signOut();
             return null;

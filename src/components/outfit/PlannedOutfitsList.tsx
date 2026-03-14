@@ -34,8 +34,8 @@ interface PlannedOutfitCardProps {
 function PlannedOutfitCard({ outfit, onDelete }: PlannedOutfitCardProps) {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const plannedFor = (outfit as any).planned_for;
-  const weather = (outfit as any).weather as { temp?: number } | null;
+  const plannedFor = outfit.planned_for;
+  const weather = outfit.weather;
 
   const handleDelete = (e: React.MouseEvent) => { e.stopPropagation(); };
 
@@ -110,13 +110,13 @@ export function PlannedOutfitsList({ outfits, onDelete }: PlannedOutfitsListProp
   const groupedByDate = useMemo(() => {
     const groups: PlannedGroup[] = [];
     const sorted = [...outfits].sort((a, b) => {
-      const dateA = (a as any).planned_for;
-      const dateB = (b as any).planned_for;
+      const dateA = a.planned_for ?? '';
+      const dateB = b.planned_for ?? '';
       return dateA.localeCompare(dateB);
     });
     
     sorted.forEach((outfit) => {
-      const dateStr = (outfit as any).planned_for;
+      const dateStr = outfit.planned_for ?? '';
       const date = new Date(dateStr);
       
       let label = date.toLocaleDateString(getBCP47(locale), { weekday: 'long', day: 'numeric', month: 'long' });

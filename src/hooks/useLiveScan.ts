@@ -145,7 +145,7 @@ export function useLiveScan() {
           formality: result.analysis.formality || 3,
           ai_analyzed_at: new Date().toISOString(),
           ai_provider: result.analysis.ai_provider || 'lovable_ai',
-          ai_raw: result.analysis.ai_raw as any || null,
+          ai_raw: (result.analysis.ai_raw ?? null) as import('@/integrations/supabase/types').Json,
           imported_via: 'live_scan',
         });
 
