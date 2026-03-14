@@ -34,8 +34,8 @@ interface PlannedOutfitCardProps {
 function PlannedOutfitCard({ outfit, onDelete }: PlannedOutfitCardProps) {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const plannedFor = (outfit as any).planned_for;
-  const weather = (outfit as any).weather as { temp?: number } | null;
+  const plannedFor = outfit.planned_for;
+  const weather = outfit.weather;
 
   const handleDelete = (e: React.MouseEvent) => { e.stopPropagation(); };
 
