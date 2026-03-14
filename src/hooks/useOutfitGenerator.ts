@@ -80,7 +80,7 @@ async function generateOutfitViaEngine(
     if (isInsufficientGarmentsError(fnError.message)) {
       throw new Error(INSUFFICIENT_GARMENTS_MESSAGE);
     }
-    throw new Error(fnError.message || 'Kunde inte generera outfit');
+    throw new Error(fnError.message || 'Could not generate outfit');
   }
 
   if (data?.error) {
