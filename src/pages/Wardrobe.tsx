@@ -6,7 +6,7 @@ import { TAP_TRANSITION, EASE_CURVE, STAGGER_DELAY } from '@/lib/motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Plus, Search, X, Trash2, Shirt, ScanLine, Camera, Link,
-  SlidersHorizontal, Grid3X3, List, WashingMachine, Loader2, BarChart3, Sparkles,
+  SlidersHorizontal, Grid3X3, List, WashingMachine, Loader2, Sparkles,
 } from 'lucide-react';
 import { SwipeableGarmentCard } from '@/components/wardrobe/SwipeableGarmentCard';
 import { Button } from '@/components/ui/button';
