@@ -294,7 +294,7 @@ Deno.serve(async (req) => {
     // Validate urls array
     if (!urls || !Array.isArray(urls)) {
       return new Response(
-        JSON.stringify({ error: 'urls måste vara en array' }),
+        JSON.stringify({ error: 'urls must be an array' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
