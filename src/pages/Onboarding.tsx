@@ -65,7 +65,7 @@ export default function OnboardingPage() {
   const handleQuizComplete = async (sp: StyleProfileV3) => {
     setIsSavingQuiz(true);
     try {
-      const currentPrefs = (profile?.preferences as Record<string, unknown>) || {};
+      const currentPrefs = asPreferences(profile?.preferences);
       const updates: Record<string, unknown> = {
         preferences: {
           ...currentPrefs,
