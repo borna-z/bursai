@@ -1,19 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { Heart } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useGarmentCount } from '@/hooks/useGarments';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { hapticSuccess, hapticLight } from '@/lib/haptics';
+import { hapticSuccess } from '@/lib/haptics';
 import { EASE_CURVE } from '@/lib/motion';
 import { toast } from 'sonner';
 
 import { DiscoverChallenges } from '@/components/discover/DiscoverChallenges';
-import { WardrobeGapSection } from '@/components/discover/WardrobeGapSection';
 
 interface Challenge {
   id: string;
