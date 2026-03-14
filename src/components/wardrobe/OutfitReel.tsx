@@ -5,7 +5,7 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { toPng } from 'html-to-image';
+
 import type { OutfitWithItems } from '@/hooks/useOutfits';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
@@ -129,6 +129,7 @@ export function OutfitReel({ outfits, onClose }: OutfitReelProps) {
   const handleDownload = async () => {
     if (!slideRef.current) return;
     try {
+      const { toPng } = await import('html-to-image');
       const dataUrl = await toPng(slideRef.current, { quality: 0.95, pixelRatio: 2 });
       const link = document.createElement('a');
       link.download = `outfit-${currentIndex + 1}.png`;

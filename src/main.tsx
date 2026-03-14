@@ -11,6 +11,7 @@ if (dsn) {
       integrations: [Sentry.browserTracingIntegration()],
       tracesSampleRate: 0.2,
       environment: import.meta.env.MODE,
+      release: `burs@${__APP_VERSION__}`,
     });
 
     // Capture unhandled promise rejections
