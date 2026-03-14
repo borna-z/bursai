@@ -5,6 +5,7 @@ import { SeedProgressPill } from './SeedProgressPill';
 import { useKeyboardAdjust } from '@/hooks/useKeyboardAdjust';
 import { useMedianStatusBar } from '@/hooks/useMedianStatusBar';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useUnlockCelebration } from '@/hooks/useWardrobeUnlocks';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -15,6 +16,7 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
   const { resolvedTheme } = useTheme();
   useKeyboardAdjust();
   useMedianStatusBar(resolvedTheme);
+  useUnlockCelebration();
 
   return (
     <div className="h-[100dvh] overflow-hidden bg-background flex flex-col">
