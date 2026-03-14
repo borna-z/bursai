@@ -2,7 +2,7 @@ import { useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Shirt, Sparkles, Lock, Palette, Trophy, Leaf } from 'lucide-react';
-import { InsightsBanner } from '@/components/home/InsightsBanner';
+
 import { SmartInsightCard } from '@/components/home/SmartInsightCard';
 import { hapticLight } from '@/lib/haptics';
 import { InsightsPageSkeleton } from '@/components/ui/skeletons';
@@ -145,8 +145,6 @@ export default function InsightsPage() {
         <AnimatedPage className="max-w-lg mx-auto px-4 pb-8 pt-6 space-y-10">
 
           {/* ─── 0. Wardrobe Usage Banner + Smart Insight ─── */}
-          <InsightsBanner />
-          <SmartInsightCard />
 
           {/* ─── 1. Usage Ring + Stats ─── */}
           <div className="flex flex-col items-center">
@@ -271,6 +269,8 @@ export default function InsightsPage() {
           )}
 
           {/* ─── CTA ─── */}
+          <SmartInsightCard />
+
           <Button className="w-full rounded-xl" size="lg" onClick={() => navigate('/')}>
             <Sparkles className="w-4 h-4 mr-2" />{t('insights.get_outfits')}
           </Button>
