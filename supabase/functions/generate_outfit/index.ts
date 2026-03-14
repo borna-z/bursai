@@ -203,7 +203,7 @@ serve(async (req) => {
 
     if (!garments || garments.length < 3) {
       return new Response(
-        JSON.stringify({ error: "Du behöver minst 3 plagg (överdel, underdel, skor) för att generera en outfit" }),
+        JSON.stringify({ error: "You need at least 3 garments (top, bottom, shoes) to generate an outfit" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
