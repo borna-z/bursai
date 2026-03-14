@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor, act } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode } from 'react';
 
@@ -19,6 +19,7 @@ vi.mock('@/contexts/AuthContext', () => ({
 
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
+import type { GeneratedOutfit } from '../useOutfitGenerator';
 
 function wrapper({ children }: { children: ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -37,29 +38,34 @@ describe('useOutfitGenerator', () => {
   });
 
   it('throws when user is not authenticated', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: null } as any);
+    vi.mocked(useAuth).mockReturnValue({ user: null } as ReturnType<typeof useAuth>);
     const { useOutfitGenerator } = await import('../useOutfitGenerator');
     const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
-    await expect(result.current.generateOutfit(baseRequest)).rejects.toThrow();
+    await act(async () => {
+      await expect(result.current.generateOutfit(baseRequest)).rejects.toThrow();
+    });
   });
 
   it('validates wardrobe has required categories', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as any);
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
     // Only tops, no bottoms/shoes
-    const chain: any = {};
-    chain.select = vi.fn().mockReturnValue(chain);
-    chain.eq = vi.fn().mockReturnValue(chain);
-    chain.in = vi.fn().mockResolvedValue({ data: [{ category: 'top' }], error: null });
-    chain.insert = vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single: vi.fn() }) });
+    const chain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockResolvedValue({ data: [{ category: 'top' }], error: null }),
+      insert: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single: vi.fn() }) }),
+    };
     mockFrom.mockReturnValue(chain);
 
     const { useOutfitGenerator } = await import('../useOutfitGenerator');
     const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
-    await expect(result.current.generateOutfit(baseRequest)).rejects.toThrow(/plagg/);
+    await act(async () => {
+      await expect(result.current.generateOutfit(baseRequest)).rejects.toThrow(/garments/i);
+    });
   });
 
   it('returns generated outfit on success', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as any);
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
 
     const garments = [
       { id: 'g1', category: 'top' },
@@ -67,22 +73,21 @@ describe('useOutfitGenerator', () => {
       { id: 'g3', category: 'shoes' },
     ];
 
-    const chain: any = {};
-    chain.select = vi.fn().mockReturnValue(chain);
-    chain.eq = vi.fn().mockReturnValue(chain);
-    chain.in = vi.fn().mockImplementation((_col: string, vals: string[]) => {
-      // Validation query returns categories
-      if (vals.includes('top')) {
-        return Promise.resolve({ data: garments.map(g => ({ category: g.category })), error: null });
-      }
-      // Garment fetch query
-      return Promise.resolve({ data: garments, error: null });
-    });
-    chain.insert = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        single: vi.fn().mockResolvedValue({ data: { id: 'outfit-1', occasion: 'casual', style_vibe: null }, error: null }),
+    const chain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockImplementation((_col: string, vals: string[]) => {
+        if (vals.includes('top')) {
+          return Promise.resolve({ data: garments.map(g => ({ category: g.category })), error: null });
+        }
+        return Promise.resolve({ data: garments, error: null });
       }),
-    });
+      insert: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: { id: 'outfit-1', occasion: 'casual', style_vibe: null }, error: null }),
+        }),
+      }),
+    };
     mockFrom.mockReturnValue(chain);
 
     vi.mocked(invokeEdgeFunction).mockResolvedValue({
@@ -101,11 +106,11 @@ describe('useOutfitGenerator', () => {
     const { useOutfitGenerator } = await import('../useOutfitGenerator');
     const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
 
-    let outfit: any;
+    let outfit: GeneratedOutfit | undefined;
     await act(async () => {
       outfit = await result.current.generateOutfit(baseRequest);
     });
-    expect(outfit.id).toBe('outfit-1');
-    expect(outfit.items.length).toBe(3);
+    expect(outfit!.id).toBe('outfit-1');
+    expect(outfit!.items.length).toBe(3);
   });
 });
