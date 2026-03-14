@@ -444,7 +444,7 @@ Deno.serve(async (req) => {
         }
 
         // Create garment record with minimal required fields
-        const title = metadata.title || 'Importerat plagg';
+        const title = metadata.title || 'Imported garment';
         
         const { error: insertError } = await supabaseAdmin
           .from('garments')
