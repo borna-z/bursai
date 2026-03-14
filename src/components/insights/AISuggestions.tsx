@@ -9,9 +9,11 @@ import {
   ChevronRight,
   Wand2,
   Calendar,
+  Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 import { StaleIndicator } from '@/components/ui/StaleIndicator';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useAISuggestions, type AISuggestion } from '@/hooks/useAISuggestions';
