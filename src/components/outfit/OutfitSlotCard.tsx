@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { RefreshCw, Shirt } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
