@@ -138,11 +138,12 @@ export function useInsights() {
       const usageRate = totalGarments > 0 ? Math.round((garmentsUsedLast30Days / totalGarments) * 100) : 0;
       
       // Top 5 most worn garments (by wear count in last 30 days)
-      const topFiveWorn = garments
+      const allUsedGarments = garments
         ?.filter(g => wearCountMap[g.id])
         .map(g => ({ ...g, wearCountLast30: wearCountMap[g.id] || 0 }))
-        .sort((a, b) => b.wearCountLast30 - a.wearCountLast30)
-        .slice(0, 5) || [];
+        .sort((a, b) => b.wearCountLast30 - a.wearCountLast30) || [];
+      
+      const topFiveWorn = allUsedGarments.slice(0, 5);
       
       // Unused garments (not worn in last 30 days)
       const unusedGarments = garments?.filter(g => !wornGarmentIds.has(g.id)) || [];
