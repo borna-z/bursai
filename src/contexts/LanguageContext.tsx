@@ -28,7 +28,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   // Sync from profile preferences on load
   useEffect(() => {
-    const savedLocale = (profile?.preferences as Record<string, unknown>)?.locale as Locale | undefined;
+    const savedLocale = asPreferences(profile?.preferences)?.locale as Locale | undefined;
     if (savedLocale && translations[savedLocale]) {
       setLocaleState(savedLocale);
       localStorage.setItem('burs-locale', savedLocale);
