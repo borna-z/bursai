@@ -111,7 +111,7 @@ async function generateOutfitViaEngine(
     .filter((item) => item.garment);
 
   if (selectedItems.length < 2) {
-    throw new Error('Inte tillräckligt med matchande plagg');
+    throw new Error('Not enough matching garments');
   }
 
   // Save outfit
