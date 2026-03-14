@@ -129,6 +129,7 @@ export function WardrobeGapSection() {
   const { isUnlocked } = useWardrobeUnlocks();
   const gapAnalysis = useWardrobeGapAnalysis();
   const [results, setResults] = useState<GapResult[] | null>(null);
+  const [analysisTimestamp, setAnalysisTimestamp] = useState<string | null>(null);
 
   const count = garmentCount || 0;
   const notEnough = count < 5;
