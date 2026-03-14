@@ -271,7 +271,7 @@ export default function OutfitDetailPage() {
     );
   }
 
-  const weather = (outfit as any).weather as { temp?: number; condition?: string; precipitation?: 'none' | 'rain' | 'snow'; wind?: 'low' | 'medium' | 'high' } | null;
+  const weather = outfit.weather as OutfitWeather | null;
   const displayOccasion = getOccasionLabel(outfit.occasion, t);
 
   // Build metadata pieces
