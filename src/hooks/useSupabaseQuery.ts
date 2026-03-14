@@ -7,9 +7,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { z } from 'zod';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- filter builder type requires dynamic table generics
-type SupabaseFilterBuilder = ReturnType<ReturnType<typeof supabase.from>['select']>;
-
 interface SupabaseQueryOptions<T> {
   /** React Query cache key */
   queryKey: unknown[];
