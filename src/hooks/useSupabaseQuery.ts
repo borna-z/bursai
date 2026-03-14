@@ -6,11 +6,9 @@ import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { z } from 'zod';
-import type { PostgrestFilterBuilder } from '@supabase/postgrest-js';
-import type { Database } from '@/integrations/supabase/types';
 
-/** Loose filter builder type — table name is dynamic so we can't narrow further */
-type SupabaseFilterBuilder = PostgrestFilterBuilder<Database['public'], Record<string, unknown>, unknown[]>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- filter builder type requires dynamic table generics
+type SupabaseFilterBuilder = ReturnType<ReturnType<typeof supabase.from>['select']>;
 
 interface SupabaseQueryOptions<T> {
   /** React Query cache key */
