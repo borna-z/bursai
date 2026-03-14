@@ -113,7 +113,7 @@ export default function InsightsPage() {
   if (isLoading || subLoading) {
     return (
       <AppLayout>
-        <PageHeader title={t('insights.title')} showBack />
+        <PageHeader title={t('insights.title')} />
         <InsightsPageSkeleton />
       </AppLayout>
     );
