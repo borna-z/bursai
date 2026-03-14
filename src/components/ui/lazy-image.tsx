@@ -9,6 +9,12 @@ interface LazyImageProps {
   className?: string;
   fallbackIcon?: React.ReactNode;
   aspectRatio?: 'square' | '4/5' | '3/4' | '16/9';
+  /** Explicit width to prevent CLS */
+  width?: number;
+  /** Explicit height to prevent CLS */
+  height?: number;
+  /** Set to "high" for above-the-fold hero images */
+  fetchPriority?: 'high' | 'low' | 'auto';
 }
 
 export function LazyImage({ 
