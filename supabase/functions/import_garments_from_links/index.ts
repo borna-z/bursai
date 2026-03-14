@@ -52,7 +52,7 @@ function isBlockedUrl(urlString: string): { blocked: boolean; reason?: string } 
     
     // Only allow http/https
     if (!['http:', 'https:'].includes(url.protocol)) {
-      return { blocked: true, reason: 'Ogiltigt protokoll - endast http/https tillåtet' };
+      return { blocked: true, reason: 'Invalid protocol - only http/https allowed' };
     }
     
     const hostname = url.hostname.toLowerCase();
