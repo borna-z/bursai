@@ -173,7 +173,7 @@ serve(async (req) => {
     }
     const userId = claimsData.claims.sub;
 
-    const { occasion, style, weather, locale = "sv" } = await req.json();
+    const { occasion, style, weather, locale = "en" } = await req.json();
     const localeName = LOCALE_NAMES[locale] || "English";
 
     // Fetch garments, profile, and recent outfits in parallel
