@@ -29,7 +29,7 @@ interface OutfitSlotCardProps {
   isLoading?: boolean;
 }
 
-export function OutfitSlotCard({
+export const OutfitSlotCard = memo(function OutfitSlotCard({
   slot,
   garmentId,
   garmentTitle,
