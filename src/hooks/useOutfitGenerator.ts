@@ -30,14 +30,14 @@ export interface GeneratedOutfit {
 }
 
 const INSUFFICIENT_GARMENTS_MESSAGE =
-  'Lägg till fler plagg i olika kategorier (topp, underdel, skor) innan du genererar en outfit.';
+  'Add more garments in different categories (top, bottom, shoes) before generating an outfit.';
 
 function isInsufficientGarmentsError(message?: string | null) {
   if (!message) return false;
   const normalized = message.toLowerCase();
   return (
-    normalized.includes('inte tillräckligt med matchande plagg') ||
-    normalized.includes('not enough matching garments')
+    normalized.includes('not enough matching garments') ||
+    normalized.includes('inte tillräckligt med matchande plagg')
   );
 }
 
