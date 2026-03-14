@@ -12,6 +12,10 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
+  const { resolvedTheme } = useTheme();
+  useKeyboardAdjust();
+  useMedianStatusBar(resolvedTheme);
+
   return (
     <div className="h-[100dvh] overflow-hidden bg-background flex flex-col">
       <OfflineBanner />
