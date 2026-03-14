@@ -17,10 +17,10 @@ export function useOnboarding() {
   const completeOnboarding = async () => {
     if (!profile) return;
     await updateProfile.mutateAsync({
-      preferences: {
+      preferences: JSON.parse(JSON.stringify({
         ...prefs,
         onboarding: { completed: true },
-      } as Record<string, unknown>,
+      })),
     });
   };
 
