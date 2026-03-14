@@ -37,10 +37,10 @@ function getTargetCategories(occasion: string): string[] {
 
 function formalityRange(occasion: string): [number, number] {
   switch (occasion) {
-    case 'träning': return [1, 2];
-    case 'jobb':    return [3, 5];
-    case 'fest':    return [4, 5];
-    case 'dejt':    return [3, 4];
+    case 'workout': case 'träning': case 'traning': return [1, 2];
+    case 'work': case 'jobb':    return [3, 5];
+    case 'party': case 'fest':    return [4, 5];
+    case 'date': case 'dejt':    return [3, 4];
     default:        return [1, 5];
   }
 }
