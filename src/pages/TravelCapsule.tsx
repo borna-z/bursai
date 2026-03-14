@@ -681,7 +681,21 @@ export default function TravelCapsule() {
                   variant="outline"
                   onClick={() => {
                     hapticLight();
-                    navigate('/plan/travel-capsule/pick-must-haves', { state: { mustHaveItems } });
+                    navigate('/plan/travel-capsule/pick-must-haves', {
+                      state: {
+                        mustHaveItems,
+                        destination,
+                        destCoords,
+                        dateRange: dateRange?.from && dateRange?.to
+                          ? { from: dateRange.from.toISOString(), to: dateRange.to.toISOString() }
+                          : null,
+                        selectedOccasions,
+                        minimizeItems,
+                        includeTravelDays,
+                        outfitsPerDay,
+                        hasManualOccasions,
+                      },
+                    });
                   }}
                   className="w-full h-11 rounded-xl bg-card/60 border-border/15 text-sm"
                 >
