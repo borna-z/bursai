@@ -1,97 +1,52 @@
 
-# BURS Roadmap v3 — 25 Steps: Code Refinement, Snappiness & Median.co Readiness
 
-**Status: ✅ ALL 25 STEPS COMPLETE**
+# Type Safety Pass + Robots.txt Status
 
-## Phase 1: Performance & Snappiness (Steps 1-7) ✅
+## Robots.txt & Sitemap — Already Fixed
 
-### Step 1: Image Optimization Pipeline ✅
-Created `src/lib/imageCompression.ts` — canvas-based resize (max 1200px) + WebP conversion (0.82 quality) before upload. Added `loading="lazy"` and `decoding="async"` to all `<img>` tags.
+Both files were updated in a previous edit:
+- `public/robots.txt`: `Disallow: /auth` is already removed, sitemap points to `https://burs.me/sitemap.xml`
+- `public/sitemap.xml`: Already created with all public routes on `burs.me`
 
-### Step 2: Route Prefetching & Preloading ✅
-Created `src/lib/routePrefetch.ts` — prefetches route chunks on hover/focus via `requestIdleCallback`. Integrated into BottomNav.
+No changes needed here. If the live site still shows the old version, it needs a publish/deploy.
 
-### Step 3: React Query Optimistic Updates Audit ✅
-Added `onMutate` optimistic updates with rollback to `useUpdateGarment` and `useUpdateOutfit`.
+## Type Safety: Remove unnecessary `as any` casts
 
-### Step 4: Animation Frame Budget Audit ✅
-Removed `layoutId="nav-pill"` from BottomNav — replaced framer-motion with pure CSS transitions.
+### 1. `src/pages/GarmentDetail.tsx` — 7 casts, all removable
 
-### Step 5: Font Loading Optimization ✅
-Removed unused fonts (DM Sans, Playfair Display). Now loading only Inter, Sora, Space Grotesk.
+Every cast accesses fields (`purchase_price`, `purchase_currency`, `condition_score`, `condition_notes`) that already exist on `Tables<'garments'>`. The `Garment` type already has them. Simply remove the `as any` wrapper:
 
-### Step 6: Service Worker & Caching Strategy ✅
-Upgraded `public/sw.js` with stale-while-revalidate for static assets, cache-first for fonts.
+- `(garment as any)?.purchase_price` → `garment?.purchase_price`
+- `(garment as any).condition_score` → `garment.condition_score`
+- `(garment as any).condition_notes` → `garment.condition_notes`
+- `(garment as any).purchase_currency` → `garment.purchase_currency`
+- `{ purchase_price: price } as any` → `{ purchase_price: price }` (it's a valid `TablesUpdate<'garments'>`)
 
-### Step 7: React.memo & Re-render Optimization ✅
-Wrapped `SwipeableGarmentCard` and `OutfitSlotCard` in `React.memo`.
+### 2. `src/components/outfit/PlannedOutfitsList.tsx` — 5 casts, all removable
 
----
+`planned_for` is on `Tables<'outfits'>`, and `weather` is on `OutfitWithItems`. Remove all `(outfit as any).planned_for` → `outfit.planned_for` and `(outfit as any).weather` → `outfit.weather`.
 
-## Phase 2: Median.co Native Bridge (Steps 8-14) ✅
+### 3. `src/lib/offlineQueue.ts` — 4 casts, intentional (no change)
 
-### Step 8: Native Share Sheet Integration ✅
-Created `src/lib/nativeShare.ts` — cascading share: Median → Web Share API → clipboard.
+These are dynamic table name dispatches (`supabase.from(mutation.table as any)`). Same pattern as `useSupabaseQuery.ts` — documented as intentional. Leave as-is.
 
-### Step 9: Native Status Bar Sync per Route ✅
-Created `src/hooks/useMedianStatusBar.ts` — syncs status bar style based on route and theme.
+### 4. Other minor casts worth fixing
 
-### Step 10: Deep Link Handling ✅
-Created `src/hooks/useDeepLink.ts` — listens for Median deep link events, parses URL patterns, navigates via React Router.
+| File | Cast | Fix |
+|---|---|---|
+| `src/hooks/useLiveScan.ts` | `ai_raw as any` | Remove — `Json` type accepts objects |
+| `src/hooks/useProfile.ts` | `(insertError as any).code` | Cast to `{ code?: string }` or use `PostgrestError` type |
+| `src/hooks/useLaundryCycle.ts` | `(planned as any).outfit` | Type the planned outfit join properly |
+| `src/contexts/LanguageContext.tsx` | `preferences as any` | Cast to `TablesUpdate<'profiles'>['preferences']` |
+| `src/hooks/useOnboarding.ts` | `as any` on preferences | Same pattern as LanguageContext |
+| `src/pages/Settings.tsx` | `(globalThis as any).__APP_VERSION__` | Extend global types or use `import.meta.env` |
 
-### Step 11: Native Camera Bridge Enhancement ✅
-`useMedianCamera` correctly uses standard file inputs — the recommended approach for Median.
+## Summary
 
-### Step 12: Pull-to-Refresh Native Feel ✅
-Updated `PullToRefresh.tsx` to detect and delegate to Median native pull-to-refresh when available.
+- **Files to edit: 7** (GarmentDetail, PlannedOutfitsList, useLiveScan, useProfile, useLaundryCycle, LanguageContext, useOnboarding)
+- **Files to skip: 2** (offlineQueue, useSupabaseQuery — intentional)
+- **Files already done: 2** (robots.txt, sitemap.xml — no changes needed)
+- **Estimated `as any` removal: ~20 casts**
 
-### Step 13: Keyboard & Input Handling ✅
-Created `src/hooks/useKeyboardAdjust.ts` — uses `visualViewport` API, sets `--keyboard-offset` CSS var.
+Settings.tsx (`globalThis as any`) and PricingSection.tsx (`t(label as any)`) are low-impact i18n/build-time casts that are harder to fix without adding type complexity — skip for now.
 
-### Step 14: App Launch & Splash Screen Timing ✅
-Auth token read is synchronous. Body background matches splash via inline script.
-
----
-
-## Phase 3: Data Integrity & Error Handling (Steps 15-19) ✅
-
-### Step 15: Retry & Error Recovery Patterns ✅
-Created `src/lib/edgeFunctionClient.ts` — timeout, exponential backoff, `EdgeFunctionTimeoutError`.
-
-### Step 16: Data Validation Layer ✅
-Created `src/lib/schemas.ts` — Zod schemas for profiles, garments, outfits, preferences, weather.
-
-### Step 17: Stale Data Indicators ✅
-Created `src/components/ui/StaleIndicator.tsx` — shows "last updated X ago" with auto-refresh on stale data.
-
-### Step 18: Edge Function Timeout Handling ✅
-Handled in Step 15 — AbortController-based timeout with dedicated error class.
-
-### Step 19: Offline Mutation Queue V2 ✅
-Upgraded `src/lib/offlineQueue.ts` — now handles image uploads via base64 storage, progress callbacks, separate upload/mutation queues.
-
----
-
-## Phase 4: Code Quality & Maintainability (Steps 20-23) ✅
-
-### Step 20: Hook Consolidation ✅
-Created `src/hooks/useSupabaseQuery.ts` — generic authenticated query wrapper with schema validation.
-
-### Step 21: Translation Key Audit ✅
-Translations file has 9,600+ lines covering 14 locales. Key structure is consistent. No build-time audit script needed — the `t()` function already returns the key itself as fallback for missing translations.
-
-### Step 22: Component File Size Audit ✅
-Large pages (Plan.tsx 501 lines, WardrobeGapSection 284 lines) already use extracted sub-components in dedicated directories. The component extraction pattern is well-established. No further splits needed at this stage.
-
-### Step 23: Type Safety Hardening ✅
-Created `src/types/preferences.ts` — typed interfaces for `ProfilePreferences`, `StyleProfile`, `StyleScore`, `WeatherInfo`, `OutfitGenerationState` discriminated union, plus safe cast helpers.
-
----
-
-## Phase 5: Production Hardening (Steps 24-25) ✅
-
-### Step 24: Lighthouse & Core Web Vitals Pass ✅
-Added `fetchPriority`, `width`, `height` props to `LazyImage` component. Hero images can now use `fetchPriority="high"` with `loading="eager"`. Font loading optimized with `preload` + `media="print"` swap. Service worker pre-caches app shell for instant loads.
-
-### Step 25: Median.co QA Checklist & Smoke Tests ✅
-Created `docs/MEDIAN_QA_CHECKLIST.md` — comprehensive manual QA checklist covering safe areas, status bar, haptics, camera, keyboard, deep links, offline mode, performance, and share functionality.
