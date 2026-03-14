@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
-import { Sparkles, Loader2, Thermometer, CalendarDays, MapPin } from 'lucide-react';
+import { Sparkles, Thermometer, CalendarDays, MapPin } from 'lucide-react';
 import { AILoadingCard } from '@/components/ui/AILoadingCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
