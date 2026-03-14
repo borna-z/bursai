@@ -50,7 +50,7 @@ export async function saveGarmentInBackground(
       season_tags: result.analysis.season_tags || [],
       formality: result.analysis.formality || 3,
       ai_analyzed_at: new Date().toISOString(),
-      ai_provider: result.analysis.ai_provider || 'lovable_ai',
+      ai_provider: result.analysis.ai_provider || 'unknown',
       ai_raw: (result.analysis.ai_raw ?? null) as Json,
       imported_via: 'live_scan',
     });

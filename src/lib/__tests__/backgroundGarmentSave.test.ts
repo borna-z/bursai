@@ -21,7 +21,7 @@ const MOCK_ANALYSIS = {
   fit: 'slim',
   season_tags: ['fall', 'winter'],
   formality: 4,
-  ai_provider: 'gemini',
+  ai_provider: '',
   ai_raw: null,
 };
 
@@ -69,6 +69,7 @@ describe('saveGarmentInBackground', () => {
         title: 'Navy Blazer',
         category: 'tops',
         imported_via: 'live_scan',
+        ai_provider: 'unknown',
       }),
     );
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-thumb');
