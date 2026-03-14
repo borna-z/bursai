@@ -21,7 +21,7 @@ const MOCK_ANALYSIS = {
   fit: 'slim',
   season_tags: ['fall', 'winter'],
   formality: 4,
-  ai_provider: 'gemini',
+  ai_provider: '',
   ai_raw: null,
 };
 
