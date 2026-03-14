@@ -67,7 +67,7 @@ export default function Contact() {
 
         {status === 'success' ? (
           <div
-            className="flex items-center justify-center gap-3 p-6 rounded-xl animate-fade-in"
+            className="flex items-center justify-center gap-3 p-6 animate-fade-in"
             style={{ background: '#EDE8DF', border: '1px solid #DDD8CF' }}
           >
             <Check className="w-5 h-5" style={{ color: '#6B6560' }} />
