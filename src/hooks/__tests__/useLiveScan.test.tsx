@@ -25,6 +25,10 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }));
 
+vi.mock('@/lib/imageCompression', () => ({
+  compressImage: vi.fn(),
+}));
+
 import { useLiveScan } from '@/hooks/useLiveScan';
 import { useAuth } from '@/contexts/AuthContext';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
