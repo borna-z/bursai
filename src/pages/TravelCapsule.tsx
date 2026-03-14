@@ -88,6 +88,8 @@ export default function TravelCapsule() {
 
   // ── Form state ──
   const [destination, setDestination] = useState('');
+  const [destCoords, setDestCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [hasManualOccasions, setHasManualOccasions] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedOccasions, setSelectedOccasions] = useState<string[]>(['vardag']);
   const [minimizeItems, setMinimizeItems] = useState(true);
