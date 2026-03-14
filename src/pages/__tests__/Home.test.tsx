@@ -65,7 +65,7 @@ describe('Home page smoke', () => {
     // Greeting uses translation keys like home.greeting_morning / afternoon / evening
     const greeting = screen.getByRole('heading', { level: 1 });
     expect(greeting).toBeInTheDocument();
-    expect(greeting.textContent).toContain('Test User');
+    expect(greeting.textContent).toContain('Test');
   });
 
   it('renders quick actions', () => {

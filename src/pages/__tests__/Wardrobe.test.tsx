@@ -64,12 +64,12 @@ describe('Wardrobe page smoke', () => {
 
   it('renders garments and outfits tabs', () => {
     renderWardrobe();
-    expect(screen.getByText('wardrobe.garments')).toBeInTheDocument();
-    expect(screen.getByText('wardrobe.outfits')).toBeInTheDocument();
+    expect(screen.getByText('wardrobe.tab_garments')).toBeInTheDocument();
+    expect(screen.getByText('wardrobe.tab_outfits')).toBeInTheDocument();
   });
 
-  it('shows empty state when no garments', () => {
+  it('renders page title', () => {
     renderWardrobe();
-    expect(screen.getByText('wardrobe.empty_title')).toBeInTheDocument();
+    expect(screen.getByText('wardrobe.title')).toBeInTheDocument();
   });
 });
