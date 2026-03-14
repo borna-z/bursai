@@ -1,70 +1,34 @@
 
-# BURS Launch Readiness Plan v4
 
-**Status: ✅ Phases 1-7 COMPLETE | AI Loading Animations COMPLETE**
+# Fix Stripe Checkout — Test Price IDs Used with Live Key
 
-## Phase 1: Dead Weight Removal (Steps 1-3) ✅
-- Removed `recharts`, `react-resizable-panels`, `next-themes` (~200KB saved)
-- Deleted unused `resizable.tsx` and `chart.tsx`
-- Lazy-imported `html-to-image` in `OutfitReel.tsx`
+## Problem
+The edge function logs show this error:
+```
+No such price: 'price_1TAVuvRfXibG26O7DJR2wkuI'; a similar object exists in test mode, but a live mode key was used to make this request.
+```
 
-## Phase 2: Metadata & SEO (Steps 4-5) ✅
-- Fixed OG image URL to relative `/og-image.png`
-- Synced manifest.json lang to `"en"`
+`STRIPE_MODE` is set to `live`, so the live secret key is used. But the `CURRENCY_PRICES` map (lines 41-63 in `create_checkout_session/index.ts`) contains **test-mode** price IDs. When the user's locale matches `en` (or any locale in that map), a test price ID is selected and sent to the live Stripe API, which rejects it.
 
-## Phase 3: Hook Tests (Steps 6-11) ✅
-- `useProfile`: 4 tests (auth, fetch, auto-create, ghost session)
-- `useGarments`: 5 tests (auth, fetch, filters, search, count)
-- `useOutfits`: 4 tests (auth, fetch, single, delete)
-- `useOutfitGenerator`: 3 tests (auth, validation, generation)
-- `useOfflineQueue`: 4 tests (online/offline, replay, events)
-- `useSupabaseQuery`: 4 tests (auth skip, fetch, single, schema)
+## Root Cause
+The `CURRENCY_PRICES` constant was populated with test-mode Stripe price IDs. These only work with `STRIPE_SECRET_KEY_TEST`. In live mode, the corresponding live price IDs must be used instead.
 
-## Phase 4: Component Tests (Steps 12-18) ✅
-- `Onboarding`: 1 smoke test
-- `Settings`: 1 smoke test
-- `Landing`: 1 smoke test
-- Existing: Auth, Home, Wardrobe, PaywallModal, BottomNav, ProtectedRoute
+## Fix
 
-## Phase 5: Utility Tests (Steps 19-21) ✅
-- `edgeFunctionClient`: 5 tests (success, retry, exhausted, exceptions, timeout error)
-- `offlineQueue`: 6 tests (enqueue, upload, clear, replay, progress)
-- `schemas`: 11 tests (profile, garment, style score, weather, safeParse, preferences)
-- `nativeShare`: 4 tests (Median, Web Share, clipboard, cancel)
-- Existing: compressFrame, backgroundGarmentSave
+### Option A — Create live prices in Stripe and update the map
+You need to create matching live-mode prices in your Stripe dashboard for each currency (USD, GBP, EUR, NOK, DKK, PLN, AED), then replace every price ID in the `CURRENCY_PRICES` map with the live-mode equivalents.
 
-## Phase 6: Infrastructure (Steps 22-24) ✅
-- Added `test:coverage` script with v8 provider + 30% line threshold
-- Added CSP meta tag to `index.html`
-- Added Sentry `release` tag using `__APP_VERSION__`
+### Option B — Switch back to test mode while setting up
+Set `STRIPE_MODE` secret to `test` until all live prices are created and verified.
 
-## Phase 7: Final Polish (Step 25) ✅
-- All new tests passing individually
-- CI pipeline configured
+## Recommended Action
+1. Use the Stripe tools to **list existing live-mode prices** to see which ones already exist.
+2. For any missing currencies, **create live-mode prices** via the Stripe tools.
+3. **Update `CURRENCY_PRICES`** in `supabase/functions/create_checkout_session/index.ts` with the correct live price IDs.
+4. Redeploy the edge function.
 
-## AI Loading Animations (35-Step Sprint) ✅
+### File change: `supabase/functions/create_checkout_session/index.ts`
+- Lines 41-63: Replace all price IDs in `CURRENCY_PRICES` with the live-mode equivalents obtained from Stripe.
 
-### Foundation
-- Created `AILoadingOverlay` — reusable multi-phase loading with radar pulse rings, bouncing dots, phase cycling
-- Created `AILoadingCard` — compact inline variant for cards/sections
-- Added `shimmer-sweep` CSS keyframe for scanner beam effect
+No database or frontend changes needed — the issue is entirely in the edge function's hardcoded price ID mapping.
 
-### Integrated Surfaces (20+ touchpoints)
-- **OutfitGenerate** — 5-phase fullscreen animation
-- **TodayOutfitCard** — AILoadingCard for initial load, AILoadingOverlay for regeneration
-- **StylePicker** — AILoadingCard embedded in active style card
-- **MoodOutfit** — AILoadingCard in selected mood card
-- **QuickGenerateSheet** — AILoadingCard replaces spinner button
-- **QuickPlanSheet** — AILoadingOverlay with day-name subtitle + progress bar
-- **UnusedOutfits** — AILoadingOverlay with skeleton cards
-- **AddGarment** — shimmer-sweep on image + AILoadingOverlay for phases
-- **BatchUploadProgress** — per-item pulse ring animations
-- **LiveScan** — multi-phase ScanOverlay with concentric rings + bouncing dots
-- **AIChat** — bouncing dots + phase text for streaming indicator
-- **AISuggestions** — AILoadingOverlay variant="card" with progress
-- **StyleReportCard** — AILoadingCard with 3 phases
-- **WardrobeGapSection** — refactored to use shared AILoadingOverlay
-- **TravelCapsule** — AILoadingOverlay for generation, AILoadingCard for weather lookup + calendar sync
-- **QuickGenerateSheet** — AILoadingCard for travel weather lookup
-
-**Total tests: ~100+ (48 existing + 52 new across 13 new test files)**
