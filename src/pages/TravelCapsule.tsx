@@ -465,13 +465,13 @@ export default function TravelCapsule() {
         // 3. Create planned_outfit linked to the real outfit
         const { error: planErr } = await supabase
           .from('planned_outfits')
-          .upsert({
+          .insert({
             user_id: userId,
             date: outfitDate,
             outfit_id: outfitRow.id,
             note: `${destination} – ${capsuleOutfit.occasion}`,
             status: 'planned',
-          }, { onConflict: 'user_id,date' });
+          });
 
         if (planErr) console.error('Failed to plan outfit:', planErr);
       }
