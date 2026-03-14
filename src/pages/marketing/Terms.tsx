@@ -21,7 +21,7 @@ export default function Terms() {
         {/* Header */}
         <header className="w-full" style={{ borderBottom: '1px solid #DDD8CF' }}>
           <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
-            <Link to="/welcome" className="flex items-center gap-2">
+            <Link to="/" className="flex items-center gap-2">
               <img src={bursLogo} alt="BURS" className="h-7 object-contain" style={{ opacity: 0.8 }} />
               <span className="font-bold tracking-[0.12em] text-sm" style={{ color: ink }}>BURS</span>
             </Link>
