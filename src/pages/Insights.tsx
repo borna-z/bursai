@@ -2,6 +2,7 @@ import { useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Shirt, Sparkles, Lock, Palette, Gem, Trophy, Leaf, ChevronRight } from 'lucide-react';
+import { hapticLight } from '@/lib/haptics';
 import { InsightsPageSkeleton } from '@/components/ui/skeletons';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,12 +43,18 @@ function UsageRing({ value, size = 140 }: { value: number; size?: number }) {
 }
 
 /* ─── Stat pill ─── */
-function StatPill({ value, label }: { value: number | string; label: string }) {
+function StatPill({ value, label, onClick }: { value: number | string; label: string; onClick?: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-1 flex-1">
+    <button
+      onClick={() => { if (onClick) { hapticLight(); onClick(); } }}
+      className={cn(
+        "flex flex-col items-center gap-1 flex-1 py-2 rounded-xl transition-colors",
+        onClick && "cursor-pointer active:scale-95 hover:bg-foreground/[0.04]"
+      )}
+    >
       <span className="text-2xl font-bold tracking-tight tabular-nums">{value}</span>
       <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">{label}</span>
-    </div>
+    </button>
   );
 }
 
@@ -147,11 +154,11 @@ export default function InsightsPage() {
             <p className="text-xs text-muted-foreground mt-3">{t('insights.last_30d')}</p>
 
             <div className="flex items-center w-full mt-8">
-              <StatPill value={insights.totalGarments} label={t('insights.total')} />
+              <StatPill value={insights.totalGarments} label={t('insights.total')} onClick={() => navigate('/wardrobe')} />
               <div className="w-px h-8 bg-border/20" />
-              <StatPill value={insights.garmentsUsedLast30Days} label={t('insights.used_30d')} />
+              <StatPill value={insights.garmentsUsedLast30Days} label={t('insights.used_30d')} onClick={() => navigate('/wardrobe/used')} />
               <div className="w-px h-8 bg-border/20" />
-              <StatPill value={insights.unusedGarments.length} label={t('insights.unused')} />
+              <StatPill value={insights.unusedGarments.length} label={t('insights.unused')} onClick={() => navigate('/outfits/unused')} />
             </div>
           </div>
 

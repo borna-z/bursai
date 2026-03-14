@@ -50,6 +50,7 @@ const Discover = lazy(() => import('@/pages/Discover'));
 const PickMustHaves = lazy(() => import('@/pages/PickMustHaves'));
 const UnusedOutfits = lazy(() => import('@/pages/UnusedOutfits'));
 const StylePicker = lazy(() => import('@/pages/StylePicker'));
+const UsedGarments = lazy(() => import('@/pages/UsedGarments'));
 
 const routeTransition = {
   type: 'tween' as const,
@@ -113,6 +114,7 @@ export function AnimatedRoutes() {
             <Route path="/onboarding" element={<ProtectedRoute skipOnboardingCheck><Onboarding /></ProtectedRoute>} />
             <Route path="/" element={<Index />} />
             <Route path="/wardrobe" element={<ProtectedRoute><Wardrobe /></ProtectedRoute>} />
+            <Route path="/wardrobe/used" element={<ProtectedRoute><UsedGarments /></ProtectedRoute>} />
             <Route path="/wardrobe/add" element={<ProtectedRoute><AddGarment /></ProtectedRoute>} />
             <Route path="/wardrobe/scan" element={<ProtectedRoute><LiveScan /></ProtectedRoute>} />
             <Route path="/wardrobe/:id" element={<ProtectedRoute><GarmentDetail /></ProtectedRoute>} />
