@@ -1,8 +1,3 @@
-import { useNavigate } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { TAP_TRANSITION } from '@/lib/motion';
-import { hapticLight } from '@/lib/haptics';
 import { useInsights } from '@/hooks/useInsights';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -34,7 +29,6 @@ function MiniUsageRing({ percentage }: { percentage: number }) {
 }
 
 export function InsightsBanner() {
-  const navigate = useNavigate();
   const { t } = useLanguage();
   const { data: insights, isLoading } = useInsights();
 
@@ -45,11 +39,8 @@ export function InsightsBanner() {
   if (!insights || insights.totalGarments === 0) return null;
 
   return (
-    <motion.button
-      whileTap={{ scale: 0.98 }}
-      transition={TAP_TRANSITION}
-      onClick={() => { hapticLight(); navigate('/insights'); }}
-      className="w-full flex items-center gap-4 rounded-2xl bg-card/50 backdrop-blur border border-border/20 p-4 text-left will-change-transform"
+    <div
+      className="w-full flex items-center gap-4 rounded-2xl bg-card/50 backdrop-blur border border-border/20 p-4 text-left"
     >
       <MiniUsageRing percentage={insights.usageRate} />
 
@@ -62,7 +53,6 @@ export function InsightsBanner() {
         </p>
       </div>
 
-      <ChevronRight className="w-4 h-4 text-muted-foreground/30 flex-shrink-0" />
-    </motion.button>
+    </div>
   );
 }

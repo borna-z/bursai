@@ -1,4 +1,4 @@
-import { useCallback, lazy, Suspense } from 'react';
+import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -15,8 +15,6 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { AISuggestions } from '@/components/insights/AISuggestions';
 import { QuickActionsRow } from '@/components/home/QuickActionsRow';
 
-const InsightsBanner = lazy(() => import('@/components/home/InsightsBanner').then(m => ({ default: m.InsightsBanner })));
-const SmartInsightCard = lazy(() => import('@/components/home/SmartInsightCard').then(m => ({ default: m.SmartInsightCard })));
 
 export default function HomePage() {
   const { t } = useLanguage();
@@ -87,11 +85,6 @@ export default function HomePage() {
           {/* ── 3. Quick Actions ── */}
           <QuickActionsRow />
 
-          {/* ── 4 & 5. Below-fold (lazy) ── */}
-          <Suspense fallback={null}>
-            <InsightsBanner />
-            <SmartInsightCard />
-          </Suspense>
         </AnimatedPage>
       </PullToRefresh>
     </AppLayout>

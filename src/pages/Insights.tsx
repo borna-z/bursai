@@ -1,7 +1,9 @@
 import { useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Shirt, Sparkles, Lock, Palette, Gem, Trophy, Leaf, ChevronRight } from 'lucide-react';
+import { Shirt, Sparkles, Lock, Palette, Trophy, Leaf } from 'lucide-react';
+import { InsightsBanner } from '@/components/home/InsightsBanner';
+import { SmartInsightCard } from '@/components/home/SmartInsightCard';
 import { hapticLight } from '@/lib/haptics';
 import { InsightsPageSkeleton } from '@/components/ui/skeletons';
 import { Button } from '@/components/ui/button';
@@ -142,6 +144,10 @@ export default function InsightsPage() {
       <PullToRefresh onRefresh={handleRefresh}>
         <AnimatedPage className="max-w-lg mx-auto px-4 pb-8 pt-6 space-y-10">
 
+          {/* ─── 0. Wardrobe Usage Banner + Smart Insight ─── */}
+          <InsightsBanner />
+          <SmartInsightCard />
+
           {/* ─── 1. Usage Ring + Stats ─── */}
           <div className="flex flex-col items-center">
             <div className="relative">
@@ -217,24 +223,6 @@ export default function InsightsPage() {
             </div>
           </div>
 
-          {/* ─── 4. Underused Items (single consolidated card) ─── */}
-          {insights.unusedGarments.length > 0 && (
-            <button
-              onClick={() => navigate('/wardrobe', { state: { filter: 'unused' } })}
-              className="w-full flex items-center gap-4 rounded-2xl bg-foreground/[0.03] border border-border/20 p-4 hover:bg-foreground/[0.05] transition-colors text-left"
-            >
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Gem className="w-5 h-5 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold">
-                  {insights.unusedGarments.length} {t('insights.unused_60d')}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">{t('insights.unused_nudge')}</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
-            </button>
-          )}
 
           {/* ─── 5. Sustainability Score ─── */}
           {sustainability && (
