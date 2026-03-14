@@ -2160,6 +2160,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     'unlock.outfit_gen_message': 'Add at least 5 garments to your wardrobe and the AI can start generating outfits for you.',
     'unlock.gap_analysis_message': 'Add at least 10 garments to unlock wardrobe gap analysis.',
     'unlock.travel_capsule_message': 'Add at least 10 garments to create a travel capsule.',
+    'unlock.celebration_title': '✨ New feature unlocked!',
+    'unlock.celebration_desc': 'You now have access to: {features}',
 
     'onboarding.language.title': 'Choose language',
     'onboarding.language.subtitle': 'You can change this later in settings',
