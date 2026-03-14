@@ -403,7 +403,7 @@ Deno.serve(async (req) => {
           results.push({
             url: trimmedUrl,
             status: 'failed',
-            reason: 'Bild-URL blockerad',
+            reason: 'Image URL blocked',
           });
           continue;
         }
