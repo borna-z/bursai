@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Award, Loader2, Lock, Sparkles } from 'lucide-react';
+import { Award, Lock, Sparkles, BarChart3, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AILoadingCard } from '@/components/ui/AILoadingCard';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
