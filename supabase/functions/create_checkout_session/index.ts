@@ -122,7 +122,7 @@ serve(async (req) => {
     if (!countError && count !== null && count >= 5) {
       logStep("Rate limit exceeded", { userId: user.id, attempts: count });
       return new Response(
-        JSON.stringify({ error: "För många försök. Vänta en stund innan du försöker igen." }),
+        JSON.stringify({ error: "Too many attempts. Please wait a moment before trying again." }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 429 }
       );
     }
