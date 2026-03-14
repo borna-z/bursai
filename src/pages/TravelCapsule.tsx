@@ -454,9 +454,13 @@ export default function TravelCapsule() {
                 />
               </div>
               {isFetchingWeather && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                  <Loader2 className="w-3 h-3 animate-spin" />{t('qgen.fetching_weather')}
-                </p>
+                <AILoadingCard
+                  phases={[
+                    { icon: Globe, label: `${t('capsule.looking_up') || 'Looking up'} ${destination}...`, duration: 1500 },
+                    { icon: Cloud, label: t('qgen.fetching_weather'), duration: 0 },
+                  ]}
+                  className="mt-1"
+                />
               )}
               {weatherError && <p className="text-xs text-destructive">{weatherError}</p>}
               {weatherForecast && !isFetchingWeather && destination && (
