@@ -153,8 +153,8 @@ export default function OutfitDetailPage() {
 
   useEffect(() => {
     if (outfit?.rating) setRating(outfit.rating);
-    if ((outfit as any)?.feedback) setSelectedFeedback((outfit as any).feedback);
-  }, [outfit?.rating, (outfit as any)?.feedback]);
+    if (outfit?.feedback) setSelectedFeedback(outfit.feedback);
+  }, [outfit?.rating, outfit?.feedback]);
 
   const handleOpenSwap = async (slot: string, outfitItemId: string, currentGarmentId: string) => {
     const otherColors = outfit?.outfit_items.filter(item => item.id !== outfitItemId && item.garment?.color_primary).map(item => item.garment!.color_primary.toLowerCase()) || [];
