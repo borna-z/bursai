@@ -52,7 +52,7 @@ export function BottomNav() {
                       className="w-5 h-5"
                       strokeWidth={isActive ? 2.5 : 2}
                     />
-                  </motion.div>
+                  </div>
                   {/* NEW badge for Discover when trending unlocks */}
                   {tab.path === '/discover' && showNewBadge && (
                     <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-accent animate-pulse" />
