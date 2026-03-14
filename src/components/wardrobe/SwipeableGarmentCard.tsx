@@ -20,7 +20,7 @@ interface SwipeableGarmentCardProps {
   onDelete: () => void;
 }
 
-export function SwipeableGarmentCard({ garment, onEdit, onLaundry, onDelete }: SwipeableGarmentCardProps) {
+export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({ garment, onEdit, onLaundry, onDelete }: SwipeableGarmentCardProps) {
   const navigate = useNavigate();
   const { t } = useLanguage();
 
