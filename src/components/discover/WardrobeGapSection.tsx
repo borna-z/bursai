@@ -148,6 +148,7 @@ export function WardrobeGapSection() {
     try {
       const data = await gapAnalysis.mutateAsync({ locale });
       setResults(data?.gaps || []);
+      setAnalysisTimestamp(new Date().toISOString());
     } catch {
       // error handled by mutation state
     }
