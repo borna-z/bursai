@@ -4,6 +4,7 @@ import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { hapticMedium, hapticSuccess } from '@/lib/haptics';
+import { compressImage } from '@/lib/imageCompression';
 import type { GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
 
 export interface ScanResult {
