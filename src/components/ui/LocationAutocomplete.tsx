@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { MapPin, Loader2 } from 'lucide-react';
+import { MapPin, Loader2, AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useLocationSuggestions } from '@/hooks/useLocationSuggestions';
 import type { CitySuggestion } from '@/hooks/useForecast';
@@ -29,12 +29,14 @@ export function LocationAutocomplete({
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
-  const { suggestions, isLoading, clear } = useLocationSuggestions(value);
+  const { suggestions, isLoading, error, hasSearched, clear } = useLocationSuggestions(value);
 
-  // Show dropdown when suggestions arrive
+  const showDropdown = open && (isLoading || suggestions.length > 0 || (hasSearched && suggestions.length === 0) || !!error);
+
+  // Show dropdown when suggestions arrive or search completes
   useEffect(() => {
-    if (suggestions.length > 0) setOpen(true);
-  }, [suggestions]);
+    if (suggestions.length > 0 || (hasSearched && value.length >= 2) || error) setOpen(true);
+  }, [suggestions, hasSearched, error, value]);
 
   // Click outside
   useEffect(() => {
@@ -88,7 +90,7 @@ export function LocationAutocomplete({
         <Input
           value={value}
           onChange={e => { onChange(e.target.value); setActiveIndex(-1); }}
-          onFocus={() => { if (suggestions.length > 0) setOpen(true); }}
+          onFocus={() => { if (suggestions.length > 0 || hasSearched) setOpen(true); }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className={cn('pl-10', inputClassName)}
@@ -96,11 +98,31 @@ export function LocationAutocomplete({
         />
       </div>
 
-      {open && suggestions.length > 0 && (
+      {showDropdown && (
         <ul
           ref={listRef}
           className="absolute z-50 mt-1 w-full max-h-48 overflow-auto rounded-xl border border-border/20 bg-popover shadow-lg py-1"
         >
+          {isLoading && suggestions.length === 0 && (
+            <li className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-muted-foreground">
+              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+              <span>Searching…</span>
+            </li>
+          )}
+
+          {error && (
+            <li className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-destructive">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>{error}</span>
+            </li>
+          )}
+
+          {!isLoading && !error && hasSearched && suggestions.length === 0 && (
+            <li className="px-3 py-2.5 text-sm text-muted-foreground">
+              No cities found
+            </li>
+          )}
+
           {suggestions.map((s, i) => (
             <li
               key={`${s.lat}-${s.lon}`}
