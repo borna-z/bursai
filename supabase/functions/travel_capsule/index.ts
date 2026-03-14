@@ -46,7 +46,7 @@ serve(async (req) => {
     if (claimsError || !claimsData?.claims) throw new Error("Unauthorized");
     const user = { id: claimsData.claims.sub as string };
 
-    const { duration_days, destination, weather, occasions, locale = "sv", outfits_per_day = 1, must_have_items = [] } = await req.json();
+    const { duration_days, destination, weather, occasions, locale = "en", outfits_per_day = 1, must_have_items = [] } = await req.json();
 
     if (!duration_days || duration_days < 1 || duration_days > 30) {
       throw new Error("duration_days must be 1-30");
