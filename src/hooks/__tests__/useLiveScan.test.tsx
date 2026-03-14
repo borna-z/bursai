@@ -357,4 +357,52 @@ describe('useLiveScan', () => {
     expect(result.current.lastResult).toBeNull();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-preview-url');
   });
+
+  it('finish() waits for background saves and invalidates garments, garment-count, and subscription queries', async () => {
+    mockAuthUser();
+    setupCanvasMock();
+    setupFileReaderMock();
+    setupUrlMock();
+    setupSupabaseMock();
+
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: MOCK_ANALYSIS,
+      error: null,
+    });
+    vi.stubGlobal('crypto', { randomUUID: vi.fn(() => 'finish-test-uuid') });
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useLiveScan(), { wrapper });
+
+    // Capture a frame
+    await act(async () => {
+      await result.current.capture(makeFakeVideo());
+    });
+    await waitFor(() => expect(result.current.lastResult).not.toBeNull());
+
+    // Accept — triggers background save
+    act(() => {
+      result.current.accept();
+    });
+
+    expect(result.current.scanCount).toBe(1);
+
+    // finish() should await background save and invalidate caches
+    await act(async () => {
+      await result.current.finish();
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garment-count'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['subscription'] });
+    expect(invalidateSpy).toHaveBeenCalledTimes(3);
+  });
 });
