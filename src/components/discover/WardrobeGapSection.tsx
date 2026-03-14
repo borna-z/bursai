@@ -125,11 +125,20 @@ export function WardrobeGapSection() {
   const { t, locale } = useLanguage();
   const { user } = useAuth();
   const { data: garmentCount } = useGarmentCount();
+  const { isUnlocked } = useWardrobeUnlocks();
   const gapAnalysis = useWardrobeGapAnalysis();
   const [results, setResults] = useState<GapResult[] | null>(null);
 
   const count = garmentCount || 0;
   const notEnough = count < 5;
+
+  if (!isUnlocked('gap_analysis')) {
+    return (
+      <section className="space-y-3">
+        <WardrobeProgress message={t('unlock.gap_analysis_message')} compact />
+      </section>
+    );
+  }
 
   const handleScan = async () => {
     if (!user || notEnough) return;
