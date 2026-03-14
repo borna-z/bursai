@@ -7,12 +7,12 @@ import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 export function useAssessCondition() {
   return useMutation({
     mutationFn: async (garmentId: string) => {
-      const { data, error } = await supabase.functions.invoke('assess_garment_condition', {
+      const { data, error } = await invokeEdgeFunction<{ condition_score: number; notes: string; should_replace: boolean; error?: string }>('assess_garment_condition', {
         body: { garment_id: garmentId },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return data as { condition_score: number; notes: string; should_replace: boolean };
+      return data!;
     },
   });
 }
