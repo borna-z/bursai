@@ -155,13 +155,13 @@ serve(async (req) => {
       throw new Error("Invalid plan. Must be 'monthly' or 'yearly'");
     }
 
-    // Determine price: use locale-based currency ONLY in test mode (test price IDs).
-    // In live mode, always use default prices from env vars (SEK).
+    // Determine price: use locale-based currency map for the active Stripe mode
     let priceId: string;
     const normalizedLocale = locale?.toLowerCase();
     const shortLocale = normalizedLocale?.split('-')[0];
-    const currencyPrices = normalizedLocale && stripeConfig.mode === 'test'
-      ? (TEST_CURRENCY_PRICES[normalizedLocale] || TEST_CURRENCY_PRICES[shortLocale!])
+    const priceMap = stripeConfig.mode === 'live' ? LIVE_CURRENCY_PRICES : TEST_CURRENCY_PRICES;
+    const currencyPrices = normalizedLocale
+      ? (priceMap[normalizedLocale] || priceMap[shortLocale!])
       : null;
     if (currencyPrices) {
       priceId = plan === 'monthly' ? currencyPrices.monthly : currencyPrices.yearly;
