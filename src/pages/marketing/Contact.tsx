@@ -39,7 +39,7 @@ export default function Contact() {
       <main className="flex-1 max-w-xl mx-auto px-4 py-12 md:py-20 w-full">
         <div className="text-center mb-12">
           <div
-            className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-6"
+            className="w-14 h-14 flex items-center justify-center mx-auto mb-6"
             style={{ background: '#EDE8DF' }}
           >
             <Mail className="w-7 h-7" style={{ color: '#6B6560' }} />
