@@ -226,7 +226,7 @@
 @layer utilities {
   /* Safe area padding for mobile */
   .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom, 0);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--keyboard-offset, 0px));
   }
 
   .safe-top {
