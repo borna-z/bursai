@@ -89,7 +89,7 @@ function persistPrefs(prefs: Record<string, string>) {
       .eq('id', uid)
       .single()
       .then(({ data: profile }) => {
-        const current = (profile?.preferences as Record<string, any>) || {};
+        const current = (profile?.preferences as Record<string, string>) || {};
         supabase
           .from('profiles')
           .update({ preferences: { ...current, ...prefs } } as any)
