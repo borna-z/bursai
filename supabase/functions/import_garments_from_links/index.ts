@@ -353,7 +353,7 @@ Deno.serve(async (req) => {
         results.push({
           url: trimmedUrl,
           status: 'failed',
-          reason: ssrfCheck.reason || 'Blockerad URL',
+          reason: ssrfCheck.reason || 'Blocked URL',
         });
         continue;
       }
