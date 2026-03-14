@@ -190,7 +190,7 @@ export default function OutfitDetailPage() {
     if (!outfit) return;
     const newFeedback = selectedFeedback.includes(feedbackId) ? selectedFeedback.filter(f => f !== feedbackId) : [...selectedFeedback, feedbackId];
     setSelectedFeedback(newFeedback);
-    try { await updateOutfit.mutateAsync({ id: outfit.id, updates: { feedback: newFeedback } as any }); } catch { setSelectedFeedback(selectedFeedback); }
+    try { await updateOutfit.mutateAsync({ id: outfit.id, updates: { feedback: newFeedback } as TablesUpdate<'outfits'> }); } catch { setSelectedFeedback(selectedFeedback); }
   };
 
   const handleMarkWorn = async () => {
