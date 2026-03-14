@@ -30,78 +30,78 @@ import { compressImage } from '@/lib/imageCompression';
 import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
-const PATTERN_IDS = ['enfärgad', 'randig', 'rutig', 'prickig', 'blommig', 'mönstrad', 'kamouflage'] as const;
-const MATERIAL_IDS = ['bomull', 'polyester', 'lin', 'denim', 'läder', 'ull', 'siden', 'syntet'] as const;
+const PATTERN_IDS = ['solid', 'striped', 'checked', 'dotted', 'floral', 'patterned', 'camo'] as const;
+const MATERIAL_IDS = ['cotton', 'polyester', 'linen', 'denim', 'leather', 'wool', 'silk', 'synthetic'] as const;
 const FIT_IDS = ['slim', 'regular', 'loose', 'oversized'] as const;
-const SEASON_IDS = ['vår', 'sommar', 'höst', 'vinter'] as const;
+const SEASON_IDS = ['spring', 'summer', 'autumn', 'winter'] as const;
 
 const CATEGORY_I18N: Record<string, string> = {
   top: 'garment.category.top', bottom: 'garment.category.bottom', shoes: 'garment.category.shoes',
   outerwear: 'garment.category.outerwear', accessory: 'garment.category.accessory', dress: 'garment.category.dress',
 };
 const PATTERN_I18N: Record<string, string> = {
-  enfärgad: 'garment.pattern.solid', randig: 'garment.pattern.striped', rutig: 'garment.pattern.checked',
-  prickig: 'garment.pattern.dotted', blommig: 'garment.pattern.floral', mönstrad: 'garment.pattern.patterned', kamouflage: 'garment.pattern.camo',
+  solid: 'garment.pattern.solid', striped: 'garment.pattern.striped', checked: 'garment.pattern.checked',
+  dotted: 'garment.pattern.dotted', floral: 'garment.pattern.floral', patterned: 'garment.pattern.patterned', camo: 'garment.pattern.camo',
 };
 const MATERIAL_I18N: Record<string, string> = {
-  bomull: 'garment.material.cotton', polyester: 'garment.material.polyester', lin: 'garment.material.linen',
-  denim: 'garment.material.denim', 'läder': 'garment.material.leather', ull: 'garment.material.wool', siden: 'garment.material.silk', syntet: 'garment.material.synthetic',
+  cotton: 'garment.material.cotton', polyester: 'garment.material.polyester', linen: 'garment.material.linen',
+  denim: 'garment.material.denim', leather: 'garment.material.leather', wool: 'garment.material.wool', silk: 'garment.material.silk', synthetic: 'garment.material.synthetic',
 };
 const FIT_I18N: Record<string, string> = {
   slim: 'garment.fit.slim', regular: 'garment.fit.regular', loose: 'garment.fit.loose', oversized: 'garment.fit.oversized',
 };
 const SEASON_I18N: Record<string, string> = {
-  'vår': 'garment.season.spring', sommar: 'garment.season.summer', 'höst': 'garment.season.autumn', vinter: 'garment.season.winter',
+  spring: 'garment.season.spring', summer: 'garment.season.summer', autumn: 'garment.season.autumn', winter: 'garment.season.winter',
 };
 
 // Keep categories/patterns etc. as arrays of { id, label } for backward-compat mapping
 const categories = CATEGORY_IDS.map(id => ({ id, label: id }));
 
 const SUBCATEGORY_I18N: Record<string, string> = {
-  't-shirt': 'subcategory.tshirt', 'skjorta': 'subcategory.shirt', 'blus': 'subcategory.blouse',
-  'tröja': 'subcategory.sweater', 'hoodie': 'subcategory.hoodie', 'polo': 'subcategory.polo',
-  'linne': 'subcategory.tank', 'cardigan': 'subcategory.cardigan',
+  't-shirt': 'subcategory.tshirt', 'shirt': 'subcategory.shirt', 'blouse': 'subcategory.blouse',
+  'sweater': 'subcategory.sweater', 'hoodie': 'subcategory.hoodie', 'polo': 'subcategory.polo',
+  'tank': 'subcategory.tank', 'cardigan': 'subcategory.cardigan',
   'jeans': 'subcategory.jeans', 'chinos': 'subcategory.chinos', 'shorts': 'subcategory.shorts',
-  'kjol': 'subcategory.skirt', 'kostymbyxor': 'subcategory.dress_pants', 'joggers': 'subcategory.joggers', 'leggings': 'subcategory.leggings',
+  'skirt': 'subcategory.skirt', 'dress_pants': 'subcategory.dress_pants', 'joggers': 'subcategory.joggers', 'leggings': 'subcategory.leggings',
   'sneakers': 'subcategory.sneakers', 'loafers': 'subcategory.loafers', 'boots': 'subcategory.boots',
-  'sandaler': 'subcategory.sandals', 'klackar': 'subcategory.heels', 'träningsskor': 'subcategory.trainers',
-  'jacka': 'subcategory.jacket', 'kappa': 'subcategory.coat', 'blazer': 'subcategory.blazer',
-  'väst': 'subcategory.vest', 'regnjacka': 'subcategory.rain_jacket', 'dunjacka': 'subcategory.down_jacket',
-  'väska': 'subcategory.bag', 'scarf': 'subcategory.scarf', 'mössa': 'subcategory.beanie',
-  'bälte': 'subcategory.belt', 'smycke': 'subcategory.jewelry', 'solglasögon': 'subcategory.sunglasses',
-  'vardagsklänning': 'subcategory.casual_dress', 'festklänning': 'subcategory.party_dress',
-  'maxiklänning': 'subcategory.maxi_dress', 'miniklänning': 'subcategory.mini_dress',
+  'sandals': 'subcategory.sandals', 'heels': 'subcategory.heels', 'trainers': 'subcategory.trainers',
+  'jacket': 'subcategory.jacket', 'coat': 'subcategory.coat', 'blazer': 'subcategory.blazer',
+  'vest': 'subcategory.vest', 'rain_jacket': 'subcategory.rain_jacket', 'down_jacket': 'subcategory.down_jacket',
+  'bag': 'subcategory.bag', 'scarf': 'subcategory.scarf', 'beanie': 'subcategory.beanie',
+  'belt': 'subcategory.belt', 'jewelry': 'subcategory.jewelry', 'sunglasses': 'subcategory.sunglasses',
+  'casual_dress': 'subcategory.casual_dress', 'party_dress': 'subcategory.party_dress',
+  'maxi_dress': 'subcategory.maxi_dress', 'mini_dress': 'subcategory.mini_dress',
 };
 
 const subcategories: Record<string, string[]> = {
-  top: ['T-shirt', 'Skjorta', 'Blus', 'Tröja', 'Hoodie', 'Polo', 'Linne', 'Cardigan'],
-  bottom: ['Jeans', 'Chinos', 'Shorts', 'Kjol', 'Kostymbyxor', 'Joggers', 'Leggings'],
-  shoes: ['Sneakers', 'Loafers', 'Boots', 'Sandaler', 'Klackar', 'Träningsskor'],
-  outerwear: ['Jacka', 'Kappa', 'Blazer', 'Väst', 'Regnjacka', 'Dunjacka'],
-  accessory: ['Väska', 'Scarf', 'Mössa', 'Bälte', 'Smycke', 'Solglasögon'],
-  dress: ['Vardagsklänning', 'Festklänning', 'Maxiklänning', 'Miniklänning'],
+  top: ['T-shirt', 'Shirt', 'Blouse', 'Sweater', 'Hoodie', 'Polo', 'Tank', 'Cardigan'],
+  bottom: ['Jeans', 'Chinos', 'Shorts', 'Skirt', 'Dress_pants', 'Joggers', 'Leggings'],
+  shoes: ['Sneakers', 'Loafers', 'Boots', 'Sandals', 'Heels', 'Trainers'],
+  outerwear: ['Jacket', 'Coat', 'Blazer', 'Vest', 'Rain_jacket', 'Down_jacket'],
+  accessory: ['Bag', 'Scarf', 'Beanie', 'Belt', 'Jewelry', 'Sunglasses'],
+  dress: ['Casual_dress', 'Party_dress', 'Maxi_dress', 'Mini_dress'],
 };
 
 const COLOR_I18N: Record<string, string> = {
-  svart: 'color.svart', vit: 'color.vit', 'grå': 'color.grå', 'marinblå': 'color.marinblå',
-  'blå': 'color.blå', 'röd': 'color.röd', 'grön': 'color.grön', beige: 'color.beige',
-  brun: 'color.brun', rosa: 'color.rosa', gul: 'color.gul', orange: 'color.orange', lila: 'color.lila',
+  black: 'color.black', white: 'color.white', grey: 'color.grey', navy: 'color.navy',
+  blue: 'color.blue', red: 'color.red', green: 'color.green', beige: 'color.beige',
+  brown: 'color.brown', pink: 'color.pink', yellow: 'color.yellow', orange: 'color.orange', purple: 'color.purple',
 };
 
 const colors = [
-  { id: 'svart', color: 'hsl(0 0% 0%)' },
-  { id: 'vit', color: 'hsl(0 0% 100%)' },
-  { id: 'grå', color: 'hsl(0 0% 50%)' },
-  { id: 'marinblå', color: 'hsl(220 70% 25%)' },
-  { id: 'blå', color: 'hsl(210 100% 50%)' },
-  { id: 'röd', color: 'hsl(0 100% 50%)' },
-  { id: 'grön', color: 'hsl(120 60% 40%)' },
+  { id: 'black', color: 'hsl(0 0% 0%)' },
+  { id: 'white', color: 'hsl(0 0% 100%)' },
+  { id: 'grey', color: 'hsl(0 0% 50%)' },
+  { id: 'navy', color: 'hsl(220 70% 25%)' },
+  { id: 'blue', color: 'hsl(210 100% 50%)' },
+  { id: 'red', color: 'hsl(0 100% 50%)' },
+  { id: 'green', color: 'hsl(120 60% 40%)' },
   { id: 'beige', color: 'hsl(40 40% 75%)' },
-  { id: 'brun', color: 'hsl(30 50% 30%)' },
-  { id: 'rosa', color: 'hsl(350 80% 70%)' },
-  { id: 'gul', color: 'hsl(50 100% 50%)' },
+  { id: 'brown', color: 'hsl(30 50% 30%)' },
+  { id: 'pink', color: 'hsl(350 80% 70%)' },
+  { id: 'yellow', color: 'hsl(50 100% 50%)' },
   { id: 'orange', color: 'hsl(30 100% 50%)' },
-  { id: 'lila', color: 'hsl(280 60% 50%)' },
+  { id: 'purple', color: 'hsl(280 60% 50%)' },
 ];
 
 const patterns = PATTERN_IDS.map(id => id);

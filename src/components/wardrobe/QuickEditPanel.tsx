@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const categoryOptions = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'];
-const colorOptionIds = ['svart', 'vit', 'grå', 'marinblå', 'blå', 'röd', 'grön', 'beige', 'brun'];
+const colorOptionIds = ['black', 'white', 'grey', 'navy', 'blue', 'red', 'green', 'beige', 'brown'];
 const formalityOptions = [1, 2, 3, 4, 5];
 
 const CATEGORY_LABEL_KEYS: Record<string, string> = {

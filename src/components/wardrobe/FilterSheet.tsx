@@ -135,7 +135,7 @@ export function FilterSheet({
                       : 'bg-foreground/[0.04] text-muted-foreground'
                   )}
                 >
-                  {t(`garment.season.${s === 'vår' ? 'spring' : s === 'sommar' ? 'summer' : s === 'höst' ? 'autumn' : 'winter'}`)}
+                  {t(`garment.season.${s}`)}
                 </button>
               ))}
             </div>

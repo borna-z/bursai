@@ -72,15 +72,23 @@ function SectionLabel({ icon: Icon, label }: { icon: React.ElementType; label: s
 
 /* ─── Color map ─── */
 const COLOR_MAP: Record<string, string> = {
+  black: 'bg-gray-900', white: 'bg-gray-100', grey: 'bg-gray-400', navy: 'bg-blue-900',
+  blue: 'bg-blue-500', red: 'bg-red-500', green: 'bg-green-600', beige: 'bg-amber-100',
+  brown: 'bg-amber-800', pink: 'bg-pink-400', purple: 'bg-purple-500', yellow: 'bg-yellow-400', orange: 'bg-orange-500',
+  // Legacy Swedish keys for backward compat with existing DB data
   svart: 'bg-gray-900', vit: 'bg-gray-100', grå: 'bg-gray-400', marinblå: 'bg-blue-900',
-  blå: 'bg-blue-500', röd: 'bg-red-500', grön: 'bg-green-600', beige: 'bg-amber-100',
-  brun: 'bg-amber-800', rosa: 'bg-pink-400', lila: 'bg-purple-500', gul: 'bg-yellow-400', orange: 'bg-orange-500',
+  blå: 'bg-blue-500', röd: 'bg-red-500', grön: 'bg-green-600',
+  brun: 'bg-amber-800', rosa: 'bg-pink-400', lila: 'bg-purple-500', gul: 'bg-yellow-400',
 };
 
 const COLOR_I18N: Record<string, string> = {
-  svart: 'color.svart', vit: 'color.vit', grå: 'color.grå', marinblå: 'color.marinblå',
-  blå: 'color.blå', röd: 'color.röd', grön: 'color.grön', beige: 'color.beige',
-  brun: 'color.brun', rosa: 'color.rosa', gul: 'color.gul', orange: 'color.orange', lila: 'color.lila',
+  black: 'color.black', white: 'color.white', grey: 'color.grey', navy: 'color.navy',
+  blue: 'color.blue', red: 'color.red', green: 'color.green', beige: 'color.beige',
+  brown: 'color.brown', pink: 'color.pink', yellow: 'color.yellow', orange: 'color.orange', purple: 'color.purple',
+  // Legacy Swedish keys
+  svart: 'color.black', vit: 'color.white', grå: 'color.grey', marinblå: 'color.navy',
+  blå: 'color.blue', röd: 'color.red', grön: 'color.green',
+  brun: 'color.brown', rosa: 'color.pink', gul: 'color.yellow', lila: 'color.purple',
 };
 
 /* ─── Main page ─── */
