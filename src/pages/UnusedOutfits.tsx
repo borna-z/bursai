@@ -77,7 +77,7 @@ export default function UnusedOutfits() {
 
         if (fnErr || data?.error || !data?.items?.length) continue;
 
-        const garmentIds = data.items.map((it: any) => it.garment_id);
+        const garmentIds = data.items.map((it: { garment_id: string; slot: string }) => it.garment_id);
         const { data: garments } = await supabase
           .from('garments')
           .select('*')
