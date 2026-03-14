@@ -34,7 +34,6 @@ function MiniUsageRing({ percentage }: { percentage: number }) {
 }
 
 export function InsightsBanner() {
-  const navigate = useNavigate();
   const { t } = useLanguage();
   const { data: insights, isLoading } = useInsights();
 
@@ -45,11 +44,8 @@ export function InsightsBanner() {
   if (!insights || insights.totalGarments === 0) return null;
 
   return (
-    <motion.button
-      whileTap={{ scale: 0.98 }}
-      transition={TAP_TRANSITION}
-      onClick={() => { hapticLight(); navigate('/insights'); }}
-      className="w-full flex items-center gap-4 rounded-2xl bg-card/50 backdrop-blur border border-border/20 p-4 text-left will-change-transform"
+    <div
+      className="w-full flex items-center gap-4 rounded-2xl bg-card/50 backdrop-blur border border-border/20 p-4 text-left"
     >
       <MiniUsageRing percentage={insights.usageRate} />
 
