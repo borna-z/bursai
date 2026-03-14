@@ -392,7 +392,7 @@ Deno.serve(async (req) => {
           results.push({
             url: trimmedUrl,
             status: 'failed',
-            reason: 'Ingen bild hittades',
+            reason: 'No image found',
           });
           continue;
         }
