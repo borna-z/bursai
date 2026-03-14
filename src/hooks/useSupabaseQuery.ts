@@ -15,7 +15,8 @@ interface SupabaseQueryOptions<T> {
   /** Supabase select string (default: '*') */
   select?: string;
   /** Additional filters applied to the query builder */
-  filters?: (query: SupabaseFilterBuilder) => SupabaseFilterBuilder;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic table makes precise typing impractical
+  filters?: (query: any) => any;
   /** Whether auth is required (default: true) */
   requireAuth?: boolean;
   /** Zod schema for response validation */
