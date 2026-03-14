@@ -39,7 +39,7 @@ export default function Contact() {
       <main className="flex-1 max-w-xl mx-auto px-4 py-12 md:py-20 w-full">
         <div className="text-center mb-12">
           <div
-            className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-6"
+            className="w-14 h-14 flex items-center justify-center mx-auto mb-6"
             style={{ background: '#EDE8DF' }}
           >
             <Mail className="w-7 h-7" style={{ color: '#6B6560' }} />
@@ -67,7 +67,7 @@ export default function Contact() {
 
         {status === 'success' ? (
           <div
-            className="flex items-center justify-center gap-3 p-6 rounded-xl animate-fade-in"
+            className="flex items-center justify-center gap-3 p-6 animate-fade-in"
             style={{ background: '#EDE8DF', border: '1px solid #DDD8CF' }}
           >
             <Check className="w-5 h-5" style={{ color: '#6B6560' }} />
@@ -83,7 +83,7 @@ export default function Contact() {
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
               required
-              className="w-full h-12 px-4 rounded-xl text-sm outline-none focus:ring-1 transition-all"
+              className="w-full h-12 px-4 text-sm outline-none focus:ring-1 transition-all"
               style={{
                 background: '#EDE8DF',
                 border: '1px solid #DDD8CF',
@@ -97,7 +97,7 @@ export default function Contact() {
               value={formData.email}
               onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
               required
-              className="w-full h-12 px-4 rounded-xl text-sm outline-none focus:ring-1 transition-all"
+              className="w-full h-12 px-4 text-sm outline-none focus:ring-1 transition-all"
               style={{
                 background: '#EDE8DF',
                 border: '1px solid #DDD8CF',
@@ -110,7 +110,7 @@ export default function Contact() {
               onChange={(e) => setFormData(prev => ({ ...prev, message: e.target.value }))}
               rows={5}
               required
-              className="w-full px-4 py-3 rounded-xl text-sm outline-none focus:ring-1 transition-all resize-none"
+              className="w-full px-4 py-3 text-sm outline-none focus:ring-1 transition-all resize-none"
               style={{
                 background: '#EDE8DF',
                 border: '1px solid #DDD8CF',
@@ -120,7 +120,7 @@ export default function Contact() {
             <button
               type="submit"
               disabled={status === 'loading'}
-              className="w-full h-12 rounded-full font-semibold text-sm tracking-wide hover:scale-[1.02] active:scale-[0.98] transition-transform duration-300 inline-flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full h-12 font-semibold text-sm tracking-wide hover:opacity-90 active:scale-[0.98] transition-all duration-300 inline-flex items-center justify-center gap-2 disabled:opacity-50"
               style={{ background: '#1C1917', color: '#F5F0E8' }}
             >
               {status === 'loading' ? (

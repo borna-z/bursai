@@ -25,10 +25,10 @@ function StepProgress({ current }: { current: StepKey }) {
       {STEPS.map((step, i) => (
         <motion.div
           key={step}
-          className="h-[3px] flex-1 rounded-full overflow-hidden bg-white/[0.06]"
+          className="h-[3px] flex-1 rounded-full overflow-hidden bg-border dark:bg-white/[0.06]"
         >
           <motion.div
-            className="h-full bg-white/40 rounded-full"
+            className="h-full bg-foreground dark:bg-white/40 rounded-full"
             initial={{ width: '0%' }}
             animate={{ width: i <= idx ? '100%' : '0%' }}
             transition={{ duration: 0.4, ease: EASE_CURVE }}

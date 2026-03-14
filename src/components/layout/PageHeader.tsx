@@ -27,7 +27,7 @@ export function PageHeader({
   return (
     <header 
       className={cn(
-        'bg-background/70 backdrop-blur-lg border-b border-border/20 z-20',
+        'bg-background/70 backdrop-blur-lg border-b border-border z-20',
         sticky && 'sticky top-0',
         className
       )}
