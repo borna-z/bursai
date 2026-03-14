@@ -63,7 +63,7 @@ export default function UnusedOutfits() {
         const { data, error: fnErr } = await invokeEdgeFunction<{
           items?: { garment_id: string; slot: string }[];
           explanation?: string;
-          style_score?: any;
+          style_score?: Record<string, number> | null;
           error?: string;
         }>('burs_style_engine', {
           body: {
