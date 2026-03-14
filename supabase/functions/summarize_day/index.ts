@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    const { events, weather, locale = "sv" } = await req.json();
+    const { events, weather, locale = "en" } = await req.json();
 
     if (!events || events.length === 0) {
       return new Response(
