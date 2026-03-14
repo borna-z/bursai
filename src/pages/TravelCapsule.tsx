@@ -483,6 +483,7 @@ export default function TravelCapsule() {
 
       hapticSuccess();
       toast.success(t('capsule.added_to_calendar'));
+      setAddedToCalendar(true);
     } catch {
       toast.error(t('capsule.calendar_error'));
     } finally {
