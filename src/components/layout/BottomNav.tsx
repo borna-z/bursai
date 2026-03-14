@@ -2,7 +2,6 @@ import { Home, Shirt, CalendarDays, Bot, Compass } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { EASE_TWEEN, SPRING_BOUNCE } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
 import { useTrendingUnlocked } from '@/hooks/useTrendingUnlocked';
 import { prefetchRoute } from '@/lib/routePrefetch';
