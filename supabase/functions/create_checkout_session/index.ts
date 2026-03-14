@@ -37,8 +37,9 @@ function getStripeConfig() {
 }
 
 // Multi-currency price mapping (language → Stripe price IDs)
-// Only used in LIVE mode. Test mode uses default SEK prices.
-const CURRENCY_PRICES: Record<string, { monthly: string; yearly: string }> = {
+// These are TEST-mode price IDs. Only used when STRIPE_MODE=test.
+// In live mode, all locales fall through to the default live price IDs from env vars.
+const TEST_CURRENCY_PRICES: Record<string, { monthly: string; yearly: string }> = {
   // EUR currencies (€7.99/month, €69.99/year)
   fi: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
   de: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
@@ -138,12 +139,13 @@ serve(async (req) => {
       throw new Error("Invalid plan. Must be 'monthly' or 'yearly'");
     }
 
-    // Determine price: use locale-based currency in live mode, fallback to default SEK
+    // Determine price: use locale-based currency ONLY in test mode (test price IDs).
+    // In live mode, always use default prices from env vars (SEK).
     let priceId: string;
     const normalizedLocale = locale?.toLowerCase();
     const shortLocale = normalizedLocale?.split('-')[0];
-    const currencyPrices = normalizedLocale && stripeConfig.mode === 'live'
-      ? (CURRENCY_PRICES[normalizedLocale] || CURRENCY_PRICES[shortLocale!])
+    const currencyPrices = normalizedLocale && stripeConfig.mode === 'test'
+      ? (TEST_CURRENCY_PRICES[normalizedLocale] || TEST_CURRENCY_PRICES[shortLocale!])
       : null;
     if (currencyPrices) {
       priceId = plan === 'monthly' ? currencyPrices.monthly : currencyPrices.yearly;
