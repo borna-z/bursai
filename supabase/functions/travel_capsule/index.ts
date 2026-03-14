@@ -208,6 +208,7 @@ Write in ${localeName}.`;
     let lastError: Error | null = null;
 
     const buildDeterministicFallback = () => {
+      const occasionCount = occasions?.length || 1;
       const tops = garments.filter(g => g.category === "top").slice(0, 6);
       const bottoms = garments.filter(g => g.category === "bottom").slice(0, 4);
       const shoes = garments.filter(g => g.category === "shoes").slice(0, 3);
