@@ -1878,7 +1878,7 @@ serve(async (req) => {
 
     if (aiResult.error) {
       if (aiResult.status === 429) {
-        return new Response(JSON.stringify({ error: "För många förfrågningar, försök igen." }), {
+        return new Response(JSON.stringify({ error: "Too many requests, please try again." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
