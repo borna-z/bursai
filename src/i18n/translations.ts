@@ -847,6 +847,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'plan.no_outfit': 'Ingen outfit planerad',
     'plan.plan': 'Planera',
     'plan.generate': 'Skapa åt mig',
+    'plan.add_outfit': 'Lägg till outfit',
     'plan.swap': 'Byt',
     'plan.details': 'Detaljer',
     'plan.mark_worn': 'Markera som använd',
