@@ -97,13 +97,45 @@ export default function TravelCapsule() {
   const [outfitsPerDay, setOutfitsPerDay] = useState(1);
   const [mustHaveItems, setMustHaveItems] = useState<string[]>([]);
 
-  // Restore must-haves from picker page
-  const locationState = useLocation().state as { mustHaveItems?: string[] } | null;
+  // Restore form state from picker page (round-trip)
+  const location = useLocation();
+  const locationState = location.state as {
+    mustHaveItems?: string[];
+    destination?: string;
+    destCoords?: { lat: number; lon: number } | null;
+    dateRange?: { from: string; to: string } | null;
+    selectedOccasions?: string[];
+    minimizeItems?: boolean;
+    includeTravelDays?: boolean;
+    outfitsPerDay?: number;
+    hasManualOccasions?: boolean;
+  } | null;
+
+  const [addedToCalendar, setAddedToCalendar] = useState(false);
+  const restoredRef = useRef(false);
+
   useEffect(() => {
-    if (locationState?.mustHaveItems) {
-      setMustHaveItems(locationState.mustHaveItems);
+    if (!locationState || restoredRef.current) return;
+    restoredRef.current = true;
+    if (locationState.mustHaveItems) setMustHaveItems(locationState.mustHaveItems);
+    if (locationState.destination) setDestination(locationState.destination);
+    if (locationState.destCoords) setDestCoords(locationState.destCoords);
+    if (locationState.dateRange?.from && locationState.dateRange?.to) {
+      setDateRange({
+        from: new Date(locationState.dateRange.from),
+        to: new Date(locationState.dateRange.to),
+      });
     }
-  }, [locationState]);
+    if (locationState.selectedOccasions) setSelectedOccasions(locationState.selectedOccasions);
+    if (locationState.minimizeItems !== undefined) setMinimizeItems(locationState.minimizeItems);
+    if (locationState.includeTravelDays !== undefined) setIncludeTravelDays(locationState.includeTravelDays);
+    if (locationState.outfitsPerDay !== undefined) setOutfitsPerDay(locationState.outfitsPerDay);
+    if (locationState.hasManualOccasions !== undefined) setHasManualOccasions(locationState.hasManualOccasions);
+    // Re-trigger weather if coords were restored
+    if (locationState.destCoords && locationState.dateRange?.from && locationState.dateRange?.to) {
+      setTimeout(() => lookupWeatherWithCoords(locationState.destCoords!), 100);
+    }
+  }, []);
 
   // ── Generation state ──
   const [isGenerating, setIsGenerating] = useState(false);
