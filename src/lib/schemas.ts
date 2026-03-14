@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 export const onboardingPrefsSchema = z.object({
   completed: z.boolean().optional().default(false),
-  quiz: z.record(z.unknown()).optional(),
+  quiz: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const profilePreferencesSchema = z.object({
