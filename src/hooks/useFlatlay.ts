@@ -10,11 +10,12 @@ export function useGenerateFlatlay() {
     mutationFn: async (outfitId: string) => {
       setIsGenerating(true);
       try {
-        const { data, error } = await supabase.functions.invoke('generate_flatlay', {
+        const { data, error } = await invokeEdgeFunction<{ success: boolean; flatlay_image_path: string; error?: string }>('generate_flatlay', {
+          timeout: 45000,
           body: { outfit_id: outfitId },
         });
 
-        if (error) throw new Error(error.message || 'Failed to generate flat-lay');
+        if (error) throw error;
         if (data?.error) throw new Error(data.error);
 
         return data as { success: boolean; flatlay_image_path: string };
