@@ -108,8 +108,8 @@ serve(async (req) => {
     // Must-have items filtering
     const mustHaveIds: string[] = (must_have_items || []).filter((id: string) => validIds.has(id));
 
-    // Scale max_tokens generously for large capsules with full UUIDs
-    const maxTokens = estimateMaxTokens({ outputItems: targetOutfits + maxItems, perItemTokens: 80, baseTokens: 600, cap: 8192 });
+    // Scale max_tokens generously — each outfit with 4 UUIDs ≈ 100 tokens, capsule_items ≈ 20 tokens/item
+    const maxTokens = estimateMaxTokens({ outputItems: targetOutfits + maxItems, perItemTokens: 120, baseTokens: 1000, cap: 8192 });
     // Use stronger model for longer/more complex trips
     const complexity: "trivial" | "standard" | "complex" = (duration_days > 5 || outfitsPerDay > 2) ? "complex" : "standard";
 
