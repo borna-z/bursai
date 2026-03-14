@@ -11,11 +11,9 @@ import {
   Calendar,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useAISuggestions, type AISuggestion } from '@/hooks/useAISuggestions';
-import { StaleIndicator } from '@/components/ui/StaleIndicator';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -87,22 +85,22 @@ function GarmentStack({ garments }: { garments: AISuggestion['garments'] }) {
   const remaining = garments.length - 4;
 
   return (
-    <div className="flex items-center justify-center py-4">
-      <div className="flex items-center -space-x-3">
+    <div className="flex items-center justify-center py-5">
+      <div className="flex items-center -space-x-4">
         {visible.map((garment, i) => (
           <motion.div
             key={garment.id}
             initial={{ opacity: 0, scale: 0.7, x: -10 }}
             animate={{ opacity: 1, scale: 1, x: 0 }}
             transition={{ delay: i * 0.08, duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
-            className="relative w-14 h-14 rounded-full overflow-hidden border-2 border-background shadow-md"
+            className="relative w-[72px] h-[72px] rounded-full overflow-hidden border-[2.5px] border-background shadow-md"
             style={{ zIndex: visible.length - i }}
           >
             <LazyImageSimple
               imagePath={garment.image_path}
               alt={garment.title}
               className="w-full h-full object-cover"
-              fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/40" />}
+              fallbackIcon={<Shirt className="w-6 h-6 text-muted-foreground/40" />}
             />
           </motion.div>
         ))}
@@ -111,7 +109,7 @@ function GarmentStack({ garments }: { garments: AISuggestion['garments'] }) {
             initial={{ opacity: 0, scale: 0.7 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: visible.length * 0.08, duration: 0.35 }}
-            className="relative w-14 h-14 rounded-full bg-muted/40 border-2 border-background flex items-center justify-center shadow-md"
+            className="relative w-[72px] h-[72px] rounded-full bg-muted/40 border-[2.5px] border-background flex items-center justify-center shadow-md"
           >
             <span className="text-xs font-semibold text-muted-foreground">+{remaining}</span>
           </motion.div>
@@ -137,28 +135,28 @@ function HeroSlide({ suggestion, onTryIt, onPlan, isCreating }: HeroSlideProps) 
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-      className="space-y-1"
+      className="space-y-0"
     >
-      {/* Occasion label */}
-      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-        {suggestion.occasion}
-      </p>
+      {/* Occasion + Title */}
+      <div className="text-center space-y-1">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70">
+          {suggestion.occasion}
+        </p>
+        <h3 className="text-[17px] font-semibold leading-snug tracking-tight">
+          {suggestion.title}
+        </h3>
+      </div>
 
-      {/* Title */}
-      <h3 className="text-lg font-semibold leading-snug tracking-tight">
-        {suggestion.title}
-      </h3>
+      {/* Garment circle stack — prominent center */}
+      <GarmentStack garments={suggestion.garments} />
 
-      {/* Explanation — always visible */}
-      <p className="text-[13px] text-muted-foreground leading-relaxed italic line-clamp-2">
+      {/* Explanation — subtle, below the visuals */}
+      <p className="text-[12px] text-muted-foreground/70 leading-relaxed text-center italic line-clamp-2 px-2 pb-4">
         {suggestion.explanation}
       </p>
 
-      {/* Garment circle stack */}
-      <GarmentStack garments={suggestion.garments} />
-
       {/* CTA row */}
-      <div className="flex items-center gap-2.5 pt-1">
+      <div className="flex items-center gap-2.5">
         <Button
           onClick={onTryIt}
           disabled={isCreating}
@@ -218,7 +216,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
   const [creatingOutfitId, setCreatingOutfitId] = useState<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const { data: suggestions, isLoading, error, refetch, isFetching, dataUpdatedAt } = useAISuggestions();
+  const { data: suggestions, isLoading, error, refetch, isFetching } = useAISuggestions();
 
   const handleTryIt = async (suggestion: AISuggestion, index: number) => {
     if (!user) return;
@@ -257,12 +255,11 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
       <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary/[0.04] to-transparent">
         <div className="py-10 px-6 blur-sm select-none pointer-events-none">
           <div className="space-y-4">
-            <div className="h-3 bg-muted rounded w-1/3" />
-            <div className="h-5 bg-muted rounded w-2/3" />
-            <div className="h-3 bg-muted rounded w-1/2" />
-            <div className="flex justify-center -space-x-3 py-4">
+            <div className="h-3 bg-muted rounded w-1/3 mx-auto" />
+            <div className="h-5 bg-muted rounded w-2/3 mx-auto" />
+            <div className="flex justify-center -space-x-4 py-5">
               {[1, 2, 3, 4].map((j) => (
-                <div key={j} className="w-14 h-14 rounded-full bg-muted border-2 border-background" />
+                <div key={j} className="w-[72px] h-[72px] rounded-full bg-muted border-[2.5px] border-background" />
               ))}
             </div>
             <div className="h-11 bg-muted rounded-xl" />
@@ -284,7 +281,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
   return (
     <div className="rounded-2xl bg-gradient-to-br from-primary/[0.04] to-transparent border border-border/10 py-7 px-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
           <Sparkles className="w-3.5 h-3.5 text-primary" />
           <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
@@ -326,7 +323,6 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
             isCreating={creatingOutfitId === activeIndex}
           />
           <DotNav total={total} active={activeIndex} onChange={setActiveIndex} />
-          <StaleIndicator updatedAt={dataUpdatedAt ? new Date(dataUpdatedAt).toISOString() : null} staleAfterHours={1} onRefresh={() => refetch()} className="justify-center pt-2" />
         </>
       )}
     </div>
