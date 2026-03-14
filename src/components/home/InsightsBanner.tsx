@@ -58,7 +58,6 @@ export function InsightsBanner() {
         </p>
       </div>
 
-      <ChevronRight className="w-4 h-4 text-muted-foreground/30 flex-shrink-0" />
-    </motion.button>
+    </div>
   );
 }
