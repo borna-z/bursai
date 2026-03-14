@@ -489,9 +489,9 @@ Deno.serve(async (req) => {
       } catch (error: any) {
         console.error(`Error processing ${trimmedUrl}:`, error);
         
-        let reason = 'Okänt fel';
+        let reason = 'Unknown error';
         if (error.name === 'AbortError') {
-          reason = 'Timeout - sidan svarade inte';
+          reason = 'Timeout - page did not respond';
         } else if (error.message) {
           reason = error.message.substring(0, 100);
         }
