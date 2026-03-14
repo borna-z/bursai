@@ -148,10 +148,12 @@ export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGen
           {isTravel && (
             <div className="space-y-3">
               <Label className="text-sm font-medium">{t('qgen.destination')}</Label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder={t('qgen.enter_city')} value={travelCity} onChange={(e) => setTravelCity(e.target.value)} className="pl-9" />
-              </div>
+              <LocationAutocomplete
+                value={travelCity}
+                onChange={setTravelCity}
+                onSelect={handleTravelSelect}
+                placeholder={t('qgen.enter_city')}
+              />
               {isFetchingTravel && (
                 <AILoadingCard
                   phases={[
