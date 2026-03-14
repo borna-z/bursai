@@ -105,30 +105,6 @@ export default function DiscoverPage() {
           onJoin={joinChallenge}
         />
 
-        {/* ── Wardrobe Gap Analysis ── */}
-        <WardrobeGapSection />
-
-        {/* ── Mood Outfit — inline card ── */}
-        <motion.button
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: 0.4, ease: EASE_CURVE }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() => { hapticLight(); navigate('/ai/mood-outfit'); }}
-          className="w-full relative overflow-hidden rounded-xl border border-border/10 bg-card/60 p-5 text-left flex items-center gap-4 transition-colors"
-        >
-          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10 shrink-0">
-            <Heart className="w-5 h-5 text-primary" />
-          </div>
-          <div className="min-w-0">
-            <h4 className="text-[13px] font-medium text-foreground leading-tight">
-              {t('discover.tool_mood')}
-            </h4>
-            <p className="text-[11px] text-muted-foreground/60 leading-snug mt-0.5">
-              {t('discover.tool_mood_desc')}
-            </p>
-          </div>
-        </motion.button>
       </AnimatedPage>
     </AppLayout>
   );
