@@ -26,6 +26,12 @@ declare global {
       share?: {
         open: (opts: { url: string }) => void;
       };
+      webview?: {
+        pullToRefresh?: {
+          enable: () => void;
+          disable: () => void;
+        };
+      };
     };
     gonative?: boolean;
   }
