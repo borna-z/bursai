@@ -56,8 +56,11 @@ export function LazyImage({
         <img
           src={signedUrl}
           alt={alt}
-          loading="lazy"
+          loading={fetchPriority === 'high' ? 'eager' : 'lazy'}
           decoding="async"
+          fetchPriority={fetchPriority}
+          width={width}
+          height={height}
           className={cn(
             "w-full h-full object-cover transition-opacity duration-300",
             imageLoaded ? "opacity-100" : "opacity-0"
