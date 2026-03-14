@@ -26,18 +26,18 @@ interface DayCardProps {
 }
 
 const occasionIcons: Record<string, React.ElementType> = {
-  jobb: Briefcase,
-  fest: PartyPopper,
-  dejt: Heart,
+  work: Briefcase, jobb: Briefcase,
+  party: PartyPopper, fest: PartyPopper,
+  date: Heart, dejt: Heart,
 };
 
 const OCCASION_I18N: Record<string, string> = {
-  jobb: 'occasion.jobb',
-  vardag: 'occasion.vardag',
-  fest: 'occasion.fest',
-  resa: 'occasion.resa',
-  traning: 'occasion.traning',
-  dejt: 'occasion.dejt',
+  work: 'occasion.work', jobb: 'occasion.jobb',
+  casual: 'occasion.casual', vardag: 'occasion.vardag',
+  party: 'occasion.party', fest: 'occasion.fest',
+  travel: 'occasion.travel', resa: 'occasion.resa',
+  workout: 'occasion.workout', traning: 'occasion.traning',
+  date: 'occasion.date', dejt: 'occasion.dejt',
 };
 
 export function DayCard({
