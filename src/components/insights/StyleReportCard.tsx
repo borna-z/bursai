@@ -22,6 +22,7 @@ export function StyleReportCard({ isPremium }: { isPremium: boolean }) {
   const { user } = useAuth();
   const [report, setReport] = useState<StyleReport | null>(null);
   const [loading, setLoading] = useState(false);
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
 
   const generate = async () => {
     if (!user) return;
