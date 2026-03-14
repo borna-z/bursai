@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { EASE_TWEEN, SPRING_BOUNCE } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
 import { useTrendingUnlocked } from '@/hooks/useTrendingUnlocked';
+import { prefetchRoute } from '@/lib/routePrefetch';
 
 const tabKeys = [
   { path: '/', labelKey: 'nav.today', icon: Home },
