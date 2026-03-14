@@ -12,6 +12,7 @@ vi.mock('@/hooks/useProfile', () => ({
     data: { id: 'u1', display_name: 'Test User', preferences: { onboarding: { completed: true } } },
     isLoading: false,
   }),
+  useUpdateProfile: () => ({ mutateAsync: vi.fn() }),
 }));
 
 vi.mock('@/hooks/useIsAdmin', () => ({
@@ -30,6 +31,15 @@ vi.mock('@/hooks/useAvatarUrl', () => ({
   useAvatarUrl: () => null,
 }));
 
+vi.mock('@/contexts/SeedContext', () => ({
+  useSeed: () => ({ isSeedMode: false, progress: 0 }),
+  SeedProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+vi.mock('@/hooks/useSubscription', () => ({
+  useSubscription: () => ({ data: { plan: 'free' }, isLoading: false }),
+}));
+
 describe('Settings', () => {
   it('renders settings groups', async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -41,7 +51,6 @@ describe('Settings', () => {
         </MemoryRouter>
       </QueryClientProvider>
     );
-    // Should render setting rows
     expect(screen.getByText('settings.appearance')).toBeInTheDocument();
     expect(screen.getByText('settings.account')).toBeInTheDocument();
   });

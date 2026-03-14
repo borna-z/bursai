@@ -25,13 +25,34 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 }
 
+/** Creates a fluent chain that resolves to { data, error } when awaited */
+function mockChain(data: any = [], error: any = null) {
+  const resolved = Promise.resolve({ data, error });
+  const chain: any = new Proxy({}, {
+    get(_target, prop) {
+      if (prop === 'then') return resolved.then.bind(resolved);
+      if (prop === 'catch') return resolved.catch.bind(resolved);
+      if (prop === 'finally') return resolved.finally.bind(resolved);
+      // single() resolves immediately
+      if (prop === 'single') return vi.fn().mockResolvedValue({ data: data[0] || null, error });
+      // delete returns a sub-chain
+      if (prop === 'delete') return vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error }),
+      });
+      // Any other method returns self for chaining
+      return vi.fn().mockReturnValue(chain);
+    },
+  });
+  return chain;
+}
+
 describe('useOutfits', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
   });
 
-  it('returns empty array when not authenticated', async () => {
+  it('returns undefined when not authenticated', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: null } as any);
     const { useOutfits } = await import('../useOutfits');
     const { result } = renderHook(() => useOutfits(), { wrapper });
@@ -41,13 +62,7 @@ describe('useOutfits', () => {
   it('fetches outfits with items', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: { id: 'user-1' } } as any);
     const outfits = [{ id: 'o1', occasion: 'casual', outfit_items: [] }];
-    
-    const chain: any = {};
-    chain.select = vi.fn().mockReturnValue(chain);
-    chain.eq = vi.fn().mockReturnValue(chain);
-    chain.order = vi.fn().mockReturnValue(chain);
-    chain.limit = vi.fn().mockResolvedValue({ data: outfits, error: null });
-    mockFrom.mockReturnValue(chain);
+    mockFrom.mockReturnValue(mockChain(outfits));
 
     const { useOutfits } = await import('../useOutfits');
     const { result } = renderHook(() => useOutfits(), { wrapper });
@@ -58,12 +73,7 @@ describe('useOutfits', () => {
   it('useOutfit returns single outfit', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: { id: 'user-1' } } as any);
     const outfit = { id: 'o1', occasion: 'formal', outfit_items: [] };
-    
-    const chain: any = {};
-    chain.select = vi.fn().mockReturnValue(chain);
-    chain.eq = vi.fn().mockReturnValue(chain);
-    chain.single = vi.fn().mockResolvedValue({ data: outfit, error: null });
-    mockFrom.mockReturnValue(chain);
+    mockFrom.mockReturnValue(mockChain([outfit]));
 
     const { useOutfit } = await import('../useOutfits');
     const { result } = renderHook(() => useOutfit('o1'), { wrapper });
@@ -73,16 +83,14 @@ describe('useOutfits', () => {
 
   it('useDeleteOutfit calls delete', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: { id: 'user-1' } } as any);
-    
-    const chain: any = {};
-    chain.delete = vi.fn().mockReturnValue({
+    const deleteFn = vi.fn().mockReturnValue({
       eq: vi.fn().mockResolvedValue({ error: null }),
     });
-    mockFrom.mockReturnValue(chain);
+    mockFrom.mockReturnValue({ delete: deleteFn });
 
     const { useDeleteOutfit } = await import('../useOutfits');
     const { result } = renderHook(() => useDeleteOutfit(), { wrapper });
     await result.current.mutateAsync('o1');
-    expect(chain.delete).toHaveBeenCalled();
+    expect(deleteFn).toHaveBeenCalled();
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -24,21 +24,23 @@ vi.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({ theme: 'light', accentColor: 'blue', setAccentColor: vi.fn() }),
 }));
 
-function renderPage() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  // Lazy import to avoid module resolution issues
-  const OnboardingPage = require('../Onboarding').default;
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={['/onboarding']}>
-        <OnboardingPage />
-      </MemoryRouter>
-    </QueryClientProvider>
-  );
-}
+vi.mock('@/contexts/SeedContext', () => ({
+  useSeed: () => ({ isSeedMode: false, progress: 0 }),
+  SeedProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
 
 describe('Onboarding', () => {
-  it('renders the onboarding page without crashing', () => {
-    expect(() => renderPage()).not.toThrow();
+  it('renders the onboarding page without crashing', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const OnboardingPage = (await import('../Onboarding')).default;
+    expect(() =>
+      render(
+        <QueryClientProvider client={qc}>
+          <MemoryRouter initialEntries={['/onboarding']}>
+            <OnboardingPage />
+          </MemoryRouter>
+        </QueryClientProvider>
+      )
+    ).not.toThrow();
   });
 });
