@@ -1,8 +1,3 @@
-import { useNavigate } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { TAP_TRANSITION } from '@/lib/motion';
-import { hapticLight } from '@/lib/haptics';
 import { useInsights } from '@/hooks/useInsights';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Skeleton } from '@/components/ui/skeleton';
