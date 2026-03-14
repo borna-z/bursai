@@ -111,8 +111,8 @@ serve(async (req) => {
 
     // Scale max_tokens generously — each outfit with 4 UUIDs ≈ 100 tokens, capsule_items ≈ 20 tokens/item
     const maxTokens = estimateMaxTokens({ outputItems: targetOutfits + maxItems, perItemTokens: 120, baseTokens: 1000, cap: 8192 });
-    // Use stronger model for longer/more complex trips
-    const complexity: "trivial" | "standard" | "complex" = (duration_days > 5 || outfitsPerDay > 2) ? "complex" : "standard";
+    // Use stronger model only for long/complex trips (>7 days or 3+ outfits/day)
+    const complexity: "trivial" | "standard" | "complex" = (duration_days > 7 || outfitsPerDay > 2) ? "complex" : "standard";
 
     const mustHaveNote = mustHaveIds.length > 0
       ? `\nMUST-HAVE items (MUST appear in capsule_items): ${mustHaveIds.join(", ")}`
