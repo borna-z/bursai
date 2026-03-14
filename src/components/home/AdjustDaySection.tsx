@@ -8,10 +8,10 @@ import { cn } from '@/lib/utils';
 import { TAP_TRANSITION, EASE_CURVE } from '@/lib/motion';
 
 const OCCASIONS = [
-  { id: 'vardag', labelKey: 'home.occasion.vardag' },
-  { id: 'jobb', labelKey: 'home.occasion.jobb' },
-  { id: 'fest', labelKey: 'home.occasion.fest' },
-  { id: 'dejt', labelKey: 'home.occasion.dejt' },
+  { id: 'casual', labelKey: 'home.occasion.casual' },
+  { id: 'work', labelKey: 'home.occasion.work' },
+  { id: 'party', labelKey: 'home.occasion.party' },
+  { id: 'date', labelKey: 'home.occasion.date' },
 ];
 
 const STYLES = [
