@@ -56,7 +56,8 @@ serve(async (req) => {
       .from("garments")
       .select("id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, formality, season_tags, in_laundry, image_path")
       .eq("user_id", user.id)
-      .or("in_laundry.is.null,in_laundry.eq.false");
+      .or("in_laundry.is.null,in_laundry.eq.false")
+      .order("id", { ascending: true });
 
     if (gError) throw gError;
     if (!garments || garments.length < 5) {
@@ -275,7 +276,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
         }
 
         console.log(`travel_capsule attempt ${attempt} calling AI (tool_choice=${useToolChoice})`);
-        const { data: content, model_used } = await callBursAI(callOpts);
+        const { data: content, model_used } = await callBursAI(callOpts, supabase);
 
         console.log(`travel_capsule attempt ${attempt} model=${model_used} type=${typeof content} truthy=${!!content}`);
 
