@@ -37,10 +37,12 @@ describe('useOutfitGenerator', () => {
   });
 
   it('throws when user is not authenticated', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: null } as any);
+    vi.mocked(useAuth).mockReturnValue({ user: null } as ReturnType<typeof useAuth>);
     const { useOutfitGenerator } = await import('../useOutfitGenerator');
     const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
-    await expect(result.current.generateOutfit(baseRequest)).rejects.toThrow();
+    await act(async () => {
+      await expect(result.current.generateOutfit(baseRequest)).rejects.toThrow();
+    });
   });
 
   it('validates wardrobe has required categories', async () => {
