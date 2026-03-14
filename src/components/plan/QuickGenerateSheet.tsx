@@ -160,7 +160,15 @@ export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGen
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input placeholder={t('qgen.enter_city')} value={travelCity} onChange={(e) => setTravelCity(e.target.value)} className="pl-9" />
               </div>
-              {isFetchingTravel && (<p className="text-xs text-muted-foreground flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" />{t('qgen.fetching_weather')}</p>)}
+              {isFetchingTravel && (
+                <AILoadingCard
+                  phases={[
+                    { icon: MapPin, label: `${t('qgen.looking_up') || 'Looking up'} ${travelCity}...`, duration: 1500 },
+                    { icon: Thermometer, label: t('qgen.fetching_weather'), duration: 0 },
+                  ]}
+                  className="mt-1"
+                />
+              )}
               {travelError && (<p className="text-xs text-destructive">{travelError}</p>)}
               {travelForecast && !isFetchingTravel && (
                 <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50 text-sm">

@@ -27,99 +27,16 @@ interface GapResult {
 }
 
 function GapScanningAnimation({ t }: { t: (key: string) => string }) {
-  const [phase, setPhase] = useState(0);
-  const phases = [
-    t('discover.gap_phase_1'),
-    t('discover.gap_phase_2'),
-    t('discover.gap_phase_3'),
-  ];
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPhase(p => (p + 1) % 3);
-    }, 2500);
-    return () => clearInterval(interval);
-  }, []);
-
   return (
-    <div className="rounded-xl border border-border/10 bg-card/60 p-6 space-y-5">
-      {/* Radar pulse */}
-      <div className="flex flex-col items-center gap-4">
-        <div className="relative w-16 h-16 flex items-center justify-center">
-          {/* Concentric rings */}
-          {[0, 1, 2].map(i => (
-            <motion.div
-              key={i}
-              className="absolute inset-0 rounded-full border border-primary/30"
-              animate={{
-                scale: [1, 1.8 + i * 0.4],
-                opacity: [0.5, 0],
-              }}
-              transition={{
-                duration: 2.2,
-                repeat: Infinity,
-                delay: i * 0.6,
-                ease: 'easeOut',
-              }}
-            />
-          ))}
-          <motion.div
-            animate={{ scale: [1, 1.1, 1] }}
-            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-            className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center z-10"
-          >
-            <Sparkles className="w-5 h-5 text-primary" />
-          </motion.div>
-        </div>
-
-        {/* Phase text */}
-        <div className="h-5 relative">
-          <AnimatePresence mode="wait">
-            <motion.p
-              key={phase}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.3, ease: EASE_CURVE }}
-              className="text-[12px] text-muted-foreground font-medium"
-            >
-              {phases[phase]}
-            </motion.p>
-          </AnimatePresence>
-        </div>
-
-        {/* Bouncing dots */}
-        <div className="flex gap-1.5">
-          {[0, 1, 2].map(i => (
-            <motion.span
-              key={i}
-              className="w-1.5 h-1.5 rounded-full bg-primary/40"
-              animate={{ y: [0, -5, 0] }}
-              transition={{
-                duration: 0.6,
-                repeat: Infinity,
-                delay: i * 0.15,
-                ease: 'easeInOut',
-              }}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Staggered skeleton cards */}
-      <div className="space-y-2.5">
-        {[0, 1, 2].map(i => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3 + i * 0.15, duration: 0.4, ease: EASE_CURVE }}
-          >
-            <Skeleton className="h-24 w-full rounded-lg" />
-          </motion.div>
-        ))}
-      </div>
-    </div>
+    <AILoadingOverlay
+      variant="card"
+      phases={[
+        { icon: Search, label: t('discover.gap_phase_1'), duration: 2500 },
+        { icon: Sparkles, label: t('discover.gap_phase_2'), duration: 2500 },
+        { icon: ShoppingBag, label: t('discover.gap_phase_3'), duration: 0 },
+      ]}
+      showSkeletons={3}
+    />
   );
 }
 
