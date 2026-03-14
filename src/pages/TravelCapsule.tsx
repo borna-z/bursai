@@ -224,14 +224,10 @@ export default function TravelCapsule() {
   };
 
   // ── Weather lookup — supports up to 1 year via historical data ──
-  const lookupWeather = useCallback(async () => {
-    if (!destination || destination.length < 2) return;
+  const lookupWeatherWithCoords = useCallback(async (coords: { lat: number; lon: number }) => {
     setIsFetchingWeather(true);
     setWeatherError(null);
     try {
-      const coords = await getCoordinatesFromCity(destination);
-      if (!coords) { setWeatherError(t('qgen.place_not_found')); return; }
-
       // Fetch live 16-day forecast
       const liveDays = await fetchForecast(coords.lat, coords.lon);
       const lastLiveDate = liveDays[liveDays.length - 1]?.date;
@@ -261,7 +257,6 @@ export default function TravelCapsule() {
 
       setForecastDays(allDays);
       if (allDays.length > 0) {
-        // Filter to trip date range if available
         let relevantDays = allDays;
         if (dateRange?.from && dateRange?.to) {
           const startStr = format(dateRange.from, 'yyyy-MM-dd');
@@ -274,20 +269,57 @@ export default function TravelCapsule() {
         const avgPrecip = relevantDays.reduce((s, d) => s + (d.precipitation_probability || 0), 0) / relevantDays.length;
         const condition = avgPrecip > 50 ? 'rain' : avgPrecip > 25 ? 'partly cloudy' : 'clear';
         const hasHistorical = relevantDays.some(d => d.isHistorical);
-        setWeatherForecast({
+        const forecast: ForecastDay = {
           date: relevantDays[0].date, temperature_max: avgMax, temperature_min: avgMin,
           temperature_avg: Math.round((avgMax + avgMin) / 2),
           weather_code: 0,
           condition, precipitation_probability: avgPrecip,
           isHistorical: hasHistorical,
-        } as ForecastDay);
+        };
+        setWeatherForecast(forecast);
+
+        // Smart occasion auto-select (only on first weather load)
+        if (!hasManualOccasions) {
+          const auto: string[] = ['vardag'];
+          if (avgMax > 28) auto.push('beach');
+          if (avgPrecip > 60) { /* keep vardag, skip outdoor */ }
+          else if (avgMax > 20 && avgMax <= 28) auto.push('hiking');
+          setSelectedOccasions(prev => {
+            const merged = new Set([...auto, ...prev]);
+            return [...merged];
+          });
+        }
       }
     } catch {
       setWeatherError(t('qgen.weather_error'));
     } finally {
       setIsFetchingWeather(false);
     }
-  }, [destination, dateRange, t]);
+  }, [dateRange, t, hasManualOccasions]);
+
+  const lookupWeather = useCallback(async () => {
+    if (destCoords) {
+      return lookupWeatherWithCoords(destCoords);
+    }
+    if (!destination || destination.length < 2) return;
+    const coords = await getCoordinatesFromCity(destination);
+    if (!coords) { setWeatherError(t('qgen.place_not_found')); return; }
+    setDestCoords(coords);
+    return lookupWeatherWithCoords(coords);
+  }, [destination, destCoords, lookupWeatherWithCoords, t]);
+
+  // Auto-fetch weather when dates change and destination is set
+  useEffect(() => {
+    if (destCoords && dateRange?.from && dateRange?.to) {
+      lookupWeatherWithCoords(destCoords);
+    }
+  }, [dateRange?.from?.getTime(), dateRange?.to?.getTime()]);
+
+  // Handle location autocomplete selection
+  const handleLocationSelect = useCallback((city: string, coords: { lat: number; lon: number }) => {
+    setDestCoords(coords);
+    lookupWeatherWithCoords(coords);
+  }, [lookupWeatherWithCoords]);
 
   // ── Generate ──
   const handleGenerate = async () => {
