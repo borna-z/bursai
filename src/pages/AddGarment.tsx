@@ -576,7 +576,7 @@ export default function AddGarmentPage() {
           {imagePreview && (
             <div className={cn(
               "relative aspect-square w-48 rounded-xl overflow-hidden bg-secondary/60",
-              !analysisError && analysisPhase < 3 && "shadow-[0_0_30px_0_hsl(var(--accent)/0.3)] animate-pulse"
+              !analysisError && analysisPhase < 3 && "animate-shimmer-sweep shadow-[0_0_30px_0_hsl(var(--accent)/0.3)]"
             )}>
               <img
                 src={imagePreview}
@@ -616,41 +616,17 @@ export default function AddGarmentPage() {
               <p className="text-xs text-muted-foreground">{t('addgarment.ai_review')}</p>
             </motion.div>
           ) : (
-            /* 4-phase step indicator */
-            <div className="flex flex-col gap-3 w-full">
-              {ANALYSIS_PHASES.map((phase, i) => {
-                const PhaseIcon = phase.icon;
-                const isActive = i === analysisPhase;
-                const isDone = i < analysisPhase;
-                return (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: isDone || isActive ? 1 : 0.35, x: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                    className={cn(
-                      "flex items-center gap-3 py-2 px-3 rounded-lg transition-colors",
-                      isActive && "bg-accent/10"
-                    )}
-                  >
-                    {isDone ? (
-                      <CheckCircle className="w-5 h-5 text-accent shrink-0" />
-                    ) : isActive ? (
-                      <Loader2 className="w-5 h-5 text-accent animate-spin shrink-0" />
-                    ) : (
-                      <PhaseIcon className="w-5 h-5 text-muted-foreground shrink-0" />
-                    )}
-                    <span className={cn(
-                      "text-sm",
-                      isActive && "font-medium text-foreground",
-                      isDone && "text-muted-foreground",
-                      !isActive && !isDone && "text-muted-foreground"
-                    )}>
-                      {phase.label}
-                    </span>
-                  </motion.div>
-                );
-              })}
+            /* Phase indicator with radar pulse */
+            <div className="flex flex-col items-center gap-4 w-full">
+              <AILoadingOverlay
+                variant="inline"
+                phases={ANALYSIS_PHASES.map((phase, i) => ({
+                  icon: phase.icon,
+                  label: phase.label,
+                  duration: i < ANALYSIS_PHASES.length - 1 ? 1200 : 0,
+                }))}
+                className="py-2"
+              />
             </div>
           )}
         </div>
