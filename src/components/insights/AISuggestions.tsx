@@ -241,6 +241,16 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
 
   const total = suggestions?.length || 0;
 
+  const handleSwipe = useCallback((_: unknown, info: PanInfo) => {
+    if (!suggestions?.length) return;
+    const threshold = 50;
+    if (info.offset.x < -threshold) {
+      setActiveIndex((prev) => Math.min(prev + 1, suggestions.length - 1));
+    } else if (info.offset.x > threshold) {
+      setActiveIndex((prev) => Math.max(prev - 1, 0));
+    }
+  }, [suggestions]);
+
   /* ── Premium gate ── */
   if (!isPremium) {
     return (
