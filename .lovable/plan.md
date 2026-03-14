@@ -1,70 +1,33 @@
 
-# BURS Launch Readiness Plan v4
 
-**Status: ✅ Phases 1-7 COMPLETE | AI Loading Animations COMPLETE**
+# Fix: Travel Capsule Loading UX
 
-## Phase 1: Dead Weight Removal (Steps 1-3) ✅
-- Removed `recharts`, `react-resizable-panels`, `next-themes` (~200KB saved)
-- Deleted unused `resizable.tsx` and `chart.tsx`
-- Lazy-imported `html-to-image` in `OutfitReel.tsx`
+## Problems identified
 
-## Phase 2: Metadata & SEO (Steps 4-5) ✅
-- Fixed OG image URL to relative `/og-image.png`
-- Synced manifest.json lang to `"en"`
+1. **Raw translation keys visible**: The phase labels like `capsule.phase_creating` are missing from `translations.ts`. The `t()` function returns the key string literally (dots, underscores), making it look like unfinished code.
 
-## Phase 3: Hook Tests (Steps 6-11) ✅
-- `useProfile`: 4 tests (auth, fetch, auto-create, ghost session)
-- `useGarments`: 5 tests (auth, fetch, filters, search, count)
-- `useOutfits`: 4 tests (auth, fetch, single, delete)
-- `useOutfitGenerator`: 3 tests (auth, validation, generation)
-- `useOfflineQueue`: 4 tests (online/offline, replay, events)
-- `useSupabaseQuery`: 4 tests (auth skip, fetch, single, schema)
+2. **Animation too short**: Current phases total ~7 seconds (1500+2000+2000+1500+0ms), then the last phase sits static for the remaining 30-40 seconds of API time. User stares at a frozen screen.
 
-## Phase 4: Component Tests (Steps 12-18) ✅
-- `Onboarding`: 1 smoke test
-- `Settings`: 1 smoke test
-- `Landing`: 1 smoke test
-- Existing: Auth, Home, Wardrobe, PaywallModal, BottomNav, ProtectedRoute
+3. **Edge function timeout**: The `travel_capsule` function has a 50s AI timeout with 2 retry attempts. Can be tightened.
 
-## Phase 5: Utility Tests (Steps 19-21) ✅
-- `edgeFunctionClient`: 5 tests (success, retry, exhausted, exceptions, timeout error)
-- `offlineQueue`: 6 tests (enqueue, upload, clear, replay, progress)
-- `schemas`: 11 tests (profile, garment, style score, weather, safeParse, preferences)
-- `nativeShare`: 4 tests (Median, Web Share, clipboard, cancel)
-- Existing: compressFrame, backgroundGarmentSave
+## Plan
 
-## Phase 6: Infrastructure (Steps 22-24) ✅
-- Added `test:coverage` script with v8 provider + 30% line threshold
-- Added CSP meta tag to `index.html`
-- Added Sentry `release` tag using `__APP_VERSION__`
+### 1. Add missing translations (translations.ts)
+Add `capsule.phase_weather`, `capsule.phase_wardrobe`, `capsule.phase_planning`, `capsule.phase_packing`, `capsule.phase_creating` to all locale blocks (sv, en, no, da, fi, de, fr, es).
 
-## Phase 7: Final Polish (Step 25) ✅
-- All new tests passing individually
-- CI pipeline configured
+### 2. Extend loading animation to ~60s (TravelCapsule.tsx)
+- Increase phase count from 5 to 8-10 with longer durations
+- Add phases like "Matching colors...", "Checking weather layers...", "Reviewing combinations..."
+- Distribute durations to cover ~60 seconds total
+- Keep the last phase at `duration: 0` (infinite hold as safety net)
 
-## AI Loading Animations (35-Step Sprint) ✅
+### 3. Speed up edge function (travel_capsule/index.ts)
+- Reduce AI timeout from 50s → 35s
+- Reduce cache TTL comment but keep 30min
+- On first attempt, use `complexity: "standard"` instead of `"complex"` for trips ≤ 7 days
+- Remove the second retry attempt (fallback to deterministic immediately on failure)
 
-### Foundation
-- Created `AILoadingOverlay` — reusable multi-phase loading with radar pulse rings, bouncing dots, phase cycling
-- Created `AILoadingCard` — compact inline variant for cards/sections
-- Added `shimmer-sweep` CSS keyframe for scanner beam effect
+### 4. Add progress indicator to loading overlay (TravelCapsule.tsx)
+- Pass a simulated `progress` prop to `AILoadingOverlay` that increments smoothly over 60s
+- Gives users a sense of forward motion even during long waits
 
-### Integrated Surfaces (20+ touchpoints)
-- **OutfitGenerate** — 5-phase fullscreen animation
-- **TodayOutfitCard** — AILoadingCard for initial load, AILoadingOverlay for regeneration
-- **StylePicker** — AILoadingCard embedded in active style card
-- **MoodOutfit** — AILoadingCard in selected mood card
-- **QuickGenerateSheet** — AILoadingCard replaces spinner button
-- **QuickPlanSheet** — AILoadingOverlay with day-name subtitle + progress bar
-- **UnusedOutfits** — AILoadingOverlay with skeleton cards
-- **AddGarment** — shimmer-sweep on image + AILoadingOverlay for phases
-- **BatchUploadProgress** — per-item pulse ring animations
-- **LiveScan** — multi-phase ScanOverlay with concentric rings + bouncing dots
-- **AIChat** — bouncing dots + phase text for streaming indicator
-- **AISuggestions** — AILoadingOverlay variant="card" with progress
-- **StyleReportCard** — AILoadingCard with 3 phases
-- **WardrobeGapSection** — refactored to use shared AILoadingOverlay
-- **TravelCapsule** — AILoadingOverlay for generation, AILoadingCard for weather lookup + calendar sync
-- **QuickGenerateSheet** — AILoadingCard for travel weather lookup
-
-**Total tests: ~100+ (48 existing + 52 new across 13 new test files)**
