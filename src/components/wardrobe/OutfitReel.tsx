@@ -5,7 +5,7 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import type { toPng as ToPngType } from 'html-to-image';
+
 import type { OutfitWithItems } from '@/hooks/useOutfits';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
