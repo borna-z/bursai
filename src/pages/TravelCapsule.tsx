@@ -36,6 +36,8 @@ import { getDateFnsLocale } from '@/lib/dateLocale';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
 import { EASE_CURVE, STAGGER_DELAY } from '@/lib/motion';
 import type { DateRange } from 'react-day-picker';
+import { AILoadingCard } from '@/components/ui/AILoadingCard';
+import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 
 /* ─── Types ─── */
 interface CapsuleOutfit {
