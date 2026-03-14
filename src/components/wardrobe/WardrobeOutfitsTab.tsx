@@ -78,9 +78,9 @@ function OutfitCard({
 
   const plannedFor = outfit.planned_for;
   const dateStr = plannedFor
-    ? format(new Date(plannedFor), 'd MMM', { locale: getDateFnsLocale(locale as any) })
+    ? format(new Date(plannedFor), 'd MMM', { locale: getDateFnsLocale(locale as AppLocale) })
     : outfit.generated_at
-      ? format(new Date(outfit.generated_at), 'd MMM', { locale: getDateFnsLocale(locale as any) })
+      ? format(new Date(outfit.generated_at), 'd MMM', { locale: getDateFnsLocale(locale as AppLocale) })
       : null;
 
   return (

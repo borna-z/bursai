@@ -52,6 +52,7 @@ export function useSupabaseQuery<T = unknown>(opts: SupabaseQueryOptions<T>) {
     queryFn: async () => {
       if (requireAuth && !user) return single ? null : [];
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic table name from caller
       let query = supabase.from(table as any).select(select);
 
       if (requireAuth && user) {
