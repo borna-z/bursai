@@ -94,7 +94,7 @@ async function generateOutfitViaEngine(
   const explanation: string = data.explanation;
   const styleScore = data.style_score || null;
 
-  if (!aiItems?.length) throw new Error('AI returnerade inga plagg');
+  if (!aiItems?.length) throw new Error('AI returned no garments');
 
   // Fetch full garment data
   const garmentIds = aiItems.map((i) => i.garment_id);
