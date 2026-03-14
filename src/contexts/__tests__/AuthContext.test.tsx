@@ -2,24 +2,32 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 
-// Mock supabase
-const mockOnAuthStateChange = vi.fn();
-const mockGetSession = vi.fn();
-const mockSignUp = vi.fn();
-const mockSignInWithPassword = vi.fn();
-const mockSignOut = vi.fn();
-
-vi.mock('@/integrations/supabase/client', () => ({
-  supabase: {
-    auth: {
-      onAuthStateChange: mockOnAuthStateChange,
-      getSession: mockGetSession,
-      signUp: mockSignUp,
-      signInWithPassword: mockSignInWithPassword,
-      signOut: mockSignOut,
+// Mock supabase — declare mocks before vi.mock so hoisting works
+vi.mock('@/integrations/supabase/client', () => {
+  const mockOnAuthStateChange = vi.fn();
+  const mockGetSession = vi.fn();
+  const mockSignUp = vi.fn();
+  const mockSignInWithPassword = vi.fn();
+  const mockSignOut = vi.fn();
+  return {
+    supabase: {
+      auth: {
+        onAuthStateChange: mockOnAuthStateChange,
+        getSession: mockGetSession,
+        signUp: mockSignUp,
+        signInWithPassword: mockSignInWithPassword,
+        signOut: mockSignOut,
+      },
     },
-  },
-}));
+  };
+});
+
+import { supabase } from '@/integrations/supabase/client';
+const mockOnAuthStateChange = supabase.auth.onAuthStateChange as ReturnType<typeof vi.fn>;
+const mockGetSession = supabase.auth.getSession as ReturnType<typeof vi.fn>;
+const mockSignUp = supabase.auth.signUp as ReturnType<typeof vi.fn>;
+const mockSignInWithPassword = supabase.auth.signInWithPassword as ReturnType<typeof vi.fn>;
+const mockSignOut = supabase.auth.signOut as ReturnType<typeof vi.fn>;
 
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 

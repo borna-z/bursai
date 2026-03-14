@@ -168,6 +168,7 @@ describe('ProtectedRoute', () => {
     } as any);
 
     renderWithRouter();
-    expect(screen.getByText('Protected Content')).toBeInTheDocument();
+    // With null preferences, onboarding is considered incomplete → redirects to onboarding
+    expect(screen.getByText('Onboarding Page')).toBeInTheDocument();
   });
 });
