@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Check, RotateCcw, Camera, Zap, ZapOff } from 'lucide-react';
+import { X, Check, RotateCcw, Camera, Zap, ZapOff, ImagePlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,7 @@ import { useAutoDetect, type FramingHint } from '@/hooks/useAutoDetect';
 import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { isMedianApp } from '@/lib/median';
 
 /* ─── Accepted overlay — fast checkmark fade ─── */
 function AcceptedOverlay({ onDone, label }: { onDone: () => void; label: string }) {
@@ -107,11 +108,22 @@ function ScanGuidance({ hint, autoMode }: { hint: FramingHint; autoMode: boolean
   );
 }
 
+/* ─── Permission check helper ─── */
+async function checkCameraPermission(): Promise<PermissionState | 'unknown'> {
+  try {
+    const result = await navigator.permissions.query({ name: 'camera' as PermissionName });
+    return result.state;
+  } catch {
+    return 'unknown';
+  }
+}
+
 export default function LiveScan() {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraStarted, setCameraStarted] = useState(false);
@@ -119,11 +131,16 @@ export default function LiveScan() {
   const [showAccepted, setShowAccepted] = useState(false);
   const [autoMode, setAutoMode] = useState(true);
 
-  const { scanCount, isProcessing, lastResult, error, capture, accept, retake, finish } = useLiveScan();
+  const isMedian = isMedianApp();
+  const useFileInputMode = isMedian || !navigator.mediaDevices?.getUserMedia;
+
+  const { scanCount, isProcessing, lastResult, error, capture, captureFromFile, accept, retake, finish } = useLiveScan();
   const { subscription, isPremium } = useSubscription();
 
   const remainingSlots = isPremium ? Infinity : PLAN_LIMITS.free.maxGarments - (subscription?.garments_count || 0) - scanCount;
-  const canCapture = cameraReady && !isProcessing && !lastResult && !showAccepted;
+  const canCapture = useFileInputMode
+    ? !isProcessing && !lastResult && !showAccepted
+    : cameraReady && !isProcessing && !lastResult && !showAccepted;
   const hasSlots = isPremium || remainingSlots > 0;
 
   const handleAutoCapture = useCallback(() => {
@@ -133,16 +150,50 @@ export default function LiveScan() {
   }, [capture, canCapture, hasSlots]);
 
   const { progress: autoProgress, framingHint } = useAutoDetect({
-    enabled: autoMode && canCapture && hasSlots,
+    enabled: !useFileInputMode && autoMode && canCapture && hasSlots,
     videoEl: videoRef.current,
     busy: isProcessing || !!lastResult || showAccepted,
     onStable: handleAutoCapture,
   });
 
+  /** Handle file input change (Median / fallback mode) */
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Reset so same file can be selected again
+    e.target.value = '';
+    if (!hasSlots) { setShowPaywall(true); return; }
+    captureFromFile(file);
+  }, [captureFromFile, hasSlots]);
+
+  /** Trigger file input for Median / fallback capture */
+  const handleFileCapture = useCallback(() => {
+    if (!hasSlots) { setShowPaywall(true); return; }
+    if (fileInputRef.current) {
+      fileInputRef.current.setAttribute('capture', 'environment');
+      fileInputRef.current.setAttribute('accept', 'image/*');
+      fileInputRef.current.click();
+    }
+  }, [hasSlots]);
+
   /** Start camera — must be called from a user gesture (onClick) for Android WebView */
   const startCamera = useCallback(async () => {
+    if (useFileInputMode) {
+      // In Median / no-getUserMedia mode, just trigger file input directly
+      handleFileCapture();
+      return;
+    }
+
     setCameraStarted(true);
     setCameraError(null);
+
+    // Check permission state first
+    const permState = await checkCameraPermission();
+    if (permState === 'denied') {
+      setCameraError(t('scan.camera_denied'));
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
@@ -154,11 +205,18 @@ export default function LiveScan() {
         await videoRef.current.play();
         setCameraReady(true);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Camera error:', err);
-      setCameraError(t('scan.camera_error'));
+      const error = err instanceof Error ? err : null;
+      if (error?.name === 'NotAllowedError' || error?.name === 'PermissionDeniedError') {
+        setCameraError(t('scan.camera_denied'));
+      } else if (error?.name === 'NotFoundError') {
+        setCameraError(t('scan.no_camera'));
+      } else {
+        setCameraError(t('scan.camera_error'));
+      }
     }
-  }, [t]);
+  }, [t, useFileInputMode, handleFileCapture]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -168,10 +226,14 @@ export default function LiveScan() {
   }, []);
 
   const handleCapture = useCallback(() => {
+    if (useFileInputMode) {
+      handleFileCapture();
+      return;
+    }
     if (!videoRef.current || isProcessing || lastResult) return;
     if (!isPremium && remainingSlots <= 0) { setShowPaywall(true); return; }
     capture(videoRef.current);
-  }, [capture, isProcessing, lastResult, isPremium, remainingSlots]);
+  }, [capture, isProcessing, lastResult, isPremium, remainingSlots, useFileInputMode, handleFileCapture]);
 
   const handleAccept = useCallback(() => { accept(); setShowAccepted(true); }, [accept]);
   const handleAcceptedDone = useCallback(() => { setShowAccepted(false); }, []);
@@ -188,13 +250,23 @@ export default function LiveScan() {
 
   return (
     <div className="fixed inset-0 bg-background z-50 flex flex-col">
+      {/* Hidden file input for Median / fallback mode */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
       {/* Top bar — glass */}
       <div className="relative z-10 flex items-center justify-between px-4 py-3 bg-background/70 backdrop-blur-xl border-b border-border/10">
         <Button variant="ghost" size="icon" className="text-foreground hover:bg-foreground/[0.06]" onClick={handleClose}>
           <X className="w-5 h-5" />
         </Button>
         <div className="flex items-center gap-2">
-          {cameraReady && (
+          {cameraReady && !useFileInputMode && (
             <button
               onClick={() => setAutoMode((v) => !v)}
               className={cn(
@@ -213,8 +285,24 @@ export default function LiveScan() {
 
       {/* Camera view */}
       <div className="flex-1 relative overflow-hidden">
-        {!cameraStarted ? (
-          /* Start Camera button — required for Android WebView user-gesture */
+        {useFileInputMode ? (
+          /* File-input mode (Median or no getUserMedia) */
+          <div className="absolute inset-0 flex items-center justify-center p-8 text-center">
+            <div className="space-y-6">
+              <div className="w-20 h-20 rounded-full bg-accent/10 flex items-center justify-center mx-auto">
+                <ImagePlus className="w-10 h-10 text-accent" />
+              </div>
+              <div className="space-y-2">
+                <p className="text-foreground text-base font-medium">{t('scan.title')}</p>
+                <p className="text-muted-foreground text-sm">{t('scan.tap_to_capture')}</p>
+              </div>
+              <Button onClick={handleFileCapture} disabled={isProcessing} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                <Camera className="w-4 h-4 mr-2" />{t('scan.take_photo')}
+              </Button>
+            </div>
+          </div>
+        ) : !cameraStarted ? (
+          /* Start Camera button — required for user-gesture */
           <div className="absolute inset-0 flex items-center justify-center p-8 text-center">
             <div className="space-y-4">
               <Camera className="w-16 h-16 text-muted-foreground/50 mx-auto" />
@@ -236,8 +324,8 @@ export default function LiveScan() {
           <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
         )}
 
-        {/* Idle: circular reticle + guidance */}
-        {cameraReady && !lastResult && !isProcessing && !showAccepted && (
+        {/* Idle: circular reticle + guidance (only in camera mode) */}
+        {!useFileInputMode && cameraReady && !lastResult && !isProcessing && !showAccepted && (
           <>
             <Reticle stable={autoMode && autoProgress > 0} />
             <ScanGuidance hint={framingHint} autoMode={autoMode} />
@@ -304,8 +392,8 @@ export default function LiveScan() {
         )}
       </div>
 
-      {/* Shutter button — glass bar */}
-      {cameraReady && (
+      {/* Shutter button — only in camera stream mode */}
+      {!useFileInputMode && cameraReady && (
         <div className="relative z-10 flex items-center justify-center py-6 bg-background/70 backdrop-blur-xl border-t border-border/10">
           <div className="relative w-16 h-16">
             {autoMode && autoProgress > 0 && <AutoProgressRing progress={autoProgress} />}
@@ -324,6 +412,15 @@ export default function LiveScan() {
               )} />
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Bottom bar for file-input mode — take another photo */}
+      {useFileInputMode && !lastResult && !isProcessing && !showAccepted && scanCount > 0 && (
+        <div className="relative z-10 flex items-center justify-center py-6 bg-background/70 backdrop-blur-xl border-t border-border/10">
+          <Button onClick={handleFileCapture} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+            <Camera className="w-4 h-4 mr-2" />{t('scan.take_photo')}
+          </Button>
         </div>
       )}
 
