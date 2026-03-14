@@ -50,6 +50,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     'unlock.outfit_gen_message': 'Lägg till minst 5 plagg i din garderob så kan AI:n skapa outfits åt dig.',
     'unlock.gap_analysis_message': 'Lägg till minst 10 plagg för att låsa upp garderobsanalys.',
     'unlock.travel_capsule_message': 'Lägg till minst 10 plagg för att skapa en resegarderob.',
+    'unlock.celebration_title': '✨ Ny funktion upplåst!',
+    'unlock.celebration_desc': 'Du har nu tillgång till: {features}',
 
     // Onboarding - Language step
     'onboarding.language.title': 'Välj språk',
