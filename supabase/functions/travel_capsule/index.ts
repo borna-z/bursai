@@ -255,20 +255,27 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
 
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const { data: content, model_used } = await callBursAI({
+        // On retry, drop tool_choice constraint — some models handle it poorly
+        const useToolChoice = attempt === 0;
+        const callOpts: any = {
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: `WARDROBE (${garments.length} items):\n${wardrobeLines}` },
           ],
           tools,
-          tool_choice: { type: "function", function: { name: "create_travel_capsule" } },
           complexity: attempt === 0 ? complexity : "standard",
           max_tokens: maxTokens,
-          timeout: 45000,
+          timeout: 50000,
           functionName: "travel_capsule",
-        });
+        };
+        if (useToolChoice) {
+          callOpts.tool_choice = { type: "function", function: { name: "create_travel_capsule" } };
+        }
 
-        console.log(`travel_capsule attempt ${attempt} model=${model_used} type=${typeof content}`);
+        console.log(`travel_capsule attempt ${attempt} calling AI (tool_choice=${useToolChoice})`);
+        const { data: content, model_used } = await callBursAI(callOpts);
+
+        console.log(`travel_capsule attempt ${attempt} model=${model_used} type=${typeof content} truthy=${!!content}`);
 
         let parsed: any = null;
         if (content && typeof content === "object") {
@@ -277,6 +284,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           if (!jsonMatch) {
             lastError = new Error("No JSON in response: " + content.slice(0, 300));
+            console.warn(`attempt ${attempt}: no JSON found in string response`);
             continue;
           }
           parsed = JSON.parse(jsonMatch[0]);
@@ -284,13 +292,13 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
 
         if (!parsed || typeof parsed !== "object") {
           lastError = new Error(`AI returned empty payload (type=${typeof content})`);
-          console.warn("Empty AI payload, raw content:", JSON.stringify(content)?.slice(0, 500));
+          console.warn(`attempt ${attempt}: empty payload, raw:`, JSON.stringify(content)?.slice(0, 500));
           continue;
         }
 
         if (!Array.isArray(parsed.capsule_items) || !Array.isArray(parsed.outfits)) {
           lastError = new Error(`Missing arrays: capsule_items=${typeof parsed.capsule_items} outfits=${typeof parsed.outfits}`);
-          console.warn("Malformed AI payload keys:", Object.keys(parsed));
+          console.warn(`attempt ${attempt}: malformed keys:`, Object.keys(parsed));
           continue;
         }
 
@@ -298,7 +306,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
         break;
       } catch (e) {
         lastError = e instanceof Error ? e : new Error(String(e));
-        console.error(`travel_capsule attempt ${attempt} failed:`, lastError.message);
+        console.warn(`travel_capsule attempt ${attempt} threw:`, lastError.message);
         if (attempt === 1) break;
       }
     }
