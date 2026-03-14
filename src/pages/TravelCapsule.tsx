@@ -634,15 +634,16 @@ export default function TravelCapsule() {
 
             {/* Generate */}
             <div className="space-y-1">
-              <Button onClick={handleGenerate} disabled={isGenerating || !isFormValid} className="w-full h-12 rounded-xl" size="lg">
-                {isGenerating ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('capsule.generating')}</>
-                ) : (
-                  <><Package className="w-4 h-4 mr-2" />{t('capsule.generate_new')}</>
-                )}
-              </Button>
-              {isGenerating && loadingPhase && (
-                <p className="text-muted-foreground text-[12px] text-center">{loadingPhase}</p>
+              {isGenerating ? (
+                <AILoadingOverlay
+                  variant="card"
+                  phases={travelLoadingPhases}
+                  subtitle={`${destination} · ${tripNights} ${t('capsule.nights')}`}
+                />
+              ) : (
+                <Button onClick={handleGenerate} disabled={!isFormValid} className="w-full h-12 rounded-xl" size="lg">
+                  <Package className="w-4 h-4 mr-2" />{t('capsule.generate_new')}
+                </Button>
               )}
             </div>
           </div>
