@@ -32,6 +32,7 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useDaySummary } from '@/hooks/useDaySummary';
 import { 
   usePlannedOutfits, 
+  usePlannedOutfitsForDate,
   useUpsertPlannedOutfit, 
   useDeletePlannedOutfit,
   useUpdatePlannedOutfitStatus,
@@ -60,6 +61,8 @@ const OCCASION_I18N: Record<string, string> = {
   date: 'occasion.date', dejt: 'occasion.dejt',
 };
 
+const MAX_OUTFITS_PER_DAY = 4;
+
 export default function PlanPage() {
   useBackgroundSyncNotification();
   const navigate = useNavigate();
@@ -80,6 +83,7 @@ export default function PlanPage() {
   const [swapSheetOpen, setSwapSheetOpen] = useState(false);
   const [quickPlanSheetOpen, setQuickPlanSheetOpen] = useState(false);
   const [currentOutfitId, setCurrentOutfitId] = useState<string | null>(null);
+  const [currentPlannedId, setCurrentPlannedId] = useState<string | null>(null);
   
   const [isAutoGenerating, setIsAutoGenerating] = useState(false);
   const [generatingDayIndex, setGeneratingDayIndex] = useState(0);
@@ -94,6 +98,7 @@ export default function PlanPage() {
   
   // Selected day data
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+  const { data: dayPlannedOutfits = [], isLoading: isDayLoading } = usePlannedOutfitsForDate(selectedDateStr);
   const { data: daySummary, isLoading: isSummaryLoading } = useDaySummary(selectedDateStr);
   const { data: calendarEvents = [] } = useCalendarEvents(selectedDateStr);
   
@@ -110,17 +115,13 @@ export default function PlanPage() {
     return plannedOutfits.find(p => p.date === dateStr) || null;
   }, [plannedOutfits]);
 
-  const plannedOutfit = getPlannedForDate(selectedDate);
-  const outfit = plannedOutfit?.outfit;
-  const hasOutfit = !!outfit;
-  const isWorn = plannedOutfit?.status === 'worn';
+  const hasOutfits = dayPlannedOutfits.length > 0;
+  const canAddMore = dayPlannedOutfits.length < MAX_OUTFITS_PER_DAY;
 
   // Date label
   let dateLabel = format(selectedDate, 'EEEE d MMMM', { locale: getDateFnsLocale(locale) });
   if (isToday(selectedDate)) dateLabel = t('plan.today');
   else if (isTomorrow(selectedDate)) dateLabel = t('plan.tomorrow');
-
-  const OccasionIcon = outfit?.occasion ? occasionIcons[outfit.occasion] || CalendarDays : CalendarDays;
 
   // ── Handlers ──
   const handleSelectOutfit = async (outfitId: string) => {
@@ -128,8 +129,8 @@ export default function PlanPage() {
     try {
       await upsertPlanned.mutateAsync({ date: dateStr, outfitId });
       toast.success(t('plan.planned'));
-    } catch {
-      toast.error(t('plan.plan_error'));
+    } catch (err: any) {
+      toast.error(err?.message?.includes('Maximum') ? err.message : t('plan.plan_error'));
     }
   };
 
@@ -156,25 +157,24 @@ export default function PlanPage() {
     }
   };
 
-  const handleMarkWorn = async () => {
-    if (!plannedOutfit?.outfit) return;
-    const garmentIds = plannedOutfit.outfit.outfit_items.map(item => item.garment_id);
-    // Capture the top calendar event title for social context tracking
+  const handleMarkWorn = async (planned: PlannedOutfit) => {
+    if (!planned.outfit) return;
+    const garmentIds = planned.outfit.outfit_items.map(item => item.garment_id);
     const topEventTitle = daySummary?.priorities?.[0]?.title || undefined;
     try {
       const result = await markWorn.mutateAsync({
-        outfitId: plannedOutfit.outfit.id,
+        outfitId: planned.outfit.id,
         garmentIds,
-        occasion: plannedOutfit.outfit.occasion,
+        occasion: planned.outfit.occasion,
         eventTitle: topEventTitle,
       });
-      await updateStatus.mutateAsync({ id: plannedOutfit.id, status: 'worn' });
+      await updateStatus.mutateAsync({ id: planned.id, status: 'worn' });
       toast.success(t('plan.worn'), {
         action: {
           label: t('plan.undo'),
           onClick: async () => {
             await undoMarkWorn.mutateAsync(result);
-            await updateStatus.mutateAsync({ id: plannedOutfit.id, status: 'planned' });
+            await updateStatus.mutateAsync({ id: planned.id, status: 'planned' });
             toast.success(t('plan.undone'));
           },
         },
@@ -184,10 +184,9 @@ export default function PlanPage() {
     }
   };
 
-  const handleRemove = async () => {
-    if (!plannedOutfit) return;
+  const handleRemove = async (plannedId: string) => {
     try {
-      await deletePlanned.mutateAsync(plannedOutfit.id);
+      await deletePlanned.mutateAsync(plannedId);
       toast.success(t('plan.removed'));
     } catch {
       toast.error(t('plan.remove_error'));
@@ -227,6 +226,7 @@ export default function PlanPage() {
   const handleRefresh = useCallback(async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['planned-outfits'] }),
+      queryClient.invalidateQueries({ queryKey: ['planned-outfits-day'] }),
       queryClient.invalidateQueries({ queryKey: ['garments'] }),
       queryClient.invalidateQueries({ queryKey: ['day-summary'] }),
     ]);
@@ -285,10 +285,9 @@ export default function PlanPage() {
           {/* Weather + status line */}
           <div className="flex items-center justify-between">
             <WeatherForecastBadge date={selectedDateStr} compact={false} />
-            {isWorn && (
-              <Badge variant="secondary" className="text-[10px] uppercase tracking-wider bg-success/10 text-success font-medium">
-                <Check className="w-3 h-3 mr-1" />
-                {t('plan.worn')}
+            {dayPlannedOutfits.length > 0 && (
+              <Badge variant="secondary" className="text-[10px] uppercase tracking-wider font-medium">
+                {dayPlannedOutfits.length}/{MAX_OUTFITS_PER_DAY}
               </Badge>
             )}
           </div>
@@ -326,7 +325,7 @@ export default function PlanPage() {
           )}
 
           {/* ─── Outfit section ─── */}
-          {isLoading ? (
+          {isLoading || isDayLoading ? (
             <PlanPageSkeleton />
           ) : !hasGarments ? (
             <EmptyState
@@ -335,84 +334,124 @@ export default function PlanPage() {
               description={t('plan.need_garments')}
               action={{ label: t('wardrobe.add'), onClick: () => navigate('/wardrobe/add'), icon: Shirt }}
             />
-          ) : hasOutfit ? (
-            <div className="space-y-6">
-              {/* Outfit image grid */}
-              <div 
-                className="rounded-2xl overflow-hidden cursor-pointer press"
-                onClick={() => navigate(`/outfits/${outfit.id}`)}
-              >
-                <div className="grid grid-cols-2 gap-1 p-1">
-                  {outfit.outfit_items.slice(0, 4).map((item) => (
-                    <div key={item.id} className="bg-muted aspect-[4/5] rounded-xl overflow-hidden">
-                      <LazyImageSimple
-                        imagePath={item.garment?.image_path}
-                        alt={item.garment?.title || item.slot}
-                        className="w-full h-full"
-                      />
+          ) : hasOutfits ? (
+            <div className="space-y-4">
+              {dayPlannedOutfits.map((planned) => {
+                const outfit = planned.outfit;
+                if (!outfit) return null;
+                const isWorn = planned.status === 'worn';
+                const OccasionIcon = outfit.occasion ? occasionIcons[outfit.occasion] || CalendarDays : CalendarDays;
+
+                return (
+                  <div key={planned.id} className="space-y-4 pb-4 border-b border-border/5 last:border-0 last:pb-0">
+                    {/* Outfit image grid */}
+                    <div 
+                      className="rounded-2xl overflow-hidden cursor-pointer press"
+                      onClick={() => navigate(`/outfits/${outfit.id}`)}
+                    >
+                      <div className="grid grid-cols-2 gap-1 p-1">
+                        {outfit.outfit_items.slice(0, 4).map((item) => (
+                          <div key={item.id} className="bg-muted aspect-[4/5] rounded-xl overflow-hidden">
+                            <LazyImageSimple
+                              imagePath={item.garment?.image_path}
+                              alt={item.garment?.title || item.slot}
+                              className="w-full h-full"
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
 
-              {/* Tags */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="secondary" className="capitalize text-xs font-medium">
-                  <OccasionIcon className="w-3 h-3 mr-1.5" />
-                  {getOccasionLabel(outfit.occasion || '', t)}
-                </Badge>
-                {outfit.style_vibe && (
-                  <Badge variant="outline" className="text-xs font-normal">{outfit.style_vibe}</Badge>
-                )}
-              </div>
+                    {/* Tags */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="secondary" className="capitalize text-xs font-medium">
+                        <OccasionIcon className="w-3 h-3 mr-1.5" />
+                        {getOccasionLabel(outfit.occasion || '', t)}
+                      </Badge>
+                      {outfit.style_vibe && (
+                        <Badge variant="outline" className="text-xs font-normal">{outfit.style_vibe}</Badge>
+                      )}
+                      {isWorn && (
+                        <Badge variant="secondary" className="text-[10px] uppercase tracking-wider bg-success/10 text-success font-medium">
+                          <Check className="w-3 h-3 mr-1" />
+                          {t('plan.worn')}
+                        </Badge>
+                      )}
+                    </div>
 
-              {/* Explanation */}
-              {outfit.explanation && (
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {outfit.explanation}
-                </p>
-              )}
+                    {/* Explanation */}
+                    {outfit.explanation && (
+                      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
+                        {outfit.explanation}
+                      </p>
+                    )}
 
-              {/* Primary actions */}
-              <div className="flex items-center gap-3">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => { setCurrentOutfitId(outfit.id); setSwapSheetOpen(true); }}
-                  className="flex-1 rounded-xl h-11 press"
-                >
-                  <Repeat className="w-4 h-4 mr-2" />
-                  {t('plan.swap')}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => navigate(`/outfits/${outfit.id}`)}
-                  className="flex-1 rounded-xl h-11 press"
-                >
-                  {t('plan.details')}
-                </Button>
-              </div>
+                    {/* Actions */}
+                    <div className="flex items-center gap-3">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => { setCurrentOutfitId(outfit.id); setCurrentPlannedId(planned.id); setSwapSheetOpen(true); }}
+                        className="flex-1 rounded-xl h-10 press"
+                      >
+                        <Repeat className="w-4 h-4 mr-2" />
+                        {t('plan.swap')}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => navigate(`/outfits/${outfit.id}`)}
+                        className="flex-1 rounded-xl h-10 press"
+                      >
+                        {t('plan.details')}
+                      </Button>
+                    </div>
 
-              {/* Secondary actions — quiet text links */}
-              <div className="flex items-center justify-between pt-2">
-                {!isWorn && (
-                  <button 
-                    onClick={handleMarkWorn}
-                    className="text-xs text-muted-foreground/60 hover:text-success flex items-center gap-1.5 transition-colors press"
+                    {/* Secondary actions */}
+                    <div className="flex items-center justify-between">
+                      {!isWorn && (
+                        <button 
+                          onClick={() => handleMarkWorn(planned)}
+                          className="text-xs text-muted-foreground/60 hover:text-success flex items-center gap-1.5 transition-colors press"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          {t('plan.mark_worn')}
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => handleRemove(planned.id)}
+                        className="text-xs text-muted-foreground/40 hover:text-destructive flex items-center gap-1.5 transition-colors ml-auto press"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        {t('plan.remove')}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Add another outfit button */}
+              {canAddMore && (
+                <div className="flex flex-col items-center gap-2 pt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setQuickGenerateSheetOpen(true)}
+                    disabled={isGenerating || upsertPlanned.isPending}
+                    className="rounded-xl h-10 press"
                   >
-                    <Check className="w-3.5 h-3.5" />
-                    {t('plan.mark_worn')}
+                    <Plus className="w-4 h-4 mr-2" />
+                    {t('plan.add_outfit')}
+                  </Button>
+                  <button
+                    onClick={() => setPlanningSheetOpen(true)}
+                    disabled={isGenerating || upsertPlanned.isPending}
+                    className="text-xs text-muted-foreground/50 hover:text-foreground transition-colors press"
+                  >
+                    {t('plan.plan')}
                   </button>
-                )}
-                <button 
-                  onClick={handleRemove}
-                  className="text-xs text-muted-foreground/40 hover:text-destructive flex items-center gap-1.5 transition-colors ml-auto press"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  {t('plan.remove')}
-                </button>
-              </div>
+                </div>
+              )}
             </div>
           ) : (
             /* Empty state — centered, breathing */
