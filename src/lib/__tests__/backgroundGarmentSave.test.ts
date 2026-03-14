@@ -69,6 +69,7 @@ describe('saveGarmentInBackground', () => {
         title: 'Navy Blazer',
         category: 'tops',
         imported_via: 'live_scan',
+        ai_provider: 'unknown',
       }),
     );
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-thumb');
