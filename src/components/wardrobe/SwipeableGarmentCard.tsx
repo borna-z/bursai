@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, memo } from 'react';
 import { motion, useMotionValue, useTransform, animate, PanInfo } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Pencil, WashingMachine, Trash2, Shirt } from 'lucide-react';
