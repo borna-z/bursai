@@ -438,7 +438,7 @@ Deno.serve(async (req) => {
           results.push({
             url: trimmedUrl,
             status: 'failed',
-            reason: 'Kunde inte spara bilden',
+            reason: 'Could not save image',
           });
           continue;
         }
