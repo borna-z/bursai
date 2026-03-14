@@ -281,7 +281,7 @@ Deno.serve(async (req) => {
     if (claimsError || !claimsData?.claims) {
       console.error('Auth error:', claimsError);
       return new Response(
-        JSON.stringify({ error: 'Ej auktoriserad' }),
+        JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
