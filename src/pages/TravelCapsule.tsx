@@ -97,13 +97,45 @@ export default function TravelCapsule() {
   const [outfitsPerDay, setOutfitsPerDay] = useState(1);
   const [mustHaveItems, setMustHaveItems] = useState<string[]>([]);
 
-  // Restore must-haves from picker page
-  const locationState = useLocation().state as { mustHaveItems?: string[] } | null;
+  // Restore form state from picker page (round-trip)
+  const location = useLocation();
+  const locationState = location.state as {
+    mustHaveItems?: string[];
+    destination?: string;
+    destCoords?: { lat: number; lon: number } | null;
+    dateRange?: { from: string; to: string } | null;
+    selectedOccasions?: string[];
+    minimizeItems?: boolean;
+    includeTravelDays?: boolean;
+    outfitsPerDay?: number;
+    hasManualOccasions?: boolean;
+  } | null;
+
+  const [addedToCalendar, setAddedToCalendar] = useState(false);
+  const restoredRef = useRef(false);
+
   useEffect(() => {
-    if (locationState?.mustHaveItems) {
-      setMustHaveItems(locationState.mustHaveItems);
+    if (!locationState || restoredRef.current) return;
+    restoredRef.current = true;
+    if (locationState.mustHaveItems) setMustHaveItems(locationState.mustHaveItems);
+    if (locationState.destination) setDestination(locationState.destination);
+    if (locationState.destCoords) setDestCoords(locationState.destCoords);
+    if (locationState.dateRange?.from && locationState.dateRange?.to) {
+      setDateRange({
+        from: new Date(locationState.dateRange.from),
+        to: new Date(locationState.dateRange.to),
+      });
     }
-  }, [locationState]);
+    if (locationState.selectedOccasions) setSelectedOccasions(locationState.selectedOccasions);
+    if (locationState.minimizeItems !== undefined) setMinimizeItems(locationState.minimizeItems);
+    if (locationState.includeTravelDays !== undefined) setIncludeTravelDays(locationState.includeTravelDays);
+    if (locationState.outfitsPerDay !== undefined) setOutfitsPerDay(locationState.outfitsPerDay);
+    if (locationState.hasManualOccasions !== undefined) setHasManualOccasions(locationState.hasManualOccasions);
+    // Re-trigger weather if coords were restored
+    if (locationState.destCoords && locationState.dateRange?.from && locationState.dateRange?.to) {
+      setTimeout(() => lookupWeatherWithCoords(locationState.destCoords!), 100);
+    }
+  }, []);
 
   // ── Generation state ──
   const [isGenerating, setIsGenerating] = useState(false);
@@ -451,6 +483,7 @@ export default function TravelCapsule() {
 
       hapticSuccess();
       toast.success(t('capsule.added_to_calendar'));
+      setAddedToCalendar(true);
     } catch {
       toast.error(t('capsule.calendar_error'));
     } finally {
@@ -649,7 +682,21 @@ export default function TravelCapsule() {
                   variant="outline"
                   onClick={() => {
                     hapticLight();
-                    navigate('/plan/travel-capsule/pick-must-haves', { state: { mustHaveItems } });
+                    navigate('/plan/travel-capsule/pick-must-haves', {
+                      state: {
+                        mustHaveItems,
+                        destination,
+                        destCoords,
+                        dateRange: dateRange?.from && dateRange?.to
+                          ? { from: dateRange.from.toISOString(), to: dateRange.to.toISOString() }
+                          : null,
+                        selectedOccasions,
+                        minimizeItems,
+                        includeTravelDays,
+                        outfitsPerDay,
+                        hasManualOccasions,
+                      },
+                    });
                   }}
                   className="w-full h-11 rounded-xl bg-card/60 border-border/15 text-sm"
                 >
@@ -1030,6 +1077,19 @@ export default function TravelCapsule() {
                 ]}
               />
             </div>
+          ) : addedToCalendar ? (
+            <Button
+              onClick={() => {
+                hapticLight();
+                navigate('/plan', {
+                  state: { selectedDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined },
+                });
+              }}
+              className="flex-1 h-11 rounded-xl"
+            >
+              <CalendarIcon className="w-4 h-4 mr-2" />
+              {t('capsule.view_in_planner') || 'View in Planner'}
+            </Button>
           ) : (
             <Button
               onClick={handleAddToCalendar}

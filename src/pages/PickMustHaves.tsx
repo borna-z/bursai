@@ -35,7 +35,8 @@ export default function PickMustHaves() {
     enabled: !!user,
   });
 
-  const initialIds: string[] = (location.state as { mustHaveItems?: string[] })?.mustHaveItems ?? [];
+  const incomingState = location.state as Record<string, unknown> | null;
+  const initialIds: string[] = (incomingState?.mustHaveItems as string[] | undefined) ?? [];
   const [selected, setSelected] = useState<Set<string>>(new Set(initialIds));
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
@@ -66,8 +67,10 @@ export default function PickMustHaves() {
 
   const handleDone = () => {
     hapticSuccess();
+    // Forward all state back so TravelCapsule can restore form fields
+    const { mustHaveItems: _drop, ...rest } = incomingState ?? {};
     navigate('/plan/travel-capsule', {
-      state: { mustHaveItems: Array.from(selected) },
+      state: { ...rest, mustHaveItems: Array.from(selected) },
       replace: true,
     });
   };
