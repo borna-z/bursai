@@ -1,20 +1,16 @@
 
 
-# Move Wardrobe Gap Analysis & Mood Outfit to Home Page
+# Reorganize Insights Page
 
 ## Changes
 
-### 1. `src/pages/Home.tsx`
-- Import `WardrobeGapSection` and add the Mood Outfit inline card
-- Place both after `QuickActionsRow`, before the closing `</AnimatedPage>`
-- Copy the Mood Outfit button markup from Discover (the `Heart` icon card that navigates to `/ai/mood-outfit`)
+1. **Remove `InsightsBanner`** (line 148) — the "Wardrobe usage 25/78 used · 53 unused" card (image 1). Remove its import (line 5).
 
-### 2. `src/pages/Discover.tsx`
-- Remove the `WardrobeGapSection` import and rendering (lines 16, 111-112)
-- Remove the Mood Outfit inline card block (lines 114-134)
-- Remove unused imports: `Heart`, `hapticLight`, `useNavigate` (if no longer needed), `WardrobeGapSection`
+2. **Move `SmartInsightCard`** (line 149) — the "53 items haven't been worn in 30 days / Use them today" card (image 2) — down to just before the "Get more outfits" CTA button (before line 274).
 
-### Result
-- Discover page keeps only the header + Style Challenges
-- Home page gains the gap analysis scanner and mood outfit card below quick actions
+### File: `src/pages/Insights.tsx`
+- Remove line 5 (`InsightsBanner` import)
+- Remove line 148 (`<InsightsBanner />`)
+- Remove line 149 (`<SmartInsightCard />`)
+- Insert `<SmartInsightCard />` between the premium link block and the CTA button (before line 274)
 
