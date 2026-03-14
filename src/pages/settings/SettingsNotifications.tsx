@@ -1,4 +1,5 @@
 import { Bell, BellRing, Smartphone } from 'lucide-react';
+import type { Json } from '@/integrations/supabase/types';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -26,7 +27,7 @@ export default function SettingsNotifications() {
 
   const updatePreference = async (key: string, value: unknown) => {
     const newPrefs = { ...preferences, [key]: value } as Record<string, unknown>;
-    try { await updateProfile.mutateAsync({ preferences: newPrefs as any }); }
+    try { await updateProfile.mutateAsync({ preferences: newPrefs as unknown as Json }); }
     catch { toast.error(t('settings.pref_error')); }
   };
 

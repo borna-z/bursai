@@ -63,7 +63,12 @@ async function generateOutfitViaEngine(
 ): Promise<GeneratedOutfit> {
   await validateWardrobeForGeneration(userId);
 
-  const { data, error: fnError } = await invokeEdgeFunction<any>('burs_style_engine', {
+  const { data, error: fnError } = await invokeEdgeFunction<{
+    items?: { slot: string; garment_id: string }[];
+    explanation?: string;
+    style_score?: Record<string, number> | null;
+    error?: string;
+  }>('burs_style_engine', {
     timeout: 45000,
     body: {
       mode: 'generate',

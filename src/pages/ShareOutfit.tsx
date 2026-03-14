@@ -71,7 +71,7 @@ export default function ShareOutfitPage() {
       const transformedOutfit: SharedOutfit = {
         id: data.id, occasion: data.occasion, style_vibe: data.style_vibe,
         explanation: data.explanation, share_enabled: data.share_enabled ?? false,
-        outfit_items: (data.outfit_items || []).map((item: any) => ({ id: item.id, slot: item.slot, garment: item.garment })),
+        outfit_items: ((data.outfit_items || []) as { id: string; slot: string; garment: OutfitItem['garment'] }[]).map((item) => ({ id: item.id, slot: item.slot, garment: item.garment })),
       };
       setOutfit(transformedOutfit);
       setIsLoading(false);

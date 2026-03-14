@@ -1,104 +1,70 @@
 
+# BURS Launch Readiness Plan v4
 
-# Plan: Clean Lint & Type Safety Debt
+**Status: ✅ Phases 1-7 COMPLETE | AI Loading Animations COMPLETE**
 
-## Scope
-Fix `@typescript-eslint/no-explicit-any` and `react-hooks/exhaustive-deps` issues across **16 critical files** in auth, wardrobe CRUD, outfit generation, payments, settings, and AI orchestration flows.
+## Phase 1: Dead Weight Removal (Steps 1-3) ✅
+- Removed `recharts`, `react-resizable-panels`, `next-themes` (~200KB saved)
+- Deleted unused `resizable.tsx` and `chart.tsx`
+- Lazy-imported `html-to-image` in `OutfitReel.tsx`
 
----
+## Phase 2: Metadata & SEO (Steps 4-5) ✅
+- Fixed OG image URL to relative `/og-image.png`
+- Synced manifest.json lang to `"en"`
 
-## Changes by File
+## Phase 3: Hook Tests (Steps 6-11) ✅
+- `useProfile`: 4 tests (auth, fetch, auto-create, ghost session)
+- `useGarments`: 5 tests (auth, fetch, filters, search, count)
+- `useOutfits`: 4 tests (auth, fetch, single, delete)
+- `useOutfitGenerator`: 3 tests (auth, validation, generation)
+- `useOfflineQueue`: 4 tests (online/offline, replay, events)
+- `useSupabaseQuery`: 4 tests (auth skip, fetch, single, schema)
 
-### 1. `src/contexts/AuthContext.tsx`
-- Replace `{ data: any; error: Error | null }` in `signUp` return type with `{ data: { user: User | null; session: Session | null }; error: Error | null }`
+## Phase 4: Component Tests (Steps 12-18) ✅
+- `Onboarding`: 1 smoke test
+- `Settings`: 1 smoke test
+- `Landing`: 1 smoke test
+- Existing: Auth, Home, Wardrobe, PaywallModal, BottomNav, ProtectedRoute
 
-### 2. `src/contexts/ThemeContext.tsx`
-- Remove the fake `supabase.rpc('has_role' as any, {} as any)` noop line (line 84)
-- Cast `preferences` update payload properly using `TablesUpdate<'profiles'>` instead of `as any` on line 95
+## Phase 5: Utility Tests (Steps 19-21) ✅
+- `edgeFunctionClient`: 5 tests (success, retry, exhausted, exceptions, timeout error)
+- `offlineQueue`: 6 tests (enqueue, upload, clear, replay, progress)
+- `schemas`: 11 tests (profile, garment, style score, weather, safeParse, preferences)
+- `nativeShare`: 4 tests (Median, Web Share, clipboard, cancel)
+- Existing: compressFrame, backgroundGarmentSave
 
-### 3. `src/hooks/useSupabaseQuery.ts`
-- Type `filters` callback as `(query: PostgrestFilterBuilder<...>) => ...` — or use a minimal generic. Since the table name is dynamic, use `PostgrestFilterBuilder<Database['public'], any, any>` from Supabase types (this is one case where `any` in a generic position is acceptable — but we can narrow `table as any` by casting to `keyof Database['public']['Tables']` and using a type assertion)
+## Phase 6: Infrastructure (Steps 22-24) ✅
+- Added `test:coverage` script with v8 provider + 30% line threshold
+- Added CSP meta tag to `index.html`
+- Added Sentry `release` tag using `__APP_VERSION__`
 
-### 4. `src/hooks/useOutfitGenerator.ts`
-- Already mostly clean — verify no remaining `: any`
+## Phase 7: Final Polish (Step 25) ✅
+- All new tests passing individually
+- CI pipeline configured
 
-### 5. `src/hooks/useSwapGarment.ts`
-- Type edge function response: replace `candidates?: any[]` with `candidates?: { garment: Garment; score: number; breakdown?: Record<string, number> }[]`
-- Replace `(c: any)` callback param with the proper typed interface
+## AI Loading Animations (35-Step Sprint) ✅
 
-### 6. `src/hooks/usePhotoFeedback.ts`
-- Replace `ai_raw: any` with `ai_raw: Record<string, unknown> | null`
+### Foundation
+- Created `AILoadingOverlay` — reusable multi-phase loading with radar pulse rings, bouncing dots, phase cycling
+- Created `AILoadingCard` — compact inline variant for cards/sections
+- Added `shimmer-sweep` CSS keyframe for scanner beam effect
 
-### 7. `src/hooks/useCalendarSync.ts`
-- Replace `onError: (error: any)` with `onError: (error: Error & { reconnect?: boolean })`
+### Integrated Surfaces (20+ touchpoints)
+- **OutfitGenerate** — 5-phase fullscreen animation
+- **TodayOutfitCard** — AILoadingCard for initial load, AILoadingOverlay for regeneration
+- **StylePicker** — AILoadingCard embedded in active style card
+- **MoodOutfit** — AILoadingCard in selected mood card
+- **QuickGenerateSheet** — AILoadingCard replaces spinner button
+- **QuickPlanSheet** — AILoadingOverlay with day-name subtitle + progress bar
+- **UnusedOutfits** — AILoadingOverlay with skeleton cards
+- **AddGarment** — shimmer-sweep on image + AILoadingOverlay for phases
+- **BatchUploadProgress** — per-item pulse ring animations
+- **LiveScan** — multi-phase ScanOverlay with concentric rings + bouncing dots
+- **AIChat** — bouncing dots + phase text for streaming indicator
+- **AISuggestions** — AILoadingOverlay variant="card" with progress
+- **StyleReportCard** — AILoadingCard with 3 phases
+- **WardrobeGapSection** — refactored to use shared AILoadingOverlay
+- **TravelCapsule** — AILoadingOverlay for generation, AILoadingCard for weather lookup + calendar sync
+- **QuickGenerateSheet** — AILoadingCard for travel weather lookup
 
-### 8. `src/hooks/useForecast.ts`
-- Type Nominatim API response: replace `(item: any)` with a `NominatimResult` interface
-
-### 9. `src/pages/Onboarding.tsx`
-- Remove `as any` on preferences update (line 61) — cast through `ProfilePreferences` properly
-- Replace `catch (err: any)` with `catch (err: unknown)` and use type narrowing
-- Remove redundant `(err as any)?.code` — use `(err as { code?: string })?.code`
-
-### 10. `src/pages/MoodOutfit.tsx`
-- Replace `(i: any)` in items mapping with `{ garment_id: string; slot: string }`
-
-### 11. `src/pages/UnusedOutfits.tsx`
-- Replace `style_score?: any` with `style_score?: Record<string, number> | null`
-- Replace all `(it: any)` callbacks with `{ garment_id: string; slot: string }`
-- Change Swedish occasion IDs (`vardag`, `jobb`, `dejt`, `fest`) to English
-
-### 12. `src/pages/ShareOutfit.tsx` & `src/pages/PublicProfile.tsx`
-- Define `OutfitItemRow` interface for Supabase join results
-- Replace `(item: any)` / `(o: any)` / `(i: any)` with typed interfaces
-
-### 13. `src/pages/settings/SettingsPrivacy.tsx` & `SettingsNotifications.tsx`
-- Replace `preferences: newPrefs as any` with proper `TablesUpdate<'profiles'>` cast using `ProfilePreferences`
-
-### 14. `src/components/settings/ProfileCard.tsx`
-- Replace `catch (err: any)` with `catch (err: unknown)`
-
-### 15. `src/components/LinkImportForm.tsx`
-- Replace `catch (err: any)` with `catch (err: unknown)` + type guard
-
-### 16. `src/lib/offlineQueue.ts`
-- Replace `supabase.from(mutation.table as any)` — keep `as any` but add a `// eslint-disable-next-line` with explanation (dynamic table names are inherently untyped)
-
-### 17. `src/components/landing/PricingSection.tsx`
-- Replace `t(label as any)` with a proper translation key type or `t(label as string)`
-
-### 18. `src/components/layout/PullToRefresh.tsx`
-- Declare `median` on `Window` interface in a `.d.ts` or inline, replacing `(window as any).median`
-
-### 19. `src/lib/median.ts`
-- Add `Window` interface augmentation for `median` property
-- Replace `...args: any[]` with `...args: unknown[]`
-- Replace `let obj: any` with `let obj: unknown`
-
-### 20. `src/pages/marketing/Admin.tsx`
-- Replace `(supabase.from('marketing_leads') as any)` with typed query or `// eslint-disable-next-line` (table may not be in generated types)
-
-### 21. `src/components/wardrobe/WardrobeOutfitsTab.tsx`
-- Replace `(o: any)` with proper `Outfit` type that includes `planned_for`
-
-### 22. `src/pages/PickMustHaves.tsx`
-- Replace `(location.state as any)` with typed `LocationState` interface
-
-### 23. `src/components/onboarding/QuickStyleQuiz.tsx`
-- Replace `val as any` with proper union type for quiz answer values
-
-### 24. `src/pages/Settings.tsx`
-- Replace `(globalThis as any).__APP_VERSION__` with a type declaration
-
----
-
-## Approach
-- Create a `src/types/median.d.ts` for Window augmentation (covers PullToRefresh + median.ts)
-- Create a `src/types/global.d.ts` for `__APP_VERSION__`
-- All `catch (err: any)` → `catch (err: unknown)` with `err instanceof Error ? err.message : 'Unknown error'`
-- All Supabase join result callbacks get proper inline interfaces
-- Preferences updates use `ProfilePreferences` from `src/types/preferences.ts`
-
-## Impact
-Estimated reduction: ~100+ of the 137 errors. The remaining will be in test files and auto-generated code.
-
+**Total tests: ~100+ (48 existing + 52 new across 13 new test files)**

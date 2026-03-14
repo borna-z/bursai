@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Palette, Shirt, Bell, User, Shield, LogOut, ChevronRight, TrendingUp, Database } from 'lucide-react';
 import { SettingsPageSkeleton } from '@/components/ui/skeletons';
-const APP_VERSION = (globalThis as any).__APP_VERSION__ ?? '1.0.0';
+const APP_VERSION = (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : undefined) ?? '1.0.0';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useLanguage } from '@/contexts/LanguageContext';

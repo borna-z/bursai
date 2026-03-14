@@ -61,18 +61,18 @@
    };
 
    const fetchLeads = async () => {
-     const { data } = await (supabase
-       .from('marketing_leads') as any)
-       .select('*')
-       .order('created_at', { ascending: false });
+    const { data } = await supabase
+      .from('marketing_leads')
+      .select('*')
+      .order('created_at', { ascending: false });
      
      if (data) setLeads(data);
    };
 
    const fetchEventCounts = async () => {
-     const { data } = await (supabase
-       .from('marketing_events') as any)
-       .select('event_name');
+    const { data } = await supabase
+      .from('marketing_events')
+      .select('event_name');
      
      if (data) {
        const counts: Record<string, number> = {};

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { isMedianApp } from '@/lib/median';
+import type { Json } from '@/integrations/supabase/types';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -81,7 +82,6 @@ function persistPrefs(prefs: Record<string, string>) {
   supabase.auth.getUser().then(({ data }) => {
     const uid = data?.user?.id;
     if (!uid) return;
-    supabase.rpc('has_role' as any, {} as any); // noop to keep linter quiet — we use raw query below
     // Read current prefs, merge, write back
     supabase
       .from('profiles')
@@ -92,7 +92,7 @@ function persistPrefs(prefs: Record<string, string>) {
         const current = (profile?.preferences as Record<string, string>) || {};
         supabase
           .from('profiles')
-          .update({ preferences: { ...current, ...prefs } } as any)
+          .update({ preferences: { ...current, ...prefs } as unknown as Json })
           .eq('id', uid)
           .then(() => {});
       });

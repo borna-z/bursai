@@ -12,7 +12,7 @@ export interface OutfitFeedback {
   color_match_score: number | null;
   overall_score: number | null;
   commentary: string | null;
-  ai_raw: any;
+  ai_raw: Record<string, unknown> | null;
   created_at: string;
 }
 

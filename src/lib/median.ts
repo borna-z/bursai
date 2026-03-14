@@ -60,11 +60,12 @@ export function isMedianAndroid(): boolean {
  */
 export function medianBridge<T = void>(
   path: string,
-  ...args: any[]
+  ...args: unknown[]
 ): T | undefined {
   if (!isMedianApp() || typeof window.median === 'undefined') return undefined;
   try {
     const parts = path.split('.');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic bridge path traversal
     let obj: any = window.median;
     for (const part of parts) {
       obj = obj?.[part];

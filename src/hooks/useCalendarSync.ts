@@ -108,8 +108,8 @@ export function useCalendarSync() {
       queryClient.invalidateQueries({ queryKey: ['profile-calendar'] });
       toast.success(t('calsync.synced_google').replace('{count}', String(data?.synced)));
     },
-    onError: (error: any) => {
-      if (error?.reconnect) {
+    onError: (error: Error & { reconnect?: boolean }) => {
+      if (error.reconnect) {
         queryClient.invalidateQueries({ queryKey: ['google-calendar-connection'] });
         toast.error(t('calsync.reconnect_required') || 'Google Calendar disconnected. Please reconnect.', {
           duration: 8000,

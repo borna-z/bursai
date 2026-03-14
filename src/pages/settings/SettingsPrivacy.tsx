@@ -13,6 +13,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { asPreferences } from '@/types/preferences';
+import type { Json } from '@/integrations/supabase/types';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { SettingsRow } from '@/components/settings/SettingsRow';
@@ -46,7 +47,7 @@ export default function SettingsPrivacy() {
     const newConsent = { ...consent, [key]: value, updated_at: new Date().toISOString() } as Record<string, unknown>;
     const newPrefs = { ...preferences, consent: newConsent } as Record<string, unknown>;
     try {
-      await updateProfile.mutateAsync({ preferences: newPrefs as any });
+      await updateProfile.mutateAsync({ preferences: newPrefs as unknown as Json });
       toast.success(t('settings.gdpr.consent_saved'));
     } catch {
       toast.error(t('settings.pref_error'));

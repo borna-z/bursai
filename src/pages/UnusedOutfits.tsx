@@ -63,7 +63,7 @@ export default function UnusedOutfits() {
         const { data, error: fnErr } = await invokeEdgeFunction<{
           items?: { garment_id: string; slot: string }[];
           explanation?: string;
-          style_score?: any;
+          style_score?: Record<string, number> | null;
           error?: string;
         }>('burs_style_engine', {
           body: {
@@ -77,7 +77,7 @@ export default function UnusedOutfits() {
 
         if (fnErr || data?.error || !data?.items?.length) continue;
 
-        const garmentIds = data.items.map((it: any) => it.garment_id);
+        const garmentIds = data.items.map((it: { garment_id: string; slot: string }) => it.garment_id);
         const { data: garments } = await supabase
           .from('garments')
           .select('*')
@@ -103,11 +103,11 @@ export default function UnusedOutfits() {
         if (oErr || !outfit) continue;
 
         const items = data.items
-          .map((it: any) => ({ slot: it.slot, garment: gMap.get(it.garment_id) as Garment }))
-          .filter((it: any) => it.garment);
+          .map((it: { garment_id: string; slot: string }) => ({ slot: it.slot, garment: gMap.get(it.garment_id) as Garment }))
+          .filter((it): it is { slot: string; garment: Garment } => !!it.garment);
 
         await supabase.from('outfit_items').insert(
-          items.map((it: any) => ({ outfit_id: outfit.id, garment_id: it.garment.id, slot: it.slot }))
+          items.map((it) => ({ outfit_id: outfit.id, garment_id: it.garment.id, slot: it.slot }))
         );
 
         const card: GeneratedOutfitCard = {

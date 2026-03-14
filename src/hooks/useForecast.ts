@@ -65,7 +65,20 @@ export async function searchCities(query: string, limit = 5): Promise<CitySugges
   );
   if (!response.ok) throw new Error(`Nominatim ${response.status}`);
   const data = await response.json();
-  return data.map((item: any) => {
+  interface NominatimResult {
+    display_name: string;
+    lat: string;
+    lon: string;
+    name?: string;
+    address?: {
+      city?: string;
+      town?: string;
+      village?: string;
+      country?: string;
+      country_code?: string;
+    };
+  }
+  return data.map((item: NominatimResult) => {
     const city = item.address?.city || item.address?.town || item.address?.village || item.name || query;
     const country = item.address?.country || '';
     const cc = (item.address?.country_code || '').toLowerCase();
