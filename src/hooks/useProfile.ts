@@ -50,7 +50,7 @@ export function useProfile() {
         return newProfile as Profile;
       }
       
-      return data as Profile;
+      return safeParse(profileSchema, data, 'profile') as unknown as Profile;
     },
     enabled: !!user,
     staleTime: 10 * 60 * 1000,

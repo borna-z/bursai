@@ -162,6 +162,17 @@ export function useUpdateGarment() {
   
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: TablesUpdate<'garments'> }) => {
+      // Offline: enqueue mutation for later replay
+      if (!navigator.onLine) {
+        enqueue({
+          table: 'garments',
+          operation: 'update',
+          data: updates,
+          filters: { id },
+        });
+        return { id, ...updates } as Tables<'garments'>;
+      }
+      
       const { data, error } = await supabase
         .from('garments')
         .update(updates)
