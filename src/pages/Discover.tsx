@@ -1,19 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { Heart } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useGarmentCount } from '@/hooks/useGarments';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { hapticSuccess, hapticLight } from '@/lib/haptics';
+import { hapticSuccess } from '@/lib/haptics';
 import { EASE_CURVE } from '@/lib/motion';
 import { toast } from 'sonner';
 
 import { DiscoverChallenges } from '@/components/discover/DiscoverChallenges';
-import { WardrobeGapSection } from '@/components/discover/WardrobeGapSection';
 
 interface Challenge {
   id: string;
@@ -35,7 +32,7 @@ const UNLOCK_THRESHOLDS = [
 export default function DiscoverPage() {
   const { user } = useAuth();
   const { t } = useLanguage();
-  const navigate = useNavigate();
+  
   const { data: garmentCount } = useGarmentCount();
 
   const [challenges, setChallenges] = useState<Challenge[]>([]);
@@ -108,30 +105,6 @@ export default function DiscoverPage() {
           onJoin={joinChallenge}
         />
 
-        {/* ── Wardrobe Gap Analysis ── */}
-        <WardrobeGapSection />
-
-        {/* ── Mood Outfit — inline card ── */}
-        <motion.button
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: 0.4, ease: EASE_CURVE }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() => { hapticLight(); navigate('/ai/mood-outfit'); }}
-          className="w-full relative overflow-hidden rounded-xl border border-border/10 bg-card/60 p-5 text-left flex items-center gap-4 transition-colors"
-        >
-          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10 shrink-0">
-            <Heart className="w-5 h-5 text-primary" />
-          </div>
-          <div className="min-w-0">
-            <h4 className="text-[13px] font-medium text-foreground leading-tight">
-              {t('discover.tool_mood')}
-            </h4>
-            <p className="text-[11px] text-muted-foreground/60 leading-snug mt-0.5">
-              {t('discover.tool_mood_desc')}
-            </p>
-          </div>
-        </motion.button>
       </AnimatedPage>
     </AppLayout>
   );
