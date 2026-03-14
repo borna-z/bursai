@@ -87,6 +87,7 @@ function setupCanvasMock() {
   };
 
   const originalCreate = document.createElement.bind(document);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- DOM createElement overload mismatch
   vi.spyOn(document, 'createElement').mockImplementation((tag: string, ...args: any[]) => {
     if (tag === 'canvas') return mockCanvas as unknown as HTMLCanvasElement;
     return originalCreate(tag, ...args);
@@ -95,8 +96,15 @@ function setupCanvasMock() {
   return { mockCanvas, mockBlob };
 }
 
+interface MockFileReaderInstance {
+  result: string;
+  onloadend: (() => void) | null;
+  onerror: ((err: unknown) => void) | null;
+  readAsDataURL: ReturnType<typeof vi.fn>;
+}
+
 function setupFileReaderMock() {
-  const MockFileReader = vi.fn(function (this: any) {
+  const MockFileReader = vi.fn(function (this: MockFileReaderInstance) {
     this.result = 'data:image/jpeg;base64,bW9jaw==';
     this.onloadend = null;
     this.readAsDataURL = vi.fn(() => {
