@@ -37,9 +37,14 @@ function isInsufficientGarmentsError(message?: string | null) {
 export function useAISuggestions() {
   const { user, session } = useAuth();
   const { locale } = useLanguage();
+  const { weather } = useWeather();
+
+  const weatherInput = weather
+    ? { temperature: weather.temperature, precipitation: weather.precipitation, wind: weather.wind }
+    : undefined;
 
   return useQuery({
-    queryKey: ['ai-suggestions', user?.id, locale],
+    queryKey: ['ai-suggestions', user?.id, locale, weatherInput?.temperature, weatherInput?.precipitation, weatherInput?.wind],
     queryFn: async (): Promise<AISuggestion[]> => {
       if (!session?.access_token) {
         throw new Error('Not authenticated');
@@ -50,7 +55,7 @@ export function useAISuggestions() {
         'burs_style_engine',
         {
           timeout: 45000,
-          body: { mode: 'suggest', locale, occasion: 'vardag' },
+          body: { mode: 'suggest', locale, occasion: 'vardag', weather: weatherInput },
         }
       );
 
