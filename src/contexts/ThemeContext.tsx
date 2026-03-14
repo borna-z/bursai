@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { isMedianApp } from '@/lib/median';
+import type { Json } from '@/integrations/supabase/types';
 
 type Theme = 'light' | 'dark' | 'system';
 
