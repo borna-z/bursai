@@ -12,17 +12,16 @@ vi.mock('@/hooks/useProfile', () => ({
   useUpdateProfile: () => ({ mutateAsync: vi.fn() }),
 }));
 
-vi.mock('@/hooks/useIsAdmin', () => ({
-  useIsAdmin: () => false,
-}));
+vi.mock('@/hooks/useIsAdmin', () => ({ useIsAdmin: () => false }));
 
 vi.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ t: (k: string) => k, language: 'en', setLanguage: vi.fn() }),
 }));
 
-vi.mock('@/contexts/ThemeContext', () => ({
-  useTheme: () => ({ theme: 'light', accentColor: 'blue', setAccentColor: vi.fn() }),
-}));
+vi.mock('@/contexts/ThemeContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/contexts/ThemeContext')>();
+  return { ...actual, useTheme: () => ({ theme: 'light', accentColor: 'blue', setAccentColor: vi.fn() }) };
+});
 
 vi.mock('@/contexts/SeedContext', () => ({
   useSeed: () => ({ isSeedMode: false, progress: 0 }),
@@ -30,17 +29,16 @@ vi.mock('@/contexts/SeedContext', () => ({
 }));
 
 describe('Onboarding', () => {
-  it('renders the onboarding page without crashing', async () => {
+  it('renders without crashing', async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const OnboardingPage = (await import('../Onboarding')).default;
-    expect(() =>
-      render(
-        <QueryClientProvider client={qc}>
-          <MemoryRouter initialEntries={['/onboarding']}>
-            <OnboardingPage />
-          </MemoryRouter>
-        </QueryClientProvider>
-      )
-    ).not.toThrow();
+    const { container } = render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={['/onboarding']}>
+          <OnboardingPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    expect(container).toBeTruthy();
   });
 });
