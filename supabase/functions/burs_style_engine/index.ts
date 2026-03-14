@@ -1865,7 +1865,7 @@ serve(async (req) => {
 
     if (combos.length === 0) {
       return new Response(
-        JSON.stringify({ error: "Inte tillräckligt med matchande plagg" }),
+        JSON.stringify({ error: "Not enough matching garments" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

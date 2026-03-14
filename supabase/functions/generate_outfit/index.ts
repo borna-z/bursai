@@ -320,12 +320,12 @@ ${garmentList}`;
 
     if (result.error) {
       if (result.status === 429) {
-        return new Response(JSON.stringify({ error: "För många förfrågningar, försök igen om en stund." }), {
+        return new Response(JSON.stringify({ error: "Too many requests, please try again shortly." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (result.status === 402) {
-        return new Response(JSON.stringify({ error: "AI-krediter slut. Kontakta support." }), {
+        return new Response(JSON.stringify({ error: "AI credits exhausted. Contact support." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
