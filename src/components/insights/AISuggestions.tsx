@@ -79,41 +79,32 @@ function LoadingIndicator() {
   );
 }
 
-/* ── Garment circle stack ── */
-function GarmentStack({ garments }: { garments: AISuggestion['garments'] }) {
-  const visible = garments.slice(0, 4);
-  const remaining = garments.length - 4;
-
+/* ── Horizontal garment row (no overlap) ── */
+function GarmentRow({ garments }: { garments: AISuggestion['garments'] }) {
   return (
-    <div className="flex items-center justify-center py-5">
-      <div className="flex items-center -space-x-4">
-        {visible.map((garment, i) => (
+    <div className="overflow-x-auto scrollbar-hide -mx-6 px-6">
+      <div className="flex items-start gap-3 py-1 w-max">
+        {garments.map((garment, i) => (
           <motion.div
             key={garment.id}
-            initial={{ opacity: 0, scale: 0.7, x: -10 }}
-            animate={{ opacity: 1, scale: 1, x: 0 }}
-            transition={{ delay: i * 0.08, duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
-            className="relative w-[72px] h-[72px] rounded-full overflow-hidden border-[2.5px] border-background shadow-md"
-            style={{ zIndex: visible.length - i }}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: i * 0.07, duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
+            className="flex flex-col items-center gap-1.5"
           >
-            <LazyImageSimple
-              imagePath={garment.image_path}
-              alt={garment.title}
-              className="w-full h-full object-cover"
-              fallbackIcon={<Shirt className="w-6 h-6 text-muted-foreground/40" />}
-            />
+            <div className="w-[88px] h-[88px] rounded-full overflow-hidden border-2 border-border/20 shadow-sm bg-muted">
+              <LazyImageSimple
+                imagePath={garment.image_path}
+                alt={garment.title}
+                className="w-full h-full object-cover"
+                fallbackIcon={<Shirt className="w-7 h-7 text-muted-foreground/30" />}
+              />
+            </div>
+            <span className="text-[10px] font-medium text-muted-foreground/70 capitalize truncate max-w-[88px] text-center">
+              {garment.category}
+            </span>
           </motion.div>
         ))}
-        {remaining > 0 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.7 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: visible.length * 0.08, duration: 0.35 }}
-            className="relative w-[72px] h-[72px] rounded-full bg-muted/40 border-[2.5px] border-background flex items-center justify-center shadow-md"
-          >
-            <span className="text-xs font-semibold text-muted-foreground">+{remaining}</span>
-          </motion.div>
-        )}
       </div>
     </div>
   );
@@ -135,28 +126,28 @@ function HeroSlide({ suggestion, onTryIt, onPlan, isCreating }: HeroSlideProps) 
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-      className="space-y-0"
+      className="space-y-5"
     >
       {/* Occasion + Title */}
-      <div className="text-center space-y-1">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70">
+      <div className="text-center space-y-1.5 pt-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/60">
           {suggestion.occasion}
         </p>
-        <h3 className="text-[17px] font-semibold leading-snug tracking-tight">
+        <h3 className="text-[19px] font-semibold leading-snug tracking-tight">
           {suggestion.title}
         </h3>
       </div>
 
-      {/* Garment circle stack — prominent center */}
-      <GarmentStack garments={suggestion.garments} />
+      {/* Garment row — horizontal, no overlap */}
+      <GarmentRow garments={suggestion.garments} />
 
-      {/* Explanation — subtle, below the visuals */}
-      <p className="text-[12px] text-muted-foreground/70 leading-relaxed text-center italic line-clamp-2 px-2 pb-4">
+      {/* Explanation */}
+      <p className="text-[12px] text-muted-foreground/60 leading-relaxed text-center italic line-clamp-2 px-1">
         {suggestion.explanation}
       </p>
 
       {/* CTA row */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2.5 pt-1">
         <Button
           onClick={onTryIt}
           disabled={isCreating}
@@ -254,12 +245,17 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
     return (
       <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary/[0.04] to-transparent">
         <div className="py-10 px-6 blur-sm select-none pointer-events-none">
-          <div className="space-y-4">
-            <div className="h-3 bg-muted rounded w-1/3 mx-auto" />
-            <div className="h-5 bg-muted rounded w-2/3 mx-auto" />
-            <div className="flex justify-center -space-x-4 py-5">
+          <div className="space-y-5">
+            <div className="text-center space-y-1.5">
+              <div className="h-3 bg-muted rounded w-1/3 mx-auto" />
+              <div className="h-5 bg-muted rounded w-2/3 mx-auto" />
+            </div>
+            <div className="flex justify-center gap-3 py-2">
               {[1, 2, 3, 4].map((j) => (
-                <div key={j} className="w-[72px] h-[72px] rounded-full bg-muted border-[2.5px] border-background" />
+                <div key={j} className="flex flex-col items-center gap-1.5">
+                  <div className="w-[88px] h-[88px] rounded-full bg-muted" />
+                  <div className="h-2 w-12 bg-muted rounded" />
+                </div>
               ))}
             </div>
             <div className="h-11 bg-muted rounded-xl" />
