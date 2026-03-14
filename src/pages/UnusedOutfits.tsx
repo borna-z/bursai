@@ -4,6 +4,7 @@ import { ArrowLeft, RefreshCw, Sparkles, Gem } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useInsights } from '@/hooks/useInsights';
