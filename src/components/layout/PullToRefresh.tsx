@@ -12,6 +12,24 @@ interface PullToRefreshProps {
 const THRESHOLD = 80;
 
 export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
+  // In Median, delegate to native pull-to-refresh and skip CSS-based implementation
+  const [useNative, setUseNative] = useState(false);
+  
+  useEffect(() => {
+    if (isMedianApp() && window.median?.webview?.pullToRefresh) {
+      setUseNative(true);
+      // Register callback for native pull-to-refresh
+      (window as any).__burs_ptr_callback = async () => {
+        await onRefresh();
+      };
+    }
+  }, [onRefresh]);
+
+  // If native, just render children — Median handles the gesture
+  if (useNative) {
+    return <>{children}</>;
+  }
+
   const [refreshing, setRefreshing] = useState(false);
   const touchStartY = useRef(0);
   const pulling = useRef(false);
