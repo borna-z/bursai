@@ -1,145 +1,101 @@
 
-# BURS Roadmap v2 — 25 Steps
 
-## Phase 1: UX Polish & Performance (Steps 1–7)
+# BURS Roadmap v3 — 25 Steps: Code Refinement, Snappiness & Median.co Readiness
 
-### Step 1: Skeleton & Loading State Audit ✅
-Audited all data-fetching views. Replaced raw `Loader2` spinners with contextual shimmer skeletons on Insights, Plan, Settings, and AIChat pages. Added `InsightsPageSkeleton`, `PlanPageSkeleton`, `SettingsPageSkeleton`, and `ChatPageSkeleton` to shared skeletons file. Home, Wardrobe, GarmentDetail, and OutfitDetail already had proper skeletons.
-
-### Step 2: Haptic & Micro-Interaction Pass ✅
-Added haptic feedback to: GarmentDetail (toggle laundry, mark worn, delete), OutfitDetail (save/unsave, rating, mark worn), DayCard (swap, mark worn, remove, plan, generate), PlanTomorrowCard, InsightsBanner, SmartInsightCard, SwipeableGarmentCard (swipe open). Replaced raw `navigator.vibrate` calls in LiveScan with standardized haptics. Added spring `whileTap` animations to SmartInsightCard.
-
-### Step 3: Offline Mode & Queued Actions ✅
-Created `lib/offlineQueue.ts` with localStorage-backed mutation queue (enqueue, replay, clear). Added `useOfflineQueue` hook for auto-replay on reconnect. Upgraded `OfflineBanner` to show queue count and syncing state. Configured React Query with `networkMode: 'offlineFirst'` and extended `gcTime` to 30 minutes for offline data access.
-
-### Step 4: Pull-to-Refresh & Infinite Scroll ✅
-Added PullToRefresh to Plan and Insights pages (Home and Wardrobe already had it). Wardrobe already has virtualized lists via @tanstack/react-virtual and infinite scroll with IntersectionObserver.
-
-### Step 5: Gesture Navigation ✅
-Added swipe-right-to-wear gesture on TodayOutfitCard with 100px threshold. Added "Swipe right to wear" hint text. Wardrobe already has swipe-left actions. Plan already has day navigation.
-
-### Step 6: Accessibility Deep Pass ✅
-Added `prefers-reduced-motion` CSS media query to disable all animations/transitions for users who prefer reduced motion. Updated AnimatedPage to respect `useReducedMotion()` from framer-motion (simpler fade-only with shorter duration). Existing aria-labels and focus-visible rings remain intact.
-
-### Step 7: Transition & Animation Polish ✅
-Wardrobe grid already uses staggered `animate-drape-in` with per-item delays (capped at 12 items). DayCard uses the same. Home page sections have individual motion.div entrance animations. All interactive cards have `whileTap` spring animations. Route transitions use 0.4s ease with scale.
+Replaces `.lovable/plan.md` with a fresh 25-step plan focused on making the app production-grade, fast, and fully Median.co native-ready.
 
 ---
 
-## Phase 2: Advanced Analytics & Insights (Steps 8–13)
+## Phase 1: Performance & Snappiness (Steps 1-7)
 
-### Step 8: Spending Dashboard ✅
-Created SpendingDashboard component with total wardrobe value, cost-per-category bars, best/worst CPW garments. Premium-gated.
+### Step 1: Image Optimization Pipeline
+Add WebP/AVIF support to garment image uploads. Compress on upload via canvas resize (max 1200px). Add `loading="lazy"` and `decoding="async"` to all `<img>` tags. Add `srcset` for thumbnail vs full-size in wardrobe grid. Reduces LCP and bandwidth.
 
-### Step 9: Seasonal Wardrobe Report ✅
-Covered by Style Evolution + Category Balance + Sustainability + Heatmap widgets combined.
+### Step 2: Route Prefetching & Preloading
+Add `<link rel="prefetch">` for likely next routes (e.g., prefetch `/wardrobe` chunk when on Home). Use React Router `loader` pattern or `import()` on hover/focus of BottomNav tabs. Cuts perceived navigation time.
 
-### Step 10: Outfit Repeat Tracker ✅
-Created OutfitRepeatTracker showing most-repeated outfits and stale outfits (60+ days). Premium-gated.
+### Step 3: React Query Optimistic Updates Audit
+Audit all mutations (add garment, mark worn, save outfit, toggle laundry) for optimistic updates. Several currently wait for server round-trip. Add `onMutate` rollback patterns for instant feedback.
 
-### Step 11: Wear Heatmap Calendar ✅
-Created WearHeatmap with 90-day grid, streak counter, and consistency score. Premium-gated.
+### Step 4: Animation Frame Budget Audit
+Profile framer-motion animations. Cap stagger to 8 items max. Replace `layout` animations on lists with CSS `transform` where possible. Ensure all animated elements use `will-change: transform`. Remove `layoutId="nav-pill"` recalc on every render.
 
-### Step 12: Category Balance Chart ✅
-Created CategoryRadar with animated horizontal bars per category. Premium-gated.
+### Step 5: Font Loading Optimization
+Currently loading 5 Google Fonts families (DM Sans, Inter, Playfair Display, Sora, Space Grotesk). Audit actual usage — likely only Inter + Sora needed in-app. Remove unused fonts. Switch to `font-display: swap` with `<link rel="preload" as="font">` for critical weights only.
 
-### Step 13: Personal Style Report Card ✅
-Created StyleReportCard calling burs_style_engine for AI archetype, scores, and summary. Premium-gated.
+### Step 6: Service Worker & Caching Strategy
+Upgrade `sw.js` to cache app shell, fonts, and critical assets with a stale-while-revalidate strategy. Add runtime caching for Supabase signed URLs (garment images). Pre-cache critical routes for instant offline loads.
 
----
-
-## Phase 3: Social & Community (Steps 14–19)
-
-### Step 14: Public Style Profile ✅
-Created PublicProfile page at `/u/:username`. Added `username` column to profiles. Shows avatar, display name, shared outfits grid with reactions. Public access via RLS policy.
-
-### Step 15: Outfit Inspiration Feed ✅
-Created InspirationFeed page at `/feed`. Shows community shared outfits with occasion filters, save-to-inspiration feature, and outfit reactions. Excludes own outfits. Uses `inspiration_saves` table.
-
-### Step 16: Outfit Reactions & Kudos ✅
-Created `OutfitReactions` component with 🔥 styled, 💎 creative, 🌿 sustainable reactions. Toggle on/off with optimistic UI. Used on share pages, public profiles, and feed. `outfit_reactions` table with RLS.
-
-### Step 17: Style Challenge System ✅
-Created StyleChallenges page at `/challenges`. Shows active weekly challenges with join/complete actions. `style_challenges` + `challenge_participations` tables with proper RLS.
-
-### Step 18: Outfit Request / Style Advice ✅
-Covered by existing AI chat stylist which handles outfit requests with context from user's wardrobe.
-
-### Step 19: Friend Wardrobe Peek ✅
-Created `friendships` table with pending/accepted/declined status and proper RLS. UI deferred — DB foundation ready for future friend features.
+### Step 7: React.memo & Re-render Optimization
+Wrap heavy list-item components (SwipeableGarmentCard, DayCard, OutfitSlotCard) in `React.memo`. Stabilize callback props with `useCallback`. Profile with React DevTools Profiler and fix top re-render culprits.
 
 ---
 
-## Phase 4: AI Intelligence v3 (Steps 20–25)
+## Phase 2: Median.co Native Bridge (Steps 8-14)
 
-### Step 20: Visual Search & "Shop My Look" ✅
-Created `visual_search` Edge Function using Gemini 2.5 Flash multimodal. Users upload inspiration photos; AI identifies garments and matches against wardrobe with confidence scores. Gaps listed with shopping suggestions. Premium-gated page at `/ai/visual-search`.
+### Step 8: Native Share Sheet Integration
+Use `median.share.open()` for sharing outfits/profiles when in Median. Fall back to Web Share API, then clipboard copy. Currently uses `prepareExternalNavigation` which doesn't leverage native share.
 
-### Step 21: Mood-Based Outfit Generation ✅
-Created `mood_outfit` Edge Function with 6 mood presets (cozy, confident, creative, invisible, romantic, energetic) mapped to formality, color temperature, material, and vibe parameters. Saves generated outfit to DB. Page at `/ai/mood-outfit`.
+### Step 9: Native Status Bar Sync per Route
+Extend status bar sync beyond ThemeContext. Dark routes (landing, onboarding) should set `style: 'light'` (white text). In-app routes should match resolved theme. Add a `useMedianStatusBar` hook triggered on route change.
 
-### Step 22: AI Outfit Mood Board ✅
-Mood board functionality integrated into the mood-based generation flow — each mood generates a complete outfit with explanation and style score. The existing flatlay generation can be triggered from the outfit detail page.
+### Step 10: Deep Link Handling
+Configure Median universal links for `/u/:username`, `/outfit/:id`, `/auth`. Add a `useDeepLink` hook that parses incoming URLs and navigates via React Router on app launch.
 
-### Step 23: Smart Shopping List ✅
-Created `smart_shopping_list` Edge Function that analyzes wardrobe gaps, style profile, and upcoming calendar events to generate 4-6 prioritized shopping suggestions with budget hints, new outfit estimates, and style specifications. Page at `/ai/smart-shopping`.
+### Step 11: Native Camera Bridge Enhancement
+Extend `useMedianCamera` to support `median.camera.takePicture` if/when Median exposes it. Add image quality/size params. Ensure the file input fallback handles `capture="environment"` correctly on both iOS and Android WebViews.
 
-### Step 24: Wardrobe Aging Predictions ✅
-Created `wardrobe_aging` Edge Function using Gemini 2.5 Flash Lite. Predicts garment lifespan based on material, condition score, and wear frequency. Shows health percentage, months remaining, replacement reasons, and care tips. Page at `/ai/wardrobe-aging`.
+### Step 12: Pull-to-Refresh Native Feel
+In Median, disable CSS-based pull-to-refresh and delegate to Median's native `median.webview.pullToRefresh` if available. Prevents double-bounce and gives OS-native feel.
 
-### Step 25: Style Twin Matching ✅
-Created `style_twin` Edge Function that builds a style vector from wardrobe attributes and identifies a creative archetype name, defining traits, real-world style icons, and signature styling moves. Includes community inspiration from shared outfits. Privacy-first (no user identity revealed). Page at `/ai/style-twin`.
+### Step 13: Keyboard & Input Handling
+Fix iOS WebView keyboard push-up issues. Add `visualViewport` resize listener to adjust bottom nav and fixed elements when keyboard opens. Prevent input zoom on iOS (already have `font-size: 16px` — verify in Median).
 
----
-
-## Phase 5: Engineering Excellence (Score: 72 → 85+) ✅
-
-### Step 1: Remove .env from Git History ⚠️
-The `.env` file is auto-managed by Lovable Cloud and cannot be removed from history. Keys are rotatable via the secrets management system.
-
-### Step 2: Fix Lockfile Sync ⚠️
-Lockfiles are auto-managed by the build system. Both `bun.lock` and `package-lock.json` are read-only.
-
-### Step 3: Replace Placeholder README ✅
-Wrote professional README with architecture diagram, tech stack table, project structure, local dev setup, environment variables guide, and security overview.
-
-### Step 4: Bundle Size Optimization ✅
-Added `manualChunks` in `vite.config.ts` to split vendor libraries into separate chunks: react, query, ui (radix), motion (framer-motion), charts (recharts), supabase, stripe, sentry, and date-fns.
-
-### Step 5: Critical-Path Test Coverage ✅
-Added tests for:
-- `useSubscription` — plan limits, premium/free gating, garment/outfit limits
-- `ProtectedRoute` — auth redirect, loading state, onboarding redirect
-- `AuthContext` — session management, sign in/up/out, provider boundary
-
-### Step 6: Security Audit & RLS Hardening ✅
-- **Fixed CRITICAL**: Removed public profiles policy that exposed `stripe_customer_id`, `ics_url`, `body_image_path`, `height_cm`, `weight_kg`. Created `public_profiles` view with only safe columns.
-- **Fixed CRITICAL**: Removed `user_subscriptions` UPDATE policy that allowed users to self-upgrade to premium. Subscription mutations are now server-side only.
-- Remaining WARN-level findings are intentional service-role-only policies.
-
-### Step 7: Error Monitoring ✅
-Enhanced error monitoring across the stack:
-- ErrorBoundary now reports crashes to Sentry via lazy `import('@sentry/react')` with component stack traces
-- Added `componentDidCatch` lifecycle for proper React error reporting
-- Global `window.error` and `unhandledrejection` handlers in `main.tsx` for uncaught errors
-- Created `supabase/functions/_shared/logger.ts` structured logging utility with JSON output, timed operations, and safe exception serialization
-- Sentry remains lazy-loaded to keep it off the critical path
-
-### Step 8: AI Rate Limiting ✅
-Created `ai_rate_limits` table with per-user, per-function tracking. Added `checkRateLimit()` utility to `burs-ai.ts` shared module. Includes auto-cleanup function and probabilistic garbage collection.
-
-### Step 9: CI Pipeline ✅
-Created `.github/workflows/ci.yml` with: dependency install, lint, type check, test, build, and bundle size monitoring.
-
-### Step 10: Architecture Documentation ✅
-Created `docs/ARCHITECTURE.md` covering: system architecture, AI engine documentation (complexity routing, model chains, caching, rate limiting), data flows, billing flow, security model, and complete edge function reference table.
+### Step 14: App Launch & Splash Screen Timing
+Minimize time-to-interactive. Move auth check to a synchronous token read from localStorage before React mount. Eliminate blank white frame between native splash and first paint. Ensure `body` background matches splash.
 
 ---
 
-## Previous Completed Work
+## Phase 3: Data Integrity & Error Handling (Steps 15-19)
 
-### AI Intelligence Roadmap v1 (Steps 1–25) — ✅ DONE
-Feedback learning, seasonal palettes, material affinity, weather intelligence, occasion mapping, style vectors, wear patterns, comfort/style learning, color profiling, body-aware fit, multi-event planning, travel capsules, social context, laundry integration, seasonal transitions, flat-lay preview, photo feedback, condition tracking, outfit DNA cloning, accessory pairing, gap analysis, cost-per-wear, sustainability score, style evolution timeline, predictive styling.
+### Step 15: Retry & Error Recovery Patterns
+Add exponential backoff retry to all edge function calls. Show inline retry buttons on failed AI generations (outfit, mood, gap analysis). Add toast-based error recovery with "Try again" actions.
 
-### Localized Pricing — ✅ DONE
-All pricing surfaces use `src/lib/localizedPricing.ts` for locale-appropriate amounts. Stripe checkout maps locale → currency-specific Price IDs.
+### Step 16: Data Validation Layer
+Add Zod schemas for all Supabase query responses (garments, outfits, profiles). Validate at the hook level before passing to components. Prevents crashes from unexpected null fields or schema changes.
+
+### Step 17: Stale Data Indicators
+Show subtle "last updated X ago" timestamps on AI-generated content (suggestions, insights, gap analysis). Auto-refresh if data older than 24h. Prevents users seeing outdated recommendations.
+
+### Step 18: Edge Function Timeout Handling
+Several edge functions (style engine, gap analysis) can take 10-15s. Add client-side timeout handling with user-friendly messages ("Still thinking...") at 5s and abort + retry option at 20s.
+
+### Step 19: Offline Mutation Queue V2
+Upgrade offline queue to handle image uploads (store as base64 blob). Show pending uploads count in wardrobe. Auto-resume uploads on reconnect with progress indicator.
+
+---
+
+## Phase 4: Code Quality & Maintainability (Steps 20-23)
+
+### Step 20: Hook Consolidation
+Several hooks duplicate Supabase query patterns. Create a `useSupabaseQuery<T>` generic wrapper that handles auth checks, error states, and typing. Reduce boilerplate in `useGarments`, `useOutfits`, `useProfile`, etc.
+
+### Step 21: Translation Key Audit
+Audit all `t()` calls for missing keys across EN/SV/ES/DE locales. Add a build-time script or test that flags untranslated keys. Remove dead translation keys.
+
+### Step 22: Component File Size Audit
+Split large files (UnusedOutfits, Plan, OutfitDetail, WardrobeGapSection are all 200+ lines). Extract sub-components into `/components` subdirectories. Target max 150 lines per component file.
+
+### Step 23: Type Safety Hardening
+Replace `Record<string, any>` casts (used for `preferences`, `style_profile`, etc.) with proper TypeScript interfaces. Add discriminated unions for outfit generation states. Remove `as any` casts.
+
+---
+
+## Phase 5: Production Hardening (Steps 24-25)
+
+### Step 24: Lighthouse & Core Web Vitals Pass
+Target: LCP < 2.5s, FID < 100ms, CLS < 0.1. Fix any layout shifts from lazy-loaded images (add explicit `width`/`height`). Defer non-critical CSS. Add `fetchpriority="high"` to hero images.
+
+### Step 25: Median.co QA Checklist & Smoke Tests
+Create a manual QA checklist covering: safe area rendering (notch, home indicator), haptic feedback on all interactive elements, status bar color on every route, external link handling, camera/gallery access, push notification flow, back gesture, keyboard behavior, deep links, and offline mode. Add Playwright smoke tests for critical flows (auth, add garment, generate outfit).
+
