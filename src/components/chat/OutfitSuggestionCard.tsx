@@ -10,7 +10,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import type { GarmentBasic } from '@/hooks/useGarmentsByIds';
 
 // Simplified swap scoring inline (avoid importing full hook)
-const NEUTRAL = ['svart', 'vit', 'grå', 'beige', 'marin', 'marinblå'];
+const NEUTRAL = ['black', 'white', 'grey', 'beige', 'navy', 'svart', 'vit', 'grå', 'marinblå', 'marin'];
 
 function scoreCandidate(g: GarmentBasic, otherColors: string[]): number {
   let s = 5;

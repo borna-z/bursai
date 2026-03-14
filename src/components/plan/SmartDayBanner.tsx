@@ -11,17 +11,17 @@ interface SmartDayBannerProps {
 }
 
 const occasionIcons: Record<string, React.ElementType> = {
-  jobb: Briefcase,
-  träning: Dumbbell,
-  fest: PartyPopper,
-  dejt: Heart,
+  work: Briefcase, jobb: Briefcase,
+  workout: Dumbbell, 'träning': Dumbbell, traning: Dumbbell,
+  party: PartyPopper, fest: PartyPopper,
+  date: Heart, dejt: Heart,
 };
 
 const OCCASION_I18N: Record<string, string> = {
-  jobb: 'occasion.jobb',
-  'träning': 'occasion.traning',
-  fest: 'occasion.fest',
-  dejt: 'occasion.dejt',
+  work: 'occasion.work', jobb: 'occasion.jobb',
+  workout: 'occasion.workout', 'träning': 'occasion.traning', traning: 'occasion.traning',
+  party: 'occasion.party', fest: 'occasion.fest',
+  date: 'occasion.date', dejt: 'occasion.dejt',
 };
 
 export function SmartDayBanner({ slots, onGenerate, className }: SmartDayBannerProps) {

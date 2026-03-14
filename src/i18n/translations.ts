@@ -1273,10 +1273,28 @@ export const translations: Record<Locale, Record<string, string>> = {
     'style.minimal': 'Minimal',
     'style.street': 'Street',
 
-    // Color names
+    // Color names (Swedish-keyed for backward compat)
     'color.svart': 'Svart', 'color.vit': 'Vit', 'color.grå': 'Grå', 'color.marinblå': 'Marinblå',
     'color.blå': 'Blå', 'color.röd': 'Röd', 'color.grön': 'Grön', 'color.beige': 'Beige',
     'color.brun': 'Brun', 'color.rosa': 'Rosa', 'color.gul': 'Gul', 'color.orange': 'Orange', 'color.lila': 'Lila',
+    // Color names (English-keyed)
+    'color.black': 'Svart', 'color.white': 'Vit', 'color.grey': 'Grå', 'color.navy': 'Marinblå',
+    'color.blue': 'Blå', 'color.red': 'Röd', 'color.green': 'Grön', 'color.beige_en': 'Beige',
+    'color.brown': 'Brun', 'color.pink': 'Rosa', 'color.yellow': 'Gul', 'color.orange_en': 'Orange', 'color.purple': 'Lila',
+    'color.ivory': 'Ivory', 'color.cream': 'Kräm', 'color.sand': 'Sand', 'color.khaki': 'Khaki',
+    'color.charcoal': 'Kolgrå', 'color.anthracite': 'Antracit',
+    'color.skyblue': 'Himmelsblå', 'color.turquoise': 'Turkos', 'color.petrol': 'Petrol',
+    'color.indigo': 'Indigo', 'color.cobalt': 'Kobolt',
+    'color.olive': 'Olivgrön', 'color.forest': 'Skogsgrön', 'color.mint': 'Mint', 'color.sage': 'Salviagrön',
+    'color.burgundy': 'Vinröd', 'color.coral': 'Korall', 'color.apricot': 'Aprikos',
+    'color.fuchsia': 'Fuchsia', 'color.lavender': 'Lavendel',
+    'color.camel': 'Kamel', 'color.rust': 'Rost', 'color.cognac': 'Cognac',
+    'color.chocolate': 'Choklad', 'color.terracotta': 'Terrakotta',
+    'color.gold': 'Guld', 'color.silver': 'Silver', 'color.teal': 'Teal',
+    'color.plum': 'Plommon', 'color.mustard': 'Senapsgul',
+    'color.lightblue': 'Ljusblå', 'color.darkblue': 'Mörkblå',
+    'color.lightpink': 'Ljusrosa', 'color.magenta': 'Magenta',
+    'color.darkbrown': 'Mörkbrun', 'color.denim': 'Denim', 'color.off-white': 'Off-white',
 
     // Marketing chrome
     'common.last_updated': 'Senast uppdaterad:',
@@ -1406,13 +1424,26 @@ export const translations: Record<Locale, Record<string, string>> = {
     'subcategory.maxi_dress': 'Maxiklänning',
     'subcategory.mini_dress': 'Miniklänning',
 
-    // Occasion labels
+    // Occasion labels (Swedish-keyed)
     'occasion.jobb': 'Jobb',
     'occasion.vardag': 'Vardag',
     'occasion.fest': 'Fest',
     'occasion.dejt': 'Dejt',
     'occasion.resa': 'Resa',
     'occasion.traning': 'Träning',
+    // Occasion labels (English-keyed)
+    'occasion.work': 'Jobb',
+    'occasion.casual': 'Vardag',
+    'occasion.party': 'Fest',
+    'occasion.date': 'Dejt',
+    'occasion.travel': 'Resa',
+    'occasion.workout': 'Träning',
+    'home.occasion.work': 'Jobb',
+    'home.occasion.casual': 'Vardag',
+    'home.occasion.party': 'Fest',
+    'home.occasion.date': 'Dejt',
+    'home.occasion.travel': 'Resa',
+    'home.occasion.workout': 'Träning',
 
     // Stylist summary
     'stylist.title': 'Stylistens sammanfattning',
@@ -3355,10 +3386,28 @@ export const translations: Record<Locale, Record<string, string>> = {
     'style.minimal': 'Minimal',
     'style.street': 'Street',
 
-    // Color names
+    // Color names (Swedish-keyed for backward compat)
     'color.svart': 'Black', 'color.vit': 'White', 'color.grå': 'Grey', 'color.marinblå': 'Navy',
     'color.blå': 'Blue', 'color.röd': 'Red', 'color.grön': 'Green', 'color.beige': 'Beige',
     'color.brun': 'Brown', 'color.rosa': 'Pink', 'color.gul': 'Yellow', 'color.orange': 'Orange', 'color.lila': 'Purple',
+    // Color names (English-keyed)
+    'color.black': 'Black', 'color.white': 'White', 'color.grey': 'Grey', 'color.navy': 'Navy',
+    'color.blue': 'Blue', 'color.red': 'Red', 'color.green': 'Green', 'color.beige_en': 'Beige',
+    'color.brown': 'Brown', 'color.pink': 'Pink', 'color.yellow': 'Yellow', 'color.orange_en': 'Orange', 'color.purple': 'Purple',
+    'color.ivory': 'Ivory', 'color.cream': 'Cream', 'color.sand': 'Sand', 'color.khaki': 'Khaki',
+    'color.charcoal': 'Charcoal', 'color.anthracite': 'Anthracite',
+    'color.skyblue': 'Sky blue', 'color.turquoise': 'Turquoise', 'color.petrol': 'Petrol',
+    'color.indigo': 'Indigo', 'color.cobalt': 'Cobalt',
+    'color.olive': 'Olive', 'color.forest': 'Forest green', 'color.mint': 'Mint', 'color.sage': 'Sage',
+    'color.burgundy': 'Burgundy', 'color.coral': 'Coral', 'color.apricot': 'Apricot',
+    'color.fuchsia': 'Fuchsia', 'color.lavender': 'Lavender',
+    'color.camel': 'Camel', 'color.rust': 'Rust', 'color.cognac': 'Cognac',
+    'color.chocolate': 'Chocolate', 'color.terracotta': 'Terracotta',
+    'color.gold': 'Gold', 'color.silver': 'Silver', 'color.teal': 'Teal',
+    'color.plum': 'Plum', 'color.mustard': 'Mustard',
+    'color.lightblue': 'Light blue', 'color.darkblue': 'Dark blue',
+    'color.lightpink': 'Light pink', 'color.magenta': 'Magenta',
+    'color.darkbrown': 'Dark brown', 'color.denim': 'Denim', 'color.off-white': 'Off-white',
 
     // Marketing chrome
     'common.last_updated': 'Last updated:',
@@ -3488,13 +3537,26 @@ export const translations: Record<Locale, Record<string, string>> = {
     'subcategory.maxi_dress': 'Maxi dress',
     'subcategory.mini_dress': 'Mini dress',
 
-    // Occasion labels
+    // Occasion labels (Swedish-keyed for backward compat)
     'occasion.jobb': 'Work',
     'occasion.vardag': 'Casual',
     'occasion.fest': 'Party',
     'occasion.dejt': 'Date',
     'occasion.resa': 'Travel',
     'occasion.traning': 'Workout',
+    // Occasion labels (English-keyed)
+    'occasion.work': 'Work',
+    'occasion.casual': 'Casual',
+    'occasion.party': 'Party',
+    'occasion.date': 'Date',
+    'occasion.travel': 'Travel',
+    'occasion.workout': 'Workout',
+    'home.occasion.work': 'Work',
+    'home.occasion.casual': 'Casual',
+    'home.occasion.party': 'Party',
+    'home.occasion.date': 'Date',
+    'home.occasion.travel': 'Travel',
+    'home.occasion.workout': 'Workout',
 
     // Stylist summary
     'stylist.title': 'Stylist summary',

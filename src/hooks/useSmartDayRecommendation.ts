@@ -17,26 +17,30 @@ export interface SmartRecommendation {
 }
 
 function getTargetCategories(occasion: string): string[] {
-  switch (occasion) {
+   switch (occasion) {
+    case 'training':
     case 'träning':
-      return ['överdel', 'underdel', 'skor', 'sportjacka'];
+      return ['top', 'bottom', 'shoes', 'outerwear'];
+    case 'work':
     case 'jobb':
-      return ['överdel', 'underdel', 'skor', 'jacka'];
+      return ['top', 'bottom', 'shoes', 'outerwear'];
+    case 'party':
     case 'fest':
-      return ['överdel', 'underdel', 'skor', 'accessoar'];
+      return ['top', 'bottom', 'shoes', 'accessory'];
+    case 'date':
     case 'dejt':
-      return ['överdel', 'underdel', 'skor'];
+      return ['top', 'bottom', 'shoes'];
     default:
-      return ['överdel', 'underdel', 'skor'];
+      return ['top', 'bottom', 'shoes'];
   }
 }
 
 function formalityRange(occasion: string): [number, number] {
   switch (occasion) {
-    case 'träning': return [1, 2];
-    case 'jobb':    return [3, 5];
-    case 'fest':    return [4, 5];
-    case 'dejt':    return [3, 4];
+    case 'workout': case 'träning': case 'traning': return [1, 2];
+    case 'work': case 'jobb':    return [3, 5];
+    case 'party': case 'fest':    return [4, 5];
+    case 'date': case 'dejt':    return [3, 4];
     default:        return [1, 5];
   }
 }

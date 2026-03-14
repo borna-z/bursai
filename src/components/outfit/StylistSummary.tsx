@@ -34,21 +34,21 @@ interface StylistSummaryProps {
 }
 
 const occasionIcons: Record<string, React.ElementType> = {
-  jobb: Briefcase,
-  vardag: Coffee,
-  fest: PartyPopper,
-  resa: Plane,
-  träning: Dumbbell,
-  dejt: Heart,
+  work: Briefcase, jobb: Briefcase,
+  casual: Coffee, vardag: Coffee,
+  party: PartyPopper, fest: PartyPopper,
+  travel: Plane, resa: Plane,
+  workout: Dumbbell, 'träning': Dumbbell, traning: Dumbbell,
+  date: Heart, dejt: Heart,
 };
 
 const OCCASION_I18N: Record<string, string> = {
-  jobb: 'occasion.jobb',
-  vardag: 'occasion.vardag',
-  fest: 'occasion.fest',
-  resa: 'occasion.resa',
-  'träning': 'occasion.traning',
-  dejt: 'occasion.dejt',
+  work: 'occasion.work', jobb: 'occasion.jobb',
+  casual: 'occasion.casual', vardag: 'occasion.vardag',
+  party: 'occasion.party', fest: 'occasion.fest',
+  travel: 'occasion.travel', resa: 'occasion.resa',
+  workout: 'occasion.workout', 'träning': 'occasion.traning', traning: 'occasion.traning',
+  date: 'occasion.date', dejt: 'occasion.dejt',
 };
 
 function getTemperatureIcon(temp?: number) {

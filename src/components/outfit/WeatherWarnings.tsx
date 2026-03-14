@@ -30,8 +30,8 @@ interface WeatherWarningsProps {
 }
 
 // Season tags that indicate warm clothing (match DB values)
-const WARM_SEASONS = ['Vinter', 'Höst'];
-const COLD_SEASONS = ['Sommar'];
+const WARM_SEASONS = ['winter', 'autumn', 'Vinter', 'Höst'];
+const COLD_SEASONS = ['summer', 'Sommar'];
 
 const WARM_CATEGORIES = ['outerwear'];
 const LIGHT_CATEGORIES = ['t-shirt', 'shorts', 'linne'];
