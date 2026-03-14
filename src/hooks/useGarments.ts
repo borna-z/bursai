@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { hapticSuccess, hapticHeavy } from '@/lib/haptics';
+import { enqueue } from '@/lib/offlineQueue';
 import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
 export type Garment = Tables<'garments'>;
