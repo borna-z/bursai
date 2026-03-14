@@ -59,7 +59,7 @@ export default function OnboardingPage() {
       preferences: {
         ...currentPrefs,
         onboarding: { completed: true },
-      } as Record<string, unknown>,
+      } as unknown as Json,
     });
   };
 
