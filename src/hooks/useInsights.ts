@@ -91,6 +91,7 @@ export interface InsightsData {
   garmentsUsedLast30Days: number;
   usageRate: number;
   topFiveWorn: (Garment & { wearCountLast30: number })[];
+  usedGarments: (Garment & { wearCountLast30: number })[];
   unusedGarments: Garment[];
   colorTemperature: ColorTemperatureData;
 }
