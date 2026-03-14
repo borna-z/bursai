@@ -4,7 +4,7 @@ import { Sparkles, Loader2, Thermometer, CalendarDays, MapPin } from 'lucide-rea
 import { AILoadingCard } from '@/components/ui/AILoadingCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { LocationAutocomplete } from '@/components/ui/LocationAutocomplete';
 import { Chip } from '@/components/ui/chip';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
