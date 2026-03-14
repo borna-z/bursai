@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
 import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { StaleIndicator } from '@/components/ui/StaleIndicator';
+import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
