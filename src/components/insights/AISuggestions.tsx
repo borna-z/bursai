@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useAISuggestions, type AISuggestion } from '@/hooks/useAISuggestions';
+import { StaleIndicator } from '@/components/ui/StaleIndicator';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -217,7 +218,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
   const [creatingOutfitId, setCreatingOutfitId] = useState<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const { data: suggestions, isLoading, error, refetch, isFetching } = useAISuggestions();
+  const { data: suggestions, isLoading, error, refetch, isFetching, dataUpdatedAt } = useAISuggestions();
 
   const handleTryIt = async (suggestion: AISuggestion, index: number) => {
     if (!user) return;
@@ -325,6 +326,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
             isCreating={creatingOutfitId === activeIndex}
           />
           <DotNav total={total} active={activeIndex} onChange={setActiveIndex} />
+          <StaleIndicator updatedAt={dataUpdatedAt ? new Date(dataUpdatedAt).toISOString() : null} staleAfterHours={1} onRefresh={() => refetch()} className="justify-center pt-2" />
         </>
       )}
     </div>

@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
+import { asPreferences } from '@/types/preferences';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { SettingsRow } from '@/components/settings/SettingsRow';
@@ -36,7 +37,7 @@ export default function SettingsPrivacy() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [openSection, setOpenSection] = useState<SectionId | null>(null);
 
-  const preferences = (profile?.preferences as Record<string, unknown>) || {};
+  const preferences = asPreferences(profile?.preferences);
   const consent = (preferences.consent as ConsentPrefs) || { analytics: true, ai_conversations: true, body_data: true };
 
   const toggle = (id: SectionId) => setOpenSection(prev => prev === id ? null : id);

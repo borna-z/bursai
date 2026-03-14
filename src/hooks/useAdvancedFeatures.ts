@@ -1,17 +1,18 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 
 // Step 18: Condition tracking
 export function useAssessCondition() {
   return useMutation({
     mutationFn: async (garmentId: string) => {
-      const { data, error } = await supabase.functions.invoke('assess_garment_condition', {
+      const { data, error } = await invokeEdgeFunction<{ condition_score: number; notes: string; should_replace: boolean; error?: string }>('assess_garment_condition', {
         body: { garment_id: garmentId },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return data as { condition_score: number; notes: string; should_replace: boolean };
+      return data!;
     },
   });
 }
@@ -20,12 +21,12 @@ export function useAssessCondition() {
 export function useCloneOutfitDNA() {
   return useMutation({
     mutationFn: async (outfitId: string) => {
-      const { data, error } = await supabase.functions.invoke('clone_outfit_dna', {
+      const { data, error } = await invokeEdgeFunction<{ variations: Array<{ name: string; garment_ids: string[]; explanation: string }>; error?: string }>('clone_outfit_dna', {
         body: { outfit_id: outfitId },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return data as { variations: Array<{ name: string; garment_ids: string[]; explanation: string }> };
+      return data!;
     },
   });
 }
@@ -34,12 +35,12 @@ export function useCloneOutfitDNA() {
 export function useSuggestAccessories() {
   return useMutation({
     mutationFn: async (outfitId: string) => {
-      const { data, error } = await supabase.functions.invoke('suggest_accessories', {
+      const { data, error } = await invokeEdgeFunction<{ suggestions: Array<{ garment_id: string; reason: string }>; error?: string }>('suggest_accessories', {
         body: { outfit_id: outfitId },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return data as { suggestions: Array<{ garment_id: string; reason: string }> };
+      return data!;
     },
   });
 }
@@ -48,12 +49,12 @@ export function useSuggestAccessories() {
 export function useWardrobeGapAnalysis() {
   return useMutation({
     mutationFn: async (params?: { locale?: string }) => {
-      const { data, error } = await supabase.functions.invoke('wardrobe_gap_analysis', {
+      const { data, error } = await invokeEdgeFunction<{ gaps: Array<{ item: string; category: string; color: string; reason: string; new_outfits: number; price_range: string; search_query: string }>; error?: string }>('wardrobe_gap_analysis', {
         body: { locale: params?.locale || 'en' },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return data as { gaps: Array<{ item: string; category: string; color: string; reason: string; new_outfits: number; price_range: string; search_query: string }> };
+      return data!;
     },
   });
 }

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { translations, type Locale, SUPPORTED_LOCALES } from '@/i18n/translations';
+import { asPreferences } from '@/types/preferences';
 
 const RTL_LOCALES = new Set<Locale>(['ar', 'fa']);
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
@@ -27,7 +28,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   // Sync from profile preferences on load
   useEffect(() => {
-    const savedLocale = (profile?.preferences as Record<string, unknown>)?.locale as Locale | undefined;
+    const savedLocale = asPreferences(profile?.preferences)?.locale as Locale | undefined;
     if (savedLocale && translations[savedLocale]) {
       setLocaleState(savedLocale);
       localStorage.setItem('burs-locale', savedLocale);
@@ -46,10 +47,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
     // Save to profile if available
     if (profile) {
-      const currentPrefs = (profile.preferences as Record<string, unknown>) || {};
+      const currentPrefs = asPreferences(profile.preferences);
       try {
         await updateProfile.mutateAsync({
-          preferences: { ...currentPrefs, locale: newLocale },
+          preferences: { ...currentPrefs, locale: newLocale } as any,
         });
       } catch {
         // Silently fail – localStorage is the primary source

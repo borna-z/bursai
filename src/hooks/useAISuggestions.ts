@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 
 export interface AISuggestion {
   title: string;
@@ -44,12 +45,10 @@ export function useAISuggestions() {
       }
 
       // Use BURS style engine in suggest mode
-      const response = await supabase.functions.invoke<AISuggestionsResponse>(
+      const response = await invokeEdgeFunction<AISuggestionsResponse>(
         'burs_style_engine',
         {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
+          timeout: 45000,
           body: { mode: 'suggest', locale, occasion: 'vardag' },
         }
       );
@@ -62,7 +61,7 @@ export function useAISuggestions() {
       }
 
       if (response.error) {
-        throw new Error(response.error.message);
+        throw response.error;
       }
 
       if (response.data?.error) {

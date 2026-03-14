@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
+import { asPreferences } from '@/types/preferences';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
@@ -28,7 +29,7 @@ export function ProtectedRoute({ children, skipOnboardingCheck = false }: Protec
 
   // Redirect to onboarding if not completed (unless we're already there)
   if (!skipOnboardingCheck && profile) {
-    const prefs = profile.preferences as Record<string, any> | null;
+    const prefs = asPreferences(profile.preferences);
     const onboardingCompleted = prefs?.onboarding?.completed === true;
     if (!onboardingCompleted && location.pathname !== '/onboarding') {
       return <Navigate to="/onboarding" replace />;

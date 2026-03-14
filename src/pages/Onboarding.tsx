@@ -12,6 +12,7 @@ import { QuickStyleQuiz } from '@/components/onboarding/QuickStyleQuiz';
 import { QuickUploadStep } from '@/components/onboarding/QuickUploadStep';
 import { GetStartedStep } from '@/components/onboarding/GetStartedStep';
 import type { StyleProfileV3 } from '@/components/onboarding/StyleQuizV3';
+import { asPreferences } from '@/types/preferences';
 import { toast } from 'sonner';
 
 const STEPS = ['lang', 'accent', 'quiz', 'upload', 'getstarted'] as const;
@@ -52,19 +53,19 @@ export default function OnboardingPage() {
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
 
   const completeOnboarding = async () => {
-    const currentPrefs = (profile?.preferences as Record<string, unknown>) || {};
+    const currentPrefs = asPreferences(profile?.preferences);
     await updateProfile.mutateAsync({
       preferences: {
         ...currentPrefs,
         onboarding: { completed: true },
-      },
+      } as any,
     });
   };
 
   const handleQuizComplete = async (sp: StyleProfileV3) => {
     setIsSavingQuiz(true);
     try {
-      const currentPrefs = (profile?.preferences as Record<string, unknown>) || {};
+      const currentPrefs = asPreferences(profile?.preferences);
       const updates: Record<string, unknown> = {
         preferences: {
           ...currentPrefs,
@@ -101,7 +102,7 @@ export default function OnboardingPage() {
   };
 
   // Redirect if already completed
-  const prefs = profile?.preferences as Record<string, any> | null;
+  const prefs = asPreferences(profile?.preferences);
   const onboardingCompleted = prefs?.onboarding?.completed === true;
 
   if (profileLoading || adminLoading) {

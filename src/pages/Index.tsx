@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { isMedianApp } from '@/lib/median';
 import { PageSkeleton } from '@/components/layout/PageSkeleton';
+import { asPreferences } from '@/types/preferences';
 import Landing from './Landing';
 import Home from './Home';
 
@@ -16,7 +17,7 @@ const Index = () => {
 
   if (!user) return isMedianApp() ? <Navigate to="/auth" replace /> : <Landing />;
 
-  const prefs = profile?.preferences as Record<string, any> | null;
+  const prefs = asPreferences(profile?.preferences);
   const onboardingCompleted = prefs?.onboarding?.completed === true;
   if (!onboardingCompleted) return <Navigate to="/onboarding" replace />;
 

@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { hapticSuccess, hapticHeavy } from '@/lib/haptics';
+import { enqueue } from '@/lib/offlineQueue';
 import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
 export type Garment = Tables<'garments'>;
@@ -128,6 +129,16 @@ export function useCreateGarment() {
     mutationFn: async (garment: Omit<TablesInsert<'garments'>, 'user_id'>) => {
       if (!user) throw new Error('Not authenticated');
       
+      // Offline: enqueue mutation for later replay
+      if (!navigator.onLine) {
+        enqueue({
+          table: 'garments',
+          type: 'insert',
+          payload: { ...garment, user_id: user.id },
+        });
+        return { ...garment, user_id: user.id, id: crypto.randomUUID() } as Tables<'garments'>;
+      }
+      
       const { data, error } = await supabase
         .from('garments')
         .insert({ ...garment, user_id: user.id })
@@ -151,6 +162,17 @@ export function useUpdateGarment() {
   
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: TablesUpdate<'garments'> }) => {
+      // Offline: enqueue mutation for later replay
+      if (!navigator.onLine) {
+        enqueue({
+          table: 'garments',
+          type: 'update',
+          payload: updates as Record<string, unknown>,
+          match: { id },
+        });
+        return { id, ...updates } as Tables<'garments'>;
+      }
+      
       const { data, error } = await supabase
         .from('garments')
         .update(updates)

@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Award, Loader2, Lock, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { StaleIndicator } from '@/components/ui/StaleIndicator';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
@@ -21,12 +22,14 @@ export function StyleReportCard({ isPremium }: { isPremium: boolean }) {
   const { user } = useAuth();
   const [report, setReport] = useState<StyleReport | null>(null);
   const [loading, setLoading] = useState(false);
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
 
   const generate = async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('burs_style_engine', {
+      const { data, error } = await invokeEdgeFunction<StyleReport & { error?: string }>('burs_style_engine', {
+        timeout: 45000,
         body: {
           action: 'style_report',
           user_id: user.id,
@@ -35,6 +38,7 @@ export function StyleReportCard({ isPremium }: { isPremium: boolean }) {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setReport(data as StyleReport);
+      setGeneratedAt(new Date().toISOString());
     } catch {
       toast.error(t('insights.report_error'));
     } finally {
@@ -95,6 +99,7 @@ export function StyleReportCard({ isPremium }: { isPremium: boolean }) {
 
               {/* Summary */}
               <p className="text-sm text-muted-foreground leading-relaxed">{report.summary}</p>
+              <StaleIndicator updatedAt={generatedAt} staleAfterHours={24} onRefresh={generate} />
             </motion.div>
           )}
         </div>

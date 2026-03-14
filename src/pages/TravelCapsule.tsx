@@ -10,6 +10,8 @@ import {
   Check, Share2, Snowflake, RefreshCw,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { asPreferences } from '@/types/preferences';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
@@ -276,8 +278,9 @@ export default function TravelCapsule() {
     if (!weatherForecast) await lookupWeather();
     setIsGenerating(true);
     try {
-      const userLocale = (profile?.preferences as Record<string, string> | null)?.locale || locale;
-      const { data, error } = await supabase.functions.invoke('travel_capsule', {
+      const userLocale = (asPreferences(profile?.preferences)?.language as string) || locale;
+      const { data, error } = await invokeEdgeFunction<CapsuleResult & { error?: string }>('travel_capsule', {
+        timeout: 45000,
         body: {
           duration_days: tripDays || tripNights,
           destination,

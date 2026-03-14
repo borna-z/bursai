@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 export interface GarmentAnalysis {
@@ -47,7 +47,8 @@ export function useAnalyzeGarment() {
     try {
       setAnalysisProgress(20);
 
-      const { data, error } = await supabase.functions.invoke('analyze_garment', {
+      const { data, error } = await invokeEdgeFunction<GarmentAnalysis & { error?: string }>('analyze_garment', {
+        timeout: 30000,
         body: { storagePath, locale },
       });
 
