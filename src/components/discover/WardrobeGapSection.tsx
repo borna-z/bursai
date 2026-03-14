@@ -161,9 +161,10 @@ export function WardrobeGapSection() {
   return (
     <section className="space-y-3">
       {results && results.length > 0 && (
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between">
+          <StaleIndicator updatedAt={analysisTimestamp} onRefresh={handleScan} />
           <button
-            onClick={() => { setResults(null); }}
+            onClick={() => { setResults(null); setAnalysisTimestamp(null); }}
             className="text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
           >
             {t('discover.gap_reset')}
