@@ -85,11 +85,6 @@ export default function HomePage() {
           {/* ── 3. Quick Actions ── */}
           <QuickActionsRow />
 
-          {/* ── 4 & 5. Below-fold (lazy) ── */}
-          <Suspense fallback={null}>
-            <InsightsBanner />
-            <SmartInsightCard />
-          </Suspense>
         </AnimatedPage>
       </PullToRefresh>
     </AppLayout>
