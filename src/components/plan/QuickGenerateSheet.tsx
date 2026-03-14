@@ -75,35 +75,26 @@ export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGen
     { id: 'romantisk', label: t('qgen.romantic') },
   ];
 
-  const lookupTravelWeather = useCallback(async (city: string, targetDate: string) => {
-    if (!city || city.length < 2) { setTravelForecast(null); setTravelError(null); return; }
+  const lookupTravelWeather = useCallback(async (coords: { lat: number; lon: number }, targetDate: string) => {
     setIsFetchingTravel(true); setTravelError(null);
     try {
-      const coords = await getCoordinatesFromCity(city);
-      if (!coords) { setTravelError(t('qgen.place_not_found')); setTravelForecast(null); return; }
+      const { fetchForecast, fetchHistoricalWeather } = await import('@/hooks/useForecast');
       const days = await fetchForecast(coords.lat, coords.lon);
       let match = days.find(d => d.date === targetDate) || null;
-      
-      // If date is beyond 16-day forecast, try historical data
       if (!match) {
         try {
           const historicalDays = await fetchHistoricalWeather(coords.lat, coords.lon, targetDate, targetDate);
           match = historicalDays.find(d => d.date === targetDate) || null;
-        } catch {
-          // Historical fetch failed
-        }
+        } catch { /* Historical fetch failed */ }
       }
-      
       setTravelForecast(match);
       if (!match) setTravelError(t('qgen.no_forecast'));
     } catch { setTravelError(t('qgen.weather_error')); setTravelForecast(null); } finally { setIsFetchingTravel(false); }
   }, [t]);
 
-  useEffect(() => {
-    if (!isTravel || !travelCity) { setTravelForecast(null); return; }
-    const timer = setTimeout(() => { lookupTravelWeather(travelCity, dateStr); }, 500);
-    return () => clearTimeout(timer);
-  }, [travelCity, dateStr, isTravel, lookupTravelWeather]);
+  const handleTravelSelect = useCallback((city: string, coords: { lat: number; lon: number }) => {
+    lookupTravelWeather(coords, dateStr);
+  }, [lookupTravelWeather, dateStr]);
 
   useEffect(() => {
     if (!isTravel) { setTravelCity(''); setTravelForecast(null); setTravelError(null); }
