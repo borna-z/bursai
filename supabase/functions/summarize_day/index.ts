@@ -39,7 +39,7 @@ serve(async (req) => {
     const isSv = locale === "sv";
 
     const weatherContext = weather
-      ? `${weather.temperature}°C, ${weather.precipitation === "none" ? (isSv ? "uppehåll" : "clear") : weather.precipitation}`
+      ? `${weather.temperature}°C, ${weather.precipitation === "none" ? "clear" : weather.precipitation}`
       : "";
 
     const eventsText = events
