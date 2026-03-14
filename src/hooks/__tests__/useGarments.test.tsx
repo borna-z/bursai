@@ -27,17 +27,30 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 }
 
-function mockChain(data: any = [], error: any = null) {
-  const chain: any = {};
+interface MockChain {
+  select: ReturnType<typeof vi.fn>;
+  eq: ReturnType<typeof vi.fn>;
+  contains: ReturnType<typeof vi.fn>;
+  order: ReturnType<typeof vi.fn>;
+  range: ReturnType<typeof vi.fn>;
+  insert: ReturnType<typeof vi.fn>;
+  delete: ReturnType<typeof vi.fn>;
+  update: ReturnType<typeof vi.fn>;
+  single: ReturnType<typeof vi.fn>;
+  in: ReturnType<typeof vi.fn>;
+}
+
+function mockChain(data: unknown[] = [], error: unknown = null): MockChain {
+  const chain = {} as MockChain;
   chain.select = vi.fn().mockReturnValue(chain);
   chain.eq = vi.fn().mockReturnValue(chain);
   chain.contains = vi.fn().mockReturnValue(chain);
   chain.order = vi.fn().mockReturnValue(chain);
   chain.range = vi.fn().mockResolvedValue({ data, error });
-  chain.insert = vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single: vi.fn().mockResolvedValue({ data: data[0] || {}, error }) }) });
+  chain.insert = vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single: vi.fn().mockResolvedValue({ data: (data as Record<string, unknown>[])[0] || {}, error }) }) });
   chain.delete = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error }) });
   chain.update = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error }) });
-  chain.single = vi.fn().mockResolvedValue({ data: data[0] || null, error });
+  chain.single = vi.fn().mockResolvedValue({ data: (data as Record<string, unknown>[])[0] || null, error });
   chain.in = vi.fn().mockReturnValue(chain);
   return chain;
 }
@@ -49,14 +62,14 @@ describe('useGarments', () => {
   });
 
   it('returns empty when user is null', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: null } as any);
+    vi.mocked(useAuth).mockReturnValue({ user: null } as ReturnType<typeof useAuth>);
     const { useFlatGarments } = await import('../useGarments');
     const { result } = renderHook(() => useFlatGarments(), { wrapper });
     await waitFor(() => expect(result.current.data).toEqual([]));
   });
 
   it('fetches garments for authenticated user', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as any);
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
     const garments = [{ id: 'g1', title: 'Shirt', category: 'top', color_primary: 'blue' }];
     mockFrom.mockReturnValue(mockChain(garments));
 
@@ -67,7 +80,7 @@ describe('useGarments', () => {
   });
 
   it('applies category filter', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as any);
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
     const chain = mockChain([]);
     mockFrom.mockReturnValue(chain);
 
@@ -77,7 +90,7 @@ describe('useGarments', () => {
   });
 
   it('applies client-side search filter', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as any);
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
     const garments = [
       { id: 'g1', title: 'Blue Shirt', category: 'top', color_primary: 'blue' },
       { id: 'g2', title: 'Red Pants', category: 'bottom', color_primary: 'red' },
@@ -91,9 +104,10 @@ describe('useGarments', () => {
   });
 
   it('useGarmentCount returns count', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as any);
-    const chain: any = {};
-    chain.select = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ count: 5, error: null }) });
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+    const chain = {
+      select: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ count: 5, error: null }) }),
+    };
     mockFrom.mockReturnValue(chain);
 
     const { useGarmentCount } = await import('../useGarments');

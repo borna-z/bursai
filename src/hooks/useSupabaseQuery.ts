@@ -15,6 +15,7 @@ interface SupabaseQueryOptions<T> {
   /** Supabase select string (default: '*') */
   select?: string;
   /** Additional filters applied to the query builder */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic table makes precise typing impractical
   filters?: (query: any) => any;
   /** Whether auth is required (default: true) */
   requireAuth?: boolean;
@@ -47,6 +48,7 @@ export function useSupabaseQuery<T = unknown>(opts: SupabaseQueryOptions<T>) {
     queryFn: async () => {
       if (requireAuth && !user) return single ? null : [];
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic table name from caller
       let query = supabase.from(table as any).select(select);
 
       if (requireAuth && user) {

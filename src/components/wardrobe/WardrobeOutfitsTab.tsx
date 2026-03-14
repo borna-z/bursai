@@ -15,6 +15,7 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
+import type { Locale as AppLocale } from '@/i18n/translations';
 import { toast } from 'sonner';
 import { TAP_TRANSITION } from '@/lib/motion';
 
@@ -77,9 +78,9 @@ function OutfitCard({
 
   const plannedFor = outfit.planned_for;
   const dateStr = plannedFor
-    ? format(new Date(plannedFor), 'd MMM', { locale: getDateFnsLocale(locale as any) })
+    ? format(new Date(plannedFor), 'd MMM', { locale: getDateFnsLocale(locale as AppLocale) })
     : outfit.generated_at
-      ? format(new Date(outfit.generated_at), 'd MMM', { locale: getDateFnsLocale(locale as any) })
+      ? format(new Date(outfit.generated_at), 'd MMM', { locale: getDateFnsLocale(locale as AppLocale) })
       : null;
 
   return (

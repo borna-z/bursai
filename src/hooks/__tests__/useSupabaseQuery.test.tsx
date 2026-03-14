@@ -21,13 +21,19 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 }
 
-function mockChain(data: any = [], error: any = null) {
-  const chain: any = {};
+interface MockChain {
+  select: ReturnType<typeof vi.fn>;
+  eq: ReturnType<typeof vi.fn>;
+  single: ReturnType<typeof vi.fn>;
+  then: ReturnType<typeof vi.fn>;
+}
+
+function mockChain(data: unknown[] = [], error: unknown = null): MockChain {
+  const chain = {} as MockChain;
   chain.select = vi.fn().mockReturnValue(chain);
   chain.eq = vi.fn().mockReturnValue(chain);
-  chain.single = vi.fn().mockResolvedValue({ data: data[0] || null, error });
-  // For array queries, resolve the chain itself
-  chain.then = vi.fn((resolve: any) => resolve({ data, error }));
+  chain.single = vi.fn().mockResolvedValue({ data: (data as Record<string, unknown>[])[0] || null, error });
+  chain.then = vi.fn((resolve: (val: { data: unknown[]; error: unknown }) => void) => resolve({ data, error }));
   return chain;
 }
 
@@ -38,21 +44,19 @@ describe('useSupabaseQuery', () => {
   });
 
   it('skips query when no user and requireAuth is true', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: null } as any);
+    vi.mocked(useAuth).mockReturnValue({ user: null } as ReturnType<typeof useAuth>);
     const { useSupabaseQuery } = await import('../useSupabaseQuery');
     const { result } = renderHook(
       () => useSupabaseQuery({ queryKey: ['test'], table: 'garments' }),
       { wrapper }
     );
-    // Query should be disabled
     expect(result.current.fetchStatus).toBe('idle');
   });
 
   it('fetches data for authenticated user', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as any);
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
     const data = [{ id: '1', user_id: 'user-1', title: 'Item' }];
     const chain = mockChain(data);
-    // Override: when no .single(), the query resolves with array
     chain.eq = vi.fn().mockResolvedValue({ data, error: null });
     mockFrom.mockReturnValue({ select: vi.fn().mockReturnValue(chain) });
 
@@ -65,9 +69,9 @@ describe('useSupabaseQuery', () => {
   });
 
   it('returns single row when single is true', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as any);
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
     const item = { id: '1', user_id: 'user-1', title: 'Shirt' };
-    const chain: any = {};
+    const chain: MockChain = {} as MockChain;
     chain.select = vi.fn().mockReturnValue(chain);
     chain.eq = vi.fn().mockReturnValue(chain);
     chain.single = vi.fn().mockResolvedValue({ data: item, error: null });
@@ -82,10 +86,10 @@ describe('useSupabaseQuery', () => {
   });
 
   it('validates with Zod schema', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as any);
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
     const schema = z.object({ id: z.string(), title: z.string() });
     const data = [{ id: '1', title: 'Valid', user_id: 'user-1' }];
-    const chain: any = {};
+    const chain: MockChain = {} as MockChain;
     chain.select = vi.fn().mockReturnValue(chain);
     chain.eq = vi.fn().mockResolvedValue({ data, error: null });
     mockFrom.mockReturnValue({ select: vi.fn().mockReturnValue(chain) });

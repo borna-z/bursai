@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { compressFrame } from '@/lib/compressFrame';
 
+interface MockFileReaderInstance {
+  result: string;
+  onloadend: (() => void) | null;
+  readAsDataURL: ReturnType<typeof vi.fn>;
+}
+
 describe('compressFrame', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -21,7 +27,7 @@ describe('compressFrame', () => {
   }
 
   it('scales canvas to fit maxDim and resolves with blob + base64', async () => {
-    const MockFileReader = vi.fn(function (this: any) {
+    const MockFileReader = vi.fn(function (this: MockFileReaderInstance) {
       this.result = 'data:image/jpeg;base64,aW1n';
       this.onloadend = null;
       this.readAsDataURL = vi.fn(() => {
@@ -43,7 +49,7 @@ describe('compressFrame', () => {
   });
 
   it('does not upscale when video is smaller than maxDim', async () => {
-    const MockFileReader = vi.fn(function (this: any) {
+    const MockFileReader = vi.fn(function (this: MockFileReaderInstance) {
       this.result = 'data:image/jpeg;base64,c21hbGw=';
       this.onloadend = null;
       this.readAsDataURL = vi.fn(() => {
@@ -53,8 +59,8 @@ describe('compressFrame', () => {
     vi.stubGlobal('FileReader', MockFileReader);
 
     const { canvas, video, drawImage } = makeMocks();
-    (video as any).videoWidth = 320;
-    (video as any).videoHeight = 240;
+    Object.defineProperty(video, 'videoWidth', { value: 320, writable: true });
+    Object.defineProperty(video, 'videoHeight', { value: 240, writable: true });
 
     await compressFrame(canvas, video, 480);
 
