@@ -59,7 +59,7 @@ function isBlockedUrl(urlString: string): { blocked: boolean; reason?: string } 
     
     // Block localhost and loopback
     if (BLOCKED_HOSTS.includes(hostname)) {
-      return { blocked: true, reason: 'Lokal adress blockerad' };
+      return { blocked: true, reason: 'Local address blocked' };
     }
     
     // Block private IP ranges
