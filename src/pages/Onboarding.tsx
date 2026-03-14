@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { Json } from '@/integrations/supabase/types';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
