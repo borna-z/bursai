@@ -113,3 +113,4 @@ describe('useOutfitGenerator', () => {
     expect(outfit!.id).toBe('outfit-1');
     expect(outfit!.items.length).toBe(3);
   });
+});
