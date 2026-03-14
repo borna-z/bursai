@@ -655,6 +655,11 @@ export const translations: Record<Locale, Record<string, string>> = {
     'scan.tap_to_start': 'Tryck för att starta kameran',
     'scan.start_camera': 'Starta kamera',
     'scan.use_add_garment': 'Använd "Lägg till plagg" istället för live-skanning.',
+    'scan.title': 'Skanna plagg',
+    'scan.tap_to_capture': 'Ta ett foto av ditt plagg för att analysera det.',
+    'scan.take_photo': 'Ta foto',
+    'scan.camera_denied': 'Kameraåtkomst nekad. Aktivera den i dina inställningar.',
+    'scan.no_camera': 'Ingen kamera hittades på denna enhet.',
 
     // Insights
     'insights.title': 'Insikter',
@@ -2740,6 +2745,11 @@ export const translations: Record<Locale, Record<string, string>> = {
     'scan.tap_to_start': 'Tap to start the camera',
     'scan.start_camera': 'Start Camera',
     'scan.use_add_garment': 'Use "Add garment" instead of live scanning.',
+    'scan.title': 'Scan garment',
+    'scan.tap_to_capture': 'Take a photo of your garment to analyze it.',
+    'scan.take_photo': 'Take Photo',
+    'scan.camera_denied': 'Camera access denied. Please enable it in your settings.',
+    'scan.no_camera': 'No camera detected on this device.',
     'insights.title': 'Insights',
     'insights.total': 'Total garments',
     'insights.used_30d': 'Used (30d)',

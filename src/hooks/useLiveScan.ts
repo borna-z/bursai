@@ -4,6 +4,7 @@ import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { hapticMedium, hapticSuccess } from '@/lib/haptics';
+import { compressImage } from '@/lib/imageCompression';
 import type { GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
 
 export interface ScanResult {
@@ -96,6 +97,52 @@ export function useLiveScan() {
       setIsProcessing(false);
     }
   }, [user, isProcessing, getCanvas]);
+
+  /**
+   * Capture from a File (used by Median file-input fallback).
+   */
+  const captureFromFile = useCallback(async (file: File) => {
+    if (!user || isProcessing) return;
+    setIsProcessing(true);
+    setError(null);
+    setLastResult(null);
+
+    try {
+      const { file: compressed, previewUrl } = await compressImage(file, { maxDimension: 480, quality: 0.5 });
+      const blob = compressed as Blob;
+
+      // Convert to base64
+      const base64: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      const { data, error: fnError } = await invokeEdgeFunction<GarmentAnalysis & { error?: string }>('analyze_garment', {
+        body: { base64Image: base64 },
+      });
+
+      if (fnError || data?.error) {
+        setError(fnError?.message || data?.error || 'Analysis failed');
+        URL.revokeObjectURL(previewUrl);
+        return;
+      }
+
+      setLastResult({
+        analysis: data as GarmentAnalysis,
+        thumbnailUrl: previewUrl,
+        blob,
+      });
+
+      hapticMedium();
+    } catch (err) {
+      console.error('File capture error:', err);
+      setError('Could not process image');
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [user, isProcessing]);
 
   /**
    * Accept the last scanned result: upload image + save garment in background.
@@ -193,6 +240,7 @@ export function useLiveScan() {
     lastResult,
     error,
     capture,
+    captureFromFile,
     accept,
     retake,
     finish,
