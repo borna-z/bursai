@@ -276,7 +276,7 @@ export default function GarmentDetailPage() {
                   const price = parseFloat(priceInput);
                   if (isNaN(price) || price < 0) return;
                   try {
-                    await updateGarment.mutateAsync({ id: garment.id, updates: { purchase_price: price } as any });
+                    await updateGarment.mutateAsync({ id: garment.id, updates: { purchase_price: price } });
                     setEditingPrice(false);
                   } catch { toast.error(t('common.something_wrong')); }
                 }}
