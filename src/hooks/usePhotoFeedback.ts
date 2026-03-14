@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
 
 export interface OutfitFeedback {
   id: string;
@@ -22,7 +22,7 @@ export function useOutfitFeedback(outfitId: string | undefined) {
   return useQuery({
     queryKey: ['outfit-feedback', outfitId],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('outfit_feedback')
         .select('*')
         .eq('outfit_id', outfitId!)
@@ -57,7 +57,7 @@ export function useSubmitPhotoFeedback() {
       if (uploadErr) throw uploadErr;
 
       // Call edge function
-      const { data, error } = await supabase.functions.invoke('outfit_photo_feedback', {
+      const { data, error } = await invokeEdgeFunction<OutfitFeedback & { error?: string }>('outfit_photo_feedback', {
         body: { outfit_id: outfitId, selfie_path: selfiePath },
       });
 

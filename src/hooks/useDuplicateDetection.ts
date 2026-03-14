@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
 
 export interface DuplicateMatch {
@@ -29,7 +29,7 @@ export function useDuplicateDetection() {
 
     setIsChecking(true);
     try {
-      const { data, error } = await supabase.functions.invoke('detect_duplicate_garment', {
+      const { data, error } = await invokeEdgeFunction<{ duplicates?: DuplicateMatch[] }>('detect_duplicate_garment', {
         body: params,
       });
 

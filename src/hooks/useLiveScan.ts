@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { hapticMedium, hapticSuccess } from '@/lib/haptics';
@@ -71,7 +72,7 @@ export function useLiveScan() {
       const thumbnailUrl = URL.createObjectURL(blob);
 
       // Send base64 directly to AI (no storage upload yet)
-      const { data, error: fnError } = await supabase.functions.invoke('analyze_garment', {
+      const { data, error: fnError } = await invokeEdgeFunction<GarmentAnalysis & { error?: string }>('analyze_garment', {
         body: { base64Image: base64 },
       });
 

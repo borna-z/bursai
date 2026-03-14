@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -64,16 +65,17 @@ export function useCalendarSync() {
   const syncMutation = useMutation({
     mutationFn: async () => {
       setIsSyncing(true);
-      const { data, error } = await supabase.functions.invoke('calendar', {
+      const { data, error } = await invokeEdgeFunction<{ synced?: number; error?: string }>('calendar', {
         body: { action: 'sync_ics' },
       });
+      if (error) throw error;
       if (data?.error) throw new Error(data.error);
       return data;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       queryClient.invalidateQueries({ queryKey: ['profile-calendar'] });
-      toast.success(t('calsync.synced_events').replace('{count}', String(data.synced)));
+      toast.success(t('calsync.synced_events').replace('{count}', String(data?.synced)));
     },
     onError: (error: Error) => {
       toast.error(error.message || t('calsync.sync_error'));
@@ -84,22 +86,13 @@ export function useCalendarSync() {
   const syncGoogleMutation = useMutation({
     mutationFn: async () => {
       setIsSyncing(true);
-      const { data, error } = await supabase.functions.invoke('calendar', {
+      const { data, error } = await invokeEdgeFunction<{ synced?: number; reconnect?: boolean; error?: string }>('calendar', {
         body: { action: 'sync_google' },
       });
-      // supabase.functions.invoke sets error on non-2xx responses
-      // Parse the response body to check for reconnect signal
+
       if (error) {
-        // Try to extract JSON body from the FunctionsHttpError
-        let body: any = null;
-        try {
-          if (error.context?.body) {
-            const reader = error.context.body.getReader();
-            const { value } = await reader.read();
-            body = JSON.parse(new TextDecoder().decode(value));
-          }
-        } catch { /* ignore parse errors */ }
-        if (body?.reconnect || data?.reconnect) {
+        // Check if the error message hints at reconnect
+        if (error.message?.includes('reconnect')) {
           throw Object.assign(new Error('reconnect_required'), { reconnect: true });
         }
         throw error;
@@ -113,7 +106,7 @@ export function useCalendarSync() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       queryClient.invalidateQueries({ queryKey: ['profile-calendar'] });
-      toast.success(t('calsync.synced_google').replace('{count}', String(data.synced)));
+      toast.success(t('calsync.synced_google').replace('{count}', String(data?.synced)));
     },
     onError: (error: any) => {
       if (error?.reconnect) {
@@ -176,14 +169,14 @@ export function useCalendarSync() {
   const connectGoogle = async () => {
     try {
       const redirectUri = 'https://burs.me/calendar/callback';
-      const { data, error } = await supabase.functions.invoke('google_calendar_auth', {
+      const { data, error } = await invokeEdgeFunction<{ url?: string; error?: string }>('google_calendar_auth', {
         body: { action: 'get_auth_url', redirect_uri: redirectUri },
       });
       if (error || data?.error) {
         toast.error(t('calsync.connect_error'));
         return;
       }
-      window.location.href = data.url;
+      if (data?.url) window.location.href = data.url;
     } catch {
       toast.error(t('calsync.connect_error'));
     }
@@ -191,7 +184,7 @@ export function useCalendarSync() {
 
   const disconnectGoogle = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('google_calendar_auth', {
+      const { data, error } = await invokeEdgeFunction<{ error?: string }>('google_calendar_auth', {
         body: { action: 'disconnect' },
       });
       if (error || data?.error) throw new Error(data?.error || 'Disconnect failed');
@@ -316,7 +309,6 @@ export function inferOccasionFromEvent(title: string): { occasion: string; forma
   const t = title.toLowerCase();
 
   const rules: { occasion: string; formality: number; keywords: string[]; confidence: number }[] = [
-    // High confidence: very specific event types
     { occasion: 'fest', formality: 5, confidence: 0.95, keywords: [
       'gala', 'bröllop', 'wedding', 'bankett', 'invigning', 'release party',
     ]},
