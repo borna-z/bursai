@@ -28,7 +28,8 @@ export function StyleReportCard({ isPremium }: { isPremium: boolean }) {
     if (!user) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('burs_style_engine', {
+      const { data, error } = await invokeEdgeFunction<StyleReport & { error?: string }>('burs_style_engine', {
+        timeout: 45000,
         body: {
           action: 'style_report',
           user_id: user.id,
@@ -37,6 +38,7 @@ export function StyleReportCard({ isPremium }: { isPremium: boolean }) {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setReport(data as StyleReport);
+      setGeneratedAt(new Date().toISOString());
     } catch {
       toast.error(t('insights.report_error'));
     } finally {
