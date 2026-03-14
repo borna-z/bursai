@@ -945,6 +945,16 @@ export const translations: Record<Locale, Record<string, string>> = {
     'capsule.pick_must_haves': 'Välj måste-ha plagg',
     'capsule.n_selected': '{n} valda',
     'capsule.done': 'Klar',
+    'capsule.phase_weather': 'Kollar vädret...',
+    'capsule.phase_wardrobe': 'Analyserar garderoben...',
+    'capsule.phase_planning': 'Planerar outfits...',
+    'capsule.phase_packing': 'Optimerar packningen...',
+    'capsule.phase_creating': 'Skapar kapsel...',
+    'capsule.phase_colors': 'Matchar färger...',
+    'capsule.phase_layers': 'Kontrollerar lager...',
+    'capsule.phase_combos': 'Testar kombinationer...',
+    'capsule.phase_review': 'Granskar resultatet...',
+    'capsule.phase_final': 'Nästan klart...',
 
     // Swap sheet
     'swap.title': 'Byt outfit',
