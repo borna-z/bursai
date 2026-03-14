@@ -35,12 +35,12 @@ export function useCloneOutfitDNA() {
 export function useSuggestAccessories() {
   return useMutation({
     mutationFn: async (outfitId: string) => {
-      const { data, error } = await supabase.functions.invoke('suggest_accessories', {
+      const { data, error } = await invokeEdgeFunction<{ suggestions: Array<{ garment_id: string; reason: string }>; error?: string }>('suggest_accessories', {
         body: { outfit_id: outfitId },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return data as { suggestions: Array<{ garment_id: string; reason: string }> };
+      return data!;
     },
   });
 }
