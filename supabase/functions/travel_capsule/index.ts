@@ -268,6 +268,8 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
           functionName: "travel_capsule",
         });
 
+        console.log(`travel_capsule attempt ${attempt} model=${model_used} type=${typeof content}`);
+
         let parsed: any = null;
         if (content && typeof content === "object") {
           parsed = content;
@@ -281,12 +283,14 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
         }
 
         if (!parsed || typeof parsed !== "object") {
-          lastError = new Error("AI returned empty capsule payload");
+          lastError = new Error(`AI returned empty payload (type=${typeof content})`);
+          console.warn("Empty AI payload, raw content:", JSON.stringify(content)?.slice(0, 500));
           continue;
         }
 
         if (!Array.isArray(parsed.capsule_items) || !Array.isArray(parsed.outfits)) {
-          lastError = new Error("AI payload missing capsule_items/outfits arrays");
+          lastError = new Error(`Missing arrays: capsule_items=${typeof parsed.capsule_items} outfits=${typeof parsed.outfits}`);
+          console.warn("Malformed AI payload keys:", Object.keys(parsed));
           continue;
         }
 
