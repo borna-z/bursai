@@ -1,13 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const mockInvoke = vi.fn();
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
-    functions: { invoke: mockInvoke },
+    functions: {
+      invoke: vi.fn(),
+    },
   },
 }));
 
+import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction, EdgeFunctionTimeoutError } from '../edgeFunctionClient';
+
+const mockInvoke = supabase.functions.invoke as ReturnType<typeof vi.fn>;
 
 describe('invokeEdgeFunction', () => {
   beforeEach(() => {
