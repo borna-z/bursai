@@ -45,12 +45,10 @@ export function useAISuggestions() {
       }
 
       // Use BURS style engine in suggest mode
-      const response = await supabase.functions.invoke<AISuggestionsResponse>(
+      const response = await invokeEdgeFunction<AISuggestionsResponse>(
         'burs_style_engine',
         {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
+          timeout: 45000,
           body: { mode: 'suggest', locale, occasion: 'vardag' },
         }
       );
