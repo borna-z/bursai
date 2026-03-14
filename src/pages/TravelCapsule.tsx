@@ -481,16 +481,14 @@ export default function TravelCapsule() {
               <Label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
                 {t('capsule.destination')}
               </Label>
-              <div className="relative">
-                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" strokeWidth={1.5} />
-                <Input
-                  placeholder={t('capsule.enter_city')}
-                  value={destination}
-                  onChange={e => setDestination(e.target.value)}
-                  onBlur={() => lookupWeather()}
-                  className="pl-10 h-12 rounded-xl bg-card/60 border-border/15"
-                />
-              </div>
+              <LocationAutocomplete
+                value={destination}
+                onChange={setDestination}
+                onSelect={handleLocationSelect}
+                placeholder={t('capsule.enter_city')}
+                icon={<Globe className="w-4 h-4" strokeWidth={1.5} />}
+                inputClassName="h-12 rounded-xl bg-card/60 border-border/15"
+              />
               {isFetchingWeather && (
                 <AILoadingCard
                   phases={[
