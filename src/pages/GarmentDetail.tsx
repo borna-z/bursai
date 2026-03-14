@@ -31,7 +31,7 @@ export default function GarmentDetailPage() {
   const markWorn = useMarkGarmentWorn();
   const assessCondition = useAssessCondition();
   const costPerWear = useCostPerWear(
-    (garment as any)?.purchase_price ?? null,
+    garment?.purchase_price ?? null,
     garment?.wear_count ?? null
   );
   const [editingPrice, setEditingPrice] = useState(false);
