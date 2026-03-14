@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useFlatGarments } from '@/hooks/useGarments';
-import { usePlannedOutfits } from '@/hooks/usePlannedOutfits';
+import { usePlannedOutfits, type PlannedOutfit } from '@/hooks/usePlannedOutfits';
 import type { Garment } from '@/hooks/useGarments';
 
 export interface LaundryAlert {
