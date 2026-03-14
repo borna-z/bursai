@@ -16,8 +16,14 @@ export function useLocationSuggestions(query: string): UseLocationSuggestionsRes
   const [isLoading, setIsLoading] = useState(false);
   const cache = useRef(new Map<string, CitySuggestion[]>());
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const skipRef = useRef(false);
 
   useEffect(() => {
+    if (skipRef.current) {
+      skipRef.current = false;
+      return;
+    }
+
     if (!query || query.length < 2) {
       setSuggestions([]);
       setIsLoading(false);
@@ -44,6 +50,7 @@ export function useLocationSuggestions(query: string): UseLocationSuggestionsRes
   }, [query]);
 
   const clear = useCallback(() => {
+    skipRef.current = true;
     setSuggestions([]);
     setIsLoading(false);
   }, []);
