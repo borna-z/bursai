@@ -251,19 +251,20 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       };
     };
 
-    console.log("travel_capsule v3 start", { duration_days, garment_count: garments.length, targetOutfits, maxItems });
+    console.log("travel_capsule v4 start", { duration_days, outfitsPerDay, garment_count: garments.length, targetOutfits, maxItems, maxTokens, complexity });
 
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const { data: content } = await callBursAI({
+        const { data: content, model_used } = await callBursAI({
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: `User wardrobe:\n${wardrobeDescription}` },
+            { role: "user", content: `WARDROBE (${garments.length} items):\n${wardrobeLines}` },
           ],
           tools,
           tool_choice: { type: "function", function: { name: "create_travel_capsule" } },
-          complexity: attempt === 0 ? complexity : "trivial",
+          complexity: attempt === 0 ? complexity : "standard",
           max_tokens: maxTokens,
+          timeout: 45000,
           functionName: "travel_capsule",
         });
 
