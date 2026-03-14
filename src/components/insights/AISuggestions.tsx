@@ -19,7 +19,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 
 /* ── Loading indicator ── */
 function LoadingIndicator() {
@@ -123,9 +123,10 @@ function HeroSlide({ suggestion, onTryIt, onPlan, isCreating }: HeroSlideProps) 
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+      initial={{ opacity: 0, x: 40 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -40 }}
+      transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
       className="space-y-5"
     >
       {/* Occasion + Title */}
@@ -240,6 +241,16 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
 
   const total = suggestions?.length || 0;
 
+  const handleSwipe = useCallback((_: unknown, info: PanInfo) => {
+    if (!suggestions?.length) return;
+    const threshold = 50;
+    if (info.offset.x < -threshold) {
+      setActiveIndex((prev) => Math.min(prev + 1, suggestions.length - 1));
+    } else if (info.offset.x > threshold) {
+      setActiveIndex((prev) => Math.max(prev - 1, 0));
+    }
+  }, [suggestions]);
+
   /* ── Premium gate ── */
   if (!isPremium) {
     return (
@@ -311,13 +322,23 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
         </div>
       ) : (
         <>
-          <HeroSlide
-            key={activeIndex}
-            suggestion={suggestions[activeIndex]}
-            onTryIt={() => handleTryIt(suggestions[activeIndex], activeIndex)}
-            onPlan={() => handlePlan(suggestions[activeIndex])}
-            isCreating={creatingOutfitId === activeIndex}
-          />
+          <motion.div
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.15}
+            onDragEnd={handleSwipe}
+            className="touch-pan-y cursor-grab active:cursor-grabbing"
+          >
+            <AnimatePresence mode="wait">
+              <HeroSlide
+                key={activeIndex}
+                suggestion={suggestions[activeIndex]}
+                onTryIt={() => handleTryIt(suggestions[activeIndex], activeIndex)}
+                onPlan={() => handlePlan(suggestions[activeIndex])}
+                isCreating={creatingOutfitId === activeIndex}
+              />
+            </AnimatePresence>
+          </motion.div>
           <DotNav total={total} active={activeIndex} onChange={setActiveIndex} />
         </>
       )}
