@@ -301,7 +301,7 @@ Deno.serve(async (req) => {
 
     if (urls.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'Inga URLs angivna' }),
+        JSON.stringify({ error: 'No URLs provided' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
