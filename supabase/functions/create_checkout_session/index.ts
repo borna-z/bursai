@@ -37,8 +37,9 @@ function getStripeConfig() {
 }
 
 // Multi-currency price mapping (language → Stripe price IDs)
-// Only used in LIVE mode. Test mode uses default SEK prices.
-const CURRENCY_PRICES: Record<string, { monthly: string; yearly: string }> = {
+// These are TEST-mode price IDs. Only used when STRIPE_MODE=test.
+// In live mode, all locales fall through to the default live price IDs from env vars.
+const TEST_CURRENCY_PRICES: Record<string, { monthly: string; yearly: string }> = {
   // EUR currencies (€7.99/month, €69.99/year)
   fi: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
   de: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
