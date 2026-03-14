@@ -1424,13 +1424,26 @@ export const translations: Record<Locale, Record<string, string>> = {
     'subcategory.maxi_dress': 'Maxiklänning',
     'subcategory.mini_dress': 'Miniklänning',
 
-    // Occasion labels
+    // Occasion labels (Swedish-keyed)
     'occasion.jobb': 'Jobb',
     'occasion.vardag': 'Vardag',
     'occasion.fest': 'Fest',
     'occasion.dejt': 'Dejt',
     'occasion.resa': 'Resa',
     'occasion.traning': 'Träning',
+    // Occasion labels (English-keyed)
+    'occasion.work': 'Jobb',
+    'occasion.casual': 'Vardag',
+    'occasion.party': 'Fest',
+    'occasion.date': 'Dejt',
+    'occasion.travel': 'Resa',
+    'occasion.workout': 'Träning',
+    'home.occasion.work': 'Jobb',
+    'home.occasion.casual': 'Vardag',
+    'home.occasion.party': 'Fest',
+    'home.occasion.date': 'Dejt',
+    'home.occasion.travel': 'Resa',
+    'home.occasion.workout': 'Träning',
 
     // Stylist summary
     'stylist.title': 'Stylistens sammanfattning',
