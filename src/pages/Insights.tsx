@@ -154,11 +154,11 @@ export default function InsightsPage() {
             <p className="text-xs text-muted-foreground mt-3">{t('insights.last_30d')}</p>
 
             <div className="flex items-center w-full mt-8">
-              <StatPill value={insights.totalGarments} label={t('insights.total')} />
+              <StatPill value={insights.totalGarments} label={t('insights.total')} onClick={() => navigate('/wardrobe')} />
               <div className="w-px h-8 bg-border/20" />
-              <StatPill value={insights.garmentsUsedLast30Days} label={t('insights.used_30d')} />
+              <StatPill value={insights.garmentsUsedLast30Days} label={t('insights.used_30d')} onClick={() => navigate('/wardrobe/used')} />
               <div className="w-px h-8 bg-border/20" />
-              <StatPill value={insights.unusedGarments.length} label={t('insights.unused')} />
+              <StatPill value={insights.unusedGarments.length} label={t('insights.unused')} onClick={() => navigate('/outfits/unused')} />
             </div>
           </div>
 

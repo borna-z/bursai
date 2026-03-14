@@ -156,6 +156,7 @@ export function useInsights() {
         garmentsUsedLast30Days,
         usageRate,
         topFiveWorn,
+        usedGarments: allUsedGarments,
         unusedGarments,
         colorTemperature,
       };
