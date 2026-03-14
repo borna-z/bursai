@@ -81,7 +81,6 @@ function persistPrefs(prefs: Record<string, string>) {
   supabase.auth.getUser().then(({ data }) => {
     const uid = data?.user?.id;
     if (!uid) return;
-    supabase.rpc('has_role' as any, {} as any); // noop to keep linter quiet — we use raw query below
     // Read current prefs, merge, write back
     supabase
       .from('profiles')
