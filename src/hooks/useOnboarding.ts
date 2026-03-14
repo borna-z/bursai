@@ -20,7 +20,7 @@ export function useOnboarding() {
       preferences: {
         ...prefs,
         onboarding: { completed: true },
-      } as any,
+      } as Record<string, unknown>,
     });
   };
 

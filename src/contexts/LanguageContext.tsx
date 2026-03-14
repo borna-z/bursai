@@ -50,7 +50,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       const currentPrefs = asPreferences(profile.preferences);
       try {
         await updateProfile.mutateAsync({
-          preferences: { ...currentPrefs, locale: newLocale } as any,
+          preferences: { ...currentPrefs, locale: newLocale } as Record<string, unknown>,
         });
       } catch {
         // Silently fail – localStorage is the primary source

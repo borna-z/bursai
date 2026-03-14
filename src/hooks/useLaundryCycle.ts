@@ -32,8 +32,8 @@ export function useLaundryCycle(): LaundryOverview {
     const alertedIds = new Set<string>();
 
     // Check planned outfits for garments currently in laundry
-    for (const planned of plannedOutfits) {
-      const outfit = (planned as any).outfit;
+    for (const planned of plannedOutfits as PlannedOutfit[]) {
+      const outfit = planned.outfit;
       if (!outfit?.outfit_items) continue;
 
       for (const item of outfit.outfit_items) {

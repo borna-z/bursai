@@ -290,11 +290,11 @@ export default function GarmentDetailPage() {
               size="sm"
               className="rounded-xl text-xs"
               onClick={() => {
-                setPriceInput(String((garment as any).purchase_price || ''));
+                setPriceInput(String(garment.purchase_price || ''));
                 setEditingPrice(true);
               }}
             >
-              {(garment as any).purchase_price ? `${Number((garment as any).purchase_price).toFixed(0)} SEK` : t('insights.purchase_price')}
+              {garment.purchase_price ? `${Number(garment.purchase_price).toFixed(0)} SEK` : t('insights.purchase_price')}
             </Button>
           )}
         </div>

@@ -116,7 +116,7 @@ export function PlannedOutfitsList({ outfits, onDelete }: PlannedOutfitsListProp
     });
     
     sorted.forEach((outfit) => {
-      const dateStr = (outfit as any).planned_for;
+      const dateStr = outfit.planned_for ?? '';
       const date = new Date(dateStr);
       
       let label = date.toLocaleDateString(getBCP47(locale), { weekday: 'long', day: 'numeric', month: 'long' });
