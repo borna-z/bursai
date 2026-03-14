@@ -255,7 +255,7 @@ export default function GarmentDetailPage() {
               <span className="text-sm">{t('insights.cost_per_wear')}</span>
               {costPerWear !== null && (
                 <p className="text-xs text-primary font-medium">
-                  {costPerWear.toFixed(0)} {(garment as any).purchase_currency || 'SEK'}/{t('garment.worn_count')}
+                  {costPerWear.toFixed(0)} {garment.purchase_currency || 'SEK'}/{t('garment.worn_count')}
                 </p>
               )}
             </div>
