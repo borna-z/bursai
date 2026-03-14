@@ -110,8 +110,8 @@ export function PlannedOutfitsList({ outfits, onDelete }: PlannedOutfitsListProp
   const groupedByDate = useMemo(() => {
     const groups: PlannedGroup[] = [];
     const sorted = [...outfits].sort((a, b) => {
-      const dateA = (a as any).planned_for;
-      const dateB = (b as any).planned_for;
+      const dateA = a.planned_for ?? '';
+      const dateB = b.planned_for ?? '';
       return dateA.localeCompare(dateB);
     });
     
