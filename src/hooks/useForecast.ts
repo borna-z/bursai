@@ -57,31 +57,27 @@ export interface CitySuggestion {
   flag: string;
 }
 
-/** Search for cities via Nominatim — returns up to `limit` results. */
+/** Search for cities via Nominatim — returns up to `limit` results. Throws on network/CSP errors. */
 export async function searchCities(query: string, limit = 5): Promise<CitySuggestion[]> {
   if (!query || query.length < 2) return [];
-  try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=${limit}&addressdetails=1`
-    );
-    if (!response.ok) return [];
-    const data = await response.json();
-    return data.map((item: any) => {
-      const city = item.address?.city || item.address?.town || item.address?.village || item.name || query;
-      const country = item.address?.country || '';
-      const cc = (item.address?.country_code || '').toLowerCase();
-      return {
-        display_name: item.display_name,
-        short_name: country ? `${city}, ${country}` : city,
-        lat: parseFloat(item.lat),
-        lon: parseFloat(item.lon),
-        country_code: cc,
-        flag: cc ? countryCodeToFlag(cc) : '🌍',
-      };
-    });
-  } catch {
-    return [];
-  }
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=${limit}&addressdetails=1`
+  );
+  if (!response.ok) throw new Error(`Nominatim ${response.status}`);
+  const data = await response.json();
+  return data.map((item: any) => {
+    const city = item.address?.city || item.address?.town || item.address?.village || item.name || query;
+    const country = item.address?.country || '';
+    const cc = (item.address?.country_code || '').toLowerCase();
+    return {
+      display_name: item.display_name,
+      short_name: country ? `${city}, ${country}` : city,
+      lat: parseFloat(item.lat),
+      lon: parseFloat(item.lon),
+      country_code: cc,
+      flag: cc ? countryCodeToFlag(cc) : '🌍',
+    };
+  });
 }
 
 // Get coordinates from city name using OpenStreetMap Nominatim

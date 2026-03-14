@@ -4,6 +4,8 @@ import { searchCities, type CitySuggestion } from '@/hooks/useForecast';
 interface UseLocationSuggestionsResult {
   suggestions: CitySuggestion[];
   isLoading: boolean;
+  error: string | null;
+  hasSearched: boolean;
   clear: () => void;
 }
 
@@ -14,6 +16,8 @@ interface UseLocationSuggestionsResult {
 export function useLocationSuggestions(query: string): UseLocationSuggestionsResult {
   const [suggestions, setSuggestions] = useState<CitySuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
   const cache = useRef(new Map<string, CitySuggestion[]>());
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const skipRef = useRef(false);
@@ -27,6 +31,8 @@ export function useLocationSuggestions(query: string): UseLocationSuggestionsRes
     if (!query || query.length < 2) {
       setSuggestions([]);
       setIsLoading(false);
+      setError(null);
+      setHasSearched(false);
       return;
     }
 
@@ -34,16 +40,28 @@ export function useLocationSuggestions(query: string): UseLocationSuggestionsRes
     if (cache.current.has(key)) {
       setSuggestions(cache.current.get(key)!);
       setIsLoading(false);
+      setError(null);
+      setHasSearched(true);
       return;
     }
 
     setIsLoading(true);
+    setError(null);
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
-      const results = await searchCities(key);
-      cache.current.set(key, results);
-      setSuggestions(results);
-      setIsLoading(false);
+      try {
+        const results = await searchCities(key);
+        cache.current.set(key, results);
+        setSuggestions(results);
+        setError(null);
+      } catch (err) {
+        console.error('[useLocationSuggestions] search failed:', err);
+        setSuggestions([]);
+        setError('Could not search cities. Check your connection.');
+      } finally {
+        setIsLoading(false);
+        setHasSearched(true);
+      }
     }, 300);
 
     return () => clearTimeout(timerRef.current);
@@ -53,7 +71,9 @@ export function useLocationSuggestions(query: string): UseLocationSuggestionsRes
     skipRef.current = true;
     setSuggestions([]);
     setIsLoading(false);
+    setError(null);
+    setHasSearched(false);
   }, []);
 
-  return { suggestions, isLoading, clear };
+  return { suggestions, isLoading, error, hasSearched, clear };
 }
