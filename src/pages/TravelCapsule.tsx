@@ -951,18 +951,25 @@ export default function TravelCapsule() {
           transition={{ delay: 0.3, duration: 0.4 }}
           className="sticky bottom-0 z-20 bg-background/90 backdrop-blur-xl border-t border-border/10 px-5 py-3 flex gap-2"
         >
-          <Button
-            onClick={handleAddToCalendar}
-            disabled={isAddingToCalendar}
-            className="flex-1 h-11 rounded-xl"
-          >
-            {isAddingToCalendar ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
+          {isAddingToCalendar ? (
+            <div className="flex-1">
+              <AILoadingCard
+                phases={[
+                  { icon: CalendarPlus, label: t('capsule.saving_outfits') || 'Saving outfits...', duration: 1500 },
+                  { icon: CalendarIcon, label: t('capsule.planning_days') || 'Planning days...', duration: 1500 },
+                  { icon: Check, label: t('capsule.syncing') || 'Syncing calendar...', duration: 0 },
+                ]}
+              />
+            </div>
+          ) : (
+            <Button
+              onClick={handleAddToCalendar}
+              className="flex-1 h-11 rounded-xl"
+            >
               <CalendarPlus className="w-4 h-4 mr-2" />
-            )}
-            {t('capsule.add_to_plan')}
-          </Button>
+              {t('capsule.add_to_plan')}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="icon"
