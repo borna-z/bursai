@@ -19,6 +19,7 @@ vi.mock('@/contexts/AuthContext', () => ({
 
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
+import type { GeneratedOutfit } from '../useOutfitGenerator';
 
 function wrapper({ children }: { children: ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
