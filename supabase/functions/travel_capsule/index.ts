@@ -111,8 +111,8 @@ serve(async (req) => {
 
     // Scale max_tokens generously — each outfit with 4 UUIDs ≈ 100 tokens, capsule_items ≈ 20 tokens/item
     const maxTokens = estimateMaxTokens({ outputItems: targetOutfits + maxItems, perItemTokens: 120, baseTokens: 1000, cap: 8192 });
-    // Use stronger model for longer/more complex trips
-    const complexity: "trivial" | "standard" | "complex" = (duration_days > 5 || outfitsPerDay > 2) ? "complex" : "standard";
+    // Use stronger model only for long/complex trips (>7 days or 3+ outfits/day)
+    const complexity: "trivial" | "standard" | "complex" = (duration_days > 7 || outfitsPerDay > 2) ? "complex" : "standard";
 
     const mustHaveNote = mustHaveIds.length > 0
       ? `\nMUST-HAVE items (MUST appear in capsule_items): ${mustHaveIds.join(", ")}`
@@ -254,64 +254,45 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
 
     console.log("travel_capsule v4 start", { duration_days, outfitsPerDay, garment_count: garments.length, targetOutfits, maxItems, maxTokens, complexity });
 
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        // On retry, drop tool_choice constraint — some models handle it poorly
-        const useToolChoice = attempt === 0;
+    // Single attempt — fall back to deterministic on failure
+    try {
         const callOpts: any = {
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: `WARDROBE (${garments.length} items):\n${wardrobeLines}` },
           ],
           tools,
-          complexity: attempt === 0 ? complexity : "standard",
+          complexity,
           max_tokens: maxTokens,
-          timeout: 50000,
+          timeout: 35000,
           functionName: "travel_capsule",
-          cacheTtlSeconds: 1800, // 30 min cache for identical requests
+          cacheTtlSeconds: 1800,
           cacheNamespace: "travel_capsule",
+          tool_choice: { type: "function", function: { name: "create_travel_capsule" } },
         };
-        if (useToolChoice) {
-          callOpts.tool_choice = { type: "function", function: { name: "create_travel_capsule" } };
-        }
 
-        console.log(`travel_capsule attempt ${attempt} calling AI (tool_choice=${useToolChoice})`);
+        console.log("travel_capsule calling AI");
         const { data: content, model_used } = await callBursAI(callOpts, supabase);
 
-        console.log(`travel_capsule attempt ${attempt} model=${model_used} type=${typeof content} truthy=${!!content}`);
+        console.log(`travel_capsule model=${model_used} type=${typeof content} truthy=${!!content}`);
 
         let parsed: any = null;
         if (content && typeof content === "object") {
           parsed = content;
         } else if (typeof content === "string") {
           const jsonMatch = content.match(/\{[\s\S]*\}/);
-          if (!jsonMatch) {
-            lastError = new Error("No JSON in response: " + content.slice(0, 300));
-            console.warn(`attempt ${attempt}: no JSON found in string response`);
-            continue;
-          }
-          parsed = JSON.parse(jsonMatch[0]);
+          if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
         }
 
-        if (!parsed || typeof parsed !== "object") {
-          lastError = new Error(`AI returned empty payload (type=${typeof content})`);
-          console.warn(`attempt ${attempt}: empty payload, raw:`, JSON.stringify(content)?.slice(0, 500));
-          continue;
+        if (parsed && typeof parsed === "object" && Array.isArray(parsed.capsule_items) && Array.isArray(parsed.outfits)) {
+          result = parsed;
+        } else {
+          lastError = new Error("AI returned invalid structure");
+          console.warn("AI response invalid, keys:", parsed ? Object.keys(parsed) : "null");
         }
-
-        if (!Array.isArray(parsed.capsule_items) || !Array.isArray(parsed.outfits)) {
-          lastError = new Error(`Missing arrays: capsule_items=${typeof parsed.capsule_items} outfits=${typeof parsed.outfits}`);
-          console.warn(`attempt ${attempt}: malformed keys:`, Object.keys(parsed));
-          continue;
-        }
-
-        result = parsed;
-        break;
-      } catch (e) {
+    } catch (e) {
         lastError = e instanceof Error ? e : new Error(String(e));
-        console.warn(`travel_capsule attempt ${attempt} threw:`, lastError.message);
-        if (attempt === 1) break;
-      }
+        console.warn("travel_capsule AI call failed:", lastError.message);
     }
 
     if (!result) {
