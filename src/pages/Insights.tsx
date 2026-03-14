@@ -140,7 +140,7 @@ export default function InsightsPage() {
 
   return (
     <AppLayout>
-      <PageHeader title={t('insights.title')} showBack />
+      <PageHeader title={t('insights.title')} />
       <PullToRefresh onRefresh={handleRefresh}>
         <AnimatedPage className="max-w-lg mx-auto px-4 pb-8 pt-6 space-y-10">
 

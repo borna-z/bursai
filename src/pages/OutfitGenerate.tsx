@@ -18,8 +18,21 @@ export default function OutfitGeneratePage() {
   const { t } = useLanguage();
   const { generateOutfit, isGenerating, error } = useOutfitGenerator();
   const { locale } = useLanguage();
+  const { isUnlocked } = useWardrobeUnlocks();
   const [phase, setPhase] = useState(0);
   const [phaseKey, setPhaseKey] = useState(0);
+
+  // Gate: require enough garments
+  if (!isUnlocked('outfit_gen')) {
+    return (
+      <AppLayout>
+        <div className="p-4 max-w-sm mx-auto pt-16 space-y-6">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">{t('unlock.outfit_gen')}</h2>
+          <WardrobeProgress message={t('unlock.outfit_gen_message')} />
+        </div>
+      </AppLayout>
+    );
+  }
   
   const state = location.state as OutfitRequest | null;
   
