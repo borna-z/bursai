@@ -1,70 +1,42 @@
 
-# BURS Launch Readiness Plan v4
 
-**Status: ✅ Phases 1-7 COMPLETE | AI Loading Animations COMPLETE**
+# Plan: Fix Travel Capsule State Loss & Planner Integration
 
-## Phase 1: Dead Weight Removal (Steps 1-3) ✅
-- Removed `recharts`, `react-resizable-panels`, `next-themes` (~200KB saved)
-- Deleted unused `resizable.tsx` and `chart.tsx`
-- Lazy-imported `html-to-image` in `OutfitReel.tsx`
+## Bug 1: Destination and dates disappear after picking must-haves
 
-## Phase 2: Metadata & SEO (Steps 4-5) ✅
-- Fixed OG image URL to relative `/og-image.png`
-- Synced manifest.json lang to `"en"`
+**Root cause**: Navigating to `/plan/travel-capsule/pick-must-haves` unmounts `TravelCapsule`, destroying all component state (destination, dates, coords, weather, occasions, etc.). When returning, only `mustHaveItems` is restored via `location.state`.
 
-## Phase 3: Hook Tests (Steps 6-11) ✅
-- `useProfile`: 4 tests (auth, fetch, auto-create, ghost session)
-- `useGarments`: 5 tests (auth, fetch, filters, search, count)
-- `useOutfits`: 4 tests (auth, fetch, single, delete)
-- `useOutfitGenerator`: 3 tests (auth, validation, generation)
-- `useOfflineQueue`: 4 tests (online/offline, replay, events)
-- `useSupabaseQuery`: 4 tests (auth skip, fetch, single, schema)
+**Fix**: Round-trip all form state through `location.state`.
 
-## Phase 4: Component Tests (Steps 12-18) ✅
-- `Onboarding`: 1 smoke test
-- `Settings`: 1 smoke test
-- `Landing`: 1 smoke test
-- Existing: Auth, Home, Wardrobe, PaywallModal, BottomNav, ProtectedRoute
+### Changes in `src/pages/TravelCapsule.tsx`:
+- When navigating to the must-haves picker (line 652), pass the full form state:
+  ```
+  { mustHaveItems, destination, destCoords, dateRange: { from: dateRange.from?.toISOString(), to: dateRange.to?.toISOString() },
+    selectedOccasions, minimizeItems, includeTravelDays, outfitsPerDay, hasManualOccasions }
+  ```
+- On mount, restore all form fields from `location.state` (expand the existing `useEffect` at line 102 to also restore destination, destCoords, dateRange, selectedOccasions, etc.)
+- After restoring coords + dates, re-trigger weather lookup
 
-## Phase 5: Utility Tests (Steps 19-21) ✅
-- `edgeFunctionClient`: 5 tests (success, retry, exhausted, exceptions, timeout error)
-- `offlineQueue`: 6 tests (enqueue, upload, clear, replay, progress)
-- `schemas`: 11 tests (profile, garment, style score, weather, safeParse, preferences)
-- `nativeShare`: 4 tests (Median, Web Share, clipboard, cancel)
-- Existing: compressFrame, backgroundGarmentSave
+### Changes in `src/pages/PickMustHaves.tsx`:
+- Forward all incoming state (not just `mustHaveItems`) back when navigating to `/plan/travel-capsule` on done — spread `location.state` into the outgoing state so nothing is lost
 
-## Phase 6: Infrastructure (Steps 22-24) ✅
-- Added `test:coverage` script with v8 provider + 30% line threshold
-- Added CSP meta tag to `index.html`
-- Added Sentry `release` tag using `__APP_VERSION__`
+## Bug 2: Add capsule outfits to the planner calendar
 
-## Phase 7: Final Polish (Step 25) ✅
-- All new tests passing individually
-- CI pipeline configured
+The "Add to Plan" button already exists and works (`handleAddToCalendar`, lines 388–459). It creates outfit records and planned_outfit entries linked to each trip day. However:
 
-## AI Loading Animations (35-Step Sprint) ✅
+1. **One outfit per day conflict**: The upsert uses `onConflict: 'user_id,date'`, so if a user already has a planned outfit for a trip day, it gets overwritten silently. This is acceptable but should show a toast warning.
+2. **After adding, navigate to Plan page**: After successfully adding outfits to the calendar, navigate the user to `/plan` so they can see their planned days. Currently it just shows a toast.
+3. **Navigate to Plan button**: Add a "View in Planner" button that appears after successful calendar add, navigating to `/plan`.
 
-### Foundation
-- Created `AILoadingOverlay` — reusable multi-phase loading with radar pulse rings, bouncing dots, phase cycling
-- Created `AILoadingCard` — compact inline variant for cards/sections
-- Added `shimmer-sweep` CSS keyframe for scanner beam effect
+### Changes in `src/pages/TravelCapsule.tsx`:
+- After `handleAddToCalendar` succeeds, set a `addedToCalendar` state flag
+- Show a "View in Planner" button alongside the existing bottom bar when `addedToCalendar` is true
+- The button navigates to `/plan` with the start date pre-selected
 
-### Integrated Surfaces (20+ touchpoints)
-- **OutfitGenerate** — 5-phase fullscreen animation
-- **TodayOutfitCard** — AILoadingCard for initial load, AILoadingOverlay for regeneration
-- **StylePicker** — AILoadingCard embedded in active style card
-- **MoodOutfit** — AILoadingCard in selected mood card
-- **QuickGenerateSheet** — AILoadingCard replaces spinner button
-- **QuickPlanSheet** — AILoadingOverlay with day-name subtitle + progress bar
-- **UnusedOutfits** — AILoadingOverlay with skeleton cards
-- **AddGarment** — shimmer-sweep on image + AILoadingOverlay for phases
-- **BatchUploadProgress** — per-item pulse ring animations
-- **LiveScan** — multi-phase ScanOverlay with concentric rings + bouncing dots
-- **AIChat** — bouncing dots + phase text for streaming indicator
-- **AISuggestions** — AILoadingOverlay variant="card" with progress
-- **StyleReportCard** — AILoadingCard with 3 phases
-- **WardrobeGapSection** — refactored to use shared AILoadingOverlay
-- **TravelCapsule** — AILoadingOverlay for generation, AILoadingCard for weather lookup + calendar sync
-- **QuickGenerateSheet** — AILoadingCard for travel weather lookup
+---
 
-**Total tests: ~100+ (48 existing + 52 new across 13 new test files)**
+## Summary
+- **3 files touched**: `TravelCapsule.tsx`, `PickMustHaves.tsx`
+- **Bug 1 fix**: Persist and restore full form state across navigation
+- **Bug 2 fix**: Post-add navigation to planner + visual confirmation
+
