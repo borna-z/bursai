@@ -28,20 +28,33 @@ const createWrapper = () => {
   );
 };
 
+const mockAuth = (user: any = null) => {
+  vi.mocked(useAuth).mockReturnValue({
+    user,
+    session: user ? ({} as any) : null,
+    loading: false,
+    signUp: vi.fn(),
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+  });
+};
+
+const mockSubscriptionQuery = (data: any) => {
+  const mockSelect = vi.fn().mockReturnValue({
+    eq: vi.fn().mockReturnValue({
+      maybeSingle: vi.fn().mockResolvedValue({ data, error: null }),
+    }),
+  });
+  vi.mocked(supabase.from).mockReturnValue({ select: mockSelect } as any);
+};
+
 describe('useSubscription', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it('returns null subscription when user is not logged in', () => {
-    vi.mocked(useAuth).mockReturnValue({
-      user: null,
-      session: null,
-      loading: false,
-      signUp: vi.fn(),
-      signIn: vi.fn(),
-      signOut: vi.fn(),
-    });
+    mockAuth(null);
 
     const { result } = renderHook(() => useSubscription(), {
       wrapper: createWrapper(),
@@ -52,41 +65,31 @@ describe('useSubscription', () => {
     expect(result.current.isPremium).toBe(false);
   });
 
-  it('returns free plan limits correctly', () => {
-    vi.mocked(useAuth).mockReturnValue({
-      user: { id: 'user-1', email: 'test@test.com' } as any,
-      session: {} as any,
-      loading: false,
-      signUp: vi.fn(),
-      signIn: vi.fn(),
-      signOut: vi.fn(),
-    });
+  it('has correct plan limits defined', () => {
+    expect(PLAN_LIMITS.free.maxGarments).toBe(10);
+    expect(PLAN_LIMITS.free.maxOutfitsPerMonth).toBe(10);
+    expect(PLAN_LIMITS.premium.maxGarments).toBe(Infinity);
+    expect(PLAN_LIMITS.premium.maxOutfitsPerMonth).toBe(Infinity);
+  });
 
-    const mockSelect = vi.fn().mockReturnValue({
-      eq: vi.fn().mockReturnValue({
-        maybeSingle: vi.fn().mockResolvedValue({
-          data: {
-            id: 'sub-1',
-            user_id: 'user-1',
-            plan: 'free',
-            garments_count: 5,
-            outfits_used_month: 3,
-            period_start: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-          error: null,
-        }),
-      }),
+  it('returns free plan limits correctly', async () => {
+    mockAuth({ id: 'user-1', email: 'test@test.com' });
+    mockSubscriptionQuery({
+      id: 'sub-1',
+      user_id: 'user-1',
+      plan: 'free',
+      garments_count: 5,
+      outfits_used_month: 3,
+      period_start: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     });
-
-    vi.mocked(supabase.from).mockReturnValue({ select: mockSelect } as any);
 
     const { result } = renderHook(() => useSubscription(), {
       wrapper: createWrapper(),
     });
 
-    waitFor(() => {
+    await waitFor(() => {
       expect(result.current.plan).toBe('free');
       expect(result.current.isPremium).toBe(false);
       expect(result.current.canAddGarment()).toBe(true);
@@ -96,48 +99,24 @@ describe('useSubscription', () => {
     });
   });
 
-  it('has correct plan limits defined', () => {
-    expect(PLAN_LIMITS.free.maxGarments).toBe(10);
-    expect(PLAN_LIMITS.free.maxOutfitsPerMonth).toBe(10);
-    expect(PLAN_LIMITS.premium.maxGarments).toBe(Infinity);
-    expect(PLAN_LIMITS.premium.maxOutfitsPerMonth).toBe(Infinity);
-  });
-
-  it('premium users have unlimited access', () => {
-    vi.mocked(useAuth).mockReturnValue({
-      user: { id: 'user-1', email: 'test@test.com' } as any,
-      session: {} as any,
-      loading: false,
-      signUp: vi.fn(),
-      signIn: vi.fn(),
-      signOut: vi.fn(),
+  it('premium users have unlimited access', async () => {
+    mockAuth({ id: 'user-1', email: 'test@test.com' });
+    mockSubscriptionQuery({
+      id: 'sub-1',
+      user_id: 'user-1',
+      plan: 'premium',
+      garments_count: 100,
+      outfits_used_month: 50,
+      period_start: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     });
-
-    const mockSelect = vi.fn().mockReturnValue({
-      eq: vi.fn().mockReturnValue({
-        maybeSingle: vi.fn().mockResolvedValue({
-          data: {
-            id: 'sub-1',
-            user_id: 'user-1',
-            plan: 'premium',
-            garments_count: 100,
-            outfits_used_month: 50,
-            period_start: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-          error: null,
-        }),
-      }),
-    });
-
-    vi.mocked(supabase.from).mockReturnValue({ select: mockSelect } as any);
 
     const { result } = renderHook(() => useSubscription(), {
       wrapper: createWrapper(),
     });
 
-    waitFor(() => {
+    await waitFor(() => {
       expect(result.current.isPremium).toBe(true);
       expect(result.current.canAddGarment()).toBe(true);
       expect(result.current.canCreateOutfit()).toBe(true);
@@ -146,41 +125,24 @@ describe('useSubscription', () => {
     });
   });
 
-  it('free plan blocks when at garment limit', () => {
-    vi.mocked(useAuth).mockReturnValue({
-      user: { id: 'user-1', email: 'test@test.com' } as any,
-      session: {} as any,
-      loading: false,
-      signUp: vi.fn(),
-      signIn: vi.fn(),
-      signOut: vi.fn(),
+  it('free plan blocks when at garment limit', async () => {
+    mockAuth({ id: 'user-1', email: 'test@test.com' });
+    mockSubscriptionQuery({
+      id: 'sub-1',
+      user_id: 'user-1',
+      plan: 'free',
+      garments_count: 10,
+      outfits_used_month: 10,
+      period_start: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     });
-
-    const mockSelect = vi.fn().mockReturnValue({
-      eq: vi.fn().mockReturnValue({
-        maybeSingle: vi.fn().mockResolvedValue({
-          data: {
-            id: 'sub-1',
-            user_id: 'user-1',
-            plan: 'free',
-            garments_count: 10,
-            outfits_used_month: 10,
-            period_start: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-          error: null,
-        }),
-      }),
-    });
-
-    vi.mocked(supabase.from).mockReturnValue({ select: mockSelect } as any);
 
     const { result } = renderHook(() => useSubscription(), {
       wrapper: createWrapper(),
     });
 
-    waitFor(() => {
+    await waitFor(() => {
       expect(result.current.canAddGarment()).toBe(false);
       expect(result.current.canCreateOutfit()).toBe(false);
       expect(result.current.remainingGarments()).toBe(0);
