@@ -34,14 +34,14 @@ Created `src/lib/nativeShare.ts` — cascading share: Median bridge → Web Shar
 ### Step 9: Native Status Bar Sync per Route ✅
 Created `src/hooks/useMedianStatusBar.ts` — syncs Median status bar style based on route (dark routes get light text) and resolved theme. Integrated into AppLayout.
 
-### Step 10: Deep Link Handling
-Configure Median universal links for `/u/:username`, `/outfit/:id`, `/auth`.
+### Step 10: Deep Link Handling ✅
+Created `src/hooks/useDeepLink.ts` — listens for Median deep link events and parses `/u/:username`, `/outfit/:id`, `/auth`, `/share/:id` patterns. Integrated via `DeepLinkHandler` component in App.tsx.
 
-### Step 11: Native Camera Bridge Enhancement
-Extend `useMedianCamera` to support additional native APIs.
+### Step 11: Native Camera Bridge Enhancement ✅
+`useMedianCamera` already uses standard `<input type="file">` with `capture="environment"` — this is the correct approach as Median doesn't expose a JS camera bridge. No changes needed.
 
-### Step 12: Pull-to-Refresh Native Feel
-Delegate to Median native pull-to-refresh when available.
+### Step 12: Pull-to-Refresh Native Feel ✅
+Updated `PullToRefresh.tsx` to detect Median native `webview.pullToRefresh` bridge. When available, bypasses CSS-based implementation and delegates to native gesture. Added `webview` type to Median bridge declaration.
 
 ### Step 13: Keyboard & Input Handling ✅
 Created `src/hooks/useKeyboardAdjust.ts` — uses `visualViewport` API to detect keyboard height and sets `--keyboard-offset` CSS variable. Updated `.safe-bottom` to include keyboard offset. Integrated into AppLayout.
@@ -56,8 +56,8 @@ Auth token read is already synchronous from localStorage before React mount (Ind
 ### Step 15: Retry & Error Recovery Patterns ✅
 Created `src/lib/edgeFunctionClient.ts` — resilient edge function invocation with configurable timeout (25s default), exponential backoff retry (up to 3 attempts), and `EdgeFunctionTimeoutError` class.
 
-### Step 16: Data Validation Layer
-Add Zod schemas for Supabase query responses.
+### Step 16: Data Validation Layer ✅
+Created `src/lib/schemas.ts` — Zod schemas for profiles, garments, outfits, preferences, style scores, and weather data. Includes `safeParse()` utility that returns original data on validation failure with console warning.
 
 ### Step 17: Stale Data Indicators
 Show subtle "last updated X ago" timestamps on AI-generated content.
@@ -72,8 +72,8 @@ Upgrade offline queue to handle image uploads.
 
 ## Phase 4: Code Quality & Maintainability (Steps 20-23)
 
-### Step 20: Hook Consolidation
-Create a `useSupabaseQuery<T>` generic wrapper.
+### Step 20: Hook Consolidation ✅
+Created `src/hooks/useSupabaseQuery.ts` — generic authenticated query wrapper with schema validation support, filter callbacks, and configurable staleTime.
 
 ### Step 21: Translation Key Audit
 Audit all `t()` calls for missing keys.
@@ -81,8 +81,8 @@ Audit all `t()` calls for missing keys.
 ### Step 22: Component File Size Audit
 Split large files. Target max 150 lines per component.
 
-### Step 23: Type Safety Hardening
-Replace `Record<string, any>` casts with proper TypeScript interfaces.
+### Step 23: Type Safety Hardening ✅
+Created `src/types/preferences.ts` — typed interfaces for `ProfilePreferences`, `StyleProfile`, `StyleScore`, `WeatherInfo`, `OnboardingPreferences`, `NotificationPreferences`, and `OutfitGenerationState` discriminated union. Includes `asPreferences()`, `asStyleScore()`, and `asWeather()` safe cast helpers.
 
 ---
 
