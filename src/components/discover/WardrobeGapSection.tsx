@@ -5,6 +5,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useGarmentCount } from '@/hooks/useGarments';
 import { useWardrobeGapAnalysis } from '@/hooks/useAdvancedFeatures';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
+import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
