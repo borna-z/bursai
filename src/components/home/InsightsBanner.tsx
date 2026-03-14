@@ -31,7 +31,7 @@ function MiniUsageRing({ percentage }: { percentage: number }) {
 
 export function InsightsBanner() {
   const { t } = useLanguage();
-  const { data: insights, isLoading } = useInsights();
+  const { data: insights, isLoading, dataUpdatedAt, refetch } = useInsights();
 
   if (isLoading) {
     return <Skeleton className="h-[72px] w-full rounded-2xl" />;
