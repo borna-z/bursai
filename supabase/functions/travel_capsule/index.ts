@@ -267,6 +267,8 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
           max_tokens: maxTokens,
           timeout: 50000,
           functionName: "travel_capsule",
+          cacheTtlSeconds: 1800, // 30 min cache for identical requests
+          cacheNamespace: "travel_capsule",
         };
         if (useToolChoice) {
           callOpts.tool_choice = { type: "function", function: { name: "create_travel_capsule" } };
