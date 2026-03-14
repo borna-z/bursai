@@ -103,6 +103,26 @@ export default function TravelCapsule() {
   // ── Generation state ──
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<CapsuleResult | null>(null);
+  const [loadingPhase, setLoadingPhase] = useState<string | null>(null);
+  const loadingTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  // Progressive loading messages
+  useEffect(() => {
+    if (isGenerating) {
+      setLoadingPhase(null);
+      const t1 = setTimeout(() => setLoadingPhase(t('ai.still_thinking') || 'Still thinking...'), 5000);
+      const t2 = setTimeout(() => setLoadingPhase(t('ai.almost_there') || 'Almost there...'), 15000);
+      loadingTimersRef.current = [t1, t2];
+    } else {
+      setLoadingPhase(null);
+      loadingTimersRef.current.forEach(clearTimeout);
+      loadingTimersRef.current = [];
+    }
+    return () => {
+      loadingTimersRef.current.forEach(clearTimeout);
+      loadingTimersRef.current = [];
+    };
+  }, [isGenerating]);
 
   // ── Weather state ──
   const [weatherForecast, setWeatherForecast] = useState<ForecastDay | null>(null);
