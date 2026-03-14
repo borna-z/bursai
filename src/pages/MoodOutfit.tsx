@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Heart, Zap, Eye, EyeOff, Flame, Sparkles, Palette, Cloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { useWeather } from '@/hooks/useWeather';
 import { useAuth } from '@/contexts/AuthContext';
 import { PaywallModal } from '@/components/PaywallModal';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 
@@ -34,6 +35,26 @@ export default function MoodOutfitPage() {
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [loadingPhase, setLoadingPhase] = useState<string | null>(null);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  // Progressive loading messages
+  useEffect(() => {
+    if (isGenerating) {
+      setLoadingPhase(null);
+      const t1 = setTimeout(() => setLoadingPhase(t('ai.still_thinking') || 'Still thinking...'), 5000);
+      const t2 = setTimeout(() => setLoadingPhase(t('ai.almost_there') || 'Almost there...'), 15000);
+      timersRef.current = [t1, t2];
+    } else {
+      setLoadingPhase(null);
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current = [];
+    }
+    return () => {
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current = [];
+    };
+  }, [isGenerating]);
 
   const generate = async (mood: string) => {
     if (!isPremium) { setShowPaywall(true); return; }
@@ -42,7 +63,13 @@ export default function MoodOutfitPage() {
     setIsGenerating(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('mood_outfit', {
+      const { data, error } = await invokeEdgeFunction<{
+        items?: { garment_id: string; slot: string }[];
+        explanation?: string;
+        mood_match_score?: number;
+        error?: string;
+      }>('mood_outfit', {
+        timeout: 45000,
         body: {
           mood,
           weather: weather ? { temperature: weather.temperature, precipitation: weather.precipitation } : undefined,
@@ -123,9 +150,14 @@ export default function MoodOutfitPage() {
                       <p className="text-[10px] text-muted-foreground mt-0.5">{t(`ai.mood_${mood.key}_desc`)}</p>
                     </div>
                     {isSelected && (
-                      <Badge variant="secondary" className="animate-pulse text-xs">
-                        {t('ai.mood_generating')}
-                      </Badge>
+                      <div className="space-y-1">
+                        <Badge variant="secondary" className="animate-pulse text-xs">
+                          {t('ai.mood_generating')}
+                        </Badge>
+                        {loadingPhase && (
+                          <p className="text-muted-foreground text-[12px]">{loadingPhase}</p>
+                        )}
+                      </div>
                     )}
                   </CardContent>
                 </Card>

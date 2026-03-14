@@ -88,7 +88,7 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
 
         // Trigger AI analysis (non-blocking)
         try {
-          await supabase.functions.invoke('analyze_garment', {
+          await invokeEdgeFunction('analyze_garment', {
             body: { image_path: path, user_id: user.id },
           });
         } catch {
