@@ -1,7 +1,8 @@
-import { useState, useRef, useCallback, type ReactNode } from 'react';
+import { useState, useRef, useCallback, useEffect, type ReactNode } from 'react';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { DrapeLogo } from '@/components/ui/DrapeLogo';
 import { hapticLight } from '@/lib/haptics';
+import { isMedianApp } from '@/lib/median';
 
 interface PullToRefreshProps {
   onRefresh: () => Promise<void>;
