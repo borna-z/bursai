@@ -102,7 +102,7 @@ export default function OnboardingPage() {
   };
 
   // Redirect if already completed
-  const prefs = profile?.preferences as Record<string, any> | null;
+  const prefs = asPreferences(profile?.preferences);
   const onboardingCompleted = prefs?.onboarding?.completed === true;
 
   if (profileLoading || adminLoading) {

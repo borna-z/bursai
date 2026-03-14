@@ -61,7 +61,7 @@ export function useAISuggestions() {
       }
 
       if (response.error) {
-        throw new Error(response.error.message);
+        throw response.error;
       }
 
       if (response.data?.error) {

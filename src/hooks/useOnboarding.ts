@@ -1,5 +1,6 @@
 import { useProfile, useUpdateProfile } from './useProfile';
 import { useAuth } from '@/contexts/AuthContext';
+import { asPreferences } from '@/types/preferences';
 
 /**
  * Simplified onboarding hook — onboarding completes after quiz + tutorial.
@@ -10,9 +11,8 @@ export function useOnboarding() {
   const { data: profile, isLoading } = useProfile();
   const updateProfile = useUpdateProfile();
 
-  const prefs = (profile?.preferences as Record<string, unknown>) || {};
-  const onboarding = prefs?.onboarding as Record<string, unknown> | undefined;
-  const completed = onboarding?.completed === true;
+  const prefs = asPreferences(profile?.preferences);
+  const completed = prefs?.onboarding?.completed === true;
 
   const completeOnboarding = async () => {
     if (!profile) return;

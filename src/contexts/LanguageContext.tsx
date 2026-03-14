@@ -47,7 +47,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
     // Save to profile if available
     if (profile) {
-      const currentPrefs = (profile.preferences as Record<string, unknown>) || {};
+      const currentPrefs = asPreferences(profile.preferences);
       try {
         await updateProfile.mutateAsync({
           preferences: { ...currentPrefs, locale: newLocale },

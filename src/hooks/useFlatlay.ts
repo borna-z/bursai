@@ -18,7 +18,7 @@ export function useGenerateFlatlay() {
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
 
-        return data as { success: boolean; flatlay_image_path: string };
+        return data!;
       } finally {
         setIsGenerating(false);
       }

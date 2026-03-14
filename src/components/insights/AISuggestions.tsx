@@ -326,6 +326,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
             isCreating={creatingOutfitId === activeIndex}
           />
           <DotNav total={total} active={activeIndex} onChange={setActiveIndex} />
+          <StaleIndicator updatedAt={dataUpdatedAt ? new Date(dataUpdatedAt).toISOString() : null} staleAfterHours={1} onRefresh={() => refetch()} className="justify-center pt-2" />
         </>
       )}
     </div>

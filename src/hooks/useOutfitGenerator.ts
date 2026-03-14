@@ -64,7 +64,8 @@ async function generateOutfitViaEngine(
 ): Promise<GeneratedOutfit> {
   await validateWardrobeForGeneration(userId);
 
-  const { data, error: fnError } = await supabase.functions.invoke('burs_style_engine', {
+  const { data, error: fnError } = await invokeEdgeFunction<any>('burs_style_engine', {
+    timeout: 45000,
     body: {
       mode: 'generate',
       occasion: request.occasion,

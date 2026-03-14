@@ -278,8 +278,9 @@ export default function TravelCapsule() {
     if (!weatherForecast) await lookupWeather();
     setIsGenerating(true);
     try {
-      const userLocale = (profile?.preferences as Record<string, string> | null)?.locale || locale;
-      const { data, error } = await supabase.functions.invoke('travel_capsule', {
+      const userLocale = (asPreferences(profile?.preferences)?.language as string) || locale;
+      const { data, error } = await invokeEdgeFunction<CapsuleResult & { error?: string }>('travel_capsule', {
+        timeout: 45000,
         body: {
           duration_days: tripDays || tripNights,
           destination,

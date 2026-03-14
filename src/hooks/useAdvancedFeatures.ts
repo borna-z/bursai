@@ -49,12 +49,12 @@ export function useSuggestAccessories() {
 export function useWardrobeGapAnalysis() {
   return useMutation({
     mutationFn: async (params?: { locale?: string }) => {
-      const { data, error } = await supabase.functions.invoke('wardrobe_gap_analysis', {
+      const { data, error } = await invokeEdgeFunction<{ gaps: Array<{ item: string; category: string; color: string; reason: string; new_outfits: number; price_range: string; search_query: string }>; error?: string }>('wardrobe_gap_analysis', {
         body: { locale: params?.locale || 'en' },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return data as { gaps: Array<{ item: string; category: string; color: string; reason: string; new_outfits: number; price_range: string; search_query: string }> };
+      return data!;
     },
   });
 }

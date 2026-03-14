@@ -99,6 +99,7 @@ export function StyleReportCard({ isPremium }: { isPremium: boolean }) {
 
               {/* Summary */}
               <p className="text-sm text-muted-foreground leading-relaxed">{report.summary}</p>
+              <StaleIndicator updatedAt={generatedAt} staleAfterHours={24} onRefresh={generate} />
             </motion.div>
           )}
         </div>

@@ -68,9 +68,9 @@ export function useDaySummary(date: string) {
           }
         : null;
 
-      const locale = (profile?.preferences as Record<string, string> | null)?.locale || 'sv';
+      const locale = (asPreferences(profile?.preferences)?.language as string) || 'sv';
 
-      const { data, error } = await supabase.functions.invoke('summarize_day', {
+      const { data, error } = await invokeEdgeFunction<any>('summarize_day', {
         body: { events, weather, locale },
       });
 
