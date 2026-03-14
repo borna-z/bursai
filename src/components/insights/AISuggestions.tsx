@@ -322,13 +322,23 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
         </div>
       ) : (
         <>
-          <HeroSlide
-            key={activeIndex}
-            suggestion={suggestions[activeIndex]}
-            onTryIt={() => handleTryIt(suggestions[activeIndex], activeIndex)}
-            onPlan={() => handlePlan(suggestions[activeIndex])}
-            isCreating={creatingOutfitId === activeIndex}
-          />
+          <motion.div
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.15}
+            onDragEnd={handleSwipe}
+            className="touch-pan-y cursor-grab active:cursor-grabbing"
+          >
+            <AnimatePresence mode="wait">
+              <HeroSlide
+                key={activeIndex}
+                suggestion={suggestions[activeIndex]}
+                onTryIt={() => handleTryIt(suggestions[activeIndex], activeIndex)}
+                onPlan={() => handlePlan(suggestions[activeIndex])}
+                isCreating={creatingOutfitId === activeIndex}
+              />
+            </AnimatePresence>
+          </motion.div>
           <DotNav total={total} active={activeIndex} onChange={setActiveIndex} />
         </>
       )}
