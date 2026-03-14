@@ -2,6 +2,9 @@ import { ReactNode } from 'react';
 import { BottomNav } from './BottomNav';
 import { OfflineBanner } from './OfflineBanner';
 import { SeedProgressPill } from './SeedProgressPill';
+import { useKeyboardAdjust } from '@/hooks/useKeyboardAdjust';
+import { useMedianStatusBar } from '@/hooks/useMedianStatusBar';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface AppLayoutProps {
   children: ReactNode;
