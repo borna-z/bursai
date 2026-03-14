@@ -269,6 +269,8 @@ export default function InsightsPage() {
           )}
 
           {/* ─── CTA ─── */}
+          <SmartInsightCard />
+
           <Button className="w-full rounded-xl" size="lg" onClick={() => navigate('/')}>
             <Sparkles className="w-4 h-4 mr-2" />{t('insights.get_outfits')}
           </Button>
