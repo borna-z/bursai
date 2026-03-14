@@ -7,27 +7,27 @@
 
 @layer base {
   :root {
-    /* Warm off-white background – #F6F4F1 */
-    --background: 36 22% 95%;
-    --foreground: 0 0% 7%;
+    /* Warm editorial background – #F5F0E8 (matches landing) */
+    --background: 36 25% 94%;
+    --foreground: 20 12% 10%;
 
-    /* Pure white cards with warm tint */
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 7%;
+    /* Warm tinted cards – #EDE8DF (matches landing --surf) */
+    --card: 36 20% 91%;
+    --card-foreground: 20 12% 10%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 7%;
+    --popover: 36 20% 91%;
+    --popover-foreground: 20 12% 10%;
 
-    /* Charcoal primary – #111111 */
-    --primary: 0 0% 7%;
-    --primary-foreground: 36 22% 95%;
+    /* Charcoal primary – #1C1917 */
+    --primary: 20 12% 10%;
+    --primary-foreground: 36 25% 94%;
 
     /* Warm light grey secondary */
     --secondary: 36 15% 93%;
-    --secondary-foreground: 0 0% 7%;
+    --secondary-foreground: 20 12% 10%;
 
     --muted: 36 12% 90%;
-    --muted-foreground: 0 0% 42%;
+    --muted-foreground: 20 5% 40%;
 
     /* Indigo accent – #2F3A8F, very subtle */
     --accent: 234 51% 37%;
@@ -36,10 +36,10 @@
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Warm border – #E9E6E1 */
-    --border: 36 14% 88%;
-    --input: 36 14% 88%;
-    --ring: 0 0% 7%;
+    /* Warm border – #DDD8CF (matches landing) */
+    --border: 36 15% 85%;
+    --input: 36 15% 85%;
+    --ring: 20 12% 10%;
 
     --radius: 0.75rem;
 
@@ -57,17 +57,17 @@
     --accent-indigo-muted: 234 40% 94%;
 
     /* Sidebar */
-    --sidebar-background: 36 22% 95%;
+    --sidebar-background: 36 25% 94%;
     --sidebar-foreground: 0 0% 25%;
-    --sidebar-primary: 0 0% 7%;
-    --sidebar-primary-foreground: 36 22% 95%;
+    --sidebar-primary: 20 12% 10%;
+    --sidebar-primary-foreground: 36 25% 94%;
     --sidebar-accent: 36 15% 91%;
-    --sidebar-accent-foreground: 0 0% 7%;
-    --sidebar-border: 36 14% 88%;
-    --sidebar-ring: 0 0% 7%;
+    --sidebar-accent-foreground: 20 12% 10%;
+    --sidebar-border: 36 15% 85%;
+    --sidebar-ring: 20 12% 10%;
 
     /* Chart colors */
-    --chart-1: 0 0% 7%;
+    --chart-1: 20 12% 10%;
     --chart-2: 234 51% 37%;
     --chart-3: 38 88% 50%;
     --chart-4: 0 72% 51%;
