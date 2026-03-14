@@ -166,9 +166,9 @@ export function useUpdateGarment() {
       if (!navigator.onLine) {
         enqueue({
           table: 'garments',
-          operation: 'update',
-          data: updates,
-          filters: { id },
+          type: 'update',
+          payload: updates as Record<string, unknown>,
+          match: { id },
         });
         return { id, ...updates } as Tables<'garments'>;
       }
