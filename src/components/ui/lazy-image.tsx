@@ -22,7 +22,10 @@ export function LazyImage({
   alt, 
   className,
   fallbackIcon,
-  aspectRatio = 'square'
+  aspectRatio = 'square',
+  width,
+  height,
+  fetchPriority,
 }: LazyImageProps) {
   const { signedUrl, placeholderUrl, isLoading, hasError, setRef } = useCachedSignedUrl(imagePath);
   const [imageLoaded, setImageLoaded] = React.useState(false);
