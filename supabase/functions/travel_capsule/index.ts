@@ -224,9 +224,9 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
 
           outfits.push({
             day,
-            occasion: occasions?.[slot % Math.max(occasions?.length || 0, 1)] || (isSv ? "vardag" : "casual"),
+            occasion: occasions?.[slot % Math.max(occasions?.length || 0, 1)] || "casual",
             items: uniqueItems,
-            note: isSv ? "En flexibel baslook för resedagen." : "A flexible core look for travel day.",
+            note: "A flexible core look for travel day.",
           });
         }
       }
@@ -234,21 +234,13 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       return {
         capsule_items: capsuleItems,
         outfits,
-        packing_tips: isSv
-          ? [
-              "Välj plagg som fungerar i lager.",
-              "Håll dig till en enhetlig färgpalett för fler kombinationer.",
-              "Packa ett extra par skor för variation och komfort.",
-            ]
-          : [
+        packing_tips: [
               "Choose pieces that layer well.",
               "Keep a cohesive color palette for more combinations.",
               "Pack one backup pair of shoes for comfort and variation.",
             ],
         total_combinations: outfits.length,
-        reasoning: isSv
-          ? "Automatisk fallback användes för att säkerställa en komplett kapsel från din garderob."
-          : "Automatic fallback was used to guarantee a complete capsule from your wardrobe.",
+        reasoning: "Automatic fallback was used to guarantee a complete capsule from your wardrobe.",
       };
     };
 
