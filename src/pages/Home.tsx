@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Settings } from 'lucide-react';
+import { Settings, Heart } from 'lucide-react';
 
 import { useProfile } from '@/hooks/useProfile';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -14,6 +14,9 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { AISuggestions } from '@/components/insights/AISuggestions';
 import { QuickActionsRow } from '@/components/home/QuickActionsRow';
+import { WardrobeGapSection } from '@/components/discover/WardrobeGapSection';
+import { hapticLight } from '@/lib/haptics';
+import { EASE_CURVE } from '@/lib/motion';
 
 
 export default function HomePage() {
