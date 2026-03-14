@@ -218,6 +218,7 @@ export default function TravelCapsule() {
 
   // ── Toggles ──
   const toggleOccasion = (id: string) => {
+    setHasManualOccasions(true);
     setSelectedOccasions(prev =>
       prev.includes(id) ? prev.filter(o => o !== id) : [...prev, id]
     );
