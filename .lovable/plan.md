@@ -1,70 +1,75 @@
 
-# BURS Launch Readiness Plan v4
 
-**Status: ✅ Phases 1-7 COMPLETE | AI Loading Animations COMPLETE**
+# Plan: Replace All Hardcoded Swedish with English
 
-## Phase 1: Dead Weight Removal (Steps 1-3) ✅
-- Removed `recharts`, `react-resizable-panels`, `next-themes` (~200KB saved)
-- Deleted unused `resizable.tsx` and `chart.tsx`
-- Lazy-imported `html-to-image` in `OutfitReel.tsx`
+## Overview
+Swedish strings are scattered across ~20 files in both frontend and edge functions. This plan covers every instance, organized into 20 concrete steps.
 
-## Phase 2: Metadata & SEO (Steps 4-5) ✅
-- Fixed OG image URL to relative `/og-image.png`
-- Synced manifest.json lang to `"en"`
+---
 
-## Phase 3: Hook Tests (Steps 6-11) ✅
-- `useProfile`: 4 tests (auth, fetch, auto-create, ghost session)
-- `useGarments`: 5 tests (auth, fetch, filters, search, count)
-- `useOutfits`: 4 tests (auth, fetch, single, delete)
-- `useOutfitGenerator`: 3 tests (auth, validation, generation)
-- `useOfflineQueue`: 4 tests (online/offline, replay, events)
-- `useSupabaseQuery`: 4 tests (auth skip, fetch, single, schema)
+## Steps
 
-## Phase 4: Component Tests (Steps 12-18) ✅
-- `Onboarding`: 1 smoke test
-- `Settings`: 1 smoke test
-- `Landing`: 1 smoke test
-- Existing: Auth, Home, Wardrobe, PaywallModal, BottomNav, ProtectedRoute
+### Frontend — Form/Data IDs (stored values & display)
 
-## Phase 5: Utility Tests (Steps 19-21) ✅
-- `edgeFunctionClient`: 5 tests (success, retry, exhausted, exceptions, timeout error)
-- `offlineQueue`: 6 tests (enqueue, upload, clear, replay, progress)
-- `schemas`: 11 tests (profile, garment, style score, weather, safeParse, preferences)
-- `nativeShare`: 4 tests (Median, Web Share, clipboard, cancel)
-- Existing: compressFrame, backgroundGarmentSave
+**1. `src/pages/AddGarment.tsx` — Pattern, Material, Season, Color IDs + Subcategories**
+- Change `PATTERN_IDS` from Swedish (`enfärgad`, `randig`, `rutig`…) to English (`solid`, `striped`, `checked`, `dotted`, `floral`, `patterned`, `camo`)
+- Change `MATERIAL_IDS` from Swedish (`bomull`, `polyester`, `lin`…) to English (`cotton`, `polyester`, `linen`, `denim`, `leather`, `wool`, `silk`, `synthetic`)
+- Change `SEASON_IDS` from Swedish (`vår`, `sommar`, `höst`, `vinter`) to English (`spring`, `summer`, `autumn`, `winter`)
+- Change `colors` array IDs from Swedish (`svart`, `vit`, `grå`…) to English (`black`, `white`, `grey`, `navy`, `blue`, `red`, `green`, `beige`, `brown`, `pink`, `yellow`, `orange`, `purple`)
+- Update all `*_I18N` maps to use the new English keys
+- Change `subcategories` map values from Swedish to English (`T-shirt`, `Shirt`, `Blouse`, `Sweater`, etc.)
+- Update `SUBCATEGORY_I18N` keys to match English IDs
 
-## Phase 6: Infrastructure (Steps 22-24) ✅
-- Added `test:coverage` script with v8 provider + 30% line threshold
-- Added CSP meta tag to `index.html`
-- Added Sentry `release` tag using `__APP_VERSION__`
+**2. `src/pages/EditGarment.tsx` — Same pattern/material/season/color/subcategory changes**
+- Mirror all the same ID changes as AddGarment
 
-## Phase 7: Final Polish (Step 25) ✅
-- All new tests passing individually
-- CI pipeline configured
+**3. `src/components/wardrobe/FilterSheet.tsx` — Filter IDs**
+- Change `colorFilters` from Swedish to English IDs
+- Change `seasonFilters` from Swedish to English IDs
 
-## AI Loading Animations (35-Step Sprint) ✅
+**4. `src/components/wardrobe/QuickEditPanel.tsx` — Color option IDs**
+- Change `colorOptionIds` from Swedish to English
 
-### Foundation
-- Created `AILoadingOverlay` — reusable multi-phase loading with radar pulse rings, bouncing dots, phase cycling
-- Created `AILoadingCard` — compact inline variant for cards/sections
-- Added `shimmer-sweep` CSS keyframe for scanner beam effect
+**5. `src/pages/Insights.tsx` — COLOR_MAP and COLOR_I18N**
+- Change all Swedish color keys to English in both maps
 
-### Integrated Surfaces (20+ touchpoints)
-- **OutfitGenerate** — 5-phase fullscreen animation
-- **TodayOutfitCard** — AILoadingCard for initial load, AILoadingOverlay for regeneration
-- **StylePicker** — AILoadingCard embedded in active style card
-- **MoodOutfit** — AILoadingCard in selected mood card
-- **QuickGenerateSheet** — AILoadingCard replaces spinner button
-- **QuickPlanSheet** — AILoadingOverlay with day-name subtitle + progress bar
-- **UnusedOutfits** — AILoadingOverlay with skeleton cards
-- **AddGarment** — shimmer-sweep on image + AILoadingOverlay for phases
-- **BatchUploadProgress** — per-item pulse ring animations
-- **LiveScan** — multi-phase ScanOverlay with concentric rings + bouncing dots
-- **AIChat** — bouncing dots + phase text for streaming indicator
-- **AISuggestions** — AILoadingOverlay variant="card" with progress
-- **StyleReportCard** — AILoadingCard with 3 phases
-- **WardrobeGapSection** — refactored to use shared AILoadingOverlay
-- **TravelCapsule** — AILoadingOverlay for generation, AILoadingCard for weather lookup + calendar sync
-- **QuickGenerateSheet** — AILoadingCard for travel weather lookup
+**6. `src/components/insights/AdvancedInsights.tsx` — COLOR_CSS map**
+- Remove Swedish keys, keep only English
 
-**Total tests: ~100+ (48 existing + 52 new across 13 new test files)**
+**7. `src/data/seedGarments.ts` — Seed data color values**
+- Replace Swedish `color_primary` values: `marinblå`→`navy`, `grön`→`green`, `lavendel`→`lavender`, `korall`→`coral`, `vit`→`white`, `blå`→`blue`, `lila`→`purple`, `olivgrön`→`olive`, `svart`→`black`, `brun`→`brown`, `röd`→`rust`, `terrakotta`→`terracotta`
+
+### Frontend — Hardcoded Swedish Error/UI Strings
+
+**8. `src/hooks/useOutfitGenerator.ts` — Error messages**
+- Change `INSUFFICIENT_GARMENTS_MESSAGE` to English
+- Change `isInsufficientGarmentsError` to check English string
+- Change `'AI returnerade inga plagg'` → `'AI returned no garments'`
+- Change `'Inte tillräckligt med matchande plagg'` → `'Not enough matching garments'`
+- Change `'Kunde inte generera outfit'` → `'Could not generate outfit'`
+- Change `locale: request.locale || 'sv'` → `locale: request.locale || 'en'`
+
+**9. `src/hooks/useAISuggestions.ts` — Error check**
+- Update `isInsufficientGarmentsError` to match English string instead of Swedish
+
+**10. `src/components/chat/ChatWelcome.tsx` — Swedish suggestion fallbacks**
+- Remove all `locale === 'sv'` branches; use English as default for all non-translated locales
+
+**11. `src/contexts/ThemeContext.tsx` — Storage keys**
+- Change `garderob-theme` → `burs-theme` and `garderob-accent` → `burs-accent` (cosmetic, but removes Swedish naming)
+
+### Edge Functions — Swedish strings
+
+**12. `supabase/functions/generate_outfit/index.ts` — Error message**
+- Change `"Du behöver minst 3 plagg…"` → `"You need at least 3 garments (top, bottom, shoes) to generate an outfit"`
+
+**13. `supabase/functions/burs_style_engine/index.ts` — Error messages + category aliases**
+- Change `"Du behöver minst 3 plagg…"` → English
+- Change `"Inte tillräckligt med matchande plagg"` → English
+- Keep Swedish aliases in category arrays (these are for backward compat matching existing DB data) but add a comment explaining why
+
+**14. `supabase/functions/travel_capsule/index.ts` — Fallback text**
+- Change all `isSv` fallback strings (packing tips, reasoning, occasion, note) to English-only
+
+**15. `supabase/functions/summarize_day/index.ts` — Swedish prompts**
+- Change `i
