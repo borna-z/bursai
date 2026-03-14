@@ -60,7 +60,7 @@ export function ProfileCard() {
 
       hapticSuccess();
       toast.success(t('settings.avatar_updated') || 'Photo updated');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Avatar upload error:', err);
       toast.error(t('settings.avatar_error') || 'Failed to upload photo');
     } finally {

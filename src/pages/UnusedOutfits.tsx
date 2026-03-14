@@ -103,11 +103,11 @@ export default function UnusedOutfits() {
         if (oErr || !outfit) continue;
 
         const items = data.items
-          .map((it: any) => ({ slot: it.slot, garment: gMap.get(it.garment_id) as Garment }))
-          .filter((it: any) => it.garment);
+          .map((it: { garment_id: string; slot: string }) => ({ slot: it.slot, garment: gMap.get(it.garment_id) as Garment }))
+          .filter((it): it is { slot: string; garment: Garment } => !!it.garment);
 
         await supabase.from('outfit_items').insert(
-          items.map((it: any) => ({ outfit_id: outfit.id, garment_id: it.garment.id, slot: it.slot }))
+          items.map((it) => ({ outfit_id: outfit.id, garment_id: it.garment.id, slot: it.slot }))
         );
 
         const card: GeneratedOutfitCard = {

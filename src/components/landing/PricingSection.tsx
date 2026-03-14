@@ -119,7 +119,7 @@ export function PricingSection() {
               {FEATURES.map(({ icon: Icon, label }) => (
                 <div key={label} className="flex items-center gap-2.5 text-sm text-muted-foreground">
                   <Icon size={15} strokeWidth={1.5} className="text-foreground/60 shrink-0" />
-                  <span>{t(label as any)}</span>
+                  <span>{t(label)}</span>
                 </div>
               ))}
             </div>

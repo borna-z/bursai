@@ -46,8 +46,8 @@ export function useSwapGarment() {
         return await fallbackFetchCandidates(slot, currentGarmentId, otherGarmentColors);
       }
 
-      const scored: SwapCandidate[] = (data?.candidates || []).map((c: any) => ({
-        garment: c.garment as Garment,
+      const scored: SwapCandidate[] = (data?.candidates || []).map((c) => ({
+        garment: c.garment,
         score: c.score,
         breakdown: c.breakdown,
       }));

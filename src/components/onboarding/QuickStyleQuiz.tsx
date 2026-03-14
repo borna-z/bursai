@@ -65,7 +65,7 @@ export function QuickStyleQuiz({ onComplete, onSkip, isSaving }: Props) {
   const back = () => { if (qi > 0) { setDir(-1); setQi(qi - 1); } };
 
   const selectAndAdvance = (key: keyof typeof answers, val: string) => {
-    set(key, val as any);
+    set(key, val as typeof answers[typeof key]);
     setTimeout(() => {
       if (qi < TOTAL - 1) { setDir(1); setQi(prev => prev + 1); }
     }, 250);

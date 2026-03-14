@@ -82,9 +82,10 @@ export default function OnboardingPage() {
       }
       await updateProfile.mutateAsync(updates);
       setQuizDone(true);
-    } catch (err: any) {
-      const msg = err?.message || '';
-      if (msg.includes('Profile not found') || msg.includes('foreign key') || (err as any)?.code === '23503') {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      const code = (err as { code?: string })?.code;
+      if (msg.includes('Profile not found') || msg.includes('foreign key') || code === '23503') {
         toast.error(t('onboarding.sessionExpired') || 'Session expired. Please log out and sign in again.');
       } else {
         toast.error(t('onboarding.error'));

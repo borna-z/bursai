@@ -46,7 +46,7 @@ export default function SettingsPrivacy() {
     const newConsent = { ...consent, [key]: value, updated_at: new Date().toISOString() } as Record<string, unknown>;
     const newPrefs = { ...preferences, consent: newConsent } as Record<string, unknown>;
     try {
-      await updateProfile.mutateAsync({ preferences: newPrefs as any });
+      await updateProfile.mutateAsync({ preferences: newPrefs as Record<string, unknown> });
       toast.success(t('settings.gdpr.consent_saved'));
     } catch {
       toast.error(t('settings.pref_error'));

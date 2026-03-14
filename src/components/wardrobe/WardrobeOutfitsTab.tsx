@@ -139,7 +139,7 @@ export function WardrobeOutfitsTab() {
     const today = now.toISOString().split('T')[0];
     switch (filter) {
       case 'saved': return outfits.filter(o => o.saved);
-      case 'planned': return outfits.filter((o: any) => o.planned_for && o.planned_for >= today);
+      case 'planned': return outfits.filter(o => o.planned_for && o.planned_for >= today);
       default: return outfits;
     }
   }, [outfits, filter]);

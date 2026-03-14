@@ -35,7 +35,7 @@ export default function PickMustHaves() {
     enabled: !!user,
   });
 
-  const initialIds: string[] = (location.state as any)?.mustHaveItems ?? [];
+  const initialIds: string[] = (location.state as { mustHaveItems?: string[] })?.mustHaveItems ?? [];
   const [selected, setSelected] = useState<Set<string>>(new Set(initialIds));
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);

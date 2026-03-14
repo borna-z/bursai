@@ -23,9 +23,9 @@ export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
   const rotate = useTransform(y, [0, THRESHOLD], [0, 360]);
 
   useEffect(() => {
-    if (isMedianApp() && (window as any).median?.webview?.pullToRefresh) {
+    if (isMedianApp() && window.median?.webview?.pullToRefresh) {
       setUseNative(true);
-      (window as any).__burs_ptr_callback = async () => {
+      window.__burs_ptr_callback = async () => {
         await onRefresh();
       };
     }

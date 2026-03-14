@@ -113,11 +113,11 @@ export function LinkImportForm() {
         } else {
           throw new Error(result?.reason || t('import.unknown_error'));
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         updatedItems[i] = { 
           ...updatedItems[i], 
           status: 'failed',
-          error: err.message || t('import.could_not_import'),
+          error: err instanceof Error ? err.message : t('import.could_not_import'),
         };
         failedCount++;
       }

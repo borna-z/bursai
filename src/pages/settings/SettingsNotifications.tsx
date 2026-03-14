@@ -26,7 +26,7 @@ export default function SettingsNotifications() {
 
   const updatePreference = async (key: string, value: unknown) => {
     const newPrefs = { ...preferences, [key]: value } as Record<string, unknown>;
-    try { await updateProfile.mutateAsync({ preferences: newPrefs as any }); }
+    try { await updateProfile.mutateAsync({ preferences: newPrefs as Record<string, unknown> }); }
     catch { toast.error(t('settings.pref_error')); }
   };
 

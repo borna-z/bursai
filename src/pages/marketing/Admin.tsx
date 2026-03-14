@@ -70,9 +70,9 @@
    };
 
    const fetchEventCounts = async () => {
-     const { data } = await (supabase
-       .from('marketing_events') as any)
-       .select('event_name');
+    const { data } = await supabase
+      .from('marketing_events')
+      .select('event_name');
      
      if (data) {
        const counts: Record<string, number> = {};

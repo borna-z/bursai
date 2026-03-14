@@ -138,14 +138,16 @@ export async function replayQueue(
   for (const mutation of queue.mutations) {
     try {
       let result: { error: { message: string } | null } = { error: null };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic table names from offline queue are inherently untyped
+      const table = supabase.from(mutation.table as any);
       if (mutation.type === 'insert') {
-        result = await supabase.from(mutation.table as any).insert(mutation.payload as any);
+        result = await table.insert(mutation.payload as any);
       } else if (mutation.type === 'update' && mutation.match) {
-        result = await supabase.from(mutation.table as any).update(mutation.payload as any).match(mutation.match as any);
+        result = await table.update(mutation.payload as any).match(mutation.match as any);
       } else if (mutation.type === 'upsert') {
-        result = await supabase.from(mutation.table as any).upsert(mutation.payload as any);
+        result = await table.upsert(mutation.payload as any);
       } else if (mutation.type === 'delete' && mutation.match) {
-        result = await supabase.from(mutation.table as any).delete().match(mutation.match as any);
+        result = await table.delete().match(mutation.match as any);
       }
 
       if (result.error) {

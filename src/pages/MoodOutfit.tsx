@@ -76,7 +76,7 @@ export default function MoodOutfitPage() {
 
       if (outfitErr) throw outfitErr;
 
-      const items = data.items.map((i: any) => ({
+      const items = data.items.map((i: { garment_id: string; slot: string }) => ({
         outfit_id: outfit.id,
         garment_id: i.garment_id,
         slot: i.slot,

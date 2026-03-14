@@ -67,15 +67,21 @@ export default function PublicProfile() {
         .order('generated_at', { ascending: false })
         .limit(12);
 
-      const transformed = (outfitData || []).map((o: any) => ({
+      type RawOutfitItem = { id: string; slot: string; garment: { id: string; title: string; image_path: string } | null };
+      type RawOutfit = {
+        id: string; occasion: string; style_vibe: string | null;
+        explanation: string | null; generated_at: string | null;
+        outfit_items: RawOutfitItem[];
+      };
+      const transformed: PublicOutfit[] = ((outfitData || []) as RawOutfit[]).map((o) => ({
         ...o,
-        outfit_items: (o.outfit_items || []).map((i: any) => ({ id: i.id, slot: i.slot, garment: i.garment })),
+        outfit_items: (o.outfit_items || []).map((i) => ({ id: i.id, slot: i.slot, garment: i.garment })),
       }));
       setOutfits(transformed);
 
       // Load first garment image per outfit
       for (const outfit of transformed) {
-        const firstItem = outfit.outfit_items.find((i: any) => i.garment?.image_path);
+        const firstItem = outfit.outfit_items.find((i) => i.garment?.image_path);
         if (firstItem?.garment?.image_path) {
           const { data: urlData } = await supabase.storage.from('garments').createSignedUrl(firstItem.garment.image_path, 3600);
           if (urlData) setImageUrls(prev => ({ ...prev, [outfit.id]: urlData.signedUrl }));
