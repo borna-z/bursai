@@ -68,7 +68,8 @@ export function useSwapGarment() {
   const fallbackFetchCandidates = async (
     slot: string,
     currentGarmentId: string,
-    otherGarmentColors: string[]
+    otherGarmentColors: string[],
+    swapMode: SwapMode = 'safe'
   ): Promise<SwapCandidate[]> => {
     if (!user) return [];
 
