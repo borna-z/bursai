@@ -170,32 +170,33 @@ export default function HomePage() {
                 </Button>
               </motion.div>
             ) : homeState === 'outfit_planned' && todayOutfit ? (
-              <motion.div
+              <motion.button
                 variants={reveal.variants}
                 initial="initial"
                 animate="animate"
                 transition={reveal.transition}
-                className="rounded-2xl border border-border/10 bg-gradient-to-br from-primary/[0.04] to-transparent overflow-hidden"
+                onClick={() => { hapticLight(); navigate(`/outfits/${todayOutfit.id}`); }}
+                className="w-full rounded-2xl border border-border/10 bg-gradient-to-br from-primary/[0.04] to-transparent p-3 flex items-center gap-3 text-left cursor-pointer active:scale-[0.98] transition-transform"
               >
-                <button
-                  onClick={() => navigate(`/outfits/${todayOutfit.id}`)}
-                  className="w-full cursor-pointer press"
-                >
-                  <div className="grid grid-cols-4 gap-0.5 p-1">
-                    {todayOutfit.outfit_items.slice(0, 4).map((item) => (
-                      <div key={item.id} className="bg-muted aspect-square rounded-lg overflow-hidden">
-                        <LazyImageSimple
-                          imagePath={item.garment?.image_path}
-                          alt={item.garment?.title || item.slot}
-                          className="w-full h-full"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </button>
+                {/* Horizontal thumbnail strip */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {todayOutfit.outfit_items.slice(0, 4).map((item) => (
+                    <div key={item.id} className="w-12 h-12 rounded-lg overflow-hidden bg-muted shrink-0">
+                      <LazyImageSimple
+                        imagePath={item.garment?.image_path}
+                        alt={item.garment?.title || item.slot}
+                        className="w-full h-full"
+                      />
+                    </div>
+                  ))}
+                </div>
 
-                <div className="px-5 py-4 space-y-3">
-                  <div className="flex items-center gap-2">
+                {/* Occasion + chevron */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/60 mb-0.5">
+                    {t('home.todays_outfit')}
+                  </p>
+                  <div className="flex items-center gap-1.5">
                     <Badge variant="secondary" className="capitalize text-[10px] font-medium">
                       {getOccasionLabel(todayOutfit.occasion || '', t)}
                     </Badge>
@@ -203,22 +204,10 @@ export default function HomePage() {
                       <Badge variant="outline" className="text-[10px]">{todayOutfit.style_vibe}</Badge>
                     )}
                   </div>
-
-                  {todayOutfit.explanation && (
-                    <p className="text-[12px] text-muted-foreground/60 leading-relaxed line-clamp-2">
-                      {todayOutfit.explanation}
-                    </p>
-                  )}
-
-                  <Button
-                    className="w-full h-11 text-sm font-semibold"
-                    onClick={() => { hapticLight(); navigate(`/outfits/${todayOutfit.id}`); }}
-                  >
-                    {t('home.view_outfit')}
-                    <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
                 </div>
-              </motion.div>
+
+                <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+              </motion.button>
             ) : (
               /* no_outfit — simple generate CTA */
               <motion.div

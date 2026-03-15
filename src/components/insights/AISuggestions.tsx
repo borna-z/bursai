@@ -279,7 +279,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
   }
 
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-primary/[0.04] to-transparent border border-border/10 py-7 px-6">
+    <div className="rounded-2xl bg-gradient-to-br from-primary/[0.04] to-transparent border border-border/10 py-4 px-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
