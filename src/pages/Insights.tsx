@@ -244,7 +244,7 @@ export default function InsightsPage() {
                     <p className="text-xs text-muted-foreground mt-1.5">{t('insights.sustainability_desc')}</p>
                   </div>
                   <div className="grid grid-cols-3 gap-3 mt-3">
-                    <div className="rounded-xl bg-muted/40 p-3 text-center">
+                     <div className="rounded-xl surface-secondary p-3 text-center">
                       <span className="text-lg font-bold tabular-nums">{sustainability.utilizationRate}%</span>
                       <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.utilization')}</p>
                     </div>
