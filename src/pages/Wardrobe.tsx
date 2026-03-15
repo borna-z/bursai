@@ -522,7 +522,7 @@ export default function WardrobePage() {
         <AnimatedPage className="px-5 pb-36 pt-6 space-y-6">
           {/* Title row */}
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-semibold">{t('wardrobe.title')}</h1>
+            <h1 className="text-2xl font-bold tracking-tight">{t('wardrobe.title')}</h1>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setIsGridView(!isGridView)}
