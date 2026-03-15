@@ -152,10 +152,10 @@ export function StylistSummary({
               {styleVibe}
             </Badge>
           )}
-          {weather?.temp !== undefined && TempIcon && (
+          {resolvedTemp !== undefined && TempIcon && (
             <Badge variant="outline" className="flex items-center gap-1">
               <TempIcon className="w-3 h-3" />
-              {weather.temp}°C
+              {resolvedTemp}°C
             </Badge>
           )}
           {!hasWarnings && outfitItems.length > 0 && currentWeather && (
