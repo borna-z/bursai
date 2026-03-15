@@ -1969,6 +1969,7 @@ function buildCombos(
   const accessories = slotCandidates['accessory'] || [];
 
   const wet = isWetWeather(weather);
+  const outerwearRequired = requiresOuterwear(weather);
   const needsOuterwear =
     (weather.temperature !== undefined && weather.temperature < 15) || wet;
 
