@@ -25,13 +25,13 @@ export function useSwapGarment() {
     otherGarmentColors: string[],
     otherItems?: { slot: string; garment_id: string }[],
     occasion?: string,
-    weather?: { temperature?: number; precipitation?: string; wind?: string }
+    weather?: { temperature?: number; precipitation?: string; wind?: string },
+    swapMode: SwapMode = 'safe'
   ): Promise<SwapCandidate[]> => {
     if (!user) return [];
 
     setIsLoadingCandidates(true);
     try {
-      // Use the BURS style engine for smart swap scoring
       const { data, error } = await invokeEdgeFunction<{ candidates?: SwapCandidate[]; error?: string }>('burs_style_engine', {
         body: {
           mode: 'swap',
@@ -40,6 +40,7 @@ export function useSwapGarment() {
           other_items: otherItems || [],
           occasion: occasion || 'vardag',
           weather: weather || { precipitation: 'none', wind: 'low' },
+          swap_mode: swapMode,
         },
       });
 
