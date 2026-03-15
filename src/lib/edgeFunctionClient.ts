@@ -32,39 +32,34 @@ export async function invokeEdgeFunction<T = unknown>(
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (attempt > 0) {
-      // Exponential backoff: 1s, 2s, 4s...
       await new Promise((r) => setTimeout(r, Math.min(1000 * 2 ** (attempt - 1), 8000)));
     }
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
-
     try {
-      const { data, error } = await supabase.functions.invoke(functionName, {
+      const invokePromise = supabase.functions.invoke(functionName, {
         body: body ? JSON.stringify(body) : undefined,
         headers: { 'Content-Type': 'application/json' },
       });
 
-      clearTimeout(timer);
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new EdgeFunctionTimeoutError(functionName)), timeout);
+      });
+
+      const { data, error } = await Promise.race([invokePromise, timeoutPromise]);
 
       if (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        continue; // retry
+        continue;
       }
 
       return { data: data as T, error: null };
     } catch (err) {
-      clearTimeout(timer);
-
-      if (controller.signal.aborted) {
-        lastError = new EdgeFunctionTimeoutError(functionName);
+      if (err instanceof EdgeFunctionTimeoutError) {
+        lastError = err;
+        // Don't retry on timeout — the function is genuinely slow
+        if (attempt >= 1) break;
       } else {
         lastError = err instanceof Error ? err : new Error(String(err));
-      }
-
-      // Don't retry on timeout — likely the function is genuinely slow
-      if (lastError instanceof EdgeFunctionTimeoutError && attempt >= 1) {
-        break;
       }
     }
   }

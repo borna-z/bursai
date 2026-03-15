@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import {
   Minus, Footprints, Briefcase, Crown, Dumbbell, Heart,
   Flower2, GraduationCap, Flame, Coffee, Building2,
-  PartyPopper, Disc3, Snowflake, Bike,
+  PartyPopper, Disc3, Snowflake, Bike, AlertCircle, ArrowLeft,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -40,10 +41,12 @@ export default function StylePickerPage() {
   const { generateOutfit, isGenerating } = useOutfitGenerator();
   const navigate = useNavigate();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handlePick = async (key: string) => {
     if (isGenerating) return;
     setSelectedKey(key);
+    setErrorMessage(null);
     try {
       const result = await generateOutfit({
         occasion: 'vardag',
@@ -56,7 +59,9 @@ export default function StylePickerPage() {
       });
       navigate(`/outfits/${result.id}`, { replace: true, state: { justGenerated: true } });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('common.something_wrong'));
+      const msg = err instanceof Error ? err.message : t('common.something_wrong');
+      setErrorMessage(msg);
+      toast.error(msg);
     } finally {
       setSelectedKey(null);
     }
@@ -73,6 +78,31 @@ export default function StylePickerPage() {
             variant="full"
             className="max-w-sm w-full"
           />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // Show error state with retry option
+  if (errorMessage) {
+    return (
+      <AppLayout>
+        <PageHeader title={t('style_picker.title')} showBack />
+        <div className="flex flex-col items-center justify-center min-h-[50vh] px-4 text-center space-y-4">
+          <AlertCircle className="w-10 h-10 text-destructive/60" />
+          <div className="space-y-1.5 max-w-xs">
+            <p className="text-sm font-medium">{t('generate.error_title')}</p>
+            <p className="text-xs text-muted-foreground">{errorMessage}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              {t('common.back')}
+            </Button>
+            <Button size="sm" onClick={() => setErrorMessage(null)}>
+              {t('generate.retry')}
+            </Button>
+          </div>
         </div>
       </AppLayout>
     );
