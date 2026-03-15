@@ -129,10 +129,10 @@ export function FilterSheet({
                   key={s}
                   onClick={() => onSeasonChange(season === s ? null : s)}
                   className={cn(
-                    'flex-1 py-2 rounded-full text-xs transition-colors capitalize',
+                    'flex-1 py-2 rounded-full text-xs transition-colors capitalize border',
                     season === s
-                      ? 'bg-accent/10 text-accent font-medium'
-                      : 'bg-foreground/[0.04] text-muted-foreground'
+                      ? 'bg-accent/10 text-accent font-medium border-accent/20'
+                      : 'surface-inset text-muted-foreground'
                   )}
                 >
                   {t(`garment.season.${s}`)}
