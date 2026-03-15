@@ -145,7 +145,7 @@ interface SlotRowProps {
 function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, onSwap, t }: SlotRowProps) {
   const navigate = useNavigate();
   return (
-    <div className="flex items-center gap-4 py-4 border-b border-border/10 last:border-b-0">
+    <div className="flex items-center gap-4 py-5 border-b border-border/10 last:border-b-0">
       <div
         className="w-16 h-20 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer bg-muted/30"
         onClick={() => navigate(`/wardrobe/${garmentId}`)}
