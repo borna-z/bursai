@@ -181,12 +181,12 @@ export default function HomePage() {
                 animate="animate"
                 transition={reveal.transition}
                 onClick={() => { hapticLight(); navigate(`/outfits/${todayOutfit.id}`); }}
-                className="w-full rounded-2xl surface-hero p-3 flex items-center gap-3 text-left cursor-pointer active:scale-[0.98] transition-transform"
+                className="w-full rounded-2xl surface-hero p-4 flex items-center gap-4 text-left cursor-pointer active:scale-[0.98] transition-transform"
               >
                 {/* Horizontal thumbnail strip */}
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   {todayOutfit.outfit_items.slice(0, 4).map((item) => (
-                    <div key={item.id} className="w-12 h-12 rounded-lg overflow-hidden bg-muted shrink-0">
+                    <div key={item.id} className="w-14 h-14 rounded-xl overflow-hidden bg-muted shrink-0">
                       <LazyImageSimple
                         imagePath={item.garment?.image_path}
                         alt={item.garment?.title || item.slot}
@@ -198,10 +198,10 @@ export default function HomePage() {
 
                 {/* Occasion + chevron */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/60 mb-0.5">
+                  <p className="label-editorial text-muted-foreground/50 mb-1">
                     {t('home.todays_outfit')}
                   </p>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     <Badge variant="secondary" className="capitalize text-[10px] font-medium">
                       {getOccasionLabel(todayOutfit.occasion || '', t)}
                     </Badge>
