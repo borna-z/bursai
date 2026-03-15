@@ -3123,11 +3123,16 @@ serve(async (req) => {
       const chosenIdx = Math.min(aiResult.data.chosen_index || 0, combos.length - 1);
       const chosen = combos[chosenIdx];
       const dc = chosen as DeduplicatedCombo;
+      const chosenConf = computeConfidence(chosen, candidateCount, slotCandidates, weather, occasion);
+      const chosenNote = generateLimitationNote(gaps, chosenConf);
       return new Response(JSON.stringify({
         items: chosen.items.map(i => ({ slot: i.slot, garment_id: i.garment.id })),
         explanation: aiResult.data.explanation || "",
         style_score: chosen.breakdown,
         family_label: dc.family_label || 'classic',
+        confidence_score: chosenConf.confidence_score,
+        confidence_level: chosenConf.confidence_level,
+        limitation_note: chosenNote,
         laundry: laundryCount > 0 ? { count: laundryCount, items: laundryItems.slice(0, 5).map(i => ({ id: i.id, title: i.title, category: i.category })) } : undefined,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
