@@ -460,30 +460,18 @@ export default function PlanPage() {
               )}
             </div>
           ) : (
-            /* Empty state — centered, breathing */
-            <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
-              <div className="w-16 h-16 rounded-2xl bg-muted/20 flex items-center justify-center">
-                <CalendarDays className="w-7 h-7 text-muted-foreground/30" />
-              </div>
-              <p className="text-sm text-muted-foreground/60">{t('plan.no_outfit')}</p>
-              <div className="flex flex-col items-center gap-3 w-full max-w-xs">
-                <Button 
-                  onClick={() => setQuickGenerateSheetOpen(true)}
-                  disabled={isGenerating || upsertPlanned.isPending}
-                  className="w-full rounded-xl h-12 press"
-                >
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  {t('plan.generate')}
-                </Button>
-                <button
-                  onClick={() => setPlanningSheetOpen(true)}
-                  disabled={isGenerating || upsertPlanned.isPending}
-                  className="text-xs text-muted-foreground/50 hover:text-foreground transition-colors press"
-                >
-                  {t('plan.plan')}
-                </button>
-              </div>
-            </div>
+            /* Empty state — centered with single primary CTA */
+            <EmptyState
+              icon={CalendarDays}
+              title={t('plan.no_outfit')}
+              description={t('plan.no_outfit_desc') || t('plan.no_outfit')}
+              action={{
+                label: t('plan.generate'),
+                onClick: () => setQuickGenerateSheetOpen(true),
+                icon: Sparkles,
+              }}
+              compact
+            />
           )}
         </motion.div>
       </AnimatedPage>
