@@ -96,7 +96,7 @@ export function WardrobeGapSection() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: EASE_CURVE }}
-          className="rounded-xl border border-border/10 bg-card/60 p-5 space-y-3"
+          className="rounded-xl surface-interactive p-5 space-y-3"
         >
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10 shrink-0">
@@ -157,7 +157,7 @@ export function WardrobeGapSection() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * STAGGER_DELAY, duration: 0.4, ease: EASE_CURVE }}
-                className="rounded-xl border border-border/10 bg-card/60 p-4 space-y-3"
+                className="rounded-xl surface-interactive p-4 space-y-3"
               >
                 {/* Header */}
                 <div className="flex items-start justify-between gap-2">
@@ -206,7 +206,7 @@ export function WardrobeGapSection() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="rounded-xl border border-border/10 bg-card/60 p-5 text-center space-y-2"
+          className="rounded-xl surface-secondary p-5 text-center space-y-2"
         >
           <ShoppingBag className="w-6 h-6 text-muted-foreground/40 mx-auto" />
           <p className="text-[12px] text-muted-foreground/60">{t('discover.gap_complete')}</p>

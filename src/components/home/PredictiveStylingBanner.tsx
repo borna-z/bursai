@@ -36,7 +36,7 @@ export function PredictiveStylingBanner() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.8 }}
       onClick={() => navigate('/plan', { state: { focusDate: tomorrow } })}
-      className="w-full rounded-2xl bg-primary/5 border border-primary/10 p-4 flex items-center gap-3 text-left active:scale-[0.98] transition-transform"
+      className="w-full rounded-2xl surface-interactive p-4 flex items-center gap-3 text-left active:scale-[0.98] transition-transform"
     >
       <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
         <Sparkles className="w-5 h-5 text-primary" />

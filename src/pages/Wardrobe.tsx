@@ -540,15 +540,15 @@ export default function WardrobePage() {
           </div>
 
           {/* Segmented control */}
-          <div className="flex p-0.5 rounded-xl bg-muted/30">
+          <div className="flex p-1 rounded-xl surface-inset">
             {(['garments', 'outfits'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={cn(
-                  'flex-1 py-2 text-[13px] font-medium rounded-[10px] transition-all duration-200',
+                  'flex-1 py-2 text-[13px] font-semibold rounded-[10px] transition-all duration-200',
                   activeTab === tab
-                    ? 'bg-background text-foreground shadow-sm'
+                    ? 'bg-background text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.06)]'
                     : 'text-muted-foreground/60'
                 )}
               >
@@ -568,7 +568,7 @@ export default function WardrobePage() {
                       placeholder={`${t('wardrobe.search')} ${totalCount ?? ''} ${t('wardrobe.garments_count_label')}...`}
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="pl-10 bg-muted/30 border-0 h-11 rounded-xl text-[14px] placeholder:text-muted-foreground/40"
+                      className="pl-10 surface-inset border-border/10 h-11 rounded-xl text-[14px] placeholder:text-muted-foreground/40"
                     />
                     {search && (
                       <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 active:scale-90 transition-transform">
@@ -580,7 +580,7 @@ export default function WardrobePage() {
                     onClick={() => setShowFilterSheet(true)}
                     className={cn(
                       'h-11 w-11 rounded-xl flex-shrink-0 flex items-center justify-center transition-colors relative',
-                      hasActiveFilters ? 'bg-primary/10 text-primary' : 'bg-muted/30 text-muted-foreground/60 hover:bg-muted/50'
+                      hasActiveFilters ? 'bg-primary/10 text-primary border border-primary/20' : 'surface-inset text-muted-foreground/60 hover:bg-foreground/[0.05]'
                     )}
                   >
                     <SlidersHorizontal className="w-4 h-4" />

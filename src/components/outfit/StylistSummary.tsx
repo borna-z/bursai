@@ -104,7 +104,7 @@ export function StylistSummary({
   
   if (isLoading) {
     return (
-      <Card className="bg-gradient-to-br from-primary/5 to-accent/5 border-primary/10">
+      <Card className="surface-hero overflow-hidden">
         <CardContent className="p-4 space-y-3">
           <Skeleton className="h-5 w-3/4" />
           <Skeleton className="h-4 w-full" />
@@ -122,9 +122,9 @@ export function StylistSummary({
       "overflow-hidden transition-colors",
       hasCriticalWarnings 
         ? "bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/20 dark:to-amber-900/10 border-amber-200 dark:border-amber-800/50"
-        : "bg-gradient-to-br from-primary/5 to-accent/5 border-primary/10"
+        : "surface-hero"
     )}>
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="p-5 space-y-3">
         <div className="flex items-start gap-3">
           <div className={cn(
             "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",

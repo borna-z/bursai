@@ -50,7 +50,7 @@ function StatPill({ value, label, onClick }: { value: number | string; label: st
     <button
       onClick={() => { if (onClick) { hapticLight(); onClick(); } }}
       className={cn(
-        "flex flex-col items-center gap-1 flex-1 py-2 rounded-xl transition-colors",
+        "flex flex-col items-center gap-1 flex-1 py-3 rounded-xl transition-colors",
         onClick && "cursor-pointer active:scale-95 hover:bg-foreground/[0.04]"
       )}
     >
@@ -244,15 +244,15 @@ export default function InsightsPage() {
                     <p className="text-xs text-muted-foreground mt-1.5">{t('insights.sustainability_desc')}</p>
                   </div>
                   <div className="grid grid-cols-3 gap-3 mt-3">
-                    <div className="rounded-xl bg-muted/40 p-3 text-center">
+                     <div className="rounded-xl surface-secondary p-3 text-center">
                       <span className="text-lg font-bold tabular-nums">{sustainability.utilizationRate}%</span>
                       <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.utilization')}</p>
                     </div>
-                    <div className="rounded-xl bg-muted/40 p-3 text-center">
+                     <div className="rounded-xl surface-secondary p-3 text-center">
                       <span className="text-lg font-bold tabular-nums">{sustainability.avgWearCount}×</span>
                       <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.avg_wears')}</p>
                     </div>
-                    <div className="rounded-xl bg-muted/40 p-3 text-center">
+                    <div className="rounded-xl surface-secondary p-3 text-center">
                       <span className="text-lg font-bold tabular-nums">{sustainability.underusedCount}</span>
                       <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.underused')}</p>
                     </div>

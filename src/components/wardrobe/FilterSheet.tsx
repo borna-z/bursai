@@ -56,10 +56,10 @@ export function FilterSheet({
                   key={cat.id}
                   onClick={() => onCategoryChange(cat.id)}
                   className={cn(
-                    'px-3.5 py-2 rounded-full text-xs font-medium transition-colors',
+                    'px-3.5 py-2 rounded-full text-xs font-medium transition-colors border',
                     category === cat.id
-                      ? 'bg-accent text-accent-foreground'
-                      : 'bg-foreground/[0.04] text-muted-foreground'
+                      ? 'bg-accent text-accent-foreground border-accent/30'
+                      : 'surface-inset text-muted-foreground'
                   )}
                 >
                   {cat.label}
@@ -83,10 +83,10 @@ export function FilterSheet({
                   key={s.key}
                   onClick={() => onSortChange(s.key)}
                   className={cn(
-                    'px-3.5 py-2 rounded-full text-xs font-medium transition-colors',
+                    'px-3.5 py-2 rounded-full text-xs font-medium transition-colors border',
                     sortBy === s.key
-                      ? 'bg-accent/10 text-accent'
-                      : 'bg-foreground/[0.04] text-muted-foreground'
+                      ? 'bg-accent/10 text-accent border-accent/20'
+                      : 'surface-inset text-muted-foreground'
                   )}
                 >
                   {s.label}
@@ -106,10 +106,10 @@ export function FilterSheet({
                   key={c}
                   onClick={() => onColorChange(color === c ? null : c)}
                   className={cn(
-                    'px-2.5 py-1.5 rounded-full text-xs transition-colors',
+                    'px-2.5 py-1.5 rounded-full text-xs transition-colors border',
                     color === c
-                      ? 'bg-accent/10 text-accent font-medium'
-                      : 'bg-foreground/[0.04] text-muted-foreground'
+                      ? 'bg-accent/10 text-accent font-medium border-accent/20'
+                      : 'surface-inset text-muted-foreground'
                   )}
                 >
                   {t(`color.${c}`)}
@@ -129,10 +129,10 @@ export function FilterSheet({
                   key={s}
                   onClick={() => onSeasonChange(season === s ? null : s)}
                   className={cn(
-                    'flex-1 py-2 rounded-full text-xs transition-colors capitalize',
+                    'flex-1 py-2 rounded-full text-xs transition-colors capitalize border',
                     season === s
-                      ? 'bg-accent/10 text-accent font-medium'
-                      : 'bg-foreground/[0.04] text-muted-foreground'
+                      ? 'bg-accent/10 text-accent font-medium border-accent/20'
+                      : 'surface-inset text-muted-foreground'
                   )}
                 >
                   {t(`garment.season.${s}`)}
@@ -145,10 +145,10 @@ export function FilterSheet({
           <button
             onClick={() => onLaundryChange(!showLaundry)}
             className={cn(
-              'flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors w-full',
+              'flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors w-full border',
               showLaundry
-                ? 'bg-accent/10 text-accent'
-                : 'bg-foreground/[0.04] text-muted-foreground'
+                ? 'bg-accent/10 text-accent border-accent/20'
+                : 'surface-inset text-muted-foreground'
             )}
           >
             <WashingMachine className="w-4 h-4" />

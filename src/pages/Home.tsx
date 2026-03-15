@@ -121,7 +121,7 @@ export default function HomePage() {
               initial="initial"
               animate="animate"
               transition={reveal.transition}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/[0.06] border border-primary/10"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl surface-secondary"
             >
               <CloudRain className="w-4 h-4 text-primary shrink-0" />
               <p className="text-[12px] text-foreground/80 leading-snug flex-1">
@@ -150,7 +150,7 @@ export default function HomePage() {
                 initial="initial"
                 animate="animate"
                 transition={reveal.transition}
-                className="rounded-2xl bg-foreground/[0.02] border border-border/30 p-8 text-center space-y-4"
+                className="rounded-2xl surface-secondary p-8 text-center space-y-4"
               >
                 <div className="w-14 h-14 rounded-2xl bg-muted/20 flex items-center justify-center mx-auto">
                   <Shirt className="w-6 h-6 text-muted-foreground/40" />
@@ -176,7 +176,7 @@ export default function HomePage() {
                 animate="animate"
                 transition={reveal.transition}
                 onClick={() => { hapticLight(); navigate(`/outfits/${todayOutfit.id}`); }}
-                className="w-full rounded-2xl border border-border/10 bg-gradient-to-br from-primary/[0.04] to-transparent p-3 flex items-center gap-3 text-left cursor-pointer active:scale-[0.98] transition-transform"
+                className="w-full rounded-2xl surface-hero p-3 flex items-center gap-3 text-left cursor-pointer active:scale-[0.98] transition-transform"
               >
                 {/* Horizontal thumbnail strip */}
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -215,7 +215,7 @@ export default function HomePage() {
                 initial="initial"
                 animate="animate"
                 transition={reveal.transition}
-                className="rounded-2xl bg-foreground/[0.02] border border-border/30 p-8 text-center space-y-4"
+                className="rounded-2xl surface-secondary p-8 text-center space-y-4"
               >
                 <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
                   <Sparkles className="w-6 h-6 text-primary/60" />
@@ -257,7 +257,7 @@ export default function HomePage() {
                 transition={{ ...reveal.transition, delay: 0.1 }}
                 whileTap={press.whileTap}
                 onClick={() => { hapticLight(); navigate('/ai/mood-outfit'); }}
-                className="w-full relative overflow-hidden rounded-xl border border-border/10 bg-card/60 p-5 text-left flex items-center gap-4 transition-colors"
+                className="w-full relative overflow-hidden rounded-xl surface-interactive p-5 text-left flex items-center gap-4"
               >
                 <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10 shrink-0">
                   <Heart className="w-5 h-5 text-primary" />

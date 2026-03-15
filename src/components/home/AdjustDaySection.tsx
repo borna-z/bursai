@@ -43,7 +43,7 @@ export function AdjustDaySection({
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <div className="rounded-2xl bg-foreground/[0.02] border border-border/30 overflow-hidden">
+      <div className="rounded-2xl surface-secondary overflow-hidden">
         <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-3.5">
           <span className="text-sm font-medium">{t('home.adjust_day')}</span>
           <motion.span
@@ -64,12 +64,12 @@ export function AdjustDaySection({
                   whileTap={{ scale: 0.94 }}
                   transition={TAP_TRANSITION}
                   onClick={() => onOccasionChange(occ.id)}
-                  className={cn(
-                    'px-4 py-2 rounded-full text-xs font-medium transition-colors will-change-transform',
-                    occasion === occ.id
-                      ? 'bg-accent/[0.08] text-accent ring-1 ring-accent/30'
-                      : 'bg-foreground/[0.04] text-foreground'
-                  )}
+                    className={cn(
+                      'px-4 py-2 rounded-full text-xs font-medium transition-colors will-change-transform border',
+                      occasion === occ.id
+                        ? 'bg-accent/[0.08] text-accent ring-1 ring-accent/30 border-accent/20'
+                        : 'surface-inset text-foreground'
+                    )}
                 >
                   {t(occ.labelKey)}
                 </motion.button>
@@ -84,12 +84,12 @@ export function AdjustDaySection({
                   whileTap={{ scale: 0.93 }}
                   transition={TAP_TRANSITION}
                   onClick={() => onStyleChange(style === s.id ? null : s.id)}
-                  className={cn(
-                    'px-4 py-2 rounded-full text-xs font-medium transition-colors will-change-transform',
-                    style === s.id
-                      ? 'bg-accent/10 text-accent'
-                      : 'bg-foreground/[0.04] text-foreground'
-                  )}
+                    className={cn(
+                      'px-4 py-2 rounded-full text-xs font-medium transition-colors will-change-transform border',
+                      style === s.id
+                        ? 'bg-accent/10 text-accent border-accent/20'
+                        : 'surface-inset text-foreground'
+                    )}
                 >
                   {t(s.labelKey)}
                 </motion.button>
