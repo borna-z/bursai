@@ -1,14 +1,15 @@
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
-import { useSeed } from '@/contexts/SeedContext';
+import { useSeedMaybe } from '@/contexts/SeedContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function SeedProgressPill() {
-  const { isRunning, completed, failed, totalToProcess, step } = useSeed();
+  const seed = useSeedMaybe();
   const navigate = useNavigate();
 
-  if (!isRunning) return null;
+  if (!seed || !seed.isRunning) return null;
 
+  const { completed, failed, totalToProcess, step } = seed;
   const done = completed + failed;
   const pct = totalToProcess > 0 ? Math.round((done / totalToProcess) * 100) : 0;
 
