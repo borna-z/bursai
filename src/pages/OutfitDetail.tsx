@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 import { getOccasionLabel } from '@/lib/occasionLabel';
 import { useOutfit, useUpdateOutfit, useMarkOutfitWorn, useUndoMarkWorn, type OutfitWeather } from '@/hooks/useOutfits';
 import type { TablesUpdate } from '@/integrations/supabase/types';
-import { useSwapGarment, type SwapCandidate } from '@/hooks/useSwapGarment';
+import { useSwapGarment, type SwapCandidate, type SwapMode } from '@/hooks/useSwapGarment';
 import { useWeather } from '@/hooks/useWeather';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
