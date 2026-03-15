@@ -88,7 +88,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
 
   return (
     <div className="rounded-2xl bg-foreground/[0.02] border border-border/30 p-4 space-y-4 relative overflow-hidden">
-      <p className="text-xs text-muted-foreground/70 font-medium">{t('home.todays_outfit')}</p>
+        <p className="label-editorial">{t('home.todays_outfit')}</p>
 
       {/* Garment grid — swipe right to wear */}
       <AnimatePresence mode="wait">
