@@ -281,7 +281,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
   return (
     <div className="rounded-2xl surface-hero py-5 px-5">
       {/* Header */}
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <Sparkles className="w-3.5 h-3.5 text-primary" />
           <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
