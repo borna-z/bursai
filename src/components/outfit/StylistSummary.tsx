@@ -26,8 +26,8 @@ interface OutfitItem {
 interface StylistSummaryProps {
   occasion: string;
   styleVibe?: string | null;
-  weather?: { temp?: number; condition?: string; precipitation?: 'none' | 'rain' | 'snow'; wind?: 'low' | 'medium' | 'high' } | null;
-  currentWeather?: { temp?: number; precipitation?: 'none' | 'rain' | 'snow'; wind?: 'low' | 'medium' | 'high' } | null;
+  weather?: { temp?: number; temperature?: number; condition?: string; precipitation?: 'none' | 'rain' | 'snow'; wind?: 'low' | 'medium' | 'high' } | null;
+  currentWeather?: { temp?: number; temperature?: number; precipitation?: 'none' | 'rain' | 'snow'; wind?: 'low' | 'medium' | 'high' } | null;
   explanation?: string | null;
   outfitItems?: OutfitItem[];
   isLoading?: boolean;
