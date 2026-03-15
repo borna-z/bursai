@@ -5,6 +5,8 @@ import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Garment } from './useGarments';
 
+export type SwapMode = 'safe' | 'bold' | 'fresh';
+
 export interface SwapCandidate {
   garment: Garment;
   score: number;
@@ -23,13 +25,13 @@ export function useSwapGarment() {
     otherGarmentColors: string[],
     otherItems?: { slot: string; garment_id: string }[],
     occasion?: string,
-    weather?: { temperature?: number; precipitation?: string; wind?: string }
+    weather?: { temperature?: number; precipitation?: string; wind?: string },
+    swapMode: SwapMode = 'safe'
   ): Promise<SwapCandidate[]> => {
     if (!user) return [];
 
     setIsLoadingCandidates(true);
     try {
-      // Use the BURS style engine for smart swap scoring
       const { data, error } = await invokeEdgeFunction<{ candidates?: SwapCandidate[]; error?: string }>('burs_style_engine', {
         body: {
           mode: 'swap',
@@ -38,12 +40,13 @@ export function useSwapGarment() {
           other_items: otherItems || [],
           occasion: occasion || 'vardag',
           weather: weather || { precipitation: 'none', wind: 'low' },
+          swap_mode: swapMode,
         },
       });
 
       if (error || data?.error) {
         console.error('Swap engine error, falling back to basic scoring:', error || data?.error);
-        return await fallbackFetchCandidates(slot, currentGarmentId, otherGarmentColors);
+        return await fallbackFetchCandidates(slot, currentGarmentId, otherGarmentColors, swapMode);
       }
 
       const scored: SwapCandidate[] = (data?.candidates || []).map((c) => ({
@@ -56,7 +59,7 @@ export function useSwapGarment() {
       return scored;
     } catch (err) {
       console.error('Swap fetch failed:', err);
-      return await fallbackFetchCandidates(slot, currentGarmentId, otherGarmentColors);
+      return await fallbackFetchCandidates(slot, currentGarmentId, otherGarmentColors, swapMode);
     } finally {
       setIsLoadingCandidates(false);
     }
@@ -65,7 +68,8 @@ export function useSwapGarment() {
   const fallbackFetchCandidates = async (
     slot: string,
     currentGarmentId: string,
-    otherGarmentColors: string[]
+    otherGarmentColors: string[],
+    swapMode: SwapMode = 'safe'
   ): Promise<SwapCandidate[]> => {
     if (!user) return [];
 
@@ -115,15 +119,36 @@ export function useSwapGarment() {
       return 6;
     };
 
+    // Mode-specific weights
+    const WEIGHTS: Record<SwapMode, { freshness: number; colorFit: number; fit: number }> = {
+      safe:  { freshness: 0.30, colorFit: 0.45, fit: 0.25 },
+      bold:  { freshness: 0.20, colorFit: 0.25, fit: 0.15 },
+      fresh: { freshness: 0.55, colorFit: 0.25, fit: 0.20 },
+    };
+    const w = WEIGHTS[swapMode];
+
+    // Bold mode: bonus scorer for expressive color lift
+    const scoreBoldLift = (color?: string | null) => {
+      const c = String(color || '').toLowerCase();
+      if (!c) return 5;
+      // Reward chromatic colors that stand out
+      if (neutralWords.some((x) => c.includes(x))) return 4; // neutrals are less bold
+      if (otherGarmentColors.some((x) => x === c)) return 5; // matching = not bold
+      return 8; // different chromatic = bold
+    };
+
     const scored = garments.map((garment) => {
       const freshness = scoreFreshness(garment.wear_count);
       const colorFit = scoreColorFit(garment.color_primary);
       const fitScore = scoreFit(garment.fit);
 
-      const score =
-        freshness * 0.45 +
-        colorFit * 0.35 +
-        fitScore * 0.20;
+      let score = freshness * w.freshness + colorFit * w.colorFit + fitScore * w.fit;
+
+      // Bold mode: add expressive lift
+      if (swapMode === 'bold') {
+        const boldLift = scoreBoldLift(garment.color_primary);
+        score = score * 0.60 + boldLift * 0.40;
+      }
 
       return {
         garment,
@@ -132,6 +157,7 @@ export function useSwapGarment() {
           freshness,
           color_fit: colorFit,
           fit: fitScore,
+          swap_mode: swapMode === 'safe' ? 1 : swapMode === 'bold' ? 2 : 3,
         },
       };
     });
