@@ -79,7 +79,7 @@ export function DayCard({
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Calendar className={cn('w-4 h-4', isToday(date) ? 'text-primary' : 'text-muted-foreground')} />
-            <h3 className={cn('font-semibold text-sm capitalize', isToday(date) && 'text-primary')}>
+            <h3 className={cn('font-bold text-[0.8125rem] tracking-[-0.01em] capitalize', isToday(date) && 'text-primary')}>
               {dateLabel}
             </h3>
             {isWorn && (
