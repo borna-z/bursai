@@ -381,7 +381,7 @@
 
   /* Glass card – frosted translucent surface */
   .glass-card {
-    @apply bg-card/70 backdrop-blur-md border border-border/40 shadow-[0_1px_3px_0_rgb(0_0_0/0.04)];
+    @apply bg-card/70 backdrop-blur-md border border-border/30 shadow-[0_1px_3px_0_rgb(0_0_0/0.04)];
   }
 
   /* Glass chip – small pill / filter tag */
