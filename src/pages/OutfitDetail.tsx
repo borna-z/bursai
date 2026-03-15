@@ -28,48 +28,72 @@ import { useOutfitFeedback, useSubmitPhotoFeedback } from '@/hooks/usePhotoFeedb
 /* ── Swap Sheet ─────────────────────────────────────── */
 
 interface SwapSheetProps {
-  isOpen: boolean; onClose: () => void; slot: string;
-  candidates: SwapCandidate[]; isLoading: boolean;
-  onSelect: (garmentId: string) => void; isSwapping: boolean;
+  isOpen: boolean;
+  onClose: () => void;
+  slot: string;
+  mode: SwapMode;
+  onModeChange: (mode: SwapMode) => void;
+  candidates: SwapCandidate[];
+  isLoading: boolean;
+  onSelect: (garmentId: string) => void;
+  isSwapping: boolean;
   t: (key: string) => string;
-  swapMode: SwapMode; onModeChange: (mode: SwapMode) => void;
 }
 
-const SWAP_MODES: { value: SwapMode; label: string; icon: string }[] = [
-  { value: 'safe', label: 'Safe', icon: '🛡️' },
-  { value: 'bold', label: 'Bold', icon: '🔥' },
-  { value: 'fresh', label: 'Fresh', icon: '✨' },
-];
-
-function SwapSheet({ isOpen, onClose, slot, candidates, isLoading, onSelect, isSwapping, t, swapMode, onModeChange }: SwapSheetProps) {
+function SwapSheet({
+  isOpen,
+  onClose,
+  slot,
+  mode,
+  onModeChange,
+  candidates,
+  isLoading,
+  onSelect,
+  isSwapping,
+  t,
+}: SwapSheetProps) {
   const slotLabel = t(`outfit.slot.${slot}`) || slot;
+
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="bottom" className="h-[70vh]">
-        <SheetHeader><SheetTitle>{t('outfit.swap')} {slotLabel}</SheetTitle></SheetHeader>
+      <SheetContent side="bottom" className="h-[72vh]">
+        <SheetHeader>
+          <SheetTitle>{t('outfit.swap')} {slotLabel}</SheetTitle>
+          <SheetDescription>Choose how different you want the replacement to feel.</SheetDescription>
+        </SheetHeader>
 
-        {/* Mode selector */}
-        <div className="flex gap-2 mt-3 mb-1">
-          {SWAP_MODES.map((m) => (
-            <button
-              key={m.value}
-              onClick={() => onModeChange(m.value)}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-medium transition-all active:scale-[0.97]",
-                swapMode === m.value
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-secondary/60 text-muted-foreground hover:bg-secondary/80"
-              )}
-            >
-              <span className="text-xs">{m.icon}</span>
-              {m.label}
-            </button>
-          ))}
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <Button
+            type="button"
+            variant={mode === 'safe' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => onModeChange('safe')}
+          >
+            Safe
+          </Button>
+          <Button
+            type="button"
+            variant={mode === 'bold' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => onModeChange('bold')}
+          >
+            Bold
+          </Button>
+          <Button
+            type="button"
+            variant={mode === 'fresh' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => onModeChange('fresh')}
+          >
+            Fresh
+          </Button>
         </div>
 
-        <div className="mt-3 pb-8 space-y-2 overflow-y-auto flex-1">
+        <div className="mt-4 pb-8 space-y-2">
           {isLoading ? (
-            <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            </div>
           ) : candidates.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <p>{t('outfit.no_alternatives')}</p>
@@ -78,8 +102,20 @@ function SwapSheet({ isOpen, onClose, slot, candidates, isLoading, onSelect, isS
           ) : (
             <div className="space-y-2">
               {candidates.map((candidate) => (
-                <button key={candidate.garment.id} onClick={() => onSelect(candidate.garment.id)} disabled={isSwapping} className={cn("w-full flex items-center gap-3 p-3 rounded-xl transition-all hover:bg-secondary/80 bg-secondary/60 backdrop-blur-sm active:scale-[0.99]", isSwapping && "opacity-50")}>
-                  <LazyImageSimple imagePath={candidate.garment.image_path} alt={candidate.garment.title} className="w-16 h-16 rounded-lg flex-shrink-0" />
+                <button
+                  key={candidate.garment.id}
+                  onClick={() => onSelect(candidate.garment.id)}
+                  disabled={isSwapping}
+                  className={cn(
+                    "w-full flex items-center gap-3 p-3 rounded-xl transition-all hover:bg-secondary/80 bg-secondary/60 backdrop-blur-sm active:scale-[0.99]",
+                    isSwapping && "opacity-50"
+                  )}
+                >
+                  <LazyImageSimple
+                    imagePath={candidate.garment.image_path}
+                    alt={candidate.garment.title}
+                    className="w-16 h-16 rounded-lg flex-shrink-0"
+                  />
                   <div className="flex-1 text-left min-w-0">
                     <p className="font-medium truncate">{stripBrands(candidate.garment.title)}</p>
                     <p className="text-sm text-muted-foreground capitalize">{candidate.garment.color_primary}</p>
