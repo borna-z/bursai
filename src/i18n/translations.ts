@@ -2169,6 +2169,23 @@ export const translations: Record<Locale, Record<string, string>> = {
 
     // Reel
     'wardrobe.reel_save_error': 'Kunde inte spara bild',
+
+    // AI Loading States
+    'ai.selecting_pieces': 'Väljer plagg',
+    'ai.balancing_look': 'Balanserar looken',
+    'ai.refining_outfit': 'Förfinar din outfit',
+    'ai.preparing_note': 'Förbereder ditt svar',
+    'ai.finding_swap': 'Hittar bästa bytet',
+    'ai.composing_mood': 'Komponerar din moodlook',
+    'ai.building_todays_look': 'Bygger dagens look',
+    'ai.detecting_garment': 'Identifierar plagg',
+    'ai.extracting_details': 'Extraherar färg och material',
+    'ai.refining_details': 'Förfinar detaljer',
+    'ai.checking_forecast': 'Kollar vädret',
+    'ai.curating_capsule': 'Kuraterar din kapsel',
+    'ai.assembling_outfits': 'Sätter ihop outfits',
+    'ai.scanning_wardrobe': 'Skannar garderoben',
+    'ai.creating_combinations': 'Skapar kombinationer',
   },
 
   en: {
