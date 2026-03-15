@@ -2777,7 +2777,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'chat.placeholder': 'Write to your stylist...',
     'chat.image_placeholder': 'Describe your outfit (optional)...',
     'chat.image_default': 'What do you think about this outfit?',
-    'chat.disclaimer': 'AI stylist · Advice is personal, not professional',
+    'chat.disclaimer': 'AI stylist · Personal guidance, not professional advice',
     'chat.upload_error': 'Could not upload image',
     'chat.error': 'The stylist did not respond.',
     'chat.unknown_error': 'Unknown error',
