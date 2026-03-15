@@ -232,7 +232,7 @@ export default function InsightsPage() {
 
           {/* ─── 5. Sustainability Score ─── */}
           {sustainability && (
-            <div className="space-y-3">
+          <div className="space-y-4">
               <SectionLabel icon={Leaf} label={t('insights.sustainability')} />
               <div className={cn(!isPremium && "relative")}>
                 <div className={cn(!isPremium && "blur-sm select-none")}>
