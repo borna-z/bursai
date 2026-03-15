@@ -948,57 +948,6 @@ function weatherPracticalityScore(items: ComboItem[], weather: WeatherInput): nu
 }
 
 
-  if (ELEVATED.some(e => occ.includes(e))) {
-    if (hasAccessory) score += 1;
-    // Penalize very casual items
-    for (const item of items) {
-      const cat = (item.garment.category || "").toLowerCase();
-      if (["hoodie", "sweatpants"].some(c => cat.includes(c))) score -= 1.5;
-    }
-  }
-
-  if (CASUAL.some(c => occ.includes(c))) {
-    // Penalize overdressing
-    for (const item of items) {
-      if (item.garment.formality && item.garment.formality >= 5) score -= 1;
-    }
-  }
-
-  return Math.max(0, Math.min(10, score));
-}
-
-/** Combo-level weather check: does the ensemble make sense for the conditions? */
-function weatherPracticalityScore(items: ComboItem[], weather: WeatherInput): number {
-  if (weather.temperature === undefined) return 7;
-  let score = 8;
-  const temp = feelsLikeTemp(weather.temperature, weather.wind);
-  const slots = new Set(items.map(i => i.slot));
-  const hasOuterwear = slots.has("outerwear");
-  const precip = (weather.precipitation || "").toLowerCase();
-  const isRainy = precip.includes("rain") || precip.includes("regn");
-  const isSnowy = precip.includes("snow") || precip.includes("snö");
-
-  // Cold without outerwear
-  if (temp < 10 && !hasOuterwear) score -= 1.5;
-  if (temp < 0 && !hasOuterwear) score -= 2;
-
-  // Rain/snow without waterproof outerwear
-  if ((isRainy || isSnowy) && hasOuterwear) {
-    const ow = items.find(i => i.slot === "outerwear");
-    if (ow) {
-      const mat = (ow.garment.material || "").toLowerCase();
-      if (WATERPROOF_MATERIALS.some(w => mat.includes(w))) score += 1;
-    }
-  }
-  if ((isRainy || isSnowy) && !hasOuterwear) score -= 1;
-
-  // Hot weather with too many layers
-  if (temp > 25 && hasOuterwear) score -= 2;
-  if (temp > 25 && items.length > 3) score -= 0.5;
-
-  return Math.max(0, Math.min(10, score));
-}
-
 // ─────────────────────────────────────────────
 // BEHAVIORAL STYLE VECTOR (learned from usage)
 // ─────────────────────────────────────────────
