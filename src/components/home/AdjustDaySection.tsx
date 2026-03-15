@@ -84,12 +84,12 @@ export function AdjustDaySection({
                   whileTap={{ scale: 0.93 }}
                   transition={TAP_TRANSITION}
                   onClick={() => onStyleChange(style === s.id ? null : s.id)}
-                  className={cn(
-                    'px-4 py-2 rounded-full text-xs font-medium transition-colors will-change-transform',
-                    style === s.id
-                      ? 'bg-accent/10 text-accent'
-                      : 'bg-foreground/[0.04] text-foreground'
-                  )}
+                    className={cn(
+                      'px-4 py-2 rounded-full text-xs font-medium transition-colors will-change-transform border',
+                      style === s.id
+                        ? 'bg-accent/10 text-accent border-accent/20'
+                        : 'surface-inset text-foreground'
+                    )}
                 >
                   {t(s.labelKey)}
                 </motion.button>

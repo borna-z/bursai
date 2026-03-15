@@ -104,7 +104,7 @@ export function StylistSummary({
   
   if (isLoading) {
     return (
-      <Card className="bg-gradient-to-br from-primary/5 to-accent/5 border-primary/10">
+      <Card className="surface-hero overflow-hidden">
         <CardContent className="p-4 space-y-3">
           <Skeleton className="h-5 w-3/4" />
           <Skeleton className="h-4 w-full" />
