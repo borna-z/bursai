@@ -15,11 +15,10 @@ const tabKeys = [
 
 export function BottomNav() {
   const { t } = useLanguage();
-  
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/50 backdrop-blur-xl backdrop-saturate-150 border-t border-border/10 safe-bottom" aria-label="Main navigation">
-      <div className="flex justify-around items-center h-12 max-w-lg mx-auto px-2">
+      <div className="flex justify-around items-center h-14 max-w-lg mx-auto px-2">
         {tabKeys.map((tab) => (
           <NavLink
             key={tab.path}
@@ -29,7 +28,7 @@ export function BottomNav() {
             onFocus={() => prefetchRoute(tab.path)}
             className={({ isActive }) =>
               cn(
-                'relative flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[10px] font-medium transition-colors duration-200',
+                'relative flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[10px] font-medium transition-colors duration-200 min-h-[44px]',
                 isActive
                   ? 'text-accent'
                   : 'text-muted-foreground hover:text-foreground'
@@ -38,7 +37,7 @@ export function BottomNav() {
           >
             {({ isActive }) => (
               <>
-                <div className="relative flex items-center justify-center w-10 h-7 rounded-2xl">
+                <div className="relative flex items-center justify-center w-10 h-8 rounded-2xl">
                   {isActive && (
                     <div className="absolute inset-0 bg-accent/10 rounded-2xl transition-all duration-200" />
                   )}

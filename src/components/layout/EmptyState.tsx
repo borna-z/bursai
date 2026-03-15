@@ -13,6 +13,12 @@ interface EmptyStateProps {
     onClick: () => void;
     icon?: LucideIcon;
   };
+  secondaryAction?: {
+    label: string;
+    onClick: () => void;
+  };
+  /** Use compact for inline contexts (less vertical padding) */
+  compact?: boolean;
   className?: string;
 }
 
@@ -21,6 +27,8 @@ export function EmptyState({
   title, 
   description, 
   action,
+  secondaryAction,
+  compact = false,
   className 
 }: EmptyStateProps) {
   return (
@@ -28,21 +36,28 @@ export function EmptyState({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
-      className={cn('flex flex-col items-center justify-center py-24 px-6 text-center', className)}
+      className={cn(
+        'flex flex-col items-center justify-center px-6 text-center',
+        compact ? 'py-12' : 'py-24',
+        className,
+      )}
     >
       <motion.div
         initial={{ scale: 0.8 }}
         animate={{ scale: 1 }}
         transition={{ duration: 0.5, delay: 0.1, type: 'spring', stiffness: 200 }}
-        className="w-20 h-20 rounded-3xl bg-muted/30 flex items-center justify-center mb-8"
+        className={cn(
+          'rounded-3xl bg-muted/30 flex items-center justify-center',
+          compact ? 'w-14 h-14 mb-5' : 'w-20 h-20 mb-8',
+        )}
       >
-        <Icon className="w-8 h-8 text-muted-foreground" />
+        <Icon className={cn('text-muted-foreground', compact ? 'w-6 h-6' : 'w-8 h-8')} />
       </motion.div>
       <motion.h3
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className="text-lg font-semibold mb-2"
+        className={cn('font-semibold mb-2', compact ? 'text-base' : 'text-lg')}
       >
         {title}
       </motion.h3>
@@ -60,11 +75,22 @@ export function EmptyState({
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <Button onClick={action.onClick} size="lg">
+          <Button onClick={action.onClick} size={compact ? 'default' : 'lg'}>
             {action.icon && <action.icon className="w-4 h-4 mr-2" />}
             {action.label}
           </Button>
         </motion.div>
+      )}
+      {secondaryAction && (
+        <motion.button
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          onClick={secondaryAction.onClick}
+          className="mt-3 text-xs text-muted-foreground/50 hover:text-foreground transition-colors"
+        >
+          {secondaryAction.label}
+        </motion.button>
       )}
     </motion.div>
   );

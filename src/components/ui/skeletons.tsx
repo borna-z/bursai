@@ -90,6 +90,35 @@ export function StatGridSkeleton() {
   );
 }
 
+/* ─── Home page skeleton — mirrors hero + shortcuts layout ─── */
+export function HomePageSkeleton() {
+  return (
+    <div className="space-y-5">
+      {/* Hero card */}
+      <div className="rounded-2xl border border-border/10 overflow-hidden">
+        <div className="grid grid-cols-4 gap-0.5 p-1">
+          {[1, 2, 3, 4].map(i => (
+            <Skeleton key={i} className="aspect-square rounded-lg" />
+          ))}
+        </div>
+        <div className="px-5 py-4 space-y-3">
+          <div className="flex gap-2">
+            <Skeleton className="h-5 w-16 rounded-full" />
+            <Skeleton className="h-5 w-20 rounded-full" />
+          </div>
+          <Skeleton className="h-3 w-4/5" />
+          <Skeleton className="h-11 w-full rounded-xl" />
+        </div>
+      </div>
+      {/* Quick actions */}
+      <div className="flex gap-2.5">
+        <Skeleton className="flex-1 h-11 rounded-xl" />
+        <Skeleton className="flex-1 h-11 rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
 /* ─── Insights page skeleton ─── */
 export function InsightsPageSkeleton() {
   return (
@@ -136,7 +165,7 @@ export function InsightsPageSkeleton() {
   );
 }
 
-/* ─── Plan page skeleton ─── */
+/* ─── Plan page skeleton — includes week strip ─── */
 export function PlanPageSkeleton() {
   return (
     <div className="space-y-6">
@@ -163,6 +192,20 @@ export function PlanPageSkeleton() {
         <Skeleton className="h-11 flex-1 rounded-xl" />
         <Skeleton className="h-11 flex-1 rounded-xl" />
       </div>
+    </div>
+  );
+}
+
+/* ─── Week strip skeleton ─── */
+export function WeekStripSkeleton() {
+  return (
+    <div className="flex justify-between gap-1 py-2">
+      {Array.from({ length: 7 }).map((_, i) => (
+        <div key={i} className="flex flex-col items-center gap-1.5">
+          <Skeleton className="h-3 w-6" />
+          <Skeleton className="w-10 h-10 rounded-full" />
+        </div>
+      ))}
     </div>
   );
 }

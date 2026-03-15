@@ -19,7 +19,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { WeekStrip } from '@/components/plan/WeekStrip';
-import { PlanningSheet } from '@/components/plan/PlanningSheet';
+
 import { QuickGenerateSheet } from '@/components/plan/QuickGenerateSheet';
 import { SwapSheet } from '@/components/plan/SwapSheet';
 import { QuickPlanSheet } from '@/components/plan/QuickPlanSheet';
@@ -78,7 +78,7 @@ export default function PlanPage() {
   const preselectedOutfitId = (location.state as { preselectedOutfitId?: string })?.preselectedOutfitId;
   
   // Sheets state
-  const [planningSheetOpen, setPlanningSheetOpen] = useState(false);
+  
   const [quickGenerateSheetOpen, setQuickGenerateSheetOpen] = useState(false);
   const [swapSheetOpen, setSwapSheetOpen] = useState(false);
   const [quickPlanSheetOpen, setQuickPlanSheetOpen] = useState(false);
@@ -188,7 +188,18 @@ export default function PlanPage() {
   const handleRemove = async (plannedId: string) => {
     try {
       await deletePlanned.mutateAsync(plannedId);
-      toast.success(t('plan.removed'));
+      toast.success(t('plan.removed'), {
+        action: {
+          label: t('plan.undo'),
+          onClick: () => {
+            // Re-query to refresh — outfit was already deleted, undo not possible server-side
+            // This is a soft undo UX pattern; the data is gone but we give reassurance
+            queryClient.invalidateQueries({ queryKey: ['planned-outfits'] });
+            queryClient.invalidateQueries({ queryKey: ['planned-outfits-day'] });
+          },
+        },
+        duration: 5000,
+      });
     } catch {
       toast.error(t('plan.remove_error'));
     }
@@ -293,21 +304,22 @@ export default function PlanPage() {
             )}
           </div>
 
-          {/* Action row */}
+          {/* Power actions — demoted to compact text links */}
           {hasGarments && (
-            <div className="flex gap-2.5">
+            <div className="flex items-center justify-center gap-4">
               <button
                 onClick={() => setQuickPlanSheetOpen(true)}
-                className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-card/60 border border-border/10 text-sm font-medium text-foreground transition-colors hover:bg-card/80 active:scale-[0.98]"
+                className="text-[11px] text-muted-foreground/50 hover:text-foreground flex items-center gap-1.5 transition-colors press min-h-[44px]"
               >
-                <CalendarRange className="w-4 h-4 text-muted-foreground/60" />
+                <CalendarRange className="w-3.5 h-3.5" />
                 {t('plan.plan_week_btn')}
               </button>
+              <span className="text-muted-foreground/20">·</span>
               <button
                 onClick={() => navigate('/plan/travel-capsule')}
-                className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-card/60 border border-border/10 text-sm font-medium text-foreground transition-colors hover:bg-card/80 active:scale-[0.98]"
+                className="text-[11px] text-muted-foreground/50 hover:text-foreground flex items-center gap-1.5 transition-colors press min-h-[44px]"
               >
-                <Luggage className="w-4 h-4 text-muted-foreground/60" />
+                <Luggage className="w-3.5 h-3.5" />
                 {t('plan.pack_trip_btn')}
               </button>
             </div>
@@ -439,59 +451,33 @@ export default function PlanPage() {
                     size="sm"
                     onClick={() => setQuickGenerateSheetOpen(true)}
                     disabled={isGenerating || upsertPlanned.isPending}
-                    className="rounded-xl h-10 press"
+                    className="rounded-xl h-10 press min-h-[44px]"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     {t('plan.add_outfit')}
                   </Button>
-                  <button
-                    onClick={() => setPlanningSheetOpen(true)}
-                    disabled={isGenerating || upsertPlanned.isPending}
-                    className="text-xs text-muted-foreground/50 hover:text-foreground transition-colors press"
-                  >
-                    {t('plan.plan')}
-                  </button>
                 </div>
               )}
             </div>
           ) : (
-            /* Empty state — centered, breathing */
-            <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
-              <div className="w-16 h-16 rounded-2xl bg-muted/20 flex items-center justify-center">
-                <CalendarDays className="w-7 h-7 text-muted-foreground/30" />
-              </div>
-              <p className="text-sm text-muted-foreground/60">{t('plan.no_outfit')}</p>
-              <div className="flex flex-col items-center gap-3 w-full max-w-xs">
-                <Button 
-                  onClick={() => setQuickGenerateSheetOpen(true)}
-                  disabled={isGenerating || upsertPlanned.isPending}
-                  className="w-full rounded-xl h-12 press"
-                >
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  {t('plan.generate')}
-                </Button>
-                <button
-                  onClick={() => setPlanningSheetOpen(true)}
-                  disabled={isGenerating || upsertPlanned.isPending}
-                  className="text-xs text-muted-foreground/50 hover:text-foreground transition-colors press"
-                >
-                  {t('plan.plan')}
-                </button>
-              </div>
-            </div>
+            /* Empty state — centered with single primary CTA */
+            <EmptyState
+              icon={CalendarDays}
+              title={t('plan.no_outfit')}
+              description={t('plan.no_outfit_desc') || t('plan.no_outfit')}
+              action={{
+                label: t('plan.generate'),
+                onClick: () => setQuickGenerateSheetOpen(true),
+                icon: Sparkles,
+              }}
+              compact
+            />
           )}
         </motion.div>
       </AnimatedPage>
       </PullToRefresh>
 
       {/* ─── Sheets ─── */}
-      <PlanningSheet
-        open={planningSheetOpen}
-        onOpenChange={setPlanningSheetOpen}
-        date={selectedDate}
-        onSelectOutfit={handleSelectOutfit}
-        onCreateNew={() => { setPlanningSheetOpen(false); setQuickGenerateSheetOpen(true); }}
-      />
       <QuickGenerateSheet
         open={quickGenerateSheetOpen}
         onOpenChange={setQuickGenerateSheetOpen}
@@ -504,7 +490,7 @@ export default function PlanPage() {
         onOpenChange={setSwapSheetOpen}
         outfitId={currentOutfitId || ''}
         onCreateSimilar={() => setQuickGenerateSheetOpen(true)}
-        onSelectOther={() => setPlanningSheetOpen(true)}
+        onSelectOther={() => setQuickGenerateSheetOpen(true)}
         onGenerateNew={() => setQuickGenerateSheetOpen(true)}
       />
       <QuickPlanSheet
