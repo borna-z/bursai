@@ -95,12 +95,12 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
       whileTap={PRESETS.PRESS.whileTap}
       onClick={handleClick}
       className={cn(
-        'w-full rounded-2xl overflow-hidden transition-colors text-left will-change-transform relative group',
+        'w-full rounded-xl overflow-hidden transition-colors text-left will-change-transform relative group',
         garment.in_laundry && 'opacity-60',
         isSelected && 'ring-2 ring-accent'
       )}
     >
-      <div className="aspect-[3/4] bg-muted relative overflow-hidden">
+      <div className="aspect-[3/4] bg-muted relative overflow-hidden rounded-xl">
         <LazyImageSimple
           imagePath={garment.image_path}
           alt={garment.title}
@@ -114,7 +114,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
         )}
         {/* Usage badge */}
         {(garment.wear_count || 0) > 0 && (
-          <span className="absolute top-2 right-2 text-[10px] font-medium bg-background/70 backdrop-blur-sm px-1.5 py-0.5 rounded-full text-foreground/80">
+          <span className="absolute top-2 right-2 text-[11px] font-medium bg-background/70 backdrop-blur-sm border border-white/10 px-1.5 py-0.5 rounded-full text-foreground/80">
             {garment.wear_count}×
           </span>
         )}
