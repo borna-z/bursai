@@ -3332,6 +3332,7 @@ serve(async (req) => {
       confidence_score: confidence.confidence_score,
       confidence_level: confidence.confidence_level,
       limitation_note: limitationNote,
+      wardrobe_insights: wardrobeInsights.length > 0 ? wardrobeInsights : undefined,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
