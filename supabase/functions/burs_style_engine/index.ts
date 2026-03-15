@@ -2237,7 +2237,8 @@ function scoreSwapCandidates(
   occasion: string,
   weather: WeatherInput,
   penalties: Map<string, GarmentPenalty>,
-  prefs: Record<string, any> | null
+  prefs: Record<string, any> | null,
+  swapMode: SwapMode = 'safe'
 ): ScoredGarment[] {
   const currentGarment = allGarments.find((g) => g.id === currentGarmentId) || null;
   const slotGarments = allGarments.filter((g) => {
@@ -2249,6 +2250,31 @@ function scoreSwapCandidates(
   const otherColors = otherGarments
     .map((g) => getHSL(g.color_primary))
     .filter(Boolean) as [number, number, number][];
+
+  // Mode-specific weight profiles
+  const WEIGHTS: Record<SwapMode, {
+    item_strength: number; dna_preservation: number; color_harmony: number;
+    material_compatibility: number; formality_alignment: number; fit_consistency: number;
+    practicality: number; expressive_lift: number; freshness: number;
+  }> = {
+    safe: {
+      item_strength: 0.24, dna_preservation: 0.26, color_harmony: 0.10,
+      material_compatibility: 0.06, formality_alignment: 0.12, fit_consistency: 0.10,
+      practicality: 0.08, expressive_lift: 0.00, freshness: 0.04,
+    },
+    bold: {
+      item_strength: 0.20, dna_preservation: 0.08, color_harmony: 0.12,
+      material_compatibility: 0.06, formality_alignment: 0.10, fit_consistency: 0.04,
+      practicality: 0.06, expressive_lift: 0.26, freshness: 0.08,
+    },
+    fresh: {
+      item_strength: 0.22, dna_preservation: 0.14, color_harmony: 0.10,
+      material_compatibility: 0.06, formality_alignment: 0.10, fit_consistency: 0.08,
+      practicality: 0.06, expressive_lift: 0.06, freshness: 0.18,
+    },
+  };
+
+  const w = WEIGHTS[swapMode];
 
   return slotGarments
     .map((garment) => {
@@ -2264,33 +2290,37 @@ function scoreSwapCandidates(
       ]);
 
       const formalityAlignment = formalityAlignmentScore(
-        garment,
-        otherGarments,
-        currentGarment
+        garment, otherGarments, currentGarment
       );
 
       const fitConsistency = fitConsistencyScore(
-        garment,
-        otherGarments,
-        currentGarment
+        garment, otherGarments, currentGarment
       );
 
       const dnaPreservation = dnaPreservationScore(
-        garment,
-        currentGarment,
-        otherGarments
+        garment, currentGarment, otherGarments
       );
 
       const practicality = swapPracticalityScore(garment, slot, weather);
 
+      const expressiveLift = expressiveLiftScore(
+        garment, currentGarment, otherGarments
+      );
+
+      const freshness = controlledNoveltyScore(
+        garment, currentGarment, otherGarments
+      );
+
       const totalScore =
-        base.score * 0.34 +
-        dnaPreservation * 0.22 +
-        colorHarmony * 0.12 +
-        materialCompat * 0.08 +
-        formalityAlignment * 0.10 +
-        fitConsistency * 0.08 +
-        practicality * 0.06;
+        base.score * w.item_strength +
+        dnaPreservation * w.dna_preservation +
+        colorHarmony * w.color_harmony +
+        materialCompat * w.material_compatibility +
+        formalityAlignment * w.formality_alignment +
+        fitConsistency * w.fit_consistency +
+        practicality * w.practicality +
+        expressiveLift * w.expressive_lift +
+        freshness * w.freshness;
 
       return {
         garment,
@@ -2304,6 +2334,9 @@ function scoreSwapCandidates(
           formality_alignment: formalityAlignment,
           fit_consistency: fitConsistency,
           practicality,
+          expressive_lift: expressiveLift,
+          freshness,
+          swap_mode: swapMode === 'safe' ? 1 : swapMode === 'bold' ? 2 : 3,
         },
       } as ScoredGarment;
     })
