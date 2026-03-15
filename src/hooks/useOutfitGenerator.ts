@@ -33,6 +33,13 @@ export interface GeneratedOutfit {
 const INSUFFICIENT_GARMENTS_MESSAGE =
   'Add more garments before generating an outfit. You need either top + bottom + shoes, or dress + shoes.';
 
+function isCompleteOutfitClient(items: { slot: string }[]): boolean {
+  const slots = new Set(items.map(i => i.slot));
+  const hasStandard = slots.has('top') && slots.has('bottom') && slots.has('shoes');
+  const hasDress = slots.has('dress') && slots.has('shoes');
+  return hasStandard || hasDress;
+}
+
 function isInsufficientGarmentsError(message?: string | null) {
   if (!message) return false;
   const normalized = message.toLowerCase();

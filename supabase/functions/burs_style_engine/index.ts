@@ -3359,8 +3359,19 @@ serve(async (req) => {
     // ── FORMAT RESPONSE ──
 
     if (aiMode === "generate") {
-      const chosenIdx = Math.min(aiResult.data.chosen_index || 0, combos.length - 1);
-      const chosen = combos[chosenIdx];
+      let chosenIdx = Math.min(aiResult.data.chosen_index || 0, combos.length - 1);
+      // Validate chosen combo is complete; fall back to first complete one
+      let chosen = combos[chosenIdx];
+      {
+        const { complete } = isCompleteOutfit(chosen.items, weather);
+        if (!complete) {
+          const fallbackIdx = combos.findIndex(c => isCompleteOutfit(c.items, weather).complete);
+          if (fallbackIdx >= 0) {
+            chosenIdx = fallbackIdx;
+            chosen = combos[chosenIdx];
+          }
+        }
+      }
       const dc = chosen as DeduplicatedCombo;
       const chosenConf = computeConfidence(chosen, candidateCount, slotCandidates, weather, occasion);
       const chosenNote = generateLimitationNote(gaps, chosenConf);
