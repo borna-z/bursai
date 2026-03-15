@@ -672,6 +672,141 @@ describe('Cross-scenario: Family dedup prevents monotonous results', () => {
 });
 
 // ════════════════════════════════════════════════════════════════
+// Outfit completeness validation
+// ════════════════════════════════════════════════════════════════
+
+function isCompleteOutfit(
+  items: ComboItem[],
+  weather: { temperature?: number; precipitation?: string; wind?: string }
+): { complete: boolean; missing: string[] } {
+  const slots = new Set(items.map(i => i.slot));
+  const missing: string[] = [];
+  const hasTop = slots.has('top');
+  const hasBottom = slots.has('bottom');
+  const hasShoes = slots.has('shoes');
+  const hasDress = slots.has('dress');
+  const hasOuterwear = slots.has('outerwear');
+
+  const standardPath = hasTop && hasBottom && hasShoes;
+  const dressPath = hasDress && hasShoes;
+
+  if (!standardPath && !dressPath) {
+    if (!hasDress && !hasTop) missing.push('top');
+    if (!hasDress && !hasBottom) missing.push('bottom');
+    if (!hasShoes) missing.push('shoes');
+  }
+
+  const precip = String(weather.precipitation || '').toLowerCase();
+  const wet = precip !== '' && !['none', 'ingen'].includes(precip);
+  const coldEnough = weather.temperature !== undefined && weather.temperature < 8;
+  const hasSnow = precip.includes('snow') || precip.includes('snö');
+  const needsOuter = coldEnough || wet || hasSnow;
+
+  if (needsOuter && !hasOuterwear) {
+    missing.push('outerwear');
+  }
+
+  const hasValidBase = standardPath || dressPath;
+  const complete = hasValidBase && (!needsOuter || hasOuterwear);
+  return { complete, missing };
+}
+
+describe('Outfit completeness', () => {
+  const mildWeather = { temperature: 20, precipitation: 'none', wind: 'low' };
+  const coldWeather = { temperature: 3, precipitation: 'none', wind: 'low' };
+  const rainyWeather = { temperature: 12, precipitation: 'rain', wind: 'medium' };
+
+  it('rejects pants + shoes + jacket (no top)', () => {
+    const items = [
+      item('bottom', g({ id: 'b1', category: 'pants', color_primary: 'blue' })),
+      item('shoes', g({ id: 's1', category: 'shoes', color_primary: 'black' })),
+      item('outerwear', g({ id: 'o1', category: 'jacket', color_primary: 'black' })),
+    ];
+    const result = isCompleteOutfit(items, mildWeather);
+    expect(result.complete).toBe(false);
+    expect(result.missing).toContain('top');
+  });
+
+  it('accepts top + bottom + shoes', () => {
+    const items = [
+      item('top', g({ id: 't1', category: 'shirt', color_primary: 'white' })),
+      item('bottom', g({ id: 'b1', category: 'pants', color_primary: 'blue' })),
+      item('shoes', g({ id: 's1', category: 'shoes', color_primary: 'black' })),
+    ];
+    expect(isCompleteOutfit(items, mildWeather).complete).toBe(true);
+  });
+
+  it('accepts dress + shoes', () => {
+    const items = [
+      item('dress', g({ id: 'd1', category: 'dress', color_primary: 'red' })),
+      item('shoes', g({ id: 's1', category: 'shoes', color_primary: 'black' })),
+    ];
+    expect(isCompleteOutfit(items, mildWeather).complete).toBe(true);
+  });
+
+  it('rejects dress without shoes', () => {
+    const items = [
+      item('dress', g({ id: 'd1', category: 'dress', color_primary: 'red' })),
+    ];
+    const result = isCompleteOutfit(items, mildWeather);
+    expect(result.complete).toBe(false);
+    expect(result.missing).toContain('shoes');
+  });
+
+  it('rejects cold-weather outfit without outerwear', () => {
+    const items = [
+      item('top', g({ id: 't1', category: 'shirt', color_primary: 'white' })),
+      item('bottom', g({ id: 'b1', category: 'pants', color_primary: 'blue' })),
+      item('shoes', g({ id: 's1', category: 'shoes', color_primary: 'black' })),
+    ];
+    const result = isCompleteOutfit(items, coldWeather);
+    expect(result.complete).toBe(false);
+    expect(result.missing).toContain('outerwear');
+  });
+
+  it('accepts cold-weather outfit with outerwear', () => {
+    const items = [
+      item('top', g({ id: 't1', category: 'shirt', color_primary: 'white' })),
+      item('bottom', g({ id: 'b1', category: 'pants', color_primary: 'blue' })),
+      item('shoes', g({ id: 's1', category: 'shoes', color_primary: 'black' })),
+      item('outerwear', g({ id: 'o1', category: 'jacket', color_primary: 'black' })),
+    ];
+    expect(isCompleteOutfit(items, coldWeather).complete).toBe(true);
+  });
+
+  it('rejects rainy outfit without outerwear', () => {
+    const items = [
+      item('top', g({ id: 't1', category: 'shirt', color_primary: 'white' })),
+      item('bottom', g({ id: 'b1', category: 'pants', color_primary: 'blue' })),
+      item('shoes', g({ id: 's1', category: 'shoes', color_primary: 'black' })),
+    ];
+    expect(isCompleteOutfit(items, rainyWeather).complete).toBe(false);
+  });
+
+  it('vest counts as outerwear, not as top', () => {
+    const items = [
+      item('outerwear', g({ id: 'v1', category: 'vest', color_primary: 'grey' })),
+      item('bottom', g({ id: 'b1', category: 'pants', color_primary: 'blue' })),
+      item('shoes', g({ id: 's1', category: 'shoes', color_primary: 'black' })),
+    ];
+    const result = isCompleteOutfit(items, mildWeather);
+    expect(result.complete).toBe(false);
+    expect(result.missing).toContain('top');
+  });
+
+  it('rejects bottom + outerwear only', () => {
+    const items = [
+      item('bottom', g({ id: 'b1', category: 'pants', color_primary: 'blue' })),
+      item('outerwear', g({ id: 'o1', category: 'coat', color_primary: 'black' })),
+    ];
+    const result = isCompleteOutfit(items, mildWeather);
+    expect(result.complete).toBe(false);
+    expect(result.missing).toContain('top');
+    expect(result.missing).toContain('shoes');
+  });
+});
+
+// ════════════════════════════════════════════════════════════════
 // Evaluation summary — aggregate pass/fail view
 // ════════════════════════════════════════════════════════════════
 
