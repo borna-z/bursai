@@ -163,9 +163,9 @@ export default function UnusedOutfits() {
             <AILoadingOverlay
               variant="inline"
               phases={[
-                { icon: Sparkles, label: t('unused_outfits.scanning') || 'Scanning unused garments...', duration: 1500 },
-                { icon: Sparkles, label: t('unused_outfits.creating_combos') || 'Creating combinations...', duration: 2000 },
-                { icon: Sparkles, label: t('unused_outfits.generating'), duration: 0 },
+                { icon: Sparkles, label: t('ai.scanning_wardrobe'), duration: 1500 },
+                { icon: Sparkles, label: t('ai.creating_combinations'), duration: 2000 },
+                { icon: Sparkles, label: t('ai.assembling_outfits'), duration: 0 },
               ]}
               showSkeletons={3}
               className="py-4"
