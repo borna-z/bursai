@@ -83,15 +83,15 @@ function GarmentRow({ garments }: { garments: AISuggestion['garments'] }) {
             transition={{ delay: i * 0.07, duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
             className="flex flex-col items-center gap-1.5"
           >
-            <div className="w-[88px] h-[88px] rounded-full overflow-hidden border-2 border-border/20 shadow-sm bg-muted">
+            <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-border/20 shadow-sm bg-muted">
               <LazyImageSimple
                 imagePath={garment.image_path}
                 alt={garment.title}
                 className="w-full h-full object-cover"
-                fallbackIcon={<Shirt className="w-7 h-7 text-muted-foreground/30" />}
+                fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/30" />}
               />
             </div>
-            <span className="text-[10px] font-medium text-muted-foreground/70 capitalize truncate max-w-[88px] text-center">
+            <span className="text-[9px] font-medium text-muted-foreground/70 capitalize truncate max-w-16 text-center">
               {garment.category}
             </span>
           </motion.div>
