@@ -2043,9 +2043,11 @@ function buildCombos(
     }
   }
 
-  return Array.from(unique.values())
-    .sort((a, b) => b.totalScore - a.totalScore)
-    .slice(0, maxCombos);
+  // Exact-id dedup first, then family-level dedup
+  const exactDeduped = Array.from(unique.values())
+    .sort((a, b) => b.totalScore - a.totalScore);
+
+  return pickRepresentativeOutfits(exactDeduped, maxCombos, 0.8);
 }
 
 function scoreCombo(
