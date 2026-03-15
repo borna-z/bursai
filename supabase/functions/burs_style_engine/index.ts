@@ -946,33 +946,8 @@ function weatherPracticalityScore(items: ComboItem[], weather: WeatherInput): nu
 
   return clampScore(score);
 }
-  if (!style) return 7;
-  const s = style.toLowerCase();
-  let score = 7;
 
-  const STYLE_CATEGORY_MAP: Record<string, string[]> = {
-    smart_casual: ["blazer", "chinos", "loafer", "shirt", "skjorta"],
-    formal: ["blazer", "dress", "heels", "suit"],
-    casual: ["sneakers", "hoodie", "jeans", "t-shirt"],
-    sporty: ["sneakers", "hoodie", "shorts", "jersey"],
-    edgy: ["boots", "leather", "läder", "black"],
-    elegant: ["heels", "dress", "silk", "siden", "blazer"],
-    cozy: ["sweater", "tröja", "hoodie", "cardigan", "fleece"],
-  };
 
-  const signals = STYLE_CATEGORY_MAP[s] || [];
-  if (signals.length === 0) return 7;
-
-  let matchCount = 0;
-  for (const item of items) {
-    const combined = `${item.garment.category} ${item.garment.subcategory || ""} ${item.garment.material || ""}`.toLowerCase();
-    if (signals.some(sig => combined.includes(sig))) matchCount++;
-  }
-  const ratio = matchCount / items.length;
-  score += ratio * 3; // up to +3
-
-  return Math.max(0, Math.min(10, score));
-}
 
 /** Does the combo structurally match what the occasion expects? */
 function occasionTemplateScore(items: ComboItem[], occasion: string): number {
