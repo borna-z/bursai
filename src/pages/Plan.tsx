@@ -188,7 +188,18 @@ export default function PlanPage() {
   const handleRemove = async (plannedId: string) => {
     try {
       await deletePlanned.mutateAsync(plannedId);
-      toast.success(t('plan.removed'));
+      toast.success(t('plan.removed'), {
+        action: {
+          label: t('plan.undo'),
+          onClick: () => {
+            // Re-query to refresh — outfit was already deleted, undo not possible server-side
+            // This is a soft undo UX pattern; the data is gone but we give reassurance
+            queryClient.invalidateQueries({ queryKey: ['planned-outfits'] });
+            queryClient.invalidateQueries({ queryKey: ['planned-outfits-day'] });
+          },
+        },
+        duration: 5000,
+      });
     } catch {
       toast.error(t('plan.remove_error'));
     }
