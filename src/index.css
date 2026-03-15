@@ -317,6 +317,35 @@
     @apply bg-card rounded-2xl shadow-[0_1px_2px_0_rgb(0_0_0/0.03),0_1px_6px_0_rgb(0_0_0/0.02)];
   }
 
+  /* Primary surface – hero cards, today's outfit, AI suggestions */
+  .surface-hero {
+    @apply bg-card border border-border/30;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 4px 12px -2px rgb(0 0 0 / 0.03);
+  }
+
+  /* Secondary surface – supporting cards, stat modules */
+  .surface-secondary {
+    @apply bg-foreground/[0.02] border border-border/15;
+  }
+
+  /* Inset surface – search bars, segmented controls, input areas */
+  .surface-inset {
+    @apply bg-foreground/[0.03] border border-border/10;
+  }
+
+  /* Interactive surface – buttons, action cards */
+  .surface-interactive {
+    @apply bg-card/60 border border-border/20 transition-colors;
+  }
+
+  .surface-interactive:hover {
+    @apply bg-card/80;
+  }
+
+  .surface-interactive:active {
+    @apply bg-card/50;
+  }
+
   /* Ultra-light section divider */
   .divider-subtle {
     @apply border-border/20;
