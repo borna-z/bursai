@@ -1,12 +1,11 @@
 import { useNavigate } from 'react-router-dom';
-import { CalendarDays, Sparkles, Shirt } from 'lucide-react';
+import { CalendarDays, Sparkles } from 'lucide-react';
 import { addDays } from 'date-fns';
 import { motion } from 'framer-motion';
 import { hapticLight } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const actions: { key: string; icon: typeof CalendarDays; path: string; tomorrow?: boolean }[] = [
-  { key: 'plan_today', icon: CalendarDays, path: '/plan' },
   { key: 'plan_tomorrow', icon: CalendarDays, path: '/plan', tomorrow: true },
   { key: 'what_to_wear', icon: Sparkles, path: '/style-picker' },
 ];
@@ -16,7 +15,7 @@ export function QuickActionsRow() {
   const { t } = useLanguage();
 
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-2.5">
       {actions.map((action, i) => (
         <motion.button
           key={action.key}
@@ -32,10 +31,10 @@ export function QuickActionsRow() {
               navigate(action.path);
             }
           }}
-          className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-xl bg-foreground/[0.04] hover:bg-foreground/[0.07] border border-border/20 transition-colors"
+          className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-foreground/[0.04] hover:bg-foreground/[0.07] border border-border/20 transition-colors min-h-[44px]"
         >
-          <action.icon className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-[11px] font-medium text-foreground/80">
+          <action.icon className="w-4 h-4 text-muted-foreground" />
+          <span className="text-[12px] font-medium text-foreground/80">
             {t(`home.${action.key}`)}
           </span>
         </motion.button>
