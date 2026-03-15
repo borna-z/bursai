@@ -294,6 +294,12 @@ export const translations: Record<Locale, Record<string, string>> = {
     'home.plan_today': 'Planera idag',
     'home.plan_tomorrow': 'Planera imorgon',
     'home.what_to_wear': 'Vad ska jag ha på mig?',
+    'home.no_outfit_title': 'Ingen outfit än',
+    'home.no_outfit_desc': 'Låt AI:n skapa en look baserat på dina plagg',
+    'home.generate_now': 'Generera nu',
+    'home.weather_alert_rain': 'Regn väntas — planera en outfit som passar vädret',
+    'home.add_first_items_desc': 'Lägg till dina kläder så kan AI:n börja skapa outfits åt dig',
+    'home.view_outfit': 'Visa outfit',
     'common.see_all': 'Visa alla',
 
     // Auth
