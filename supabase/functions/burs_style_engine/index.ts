@@ -2540,6 +2540,12 @@ serve(async (req) => {
         .select("id, title, category", { count: "exact", head: false })
         .eq("user_id", userId)
         .eq("in_laundry", true),
+      // Fetch pair memory for learned pairing preferences
+      supabase
+        .from("garment_pair_memory")
+        .select("garment_a_id, garment_b_id, positive_count, negative_count, last_positive_at, last_negative_at")
+        .eq("user_id", userId)
+        .limit(500),
     ]);
 
     if (garmentsRes.error) throw garmentsRes.error;
