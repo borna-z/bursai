@@ -83,10 +83,10 @@ export function FilterSheet({
                   key={s.key}
                   onClick={() => onSortChange(s.key)}
                   className={cn(
-                    'px-3.5 py-2 rounded-full text-xs font-medium transition-colors',
+                    'px-3.5 py-2 rounded-full text-xs font-medium transition-colors border',
                     sortBy === s.key
-                      ? 'bg-accent/10 text-accent'
-                      : 'bg-foreground/[0.04] text-muted-foreground'
+                      ? 'bg-accent/10 text-accent border-accent/20'
+                      : 'surface-inset text-muted-foreground'
                   )}
                 >
                   {s.label}
