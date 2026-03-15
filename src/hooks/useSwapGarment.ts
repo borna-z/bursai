@@ -46,7 +46,7 @@ export function useSwapGarment() {
 
       if (error || data?.error) {
         console.error('Swap engine error, falling back to basic scoring:', error || data?.error);
-        return await fallbackFetchCandidates(slot, currentGarmentId, otherGarmentColors);
+        return await fallbackFetchCandidates(slot, currentGarmentId, otherGarmentColors, swapMode);
       }
 
       const scored: SwapCandidate[] = (data?.candidates || []).map((c) => ({
