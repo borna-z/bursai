@@ -125,7 +125,7 @@ function HeroSlide({ suggestion, onTryIt, onPlan, isCreating }: HeroSlideProps) 
         <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/60">
           {suggestion.occasion}
         </p>
-        <h3 className="text-[19px] font-semibold leading-snug tracking-tight">
+        <h3 className="text-[15px] font-semibold leading-snug tracking-tight">
           {suggestion.title}
         </h3>
       </div>
