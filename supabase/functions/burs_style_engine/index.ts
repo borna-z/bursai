@@ -2938,12 +2938,15 @@ serve(async (req) => {
     const suggestions = (aiResult.data.suggestions || []).map((s: any) => {
       const idx = Math.min(s.combo_index || 0, combos.length - 1);
       const combo = combos[idx];
+      const dc = combo as DeduplicatedCombo;
       return {
         title: s.title,
         garment_ids: combo.items.map((i: any) => i.garment.id),
         garments: combo.items.map((i: any) => i.garment),
         explanation: s.explanation,
         occasion: s.occasion,
+        family_label: dc.family_label || 'classic',
+        variation_reason: dc.variation_reason || '',
       };
     });
 
