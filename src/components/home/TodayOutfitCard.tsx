@@ -155,7 +155,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
             variant="outline"
             onClick={handleTryAnother}
             disabled={isGenerating || showUpgradeHint}
-            className="w-full h-12 text-[0.8125rem] font-bold rounded-xl border-border/50 tracking-[-0.01em]"
+            className="w-full h-11 text-[0.8125rem] font-semibold rounded-xl border-border/50 tracking-[-0.01em]"
           >
             <Sparkles className="w-4 h-4 mr-2" />
             {t('home.try_another')}
