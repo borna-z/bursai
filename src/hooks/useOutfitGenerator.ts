@@ -30,7 +30,7 @@ export interface GeneratedOutfit {
 }
 
 const INSUFFICIENT_GARMENTS_MESSAGE =
-  'Add more garments to generate an outfit. You need either a top + bottom + shoes, or a dress + shoes.';
+  'Add more garments before generating an outfit. You need either top + bottom + shoes, or dress + shoes.';
 
 function isInsufficientGarmentsError(message?: string | null) {
   if (!message) return false;
@@ -43,17 +43,43 @@ function isInsufficientGarmentsError(message?: string | null) {
 async function validateWardrobeForGeneration(userId: string): Promise<void> {
   const { data, error } = await supabase
     .from('garments')
-    .select('category')
-    .eq('user_id', userId)
-    .in('category', ['top', 'bottom', 'shoes', 'dress']);
+    .select('category, subcategory')
+    .eq('user_id', userId);
 
   if (error) throw error;
 
-  const categories = new Set((data || []).map((item) => item.category));
-  const hasStandardPath = ['top', 'bottom', 'shoes'].every((cat) => categories.has(cat));
-  const hasDressPath = categories.has('dress') && categories.has('shoes');
+  const normalized = (data || []).map((item) => {
+    const category = String(item.category || '').toLowerCase();
+    const subcategory = String(item.subcategory || '').toLowerCase();
+    return `${category} ${subcategory}`.trim();
+  });
 
-  if (!hasStandardPath && !hasDressPath) {
+  const hasTop = normalized.some((v) =>
+    ['top', 'shirt', 't-shirt', 'blouse', 'sweater', 'hoodie', 'polo', 'tank_top', 'tröja', 'skjorta'].some((x) =>
+      v.includes(x)
+    )
+  );
+
+  const hasBottom = normalized.some((v) =>
+    ['bottom', 'pants', 'jeans', 'trousers', 'shorts', 'skirt', 'chinos', 'byxor', 'kjol'].some((x) =>
+      v.includes(x)
+    )
+  );
+
+  const hasShoes = normalized.some((v) =>
+    ['shoes', 'sneakers', 'boots', 'loafers', 'sandals', 'heels', 'skor', 'stövlar'].some((x) =>
+      v.includes(x)
+    )
+  );
+
+  const hasDress = normalized.some((v) =>
+    ['dress', 'jumpsuit', 'overall', 'klänning'].some((x) => v.includes(x))
+  );
+
+  const hasTopBottomPath = hasTop && hasBottom && hasShoes;
+  const hasDressPath = hasDress && hasShoes;
+
+  if (!hasTopBottomPath && !hasDressPath) {
     throw new Error(INSUFFICIENT_GARMENTS_MESSAGE);
   }
 }

@@ -1,19 +1,91 @@
 
+# Full i18n Translation Plan — 110 Steps
 
-## Plan: Replace wardrobe validation with subcategory-aware logic
+**Status: 🔲 Not Started**
 
-**File**: `src/hooks/useOutfitGenerator.ts`
+## Current State
 
-### Changes
+- **14 supported locales**: sv, en, no, da, fi, de, fr, es, it, pt, nl, pl, ar, fa
+- **sv and en** are fully translated (~700+ keys each)
+- **Other 12 locales** have partial coverage (~100-200 keys each), missing large sections
+- Fallback chain: `locale → en → sv → raw key`
+- File: `src/i18n/translations.ts` (~9,800 lines)
 
-1. **Replace `INSUFFICIENT_GARMENTS_MESSAGE`** (line 36) with the new message text.
+---
 
-2. **Replace `validateWardrobeForGeneration()`** (lines 42-58) with the new implementation that:
-   - Fetches `category` and `subcategory` columns (instead of just `category`)
-   - Removes the `.in('category', [...])` filter so all garments are fetched
-   - Normalizes `category + subcategory` into a single string
-   - Checks for tops, bottoms, shoes, and dresses using keyword lists (including Swedish terms)
-   - Validates both wardrobe paths: top+bottom+shoes OR dress+shoes
+## Architecture Change (Steps 1-2)
 
-3. **Update tests** in `src/hooks/__tests__/useOutfitGenerator.test.tsx` to match the new query shape — the mock chain no longer uses `.in()` for validation; it just uses `.select().eq()` returning objects with `{ category, subcategory }`.
+**Step 1** — Create `src/i18n/locales/` directory with one file per locale, each exporting `Record<string, string>`.
 
+**Step 2** — Refactor `src/i18n/translations.ts` to import from individual locale files. No functional change.
+
+---
+
+## Per-Locale Translation (Steps 3-110)
+
+Each locale gets 9 steps covering these domains:
+
+| Step offset | Domain |
+|---|---|
+| +0 | Navigation, common, auth, error |
+| +1 | Onboarding (all sub-steps, body, style, tutorial) |
+| +2 | Settings (profile, appearance, privacy, GDPR, notifications, account) |
+| +3 | Home, weather, plan, calendar |
+| +4 | Wardrobe, garment details, scan, import, batch, duplicate |
+| +5 | Outfits, outfit generation, stylist/chat |
+| +6 | Insights, discover, premium, billing, pricing, trial |
+| +7 | Landing page (hero, bento, showcase, pricing section, FAQ, footer, comparison) |
+| +8 | Contact, privacy policy, terms, seed/admin, genimg, social reactions |
+
+### Steps 3-11: Norwegian (no)
+### Steps 12-20: Danish (da)
+### Steps 21-29: Finnish (fi)
+### Steps 30-38: German (de)
+### Steps 39-47: French (fr)
+### Steps 48-56: Spanish (es)
+### Steps 57-65: Italian (it)
+### Steps 66-74: Portuguese (pt)
+### Steps 75-83: Dutch (nl)
+### Steps 84-92: Polish (pl)
+### Steps 93-101: Arabic (ar)
+### Steps 102-110: Farsi (fa)
+
+---
+
+## Technical Details
+
+### File structure after refactor
+```text
+src/i18n/
+  translations.ts          ← imports + re-exports composed object
+  locales/
+    sv.ts                  ← ~700 keys (already complete)
+    en.ts                  ← ~700 keys (already complete)
+    no.ts                  ← fill to ~700 keys
+    da.ts                  ← fill to ~700 keys
+    fi.ts                  ← fill to ~700 keys
+    de.ts                  ← fill to ~700 keys
+    fr.ts                  ← fill to ~700 keys
+    es.ts                  ← fill to ~700 keys
+    it.ts                  ← fill to ~700 keys
+    pt.ts                  ← fill to ~700 keys
+    nl.ts                  ← fill to ~700 keys
+    pl.ts                  ← fill to ~700 keys
+    ar.ts                  ← fill to ~700 keys (RTL)
+    fa.ts                  ← fill to ~700 keys (RTL)
+```
+
+### Key count target
+Every locale file must contain the exact same set of keys as `en.ts`.
+
+### Translation quality
+- AI-assisted translation with native-quality output
+- Preserve placeholders like `{count}`, `{done}`, `{failed}`
+- RTL languages (ar, fa) keep the same key structure; RTL layout handled by CSS
+- Currency/number formatting stays locale-aware via `getLocalizedPricing()`
+
+### Edge functions
+Edge functions already use `LANG_CONFIG` mappings. No changes needed.
+
+### No new dependencies
+All translations are static strings in TypeScript files. No runtime i18n library needed.
