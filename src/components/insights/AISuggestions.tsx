@@ -118,10 +118,10 @@ function HeroSlide({ suggestion, onTryIt, onPlan, isCreating }: HeroSlideProps) 
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
       transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-      className="space-y-3"
+      className="space-y-4"
     >
       {/* Occasion + Title */}
-      <div className="text-center space-y-1 pt-1">
+      <div className="text-center space-y-1.5 pt-2">
         <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/60">
           {suggestion.occasion}
         </p>
