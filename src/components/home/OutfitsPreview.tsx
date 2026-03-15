@@ -22,7 +22,7 @@ export function OutfitsPreview() {
         <SectionHeader title={t('home.suggestions')} />
         <button
           onClick={() => navigate('/outfits')}
-          className="flex items-center gap-0.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+          className="flex items-center gap-0.5 text-[0.6875rem] font-semibold text-muted-foreground/60 hover:text-foreground transition-colors tracking-wide"
         >
           {t('common.see_all')}
           <ChevronRight className="w-3 h-3" />
