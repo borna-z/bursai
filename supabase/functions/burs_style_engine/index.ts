@@ -1993,6 +1993,96 @@ ${comboDescriptions}`;
 // SWAP MODE
 // ─────────────────────────────────────────────
 
+// ── Swap-specific helpers ──
+
+function fitFamily(fit: string | null): string {
+  if (!fit) return 'regular';
+  const f = fit.toLowerCase();
+  if (['slim', 'skinny', 'fitted', 'tight'].some(k => f.includes(k))) return 'slim';
+  if (['loose', 'oversized', 'relaxed', 'baggy', 'wide'].some(k => f.includes(k))) return 'loose';
+  return 'regular';
+}
+
+function visualWeight(garment: GarmentRow): number {
+  // 0-10 scale: dark/heavy = high, light/airy = low
+  let w = 5;
+  const color = (garment.color_primary || '').toLowerCase();
+  if (['black', 'navy', 'charcoal', 'dark'].some(c => color.includes(c))) w += 2;
+  if (['white', 'cream', 'beige', 'light', 'pastel'].some(c => color.includes(c))) w -= 2;
+  const mat = (garment.material || '').toLowerCase();
+  if (['leather', 'denim', 'wool', 'tweed'].some(m => mat.includes(m))) w += 1;
+  if (['silk', 'chiffon', 'linen', 'cotton'].some(m => mat.includes(m))) w -= 1;
+  if (garment.category === 'outerwear') w += 1;
+  return clampScore(w);
+}
+
+function dnaPreservationScore(candidate: GarmentRow, anchor: GarmentRow): number {
+  let score = 10;
+
+  // Formality distance
+  const cf = candidate.formality ?? 5;
+  const af = anchor.formality ?? 5;
+  score -= Math.abs(cf - af) * 1.2;
+
+  // Fit family match
+  if (fitFamily(candidate.fit) !== fitFamily(anchor.fit)) score -= 1.5;
+
+  // Visual weight similarity
+  score -= Math.abs(visualWeight(candidate) - visualWeight(anchor)) * 0.4;
+
+  // Pattern similarity
+  const cp = (candidate.pattern || 'solid').toLowerCase();
+  const ap = (anchor.pattern || 'solid').toLowerCase();
+  if (cp !== ap) score -= 1;
+
+  // Subcategory match bonus
+  if (candidate.subcategory && candidate.subcategory === anchor.subcategory) score += 1;
+
+  // Aesthetic lane: similar garmentText keywords
+  const cWords = new Set(garmentText(candidate).split(/\s+/));
+  const aWords = new Set(garmentText(anchor).split(/\s+/));
+  let overlap = 0;
+  for (const w of cWords) if (aWords.has(w) && w.length > 2) overlap++;
+  score += Math.min(overlap * 0.3, 1.5);
+
+  return clampScore(score);
+}
+
+function formalityAlignmentScore(candidate: GarmentRow, otherItems: { garment: GarmentRow }[]): number {
+  if (otherItems.length === 0) return 7;
+  const formalities = otherItems
+    .map(i => i.garment.formality)
+    .filter((v): v is number => typeof v === 'number');
+  if (formalities.length === 0) return 7;
+  const avg = formalities.reduce((a, b) => a + b, 0) / formalities.length;
+  const cf = candidate.formality ?? 5;
+  return clampScore(10 - Math.abs(cf - avg) * 2);
+}
+
+function fitConsistencyScore(candidate: GarmentRow, otherItems: { slot: string; garment: GarmentRow }[]): number {
+  // Check fit balance with complement slot
+  const candidateFamily = fitFamily(candidate.fit);
+  let score = 7;
+
+  for (const item of otherItems) {
+    const otherFamily = fitFamily(item.garment.fit);
+    // Complementary fits score higher (slim top + loose bottom, etc.)
+    if (candidateFamily === 'slim' && otherFamily === 'loose') score += 1;
+    if (candidateFamily === 'loose' && otherFamily === 'slim') score += 1;
+    // Matching regular is fine
+    if (candidateFamily === 'regular' && otherFamily === 'regular') score += 0.5;
+    // Both extremes is risky
+    if (candidateFamily === 'loose' && otherFamily === 'loose') score -= 0.5;
+    if (candidateFamily === 'slim' && otherFamily === 'slim') score -= 0.3;
+  }
+
+  return clampScore(score);
+}
+
+function swapPracticalityScore(candidate: GarmentRow, weather: WeatherInput): number {
+  return weatherSuitability(candidate, weather);
+}
+
 function scoreSwapCandidates(
   slot: string,
   currentGarmentId: string,
@@ -2003,6 +2093,8 @@ function scoreSwapCandidates(
   penalties: Map<string, GarmentPenalty>,
   prefs: Record<string, any> | null
 ): ScoredGarment[] {
+  const anchor = allGarments.find(g => g.id === currentGarmentId) || null;
+
   const slotGarments = allGarments.filter(g => {
     const gSlot = categorizeSlot(g.category, g.subcategory);
     return gSlot === slot && g.id !== currentGarmentId;
@@ -2012,25 +2104,67 @@ function scoreSwapCandidates(
     .map(i => getHSL(i.garment.color_primary))
     .filter(Boolean) as [number, number, number][];
 
+  const otherMats = otherItems.map(i => i.garment.material);
+
   return slotGarments.map(garment => {
+    // 1. Base item strength (occasion + weather + rotation + feedback + style)
     const base = scoreGarment(garment, occasion, weather, penalties, prefs);
-    
-    // Additional: color harmony with existing items
+    const itemStrength = base.score;
+
+    // 2. Color harmony with rest of outfit
     const gColor = getHSL(garment.color_primary);
-    if (gColor && otherColors.length > 0) {
-      const harmony = colorHarmonyScore([...otherColors, gColor]);
-      base.score = base.score * 0.6 + harmony * 0.4;
-      base.breakdown.colorHarmony = harmony;
-    }
+    const colorHarmony = (gColor && otherColors.length > 0)
+      ? colorHarmonyScore([...otherColors, gColor])
+      : 7;
 
-    // Material compatibility with existing items
-    const otherMats = otherItems.map(i => i.garment.material);
+    // 3. Material compatibility
     const matCompat = materialCompatibility([...otherMats, garment.material]);
-    base.score = base.score * 0.85 + matCompat * 0.15;
-    base.breakdown.materialCompat = matCompat;
 
-    return base;
-  }).sort((a, b) => b.score - a.score);
+    // 4. Formality alignment with other outfit items
+    const formalityAlign = formalityAlignmentScore(garment, otherItems);
+
+    // 5. DNA preservation vs anchor garment
+    const dnaPres = anchor ? dnaPreservationScore(garment, anchor) : 7;
+
+    // 6. Fit / silhouette consistency
+    const fitConsist = fitConsistencyScore(garment, otherItems);
+
+    // 7. Weather practicality
+    const practicality = swapPracticalityScore(garment, weather);
+
+    // 8. Repetition penalty (reuse wearRotationScore from base)
+    const rotationBonus = base.breakdown.rotation ?? 7;
+
+    // Weighted composite
+    const overall =
+      itemStrength * 0.20 +
+      dnaPres * 0.22 +
+      colorHarmony * 0.15 +
+      matCompat * 0.08 +
+      formalityAlign * 0.12 +
+      fitConsist * 0.08 +
+      practicality * 0.10 +
+      rotationBonus * 0.05;
+
+    const finalScore = clampScore(overall);
+
+    return {
+      garment,
+      score: finalScore,
+      breakdown: {
+        overall: finalScore,
+        item_strength: itemStrength,
+        dna_preservation: dnaPres,
+        color_harmony: colorHarmony,
+        material_compatibility: matCompat,
+        formality_alignment: formalityAlign,
+        fit_consistency: fitConsist,
+        practicality,
+      },
+    };
+  })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
 }
 
 // ─────────────────────────────────────────────
