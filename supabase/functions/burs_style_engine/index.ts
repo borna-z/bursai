@@ -2514,7 +2514,11 @@ serve(async (req) => {
       const garmentIds: string[] = body.garment_ids || [];
       const positive: boolean = body.positive !== false;
       if (garmentIds.length >= 2) {
-        await recordPairOutcome(serviceSupabase, userId, garmentIds, positive);
+        const svc = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+        );
+        await recordPairOutcome(svc, userId, garmentIds, positive);
       }
       return new Response(JSON.stringify({ ok: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
