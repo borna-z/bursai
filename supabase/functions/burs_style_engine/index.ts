@@ -2271,6 +2271,170 @@ function generateLimitationNote(gaps: string[], confidence: ConfidenceResult): s
   return parts.length > 0 ? parts.join('; ') : null;
 }
 
+// ─────────────────────────────────────────────
+// GENERATION-DRIVEN WARDROBE INSIGHTS
+// ─────────────────────────────────────────────
+
+interface GenerationFailureSignal {
+  occasion: string;
+  weather: WeatherInput;
+  gaps: string[];
+  confidence_level: ConfidenceLevel;
+  slotWeaknesses: string[]; // slots with 0-1 candidates
+  formalityMismatch: boolean;
+}
+
+function buildGenerationFailureSignal(
+  occasion: string,
+  weather: WeatherInput,
+  gaps: string[],
+  confidence: ConfidenceResult,
+  slotCandidates: Record<string, ScoredGarment[]>
+): GenerationFailureSignal {
+  const slotWeaknesses: string[] = [];
+  for (const [slot, candidates] of Object.entries(slotCandidates)) {
+    if (candidates.length <= 1) slotWeaknesses.push(slot);
+  }
+  const formalOccasions = ['work', 'jobb', 'interview', 'intervju', 'formal', 'formell', 'business', 'date'];
+  const formalityMismatch = formalOccasions.includes(occasion.toLowerCase()) &&
+    gaps.some(g => g.includes('formal'));
+  return { occasion, weather, gaps, confidence_level: confidence.confidence_level, slotWeaknesses, formalityMismatch };
+}
+
+interface WardrobeInsight {
+  type: 'weather_gap' | 'formality_gap' | 'category_imbalance' | 'slot_weakness' | 'versatility';
+  severity: 'high' | 'medium' | 'low';
+  message: string;
+  suggestion: string;
+  related_occasions: string[];
+}
+
+function aggregateFailurePatterns(signals: GenerationFailureSignal[]): {
+  weatherFailures: number;
+  formalityFailures: number;
+  slotFailureCounts: Record<string, number>;
+  weakOccasions: Record<string, number>;
+  gapFrequency: Record<string, number>;
+} {
+  const weatherFailures = signals.filter(s => {
+    const precip = (s.weather.precipitation || '').toLowerCase();
+    return (precip.includes('rain') || precip.includes('snow') || precip.includes('regn') || precip.includes('snö')) &&
+      s.gaps.some(g => g.includes('rain') || g.includes('outerwear') || g.includes('waterproof'));
+  }).length;
+
+  const formalityFailures = signals.filter(s => s.formalityMismatch).length;
+
+  const slotFailureCounts: Record<string, number> = {};
+  for (const s of signals) {
+    for (const slot of s.slotWeaknesses) {
+      slotFailureCounts[slot] = (slotFailureCounts[slot] || 0) + 1;
+    }
+  }
+
+  const weakOccasions: Record<string, number> = {};
+  for (const s of signals) {
+    if (s.confidence_level !== 'high') {
+      const occ = s.occasion.toLowerCase();
+      weakOccasions[occ] = (weakOccasions[occ] || 0) + 1;
+    }
+  }
+
+  const gapFrequency: Record<string, number> = {};
+  for (const s of signals) {
+    for (const gap of s.gaps) {
+      gapFrequency[gap] = (gapFrequency[gap] || 0) + 1;
+    }
+  }
+
+  return { weatherFailures, formalityFailures, slotFailureCounts, weakOccasions, gapFrequency };
+}
+
+function deriveWardrobeInsightsFromGeneration(signals: GenerationFailureSignal[]): WardrobeInsight[] {
+  if (signals.length === 0) return [];
+
+  const patterns = aggregateFailurePatterns(signals);
+  const insights: WardrobeInsight[] = [];
+
+  // Weather-specific insights
+  if (patterns.weatherFailures >= 2) {
+    const rainGaps = signals.filter(s =>
+      s.gaps.some(g => g.includes('rain-friendly shoes'))
+    );
+    const outerwearGaps = signals.filter(s =>
+      s.gaps.some(g => g.includes('outerwear'))
+    );
+    if (rainGaps.length >= 2) {
+      insights.push({
+        type: 'weather_gap',
+        severity: 'high',
+        message: 'Your wardrobe struggles in rainy weather — no rain-friendly smart shoes found across multiple requests.',
+        suggestion: 'Consider adding waterproof boots or rain-ready loafers.',
+        related_occasions: [...new Set(rainGaps.map(s => s.occasion))],
+      });
+    }
+    if (outerwearGaps.length >= 2) {
+      insights.push({
+        type: 'weather_gap',
+        severity: 'high',
+        message: 'Weak outerwear coverage for cold or rainy days — the engine had to compromise on practicality.',
+        suggestion: 'A waterproof jacket or insulated coat would unlock better cold/wet weather outfits.',
+        related_occasions: [...new Set(outerwearGaps.map(s => s.occasion))],
+      });
+    }
+  }
+
+  // Formality-specific insights
+  if (patterns.formalityFailures >= 2) {
+    const formalOccasions = [...new Set(
+      signals.filter(s => s.formalityMismatch).map(s => s.occasion)
+    )];
+    insights.push({
+      type: 'formality_gap',
+      severity: 'high',
+      message: 'Not enough elevated options for date or work occasions — the engine repeatedly lacks refined tops or bottoms.',
+      suggestion: 'Adding a structured blazer, tailored trousers, or a dress shirt would significantly improve formal outfit options.',
+      related_occasions: formalOccasions,
+    });
+  }
+
+  // Slot weakness insights
+  for (const [slot, count] of Object.entries(patterns.slotFailureCounts)) {
+    if (count >= 2) {
+      const severity = count >= 3 ? 'high' as const : 'medium' as const;
+      const slotLabel = slot === 'outerwear' ? 'outerwear' : slot === 'shoes' ? 'shoes' : `${slot} pieces`;
+      insights.push({
+        type: 'slot_weakness',
+        severity,
+        message: `Too few ${slotLabel} in your wardrobe — this slot limited outfit variety in ${count} generation attempts.`,
+        suggestion: `Adding 2-3 more ${slotLabel} would meaningfully expand your outfit combinations.`,
+        related_occasions: [...new Set(
+          signals.filter(s => s.slotWeaknesses.includes(slot)).map(s => s.occasion)
+        )],
+      });
+    }
+  }
+
+  // Category imbalance
+  const casualTopGaps = signals.filter(s =>
+    s.gaps.some(g => g.includes('formal top') || g.includes('formal bottom'))
+  );
+  if (casualTopGaps.length >= 2 && !insights.some(i => i.type === 'formality_gap')) {
+    insights.push({
+      type: 'category_imbalance',
+      severity: 'medium',
+      message: 'Your wardrobe leans casual — too many relaxed pieces and not enough refined bottoms or structured tops.',
+      suggestion: 'Balance with a pair of tailored chinos or slim trousers.',
+      related_occasions: [...new Set(casualTopGaps.map(s => s.occasion))],
+    });
+  }
+
+  // Sort by severity
+  const severityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+  insights.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+
+  return insights.slice(0, 5);
+}
+
 function computeSwapConfidence(
   candidates: ScoredGarment[],
   slot: string,
