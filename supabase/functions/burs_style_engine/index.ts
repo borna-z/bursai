@@ -676,84 +676,78 @@ function feedbackScore(garmentId: string, penalties: Map<string, GarmentPenalty>
 // STYLE PROFILE ALIGNMENT (Quiz-based)
 // ─────────────────────────────────────────────
 
+function clampScore(value: number): number {
+  return Math.max(0, Math.min(10, value));
+}
+
+function getStylePrefs(prefs: Record<string, any> | null): Record<string, any> {
+  return (prefs?.styleProfile || prefs || {}) as Record<string, any>;
+}
+
 function styleAlignmentScore(garment: GarmentRow, prefs: Record<string, any> | null): number {
   if (!prefs) return 7;
-  const sp = prefs.styleProfile || prefs;
+
+  const sp = getStylePrefs(prefs);
   let score = 7;
 
-  // Favorite colors boost
   const favColors = (sp.favoriteColors || []) as string[];
   const dislikedColors = (sp.dislikedColors || []) as string[];
-  const gc = garment.color_primary?.toLowerCase() || "";
-  if (favColors.some((c: string) => gc.includes(c.toLowerCase()))) score += 2;
-  if (dislikedColors.some((c: string) => gc.includes(c.toLowerCase()))) score -= 3;
+  const styleWords = ((sp.styleWords || []) as string[]).map((v) => String(v).toLowerCase());
+  const paletteVibe = String(sp.paletteVibe || '').toLowerCase();
+  const comfortVsStyle =
+    typeof sp.comfortVsStyle === 'number' ? sp.comfortVsStyle : 50;
 
-  // Fit preference
-  if (sp.fit && garment.fit) {
-    if (sp.fit === garment.fit) score += 1.5;
-    // Opposite fits penalized lightly
-    const opposites: Record<string, string[]> = {
-      slim: ["oversized", "wide"], oversized: ["slim", "skinny", "fitted"],
-      fitted: ["oversized", "wide"], relaxed: ["skinny", "fitted"],
-    };
-    if (opposites[sp.fit]?.includes(garment.fit.toLowerCase())) score -= 1;
+  const gc = garment.color_primary?.toLowerCase() || '';
+  const fit = garment.fit?.toLowerCase() || '';
+  const material = garment.material?.toLowerCase() || '';
+  const category = garment.category?.toLowerCase() || '';
+  const subcategory = garment.subcategory?.toLowerCase() || '';
+
+  if (favColors.some((c) => gc.includes(String(c).toLowerCase()))) score += 2;
+  if (dislikedColors.some((c) => gc.includes(String(c).toLowerCase()))) score -= 3;
+
+  if (sp.fit && garment.fit && String(sp.fit).toLowerCase() === fit) {
+    score += 1;
   }
 
-  // Style words alignment
-  const styleWords = (sp.styleWords || []) as string[];
-  if (styleWords.length > 0) {
-    const mat = (garment.material || "").toLowerCase();
-    const cat = (garment.category || "").toLowerCase();
-    const sub = (garment.subcategory || "").toLowerCase();
-    const combined = `${cat} ${sub} ${mat} ${garment.fit || ""}`.toLowerCase();
-    const STYLE_WORD_SIGNALS: Record<string, string[]> = {
-      minimalist: ["solid", "enfärgad", "cotton", "bomull", "regular", "slim"],
-      classic: ["blazer", "shirt", "skjorta", "wool", "ull", "chinos", "loafer"],
-      streetwear: ["hoodie", "sneakers", "denim", "oversized", "jersey"],
-      elegant: ["silk", "siden", "cashmere", "kashmir", "blazer", "heels", "satin"],
-      bohemian: ["linen", "linne", "floral", "relaxed", "wide", "sandal"],
-      sporty: ["jersey", "sneakers", "fleece", "nylon", "polyester"],
-      edgy: ["leather", "läder", "black", "svart", "boots", "stövlar"],
-      preppy: ["polo", "chinos", "blazer", "loafer", "cotton", "bomull"],
-    };
-    for (const word of styleWords) {
-      const signals = STYLE_WORD_SIGNALS[word.toLowerCase()];
-      if (signals && signals.some(s => combined.includes(s))) {
-        score += 1;
-        break; // max +1 from style words
-      }
+  if (styleWords.includes('minimal')) {
+    if (!garment.pattern || ['solid', 'none'].includes(garment.pattern.toLowerCase())) score += 0.8;
+    if ((garment.formality || 0) >= 4) score += 0.5;
+  }
+
+  if (styleWords.includes('classic')) {
+    if ((garment.formality || 0) >= 6) score += 0.8;
+    if (['shirt', 'blazer', 'coat', 'trousers', 'loafer'].some((x) => `${category} ${subcategory}`.includes(x))) {
+      score += 0.8;
     }
   }
 
-  // Comfort vs Style slider (0=comfort, 100=style)
-  const cvs = sp.comfortVsStyle;
-  if (cvs !== undefined && cvs !== null && garment.formality !== null) {
-    const tendency = (Number(cvs) - 50) / 50; // -1 to +1 (style leaning)
-    if (tendency > 0.3 && garment.formality >= 3) score += 0.5;
-    if (tendency < -0.3 && garment.formality <= 2) score += 0.5;
-  }
-
-  // Palette vibe alignment
-  const paletteVibe = sp.paletteVibe as string | undefined;
-  if (paletteVibe) {
-    const hsl = getHSL(gc);
-    if (hsl) {
-      const vibeMatch: Record<string, (h: [number, number, number]) => boolean> = {
-        warm: (h) => !isNeutral(h) && (h[0] <= 60 || h[0] >= 330),
-        cool: (h) => !isNeutral(h) && h[0] >= 180 && h[0] <= 270,
-        neutral: (h) => isNeutral(h),
-        earth: (h) => h[0] >= 10 && h[0] <= 60 && h[1] <= 60,
-        pastel: (h) => h[2] >= 65 && h[1] <= 50,
-        bold: (h) => h[1] >= 60 && h[2] >= 40 && h[2] <= 70,
-        dark: (h) => h[2] <= 30,
-        muted: (h) => h[1] <= 30,
-      };
-      const matcher = vibeMatch[paletteVibe.toLowerCase()];
-      if (matcher && matcher(hsl)) score += 1;
+  if (styleWords.includes('street')) {
+    if (['hoodie', 'sneaker', 'cargo', 'oversized', 'relaxed'].some((x) => `${category} ${subcategory} ${fit}`.includes(x))) {
+      score += 0.9;
     }
   }
 
-  return Math.max(0, Math.min(10, score));
+  if (styleWords.includes('sporty')) {
+    if (['sneaker', 'hoodie', 'track', 'running', 'trainer'].some((x) => `${category} ${subcategory}`.includes(x))) {
+      score += 0.9;
+    }
+  }
+
+  if (paletteVibe.includes('neutral') || paletteVibe.includes('tonal')) {
+    const hsl = getHSL(garment.color_primary);
+    if (hsl && isNeutral(hsl)) score += 0.8;
+  }
+
+  if (comfortVsStyle >= 65) {
+    if (['relaxed', 'regular', 'oversized'].includes(fit)) score += 0.8;
+    if (['jersey', 'cotton', 'knit', 'merino'].some((x) => material.includes(x))) score += 0.4;
+  } else if (comfortVsStyle <= 35) {
+    if ((garment.formality || 0) >= 6) score += 0.8;
+    if (['wool', 'leather', 'tailored'].some((x) => material.includes(x) || subcategory.includes(x))) score += 0.4;
+  }
+
+  return clampScore(score);
 }
 
 // ─────────────────────────────────────────────
