@@ -139,7 +139,7 @@ function HeroSlide({ suggestion, onTryIt, onPlan, isCreating }: HeroSlideProps) 
       </p>
 
       {/* CTA row */}
-      <div className="flex items-center gap-2 pt-0.5">
+      <div className="flex items-center gap-2.5 pt-1">
         <Button
           onClick={onTryIt}
           disabled={isCreating}
