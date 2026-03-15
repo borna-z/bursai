@@ -193,8 +193,18 @@ export default function OutfitDetailPage() {
   const selfieInputRef = useRef<HTMLInputElement>(null);
 
   const [rating, setRating] = useState<number | null>(null);
-  const [swapSheet, setSwapSheet] = useState<{ isOpen: boolean; slot: string; outfitItemId: string; currentGarmentId: string }>({ isOpen: false, slot: '', outfitItemId: '', currentGarmentId: '' });
   const [swapMode, setSwapMode] = useState<SwapMode>('safe');
+  const [swapSheet, setSwapSheet] = useState<{
+    isOpen: boolean;
+    slot: string;
+    outfitItemId: string;
+    currentGarmentId: string;
+  }>({
+    isOpen: false,
+    slot: '',
+    outfitItemId: '',
+    currentGarmentId: '',
+  });
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
