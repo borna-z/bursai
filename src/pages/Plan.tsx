@@ -271,7 +271,7 @@ export default function PlanPage() {
 
       {/* ─── Content ─── */}
       <PullToRefresh onRefresh={handleRefresh}>
-      <AnimatedPage className="max-w-lg mx-auto px-4 pt-4 pb-6">
+      <AnimatedPage className="max-w-lg mx-auto px-5 pt-5 pb-8">
         {/* Calendar connect nudge */}
         <CalendarConnectBanner />
 
