@@ -3019,12 +3019,17 @@ serve(async (req) => {
         swapSlot, currentGarmentId, otherItems, garments, occasion, weather, penalties, preferences, swapMode, pairMemory
       );
 
+      const swapConf = computeSwapConfidence(candidates, swapSlot, weather);
+
       return new Response(JSON.stringify({
         candidates: candidates.slice(0, 10).map(c => ({
           garment: c.garment,
           score: c.score,
           breakdown: c.breakdown,
         })),
+        confidence_score: swapConf.confidence_score,
+        confidence_level: swapConf.confidence_level,
+        limitation_note: swapConf.limitation_note,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
