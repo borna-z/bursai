@@ -74,7 +74,7 @@ function TransitionTimeline({
                     {block.label}
                   </Badge>
                 </div>
-                <p className="text-xs text-foreground/80">{block.style_tip}</p>
+                <p className="text-[0.75rem] text-foreground/80 leading-relaxed">{block.style_tip}</p>
                 {block.transition_tip && (
                   <p className="text-[11px] text-primary/80 flex items-center gap-1">
                     <ArrowRight className="w-3 h-3 shrink-0" />
