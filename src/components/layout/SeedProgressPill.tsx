@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
-import { useSeed } from '@/contexts/SeedContext';
+import { useSeedMaybe } from '@/contexts/SeedContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function SeedProgressPill() {

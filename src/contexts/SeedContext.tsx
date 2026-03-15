@@ -54,6 +54,11 @@ export function useSeed() {
   return ctx;
 }
 
+/** Safe version that returns null outside SeedProvider — used by global UI like SeedProgressPill */
+export function useSeedMaybe() {
+  return useContext(SeedContext);
+}
+
 function formatTimeRemaining(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
