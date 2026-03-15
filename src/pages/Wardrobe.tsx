@@ -91,8 +91,8 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, margin: '-20px' }}
-      transition={{ ease: EASE_CURVE, duration: 0.3, delay: (index % 6) * STAGGER_DELAY }}
-      whileTap={{ scale: 0.97, y: -2 }}
+      transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: (index % 6) * STAGGER_DELAY }}
+      whileTap={PRESETS.PRESS.whileTap}
       onClick={handleClick}
       className={cn(
         'w-full rounded-2xl overflow-hidden transition-colors text-left will-change-transform relative group',

@@ -299,9 +299,10 @@ export default function AIChat() {
               return (
                 <motion.div
                   key={idx}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+                  variants={PRESETS.MESSAGE.variants}
+                  initial="initial"
+                  animate="animate"
+                  transition={PRESETS.MESSAGE.transition}
                 >
                   {isStreamingMsg && isEmpty ? (
                     <div className="flex items-center gap-3 py-3 px-1">
