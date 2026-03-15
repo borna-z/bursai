@@ -220,11 +220,9 @@ export default function HomePage() {
                 initial="initial"
                 animate="animate"
                 transition={reveal.transition}
-                className="rounded-2xl surface-secondary p-10 text-center space-y-5"
+                className="rounded-2xl surface-secondary p-8 text-center space-y-5"
               >
-                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
-                  <Sparkles className="w-6 h-6 text-primary/60" />
-                </div>
+                <Sparkles className="w-8 h-8 text-primary/40 mx-auto" />
                 <div className="space-y-2">
                   <h3 className="text-[15px] font-semibold">{t('home.no_outfit_title')}</h3>
                   <p className="text-[12px] text-muted-foreground/60 max-w-[240px] mx-auto">
@@ -233,7 +231,7 @@ export default function HomePage() {
                 </div>
                 <Button
                   onClick={() => { hapticLight(); navigate('/style-picker'); }}
-                  className="w-full max-w-[200px] h-11"
+                  className="w-full max-w-[200px] h-11 bg-accent text-accent-foreground hover:bg-accent/90"
                 >
                   {t('home.generate_now')}
                   <ChevronRight className="w-4 h-4 ml-1" />
