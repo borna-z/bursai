@@ -5,6 +5,8 @@ import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Garment } from './useGarments';
 
+export type SwapMode = 'safe' | 'bold' | 'fresh';
+
 export interface SwapCandidate {
   garment: Garment;
   score: number;
