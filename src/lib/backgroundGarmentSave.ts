@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import type { GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
 import type { Json } from '@/integrations/supabase/types';
 
@@ -9,17 +10,20 @@ export interface SaveableResult {
 }
 
 /**
- * Upload a garment image to storage and insert the garment record.
- * Designed to run in the background after a scan is accepted.
+ * Upload a garment image to storage, insert the garment record,
+ * then trigger Stage 2 enrichment + duplicate detection in background.
  */
 export async function saveGarmentInBackground(
   result: SaveableResult,
   userId: string
 ): Promise<void> {
+  let garmentId = '';
+  let storagePath = '';
+
   try {
-    const garmentId = crypto.randomUUID();
+    garmentId = crypto.randomUUID();
     const ext = 'jpg';
-    const storagePath = `${userId}/${garmentId}.${ext}`;
+    storagePath = `${userId}/${garmentId}.${ext}`;
 
     // Upload to storage
     const { error: uploadError } = await supabase.storage
@@ -57,10 +61,84 @@ export async function saveGarmentInBackground(
 
     if (insertError) {
       console.error('Insert error:', insertError);
+      return;
     }
+
+    // Stage 2: Fire enrichment in background (never blocks)
+    enrichGarment(garmentId, userId, storagePath).catch((err) => {
+      console.error('Enrichment error (non-blocking):', err);
+    });
+
+    // Duplicate detection in background (never blocks)
+    detectDuplicates(result.analysis, garmentId).catch((err) => {
+      console.error('Duplicate detection error (non-blocking):', err);
+    });
   } catch (err) {
     console.error('Background save error:', err);
   } finally {
     URL.revokeObjectURL(result.thumbnailUrl);
   }
+}
+
+/**
+ * Stage 2 enrichment: call analyze_garment with mode='enrich',
+ * then merge enrichment data into the garment's ai_raw field.
+ */
+async function enrichGarment(
+  garmentId: string,
+  userId: string,
+  storagePath: string
+): Promise<void> {
+  const { data, error } = await invokeEdgeFunction<{ enrichment?: Record<string, unknown>; error?: string }>('analyze_garment', {
+    body: { storagePath, mode: 'enrich' },
+  });
+
+  if (error || data?.error || !data?.enrichment) {
+    console.error('Enrichment failed:', error?.message || data?.error);
+    return;
+  }
+
+  // Merge enrichment into ai_raw
+  const { data: existing } = await supabase
+    .from('garments')
+    .select('ai_raw')
+    .eq('id', garmentId)
+    .single();
+
+  const currentRaw = (existing?.ai_raw as Record<string, unknown>) || {};
+  const mergedRaw = { ...currentRaw, enrichment: data.enrichment };
+
+  // Update refined title if available and better
+  const updates: Record<string, unknown> = {
+    ai_raw: mergedRaw as Json,
+  };
+
+  if (data.enrichment.refined_title && typeof data.enrichment.refined_title === 'string') {
+    updates.title = (data.enrichment.refined_title as string).substring(0, 50);
+  }
+
+  await supabase
+    .from('garments')
+    .update(updates)
+    .eq('id', garmentId);
+}
+
+/**
+ * Check for duplicate garments using existing edge function.
+ */
+async function detectDuplicates(
+  analysis: GarmentAnalysis,
+  excludeGarmentId: string
+): Promise<void> {
+  await invokeEdgeFunction('detect_duplicate_garment', {
+    body: {
+      category: analysis.category,
+      color_primary: analysis.color_primary,
+      title: analysis.title,
+      subcategory: analysis.subcategory,
+      material: analysis.material,
+      exclude_garment_id: excludeGarmentId,
+    },
+  });
+  // Result is logged server-side; no UI action needed
 }

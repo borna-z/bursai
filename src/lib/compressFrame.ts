@@ -29,3 +29,42 @@ export function compressFrame(
     );
   });
 }
+
+/**
+ * Compress the center 70% of a video frame — crops out background clutter
+ * so the AI focuses on the garment the reticle is targeting.
+ */
+export function compressCenterCrop(
+  canvas: HTMLCanvasElement,
+  video: HTMLVideoElement,
+  maxDim = 480,
+  quality = 0.5
+): Promise<{ blob: Blob; base64: string }> {
+  return new Promise((resolve, reject) => {
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    // Crop center 70%
+    const cropRatio = 0.7;
+    const sx = Math.round(vw * (1 - cropRatio) / 2);
+    const sy = Math.round(vh * (1 - cropRatio) / 2);
+    const sw = Math.round(vw * cropRatio);
+    const sh = Math.round(vh * cropRatio);
+    const scale = Math.min(maxDim / Math.max(sw, sh), 1);
+    canvas.width = Math.round(sw * scale);
+    canvas.height = Math.round(sh * scale);
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return reject(new Error('Failed to capture frame'));
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          resolve({ blob, base64: reader.result as string });
+        };
+        reader.readAsDataURL(blob);
+      },
+      'image/jpeg',
+      quality
+    );
+  });
+}

@@ -8,7 +8,12 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }));
 
+vi.mock('@/lib/edgeFunctionClient', () => ({
+  invokeEdgeFunction: vi.fn(),
+}));
+
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 
 const MOCK_ANALYSIS = {
   title: 'Navy Blazer',
@@ -47,11 +52,31 @@ describe('saveGarmentInBackground', () => {
     vi.unstubAllGlobals();
   });
 
-  it('uploads image then inserts garment record', async () => {
+  it('uploads image then inserts garment record and triggers enrichment', async () => {
     const uploadMock = vi.fn().mockResolvedValue({ error: null });
     const insertMock = vi.fn().mockResolvedValue({ error: null });
+    const selectMock = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ data: { ai_raw: {} }, error: null }),
+      }),
+    });
+    const updateMock = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    });
+
     vi.mocked(supabase.storage.from).mockReturnValue({ upload: uploadMock } as any);
-    vi.mocked(supabase.from).mockReturnValue({ insert: insertMock } as any);
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'garments') {
+        return { insert: insertMock, select: selectMock, update: updateMock } as any;
+      }
+      return { insert: vi.fn().mockResolvedValue({ error: null }) } as any;
+    });
+
+    // Mock enrichment edge function call
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: { enrichment: { neckline: 'collar', refined_title: 'Navy Wool Blazer' } },
+      error: null,
+    });
 
     await saveGarmentInBackground(makeResult(), 'user-1');
 
@@ -61,7 +86,6 @@ describe('saveGarmentInBackground', () => {
       expect.any(Blob),
       expect.objectContaining({ contentType: 'image/jpeg' }),
     );
-    expect(supabase.from).toHaveBeenCalledWith('garments');
     expect(insertMock).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'test-uuid',
@@ -73,6 +97,14 @@ describe('saveGarmentInBackground', () => {
       }),
     );
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-thumb');
+
+    // Verify enrichment was triggered (fire-and-forget, so it may not have completed)
+    // The enrichment call is non-blocking so we just verify it was called
+    await vi.waitFor(() => {
+      expect(invokeEdgeFunction).toHaveBeenCalledWith('analyze_garment', {
+        body: { storagePath: 'user-1/test-uuid.jpg', mode: 'enrich' },
+      });
+    });
   });
 
   it('skips insert when upload fails and still revokes URL', async () => {
@@ -98,5 +130,48 @@ describe('saveGarmentInBackground', () => {
 
     expect(consoleSpy).toHaveBeenCalledWith('Insert error:', expect.objectContaining({ message: 'RLS violation' }));
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-thumb');
+  });
+
+  it('triggers duplicate detection after successful insert', async () => {
+    const uploadMock = vi.fn().mockResolvedValue({ error: null });
+    const insertMock = vi.fn().mockResolvedValue({ error: null });
+    vi.mocked(supabase.storage.from).mockReturnValue({ upload: uploadMock } as any);
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'garments') {
+        return {
+          insert: insertMock,
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: { ai_raw: {} }, error: null }),
+            }),
+          }),
+          update: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ error: null }),
+          }),
+        } as any;
+      }
+      return { insert: vi.fn().mockResolvedValue({ error: null }) } as any;
+    });
+
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: { enrichment: { neckline: 'crew' } },
+      error: null,
+    });
+
+    await saveGarmentInBackground(makeResult(), 'user-1');
+
+    // Wait for async background tasks
+    await vi.waitFor(() => {
+      const calls = vi.mocked(invokeEdgeFunction).mock.calls;
+      const dupCall = calls.find(c => c[0] === 'detect_duplicate_garment');
+      expect(dupCall).toBeDefined();
+      expect(dupCall![1]).toEqual({
+        body: expect.objectContaining({
+          category: 'tops',
+          color_primary: '#1a2a5e',
+          exclude_garment_id: 'test-uuid',
+        }),
+      });
+    });
   });
 });

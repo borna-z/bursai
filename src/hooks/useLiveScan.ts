@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { compressImage } from '@/lib/imageCompression';
-import { compressFrame } from '@/lib/compressFrame';
+import { compressCenterCrop } from '@/lib/compressFrame';
 import { saveGarmentInBackground } from '@/lib/backgroundGarmentSave';
 import type { GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
 
@@ -12,6 +12,7 @@ export interface ScanResult {
   analysis: GarmentAnalysis;
   thumbnailUrl: string;
   blob: Blob;
+  confidence?: number;
 }
 
 export function useLiveScan() {
@@ -32,7 +33,7 @@ export function useLiveScan() {
   }, []);
 
   /**
-   * Capture the current video frame, compress, and send to AI for analysis.
+   * Capture the current video frame with center-crop, compress, and send to AI for fast analysis.
    */
   const capture = useCallback(async (videoEl: HTMLVideoElement) => {
     if (!user || isProcessing) return;
@@ -42,11 +43,12 @@ export function useLiveScan() {
 
     try {
       const canvas = getCanvas();
-      const { blob, base64 } = await compressFrame(canvas, videoEl);
+      // Center-crop to focus on the garment in the reticle
+      const { blob, base64 } = await compressCenterCrop(canvas, videoEl);
       const thumbnailUrl = URL.createObjectURL(blob);
 
-      const { data, error: fnError } = await invokeEdgeFunction<GarmentAnalysis & { error?: string }>('analyze_garment', {
-        body: { base64Image: base64 },
+      const { data, error: fnError } = await invokeEdgeFunction<GarmentAnalysis & { error?: string; confidence?: number }>('analyze_garment', {
+        body: { base64Image: base64, mode: 'fast' },
       });
 
       if (fnError || data?.error) {
@@ -55,7 +57,8 @@ export function useLiveScan() {
         return;
       }
 
-      setLastResult({ analysis: data as GarmentAnalysis, thumbnailUrl, blob });
+      const confidence = typeof data?.confidence === 'number' ? data.confidence : undefined;
+      setLastResult({ analysis: data as GarmentAnalysis, thumbnailUrl, blob, confidence });
       hapticMedium();
     } catch (err) {
       console.error('Capture error:', err);
@@ -85,8 +88,8 @@ export function useLiveScan() {
         reader.readAsDataURL(blob);
       });
 
-      const { data, error: fnError } = await invokeEdgeFunction<GarmentAnalysis & { error?: string }>('analyze_garment', {
-        body: { base64Image: base64 },
+      const { data, error: fnError } = await invokeEdgeFunction<GarmentAnalysis & { error?: string; confidence?: number }>('analyze_garment', {
+        body: { base64Image: base64, mode: 'fast' },
       });
 
       if (fnError || data?.error) {
@@ -95,7 +98,8 @@ export function useLiveScan() {
         return;
       }
 
-      setLastResult({ analysis: data as GarmentAnalysis, thumbnailUrl: previewUrl, blob });
+      const confidence = typeof data?.confidence === 'number' ? data.confidence : undefined;
+      setLastResult({ analysis: data as GarmentAnalysis, thumbnailUrl: previewUrl, blob, confidence });
       hapticMedium();
     } catch (err) {
       console.error('File capture error:', err);
@@ -106,7 +110,7 @@ export function useLiveScan() {
   }, [user, isProcessing]);
 
   /**
-   * Accept the last scanned result: upload image + save garment in background.
+   * Accept the last scanned result: upload image + save garment + trigger Stage 2 enrichment in background.
    */
   const accept = useCallback(() => {
     if (!lastResult || !user) return;
