@@ -121,7 +121,7 @@ export default function HomePage() {
               initial="initial"
               animate="animate"
               transition={reveal.transition}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/[0.06] border border-primary/10"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl surface-secondary"
             >
               <CloudRain className="w-4 h-4 text-primary shrink-0" />
               <p className="text-[12px] text-foreground/80 leading-snug flex-1">

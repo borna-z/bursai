@@ -41,7 +41,7 @@ export function InsightsBanner() {
 
   return (
     <div
-      className="w-full flex items-center gap-4 rounded-2xl bg-card/50 backdrop-blur border border-border/20 p-4 text-left"
+      className="w-full flex items-center gap-4 rounded-2xl surface-interactive p-4 text-left"
     >
       <MiniUsageRing percentage={insights.usageRate} />
 

@@ -43,7 +43,7 @@ export function AdjustDaySection({
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <div className="rounded-2xl bg-foreground/[0.02] border border-border/30 overflow-hidden">
+      <div className="rounded-2xl surface-secondary overflow-hidden">
         <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-3.5">
           <span className="text-sm font-medium">{t('home.adjust_day')}</span>
           <motion.span

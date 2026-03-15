@@ -206,7 +206,7 @@ export function WardrobeGapSection() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="rounded-xl border border-border/10 bg-card/60 p-5 text-center space-y-2"
+          className="rounded-xl surface-secondary p-5 text-center space-y-2"
         >
           <ShoppingBag className="w-6 h-6 text-muted-foreground/40 mx-auto" />
           <p className="text-[12px] text-muted-foreground/60">{t('discover.gap_complete')}</p>
