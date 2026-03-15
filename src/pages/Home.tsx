@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Settings, Heart, Sparkles, CalendarDays, CloudRain, Shirt, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
+import { enUS, nb } from 'date-fns/locale';
 
 import { useProfile } from '@/hooks/useProfile';
 import { AnimatedPage } from '@/components/ui/animated-page';
