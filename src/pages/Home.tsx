@@ -220,12 +220,41 @@ export default function HomePage() {
                 </div>
               </motion.div>
             ) : (
-              <AISuggestions isPremium={isPremium} />
+              /* no_outfit — simple generate CTA */
+              <motion.div
+                variants={reveal.variants}
+                initial="initial"
+                animate="animate"
+                transition={reveal.transition}
+                className="rounded-2xl bg-foreground/[0.02] border border-border/30 p-8 text-center space-y-4"
+              >
+                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
+                  <Sparkles className="w-6 h-6 text-primary/60" />
+                </div>
+                <div className="space-y-1.5">
+                  <h3 className="text-[15px] font-semibold">{t('home.no_outfit_title')}</h3>
+                  <p className="text-[12px] text-muted-foreground/60 max-w-[240px] mx-auto">
+                    {t('home.no_outfit_desc')}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => { hapticLight(); navigate('/style-picker'); }}
+                  className="w-full max-w-[200px] h-11"
+                >
+                  {t('home.generate_now')}
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </motion.div>
             )}
           </FadeReplace>
 
           {/* ── 3. Quick Actions — secondary shortcuts ── */}
           <QuickActionsRow />
+
+          {/* ── 3b. AI Suggestions — always visible with 3+ garments ── */}
+          {(garmentCount || 0) >= 3 && (
+            <AISuggestions isPremium={isPremium} />
+          )}
 
           {/* ── 4. Tertiary: Wardrobe Gap + Mood ── */}
           {(garmentCount || 0) >= 3 && (
