@@ -246,28 +246,25 @@ export default function OutfitDetailPage() {
         .filter((item) => item.id !== outfitItemId && item.garment?.color_primary)
         .map((item) => item.garment!.color_primary.toLowerCase()) || [];
 
-    const outfitWeather = outfit?.weather as OutfitWeather | undefined;
+    const outfitWeather = outfit?.weather as Record<string, unknown> | undefined;
+    const normalizedWeather = normalizeWeather(outfitWeather);
 
-    const normalizedWeather = {
-      temperature:
-        typeof outfitWeather?.temp === 'number'
-          ? outfitWeather.temp
-          : currentWeather?.temperature,
-      precipitation:
-        typeof outfitWeather?.precipitation === 'string'
-          ? outfitWeather.precipitation
-          : currentWeather?.precipitation || 'none',
-      wind:
-        typeof outfitWeather?.wind === 'string'
-          ? outfitWeather.wind
-          : currentWeather?.wind || 'low',
+    // Merge with current live weather as fallback
+    const mergedWeather = {
+      temperature: normalizedWeather.temperature ?? currentWeather?.temperature,
+      precipitation: normalizedWeather.precipitation !== 'none'
+        ? normalizedWeather.precipitation
+        : currentWeather?.precipitation || 'none',
+      wind: normalizedWeather.wind !== 'low'
+        ? normalizedWeather.wind
+        : currentWeather?.wind || 'low',
     };
 
     return {
       otherItems,
       otherColors,
       occasion: outfit?.occasion || 'vardag',
-      weather: normalizedWeather,
+      weather: mergedWeather,
     };
   };
 
