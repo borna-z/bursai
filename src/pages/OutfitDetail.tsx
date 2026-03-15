@@ -5,7 +5,7 @@ import { nativeShare } from '@/lib/nativeShare';
 import { normalizeWeather } from '@/lib/outfitContext';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
-  ArrowLeft, Star, Bookmark, BookmarkCheck, Check, RefreshCw, Share2,
+  ArrowLeft, Star, Bookmark, BookmarkCheck, Check, RefreshCw, Share2, Loader2,
   Sparkles, Copy, Download, Link, Link2Off, Calendar, Thermometer, ThermometerSnowflake, Shirt, Briefcase,
   Heart, Frown, Palette, Meh, Camera,
 } from 'lucide-react';
