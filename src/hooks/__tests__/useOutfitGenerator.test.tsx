@@ -136,28 +136,37 @@ describe('useOutfitGenerator', () => {
   it('validates wardrobe — passes for dress + shoes', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
 
-    const validationData = [{ category: 'dress' }, { category: 'shoes' }];
+    const validationData = [{ category: 'dress', subcategory: null }, { category: 'shoes', subcategory: 'sneakers' }];
     const garments = [
       { id: 'g-d', category: 'dress' },
       { id: 'g-s', category: 'shoes' },
     ];
 
-    const chain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      in: vi.fn().mockImplementation((_col: string, vals: string[]) => {
-        if (vals.includes('dress')) {
-          return Promise.resolve({ data: validationData, error: null });
-        }
-        return Promise.resolve({ data: garments, error: null });
-      }),
-      insert: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: { id: 'o-2', occasion: 'casual', style_vibe: null }, error: null }),
+    let fromCallCount = 0;
+    mockFrom.mockImplementation(() => {
+      fromCallCount++;
+      if (fromCallCount === 1) {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: validationData, error: null }),
+          }),
+        };
+      }
+      if (fromCallCount === 2) {
+        return {
+          select: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({ data: garments, error: null }),
+          }),
+        };
+      }
+      return {
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: { id: 'o-2', occasion: 'casual', style_vibe: null }, error: null }),
+          }),
         }),
-      }),
-    };
-    mockFrom.mockReturnValue(chain);
+      };
+    });
 
     vi.mocked(invokeEdgeFunction).mockResolvedValue({
       data: {
