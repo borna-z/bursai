@@ -1685,7 +1685,7 @@ function buildCombos(
           toComboItem(b, "bottom"),
           toComboItem(s, "shoes"),
         ]);
-        combos.push(scoreCombo(items, recentOutfitSets, body, occasion, style, weather));
+        combos.push(scoreCombo(items, recentOutfitSets, body, occasion, style, weather, prefs));
       }
     }
   }
