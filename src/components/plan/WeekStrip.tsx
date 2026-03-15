@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { format, addDays, isSameDay, isToday } from 'date-fns';
 import { motion } from 'framer-motion';
-import { SPRING_BOUNCE } from '@/lib/motion';
+import { SPRING_SUBTLE } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getDateFnsLocale } from '@/lib/dateLocale';
