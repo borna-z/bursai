@@ -2505,7 +2505,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const [garmentsRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes, laundryCountRes] = await Promise.all([
+    const [garmentsRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes, laundryCountRes, pairMemoryRes] = await Promise.all([
       supabase
         .from("garments")
         .select("id, title, category, subcategory, color_primary, color_secondary, pattern, material, fit, formality, season_tags, wear_count, last_worn_at, image_path")
