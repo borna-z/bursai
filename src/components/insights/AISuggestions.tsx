@@ -155,11 +155,11 @@ function HeroSlide({ suggestion, onTryIt, onPlan, isCreating }: HeroSlideProps) 
             </>
           )}
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onPlan}
-          className="h-9 px-3 text-xs text-muted-foreground"
+         <Button
+           variant="ghost"
+           size="sm"
+           onClick={onPlan}
+           className="h-10 px-3 text-xs text-muted-foreground"
         >
           <Calendar className="w-3.5 h-3.5 mr-1" />
           {t('plan.plan')}
