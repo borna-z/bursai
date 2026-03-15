@@ -92,12 +92,6 @@ export default function MoodOutfitPage() {
     }
   };
 
-  const loadingPhases = [
-    { icon: Sparkles, label: t('ai.mood_feeling') || 'Feeling the mood...', duration: 1200 },
-    { icon: Palette, label: t('generate.phase_matching'), duration: 1500 },
-    { icon: Wand2, label: t('generate.phase_creating'), duration: 0 },
-  ];
-
   return (
     <AppLayout>
       <PageHeader title={t('ai.mood_title')} showBack />
