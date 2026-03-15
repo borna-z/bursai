@@ -48,7 +48,7 @@ export function EmptyState({
         transition={{ duration: 0.5, delay: 0.1, type: 'spring', stiffness: 200 }}
         className={cn(
           'rounded-3xl bg-muted/30 flex items-center justify-center',
-          compact ? 'w-14 h-14 mb-5' : 'w-20 h-20 mb-8',
+          compact ? 'w-14 h-14 mb-6' : 'w-20 h-20 mb-10',
         )}
       >
         <Icon className={cn('text-muted-foreground', compact ? 'w-6 h-6' : 'w-8 h-8')} />
