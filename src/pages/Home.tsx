@@ -88,7 +88,7 @@ export default function HomePage() {
   return (
     <AppLayout>
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="px-4 pb-24 pt-6 space-y-5 max-w-lg mx-auto">
+        <AnimatedPage className="px-5 pb-28 pt-8 space-y-6 max-w-lg mx-auto">
           {/* ── 1. Greeting ── */}
           <motion.div
             variants={hero.variants}
