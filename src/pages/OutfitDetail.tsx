@@ -421,12 +421,13 @@ export default function OutfitDetailPage() {
     );
   }
 
-  const weather = outfit.weather as OutfitWeather | null;
+  const weather = outfit.weather as Record<string, unknown> | null;
+  const normalizedOutfitWeather = normalizeWeather(weather);
   const displayOccasion = getOccasionLabel(outfit.occasion, t);
 
   // Build metadata pieces
   const metaParts = [displayOccasion, outfit.style_vibe].filter(Boolean);
-  if (weather?.temp !== undefined) metaParts.push(`${weather.temp}°C`);
+  if (normalizedOutfitWeather.temperature !== undefined) metaParts.push(`${normalizedOutfitWeather.temperature}°C`);
 
   return (
     <div className="min-h-screen bg-background">
