@@ -3408,7 +3408,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'share.download_error': 'Could not download image',
     'share.style_label': 'Style:',
     'share.unknown_garment': 'Unknown garment',
-    'share.watermark': 'Created with Wardrobe AI',
+    'share.watermark': 'Created with BURS',
     'share.cta_free_title': 'Create your own wardrobe for free',
     'share.cta_free_desc': 'Get AI-generated outfits based on your own clothes',
     'share.cta_free_button': 'Get started free',
