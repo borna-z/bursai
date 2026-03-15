@@ -248,7 +248,7 @@ export default function InsightsPage() {
                       <span className="text-lg font-bold tabular-nums">{sustainability.utilizationRate}%</span>
                       <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.utilization')}</p>
                     </div>
-                    <div className="rounded-xl bg-muted/40 p-3 text-center">
+                     <div className="rounded-xl surface-secondary p-3 text-center">
                       <span className="text-lg font-bold tabular-nums">{sustainability.avgWearCount}×</span>
                       <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.avg_wears')}</p>
                     </div>
