@@ -106,7 +106,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
               handleWearThis();
             }
           }}
-          className="grid grid-cols-2 gap-1.5 cursor-grab active:cursor-grabbing"
+          className="grid grid-cols-2 gap-2 cursor-grab active:cursor-grabbing"
         >
           {outfit.items.slice(0, 4).map((item) => (
             <div
