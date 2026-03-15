@@ -89,7 +89,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [profile, updateProfile]);
 
   const t = useCallback((key: string): string => {
-    return dict[key] ?? enDict[key] ?? key;
+    const value = dict[key] ?? enDict[key];
+    if (value != null) return value;
+    if (import.meta.env.DEV) {
+      console.warn(`[i18n] Missing translation key: "${key}"`);
+    }
+    return key;
   }, [dict, enDict]);
 
   return (
