@@ -76,7 +76,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
   if (isGenerating && !outfit) {
     return (
       <div className="space-y-1">
-        <p className="text-xs text-muted-foreground/70 font-medium">{t('home.todays_outfit')}</p>
+        <p className="label-editorial">{t('home.todays_outfit')}</p>
         <OutfitGenerationState variant="compact" subtitle={occasion} />
       </div>
     );
