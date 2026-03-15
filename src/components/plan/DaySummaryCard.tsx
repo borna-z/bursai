@@ -68,7 +68,7 @@ function TransitionTimeline({
 
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-mono text-muted-foreground">{block.time_range}</span>
+                  <span className="text-[0.6875rem] font-mono text-muted-foreground/60 tabular-nums">{block.time_range}</span>
                   <Badge variant="secondary" className="text-[10px] gap-1 py-0">
                     <Icon className="w-3 h-3" />
                     {block.label}
