@@ -345,9 +345,9 @@ function AddFAB({ onPhoto, onScan, isOverLimit }: { onPhoto: () => void; onScan:
                   exit={{ opacity: 0, y: 10, scale: 0.9 }}
                   transition={{ duration: 0.25, delay: i * 0.06, ease: [0.25, 0.1, 0.25, 1] }}
                   onClick={() => handleAction(item.action)}
-                  className={cn(
-                    "flex items-center gap-3 pr-5 pl-1.5 py-1.5 rounded-full bg-card border border-border/30 shadow-xl",
-                    item.action === 'photo' && isOverLimit && "opacity-50"
+                   className={cn(
+                     "flex items-center gap-3 pr-5 pl-1.5 py-1.5 rounded-full bg-card border border-border/20 shadow-lg",
+                     item.action === 'photo' && isOverLimit && "opacity-50"
                   )}
                 >
                   <span className="w-10 h-10 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
