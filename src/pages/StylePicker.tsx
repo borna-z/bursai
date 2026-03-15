@@ -100,7 +100,7 @@ export default function StylePickerPage() {
               {t('common.back')}
             </Button>
             <Button size="sm" onClick={() => setErrorMessage(null)}>
-              {t('generate.try_again')}
+              {t('generate.retry')}
             </Button>
           </div>
         </div>
