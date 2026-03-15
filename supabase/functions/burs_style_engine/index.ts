@@ -2399,39 +2399,49 @@ function scoreSwapCandidates(
         dnaPreservation
       );
 
+      // Pair memory: score candidate against all other garments in the outfit
+      const swapPairIds = [garment.id, ...otherItems.map(i => i.garment.id)];
+      const pairMem = getPairMemoryScore(swapPairIds, pairMemory);
+
       let totalScore = 0;
 
       if (swapMode === 'safe') {
         totalScore =
-          base.score * 0.26 +
-          dnaPreservation * 0.32 +
-          colorHarmony * 0.12 +
-          materialCompat * 0.08 +
-          formalityAlignment * 0.10 +
-          fitConsistency * 0.07 +
-          practicality * 0.05;
-      } else if (swapMode === 'bold') {
-        totalScore =
-          base.score * 0.22 +
-          dnaPreservation * 0.17 +
-          colorHarmony * 0.12 +
-          materialCompat * 0.06 +
-          formalityAlignment * 0.10 +
-          fitConsistency * 0.05 +
-          practicality * 0.05 +
-          expressiveLift * 0.18 +
-          freshness * 0.05;
-      } else {
-        totalScore =
-          base.score * 0.23 +
-          dnaPreservation * 0.18 +
-          colorHarmony * 0.12 +
+          base.score * 0.24 +
+          dnaPreservation * 0.30 +
+          colorHarmony * 0.11 +
           materialCompat * 0.07 +
           formalityAlignment * 0.09 +
           fitConsistency * 0.06 +
           practicality * 0.05 +
+          pairMem.boost * 0.08 -
+          pairMem.penalty * 0.10;
+      } else if (swapMode === 'bold') {
+        totalScore =
+          base.score * 0.20 +
+          dnaPreservation * 0.15 +
+          colorHarmony * 0.11 +
+          materialCompat * 0.05 +
+          formalityAlignment * 0.09 +
+          fitConsistency * 0.04 +
+          practicality * 0.05 +
+          expressiveLift * 0.17 +
+          freshness * 0.05 +
+          pairMem.boost * 0.06 -
+          pairMem.penalty * 0.08;
+      } else {
+        totalScore =
+          base.score * 0.21 +
+          dnaPreservation * 0.16 +
+          colorHarmony * 0.11 +
+          materialCompat * 0.06 +
+          formalityAlignment * 0.08 +
+          fitConsistency * 0.05 +
+          practicality * 0.05 +
           expressiveLift * 0.06 +
-          freshness * 0.14;
+          freshness * 0.13 +
+          pairMem.boost * 0.06 -
+          pairMem.penalty * 0.08;
       }
 
       if (formalityAlignment < 4.5) totalScore -= 1.5;
@@ -2454,6 +2464,8 @@ function scoreSwapCandidates(
           practicality,
           expressive_lift: expressiveLift,
           freshness,
+          pair_memory_boost: pairMem.boost,
+          pair_memory_penalty: pairMem.penalty,
           swap_mode: swapMode === 'safe' ? 1 : swapMode === 'bold' ? 2 : 3,
         },
       } as ScoredGarment;
