@@ -275,6 +275,60 @@ export type Database = {
         }
         Relationships: []
       }
+      garment_pair_memory: {
+        Row: {
+          created_at: string
+          garment_a_id: string
+          garment_b_id: string
+          id: string
+          last_negative_at: string | null
+          last_positive_at: string | null
+          negative_count: number
+          positive_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          garment_a_id: string
+          garment_b_id: string
+          id?: string
+          last_negative_at?: string | null
+          last_positive_at?: string | null
+          negative_count?: number
+          positive_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          garment_a_id?: string
+          garment_b_id?: string
+          id?: string
+          last_negative_at?: string | null
+          last_positive_at?: string | null
+          negative_count?: number
+          positive_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "garment_pair_memory_garment_a_id_fkey"
+            columns: ["garment_a_id"]
+            isOneToOne: false
+            referencedRelation: "garments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "garment_pair_memory_garment_b_id_fkey"
+            columns: ["garment_b_id"]
+            isOneToOne: false
+            referencedRelation: "garments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       garments: {
         Row: {
           ai_analyzed_at: string | null

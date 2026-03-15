@@ -673,6 +673,135 @@ function feedbackScore(garmentId: string, penalties: Map<string, GarmentPenalty>
 }
 
 // ─────────────────────────────────────────────
+// PAIR MEMORY (Learned pairing preferences)
+// ─────────────────────────────────────────────
+
+interface PairMemoryRow {
+  garment_a_id: string;
+  garment_b_id: string;
+  positive_count: number;
+  negative_count: number;
+  last_positive_at: string | null;
+  last_negative_at: string | null;
+}
+
+type PairMemoryMap = Map<string, PairMemoryRow>;
+
+function pairKey(idA: string, idB: string): string {
+  return idA < idB ? `${idA}|${idB}` : `${idB}|${idA}`;
+}
+
+function buildPairMemoryMap(rows: PairMemoryRow[]): PairMemoryMap {
+  const map: PairMemoryMap = new Map();
+  for (const row of rows) {
+    const key = pairKey(row.garment_a_id, row.garment_b_id);
+    map.set(key, row);
+  }
+  return map;
+}
+
+function getPairMemoryScore(
+  garmentIds: string[],
+  pairMemory: PairMemoryMap | null
+): { boost: number; penalty: number } {
+  if (!pairMemory || pairMemory.size === 0 || garmentIds.length < 2) {
+    return { boost: 0, penalty: 0 };
+  }
+
+  let boost = 0;
+  let penalty = 0;
+
+  for (let i = 0; i < garmentIds.length; i++) {
+    for (let j = i + 1; j < garmentIds.length; j++) {
+      const key = pairKey(garmentIds[i], garmentIds[j]);
+      const mem = pairMemory.get(key);
+      if (!mem) continue;
+
+      // Positive: diminishing returns, capped at 3
+      if (mem.positive_count > 0) {
+        const recency = mem.last_positive_at
+          ? Math.max(0.3, 1 - (Date.now() - new Date(mem.last_positive_at).getTime()) / (90 * 86400000))
+          : 0.5;
+        boost += Math.min(3, Math.log2(mem.positive_count + 1) * 1.2 * recency);
+      }
+
+      // Negative: linear with cap at 4
+      if (mem.negative_count > 0) {
+        const recency = mem.last_negative_at
+          ? Math.max(0.3, 1 - (Date.now() - new Date(mem.last_negative_at).getTime()) / (90 * 86400000))
+          : 0.5;
+        penalty += Math.min(4, mem.negative_count * 1.0 * recency);
+      }
+    }
+  }
+
+  // Normalize by number of pairs to keep influence bounded
+  const pairCount = (garmentIds.length * (garmentIds.length - 1)) / 2;
+  return {
+    boost: Math.min(3, boost / Math.max(1, pairCount) * 2),
+    penalty: Math.min(4, penalty / Math.max(1, pairCount) * 2),
+  };
+}
+
+async function recordPairOutcome(
+  serviceClient: any,
+  userId: string,
+  garmentIds: string[],
+  positive: boolean
+): Promise<void> {
+  if (garmentIds.length < 2) return;
+
+  const now = new Date().toISOString();
+  const upserts: any[] = [];
+
+  for (let i = 0; i < garmentIds.length; i++) {
+    for (let j = i + 1; j < garmentIds.length; j++) {
+      const a = garmentIds[i] < garmentIds[j] ? garmentIds[i] : garmentIds[j];
+      const b = garmentIds[i] < garmentIds[j] ? garmentIds[j] : garmentIds[i];
+      upserts.push({ a, b });
+    }
+  }
+
+  // Batch: read existing then upsert
+  for (const { a, b } of upserts) {
+    const { data: existing } = await serviceClient
+      .from("garment_pair_memory")
+      .select("id, positive_count, negative_count")
+      .eq("user_id", userId)
+      .eq("garment_a_id", a)
+      .eq("garment_b_id", b)
+      .maybeSingle();
+
+    if (existing) {
+      const update: Record<string, any> = { updated_at: now };
+      if (positive) {
+        update.positive_count = (existing.positive_count || 0) + 1;
+        update.last_positive_at = now;
+      } else {
+        update.negative_count = (existing.negative_count || 0) + 1;
+        update.last_negative_at = now;
+      }
+      await serviceClient
+        .from("garment_pair_memory")
+        .update(update)
+        .eq("id", existing.id);
+    } else {
+      await serviceClient
+        .from("garment_pair_memory")
+        .insert({
+          user_id: userId,
+          garment_a_id: a,
+          garment_b_id: b,
+          positive_count: positive ? 1 : 0,
+          negative_count: positive ? 0 : 1,
+          last_positive_at: positive ? now : null,
+          last_negative_at: positive ? null : now,
+        });
+    }
+  }
+}
+
+// ─────────────────────────────────────────────
 // STYLE PROFILE ALIGNMENT (Quiz-based)
 // ─────────────────────────────────────────────
 
@@ -1614,7 +1743,8 @@ function buildCombos(
   weather: WeatherInput,
   prefs: Record<string, any> | null,
   maxCombos: number = 10,
-  body: BodyProfile | null = null
+  body: BodyProfile | null = null,
+  pairMemory: PairMemoryMap | null = null
 ): ScoredCombo[] {
   const tops = slotCandidates['top'] || [];
   const bottoms = slotCandidates['bottom'] || [];
@@ -1643,7 +1773,7 @@ function buildCombos(
 
   const pushCombo = (items: ComboItem[]) => {
     combos.push(
-      scoreCombo(items, recentOutfitSets, occasion, weather, style, prefs, body)
+      scoreCombo(items, recentOutfitSets, occasion, weather, style, prefs, body, pairMemory)
     );
   };
 
@@ -1768,7 +1898,8 @@ function scoreCombo(
   weather: WeatherInput,
   style: string | null,
   prefs: Record<string, any> | null,
-  body: BodyProfile | null = null
+  body: BodyProfile | null = null,
+  pairMemory: PairMemoryMap | null = null
 ): ScoredCombo {
   const colors = items
     .map((item) => getHSL(item.garment.color_primary))
@@ -1805,15 +1936,21 @@ function scoreCombo(
   const occasionScore = occasionTemplateScore(items, occasion, weather);
   const practicality = weatherPracticalityScore(items, weather);
 
+  // Pair memory scoring
+  const garmentIds = items.map(i => i.garment.id);
+  const pairMem = getPairMemoryScore(garmentIds, pairMemory);
+
   const totalScore =
-    avgBaseScore * 0.34 +
-    colorScore * 0.16 +
-    matScore * 0.08 +
-    formalityConsistency * 0.12 +
-    fitScore * 0.10 +
-    styleScore * 0.10 +
-    occasionScore * 0.10 +
-    practicality * 0.10 -
+    avgBaseScore * 0.32 +
+    colorScore * 0.15 +
+    matScore * 0.07 +
+    formalityConsistency * 0.11 +
+    fitScore * 0.09 +
+    styleScore * 0.09 +
+    occasionScore * 0.09 +
+    practicality * 0.08 +
+    pairMem.boost -
+    pairMem.penalty -
     repetitionPenalty;
 
   const finalScore = Math.max(0, totalScore);
@@ -1835,6 +1972,8 @@ function scoreCombo(
       practicality,
       fitProportion: fitScore,
       repetitionPenalty,
+      pair_memory_boost: pairMem.boost,
+      pair_memory_penalty: pairMem.penalty,
     },
   };
 }
@@ -2204,7 +2343,8 @@ function scoreSwapCandidates(
   weather: WeatherInput,
   penalties: Map<string, GarmentPenalty>,
   prefs: Record<string, any> | null,
-  swapMode: SwapMode = 'safe'
+  swapMode: SwapMode = 'safe',
+  pairMemory: PairMemoryMap | null = null
 ): ScoredGarment[] {
   const currentGarment = allGarments.find((g) => g.id === currentGarmentId) || null;
 
@@ -2259,39 +2399,49 @@ function scoreSwapCandidates(
         dnaPreservation
       );
 
+      // Pair memory: score candidate against all other garments in the outfit
+      const swapPairIds = [garment.id, ...otherItems.map(i => i.garment.id)];
+      const pairMem = getPairMemoryScore(swapPairIds, pairMemory);
+
       let totalScore = 0;
 
       if (swapMode === 'safe') {
         totalScore =
-          base.score * 0.26 +
-          dnaPreservation * 0.32 +
-          colorHarmony * 0.12 +
-          materialCompat * 0.08 +
-          formalityAlignment * 0.10 +
-          fitConsistency * 0.07 +
-          practicality * 0.05;
-      } else if (swapMode === 'bold') {
-        totalScore =
-          base.score * 0.22 +
-          dnaPreservation * 0.17 +
-          colorHarmony * 0.12 +
-          materialCompat * 0.06 +
-          formalityAlignment * 0.10 +
-          fitConsistency * 0.05 +
-          practicality * 0.05 +
-          expressiveLift * 0.18 +
-          freshness * 0.05;
-      } else {
-        totalScore =
-          base.score * 0.23 +
-          dnaPreservation * 0.18 +
-          colorHarmony * 0.12 +
+          base.score * 0.24 +
+          dnaPreservation * 0.30 +
+          colorHarmony * 0.11 +
           materialCompat * 0.07 +
           formalityAlignment * 0.09 +
           fitConsistency * 0.06 +
           practicality * 0.05 +
+          pairMem.boost * 0.08 -
+          pairMem.penalty * 0.10;
+      } else if (swapMode === 'bold') {
+        totalScore =
+          base.score * 0.20 +
+          dnaPreservation * 0.15 +
+          colorHarmony * 0.11 +
+          materialCompat * 0.05 +
+          formalityAlignment * 0.09 +
+          fitConsistency * 0.04 +
+          practicality * 0.05 +
+          expressiveLift * 0.17 +
+          freshness * 0.05 +
+          pairMem.boost * 0.06 -
+          pairMem.penalty * 0.08;
+      } else {
+        totalScore =
+          base.score * 0.21 +
+          dnaPreservation * 0.16 +
+          colorHarmony * 0.11 +
+          materialCompat * 0.06 +
+          formalityAlignment * 0.08 +
+          fitConsistency * 0.05 +
+          practicality * 0.05 +
           expressiveLift * 0.06 +
-          freshness * 0.14;
+          freshness * 0.13 +
+          pairMem.boost * 0.06 -
+          pairMem.penalty * 0.08;
       }
 
       if (formalityAlignment < 4.5) totalScore -= 1.5;
@@ -2314,6 +2464,8 @@ function scoreSwapCandidates(
           practicality,
           expressive_lift: expressiveLift,
           freshness,
+          pair_memory_boost: pairMem.boost,
+          pair_memory_penalty: pairMem.penalty,
           swap_mode: swapMode === 'safe' ? 1 : swapMode === 'bold' ? 2 : 3,
         },
       } as ScoredGarment;
@@ -2355,7 +2507,24 @@ serve(async (req) => {
     const userId = claimsData.claims.sub as string;
 
     const body = await req.json();
-    const mode: string = body.mode || "generate"; // "generate" | "suggest" | "swap"
+    const mode: string = body.mode || "generate"; // "generate" | "suggest" | "swap" | "record_pair"
+
+    // ── RECORD PAIR OUTCOME (lightweight, early return) ──
+    if (mode === "record_pair") {
+      const garmentIds: string[] = body.garment_ids || [];
+      const positive: boolean = body.positive !== false;
+      if (garmentIds.length >= 2) {
+        const svc = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+        );
+        await recordPairOutcome(svc, userId, garmentIds, positive);
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const occasion: string = body.occasion || "vardag";
     const style: string | null = body.style || null;
     const weather: WeatherInput = body.weather || { precipitation: "none", wind: "low" };
@@ -2376,7 +2545,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const [garmentsRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes, laundryCountRes] = await Promise.all([
+    const [garmentsRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes, laundryCountRes, pairMemoryRes] = await Promise.all([
       supabase
         .from("garments")
         .select("id, title, category, subcategory, color_primary, color_secondary, pattern, material, fit, formality, season_tags, wear_count, last_worn_at, image_path")
@@ -2411,6 +2580,12 @@ serve(async (req) => {
         .select("id, title, category", { count: "exact", head: false })
         .eq("user_id", userId)
         .eq("in_laundry", true),
+      // Fetch pair memory for learned pairing preferences
+      supabase
+        .from("garment_pair_memory")
+        .select("garment_a_id, garment_b_id, positive_count, negative_count, last_positive_at, last_negative_at")
+        .eq("user_id", userId)
+        .limit(500),
     ]);
 
     if (garmentsRes.error) throw garmentsRes.error;
@@ -2458,6 +2633,9 @@ serve(async (req) => {
     }
     const penalties = buildFeedbackPenalties(feedbackSignals);
 
+    // Build pair memory from DB
+    const pairMemory = buildPairMemoryMap((pairMemoryRes.data || []) as PairMemoryRow[]);
+
     // Build wear pattern profile and style vector from historical wear logs
     const wearLogs = (wearLogsRes.data || []) as WearLog[];
     const wearPatterns = wearLogs.length > 0
@@ -2495,7 +2673,7 @@ serve(async (req) => {
         .filter(i => i.garment);
 
       const candidates = scoreSwapCandidates(
-        swapSlot, currentGarmentId, otherItems, garments, occasion, weather, penalties, preferences, swapMode
+        swapSlot, currentGarmentId, otherItems, garments, occasion, weather, penalties, preferences, swapMode, pairMemory
       );
 
       return new Response(JSON.stringify({
@@ -2529,7 +2707,7 @@ serve(async (req) => {
     }
 
     // Build combos
-    const combos = buildCombos(slotCandidates, recentOutfitSets, occasion, style, weather, preferences, 10, bodyProfile);
+    const combos = buildCombos(slotCandidates, recentOutfitSets, occasion, style, weather, preferences, 10, bodyProfile, pairMemory);
 
     if (combos.length === 0) {
       return new Response(
