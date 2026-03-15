@@ -28,13 +28,13 @@ export function SmartInsightCard() {
         <Lightbulb className="w-4 h-4 text-accent" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs text-muted-foreground leading-relaxed">{hint}</p>
+        <p className="text-[0.75rem] text-muted-foreground/80 leading-relaxed">{hint}</p>
       </div>
       <Button
         variant="ghost"
         size="sm"
         onClick={() => { hapticLight(); navigate('/outfits/unused'); }}
-        className="text-xs text-accent font-medium flex-shrink-0 h-8 px-3"
+        className="text-[0.75rem] text-accent font-semibold flex-shrink-0 h-8 px-3 tracking-[-0.01em]"
       >
         {t('home.use_them')}
       </Button>

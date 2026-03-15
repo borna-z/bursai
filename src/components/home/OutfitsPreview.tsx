@@ -22,7 +22,7 @@ export function OutfitsPreview() {
         <SectionHeader title={t('home.suggestions')} />
         <button
           onClick={() => navigate('/outfits')}
-          className="flex items-center gap-0.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+          className="flex items-center gap-0.5 text-[0.6875rem] font-semibold text-muted-foreground/60 hover:text-foreground transition-colors tracking-wide"
         >
           {t('common.see_all')}
           <ChevronRight className="w-3 h-3" />
@@ -60,7 +60,7 @@ function OutfitMiniCard({ outfit, onTap }: { outfit: OutfitWithItems; onTap: () 
         ))}
       </div>
       <div className="px-2.5 pb-2 pt-0.5">
-        <span className="inline-block px-2 py-0.5 rounded-full bg-foreground/[0.05] text-[10px] font-medium text-muted-foreground">
+        <span className="inline-block px-2 py-0.5 rounded-full bg-foreground/[0.05] text-[0.625rem] font-semibold text-muted-foreground/70 uppercase tracking-[0.05em]">
           {getOccasionLabel(outfit.occasion, t)}
         </span>
       </div>

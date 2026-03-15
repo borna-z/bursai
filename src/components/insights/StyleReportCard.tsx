@@ -51,7 +51,7 @@ export function StyleReportCard({ isPremium }: { isPremium: boolean }) {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Award className="w-4 h-4 text-muted-foreground/50" />
-        <span className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wider">
+        <span className="label-editorial">
           {t('insights.style_report')}
         </span>
       </div>
@@ -86,10 +86,10 @@ export function StyleReportCard({ isPremium }: { isPremium: boolean }) {
             >
               {/* Archetype badge */}
               <div className="text-center py-3">
-                <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-semibold">
+                <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[0.8125rem] font-bold tracking-[-0.01em]">
                   {report.archetype}
                 </span>
-                <p className="text-xs text-muted-foreground mt-2">{t('insights.your_archetype')}</p>
+                <p className="caption mt-2">{t('insights.your_archetype')}</p>
               </div>
 
               {/* Scores */}
@@ -123,9 +123,9 @@ function ScorePill({ label, value }: { label: string; value: number }) {
   const pct = Math.min(Math.max(value, 0), 100);
   return (
     <div className="rounded-xl bg-muted/40 border border-border/10 p-3 text-center">
-      <span className="text-xl font-bold tabular-nums">{pct}</span>
-      <span className="text-xs text-muted-foreground/60">/100</span>
-      <p className="text-[10px] text-muted-foreground/60 mt-0.5">{label}</p>
+      <span className="text-[1.375rem] font-bold tabular-nums tracking-tight">{pct}</span>
+      <span className="text-[0.6875rem] text-muted-foreground/50 font-medium">/100</span>
+      <p className="caption mt-1">{label}</p>
     </div>
   );
 }

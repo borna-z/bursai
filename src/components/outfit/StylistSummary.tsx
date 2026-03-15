@@ -138,8 +138,8 @@ export function StylistSummary({
             )} />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-sm">{t('stylist.title')}</h3>
-            <p className="text-sm text-muted-foreground mt-1">{summary}</p>
+            <h3 className="font-bold text-[0.8125rem] tracking-[-0.01em]">{t('stylist.title')}</h3>
+            <p className="text-[0.8125rem] text-muted-foreground/80 mt-1 leading-relaxed">{summary}</p>
           </div>
         </div>
         

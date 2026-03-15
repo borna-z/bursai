@@ -79,7 +79,7 @@ export function DayCard({
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Calendar className={cn('w-4 h-4', isToday(date) ? 'text-primary' : 'text-muted-foreground')} />
-            <h3 className={cn('font-semibold text-sm capitalize', isToday(date) && 'text-primary')}>
+            <h3 className={cn('font-bold text-[0.8125rem] tracking-[-0.01em] capitalize', isToday(date) && 'text-primary')}>
               {dateLabel}
             </h3>
             {isWorn && (
@@ -113,7 +113,7 @@ export function DayCard({
               {outfit.style_vibe && (<Badge variant="outline" className="text-xs">{outfit.style_vibe}</Badge>)}
             </div>
 
-            {outfit.explanation && (<p className="text-xs text-muted-foreground line-clamp-1 mb-3">{outfit.explanation}</p>)}
+            {outfit.explanation && (<p className="text-[0.75rem] text-muted-foreground/70 line-clamp-1 mb-3 leading-relaxed">{outfit.explanation}</p>)}
 
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={() => { hapticLight(); onSwap(); }} className="flex-1">

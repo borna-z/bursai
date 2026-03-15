@@ -76,7 +76,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
   if (isGenerating && !outfit) {
     return (
       <div className="space-y-1">
-        <p className="text-xs text-muted-foreground/70 font-medium">{t('home.todays_outfit')}</p>
+        <p className="label-editorial">{t('home.todays_outfit')}</p>
         <OutfitGenerationState variant="compact" subtitle={occasion} />
       </div>
     );
@@ -88,7 +88,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
 
   return (
     <div className="rounded-2xl bg-foreground/[0.02] border border-border/30 p-4 space-y-4 relative overflow-hidden">
-      <p className="text-xs text-muted-foreground/70 font-medium">{t('home.todays_outfit')}</p>
+        <p className="label-editorial">{t('home.todays_outfit')}</p>
 
       {/* Garment grid — swipe right to wear */}
       <AnimatePresence mode="wait">
@@ -126,7 +126,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
       </AnimatePresence>
 
       {/* Swipe hint */}
-      <p className="text-[10px] text-muted-foreground/40 text-center -mt-1">
+      <p className="text-[0.625rem] text-muted-foreground/40 text-center -mt-1 tracking-wide">
         {t('home.swipe_to_wear') || 'Swipe right to wear →'}
       </p>
 
@@ -149,7 +149,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
         <Button
           onClick={handleWearThis}
           disabled={markWorn.isPending}
-          className="flex-1 h-12 text-sm font-semibold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl"
+          className="flex-1 h-12 text-[0.8125rem] font-bold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl tracking-[-0.01em]"
         >
           <Check className="w-4 h-4 mr-2" />
           {t('home.wear_this')}
@@ -159,7 +159,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
             variant="outline"
             onClick={handleTryAnother}
             disabled={isGenerating || showUpgradeHint}
-            className="w-full h-12 text-sm font-semibold rounded-xl border-border/50"
+            className="w-full h-12 text-[0.8125rem] font-bold rounded-xl border-border/50 tracking-[-0.01em]"
           >
             <Sparkles className="w-4 h-4 mr-2" />
             {t('home.try_another')}

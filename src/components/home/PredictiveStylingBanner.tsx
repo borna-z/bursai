@@ -42,8 +42,8 @@ export function PredictiveStylingBanner() {
         <Sparkles className="w-5 h-5 text-primary" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium">{t('home.predictive_title')}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">{t('home.predictive_desc')}</p>
+        <p className="text-[0.8125rem] font-bold tracking-[-0.01em]">{t('home.predictive_title')}</p>
+        <p className="text-[0.75rem] text-muted-foreground/70 mt-0.5 leading-relaxed">{t('home.predictive_desc')}</p>
       </div>
       <Clock className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
     </motion.button>

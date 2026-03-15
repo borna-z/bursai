@@ -68,13 +68,13 @@ function TransitionTimeline({
 
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-mono text-muted-foreground">{block.time_range}</span>
+                  <span className="text-[0.6875rem] font-mono text-muted-foreground/60 tabular-nums">{block.time_range}</span>
                   <Badge variant="secondary" className="text-[10px] gap-1 py-0">
                     <Icon className="w-3 h-3" />
                     {block.label}
                   </Badge>
                 </div>
-                <p className="text-xs text-foreground/80">{block.style_tip}</p>
+                <p className="text-[0.75rem] text-foreground/80 leading-relaxed">{block.style_tip}</p>
                 {block.transition_tip && (
                   <p className="text-[11px] text-primary/80 flex items-center gap-1">
                     <ArrowRight className="w-3 h-3 shrink-0" />
@@ -101,7 +101,7 @@ function TransitionTimeline({
       {/* Versatile pieces */}
       {versatilePieces.length > 0 && (
         <div className="pt-2 border-t border-border/50">
-          <p className="text-[11px] text-muted-foreground mb-1.5 font-medium">
+          <p className="label-editorial mb-1.5">
             {t('plan.versatile_pieces') || 'Works all day'}
           </p>
           <div className="flex flex-wrap gap-1.5">

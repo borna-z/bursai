@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { X } from 'lucide-react';
 
 const chipVariants = cva(
-  'inline-flex items-center gap-1.5 rounded-full text-sm font-medium transition-all cursor-pointer select-none active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 outline-none',
+  'inline-flex items-center gap-1.5 rounded-full text-[0.8125rem] font-semibold transition-all cursor-pointer select-none active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 outline-none',
   {
     variants: {
       variant: {

@@ -117,8 +117,8 @@ export function WeatherPill({ onWeatherChange }: WeatherPillProps) {
       <CollapsibleTrigger asChild>
         <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-foreground/[0.04] hover:bg-foreground/[0.07] transition-colors text-sm">
           <Icon className="w-4 h-4 text-foreground/70" />
-          <span className="font-medium tabular-nums">{weather.temperature}°</span>
-          <span className="text-muted-foreground text-xs">{t(weather.condition)}</span>
+          <span className="font-bold tabular-nums tracking-tight">{weather.temperature}°</span>
+          <span className="text-muted-foreground/70 text-[0.75rem]">{t(weather.condition)}</span>
           <ChevronDown className="w-3 h-3 text-muted-foreground/60 ml-0.5" />
         </button>
       </CollapsibleTrigger>
@@ -134,9 +134,9 @@ export function WeatherPill({ onWeatherChange }: WeatherPillProps) {
                 const label = dayDate.toLocaleDateString(bcp47, { weekday: 'short' });
                 return (
                   <div key={day.date} className="flex flex-col items-center gap-1 flex-1">
-                    <span className="text-[11px] text-muted-foreground capitalize">{label}</span>
+                    <span className="text-[0.6875rem] text-muted-foreground/60 capitalize font-medium">{label}</span>
                     <DayIcon className="w-4 h-4 text-foreground/60" />
-                    <span className="text-xs font-medium tabular-nums">{day.temperature_max}°/{day.temperature_min}°</span>
+                    <span className="text-[0.75rem] font-bold tabular-nums tracking-tight">{day.temperature_max}°/{day.temperature_min}°</span>
                   </div>
                 );
               })}

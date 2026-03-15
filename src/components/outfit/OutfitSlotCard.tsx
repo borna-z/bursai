@@ -82,16 +82,16 @@ export const OutfitSlotCard = memo(function OutfitSlotCard({
             onClick={() => navigate(`/wardrobe/${garmentId}`)}
           >
             {/* Slot name */}
-            <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+            <p className="label-editorial">
               {t(slotLabelKeys[slot] || slot)}
             </p>
             {/* Item title */}
-            <p className="font-semibold text-sm truncate mt-0.5">
+            <p className="font-bold text-[0.8125rem] tracking-[-0.01em] truncate mt-1">
               {garmentTitle || t('outfit.unknown')}
             </p>
             {/* Meta: color + category */}
-            <p className="text-xs text-muted-foreground capitalize mt-0.5">
-              {[garmentColor, garmentCategory].filter(Boolean).join(' • ')}
+            <p className="meta text-[0.75rem] capitalize mt-0.5">
+              {[garmentColor, garmentCategory].filter(Boolean).join(' · ')}
             </p>
           </div>
           
