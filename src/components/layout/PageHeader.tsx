@@ -55,13 +55,13 @@ export function PageHeader({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.2 }}
-                className="text-lg font-semibold truncate"
+                className="text-[1.0625rem] font-bold tracking-[-0.02em] truncate"
               >
                 {title}
               </motion.h1>
             </AnimatePresence>
             {subtitle && (
-              <p className="text-xs text-muted-foreground leading-relaxed">{subtitle}</p>
+              <p className="text-[0.75rem] text-muted-foreground/70 leading-relaxed tracking-wide">{subtitle}</p>
             )}
           </div>
         </div>

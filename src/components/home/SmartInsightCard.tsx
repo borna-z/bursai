@@ -34,7 +34,7 @@ export function SmartInsightCard() {
         variant="ghost"
         size="sm"
         onClick={() => { hapticLight(); navigate('/outfits/unused'); }}
-        className="text-xs text-accent font-medium flex-shrink-0 h-8 px-3"
+        className="text-[0.75rem] text-accent font-semibold flex-shrink-0 h-8 px-3 tracking-[-0.01em]"
       >
         {t('home.use_them')}
       </Button>

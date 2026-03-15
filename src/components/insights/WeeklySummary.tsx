@@ -94,8 +94,8 @@ export function WeeklySummary({ garments, wearLogs, isPremium }: WeeklySummaryPr
               className="w-12 h-12 rounded-lg flex-shrink-0"
             />
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm truncate">{mostWornThisWeek.title}</p>
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <p className="font-bold text-[0.8125rem] tracking-[-0.01em] truncate">{mostWornThisWeek.title}</p>
+              <p className="caption flex items-center gap-1 mt-0.5">
                 <Award className="w-3 h-3" />
                 {t('weekly.most_worn')}
               </p>

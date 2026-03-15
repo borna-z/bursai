@@ -134,9 +134,9 @@ export function WeatherPill({ onWeatherChange }: WeatherPillProps) {
                 const label = dayDate.toLocaleDateString(bcp47, { weekday: 'short' });
                 return (
                   <div key={day.date} className="flex flex-col items-center gap-1 flex-1">
-                    <span className="text-[11px] text-muted-foreground capitalize">{label}</span>
+                    <span className="text-[0.6875rem] text-muted-foreground/60 capitalize font-medium">{label}</span>
                     <DayIcon className="w-4 h-4 text-foreground/60" />
-                    <span className="text-xs font-medium tabular-nums">{day.temperature_max}°/{day.temperature_min}°</span>
+                    <span className="text-[0.75rem] font-bold tabular-nums tracking-tight">{day.temperature_max}°/{day.temperature_min}°</span>
                   </div>
                 );
               })}

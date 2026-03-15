@@ -101,7 +101,7 @@ function TransitionTimeline({
       {/* Versatile pieces */}
       {versatilePieces.length > 0 && (
         <div className="pt-2 border-t border-border/50">
-          <p className="text-[11px] text-muted-foreground mb-1.5 font-medium">
+          <p className="label-editorial mb-1.5">
             {t('plan.versatile_pieces') || 'Works all day'}
           </p>
           <div className="flex flex-wrap gap-1.5">

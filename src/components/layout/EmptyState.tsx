@@ -57,7 +57,7 @@ export function EmptyState({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className={cn('font-semibold mb-2', compact ? 'text-base' : 'text-lg')}
+        className={cn('font-bold tracking-[-0.02em] mb-2', compact ? 'text-base' : 'text-lg')}
       >
         {title}
       </motion.h3>
@@ -65,7 +65,7 @@ export function EmptyState({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
-        className="text-sm text-muted-foreground max-w-[280px] mb-6"
+        className="text-[0.8125rem] text-muted-foreground/80 max-w-[280px] mb-6 leading-relaxed"
       >
         {description}
       </motion.p>

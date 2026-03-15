@@ -60,7 +60,7 @@ function OutfitMiniCard({ outfit, onTap }: { outfit: OutfitWithItems; onTap: () 
         ))}
       </div>
       <div className="px-2.5 pb-2 pt-0.5">
-        <span className="inline-block px-2 py-0.5 rounded-full bg-foreground/[0.05] text-[10px] font-medium text-muted-foreground">
+        <span className="inline-block px-2 py-0.5 rounded-full bg-foreground/[0.05] text-[0.625rem] font-semibold text-muted-foreground/70 uppercase tracking-[0.05em]">
           {getOccasionLabel(outfit.occasion, t)}
         </span>
       </div>
