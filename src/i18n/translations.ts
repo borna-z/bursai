@@ -1052,6 +1052,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.less': 'Mindre',
     'common.retry': 'Försök igen',
     'common.error': 'Något gick fel',
+    'common.just_now': 'Just nu',
+
+    // Outfit score
+    'outfit.score.title': 'Stilpoäng',
+    'outfit.score.color': 'Färgharmoni',
+    'outfit.score.material': 'Materialmatchning',
+    'outfit.score.formality': 'Formalitetsbalans',
+    'outfit.score.overall': 'Helhetsbetyg',
 
     // Step 3 UX additions
     'home.select_occasion_hint': 'Välj tillfälle ovan',
