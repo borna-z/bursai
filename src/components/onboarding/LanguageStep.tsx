@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { SUPPORTED_LOCALES } from '@/i18n/translations';
+import { SUPPORTED_LOCALES } from '@/i18n/types';
 import bursLogoWhite from '@/assets/burs-logo-256-2.png';
 import bursLogoDark from '@/assets/burs-logo-256-2.png';
 import { useIsDark } from '@/hooks/useIsDark';

@@ -4,7 +4,7 @@ import { Infinity, Brain, CalendarDays, BarChart3, Image, Sparkles, ArrowRight, 
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getLocalizedPricing } from '@/lib/localizedPricing';
 import { ComparisonTable } from './ComparisonTable';
-import type { Locale } from '@/i18n/translations';
+import type { Locale } from '@/i18n/types';
 
 const FEATURES = [
   { icon: Infinity, label: 'landing.comp_garments', value: 'landing.comp_unlimited' },

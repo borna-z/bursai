@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { SUPPORTED_LOCALES, Locale } from '@/i18n/translations';
+import { SUPPORTED_LOCALES, type Locale } from '@/i18n/types';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { AccentColorPicker } from '@/components/settings/AccentColorPicker';
 import { AppLayout } from '@/components/layout/AppLayout';

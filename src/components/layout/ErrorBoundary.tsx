@@ -63,7 +63,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   t = (key: string): string => {
     const locale = getLocale();
-    return translations[locale]?.[key] ?? translations['en']?.[key] ?? translations['sv']?.[key] ?? key;
+    return ERROR_STRINGS[locale]?.[key] ?? ERROR_STRINGS['en']?.[key] ?? key;
   };
 
   render() {

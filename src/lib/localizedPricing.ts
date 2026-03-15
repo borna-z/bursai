@@ -1,4 +1,4 @@
-import type { Locale } from '@/i18n/translations';
+import type { Locale } from '@/i18n/types';
 
 export interface LocalizedPrice {
   monthly: string;
