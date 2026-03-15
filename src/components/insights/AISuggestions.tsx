@@ -279,7 +279,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
   }
 
   return (
-    <div className="rounded-2xl surface-hero py-4 px-4">
+    <div className="rounded-2xl surface-hero py-5 px-5">
       {/* Header */}
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
