@@ -259,4 +259,69 @@ describe('useOutfitGenerator', () => {
     expect(outfit!.id).toBe('outfit-1');
     expect(outfit!.items.length).toBe(3);
   });
+
+  it('rejects incomplete outfit — bottom + shoes + outerwear (no top)', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+
+    const validationData = [
+      { category: 'bottom', subcategory: 'pants' },
+      { category: 'shoes', subcategory: 'sneakers' },
+      { category: 'outerwear', subcategory: 'jacket' },
+    ];
+    // Need top in wardrobe to pass wardrobe validation
+    const wardrobeData = [
+      { category: 'top', subcategory: 'shirt' },
+      ...validationData,
+    ];
+    const garments = [
+      { id: 'g2', category: 'bottom' },
+      { id: 'g3', category: 'shoes' },
+      { id: 'g4', category: 'outerwear' },
+    ];
+
+    let fromCallCount = 0;
+    mockFrom.mockImplementation(() => {
+      fromCallCount++;
+      if (fromCallCount === 1) {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: wardrobeData, error: null }),
+          }),
+        };
+      }
+      if (fromCallCount === 2) {
+        return {
+          select: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({ data: garments, error: null }),
+          }),
+        };
+      }
+      return {
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: { id: 'o-bad', occasion: 'casual', style_vibe: null }, error: null }),
+          }),
+        }),
+      };
+    });
+
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: {
+        items: [
+          { slot: 'bottom', garment_id: 'g2' },
+          { slot: 'shoes', garment_id: 'g3' },
+          { slot: 'outerwear', garment_id: 'g4' },
+        ],
+        explanation: 'Missing top',
+        style_score: null,
+      },
+      error: null,
+    });
+
+    const { useOutfitGenerator } = await import('../useOutfitGenerator');
+    const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
+    await act(async () => {
+      await expect(result.current.generateOutfit(baseRequest)).rejects.toThrow(/incomplete/i);
+    });
+  });
 });

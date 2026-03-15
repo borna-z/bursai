@@ -33,6 +33,13 @@ export interface GeneratedOutfit {
 const INSUFFICIENT_GARMENTS_MESSAGE =
   'Add more garments before generating an outfit. You need either top + bottom + shoes, or dress + shoes.';
 
+function isCompleteOutfitClient(items: { slot: string }[]): boolean {
+  const slots = new Set(items.map(i => i.slot));
+  const hasStandard = slots.has('top') && slots.has('bottom') && slots.has('shoes');
+  const hasDress = slots.has('dress') && slots.has('shoes');
+  return hasStandard || hasDress;
+}
+
 function isInsufficientGarmentsError(message?: string | null) {
   if (!message) return false;
   const normalized = message.toLowerCase();
@@ -144,8 +151,15 @@ async function generateOutfitViaEngine(
     .map((item) => ({ slot: item.slot, garment: garmentMap.get(item.garment_id) as Garment }))
     .filter((item) => item.garment);
 
-  if (selectedItems.length < 2) {
-    throw new Error('Not enough matching garments');
+  if (!isCompleteOutfitClient(selectedItems)) {
+    const slots = new Set(selectedItems.map(i => i.slot));
+    const missing: string[] = [];
+    const hasDress = slots.has('dress');
+    if (!hasDress && !slots.has('top')) missing.push('top');
+    if (!hasDress && !slots.has('bottom')) missing.push('bottom');
+    if (!slots.has('shoes')) missing.push('shoes');
+    const detail = missing.length > 0 ? ` Missing: ${missing.join(', ')}.` : '';
+    throw new Error(`Incomplete outfit returned.${detail}`);
   }
 
   // Save outfit — always use normalized `temperature` key

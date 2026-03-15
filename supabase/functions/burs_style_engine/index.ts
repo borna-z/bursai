@@ -1228,7 +1228,7 @@ function styleVectorScore(garment: GarmentRow, vector: StyleVector | null): numb
 const TOP_CATS = ["top", "shirt", "t-shirt", "blouse", "sweater", "hoodie", "polo", "tank_top", "cardigan", "tröja", "skjorta"];
 const BOTTOM_CATS = ["bottom", "pants", "jeans", "trousers", "shorts", "skirt", "chinos", "byxor", "kjol"];
 const SHOES_CATS = ["shoes", "sneakers", "boots", "loafers", "sandals", "heels", "skor", "stövlar"];
-const OUTERWEAR_CATS = ["outerwear", "jacket", "coat", "blazer", "parka", "windbreaker", "jacka", "kappa", "rock"];
+const OUTERWEAR_CATS = ["outerwear", "jacket", "coat", "blazer", "parka", "windbreaker", "jacka", "kappa", "rock", "vest", "väst"];
 const DRESS_CATS = ["dress", "jumpsuit", "overall", "klänning"];
 const ACCESSORY_CATS = ["accessory", "scarf", "hat", "belt", "bag", "watch", "jewelry", "halsduk", "mössa", "bälte", "väska"];
 
@@ -1244,6 +1244,64 @@ function categorizeSlot(category: string, subcategory: string | null): string | 
   if (BOTTOM_CATS.some(b => both.includes(b))) return "bottom";
   if (SHOES_CATS.some(s => both.includes(s))) return "shoes";
   return null;
+}
+
+// ─────────────────────────────────────────────
+// OUTFIT COMPLETENESS VALIDATION
+// ─────────────────────────────────────────────
+
+function requiresOuterwear(weather: WeatherInput): boolean {
+  const temp = weather.temperature;
+  const wet = isWetWeather(weather);
+  const coldEnough = temp !== undefined && temp < 8;
+  const precip = String(weather.precipitation || '').toLowerCase();
+  const hasSnow = precip.includes('snow') || precip.includes('snö');
+  return coldEnough || wet || hasSnow;
+}
+
+function isCompleteOutfit(
+  items: ComboItem[],
+  weather: WeatherInput
+): { complete: boolean; missing: string[] } {
+  const slots = new Set(items.map(i => i.slot));
+  const missing: string[] = [];
+
+  const hasTop = slots.has('top');
+  const hasBottom = slots.has('bottom');
+  const hasShoes = slots.has('shoes');
+  const hasDress = slots.has('dress');
+  const hasOuterwear = slots.has('outerwear');
+
+  const standardPath = hasTop && hasBottom && hasShoes;
+  const dressPath = hasDress && hasShoes;
+
+  if (!standardPath && !dressPath) {
+    if (!hasDress && !hasTop) missing.push('top');
+    if (!hasDress && !hasBottom) missing.push('bottom');
+    if (!hasShoes) missing.push('shoes');
+  }
+
+  const needsOuter = requiresOuterwear(weather);
+  if (needsOuter && !hasOuterwear) {
+    missing.push('outerwear');
+  }
+
+  const hasValidBase = standardPath || dressPath;
+  const complete = hasValidBase && (!needsOuter || hasOuterwear);
+
+  return { complete, missing };
+}
+
+function explainMissingRequiredSlots(missing: string[]): string {
+  if (missing.length === 0) return '';
+  const slotLabels: Record<string, string> = {
+    top: 'a top',
+    bottom: 'a bottom',
+    shoes: 'shoes',
+    outerwear: 'outerwear for the weather',
+  };
+  const parts = missing.map(s => slotLabels[s] || s);
+  return `Missing ${parts.join(' and ')} to complete the outfit.`;
 }
 
 // ─────────────────────────────────────────────
@@ -1911,6 +1969,7 @@ function buildCombos(
   const accessories = slotCandidates['accessory'] || [];
 
   const wet = isWetWeather(weather);
+  const outerwearRequired = requiresOuterwear(weather);
   const needsOuterwear =
     (weather.temperature !== undefined && weather.temperature < 15) || wet;
 
@@ -1929,6 +1988,8 @@ function buildCombos(
   const combos: ScoredCombo[] = [];
 
   const pushCombo = (items: ComboItem[]) => {
+    const { complete } = isCompleteOutfit(items, outerwearRequired ? weather : { ...weather, temperature: 20, precipitation: 'none' });
+    if (!complete) return; // Skip incomplete outfits
     combos.push(
       scoreCombo(items, recentOutfitSets, occasion, weather, style, prefs, body, pairMemory)
     );
@@ -3223,7 +3284,17 @@ serve(async (req) => {
 
     if (combos.length === 0) {
       const gaps = detectWardrobeGapForRequest(slotCandidates, weather, occasion);
-      const note = gaps.length > 0 ? gaps.slice(0, 2).join('; ') : null;
+      // Build a clear explanation of what's missing
+      const availableSlots = Object.keys(slotCandidates).filter(s => slotCandidates[s]?.length > 0);
+      const testItems: ComboItem[] = availableSlots.map(s => slotCandidates[s][0]).filter(Boolean).map(sg => ({
+        slot: categorizeSlot(sg.garment.category, sg.garment.subcategory) || 'unknown',
+        garment: sg.garment,
+        baseScore: sg.score,
+        baseBreakdown: sg.breakdown,
+      }));
+      const { missing } = isCompleteOutfit(testItems, weather);
+      const missingExplanation = explainMissingRequiredSlots(missing);
+      const note = [missingExplanation, ...gaps.slice(0, 2)].filter(Boolean).join('; ') || null;
       return new Response(
         JSON.stringify({ error: "Not enough matching garments", limitation_note: note }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -3288,8 +3359,19 @@ serve(async (req) => {
     // ── FORMAT RESPONSE ──
 
     if (aiMode === "generate") {
-      const chosenIdx = Math.min(aiResult.data.chosen_index || 0, combos.length - 1);
-      const chosen = combos[chosenIdx];
+      let chosenIdx = Math.min(aiResult.data.chosen_index || 0, combos.length - 1);
+      // Validate chosen combo is complete; fall back to first complete one
+      let chosen = combos[chosenIdx];
+      {
+        const { complete } = isCompleteOutfit(chosen.items, weather);
+        if (!complete) {
+          const fallbackIdx = combos.findIndex(c => isCompleteOutfit(c.items, weather).complete);
+          if (fallbackIdx >= 0) {
+            chosenIdx = fallbackIdx;
+            chosen = combos[chosenIdx];
+          }
+        }
+      }
       const dc = chosen as DeduplicatedCombo;
       const chosenConf = computeConfidence(chosen, candidateCount, slotCandidates, weather, occasion);
       const chosenNote = generateLimitationNote(gaps, chosenConf);

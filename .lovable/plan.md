@@ -1,86 +1,91 @@
 
+# Full i18n Translation Plan — 110 Steps
 
-# Outfit Completeness Enforcement
+**Status: 🔲 Not Started**
 
-## Problem
+## Current State
 
-The `buildCombos` function in `burs_style_engine` already builds combos with either (top + bottom + shoes) or (dress + shoes), plus optional outerwear/accessories. However:
+- **14 supported locales**: sv, en, no, da, fi, de, fr, es, it, pt, nl, pl, ar, fa
+- **sv and en** are fully translated (~700+ keys each)
+- **Other 12 locales** have partial coverage (~100-200 keys each), missing large sections
+- Fallback chain: `locale → en → sv → raw key`
+- File: `src/i18n/translations.ts` (~9,800 lines)
 
-1. **No post-generation completeness validation** — if garment lookups fail or the AI picks an index where items got filtered out, incomplete outfits can slip through
-2. **The client-side check is too weak** — `useOutfitGenerator.ts` only checks `selectedItems.length < 2`, so `pants + shoes + jacket` (3 items, no top) passes
-3. **Outerwear is never required** — even when `needsOuterwear=true` in `buildCombos`, the outerwear slot is tried but if no outerwear exists, combos without it still pass
-4. **No explicit "vest is not a top" rule** — a vest could be categorized as a top and serve as the only upper-body garment
-5. **No weather-required outerwear enforcement** — cold/rainy combos without outerwear get scored lower but are still valid candidates
+---
 
-## Changes
+## Architecture Change (Steps 1-2)
 
-### 1. `supabase/functions/burs_style_engine/index.ts` — Add completeness helpers and enforce them
+**Step 1** — Create `src/i18n/locales/` directory with one file per locale, each exporting `Record<string, string>`.
 
-Add three exported-style helpers near the slot categorization section (~line 1247):
+**Step 2** — Refactor `src/i18n/translations.ts` to import from individual locale files. No functional change.
 
-- `isCompleteOutfit(items: ComboItem[], weather: WeatherInput): { complete: boolean; missing: string[] }` — checks that every combo has either (top + bottom + shoes) or (dress + shoes). If weather requires outerwear (`temp < 8` or rain/snow), outerwear becomes required too.
-- `requiresOuterwear(weather: WeatherInput): boolean` — returns true if temp < 8°C or precipitation is rain/snow.
-- Vest rule: add `"vest"` and `"väst"` to `OUTERWEAR_CATS` (they are already there at line 1233 — verify and keep). Ensure vest is NOT in `TOP_CATS`. Currently vest IS in outerwear cats, so this is already correct.
+---
 
-Apply completeness filter in `buildCombos` (after line 2026 where `pushCombo` is called):
-- Before pushing a combo, validate it with `isCompleteOutfit`. Skip invalid combos.
-- This ensures only complete outfits enter the scoring/ranking pipeline.
+## Per-Locale Translation (Steps 3-110)
 
-Apply completeness filter after AI refinement (lines 3290-3306):
-- After the AI picks a combo index, validate the chosen combo. If incomplete (e.g. garment lookup failed), fall back to the next complete combo.
+Each locale gets 9 steps covering these domains:
 
-Update the "Not enough matching garments" error to include `explainMissingRequiredSlots()` — returns human-readable strings like "Missing a top to complete the outfit" or "No shoes available".
+| Step offset | Domain |
+|---|---|
+| +0 | Navigation, common, auth, error |
+| +1 | Onboarding (all sub-steps, body, style, tutorial) |
+| +2 | Settings (profile, appearance, privacy, GDPR, notifications, account) |
+| +3 | Home, weather, plan, calendar |
+| +4 | Wardrobe, garment details, scan, import, batch, duplicate |
+| +5 | Outfits, outfit generation, stylist/chat |
+| +6 | Insights, discover, premium, billing, pricing, trial |
+| +7 | Landing page (hero, bento, showcase, pricing section, FAQ, footer, comparison) |
+| +8 | Contact, privacy policy, terms, seed/admin, genimg, social reactions |
 
-### 2. `src/hooks/useOutfitGenerator.ts` — Strengthen client-side validation
+### Steps 3-11: Norwegian (no)
+### Steps 12-20: Danish (da)
+### Steps 21-29: Finnish (fi)
+### Steps 30-38: German (de)
+### Steps 39-47: French (fr)
+### Steps 48-56: Spanish (es)
+### Steps 57-65: Italian (it)
+### Steps 66-74: Portuguese (pt)
+### Steps 75-83: Dutch (nl)
+### Steps 84-92: Polish (pl)
+### Steps 93-101: Arabic (ar)
+### Steps 102-110: Farsi (fa)
 
-Replace the weak `selectedItems.length < 2` check with a proper completeness check:
+---
 
-```typescript
-function isCompleteOutfitClient(items: { slot: string }[]): boolean {
-  const slots = new Set(items.map(i => i.slot));
-  const hasStandard = slots.has('top') && slots.has('bottom') && slots.has('shoes');
-  const hasDress = slots.has('dress') && slots.has('shoes');
-  return hasStandard || hasDress;
-}
+## Technical Details
+
+### File structure after refactor
+```text
+src/i18n/
+  translations.ts          ← imports + re-exports composed object
+  locales/
+    sv.ts                  ← ~700 keys (already complete)
+    en.ts                  ← ~700 keys (already complete)
+    no.ts                  ← fill to ~700 keys
+    da.ts                  ← fill to ~700 keys
+    fi.ts                  ← fill to ~700 keys
+    de.ts                  ← fill to ~700 keys
+    fr.ts                  ← fill to ~700 keys
+    es.ts                  ← fill to ~700 keys
+    it.ts                  ← fill to ~700 keys
+    pt.ts                  ← fill to ~700 keys
+    nl.ts                  ← fill to ~700 keys
+    pl.ts                  ← fill to ~700 keys
+    ar.ts                  ← fill to ~700 keys (RTL)
+    fa.ts                  ← fill to ~700 keys (RTL)
 ```
 
-If the engine returns an incomplete outfit, throw with a descriptive message explaining what's missing.
+### Key count target
+Every locale file must contain the exact same set of keys as `en.ts`.
 
-### 3. `src/lib/__tests__/engineEvalHarness.test.ts` — Add completeness assertions
+### Translation quality
+- AI-assisted translation with native-quality output
+- Preserve placeholders like `{count}`, `{done}`, `{failed}`
+- RTL languages (ar, fa) keep the same key structure; RTL layout handled by CSS
+- Currency/number formatting stays locale-aware via `getLocalizedPricing()`
 
-Add a new `describe('Outfit completeness')` block with tests:
-- `pants + shoes + jacket` is rejected (no top)
-- `top + bottom + shoes` is accepted
-- `dress + shoes` is accepted
-- `dress` without shoes is rejected
-- Cold weather outfit without outerwear is rejected when outerwear is required
-- Vest counts as outerwear, not as top
+### Edge functions
+Edge functions already use `LANG_CONFIG` mappings. No changes needed.
 
-### 4. `src/hooks/__tests__/useOutfitGenerator.test.tsx` — Add client-side completeness test
-
-Add a test that verifies the generator rejects an engine response with `bottom + shoes + outerwear` (no top/dress).
-
-### 5. Weather-required outerwear logic
-
-In `buildCombos`, change the `needsOuterwear` logic:
-- Current: `needsOuterwear = (temp < 15) || wet` — this makes outerwear optional even when "needed" (it just tries outerwear options first)
-- New: When `temp < 8 || wet`, mark outerwear as **required** — combos without outerwear are filtered out by `isCompleteOutfit`
-- When `8 <= temp < 15`, outerwear stays optional (preferred but not required)
-
-## Files Modified
-
-| File | Change |
-|------|--------|
-| `supabase/functions/burs_style_engine/index.ts` | Add `isCompleteOutfit`, `requiresOuterwear`, `explainMissingRequiredSlots`; filter combos in `buildCombos`; validate after AI pick |
-| `src/hooks/useOutfitGenerator.ts` | Replace `length < 2` with `isCompleteOutfitClient`; descriptive error messages |
-| `src/lib/__tests__/engineEvalHarness.test.ts` | Add completeness test scenarios |
-| `src/hooks/__tests__/useOutfitGenerator.test.tsx` | Add incomplete outfit rejection test |
-
-## What Does NOT Change
-
-- Swap mode is explicitly partial — it only returns candidates for a single slot, so completeness rules don't apply
-- Suggest mode uses the same `buildCombos` pipeline, so it automatically benefits from the completeness filter
-- No UI changes — the engine simply stops producing incomplete outfits
-- No new dependencies
-- Existing scoring weights, dedup, and AI refinement logic stay intact
-
+### No new dependencies
+All translations are static strings in TypeScript files. No runtime i18n library needed.
