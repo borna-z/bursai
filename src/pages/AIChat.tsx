@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Sparkles, MoreVertical, Trash2 } from 'lucide-react';
 import { ChatPageSkeleton } from '@/components/ui/skeletons';
 import { motion } from 'framer-motion';
+import { PRESETS } from '@/lib/motion';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
