@@ -125,10 +125,6 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
         </motion.div>
       </AnimatePresence>
 
-      {/* Swipe hint */}
-      <p className="text-[0.625rem] text-muted-foreground/40 text-center -mt-1 tracking-wide">
-        {t('home.swipe_to_wear') || 'Swipe right to wear →'}
-      </p>
 
       {/* Regeneration overlay with mini AI loading */}
       {isGenerating && outfit && (
