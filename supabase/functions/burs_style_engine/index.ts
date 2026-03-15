@@ -1898,7 +1898,8 @@ function scoreCombo(
   weather: WeatherInput,
   style: string | null,
   prefs: Record<string, any> | null,
-  body: BodyProfile | null = null
+  body: BodyProfile | null = null,
+  pairMemory: PairMemoryMap | null = null
 ): ScoredCombo {
   const colors = items
     .map((item) => getHSL(item.garment.color_primary))
