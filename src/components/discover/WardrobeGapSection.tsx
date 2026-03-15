@@ -157,7 +157,7 @@ export function WardrobeGapSection() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * STAGGER_DELAY, duration: 0.4, ease: EASE_CURVE }}
-                className="rounded-xl border border-border/10 bg-card/60 p-4 space-y-3"
+                className="rounded-xl surface-interactive p-4 space-y-3"
               >
                 {/* Header */}
                 <div className="flex items-start justify-between gap-2">
