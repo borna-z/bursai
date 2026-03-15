@@ -46,9 +46,8 @@ describe('useOutfitGenerator', () => {
     });
   });
 
-  it('validates wardrobe has required categories', async () => {
+  it('validates wardrobe — fails when neither path exists (only tops)', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
-    // Only tops, no bottoms/shoes
     const chain = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
@@ -62,6 +61,106 @@ describe('useOutfitGenerator', () => {
     await act(async () => {
       await expect(result.current.generateOutfit(baseRequest)).rejects.toThrow(/garments/i);
     });
+  });
+
+  it('validates wardrobe — passes for top + bottom + shoes', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+
+    const validationData = [{ category: 'top' }, { category: 'bottom' }, { category: 'shoes' }];
+    const garments = [
+      { id: 'g1', category: 'top' },
+      { id: 'g2', category: 'bottom' },
+      { id: 'g3', category: 'shoes' },
+    ];
+
+    let callCount = 0;
+    const chain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockImplementation((_col: string, vals: string[]) => {
+        callCount++;
+        // First .in() call is validation, second is garment fetch
+        if (vals.includes('dress')) {
+          return Promise.resolve({ data: validationData, error: null });
+        }
+        return Promise.resolve({ data: garments, error: null });
+      }),
+      insert: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: { id: 'o-1', occasion: 'casual', style_vibe: null }, error: null }),
+        }),
+      }),
+    };
+    mockFrom.mockReturnValue(chain);
+
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: {
+        items: [
+          { slot: 'top', garment_id: 'g1' },
+          { slot: 'bottom', garment_id: 'g2' },
+          { slot: 'shoes', garment_id: 'g3' },
+        ],
+        explanation: 'Nice',
+        style_score: null,
+      },
+      error: null,
+    });
+
+    const { useOutfitGenerator } = await import('../useOutfitGenerator');
+    const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
+    let outfit: GeneratedOutfit | undefined;
+    await act(async () => {
+      outfit = await result.current.generateOutfit(baseRequest);
+    });
+    expect(outfit!.id).toBe('o-1');
+  });
+
+  it('validates wardrobe — passes for dress + shoes', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+
+    const validationData = [{ category: 'dress' }, { category: 'shoes' }];
+    const garments = [
+      { id: 'g-d', category: 'dress' },
+      { id: 'g-s', category: 'shoes' },
+    ];
+
+    const chain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockImplementation((_col: string, vals: string[]) => {
+        if (vals.includes('dress')) {
+          return Promise.resolve({ data: validationData, error: null });
+        }
+        return Promise.resolve({ data: garments, error: null });
+      }),
+      insert: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: { id: 'o-2', occasion: 'casual', style_vibe: null }, error: null }),
+        }),
+      }),
+    };
+    mockFrom.mockReturnValue(chain);
+
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: {
+        items: [
+          { slot: 'dress', garment_id: 'g-d' },
+          { slot: 'shoes', garment_id: 'g-s' },
+        ],
+        explanation: 'Dress look',
+        style_score: null,
+      },
+      error: null,
+    });
+
+    const { useOutfitGenerator } = await import('../useOutfitGenerator');
+    const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
+    let outfit: GeneratedOutfit | undefined;
+    await act(async () => {
+      outfit = await result.current.generateOutfit(baseRequest);
+    });
+    expect(outfit!.id).toBe('o-2');
+    expect(outfit!.items.length).toBe(2);
   });
 
   it('returns generated outfit on success', async () => {
