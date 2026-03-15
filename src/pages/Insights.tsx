@@ -176,7 +176,7 @@ export default function InsightsPage() {
 
           {/* ─── 2. Top 5 Garments (horizontal scroll) ─── */}
           {insights.topFiveWorn.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <SectionLabel icon={Trophy} label={t('insights.top_garments')} />
               <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-4 px-4">
                 {insights.topFiveWorn.map((garment) => (
