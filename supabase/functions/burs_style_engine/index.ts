@@ -754,8 +754,198 @@ function styleAlignmentScore(garment: GarmentRow, prefs: Record<string, any> | n
 // OCCASION / STYLE / WEATHER COMBO HELPERS
 // ─────────────────────────────────────────────
 
-/** How well the combo matches the user's requested style vibe */
-function styleIntentScore(items: ComboItem[], style: string | null): number {
+function garmentText(garment: GarmentRow): string {
+  return [
+    garment.title,
+    garment.category,
+    garment.subcategory,
+    garment.material,
+    garment.fit,
+    garment.pattern,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+function hasComboSlot(items: ComboItem[], slot: string): boolean {
+  return items.some((item) => item.slot === slot);
+}
+
+function isWetWeather(weather: WeatherInput): boolean {
+  const p = String(weather.precipitation || '').toLowerCase();
+  return p !== '' && !['none', 'ingen'].includes(p);
+}
+
+function styleIntentScore(
+  items: ComboItem[],
+  requestedStyle: string | null,
+  prefs: Record<string, any> | null
+): number {
+  const sp = getStylePrefs(prefs);
+  const styleWords = ((sp.styleWords || []) as string[]).map((v) => String(v).toLowerCase());
+  const target = [String(requestedStyle || '').toLowerCase(), ...styleWords].join(' ');
+
+  const colors = items
+    .map((item) => getHSL(item.garment.color_primary))
+    .filter(Boolean) as [number, number, number][];
+
+  const neutralRatio = colors.length
+    ? colors.filter((hsl) => isNeutral(hsl)).length / colors.length
+    : 0;
+
+  const patternCount = items.filter((item) => {
+    const pattern = String(item.garment.pattern || 'solid').toLowerCase();
+    return pattern !== 'solid' && pattern !== 'none';
+  }).length;
+
+  const relaxedCount = items.filter((item) =>
+    ['relaxed', 'oversized', 'loose'].includes(String(item.garment.fit || '').toLowerCase())
+  ).length;
+
+  const structuredCount = items.filter((item) => {
+    const txt = garmentText(item.garment);
+    return (item.garment.formality || 0) >= 6 || ['blazer', 'coat', 'shirt', 'loafer', 'trouser'].some((x) => txt.includes(x));
+  }).length;
+
+  const sportyCount = items.filter((item) => {
+    const txt = garmentText(item.garment);
+    return ['sneaker', 'hoodie', 'running', 'trainer', 'track'].some((x) => txt.includes(x));
+  }).length;
+
+  const romanticCount = items.filter((item) => {
+    const txt = garmentText(item.garment);
+    return ['dress', 'skirt', 'silk', 'satin', 'soft'].some((x) => txt.includes(x));
+  }).length;
+
+  const formalities = items
+    .map((item) => item.garment.formality)
+    .filter((v): v is number => typeof v === 'number');
+
+  const avgFormality = formalities.length
+    ? formalities.reduce((sum, v) => sum + v, 0) / formalities.length
+    : 5;
+
+  let score = 7;
+
+  if (target.includes('minimal')) {
+    score += neutralRatio * 2.5;
+    score -= patternCount * 1.1;
+  }
+
+  if (target.includes('classic')) {
+    score += structuredCount * 0.8;
+    score += neutralRatio * 1.2;
+  }
+
+  if (target.includes('smart') || target.includes('smart-casual')) {
+    if (avgFormality >= 4.5 && avgFormality <= 7.5) score += 1.5;
+    else score -= 1.2;
+    score += structuredCount * 0.4;
+  }
+
+  if (target.includes('street')) {
+    score += relaxedCount * 0.6;
+    score += sportyCount * 0.8;
+  }
+
+  if (target.includes('sporty') || target.includes('athletic')) {
+    score += sportyCount * 1.2;
+  }
+
+  if (target.includes('romantic')) {
+    score += romanticCount * 1.0;
+  }
+
+  const paletteVibe = String(sp.paletteVibe || '').toLowerCase();
+  if ((paletteVibe.includes('neutral') || paletteVibe.includes('tonal')) && neutralRatio >= 0.5) {
+    score += 0.8;
+  }
+
+  return clampScore(score);
+}
+
+function occasionTemplateScore(
+  items: ComboItem[],
+  occasion: string,
+  weather: WeatherInput
+): number {
+  const occ = String(occasion || '').toLowerCase();
+  const hasOuterwear = hasComboSlot(items, 'outerwear');
+  const hasAccessory = hasComboSlot(items, 'accessory');
+
+  const formalities = items
+    .map((item) => item.garment.formality)
+    .filter((v): v is number => typeof v === 'number');
+
+  const avgFormality = formalities.length
+    ? formalities.reduce((sum, v) => sum + v, 0) / formalities.length
+    : 5;
+
+  const shoeText = garmentText(items.find((item) => item.slot === 'shoes')?.garment || {
+    id: '',
+    title: '',
+    category: '',
+    subcategory: '',
+    color_primary: '',
+    color_secondary: null,
+    pattern: null,
+    material: null,
+    fit: null,
+    formality: null,
+    season_tags: null,
+    wear_count: null,
+    last_worn_at: null,
+    image_path: '',
+  });
+
+  let score = 7;
+
+  if (['work', 'jobb'].includes(occ)) {
+    if (avgFormality >= 4.5 && avgFormality <= 7.5) score += 2;
+    else score -= 1.5;
+    if (shoeText.includes('sandals')) score -= 2;
+  } else if (['casual', 'vardag'].includes(occ)) {
+    if (avgFormality >= 2.5 && avgFormality <= 5.5) score += 1.5;
+  } else if (['date', 'dejt'].includes(occ)) {
+    if (avgFormality >= 4 && avgFormality <= 7.5) score += 1.5;
+    if (hasAccessory) score += 0.5;
+  } else if (['party', 'fest'].includes(occ)) {
+    if (avgFormality >= 4.5 && avgFormality <= 8.5) score += 1.2;
+    if (hasAccessory) score += 0.8;
+  } else if (['travel', 'resa'].includes(occ)) {
+    if (hasOuterwear && (weather.temperature ?? 18) < 18) score += 1;
+    if (shoeText.includes('sneaker') || shoeText.includes('boot')) score += 1;
+  } else if (['formal'].includes(occ)) {
+    if (avgFormality >= 7) score += 2;
+    else score -= 2;
+  }
+
+  return clampScore(score);
+}
+
+function weatherPracticalityScore(items: ComboItem[], weather: WeatherInput): number {
+  const temp = weather.temperature;
+  const wet = isWetWeather(weather);
+  const hasOuterwear = hasComboSlot(items, 'outerwear');
+  const shoes = items.find((item) => item.slot === 'shoes');
+  const shoeText = shoes ? garmentText(shoes.garment) : '';
+
+  let score = 7;
+
+  if (temp !== undefined && temp < 12 && hasOuterwear) score += 1.5;
+  if (temp !== undefined && temp < 12 && !hasOuterwear) score -= 2;
+
+  if (wet && hasOuterwear) score += 1.5;
+  if (wet && !hasOuterwear) score -= 2.5;
+
+  if (wet && shoeText.includes('sandals')) score -= 3;
+  if (wet && (shoeText.includes('boot') || shoeText.includes('sneaker'))) score += 0.7;
+
+  if (temp !== undefined && temp >= 24 && hasOuterwear) score -= 1.2;
+
+  return clampScore(score);
+}
   if (!style) return 7;
   const s = style.toLowerCase();
   let score = 7;
