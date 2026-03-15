@@ -59,7 +59,7 @@ export function useSwapGarment() {
       return scored;
     } catch (err) {
       console.error('Swap fetch failed:', err);
-      return await fallbackFetchCandidates(slot, currentGarmentId, otherGarmentColors);
+      return await fallbackFetchCandidates(slot, currentGarmentId, otherGarmentColors, swapMode);
     } finally {
       setIsLoadingCandidates(false);
     }
