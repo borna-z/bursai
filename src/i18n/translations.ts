@@ -3157,7 +3157,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'insights.loading.matching': 'Matching styles...',
     'insights.loading.creating': 'Creating suggestions...',
     'insights.loading.almost': 'Almost done...',
-    'insights.loading.working': 'Your stylist is working',
+    'insights.loading.working': 'Your stylist is on it',
     'insights.try': 'Try',
     'insights.hide': 'Hide',
     'insights.why_works': 'Why this works',
