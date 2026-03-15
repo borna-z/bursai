@@ -290,7 +290,6 @@ export default function OutfitDetailPage() {
       swapMode
     );
   };
-  };
 
   const handleSwapModeChange = async (mode: SwapMode) => {
     setSwapMode(mode);
