@@ -8132,7 +8132,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'share.create_own': 'Crea il tuo guardaroba', 'share.copy_link': 'Copia link', 'share.copied': 'Copiato!',
     'share.link_copied': 'Link copiato!', 'share.copy_error': 'Impossibile copiare il link',
     'share.download': 'Scarica', 'share.downloaded': 'Immagine scaricata!', 'share.download_error': 'Impossibile scaricare l\'immagine',
-    'share.style_label': 'Stile:', 'share.unknown_garment': 'Capo sconosciuto', 'share.watermark': 'Creato con Wardrobe AI',
+    'share.style_label': 'Stile:', 'share.unknown_garment': 'Capo sconosciuto', 'share.watermark': 'Creato con BURS',
     'share.cta_free_title': 'Crea il tuo guardaroba gratis', 'share.cta_free_desc': 'Ottieni outfit generati dall\'AI basati sui tuoi vestiti',
     'share.cta_free_button': 'Inizia gratis', 'share.cta_premium_title': 'Vuoi l\'illimitato?',
     'share.cta_premium_wardrobe': 'Guardaroba illimitato', 'share.cta_premium_outfits': 'Generazioni outfit illimitate',
