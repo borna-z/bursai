@@ -759,7 +759,21 @@ export default function OutfitDetailPage() {
       </div>
 
       {/* ── Swap sheet ── */}
-      <SwapSheet isOpen={swapSheet.isOpen} onClose={() => { setSwapSheet({ isOpen: false, slot: '', outfitItemId: '', currentGarmentId: '' }); clearCandidates(); }} slot={swapSheet.slot} candidates={candidates} isLoading={isLoadingCandidates} onSelect={handleSwap} isSwapping={isSwapping} t={t} mode={swapMode} onModeChange={handleSwapModeChange} />
+      <SwapSheet
+        isOpen={swapSheet.isOpen}
+        onClose={() => {
+          setSwapSheet({ isOpen: false, slot: '', outfitItemId: '', currentGarmentId: '' });
+          clearCandidates();
+        }}
+        slot={swapSheet.slot}
+        mode={swapMode}
+        onModeChange={setSwapMode}
+        candidates={candidates}
+        isLoading={isLoadingCandidates}
+        onSelect={handleSwap}
+        isSwapping={isSwapping}
+        t={t}
+      />
 
       {/* ── Share sheet ── */}
       <Sheet open={shareSheetOpen} onOpenChange={setShareSheetOpen}>
