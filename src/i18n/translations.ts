@@ -5800,7 +5800,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'share.create_own': 'Luo oma vaatekaappisi', 'share.copy_link': 'Kopioi linkki', 'share.copied': 'Kopioitu!',
     'share.link_copied': 'Linkki kopioitu!', 'share.copy_error': 'Linkkiä ei voitu kopioida',
     'share.download': 'Lataa', 'share.downloaded': 'Kuva ladattu!', 'share.download_error': 'Kuvaa ei voitu ladata',
-    'share.style_label': 'Tyyli:', 'share.unknown_garment': 'Tuntematon vaate', 'share.watermark': 'Luotu Wardrobe AI:lla',
+    'share.style_label': 'Tyyli:', 'share.unknown_garment': 'Tuntematon vaate', 'share.watermark': 'Luotu BURS:lla',
     'share.cta_free_title': 'Luo oma vaatekaappisi ilmaiseksi', 'share.cta_free_desc': 'Saa AI-luotuja asuja omista vaatteistasi',
     'share.cta_free_button': 'Aloita ilmaiseksi', 'share.cta_premium_title': 'Haluatko rajattomasti?',
     'share.cta_premium_wardrobe': 'Rajaton vaatekaappi', 'share.cta_premium_outfits': 'Rajattomat asun luonnit',
