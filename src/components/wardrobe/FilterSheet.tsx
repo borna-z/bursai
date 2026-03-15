@@ -145,10 +145,10 @@ export function FilterSheet({
           <button
             onClick={() => onLaundryChange(!showLaundry)}
             className={cn(
-              'flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors w-full',
+              'flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors w-full border',
               showLaundry
-                ? 'bg-accent/10 text-accent'
-                : 'bg-foreground/[0.04] text-muted-foreground'
+                ? 'bg-accent/10 text-accent border-accent/20'
+                : 'surface-inset text-muted-foreground'
             )}
           >
             <WashingMachine className="w-4 h-4" />
