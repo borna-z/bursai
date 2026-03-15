@@ -87,7 +87,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
   const showUpgradeHint = !isPremium && regenCount >= 3;
 
   return (
-    <div className="rounded-2xl bg-foreground/[0.02] border border-border/30 p-4 space-y-4 relative overflow-hidden">
+    <div className="rounded-2xl surface-hero p-5 space-y-4 relative overflow-hidden">
         <p className="label-editorial">{t('home.todays_outfit')}</p>
 
       {/* Garment grid — swipe right to wear */}
