@@ -33,7 +33,7 @@ export function QuickActionsRow() {
           }}
           className="flex-1 flex items-center justify-center gap-2 h-12 rounded-2xl surface-inset hover:bg-foreground/[0.06] transition-colors min-h-[44px]"
         >
-          <action.icon className="w-4 h-4 text-muted-foreground" />
+          <action.icon className="w-4 h-4 text-muted-foreground/70" />
           <span className="text-[0.75rem] font-semibold text-foreground/80 tracking-[-0.01em]">
             {t(`home.${action.key}`)}
           </span>

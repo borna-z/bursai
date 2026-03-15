@@ -280,17 +280,16 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
 
   return (
     <div className="rounded-2xl surface-hero py-5 px-5">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-2">
+       {/* Header */}
+      <div className="flex items-center justify-between pb-3 mb-1 border-b border-border/10">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-3.5 h-3.5 text-primary" />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+          <span className="label-editorial text-muted-foreground/60">
             {t('insights.ai_title')}
           </span>
           <StaleIndicator
             updatedAt={dataUpdatedAt ? new Date(dataUpdatedAt).toISOString() : null}
             onRefresh={() => refetch()}
-            className="ml-1"
+            className="ml-1 opacity-60"
           />
         </div>
         <button

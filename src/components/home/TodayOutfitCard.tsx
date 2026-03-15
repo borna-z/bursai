@@ -182,7 +182,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
       {outfit && (
         <button
           onClick={() => navigate(`/outfits/${outfit.id}`)}
-          className="text-xs text-center text-muted-foreground/60 hover:text-foreground transition-colors w-full"
+          className="text-[11px] text-center text-muted-foreground/50 hover:text-foreground transition-colors w-full tracking-wide"
         >
           {t('home.see_details')} →
         </button>
