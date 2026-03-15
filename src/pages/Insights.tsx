@@ -207,7 +207,7 @@ export default function InsightsPage() {
           )}
 
           {/* ─── 3. Color Breakdown (horizontal bar + percentages) ─── */}
-          <div className="space-y-3">
+          <div className="space-y-4">
             <SectionLabel icon={Palette} label={t('insights.colors')} />
             <div className={cn(!isPremium && "relative")}>
               <div className={cn(!isPremium && "blur-sm select-none")}>
