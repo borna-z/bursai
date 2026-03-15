@@ -685,13 +685,178 @@ function styleAlignmentScore(garment: GarmentRow, prefs: Record<string, any> | n
   const favColors = (sp.favoriteColors || []) as string[];
   const dislikedColors = (sp.dislikedColors || []) as string[];
   const gc = garment.color_primary?.toLowerCase() || "";
-  if (favColors.some(c => gc.includes(c.toLowerCase()))) score += 2;
-  if (dislikedColors.some(c => gc.includes(c.toLowerCase()))) score -= 3;
+  if (favColors.some((c: string) => gc.includes(c.toLowerCase()))) score += 2;
+  if (dislikedColors.some((c: string) => gc.includes(c.toLowerCase()))) score -= 3;
 
   // Fit preference
   if (sp.fit && garment.fit) {
-    if (sp.fit === garment.fit) score += 1;
+    if (sp.fit === garment.fit) score += 1.5;
+    // Opposite fits penalized lightly
+    const opposites: Record<string, string[]> = {
+      slim: ["oversized", "wide"], oversized: ["slim", "skinny", "fitted"],
+      fitted: ["oversized", "wide"], relaxed: ["skinny", "fitted"],
+    };
+    if (opposites[sp.fit]?.includes(garment.fit.toLowerCase())) score -= 1;
   }
+
+  // Style words alignment
+  const styleWords = (sp.styleWords || []) as string[];
+  if (styleWords.length > 0) {
+    const mat = (garment.material || "").toLowerCase();
+    const cat = (garment.category || "").toLowerCase();
+    const sub = (garment.subcategory || "").toLowerCase();
+    const combined = `${cat} ${sub} ${mat} ${garment.fit || ""}`.toLowerCase();
+    const STYLE_WORD_SIGNALS: Record<string, string[]> = {
+      minimalist: ["solid", "enfärgad", "cotton", "bomull", "regular", "slim"],
+      classic: ["blazer", "shirt", "skjorta", "wool", "ull", "chinos", "loafer"],
+      streetwear: ["hoodie", "sneakers", "denim", "oversized", "jersey"],
+      elegant: ["silk", "siden", "cashmere", "kashmir", "blazer", "heels", "satin"],
+      bohemian: ["linen", "linne", "floral", "relaxed", "wide", "sandal"],
+      sporty: ["jersey", "sneakers", "fleece", "nylon", "polyester"],
+      edgy: ["leather", "läder", "black", "svart", "boots", "stövlar"],
+      preppy: ["polo", "chinos", "blazer", "loafer", "cotton", "bomull"],
+    };
+    for (const word of styleWords) {
+      const signals = STYLE_WORD_SIGNALS[word.toLowerCase()];
+      if (signals && signals.some(s => combined.includes(s))) {
+        score += 1;
+        break; // max +1 from style words
+      }
+    }
+  }
+
+  // Comfort vs Style slider (0=comfort, 100=style)
+  const cvs = sp.comfortVsStyle;
+  if (cvs !== undefined && cvs !== null && garment.formality !== null) {
+    const tendency = (Number(cvs) - 50) / 50; // -1 to +1 (style leaning)
+    if (tendency > 0.3 && garment.formality >= 3) score += 0.5;
+    if (tendency < -0.3 && garment.formality <= 2) score += 0.5;
+  }
+
+  // Palette vibe alignment
+  const paletteVibe = sp.paletteVibe as string | undefined;
+  if (paletteVibe) {
+    const hsl = getHSL(gc);
+    if (hsl) {
+      const vibeMatch: Record<string, (h: [number, number, number]) => boolean> = {
+        warm: (h) => !isNeutral(h) && (h[0] <= 60 || h[0] >= 330),
+        cool: (h) => !isNeutral(h) && h[0] >= 180 && h[0] <= 270,
+        neutral: (h) => isNeutral(h),
+        earth: (h) => h[0] >= 10 && h[0] <= 60 && h[1] <= 60,
+        pastel: (h) => h[2] >= 65 && h[1] <= 50,
+        bold: (h) => h[1] >= 60 && h[2] >= 40 && h[2] <= 70,
+        dark: (h) => h[2] <= 30,
+        muted: (h) => h[1] <= 30,
+      };
+      const matcher = vibeMatch[paletteVibe.toLowerCase()];
+      if (matcher && matcher(hsl)) score += 1;
+    }
+  }
+
+  return Math.max(0, Math.min(10, score));
+}
+
+// ─────────────────────────────────────────────
+// OCCASION / STYLE / WEATHER COMBO HELPERS
+// ─────────────────────────────────────────────
+
+/** How well the combo matches the user's requested style vibe */
+function styleIntentScore(items: ComboItem[], style: string | null): number {
+  if (!style) return 7;
+  const s = style.toLowerCase();
+  let score = 7;
+
+  const STYLE_CATEGORY_MAP: Record<string, string[]> = {
+    smart_casual: ["blazer", "chinos", "loafer", "shirt", "skjorta"],
+    formal: ["blazer", "dress", "heels", "suit"],
+    casual: ["sneakers", "hoodie", "jeans", "t-shirt"],
+    sporty: ["sneakers", "hoodie", "shorts", "jersey"],
+    edgy: ["boots", "leather", "läder", "black"],
+    elegant: ["heels", "dress", "silk", "siden", "blazer"],
+    cozy: ["sweater", "tröja", "hoodie", "cardigan", "fleece"],
+  };
+
+  const signals = STYLE_CATEGORY_MAP[s] || [];
+  if (signals.length === 0) return 7;
+
+  let matchCount = 0;
+  for (const item of items) {
+    const combined = `${item.garment.category} ${item.garment.subcategory || ""} ${item.garment.material || ""}`.toLowerCase();
+    if (signals.some(sig => combined.includes(sig))) matchCount++;
+  }
+  const ratio = matchCount / items.length;
+  score += ratio * 3; // up to +3
+
+  return Math.max(0, Math.min(10, score));
+}
+
+/** Does the combo structurally match what the occasion expects? */
+function occasionTemplateScore(items: ComboItem[], occasion: string): number {
+  const occ = occasion.toLowerCase();
+  let score = 7;
+  const slots = new Set(items.map(i => i.slot));
+  const hasTop = slots.has("top");
+  const hasBottom = slots.has("bottom");
+  const hasDress = slots.has("dress");
+  const hasShoes = slots.has("shoes");
+  const hasOuterwear = slots.has("outerwear");
+  const hasAccessory = slots.has("accessory");
+
+  // Basic structural completeness
+  if (hasShoes) score += 0.5;
+  if ((hasTop && hasBottom) || hasDress) score += 0.5;
+
+  // Occasion-specific template bonuses
+  const ELEVATED = ["dejt", "date", "fest", "party", "gala", "bröllop", "wedding", "middag", "dinner"];
+  const CASUAL = ["vardag", "casual", "weekend", "helg", "promenad", "walk"];
+
+  if (ELEVATED.some(e => occ.includes(e))) {
+    if (hasAccessory) score += 1;
+    // Penalize very casual items
+    for (const item of items) {
+      const cat = (item.garment.category || "").toLowerCase();
+      if (["hoodie", "sweatpants"].some(c => cat.includes(c))) score -= 1.5;
+    }
+  }
+
+  if (CASUAL.some(c => occ.includes(c))) {
+    // Penalize overdressing
+    for (const item of items) {
+      if (item.garment.formality && item.garment.formality >= 5) score -= 1;
+    }
+  }
+
+  return Math.max(0, Math.min(10, score));
+}
+
+/** Combo-level weather check: does the ensemble make sense for the conditions? */
+function weatherPracticalityScore(items: ComboItem[], weather: WeatherInput): number {
+  if (weather.temperature === undefined) return 7;
+  let score = 8;
+  const temp = feelsLikeTemp(weather.temperature, weather.wind);
+  const slots = new Set(items.map(i => i.slot));
+  const hasOuterwear = slots.has("outerwear");
+  const precip = (weather.precipitation || "").toLowerCase();
+  const isRainy = precip.includes("rain") || precip.includes("regn");
+  const isSnowy = precip.includes("snow") || precip.includes("snö");
+
+  // Cold without outerwear
+  if (temp < 10 && !hasOuterwear) score -= 1.5;
+  if (temp < 0 && !hasOuterwear) score -= 2;
+
+  // Rain/snow without waterproof outerwear
+  if ((isRainy || isSnowy) && hasOuterwear) {
+    const ow = items.find(i => i.slot === "outerwear");
+    if (ow) {
+      const mat = (ow.garment.material || "").toLowerCase();
+      if (WATERPROOF_MATERIALS.some(w => mat.includes(w))) score += 1;
+    }
+  }
+  if ((isRainy || isSnowy) && !hasOuterwear) score -= 1;
+
+  // Hot weather with too many layers
+  if (temp > 25 && hasOuterwear) score -= 2;
+  if (temp > 25 && items.length > 3) score -= 0.5;
 
   return Math.max(0, Math.min(10, score));
 }
