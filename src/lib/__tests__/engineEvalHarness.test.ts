@@ -675,6 +675,19 @@ describe('Cross-scenario: Family dedup prevents monotonous results', () => {
 // Outfit completeness validation
 // ════════════════════════════════════════════════════════════════
 
+function requiresOuterwear(
+  weather: { temperature?: number; precipitation?: string; wind?: string }
+): boolean {
+  const temp = weather.temperature;
+  const precip = String(weather.precipitation || '').toLowerCase();
+  const wind = String(weather.wind || '').toLowerCase();
+  const coldEnough = temp !== undefined && temp < 8;
+  const wet = precip !== '' && !['none', 'ingen'].includes(precip);
+  const hasSnow = precip.includes('snow') || precip.includes('snö');
+  const highWind = wind === 'high' || wind === 'hög';
+  return coldEnough || wet || hasSnow || highWind;
+}
+
 function isCompleteOutfit(
   items: ComboItem[],
   weather: { temperature?: number; precipitation?: string; wind?: string }
@@ -696,12 +709,7 @@ function isCompleteOutfit(
     if (!hasShoes) missing.push('shoes');
   }
 
-  const precip = String(weather.precipitation || '').toLowerCase();
-  const wet = precip !== '' && !['none', 'ingen'].includes(precip);
-  const coldEnough = weather.temperature !== undefined && weather.temperature < 8;
-  const hasSnow = precip.includes('snow') || precip.includes('snö');
-  const needsOuter = coldEnough || wet || hasSnow;
-
+  const needsOuter = requiresOuterwear(weather);
   if (needsOuter && !hasOuterwear) {
     missing.push('outerwear');
   }
@@ -711,10 +719,23 @@ function isCompleteOutfit(
   return { complete, missing };
 }
 
+function explainMissingRequiredSlots(missing: string[]): string {
+  if (missing.length === 0) return '';
+  const slotLabels: Record<string, string> = {
+    top: 'a top',
+    bottom: 'a bottom',
+    shoes: 'shoes',
+    outerwear: 'outerwear for the weather',
+  };
+  const parts = missing.map(s => slotLabels[s] || s);
+  return `Missing ${parts.join(' and ')} to complete the outfit.`;
+}
+
 describe('Outfit completeness', () => {
   const mildWeather = { temperature: 20, precipitation: 'none', wind: 'low' };
   const coldWeather = { temperature: 3, precipitation: 'none', wind: 'low' };
   const rainyWeather = { temperature: 12, precipitation: 'rain', wind: 'medium' };
+  const windyWeather = { temperature: 15, precipitation: 'none', wind: 'high' };
 
   it('rejects pants + shoes + jacket (no top)', () => {
     const items = [
@@ -727,11 +748,44 @@ describe('Outfit completeness', () => {
     expect(result.missing).toContain('top');
   });
 
+  it('rejects coat + trousers only', () => {
+    const items = [
+      item('outerwear', g({ id: 'o1', category: 'coat', color_primary: 'black' })),
+      item('bottom', g({ id: 'b1', category: 'trousers', color_primary: 'grey' })),
+    ];
+    const result = isCompleteOutfit(items, mildWeather);
+    expect(result.complete).toBe(false);
+    expect(result.missing).toContain('top');
+    expect(result.missing).toContain('shoes');
+  });
+
+  it('rejects trousers + vest + loafers (vest is outerwear, not top)', () => {
+    const items = [
+      item('bottom', g({ id: 'b1', category: 'trousers', color_primary: 'grey' })),
+      item('outerwear', g({ id: 'v1', category: 'vest', color_primary: 'navy' })),
+      item('shoes', g({ id: 's1', category: 'loafers', color_primary: 'brown' })),
+    ];
+    const result = isCompleteOutfit(items, mildWeather);
+    expect(result.complete).toBe(false);
+    expect(result.missing).toContain('top');
+  });
+
   it('accepts top + bottom + shoes', () => {
     const items = [
       item('top', g({ id: 't1', category: 'shirt', color_primary: 'white' })),
       item('bottom', g({ id: 'b1', category: 'pants', color_primary: 'blue' })),
       item('shoes', g({ id: 's1', category: 'shoes', color_primary: 'black' })),
+    ];
+    expect(isCompleteOutfit(items, mildWeather).complete).toBe(true);
+  });
+
+  it('accepts top + bottom + shoes + outerwear + accessory', () => {
+    const items = [
+      item('top', g({ id: 't1', category: 'shirt', color_primary: 'white' })),
+      item('bottom', g({ id: 'b1', category: 'pants', color_primary: 'blue' })),
+      item('shoes', g({ id: 's1', category: 'shoes', color_primary: 'black' })),
+      item('outerwear', g({ id: 'o1', category: 'jacket', color_primary: 'black' })),
+      item('accessory', g({ id: 'a1', category: 'scarf', color_primary: 'red' })),
     ];
     expect(isCompleteOutfit(items, mildWeather).complete).toBe(true);
   });
@@ -783,6 +837,17 @@ describe('Outfit completeness', () => {
     expect(isCompleteOutfit(items, rainyWeather).complete).toBe(false);
   });
 
+  it('rejects high-wind outfit without outerwear', () => {
+    const items = [
+      item('top', g({ id: 't1', category: 'shirt', color_primary: 'white' })),
+      item('bottom', g({ id: 'b1', category: 'pants', color_primary: 'blue' })),
+      item('shoes', g({ id: 's1', category: 'shoes', color_primary: 'black' })),
+    ];
+    const result = isCompleteOutfit(items, windyWeather);
+    expect(result.complete).toBe(false);
+    expect(result.missing).toContain('outerwear');
+  });
+
   it('vest counts as outerwear, not as top', () => {
     const items = [
       item('outerwear', g({ id: 'v1', category: 'vest', color_primary: 'grey' })),
@@ -803,6 +868,38 @@ describe('Outfit completeness', () => {
     expect(result.complete).toBe(false);
     expect(result.missing).toContain('top');
     expect(result.missing).toContain('shoes');
+  });
+
+  it('returns missing-slot explanation when incomplete', () => {
+    const items = [
+      item('bottom', g({ id: 'b1', category: 'pants', color_primary: 'blue' })),
+      item('shoes', g({ id: 's1', category: 'shoes', color_primary: 'black' })),
+    ];
+    const result = isCompleteOutfit(items, mildWeather);
+    const explanation = explainMissingRequiredSlots(result.missing);
+    expect(explanation).toContain('top');
+    expect(explanation.length).toBeGreaterThan(0);
+  });
+
+  it('returns empty explanation when complete', () => {
+    const explanation = explainMissingRequiredSlots([]);
+    expect(explanation).toBe('');
+  });
+
+  it('requiresOuterwear returns true for cold weather', () => {
+    expect(requiresOuterwear(coldWeather)).toBe(true);
+  });
+
+  it('requiresOuterwear returns true for rain', () => {
+    expect(requiresOuterwear(rainyWeather)).toBe(true);
+  });
+
+  it('requiresOuterwear returns true for high wind', () => {
+    expect(requiresOuterwear(windyWeather)).toBe(true);
+  });
+
+  it('requiresOuterwear returns false for mild weather', () => {
+    expect(requiresOuterwear(mildWeather)).toBe(false);
   });
 });
 
