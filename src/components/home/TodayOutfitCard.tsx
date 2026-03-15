@@ -4,7 +4,7 @@ import { Sparkles, Check, Shirt, Palette, Wand2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { LazyImage } from '@/components/ui/lazy-image';
-import { AILoadingCard } from '@/components/ui/AILoadingCard';
+import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOutfitGenerator, type GeneratedOutfit, type OutfitRequest } from '@/hooks/useOutfitGenerator';
