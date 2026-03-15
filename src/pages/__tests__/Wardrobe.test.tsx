@@ -9,6 +9,7 @@ vi.mock('@/contexts/ThemeContext', () => ({
 
 vi.mock('@/contexts/SeedContext', () => ({
   useSeed: vi.fn(() => ({ seeding: false, progress: 0 })),
+  useSeedMaybe: vi.fn(() => null),
 }));
 
 vi.mock('@/contexts/AuthContext', () => ({
