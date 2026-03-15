@@ -271,7 +271,7 @@ export default function OutfitDetailPage() {
     try {
       await swapGarment({ outfitItemId: swapSheet.outfitItemId, newGarmentId });
       toast.success(t('outfit.swapped'));
-      setSwapSheet({ isOpen: false, slot: '', outfitItemId: '' }); refetch();
+      setSwapSheet({ isOpen: false, slot: '', outfitItemId: '', currentGarmentId: '' }); refetch();
     } catch { toast.error(t('outfit.swap_error')); }
   };
 
