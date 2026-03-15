@@ -2616,6 +2616,9 @@ serve(async (req) => {
     }
     const penalties = buildFeedbackPenalties(feedbackSignals);
 
+    // Build pair memory from DB
+    const pairMemory = buildPairMemoryMap((pairMemoryRes.data || []) as PairMemoryRow[]);
+
     // Build wear pattern profile and style vector from historical wear logs
     const wearLogs = (wearLogsRes.data || []) as WearLog[];
     const wearPatterns = wearLogs.length > 0
