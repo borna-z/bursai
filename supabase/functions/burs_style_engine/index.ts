@@ -2686,7 +2686,19 @@ serve(async (req) => {
 
     const occasion: string = body.occasion || "vardag";
     const style: string | null = body.style || null;
-    const weather: WeatherInput = body.weather || { precipitation: "none", wind: "low" };
+
+    // Normalize weather — accept both `temp` and `temperature`
+    const rawWeather = body.weather || {};
+    const weather: WeatherInput = {
+      temperature: typeof rawWeather.temperature === 'number'
+        ? rawWeather.temperature
+        : typeof rawWeather.temp === 'number'
+          ? rawWeather.temp
+          : undefined,
+      precipitation: typeof rawWeather.precipitation === 'string' ? rawWeather.precipitation : 'none',
+      wind: typeof rawWeather.wind === 'string' ? rawWeather.wind : 'low',
+    };
+
     const locale: string = body.locale || "sv";
     const eventTitle: string | null = body.event_title || null; // Social context
     const preferGarmentIds: Set<string> = new Set(body.prefer_garment_ids || []);
