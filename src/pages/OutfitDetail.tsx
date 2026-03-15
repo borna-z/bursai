@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 import { getOccasionLabel } from '@/lib/occasionLabel';
 import { useOutfit, useUpdateOutfit, useMarkOutfitWorn, useUndoMarkWorn, type OutfitWeather } from '@/hooks/useOutfits';
 import type { TablesUpdate } from '@/integrations/supabase/types';
-import { useSwapGarment, type SwapCandidate } from '@/hooks/useSwapGarment';
+import { useSwapGarment, type SwapCandidate, type SwapMode } from '@/hooks/useSwapGarment';
 import { useWeather } from '@/hooks/useWeather';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -32,15 +32,42 @@ interface SwapSheetProps {
   candidates: SwapCandidate[]; isLoading: boolean;
   onSelect: (garmentId: string) => void; isSwapping: boolean;
   t: (key: string) => string;
+  swapMode: SwapMode; onModeChange: (mode: SwapMode) => void;
 }
 
-function SwapSheet({ isOpen, onClose, slot, candidates, isLoading, onSelect, isSwapping, t }: SwapSheetProps) {
+const SWAP_MODES: { value: SwapMode; label: string; icon: string }[] = [
+  { value: 'safe', label: 'Safe', icon: '🛡️' },
+  { value: 'bold', label: 'Bold', icon: '🔥' },
+  { value: 'fresh', label: 'Fresh', icon: '✨' },
+];
+
+function SwapSheet({ isOpen, onClose, slot, candidates, isLoading, onSelect, isSwapping, t, swapMode, onModeChange }: SwapSheetProps) {
   const slotLabel = t(`outfit.slot.${slot}`) || slot;
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="bottom" className="h-[70vh]">
         <SheetHeader><SheetTitle>{t('outfit.swap')} {slotLabel}</SheetTitle></SheetHeader>
-        <div className="mt-4 pb-8 space-y-2">
+
+        {/* Mode selector */}
+        <div className="flex gap-2 mt-3 mb-1">
+          {SWAP_MODES.map((m) => (
+            <button
+              key={m.value}
+              onClick={() => onModeChange(m.value)}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-medium transition-all active:scale-[0.97]",
+                swapMode === m.value
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-secondary/60 text-muted-foreground hover:bg-secondary/80"
+              )}
+            >
+              <span className="text-xs">{m.icon}</span>
+              {m.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-3 pb-8 space-y-2 overflow-y-auto flex-1">
           {isLoading ? (
             <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>
           ) : candidates.length === 0 ? (
@@ -130,7 +157,8 @@ export default function OutfitDetailPage() {
   const selfieInputRef = useRef<HTMLInputElement>(null);
 
   const [rating, setRating] = useState<number | null>(null);
-  const [swapSheet, setSwapSheet] = useState<{ isOpen: boolean; slot: string; outfitItemId: string }>({ isOpen: false, slot: '', outfitItemId: '' });
+  const [swapSheet, setSwapSheet] = useState<{ isOpen: boolean; slot: string; outfitItemId: string; currentGarmentId: string }>({ isOpen: false, slot: '', outfitItemId: '', currentGarmentId: '' });
+  const [swapMode, setSwapMode] = useState<SwapMode>('safe');
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -186,7 +214,7 @@ export default function OutfitDetailPage() {
           : currentWeather?.wind || 'low',
     };
 
-    setSwapSheet({ isOpen: true, slot, outfitItemId });
+    setSwapSheet({ isOpen: true, slot, outfitItemId, currentGarmentId });
 
     await fetchCandidates(
       slot,
@@ -194,7 +222,48 @@ export default function OutfitDetailPage() {
       otherColors,
       otherItems,
       outfit?.occasion || 'vardag',
-      normalizedWeather
+      normalizedWeather,
+      swapMode
+    );
+  };
+
+  const handleSwapModeChange = async (mode: SwapMode) => {
+    setSwapMode(mode);
+    if (!swapSheet.isOpen || !swapSheet.slot || !swapSheet.currentGarmentId) return;
+
+    const otherItems =
+      outfit?.outfit_items
+        .filter((item) => item.id !== swapSheet.outfitItemId)
+        .map((item) => ({ slot: item.slot, garment_id: item.garment_id })) || [];
+
+    const otherColors =
+      outfit?.outfit_items
+        .filter((item) => item.id !== swapSheet.outfitItemId && item.garment?.color_primary)
+        .map((item) => item.garment!.color_primary.toLowerCase()) || [];
+
+    const normalizedWeather = {
+      temperature:
+        outfit?.weather && typeof (outfit.weather as OutfitWeather).temp === 'number'
+          ? (outfit.weather as OutfitWeather).temp
+          : currentWeather?.temperature,
+      precipitation:
+        outfit?.weather && typeof (outfit.weather as OutfitWeather).precipitation === 'string'
+          ? (outfit.weather as OutfitWeather).precipitation
+          : currentWeather?.precipitation || 'none',
+      wind:
+        outfit?.weather && typeof (outfit.weather as OutfitWeather).wind === 'string'
+          ? (outfit.weather as OutfitWeather).wind
+          : currentWeather?.wind || 'low',
+    };
+
+    await fetchCandidates(
+      swapSheet.slot,
+      swapSheet.currentGarmentId,
+      otherColors,
+      otherItems,
+      outfit?.occasion || 'vardag',
+      normalizedWeather,
+      mode
     );
   };
 
@@ -202,7 +271,7 @@ export default function OutfitDetailPage() {
     try {
       await swapGarment({ outfitItemId: swapSheet.outfitItemId, newGarmentId });
       toast.success(t('outfit.swapped'));
-      setSwapSheet({ isOpen: false, slot: '', outfitItemId: '' }); refetch();
+      setSwapSheet({ isOpen: false, slot: '', outfitItemId: '', currentGarmentId: '' }); refetch();
     } catch { toast.error(t('outfit.swap_error')); }
   };
 
@@ -643,7 +712,7 @@ export default function OutfitDetailPage() {
       </div>
 
       {/* ── Swap sheet ── */}
-      <SwapSheet isOpen={swapSheet.isOpen} onClose={() => { setSwapSheet({ isOpen: false, slot: '', outfitItemId: '' }); clearCandidates(); }} slot={swapSheet.slot} candidates={candidates} isLoading={isLoadingCandidates} onSelect={handleSwap} isSwapping={isSwapping} t={t} />
+      <SwapSheet isOpen={swapSheet.isOpen} onClose={() => { setSwapSheet({ isOpen: false, slot: '', outfitItemId: '', currentGarmentId: '' }); clearCandidates(); }} slot={swapSheet.slot} candidates={candidates} isLoading={isLoadingCandidates} onSelect={handleSwap} isSwapping={isSwapping} t={t} swapMode={swapMode} onModeChange={handleSwapModeChange} />
 
       {/* ── Share sheet ── */}
       <Sheet open={shareSheetOpen} onOpenChange={setShareSheetOpen}>
