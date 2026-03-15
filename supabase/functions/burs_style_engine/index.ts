@@ -949,18 +949,6 @@ function weatherPracticalityScore(items: ComboItem[], weather: WeatherInput): nu
 
 
 
-/** Does the combo structurally match what the occasion expects? */
-function occasionTemplateScore(items: ComboItem[], occasion: string): number {
-  const occ = occasion.toLowerCase();
-  let score = 7;
-  const slots = new Set(items.map(i => i.slot));
-  const hasTop = slots.has("top");
-  const hasBottom = slots.has("bottom");
-  const hasDress = slots.has("dress");
-  const hasShoes = slots.has("shoes");
-  const hasOuterwear = slots.has("outerwear");
-  const hasAccessory = slots.has("accessory");
-
   // Basic structural completeness
   if (hasShoes) score += 0.5;
   if ((hasTop && hasBottom) || hasDress) score += 0.5;
