@@ -2896,13 +2896,18 @@ serve(async (req) => {
       console.warn("AI refinement failed, using deterministic fallback");
       const best = combos[0];
       if (aiMode === "suggest") {
-        const suggestions = combos.slice(0, 3).map((c, i) => ({
-          title: `Outfit ${i + 1}`,
-          garment_ids: c.items.map(item => item.garment.id),
-          garments: c.items.map(item => item.garment),
-          explanation: "",
-          occasion,
-        }));
+        const suggestions = combos.slice(0, 3).map((c, i) => {
+          const dc = c as DeduplicatedCombo;
+          return {
+            title: `Outfit ${i + 1}`,
+            garment_ids: c.items.map(item => item.garment.id),
+            garments: c.items.map(item => item.garment),
+            explanation: "",
+            occasion,
+            family_label: dc.family_label || 'classic',
+            variation_reason: dc.variation_reason || '',
+          };
+        });
         return new Response(JSON.stringify({ suggestions }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
