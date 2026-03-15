@@ -68,6 +68,7 @@ const MOCK_ANALYSIS = {
   formality: 4,
   ai_provider: 'gemini',
   ai_raw: null,
+  confidence: 0.92,
 };
 
 function makeFakeVideo(w = 100, h = 100): HTMLVideoElement {
@@ -192,7 +193,7 @@ describe('useLiveScan', () => {
     expect(result.current.error).toBeNull();
   });
 
-  it('capture() populates lastResult, then accept() clears it, increments scanCount, and triggers the background save', async () => {
+  it('capture() sends mode=fast and populates lastResult with confidence', async () => {
     mockAuthUser();
     setupCanvasMock();
     setupFileReaderMock();
@@ -219,9 +220,12 @@ describe('useLiveScan', () => {
     expect(result.current.isProcessing).toBe(false);
     expect(result.current.error).toBeNull();
     expect(result.current.lastResult?.analysis.title).toBe('Navy Wool Blazer');
+    expect(result.current.lastResult?.confidence).toBe(0.92);
     expect(result.current.lastResult?.thumbnailUrl).toBe('blob:mock-thumbnail-url');
+    
+    // Verify mode=fast is passed
     expect(invokeEdgeFunction).toHaveBeenCalledWith('analyze_garment', {
-      body: { base64Image: expect.stringContaining('data:image/jpeg') },
+      body: { base64Image: expect.stringContaining('data:image/jpeg'), mode: 'fast' },
     });
 
     act(() => {
@@ -279,7 +283,7 @@ describe('useLiveScan', () => {
     expect(result.current.isProcessing).toBe(false);
   });
 
-  it('captureFromFile() analyses a File via compressImage and populates lastResult', async () => {
+  it('captureFromFile() sends mode=fast and analyses a File', async () => {
     mockAuthUser();
     setupUrlMock();
     setupSupabaseMock();
@@ -290,7 +294,6 @@ describe('useLiveScan', () => {
       previewUrl: 'blob:mock-preview-url',
     });
 
-    // Mock FileReader for base64 conversion inside captureFromFile
     const MockFileReader = vi.fn(function (this: MockFileReaderInstance) {
       this.result = 'data:image/jpeg;base64,ZmlsZQ==';
       this.onloadend = null;
@@ -320,10 +323,11 @@ describe('useLiveScan', () => {
 
     expect(compressImage).toHaveBeenCalledWith(fakeFile, { maxDimension: 480, quality: 0.5 });
     expect(result.current.lastResult?.analysis.title).toBe('Navy Wool Blazer');
+    expect(result.current.lastResult?.confidence).toBe(0.92);
     expect(result.current.lastResult?.thumbnailUrl).toBe('blob:mock-preview-url');
     expect(result.current.isProcessing).toBe(false);
     expect(invokeEdgeFunction).toHaveBeenCalledWith('analyze_garment', {
-      body: { base64Image: expect.stringContaining('data:image/jpeg') },
+      body: { base64Image: expect.stringContaining('data:image/jpeg'), mode: 'fast' },
     });
   });
 
