@@ -4695,7 +4695,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'share.create_own': 'Lag din egen garderobe', 'share.copy_link': 'Kopier lenke', 'share.copied': 'Kopiert!',
     'share.link_copied': 'Lenke kopiert!', 'share.copy_error': 'Kunne ikke kopiere lenken',
     'share.download': 'Last ned', 'share.downloaded': 'Bilde lastet ned!', 'share.download_error': 'Kunne ikke laste ned bildet',
-    'share.style_label': 'Stil:', 'share.unknown_garment': 'Ukjent plagg', 'share.watermark': 'Laget med Wardrobe AI',
+    'share.style_label': 'Stil:', 'share.unknown_garment': 'Ukjent plagg', 'share.watermark': 'Laget med BURS',
     'share.cta_free_title': 'Lag din egen garderobe gratis', 'share.cta_free_desc': 'Få AI-genererte antrekk basert på dine egne klær',
     'share.cta_free_button': 'Kom i gang gratis', 'share.cta_premium_title': 'Vil du ha ubegrenset?',
     'share.cta_premium_button': 'Se Premium-planer',
