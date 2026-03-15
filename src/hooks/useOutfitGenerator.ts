@@ -144,8 +144,15 @@ async function generateOutfitViaEngine(
     .map((item) => ({ slot: item.slot, garment: garmentMap.get(item.garment_id) as Garment }))
     .filter((item) => item.garment);
 
-  if (selectedItems.length < 2) {
-    throw new Error('Not enough matching garments');
+  if (!isCompleteOutfitClient(selectedItems)) {
+    const slots = new Set(selectedItems.map(i => i.slot));
+    const missing: string[] = [];
+    const hasDress = slots.has('dress');
+    if (!hasDress && !slots.has('top')) missing.push('top');
+    if (!hasDress && !slots.has('bottom')) missing.push('bottom');
+    if (!slots.has('shoes')) missing.push('shoes');
+    const detail = missing.length > 0 ? ` Missing: ${missing.join(', ')}.` : '';
+    throw new Error(`Incomplete outfit returned.${detail}`);
   }
 
   // Save outfit — always use normalized `temperature` key
