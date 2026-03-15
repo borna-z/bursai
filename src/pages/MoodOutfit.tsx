@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Zap, EyeOff, Flame, Sparkles, Palette, Cloud, Shirt, Wand2 } from 'lucide-react';
+import { Heart, Zap, EyeOff, Flame, Sparkles, Palette, Cloud } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
