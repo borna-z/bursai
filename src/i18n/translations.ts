@@ -9045,7 +9045,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'share.copied': 'Gekopieerd!', 'share.link_copied': 'Link gekopieerd!',
     'share.copy_error': 'Kon link niet kopiëren', 'share.download': 'Downloaden',
     'share.downloaded': 'Afbeelding gedownload!', 'share.download_error': 'Kon afbeelding niet downloaden',
-    'share.style_label': 'Stijl:', 'share.unknown_garment': 'Onbekend kledingstuk', 'share.watermark': 'Gemaakt met Wardrobe AI',
+    'share.style_label': 'Stijl:', 'share.unknown_garment': 'Onbekend kledingstuk', 'share.watermark': 'Gemaakt met BURS',
     'share.cta_free_title': 'Maak je eigen kledingkast gratis', 'share.cta_free_desc': 'Krijg AI-gegenereerde outfits op basis van je eigen kleding',
     'share.cta_free_button': 'Gratis beginnen', 'share.cta_premium_title': 'Onbeperkt willen?',
     'share.cta_premium_wardrobe': 'Onbeperkte kledingkast', 'share.cta_premium_outfits': 'Onbeperkte outfit-generaties',
