@@ -504,7 +504,7 @@ export default function OutfitDetailPage() {
       </div>
 
       {/* ── Content ── */}
-      <div className="px-4 sm:px-6 pt-6 pb-36 space-y-8">
+      <div className="px-5 sm:px-6 pt-8 pb-40 space-y-10">
         {/* Title + meta */}
         <div>
           <h1 className="text-2xl font-semibold capitalize">{displayOccasion}</h1>
