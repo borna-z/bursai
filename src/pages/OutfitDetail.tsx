@@ -698,9 +698,9 @@ export default function OutfitDetailPage() {
         </div>
 
         {/* ── Rating ── */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">{t('outfit.rating')}</p>
-          <div className="flex gap-1">
+          <div className="flex gap-1.5">
             {[1, 2, 3, 4, 5].map((value) => (
               <button key={value} onClick={() => handleRating(value)} className="p-1 rounded-lg hover:bg-muted/40 transition-colors active:scale-95">
                 <Star className={cn('w-7 h-7 transition-colors', (rating || 0) >= value ? 'fill-primary text-primary' : 'text-muted-foreground/20')} />
