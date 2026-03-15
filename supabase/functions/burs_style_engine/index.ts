@@ -1734,6 +1734,163 @@ function jaccardSimilarity(setA: Set<string>, setB: Set<string>): number {
 // ─────────────────────────────────────────────
 // COMBO BUILDER
 // ─────────────────────────────────────────────
+// OUTFIT FAMILY DEDUPLICATION
+// ─────────────────────────────────────────────
+
+interface OutfitFamilySignature {
+  slotStructure: string;       // e.g. "top+bottom+shoes+outerwear"
+  colorDirection: string;      // e.g. "neutral-warm" or "cool-bold"
+  formalityBand: string;       // "casual" | "smart-casual" | "formal"
+  fitSilhouette: string;       // e.g. "fitted-fitted-regular"
+  categoryKey: string;         // e.g. "shirt/jeans/sneakers"
+}
+
+function getColorTemperatureLabel(color: string): string {
+  const hsl = getHSL(color);
+  if (!hsl) return 'neutral';
+  if (isNeutral(hsl)) return 'neutral';
+  const [h] = hsl;
+  if (h >= 0 && h < 60) return 'warm';
+  if (h >= 60 && h < 150) return 'warm-green';
+  if (h >= 150 && h < 270) return 'cool';
+  return 'warm';
+}
+
+function getColorBoldness(color: string): string {
+  const hsl = getHSL(color);
+  if (!hsl) return 'muted';
+  const [, s, l] = hsl;
+  if (s > 60 && l > 30 && l < 70) return 'bold';
+  return 'muted';
+}
+
+function getFormalityBand(formality: number | null): string {
+  const f = formality ?? 5;
+  if (f <= 3) return 'casual';
+  if (f <= 6) return 'smart-casual';
+  return 'formal';
+}
+
+function buildOutfitFamilySignature(items: ComboItem[]): OutfitFamilySignature {
+  const sorted = [...items].sort((a, b) => a.slot.localeCompare(b.slot));
+
+  const slotStructure = sorted.map(i => i.slot).join('+');
+
+  // Color direction: dominant temperature + boldness
+  const temps = sorted.map(i => getColorTemperatureLabel(i.garment.color_primary));
+  const boldness = sorted.map(i => getColorBoldness(i.garment.color_primary));
+  const dominantTemp = temps.find(t => t !== 'neutral') || 'neutral';
+  const hasBold = boldness.includes('bold');
+  const colorDirection = `${dominantTemp}-${hasBold ? 'bold' : 'muted'}`;
+
+  // Formality band from average
+  const formalities = sorted
+    .map(i => i.garment.formality)
+    .filter((v): v is number => typeof v === 'number');
+  const avgFormality = formalities.length > 0
+    ? formalities.reduce((s, v) => s + v, 0) / formalities.length
+    : 5;
+  const formalityBand = getFormalityBand(avgFormality);
+
+  // Fit silhouette
+  const fitSilhouette = sorted.map(i => fitFamily(i.garment.fit)).join('-');
+
+  // Category key (subcategory when available for richer signal)
+  const categoryKey = sorted
+    .map(i => (i.garment.subcategory || i.garment.category || '').toLowerCase().slice(0, 12))
+    .join('/');
+
+  return { slotStructure, colorDirection, formalityBand, fitSilhouette, categoryKey };
+}
+
+function outfitFamilySimilarity(a: OutfitFamilySignature, b: OutfitFamilySignature): number {
+  let sim = 0;
+  const total = 5;
+
+  if (a.slotStructure === b.slotStructure) sim += 1;
+  if (a.colorDirection === b.colorDirection) sim += 1;
+  if (a.formalityBand === b.formalityBand) sim += 1;
+  if (a.fitSilhouette === b.fitSilhouette) sim += 1;
+  if (a.categoryKey === b.categoryKey) sim += 1;
+
+  return sim / total; // 0..1
+}
+
+type FamilyLabel = 'classic' | 'bold-alternative' | 'weather-ready' | 'comfort-pick' | 'dressy';
+
+function classifyFamilyLabel(sig: OutfitFamilySignature, combo: ScoredCombo): FamilyLabel {
+  if (combo.breakdown.practicality >= 8.5) return 'weather-ready';
+  if (sig.colorDirection.includes('bold')) return 'bold-alternative';
+  if (sig.formalityBand === 'formal') return 'dressy';
+  if (sig.fitSilhouette.includes('relaxed')) return 'comfort-pick';
+  return 'classic';
+}
+
+function deriveVariationReason(label: FamilyLabel, refLabel: FamilyLabel): string {
+  if (label === refLabel) return '';
+  const reasons: Record<FamilyLabel, string> = {
+    'classic': 'safer everyday option',
+    'bold-alternative': 'bolder, more expressive choice',
+    'weather-ready': 'better suited for current weather',
+    'comfort-pick': 'more relaxed and comfortable',
+    'dressy': 'more polished and refined',
+  };
+  return reasons[label] || '';
+}
+
+interface DeduplicatedCombo extends ScoredCombo {
+  family_label: string;
+  variation_reason: string;
+}
+
+function pickRepresentativeOutfits(
+  combos: ScoredCombo[],
+  maxResults: number = 10,
+  similarityThreshold: number = 0.8
+): DeduplicatedCombo[] {
+  if (combos.length === 0) return [];
+
+  // Sort by score descending (should already be sorted, but ensure)
+  const sorted = [...combos].sort((a, b) => b.totalScore - a.totalScore);
+
+  const picked: { combo: ScoredCombo; sig: OutfitFamilySignature; label: FamilyLabel }[] = [];
+
+  for (const combo of sorted) {
+    const sig = buildOutfitFamilySignature(combo.items);
+
+    // Check if this combo is too similar to any already-picked one
+    let isTooSimilar = false;
+    for (const existing of picked) {
+      const sim = outfitFamilySimilarity(sig, existing.sig);
+      if (sim >= similarityThreshold) {
+        // Also check garment overlap (Jaccard) as a secondary filter
+        const aIds = new Set(combo.items.map(i => i.garment.id));
+        const bIds = new Set(existing.combo.items.map(i => i.garment.id));
+        const jaccard = jaccardSimilarity(aIds, bIds);
+        if (jaccard >= 0.4 || sim >= 1.0) {
+          isTooSimilar = true;
+          break;
+        }
+      }
+    }
+
+    if (!isTooSimilar) {
+      const label = classifyFamilyLabel(sig, combo);
+      picked.push({ combo, sig, label });
+      if (picked.length >= maxResults) break;
+    }
+  }
+
+  // Assign labels and variation reasons
+  const refLabel = picked.length > 0 ? picked[0].label : 'classic';
+  return picked.map(({ combo, label }) => ({
+    ...combo,
+    family_label: label,
+    variation_reason: deriveVariationReason(label, refLabel),
+  }));
+}
+
+// ─────────────────────────────────────────────
 
 function buildCombos(
   slotCandidates: Record<string, ScoredGarment[]>,
@@ -1886,9 +2043,11 @@ function buildCombos(
     }
   }
 
-  return Array.from(unique.values())
-    .sort((a, b) => b.totalScore - a.totalScore)
-    .slice(0, maxCombos);
+  // Exact-id dedup first, then family-level dedup
+  const exactDeduped = Array.from(unique.values())
+    .sort((a, b) => b.totalScore - a.totalScore);
+
+  return pickRepresentativeOutfits(exactDeduped, maxCombos, 0.8);
 }
 
 function scoreCombo(
@@ -2737,13 +2896,18 @@ serve(async (req) => {
       console.warn("AI refinement failed, using deterministic fallback");
       const best = combos[0];
       if (aiMode === "suggest") {
-        const suggestions = combos.slice(0, 3).map((c, i) => ({
-          title: `Outfit ${i + 1}`,
-          garment_ids: c.items.map(item => item.garment.id),
-          garments: c.items.map(item => item.garment),
-          explanation: "",
-          occasion,
-        }));
+        const suggestions = combos.slice(0, 3).map((c, i) => {
+          const dc = c as DeduplicatedCombo;
+          return {
+            title: `Outfit ${i + 1}`,
+            garment_ids: c.items.map(item => item.garment.id),
+            garments: c.items.map(item => item.garment),
+            explanation: "",
+            occasion,
+            family_label: dc.family_label || 'classic',
+            variation_reason: dc.variation_reason || '',
+          };
+        });
         return new Response(JSON.stringify({ suggestions }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -2760,10 +2924,12 @@ serve(async (req) => {
     if (aiMode === "generate") {
       const chosenIdx = Math.min(aiResult.data.chosen_index || 0, combos.length - 1);
       const chosen = combos[chosenIdx];
+      const dc = chosen as DeduplicatedCombo;
       return new Response(JSON.stringify({
         items: chosen.items.map(i => ({ slot: i.slot, garment_id: i.garment.id })),
         explanation: aiResult.data.explanation || "",
         style_score: chosen.breakdown,
+        family_label: dc.family_label || 'classic',
         laundry: laundryCount > 0 ? { count: laundryCount, items: laundryItems.slice(0, 5).map(i => ({ id: i.id, title: i.title, category: i.category })) } : undefined,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -2772,12 +2938,15 @@ serve(async (req) => {
     const suggestions = (aiResult.data.suggestions || []).map((s: any) => {
       const idx = Math.min(s.combo_index || 0, combos.length - 1);
       const combo = combos[idx];
+      const dc = combo as DeduplicatedCombo;
       return {
         title: s.title,
         garment_ids: combo.items.map((i: any) => i.garment.id),
         garments: combo.items.map((i: any) => i.garment),
         explanation: s.explanation,
         occasion: s.occasion,
+        family_label: dc.family_label || 'classic',
+        variation_reason: dc.variation_reason || '',
       };
     });
 
