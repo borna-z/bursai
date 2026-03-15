@@ -291,6 +291,22 @@ export default function OutfitDetailPage() {
     );
   };
 
+  useEffect(() => {
+    if (!swapSheet.isOpen || !swapSheet.currentGarmentId || !swapSheet.outfitItemId) return;
+
+    const ctx = buildSwapRequestContext(swapSheet.outfitItemId);
+
+    void fetchCandidates(
+      swapSheet.slot,
+      swapSheet.currentGarmentId,
+      ctx.otherColors,
+      ctx.otherItems,
+      ctx.occasion,
+      ctx.weather,
+      swapMode
+    );
+  }, [swapMode]);
+
   const handleSwapModeChange = async (mode: SwapMode) => {
     setSwapMode(mode);
     if (!swapSheet.isOpen || !swapSheet.slot || !swapSheet.currentGarmentId) return;
