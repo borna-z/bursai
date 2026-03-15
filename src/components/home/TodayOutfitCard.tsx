@@ -72,18 +72,12 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
     await doGenerate();
   };
 
-  const loadingPhases = [
-    { icon: Shirt, label: t('generate.phase_analyzing'), duration: 1200 },
-    { icon: Palette, label: t('generate.phase_matching'), duration: 1500 },
-    { icon: Wand2, label: t('generate.phase_creating'), duration: 0 },
-  ];
-
-  // Loading state with AI card
+  // Loading state with outfit generation skeleton
   if (isGenerating && !outfit) {
     return (
-      <div className="rounded-2xl bg-foreground/[0.02] border border-border/30 p-4 space-y-4">
+      <div className="space-y-1">
         <p className="text-xs text-muted-foreground/70 font-medium">{t('home.todays_outfit')}</p>
-        <AILoadingCard phases={loadingPhases} subtitle={occasion} />
+        <OutfitGenerationState variant="compact" subtitle={occasion} />
       </div>
     );
   }
