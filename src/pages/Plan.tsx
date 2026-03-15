@@ -19,7 +19,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { WeekStrip } from '@/components/plan/WeekStrip';
-import { PlanningSheet } from '@/components/plan/PlanningSheet';
+
 import { QuickGenerateSheet } from '@/components/plan/QuickGenerateSheet';
 import { SwapSheet } from '@/components/plan/SwapSheet';
 import { QuickPlanSheet } from '@/components/plan/QuickPlanSheet';
