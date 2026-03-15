@@ -215,7 +215,7 @@ export default function HomePage() {
                 initial="initial"
                 animate="animate"
                 transition={reveal.transition}
-                className="rounded-2xl bg-foreground/[0.02] border border-border/30 p-8 text-center space-y-4"
+                className="rounded-2xl surface-secondary p-8 text-center space-y-4"
               >
                 <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
                   <Sparkles className="w-6 h-6 text-primary/60" />
