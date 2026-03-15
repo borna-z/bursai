@@ -2238,7 +2238,7 @@ serve(async (req) => {
     }
 
     // Build combos
-    const combos = buildCombos(slotCandidates, recentOutfitSets, weather, 10, bodyProfile, occasion, style, preferences);
+    const combos = buildCombos(slotCandidates, recentOutfitSets, occasion, style, weather, preferences, 10, bodyProfile);
 
     if (combos.length === 0) {
       return new Response(
