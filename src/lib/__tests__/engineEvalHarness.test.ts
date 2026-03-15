@@ -496,8 +496,8 @@ describe('Scenario 6: Safe swap preserves DNA', () => {
   });
 
   it('safe swap should prefer same subcategory', () => {
-    const sameSubcat = g({ id: 'blue-polo', category: 'top', subcategory: 'polo', color_primary: 'blue', formality: 5, fit: 'regular' });
-    const diffSubcat = g({ id: 'gray-tee', category: 'top', subcategory: 't-shirt', color_primary: 'gray', formality: 5, fit: 'regular' });
+    const sameSubcat = g({ id: 'blue-polo', category: 'top', subcategory: 'polo', color_primary: 'blue', formality: 6, fit: 'regular' });
+    const diffSubcat = g({ id: 'gray-tee', category: 'top', subcategory: 't-shirt', color_primary: 'gray', formality: 6, fit: 'regular' });
 
     expect(dnaPreservationScore(sameSubcat, anchor)).toBeGreaterThan(
       dnaPreservationScore(diffSubcat, anchor)
