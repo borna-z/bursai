@@ -3142,6 +3142,8 @@ serve(async (req) => {
       const idx = Math.min(s.combo_index || 0, combos.length - 1);
       const combo = combos[idx];
       const dc = combo as DeduplicatedCombo;
+      const sConf = computeConfidence(combo, candidateCount, slotCandidates, weather, occasion);
+      const sNote = generateLimitationNote(gaps, sConf);
       return {
         title: s.title,
         garment_ids: combo.items.map((i: any) => i.garment.id),
@@ -3150,10 +3152,18 @@ serve(async (req) => {
         occasion: s.occasion,
         family_label: dc.family_label || 'classic',
         variation_reason: dc.variation_reason || '',
+        confidence_score: sConf.confidence_score,
+        confidence_level: sConf.confidence_level,
+        limitation_note: sNote,
       };
     });
 
-    return new Response(JSON.stringify({ suggestions }), {
+    return new Response(JSON.stringify({
+      suggestions,
+      confidence_score: confidence.confidence_score,
+      confidence_level: confidence.confidence_level,
+      limitation_note: limitationNote,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
