@@ -377,7 +377,7 @@ export default function PlanPage() {
                     </div>
 
                     {/* Tags */}
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2.5 flex-wrap">
                       <Badge variant="secondary" className="capitalize text-xs font-medium">
                         <OccasionIcon className="w-3 h-3 mr-1.5" />
                         {getOccasionLabel(outfit.occasion || '', t)}
