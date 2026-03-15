@@ -2142,45 +2142,27 @@ type SwapMode = 'safe' | 'bold' | 'fresh';
 
 function expressiveLiftScore(
   garment: GarmentRow,
-  currentGarment: GarmentRow | null,
-  others: GarmentRow[]
+  currentGarment: GarmentRow | null
 ): number {
-  if (!currentGarment) return 5;
-  let score = 5;
+  const txt = garmentText(garment);
+  const hsl = getHSL(garment.color_primary);
+  const currentHsl = currentGarment ? getHSL(currentGarment.color_primary) : null;
 
-  // Color pop: reward if candidate is more chromatic than current
-  const currentHSL = getHSL(currentGarment.color_primary);
-  const candidateHSL = getHSL(garment.color_primary);
-  if (currentHSL && candidateHSL) {
-    if (isNeutral(currentHSL) && !isNeutral(candidateHSL)) score += 2.5;
-    else if (!isNeutral(currentHSL) && !isNeutral(candidateHSL)) {
-      const hd = hueDiff(currentHSL[0], candidateHSL[0]);
-      if (hd > 60) score += 1.5; // distinctly different color
-    }
+  let score = 5.5;
+
+  if (hsl && !isNeutral(hsl)) score += 1.2;
+  if (garment.pattern && !['solid', 'none'].includes(garment.pattern.toLowerCase())) score += 1.2;
+  if (['leather', 'boot', 'loafer', 'blazer', 'coat', 'silk', 'satin'].some((x) => txt.includes(x))) score += 0.8;
+
+  if (currentHsl && hsl) {
+    const hd = Math.abs(hsl[0] - currentHsl[0]);
+    if (hd >= 18) score += 0.5;
   }
 
-  // Pattern lift: reward patterned when current is solid
-  const currentPattern = (currentGarment.pattern || 'solid').toLowerCase();
-  const candidatePattern = (garment.pattern || 'solid').toLowerCase();
-  if ((currentPattern === 'solid' || currentPattern === 'none') && candidatePattern !== 'solid' && candidatePattern !== 'none') {
-    score += 1.5;
-  }
-
-  // Material contrast: reward texture shift
-  const currentMatGroup = getMaterialGroup(currentGarment.material);
-  const candidateMatGroup = getMaterialGroup(garment.material);
-  if (currentMatGroup && candidateMatGroup && currentMatGroup !== candidateMatGroup) {
-    score += 1;
-  }
-
-  // Ensure it doesn't clash with the rest of the outfit
-  const otherFormalities = others
-    .map(g => g.formality)
-    .filter((v): v is number => typeof v === 'number');
-  if (otherFormalities.length > 0 && garment.formality) {
-    const avgOther = otherFormalities.reduce((a, b) => a + b, 0) / otherFormalities.length;
-    const diff = Math.abs(garment.formality - avgOther);
-    if (diff > 3) score -= 2; // too far from outfit formality
+  if (currentGarment) {
+    const formalityDiff = Math.abs((garment.formality ?? 5) - (currentGarment.formality ?? 5));
+    if (formalityDiff <= 2) score += 0.6;
+    else if (formalityDiff > 3.5) score -= 1.0;
   }
 
   return clampScore(score);
@@ -2189,42 +2171,26 @@ function expressiveLiftScore(
 function controlledNoveltyScore(
   garment: GarmentRow,
   currentGarment: GarmentRow | null,
-  others: GarmentRow[]
+  colorHarmony: number,
+  formalityAlignment: number,
+  dnaPreservation: number
 ): number {
-  if (!currentGarment) return 6;
+  if (!currentGarment) return 6.5;
+
   let score = 6;
 
-  // Reward garments not recently worn
-  if (!garment.last_worn_at) {
-    score += 2; // never worn = maximum novelty
-  } else {
-    const daysSince = (Date.now() - new Date(garment.last_worn_at).getTime()) / 86400000;
-    if (daysSince > 30) score += 1.5;
-    else if (daysSince > 14) score += 0.8;
-    else if (daysSince < 3) score -= 1.5; // too recent = not novel
-  }
+  const currentColor = String(currentGarment.color_primary || '').toLowerCase();
+  const candidateColor = String(garment.color_primary || '').toLowerCase();
+  const currentMaterial = String(currentGarment.material || '').toLowerCase();
+  const candidateMaterial = String(garment.material || '').toLowerCase();
 
-  // Penalize near-duplicates of current garment
-  const currentText = garmentText(currentGarment);
-  const candidateText = garmentText(garment);
-  const sharedWords = currentText.split(' ').filter(w => w.length > 3 && candidateText.includes(w));
-  const similarity = sharedWords.length / Math.max(1, currentText.split(' ').filter(w => w.length > 3).length);
-  if (similarity > 0.7) score -= 2.5; // near-duplicate
-  else if (similarity > 0.5) score -= 1;
+  if (candidateColor && candidateColor !== currentColor) score += 1.0;
+  if (candidateMaterial && candidateMaterial !== currentMaterial) score += 0.8;
+  if (fitFamily(garment.fit) !== fitFamily(currentGarment.fit)) score += 0.6;
 
-  // Reward different subcategory within same slot
-  if (garment.subcategory && currentGarment.subcategory &&
-      garment.subcategory.toLowerCase() !== currentGarment.subcategory.toLowerCase()) {
-    score += 1;
-  }
+  if (candidateColor === currentColor && candidateMaterial === currentMaterial) score -= 1.4;
 
-  // Small bonus for different color family
-  const currentHSL = getHSL(currentGarment.color_primary);
-  const candidateHSL = getHSL(garment.color_primary);
-  if (currentHSL && candidateHSL) {
-    const hd = hueDiff(currentHSL[0], candidateHSL[0]);
-    if (hd > 30) score += 0.5;
-  }
+  if (colorHarmony < 5 || formalityAlignment < 5 || dnaPreservation < 4.5) score -= 2.2;
 
   return clampScore(score);
 }
@@ -2241,6 +2207,7 @@ function scoreSwapCandidates(
   swapMode: SwapMode = 'safe'
 ): ScoredGarment[] {
   const currentGarment = allGarments.find((g) => g.id === currentGarmentId) || null;
+
   const slotGarments = allGarments.filter((g) => {
     const gSlot = categorizeSlot(g.category, g.subcategory);
     return gSlot === slot && g.id !== currentGarmentId;
@@ -2250,31 +2217,6 @@ function scoreSwapCandidates(
   const otherColors = otherGarments
     .map((g) => getHSL(g.color_primary))
     .filter(Boolean) as [number, number, number][];
-
-  // Mode-specific weight profiles
-  const WEIGHTS: Record<SwapMode, {
-    item_strength: number; dna_preservation: number; color_harmony: number;
-    material_compatibility: number; formality_alignment: number; fit_consistency: number;
-    practicality: number; expressive_lift: number; freshness: number;
-  }> = {
-    safe: {
-      item_strength: 0.24, dna_preservation: 0.26, color_harmony: 0.10,
-      material_compatibility: 0.06, formality_alignment: 0.12, fit_consistency: 0.10,
-      practicality: 0.08, expressive_lift: 0.00, freshness: 0.04,
-    },
-    bold: {
-      item_strength: 0.20, dna_preservation: 0.08, color_harmony: 0.12,
-      material_compatibility: 0.06, formality_alignment: 0.10, fit_consistency: 0.04,
-      practicality: 0.06, expressive_lift: 0.26, freshness: 0.08,
-    },
-    fresh: {
-      item_strength: 0.22, dna_preservation: 0.14, color_harmony: 0.10,
-      material_compatibility: 0.06, formality_alignment: 0.10, fit_consistency: 0.08,
-      practicality: 0.06, expressive_lift: 0.06, freshness: 0.18,
-    },
-  };
-
-  const w = WEIGHTS[swapMode];
 
   return slotGarments
     .map((garment) => {
@@ -2290,43 +2232,79 @@ function scoreSwapCandidates(
       ]);
 
       const formalityAlignment = formalityAlignmentScore(
-        garment, otherGarments, currentGarment
+        garment,
+        otherGarments,
+        currentGarment
       );
 
       const fitConsistency = fitConsistencyScore(
-        garment, otherGarments, currentGarment
+        garment,
+        otherGarments,
+        currentGarment
       );
 
       const dnaPreservation = dnaPreservationScore(
-        garment, currentGarment, otherGarments
+        garment,
+        currentGarment,
+        otherGarments
       );
 
       const practicality = swapPracticalityScore(garment, slot, weather);
-
-      const expressiveLift = expressiveLiftScore(
-        garment, currentGarment, otherGarments
-      );
-
+      const expressiveLift = expressiveLiftScore(garment, currentGarment);
       const freshness = controlledNoveltyScore(
-        garment, currentGarment, otherGarments
+        garment,
+        currentGarment,
+        colorHarmony,
+        formalityAlignment,
+        dnaPreservation
       );
 
-      const totalScore =
-        base.score * w.item_strength +
-        dnaPreservation * w.dna_preservation +
-        colorHarmony * w.color_harmony +
-        materialCompat * w.material_compatibility +
-        formalityAlignment * w.formality_alignment +
-        fitConsistency * w.fit_consistency +
-        practicality * w.practicality +
-        expressiveLift * w.expressive_lift +
-        freshness * w.freshness;
+      let totalScore = 0;
+
+      if (swapMode === 'safe') {
+        totalScore =
+          base.score * 0.26 +
+          dnaPreservation * 0.32 +
+          colorHarmony * 0.12 +
+          materialCompat * 0.08 +
+          formalityAlignment * 0.10 +
+          fitConsistency * 0.07 +
+          practicality * 0.05;
+      } else if (swapMode === 'bold') {
+        totalScore =
+          base.score * 0.22 +
+          dnaPreservation * 0.17 +
+          colorHarmony * 0.12 +
+          materialCompat * 0.06 +
+          formalityAlignment * 0.10 +
+          fitConsistency * 0.05 +
+          practicality * 0.05 +
+          expressiveLift * 0.18 +
+          freshness * 0.05;
+      } else {
+        totalScore =
+          base.score * 0.23 +
+          dnaPreservation * 0.18 +
+          colorHarmony * 0.12 +
+          materialCompat * 0.07 +
+          formalityAlignment * 0.09 +
+          fitConsistency * 0.06 +
+          practicality * 0.05 +
+          expressiveLift * 0.06 +
+          freshness * 0.14;
+      }
+
+      if (formalityAlignment < 4.5) totalScore -= 1.5;
+      if (colorHarmony < 4.5) totalScore -= 1.2;
+      if (swapMode === 'safe' && dnaPreservation < 4.5) totalScore -= 2;
+
+      const finalScore = Math.max(0, totalScore);
 
       return {
         garment,
-        score: Math.max(0, totalScore),
+        score: finalScore,
         breakdown: {
-          overall: Math.max(0, totalScore),
+          overall: finalScore,
           item_strength: base.score,
           dna_preservation: dnaPreservation,
           color_harmony: colorHarmony,
@@ -2340,7 +2318,8 @@ function scoreSwapCandidates(
         },
       } as ScoredGarment;
     })
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
 }
 
 // ─────────────────────────────────────────────
