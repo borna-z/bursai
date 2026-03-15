@@ -545,13 +545,13 @@ export default function WardrobePage() {
           </div>
 
           {/* Segmented control */}
-          <div className="flex p-1 rounded-xl surface-inset">
+          <div className="flex p-1 rounded-xl surface-inset border border-border/10">
             {(['garments', 'outfits'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={cn(
-                  'flex-1 py-2 text-[13px] font-semibold rounded-[10px] transition-all duration-200',
+                  'flex-1 py-2 text-sm font-semibold rounded-[10px] transition-all duration-200',
                   activeTab === tab
                     ? 'bg-background text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.06)]'
                     : 'text-muted-foreground/60'
