@@ -710,9 +710,9 @@ export default function OutfitDetailPage() {
         </div>
 
         {/* ── Feedback chips ── */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">{t('outfit.feedback')}</p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2.5">
             {feedbackOptions.map(({ id, label, icon: Icon }) => {
               const isSelected = selectedFeedback.includes(id);
               const colorClass = isSelected
