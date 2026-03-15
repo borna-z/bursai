@@ -163,9 +163,9 @@ export default function InsightsPage() {
                 <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wider">%</span>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-3">{t('insights.last_30d')}</p>
+            <p className="text-xs text-muted-foreground mt-4">{t('insights.last_30d')}</p>
 
-            <div className="flex items-center w-full mt-8">
+            <div className="flex items-center w-full mt-10">
               <StatPill value={insights.totalGarments} label={t('insights.total')} onClick={() => navigate('/wardrobe')} />
               <div className="w-px h-8 bg-border/20" />
               <StatPill value={insights.garmentsUsedLast30Days} label={t('insights.used_30d')} onClick={() => navigate('/wardrobe/used')} />
