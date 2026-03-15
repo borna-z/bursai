@@ -1254,7 +1254,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'share.download_error': 'Kunde inte ladda ner bilden',
     'share.style_label': 'Stil:',
     'share.unknown_garment': 'Okänt plagg',
-    'share.watermark': 'Skapad med Wardrobe AI',
+    'share.watermark': 'Skapad med BURS',
     'share.cta_free_title': 'Skapa din egen garderob gratis',
     'share.cta_free_desc': 'Få AI-genererade outfits baserat på dina egna kläder',
     'share.cta_free_button': 'Kom igång gratis',
