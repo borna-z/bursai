@@ -145,7 +145,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
         <Button
           onClick={handleWearThis}
           disabled={markWorn.isPending}
-          className="flex-1 h-12 text-[0.8125rem] font-bold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl tracking-[-0.01em]"
+          className="flex-1 h-11 text-[0.8125rem] font-semibold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl tracking-[-0.01em]"
         >
           <Check className="w-4 h-4 mr-2" />
           {t('home.wear_this')}
