@@ -2138,6 +2138,97 @@ function swapPracticalityScore(
   return clampScore(score);
 }
 
+type SwapMode = 'safe' | 'bold' | 'fresh';
+
+function expressiveLiftScore(
+  garment: GarmentRow,
+  currentGarment: GarmentRow | null,
+  others: GarmentRow[]
+): number {
+  if (!currentGarment) return 5;
+  let score = 5;
+
+  // Color pop: reward if candidate is more chromatic than current
+  const currentHSL = getHSL(currentGarment.color_primary);
+  const candidateHSL = getHSL(garment.color_primary);
+  if (currentHSL && candidateHSL) {
+    if (isNeutral(currentHSL) && !isNeutral(candidateHSL)) score += 2.5;
+    else if (!isNeutral(currentHSL) && !isNeutral(candidateHSL)) {
+      const hd = hueDiff(currentHSL[0], candidateHSL[0]);
+      if (hd > 60) score += 1.5; // distinctly different color
+    }
+  }
+
+  // Pattern lift: reward patterned when current is solid
+  const currentPattern = (currentGarment.pattern || 'solid').toLowerCase();
+  const candidatePattern = (garment.pattern || 'solid').toLowerCase();
+  if ((currentPattern === 'solid' || currentPattern === 'none') && candidatePattern !== 'solid' && candidatePattern !== 'none') {
+    score += 1.5;
+  }
+
+  // Material contrast: reward texture shift
+  const currentMatGroup = getMaterialGroup(currentGarment.material);
+  const candidateMatGroup = getMaterialGroup(garment.material);
+  if (currentMatGroup && candidateMatGroup && currentMatGroup !== candidateMatGroup) {
+    score += 1;
+  }
+
+  // Ensure it doesn't clash with the rest of the outfit
+  const otherFormalities = others
+    .map(g => g.formality)
+    .filter((v): v is number => typeof v === 'number');
+  if (otherFormalities.length > 0 && garment.formality) {
+    const avgOther = otherFormalities.reduce((a, b) => a + b, 0) / otherFormalities.length;
+    const diff = Math.abs(garment.formality - avgOther);
+    if (diff > 3) score -= 2; // too far from outfit formality
+  }
+
+  return clampScore(score);
+}
+
+function controlledNoveltyScore(
+  garment: GarmentRow,
+  currentGarment: GarmentRow | null,
+  others: GarmentRow[]
+): number {
+  if (!currentGarment) return 6;
+  let score = 6;
+
+  // Reward garments not recently worn
+  if (!garment.last_worn_at) {
+    score += 2; // never worn = maximum novelty
+  } else {
+    const daysSince = (Date.now() - new Date(garment.last_worn_at).getTime()) / 86400000;
+    if (daysSince > 30) score += 1.5;
+    else if (daysSince > 14) score += 0.8;
+    else if (daysSince < 3) score -= 1.5; // too recent = not novel
+  }
+
+  // Penalize near-duplicates of current garment
+  const currentText = garmentText(currentGarment);
+  const candidateText = garmentText(garment);
+  const sharedWords = currentText.split(' ').filter(w => w.length > 3 && candidateText.includes(w));
+  const similarity = sharedWords.length / Math.max(1, currentText.split(' ').filter(w => w.length > 3).length);
+  if (similarity > 0.7) score -= 2.5; // near-duplicate
+  else if (similarity > 0.5) score -= 1;
+
+  // Reward different subcategory within same slot
+  if (garment.subcategory && currentGarment.subcategory &&
+      garment.subcategory.toLowerCase() !== currentGarment.subcategory.toLowerCase()) {
+    score += 1;
+  }
+
+  // Small bonus for different color family
+  const currentHSL = getHSL(currentGarment.color_primary);
+  const candidateHSL = getHSL(garment.color_primary);
+  if (currentHSL && candidateHSL) {
+    const hd = hueDiff(currentHSL[0], candidateHSL[0]);
+    if (hd > 30) score += 0.5;
+  }
+
+  return clampScore(score);
+}
+
 function scoreSwapCandidates(
   slot: string,
   currentGarmentId: string,
