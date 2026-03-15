@@ -304,21 +304,22 @@ export default function PlanPage() {
             )}
           </div>
 
-          {/* Action row */}
+          {/* Power actions — demoted to compact text links */}
           {hasGarments && (
-            <div className="flex gap-2.5">
+            <div className="flex items-center justify-center gap-4">
               <button
                 onClick={() => setQuickPlanSheetOpen(true)}
-                className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-card/60 border border-border/10 text-sm font-medium text-foreground transition-colors hover:bg-card/80 active:scale-[0.98]"
+                className="text-[11px] text-muted-foreground/50 hover:text-foreground flex items-center gap-1.5 transition-colors press min-h-[44px]"
               >
-                <CalendarRange className="w-4 h-4 text-muted-foreground/60" />
+                <CalendarRange className="w-3.5 h-3.5" />
                 {t('plan.plan_week_btn')}
               </button>
+              <span className="text-muted-foreground/20">·</span>
               <button
                 onClick={() => navigate('/plan/travel-capsule')}
-                className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-card/60 border border-border/10 text-sm font-medium text-foreground transition-colors hover:bg-card/80 active:scale-[0.98]"
+                className="text-[11px] text-muted-foreground/50 hover:text-foreground flex items-center gap-1.5 transition-colors press min-h-[44px]"
               >
-                <Luggage className="w-4 h-4 text-muted-foreground/60" />
+                <Luggage className="w-3.5 h-3.5" />
                 {t('plan.pack_trip_btn')}
               </button>
             </div>
