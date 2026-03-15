@@ -129,8 +129,9 @@ export default function PlanPage() {
     try {
       await upsertPlanned.mutateAsync({ date: dateStr, outfitId });
       toast.success(t('plan.planned'));
-    } catch (err: any) {
-      toast.error(err?.message?.includes('Maximum') ? err.message : t('plan.plan_error'));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      toast.error(msg.includes('Maximum') ? msg : t('plan.plan_error'));
     }
   };
 

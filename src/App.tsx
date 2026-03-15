@@ -9,7 +9,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { LocationProvider } from "@/contexts/LocationContext";
-import { SeedProvider } from "@/contexts/SeedContext";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import { AnimatedRoutes } from "@/components/layout/AnimatedRoutes";
 import { useDeepLink } from "@/hooks/useDeepLink";
@@ -52,7 +51,6 @@ const AppInner = () => (
           <AuthProvider>
             <LanguageProvider>
               <LocationProvider>
-              <SeedProvider>
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
@@ -63,7 +61,6 @@ const AppInner = () => (
                   <CookieConsent />
                 </BrowserRouter>
               </TooltipProvider>
-              </SeedProvider>
               </LocationProvider>
             </LanguageProvider>
           </AuthProvider>
