@@ -30,6 +30,7 @@ vi.mock('@/contexts/ThemeContext', async (importOriginal) => {
 
 vi.mock('@/contexts/SeedContext', () => ({
   useSeed: () => ({ isSeedMode: false, progress: 0 }),
+  useSeedMaybe: () => null,
   SeedProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
