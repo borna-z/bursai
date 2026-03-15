@@ -37,8 +37,15 @@ interface ScoredGarment {
   breakdown: Record<string, number>;
 }
 
+interface ComboItem {
+  slot: string;
+  garment: GarmentRow;
+  baseScore: number;
+  baseBreakdown: Record<string, number>;
+}
+
 interface ScoredCombo {
-  items: { slot: string; garment: GarmentRow }[];
+  items: ComboItem[];
   totalScore: number;
   breakdown: Record<string, number>;
 }
