@@ -1936,15 +1936,21 @@ function scoreCombo(
   const occasionScore = occasionTemplateScore(items, occasion, weather);
   const practicality = weatherPracticalityScore(items, weather);
 
+  // Pair memory scoring
+  const garmentIds = items.map(i => i.garment.id);
+  const pairMem = getPairMemoryScore(garmentIds, pairMemory);
+
   const totalScore =
-    avgBaseScore * 0.34 +
-    colorScore * 0.16 +
-    matScore * 0.08 +
-    formalityConsistency * 0.12 +
-    fitScore * 0.10 +
-    styleScore * 0.10 +
-    occasionScore * 0.10 +
-    practicality * 0.10 -
+    avgBaseScore * 0.32 +
+    colorScore * 0.15 +
+    matScore * 0.07 +
+    formalityConsistency * 0.11 +
+    fitScore * 0.09 +
+    styleScore * 0.09 +
+    occasionScore * 0.09 +
+    practicality * 0.08 +
+    pairMem.boost -
+    pairMem.penalty -
     repetitionPenalty;
 
   const finalScore = Math.max(0, totalScore);
@@ -1966,6 +1972,8 @@ function scoreCombo(
       practicality,
       fitProportion: fitScore,
       repetitionPenalty,
+      pair_memory_boost: pairMem.boost,
+      pair_memory_penalty: pairMem.penalty,
     },
   };
 }
