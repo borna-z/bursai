@@ -1,31 +1,91 @@
 
+# Full i18n Translation Plan — 110 Steps
 
-## Plan: Update Swap Scoring in `burs_style_engine`
+**Status: 🔲 Not Started**
 
-### Current State
-The edge function already has `SwapMode`, `expressiveLiftScore`, `controlledNoveltyScore`, and `scoreSwapCandidates` (lines 2141–2344). The swap mode parsing (line 2391) and swap call (line 2517–2518) also exist and already pass `swapMode`.
+## Current State
 
-### Changes Required
+- **14 supported locales**: sv, en, no, da, fi, de, fr, es, it, pt, nl, pl, ar, fa
+- **sv and en** are fully translated (~700+ keys each)
+- **Other 12 locales** have partial coverage (~100-200 keys each), missing large sections
+- Fallback chain: `locale → en → sv → raw key`
+- File: `src/i18n/translations.ts` (~9,800 lines)
 
-**1. Replace `expressiveLiftScore` (lines 2143–2187)**
-Current signature: `(garment, currentGarment, others)` — uses `others` for formality clash check.
-New signature: `(garment, currentGarment)` — uses hue diff, pattern, material keywords, and formality diff directly between candidate and current garment. Drops the `others` parameter entirely.
+---
 
-**2. Replace `controlledNoveltyScore` (lines 2189–2229)**
-Current signature: `(garment, currentGarment, others)` — uses `last_worn_at`, text similarity, subcategory, and hue diff.
-New signature: `(garment, currentGarment, colorHarmony, formalityAlignment, dnaPreservation)` — simpler approach based on color/material/fit differences with a safety gate using upstream scores. Drops `others` and time-based logic.
+## Architecture Change (Steps 1-2)
 
-**3. Replace `scoreSwapCandidates` (lines 2232–2344)**
-Key differences from current:
-- Removes the `WEIGHTS` lookup table — uses inline weight calculations per mode instead
-- Adds penalty gates: `formalityAlignment < 4.5` → −1.5, `colorHarmony < 4.5` → −1.2, safe mode `dnaPreservation < 4.5` → −2
-- Calls updated `expressiveLiftScore(garment, currentGarment)` and `controlledNoveltyScore(garment, currentGarment, colorHarmony, formalityAlignment, dnaPreservation)` with new signatures
-- Adds `.slice(0, 10)` at the end
-- Different weight values per mode (e.g., safe: base 0.26, dna 0.32; bold: expressive 0.18; fresh: freshness 0.14)
+**Step 1** — Create `src/i18n/locales/` directory with one file per locale, each exporting `Record<string, string>`.
 
-**4. Update swap mode parsing (line 2391)**
-Minor change: current uses `['safe','bold','fresh'].includes(...)`, new version uses `body.swap_mode === 'bold' || body.swap_mode === 'fresh'` ternary. Functionally equivalent.
+**Step 2** — Refactor `src/i18n/translations.ts` to import from individual locale files. No functional change.
 
-### Implementation
-All changes are in a single file: `supabase/functions/burs_style_engine/index.ts`, lines 2141–2344 (replace the entire swap helpers + scoring block) and line 2391 (swap mode parsing). The swap call at line 2517–2518 already matches the requested signature.
+---
 
+## Per-Locale Translation (Steps 3-110)
+
+Each locale gets 9 steps covering these domains:
+
+| Step offset | Domain |
+|---|---|
+| +0 | Navigation, common, auth, error |
+| +1 | Onboarding (all sub-steps, body, style, tutorial) |
+| +2 | Settings (profile, appearance, privacy, GDPR, notifications, account) |
+| +3 | Home, weather, plan, calendar |
+| +4 | Wardrobe, garment details, scan, import, batch, duplicate |
+| +5 | Outfits, outfit generation, stylist/chat |
+| +6 | Insights, discover, premium, billing, pricing, trial |
+| +7 | Landing page (hero, bento, showcase, pricing section, FAQ, footer, comparison) |
+| +8 | Contact, privacy policy, terms, seed/admin, genimg, social reactions |
+
+### Steps 3-11: Norwegian (no)
+### Steps 12-20: Danish (da)
+### Steps 21-29: Finnish (fi)
+### Steps 30-38: German (de)
+### Steps 39-47: French (fr)
+### Steps 48-56: Spanish (es)
+### Steps 57-65: Italian (it)
+### Steps 66-74: Portuguese (pt)
+### Steps 75-83: Dutch (nl)
+### Steps 84-92: Polish (pl)
+### Steps 93-101: Arabic (ar)
+### Steps 102-110: Farsi (fa)
+
+---
+
+## Technical Details
+
+### File structure after refactor
+```text
+src/i18n/
+  translations.ts          ← imports + re-exports composed object
+  locales/
+    sv.ts                  ← ~700 keys (already complete)
+    en.ts                  ← ~700 keys (already complete)
+    no.ts                  ← fill to ~700 keys
+    da.ts                  ← fill to ~700 keys
+    fi.ts                  ← fill to ~700 keys
+    de.ts                  ← fill to ~700 keys
+    fr.ts                  ← fill to ~700 keys
+    es.ts                  ← fill to ~700 keys
+    it.ts                  ← fill to ~700 keys
+    pt.ts                  ← fill to ~700 keys
+    nl.ts                  ← fill to ~700 keys
+    pl.ts                  ← fill to ~700 keys
+    ar.ts                  ← fill to ~700 keys (RTL)
+    fa.ts                  ← fill to ~700 keys (RTL)
+```
+
+### Key count target
+Every locale file must contain the exact same set of keys as `en.ts`.
+
+### Translation quality
+- AI-assisted translation with native-quality output
+- Preserve placeholders like `{count}`, `{done}`, `{failed}`
+- RTL languages (ar, fa) keep the same key structure; RTL layout handled by CSS
+- Currency/number formatting stays locale-aware via `getLocalizedPricing()`
+
+### Edge functions
+Edge functions already use `LANG_CONFIG` mappings. No changes needed.
+
+### No new dependencies
+All translations are static strings in TypeScript files. No runtime i18n library needed.
