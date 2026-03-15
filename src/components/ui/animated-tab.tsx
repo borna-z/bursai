@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { EASE_CURVE } from '@/lib/motion';
+import { useMotionPreset } from '@/lib/motion';
 import { ReactNode } from 'react';
 
 interface AnimatedTabProps {
@@ -9,28 +9,18 @@ interface AnimatedTabProps {
   className?: string;
 }
 
-const tabVariants = {
-  initial: { opacity: 0, y: 8 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -6 },
-};
-
-const tabTransition = {
-  type: 'tween' as const,
-  ease: EASE_CURVE,
-  duration: 0.25,
-};
-
 export function AnimatedTab({ tabKey, children, className }: AnimatedTabProps) {
+  const { variants, transition } = useMotionPreset('TAB');
+
   return (
     <AnimatePresence mode="wait">
       <motion.div
         key={tabKey}
-        variants={tabVariants}
+        variants={variants}
         initial="initial"
         animate="animate"
         exit="exit"
-        transition={tabTransition}
+        transition={transition}
         className={className}
       >
         {children}

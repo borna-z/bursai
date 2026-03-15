@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback, Fragment } from 'rea
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TAP_TRANSITION, EASE_CURVE, STAGGER_DELAY } from '@/lib/motion';
+import { TAP_TRANSITION, EASE_CURVE, STAGGER_DELAY, DISTANCE, DURATION_MEDIUM, PRESETS } from '@/lib/motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Plus, Search, X, Trash2, Shirt, ScanLine, Camera, Link,
@@ -33,8 +33,8 @@ import { Chip } from '@/components/ui/chip';
 // ── Garment Card ──
 
 const cardReveal = {
-  hidden: { opacity: 0, y: 12, scale: 0.97 },
-  visible: { opacity: 1, y: 0, scale: 1 },
+  hidden: { opacity: 0, y: DISTANCE.md },
+  visible: { opacity: 1, y: 0 },
 };
 
 interface GarmentCardProps {
@@ -60,7 +60,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: '-20px' }}
-        transition={{ ease: EASE_CURVE, duration: 0.3, delay: (index % 6) * STAGGER_DELAY }}
+        transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: (index % 6) * STAGGER_DELAY }}
         whileTap={{ scale: 0.975 }}
         onClick={handleClick}
         className={cn(
@@ -91,8 +91,8 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, margin: '-20px' }}
-      transition={{ ease: EASE_CURVE, duration: 0.3, delay: (index % 6) * STAGGER_DELAY }}
-      whileTap={{ scale: 0.97, y: -2 }}
+      transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: (index % 6) * STAGGER_DELAY }}
+      whileTap={PRESETS.PRESS.whileTap}
       onClick={handleClick}
       className={cn(
         'w-full rounded-2xl overflow-hidden transition-colors text-left will-change-transform relative group',

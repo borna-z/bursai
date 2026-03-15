@@ -1,5 +1,6 @@
 import { Home, Shirt, CalendarDays, Bot, BarChart3 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { hapticLight } from '@/lib/haptics';
@@ -15,6 +16,7 @@ const tabKeys = [
 
 export function BottomNav() {
   const { t } = useLanguage();
+  const prefersReduced = useReducedMotion();
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/50 backdrop-blur-xl backdrop-saturate-150 border-t border-border/10 safe-bottom" aria-label="Main navigation">
@@ -28,7 +30,7 @@ export function BottomNav() {
             onFocus={() => prefetchRoute(tab.path)}
             className={({ isActive }) =>
               cn(
-                'relative flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[10px] font-medium transition-colors duration-200 min-h-[44px]',
+                'relative flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[10px] font-medium transition-colors duration-150 min-h-[44px]',
                 isActive
                   ? 'text-accent'
                   : 'text-muted-foreground hover:text-foreground'
@@ -39,16 +41,19 @@ export function BottomNav() {
               <>
                 <div className="relative flex items-center justify-center w-10 h-8 rounded-2xl">
                   {isActive && (
-                    <div className="absolute inset-0 bg-accent/10 rounded-2xl transition-all duration-200" />
-                  )}
-                  <div
-                    className={cn("relative z-10 transition-transform duration-150", isActive && "scale-[1.08]")}
-                  >
-                    <tab.icon
-                      className="w-5 h-5"
-                      strokeWidth={isActive ? 2.5 : 2}
+                    <motion.div
+                      layoutId={prefersReduced ? undefined : 'nav-pill'}
+                      className="absolute inset-0 bg-accent/10 rounded-2xl"
+                      transition={{ type: 'spring', stiffness: 380, damping: 30, mass: 0.8 }}
                     />
-                  </div>
+                  )}
+                  <tab.icon
+                    className={cn(
+                      'relative z-10 w-5 h-5 transition-transform duration-150',
+                      isActive && 'scale-[1.06]'
+                    )}
+                    strokeWidth={isActive ? 2.4 : 2}
+                  />
                 </div>
                 <span>{t(tab.labelKey)}</span>
               </>

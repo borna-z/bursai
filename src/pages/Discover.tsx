@@ -3,7 +3,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useGarmentCount } from '@/hooks/useGarments';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { EASE_CURVE } from '@/lib/motion';
+import { PRESETS } from '@/lib/motion';
 
 import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 
@@ -15,9 +15,10 @@ export default function DiscoverPage() {
       <AnimatedPage className="px-4 pb-24 pt-8 space-y-8 max-w-lg mx-auto">
         {/* ── Header ── */}
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: EASE_CURVE }}
+          variants={PRESETS.HERO.variants}
+          initial="initial"
+          animate="animate"
+          transition={PRESETS.HERO.transition}
           className="space-y-1"
         >
           <h1 className="text-xl font-semibold tracking-tight text-foreground" style={{ fontFamily: "'Sora', sans-serif" }}>

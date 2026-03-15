@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { format, addDays, isSameDay, isToday } from 'date-fns';
 import { motion } from 'framer-motion';
-import { SPRING_BOUNCE } from '@/lib/motion';
+import { SPRING_SUBTLE } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getDateFnsLocale } from '@/lib/dateLocale';
@@ -41,8 +41,8 @@ export function WeekStrip({ selectedDate, onSelectDate, plannedOutfits }: WeekSt
           <motion.button
             key={date.toISOString()}
             onClick={() => onSelectDate(date)}
-            animate={isSelected ? { scale: 1.1 } : { scale: 1 }}
-            transition={SPRING_BOUNCE}
+            animate={isSelected ? { scale: 1.08 } : { scale: 1 }}
+            transition={SPRING_SUBTLE}
             className={cn(
               'flex flex-col items-center flex-1 py-2.5 px-1 rounded-xl transition-all duration-200',
               'active:scale-95',

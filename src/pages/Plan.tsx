@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { PRESETS } from '@/lib/motion';
 import { format, addDays, isSameDay, isToday, isTomorrow } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
 import { Wand2, Shirt, CalendarDays, Repeat, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart, Luggage, CalendarRange } from 'lucide-react';
@@ -289,9 +290,9 @@ export default function PlanPage() {
         {/* Day content */}
         <motion.div
           key={selectedDateStr}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: 'tween', ease: [0.25, 0.1, 0.25, 1], duration: 0.3 }}
+          initial={PRESETS.TAB.variants.initial}
+          animate={PRESETS.TAB.variants.animate}
+          transition={PRESETS.TAB.transition}
           className="pt-6 space-y-8"
         >
           {/* Weather + status line */}

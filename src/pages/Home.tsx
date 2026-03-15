@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Settings, Heart, Sparkles, CalendarDays, CloudRain, Shirt, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -23,8 +23,9 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { hapticLight } from '@/lib/haptics';
-import { EASE_CURVE } from '@/lib/motion';
+import { PRESETS, useMotionPreset } from '@/lib/motion';
 import { getOccasionLabel } from '@/lib/occasionLabel';
+import { FadeReplace } from '@/components/ui/fade-replace';
 import { HomePageSkeleton } from '@/components/ui/skeletons';
 import { cn } from '@/lib/utils';
 
@@ -50,6 +51,10 @@ export default function HomePage() {
   const { data: profile } = useProfile();
   const queryClient = useQueryClient();
   const { isPremium } = useSubscription();
+
+  const hero = useMotionPreset('HERO');
+  const reveal = useMotionPreset('REVEAL');
+  const press = useMotionPreset('PRESS');
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const { data: todayOutfits, isLoading: isOutfitsLoading } = usePlannedOutfitsForDate(todayStr);
@@ -86,9 +91,10 @@ export default function HomePage() {
         <AnimatedPage className="px-4 pb-24 pt-6 space-y-5 max-w-lg mx-auto">
           {/* ── 1. Greeting ── */}
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
+            variants={hero.variants}
+            initial="initial"
+            animate="animate"
+            transition={hero.transition}
             className="flex items-center justify-between overflow-visible"
           >
             <div className="flex items-center gap-2.5">
@@ -111,9 +117,10 @@ export default function HomePage() {
           {/* ── Weather alert banner ── */}
           {homeState === 'weather_alert' && !todayOutfit && (
             <motion.div
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, ease: EASE_CURVE }}
+              variants={reveal.variants}
+              initial="initial"
+              animate="animate"
+              transition={reveal.transition}
               className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/[0.06] border border-primary/10"
             >
               <CloudRain className="w-4 h-4 text-primary shrink-0" />
@@ -131,103 +138,106 @@ export default function HomePage() {
             </motion.div>
           )}
 
-          {/* ── 2. Hero — state-aware ── */}
-          {homeState === 'loading' ? (
-            <HomePageSkeleton />
-          ) : homeState === 'empty_wardrobe' ? (
-            /* Empty wardrobe — guided CTA */
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, ease: EASE_CURVE }}
-              className="rounded-2xl bg-foreground/[0.02] border border-border/30 p-8 text-center space-y-4"
-            >
-              <div className="w-14 h-14 rounded-2xl bg-muted/20 flex items-center justify-center mx-auto">
-                <Shirt className="w-6 h-6 text-muted-foreground/40" />
-              </div>
-              <div className="space-y-1.5">
-                <h3 className="text-[15px] font-semibold">{t('home.min_garments')}</h3>
-                <p className="text-[12px] text-muted-foreground/60 max-w-[240px] mx-auto">
-                  {t('home.add_first_items_desc')}
-                </p>
-              </div>
-              <Button
-                onClick={() => { hapticLight(); navigate('/wardrobe/add'); }}
-                className="w-full max-w-[200px] h-11"
+          {/* ── 2. Hero — state-aware with FadeReplace ── */}
+          <FadeReplace
+            show={homeState !== 'loading'}
+            contentKey={homeState}
+            fallback={<HomePageSkeleton />}
+          >
+            {homeState === 'empty_wardrobe' ? (
+              <motion.div
+                variants={reveal.variants}
+                initial="initial"
+                animate="animate"
+                transition={reveal.transition}
+                className="rounded-2xl bg-foreground/[0.02] border border-border/30 p-8 text-center space-y-4"
               >
-                <Shirt className="w-4 h-4 mr-2" />
-                {t('wardrobe.add')}
-              </Button>
-            </motion.div>
-          ) : homeState === 'outfit_planned' && todayOutfit ? (
-            /* Outfit planned — show today's outfit as hero */
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, ease: EASE_CURVE }}
-              className="rounded-2xl border border-border/10 bg-gradient-to-br from-primary/[0.04] to-transparent overflow-hidden"
-            >
-              {/* Outfit preview grid */}
-              <button
-                onClick={() => navigate(`/outfits/${todayOutfit.id}`)}
-                className="w-full cursor-pointer press"
-              >
-                <div className="grid grid-cols-4 gap-0.5 p-1">
-                  {todayOutfit.outfit_items.slice(0, 4).map((item) => (
-                    <div key={item.id} className="bg-muted aspect-square rounded-lg overflow-hidden">
-                      <LazyImageSimple
-                        imagePath={item.garment?.image_path}
-                        alt={item.garment?.title || item.slot}
-                        className="w-full h-full"
-                      />
-                    </div>
-                  ))}
+                <div className="w-14 h-14 rounded-2xl bg-muted/20 flex items-center justify-center mx-auto">
+                  <Shirt className="w-6 h-6 text-muted-foreground/40" />
                 </div>
-              </button>
-
-              <div className="px-5 py-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="capitalize text-[10px] font-medium">
-                    {getOccasionLabel(todayOutfit.occasion || '', t)}
-                  </Badge>
-                  {todayOutfit.style_vibe && (
-                    <Badge variant="outline" className="text-[10px]">{todayOutfit.style_vibe}</Badge>
-                  )}
-                </div>
-
-                {todayOutfit.explanation && (
-                  <p className="text-[12px] text-muted-foreground/60 leading-relaxed line-clamp-2">
-                    {todayOutfit.explanation}
+                <div className="space-y-1.5">
+                  <h3 className="text-[15px] font-semibold">{t('home.min_garments')}</h3>
+                  <p className="text-[12px] text-muted-foreground/60 max-w-[240px] mx-auto">
+                    {t('home.add_first_items_desc')}
                   </p>
-                )}
-
+                </div>
                 <Button
-                  className="w-full h-11 text-sm font-semibold"
-                  onClick={() => { hapticLight(); navigate(`/outfits/${todayOutfit.id}`); }}
+                  onClick={() => { hapticLight(); navigate('/wardrobe/add'); }}
+                  className="w-full max-w-[200px] h-11"
                 >
-                  {t('home.view_outfit')}
-                  <ChevronRight className="w-4 h-4 ml-1" />
+                  <Shirt className="w-4 h-4 mr-2" />
+                  {t('wardrobe.add')}
                 </Button>
-              </div>
-            </motion.div>
-          ) : (
-            /* No outfit — AI suggestions as primary */
-            <AISuggestions isPremium={isPremium} />
-          )}
+              </motion.div>
+            ) : homeState === 'outfit_planned' && todayOutfit ? (
+              <motion.div
+                variants={reveal.variants}
+                initial="initial"
+                animate="animate"
+                transition={reveal.transition}
+                className="rounded-2xl border border-border/10 bg-gradient-to-br from-primary/[0.04] to-transparent overflow-hidden"
+              >
+                <button
+                  onClick={() => navigate(`/outfits/${todayOutfit.id}`)}
+                  className="w-full cursor-pointer press"
+                >
+                  <div className="grid grid-cols-4 gap-0.5 p-1">
+                    {todayOutfit.outfit_items.slice(0, 4).map((item) => (
+                      <div key={item.id} className="bg-muted aspect-square rounded-lg overflow-hidden">
+                        <LazyImageSimple
+                          imagePath={item.garment?.image_path}
+                          alt={item.garment?.title || item.slot}
+                          className="w-full h-full"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </button>
+
+                <div className="px-5 py-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="capitalize text-[10px] font-medium">
+                      {getOccasionLabel(todayOutfit.occasion || '', t)}
+                    </Badge>
+                    {todayOutfit.style_vibe && (
+                      <Badge variant="outline" className="text-[10px]">{todayOutfit.style_vibe}</Badge>
+                    )}
+                  </div>
+
+                  {todayOutfit.explanation && (
+                    <p className="text-[12px] text-muted-foreground/60 leading-relaxed line-clamp-2">
+                      {todayOutfit.explanation}
+                    </p>
+                  )}
+
+                  <Button
+                    className="w-full h-11 text-sm font-semibold"
+                    onClick={() => { hapticLight(); navigate(`/outfits/${todayOutfit.id}`); }}
+                  >
+                    {t('home.view_outfit')}
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              </motion.div>
+            ) : (
+              <AISuggestions isPremium={isPremium} />
+            )}
+          </FadeReplace>
 
           {/* ── 3. Quick Actions — secondary shortcuts ── */}
           <QuickActionsRow />
 
-          {/* ── 4. Tertiary: Wardrobe Gap + Mood (collapsible) ── */}
-          {(garmentCount || 0) >= 5 && (
+          {/* ── 4. Tertiary: Wardrobe Gap + Mood ── */}
+          {(garmentCount || 0) >= 3 && (
             <div className="space-y-4">
-              <WardrobeGapSection />
+              {(garmentCount || 0) >= 5 && <WardrobeGapSection />}
 
               <motion.button
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15, duration: 0.4, ease: EASE_CURVE }}
-                whileTap={{ scale: 0.97 }}
+                variants={reveal.variants}
+                initial="initial"
+                animate="animate"
+                transition={{ ...reveal.transition, delay: 0.1 }}
+                whileTap={press.whileTap}
                 onClick={() => { hapticLight(); navigate('/ai/mood-outfit'); }}
                 className="w-full relative overflow-hidden rounded-xl border border-border/10 bg-card/60 p-5 text-left flex items-center gap-4 transition-colors"
               >
@@ -244,30 +254,6 @@ export default function HomePage() {
                 </div>
               </motion.button>
             </div>
-          )}
-
-          {/* Show mood button even with fewer garments if they have enough for outfits */}
-          {(garmentCount || 0) >= 3 && (garmentCount || 0) < 5 && (
-            <motion.button
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15, duration: 0.4, ease: EASE_CURVE }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => { hapticLight(); navigate('/ai/mood-outfit'); }}
-              className="w-full relative overflow-hidden rounded-xl border border-border/10 bg-card/60 p-5 text-left flex items-center gap-4 transition-colors"
-            >
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10 shrink-0">
-                <Heart className="w-5 h-5 text-primary" />
-              </div>
-              <div className="min-w-0">
-                <h4 className="text-[13px] font-medium text-foreground leading-tight">
-                  {t('discover.tool_mood')}
-                </h4>
-                <p className="text-[11px] text-muted-foreground/60 leading-snug mt-0.5">
-                  {t('discover.tool_mood_desc')}
-                </p>
-              </div>
-            </motion.button>
           )}
 
         </AnimatedPage>
