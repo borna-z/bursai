@@ -293,7 +293,7 @@ export default function PlanPage() {
           initial={PRESETS.TAB.variants.initial}
           animate={PRESETS.TAB.variants.animate}
           transition={PRESETS.TAB.transition}
-          className="pt-6 space-y-8"
+          className="pt-8 space-y-8"
         >
           {/* Weather + status line */}
           <div className="flex items-center justify-between">
