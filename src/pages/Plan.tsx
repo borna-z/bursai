@@ -78,7 +78,7 @@ export default function PlanPage() {
   const preselectedOutfitId = (location.state as { preselectedOutfitId?: string })?.preselectedOutfitId;
   
   // Sheets state
-  const [planningSheetOpen, setPlanningSheetOpen] = useState(false);
+  
   const [quickGenerateSheetOpen, setQuickGenerateSheetOpen] = useState(false);
   const [swapSheetOpen, setSwapSheetOpen] = useState(false);
   const [quickPlanSheetOpen, setQuickPlanSheetOpen] = useState(false);
