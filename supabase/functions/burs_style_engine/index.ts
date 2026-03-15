@@ -1629,7 +1629,8 @@ function buildCombos(
   maxCombos: number = 10,
   body: BodyProfile | null = null,
   occasion: string = "vardag",
-  style: string | null = null
+  style: string | null = null,
+  prefs: Record<string, any> | null = null
 ): ScoredCombo[] {
   const tops = slotCandidates["top"] || [];
   const bottoms = slotCandidates["bottom"] || [];
