@@ -176,7 +176,7 @@ export default function HomePage() {
                 animate="animate"
                 transition={reveal.transition}
                 onClick={() => { hapticLight(); navigate(`/outfits/${todayOutfit.id}`); }}
-                className="w-full rounded-2xl border border-border/10 bg-gradient-to-br from-primary/[0.04] to-transparent p-3 flex items-center gap-3 text-left cursor-pointer active:scale-[0.98] transition-transform"
+                className="w-full rounded-2xl surface-hero p-3 flex items-center gap-3 text-left cursor-pointer active:scale-[0.98] transition-transform"
               >
                 {/* Horizontal thumbnail strip */}
                 <div className="flex items-center gap-1.5 shrink-0">
