@@ -84,8 +84,8 @@ export default function HomePage() {
     return t('home.greeting_evening') + suffix;
   }
 
-  const dateLocale = locale === ('nb' as string) ? nb : enUS;
-  const formattedDate = format(new Date(), 'EEEE, d MMMM', { locale: dateLocale });
+  const dateFnsLocaleMap: Record<string, typeof enUS> = { sv, no: nb, da, fi, de, fr, es, it, pt, nl, pl, ar, fa };
+  const dateLocale = dateFnsLocaleMap[locale as string] || enUS;
 
   const todayOutfit = todayOutfits?.[0]?.outfit;
 
