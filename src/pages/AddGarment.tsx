@@ -562,13 +562,6 @@ export default function AddGarmentPage() {
     );
   }
 
-  // Analysis phases
-  const ANALYSIS_PHASES = [
-    { icon: Upload, label: t('addgarment.phase_upload') },
-    { icon: Palette, label: t('addgarment.phase_color') },
-    { icon: Sparkles, label: t('addgarment.phase_style') },
-    { icon: CheckCircle, label: t('addgarment.phase_done') },
-  ];
 
   if (step === 'analyzing') {
     return (

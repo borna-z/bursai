@@ -128,10 +128,11 @@ export default function MoodOutfitPage() {
                       <p className="text-[10px] text-muted-foreground mt-0.5">{t(`ai.mood_${mood.key}_desc`)}</p>
                     </div>
                     {isSelected && (
-                      <AILoadingCard
-                        phases={loadingPhases}
+                      <OutfitGenerationState
+                        variant="compact"
+                        tone="expressive"
                         subtitle={t(`ai.mood_${mood.key}`)}
-                        className="mt-1 w-full"
+                        className="mt-2 border-0 bg-transparent p-0"
                       />
                     )}
                   </CardContent>

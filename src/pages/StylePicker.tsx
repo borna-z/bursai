@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import {
   Minus, Footprints, Briefcase, Crown, Dumbbell, Heart,
   Flower2, GraduationCap, Flame, Coffee, Building2,
-  PartyPopper, Disc3, Snowflake, Bike, Shirt, Palette, Wand2,
+  PartyPopper, Disc3, Snowflake, Bike,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { AILoadingCard } from '@/components/ui/AILoadingCard';
+import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useWeather } from '@/hooks/useWeather';
 import { useOutfitGenerator } from '@/hooks/useOutfitGenerator';
@@ -62,11 +62,21 @@ export default function StylePickerPage() {
     }
   };
 
-  const loadingPhases = [
-    { icon: Shirt, label: t('generate.phase_analyzing'), duration: 1200 },
-    { icon: Palette, label: t('generate.phase_matching'), duration: 1500 },
-    { icon: Wand2, label: t('generate.phase_creating'), duration: 0 },
-  ];
+  // Show centered generation state when generating
+  if (isGenerating && selectedKey) {
+    return (
+      <AppLayout>
+        <PageHeader title={t('style_picker.title')} showBack />
+        <div className="flex flex-col items-center justify-center min-h-[50vh] px-4">
+          <OutfitGenerationState
+            subtitle={t(`style_picker.look_${selectedKey}`)}
+            variant="full"
+            className="max-w-sm w-full"
+          />
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -79,7 +89,6 @@ export default function StylePickerPage() {
         <div className="grid grid-cols-3 gap-2.5">
           {LOOKS.map((look, i) => {
             const Icon = look.icon;
-            const isActive = selectedKey === look.key && isGenerating;
             return (
               <motion.div
                 key={look.key}
@@ -88,7 +97,7 @@ export default function StylePickerPage() {
                 transition={{ delay: i * 0.035 }}
               >
                 <Card
-                  className={`cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.97] ${isActive ? 'ring-2 ring-primary' : ''}`}
+                  className="cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.97]"
                   onClick={() => handlePick(look.key)}
                 >
                   <CardContent className="p-3 flex flex-col items-center gap-1.5 text-center">
@@ -97,13 +106,6 @@ export default function StylePickerPage() {
                     </div>
                     <p className="text-xs font-semibold leading-tight">{t(`style_picker.look_${look.key}`)}</p>
                     <p className="text-[10px] text-muted-foreground leading-tight">{t(`style_picker.look_${look.key}_desc`)}</p>
-                    {isActive && (
-                      <AILoadingCard
-                        phases={loadingPhases}
-                        subtitle={t(`style_picker.look_${look.key}`)}
-                        className="mt-1 border-0 bg-transparent p-0"
-                      />
-                    )}
                   </CardContent>
                 </Card>
               </motion.div>
