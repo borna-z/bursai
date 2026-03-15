@@ -6595,7 +6595,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'share.create_own': 'Erstelle deinen eigenen Kleiderschrank', 'share.copy_link': 'Link kopieren', 'share.copied': 'Kopiert!',
     'share.link_copied': 'Link kopiert!', 'share.copy_error': 'Link konnte nicht kopiert werden',
     'share.download': 'Herunterladen', 'share.downloaded': 'Bild heruntergeladen!', 'share.download_error': 'Download fehlgeschlagen',
-    'share.style_label': 'Stil:', 'share.unknown_garment': 'Unbekanntes Kleidungsstück', 'share.watermark': 'Erstellt mit Wardrobe AI',
+    'share.style_label': 'Stil:', 'share.unknown_garment': 'Unbekanntes Kleidungsstück', 'share.watermark': 'Erstellt mit BURS',
     'share.cta_free_title': 'Erstelle deinen Kleiderschrank kostenlos', 'share.cta_free_desc': 'Erhalte KI-generierte Outfits aus deiner eigenen Kleidung',
     'share.cta_free_button': 'Kostenlos starten', 'share.cta_premium_title': 'Unbegrenzt möchtest du?',
     'share.cta_premium_wardrobe': 'Unbegrenzter Kleiderschrank', 'share.cta_premium_outfits': 'Unbegrenzte Outfits',
