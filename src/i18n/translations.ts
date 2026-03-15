@@ -2843,7 +2843,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'insights.palette_cool': 'Cool palette',
     'insights.palette_neutral': 'Neutral palette',
     'insights.palette_balanced': 'Balanced palette',
-    'insights.temp_desc': 'Your wardrobe\'s overall color feeling',
+    'insights.temp_desc': 'The overall color tone of your wardrobe',
     'insights.common_colors': 'Your most common',
     'insights.unused_gems': 'Unused gems',
     'insights.unused': 'Unused',
