@@ -214,7 +214,7 @@ export default function OutfitDetailPage() {
           : currentWeather?.wind || 'low',
     };
 
-    setSwapSheet({ isOpen: true, slot, outfitItemId });
+    setSwapSheet({ isOpen: true, slot, outfitItemId, currentGarmentId });
 
     await fetchCandidates(
       slot,
@@ -222,7 +222,48 @@ export default function OutfitDetailPage() {
       otherColors,
       otherItems,
       outfit?.occasion || 'vardag',
-      normalizedWeather
+      normalizedWeather,
+      swapMode
+    );
+  };
+
+  const handleSwapModeChange = async (mode: SwapMode) => {
+    setSwapMode(mode);
+    if (!swapSheet.isOpen || !swapSheet.slot || !swapSheet.currentGarmentId) return;
+
+    const otherItems =
+      outfit?.outfit_items
+        .filter((item) => item.id !== swapSheet.outfitItemId)
+        .map((item) => ({ slot: item.slot, garment_id: item.garment_id })) || [];
+
+    const otherColors =
+      outfit?.outfit_items
+        .filter((item) => item.id !== swapSheet.outfitItemId && item.garment?.color_primary)
+        .map((item) => item.garment!.color_primary.toLowerCase()) || [];
+
+    const normalizedWeather = {
+      temperature:
+        outfit?.weather && typeof (outfit.weather as OutfitWeather).temp === 'number'
+          ? (outfit.weather as OutfitWeather).temp
+          : currentWeather?.temperature,
+      precipitation:
+        outfit?.weather && typeof (outfit.weather as OutfitWeather).precipitation === 'string'
+          ? (outfit.weather as OutfitWeather).precipitation
+          : currentWeather?.precipitation || 'none',
+      wind:
+        outfit?.weather && typeof (outfit.weather as OutfitWeather).wind === 'string'
+          ? (outfit.weather as OutfitWeather).wind
+          : currentWeather?.wind || 'low',
+    };
+
+    await fetchCandidates(
+      swapSheet.slot,
+      swapSheet.currentGarmentId,
+      otherColors,
+      otherItems,
+      outfit?.occasion || 'vardag',
+      normalizedWeather,
+      mode
     );
   };
 
