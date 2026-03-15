@@ -3237,6 +3237,10 @@ serve(async (req) => {
     const gaps = detectWardrobeGapForRequest(slotCandidates, weather, occasion);
     const limitationNote = generateLimitationNote(gaps, confidence);
 
+    // Build generation failure signal for insight derivation
+    const failureSignal = buildGenerationFailureSignal(occasion, weather, gaps, confidence, slotCandidates);
+    const wardrobeInsights = deriveWardrobeInsightsFromGeneration([failureSignal]);
+
     const styleContext = buildStyleContext(preferences);
 
     // AI refinement
