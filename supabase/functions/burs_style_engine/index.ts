@@ -1699,7 +1699,7 @@ function buildCombos(
         .filter(i => i.slot !== "outerwear")
         .map(i => ({ ...i }));
       newItems.push(toComboItem(ow, "outerwear"));
-      combos.push(scoreCombo(newItems, recentOutfitSets, body, occasion, style, weather));
+      combos.push(scoreCombo(newItems, recentOutfitSets, body, occasion, style, weather, prefs));
     }
   }
 
