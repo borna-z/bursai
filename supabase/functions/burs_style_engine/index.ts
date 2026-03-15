@@ -2507,7 +2507,20 @@ serve(async (req) => {
     const userId = claimsData.claims.sub as string;
 
     const body = await req.json();
-    const mode: string = body.mode || "generate"; // "generate" | "suggest" | "swap"
+    const mode: string = body.mode || "generate"; // "generate" | "suggest" | "swap" | "record_pair"
+
+    // ── RECORD PAIR OUTCOME (lightweight, early return) ──
+    if (mode === "record_pair") {
+      const garmentIds: string[] = body.garment_ids || [];
+      const positive: boolean = body.positive !== false;
+      if (garmentIds.length >= 2) {
+        await recordPairOutcome(serviceSupabase, userId, garmentIds, positive);
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const occasion: string = body.occasion || "vardag";
     const style: string | null = body.style || null;
     const weather: WeatherInput = body.weather || { precipitation: "none", wind: "low" };
