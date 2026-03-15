@@ -83,15 +83,15 @@ function GarmentRow({ garments }: { garments: AISuggestion['garments'] }) {
             transition={{ delay: i * 0.07, duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
             className="flex flex-col items-center gap-1.5"
           >
-            <div className="w-[88px] h-[88px] rounded-full overflow-hidden border-2 border-border/20 shadow-sm bg-muted">
+            <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-border/20 shadow-sm bg-muted">
               <LazyImageSimple
                 imagePath={garment.image_path}
                 alt={garment.title}
                 className="w-full h-full object-cover"
-                fallbackIcon={<Shirt className="w-7 h-7 text-muted-foreground/30" />}
+                fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/30" />}
               />
             </div>
-            <span className="text-[10px] font-medium text-muted-foreground/70 capitalize truncate max-w-[88px] text-center">
+            <span className="text-[9px] font-medium text-muted-foreground/70 capitalize truncate max-w-16 text-center">
               {garment.category}
             </span>
           </motion.div>
@@ -118,14 +118,14 @@ function HeroSlide({ suggestion, onTryIt, onPlan, isCreating }: HeroSlideProps) 
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
       transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-      className="space-y-5"
+      className="space-y-3"
     >
       {/* Occasion + Title */}
-      <div className="text-center space-y-1.5 pt-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/60">
+      <div className="text-center space-y-1 pt-1">
+        <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/60">
           {suggestion.occasion}
         </p>
-        <h3 className="text-[19px] font-semibold leading-snug tracking-tight">
+        <h3 className="text-[15px] font-semibold leading-snug tracking-tight">
           {suggestion.title}
         </h3>
       </div>
@@ -139,27 +139,29 @@ function HeroSlide({ suggestion, onTryIt, onPlan, isCreating }: HeroSlideProps) 
       </p>
 
       {/* CTA row */}
-      <div className="flex items-center gap-2.5 pt-1">
+      <div className="flex items-center gap-2 pt-0.5">
         <Button
           onClick={onTryIt}
           disabled={isCreating}
-          className="flex-1 h-11 text-sm font-semibold"
+          size="sm"
+          className="flex-1 h-9 text-xs font-semibold"
         >
           {isCreating ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
           ) : (
             <>
               {t('insights.try')}
-              <ChevronRight className="w-4 h-4 ml-0.5" />
+              <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
             </>
           )}
         </Button>
         <Button
           variant="ghost"
+          size="sm"
           onClick={onPlan}
-          className="h-11 px-4 text-sm text-muted-foreground"
+          className="h-9 px-3 text-xs text-muted-foreground"
         >
-          <Calendar className="w-4 h-4 mr-1.5" />
+          <Calendar className="w-3.5 h-3.5 mr-1" />
           {t('plan.plan')}
         </Button>
       </div>
@@ -277,7 +279,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
   }
 
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-primary/[0.04] to-transparent border border-border/10 py-7 px-6">
+    <div className="rounded-2xl bg-gradient-to-br from-primary/[0.04] to-transparent border border-border/10 py-4 px-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
