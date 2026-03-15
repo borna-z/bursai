@@ -580,7 +580,7 @@ export default function WardrobePage() {
                     onClick={() => setShowFilterSheet(true)}
                     className={cn(
                       'h-11 w-11 rounded-xl flex-shrink-0 flex items-center justify-center transition-colors relative',
-                      hasActiveFilters ? 'bg-primary/10 text-primary' : 'bg-muted/30 text-muted-foreground/60 hover:bg-muted/50'
+                      hasActiveFilters ? 'bg-primary/10 text-primary border border-primary/20' : 'surface-inset text-muted-foreground/60 hover:bg-foreground/[0.05]'
                     )}
                   >
                     <SlidersHorizontal className="w-4 h-4" />
