@@ -568,7 +568,7 @@ export default function WardrobePage() {
                       placeholder={`${t('wardrobe.search')} ${totalCount ?? ''} ${t('wardrobe.garments_count_label')}...`}
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="pl-10 bg-muted/30 border-0 h-11 rounded-xl text-[14px] placeholder:text-muted-foreground/40"
+                      className="pl-10 surface-inset border-border/10 h-11 rounded-xl text-[14px] placeholder:text-muted-foreground/40"
                     />
                     {search && (
                       <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 active:scale-90 transition-transform">
