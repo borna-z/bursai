@@ -31,7 +31,7 @@ export function WeekStrip({ selectedDate, onSelectDate, plannedOutfits }: WeekSt
   };
 
   return (
-    <div className="flex gap-1.5 justify-between">
+    <div className="flex gap-2 justify-between">
       {days.map((date) => {
         const isSelected = isSameDay(date, selectedDate);
         const isTodayDate = isToday(date);
