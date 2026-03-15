@@ -101,10 +101,13 @@ export default function HomePage() {
             transition={hero.transition}
             className="flex items-center justify-between overflow-visible"
           >
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-lg font-semibold tracking-tight" style={{ fontFamily: "'Sora', sans-serif" }}>
+            <div>
+              <h1 className="text-xl font-semibold tracking-[-0.025em]">
                 {getGreeting()}
               </h1>
+              <p className="label-editorial mt-1 text-muted-foreground/50 capitalize">
+                {formattedDate}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <WeatherPill />
