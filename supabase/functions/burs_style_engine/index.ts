@@ -1988,6 +1988,8 @@ function buildCombos(
   const combos: ScoredCombo[] = [];
 
   const pushCombo = (items: ComboItem[]) => {
+    const { complete } = isCompleteOutfit(items, outerwearRequired ? weather : { ...weather, temperature: 20, precipitation: 'none' });
+    if (!complete) return; // Skip incomplete outfits
     combos.push(
       scoreCombo(items, recentOutfitSets, occasion, weather, style, prefs, body, pairMemory)
     );
