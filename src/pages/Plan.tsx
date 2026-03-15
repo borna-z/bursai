@@ -451,18 +451,11 @@ export default function PlanPage() {
                     size="sm"
                     onClick={() => setQuickGenerateSheetOpen(true)}
                     disabled={isGenerating || upsertPlanned.isPending}
-                    className="rounded-xl h-10 press"
+                    className="rounded-xl h-10 press min-h-[44px]"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     {t('plan.add_outfit')}
                   </Button>
-                  <button
-                    onClick={() => setPlanningSheetOpen(true)}
-                    disabled={isGenerating || upsertPlanned.isPending}
-                    className="text-xs text-muted-foreground/50 hover:text-foreground transition-colors press"
-                  >
-                    {t('plan.plan')}
-                  </button>
                 </div>
               )}
             </div>
