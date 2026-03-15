@@ -37,8 +37,15 @@ interface ScoredGarment {
   breakdown: Record<string, number>;
 }
 
+interface ComboItem {
+  slot: string;
+  garment: GarmentRow;
+  baseScore: number;
+  baseBreakdown: Record<string, number>;
+}
+
 interface ScoredCombo {
-  items: { slot: string; garment: GarmentRow }[];
+  items: ComboItem[];
   totalScore: number;
   breakdown: Record<string, number>;
 }
@@ -678,13 +685,178 @@ function styleAlignmentScore(garment: GarmentRow, prefs: Record<string, any> | n
   const favColors = (sp.favoriteColors || []) as string[];
   const dislikedColors = (sp.dislikedColors || []) as string[];
   const gc = garment.color_primary?.toLowerCase() || "";
-  if (favColors.some(c => gc.includes(c.toLowerCase()))) score += 2;
-  if (dislikedColors.some(c => gc.includes(c.toLowerCase()))) score -= 3;
+  if (favColors.some((c: string) => gc.includes(c.toLowerCase()))) score += 2;
+  if (dislikedColors.some((c: string) => gc.includes(c.toLowerCase()))) score -= 3;
 
   // Fit preference
   if (sp.fit && garment.fit) {
-    if (sp.fit === garment.fit) score += 1;
+    if (sp.fit === garment.fit) score += 1.5;
+    // Opposite fits penalized lightly
+    const opposites: Record<string, string[]> = {
+      slim: ["oversized", "wide"], oversized: ["slim", "skinny", "fitted"],
+      fitted: ["oversized", "wide"], relaxed: ["skinny", "fitted"],
+    };
+    if (opposites[sp.fit]?.includes(garment.fit.toLowerCase())) score -= 1;
   }
+
+  // Style words alignment
+  const styleWords = (sp.styleWords || []) as string[];
+  if (styleWords.length > 0) {
+    const mat = (garment.material || "").toLowerCase();
+    const cat = (garment.category || "").toLowerCase();
+    const sub = (garment.subcategory || "").toLowerCase();
+    const combined = `${cat} ${sub} ${mat} ${garment.fit || ""}`.toLowerCase();
+    const STYLE_WORD_SIGNALS: Record<string, string[]> = {
+      minimalist: ["solid", "enfärgad", "cotton", "bomull", "regular", "slim"],
+      classic: ["blazer", "shirt", "skjorta", "wool", "ull", "chinos", "loafer"],
+      streetwear: ["hoodie", "sneakers", "denim", "oversized", "jersey"],
+      elegant: ["silk", "siden", "cashmere", "kashmir", "blazer", "heels", "satin"],
+      bohemian: ["linen", "linne", "floral", "relaxed", "wide", "sandal"],
+      sporty: ["jersey", "sneakers", "fleece", "nylon", "polyester"],
+      edgy: ["leather", "läder", "black", "svart", "boots", "stövlar"],
+      preppy: ["polo", "chinos", "blazer", "loafer", "cotton", "bomull"],
+    };
+    for (const word of styleWords) {
+      const signals = STYLE_WORD_SIGNALS[word.toLowerCase()];
+      if (signals && signals.some(s => combined.includes(s))) {
+        score += 1;
+        break; // max +1 from style words
+      }
+    }
+  }
+
+  // Comfort vs Style slider (0=comfort, 100=style)
+  const cvs = sp.comfortVsStyle;
+  if (cvs !== undefined && cvs !== null && garment.formality !== null) {
+    const tendency = (Number(cvs) - 50) / 50; // -1 to +1 (style leaning)
+    if (tendency > 0.3 && garment.formality >= 3) score += 0.5;
+    if (tendency < -0.3 && garment.formality <= 2) score += 0.5;
+  }
+
+  // Palette vibe alignment
+  const paletteVibe = sp.paletteVibe as string | undefined;
+  if (paletteVibe) {
+    const hsl = getHSL(gc);
+    if (hsl) {
+      const vibeMatch: Record<string, (h: [number, number, number]) => boolean> = {
+        warm: (h) => !isNeutral(h) && (h[0] <= 60 || h[0] >= 330),
+        cool: (h) => !isNeutral(h) && h[0] >= 180 && h[0] <= 270,
+        neutral: (h) => isNeutral(h),
+        earth: (h) => h[0] >= 10 && h[0] <= 60 && h[1] <= 60,
+        pastel: (h) => h[2] >= 65 && h[1] <= 50,
+        bold: (h) => h[1] >= 60 && h[2] >= 40 && h[2] <= 70,
+        dark: (h) => h[2] <= 30,
+        muted: (h) => h[1] <= 30,
+      };
+      const matcher = vibeMatch[paletteVibe.toLowerCase()];
+      if (matcher && matcher(hsl)) score += 1;
+    }
+  }
+
+  return Math.max(0, Math.min(10, score));
+}
+
+// ─────────────────────────────────────────────
+// OCCASION / STYLE / WEATHER COMBO HELPERS
+// ─────────────────────────────────────────────
+
+/** How well the combo matches the user's requested style vibe */
+function styleIntentScore(items: ComboItem[], style: string | null): number {
+  if (!style) return 7;
+  const s = style.toLowerCase();
+  let score = 7;
+
+  const STYLE_CATEGORY_MAP: Record<string, string[]> = {
+    smart_casual: ["blazer", "chinos", "loafer", "shirt", "skjorta"],
+    formal: ["blazer", "dress", "heels", "suit"],
+    casual: ["sneakers", "hoodie", "jeans", "t-shirt"],
+    sporty: ["sneakers", "hoodie", "shorts", "jersey"],
+    edgy: ["boots", "leather", "läder", "black"],
+    elegant: ["heels", "dress", "silk", "siden", "blazer"],
+    cozy: ["sweater", "tröja", "hoodie", "cardigan", "fleece"],
+  };
+
+  const signals = STYLE_CATEGORY_MAP[s] || [];
+  if (signals.length === 0) return 7;
+
+  let matchCount = 0;
+  for (const item of items) {
+    const combined = `${item.garment.category} ${item.garment.subcategory || ""} ${item.garment.material || ""}`.toLowerCase();
+    if (signals.some(sig => combined.includes(sig))) matchCount++;
+  }
+  const ratio = matchCount / items.length;
+  score += ratio * 3; // up to +3
+
+  return Math.max(0, Math.min(10, score));
+}
+
+/** Does the combo structurally match what the occasion expects? */
+function occasionTemplateScore(items: ComboItem[], occasion: string): number {
+  const occ = occasion.toLowerCase();
+  let score = 7;
+  const slots = new Set(items.map(i => i.slot));
+  const hasTop = slots.has("top");
+  const hasBottom = slots.has("bottom");
+  const hasDress = slots.has("dress");
+  const hasShoes = slots.has("shoes");
+  const hasOuterwear = slots.has("outerwear");
+  const hasAccessory = slots.has("accessory");
+
+  // Basic structural completeness
+  if (hasShoes) score += 0.5;
+  if ((hasTop && hasBottom) || hasDress) score += 0.5;
+
+  // Occasion-specific template bonuses
+  const ELEVATED = ["dejt", "date", "fest", "party", "gala", "bröllop", "wedding", "middag", "dinner"];
+  const CASUAL = ["vardag", "casual", "weekend", "helg", "promenad", "walk"];
+
+  if (ELEVATED.some(e => occ.includes(e))) {
+    if (hasAccessory) score += 1;
+    // Penalize very casual items
+    for (const item of items) {
+      const cat = (item.garment.category || "").toLowerCase();
+      if (["hoodie", "sweatpants"].some(c => cat.includes(c))) score -= 1.5;
+    }
+  }
+
+  if (CASUAL.some(c => occ.includes(c))) {
+    // Penalize overdressing
+    for (const item of items) {
+      if (item.garment.formality && item.garment.formality >= 5) score -= 1;
+    }
+  }
+
+  return Math.max(0, Math.min(10, score));
+}
+
+/** Combo-level weather check: does the ensemble make sense for the conditions? */
+function weatherPracticalityScore(items: ComboItem[], weather: WeatherInput): number {
+  if (weather.temperature === undefined) return 7;
+  let score = 8;
+  const temp = feelsLikeTemp(weather.temperature, weather.wind);
+  const slots = new Set(items.map(i => i.slot));
+  const hasOuterwear = slots.has("outerwear");
+  const precip = (weather.precipitation || "").toLowerCase();
+  const isRainy = precip.includes("rain") || precip.includes("regn");
+  const isSnowy = precip.includes("snow") || precip.includes("snö");
+
+  // Cold without outerwear
+  if (temp < 10 && !hasOuterwear) score -= 1.5;
+  if (temp < 0 && !hasOuterwear) score -= 2;
+
+  // Rain/snow without waterproof outerwear
+  if ((isRainy || isSnowy) && hasOuterwear) {
+    const ow = items.find(i => i.slot === "outerwear");
+    if (ow) {
+      const mat = (ow.garment.material || "").toLowerCase();
+      if (WATERPROOF_MATERIALS.some(w => mat.includes(w))) score += 1;
+    }
+  }
+  if ((isRainy || isSnowy) && !hasOuterwear) score -= 1;
+
+  // Hot weather with too many layers
+  if (temp > 25 && hasOuterwear) score -= 2;
+  if (temp > 25 && items.length > 3) score -= 0.5;
 
   return Math.max(0, Math.min(10, score));
 }
@@ -1347,73 +1519,114 @@ function jaccardSimilarity(setA: Set<string>, setB: Set<string>): number {
 // COMBO BUILDER
 // ─────────────────────────────────────────────
 
+function toComboItem(sg: ScoredGarment, slot: string): ComboItem {
+  return { slot, garment: sg.garment, baseScore: sg.score, baseBreakdown: sg.breakdown };
+}
+
+function deduplicateCombos(combos: ScoredCombo[]): ScoredCombo[] {
+  const seen = new Set<string>();
+  const result: ScoredCombo[] = [];
+  for (const c of combos) {
+    const key = c.items.map(i => i.garment.id).sort().join(",");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(c);
+  }
+  return result;
+}
+
 function buildCombos(
   slotCandidates: Record<string, ScoredGarment[]>,
   recentOutfitSets: Set<string>[],
   weather: WeatherInput,
   maxCombos: number = 10,
-  body: BodyProfile | null = null
+  body: BodyProfile | null = null,
+  occasion: string = "vardag",
+  style: string | null = null
 ): ScoredCombo[] {
   const tops = slotCandidates["top"] || [];
   const bottoms = slotCandidates["bottom"] || [];
   const shoes = slotCandidates["shoes"] || [];
   const outerwear = slotCandidates["outerwear"] || [];
   const dresses = slotCandidates["dress"] || [];
+  const accessories = slotCandidates["accessory"] || [];
 
-  const needsOuterwear = (weather.temperature !== undefined && weather.temperature < 15) ||
-    (weather.precipitation && !["none", "ingen"].includes(weather.precipitation.toLowerCase()));
+  const temp = weather.temperature;
+  const precip = (weather.precipitation || "").toLowerCase();
+  const isColdOrRainy = (temp !== undefined && temp < 15) ||
+    (precip && !["none", "ingen"].includes(precip));
+  const strongOuterwear = (temp !== undefined && temp < 5) ||
+    precip.includes("rain") || precip.includes("regn") ||
+    precip.includes("snow") || precip.includes("snö");
+
+  // Determine if occasion is elevated (deserves accessory)
+  const occ = occasion.toLowerCase();
+  const ELEVATED_OCCASIONS = ["dejt", "date", "fest", "party", "gala", "bröllop", "wedding", "middag", "dinner", "mingel"];
+  const isElevated = ELEVATED_OCCASIONS.some(e => occ.includes(e));
+  const topAccessory = accessories.length > 0 && isElevated ? accessories[0] : null;
 
   const combos: ScoredCombo[] = [];
 
+  function maybeAddOuterwearAndAccessory(items: ComboItem[]): ComboItem[] {
+    if (outerwear.length > 0 && (isColdOrRainy || strongOuterwear)) {
+      items.push(toComboItem(outerwear[0], "outerwear"));
+    }
+    if (topAccessory) {
+      items.push(toComboItem(topAccessory, "accessory"));
+    }
+    return items;
+  }
+
   // Dress-based combos
-  for (const d of dresses.slice(0, 3)) {
+  for (const d of dresses.slice(0, 4)) {
     for (const s of shoes.slice(0, 5)) {
-      const items = [
-        { slot: "dress", garment: d.garment },
-        { slot: "shoes", garment: s.garment },
-      ];
-      if (needsOuterwear && outerwear.length > 0) {
-        items.push({ slot: "outerwear", garment: outerwear[0].garment });
-      }
-      combos.push(scoreCombo(items, recentOutfitSets, body));
+      const items = maybeAddOuterwearAndAccessory([
+        toComboItem(d, "dress"),
+        toComboItem(s, "shoes"),
+      ]);
+      combos.push(scoreCombo(items, recentOutfitSets, body, occasion, style, weather));
     }
   }
 
   // Standard combos: top × bottom × shoes
   for (const t of tops.slice(0, 5)) {
     for (const b of bottoms.slice(0, 5)) {
-      for (const s of shoes.slice(0, 5)) {
-        const items = [
-          { slot: "top", garment: t.garment },
-          { slot: "bottom", garment: b.garment },
-          { slot: "shoes", garment: s.garment },
-        ];
-        if (needsOuterwear && outerwear.length > 0) {
-          items.push({ slot: "outerwear", garment: outerwear[0].garment });
-        }
-        combos.push(scoreCombo(items, recentOutfitSets, body));
+      for (const s of shoes.slice(0, 4)) {
+        const items = maybeAddOuterwearAndAccessory([
+          toComboItem(t, "top"),
+          toComboItem(b, "bottom"),
+          toComboItem(s, "shoes"),
+        ]);
+        combos.push(scoreCombo(items, recentOutfitSets, body, occasion, style, weather));
       }
     }
   }
 
-  // Add variety with different outerwear
-  if (outerwear.length > 1 && combos.length > 0) {
-    const best = combos.sort((a, b) => b.totalScore - a.totalScore)[0];
+  // Add variety with different outerwear (only if outerwear is relevant)
+  if (outerwear.length > 1 && combos.length > 0 && isColdOrRainy) {
+    const sorted = [...combos].sort((a, b) => b.totalScore - a.totalScore);
+    const best = sorted[0];
     for (const ow of outerwear.slice(1, 3)) {
-      const newItems = best.items.filter(i => i.slot !== "outerwear");
-      newItems.push({ slot: "outerwear", garment: ow.garment });
-      combos.push(scoreCombo(newItems, recentOutfitSets, body));
+      const newItems = best.items
+        .filter(i => i.slot !== "outerwear")
+        .map(i => ({ ...i }));
+      newItems.push(toComboItem(ow, "outerwear"));
+      combos.push(scoreCombo(newItems, recentOutfitSets, body, occasion, style, weather));
     }
   }
 
-  // Sort by total score, return top N
-  return combos.sort((a, b) => b.totalScore - a.totalScore).slice(0, maxCombos);
+  // Deduplicate, sort, return top N
+  const unique = deduplicateCombos(combos);
+  return unique.sort((a, b) => b.totalScore - a.totalScore).slice(0, maxCombos);
 }
 
 function scoreCombo(
-  items: { slot: string; garment: GarmentRow }[],
+  items: ComboItem[],
   recentSets: Set<string>[],
-  body: BodyProfile | null = null
+  body: BodyProfile | null = null,
+  occasion: string = "vardag",
+  style: string | null = null,
+  weather: WeatherInput = {}
 ): ScoredCombo {
   // Color harmony across all items
   const colors = items
@@ -1442,20 +1655,44 @@ function scoreCombo(
   }
 
   // Fit proportion score (body-aware)
-  const fitScore = fitProportionScore(items, body);
+  const fitItems = items.map(i => ({ slot: i.slot, garment: i.garment }));
+  const fitScore = fitProportionScore(fitItems, body);
 
-  // Average individual scores
-  const avgIndividual = items.reduce((sum, i) => sum + 7, 0) / items.length;
+  // Average individual base scores (FIX: use real scores instead of hardcoded 7)
+  const avgBaseScore = items.length > 0
+    ? items.reduce((sum, i) => sum + i.baseScore, 0) / items.length
+    : 7;
 
-  const totalScore = colorScore * 0.22 + matScore * 0.13 + formalityConsistency * 0.18 + avgIndividual * 0.22 + fitScore * 0.10 - repetitionPenalty + 0.15 * 7;
+  // Occasion/style/weather combo-level scores
+  const siScore = styleIntentScore(items, style);
+  const otScore = occasionTemplateScore(items, occasion);
+  const wpScore = weatherPracticalityScore(items, weather);
+
+  const totalScore =
+    colorScore * 0.16 +
+    matScore * 0.10 +
+    formalityConsistency * 0.12 +
+    avgBaseScore * 0.22 +
+    fitScore * 0.08 +
+    siScore * 0.10 +
+    otScore * 0.10 +
+    wpScore * 0.10 -
+    repetitionPenalty;
 
   return {
     items,
     totalScore,
     breakdown: {
-      color: colorScore,
-      material: matScore,
-      formalityConsistency,
+      // UI-expected keys
+      overall: Math.max(0, Math.min(10, totalScore)),
+      color_harmony: colorScore,
+      material_compatibility: matScore,
+      formality: formalityConsistency,
+      // Richer keys
+      item_strength: avgBaseScore,
+      style_intent: siScore,
+      occasion_fit: otScore,
+      practicality: wpScore,
       fitProportion: fitScore,
       repetitionPenalty,
     },
@@ -1861,7 +2098,7 @@ serve(async (req) => {
     }
 
     // Build combos
-    const combos = buildCombos(slotCandidates, recentOutfitSets, weather, 10, bodyProfile);
+    const combos = buildCombos(slotCandidates, recentOutfitSets, weather, 10, bodyProfile, occasion, style);
 
     if (combos.length === 0) {
       return new Response(
