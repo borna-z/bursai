@@ -4,7 +4,7 @@ import { Sparkles, AlertCircle, Shirt, Palette, Wand2, Eye, CloudSun } from 'luc
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
+import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { useOutfitGenerator, type OutfitRequest } from '@/hooks/useOutfitGenerator';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
@@ -20,14 +20,6 @@ export default function OutfitGeneratePage() {
   const { isUnlocked } = useWardrobeUnlocks();
   
   const state = location.state as OutfitRequest | null;
-  
-  const PHASES = [
-    { icon: Shirt, label: t('generate.phase_analyzing'), duration: 800 },
-    { icon: Palette, label: t('generate.phase_matching'), duration: 1200 },
-    { icon: CloudSun, label: t('generate.phase_weather') || 'Checking weather...', duration: 1000 },
-    { icon: Eye, label: t('generate.phase_styling') || 'Matching styles...', duration: 1200 },
-    { icon: Wand2, label: t('generate.phase_creating'), duration: 0 },
-  ];
 
   useEffect(() => {
     if (!isUnlocked('outfit_gen')) return;
@@ -107,11 +99,13 @@ export default function OutfitGeneratePage() {
 
   return (
     <AppLayout>
-      <AILoadingOverlay
-        variant="fullscreen"
-        phases={PHASES}
-        subtitle={subtitle || undefined}
-      />
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
+        <OutfitGenerationState
+          subtitle={subtitle || undefined}
+          variant="full"
+          className="max-w-sm w-full"
+        />
+      </div>
     </AppLayout>
   );
 }
