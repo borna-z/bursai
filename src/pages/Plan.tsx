@@ -279,7 +279,7 @@ export default function PlanPage() {
         <LaundryAlertBanner />
 
         {/* Week navigation */}
-        <div className="py-2">
+        <div className="py-3">
           <WeekStrip 
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
