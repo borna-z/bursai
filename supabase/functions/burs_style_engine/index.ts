@@ -2656,7 +2656,7 @@ serve(async (req) => {
         .filter(i => i.garment);
 
       const candidates = scoreSwapCandidates(
-        swapSlot, currentGarmentId, otherItems, garments, occasion, weather, penalties, preferences, swapMode
+        swapSlot, currentGarmentId, otherItems, garments, occasion, weather, penalties, preferences, swapMode, pairMemory
       );
 
       return new Response(JSON.stringify({
