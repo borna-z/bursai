@@ -647,6 +647,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'scan.take_photo': 'Ta foto',
     'scan.camera_denied': 'Kameraåtkomst nekad. Aktivera den i dina inställningar.',
     'scan.no_camera': 'Ingen kamera hittades på denna enhet.',
+    'scan.locking_on': 'Låser på…',
+    'scan.reading_garment': 'Läser plagg…',
+    'scan.extracting': 'Extraherar detaljer…',
+    'scan.confidence_high': 'Hög säkerhet',
+    'scan.confidence_medium': 'Granska rekommenderas',
+    'scan.confidence_low': 'Låg säkerhet',
+    'scan.multiple_objects': 'Fokusera på ett plagg',
+    'scan.enriching': 'Fördjupar detaljer…',
 
     // Insights
     'insights.title': 'Insikter',
