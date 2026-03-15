@@ -92,9 +92,7 @@ function SwapSheet({
 
         <div className="mt-4 pb-8 space-y-2">
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-            </div>
+            <SwapLoadingState />
           ) : candidates.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <p>{t('outfit.no_alternatives')}</p>
