@@ -139,27 +139,29 @@ function HeroSlide({ suggestion, onTryIt, onPlan, isCreating }: HeroSlideProps) 
       </p>
 
       {/* CTA row */}
-      <div className="flex items-center gap-2.5 pt-1">
+      <div className="flex items-center gap-2 pt-0.5">
         <Button
           onClick={onTryIt}
           disabled={isCreating}
-          className="flex-1 h-11 text-sm font-semibold"
+          size="sm"
+          className="flex-1 h-9 text-xs font-semibold"
         >
           {isCreating ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
           ) : (
             <>
               {t('insights.try')}
-              <ChevronRight className="w-4 h-4 ml-0.5" />
+              <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
             </>
           )}
         </Button>
         <Button
           variant="ghost"
+          size="sm"
           onClick={onPlan}
-          className="h-11 px-4 text-sm text-muted-foreground"
+          className="h-9 px-3 text-xs text-muted-foreground"
         >
-          <Calendar className="w-4 h-4 mr-1.5" />
+          <Calendar className="w-3.5 h-3.5 mr-1" />
           {t('plan.plan')}
         </Button>
       </div>
