@@ -1,91 +1,101 @@
 
-# Full i18n Translation Plan — 110 Steps
 
-**Status: 🔲 Not Started**
+# Live Scan Two-Stage Pipeline & Precision Upgrade
 
 ## Current State
 
-- **14 supported locales**: sv, en, no, da, fi, de, fr, es, it, pt, nl, pl, ar, fa
-- **sv and en** are fully translated (~700+ keys each)
-- **Other 12 locales** have partial coverage (~100-200 keys each), missing large sections
-- Fallback chain: `locale → en → sv → raw key`
-- File: `src/i18n/translations.ts` (~9,800 lines)
+- **Auto-detect** uses frame-differencing at 64x64 to detect stability, fires `onStable` after 300ms of stillness
+- **Capture** compresses full frame to 480px JPEG, sends base64 to `analyze_garment` edge function
+- **Edge function** uses `complexity: "standard"` with 300 max tokens, 15s timeout for live scan
+- **Result** shows full-frame thumbnail + title/category/color, user accepts or retakes
+- **Save** runs in background after accept (upload + insert)
+- No center-crop, no confidence score, no Stage 2 enrichment, no duplicate awareness
+- ScanOverlay uses bouncing dots + ping rings (generic)
+- Garments table has no enrichment columns (neckline, sleeve_length, etc.) — enrichment will go into `ai_raw` JSON
 
----
+## Plan
 
-## Architecture Change (Steps 1-2)
+### 1. Center-crop before analysis (`src/lib/compressFrame.ts`)
+- Add optional crop region parameter to `compressFrame`
+- New export `compressCenterCrop(canvas, video, maxDim, quality)` that crops the center 70% of the frame before compressing — removes background clutter, focuses on the garment the reticle is pointing at
+- Used by live scan capture path; file capture stays full-frame
 
-**Step 1** — Create `src/i18n/locales/` directory with one file per locale, each exporting `Record<string, string>`.
+### 2. Edge function fast path (`supabase/functions/analyze_garment/index.ts`)
+- Add `mode: 'fast' | 'full'` to request body (default `'full'`)
+- When `mode === 'fast'`:
+  - Use `complexity: "trivial"` (gemini-2.5-flash-lite → gemini-2.5-flash) for speed
+  - `max_tokens: 200`, `timeout: 10000`
+  - Tighter prompt: no verbose instructions, request JSON only with a `confidence` field (0-1)
+  - Temperature 0 for deterministic output
+- When `mode === 'full'`: existing behavior unchanged
+- Add `confidence` to response type
+- Prompt for fast mode: single-sentence system prompt + schema, no examples
 
-**Step 2** — Refactor `src/i18n/translations.ts` to import from individual locale files. No functional change.
+### 3. Stage 2 enrichment edge function call (`supabase/functions/analyze_garment/index.ts`)
+- Add `mode: 'enrich'` option
+- Uses `complexity: "standard"`, requests additional fields: neckline, sleeve_length, closure, fabric_weight, style_tags, occasion_tags, layering_role, refined_title
+- Returns enrichment data stored into `ai_raw` column via background update
 
----
+### 4. `useLiveScan` hook upgrades (`src/hooks/useLiveScan.ts`)
+- `capture()` uses new `compressCenterCrop` for center-cropped frame
+- Pass `mode: 'fast'` to `invokeEdgeFunction` for Stage 1
+- Add `confidence` to `ScanResult` interface
+- New `ScanResult.confidence` field from AI response
+- After `accept()`, fire Stage 2 enrichment in background:
+  - Upload image first (existing)
+  - Insert garment record (existing)
+  - Then invoke `analyze_garment` with `mode: 'enrich'` and `storagePath`
+  - Update garment's `ai_raw` with enrichment data
+  - Run duplicate detection (existing `detect_duplicate_garment`) with metadata
+- Background enrichment never blocks scan loop
 
-## Per-Locale Translation (Steps 3-110)
+### 5. `backgroundGarmentSave.ts` — add enrichment step
+- After successful insert, fire enrichment edge function
+- After enrichment response, update garment record's `ai_raw` with merged data
+- After enrichment, run duplicate detection and log result (no UI blocking)
+- All errors caught silently — enrichment is best-effort
 
-Each locale gets 9 steps covering these domains:
+### 6. Auto-detect confidence-aware reticle (`src/hooks/useAutoDetect.ts`)
+- Add `'multiple_objects'` to `FramingHint` type for when edge density is high everywhere (suggests clutter)
+- Tighten `STABLE_DURATION` to 250ms for snappier lock feel
+- Export `lockConfidence` (0-1) based on edge density quality: high center edges + low border edges = high confidence
 
-| Step offset | Domain |
-|---|---|
-| +0 | Navigation, common, auth, error |
-| +1 | Onboarding (all sub-steps, body, style, tutorial) |
-| +2 | Settings (profile, appearance, privacy, GDPR, notifications, account) |
-| +3 | Home, weather, plan, calendar |
-| +4 | Wardrobe, garment details, scan, import, batch, duplicate |
-| +5 | Outfits, outfit generation, stylist/chat |
-| +6 | Insights, discover, premium, billing, pricing, trial |
-| +7 | Landing page (hero, bento, showcase, pricing section, FAQ, footer, comparison) |
-| +8 | Contact, privacy policy, terms, seed/admin, genimg, social reactions |
+### 7. LiveScan.tsx UI upgrades
+- **Reticle**: Replace circle with a rounded-rect "focus frame" (4 corner brackets) that transitions from `border-foreground/20` to `border-accent` on lock
+- **ScanOverlay**: Replace bouncing dots + ping rings with the premium `GarmentAnalysisState` treatment (shimmer line + phase text crossfade). Phases: "Locking on" → "Reading garment" → "Extracting details"
+- **Result overlay**: Add confidence badge (high/medium/low) with appropriate copy. Show a subtle "Enriching details..." note after accept
+- **Guidance**: Add `'multiple_objects'` hint: "Focus on one garment"
+- Add new scan phase i18n keys
 
-### Steps 3-11: Norwegian (no)
-### Steps 12-20: Danish (da)
-### Steps 21-29: Finnish (fi)
-### Steps 30-38: German (de)
-### Steps 39-47: French (fr)
-### Steps 48-56: Spanish (es)
-### Steps 57-65: Italian (it)
-### Steps 66-74: Portuguese (pt)
-### Steps 75-83: Dutch (nl)
-### Steps 84-92: Polish (pl)
-### Steps 93-101: Arabic (ar)
-### Steps 102-110: Farsi (fa)
+### 8. i18n translations (`src/i18n/translations.ts`)
+Add for `en` and `sv`:
+- `scan.locking_on` / `scan.reading_garment` / `scan.extracting`
+- `scan.confidence_high` / `scan.confidence_medium` / `scan.confidence_low`
+- `scan.multiple_objects` / `scan.enriching`
 
----
+### 9. Tests
+- Update `useLiveScan.test.tsx`: verify `mode: 'fast'` is passed in capture body
+- Update `backgroundGarmentSave.test.ts`: verify enrichment call after insert
+- Add test: confidence field flows through to ScanResult
 
-## Technical Details
+## Files Modified
 
-### File structure after refactor
-```text
-src/i18n/
-  translations.ts          ← imports + re-exports composed object
-  locales/
-    sv.ts                  ← ~700 keys (already complete)
-    en.ts                  ← ~700 keys (already complete)
-    no.ts                  ← fill to ~700 keys
-    da.ts                  ← fill to ~700 keys
-    fi.ts                  ← fill to ~700 keys
-    de.ts                  ← fill to ~700 keys
-    fr.ts                  ← fill to ~700 keys
-    es.ts                  ← fill to ~700 keys
-    it.ts                  ← fill to ~700 keys
-    pt.ts                  ← fill to ~700 keys
-    nl.ts                  ← fill to ~700 keys
-    pl.ts                  ← fill to ~700 keys
-    ar.ts                  ← fill to ~700 keys (RTL)
-    fa.ts                  ← fill to ~700 keys (RTL)
-```
+| File | Change |
+|------|--------|
+| `src/lib/compressFrame.ts` | Add `compressCenterCrop` export |
+| `supabase/functions/analyze_garment/index.ts` | Add `mode` param, fast/enrich paths |
+| `src/hooks/useLiveScan.ts` | Center-crop, fast mode, confidence |
+| `src/lib/backgroundGarmentSave.ts` | Stage 2 enrichment + duplicate detection |
+| `src/hooks/useAutoDetect.ts` | lockConfidence, multiple_objects hint |
+| `src/pages/LiveScan.tsx` | Focus frame reticle, premium scan overlay, confidence badge |
+| `src/i18n/translations.ts` | New scan phase keys |
+| `src/hooks/__tests__/useLiveScan.test.tsx` | Fast mode assertion |
+| `src/lib/__tests__/backgroundGarmentSave.test.ts` | Enrichment test |
 
-### Key count target
-Every locale file must contain the exact same set of keys as `en.ts`.
+## Speed Budget
 
-### Translation quality
-- AI-assisted translation with native-quality output
-- Preserve placeholders like `{count}`, `{done}`, `{failed}`
-- RTL languages (ar, fa) keep the same key structure; RTL layout handled by CSS
-- Currency/number formatting stays locale-aware via `getLocalizedPricing()`
+- Center crop + compress: <50ms (canvas draw)
+- Stage 1 AI (trivial complexity, 200 tokens, flash-lite): target p50 <2s, p90 <3s
+- Accept → scan loop ready: <100ms (background fire-and-forget)
+- Stage 2 enrichment: 5-15s in background, invisible to user
 
-### Edge functions
-Edge functions already use `LANG_CONFIG` mappings. No changes needed.
-
-### No new dependencies
-All translations are static strings in TypeScript files. No runtime i18n library needed.
