@@ -607,14 +607,14 @@ export default function WardrobePage() {
                     ]).map((chip) => (
                       <Chip
                         key={chip.key}
-                        size="lg"
+                        size="md"
                         selected={smartFilter === chip.key}
                         onClick={() => setSmartFilter(smartFilter === chip.key ? null : chip.key)}
                         className="whitespace-nowrap flex-shrink-0"
                       >
                         {chip.label}
                         {smartFilterCounts[chip.key] > 0 && (
-                          <span className="text-[11px] opacity-60">{smartFilterCounts[chip.key]}</span>
+                          <span className="text-[10px] font-medium bg-foreground/[0.06] px-1.5 py-px rounded-full">{smartFilterCounts[chip.key]}</span>
                         )}
                       </Chip>
                     ))}
