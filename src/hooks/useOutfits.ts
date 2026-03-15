@@ -9,6 +9,7 @@ export type OutfitItem = Tables<'outfit_items'>;
 
 export interface OutfitWeather {
   temp?: number;
+  temperature?: number;
   condition?: string;
   precipitation?: string;
   wind?: string;

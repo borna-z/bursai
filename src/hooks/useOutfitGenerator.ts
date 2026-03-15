@@ -148,11 +148,12 @@ async function generateOutfitViaEngine(
     throw new Error('Not enough matching garments');
   }
 
-  // Save outfit
+  // Save outfit — always use normalized `temperature` key
   const weatherJson = {
-    temperature: request.weather.temperature,
-    precipitation: request.weather.precipitation,
-    wind: request.weather.wind,
+    temperature: normalizedWeather.temperature,
+    precipitation: normalizedWeather.precipitation,
+    wind: normalizedWeather.wind,
+    condition: normalizedWeather.condition,
   };
 
   const { data: outfit, error: outfitError } = await supabase
