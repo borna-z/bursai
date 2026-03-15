@@ -38,7 +38,7 @@ export function EmptyState({
       transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
       className={cn(
         'flex flex-col items-center justify-center px-6 text-center',
-        compact ? 'py-12' : 'py-24',
+        compact ? 'py-14' : 'py-28',
         className,
       )}
     >
