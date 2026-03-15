@@ -91,7 +91,7 @@ function GarmentRow({ garments }: { garments: AISuggestion['garments'] }) {
                 fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/30" />}
               />
             </div>
-            <span className="text-[9px] font-medium text-muted-foreground/70 capitalize truncate max-w-16 text-center">
+            <span className="text-[9px] font-medium text-muted-foreground/70 capitalize truncate max-w-[72px] text-center">
               {garment.category}
             </span>
           </motion.div>
