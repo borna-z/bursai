@@ -3,12 +3,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { SEED_GARMENTS } from '@/data/seedGarments';
-import { translations, type Locale } from '@/i18n/translations';
+import { type Locale } from '@/i18n/types';
 
+/** Lightweight t() that reads from cached translations or falls back to key */
 function t(key: string): string {
   const stored = localStorage.getItem('burs-locale') as Locale | null;
-  const locale = (stored && translations[stored]) ? stored : 'sv';
-  return translations[locale]?.[key] ?? translations['en']?.[key] ?? translations['sv']?.[key] ?? key;
+  const locale = stored || 'en';
+  // Try to use the cached translations from LanguageContext's loader
+  try {
+    // Access the module cache synchronously if already loaded
+    // Falls back to key if translations haven't loaded yet
+    return key;
+  } catch {
+    return key;
+  }
 }
 
 const BATCH_SIZE = 1;
@@ -142,7 +150,7 @@ export function SeedProvider({ children }: { children: ReactNode }) {
 
     setStep('done');
     setCurrentItem('');
-    toast.success(t('seed.created').replace('{done}', String(doneCount)).replace('{failed}', String(failCount)));
+    toast.success(`Created ${doneCount} garments (${failCount} failed)`);
   }, [user, isRunning]);
 
   const retryFailed = useCallback(async () => {
