@@ -946,13 +946,6 @@ function weatherPracticalityScore(items: ComboItem[], weather: WeatherInput): nu
 
   return clampScore(score);
 }
-
-
-
-  // Basic structural completeness
-  if (hasShoes) score += 0.5;
-  if ((hasTop && hasBottom) || hasDress) score += 0.5;
-
   // Occasion-specific template bonuses
   const ELEVATED = ["dejt", "date", "fest", "party", "gala", "bröllop", "wedding", "middag", "dinner"];
   const CASUAL = ["vardag", "casual", "weekend", "helg", "promenad", "walk"];
