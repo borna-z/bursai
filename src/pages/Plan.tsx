@@ -357,7 +357,7 @@ export default function PlanPage() {
                 const OccasionIcon = outfit.occasion ? occasionIcons[outfit.occasion] || CalendarDays : CalendarDays;
 
                 return (
-                  <div key={planned.id} className="space-y-4 pb-4 border-b border-border/5 last:border-0 last:pb-0">
+                  <div key={planned.id} className="space-y-5 pb-6 border-b border-border/5 last:border-0 last:pb-0">
                     {/* Outfit image grid */}
                     <div 
                       className="rounded-2xl overflow-hidden cursor-pointer press"
