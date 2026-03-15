@@ -2367,7 +2367,8 @@ serve(async (req) => {
     const swapSlot: string | null = body.swap_slot || null;
     const currentGarmentId: string | null = body.current_garment_id || null;
     const otherItemsRaw: { slot: string; garment_id: string }[] | null = body.other_items || null;
-    const swapMode: SwapMode = (['safe', 'bold', 'fresh'].includes(body.swap_mode) ? body.swap_mode : 'safe') as SwapMode;
+    const swapMode: SwapMode =
+      body.swap_mode === 'bold' || body.swap_mode === 'fresh' ? body.swap_mode : 'safe';
 
     // Fetch data in parallel
     const serviceSupabase = createClient(
