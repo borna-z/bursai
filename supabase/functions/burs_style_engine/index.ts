@@ -2343,7 +2343,8 @@ function scoreSwapCandidates(
   weather: WeatherInput,
   penalties: Map<string, GarmentPenalty>,
   prefs: Record<string, any> | null,
-  swapMode: SwapMode = 'safe'
+  swapMode: SwapMode = 'safe',
+  pairMemory: PairMemoryMap | null = null
 ): ScoredGarment[] {
   const currentGarment = allGarments.find((g) => g.id === currentGarmentId) || null;
 
