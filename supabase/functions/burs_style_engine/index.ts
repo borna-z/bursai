@@ -1743,7 +1743,8 @@ function buildCombos(
   weather: WeatherInput,
   prefs: Record<string, any> | null,
   maxCombos: number = 10,
-  body: BodyProfile | null = null
+  body: BodyProfile | null = null,
+  pairMemory: PairMemoryMap | null = null
 ): ScoredCombo[] {
   const tops = slotCandidates['top'] || [];
   const bottoms = slotCandidates['bottom'] || [];
