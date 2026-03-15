@@ -1714,7 +1714,8 @@ function scoreCombo(
   body: BodyProfile | null = null,
   occasion: string = "vardag",
   style: string | null = null,
-  weather: WeatherInput = {}
+  weather: WeatherInput = {},
+  prefs: Record<string, any> | null = null
 ): ScoredCombo {
   // Color harmony across all items
   const colors = items
