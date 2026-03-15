@@ -46,7 +46,7 @@ function deriveHomeState(
 }
 
 export default function HomePage() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const navigate = useNavigate();
   const { data: garmentCount, isLoading: isCountLoading } = useGarmentCount();
   const { data: profile } = useProfile();
