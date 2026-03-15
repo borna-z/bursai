@@ -30,7 +30,7 @@ export interface GeneratedOutfit {
 }
 
 const INSUFFICIENT_GARMENTS_MESSAGE =
-  'Add more garments in different categories (top, bottom, shoes) before generating an outfit.';
+  'Add more garments to generate an outfit. You need either a top + bottom + shoes, or a dress + shoes.';
 
 function isInsufficientGarmentsError(message?: string | null) {
   if (!message) return false;
@@ -45,14 +45,15 @@ async function validateWardrobeForGeneration(userId: string): Promise<void> {
     .from('garments')
     .select('category')
     .eq('user_id', userId)
-    .in('category', ['top', 'bottom', 'shoes']);
+    .in('category', ['top', 'bottom', 'shoes', 'dress']);
 
   if (error) throw error;
 
   const categories = new Set((data || []).map((item) => item.category));
-  const hasRequiredCategories = ['top', 'bottom', 'shoes'].every((cat) => categories.has(cat));
+  const hasStandardPath = ['top', 'bottom', 'shoes'].every((cat) => categories.has(cat));
+  const hasDressPath = categories.has('dress') && categories.has('shoes');
 
-  if (!hasRequiredCategories) {
+  if (!hasStandardPath && !hasDressPath) {
     throw new Error(INSUFFICIENT_GARMENTS_MESSAGE);
   }
 }
