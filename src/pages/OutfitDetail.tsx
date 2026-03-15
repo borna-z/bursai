@@ -507,8 +507,8 @@ export default function OutfitDetailPage() {
       <div className="px-5 sm:px-6 pt-8 pb-40 space-y-10">
         {/* Title + meta */}
         <div>
-          <h1 className="text-2xl font-semibold capitalize">{displayOccasion}</h1>
-          <p className="text-[13px] text-muted-foreground/60 mt-1">
+          <h1 className="text-2xl font-bold tracking-tight capitalize">{displayOccasion}</h1>
+          <p className="text-[13px] text-muted-foreground/60 mt-1.5">
             {metaParts.join(' · ')}
           </p>
         </div>
