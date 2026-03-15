@@ -249,8 +249,8 @@ export default function OutfitDetailPage() {
 
     const normalizedWeather = {
       temperature:
-        typeof outfitWeather?.temperature === 'number'
-          ? outfitWeather.temperature
+        typeof outfitWeather?.temp === 'number'
+          ? outfitWeather.temp
           : currentWeather?.temperature,
       precipitation:
         typeof outfitWeather?.precipitation === 'string'
