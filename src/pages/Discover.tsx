@@ -3,7 +3,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useGarmentCount } from '@/hooks/useGarments';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { EASE_CURVE } from '@/lib/motion';
+import { PRESETS } from '@/lib/motion';
 
 import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 
