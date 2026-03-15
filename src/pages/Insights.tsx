@@ -244,17 +244,17 @@ export default function InsightsPage() {
                     <p className="text-xs text-muted-foreground mt-1.5">{t('insights.sustainability_desc')}</p>
                   </div>
                   <div className="grid grid-cols-3 gap-3 mt-5">
-                     <div className="rounded-xl surface-secondary p-3 text-center">
+                     <div className="rounded-xl surface-secondary p-4 text-center">
                       <span className="text-lg font-bold tabular-nums">{sustainability.utilizationRate}%</span>
-                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.utilization')}</p>
+                      <p className="text-[10px] text-muted-foreground/60 mt-1">{t('insights.utilization')}</p>
                     </div>
-                     <div className="rounded-xl surface-secondary p-3 text-center">
+                     <div className="rounded-xl surface-secondary p-4 text-center">
                       <span className="text-lg font-bold tabular-nums">{sustainability.avgWearCount}×</span>
-                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.avg_wears')}</p>
+                      <p className="text-[10px] text-muted-foreground/60 mt-1">{t('insights.avg_wears')}</p>
                     </div>
-                    <div className="rounded-xl surface-secondary p-3 text-center">
+                    <div className="rounded-xl surface-secondary p-4 text-center">
                       <span className="text-lg font-bold tabular-nums">{sustainability.underusedCount}</span>
-                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.underused')}</p>
+                      <p className="text-[10px] text-muted-foreground/60 mt-1">{t('insights.underused')}</p>
                     </div>
                   </div>
                 </div>

@@ -401,12 +401,12 @@ export default function PlanPage() {
                     )}
 
                     {/* Actions */}
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 pt-1">
                       <Button 
                         variant="outline" 
                         size="sm" 
                         onClick={() => { setCurrentOutfitId(outfit.id); setCurrentPlannedId(planned.id); setSwapSheetOpen(true); }}
-                        className="flex-1 rounded-xl h-10 press"
+                        className="flex-1 rounded-xl h-11 press"
                       >
                         <Repeat className="w-4 h-4 mr-2" />
                         {t('plan.swap')}

@@ -739,7 +739,7 @@ export default function OutfitDetailPage() {
 
       {/* ── Sticky bottom action bar ── */}
       <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/60 backdrop-blur-2xl border-t border-border/15 safe-bottom">
-        <div className="flex items-center gap-3 px-4 py-3 max-w-lg mx-auto">
+        <div className="flex items-center gap-3 px-5 py-4 max-w-lg mx-auto">
           <Button
             className="flex-1 rounded-2xl h-12"
             onClick={handleMarkWorn}

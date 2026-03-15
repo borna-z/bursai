@@ -173,7 +173,7 @@ function HeroSlide({ suggestion, onTryIt, onPlan, isCreating }: HeroSlideProps) 
 function DotNav({ total, active, onChange }: { total: number; active: number; onChange: (i: number) => void }) {
   if (total <= 1) return null;
   return (
-    <div className="flex items-center justify-center gap-1.5 pt-4">
+    <div className="flex items-center justify-center gap-1.5 pt-5">
       {Array.from({ length: total }).map((_, i) => (
         <button
           key={i}

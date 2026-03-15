@@ -20,7 +20,7 @@ export function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/60 backdrop-blur-2xl backdrop-saturate-[1.8] border-t border-border/15 safe-bottom" aria-label="Main navigation">
-      <div className="flex justify-around items-center h-14 max-w-lg mx-auto px-2">
+      <div className="flex justify-around items-center h-[58px] max-w-lg mx-auto px-2">
         {tabKeys.map((tab) => (
           <NavLink
             key={tab.path}
