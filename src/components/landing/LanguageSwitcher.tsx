@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Globe } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { SUPPORTED_LOCALES } from '@/i18n/translations';
-import type { Locale } from '@/i18n/translations';
+import { SUPPORTED_LOCALES } from '@/i18n/types';
+import type { Locale } from '@/i18n/types';
 
 export function LanguageSwitcher() {
   const { locale, setLocale } = useLanguage();

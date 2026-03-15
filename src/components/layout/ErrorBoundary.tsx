@@ -1,14 +1,18 @@
 import { Component, ReactNode } from 'react';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { translations, type Locale } from '@/i18n/translations';
+import { type Locale, SUPPORTED_LOCALES } from '@/i18n/types';
+
+/** Hardcoded error strings so ErrorBoundary never depends on async translations */
+const ERROR_STRINGS: Record<string, Record<string, string>> = {
+  en: { 'error.title': 'Something went wrong', 'error.desc': 'An unexpected error occurred. Try reloading the page.', 'error.try_again': 'Try again', 'error.reload': 'Reload' },
+  sv: { 'error.title': 'Något gick fel', 'error.desc': 'Ett oväntat fel uppstod. Prova att ladda om sidan.', 'error.try_again': 'Försök igen', 'error.reload': 'Ladda om' },
+};
 
 function getLocale(): Locale {
   const stored = localStorage.getItem('burs-locale') as Locale | null;
-  if (stored && translations[stored]) return stored;
-  const browserLang = navigator.language.split('-')[0] as Locale;
-  if (translations[browserLang]) return browserLang;
-  return 'sv';
+  if (stored && SUPPORTED_LOCALES.some(l => l.code === stored)) return stored;
+  return 'en';
 }
 
 /** Report error to Sentry if loaded (lazy-loaded, so may not be available) */
@@ -59,7 +63,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   t = (key: string): string => {
     const locale = getLocale();
-    return translations[locale]?.[key] ?? translations['en']?.[key] ?? translations['sv']?.[key] ?? key;
+    return ERROR_STRINGS[locale]?.[key] ?? ERROR_STRINGS['en']?.[key] ?? key;
   };
 
   render() {

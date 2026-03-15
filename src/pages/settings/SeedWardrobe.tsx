@@ -4,10 +4,10 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { useSeed } from '@/contexts/SeedContext';
+import { SeedProvider, useSeed } from '@/contexts/SeedContext';
 import { SEED_GARMENTS } from '@/data/seedGarments';
 
-export default function SeedWardrobe() {
+function SeedWardrobeInner() {
   const navigate = useNavigate();
   const {
     step, results, completed, failed, totalToProcess,
@@ -125,5 +125,13 @@ export default function SeedWardrobe() {
         )}
       </AnimatedPage>
     </AppLayout>
+  );
+}
+
+export default function SeedWardrobe() {
+  return (
+    <SeedProvider>
+      <SeedWardrobeInner />
+    </SeedProvider>
   );
 }

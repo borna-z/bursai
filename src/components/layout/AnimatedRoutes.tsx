@@ -5,15 +5,15 @@ import { EASE_CURVE } from '@/lib/motion';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { PageSkeleton } from '@/components/layout/PageSkeleton';
 
-// Eager-loaded (small, critical path)
-import Auth from '@/pages/Auth';
-import Landing from '@/pages/Landing';
-import Index from '@/pages/Index';
+// Eager-loaded (tiny, critical path only)
 import Home from '@/pages/Home';
 import NotFound from '@/pages/NotFound';
-import ResetPassword from '@/pages/ResetPassword';
 
-// Lazy-loaded (heavy pages)
+// Lazy-loaded — all other pages
+const Auth = lazy(() => import('@/pages/Auth'));
+const Landing = lazy(() => import('@/pages/Landing'));
+const Index = lazy(() => import('@/pages/Index'));
+const ResetPassword = lazy(() => import('@/pages/ResetPassword'));
 const Wardrobe = lazy(() => import('@/pages/Wardrobe'));
 const AddGarment = lazy(() => import('@/pages/AddGarment'));
 const GarmentDetail = lazy(() => import('@/pages/GarmentDetail'));

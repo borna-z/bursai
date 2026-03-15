@@ -1,6 +1,6 @@
 import { sv, enUS, nb, da, fi, de, fr, es, it, pt, nl, pl, ar, faIR } from 'date-fns/locale';
 import type { Locale as DateFnsLocale } from 'date-fns';
-import type { Locale as AppLocale } from '@/i18n/translations';
+import type { Locale as AppLocale } from '@/i18n/types';
 
 const dateFnsLocaleMap: Record<AppLocale, DateFnsLocale> = {
   sv, en: enUS, no: nb, da, fi, de, fr, es, it, pt, nl, pl, ar, fa: faIR,
