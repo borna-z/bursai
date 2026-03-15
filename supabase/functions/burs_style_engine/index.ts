@@ -946,9 +946,7 @@ function weatherPracticalityScore(items: ComboItem[], weather: WeatherInput): nu
 
   return clampScore(score);
 }
-  // Occasion-specific template bonuses
-  const ELEVATED = ["dejt", "date", "fest", "party", "gala", "bröllop", "wedding", "middag", "dinner"];
-  const CASUAL = ["vardag", "casual", "weekend", "helg", "promenad", "walk"];
+
 
   if (ELEVATED.some(e => occ.includes(e))) {
     if (hasAccessory) score += 1;
