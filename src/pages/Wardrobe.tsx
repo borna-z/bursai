@@ -33,8 +33,8 @@ import { Chip } from '@/components/ui/chip';
 // ── Garment Card ──
 
 const cardReveal = {
-  hidden: { opacity: 0, y: 12, scale: 0.97 },
-  visible: { opacity: 1, y: 0, scale: 1 },
+  hidden: { opacity: 0, y: DISTANCE.md },
+  visible: { opacity: 1, y: 0 },
 };
 
 interface GarmentCardProps {
