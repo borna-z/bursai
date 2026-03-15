@@ -711,7 +711,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'insights.no_used_garments_desc': 'Markera outfits som burna för att se statistik.',
     'insights.used_garments_count': 'plagg använda senaste 30 dagarna',
     'insights.unused_60d': 'plagg ej använda 60+ dagar',
-    'insights.unused_nudge': 'Rediscover forgotten favorites in your wardrobe',
+    'insights.unused_nudge': 'Återupptäck bortglömda favoriter i din garderob',
     'insights.wardrobe_usage': 'Garderobutnyttjande',
     'insights.used_label': 'använda',
     'insights.unused_label': 'oanvända',
