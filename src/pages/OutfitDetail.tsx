@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { hapticLight, hapticMedium, hapticSuccess, hapticHeavy } from '@/lib/haptics';
 import { stripBrands } from '@/lib/stripBrands';
 import { nativeShare } from '@/lib/nativeShare';
+import { normalizeWeather } from '@/lib/outfitContext';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Star, Bookmark, BookmarkCheck, Check, RefreshCw, Share2, Loader2,
@@ -245,28 +246,25 @@ export default function OutfitDetailPage() {
         .filter((item) => item.id !== outfitItemId && item.garment?.color_primary)
         .map((item) => item.garment!.color_primary.toLowerCase()) || [];
 
-    const outfitWeather = outfit?.weather as OutfitWeather | undefined;
+    const outfitWeather = outfit?.weather as Record<string, unknown> | undefined;
+    const normalizedWeather = normalizeWeather(outfitWeather);
 
-    const normalizedWeather = {
-      temperature:
-        typeof outfitWeather?.temp === 'number'
-          ? outfitWeather.temp
-          : currentWeather?.temperature,
-      precipitation:
-        typeof outfitWeather?.precipitation === 'string'
-          ? outfitWeather.precipitation
-          : currentWeather?.precipitation || 'none',
-      wind:
-        typeof outfitWeather?.wind === 'string'
-          ? outfitWeather.wind
-          : currentWeather?.wind || 'low',
+    // Merge with current live weather as fallback
+    const mergedWeather = {
+      temperature: normalizedWeather.temperature ?? currentWeather?.temperature,
+      precipitation: normalizedWeather.precipitation !== 'none'
+        ? normalizedWeather.precipitation
+        : currentWeather?.precipitation || 'none',
+      wind: normalizedWeather.wind !== 'low'
+        ? normalizedWeather.wind
+        : currentWeather?.wind || 'low',
     };
 
     return {
       otherItems,
       otherColors,
       occasion: outfit?.occasion || 'vardag',
-      weather: normalizedWeather,
+      weather: mergedWeather,
     };
   };
 
@@ -423,12 +421,13 @@ export default function OutfitDetailPage() {
     );
   }
 
-  const weather = outfit.weather as OutfitWeather | null;
+  const weather = outfit.weather as Record<string, unknown> | null;
+  const normalizedOutfitWeather = normalizeWeather(weather);
   const displayOccasion = getOccasionLabel(outfit.occasion, t);
 
   // Build metadata pieces
   const metaParts = [displayOccasion, outfit.style_vibe].filter(Boolean);
-  if (weather?.temp !== undefined) metaParts.push(`${weather.temp}°C`);
+  if (normalizedOutfitWeather.temperature !== undefined) metaParts.push(`${normalizedOutfitWeather.temperature}°C`);
 
   return (
     <div className="min-h-screen bg-background">

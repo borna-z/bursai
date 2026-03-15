@@ -26,8 +26,8 @@ interface OutfitItem {
 interface StylistSummaryProps {
   occasion: string;
   styleVibe?: string | null;
-  weather?: { temp?: number; condition?: string; precipitation?: 'none' | 'rain' | 'snow'; wind?: 'low' | 'medium' | 'high' } | null;
-  currentWeather?: { temp?: number; precipitation?: 'none' | 'rain' | 'snow'; wind?: 'low' | 'medium' | 'high' } | null;
+  weather?: { temp?: number; temperature?: number; condition?: string; precipitation?: 'none' | 'rain' | 'snow'; wind?: 'low' | 'medium' | 'high' } | null;
+  currentWeather?: { temp?: number; temperature?: number; precipitation?: 'none' | 'rain' | 'snow'; wind?: 'low' | 'medium' | 'high' } | null;
   explanation?: string | null;
   outfitItems?: OutfitItem[];
   isLoading?: boolean;
@@ -87,9 +87,10 @@ export function StylistSummary({
 }: StylistSummaryProps) {
   const { t } = useLanguage();
   const OccasionIcon = occasionIcons[occasion.toLowerCase()] || Coffee;
-  const TempIcon = getTemperatureIcon(weather?.temp);
+  const resolvedTemp = weather?.temperature ?? weather?.temp;
+  const TempIcon = getTemperatureIcon(resolvedTemp);
   
-  const summary = explanation || generateSummary(occasion, t, weather?.temp);
+  const summary = explanation || generateSummary(occasion, t, resolvedTemp);
   
   const warnings = outfitItems.length > 0 
     ? analyzeOutfitWeather(outfitItems, currentWeather, weather, t)
@@ -151,10 +152,10 @@ export function StylistSummary({
               {styleVibe}
             </Badge>
           )}
-          {weather?.temp !== undefined && TempIcon && (
+          {resolvedTemp !== undefined && TempIcon && (
             <Badge variant="outline" className="flex items-center gap-1">
               <TempIcon className="w-3 h-3" />
-              {weather.temp}°C
+              {resolvedTemp}°C
             </Badge>
           )}
           {!hasWarnings && outfitItems.length > 0 && currentWeather && (
