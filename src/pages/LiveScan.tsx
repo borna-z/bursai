@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Check, RotateCcw, Camera, Zap, ZapOff, ImagePlus } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useLiveScan } from '@/hooks/useLiveScan';
 import { useAutoDetect, type FramingHint } from '@/hooks/useAutoDetect';
@@ -10,6 +11,7 @@ import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { isMedianApp } from '@/lib/median';
+import { EASE_CURVE } from '@/lib/motion';
 
 /* ─── Accepted overlay — fast checkmark fade ─── */
 function AcceptedOverlay({ onDone, label }: { onDone: () => void; label: string }) {
@@ -48,78 +50,101 @@ function AutoProgressRing({ progress }: { progress: number }) {
   );
 }
 
-/* ─── Scan overlay — radial pulse with phase text ─── */
-function ScanOverlay({ label }: { label: string }) {
+/* ─── Premium scan overlay — shimmer + phase text ─── */
+function ScanOverlay() {
   const { t } = useLanguage();
+  const prefersReduced = useReducedMotion();
   const [phase, setPhase] = useState(0);
   const phases = [
-    t('scan.detecting') || 'Detecting garment...',
-    t('scan.analyzing_details') || 'Analyzing details...',
-    t('scan.identifying') || 'Identifying...',
+    t('scan.locking_on') || 'Locking on…',
+    t('scan.reading_garment') || 'Reading garment…',
+    t('scan.extracting') || 'Extracting details…',
   ];
 
   useEffect(() => {
-    if (!navigator.vibrate) return;
-    const id = setInterval(() => { navigator.vibrate([6, 80, 6]); }, 400);
-    return () => { clearInterval(id); navigator.vibrate(0); };
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPhase(p => (p + 1) % phases.length);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [phases.length]);
+    if (prefersReduced) return;
+    const durations = [1200, 1800, 0];
+    if (phase >= phases.length - 1) return;
+    const timer = setTimeout(() => setPhase(p => p + 1), durations[phase]);
+    return () => clearTimeout(timer);
+  }, [phase, prefersReduced, phases.length]);
 
   return (
-    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4">
-      {/* Concentric pulse rings */}
-      {[0, 1, 2].map(i => (
-        <div
-          key={i}
-          className="absolute w-48 h-48 rounded-full border border-accent/30 animate-ping"
-          style={{ animationDuration: `${2 + i * 0.5}s`, animationDelay: `${i * 0.4}s` }}
+    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-5">
+      {/* Subtle breathing glow */}
+      {!prefersReduced && (
+        <motion.div
+          className="absolute w-40 h-40 rounded-full bg-accent/10 blur-2xl"
+          animate={{ opacity: [0.3, 0.55, 0.3] }}
+          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
         />
-      ))}
-      <div className="absolute">
-        <AnimatePresence mode="wait">
-          <motion.span
-            key={phase}
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.25 }}
-            className="text-foreground text-sm font-medium bg-background/60 px-4 py-2 rounded-full backdrop-blur-sm"
-          >
-            {phases[phase]}
-          </motion.span>
-        </AnimatePresence>
-      </div>
-      {/* Bouncing dots */}
-      <div className="absolute mt-20 flex gap-1.5">
-        {[0, 1, 2].map(i => (
-          <motion.span
-            key={i}
-            className="w-1.5 h-1.5 rounded-full bg-accent/60"
-            animate={{ y: [0, -4, 0] }}
-            transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.12, ease: 'easeInOut' }}
+      )}
+      
+      {/* Phase text */}
+      <AnimatePresence mode="wait">
+        <motion.span
+          key={phase}
+          initial={prefersReduced ? undefined : { opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
+          transition={{ duration: 0.25, ease: EASE_CURVE }}
+          className="text-foreground text-sm font-medium bg-background/60 px-4 py-2 rounded-full backdrop-blur-sm"
+        >
+          {phases[phase]}
+        </motion.span>
+      </AnimatePresence>
+
+      {/* Shimmer line */}
+      {!prefersReduced && (
+        <div className="w-24 h-px bg-border/20 rounded-full overflow-hidden relative">
+          <motion.div
+            className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-accent/40 to-transparent"
+            animate={{ x: ['-100%', '200%'] }}
+            transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
           />
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
 
-/* ─── Circular reticle ─── */
-function Reticle({ stable }: { stable: boolean }) {
+/* ─── Focus frame reticle (corner brackets) ─── */
+function FocusFrame({ locked, confidence }: { locked: boolean; confidence: number }) {
+  const size = 200;
+  const corner = 28;
+  const stroke = locked ? 'stroke-accent' : 'stroke-foreground/20';
+  const glowOpacity = locked ? 0.12 : 0;
+
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-      <div className={cn(
-        'w-[200px] h-[200px] rounded-full border-2 transition-all duration-300',
-        stable
-          ? 'border-accent/60 shadow-[0_0_30px_hsl(var(--accent)/0.15)]'
-          : 'border-foreground/20'
-      )} />
+      <div className="relative" style={{ width: size, height: size }}>
+        {/* Subtle glow on lock */}
+        {locked && (
+          <div
+            className="absolute inset-0 rounded-2xl"
+            style={{
+              boxShadow: `0 0 40px hsl(var(--accent) / ${glowOpacity})`,
+              transition: 'box-shadow 300ms ease-out',
+            }}
+          />
+        )}
+        <svg
+          width={size}
+          height={size}
+          viewBox={`0 0 ${size} ${size}`}
+          fill="none"
+          className="transition-all duration-300"
+        >
+          {/* Top-left */}
+          <path d={`M${corner} 2 H8 a6 6 0 0 0-6 6 V${corner}`} className={cn(stroke, 'transition-all duration-300')} strokeWidth="2.5" strokeLinecap="round" />
+          {/* Top-right */}
+          <path d={`M${size - corner} 2 H${size - 8} a6 6 0 0 1 6 6 V${corner}`} className={cn(stroke, 'transition-all duration-300')} strokeWidth="2.5" strokeLinecap="round" />
+          {/* Bottom-left */}
+          <path d={`M${corner} ${size - 2} H8 a6 6 0 0 1-6-6 V${size - corner}`} className={cn(stroke, 'transition-all duration-300')} strokeWidth="2.5" strokeLinecap="round" />
+          {/* Bottom-right */}
+          <path d={`M${size - corner} ${size - 2} H${size - 8} a6 6 0 0 0 6-6 V${size - corner}`} className={cn(stroke, 'transition-all duration-300')} strokeWidth="2.5" strokeLinecap="round" />
+        </svg>
+      </div>
     </div>
   );
 }
@@ -133,6 +158,7 @@ function ScanGuidance({ hint, autoMode }: { hint: FramingHint; autoMode: boolean
     more_light: t('scan.more_light'),
     too_close: t('scan.move_back'),
     too_far: t('scan.move_closer'),
+    multiple_objects: t('scan.multiple_objects') || 'Focus on one garment',
     ready: autoMode ? t('scan.ready') : t('scan.point_garment'),
   };
 
@@ -142,12 +168,34 @@ function ScanGuidance({ hint, autoMode }: { hint: FramingHint; autoMode: boolean
         'px-4 py-2 rounded-full backdrop-blur-sm text-xs font-medium transition-all duration-300',
         hint === 'ready' ? 'bg-accent/20 text-accent' :
         hint === 'more_light' ? 'bg-warning/20 text-warning' :
+        hint === 'multiple_objects' ? 'bg-warning/20 text-warning' :
         'bg-foreground/10 text-muted-foreground'
       )}>
         {labels[hint] || labels.ready}
       </div>
     </div>
   );
+}
+
+/* ─── Confidence badge ─── */
+function ConfidenceBadge({ confidence }: { confidence?: number }) {
+  const { t } = useLanguage();
+  if (confidence == null) return null;
+
+  let label: string;
+  let variant: 'default' | 'secondary' | 'outline';
+  if (confidence >= 0.8) {
+    label = t('scan.confidence_high') || 'High confidence';
+    variant = 'default';
+  } else if (confidence >= 0.5) {
+    label = t('scan.confidence_medium') || 'Review recommended';
+    variant = 'secondary';
+  } else {
+    label = t('scan.confidence_low') || 'Low confidence';
+    variant = 'outline';
+  }
+
+  return <Badge variant={variant} className="text-[10px]">{label}</Badge>;
 }
 
 /* ─── Permission check helper ─── */
@@ -191,7 +239,7 @@ export default function LiveScan() {
     if (navigator.vibrate) navigator.vibrate(30);
   }, [capture, canCapture, hasSlots]);
 
-  const { progress: autoProgress, framingHint } = useAutoDetect({
+  const { progress: autoProgress, framingHint, lockConfidence } = useAutoDetect({
     enabled: !useFileInputMode && autoMode && canCapture && hasSlots,
     videoEl: videoRef.current,
     busy: isProcessing || !!lastResult || showAccepted,
@@ -202,7 +250,6 @@ export default function LiveScan() {
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Reset so same file can be selected again
     e.target.value = '';
     if (!hasSlots) { setShowPaywall(true); return; }
     captureFromFile(file);
@@ -221,7 +268,6 @@ export default function LiveScan() {
   /** Start camera — must be called from a user gesture (onClick) for Android WebView */
   const startCamera = useCallback(async () => {
     if (useFileInputMode) {
-      // In Median / no-getUserMedia mode, just trigger file input directly
       handleFileCapture();
       return;
     }
@@ -229,7 +275,6 @@ export default function LiveScan() {
     setCameraStarted(true);
     setCameraError(null);
 
-    // Check permission state first
     const permState = await checkCameraPermission();
     if (permState === 'denied') {
       setCameraError(t('scan.camera_denied'));
@@ -289,6 +334,8 @@ export default function LiveScan() {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     finish(); navigate('/wardrobe');
   }, [finish, navigate]);
+
+  const isLocked = autoMode && autoProgress > 0;
 
   return (
     <div className="fixed inset-0 bg-background z-50 flex flex-col">
@@ -366,15 +413,15 @@ export default function LiveScan() {
           <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
         )}
 
-        {/* Idle: circular reticle + guidance (only in camera mode) */}
+        {/* Idle: focus frame reticle + guidance (only in camera mode) */}
         {!useFileInputMode && cameraReady && !lastResult && !isProcessing && !showAccepted && (
           <>
-            <Reticle stable={autoMode && autoProgress > 0} />
+            <FocusFrame locked={isLocked} confidence={lockConfidence} />
             <ScanGuidance hint={framingHint} autoMode={autoMode} />
           </>
         )}
 
-        {isProcessing && <ScanOverlay label={t('scan.analyzing')} />}
+        {isProcessing && <ScanOverlay />}
         
         <AnimatePresence>
           {showAccepted && <AcceptedOverlay onDone={handleAcceptedDone} label={t('scan.added')} />}
@@ -403,12 +450,13 @@ export default function LiveScan() {
                   alt="Scanned garment"
                   className="w-full aspect-[3/4] object-cover rounded-2xl shadow-2xl border border-border/20"
                 />
-                <div className="text-center space-y-1">
+                <div className="text-center space-y-2">
                   <p className="text-foreground text-lg font-semibold">{lastResult.analysis.title}</p>
                   <p className="text-muted-foreground text-sm capitalize">
                     {lastResult.analysis.category} · {lastResult.analysis.color_primary}
                     {lastResult.analysis.material ? ` · ${lastResult.analysis.material}` : ''}
                   </p>
+                  <ConfidenceBadge confidence={lastResult.confidence} />
                 </div>
                 <div className="flex gap-3">
                   <Button variant="outline" className="flex-1" onClick={retake}>
