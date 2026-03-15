@@ -1,91 +1,35 @@
 
-# Full i18n Translation Plan — 110 Steps
 
-**Status: 🔲 Not Started**
+## Plan: Replace `buildCombos()` and `scoreCombo()` in burs_style_engine
 
-## Current State
+**File**: `supabase/functions/burs_style_engine/index.ts`
 
-- **14 supported locales**: sv, en, no, da, fi, de, fr, es, it, pt, nl, pl, ar, fa
-- **sv and en** are fully translated (~700+ keys each)
-- **Other 12 locales** have partial coverage (~100-200 keys each), missing large sections
-- Fallback chain: `locale → en → sv → raw key`
-- File: `src/i18n/translations.ts` (~9,800 lines)
+### What changes
 
----
+**1. Remove lines 1609-1789** — this covers `toComboItem()`, `deduplicateCombos()`, the old `buildCombos()`, and the old `scoreCombo()`.
 
-## Architecture Change (Steps 1-2)
+**2. Insert the user's new `buildCombos()` and `scoreCombo()`** in their place. Key differences from the old code:
 
-**Step 1** — Create `src/i18n/locales/` directory with one file per locale, each exporting `Record<string, string>`.
+- `buildCombos` signature reordered: `(slotCandidates, recentOutfitSets, occasion, style, weather, prefs, maxCombos, body)` — occasion/style/weather/prefs move before maxCombos/body
+- Combo item creation is now inline (no more `toComboItem` helper)
+- Outerwear/accessory selection uses weather-aware logic (`isWetWeather`, temperature thresholds) and occasion-aware accessory inclusion
+- Iterates over multiple outerwear and accessory options per combo instead of appending a single best one
+- Deduplication uses inline `Map` keyed by sorted slot:id pairs
+- `scoreCombo` signature reordered: `(items, recentSets, occasion, weather, style, prefs, body)` — no more defaults, occasion/weather before style/prefs
+- Weights changed: `avgBaseScore` goes from 0.22 → 0.34, `matScore` from 0.10 → 0.08, `fitScore` from 0.08 → 0.10
+- Breakdown now includes both `color`/`material` shorthand keys AND the `color_harmony`/`material_compatibility` UI keys
 
-**Step 2** — Refactor `src/i18n/translations.ts` to import from individual locale files. No functional change.
-
----
-
-## Per-Locale Translation (Steps 3-110)
-
-Each locale gets 9 steps covering these domains:
-
-| Step offset | Domain |
-|---|---|
-| +0 | Navigation, common, auth, error |
-| +1 | Onboarding (all sub-steps, body, style, tutorial) |
-| +2 | Settings (profile, appearance, privacy, GDPR, notifications, account) |
-| +3 | Home, weather, plan, calendar |
-| +4 | Wardrobe, garment details, scan, import, batch, duplicate |
-| +5 | Outfits, outfit generation, stylist/chat |
-| +6 | Insights, discover, premium, billing, pricing, trial |
-| +7 | Landing page (hero, bento, showcase, pricing section, FAQ, footer, comparison) |
-| +8 | Contact, privacy policy, terms, seed/admin, genimg, social reactions |
-
-### Steps 3-11: Norwegian (no)
-### Steps 12-20: Danish (da)
-### Steps 21-29: Finnish (fi)
-### Steps 30-38: German (de)
-### Steps 39-47: French (fr)
-### Steps 48-56: Spanish (es)
-### Steps 57-65: Italian (it)
-### Steps 66-74: Portuguese (pt)
-### Steps 75-83: Dutch (nl)
-### Steps 84-92: Polish (pl)
-### Steps 93-101: Arabic (ar)
-### Steps 102-110: Farsi (fa)
-
----
-
-## Technical Details
-
-### File structure after refactor
-```text
-src/i18n/
-  translations.ts          ← imports + re-exports composed object
-  locales/
-    sv.ts                  ← ~700 keys (already complete)
-    en.ts                  ← ~700 keys (already complete)
-    no.ts                  ← fill to ~700 keys
-    da.ts                  ← fill to ~700 keys
-    fi.ts                  ← fill to ~700 keys
-    de.ts                  ← fill to ~700 keys
-    fr.ts                  ← fill to ~700 keys
-    es.ts                  ← fill to ~700 keys
-    it.ts                  ← fill to ~700 keys
-    pt.ts                  ← fill to ~700 keys
-    nl.ts                  ← fill to ~700 keys
-    pl.ts                  ← fill to ~700 keys
-    ar.ts                  ← fill to ~700 keys (RTL)
-    fa.ts                  ← fill to ~700 keys (RTL)
+**3. Update call site at line 2190** to match the new parameter order:
+```
+buildCombos(slotCandidates, recentOutfitSets, occasion, style, weather, preferences, 10, bodyProfile)
 ```
 
-### Key count target
-Every locale file must contain the exact same set of keys as `en.ts`.
+### What can be removed
+- `toComboItem()` (lines 1609-1611) — no longer used; new code creates items inline
+- `deduplicateCombos()` (lines 1613-1623) — replaced by inline `Map`-based dedup in `buildCombos`
 
-### Translation quality
-- AI-assisted translation with native-quality output
-- Preserve placeholders like `{count}`, `{done}`, `{failed}`
-- RTL languages (ar, fa) keep the same key structure; RTL layout handled by CSS
-- Currency/number formatting stays locale-aware via `getLocalizedPricing()`
+### What stays the same
+- All functions before the combo builder section (scoring helpers, slot categorization, etc.)
+- All functions after `scoreCombo` (locale, AI refinement, swap mode, main server)
+- The section header comment "COMBO BUILDER" is preserved
 
-### Edge functions
-Edge functions already use `LANG_CONFIG` mappings. No changes needed.
-
-### No new dependencies
-All translations are static strings in TypeScript files. No runtime i18n library needed.
