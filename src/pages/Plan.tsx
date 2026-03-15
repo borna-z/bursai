@@ -271,7 +271,7 @@ export default function PlanPage() {
 
       {/* ─── Content ─── */}
       <PullToRefresh onRefresh={handleRefresh}>
-      <AnimatedPage className="max-w-lg mx-auto px-4 pt-4 pb-6">
+      <AnimatedPage className="max-w-lg mx-auto px-5 pt-5 pb-8">
         {/* Calendar connect nudge */}
         <CalendarConnectBanner />
 
@@ -279,7 +279,7 @@ export default function PlanPage() {
         <LaundryAlertBanner />
 
         {/* Week navigation */}
-        <div className="py-2">
+        <div className="py-3">
           <WeekStrip 
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
@@ -293,7 +293,7 @@ export default function PlanPage() {
           initial={PRESETS.TAB.variants.initial}
           animate={PRESETS.TAB.variants.animate}
           transition={PRESETS.TAB.transition}
-          className="pt-6 space-y-8"
+          className="pt-8 space-y-8"
         >
           {/* Weather + status line */}
           <div className="flex items-center justify-between">
@@ -357,7 +357,7 @@ export default function PlanPage() {
                 const OccasionIcon = outfit.occasion ? occasionIcons[outfit.occasion] || CalendarDays : CalendarDays;
 
                 return (
-                  <div key={planned.id} className="space-y-4 pb-4 border-b border-border/5 last:border-0 last:pb-0">
+                  <div key={planned.id} className="space-y-5 pb-6 border-b border-border/5 last:border-0 last:pb-0">
                     {/* Outfit image grid */}
                     <div 
                       className="rounded-2xl overflow-hidden cursor-pointer press"
@@ -377,7 +377,7 @@ export default function PlanPage() {
                     </div>
 
                     {/* Tags */}
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2.5 flex-wrap">
                       <Badge variant="secondary" className="capitalize text-xs font-medium">
                         <OccasionIcon className="w-3 h-3 mr-1.5" />
                         {getOccasionLabel(outfit.occasion || '', t)}
@@ -401,12 +401,12 @@ export default function PlanPage() {
                     )}
 
                     {/* Actions */}
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 pt-1">
                       <Button 
                         variant="outline" 
                         size="sm" 
                         onClick={() => { setCurrentOutfitId(outfit.id); setCurrentPlannedId(planned.id); setSwapSheetOpen(true); }}
-                        className="flex-1 rounded-xl h-10 press"
+                        className="flex-1 rounded-xl h-11 press"
                       >
                         <Repeat className="w-4 h-4 mr-2" />
                         {t('plan.swap')}

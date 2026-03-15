@@ -55,7 +55,7 @@ function StatPill({ value, label, onClick }: { value: number | string; label: st
       )}
     >
       <span className="text-2xl font-bold tracking-tight tabular-nums">{value}</span>
-      <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">{label}</span>
+      <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider mt-0.5">{label}</span>
     </button>
   );
 }
@@ -150,7 +150,7 @@ export default function InsightsPage() {
     <AppLayout>
       <PageHeader title={t('insights.title')} />
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="max-w-lg mx-auto px-4 pb-8 pt-6 space-y-10">
+        <AnimatedPage className="max-w-lg mx-auto px-5 pb-12 pt-8 space-y-12">
 
           {/* ─── 0. Wardrobe Usage Banner + Smart Insight ─── */}
 
@@ -163,9 +163,9 @@ export default function InsightsPage() {
                 <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wider">%</span>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-3">{t('insights.last_30d')}</p>
+            <p className="text-xs text-muted-foreground mt-4">{t('insights.last_30d')}</p>
 
-            <div className="flex items-center w-full mt-8">
+            <div className="flex items-center w-full mt-10">
               <StatPill value={insights.totalGarments} label={t('insights.total')} onClick={() => navigate('/wardrobe')} />
               <div className="w-px h-8 bg-border/20" />
               <StatPill value={insights.garmentsUsedLast30Days} label={t('insights.used_30d')} onClick={() => navigate('/wardrobe/used')} />
@@ -176,7 +176,7 @@ export default function InsightsPage() {
 
           {/* ─── 2. Top 5 Garments (horizontal scroll) ─── */}
           {insights.topFiveWorn.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <SectionLabel icon={Trophy} label={t('insights.top_garments')} />
               <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-4 px-4">
                 {insights.topFiveWorn.map((garment) => (
@@ -207,7 +207,7 @@ export default function InsightsPage() {
           )}
 
           {/* ─── 3. Color Breakdown (horizontal bar + percentages) ─── */}
-          <div className="space-y-3">
+          <div className="space-y-4">
             <SectionLabel icon={Palette} label={t('insights.colors')} />
             <div className={cn(!isPremium && "relative")}>
               <div className={cn(!isPremium && "blur-sm select-none")}>
@@ -232,7 +232,7 @@ export default function InsightsPage() {
 
           {/* ─── 5. Sustainability Score ─── */}
           {sustainability && (
-            <div className="space-y-3">
+          <div className="space-y-4">
               <SectionLabel icon={Leaf} label={t('insights.sustainability')} />
               <div className={cn(!isPremium && "relative")}>
                 <div className={cn(!isPremium && "blur-sm select-none")}>
@@ -243,18 +243,18 @@ export default function InsightsPage() {
                     <span className="text-lg text-muted-foreground/60">/100</span>
                     <p className="text-xs text-muted-foreground mt-1.5">{t('insights.sustainability_desc')}</p>
                   </div>
-                  <div className="grid grid-cols-3 gap-3 mt-3">
-                     <div className="rounded-xl surface-secondary p-3 text-center">
+                  <div className="grid grid-cols-3 gap-3 mt-5">
+                     <div className="rounded-xl surface-secondary p-4 text-center">
                       <span className="text-lg font-bold tabular-nums">{sustainability.utilizationRate}%</span>
-                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.utilization')}</p>
+                      <p className="text-[10px] text-muted-foreground/60 mt-1">{t('insights.utilization')}</p>
                     </div>
-                     <div className="rounded-xl surface-secondary p-3 text-center">
+                     <div className="rounded-xl surface-secondary p-4 text-center">
                       <span className="text-lg font-bold tabular-nums">{sustainability.avgWearCount}×</span>
-                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.avg_wears')}</p>
+                      <p className="text-[10px] text-muted-foreground/60 mt-1">{t('insights.avg_wears')}</p>
                     </div>
-                    <div className="rounded-xl surface-secondary p-3 text-center">
+                    <div className="rounded-xl surface-secondary p-4 text-center">
                       <span className="text-lg font-bold tabular-nums">{sustainability.underusedCount}</span>
-                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('insights.underused')}</p>
+                      <p className="text-[10px] text-muted-foreground/60 mt-1">{t('insights.underused')}</p>
                     </div>
                   </div>
                 </div>

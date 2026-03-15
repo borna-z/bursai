@@ -133,7 +133,7 @@ export function DaySummaryCard({
 
   return (
     <div className={cn(
-      'rounded-xl glass-card p-4 space-y-3',
+      'rounded-xl glass-card p-5 space-y-4',
       className
     )}>
       <p className={cn(

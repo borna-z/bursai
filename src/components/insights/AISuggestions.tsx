@@ -118,10 +118,10 @@ function HeroSlide({ suggestion, onTryIt, onPlan, isCreating }: HeroSlideProps) 
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
       transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-      className="space-y-3"
+      className="space-y-4"
     >
       {/* Occasion + Title */}
-      <div className="text-center space-y-1 pt-1">
+      <div className="text-center space-y-1.5 pt-2">
         <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/60">
           {suggestion.occasion}
         </p>
@@ -139,7 +139,7 @@ function HeroSlide({ suggestion, onTryIt, onPlan, isCreating }: HeroSlideProps) 
       </p>
 
       {/* CTA row */}
-      <div className="flex items-center gap-2 pt-0.5">
+      <div className="flex items-center gap-2.5 pt-1">
         <Button
           onClick={onTryIt}
           disabled={isCreating}
@@ -173,7 +173,7 @@ function HeroSlide({ suggestion, onTryIt, onPlan, isCreating }: HeroSlideProps) 
 function DotNav({ total, active, onChange }: { total: number; active: number; onChange: (i: number) => void }) {
   if (total <= 1) return null;
   return (
-    <div className="flex items-center justify-center gap-1.5 pt-4">
+    <div className="flex items-center justify-center gap-1.5 pt-5">
       {Array.from({ length: total }).map((_, i) => (
         <button
           key={i}
@@ -279,9 +279,9 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
   }
 
   return (
-    <div className="rounded-2xl surface-hero py-4 px-4">
+    <div className="rounded-2xl surface-hero py-5 px-5">
       {/* Header */}
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <Sparkles className="w-3.5 h-3.5 text-primary" />
           <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">

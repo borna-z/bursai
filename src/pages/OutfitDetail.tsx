@@ -145,7 +145,7 @@ interface SlotRowProps {
 function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, onSwap, t }: SlotRowProps) {
   const navigate = useNavigate();
   return (
-    <div className="flex items-center gap-4 py-4 border-b border-border/10 last:border-b-0">
+    <div className="flex items-center gap-4 py-5 border-b border-border/10 last:border-b-0">
       <div
         className="w-16 h-20 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer bg-muted/30"
         onClick={() => navigate(`/wardrobe/${garmentId}`)}
@@ -504,18 +504,18 @@ export default function OutfitDetailPage() {
       </div>
 
       {/* ── Content ── */}
-      <div className="px-4 sm:px-6 pt-6 pb-36 space-y-8">
+      <div className="px-5 sm:px-6 pt-8 pb-40 space-y-10">
         {/* Title + meta */}
         <div>
-          <h1 className="text-2xl font-semibold capitalize">{displayOccasion}</h1>
-          <p className="text-[13px] text-muted-foreground/60 mt-1">
+          <h1 className="text-2xl font-bold tracking-tight capitalize">{displayOccasion}</h1>
+          <p className="text-[13px] text-muted-foreground/60 mt-1.5">
             {metaParts.join(' · ')}
           </p>
         </div>
 
         {/* AI explanation */}
         {outfit.explanation && (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
               <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">{t('outfit.why_works')}</p>
@@ -542,14 +542,14 @@ export default function OutfitDetailPage() {
           if (metrics.length === 0) return null;
 
           return (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-primary" />
                 <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">
                   {t('outfit.score.title') || 'Style Score'}
                 </p>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {metrics.map(({ key, label, color }) => {
                   const val = (score[key] as number) ?? 0;
                   const pct = Math.round(val * 10); // assuming 0-10 scale
@@ -698,9 +698,9 @@ export default function OutfitDetailPage() {
         </div>
 
         {/* ── Rating ── */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">{t('outfit.rating')}</p>
-          <div className="flex gap-1">
+          <div className="flex gap-1.5">
             {[1, 2, 3, 4, 5].map((value) => (
               <button key={value} onClick={() => handleRating(value)} className="p-1 rounded-lg hover:bg-muted/40 transition-colors active:scale-95">
                 <Star className={cn('w-7 h-7 transition-colors', (rating || 0) >= value ? 'fill-primary text-primary' : 'text-muted-foreground/20')} />
@@ -710,9 +710,9 @@ export default function OutfitDetailPage() {
         </div>
 
         {/* ── Feedback chips ── */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">{t('outfit.feedback')}</p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2.5">
             {feedbackOptions.map(({ id, label, icon: Icon }) => {
               const isSelected = selectedFeedback.includes(id);
               const colorClass = isSelected
@@ -739,7 +739,7 @@ export default function OutfitDetailPage() {
 
       {/* ── Sticky bottom action bar ── */}
       <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/60 backdrop-blur-2xl border-t border-border/15 safe-bottom">
-        <div className="flex items-center gap-3 px-4 py-3 max-w-lg mx-auto">
+        <div className="flex items-center gap-3 px-5 py-4 max-w-lg mx-auto">
           <Button
             className="flex-1 rounded-2xl h-12"
             onClick={handleMarkWorn}

@@ -15,7 +15,7 @@ export function QuickActionsRow() {
   const { t } = useLanguage();
 
   return (
-    <div className="flex gap-2.5">
+    <div className="flex gap-3">
       {actions.map((action, i) => (
         <motion.button
           key={action.key}

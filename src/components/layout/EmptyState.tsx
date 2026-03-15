@@ -38,7 +38,7 @@ export function EmptyState({
       transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
       className={cn(
         'flex flex-col items-center justify-center px-6 text-center',
-        compact ? 'py-12' : 'py-24',
+        compact ? 'py-14' : 'py-28',
         className,
       )}
     >
@@ -48,7 +48,7 @@ export function EmptyState({
         transition={{ duration: 0.5, delay: 0.1, type: 'spring', stiffness: 200 }}
         className={cn(
           'rounded-3xl bg-muted/30 flex items-center justify-center',
-          compact ? 'w-14 h-14 mb-5' : 'w-20 h-20 mb-8',
+          compact ? 'w-14 h-14 mb-6' : 'w-20 h-20 mb-10',
         )}
       >
         <Icon className={cn('text-muted-foreground', compact ? 'w-6 h-6' : 'w-8 h-8')} />
@@ -57,7 +57,7 @@ export function EmptyState({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className={cn('font-bold tracking-[-0.02em] mb-2', compact ? 'text-base' : 'text-lg')}
+        className={cn('font-bold tracking-[-0.02em] mb-2.5', compact ? 'text-base' : 'text-lg')}
       >
         {title}
       </motion.h3>
@@ -65,7 +65,7 @@ export function EmptyState({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
-        className="text-[0.8125rem] text-muted-foreground/80 max-w-[280px] mb-6 leading-relaxed"
+        className="text-[0.8125rem] text-muted-foreground/80 max-w-[280px] mb-8 leading-relaxed"
       >
         {description}
       </motion.p>

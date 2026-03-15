@@ -88,7 +88,7 @@ export default function HomePage() {
   return (
     <AppLayout>
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="px-4 pb-24 pt-6 space-y-5 max-w-lg mx-auto">
+        <AnimatedPage className="px-5 pb-28 pt-8 space-y-6 max-w-lg mx-auto">
           {/* ── 1. Greeting ── */}
           <motion.div
             variants={hero.variants}
@@ -150,12 +150,12 @@ export default function HomePage() {
                 initial="initial"
                 animate="animate"
                 transition={reveal.transition}
-                className="rounded-2xl surface-secondary p-8 text-center space-y-4"
+                className="rounded-2xl surface-secondary p-10 text-center space-y-5"
               >
                 <div className="w-14 h-14 rounded-2xl bg-muted/20 flex items-center justify-center mx-auto">
                   <Shirt className="w-6 h-6 text-muted-foreground/40" />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <h3 className="text-[15px] font-semibold">{t('home.min_garments')}</h3>
                   <p className="text-[12px] text-muted-foreground/60 max-w-[240px] mx-auto">
                     {t('home.add_first_items_desc')}
@@ -215,12 +215,12 @@ export default function HomePage() {
                 initial="initial"
                 animate="animate"
                 transition={reveal.transition}
-                className="rounded-2xl surface-secondary p-8 text-center space-y-4"
+                className="rounded-2xl surface-secondary p-10 text-center space-y-5"
               >
                 <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
                   <Sparkles className="w-6 h-6 text-primary/60" />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <h3 className="text-[15px] font-semibold">{t('home.no_outfit_title')}</h3>
                   <p className="text-[12px] text-muted-foreground/60 max-w-[240px] mx-auto">
                     {t('home.no_outfit_desc')}

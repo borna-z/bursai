@@ -277,7 +277,7 @@ function VirtualGarmentGrid({
               key={virtualRow.index}
               style={{ position: 'absolute', top: virtualRow.start, left: 0, width: '100%', height: virtualRow.size, paddingBottom: GAP }}
             >
-              <div className={cn(isGridView ? 'grid grid-cols-3 gap-1.5 h-full' : 'flex flex-col gap-1')}>
+              <div className={cn(isGridView ? 'grid grid-cols-3 gap-2 h-full' : 'flex flex-col gap-1.5')}>
                 {rowGarments.map((garment, colIdx) => (
                   <Fragment key={garment.id}>
                     {!isGridView && !isSelecting ? (
@@ -519,10 +519,10 @@ export default function WardrobePage() {
   return (
     <AppLayout>
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="px-4 pb-36 pt-4 space-y-6">
+        <AnimatedPage className="px-5 pb-36 pt-6 space-y-6">
           {/* Title row */}
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-semibold">{t('wardrobe.title')}</h1>
+            <h1 className="text-2xl font-bold tracking-tight">{t('wardrobe.title')}</h1>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setIsGridView(!isGridView)}
