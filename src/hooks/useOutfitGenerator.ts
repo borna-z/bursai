@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
+import { normalizeWeather } from '@/lib/outfitContext';
 import type { Garment } from './useGarments';
 
 export interface OutfitRequest {
