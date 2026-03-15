@@ -62,7 +62,6 @@ export function useSwapGarment() {
     }
   };
 
-  // Fallback: improved client-side scoring if engine fails
   const fallbackFetchCandidates = async (
     slot: string,
     currentGarmentId: string,
@@ -71,94 +70,75 @@ export function useSwapGarment() {
     if (!user) return [];
 
     const SLOT_CATEGORIES: Record<string, string[]> = {
-      top: ['top'], bottom: ['bottom'], shoes: ['shoes'],
-      outerwear: ['outerwear'], accessory: ['accessory'],
+      top: ['top'],
+      bottom: ['bottom'],
+      shoes: ['shoes'],
+      outerwear: ['outerwear'],
+      accessory: ['accessory'],
       dress: ['dress'],
     };
+
     const categories = SLOT_CATEGORIES[slot] || [slot];
 
     const { data: garments, error } = await supabase
       .from('garments')
       .select('*')
       .eq('user_id', user.id)
+      .eq('in_laundry', false)
       .in('category', categories)
       .neq('id', currentGarmentId);
 
     if (error || !garments) return [];
 
-    // Neutral colors that pair well with anything
-    const NEUTRALS = new Set(['black', 'white', 'grey', 'gray', 'navy', 'beige', 'cream', 'charcoal', 'brown', 'tan', 'khaki']);
+    const neutralWords = ['black', 'white', 'grey', 'gray', 'navy', 'beige', 'brown', 'cream'];
 
-    // Simple color families for rough harmony
-    const colorFamily = (c: string): string => {
-      const cl = (c || '').toLowerCase();
-      if (NEUTRALS.has(cl)) return 'neutral';
-      if (['red', 'burgundy', 'maroon', 'wine', 'crimson'].some(k => cl.includes(k))) return 'red';
-      if (['blue', 'cobalt', 'indigo', 'teal', 'cyan'].some(k => cl.includes(k))) return 'blue';
-      if (['green', 'olive', 'sage', 'emerald', 'mint'].some(k => cl.includes(k))) return 'green';
-      if (['pink', 'rose', 'blush', 'coral'].some(k => cl.includes(k))) return 'pink';
-      if (['yellow', 'gold', 'mustard'].some(k => cl.includes(k))) return 'yellow';
-      if (['orange', 'rust', 'terracotta'].some(k => cl.includes(k))) return 'orange';
-      if (['purple', 'violet', 'plum', 'lavender'].some(k => cl.includes(k))) return 'purple';
-      return 'other';
+    const scoreColorFit = (color?: string | null) => {
+      const c = String(color || '').toLowerCase();
+      if (!c) return 5;
+      if (otherGarmentColors.some((x) => x === c)) return 7.5;
+      if (neutralWords.some((x) => c.includes(x))) return 7;
+      return 5.8;
     };
 
-    const otherFamilies = otherGarmentColors.map(c => colorFamily(c));
-    const otherNeutralCount = otherFamilies.filter(f => f === 'neutral').length;
+    const scoreFreshness = (wearCount?: number | null) => {
+      if (wearCount == null) return 6;
+      if (wearCount === 0) return 8.5;
+      if (wearCount < 5) return 7.2;
+      if (wearCount < 15) return 6.4;
+      return 5.5;
+    };
 
-    const scored: SwapCandidate[] = garments
-      .filter(g => !g.in_laundry)
-      .map(garment => {
-        let score = 5;
+    const scoreFit = (fit?: string | null) => {
+      const f = String(fit || '').toLowerCase();
+      if (['regular', 'relaxed', 'oversized'].some((x) => f.includes(x))) return 6.8;
+      if (['slim', 'tailored'].some((x) => f.includes(x))) return 6.4;
+      return 6;
+    };
 
-        // 1. Wear freshness: favor unworn / less-worn items
-        const wc = garment.wear_count ?? 0;
-        if (wc === 0) score += 2;
-        else if (wc < 3) score += 1.5;
-        else if (wc < 8) score += 0.5;
-        else score -= 0.5;
+    const scored = garments.map((garment) => {
+      const freshness = scoreFreshness(garment.wear_count);
+      const colorFit = scoreColorFit(garment.color_primary);
+      const fitScore = scoreFit(garment.fit);
 
-        // Recency: boost items not worn recently
-        if (garment.last_worn_at) {
-          const daysSince = (Date.now() - new Date(garment.last_worn_at).getTime()) / 86400000;
-          if (daysSince > 30) score += 1;
-          else if (daysSince > 14) score += 0.5;
-          else if (daysSince < 3) score -= 1;
-        } else {
-          score += 0.5; // never worn = fresh
-        }
+      const score =
+        freshness * 0.45 +
+        colorFit * 0.35 +
+        fitScore * 0.20;
 
-        // 2. Color compatibility
-        const cFamily = colorFamily(garment.color_primary);
-        if (cFamily === 'neutral') {
-          // Neutrals are always safe; slight penalty if outfit is already all neutrals
-          score += otherNeutralCount < otherFamilies.length ? 1.5 : 0.5;
-        } else {
-          // Non-neutral: check clashing vs complementary
-          const clashCount = otherFamilies.filter(f => f !== 'neutral' && f !== cFamily).length;
-          if (clashCount === 0) score += 1; // harmonious
-          else if (clashCount === 1) score += 0.5; // one accent is fine
-          else score -= clashCount * 0.5; // too many competing colors
-        }
-
-        // 3. Formality alignment: prefer mid-range, penalize extremes
-        const formality = garment.formality;
-        if (typeof formality === 'number') {
-          if (formality >= 3 && formality <= 7) score += 0.5; // versatile range
-          else if (formality > 8 || formality < 2) score -= 0.5; // extreme
-        }
-
-        // 4. Fit preference: slight boost for regular/versatile fits
-        const fit = (garment.fit || '').toLowerCase();
-        if (['regular', 'straight'].some(f => fit.includes(f))) score += 0.3;
-
-        return { garment, score: Math.max(0, Math.min(10, score)) };
-      });
+      return {
+        garment,
+        score,
+        breakdown: {
+          freshness,
+          color_fit: colorFit,
+          fit: fitScore,
+        },
+      };
+    });
 
     scored.sort((a, b) => b.score - a.score);
-    const top = scored.slice(0, 10);
-    setCandidates(top);
-    return top;
+    setCandidates(scored);
+    return scored;
   };
 
   const swapMutation = useMutation({
