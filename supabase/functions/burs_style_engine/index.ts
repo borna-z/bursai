@@ -3284,7 +3284,17 @@ serve(async (req) => {
 
     if (combos.length === 0) {
       const gaps = detectWardrobeGapForRequest(slotCandidates, weather, occasion);
-      const note = gaps.length > 0 ? gaps.slice(0, 2).join('; ') : null;
+      // Build a clear explanation of what's missing
+      const availableSlots = Object.keys(slotCandidates).filter(s => slotCandidates[s]?.length > 0);
+      const testItems: ComboItem[] = availableSlots.map(s => slotCandidates[s][0]).filter(Boolean).map(sg => ({
+        slot: categorizeSlot(sg.garment.category, sg.garment.subcategory) || 'unknown',
+        garment: sg.garment,
+        baseScore: sg.score,
+        baseBreakdown: sg.breakdown,
+      }));
+      const { missing } = isCompleteOutfit(testItems, weather);
+      const missingExplanation = explainMissingRequiredSlots(missing);
+      const note = [missingExplanation, ...gaps.slice(0, 2)].filter(Boolean).join('; ') || null;
       return new Response(
         JSON.stringify({ error: "Not enough matching garments", limitation_note: note }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
