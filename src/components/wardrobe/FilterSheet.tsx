@@ -56,10 +56,10 @@ export function FilterSheet({
                   key={cat.id}
                   onClick={() => onCategoryChange(cat.id)}
                   className={cn(
-                    'px-3.5 py-2 rounded-full text-xs font-medium transition-colors',
+                    'px-3.5 py-2 rounded-full text-xs font-medium transition-colors border',
                     category === cat.id
-                      ? 'bg-accent text-accent-foreground'
-                      : 'bg-foreground/[0.04] text-muted-foreground'
+                      ? 'bg-accent text-accent-foreground border-accent/30'
+                      : 'surface-inset text-muted-foreground'
                   )}
                 >
                   {cat.label}
