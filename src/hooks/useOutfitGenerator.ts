@@ -91,6 +91,8 @@ async function generateOutfitViaEngine(
 ): Promise<GeneratedOutfit> {
   await validateWardrobeForGeneration(userId);
 
+  const normalizedWeather = normalizeWeather(request.weather as Record<string, unknown>);
+
   const { data, error: fnError } = await invokeEdgeFunction<{
     items?: { slot: string; garment_id: string }[];
     explanation?: string;
@@ -102,7 +104,7 @@ async function generateOutfitViaEngine(
       mode: 'generate',
       occasion: request.occasion,
       style: request.style,
-      weather: request.weather,
+      weather: normalizedWeather,
       locale: request.locale || 'en',
       event_title: request.eventTitle || null,
     },
