@@ -50,7 +50,7 @@ function StatPill({ value, label, onClick }: { value: number | string; label: st
     <button
       onClick={() => { if (onClick) { hapticLight(); onClick(); } }}
       className={cn(
-        "flex flex-col items-center gap-1 flex-1 py-2 rounded-xl transition-colors",
+        "flex flex-col items-center gap-1 flex-1 py-3 rounded-xl transition-colors",
         onClick && "cursor-pointer active:scale-95 hover:bg-foreground/[0.04]"
       )}
     >
