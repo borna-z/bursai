@@ -32,15 +32,42 @@ interface SwapSheetProps {
   candidates: SwapCandidate[]; isLoading: boolean;
   onSelect: (garmentId: string) => void; isSwapping: boolean;
   t: (key: string) => string;
+  swapMode: SwapMode; onModeChange: (mode: SwapMode) => void;
 }
 
-function SwapSheet({ isOpen, onClose, slot, candidates, isLoading, onSelect, isSwapping, t }: SwapSheetProps) {
+const SWAP_MODES: { value: SwapMode; label: string; icon: string }[] = [
+  { value: 'safe', label: 'Safe', icon: '🛡️' },
+  { value: 'bold', label: 'Bold', icon: '🔥' },
+  { value: 'fresh', label: 'Fresh', icon: '✨' },
+];
+
+function SwapSheet({ isOpen, onClose, slot, candidates, isLoading, onSelect, isSwapping, t, swapMode, onModeChange }: SwapSheetProps) {
   const slotLabel = t(`outfit.slot.${slot}`) || slot;
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="bottom" className="h-[70vh]">
         <SheetHeader><SheetTitle>{t('outfit.swap')} {slotLabel}</SheetTitle></SheetHeader>
-        <div className="mt-4 pb-8 space-y-2">
+
+        {/* Mode selector */}
+        <div className="flex gap-2 mt-3 mb-1">
+          {SWAP_MODES.map((m) => (
+            <button
+              key={m.value}
+              onClick={() => onModeChange(m.value)}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-medium transition-all active:scale-[0.97]",
+                swapMode === m.value
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-secondary/60 text-muted-foreground hover:bg-secondary/80"
+              )}
+            >
+              <span className="text-xs">{m.icon}</span>
+              {m.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-3 pb-8 space-y-2 overflow-y-auto flex-1">
           {isLoading ? (
             <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>
           ) : candidates.length === 0 ? (
