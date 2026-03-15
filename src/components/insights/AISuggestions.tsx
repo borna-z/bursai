@@ -83,7 +83,7 @@ function GarmentRow({ garments }: { garments: AISuggestion['garments'] }) {
             transition={{ delay: i * 0.07, duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
             className="flex flex-col items-center gap-1.5"
           >
-            <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-border/20 shadow-sm bg-muted">
+            <div className="w-[72px] h-[72px] rounded-full overflow-hidden border-2 border-border/20 shadow-sm bg-muted">
               <LazyImageSimple
                 imagePath={garment.image_path}
                 alt={garment.title}
@@ -91,7 +91,7 @@ function GarmentRow({ garments }: { garments: AISuggestion['garments'] }) {
                 fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/30" />}
               />
             </div>
-            <span className="text-[9px] font-medium text-muted-foreground/70 capitalize truncate max-w-16 text-center">
+            <span className="text-[9px] font-medium text-muted-foreground/70 capitalize truncate max-w-[72px] text-center">
               {garment.category}
             </span>
           </motion.div>
@@ -140,11 +140,11 @@ function HeroSlide({ suggestion, onTryIt, onPlan, isCreating }: HeroSlideProps) 
 
       {/* CTA row */}
       <div className="flex items-center gap-2.5 pt-1">
-        <Button
-          onClick={onTryIt}
-          disabled={isCreating}
-          size="sm"
-          className="flex-1 h-9 text-xs font-semibold"
+         <Button
+            onClick={onTryIt}
+            disabled={isCreating}
+            size="sm"
+            className="flex-1 h-10 text-xs font-semibold"
         >
           {isCreating ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -155,11 +155,11 @@ function HeroSlide({ suggestion, onTryIt, onPlan, isCreating }: HeroSlideProps) 
             </>
           )}
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onPlan}
-          className="h-9 px-3 text-xs text-muted-foreground"
+         <Button
+           variant="ghost"
+           size="sm"
+           onClick={onPlan}
+           className="h-10 px-3 text-xs text-muted-foreground"
         >
           <Calendar className="w-3.5 h-3.5 mr-1" />
           {t('plan.plan')}
@@ -280,17 +280,16 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
 
   return (
     <div className="rounded-2xl surface-hero py-5 px-5">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-2">
+       {/* Header */}
+      <div className="flex items-center justify-between pb-3 mb-1 border-b border-border/10">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-3.5 h-3.5 text-primary" />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+          <span className="label-editorial text-muted-foreground/60">
             {t('insights.ai_title')}
           </span>
           <StaleIndicator
             updatedAt={dataUpdatedAt ? new Date(dataUpdatedAt).toISOString() : null}
             onRefresh={() => refetch()}
-            className="ml-1"
+            className="ml-1 opacity-60"
           />
         </div>
         <button

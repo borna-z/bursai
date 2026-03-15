@@ -87,7 +87,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
   const showUpgradeHint = !isPremium && regenCount >= 3;
 
   return (
-    <div className="rounded-2xl bg-foreground/[0.02] border border-border/30 p-4 space-y-4 relative overflow-hidden">
+    <div className="rounded-2xl surface-hero p-5 space-y-4 relative overflow-hidden">
         <p className="label-editorial">{t('home.todays_outfit')}</p>
 
       {/* Garment grid — swipe right to wear */}
@@ -106,7 +106,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
               handleWearThis();
             }
           }}
-          className="grid grid-cols-2 gap-1.5 cursor-grab active:cursor-grabbing"
+          className="grid grid-cols-2 gap-2 cursor-grab active:cursor-grabbing"
         >
           {outfit.items.slice(0, 4).map((item) => (
             <div
@@ -117,7 +117,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
               <LazyImage
                 imagePath={item.garment.image_path}
                 alt={item.garment.title}
-                aspectRatio="4/5"
+                aspectRatio="3/4"
                 className="rounded-xl"
               />
             </div>
@@ -125,10 +125,6 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
         </motion.div>
       </AnimatePresence>
 
-      {/* Swipe hint */}
-      <p className="text-[0.625rem] text-muted-foreground/40 text-center -mt-1 tracking-wide">
-        {t('home.swipe_to_wear') || 'Swipe right to wear →'}
-      </p>
 
       {/* Regeneration overlay with mini AI loading */}
       {isGenerating && outfit && (
@@ -149,7 +145,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
         <Button
           onClick={handleWearThis}
           disabled={markWorn.isPending}
-          className="flex-1 h-12 text-[0.8125rem] font-bold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl tracking-[-0.01em]"
+          className="flex-1 h-11 text-[0.8125rem] font-semibold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl tracking-[-0.01em]"
         >
           <Check className="w-4 h-4 mr-2" />
           {t('home.wear_this')}
@@ -159,7 +155,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
             variant="outline"
             onClick={handleTryAnother}
             disabled={isGenerating || showUpgradeHint}
-            className="w-full h-12 text-[0.8125rem] font-bold rounded-xl border-border/50 tracking-[-0.01em]"
+            className="w-full h-11 text-[0.8125rem] font-semibold rounded-xl border-border/50 tracking-[-0.01em]"
           >
             <Sparkles className="w-4 h-4 mr-2" />
             {t('home.try_another')}
@@ -186,7 +182,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
       {outfit && (
         <button
           onClick={() => navigate(`/outfits/${outfit.id}`)}
-          className="text-xs text-center text-muted-foreground/60 hover:text-foreground transition-colors w-full"
+          className="text-[11px] text-center text-muted-foreground/50 hover:text-foreground transition-colors w-full tracking-wide"
         >
           {t('home.see_details')} →
         </button>

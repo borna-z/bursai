@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Settings, Heart, Sparkles, CalendarDays, CloudRain, Shirt, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
+import { enUS, nb, sv, da, fi, de, fr, es, it, pt, nl, pl, ar } from 'date-fns/locale';
 
 import { useProfile } from '@/hooks/useProfile';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -45,7 +46,7 @@ function deriveHomeState(
 }
 
 export default function HomePage() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const navigate = useNavigate();
   const { data: garmentCount, isLoading: isCountLoading } = useGarmentCount();
   const { data: profile } = useProfile();
@@ -83,6 +84,10 @@ export default function HomePage() {
     return t('home.greeting_evening') + suffix;
   }
 
+  const dateFnsLocaleMap: Record<string, typeof enUS> = { sv, no: nb, da, fi, de, fr, es, it, pt, nl, pl, ar };
+  const dateLocale = dateFnsLocaleMap[locale as string] || enUS;
+  const formattedDate = format(new Date(), 'EEEE, d MMMM', { locale: dateLocale });
+
   const todayOutfit = todayOutfits?.[0]?.outfit;
 
   return (
@@ -97,10 +102,13 @@ export default function HomePage() {
             transition={hero.transition}
             className="flex items-center justify-between overflow-visible"
           >
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-lg font-semibold tracking-tight" style={{ fontFamily: "'Sora', sans-serif" }}>
+            <div>
+              <h1 className="text-xl font-semibold tracking-[-0.025em]">
                 {getGreeting()}
               </h1>
+              <p className="label-editorial mt-1 text-muted-foreground/50 capitalize">
+                {formattedDate}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <WeatherPill />
@@ -150,11 +158,9 @@ export default function HomePage() {
                 initial="initial"
                 animate="animate"
                 transition={reveal.transition}
-                className="rounded-2xl surface-secondary p-10 text-center space-y-5"
+                className="rounded-2xl surface-secondary p-8 text-center space-y-5"
               >
-                <div className="w-14 h-14 rounded-2xl bg-muted/20 flex items-center justify-center mx-auto">
-                  <Shirt className="w-6 h-6 text-muted-foreground/40" />
-                </div>
+                <Shirt className="w-8 h-8 text-muted-foreground/25 mx-auto" />
                 <div className="space-y-2">
                   <h3 className="text-[15px] font-semibold">{t('home.min_garments')}</h3>
                   <p className="text-[12px] text-muted-foreground/60 max-w-[240px] mx-auto">
@@ -163,7 +169,7 @@ export default function HomePage() {
                 </div>
                 <Button
                   onClick={() => { hapticLight(); navigate('/wardrobe/add'); }}
-                  className="w-full max-w-[200px] h-11"
+                  className="w-full max-w-[200px] h-11 bg-accent text-accent-foreground hover:bg-accent/90"
                 >
                   <Shirt className="w-4 h-4 mr-2" />
                   {t('wardrobe.add')}
@@ -176,12 +182,12 @@ export default function HomePage() {
                 animate="animate"
                 transition={reveal.transition}
                 onClick={() => { hapticLight(); navigate(`/outfits/${todayOutfit.id}`); }}
-                className="w-full rounded-2xl surface-hero p-3 flex items-center gap-3 text-left cursor-pointer active:scale-[0.98] transition-transform"
+                className="w-full rounded-2xl surface-hero p-4 flex items-center gap-4 text-left cursor-pointer active:scale-[0.98] transition-transform"
               >
                 {/* Horizontal thumbnail strip */}
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   {todayOutfit.outfit_items.slice(0, 4).map((item) => (
-                    <div key={item.id} className="w-12 h-12 rounded-lg overflow-hidden bg-muted shrink-0">
+                    <div key={item.id} className="w-14 h-14 rounded-xl overflow-hidden bg-muted shrink-0">
                       <LazyImageSimple
                         imagePath={item.garment?.image_path}
                         alt={item.garment?.title || item.slot}
@@ -193,10 +199,10 @@ export default function HomePage() {
 
                 {/* Occasion + chevron */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/60 mb-0.5">
+                  <p className="label-editorial text-muted-foreground/50 mb-1">
                     {t('home.todays_outfit')}
                   </p>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     <Badge variant="secondary" className="capitalize text-[10px] font-medium">
                       {getOccasionLabel(todayOutfit.occasion || '', t)}
                     </Badge>
@@ -215,11 +221,9 @@ export default function HomePage() {
                 initial="initial"
                 animate="animate"
                 transition={reveal.transition}
-                className="rounded-2xl surface-secondary p-10 text-center space-y-5"
+                className="rounded-2xl surface-secondary p-8 text-center space-y-5"
               >
-                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
-                  <Sparkles className="w-6 h-6 text-primary/60" />
-                </div>
+                <Sparkles className="w-8 h-8 text-primary/40 mx-auto" />
                 <div className="space-y-2">
                   <h3 className="text-[15px] font-semibold">{t('home.no_outfit_title')}</h3>
                   <p className="text-[12px] text-muted-foreground/60 max-w-[240px] mx-auto">
@@ -228,7 +232,7 @@ export default function HomePage() {
                 </div>
                 <Button
                   onClick={() => { hapticLight(); navigate('/style-picker'); }}
-                  className="w-full max-w-[200px] h-11"
+                  className="w-full max-w-[200px] h-11 bg-accent text-accent-foreground hover:bg-accent/90"
                 >
                   {t('home.generate_now')}
                   <ChevronRight className="w-4 h-4 ml-1" />
@@ -248,6 +252,7 @@ export default function HomePage() {
           {/* ── 4. Tertiary: Wardrobe Gap + Mood ── */}
           {(garmentCount || 0) >= 3 && (
             <div className="space-y-4">
+              <p className="label-editorial text-muted-foreground/40">{t('home.more_for_you') || 'More for you'}</p>
               {(garmentCount || 0) >= 5 && <WardrobeGapSection />}
 
               <motion.button
