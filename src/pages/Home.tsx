@@ -84,7 +84,7 @@ export default function HomePage() {
     return t('home.greeting_evening') + suffix;
   }
 
-  const dateLocale = locale === 'nb' ? nb : enUS;
+  const dateLocale = locale === ('nb' as string) ? nb : enUS;
   const formattedDate = format(new Date(), 'EEEE, d MMMM', { locale: dateLocale });
 
   const todayOutfit = todayOutfits?.[0]?.outfit;
