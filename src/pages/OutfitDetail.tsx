@@ -542,14 +542,14 @@ export default function OutfitDetailPage() {
           if (metrics.length === 0) return null;
 
           return (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-primary" />
                 <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">
                   {t('outfit.score.title') || 'Style Score'}
                 </p>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {metrics.map(({ key, label, color }) => {
                   const val = (score[key] as number) ?? 0;
                   const pct = Math.round(val * 10); // assuming 0-10 scale
