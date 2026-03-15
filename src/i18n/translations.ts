@@ -3206,6 +3206,14 @@ export const translations: Record<Locale, Record<string, string>> = {
     'common.less': 'Less',
     'common.retry': 'Retry',
     'common.error': 'Something went wrong',
+    'common.just_now': 'Just now',
+
+    // Outfit score
+    'outfit.score.title': 'Style Score',
+    'outfit.score.color': 'Color Harmony',
+    'outfit.score.material': 'Material Match',
+    'outfit.score.formality': 'Formality Fit',
+    'outfit.score.overall': 'Overall',
 
     // Step 3 UX additions
     'home.select_occasion_hint': 'Select occasion above',
