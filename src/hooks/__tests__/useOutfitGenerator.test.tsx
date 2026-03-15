@@ -51,9 +51,18 @@ describe('useOutfitGenerator', () => {
     const chain = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      in: vi.fn().mockResolvedValue({ data: [{ category: 'top' }], error: null }),
+      in: vi.fn().mockResolvedValue({ data: [], error: null }),
       insert: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single: vi.fn() }) }),
     };
+    // First call (validation) returns only a sweater — no bottom/shoes/dress
+    let selectCallCount = 0;
+    chain.eq.mockImplementation(() => {
+      selectCallCount++;
+      if (selectCallCount === 1) {
+        return Promise.resolve({ data: [{ category: 'top', subcategory: 'sweater' }], error: null });
+      }
+      return chain;
+    });
     mockFrom.mockReturnValue(chain);
 
     const { useOutfitGenerator } = await import('../useOutfitGenerator');
