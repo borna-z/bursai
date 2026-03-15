@@ -87,9 +87,10 @@ export function StylistSummary({
 }: StylistSummaryProps) {
   const { t } = useLanguage();
   const OccasionIcon = occasionIcons[occasion.toLowerCase()] || Coffee;
-  const TempIcon = getTemperatureIcon(weather?.temp);
+  const resolvedTemp = weather?.temperature ?? weather?.temp;
+  const TempIcon = getTemperatureIcon(resolvedTemp);
   
-  const summary = explanation || generateSummary(occasion, t, weather?.temp);
+  const summary = explanation || generateSummary(occasion, t, resolvedTemp);
   
   const warnings = outfitItems.length > 0 
     ? analyzeOutfitWeather(outfitItems, currentWeather, weather, t)
