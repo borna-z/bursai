@@ -478,13 +478,6 @@ export default function PlanPage() {
       </PullToRefresh>
 
       {/* ─── Sheets ─── */}
-      <PlanningSheet
-        open={planningSheetOpen}
-        onOpenChange={setPlanningSheetOpen}
-        date={selectedDate}
-        onSelectOutfit={handleSelectOutfit}
-        onCreateNew={() => { setPlanningSheetOpen(false); setQuickGenerateSheetOpen(true); }}
-      />
       <QuickGenerateSheet
         open={quickGenerateSheetOpen}
         onOpenChange={setQuickGenerateSheetOpen}

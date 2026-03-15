@@ -736,24 +736,33 @@ export default function OutfitDetailPage() {
           </div>
         </div>
 
-        {/* ── Actions ── */}
-        <div className="space-y-3 pt-2">
+      </div>
+
+      {/* ── Sticky bottom action bar ── */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/80 backdrop-blur-xl border-t border-border/10 safe-bottom">
+        <div className="flex items-center gap-3 px-4 py-3 max-w-lg mx-auto">
           <Button
-            className="w-full rounded-2xl h-12"
+            className="flex-1 rounded-2xl h-12"
             onClick={handleMarkWorn}
             disabled={markWorn.isPending || !!outfit.worn_at}
           >
             {markWorn.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
             {outfit.worn_at ? t('outfit.worn') : t('outfit.mark_worn')}
           </Button>
-          <div className="grid grid-cols-2 gap-3">
-            <Button variant="outline" className="rounded-2xl h-12" onClick={() => navigate('/plan', { state: { preselectedOutfitId: outfit.id } })}>
-              <Calendar className="w-4 h-4 mr-2" />{t('outfit.plan')}
-            </Button>
-            <Button variant="outline" className="rounded-2xl h-12" onClick={handleCreateSimilar}>
-              <RefreshCw className="w-4 h-4 mr-2" />{t('outfit.similar')}
-            </Button>
-          </div>
+          <button
+            onClick={() => navigate('/plan', { state: { preselectedOutfitId: outfit.id } })}
+            className="w-12 h-12 rounded-2xl border border-border/20 flex items-center justify-center hover:bg-muted/40 transition-colors active:scale-95 shrink-0"
+            aria-label={t('outfit.plan')}
+          >
+            <Calendar className="w-5 h-5 text-muted-foreground" />
+          </button>
+          <button
+            onClick={handleCreateSimilar}
+            className="w-12 h-12 rounded-2xl border border-border/20 flex items-center justify-center hover:bg-muted/40 transition-colors active:scale-95 shrink-0"
+            aria-label={t('outfit.similar')}
+          >
+            <RefreshCw className="w-5 h-5 text-muted-foreground" />
+          </button>
         </div>
       </div>
 
