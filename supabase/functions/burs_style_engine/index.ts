@@ -1621,9 +1621,12 @@ function buildCombos(
 }
 
 function scoreCombo(
-  items: { slot: string; garment: GarmentRow }[],
+  items: ComboItem[],
   recentSets: Set<string>[],
-  body: BodyProfile | null = null
+  body: BodyProfile | null = null,
+  occasion: string = "vardag",
+  style: string | null = null,
+  weather: WeatherInput = {}
 ): ScoredCombo {
   // Color harmony across all items
   const colors = items
@@ -1652,20 +1655,44 @@ function scoreCombo(
   }
 
   // Fit proportion score (body-aware)
-  const fitScore = fitProportionScore(items, body);
+  const fitItems = items.map(i => ({ slot: i.slot, garment: i.garment }));
+  const fitScore = fitProportionScore(fitItems, body);
 
-  // Average individual scores
-  const avgIndividual = items.reduce((sum, i) => sum + 7, 0) / items.length;
+  // Average individual base scores (FIX: use real scores instead of hardcoded 7)
+  const avgBaseScore = items.length > 0
+    ? items.reduce((sum, i) => sum + i.baseScore, 0) / items.length
+    : 7;
 
-  const totalScore = colorScore * 0.22 + matScore * 0.13 + formalityConsistency * 0.18 + avgIndividual * 0.22 + fitScore * 0.10 - repetitionPenalty + 0.15 * 7;
+  // Occasion/style/weather combo-level scores
+  const siScore = styleIntentScore(items, style);
+  const otScore = occasionTemplateScore(items, occasion);
+  const wpScore = weatherPracticalityScore(items, weather);
+
+  const totalScore =
+    colorScore * 0.16 +
+    matScore * 0.10 +
+    formalityConsistency * 0.12 +
+    avgBaseScore * 0.22 +
+    fitScore * 0.08 +
+    siScore * 0.10 +
+    otScore * 0.10 +
+    wpScore * 0.10 -
+    repetitionPenalty;
 
   return {
     items,
     totalScore,
     breakdown: {
-      color: colorScore,
-      material: matScore,
-      formalityConsistency,
+      // UI-expected keys
+      overall: Math.max(0, Math.min(10, totalScore)),
+      color_harmony: colorScore,
+      material_compatibility: matScore,
+      formality: formalityConsistency,
+      // Richer keys
+      item_strength: avgBaseScore,
+      style_intent: siScore,
+      occasion_fit: otScore,
+      practicality: wpScore,
       fitProportion: fitScore,
       repetitionPenalty,
     },
