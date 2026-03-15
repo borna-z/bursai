@@ -1,5 +1,5 @@
-import { motion } from 'framer-motion';
-import { EASE_CURVE } from '@/lib/motion';
+import { motion, useReducedMotion } from 'framer-motion';
+import { EASE_CURVE, DISTANCE, DURATION_MEDIUM, STAGGER_DELAY } from '@/lib/motion';
 import { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -28,15 +28,23 @@ const containerVariants = {
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 16 },
+  hidden: { opacity: 0, y: DISTANCE.md },
   show: {
     opacity: 1,
     y: 0,
     transition: {
       type: 'tween' as const,
       ease: EASE_CURVE,
-      duration: 0.4,
+      duration: DURATION_MEDIUM,
     },
+  },
+};
+
+const reducedItemVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { type: 'tween' as const, duration: 0.1 },
   },
 };
 
@@ -44,14 +52,16 @@ export function StaggerContainer({
   children,
   className,
   delay = 0.05,
-  stagger = 0.06,
+  stagger = STAGGER_DELAY,
 }: StaggerContainerProps) {
+  const prefersReduced = useReducedMotion();
+
   return (
     <motion.div
       variants={containerVariants}
       initial="hidden"
       animate="show"
-      custom={{ delay, stagger }}
+      custom={{ delay, stagger: prefersReduced ? 0 : stagger }}
       className={cn(className)}
     >
       {children}
@@ -60,8 +70,13 @@ export function StaggerContainer({
 }
 
 export function StaggerItem({ children, className }: StaggerItemProps) {
+  const prefersReduced = useReducedMotion();
+
   return (
-    <motion.div variants={itemVariants} className={cn(className)}>
+    <motion.div
+      variants={prefersReduced ? reducedItemVariants : itemVariants}
+      className={cn(className)}
+    >
       {children}
     </motion.div>
   );

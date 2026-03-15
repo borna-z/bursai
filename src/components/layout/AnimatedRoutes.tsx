@@ -92,7 +92,7 @@ export function AnimatedRoutes() {
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={location.pathname}
-        className="min-h-[100dvh] bg-background"
+        className="min-h-[100dvh] bg-background will-change-[opacity,transform]"
         variants={variants}
         initial={skipInitial ? false : "initial"}
         animate="animate"
