@@ -2138,7 +2138,179 @@ function scoreCombo(
 }
 
 // ─────────────────────────────────────────────
-// LOCALE
+// CONFIDENCE SCORING & WARDROBE GAP DETECTION
+// ─────────────────────────────────────────────
+
+type ConfidenceLevel = 'high' | 'medium' | 'low';
+
+interface ConfidenceResult {
+  confidence_score: number;     // 0-10
+  confidence_level: ConfidenceLevel;
+  limitation_note: string | null;
+}
+
+function computeConfidence(
+  combo: ScoredCombo,
+  candidateCount: number,
+  slotCandidates: Record<string, ScoredGarment[]>,
+  weather: WeatherInput,
+  occasion: string
+): ConfidenceResult {
+  const b = combo.breakdown;
+  let score = 0;
+
+  // Context fit (occasion + style intent): 30%
+  const contextFit = ((b.occasion_fit || 7) + (b.style_intent || 7)) / 2;
+  score += contextFit * 0.30;
+
+  // Practicality (weather fit): 25%
+  score += (b.practicality || 7) * 0.25;
+
+  // Formality alignment: 15%
+  score += (b.formality || b.formalityConsistency || 7) * 0.15;
+
+  // Candidate pool depth: 15% — more options = higher confidence
+  const poolDepth = Math.min(candidateCount, 20);
+  const poolScore = (poolDepth / 20) * 10;
+  score += poolScore * 0.15;
+
+  // Wardrobe slot coverage: 15% — penalize thin slots
+  const requiredSlots = ['top', 'bottom', 'shoes'];
+  let coverageScore = 10;
+  for (const slot of requiredSlots) {
+    const count = (slotCandidates[slot] || []).length;
+    if (count === 0) coverageScore -= 4;
+    else if (count === 1) coverageScore -= 2;
+    else if (count <= 3) coverageScore -= 0.5;
+  }
+  score += Math.max(0, coverageScore) * 0.15;
+
+  const final = Math.max(0, Math.min(10, score));
+  const level: ConfidenceLevel = final >= 7 ? 'high' : final >= 4.5 ? 'medium' : 'low';
+
+  return { confidence_score: Math.round(final * 10) / 10, confidence_level: level, limitation_note: null };
+}
+
+function detectWardrobeGapForRequest(
+  slotCandidates: Record<string, ScoredGarment[]>,
+  weather: WeatherInput,
+  occasion: string
+): string[] {
+  const gaps: string[] = [];
+
+  const temp = weather.temperature;
+  const precip = (weather.precipitation || '').toLowerCase();
+  const isRainy = precip.includes('rain') || precip.includes('regn');
+  const isSnowy = precip.includes('snow') || precip.includes('snö');
+  const isCold = temp !== undefined && temp < 10;
+  const isVeryCold = temp !== undefined && temp < 0;
+
+  // Missing outerwear in cold/wet weather
+  const outerwearCount = (slotCandidates['outerwear'] || []).length;
+  if ((isCold || isRainy || isSnowy) && outerwearCount === 0) {
+    gaps.push('missing outerwear for cold or wet weather');
+  }
+
+  // Rain-friendly check
+  if (isRainy || isSnowy) {
+    const hasWaterproof = (slotCandidates['outerwear'] || []).some(g => {
+      const mat = (g.garment.material || '').toLowerCase();
+      return WATERPROOF_MATERIALS.some(w => mat.includes(w));
+    });
+    if (!hasWaterproof) {
+      gaps.push('no rain-friendly outerwear available');
+    }
+
+    const hasWaterproofShoes = (slotCandidates['shoes'] || []).some(g => {
+      const mat = (g.garment.material || '').toLowerCase();
+      const title = (g.garment.title || '').toLowerCase();
+      return WATERPROOF_MATERIALS.some(w => mat.includes(w)) || title.includes('boot') || title.includes('stövel');
+    });
+    if (!hasWaterproofShoes) {
+      gaps.push('missing rain-friendly shoes');
+    }
+  }
+
+  // Layering for very cold weather
+  if (isVeryCold) {
+    const topCount = (slotCandidates['top'] || []).length;
+    if (topCount < 2 && outerwearCount === 0) {
+      gaps.push('not enough layering pieces for current weather');
+    }
+  }
+
+  // Formality gaps
+  const occasionKey = occasion.toLowerCase();
+  const formalOccasions = ['work', 'jobb', 'interview', 'intervju', 'formal', 'formell', 'business'];
+  if (formalOccasions.includes(occasionKey)) {
+    const formalTops = (slotCandidates['top'] || []).filter(g => (g.garment.formality ?? 5) >= 6);
+    const formalBottoms = (slotCandidates['bottom'] || []).filter(g => (g.garment.formality ?? 5) >= 6);
+    if (formalTops.length === 0) gaps.push('weak formal top options for this occasion');
+    if (formalBottoms.length === 0) gaps.push('weak formal bottom options for this occasion');
+  }
+
+  // Thin wardrobe in general
+  const totalGarments = Object.values(slotCandidates).reduce((sum, arr) => sum + arr.length, 0);
+  if (totalGarments < 6) {
+    gaps.push('small wardrobe limits outfit variety');
+  }
+
+  return gaps;
+}
+
+function generateLimitationNote(gaps: string[], confidence: ConfidenceResult): string | null {
+  if (gaps.length === 0 && confidence.confidence_level === 'high') return null;
+
+  const parts: string[] = [];
+  if (gaps.length > 0) {
+    parts.push(...gaps.slice(0, 2)); // max 2 gap notes
+  }
+  if (confidence.confidence_level === 'low' && gaps.length === 0) {
+    parts.push('limited options match this request well');
+  }
+  return parts.length > 0 ? parts.join('; ') : null;
+}
+
+function computeSwapConfidence(
+  candidates: ScoredGarment[],
+  slot: string,
+  weather: WeatherInput
+): ConfidenceResult {
+  let score = 7;
+
+  // Fewer candidates = lower confidence
+  if (candidates.length === 0) score = 1;
+  else if (candidates.length === 1) score -= 2;
+  else if (candidates.length <= 3) score -= 1;
+
+  // Best candidate score matters
+  if (candidates.length > 0) {
+    const bestScore = candidates[0].score;
+    if (bestScore < 4) score -= 2;
+    else if (bestScore < 5.5) score -= 1;
+    else if (bestScore >= 7.5) score += 1;
+  }
+
+  // Weather penalty for shoes/outerwear in bad weather
+  const precip = (weather.precipitation || '').toLowerCase();
+  const isWet = precip.includes('rain') || precip.includes('regn') || precip.includes('snow') || precip.includes('snö');
+  if (isWet && (slot === 'shoes' || slot === 'outerwear')) {
+    const hasWeatherReady = candidates.some(c => {
+      const mat = (c.garment.material || '').toLowerCase();
+      return WATERPROOF_MATERIALS.some(w => mat.includes(w));
+    });
+    if (!hasWeatherReady) score -= 1.5;
+  }
+
+  const final = Math.max(0, Math.min(10, score));
+  const level: ConfidenceLevel = final >= 7 ? 'high' : final >= 4.5 ? 'medium' : 'low';
+  let note: string | null = null;
+  if (candidates.length === 0) note = 'no alternatives available for this slot';
+  else if (level === 'low') note = 'limited strong alternatives available';
+
+  return { confidence_score: Math.round(final * 10) / 10, confidence_level: level, limitation_note: note };
+}
+
 // ─────────────────────────────────────────────
 
 const LOCALE_NAMES: Record<string, string> = {
