@@ -217,9 +217,9 @@ function GarmentListContent({
 
 function LoadingSkeletons({ isGridView }: { isGridView: boolean }) {
   return isGridView ? (
-    <div className="grid grid-cols-3 gap-1.5">
+    <div className="grid grid-cols-3 gap-[5px]">
       {[1, 2].map(i => (
-        <Skeleton key={i} className="aspect-[3/4] w-full rounded-2xl" />
+        <Skeleton key={i} className="aspect-[3/4] w-full rounded-xl" />
       ))}
     </div>
   ) : (
