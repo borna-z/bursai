@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { AILoadingCard } from '@/components/ui/AILoadingCard';
+import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useWeather } from '@/hooks/useWeather';
