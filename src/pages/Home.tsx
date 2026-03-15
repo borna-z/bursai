@@ -157,11 +157,9 @@ export default function HomePage() {
                 initial="initial"
                 animate="animate"
                 transition={reveal.transition}
-                className="rounded-2xl surface-secondary p-10 text-center space-y-5"
+                className="rounded-2xl surface-secondary p-8 text-center space-y-5"
               >
-                <div className="w-14 h-14 rounded-2xl bg-muted/20 flex items-center justify-center mx-auto">
-                  <Shirt className="w-6 h-6 text-muted-foreground/40" />
-                </div>
+                <Shirt className="w-8 h-8 text-muted-foreground/25 mx-auto" />
                 <div className="space-y-2">
                   <h3 className="text-[15px] font-semibold">{t('home.min_garments')}</h3>
                   <p className="text-[12px] text-muted-foreground/60 max-w-[240px] mx-auto">
@@ -170,7 +168,7 @@ export default function HomePage() {
                 </div>
                 <Button
                   onClick={() => { hapticLight(); navigate('/wardrobe/add'); }}
-                  className="w-full max-w-[200px] h-11"
+                  className="w-full max-w-[200px] h-11 bg-accent text-accent-foreground hover:bg-accent/90"
                 >
                   <Shirt className="w-4 h-4 mr-2" />
                   {t('wardrobe.add')}
