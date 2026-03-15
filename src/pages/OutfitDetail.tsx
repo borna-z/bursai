@@ -158,20 +158,44 @@ export default function OutfitDetailPage() {
   }, [outfit?.rating, outfit?.feedback]);
 
   const handleOpenSwap = async (slot: string, outfitItemId: string, currentGarmentId: string) => {
-    const otherColors = outfit?.outfit_items.filter(item => item.id !== outfitItemId && item.garment?.color_primary).map(item => item.garment!.color_primary.toLowerCase()) || [];
-    const otherItems = outfit?.outfit_items
-      .filter(item => item.id !== outfitItemId && item.garment)
-      .map(item => ({ slot: item.slot, garment_id: item.garment_id })) || [];
-    const outfitWeather = outfit?.weather as OutfitWeather | null;
-    const normalizedWeather = outfitWeather
-      ? {
-          temperature: outfitWeather.temp ?? undefined,
-          precipitation: outfitWeather.precipitation ?? undefined,
-          wind: outfitWeather.wind ?? undefined,
-        }
-      : undefined;
+    const otherItems =
+      outfit?.outfit_items
+        .filter((item) => item.id !== outfitItemId)
+        .map((item) => ({
+          slot: item.slot,
+          garment_id: item.garment_id,
+        })) || [];
+
+    const otherColors =
+      outfit?.outfit_items
+        .filter((item) => item.id !== outfitItemId && item.garment?.color_primary)
+        .map((item) => item.garment!.color_primary.toLowerCase()) || [];
+
+    const normalizedWeather = {
+      temperature:
+        outfit?.weather && typeof (outfit.weather as OutfitWeather).temperature === 'number'
+          ? (outfit.weather as OutfitWeather).temperature
+          : currentWeather?.temperature,
+      precipitation:
+        outfit?.weather && typeof (outfit.weather as OutfitWeather).precipitation === 'string'
+          ? (outfit.weather as OutfitWeather).precipitation
+          : currentWeather?.precipitation || 'none',
+      wind:
+        outfit?.weather && typeof (outfit.weather as OutfitWeather).wind === 'string'
+          ? (outfit.weather as OutfitWeather).wind
+          : currentWeather?.wind || 'low',
+    };
+
     setSwapSheet({ isOpen: true, slot, outfitItemId });
-    await fetchCandidates(slot, currentGarmentId, otherColors, otherItems, outfit?.occasion, normalizedWeather);
+
+    await fetchCandidates(
+      slot,
+      currentGarmentId,
+      otherColors,
+      otherItems,
+      outfit?.occasion || 'vardag',
+      normalizedWeather
+    );
   };
 
   const handleSwap = async (newGarmentId: string) => {
