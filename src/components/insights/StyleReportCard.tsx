@@ -86,10 +86,10 @@ export function StyleReportCard({ isPremium }: { isPremium: boolean }) {
             >
               {/* Archetype badge */}
               <div className="text-center py-3">
-                <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-semibold">
+                <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[0.8125rem] font-bold tracking-[-0.01em]">
                   {report.archetype}
                 </span>
-                <p className="text-xs text-muted-foreground mt-2">{t('insights.your_archetype')}</p>
+                <p className="caption mt-2">{t('insights.your_archetype')}</p>
               </div>
 
               {/* Scores */}
