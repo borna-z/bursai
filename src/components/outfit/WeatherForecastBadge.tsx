@@ -45,7 +45,8 @@ export function WeatherForecastBadge({
   const { effectiveCity } = useLocation();
   const { getForecastForDate, isLoading, error } = useForecast({ city: effectiveCity });
   const forecast = getForecastForDate(date);
-  const warning = showWarning ? useWeatherWarning(forecast) : null;
+  const warningText = useWeatherWarning(forecast);
+  const warning = showWarning ? warningText : null;
 
   if (isLoading) {
     return (
