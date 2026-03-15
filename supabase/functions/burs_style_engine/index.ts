@@ -3058,11 +3058,20 @@ serve(async (req) => {
     const combos = buildCombos(slotCandidates, recentOutfitSets, occasion, style, weather, preferences, 10, bodyProfile, pairMemory);
 
     if (combos.length === 0) {
+      const gaps = detectWardrobeGapForRequest(slotCandidates, weather, occasion);
+      const note = gaps.length > 0 ? gaps.slice(0, 2).join('; ') : null;
       return new Response(
-        JSON.stringify({ error: "Not enough matching garments" }),
+        JSON.stringify({ error: "Not enough matching garments", limitation_note: note }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Confidence scoring + wardrobe gap detection
+    const bestCombo = combos[0];
+    const candidateCount = combos.length;
+    const confidence = computeConfidence(bestCombo, candidateCount, slotCandidates, weather, occasion);
+    const gaps = detectWardrobeGapForRequest(slotCandidates, weather, occasion);
+    const limitationNote = generateLimitationNote(gaps, confidence);
 
     const styleContext = buildStyleContext(preferences);
 
