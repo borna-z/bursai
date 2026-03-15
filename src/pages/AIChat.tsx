@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, MoreVertical, Trash2 } from 'lucide-react';
+import { StylistReplyPlaceholder } from '@/components/ui/StylistReplyPlaceholder';
 import { ChatPageSkeleton } from '@/components/ui/skeletons';
 import { motion } from 'framer-motion';
 import { PRESETS } from '@/lib/motion';
@@ -305,25 +306,7 @@ export default function AIChat() {
                   transition={PRESETS.MESSAGE.transition}
                 >
                   {isStreamingMsg && isEmpty ? (
-                    <div className="flex items-center gap-3 py-3 px-1">
-                      <div className="flex gap-1">
-                        {[0, 1, 2].map((i) => (
-                          <motion.div
-                            key={i}
-                            className="w-1.5 h-1.5 rounded-full bg-primary/40"
-                            animate={{ y: [0, -4, 0] }}
-                            transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.12, ease: 'easeInOut' }}
-                          />
-                        ))}
-                      </div>
-                      <motion.span
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="text-xs text-muted-foreground"
-                      >
-                        {t('chat.thinking') || 'Thinking...'}
-                      </motion.span>
-                    </div>
+                    <StylistReplyPlaceholder />
                   ) : (
                     <ChatMessage
                       message={msg}

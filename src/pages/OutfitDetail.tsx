@@ -9,6 +9,7 @@ import {
   Sparkles, Copy, Download, Link, Link2Off, Calendar, Thermometer, ThermometerSnowflake, Shirt, Briefcase,
   Heart, Frown, Palette, Meh, Camera,
 } from 'lucide-react';
+import { SwapLoadingState } from '@/components/ui/SwapLoadingState';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -92,9 +93,7 @@ function SwapSheet({
 
         <div className="mt-4 pb-8 space-y-2">
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-            </div>
+            <SwapLoadingState />
           ) : candidates.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <p>{t('outfit.no_alternatives')}</p>

@@ -27,7 +27,7 @@ import { useDuplicateDetection } from '@/hooks/useDuplicateDetection';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useMedianCamera } from '@/hooks/useMedianCamera';
 import { compressImage } from '@/lib/imageCompression';
-import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
+import { GarmentAnalysisState } from '@/components/ui/GarmentAnalysisState';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
 const PATTERN_IDS = ['solid', 'striped', 'checked', 'dotted', 'floral', 'patterned', 'camo'] as const;
@@ -562,31 +562,11 @@ export default function AddGarmentPage() {
     );
   }
 
-  // Analysis phases
-  const ANALYSIS_PHASES = [
-    { icon: Upload, label: t('addgarment.phase_upload') },
-    { icon: Palette, label: t('addgarment.phase_color') },
-    { icon: Sparkles, label: t('addgarment.phase_style') },
-    { icon: CheckCircle, label: t('addgarment.phase_done') },
-  ];
 
   if (step === 'analyzing') {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8">
         <div className="flex flex-col items-center gap-6 w-full max-w-xs">
-          {imagePreview && (
-            <div className={cn(
-              "relative aspect-square w-48 rounded-xl overflow-hidden bg-secondary/60",
-              !analysisError && analysisPhase < 3 && "animate-shimmer-sweep shadow-[0_0_30px_0_hsl(var(--accent)/0.3)]"
-            )}>
-              <img
-                src={imagePreview}
-                alt="Preview"
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
-
           {/* Error state */}
           {analysisError ? (
             <motion.div
@@ -594,6 +574,11 @@ export default function AddGarmentPage() {
               animate={{ opacity: 1, y: 0 }}
               className="flex flex-col items-center gap-4 w-full"
             >
+              {imagePreview && (
+                <div className="aspect-square w-48 rounded-xl overflow-hidden bg-secondary/60">
+                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                </div>
+              )}
               <p className="text-sm text-destructive text-center">{analysisError}</p>
               <div className="flex gap-3">
                 <Button variant="outline" onClick={resetForm}>
@@ -617,18 +602,8 @@ export default function AddGarmentPage() {
               <p className="text-xs text-muted-foreground">{t('addgarment.ai_review')}</p>
             </motion.div>
           ) : (
-            /* Phase indicator with radar pulse */
-            <div className="flex flex-col items-center gap-4 w-full">
-              <AILoadingOverlay
-                variant="inline"
-                phases={ANALYSIS_PHASES.map((phase, i) => ({
-                  icon: phase.icon,
-                  label: phase.label,
-                  duration: i < ANALYSIS_PHASES.length - 1 ? 1200 : 0,
-                }))}
-                className="py-2"
-              />
-            </div>
+            /* GarmentAnalysisState */
+            <GarmentAnalysisState imageUrl={imagePreview} />
           )}
         </div>
       </div>

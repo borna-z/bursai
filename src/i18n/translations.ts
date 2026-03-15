@@ -2169,6 +2169,23 @@ export const translations: Record<Locale, Record<string, string>> = {
 
     // Reel
     'wardrobe.reel_save_error': 'Kunde inte spara bild',
+
+    // AI Loading States
+    'ai.selecting_pieces': 'Väljer plagg',
+    'ai.balancing_look': 'Balanserar looken',
+    'ai.refining_outfit': 'Förfinar din outfit',
+    'ai.preparing_note': 'Förbereder ditt svar',
+    'ai.finding_swap': 'Hittar bästa bytet',
+    'ai.composing_mood': 'Komponerar din moodlook',
+    'ai.building_todays_look': 'Bygger dagens look',
+    'ai.detecting_garment': 'Identifierar plagg',
+    'ai.extracting_details': 'Extraherar färg och material',
+    'ai.refining_details': 'Förfinar detaljer',
+    'ai.checking_forecast': 'Kollar vädret',
+    'ai.curating_capsule': 'Kuraterar din kapsel',
+    'ai.assembling_outfits': 'Sätter ihop outfits',
+    'ai.scanning_wardrobe': 'Skannar garderoben',
+    'ai.creating_combinations': 'Skapar kombinationer',
   },
 
   en: {
@@ -4290,6 +4307,23 @@ export const translations: Record<Locale, Record<string, string>> = {
 
     // Reel
     'wardrobe.reel_save_error': 'Could not save image',
+
+    // AI Loading States
+    'ai.selecting_pieces': 'Selecting pieces',
+    'ai.balancing_look': 'Balancing the look',
+    'ai.refining_outfit': 'Refining your outfit',
+    'ai.preparing_note': 'Preparing your note',
+    'ai.finding_swap': 'Finding the best swap',
+    'ai.composing_mood': 'Composing your mood look',
+    'ai.building_todays_look': 'Building today\'s look',
+    'ai.detecting_garment': 'Detecting garment',
+    'ai.extracting_details': 'Extracting color and material',
+    'ai.refining_details': 'Refining details',
+    'ai.checking_forecast': 'Checking the forecast',
+    'ai.curating_capsule': 'Curating your capsule',
+    'ai.assembling_outfits': 'Assembling outfits',
+    'ai.scanning_wardrobe': 'Scanning your wardrobe',
+    'ai.creating_combinations': 'Creating combinations',
   },
 
   no: {

@@ -1,157 +1,91 @@
 
+# Full i18n Translation Plan — 110 Steps
 
-# Premium AI Loading States — Design Plan
+**Status: 🔲 Not Started**
 
-## Current State Assessment
+## Current State
 
-The app uses two shared loading components everywhere:
-- **`AILoadingOverlay`** — fullscreen/inline/card with bouncing dots + pulse rings + rotating phase labels
-- **`AILoadingCard`** — compact horizontal variant with same bouncing dots + pulse rings
-
-Both feel identical regardless of context. The bouncing dots and radar pulse rings read as generic "AI spinner" rather than premium editorial. Every AI surface uses the same visual language, violating the principle that different actions need different loading states.
-
-### Specific Issues Found
-1. **Outfit generation** (`OutfitGenerate.tsx`): Fullscreen AILoadingOverlay blanks the entire page
-2. **Swap loading** (`OutfitDetail.tsx` SwapSheet): Raw `Loader2 animate-spin` spinner — the cheapest pattern in the app
-3. **Stylist chat** (`AIChat.tsx`): Bouncing dots + "Thinking..." — generic chatbot feel
-4. **Garment analysis** (`AddGarment.tsx`): AILoadingOverlay inline with shimmer sweep — decent but uses same pulse rings
-5. **Mood outfit** (`MoodOutfit.tsx`): AILoadingCard cramped inside a small card — no mood expression
-6. **Travel capsule** (`TravelCapsule.tsx`): AILoadingOverlay card variant with progress bar — functional but same visual
-7. **Style picker** (`StylePicker.tsx`): AILoadingCard squeezed into tiny grid cells
-8. **TodayOutfitCard**: AILoadingCard — same as everywhere else
-9. **UnusedOutfits**: AILoadingOverlay inline with skeleton cards — acceptable but generic
+- **14 supported locales**: sv, en, no, da, fi, de, fr, es, it, pt, nl, pl, ar, fa
+- **sv and en** are fully translated (~700+ keys each)
+- **Other 12 locales** have partial coverage (~100-200 keys each), missing large sections
+- Fallback chain: `locale → en → sv → raw key`
+- File: `src/i18n/translations.ts` (~9,800 lines)
 
 ---
 
-## Plan
+## Architecture Change (Steps 1-2)
 
-### A. Redesign shared foundation components
+**Step 1** — Create `src/i18n/locales/` directory with one file per locale, each exporting `Record<string, string>`.
 
-#### 1. Replace `AILoadingOverlay` internals — refine, don't rebuild
+**Step 2** — Refactor `src/i18n/translations.ts` to import from individual locale files. No functional change.
 
-**File: `src/components/ui/AILoadingOverlay.tsx`**
-- Remove bouncing dots (`BouncingDots` component) — replace with a single subtle horizontal shimmer line (a thin `h-px` element with a CSS shimmer animation using existing `animate-shimmer-sweep` or a simple opacity wash)
-- Replace `PulseRings` (concentric expanding circles) with a quieter treatment: a single soft breathing glow behind the icon (opacity oscillation 0.3→0.6, no scale change), respecting `prefers-reduced-motion`
-- Keep the phase text crossfade — it's already clean
-- Keep the progress bar option — it works for travel capsule
-- Add a new `tone` prop: `'neutral' | 'warm' | 'expressive'` that subtly shifts the icon background tint (neutral = current, warm = amber-tinted for editorial warmth, expressive = mood-colored)
-- Add reduced-motion: all animated elements get `useReducedMotion()` guard
+---
 
-#### 2. Replace `AILoadingCard` internals
+## Per-Locale Translation (Steps 3-110)
 
-**File: `src/components/ui/AILoadingCard.tsx`**
-- Remove bouncing dots, replace with the same shimmer line
-- Remove pulse rings, replace with the breathing glow
-- Keep the compact horizontal layout — it's appropriate for inline contexts
+Each locale gets 9 steps covering these domains:
 
-#### 3. Create purpose-specific wrapper components
+| Step offset | Domain |
+|---|---|
+| +0 | Navigation, common, auth, error |
+| +1 | Onboarding (all sub-steps, body, style, tutorial) |
+| +2 | Settings (profile, appearance, privacy, GDPR, notifications, account) |
+| +3 | Home, weather, plan, calendar |
+| +4 | Wardrobe, garment details, scan, import, batch, duplicate |
+| +5 | Outfits, outfit generation, stylist/chat |
+| +6 | Insights, discover, premium, billing, pricing, trial |
+| +7 | Landing page (hero, bento, showcase, pricing section, FAQ, footer, comparison) |
+| +8 | Contact, privacy policy, terms, seed/admin, genimg, social reactions |
 
-These are thin wrappers that configure the shared foundation with context-appropriate phases, copy, and layout.
+### Steps 3-11: Norwegian (no)
+### Steps 12-20: Danish (da)
+### Steps 21-29: Finnish (fi)
+### Steps 30-38: German (de)
+### Steps 39-47: French (fr)
+### Steps 48-56: Spanish (es)
+### Steps 57-65: Italian (it)
+### Steps 66-74: Portuguese (pt)
+### Steps 75-83: Dutch (nl)
+### Steps 84-92: Polish (pl)
+### Steps 93-101: Arabic (ar)
+### Steps 102-110: Farsi (fa)
 
-**File: `src/components/ui/OutfitGenerationState.tsx`** (new)
-- Shows 4 outfit slot placeholders (top/bottom/shoes/accessory) as soft rounded-lg skeleton rectangles in a 2×2 grid
-- Below: uses `AILoadingCard` with refined phases and editorial copy:
-  - "Selecting pieces" / "Balancing the look" / "Refining your outfit"
-- Wraps in a card container matching existing `rounded-2xl bg-foreground/[0.02] border border-border/30` style
-- On completion: slots crossfade into actual garment thumbnails via `FadeReplace`
+---
 
-**File: `src/components/ui/StylistReplyPlaceholder.tsx`** (new)
-- A refined assistant message shell: left-aligned, matches chat bubble width
-- Shows 3 shimmer lines (different widths: 80%, 60%, 45%) that pulse with a subtle opacity wash
-- Below the lines: a quiet "Preparing your note" label in `text-[11px] text-muted-foreground/40`
-- No bouncing dots, no "Thinking..." — just composed stillness
-- Crossfades into actual message content when response arrives
+## Technical Details
 
-**File: `src/components/ui/SwapLoadingState.tsx`** (new)
-- A compact loading treatment for the swap sheet: replaces the `Loader2 animate-spin`
-- Shows 3 skeleton garment rows (matching the candidate row layout: 64px square + two text lines)
-- Above: a single line "Finding the best match" in `text-xs text-muted-foreground`
-- Subtle shimmer across the skeleton rows
+### File structure after refactor
+```text
+src/i18n/
+  translations.ts          ← imports + re-exports composed object
+  locales/
+    sv.ts                  ← ~700 keys (already complete)
+    en.ts                  ← ~700 keys (already complete)
+    no.ts                  ← fill to ~700 keys
+    da.ts                  ← fill to ~700 keys
+    fi.ts                  ← fill to ~700 keys
+    de.ts                  ← fill to ~700 keys
+    fr.ts                  ← fill to ~700 keys
+    es.ts                  ← fill to ~700 keys
+    it.ts                  ← fill to ~700 keys
+    pt.ts                  ← fill to ~700 keys
+    nl.ts                  ← fill to ~700 keys
+    pl.ts                  ← fill to ~700 keys
+    ar.ts                  ← fill to ~700 keys (RTL)
+    fa.ts                  ← fill to ~700 keys (RTL)
+```
 
-#### 4. Create `GarmentAnalysisState.tsx` (new)
-- Wraps the existing image preview with a refined overlay
-- Instead of the generic AILoadingOverlay, shows a thin progress rail along the bottom of the image
-- Phase labels appear below the image as quiet editorial text, not inside a loading card
-- Steps: "Detecting garment" → "Extracting color and material" → "Refining details"
+### Key count target
+Every locale file must contain the exact same set of keys as `en.ts`.
 
-### B. Apply purpose-specific states to each surface
+### Translation quality
+- AI-assisted translation with native-quality output
+- Preserve placeholders like `{count}`, `{done}`, `{failed}`
+- RTL languages (ar, fa) keep the same key structure; RTL layout handled by CSS
+- Currency/number formatting stays locale-aware via `getLocalizedPricing()`
 
-#### 5. Outfit generation (`OutfitGenerate.tsx`)
-- Replace fullscreen `AILoadingOverlay` with `OutfitGenerationState` centered in the page
-- Keep `AppLayout` frame stable — no blank screen
-- Subtitle (occasion · style · temperature) stays
+### Edge functions
+Edge functions already use `LANG_CONFIG` mappings. No changes needed.
 
-#### 6. TodayOutfitCard (`src/components/home/TodayOutfitCard.tsx`)
-- Replace `AILoadingCard` with a mini version of `OutfitGenerationState` (2×2 skeleton grid + single phase label)
-- Copy: "Building today's look"
-
-#### 7. Style picker (`StylePicker.tsx`)
-- When generating, replace the entire grid with a centered `OutfitGenerationState` card (not squeezed into a tiny cell)
-- Keep the page header stable
-
-#### 8. Mood outfit (`MoodOutfit.tsx`)
-- When generating, show `OutfitGenerationState` with `tone="expressive"` below the selected mood card
-- Copy: "Composing your mood look" / "Shaping the outfit"
-- Selected mood card gets a subtle `ring-2 ring-primary` highlight (already exists)
-
-#### 9. Swap sheet (`OutfitDetail.tsx` SwapSheet)
-- Replace `Loader2 animate-spin` with `SwapLoadingState`
-- Copy: "Finding the best swap"
-
-#### 10. Stylist chat (`AIChat.tsx`)
-- Replace the bouncing dots + "Thinking..." block with `StylistReplyPlaceholder`
-- Crossfade into actual streamed content
-
-#### 11. Garment analysis (`AddGarment.tsx`)
-- Replace `AILoadingOverlay` inline usage with `GarmentAnalysisState`
-- Keep the image preview visible and prominent
-- Phase labels below image, not in a centered overlay
-
-#### 12. Travel capsule (`TravelCapsule.tsx`)
-- Keep the existing `AILoadingOverlay variant="card"` with progress bar — it's appropriate for 60s generation
-- Refine copy: "Analysing weather" → "Checking the forecast" / "Curating your capsule" / "Assembling outfits"
-- The progress bar benefits from the shimmer line replacement
-
-#### 13. Unused outfits (`UnusedOutfits.tsx`)
-- Keep AILoadingOverlay inline with skeletons — refine copy only
-- "Scanning your wardrobe" / "Creating combinations" / "Assembling looks"
-
-### C. Motion refinements
-
-- All new components use `useReducedMotion()` from framer-motion
-- Shimmer line: CSS keyframe `@keyframes shimmer-wash` — a single pass opacity gradient, `2.5s infinite`
-- Breathing glow: `opacity: [0.3, 0.6, 0.3]` over `3s`, no scale
-- Skeleton rows: staggered fade-in with `STAGGER_DELAY` from motion tokens
-- Result replacement: use `FadeReplace` for all loading→content transitions
-
-### D. i18n — add all new copy keys
-
-**File: `src/i18n/translations.ts`**
-Add keys for both `en` and `sv`:
-- `ai.selecting_pieces` / `ai.balancing_look` / `ai.refining_outfit`
-- `ai.preparing_note` / `ai.finding_swap` / `ai.composing_mood`
-- `ai.checking_forecast` / `ai.curating_capsule` / `ai.assembling_outfits`
-- `ai.building_todays_look` / `ai.detecting_garment` / `ai.extracting_details` / `ai.refining_details`
-
-### E. Files summary
-
-**New files (4):**
-- `src/components/ui/OutfitGenerationState.tsx`
-- `src/components/ui/StylistReplyPlaceholder.tsx`
-- `src/components/ui/SwapLoadingState.tsx`
-- `src/components/ui/GarmentAnalysisState.tsx`
-
-**Modified files (~12):**
-- `src/components/ui/AILoadingOverlay.tsx` — refined internals
-- `src/components/ui/AILoadingCard.tsx` — refined internals
-- `src/pages/OutfitGenerate.tsx` — use OutfitGenerationState
-- `src/components/home/TodayOutfitCard.tsx` — use mini OutfitGenerationState
-- `src/pages/StylePicker.tsx` — centered generation state
-- `src/pages/MoodOutfit.tsx` — expressive generation state
-- `src/pages/OutfitDetail.tsx` — SwapLoadingState in sheet
-- `src/pages/AIChat.tsx` — StylistReplyPlaceholder
-- `src/pages/AddGarment.tsx` — GarmentAnalysisState
-- `src/pages/TravelCapsule.tsx` — refined copy
-- `src/pages/UnusedOutfits.tsx` — refined copy
-- `src/i18n/translations.ts` — new keys
-
+### No new dependencies
+All translations are static strings in TypeScript files. No runtime i18n library needed.

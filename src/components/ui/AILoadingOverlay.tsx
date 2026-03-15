@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Sparkles, type LucideIcon } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,35 +19,40 @@ interface AILoadingOverlayProps {
   progress?: number;
   showSkeletons?: number;
   className?: string;
+  /** Tonal warmth: neutral (default), warm (amber-tinted), expressive (accent-tinted) */
+  tone?: 'neutral' | 'warm' | 'expressive';
 }
 
-function BouncingDots() {
+/** Subtle horizontal shimmer line */
+function ShimmerLine({ reduced }: { reduced: boolean }) {
+  if (reduced) return <div className="h-px w-16 bg-muted-foreground/20 mx-auto" />;
   return (
-    <div className="flex gap-1.5">
-      {[0, 1, 2].map(i => (
-        <motion.span
-          key={i}
-          className="w-1.5 h-1.5 rounded-full bg-primary/40"
-          animate={{ y: [0, -5, 0] }}
-          transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15, ease: 'easeInOut' }}
-        />
-      ))}
+    <div className="relative h-px w-24 mx-auto overflow-hidden">
+      <div className="absolute inset-0 bg-border/40" />
+      <motion.div
+        className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-muted-foreground/30 to-transparent"
+        animate={{ x: ['-100%', '200%'] }}
+        transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+      />
     </div>
   );
 }
 
-function PulseRings() {
+/** Breathing glow behind icon */
+function BreathingGlow({ tone, reduced }: { tone: string; reduced: boolean }) {
+  const toneClass =
+    tone === 'warm' ? 'bg-warning/15' :
+    tone === 'expressive' ? 'bg-accent/15' :
+    'bg-primary/10';
+
+  if (reduced) return <div className={cn('absolute inset-0 rounded-full', toneClass)} />;
+
   return (
-    <>
-      {[0, 1, 2].map(i => (
-        <motion.div
-          key={i}
-          className="absolute inset-0 rounded-full border border-primary/30"
-          animate={{ scale: [1, 1.8 + i * 0.4], opacity: [0.5, 0] }}
-          transition={{ duration: 2.2, repeat: Infinity, delay: i * 0.6, ease: 'easeOut' }}
-        />
-      ))}
-    </>
+    <motion.div
+      className={cn('absolute inset-0 rounded-full blur-sm', toneClass)}
+      animate={{ opacity: [0.3, 0.6, 0.3] }}
+      transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+    />
   );
 }
 
@@ -58,8 +63,10 @@ export function AILoadingOverlay({
   progress,
   showSkeletons,
   className,
+  tone = 'neutral',
 }: AILoadingOverlayProps) {
   const [phase, setPhase] = useState(0);
+  const prefersReduced = useReducedMotion();
 
   useEffect(() => {
     if (phases.length <= 1) return;
@@ -90,17 +97,27 @@ export function AILoadingOverlay({
       )}
     >
       <div className="flex flex-col items-center gap-4">
-        {/* Radar pulse icon */}
-        <div className="relative w-16 h-16 flex items-center justify-center">
-          <PulseRings />
+        {/* Icon with breathing glow */}
+        <div className="relative w-14 h-14 flex items-center justify-center">
+          <BreathingGlow tone={tone} reduced={!!prefersReduced} />
           <motion.div
             key={phase}
-            initial={{ scale: 0.7, opacity: 0 }}
+            initial={prefersReduced ? undefined : { scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.35, ease: EASE_CURVE }}
-            className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center z-10"
+            transition={{ duration: 0.3, ease: EASE_CURVE }}
+            className={cn(
+              'w-10 h-10 rounded-full flex items-center justify-center z-10',
+              tone === 'warm' ? 'bg-warning/10' :
+              tone === 'expressive' ? 'bg-accent/10' :
+              'bg-primary/10'
+            )}
           >
-            <CurrentIcon className="w-5 h-5 text-primary" />
+            <CurrentIcon className={cn(
+              'w-5 h-5',
+              tone === 'warm' ? 'text-warning' :
+              tone === 'expressive' ? 'text-accent' :
+              'text-primary'
+            )} />
           </motion.div>
         </div>
 
@@ -109,10 +126,10 @@ export function AILoadingOverlay({
           <AnimatePresence mode="wait">
             <motion.p
               key={phase}
-              initial={{ opacity: 0, y: 6 }}
+              initial={prefersReduced ? undefined : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.3, ease: EASE_CURVE }}
+              exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
+              transition={{ duration: 0.25, ease: EASE_CURVE }}
               className="text-sm font-medium text-foreground whitespace-nowrap"
             >
               {currentLabel}
@@ -125,8 +142,8 @@ export function AILoadingOverlay({
           <p className="text-xs text-muted-foreground/60">{subtitle}</p>
         )}
 
-        {/* Bouncing dots */}
-        <BouncingDots />
+        {/* Shimmer line instead of bouncing dots */}
+        <ShimmerLine reduced={!!prefersReduced} />
       </div>
 
       {/* Progress bar */}
@@ -143,7 +160,7 @@ export function AILoadingOverlay({
           {Array.from({ length: showSkeletons }).map((_, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, scale: 0.95 }}
+              initial={prefersReduced ? undefined : { opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3 + i * 0.15, duration: 0.4, ease: EASE_CURVE }}
             >

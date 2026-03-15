@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Zap, EyeOff, Flame, Sparkles, Palette, Cloud, Shirt, Wand2 } from 'lucide-react';
+import { Heart, Zap, EyeOff, Flame, Sparkles, Palette, Cloud } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { AILoadingCard } from '@/components/ui/AILoadingCard';
+import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useWeather } from '@/hooks/useWeather';
@@ -92,12 +92,6 @@ export default function MoodOutfitPage() {
     }
   };
 
-  const loadingPhases = [
-    { icon: Sparkles, label: t('ai.mood_feeling') || 'Feeling the mood...', duration: 1200 },
-    { icon: Palette, label: t('generate.phase_matching'), duration: 1500 },
-    { icon: Wand2, label: t('generate.phase_creating'), duration: 0 },
-  ];
-
   return (
     <AppLayout>
       <PageHeader title={t('ai.mood_title')} showBack />
@@ -134,10 +128,11 @@ export default function MoodOutfitPage() {
                       <p className="text-[10px] text-muted-foreground mt-0.5">{t(`ai.mood_${mood.key}_desc`)}</p>
                     </div>
                     {isSelected && (
-                      <AILoadingCard
-                        phases={loadingPhases}
+                      <OutfitGenerationState
+                        variant="compact"
+                        tone="expressive"
                         subtitle={t(`ai.mood_${mood.key}`)}
-                        className="mt-1 w-full"
+                        className="mt-2 border-0 bg-transparent p-0"
                       />
                     )}
                   </CardContent>
