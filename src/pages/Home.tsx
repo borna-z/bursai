@@ -257,7 +257,7 @@ export default function HomePage() {
                 transition={{ ...reveal.transition, delay: 0.1 }}
                 whileTap={press.whileTap}
                 onClick={() => { hapticLight(); navigate('/ai/mood-outfit'); }}
-                className="w-full relative overflow-hidden rounded-xl border border-border/10 bg-card/60 p-5 text-left flex items-center gap-4 transition-colors"
+                className="w-full relative overflow-hidden rounded-xl surface-interactive p-5 text-left flex items-center gap-4"
               >
                 <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10 shrink-0">
                   <Heart className="w-5 h-5 text-primary" />
