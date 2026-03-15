@@ -272,8 +272,24 @@ export default function OutfitDetailPage() {
 
   const handleOpenSwap = async (slot: string, outfitItemId: string, currentGarmentId: string) => {
     const ctx = buildSwapRequestContext(outfitItemId);
-    setSwapSheet({ isOpen: true, slot, outfitItemId, currentGarmentId });
-    await fetchCandidates(slot, currentGarmentId, ctx.otherColors, ctx.otherItems, ctx.occasion, ctx.weather, swapMode);
+
+    setSwapSheet({
+      isOpen: true,
+      slot,
+      outfitItemId,
+      currentGarmentId,
+    });
+
+    await fetchCandidates(
+      slot,
+      currentGarmentId,
+      ctx.otherColors,
+      ctx.otherItems,
+      ctx.occasion,
+      ctx.weather,
+      swapMode
+    );
+  };
   };
 
   const handleSwapModeChange = async (mode: SwapMode) => {
