@@ -1773,7 +1773,7 @@ function buildCombos(
 
   const pushCombo = (items: ComboItem[]) => {
     combos.push(
-      scoreCombo(items, recentOutfitSets, occasion, weather, style, prefs, body)
+      scoreCombo(items, recentOutfitSets, occasion, weather, style, prefs, body, pairMemory)
     );
   };
 
