@@ -1250,20 +1250,52 @@ function categorizeSlot(category: string, subcategory: string | null): string | 
 // OUTFIT COMPLETENESS VALIDATION
 // ─────────────────────────────────────────────
 
+type OutfitGenerationMode = 'full_outfit_generation' | 'partial_styling_task';
+
+/** Determine whether the request is a full outfit or partial styling task. */
+function getOutfitGenerationMode(mode: string): OutfitGenerationMode {
+  // Swap mode is explicitly partial — only returns candidates for a single slot
+  if (mode === 'swap') return 'partial_styling_task';
+  // Generate and suggest modes always produce full outfits
+  return 'full_outfit_generation';
+}
+
 function requiresOuterwear(weather: WeatherInput): boolean {
   const temp = weather.temperature;
-  const wet = isWetWeather(weather);
-  const coldEnough = temp !== undefined && temp < 8;
   const precip = String(weather.precipitation || '').toLowerCase();
+  const wind = String(weather.wind || '').toLowerCase();
+  const coldEnough = temp !== undefined && temp < 8;
+  const wet = precip !== '' && !['none', 'ingen'].includes(precip);
   const hasSnow = precip.includes('snow') || precip.includes('snö');
-  return coldEnough || wet || hasSnow;
+  const highWind = wind === 'high' || wind === 'hög';
+  return coldEnough || wet || hasSnow || highWind;
+}
+
+interface OutfitCompletenessResult {
+  complete: boolean;
+  missing: string[];
+  required_slots: string[];
+  present_slots: string[];
+}
+
+/** Compute the required slots for the given items and weather context. */
+function getRequiredSlotsForContext(
+  items: { slot: string }[],
+  weather: WeatherInput
+): string[] {
+  const slots = new Set(items.map(i => i.slot));
+  const hasDress = slots.has('dress');
+  const required = hasDress ? ['dress', 'shoes'] : ['top', 'bottom', 'shoes'];
+  if (requiresOuterwear(weather)) required.push('outerwear');
+  return required;
 }
 
 function isCompleteOutfit(
   items: ComboItem[],
   weather: WeatherInput
-): { complete: boolean; missing: string[] } {
-  const slots = new Set(items.map(i => i.slot));
+): OutfitCompletenessResult {
+  const presentSlots = [...new Set(items.map(i => i.slot))];
+  const slots = new Set(presentSlots);
   const missing: string[] = [];
 
   const hasTop = slots.has('top');
@@ -1289,7 +1321,9 @@ function isCompleteOutfit(
   const hasValidBase = standardPath || dressPath;
   const complete = hasValidBase && (!needsOuter || hasOuterwear);
 
-  return { complete, missing };
+  const requiredSlots = getRequiredSlotsForContext(items, weather);
+
+  return { complete, missing, required_slots: requiredSlots, present_slots: presentSlots };
 }
 
 function explainMissingRequiredSlots(missing: string[]): string {
@@ -1302,6 +1336,29 @@ function explainMissingRequiredSlots(missing: string[]): string {
   };
   const parts = missing.map(s => slotLabels[s] || s);
   return `Missing ${parts.join(' and ')} to complete the outfit.`;
+}
+
+/** Build a structured incomplete-outfit failure response. */
+function buildIncompleteOutfitFailure(
+  weather: WeatherInput,
+  occasion: string,
+  slotCandidates: Record<string, ScoredGarment[]>
+): { error: string; limitation_note: string | null; missing_slots: string[]; available_slots: string[] } {
+  const availableSlots = Object.keys(slotCandidates).filter(s => slotCandidates[s]?.length > 0);
+  const testItems: ComboItem[] = availableSlots.map(s => slotCandidates[s][0]).filter(Boolean).map(sg => ({
+    slot: categorizeSlot(sg.garment.category, sg.garment.subcategory) || 'unknown',
+    garment: sg.garment,
+    baseScore: sg.score,
+    baseBreakdown: sg.breakdown,
+  }));
+  const { missing } = isCompleteOutfit(testItems, weather);
+  const explanation = explainMissingRequiredSlots(missing);
+  return {
+    error: 'Not enough matching garments',
+    limitation_note: explanation || null,
+    missing_slots: missing,
+    available_slots: availableSlots,
+  };
 }
 
 // ─────────────────────────────────────────────
@@ -1988,8 +2045,8 @@ function buildCombos(
   const combos: ScoredCombo[] = [];
 
   const pushCombo = (items: ComboItem[]) => {
-    const { complete } = isCompleteOutfit(items, outerwearRequired ? weather : { ...weather, temperature: 20, precipitation: 'none' });
-    if (!complete) return; // Skip incomplete outfits
+    const { complete } = isCompleteOutfit(items, weather);
+    if (!complete) return; // Reject incomplete outfits before scoring
     combos.push(
       scoreCombo(items, recentOutfitSets, occasion, weather, style, prefs, body, pairMemory)
     );
@@ -3284,19 +3341,15 @@ serve(async (req) => {
 
     if (combos.length === 0) {
       const gaps = detectWardrobeGapForRequest(slotCandidates, weather, occasion);
-      // Build a clear explanation of what's missing
-      const availableSlots = Object.keys(slotCandidates).filter(s => slotCandidates[s]?.length > 0);
-      const testItems: ComboItem[] = availableSlots.map(s => slotCandidates[s][0]).filter(Boolean).map(sg => ({
-        slot: categorizeSlot(sg.garment.category, sg.garment.subcategory) || 'unknown',
-        garment: sg.garment,
-        baseScore: sg.score,
-        baseBreakdown: sg.breakdown,
-      }));
-      const { missing } = isCompleteOutfit(testItems, weather);
-      const missingExplanation = explainMissingRequiredSlots(missing);
-      const note = [missingExplanation, ...gaps.slice(0, 2)].filter(Boolean).join('; ') || null;
+      const failure = buildIncompleteOutfitFailure(weather, occasion, slotCandidates);
+      const note = [failure.limitation_note, ...gaps.slice(0, 2)].filter(Boolean).join('; ') || null;
       return new Response(
-        JSON.stringify({ error: "Not enough matching garments", limitation_note: note }),
+        JSON.stringify({
+          error: failure.error,
+          limitation_note: note,
+          missing_slots: failure.missing_slots,
+          available_slots: failure.available_slots,
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
