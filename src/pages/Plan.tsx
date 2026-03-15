@@ -490,7 +490,7 @@ export default function PlanPage() {
         onOpenChange={setSwapSheetOpen}
         outfitId={currentOutfitId || ''}
         onCreateSimilar={() => setQuickGenerateSheetOpen(true)}
-        onSelectOther={() => setPlanningSheetOpen(true)}
+        onSelectOther={() => setQuickGenerateSheetOpen(true)}
         onGenerateNew={() => setQuickGenerateSheetOpen(true)}
       />
       <QuickPlanSheet
