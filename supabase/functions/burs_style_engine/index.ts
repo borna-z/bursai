@@ -1606,182 +1606,233 @@ function jaccardSimilarity(setA: Set<string>, setB: Set<string>): number {
 // COMBO BUILDER
 // ─────────────────────────────────────────────
 
-function toComboItem(sg: ScoredGarment, slot: string): ComboItem {
-  return { slot, garment: sg.garment, baseScore: sg.score, baseBreakdown: sg.breakdown };
-}
-
-function deduplicateCombos(combos: ScoredCombo[]): ScoredCombo[] {
-  const seen = new Set<string>();
-  const result: ScoredCombo[] = [];
-  for (const c of combos) {
-    const key = c.items.map(i => i.garment.id).sort().join(",");
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(c);
-  }
-  return result;
-}
-
 function buildCombos(
   slotCandidates: Record<string, ScoredGarment[]>,
   recentOutfitSets: Set<string>[],
+  occasion: string,
+  style: string | null,
   weather: WeatherInput,
+  prefs: Record<string, any> | null,
   maxCombos: number = 10,
-  body: BodyProfile | null = null,
-  occasion: string = "vardag",
-  style: string | null = null,
-  prefs: Record<string, any> | null = null
+  body: BodyProfile | null = null
 ): ScoredCombo[] {
-  const tops = slotCandidates["top"] || [];
-  const bottoms = slotCandidates["bottom"] || [];
-  const shoes = slotCandidates["shoes"] || [];
-  const outerwear = slotCandidates["outerwear"] || [];
-  const dresses = slotCandidates["dress"] || [];
-  const accessories = slotCandidates["accessory"] || [];
+  const tops = slotCandidates['top'] || [];
+  const bottoms = slotCandidates['bottom'] || [];
+  const shoes = slotCandidates['shoes'] || [];
+  const outerwear = slotCandidates['outerwear'] || [];
+  const dresses = slotCandidates['dress'] || [];
+  const accessories = slotCandidates['accessory'] || [];
 
-  const temp = weather.temperature;
-  const precip = (weather.precipitation || "").toLowerCase();
-  const isColdOrRainy = (temp !== undefined && temp < 15) ||
-    (precip && !["none", "ingen"].includes(precip));
-  const strongOuterwear = (temp !== undefined && temp < 5) ||
-    precip.includes("rain") || precip.includes("regn") ||
-    precip.includes("snow") || precip.includes("snö");
+  const wet = isWetWeather(weather);
+  const needsOuterwear =
+    (weather.temperature !== undefined && weather.temperature < 15) || wet;
 
-  // Determine if occasion is elevated (deserves accessory)
-  const occ = occasion.toLowerCase();
-  const ELEVATED_OCCASIONS = ["dejt", "date", "fest", "party", "gala", "bröllop", "wedding", "middag", "dinner", "mingel"];
-  const isElevated = ELEVATED_OCCASIONS.some(e => occ.includes(e));
-  const topAccessory = accessories.length > 0 && isElevated ? accessories[0] : null;
+  const occasionKey = String(occasion || '').toLowerCase();
+  const wantsAccessory = ['date', 'dejt', 'party', 'fest', 'work', 'jobb'].includes(occasionKey);
+
+  const outerwearOptions: Array<ScoredGarment | null> = needsOuterwear
+    ? (outerwear.length ? outerwear.slice(0, 3) : [null])
+    : [null, ...outerwear.slice(0, 2)];
+
+  const accessoryOptions: Array<ScoredGarment | null> =
+    wantsAccessory && accessories.length > 0
+      ? [null, ...accessories.slice(0, 2)]
+      : [null];
 
   const combos: ScoredCombo[] = [];
 
-  function maybeAddOuterwearAndAccessory(items: ComboItem[]): ComboItem[] {
-    if (outerwear.length > 0 && (isColdOrRainy || strongOuterwear)) {
-      items.push(toComboItem(outerwear[0], "outerwear"));
-    }
-    if (topAccessory) {
-      items.push(toComboItem(topAccessory, "accessory"));
-    }
-    return items;
-  }
+  const pushCombo = (items: ComboItem[]) => {
+    combos.push(
+      scoreCombo(items, recentOutfitSets, occasion, weather, style, prefs, body)
+    );
+  };
 
   // Dress-based combos
   for (const d of dresses.slice(0, 4)) {
     for (const s of shoes.slice(0, 5)) {
-      const items = maybeAddOuterwearAndAccessory([
-        toComboItem(d, "dress"),
-        toComboItem(s, "shoes"),
-      ]);
-      combos.push(scoreCombo(items, recentOutfitSets, body, occasion, style, weather, prefs));
-    }
-  }
+      for (const ow of outerwearOptions) {
+        for (const acc of accessoryOptions) {
+          const items: ComboItem[] = [
+            {
+              slot: 'dress',
+              garment: d.garment,
+              baseScore: d.score,
+              baseBreakdown: d.breakdown,
+            },
+            {
+              slot: 'shoes',
+              garment: s.garment,
+              baseScore: s.score,
+              baseBreakdown: s.breakdown,
+            },
+          ];
 
-  // Standard combos: top × bottom × shoes
-  for (const t of tops.slice(0, 5)) {
-    for (const b of bottoms.slice(0, 5)) {
-      for (const s of shoes.slice(0, 4)) {
-        const items = maybeAddOuterwearAndAccessory([
-          toComboItem(t, "top"),
-          toComboItem(b, "bottom"),
-          toComboItem(s, "shoes"),
-        ]);
-        combos.push(scoreCombo(items, recentOutfitSets, body, occasion, style, weather, prefs));
+          if (ow) {
+            items.push({
+              slot: 'outerwear',
+              garment: ow.garment,
+              baseScore: ow.score,
+              baseBreakdown: ow.breakdown,
+            });
+          }
+
+          if (acc && acc.score >= 5.5) {
+            items.push({
+              slot: 'accessory',
+              garment: acc.garment,
+              baseScore: acc.score,
+              baseBreakdown: acc.breakdown,
+            });
+          }
+
+          pushCombo(items);
+        }
       }
     }
   }
 
-  // Add variety with different outerwear (only if outerwear is relevant)
-  if (outerwear.length > 1 && combos.length > 0 && isColdOrRainy) {
-    const sorted = [...combos].sort((a, b) => b.totalScore - a.totalScore);
-    const best = sorted[0];
-    for (const ow of outerwear.slice(1, 3)) {
-      const newItems = best.items
-        .filter(i => i.slot !== "outerwear")
-        .map(i => ({ ...i }));
-      newItems.push(toComboItem(ow, "outerwear"));
-      combos.push(scoreCombo(newItems, recentOutfitSets, body, occasion, style, weather, prefs));
+  // Standard combos
+  for (const t of tops.slice(0, 5)) {
+    for (const b of bottoms.slice(0, 5)) {
+      for (const s of shoes.slice(0, 5)) {
+        for (const ow of outerwearOptions) {
+          for (const acc of accessoryOptions) {
+            const items: ComboItem[] = [
+              {
+                slot: 'top',
+                garment: t.garment,
+                baseScore: t.score,
+                baseBreakdown: t.breakdown,
+              },
+              {
+                slot: 'bottom',
+                garment: b.garment,
+                baseScore: b.score,
+                baseBreakdown: b.breakdown,
+              },
+              {
+                slot: 'shoes',
+                garment: s.garment,
+                baseScore: s.score,
+                baseBreakdown: s.breakdown,
+              },
+            ];
+
+            if (ow) {
+              items.push({
+                slot: 'outerwear',
+                garment: ow.garment,
+                baseScore: ow.score,
+                baseBreakdown: ow.breakdown,
+              });
+            }
+
+            if (acc && acc.score >= 5.5) {
+              items.push({
+                slot: 'accessory',
+                garment: acc.garment,
+                baseScore: acc.score,
+                baseBreakdown: acc.breakdown,
+              });
+            }
+
+            pushCombo(items);
+          }
+        }
+      }
     }
   }
 
-  // Deduplicate, sort, return top N
-  const unique = deduplicateCombos(combos);
-  return unique.sort((a, b) => b.totalScore - a.totalScore).slice(0, maxCombos);
+  const unique = new Map<string, ScoredCombo>();
+
+  for (const combo of combos.sort((a, b) => b.totalScore - a.totalScore)) {
+    const key = combo.items
+      .map((item) => `${item.slot}:${item.garment.id}`)
+      .sort()
+      .join('|');
+
+    if (!unique.has(key)) {
+      unique.set(key, combo);
+    }
+  }
+
+  return Array.from(unique.values())
+    .sort((a, b) => b.totalScore - a.totalScore)
+    .slice(0, maxCombos);
 }
 
 function scoreCombo(
   items: ComboItem[],
   recentSets: Set<string>[],
-  body: BodyProfile | null = null,
-  occasion: string = "vardag",
-  style: string | null = null,
-  weather: WeatherInput = {},
-  prefs: Record<string, any> | null = null
+  occasion: string,
+  weather: WeatherInput,
+  style: string | null,
+  prefs: Record<string, any> | null,
+  body: BodyProfile | null = null
 ): ScoredCombo {
-  // Color harmony across all items
   const colors = items
-    .map(i => getHSL(i.garment.color_primary))
+    .map((item) => getHSL(item.garment.color_primary))
     .filter(Boolean) as [number, number, number][];
+
   const colorScore = colorHarmonyScore(colors);
+  const matScore = materialCompatibility(items.map((item) => item.garment.material));
 
-  // Material compatibility
-  const matScore = materialCompatibility(items.map(i => i.garment.material));
+  const formalities = items
+    .map((item) => item.garment.formality)
+    .filter((v): v is number => typeof v === 'number');
 
-  // Formality consistency
-  const formalities = items.map(i => i.garment.formality).filter(Boolean) as number[];
   let formalityConsistency = 10;
   if (formalities.length >= 2) {
     const spread = Math.max(...formalities) - Math.min(...formalities);
     formalityConsistency = Math.max(0, 10 - spread * 2);
   }
 
-  // Anti-repetition
-  const comboSet = new Set(items.map(i => i.garment.id));
+  const comboSet = new Set(items.map((item) => item.garment.id));
   let repetitionPenalty = 0;
+
   for (const recent of recentSets) {
     const sim = jaccardSimilarity(comboSet, recent);
     if (sim >= 0.6) repetitionPenalty += 3;
     else if (sim >= 0.4) repetitionPenalty += 1;
   }
 
-  // Fit proportion score (body-aware)
-  const fitItems = items.map(i => ({ slot: i.slot, garment: i.garment }));
-  const fitScore = fitProportionScore(fitItems, body);
+  const fitScore = fitProportionScore(items, body);
 
-  // Average individual base scores (FIX: use real scores instead of hardcoded 7)
-  const avgBaseScore = items.length > 0
-    ? items.reduce((sum, i) => sum + i.baseScore, 0) / items.length
-    : 7;
+  const avgBaseScore =
+    items.reduce((sum, item) => sum + item.baseScore, 0) / items.length;
 
-  // Occasion/style/weather combo-level scores
-  const siScore = styleIntentScore(items, style, prefs);
-  const otScore = occasionTemplateScore(items, occasion, weather);
-  const wpScore = weatherPracticalityScore(items, weather);
+  const styleScore = styleIntentScore(items, style, prefs);
+  const occasionScore = occasionTemplateScore(items, occasion, weather);
+  const practicality = weatherPracticalityScore(items, weather);
 
   const totalScore =
+    avgBaseScore * 0.34 +
     colorScore * 0.16 +
-    matScore * 0.10 +
+    matScore * 0.08 +
     formalityConsistency * 0.12 +
-    avgBaseScore * 0.22 +
-    fitScore * 0.08 +
-    siScore * 0.10 +
-    otScore * 0.10 +
-    wpScore * 0.10 -
+    fitScore * 0.10 +
+    styleScore * 0.10 +
+    occasionScore * 0.10 +
+    practicality * 0.10 -
     repetitionPenalty;
+
+  const finalScore = Math.max(0, totalScore);
 
   return {
     items,
-    totalScore,
+    totalScore: finalScore,
     breakdown: {
-      // UI-expected keys
-      overall: Math.max(0, Math.min(10, totalScore)),
+      overall: finalScore,
+      color: colorScore,
       color_harmony: colorScore,
+      material: matScore,
       material_compatibility: matScore,
+      formalityConsistency,
       formality: formalityConsistency,
-      // Richer keys
       item_strength: avgBaseScore,
-      style_intent: siScore,
-      occasion_fit: otScore,
-      practicality: wpScore,
+      style_intent: styleScore,
+      occasion_fit: occasionScore,
+      practicality,
       fitProportion: fitScore,
       repetitionPenalty,
     },
@@ -2187,7 +2238,7 @@ serve(async (req) => {
     }
 
     // Build combos
-    const combos = buildCombos(slotCandidates, recentOutfitSets, weather, 10, bodyProfile, occasion, style, preferences);
+    const combos = buildCombos(slotCandidates, recentOutfitSets, occasion, style, weather, preferences, 10, bodyProfile);
 
     if (combos.length === 0) {
       return new Response(
