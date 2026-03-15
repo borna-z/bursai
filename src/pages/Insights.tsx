@@ -55,7 +55,7 @@ function StatPill({ value, label, onClick }: { value: number | string; label: st
       )}
     >
       <span className="text-2xl font-bold tracking-tight tabular-nums">{value}</span>
-      <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">{label}</span>
+      <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider mt-0.5">{label}</span>
     </button>
   );
 }
