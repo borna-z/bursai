@@ -106,10 +106,10 @@ export function FilterSheet({
                   key={c}
                   onClick={() => onColorChange(color === c ? null : c)}
                   className={cn(
-                    'px-2.5 py-1.5 rounded-full text-xs transition-colors',
+                    'px-2.5 py-1.5 rounded-full text-xs transition-colors border',
                     color === c
-                      ? 'bg-accent/10 text-accent font-medium'
-                      : 'bg-foreground/[0.04] text-muted-foreground'
+                      ? 'bg-accent/10 text-accent font-medium border-accent/20'
+                      : 'surface-inset text-muted-foreground'
                   )}
                 >
                   {t(`color.${c}`)}
