@@ -117,7 +117,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
               <LazyImage
                 imagePath={item.garment.image_path}
                 alt={item.garment.title}
-                aspectRatio="4/5"
+                aspectRatio="3/4"
                 className="rounded-xl"
               />
             </div>
