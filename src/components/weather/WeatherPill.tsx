@@ -117,8 +117,8 @@ export function WeatherPill({ onWeatherChange }: WeatherPillProps) {
       <CollapsibleTrigger asChild>
         <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-foreground/[0.04] hover:bg-foreground/[0.07] transition-colors text-sm">
           <Icon className="w-4 h-4 text-foreground/70" />
-          <span className="font-medium tabular-nums">{weather.temperature}°</span>
-          <span className="text-muted-foreground text-xs">{t(weather.condition)}</span>
+          <span className="font-bold tabular-nums tracking-tight">{weather.temperature}°</span>
+          <span className="text-muted-foreground/70 text-[0.75rem]">{t(weather.condition)}</span>
           <ChevronDown className="w-3 h-3 text-muted-foreground/60 ml-0.5" />
         </button>
       </CollapsibleTrigger>
