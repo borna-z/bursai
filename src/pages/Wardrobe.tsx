@@ -277,7 +277,7 @@ function VirtualGarmentGrid({
               key={virtualRow.index}
               style={{ position: 'absolute', top: virtualRow.start, left: 0, width: '100%', height: virtualRow.size, paddingBottom: GAP }}
             >
-              <div className={cn(isGridView ? 'grid grid-cols-3 gap-2 h-full' : 'flex flex-col gap-1.5')}>
+              <div className={cn(isGridView ? 'grid grid-cols-3 gap-[5px] h-full' : 'flex flex-col gap-1.5')}>
                 {rowGarments.map((garment, colIdx) => (
                   <Fragment key={garment.id}>
                     {!isGridView && !isSelecting ? (
