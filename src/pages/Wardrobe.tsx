@@ -522,19 +522,24 @@ export default function WardrobePage() {
         <AnimatedPage className="px-5 pb-36 pt-6 space-y-6">
           {/* Title row */}
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold tracking-tight">{t('wardrobe.title')}</h1>
-            <div className="flex items-center gap-1">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">{t('wardrobe.title')}</h1>
+              {typeof totalCount === 'number' && totalCount > 0 && (
+                <p className="label-editorial mt-0.5 text-muted-foreground/50">{totalCount} {t('wardrobe.garments_count_label').toUpperCase()}</p>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
               <button
                 onClick={() => setIsGridView(!isGridView)}
-                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted/40 transition-colors active:scale-95"
+                className="w-10 h-10 rounded-xl surface-inset flex items-center justify-center hover:bg-foreground/[0.05] transition-colors active:scale-95"
                 aria-label={isGridView ? 'List view' : 'Grid view'}
               >
                 {isGridView ? <List className="w-[18px] h-[18px] text-muted-foreground" /> : <Grid3X3 className="w-[18px] h-[18px] text-muted-foreground" />}
               </button>
               {!isSelecting ? (
-                <button onClick={() => setIsSelecting(true)} className="text-[13px] font-medium text-muted-foreground px-2 py-1 rounded-lg hover:bg-muted/40 transition-colors">{t('wardrobe.select')}</button>
+                <button onClick={() => setIsSelecting(true)} className="text-sm font-medium text-muted-foreground px-2.5 py-1.5 rounded-lg hover:bg-muted/40 transition-colors">{t('wardrobe.select')}</button>
               ) : (
-                <button onClick={() => { setIsSelecting(false); setSelectedIds(new Set()); }} className="text-[13px] font-medium text-primary px-2 py-1 rounded-lg hover:bg-muted/40 transition-colors">{t('common.cancel')}</button>
+                <button onClick={() => { setIsSelecting(false); setSelectedIds(new Set()); }} className="text-sm font-medium text-primary px-2.5 py-1.5 rounded-lg hover:bg-muted/40 transition-colors">{t('common.cancel')}</button>
               )}
             </div>
           </div>
