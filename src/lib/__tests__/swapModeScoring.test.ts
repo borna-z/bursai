@@ -211,12 +211,16 @@ describe('Fallback scoring mode-specific weight sums', () => {
     }
   });
 
-  it('all fallback weight profiles sum to 1.00', () => {
-    for (const mode of ['safe', 'bold', 'fresh'] as SwapMode[]) {
+  it('safe and fresh fallback weight profiles sum to 1.00 (bold uses secondary blend)', () => {
+    for (const mode of ['safe', 'fresh'] as SwapMode[]) {
       const w = FALLBACK_WEIGHTS[mode];
       const sum = w.freshness + w.colorFit + w.fit;
       expect(sum).toBeCloseTo(1.0, 5);
     }
+    // Bold sums to 0.60 because the remaining 0.40 comes from boldLift blend
+    const bw = FALLBACK_WEIGHTS.bold;
+    const boldBaseSum = bw.freshness + bw.colorFit + bw.fit;
+    expect(boldBaseSum).toBeCloseTo(0.60, 5);
   });
 });
 
