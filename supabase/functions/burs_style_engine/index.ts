@@ -3302,6 +3302,7 @@ serve(async (req) => {
         confidence_level: chosenConf.confidence_level,
         limitation_note: chosenNote,
         laundry: laundryCount > 0 ? { count: laundryCount, items: laundryItems.slice(0, 5).map(i => ({ id: i.id, title: i.title, category: i.category })) } : undefined,
+        wardrobe_insights: wardrobeInsights.length > 0 ? wardrobeInsights : undefined,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
