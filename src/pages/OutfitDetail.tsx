@@ -159,8 +159,19 @@ export default function OutfitDetailPage() {
 
   const handleOpenSwap = async (slot: string, outfitItemId: string, currentGarmentId: string) => {
     const otherColors = outfit?.outfit_items.filter(item => item.id !== outfitItemId && item.garment?.color_primary).map(item => item.garment!.color_primary.toLowerCase()) || [];
+    const otherItems = outfit?.outfit_items
+      .filter(item => item.id !== outfitItemId && item.garment)
+      .map(item => ({ slot: item.slot, garment_id: item.garment_id })) || [];
+    const outfitWeather = outfit?.weather as OutfitWeather | null;
+    const normalizedWeather = outfitWeather
+      ? {
+          temperature: outfitWeather.temp ?? undefined,
+          precipitation: outfitWeather.precipitation ?? undefined,
+          wind: outfitWeather.wind ?? undefined,
+        }
+      : undefined;
     setSwapSheet({ isOpen: true, slot, outfitItemId });
-    await fetchCandidates(slot, currentGarmentId, otherColors);
+    await fetchCandidates(slot, currentGarmentId, otherColors, otherItems, outfit?.occasion, normalizedWeather);
   };
 
   const handleSwap = async (newGarmentId: string) => {
