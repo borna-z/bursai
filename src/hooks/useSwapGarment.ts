@@ -5,13 +5,13 @@ import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Garment } from './useGarments';
 
-export type SwapMode = 'safe' | 'bold' | 'fresh';
-
 export interface SwapCandidate {
   garment: Garment;
   score: number;
   breakdown?: Record<string, number>;
 }
+
+export type SwapMode = 'safe' | 'bold' | 'fresh';
 
 export function useSwapGarment() {
   const { user } = useAuth();
@@ -32,17 +32,20 @@ export function useSwapGarment() {
 
     setIsLoadingCandidates(true);
     try {
-      const { data, error } = await invokeEdgeFunction<{ candidates?: SwapCandidate[]; error?: string }>('burs_style_engine', {
-        body: {
-          mode: 'swap',
-          swap_slot: slot,
-          current_garment_id: currentGarmentId,
-          other_items: otherItems || [],
-          occasion: occasion || 'vardag',
-          weather: weather || { precipitation: 'none', wind: 'low' },
-          swap_mode: swapMode,
-        },
-      });
+      const { data, error } = await invokeEdgeFunction<{ candidates?: SwapCandidate[]; error?: string }>(
+        'burs_style_engine',
+        {
+          body: {
+            mode: 'swap',
+            swap_slot: slot,
+            current_garment_id: currentGarmentId,
+            other_items: otherItems || [],
+            occasion: occasion || 'vardag',
+            weather: weather || { precipitation: 'none', wind: 'low' },
+            swap_mode: swapMode,
+          },
+        }
+      );
 
       if (error || data?.error) {
         console.error('Swap engine error, falling back to basic scoring:', error || data?.error);
@@ -96,67 +99,58 @@ export function useSwapGarment() {
 
     const neutralWords = ['black', 'white', 'grey', 'gray', 'navy', 'beige', 'brown', 'cream'];
 
-    const scoreColorFit = (color?: string | null) => {
+    const colorFit = (color?: string | null) => {
       const c = String(color || '').toLowerCase();
-      if (!c) return 5;
+      if (!c) return 5.5;
       if (otherGarmentColors.some((x) => x === c)) return 7.5;
       if (neutralWords.some((x) => c.includes(x))) return 7;
       return 5.8;
     };
 
-    const scoreFreshness = (wearCount?: number | null) => {
+    const freshness = (wearCount?: number | null) => {
       if (wearCount == null) return 6;
-      if (wearCount === 0) return 8.5;
-      if (wearCount < 5) return 7.2;
+      if (wearCount === 0) return 8.6;
+      if (wearCount < 5) return 7.3;
       if (wearCount < 15) return 6.4;
       return 5.5;
     };
 
-    const scoreFit = (fit?: string | null) => {
-      const f = String(fit || '').toLowerCase();
-      if (['regular', 'relaxed', 'oversized'].some((x) => f.includes(x))) return 6.8;
-      if (['slim', 'tailored'].some((x) => f.includes(x))) return 6.4;
-      return 6;
-    };
+    const expressiveLift = (garment: any) => {
+      const color = String(garment.color_primary || '').toLowerCase();
+      const pattern = String(garment.pattern || 'solid').toLowerCase();
+      const material = String(garment.material || '').toLowerCase();
 
-    // Mode-specific weights
-    const WEIGHTS: Record<SwapMode, { freshness: number; colorFit: number; fit: number }> = {
-      safe:  { freshness: 0.30, colorFit: 0.45, fit: 0.25 },
-      bold:  { freshness: 0.20, colorFit: 0.25, fit: 0.15 },
-      fresh: { freshness: 0.55, colorFit: 0.25, fit: 0.20 },
-    };
-    const w = WEIGHTS[swapMode];
+      let score = 5.5;
+      if (!neutralWords.some((x) => color.includes(x))) score += 1.2;
+      if (pattern !== 'solid' && pattern !== 'none') score += 1.2;
+      if (['leather', 'wool', 'silk', 'satin'].some((x) => material.includes(x))) score += 0.6;
 
-    // Bold mode: bonus scorer for expressive color lift
-    const scoreBoldLift = (color?: string | null) => {
-      const c = String(color || '').toLowerCase();
-      if (!c) return 5;
-      // Reward chromatic colors that stand out
-      if (neutralWords.some((x) => c.includes(x))) return 4; // neutrals are less bold
-      if (otherGarmentColors.some((x) => x === c)) return 5; // matching = not bold
-      return 8; // different chromatic = bold
+      return Math.max(0, Math.min(10, score));
     };
 
     const scored = garments.map((garment) => {
-      const freshness = scoreFreshness(garment.wear_count);
-      const colorFit = scoreColorFit(garment.color_primary);
-      const fitScore = scoreFit(garment.fit);
+      const f = freshness(garment.wear_count);
+      const c = colorFit(garment.color_primary);
+      const e = expressiveLift(garment);
 
-      let score = freshness * w.freshness + colorFit * w.colorFit + fitScore * w.fit;
+      let score = 0;
 
-      // Bold mode: add expressive lift
-      if (swapMode === 'bold') {
-        const boldLift = scoreBoldLift(garment.color_primary);
-        score = score * 0.60 + boldLift * 0.40;
+      if (swapMode === 'safe') {
+        score = f * 0.30 + c * 0.55 + e * 0.15;
+      } else if (swapMode === 'bold') {
+        score = f * 0.20 + c * 0.30 + e * 0.50;
+      } else {
+        score = f * 0.50 + c * 0.30 + e * 0.20;
       }
 
       return {
         garment,
         score,
         breakdown: {
-          freshness,
-          color_fit: colorFit,
-          fit: fitScore,
+          overall: score,
+          freshness: f,
+          color_fit: c,
+          expressive_lift: e,
           swap_mode: swapMode === 'safe' ? 1 : swapMode === 'bold' ? 2 : 3,
         },
       };
