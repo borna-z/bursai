@@ -1753,8 +1753,8 @@ function scoreCombo(
     : 7;
 
   // Occasion/style/weather combo-level scores
-  const siScore = styleIntentScore(items, style);
-  const otScore = occasionTemplateScore(items, occasion);
+  const siScore = styleIntentScore(items, style, prefs);
+  const otScore = occasionTemplateScore(items, occasion, weather);
   const wpScore = weatherPracticalityScore(items, weather);
 
   const totalScore =
