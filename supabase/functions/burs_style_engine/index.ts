@@ -673,6 +673,135 @@ function feedbackScore(garmentId: string, penalties: Map<string, GarmentPenalty>
 }
 
 // ─────────────────────────────────────────────
+// PAIR MEMORY (Learned pairing preferences)
+// ─────────────────────────────────────────────
+
+interface PairMemoryRow {
+  garment_a_id: string;
+  garment_b_id: string;
+  positive_count: number;
+  negative_count: number;
+  last_positive_at: string | null;
+  last_negative_at: string | null;
+}
+
+type PairMemoryMap = Map<string, PairMemoryRow>;
+
+function pairKey(idA: string, idB: string): string {
+  return idA < idB ? `${idA}|${idB}` : `${idB}|${idA}`;
+}
+
+function buildPairMemoryMap(rows: PairMemoryRow[]): PairMemoryMap {
+  const map: PairMemoryMap = new Map();
+  for (const row of rows) {
+    const key = pairKey(row.garment_a_id, row.garment_b_id);
+    map.set(key, row);
+  }
+  return map;
+}
+
+function getPairMemoryScore(
+  garmentIds: string[],
+  pairMemory: PairMemoryMap | null
+): { boost: number; penalty: number } {
+  if (!pairMemory || pairMemory.size === 0 || garmentIds.length < 2) {
+    return { boost: 0, penalty: 0 };
+  }
+
+  let boost = 0;
+  let penalty = 0;
+
+  for (let i = 0; i < garmentIds.length; i++) {
+    for (let j = i + 1; j < garmentIds.length; j++) {
+      const key = pairKey(garmentIds[i], garmentIds[j]);
+      const mem = pairMemory.get(key);
+      if (!mem) continue;
+
+      // Positive: diminishing returns, capped at 3
+      if (mem.positive_count > 0) {
+        const recency = mem.last_positive_at
+          ? Math.max(0.3, 1 - (Date.now() - new Date(mem.last_positive_at).getTime()) / (90 * 86400000))
+          : 0.5;
+        boost += Math.min(3, Math.log2(mem.positive_count + 1) * 1.2 * recency);
+      }
+
+      // Negative: linear with cap at 4
+      if (mem.negative_count > 0) {
+        const recency = mem.last_negative_at
+          ? Math.max(0.3, 1 - (Date.now() - new Date(mem.last_negative_at).getTime()) / (90 * 86400000))
+          : 0.5;
+        penalty += Math.min(4, mem.negative_count * 1.0 * recency);
+      }
+    }
+  }
+
+  // Normalize by number of pairs to keep influence bounded
+  const pairCount = (garmentIds.length * (garmentIds.length - 1)) / 2;
+  return {
+    boost: Math.min(3, boost / Math.max(1, pairCount) * 2),
+    penalty: Math.min(4, penalty / Math.max(1, pairCount) * 2),
+  };
+}
+
+async function recordPairOutcome(
+  serviceClient: any,
+  userId: string,
+  garmentIds: string[],
+  positive: boolean
+): Promise<void> {
+  if (garmentIds.length < 2) return;
+
+  const now = new Date().toISOString();
+  const upserts: any[] = [];
+
+  for (let i = 0; i < garmentIds.length; i++) {
+    for (let j = i + 1; j < garmentIds.length; j++) {
+      const a = garmentIds[i] < garmentIds[j] ? garmentIds[i] : garmentIds[j];
+      const b = garmentIds[i] < garmentIds[j] ? garmentIds[j] : garmentIds[i];
+      upserts.push({ a, b });
+    }
+  }
+
+  // Batch: read existing then upsert
+  for (const { a, b } of upserts) {
+    const { data: existing } = await serviceClient
+      .from("garment_pair_memory")
+      .select("id, positive_count, negative_count")
+      .eq("user_id", userId)
+      .eq("garment_a_id", a)
+      .eq("garment_b_id", b)
+      .maybeSingle();
+
+    if (existing) {
+      const update: Record<string, any> = { updated_at: now };
+      if (positive) {
+        update.positive_count = (existing.positive_count || 0) + 1;
+        update.last_positive_at = now;
+      } else {
+        update.negative_count = (existing.negative_count || 0) + 1;
+        update.last_negative_at = now;
+      }
+      await serviceClient
+        .from("garment_pair_memory")
+        .update(update)
+        .eq("id", existing.id);
+    } else {
+      await serviceClient
+        .from("garment_pair_memory")
+        .insert({
+          user_id: userId,
+          garment_a_id: a,
+          garment_b_id: b,
+          positive_count: positive ? 1 : 0,
+          negative_count: positive ? 0 : 1,
+          last_positive_at: positive ? now : null,
+          last_negative_at: positive ? null : now,
+        });
+    }
+  }
+}
+
+// ─────────────────────────────────────────────
 // STYLE PROFILE ALIGNMENT (Quiz-based)
 // ─────────────────────────────────────────────
 
