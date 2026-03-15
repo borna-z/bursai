@@ -60,7 +60,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: '-20px' }}
-        transition={{ ease: EASE_CURVE, duration: 0.3, delay: (index % 6) * STAGGER_DELAY }}
+        transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: (index % 6) * STAGGER_DELAY }}
         whileTap={{ scale: 0.975 }}
         onClick={handleClick}
         className={cn(
