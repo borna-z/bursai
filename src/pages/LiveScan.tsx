@@ -96,7 +96,7 @@ function ScanOverlay() {
 
       {/* Shimmer line */}
       {!prefersReduced && (
-        <div className="w-24 h-px bg-border/20 rounded-full overflow-hidden relative">
+        <div className="w-24 h-px bg-border/20 overflow-hidden relative">
           <motion.div
             className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-accent/40 to-transparent"
             animate={{ x: ['-100%', '200%'] }}
