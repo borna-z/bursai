@@ -219,6 +219,11 @@ export default function OutfitDetailPage() {
   const outfitRef = useRef<HTMLDivElement>(null);
 
   const justGenerated = (location.state as { justGenerated?: boolean })?.justGenerated;
+  const genConfidence = (location.state as { confidence_score?: number })?.confidence_score;
+  const genConfidenceLevel = (location.state as { confidence_level?: string })?.confidence_level;
+  const genLimitationNote = (location.state as { limitation_note?: string | null })?.limitation_note;
+  const genFamilyLabel = (location.state as { family_label?: string })?.family_label;
+  const genWardrobeInsights = (location.state as { wardrobe_insights?: string[] })?.wardrobe_insights;
   const shareUrl = outfit ? `${window.location.origin}/share/${outfit.id}` : '';
   const outfitItems = Array.isArray(outfit?.outfit_items) ? outfit.outfit_items : [];
 
@@ -554,8 +559,40 @@ export default function OutfitDetailPage() {
       <div className="px-5 sm:px-6 pt-8 pb-40 space-y-10">
         <div>
           <h1 className="text-2xl font-bold tracking-tight capitalize">{displayOccasion}</h1>
-          <p className="text-[13px] text-muted-foreground/60 mt-1.5">{metaParts.join(' · ')}</p>
+          <p className="text-[13px] text-muted-foreground/60 mt-1.5">
+            {genFamilyLabel && <span className="capitalize">{genFamilyLabel} · </span>}
+            {metaParts.join(' · ')}
+          </p>
         </div>
+
+        {/* Confidence indicator — shown on fresh generation */}
+        {justGenerated && genConfidence != null && (
+          <div className={cn(
+            'flex items-center gap-3 rounded-xl px-4 py-3 border',
+            genConfidenceLevel === 'high' ? 'bg-primary/5 border-primary/15' :
+            genConfidenceLevel === 'medium' ? 'bg-amber-500/5 border-amber-500/15' :
+            'bg-muted/30 border-border/20'
+          )}>
+            <div className={cn(
+              'w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0',
+              genConfidenceLevel === 'high' ? 'bg-primary/10 text-primary' :
+              genConfidenceLevel === 'medium' ? 'bg-amber-500/10 text-amber-600' :
+              'bg-muted text-muted-foreground'
+            )}>
+              {genConfidence.toFixed(0)}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-foreground">
+                {genConfidenceLevel === 'high' ? (t('outfit.confidence_high') || 'Strong match') :
+                 genConfidenceLevel === 'medium' ? (t('outfit.confidence_medium') || 'Good match') :
+                 (t('outfit.confidence_low') || 'Best available')}
+              </p>
+              {genLimitationNote && (
+                <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{genLimitationNote}</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {outfit.explanation && (
           <div className="space-y-2">
@@ -569,6 +606,16 @@ export default function OutfitDetailPage() {
                 {explExpanded ? t('common.less') : t('common.read_more')}
               </button>
             )}
+          </div>
+        )}
+
+        {/* Wardrobe insights from generation */}
+        {justGenerated && genWardrobeInsights && genWardrobeInsights.length > 0 && (
+          <div className="rounded-xl bg-muted/10 border border-border/15 px-4 py-3 space-y-1.5">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50">{t('outfit.wardrobe_insight') || 'Wardrobe insight'}</p>
+            {genWardrobeInsights.map((insight, i) => (
+              <p key={i} className="text-[12px] text-muted-foreground leading-relaxed">{insight}</p>
+            ))}
           </div>
         )}
 
