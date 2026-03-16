@@ -147,6 +147,7 @@ export default function GarmentDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { t, locale } = useLanguage();
+  const queryClient = useQueryClient();
 
   const { data: garment, isLoading } = useGarment(id);
   const enrichmentStatus: EnrichmentStatus = (garment as unknown as Record<string, unknown>)?.enrichment_status as EnrichmentStatus || 'none';
