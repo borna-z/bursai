@@ -482,7 +482,7 @@ export default function LiveScan() {
 
         {error && !isProcessing && (
           <div className="absolute bottom-32 left-4 right-4 z-20">
-            <div className="bg-destructive/80 backdrop-blur-md rounded-xl p-3 text-center">
+            <div className="bg-destructive/80 backdrop-blur-md p-3 text-center">
               <p className="text-destructive-foreground text-sm">{error}</p>
             </div>
           </div>
