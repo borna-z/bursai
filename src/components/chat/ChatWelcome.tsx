@@ -132,54 +132,47 @@ export function ChatWelcome({ onSuggestion, displayName, garmentCount }: ChatWel
       variants={containerVariants}
       initial="hidden"
       animate="show"
-      className="flex-1 flex flex-col items-center justify-center px-6 py-16 text-center"
+      className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center"
     >
       <motion.div
         variants={itemVariants}
-        className="w-20 h-20 rounded-[24px] bg-gradient-to-br from-primary/10 to-accent/5 border border-primary/10 flex items-center justify-center mb-6"
+        className="w-16 h-16 border border-border/30 flex items-center justify-center mb-5"
       >
-        <Sparkles className="w-8 h-8 text-primary/70" />
+        <Sparkles className="w-6 h-6 text-primary/60" />
       </motion.div>
       
       {name && (
-        <motion.p variants={itemVariants} className="text-sm text-muted-foreground/50 mb-1">
+        <motion.p variants={itemVariants} className="text-[13px] text-muted-foreground/40 mb-0.5 tracking-wide">
           {t('chat.greeting_prefix') || 'Hey'}, {name}
         </motion.p>
       )}
       
       <motion.h2
         variants={itemVariants}
-        className="text-xl font-semibold tracking-[-0.02em] text-foreground mb-1"
+        className="text-lg font-semibold tracking-[-0.02em] text-foreground mb-0.5"
       >
         {t('chat.welcome_title') || 'Your personal stylist'}
       </motion.h2>
       
       <motion.p
         variants={itemVariants}
-        className="text-sm text-muted-foreground/60 max-w-[240px] leading-relaxed"
+        className="text-[13px] text-muted-foreground/50 max-w-[220px] leading-relaxed"
       >
         {t('chat.welcome_subtitle') || 'Ask me anything about your wardrobe, outfits, or style'}
       </motion.p>
 
-      {/* Suggestion rows */}
-      <motion.div variants={itemVariants} className="w-full mt-10 space-y-2.5 max-w-sm mx-auto">
-        {suggestions.map((row, rowIdx) => (
-          <div
-            key={rowIdx}
-            className="flex gap-2 overflow-x-auto scrollbar-hide px-1 snap-x snap-mandatory justify-center flex-wrap"
+      {/* Suggestion chips — single column for clean alignment */}
+      <motion.div variants={itemVariants} className="w-full mt-8 flex flex-col items-center gap-2 max-w-xs mx-auto">
+        {suggestions.flat().map((chip) => (
+          <motion.button
+            key={chip}
+            variants={itemVariants}
+            onClick={() => onSuggestion(chip)}
+            className="px-5 py-2.5 text-[13px] leading-snug border border-border/20 bg-secondary/20 hover:bg-secondary/50 text-foreground/70 hover:text-foreground transition-colors whitespace-nowrap active:scale-[0.97]"
+            whileTap={{ scale: 0.97 }}
           >
-            {row.map((chip) => (
-              <motion.button
-                key={chip}
-                variants={itemVariants}
-                onClick={() => onSuggestion(chip)}
-                className="shrink-0 snap-start px-4 py-2.5 text-[13px] leading-snug rounded-2xl border border-border/20 bg-secondary/30 hover:bg-secondary/60 text-foreground/80 hover:text-foreground transition-all whitespace-nowrap active:scale-[0.97]"
-                whileTap={{ scale: 0.96 }}
-              >
-                {chip}
-              </motion.button>
-            ))}
-          </div>
+            {chip}
+          </motion.button>
         ))}
       </motion.div>
     </motion.div>
