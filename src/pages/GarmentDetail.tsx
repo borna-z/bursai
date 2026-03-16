@@ -337,7 +337,7 @@ export default function GarmentDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            className="rounded-xl text-xs"
+              className="text-xs"
             onClick={async () => {
               try {
                 await assessCondition.mutateAsync(garment.id);
