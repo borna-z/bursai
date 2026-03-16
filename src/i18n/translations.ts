@@ -7987,6 +7987,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'chat.shopping_welcome': 'Ciao! Sono il tuo assistente shopping. Scatta una foto del capo che stai considerando e ti aiuterò a capire se si abbina al tuo guardaroba!',
     'chat.shopping_placeholder': 'Descrivi il capo che stai considerando...', 'chat.outfit_from_stylist': 'Creato dal suggerimento dello stilista',
     'chat.based_on': 'Basato su', 'chat.garments_label': 'capi', 'chat.garments_in_wardrobe': 'capi nel tuo guardaroba',
+    'chat.greeting_prefix': 'Ciao', 'chat.welcome_title': 'Il tuo stilista personale', 'chat.welcome_subtitle': 'Chiedimi del tuo guardaroba, outfit o stile',
     'chat.suggestion_1': 'Cosa mi metto oggi?', 'chat.suggestion_2': 'Analizza il mio stile', 'chat.suggestion_3': 'Aiutami a scegliere per il lavoro',
     'scan.auto': 'Auto', 'scan.scanned': 'scansionati', 'scan.done': 'Fatto', 'scan.hold_still': 'Tieni fermo il capo…',
     'scan.point_garment': 'Punta verso un capo', 'scan.analyzing': 'Analisi…', 'scan.added': 'Aggiunto!',
