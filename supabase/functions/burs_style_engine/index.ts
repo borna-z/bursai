@@ -1965,6 +1965,99 @@ function socialContextPenalty(
 }
 
 // ─────────────────────────────────────────────
+// PERSONAL UNIFORM DETECTION (IB-5c)
+// ─────────────────────────────────────────────
+// Detects if >60% of worn outfits follow the same silhouette formula
+// (e.g., "fitted top + straight bottom + sneakers") and boosts garments
+// that match the dominant formula.
+
+interface UniformFormula {
+  topSilhouette: string;
+  bottomSilhouette: string;
+  shoeCategory: string;
+}
+
+interface PersonalUniform {
+  formula: UniformFormula | null;
+  frequency: number; // 0-1
+  confidence: number; // 0-1 based on data volume
+}
+
+function buildPersonalUniform(wearLogs: WearLog[], garments: GarmentRow[]): PersonalUniform | null {
+  if (wearLogs.length < 15) return null; // Need enough data
+
+  const garmentMap = new Map(garments.map(g => [g.id, g]));
+
+  // Group wear logs by date to reconstruct "outfit-like" groupings
+  const dayGroups = new Map<string, string[]>();
+  for (const log of wearLogs) {
+    const date = log.worn_at.slice(0, 10);
+    if (!dayGroups.has(date)) dayGroups.set(date, []);
+    dayGroups.get(date)!.push(log.garment_id);
+  }
+
+  // Build silhouette formulas from daily groupings
+  const formulaCounts = new Map<string, number>();
+  let totalDays = 0;
+
+  for (const [, garmentIds] of dayGroups) {
+    const gs = garmentIds.map(id => garmentMap.get(id)).filter(Boolean) as GarmentRow[];
+    const top = gs.find(g => ['top', 'shirt', 'blouse', 'sweater', 't-shirt', 'hoodie', 'polo'].some(c => g.category.toLowerCase().includes(c)));
+    const bottom = gs.find(g => ['bottom', 'pants', 'jeans', 'trousers', 'shorts', 'skirt'].some(c => g.category.toLowerCase().includes(c)));
+    const shoes = gs.find(g => ['shoes', 'sneakers', 'boots', 'loafers', 'sandals'].some(c => g.category.toLowerCase().includes(c)));
+
+    if (top && bottom && shoes) {
+      const key = `${top.silhouette}|${bottom.silhouette}|${shoes.subcategory || shoes.category}`.toLowerCase();
+      formulaCounts.set(key, (formulaCounts.get(key) || 0) + 1);
+      totalDays++;
+    }
+  }
+
+  if (totalDays < 10) return null;
+
+  // Find dominant formula
+  let maxCount = 0;
+  let dominantKey = '';
+  for (const [key, count] of formulaCounts) {
+    if (count > maxCount) { maxCount = count; dominantKey = key; }
+  }
+
+  const frequency = maxCount / totalDays;
+  if (frequency < 0.3) return null; // Not enough consistency
+
+  const parts = dominantKey.split('|');
+  return {
+    formula: {
+      topSilhouette: parts[0] || 'straight',
+      bottomSilhouette: parts[1] || 'straight',
+      shoeCategory: parts[2] || 'shoes',
+    },
+    frequency,
+    confidence: Math.min(1, totalDays / 30),
+  };
+}
+
+function personalUniformScore(garment: GarmentRow, uniform: PersonalUniform | null): number {
+  if (!uniform || !uniform.formula || uniform.confidence < 0.3) return 7;
+
+  const slot = categorizeSlot(garment.category, garment.subcategory);
+  const boost = uniform.frequency >= 0.6 ? 1.5 : uniform.frequency >= 0.4 ? 1.0 : 0.5;
+
+  if (slot === 'top' && garment.silhouette === uniform.formula.topSilhouette) {
+    return 7 + boost * uniform.confidence;
+  }
+  if (slot === 'bottom' && garment.silhouette === uniform.formula.bottomSilhouette) {
+    return 7 + boost * uniform.confidence;
+  }
+  if (slot === 'shoes') {
+    const shoeMatch = (garment.subcategory || garment.category).toLowerCase().includes(uniform.formula.shoeCategory);
+    if (shoeMatch) return 7 + boost * 0.7 * uniform.confidence;
+  }
+
+  return 7;
+}
+
+// ─────────────────────────────────────────────
 // COMPOSITE SCORING
 // ─────────────────────────────────────────────
 
