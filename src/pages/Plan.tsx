@@ -40,6 +40,7 @@ import {
   type PlannedOutfit 
 } from '@/hooks/usePlannedOutfits';
 import { useOutfitGenerator } from '@/hooks/useOutfitGenerator';
+import { useSubscription } from '@/hooks/useSubscription';
 import { useMarkOutfitWorn, useUndoMarkWorn } from '@/hooks/useOutfits';
 import { useFlatGarments } from '@/hooks/useGarments';
 import { useForecast } from '@/hooks/useForecast';
