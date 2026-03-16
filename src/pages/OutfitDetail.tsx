@@ -330,6 +330,13 @@ export default function OutfitDetailPage() {
   const handleSwap = async (newGarmentId: string) => {
     try {
       await swapGarment({ outfitItemId: swapSheet.outfitItemId, newGarmentId });
+      recordSignal({
+        signal_type: 'swap_choice',
+        outfit_id: outfit?.id,
+        garment_id: newGarmentId,
+        value: swapSheet.slot,
+        metadata: { replaced: swapSheet.currentGarmentId, mode: swapMode },
+      });
       toast.success(t('outfit.swapped'));
       setSwapSheet({ isOpen: false, slot: '', outfitItemId: '', currentGarmentId: '' });
       refetch();
