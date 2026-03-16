@@ -3319,7 +3319,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const [garmentsRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes, laundryCountRes, pairMemoryRes] = await Promise.all([
+    const [garmentsRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes, laundryCountRes, pairMemoryRes, feedbackSignalsRes] = await Promise.all([
       supabase
         .from("garments")
         .select("id, title, category, subcategory, color_primary, color_secondary, pattern, material, fit, formality, season_tags, wear_count, last_worn_at, image_path")
@@ -3360,6 +3360,13 @@ serve(async (req) => {
         .select("garment_a_id, garment_b_id, positive_count, negative_count, last_positive_at, last_negative_at")
         .eq("user_id", userId)
         .limit(500),
+      // Fetch implicit feedback signals (Task 15)
+      supabase
+        .from("feedback_signals")
+        .select("signal_type, outfit_id, garment_id, value, metadata, created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(200),
     ]);
 
     if (garmentsRes.error) throw garmentsRes.error;
