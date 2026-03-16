@@ -251,6 +251,68 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback_signals: {
+        Row: {
+          created_at: string
+          garment_id: string | null
+          id: string
+          metadata: Json | null
+          outfit_id: string | null
+          signal_type: string
+          user_id: string
+          value: string | null
+        }
+        Insert: {
+          created_at?: string
+          garment_id?: string | null
+          id?: string
+          metadata?: Json | null
+          outfit_id?: string | null
+          signal_type: string
+          user_id: string
+          value?: string | null
+        }
+        Update: {
+          created_at?: string
+          garment_id?: string | null
+          id?: string
+          metadata?: Json | null
+          outfit_id?: string | null
+          signal_type?: string
+          user_id?: string
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_signals_garment_id_fkey"
+            columns: ["garment_id"]
+            isOneToOne: false
+            referencedRelation: "garments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_signals_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "outfits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_signals_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_signals_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       friendships: {
         Row: {
           addressee_id: string
