@@ -233,6 +233,22 @@ export default function GarmentDetailPage() {
           </p>
         )}
 
+        {/* Enrichment: Style tags */}
+        {enrichment?.style_tags && enrichment.style_tags.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50">{t('garment.style') || 'Style'}</p>
+            <DetailChips items={enrichment.style_tags} />
+          </div>
+        )}
+
+        {/* Enrichment: Occasion tags */}
+        {enrichment?.occasion_tags && enrichment.occasion_tags.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50">{t('garment.occasions') || 'Occasions'}</p>
+            <DetailChips items={enrichment.occasion_tags} variant="outline" />
+          </div>
+        )}
+
         {/* Stats */}
         <div className="flex">
           <div className="flex-1 text-center">
