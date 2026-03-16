@@ -4179,8 +4179,16 @@ serve(async (req) => {
     // Confidence scoring + wardrobe gap detection
     const bestCombo = combos[0];
     const candidateCount = combos.length;
-    const confidence = computeConfidence(bestCombo, candidateCount, slotCandidates, weather, occasion);
     const gaps = detectWardrobeGapForRequest(slotCandidates, weather, occasion);
+
+    // Layering validation on best combo
+    const bestLayering = validateLayeringCompleteness(bestCombo.items);
+
+    // Occasion sub-mode resolution
+    const occasionSubmode = resolveOccasionSubmode(occasion, preferences, styleVector);
+
+    // Gap-aware confidence
+    const confidence = computeConfidence(bestCombo, candidateCount, slotCandidates, weather, occasion, gaps, bestLayering.needs_base_layer);
     const limitationNote = generateLimitationNote(gaps, confidence);
 
     // Build generation failure signal for insight derivation
@@ -4192,7 +4200,10 @@ serve(async (req) => {
     // AI refinement — stylist mode gets richer prompting
     const isStylistMode = mode === "stylist";
     const aiMode = mode === "suggest" ? "suggest" : "generate";
-    const aiResult = await aiRefine(combos, aiMode, occasion, style, weather, styleContext, locale, isStylistMode);
+    const aiResult = await aiRefine(
+      combos, aiMode, occasion, style, weather, styleContext, locale, isStylistMode,
+      occasionSubmode, { needs_base_layer: bestLayering.needs_base_layer }
+    );
 
     if (aiResult.error) {
       if (aiResult.status === 429) {
@@ -4225,10 +4236,14 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      const fallbackLayering = validateLayeringCompleteness(best.items);
       return new Response(JSON.stringify({
         items: best.items.map(i => ({ slot: i.slot, garment_id: i.garment.id })),
         explanation: "",
         style_score: best.breakdown,
+        layer_order: fallbackLayering.layer_order,
+        needs_base_layer: fallbackLayering.needs_base_layer,
+        occasion_submode: occasionSubmode,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -4249,7 +4264,8 @@ serve(async (req) => {
         }
       }
       const dc = chosen as DeduplicatedCombo;
-      const chosenConf = computeConfidence(chosen, candidateCount, slotCandidates, weather, occasion);
+      const chosenLayering = validateLayeringCompleteness(chosen.items);
+      const chosenConf = computeConfidence(chosen, candidateCount, slotCandidates, weather, occasion, gaps, chosenLayering.needs_base_layer);
       const chosenNote = generateLimitationNote(gaps, chosenConf);
       return new Response(JSON.stringify({
         items: chosen.items.map(i => ({ slot: i.slot, garment_id: i.garment.id })),
@@ -4259,6 +4275,9 @@ serve(async (req) => {
         confidence_score: chosenConf.confidence_score,
         confidence_level: chosenConf.confidence_level,
         limitation_note: chosenNote,
+        layer_order: chosenLayering.layer_order,
+        needs_base_layer: chosenLayering.needs_base_layer,
+        occasion_submode: occasionSubmode,
         laundry: laundryCount > 0 ? { count: laundryCount, items: laundryItems.slice(0, 5).map(i => ({ id: i.id, title: i.title, category: i.category })) } : undefined,
         wardrobe_insights: wardrobeInsights.length > 0 ? wardrobeInsights : undefined,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
