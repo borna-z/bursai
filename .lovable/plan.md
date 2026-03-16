@@ -59,9 +59,9 @@
 
 | Task | Title | Status |
 |------|-------|--------|
-| 27 | Premium empty states | 🔲 |
-| 28 | Premium loading states | 🔲 |
-| 29 | Make the app feel more native | 🔲 |
+| 27 | Premium empty states | ✅ Done |
+| 28 | Premium loading states | ✅ Done |
+| 29 | Make the app feel more native | ✅ Done |
 | 30 | World-class garment detail screen | 🔲 |
 | 31 | Lookbook-level visual polish | 🔲 |
 | 32 | Full polish pass | 🔲 |

@@ -157,9 +157,10 @@ export function WardrobeOutfitsTab() {
     return (
       <EmptyState
         icon={Sparkles}
-        title={t('wardrobe.no_outfits')}
-        description={t('wardrobe.no_outfits_desc')}
+        title="No outfits yet"
+        description="Generate your first outfit and it will appear here. Every look is saved for easy access."
         action={{ label: t('outfits.create'), onClick: () => navigate('/'), icon: Sparkles }}
+        variant="editorial"
       />
     );
   }
@@ -211,8 +212,10 @@ export function WardrobeOutfitsTab() {
       ) : (
         <EmptyState
           icon={filter === 'saved' ? Star : Calendar}
-          title={filter === 'saved' ? t('outfits.no_saved') : t('outfits.no_planned')}
-          description={filter === 'saved' ? t('outfits.save_hint') : t('outfits.plan_hint')}
+          title={filter === 'saved' ? 'No saved outfits' : 'No upcoming planned outfits'}
+          description={filter === 'saved' ? 'Tap the bookmark on any outfit to save it here for easy access.' : 'Plan outfits from the weekly planner to see them here.'}
+          compact
+          variant="editorial"
         />
       )}
 

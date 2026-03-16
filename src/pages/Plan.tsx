@@ -357,9 +357,11 @@ export default function PlanPage() {
           ) : !hasGarments ? (
             <EmptyState
               icon={Shirt}
-              title={t('plan.add_garments_first')}
-              description={t('plan.need_garments')}
+              title="Add a few pieces first"
+              description="I need at least a few garments in your wardrobe before I can start planning outfits for you."
               action={{ label: t('wardrobe.add'), onClick: () => navigate('/wardrobe/add'), icon: Shirt }}
+              variant="editorial"
+              compact
             />
           ) : hasOutfits ? (
             <div className="space-y-4">
@@ -485,6 +487,7 @@ export default function PlanPage() {
                 icon: Sparkles,
               }}
               compact
+              variant="editorial"
             />
           )}
         </motion.div>

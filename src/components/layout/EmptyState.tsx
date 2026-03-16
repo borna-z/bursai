@@ -3,6 +3,7 @@ import { LucideIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { EASE_CURVE } from '@/lib/motion';
 
 interface EmptyStateProps {
   icon: LucideIcon;
@@ -19,6 +20,8 @@ interface EmptyStateProps {
   };
   /** Use compact for inline contexts (less vertical padding) */
   compact?: boolean;
+  /** Premium editorial variant with softer background and glow */
+  variant?: 'default' | 'editorial';
   className?: string;
 }
 
@@ -29,29 +32,43 @@ export function EmptyState({
   action,
   secondaryAction,
   compact = false,
+  variant = 'default',
   className 
 }: EmptyStateProps) {
+  const isEditorial = variant === 'editorial';
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
+      transition={{ duration: 0.5, ease: EASE_CURVE }}
       className={cn(
         'flex flex-col items-center justify-center px-6 text-center',
         compact ? 'py-14' : 'py-28',
+        isEditorial && 'rounded-2xl bg-gradient-to-b from-primary/[0.04] to-transparent border border-border/10',
+        isEditorial && (compact ? 'py-10' : 'py-20'),
         className,
       )}
     >
       <motion.div
-        initial={{ scale: 0.8 }}
-        animate={{ scale: 1 }}
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.5, delay: 0.1, type: 'spring', stiffness: 200 }}
         className={cn(
-          'rounded-[var(--radius,1.5rem)] bg-muted/30 flex items-center justify-center',
+          'flex items-center justify-center relative',
           compact ? 'w-14 h-14 mb-6' : 'w-20 h-20 mb-10',
+          isEditorial
+            ? 'rounded-2xl bg-primary/[0.08]'
+            : 'rounded-[var(--radius,1.5rem)] bg-muted/30',
         )}
       >
-        <Icon className={cn('text-muted-foreground', compact ? 'w-6 h-6' : 'w-8 h-8')} />
+        <Icon className={cn(
+          compact ? 'w-6 h-6' : 'w-8 h-8',
+          isEditorial ? 'text-primary/60' : 'text-muted-foreground',
+        )} />
+        {isEditorial && !compact && (
+          <div className="absolute -inset-3 rounded-3xl bg-primary/5 blur-xl pointer-events-none" />
+        )}
       </motion.div>
       <motion.h3
         initial={{ opacity: 0 }}

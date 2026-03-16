@@ -657,8 +657,9 @@ export default function WardrobePage() {
                   <EmptyState
                     icon={Shirt}
                     title={hasActiveFilters || search ? t('wardrobe.no_results') : t('wardrobe.no_garments')}
-                    description={hasActiveFilters || search ? t('wardrobe.try_other') : t('wardrobe.add_first')}
-                    action={!hasActiveFilters && !search ? { label: t('wardrobe.add'), onClick: handleAddGarment, icon: Plus } : undefined}
+                    description={hasActiveFilters || search ? t('wardrobe.try_other') : 'Scan or photograph your clothes to start building your digital wardrobe.'}
+                    action={!hasActiveFilters && !search ? { label: t('wardrobe.add'), onClick: handleAddGarment, icon: Plus } : hasActiveFilters ? { label: 'Clear filters', onClick: clearFilters } : undefined}
+                    variant={!hasActiveFilters && !search ? 'editorial' : 'default'}
                   />
                 )}
               </div>
