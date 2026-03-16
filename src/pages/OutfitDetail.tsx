@@ -656,9 +656,11 @@ export default function OutfitDetailPage() {
               </span>
             )}
           </div>
-          <h1 className="text-[26px] font-bold tracking-tight capitalize leading-tight">{displayOccasion}</h1>
+          <h1 className="text-[26px] font-bold tracking-tight capitalize leading-tight">
+            {genOccasionSubmode || displayOccasion}
+          </h1>
           <p className="text-[12px] text-muted-foreground/40 mt-1 tracking-wide">
-            {metaParts.filter(p => p !== displayOccasion && p !== outfit.style_vibe).join(' · ')}
+            {[genOccasionSubmode ? displayOccasion : null, ...metaParts.filter(p => p !== displayOccasion && p !== outfit.style_vibe)].filter(Boolean).join(' · ')}
           </p>
         </div>
 
