@@ -3730,6 +3730,146 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // ── PLAN_WEEK MODE ──
+    if (mode === "plan_week") {
+      const days: { occasion: string; weather: WeatherInput; date: string; event_title?: string }[] = body.days || [];
+      if (days.length === 0) {
+        return new Response(JSON.stringify({ error: "No days provided" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Hero slots: repetition penalty is heavy for tops, dresses, outerwear. Light for shoes, accessories.
+      const HERO_SLOTS = new Set(["top", "bottom", "dress", "outerwear"]);
+      const usedHeroGarments = new Map<string, number>(); // garment_id → last used day index
+      const usedGarmentSets: Set<string>[] = []; // for anti-repetition across days
+      const results: any[] = [];
+
+      // Track formality targets per day to ensure variation
+      const formalityTargets: number[] = [];
+
+      for (let dayIdx = 0; dayIdx < days.length; dayIdx++) {
+        const day = days[dayIdx];
+        const dayWeather: WeatherInput = {
+          temperature: typeof day.weather?.temperature === 'number' ? day.weather.temperature : weather.temperature,
+          precipitation: day.weather?.precipitation || 'none',
+          wind: day.weather?.wind || 'low',
+        };
+        const dayOccasion = day.occasion || "vardag";
+        const dayEventTitle = day.event_title || eventTitle;
+
+        // Score all garments for this day
+        const daySlotCandidates: Record<string, ScoredGarment[]> = {};
+        for (const garment of garments) {
+          const slot = categorizeSlot(garment.category, garment.subcategory);
+          if (!slot) continue;
+          if (!daySlotCandidates[slot]) daySlotCandidates[slot] = [];
+
+          const scored = scoreGarment(garment, dayOccasion, dayWeather, penalties, preferences, wearPatterns, styleVector, comfortProfile, socialMap, dayEventTitle, transInfo);
+
+          // Inter-day repetition penalty for hero garments
+          if (HERO_SLOTS.has(slot) && usedHeroGarments.has(garment.id)) {
+            const lastUsedDay = usedHeroGarments.get(garment.id)!;
+            const dayGap = dayIdx - lastUsedDay;
+            if (dayGap <= 1) scored.score -= 4;       // consecutive day: heavy penalty
+            else if (dayGap <= 2) scored.score -= 2;   // 2 days apart: moderate
+            else if (dayGap <= 3) scored.score -= 0.5; // 3 days: light
+          }
+
+          // Formality variation: if previous days cluster around similar formality, push away
+          if (formalityTargets.length >= 2) {
+            const recentFormalities = formalityTargets.slice(-2);
+            const avgRecent = recentFormalities.reduce((a, b) => a + b, 0) / recentFormalities.length;
+            const gFormality = garment.formality ?? 3;
+            const [fMin, fMax] = getFormalityRange(dayOccasion);
+            // If garment diverges from recent average while staying in range → boost
+            if (Math.abs(gFormality - avgRecent) >= 1.5 && gFormality >= fMin && gFormality <= fMax) {
+              scored.score += 0.8;
+            }
+          }
+
+          daySlotCandidates[slot].push(scored);
+        }
+
+        // Sort each slot by score
+        for (const slot of Object.keys(daySlotCandidates)) {
+          daySlotCandidates[slot].sort((a, b) => b.score - a.score);
+        }
+
+        // Include previous days' outfits in anti-repetition sets
+        const allRecentSets = [...recentOutfitSets, ...usedGarmentSets];
+
+        // Build combos for this day
+        const dayCombos = buildCombos(daySlotCandidates, allRecentSets, dayOccasion, style, dayWeather, preferences, 5, bodyProfile, pairMemory);
+
+        if (dayCombos.length === 0) {
+          // No valid combos for this day
+          results.push({
+            date: day.date,
+            occasion: dayOccasion,
+            error: "Could not generate an outfit for this day",
+            items: null,
+            backup: null,
+          });
+          continue;
+        }
+
+        // Best combo = primary, second = backup
+        const bestCombo = dayCombos[0];
+        const backupCombo = dayCombos.length > 1 ? dayCombos[1] : null;
+
+        // Track used hero garments
+        const usedThisDay = new Set<string>();
+        for (const item of bestCombo.items) {
+          usedThisDay.add(item.garment.id);
+          if (HERO_SLOTS.has(item.slot)) {
+            usedHeroGarments.set(item.garment.id, dayIdx);
+          }
+        }
+        usedGarmentSets.push(usedThisDay);
+
+        // Track formality for variation
+        const dayFormalities = bestCombo.items
+          .map(i => i.garment.formality)
+          .filter((v): v is number => typeof v === 'number');
+        if (dayFormalities.length > 0) {
+          formalityTargets.push(dayFormalities.reduce((a, b) => a + b, 0) / dayFormalities.length);
+        }
+
+        const confidence = computeConfidence(bestCombo, dayCombos.length, daySlotCandidates, dayWeather, dayOccasion);
+        const dc = bestCombo as DeduplicatedCombo;
+
+        results.push({
+          date: day.date,
+          occasion: dayOccasion,
+          items: bestCombo.items.map(i => ({ slot: i.slot, garment_id: i.garment.id })),
+          explanation: "",
+          style_score: bestCombo.breakdown,
+          confidence_score: confidence.confidence_score,
+          confidence_level: confidence.confidence_level,
+          family_label: dc.family_label || 'classic',
+          backup: backupCombo ? {
+            items: backupCombo.items.map(i => ({ slot: i.slot, garment_id: i.garment.id })),
+            style_score: backupCombo.breakdown,
+            family_label: (backupCombo as DeduplicatedCombo).family_label || 'classic',
+          } : null,
+        });
+      }
+
+      // Laundry info
+      const laundryItems = (laundryCountRes.data || []) as { id: string; title: string; category: string }[];
+      const laundryCount = laundryItems.length;
+
+      return new Response(JSON.stringify({
+        days: results,
+        laundry: laundryCount > 0 ? {
+          count: laundryCount,
+          items: laundryItems.slice(0, 5).map(i => ({ id: i.id, title: i.title, category: i.category })),
+          warning: laundryCount >= 5 ? "Several items are in the laundry — this may limit variety across the week." : null,
+        } : undefined,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // ── GENERATE / SUGGEST MODE ──
 
     // Score all garments per slot
