@@ -170,7 +170,7 @@ export default function AddGarmentPage() {
   const { data: garmentCount } = useGarmentCount();
   const { analyzeGarment, isAnalyzing, analysisProgress } = useAnalyzeGarment();
   const { user } = useAuth();
-  const { canAddGarment, remainingGarments, refresh: refreshSubscription } = useSubscription();
+  const { canAddGarment, remainingGarments, isPremium, refresh: refreshSubscription } = useSubscription();
   const { checkDuplicates, duplicates, clearDuplicates } = useDuplicateDetection();
 
   // Process a captured file from the Median camera bridge
@@ -477,33 +477,44 @@ export default function AddGarmentPage() {
   if (step === 'upload') {
     return (
       <div className="min-h-screen bg-background">
-        <div className="p-4">
+        {/* Minimal top bar */}
+        <div className="p-4 flex items-center justify-between">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
+          {!isPremium && (
+            <span className="text-xs text-muted-foreground">
+              {remainingGarments()} {t('scan.slots_left') || 'left'}
+            </span>
+          )}
         </div>
 
-        <div className="flex flex-col items-center p-4 space-y-6">
-          <h1 className="text-2xl font-bold">{t('addgarment.title')}</h1>
+        <div className="flex flex-col items-center px-6 pt-8 pb-12 space-y-8 max-w-md mx-auto">
+          {/* Hero icon */}
+          <div className="space-y-3 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto">
+              <Upload className="w-7 h-7 text-accent" />
+            </div>
+            <h1 className="text-xl font-semibold text-foreground">{t('addgarment.title')}</h1>
+            <p className="text-sm text-muted-foreground max-w-[260px] mx-auto leading-relaxed">
+              {t('addgarment.photo_prompt')}
+            </p>
+          </div>
 
-          <Tabs defaultValue="photo" className="w-full max-w-md">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="photo" className="flex items-center gap-2">
+          <Tabs defaultValue="photo" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 h-11">
+              <TabsTrigger value="photo" className="flex items-center gap-2 text-sm">
                 <Camera className="w-4 h-4" />
                 {t('addgarment.photo')}
               </TabsTrigger>
-              <TabsTrigger value="link" className="flex items-center gap-2">
+              <TabsTrigger value="link" className="flex items-center gap-2 text-sm">
                 <Link2 className="w-4 h-4" />
                 {t('addgarment.link')}
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="photo" className="mt-6">
-              <div className="flex flex-col items-center space-y-6">
-                <p className="text-muted-foreground text-center">
-                  {t('addgarment.photo_prompt')}
-                </p>
-
+              <div className="flex flex-col items-center space-y-5">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -521,35 +532,36 @@ export default function AddGarmentPage() {
                   className="hidden"
                 />
 
-                <div className="flex gap-4">
-                  <Button
-                    size="lg"
-                    className="h-24 w-32 flex-col gap-2"
+                {/* Primary capture cards */}
+                <div className="grid grid-cols-2 gap-3 w-full">
+                  <button
                     onClick={() => takePhoto()}
+                    className="group flex flex-col items-center gap-3 p-6 rounded-2xl border border-border/50 bg-card hover:border-accent/40 hover:bg-accent/5 transition-all"
                   >
-                    <Camera className="w-8 h-8" />
-                    {t('addgarment.camera')}
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="h-24 w-32 flex-col gap-2"
+                    <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
+                      <Camera className="w-6 h-6 text-accent" />
+                    </div>
+                    <span className="text-sm font-medium text-foreground">{t('addgarment.camera')}</span>
+                  </button>
+                  <button
                     onClick={() => pickFromGallery()}
+                    className="group flex flex-col items-center gap-3 p-6 rounded-2xl border border-border/50 bg-card hover:border-accent/40 hover:bg-accent/5 transition-all"
                   >
-                    <ImageIcon className="w-8 h-8" />
-                    {t('addgarment.gallery')}
-                  </Button>
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                      <ImageIcon className="w-6 h-6 text-primary" />
+                    </div>
+                    <span className="text-sm font-medium text-foreground">{t('addgarment.gallery')}</span>
+                  </button>
                 </div>
 
-                {/* Batch upload button */}
-                <Button
-                  variant="ghost"
-                  className="gap-2 text-muted-foreground"
+                {/* Batch upload — tertiary action */}
+                <button
                   onClick={() => batchInputRef.current?.click()}
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
                 >
                   <Images className="w-4 h-4" />
                   {t('batch.upload_multiple')}
-                </Button>
+                </button>
               </div>
             </TabsContent>
 
