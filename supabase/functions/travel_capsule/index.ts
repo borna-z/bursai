@@ -25,6 +25,111 @@ interface GarmentRow {
   season_tags: string[] | null;
   in_laundry: boolean | null;
   image_path: string;
+  // Enrichment (hydrated from ai_raw)
+  versatility_score: number;
+  layering_role: string;
+  occasion_tags: string[];
+  texture_intensity: number;
+}
+
+/** Extract enrichment fields from ai_raw with safe defaults. */
+function hydrateGarment(raw: any): GarmentRow {
+  const aiRaw = (raw.ai_raw && typeof raw.ai_raw === 'object') ? raw.ai_raw : {};
+  const e = aiRaw.enrichment || aiRaw;
+  return {
+    ...raw,
+    versatility_score: typeof e.versatility_score === 'number' ? Math.max(1, Math.min(10, e.versatility_score)) : 5,
+    layering_role: String(e.layering_role || inferLayeringRole(raw.category, raw.subcategory)).toLowerCase(),
+    occasion_tags: Array.isArray(e.occasion_tags) ? e.occasion_tags.map((t: any) => String(t).toLowerCase()) : [],
+    texture_intensity: typeof e.texture_intensity === 'number' ? Math.max(1, Math.min(10, e.texture_intensity)) : 3,
+  };
+}
+
+function inferLayeringRole(category: string, subcategory: string | null): string {
+  const both = `${category} ${subcategory || ''}`.toLowerCase();
+  if (['outerwear', 'jacket', 'coat', 'blazer', 'parka'].some(c => both.includes(c))) return 'outer';
+  if (['t-shirt', 'tank', 'camisole'].some(c => both.includes(c))) return 'base';
+  if (['cardigan', 'sweater', 'hoodie', 'vest'].some(c => both.includes(c))) return 'mid';
+  return 'standalone';
+}
+
+// ─────────────────────────────────────────────
+// PACK-WORTHINESS SCORING (Phase 2)
+// ─────────────────────────────────────────────
+
+const TRAVEL_FRIENDLY_MATERIALS: Record<string, number> = {
+  denim: 8, jersey: 9, knit: 7, cotton: 7, polyester: 8, nylon: 9,
+  merino: 9, wool: 5, cashmere: 4, linen: 3, silk: 3, leather: 4,
+  'gore-tex': 9, softshell: 8, fleece: 7, chiffon: 2, satin: 2,
+};
+
+function getMaterialTravelScore(material: string | null): number {
+  if (!material) return 5;
+  const m = material.toLowerCase();
+  for (const [key, score] of Object.entries(TRAVEL_FRIENDLY_MATERIALS)) {
+    if (m.includes(key)) return score;
+  }
+  return 5;
+}
+
+function scorePackWorthiness(
+  garment: GarmentRow,
+  weatherMin: number,
+  weatherMax: number,
+  occasions: string[],
+  allGarments: GarmentRow[]
+): number {
+  let score = 0;
+
+  // 1. Versatility (30%) — from enrichment
+  score += garment.versatility_score * 0.30;
+
+  // 2. Material travel-friendliness (20%) — wrinkle/pack tolerance
+  score += getMaterialTravelScore(garment.material) * 0.20;
+
+  // 3. Weather coverage (20%) — does it work for trip temperature range?
+  const tags = garment.season_tags || [];
+  let weatherFit = 5;
+  if (weatherMax < 10) {
+    // Cold trip
+    if (tags.includes('winter') || tags.includes('autumn')) weatherFit += 3;
+    if (garment.layering_role === 'outer' || garment.layering_role === 'mid') weatherFit += 2;
+    if (tags.includes('summer')) weatherFit -= 3;
+  } else if (weatherMin > 22) {
+    // Hot trip
+    if (tags.includes('summer') || tags.includes('spring')) weatherFit += 3;
+    if (garment.layering_role === 'outer') weatherFit -= 3;
+    if (tags.includes('winter')) weatherFit -= 4;
+  } else {
+    // Mixed: reward multi-season garments
+    if (tags.length >= 2) weatherFit += 2;
+    if (garment.layering_role === 'mid') weatherFit += 1;
+  }
+  score += Math.max(0, Math.min(10, weatherFit)) * 0.20;
+
+  // 4. Occasion match (15%) — how many trip occasions does it cover?
+  if (occasions.length > 0 && garment.occasion_tags.length > 0) {
+    const matchCount = occasions.filter(occ =>
+      garment.occasion_tags.includes(occ.toLowerCase())
+    ).length;
+    score += Math.min(10, (matchCount / Math.max(1, occasions.length)) * 10) * 0.15;
+  } else {
+    score += 5 * 0.15; // neutral
+  }
+
+  // 5. Category pairing potential (15%) — how many compatible items exist?
+  const cat = garment.category.toLowerCase();
+  let pairingCount = 0;
+  if (['top', 'shirt', 'blouse', 'sweater', 't-shirt'].some(c => cat.includes(c))) {
+    pairingCount = allGarments.filter(g => g.category.toLowerCase().includes('bottom') || g.category.toLowerCase().includes('jean')).length;
+  } else if (['bottom', 'pants', 'jeans', 'skirt'].some(c => cat.includes(c))) {
+    pairingCount = allGarments.filter(g => ['top', 'shirt', 'blouse', 'sweater', 't-shirt'].some(c2 => g.category.toLowerCase().includes(c2))).length;
+  } else {
+    pairingCount = 3; // neutral for shoes, outerwear, etc.
+  }
+  score += Math.min(10, pairingCount * 1.5) * 0.15;
+
+  return Math.max(0, Math.min(10, score));
 }
 
 serve(async (req) => {
