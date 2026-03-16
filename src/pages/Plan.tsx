@@ -41,6 +41,7 @@ import {
   type PlannedOutfit 
 } from '@/hooks/usePlannedOutfits';
 import { useOutfitGenerator } from '@/hooks/useOutfitGenerator';
+import { useWeekGenerator } from '@/hooks/useWeekGenerator';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useMarkOutfitWorn, useUndoMarkWorn } from '@/hooks/useOutfits';
 import { useFlatGarments } from '@/hooks/useGarments';
@@ -110,6 +111,7 @@ export default function PlanPage() {
   const deletePlanned = useDeletePlannedOutfit();
   const updateStatus = useUpdatePlannedOutfitStatus();
   const { generateOutfit, isGenerating } = useOutfitGenerator();
+  const { generateWeek, isGenerating: isWeekGenerating, progress: weekProgress } = useWeekGenerator();
   const markWorn = useMarkOutfitWorn();
   const undoMarkWorn = useUndoMarkWorn();
 
@@ -212,34 +214,59 @@ export default function PlanPage() {
 
   const handleAutoGenerateWeek = async (days: number) => {
     setIsAutoGenerating(true);
-    const occasions = ['vardag', 'jobb', 'vardag', 'jobb', 'vardag', 'fest', 'vardag'];
+    setGeneratingDayIndex(1);
+    
+    const occasions = ['casual', 'work', 'casual', 'work', 'casual', 'party', 'casual'];
+    const weekDays: { date: string; occasion: string; weather: { temperature?: number; precipitation?: string; wind?: string }; event_title?: string }[] = [];
+    
     for (let i = 0; i < days; i++) {
-      setGeneratingDayIndex(i + 1);
       const date = addDays(new Date(), i);
       const dateStr = format(date, 'yyyy-MM-dd');
       const existing = getPlannedForDate(date);
-      if (existing?.outfit_id) continue;
+      if (existing?.outfit_id) continue; // Skip days that already have outfits
       if (!canCreateOutfit()) {
         toast.error(t('paywall.outfit_limit') || 'Outfit limit reached');
         break;
       }
       const forecast = getForecastForDate(dateStr);
       const temp = forecast ? Math.round((forecast.temperature_max + forecast.temperature_min) / 2) : 15;
-      try {
-        const o = await generateOutfit({
-          occasion: occasions[i % occasions.length],
-          style: null,
-          locale,
-          weather: { temperature: temp, precipitation: forecast?.precipitation_probability && forecast.precipitation_probability > 50 ? 'rain' : 'none', wind: 'low' },
-        });
-        await upsertPlanned.mutateAsync({ date: dateStr, outfitId: o.id });
-      } catch (error) {
-        console.error(`Failed to generate outfit for day ${i + 1}:`, error);
-      }
-      await new Promise(resolve => setTimeout(resolve, 500));
+      weekDays.push({
+        date: dateStr,
+        occasion: occasions[i % occasions.length],
+        weather: {
+          temperature: temp,
+          precipitation: forecast?.precipitation_probability && forecast.precipitation_probability > 50 ? 'rain' : 'none',
+          wind: 'low',
+        },
+      });
     }
-    setIsAutoGenerating(false);
-    setGeneratingDayIndex(0);
+    
+    if (weekDays.length === 0) {
+      setIsAutoGenerating(false);
+      setGeneratingDayIndex(0);
+      return;
+    }
+
+    try {
+      const result = await generateWeek(weekDays, { locale });
+      if (result) {
+        const successCount = result.days.filter(d => d.items && !d.error).length;
+        const laundryWarning = result.laundry?.warning;
+        
+        if (successCount > 0) {
+          toast.success(`${successCount} outfit${successCount > 1 ? 's' : ''} planned for the week`);
+        }
+        if (laundryWarning) {
+          toast(laundryWarning, { icon: '🧺' });
+        }
+      }
+    } catch (error) {
+      console.error('Week generation failed:', error);
+      toast.error(t('plan.create_error'));
+    } finally {
+      setIsAutoGenerating(false);
+      setGeneratingDayIndex(0);
+    }
   };
 
   const hasGarments = garments.length > 0;
