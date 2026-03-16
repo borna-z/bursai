@@ -29,6 +29,14 @@ vi.mock('@/lib/imageCompression', () => ({
   compressImage: vi.fn(),
 }));
 
+vi.mock('@/lib/removeBackground', () => ({
+  removeBackground: vi.fn((blob: Blob) => Promise.resolve(blob)),
+  removeBackgroundFromDataUrl: vi.fn((base64: string) => {
+    const blob = new Blob(['mock-bg-removed'], { type: 'image/png' });
+    return Promise.resolve({ blob, base64 });
+  }),
+}));
+
 import { useLiveScan } from '@/hooks/useLiveScan';
 import { useAuth } from '@/contexts/AuthContext';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
@@ -324,7 +332,7 @@ describe('useLiveScan', () => {
     expect(compressImage).toHaveBeenCalledWith(fakeFile, { maxDimension: 480, quality: 0.5 });
     expect(result.current.lastResult?.analysis.title).toBe('Navy Wool Blazer');
     expect(result.current.lastResult?.confidence).toBe(0.92);
-    expect(result.current.lastResult?.thumbnailUrl).toBe('blob:mock-preview-url');
+    expect(result.current.lastResult?.thumbnailUrl).toBe('blob:mock-thumbnail-url');
     expect(result.current.isProcessing).toBe(false);
     expect(invokeEdgeFunction).toHaveBeenCalledWith('analyze_garment', {
       body: { base64Image: expect.stringContaining('data:image/jpeg'), mode: 'fast' },

@@ -268,7 +268,7 @@ export default function LiveScan() {
   const isMedian = isMedianApp();
   const useFileInputMode = isMedian || !navigator.mediaDevices?.getUserMedia;
 
-  const { scanCount, isProcessing, lastResult, error, capture, captureFromFile, accept, retake, finish } = useLiveScan();
+  const { scanCount, isProcessing, isRemovingBackground, lastResult, error, capture, captureFromFile, accept, retake, finish } = useLiveScan();
   const { subscription, isPremium, isLoading: isSubLoading } = useSubscription();
 
   // Guard: don't allow scanning until subscription data is loaded (prevents race condition)
@@ -476,6 +476,13 @@ export default function LiveScan() {
         )}
 
         {isProcessing && <ScanOverlay />}
+        {!isProcessing && isRemovingBackground && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center">
+            <span className="text-foreground text-sm font-medium bg-background/60 px-4 py-2 backdrop-blur-sm">
+              Isolating garment…
+            </span>
+          </div>
+        )}
         
         <AnimatePresence>
           {showAccepted && <AcceptedOverlay onDone={handleAcceptedDone} label={t('scan.added')} />}
@@ -505,11 +512,11 @@ export default function LiveScan() {
                 className="w-full max-w-sm space-y-5"
               >
                 {/* Image with editorial overlay */}
-                <div className="relative">
+                <div className="relative bg-[hsl(36_33%_93%)]">
                   <img
                     src={lastResult.thumbnailUrl}
                     alt="Scanned garment"
-                    className="w-full aspect-[3/4] object-cover border border-border/20"
+                    className="w-full aspect-[3/4] object-contain"
                   />
                   {/* Gradient overlay at bottom for text */}
                   <div className="absolute bottom-0 inset-x-0 h-1/3 bg-gradient-to-t from-background/80 to-transparent" />

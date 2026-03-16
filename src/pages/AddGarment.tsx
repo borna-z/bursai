@@ -30,6 +30,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useMedianCamera } from '@/hooks/useMedianCamera';
 import { compressImage } from '@/lib/imageCompression';
 import { GarmentAnalysisState } from '@/components/ui/GarmentAnalysisState';
+import { removeBackground } from '@/lib/removeBackground';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
 const PATTERN_IDS = ['solid', 'striped', 'checked', 'dotted', 'floral', 'patterned', 'camo'] as const;
@@ -209,16 +210,25 @@ export default function AddGarmentPage() {
   // Process a captured file from the Median camera bridge
   const processNativeCapture = async (result: { file: File; previewUrl: string }) => {
     if (!user || !canAddGarment()) { setShowPaywall(true); return; }
-    const file = result.file;
-    setImageFile(file);
+    let file: File | Blob = result.file;
+    setImageFile(result.file);
     setImagePreview(result.previewUrl);
     const newGarmentId = crypto.randomUUID();
     setGarmentId(newGarmentId);
     setStep('analyzing');
     try {
-      const fileExt = file.name.split('.').pop() || 'jpg';
+      // Remove background
+      setIsRemovingBg(true);
+      const processedBlob = await removeBackground(file as Blob);
+      setIsRemovingBg(false);
+      file = processedBlob;
+      URL.revokeObjectURL(result.previewUrl);
+      const newPreview = URL.createObjectURL(processedBlob);
+      setImagePreview(newPreview);
+
+      const fileExt = processedBlob.type === 'image/png' ? 'png' : (result.file.name.split('.').pop() || 'jpg');
       const path = `${user.id}/${newGarmentId}.${fileExt}`;
-      await uploadGarmentImage(file, newGarmentId);
+      await uploadGarmentImage(file as File, newGarmentId);
       setStoragePath(path);
       const signedUrl = await getGarmentSignedUrl(path);
       setImagePreview(signedUrl);
@@ -227,6 +237,7 @@ export default function AddGarmentPage() {
       console.error('Upload/analysis error:', err);
       toast.error(t('addgarment.upload_error'));
       setStep('upload');
+      setIsRemovingBg(false);
     }
   };
 
@@ -248,7 +259,7 @@ export default function AddGarmentPage() {
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [batchFiles, setBatchFiles] = useState<File[]>([]);
   const batchInputRef = useRef<HTMLInputElement>(null);
-
+  const [isRemovingBg, setIsRemovingBg] = useState(false);
   // Form state
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
@@ -360,7 +371,7 @@ export default function AddGarmentPage() {
     }
 
     // Compress image before upload (resize + WebP conversion)
-    let file: File;
+    let file: File | Blob;
     let previewUrl: string;
     try {
       const compressed = await compressImage(rawFile);
@@ -372,21 +383,27 @@ export default function AddGarmentPage() {
       previewUrl = URL.createObjectURL(rawFile);
     }
 
-    setImageFile(file);
+    // Remove background
+    setStep('analyzing');
+    setIsRemovingBg(true);
+    const processedBlob = await removeBackground(file as Blob);
+    setIsRemovingBg(false);
+    URL.revokeObjectURL(previewUrl);
+    previewUrl = URL.createObjectURL(processedBlob);
+    file = processedBlob;
+
+    setImageFile(file as File);
     setImagePreview(previewUrl);
 
     // Generate garment ID
     const newGarmentId = crypto.randomUUID();
     setGarmentId(newGarmentId);
-
-    // Upload to storage first
-    setStep('analyzing');
     
     try {
-      const fileExt = file.name.split('.').pop() || 'jpg';
+      const fileExt = processedBlob.type === 'image/png' ? 'png' : (rawFile.name.split('.').pop() || 'jpg');
       const path = `${user.id}/${newGarmentId}.${fileExt}`;
       
-      await uploadGarmentImage(file, newGarmentId);
+      await uploadGarmentImage(file as File, newGarmentId);
       setStoragePath(path);
 
       // Fetch signed URL for display
@@ -623,8 +640,26 @@ export default function AddGarmentPage() {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8">
         <div className="flex flex-col items-center gap-6 w-full max-w-xs">
+          {/* Background removal indicator */}
+          {isRemovingBg && !analysisError && !analysisSummary && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center gap-3 w-full"
+            >
+              {imagePreview && (
+                <div className="aspect-square w-48 overflow-hidden bg-[hsl(36_33%_93%)]">
+                  <img src={imagePreview} alt="Preview" className="w-full h-full object-contain" />
+                </div>
+              )}
+              <div className="w-full space-y-2">
+                <Progress value={undefined} className="h-1.5 animate-pulse" />
+                <p className="text-sm text-muted-foreground text-center">Removing background…</p>
+              </div>
+            </motion.div>
+          )}
           {/* Error state */}
-          {analysisError ? (
+          {!isRemovingBg && analysisError ? (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -646,7 +681,7 @@ export default function AddGarmentPage() {
                 </Button>
               </div>
             </motion.div>
-          ) : analysisSummary ? (
+          ) : !isRemovingBg && analysisSummary ? (
             /* Summary card */
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -657,10 +692,10 @@ export default function AddGarmentPage() {
               <p className="font-medium text-center">{analysisSummary}</p>
               <p className="text-xs text-muted-foreground">{t('addgarment.ai_review')}</p>
             </motion.div>
-          ) : (
+          ) : !isRemovingBg ? (
             /* GarmentAnalysisState */
             <GarmentAnalysisState imageUrl={imagePreview} />
-          )}
+          ) : null}
         </div>
       </div>
     );
@@ -694,11 +729,11 @@ export default function AddGarmentPage() {
       <div className="p-4 space-y-6">
         {/* Image Preview */}
         {imagePreview && (
-          <div className="relative aspect-square max-w-xs mx-auto overflow-hidden bg-secondary">
+          <div className="relative aspect-square max-w-xs mx-auto overflow-hidden bg-[hsl(36_33%_93%)]">
             <img
               src={imagePreview}
               alt="Preview"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
             />
             <Button
               variant="secondary"
