@@ -71,7 +71,7 @@ function SwapSheet({
             size="sm"
             onClick={() => onModeChange('safe')}
           >
-            Safe
+            {t('swap.mode_safe') || 'Safe'}
           </Button>
           <Button
             type="button"
