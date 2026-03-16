@@ -264,6 +264,8 @@ export default function OutfitDetailPage() {
       weather: mergedWeather,
     };
   };
+
+  const handleOpenSwap = async (slot: string, outfitItemId: string, currentGarmentId: string) => {
     const ctx = buildSwapRequestContext(outfitItemId);
 
     setSwapSheet({
