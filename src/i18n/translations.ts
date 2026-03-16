@@ -8846,6 +8846,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'chat.shopping_placeholder': 'Beschrijf het item dat je overweegt...',
     'chat.outfit_from_stylist': 'Gemaakt op basis van het voorstel van de stylist',
     'chat.based_on': 'Gebaseerd op', 'chat.garments_label': 'kledingstukken', 'chat.garments_in_wardrobe': 'kledingstukken in je kledingkast',
+    'chat.greeting_prefix': 'Hoi', 'chat.welcome_title': 'Je persoonlijke stylist', 'chat.welcome_subtitle': 'Vraag me over je kledingkast, outfits of stijl',
     'chat.suggestion_1': 'Wat moet ik vandaag dragen?', 'chat.suggestion_2': 'Analyseer mijn stijl', 'chat.suggestion_3': 'Help me kiezen voor werk',
 
     // Scan
