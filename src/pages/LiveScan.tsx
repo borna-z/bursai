@@ -557,7 +557,7 @@ export default function LiveScan() {
         {/* Scan counter pill — bottom right (if no history strip or as supplement) */}
         {scanCount > 0 && !lastResult && scanThumbnails.length === 0 && (
           <div className="absolute bottom-4 left-4 z-10">
-            <div className="flex items-center gap-1.5 bg-background/60 backdrop-blur-sm px-3 py-1.5 rounded-full border border-border/10">
+            <div className="flex items-center gap-1.5 bg-background/60 backdrop-blur-sm px-3 py-1.5 border border-border/10">
               <Check className="w-3.5 h-3.5 text-accent" />
               <span className="text-foreground text-xs font-medium">{scanCount}</span>
             </div>
