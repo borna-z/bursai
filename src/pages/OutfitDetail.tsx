@@ -263,7 +263,7 @@ export default function OutfitDetailPage() {
       occasion: outfit?.occasion || 'vardag',
       weather: mergedWeather,
     };
-  const handleOpenSwap = async (slot: string, outfitItemId: string, currentGarmentId: string) => {
+  };
     const ctx = buildSwapRequestContext(outfitItemId);
 
     setSwapSheet({
