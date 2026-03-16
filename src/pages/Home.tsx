@@ -174,8 +174,8 @@ export default function HomePage() {
                 <Shirt className="w-8 h-8 text-muted-foreground/40 mx-auto" />
                 <div className="space-y-2">
                   <h3 className="text-[15px] font-semibold">{t('home.min_garments')}</h3>
-                  <p className="text-[12px] text-muted-foreground/60 max-w-[240px] mx-auto">
-                    {t('home.add_first_items_desc')}
+                  <p className="text-[12px] text-muted-foreground/60 max-w-[260px] mx-auto leading-relaxed">
+                    Every great wardrobe starts with a few key pieces. Add yours and I'll start styling.
                   </p>
                 </div>
                 <Button
