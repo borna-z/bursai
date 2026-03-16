@@ -229,7 +229,7 @@ function SlotsPill({ remaining, isPremium }: { remaining: number; isPremium: boo
   if (isPremium) return null;
   return (
     <div className={cn(
-      'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium backdrop-blur-sm border',
+      'flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium backdrop-blur-sm border',
       remaining <= 2
         ? 'bg-destructive/10 text-destructive border-destructive/20'
         : 'bg-foreground/5 text-muted-foreground border-border/10'
