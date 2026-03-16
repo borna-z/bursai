@@ -40,6 +40,7 @@ import {
   type PlannedOutfit 
 } from '@/hooks/usePlannedOutfits';
 import { useOutfitGenerator } from '@/hooks/useOutfitGenerator';
+import { useSubscription } from '@/hooks/useSubscription';
 import { useMarkOutfitWorn, useUndoMarkWorn } from '@/hooks/useOutfits';
 import { useFlatGarments } from '@/hooks/useGarments';
 import { useForecast } from '@/hooks/useForecast';
@@ -206,6 +207,8 @@ export default function PlanPage() {
     }
   };
 
+  const { canCreateOutfit } = useSubscription();
+
   const handleAutoGenerateWeek = async (days: number) => {
     setIsAutoGenerating(true);
     const occasions = ['vardag', 'jobb', 'vardag', 'jobb', 'vardag', 'fest', 'vardag'];
@@ -215,6 +218,10 @@ export default function PlanPage() {
       const dateStr = format(date, 'yyyy-MM-dd');
       const existing = getPlannedForDate(date);
       if (existing?.outfit_id) continue;
+      if (!canCreateOutfit()) {
+        toast.error(t('paywall.outfit_limit') || 'Outfit limit reached');
+        break;
+      }
       const forecast = getForecastForDate(dateStr);
       const temp = forecast ? Math.round((forecast.temperature_max + forecast.temperature_min) / 2) : 15;
       try {
