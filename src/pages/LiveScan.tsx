@@ -318,6 +318,7 @@ export default function LiveScan() {
     }
 
     setCameraStarted(true);
+    setCameraReady(false);
     setCameraError(null);
 
     const permState = await checkCameraPermission();
@@ -335,7 +336,6 @@ export default function LiveScan() {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
-        setCameraReady(true);
       }
     } catch (err: unknown) {
       console.error('Camera error:', err);
@@ -464,7 +464,23 @@ export default function LiveScan() {
             </div>
           </div>
         ) : (
-          <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            onLoadedMetadata={() => {
+              if (videoRef.current?.videoWidth && videoRef.current?.videoHeight) {
+                setCameraReady(true);
+              }
+            }}
+            onCanPlay={() => {
+              if (videoRef.current?.videoWidth && videoRef.current?.videoHeight) {
+                setCameraReady(true);
+              }
+            }}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
         )}
 
         {/* Idle: focus frame reticle + guidance (only in camera mode) */}

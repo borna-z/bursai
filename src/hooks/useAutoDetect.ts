@@ -161,6 +161,16 @@ export function useAutoDetect({ enabled, videoEl, busy, onStable }: UseAutoDetec
           return;
         }
 
+        if (videoEl.readyState < 2 || videoEl.videoWidth === 0 || videoEl.videoHeight === 0) {
+          stableSinceRef.current = null;
+          prevDataRef.current = null;
+          setProgress(0);
+          setLockConfidence(0);
+          setHintDebounced(null);
+          rafRef.current = requestAnimationFrame(tick);
+          return;
+        }
+
         const canvas = getCanvas();
         const ctx = canvas.getContext('2d')!;
         ctx.drawImage(videoEl, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
