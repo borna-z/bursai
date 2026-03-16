@@ -1,7 +1,12 @@
 import { useState, useMemo } from 'react';
-import { hapticMedium, hapticHeavy, hapticSuccess } from '@/lib/haptics';
+import { hapticMedium, hapticHeavy, hapticSuccess, hapticLight } from '@/lib/haptics';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, WashingMachine, Check, Loader2, ExternalLink, Sparkles, Shield, DollarSign, Layers, Shirt } from 'lucide-react';
+import { motion } from 'framer-motion';
+import {
+  ArrowLeft, Edit, Trash2, WashingMachine, Check, Loader2, ExternalLink,
+  Sparkles, Shield, DollarSign, Layers, Shirt, Clock, TrendingUp,
+  Calendar, ChevronRight,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,11 +20,13 @@ import { toast } from 'sonner';
 import { useGarment, useUpdateGarment, useDeleteGarment, useMarkGarmentWorn } from '@/hooks/useGarments';
 import { useSimilarGarments } from '@/hooks/useSimilarGarments';
 import { useAssessCondition, useCostPerWear } from '@/hooks/useAdvancedFeatures';
-import { LazyImage } from '@/components/ui/lazy-image';
+import { useGarmentOutfitHistory } from '@/hooks/useGarmentOutfitHistory';
+import { LazyImage, LazyImageSimple } from '@/components/ui/lazy-image';
 import { SectionHeader } from '@/components/ui/section-header';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
 import { cn } from '@/lib/utils';
+import { EASE_CURVE } from '@/lib/motion';
 
 /* ─── Enrichment data extracted from ai_raw ─── */
 interface EnrichmentData {
@@ -105,12 +112,38 @@ function SpecRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+/* ─── Section wrapper with stagger animation ─── */
+function Section({ children, index, className }: { children: React.ReactNode; index: number; className?: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.1 + index * 0.05, duration: 0.4, ease: EASE_CURVE }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/* ─── Usage insight line ─── */
+function UsageInsight({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 py-2">
+      <Icon className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+      <span className="text-xs text-muted-foreground flex-1">{label}</span>
+      <span className="text-xs font-medium text-foreground">{value}</span>
+    </div>
+  );
+}
+
 export default function GarmentDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { t, locale } = useLanguage();
   const { data: garment, isLoading } = useGarment(id);
   const { data: similarGarments } = useSimilarGarments(garment);
+  const { data: outfitHistory } = useGarmentOutfitHistory(id);
   const updateGarment = useUpdateGarment();
   const deleteGarment = useDeleteGarment();
   const markWorn = useMarkGarmentWorn();
@@ -122,6 +155,23 @@ export default function GarmentDetailPage() {
   const [editingPrice, setEditingPrice] = useState(false);
   const [priceInput, setPriceInput] = useState('');
   const enrichment = useMemo(() => garment ? extractEnrichment(garment.ai_raw) : null, [garment]);
+
+  // Usage insights
+  const usageInsights = useMemo(() => {
+    if (!garment) return null;
+    const wearCount = garment.wear_count || 0;
+    const lastWorn = garment.last_worn_at ? new Date(garment.last_worn_at) : null;
+    const created = garment.created_at ? new Date(garment.created_at) : new Date();
+    const daysSinceLastWorn = lastWorn ? Math.floor((Date.now() - lastWorn.getTime()) / 86400000) : null;
+    const daysOwned = Math.max(1, Math.floor((Date.now() - created.getTime()) / 86400000));
+    const wearFrequency = daysOwned > 0 ? (wearCount / daysOwned * 30).toFixed(1) : '0';
+
+    let status: 'active' | 'neglected' | 'new' = 'active';
+    if (wearCount === 0) status = 'new';
+    else if (daysSinceLastWorn != null && daysSinceLastWorn > 60) status = 'neglected';
+
+    return { wearCount, daysSinceLastWorn, wearFrequency, daysOwned, status };
+  }, [garment]);
 
   if (isLoading) {
     return (
@@ -235,136 +285,333 @@ export default function GarmentDetailPage() {
             </AlertDialogContent>
           </AlertDialog>
         </div>
+
+        {/* Status badge overlay */}
+        {garment.in_laundry && (
+          <div className="absolute bottom-4 left-4 z-10">
+            <Badge variant="secondary" className="backdrop-blur-xl bg-background/60 text-[10px] font-medium">
+              <WashingMachine className="w-3 h-3 mr-1" />
+              In laundry
+            </Badge>
+          </div>
+        )}
       </div>
 
       {/* Content */}
       <div className="px-5 pt-8 space-y-8 max-w-lg mx-auto">
         {/* Title + category */}
-        <div>
-          <h1 className="text-2xl font-semibold">{garment.title}</h1>
+        <Section index={0}>
+          <h1 className="text-2xl font-semibold tracking-[-0.02em]">{garment.title}</h1>
           <p className="text-[13px] text-muted-foreground/60 uppercase tracking-wide mt-1">
             {t(`garment.category.${garment.category}`) || garment.subcategory || garment.category}
           </p>
-        </div>
+        </Section>
 
         {/* Metadata — dot-separated */}
-        {metaParts.length > 0 && (
-          <p className="text-[13px] text-muted-foreground capitalize">
-            {metaParts.join(' · ')}
-          </p>
-        )}
-        {seasonParts.length > 0 && (
-          <p className="text-[13px] text-muted-foreground/60 capitalize -mt-4">
-            {seasonParts.join(' · ')}
-          </p>
-        )}
+        <Section index={1}>
+          {metaParts.length > 0 && (
+            <p className="text-[13px] text-muted-foreground capitalize">
+              {metaParts.join(' · ')}
+            </p>
+          )}
+          {seasonParts.length > 0 && (
+            <p className="text-[13px] text-muted-foreground/60 capitalize mt-1">
+              {seasonParts.join(' · ')}
+            </p>
+          )}
+        </Section>
 
         {/* Stylist note — editorial highlight */}
         {enrichment?.stylist_note && (
-          <div className="border-l-2 border-primary/30 pl-4 py-1">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 mb-1">{t('garment.stylist_note') || 'Stylist note'}</p>
-            <p className="text-[13px] text-foreground/80 italic leading-relaxed">{enrichment.stylist_note}</p>
+          <Section index={2}>
+            <div className="border-l-2 border-primary/30 pl-4 py-1">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 mb-1">Stylist note</p>
+              <p className="text-[13px] text-foreground/80 italic leading-relaxed">{enrichment.stylist_note}</p>
+            </div>
+          </Section>
+        )}
+
+        {/* ── Usage Stats — hero numbers ── */}
+        <Section index={3}>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center">
+              <p className="text-2xl font-semibold tabular-nums">{garment.wear_count || 0}</p>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 mt-1">Worn</p>
+            </div>
+            <div className="text-center border-x border-border/10">
+              <p className="text-2xl font-semibold tabular-nums">
+                {garment.last_worn_at
+                  ? new Date(garment.last_worn_at).toLocaleDateString(getBCP47(locale), { day: 'numeric', month: 'short' })
+                  : '—'}
+              </p>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 mt-1">Last worn</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-semibold tabular-nums">
+                {costPerWear !== null ? `${costPerWear.toFixed(0)}` : '—'}
+              </p>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 mt-1">
+                {garment.purchase_currency || 'SEK'}/wear
+              </p>
+            </div>
           </div>
+        </Section>
+
+        {/* ── Usage Insights ── */}
+        {usageInsights && (
+          <Section index={4}>
+            <div className="rounded-xl border border-border/10 px-4 py-1 divide-y divide-border/5">
+              {usageInsights.daysSinceLastWorn != null && (
+                <UsageInsight
+                  icon={Clock}
+                  label="Days since last worn"
+                  value={usageInsights.daysSinceLastWorn === 0 ? 'Today' : `${usageInsights.daysSinceLastWorn}d`}
+                />
+              )}
+              <UsageInsight
+                icon={TrendingUp}
+                label="Wear frequency"
+                value={`${usageInsights.wearFrequency}×/month`}
+              />
+              {usageInsights.status === 'neglected' && (
+                <div className="py-2.5">
+                  <p className="text-[11px] text-primary/80 italic">
+                    This piece hasn't been worn in a while — want me to style it into an outfit?
+                  </p>
+                </div>
+              )}
+              {usageInsights.status === 'new' && (
+                <div className="py-2.5">
+                  <p className="text-[11px] text-muted-foreground/60 italic">
+                    Not worn yet — mark it worn or let me build an outfit around it.
+                  </p>
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
+
+        {/* ── Outfit History ── */}
+        {outfitHistory && outfitHistory.length > 0 && (
+          <Section index={5}>
+            <div className="space-y-3">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50">Worn in outfits</p>
+              <div className="flex gap-2.5 overflow-x-auto -mx-5 px-5 pb-1 scrollbar-hide">
+                {outfitHistory.slice(0, 8).map((outfit) => (
+                  <button
+                    key={outfit.id}
+                    onClick={() => { hapticLight(); navigate(`/outfits/${outfit.id}`); }}
+                    className="flex-shrink-0 w-[72px] space-y-1.5 press"
+                  >
+                    <div className="aspect-square rounded-lg overflow-hidden grid grid-cols-2 gap-px bg-muted/30">
+                      {outfit.outfit_items.slice(0, 4).map((item) => (
+                        <div key={item.id} className="overflow-hidden">
+                          <LazyImageSimple
+                            imagePath={item.garment?.image_path}
+                            alt={item.garment?.title || item.slot}
+                            className="w-full h-full"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/60 truncate capitalize">
+                      {outfit.occasion}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </Section>
         )}
 
         {/* Style archetype + tags */}
         {(enrichment?.style_archetype || (enrichment?.style_tags && enrichment.style_tags.length > 0)) && (
-          <div className="space-y-2">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50">{t('garment.style') || 'Style'}</p>
-            <div className="flex flex-wrap gap-1.5">
-              {enrichment?.style_archetype && (
-                <Badge variant="default" className="text-[11px] px-2.5 py-1 capitalize font-medium">
-                  {enrichment.style_archetype}
-                </Badge>
-              )}
-              {enrichment?.style_tags?.map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-[11px] px-2.5 py-1 capitalize font-normal">
-                  {tag}
-                </Badge>
-              ))}
+          <Section index={6}>
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50">Style</p>
+              <div className="flex flex-wrap gap-1.5">
+                {enrichment?.style_archetype && (
+                  <Badge variant="default" className="text-[11px] px-2.5 py-1 capitalize font-medium">
+                    {enrichment.style_archetype}
+                  </Badge>
+                )}
+                {enrichment?.style_tags?.map((tag) => (
+                  <Badge key={tag} variant="secondary" className="text-[11px] px-2.5 py-1 capitalize font-normal">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
             </div>
-          </div>
+          </Section>
         )}
 
-        {/* Enrichment: Occasion tags */}
+        {/* Occasion tags */}
         {enrichment?.occasion_tags && enrichment.occasion_tags.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50">{t('garment.occasions') || 'Occasions'}</p>
-            <DetailChips items={enrichment.occasion_tags} variant="outline" />
-          </div>
+          <Section index={7}>
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50">Occasions</p>
+              <DetailChips items={enrichment.occasion_tags} variant="outline" />
+            </div>
+          </Section>
         )}
 
         {/* Garment intelligence — silhouette, texture, structure */}
         {enrichment && (enrichment.silhouette || enrichment.visual_weight || enrichment.texture_intensity || enrichment.drape) && (
-          <div className="space-y-1 border border-border/10 px-4 py-1">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 pt-2 pb-1">{t('garment.intelligence') || 'Garment intelligence'}</p>
-            {enrichment.silhouette && <SpecRow label={t('garment.silhouette') || 'Silhouette'} value={enrichment.silhouette} />}
-            {enrichment.visual_weight && <SpecRow label={t('garment.visual_weight') || 'Visual weight'} value={enrichment.visual_weight} />}
-            {enrichment.texture_intensity && <SpecRow label={t('garment.texture') || 'Texture'} value={enrichment.texture_intensity} />}
-            {enrichment.drape && <SpecRow label={t('garment.drape') || 'Drape'} value={enrichment.drape} />}
-            {enrichment.shoulder_structure && <SpecRow label={t('garment.shoulder') || 'Shoulder'} value={enrichment.shoulder_structure} />}
-            {enrichment.hem_detail && <SpecRow label={t('garment.hem') || 'Hem'} value={enrichment.hem_detail} />}
-          </div>
-        )}
-
-        {/* Construction specs — bottoms-specific + general */}
-        {enrichment && (enrichment.neckline || enrichment.sleeve_length || enrichment.garment_length || enrichment.closure || enrichment.fabric_weight || enrichment.layering_role || enrichment.rise || enrichment.leg_shape) && (
-          <div className="space-y-1 border border-border/10 px-4 py-1">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 pt-2 pb-1">{t('garment.construction') || 'Construction'}</p>
-            {enrichment.neckline && <SpecRow label={t('garment.neckline') || 'Neckline'} value={enrichment.neckline} />}
-            {enrichment.sleeve_length && <SpecRow label={t('garment.sleeve') || 'Sleeve'} value={enrichment.sleeve_length} />}
-            {enrichment.garment_length && <SpecRow label={t('garment.length') || 'Length'} value={enrichment.garment_length} />}
-            {enrichment.closure && <SpecRow label={t('garment.closure') || 'Closure'} value={enrichment.closure} />}
-            {enrichment.fabric_weight && <SpecRow label={t('garment.weight') || 'Weight'} value={enrichment.fabric_weight} />}
-            {enrichment.layering_role && <SpecRow label={t('garment.layering') || 'Layering'} value={enrichment.layering_role} />}
-            {enrichment.rise && <SpecRow label={t('garment.rise') || 'Rise'} value={enrichment.rise} />}
-            {enrichment.leg_shape && <SpecRow label={t('garment.leg_shape') || 'Leg shape'} value={enrichment.leg_shape} />}
-          </div>
-        )}
-
-        {/* Enrichment: Versatility + color harmony */}
-        {enrichment?.versatility_score != null && (
-          <div className="flex items-center gap-3 py-2">
-            <Layers className="w-4 h-4 text-muted-foreground/50" />
-            <div>
-              <p className="text-xs text-foreground">{t('garment.versatility') || 'Versatility'}: {enrichment.versatility_score}/10</p>
-              {enrichment.color_harmony_notes && (
-                <p className="text-[11px] text-muted-foreground mt-0.5">{enrichment.color_harmony_notes}</p>
-              )}
+          <Section index={8}>
+            <div className="space-y-1 rounded-xl border border-border/10 px-4 py-1">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 pt-2 pb-1">Garment intelligence</p>
+              {enrichment.silhouette && <SpecRow label="Silhouette" value={enrichment.silhouette} />}
+              {enrichment.visual_weight && <SpecRow label="Visual weight" value={enrichment.visual_weight} />}
+              {enrichment.texture_intensity && <SpecRow label="Texture" value={enrichment.texture_intensity} />}
+              {enrichment.drape && <SpecRow label="Drape" value={enrichment.drape} />}
+              {enrichment.shoulder_structure && <SpecRow label="Shoulder" value={enrichment.shoulder_structure} />}
+              {enrichment.hem_detail && <SpecRow label="Hem" value={enrichment.hem_detail} />}
             </div>
-          </div>
+          </Section>
+        )}
+
+        {/* Construction specs */}
+        {enrichment && (enrichment.neckline || enrichment.sleeve_length || enrichment.garment_length || enrichment.closure || enrichment.fabric_weight || enrichment.layering_role || enrichment.rise || enrichment.leg_shape) && (
+          <Section index={9}>
+            <div className="space-y-1 rounded-xl border border-border/10 px-4 py-1">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 pt-2 pb-1">Construction</p>
+              {enrichment.neckline && <SpecRow label="Neckline" value={enrichment.neckline} />}
+              {enrichment.sleeve_length && <SpecRow label="Sleeve" value={enrichment.sleeve_length} />}
+              {enrichment.garment_length && <SpecRow label="Length" value={enrichment.garment_length} />}
+              {enrichment.closure && <SpecRow label="Closure" value={enrichment.closure} />}
+              {enrichment.fabric_weight && <SpecRow label="Weight" value={enrichment.fabric_weight} />}
+              {enrichment.layering_role && <SpecRow label="Layering" value={enrichment.layering_role} />}
+              {enrichment.rise && <SpecRow label="Rise" value={enrichment.rise} />}
+              {enrichment.leg_shape && <SpecRow label="Leg shape" value={enrichment.leg_shape} />}
+            </div>
+          </Section>
+        )}
+
+        {/* Versatility + color harmony */}
+        {enrichment?.versatility_score != null && (
+          <Section index={10}>
+            <div className="flex items-center gap-3 py-2">
+              <Layers className="w-4 h-4 text-muted-foreground/50" />
+              <div>
+                <p className="text-xs text-foreground">Versatility: {enrichment.versatility_score}/10</p>
+                {enrichment.color_harmony_notes && (
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{enrichment.color_harmony_notes}</p>
+                )}
+              </div>
+            </div>
+          </Section>
         )}
 
         {/* Confidence indicator */}
         {enrichment?.confidence != null && enrichment.confidence < 0.7 && (
           <p className="text-[11px] text-muted-foreground/40 italic">
-            {t('garment.low_confidence') || 'Some details may need manual review'} · {Math.round(enrichment.confidence * 100)}%
+            Some details may need manual review · {Math.round(enrichment.confidence * 100)}%
           </p>
         )}
 
-        {/* Enrichment: Care instructions */}
+        {/* Care instructions */}
         {enrichment?.care_instructions && enrichment.care_instructions.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50">{t('garment.care') || 'Care'}</p>
-            <DetailChips items={enrichment.care_instructions} variant="outline" />
-          </div>
+          <Section index={11}>
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50">Care</p>
+              <DetailChips items={enrichment.care_instructions} variant="outline" />
+            </div>
+          </Section>
         )}
 
-        <div className="flex">
-          <div className="flex-1 text-center">
-            <p className="text-2xl font-semibold tabular-nums">{garment.wear_count || 0}</p>
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 mt-1">{t('garment.worn_count')}</p>
+        {/* ── Actions section ── */}
+        <Section index={12}>
+          <div className="space-y-0 divide-y divide-border/10">
+            {/* Laundry toggle */}
+            <div className="flex items-center justify-between py-4">
+              <div className="flex items-center gap-3">
+                <WashingMachine className="w-5 h-5 text-muted-foreground/50" />
+                <span className="text-sm">{t('garment.in_laundry')}</span>
+              </div>
+              <Switch checked={garment.in_laundry || false} onCheckedChange={handleToggleLaundry} disabled={updateGarment.isPending} />
+            </div>
+
+            {/* Condition Assessment */}
+            <div className="flex items-center justify-between py-4">
+              <div className="flex items-center gap-3">
+                <Shield className="w-5 h-5 text-muted-foreground/50" />
+                <div>
+                  <span className="text-sm">{t('insights.condition')}</span>
+                  {garment.condition_score && (
+                    <p className="text-xs text-muted-foreground">
+                      {Number(garment.condition_score).toFixed(1)}/10 — {garment.condition_notes}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={async () => {
+                  try {
+                    await assessCondition.mutateAsync(garment.id);
+                    toast.success(t('insights.condition'));
+                  } catch {
+                    toast.error(t('insights.condition_error'));
+                  }
+                }}
+                disabled={assessCondition.isPending}
+              >
+                {assessCondition.isPending ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  t('insights.condition_check')
+                )}
+              </Button>
+            </div>
+
+            {/* Cost-per-wear */}
+            <div className="flex items-center justify-between py-4">
+              <div className="flex items-center gap-3">
+                <DollarSign className="w-5 h-5 text-muted-foreground/50" />
+                <span className="text-sm">{t('insights.cost_per_wear')}</span>
+              </div>
+              {editingPrice ? (
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    value={priceInput}
+                    onChange={(e) => setPriceInput(e.target.value)}
+                    placeholder="0"
+                    className="w-20 h-8 text-xs"
+                  />
+                  <Button
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={async () => {
+                      const price = parseFloat(priceInput);
+                      if (isNaN(price) || price < 0) return;
+                      try {
+                        await updateGarment.mutateAsync({ id: garment.id, updates: { purchase_price: price } });
+                        setEditingPrice(false);
+                      } catch { toast.error(t('common.something_wrong')); }
+                    }}
+                  >
+                    <Check className="w-3 h-3" />
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => {
+                    setPriceInput(String(garment.purchase_price || ''));
+                    setEditingPrice(true);
+                  }}
+                >
+                  {garment.purchase_price ? `${Number(garment.purchase_price).toFixed(0)} SEK` : t('insights.purchase_price')}
+                </Button>
+              )}
+            </div>
           </div>
-          <div className="w-px bg-border/20" />
-          <div className="flex-1 text-center">
-            <p className="text-2xl font-semibold tabular-nums">
-              {garment.last_worn_at
-                ? new Date(garment.last_worn_at).toLocaleDateString(getBCP47(locale), { day: 'numeric', month: 'short' })
-                : '—'}
-            </p>
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 mt-1">{t('garment.last_worn')}</p>
-          </div>
-        </div>
+        </Section>
 
         {/* Source URL */}
         {garment.source_url && (
@@ -379,128 +626,35 @@ export default function GarmentDetailPage() {
           </a>
         )}
 
-        {/* Laundry toggle */}
-        <div className="flex items-center justify-between py-4 border-t border-border/10">
-          <div className="flex items-center gap-3">
-            <WashingMachine className="w-5 h-5 text-muted-foreground/50" />
-            <span className="text-sm">{t('garment.in_laundry')}</span>
-          </div>
-          <Switch checked={garment.in_laundry || false} onCheckedChange={handleToggleLaundry} disabled={updateGarment.isPending} />
-        </div>
-
-        {/* Step 18: Condition Assessment */}
-        <div className="flex items-center justify-between py-4 border-t border-border/10">
-          <div className="flex items-center gap-3">
-            <Shield className="w-5 h-5 text-muted-foreground/50" />
-            <div>
-              <span className="text-sm">{t('insights.condition')}</span>
-              {garment.condition_score && (
-                <p className="text-xs text-muted-foreground">
-                  {Number(garment.condition_score).toFixed(1)}/10 — {garment.condition_notes}
-                </p>
-              )}
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-              className="text-xs"
-            onClick={async () => {
-              try {
-                await assessCondition.mutateAsync(garment.id);
-                toast.success(t('insights.condition'));
-              } catch {
-                toast.error(t('insights.condition_error'));
-              }
-            }}
-            disabled={assessCondition.isPending}
-          >
-            {assessCondition.isPending ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : (
-              t('insights.condition_check')
-            )}
-          </Button>
-        </div>
-
-        {/* Step 22: Cost-per-wear */}
-        <div className="flex items-center justify-between py-4 border-t border-border/10">
-          <div className="flex items-center gap-3">
-            <DollarSign className="w-5 h-5 text-muted-foreground/50" />
-            <div>
-              <span className="text-sm">{t('insights.cost_per_wear')}</span>
-              {costPerWear !== null && (
-                <p className="text-xs text-primary font-medium">
-                  {costPerWear.toFixed(0)} {garment.purchase_currency || 'SEK'}/{t('garment.worn_count')}
-                </p>
-              )}
-            </div>
-          </div>
-          {editingPrice ? (
-            <div className="flex items-center gap-1.5">
-              <Input
-                type="number"
-                value={priceInput}
-                onChange={(e) => setPriceInput(e.target.value)}
-                placeholder="0"
-                className="w-20 h-8 text-xs"
-              />
-              <Button
-                size="sm"
-                className="h-8 text-xs"
-                onClick={async () => {
-                  const price = parseFloat(priceInput);
-                  if (isNaN(price) || price < 0) return;
-                  try {
-                    await updateGarment.mutateAsync({ id: garment.id, updates: { purchase_price: price } });
-                    setEditingPrice(false);
-                  } catch { toast.error(t('common.something_wrong')); }
-                }}
-              >
-                <Check className="w-3 h-3" />
-              </Button>
-            </div>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs"
-              onClick={() => {
-                setPriceInput(String(garment.purchase_price || ''));
-                setEditingPrice(true);
-              }}
-            >
-              {garment.purchase_price ? `${Number(garment.purchase_price).toFixed(0)} SEK` : t('insights.purchase_price')}
-            </Button>
-          )}
-        </div>
+        {/* Similar items */}
         {similarGarments && similarGarments.length > 0 && (
-          <div className="space-y-3">
-            <SectionHeader title={t('garment.similar_items') || 'Similar items'} />
-            <div className="flex gap-2.5 overflow-x-auto -mx-6 px-6 pb-1 scrollbar-hide">
-              {similarGarments.map((g) => (
-                <button
-                  key={g.id}
-                  onClick={() => navigate(`/wardrobe/${g.id}`)}
-                  className="flex-shrink-0 w-[88px] space-y-1.5 active:scale-[0.97] transition-transform"
-                >
-                  <LazyImage
-                    imagePath={g.image_path}
-                    alt={g.title}
-                    aspectRatio="3/4"
-                    className=""
-                  />
-                  <p className="text-[11px] text-muted-foreground truncate">{g.title}</p>
-                </button>
-              ))}
+          <Section index={13}>
+            <div className="space-y-3">
+              <SectionHeader title={t('garment.similar_items') || 'Similar items'} />
+              <div className="flex gap-2.5 overflow-x-auto -mx-5 px-5 pb-1 scrollbar-hide">
+                {similarGarments.map((g) => (
+                  <button
+                    key={g.id}
+                    onClick={() => navigate(`/wardrobe/${g.id}`)}
+                    className="flex-shrink-0 w-[88px] space-y-1.5 press"
+                  >
+                    <LazyImage
+                      imagePath={g.image_path}
+                      alt={g.title}
+                      aspectRatio="3/4"
+                    />
+                    <p className="text-[11px] text-muted-foreground truncate">{g.title}</p>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          </Section>
         )}
 
         {/* AI analyzed */}
         {garment.ai_analyzed_at && (
-          <p className="text-[11px] text-muted-foreground/40 text-center">
-            {t('garment.analyzed_at')} {new Date(garment.ai_analyzed_at).toLocaleDateString(getBCP47(locale))}
+          <p className="text-[11px] text-muted-foreground/40 text-center pb-4">
+            Analyzed {new Date(garment.ai_analyzed_at).toLocaleDateString(getBCP47(locale))}
           </p>
         )}
       </div>
