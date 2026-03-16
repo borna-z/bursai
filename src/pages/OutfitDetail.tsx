@@ -456,6 +456,7 @@ export default function OutfitDetailPage() {
   }
 
   if (!outfit) {
+    console.log('[OutfitDetail] No outfit found for id:', id);
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
         <div className="max-w-xs w-full text-center space-y-4">
