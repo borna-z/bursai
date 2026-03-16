@@ -464,7 +464,23 @@ export default function LiveScan() {
             </div>
           </div>
         ) : (
-          <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            onLoadedMetadata={() => {
+              if (videoRef.current?.videoWidth && videoRef.current?.videoHeight) {
+                setCameraReady(true);
+              }
+            }}
+            onCanPlay={() => {
+              if (videoRef.current?.videoWidth && videoRef.current?.videoHeight) {
+                setCameraReady(true);
+              }
+            }}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
         )}
 
         {/* Idle: focus frame reticle + guidance (only in camera mode) */}
