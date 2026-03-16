@@ -122,7 +122,7 @@ function HeroSlide({ suggestion, onTryIt, onPlan, isCreating }: HeroSlideProps) 
     >
       {/* Occasion + Title */}
       <div className="text-center space-y-1.5 pt-2">
-        <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/60">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
           {suggestion.occasion}
         </p>
         <h3 className="text-[15px] font-semibold leading-snug tracking-tight">

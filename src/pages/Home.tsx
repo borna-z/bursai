@@ -232,7 +232,7 @@ export default function HomePage() {
                 </div>
                 <Button
                   onClick={() => { hapticLight(); navigate('/outfits/generate'); }}
-                  className="w-full max-w-[200px] h-11 bg-accent text-accent-foreground hover:bg-accent/90"
+                  className="w-full max-w-[200px] h-11"
                 >
                   {t('home.generate_now')}
                   <ChevronRight className="w-4 h-4 ml-1" />
