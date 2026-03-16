@@ -302,6 +302,14 @@
   .space-24 { gap: 1.5rem; }
   .space-32 { gap: 2rem; }
 
+  /* Page container — standard padding for all app pages */
+  .page-container {
+    @apply max-w-lg mx-auto pb-12;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+    padding-top: 2rem;
+  }
+
   /* Premium gradient */
   .gradient-premium {
     background: linear-gradient(135deg, hsl(var(--premium)), hsl(38 85% 48%));

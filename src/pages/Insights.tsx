@@ -150,7 +150,7 @@ export default function InsightsPage() {
     <AppLayout>
       <PageHeader title={t('insights.title')} />
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="max-w-lg mx-auto px-5 pb-12 pt-8 space-y-12">
+        <AnimatedPage className="page-container space-y-12">
 
           {/* ─── 0. Wardrobe Usage Banner + Smart Insight ─── */}
 

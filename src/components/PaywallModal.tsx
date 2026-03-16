@@ -36,7 +36,7 @@ export function PaywallModal({ isOpen, onClose, reason }: PaywallModalProps) {
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader className="text-center">
-          <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center mb-4">
+          <div className="mx-auto w-16 h-16 rounded-full gradient-premium flex items-center justify-center mb-4">
             <Crown className="w-8 h-8 text-white" />
           </div>
           <DialogTitle className="text-2xl">{t('paywall.title')}</DialogTitle>

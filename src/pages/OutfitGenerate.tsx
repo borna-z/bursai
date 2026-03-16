@@ -167,7 +167,7 @@ export default function OutfitGeneratePage() {
 
         {/* Style grid */}
         <section className="space-y-2">
-          <h2 className="text-sm font-medium text-muted-foreground tracking-wide uppercase">
+          <h2 className="label-editorial">
             {t('generate.style') || 'Style'}
           </h2>
           <div className="flex flex-wrap gap-2">

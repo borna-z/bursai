@@ -36,7 +36,7 @@ export function AILoadingCard({ phases, subtitle, className }: AILoadingCardProp
   const currentLabel = phases[phase]?.label ?? '';
 
   return (
-    <div className={cn('rounded-xl border border-border/10 bg-card/60 p-4', className)}>
+    <div className={cn('rounded-xl surface-secondary p-4', className)}>
       <div className="flex items-center gap-3">
         {/* Breathing glow icon */}
         <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
