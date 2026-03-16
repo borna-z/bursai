@@ -318,6 +318,7 @@ export default function LiveScan() {
     }
 
     setCameraStarted(true);
+    setCameraReady(false);
     setCameraError(null);
 
     const permState = await checkCameraPermission();
@@ -335,7 +336,6 @@ export default function LiveScan() {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
-        setCameraReady(true);
       }
     } catch (err: unknown) {
       console.error('Camera error:', err);
