@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { useInsights, type Garment } from '@/hooks/useInsights';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useSustainabilityScore } from '@/hooks/useAdvancedFeatures';
+import { StyleDNACard } from '@/components/insights/StyleDNACard';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -171,6 +172,9 @@ export default function InsightsPage() {
               <StatPill value={insights.unusedGarments.length} label={t('insights.unused')} onClick={() => navigate('/outfits/unused')} />
             </div>
           </div>
+
+          {/* ─── Style DNA ─── */}
+          <StyleDNACard />
 
           {/* ─── 2. Top 5 Garments ─── */}
           {insights.topFiveWorn.length > 0 && (
