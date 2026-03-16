@@ -176,12 +176,12 @@ export default function GarmentDetailPage() {
         {/* Stats */}
         <div className="flex">
           <div className="flex-1 text-center">
-            <p className="text-3xl font-light tabular-nums">{garment.wear_count || 0}</p>
+            <p className="text-2xl font-semibold tabular-nums">{garment.wear_count || 0}</p>
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 mt-1">{t('garment.worn_count')}</p>
           </div>
           <div className="w-px bg-border/20" />
           <div className="flex-1 text-center">
-            <p className="text-3xl font-light tabular-nums">
+            <p className="text-2xl font-semibold tabular-nums">
               {garment.last_worn_at
                 ? new Date(garment.last_worn_at).toLocaleDateString(getBCP47(locale), { day: 'numeric', month: 'short' })
                 : '—'}
