@@ -2161,9 +2161,13 @@ function buildCombos(
     }
   }
 
+  // Hard quality gate — reject weak outfits before ranking
+  const qualityFiltered = Array.from(unique.values()).filter(c => qualityGate(c, weather));
+
   // Exact-id dedup first, then family-level dedup
-  const exactDeduped = Array.from(unique.values())
-    .sort((a, b) => b.totalScore - a.totalScore);
+  const exactDeduped = qualityFiltered.length > 0
+    ? qualityFiltered.sort((a, b) => b.totalScore - a.totalScore)
+    : Array.from(unique.values()).sort((a, b) => b.totalScore - a.totalScore).slice(0, 3); // fallback: top 3 even if weak
 
   return pickRepresentativeOutfits(exactDeduped, maxCombos, 0.8);
 }
@@ -2253,6 +2257,102 @@ function scoreCombo(
       pair_memory_penalty: pairMem.penalty,
     },
   };
+}
+
+// ─────────────────────────────────────────────
+// HARD QUALITY GATE — reject weak outfits
+// ─────────────────────────────────────────────
+
+interface QualityViolation {
+  rule: string;
+  detail: string;
+}
+
+function qualityGate(combo: ScoredCombo, weather: WeatherInput): boolean {
+  const violations = getQualityViolations(combo, weather);
+  return violations.length === 0;
+}
+
+function getQualityViolations(combo: ScoredCombo, weather: WeatherInput): QualityViolation[] {
+  const violations: QualityViolation[] = [];
+  const { items, breakdown } = combo;
+
+  // 1. Duplicate core roles — two items in same mandatory slot
+  const slotCounts = new Map<string, number>();
+  for (const item of items) {
+    const s = item.slot;
+    slotCounts.set(s, (slotCounts.get(s) || 0) + 1);
+  }
+  for (const [slot, count] of slotCounts) {
+    if (['top', 'bottom', 'shoes', 'dress'].includes(slot) && count > 1) {
+      violations.push({ rule: 'duplicate_core_role', detail: `${count}x ${slot}` });
+    }
+  }
+
+  // 2. Weather mismatch — practicality too low
+  if ((breakdown.practicality ?? 7) < 3) {
+    violations.push({ rule: 'weather_mismatch', detail: `practicality ${breakdown.practicality?.toFixed(1)}` });
+  }
+
+  // 3. Formality mismatch — too wide a spread between items
+  if ((breakdown.formalityConsistency ?? 7) < 3) {
+    violations.push({ rule: 'formality_mismatch', detail: `consistency ${breakdown.formalityConsistency?.toFixed(1)}` });
+  }
+
+  // 4. Material clash — hard incompatibility
+  if ((breakdown.material ?? breakdown.material_compatibility ?? 7) < 3) {
+    violations.push({ rule: 'material_clash', detail: `score ${(breakdown.material ?? 7).toFixed(1)}` });
+  }
+
+  // 5. Silhouette imbalance — all oversized or all skin-tight
+  const fits = items
+    .filter(i => ['top', 'bottom', 'dress'].includes(i.slot))
+    .map(i => fitFamily(i.garment.fit));
+  if (fits.length >= 2) {
+    const allRelaxed = fits.every(f => f === 'relaxed');
+    const allTight = fits.every(f => f === 'fitted');
+    if (allRelaxed) violations.push({ rule: 'silhouette_imbalance', detail: 'all oversized' });
+    if (allTight && fits.length >= 3) violations.push({ rule: 'silhouette_imbalance', detail: 'all skin-tight' });
+  }
+
+  // 6. Statement conflict — more than one bold/saturated item in core slots
+  const boldCount = items
+    .filter(i => ['top', 'bottom', 'dress', 'shoes'].includes(i.slot))
+    .filter(i => {
+      const hsl = getHSL(i.garment.color_primary);
+      if (!hsl) return false;
+      const [, s, l] = hsl;
+      return s > 65 && l > 25 && l < 75; // high saturation = statement piece
+    }).length;
+  if (boldCount > 2) {
+    violations.push({ rule: 'statement_conflict', detail: `${boldCount} bold items` });
+  }
+
+  // 7. Lazy filler — any core-slot item with very low individual score
+  const coreItems = items.filter(i => ['top', 'bottom', 'shoes', 'dress', 'outerwear'].includes(i.slot));
+  for (const ci of coreItems) {
+    if (ci.baseScore < 2.5) {
+      violations.push({ rule: 'lazy_filler', detail: `${ci.slot} scored ${ci.baseScore.toFixed(1)}` });
+      break; // one is enough to flag
+    }
+  }
+
+  // 8. Incompatible footwear — sandals in cold / boots in extreme heat
+  const shoesItem = items.find(i => i.slot === 'shoes');
+  if (shoesItem && weather.temperature !== undefined) {
+    const title = (shoesItem.garment.title || '').toLowerCase();
+    const sub = (shoesItem.garment.subcategory || '').toLowerCase();
+    const both = `${title} ${sub}`;
+    const feelsTemp = feelsLikeTemp(weather.temperature, weather.wind);
+    if (feelsTemp < 5 && (both.includes('sandal') || both.includes('flip'))) {
+      violations.push({ rule: 'footwear_mismatch', detail: 'sandals in cold weather' });
+    }
+    if (feelsTemp > 30 && (both.includes('boot') || both.includes('stövel')) && !both.includes('chelsea')) {
+      violations.push({ rule: 'footwear_mismatch', detail: 'heavy boots in extreme heat' });
+    }
+  }
+
+  return violations;
 }
 
 // ─────────────────────────────────────────────
