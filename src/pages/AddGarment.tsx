@@ -856,7 +856,7 @@ export default function AddGarmentPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-secondary rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-secondary">
             <Label>{t('addgarment.form.in_laundry')}</Label>
             <Switch checked={inLaundry} onCheckedChange={setInLaundry} />
           </div>
