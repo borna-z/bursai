@@ -1,95 +1,137 @@
+# BURS Prompt Pack v2 — Full Roadmap (33 Tasks + Intelligence Blueprint)
 
-
-## Current UX Issues
-
-The `OutfitGenerate.tsx` page currently presents all decisions simultaneously — mode toggle, 6 emoji occasion cards in a 3×2 grid, 4 style groups with ~18 chips, weather card, and a floating CTA. This creates a "filter form" feeling rather than a guided stylist experience. Emoji icons (`👕`, `🎉`, `❤️`) clash with the Scandinavian editorial aesthetic. There's no progressive disclosure or decision hierarchy.
+**Global rule:** BURS must remain on Lovable. Use burs.me/welcome as the visual source of truth.
 
 ---
 
-## Redesigned Flow
+## Phase 1 — Foundation ✅
 
-A single-page, stepped experience using **scroll-based progressive reveal** (not a wizard/stepper — everything lives on one scrollable page but sections unlock sequentially with gentle animation).
+| Task | Title | Status |
+|------|-------|--------|
+| 1 | Full product audit | ✅ Done |
+| 2 | Unify the design system | ✅ Done |
+| 3 | Premium app feel pass | ✅ Done |
+| 4 | Protect critical flows while refactoring | ✅ Done |
 
-```text
-┌─────────────────────────────────────┐
-│  Header: "Let me style you"         │
-│  Weather context strip (integrated) │
-├─────────────────────────────────────┤
-│  STEP 1: Mode                       │
-│  Two editorial cards:               │
-│  "Quick Look" vs "Stylist Mode"     │
-├─────────────────────────────────────┤
-│  STEP 2: Occasion (reveals after    │
-│  mode is selected)                  │
-│  6 text-only buttons, clean grid    │
-│  No emojis, Lucide icons only       │
-├─────────────────────────────────────┤
-│  STEP 3: Style refinement           │
-│  (optional, collapsed by default)   │
-│  "Add a style direction" toggle     │
-│  Shows max 6 curated chips          │
-├─────────────────────────────────────┤
-│  Sticky CTA bar at bottom           │
-│  "Style me" with context subtitle   │
-└─────────────────────────────────────┘
-```
+## Phase 2 — Core Stylist Quality ✅
+
+| Task | Title | Status |
+|------|-------|--------|
+| 5 | Best-in-class scan flow | ✅ Done |
+| 6 | Expand garment intelligence | ✅ Done |
+| 7 | Real outfit engine experience | ✅ Done |
+| 8 | Hard outfit quality rules | ✅ Done |
+| 9 | Editorial result screen | ✅ Done |
+| 10 | Smart swaps | ✅ Done |
+| 11 | Elite stylist chat | ✅ Done |
+| 12 | Sharper stylist language system | ✅ Done |
+
+## Phase 3 — Personalization ✅
+
+| Task | Title | Status |
+|------|-------|--------|
+| 13 | Stronger style profile | ✅ Done |
+| 14 | Better onboarding | ✅ Done |
+| 15 | Better feedback learning | ✅ Done |
+| 16 | Personal uniform / style DNA | ✅ Done |
+| 17 | Make the app feel like a stylist, not a tool | ✅ Done |
+
+## Phase 4 — Retention and Habit ✅
+
+| Task | Title | Status |
+|------|-------|--------|
+| 18 | Weekly stylist planner | ✅ Done |
+| 19 | Daily "What should I wear?" flow | ✅ Done |
+| 20 | High-end wardrobe insights | ✅ Done |
+| 21 | Wardrobe health dashboard | ✅ Done |
+| 22 | Retention loops | ✅ Done |
+
+## Phase 5 — Premium Conversion and Trust ✅
+
+| Task | Title | Status |
+|------|-------|--------|
+| 23 | Real Stylist Mode | ✅ Done |
+| 24 | Stronger premium subscription experience | ✅ Done |
+| 25 | Trust pass | ✅ Done |
+| 26 | Reduce feature chaos | ✅ Done |
+
+## Phase 6 — Final Polish ✅
+
+| Task | Title | Status |
+|------|-------|--------|
+| 27 | Premium empty states | ✅ Done |
+| 28 | Premium loading states | ✅ Done |
+| 29 | Make the app feel more native | ✅ Done |
+| 30 | World-class garment detail screen | ✅ Done |
+| 31 | Lookbook-level visual polish | ✅ Done |
+| 32 | Full polish pass | ✅ Done |
+| 33 | Final 90+ market-leader pass | ✅ Done |
 
 ---
 
-## Implementation Plan
+## Intelligence Blueprint — AI Stylist Upgrade
 
-### 1. Rewrite `src/pages/OutfitGenerate.tsx`
+### IB Phase 1 — Unlock Enrichment Data in Style Engine ✅
 
-**Header & Weather Integration:**
-- Replace generic header with editorial headline: context-aware based on time of day
-- Integrate weather as a subtle inline strip below the headline showing temp, location, and a styling note (e.g., "Light layers recommended") — not a separate card
+| Task | Title | Status |
+|------|-------|--------|
+| IB-1a | Expand GarmentRow with enrichment fields (silhouette, visual_weight, texture_intensity, layering_role, versatility_score, occasion_tags, style_archetype) | ✅ Done |
+| IB-1b | Hydrate enrichment from ai_raw with safe defaults | ✅ Done |
+| IB-1c | Upgrade scoreGarment: occasion tag matching, layering role vs weather, versatility boost | ✅ Done |
+| IB-1d | Upgrade scoreCombo: silhouette balance scoring, texture depth scoring | ✅ Done |
+| IB-1e | Add texture monotony rule to quality gate | ✅ Done |
 
-**Step 1 — Mode Selection:**
-- Two side-by-side editorial cards (not toggle chips)
-- "Quick Look": Sparkles icon, "Fast, balanced, everyday" subtitle
-- "Stylist Mode": Crown icon, "Deeper curation, editorial picks" + Premium badge if not subscribed
-- Selected state: `border-primary` + subtle `bg-primary/5`
+### IB Phase 2 — Travel Capsule Constrained Optimizer ✅
 
-**Step 2 — Occasion:**
-- Replaces emoji grid with clean text+icon buttons
-- 6 occasions using Lucide icons: `Briefcase` (Work), `Coffee` (Casual), `Wine` (Evening), `Heart` (Date), `Dumbbell` (Workout), `Plane` (Travel)
-- Single-column or 2-column layout, larger touch targets
-- Selected state: filled background + checkmark indicator
-- Uses `motion.div` with `AnimatePresence` for gentle reveal
+| Task | Title | Status |
+|------|-------|--------|
+| IB-2a | Score pack-worthiness per garment (versatility, material, weather, pairing potential) | ✅ Done |
+| IB-2b | Pre-filter to top 40 most packable garments before AI call | ✅ Done |
+| IB-2c | Matrix coverage validation after AI response | ✅ Done |
 
-**Step 3 — Style (optional):**
-- Collapsed by default with "Add a style direction" text button
-- When expanded, shows a **single flat row** of max 6-8 curated styles (merged from current 4 groups into one smart list)
-- Selecting is optional; subtitle says "Leave empty for a balanced look"
-- Toggle behavior: tap to select, tap again to deselect
+### IB Phase 3 — Planner Week Intelligence ✅
 
-**Weather context note:**
-- A single line below the header: `"{temp}° in {city} — {styling advice}"`
-- Styling advice derived from weather: "Layer up", "Light & breathable", "Rain-ready fabrics"
+| Task | Title | Status |
+|------|-------|--------|
+| IB-3a | Add plan_week mode to style engine (sequential generation with used_garments carry-forward) | ✅ Done |
+| IB-3b | Inter-day repetition penalty (hero garments heavy, accessories light) | ✅ Done |
+| IB-3c | Formality variation across planned days | ✅ Done |
+| IB-3d | Expose backup outfit (2nd-ranked combo) per day | ✅ Done |
+| IB-3e | Laundry-aware generation with dirty garment warnings | ✅ Done |
 
-**CTA:**
-- Sticky bottom bar with frosted glass (`backdrop-blur-2xl`)
-- Shows selected context as subtitle: "Casual · Minimal · 18°C"
-- "Style me" button, full width, premium feel
-- Remaining outfits count for free users
+### IB Phase 4 — Chat Intelligence Upgrade ✅
 
-**Generating/Error phases:** Keep existing logic, no changes needed.
+| Task | Title | Status |
+|------|-------|--------|
+| IB-4a | Include enrichment data in wardrobe context sent to chat | ✅ Done |
+| IB-4b | Add wardrobe composition summary (style clusters, gaps) | ✅ Done |
+| IB-4c | Include recent rejection/swap context in chat prompt | ✅ Done |
 
-### 2. Files Changed
+### IB Phase 5 — Learning & Signal Refinement ✅
 
-| File | Change |
-|---|---|
-| `src/pages/OutfitGenerate.tsx` | Full rewrite of the picking phase UI |
+| Task | Title | Status |
+|------|-------|--------|
+| IB-5a | Track rejection reasons (swapped garment + slot, ignored outfits) | ✅ Done |
+| IB-5b | Weight "wore it" 3x over "saved it", add planned-but-not-worn negative signal | ✅ Done |
+| IB-5c | Personal uniform detection (>60% same silhouette formula → boost) | ✅ Done |
 
-No changes to hooks, edge functions, routing, auth, or subscriptions. All generation logic (`useOutfitGenerator`, `handleGenerate`) stays identical — only the presentation layer changes.
+### IB Phase 6 — UI Trust & Polish ✅
 
-### 3. Key Design Decisions
+| Task | Title | Status |
+|------|-------|--------|
+| IB-6a | Audit and fix raw enum/key exposure in UI (occasion labels, categories) | ✅ Done |
+| IB-6b | Per-attribute confidence indicators on garment detail | ✅ Done |
+| IB-6c | Editorial formatting for limitation_note and gap strings | ✅ Done |
 
-- **No emojis anywhere** — all icons from Lucide
-- **Progressive disclosure** — style section starts collapsed
-- **Fewer visible choices** — 6 occasions (icon+text, no gradients), 6-8 styles (single row)
-- **Weather as context, not a card** — inline strip with styling implication
-- **Mode selection is first** — sets the tone before occasion picking
-- **Square edges in light mode** per brand guidelines (`rounded-none` or `rounded-sm` for cards, keeping `rounded-xl` only for interactive elements)
-- **Editorial typography** — `label-editorial` for section labels, `tracking-[-0.03em]` for headlines
+---
 
+## Intelligence Blueprint Priority Order
+
+| Phase | Scope | Risk | Priority |
+|-------|-------|------|----------|
+| IB-1 | Style engine enrichment | Low — additive scoring | ✅ Complete |
+| IB-2 | Travel capsule optimizer | Medium — changes AI input | ✅ Complete |
+| IB-3 | Planner week intelligence | Medium — new mode | ✅ Complete |
+| IB-4 | Chat intelligence | Low — prompt changes | Medium |
+| IB-5 | Learning refinement | Low — additive | Medium |
+| IB-6 | UI polish | Low — frontend only | Medium |
