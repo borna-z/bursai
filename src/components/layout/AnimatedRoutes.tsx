@@ -49,7 +49,7 @@ const MoodOutfit = lazy(() => import('@/pages/MoodOutfit'));
 const Discover = lazy(() => import('@/pages/Discover'));
 const PickMustHaves = lazy(() => import('@/pages/PickMustHaves'));
 const UnusedOutfits = lazy(() => import('@/pages/UnusedOutfits'));
-const StylePicker = lazy(() => import('@/pages/StylePicker'));
+
 const UsedGarments = lazy(() => import('@/pages/UsedGarments'));
 
 const routeTransition = {
