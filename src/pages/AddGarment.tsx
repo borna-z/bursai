@@ -640,8 +640,26 @@ export default function AddGarmentPage() {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8">
         <div className="flex flex-col items-center gap-6 w-full max-w-xs">
+          {/* Background removal indicator */}
+          {isRemovingBg && !analysisError && !analysisSummary && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center gap-3 w-full"
+            >
+              {imagePreview && (
+                <div className="aspect-square w-48 overflow-hidden bg-[hsl(36_33%_93%)]">
+                  <img src={imagePreview} alt="Preview" className="w-full h-full object-contain" />
+                </div>
+              )}
+              <div className="w-full space-y-2">
+                <Progress value={undefined} className="h-1.5 animate-pulse" />
+                <p className="text-sm text-muted-foreground text-center">Removing background…</p>
+              </div>
+            </motion.div>
+          )}
           {/* Error state */}
-          {analysisError ? (
+          {!isRemovingBg && analysisError ? (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -663,7 +681,7 @@ export default function AddGarmentPage() {
                 </Button>
               </div>
             </motion.div>
-          ) : analysisSummary ? (
+          ) : !isRemovingBg && analysisSummary ? (
             /* Summary card */
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -674,10 +692,10 @@ export default function AddGarmentPage() {
               <p className="font-medium text-center">{analysisSummary}</p>
               <p className="text-xs text-muted-foreground">{t('addgarment.ai_review')}</p>
             </motion.div>
-          ) : (
+          ) : !isRemovingBg ? (
             /* GarmentAnalysisState */
             <GarmentAnalysisState imageUrl={imagePreview} />
-          )}
+          ) : null}
         </div>
       </div>
     );
