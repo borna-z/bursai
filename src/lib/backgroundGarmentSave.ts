@@ -22,14 +22,15 @@ export async function saveGarmentInBackground(
 
   try {
     garmentId = crypto.randomUUID();
-    const ext = 'jpg';
+    const isPng = result.blob.type === 'image/png';
+    const ext = isPng ? 'png' : 'jpg';
     storagePath = `${userId}/${garmentId}.${ext}`;
 
     // Upload to storage
     const { error: uploadError } = await supabase.storage
       .from('garments')
       .upload(storagePath, result.blob, {
-        contentType: 'image/jpeg',
+        contentType: isPng ? 'image/png' : 'image/jpeg',
         upsert: false,
       });
 

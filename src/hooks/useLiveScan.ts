@@ -48,13 +48,18 @@ export function useLiveScan() {
     setLastResult(null);
 
     try {
+      // Phase 1: compress
       const canvas = getCanvas();
       const { blob: rawBlob, base64: rawBase64 } = await compressCenterCrop(canvas, videoEl);
 
-      // Remove background
+      // Phase 2: background removal (visible to user)
+      setIsProcessing(false);
       setIsRemovingBackground(true);
       const { blob, base64 } = await removeBackgroundFromDataUrl(rawBase64);
+
+      // Phase 3: AI analysis
       setIsRemovingBackground(false);
+      setIsProcessing(true);
 
       const thumbnailUrl = URL.createObjectURL(blob);
 
@@ -74,9 +79,9 @@ export function useLiveScan() {
     } catch (err) {
       console.error('Capture error:', err);
       setError('Could not capture image');
-      setIsRemovingBackground(false);
     } finally {
       setIsProcessing(false);
+      setIsRemovingBackground(false);
     }
   }, [user, isProcessing, getCanvas]);
 
@@ -90,13 +95,18 @@ export function useLiveScan() {
     setLastResult(null);
 
     try {
+      // Phase 1: compress
       const { file: compressed, previewUrl } = await compressImage(file, { maxDimension: 480, quality: 0.5 });
       const rawBlob = compressed as Blob;
 
-      // Remove background
+      // Phase 2: background removal (visible to user)
+      setIsProcessing(false);
       setIsRemovingBackground(true);
       const processedBlob = await removeBackground(rawBlob);
+
+      // Phase 3: AI analysis
       setIsRemovingBackground(false);
+      setIsProcessing(true);
 
       // Revoke old preview, create new one from processed blob
       URL.revokeObjectURL(previewUrl);
@@ -125,9 +135,9 @@ export function useLiveScan() {
     } catch (err) {
       console.error('File capture error:', err);
       setError('Could not process image');
-      setIsRemovingBackground(false);
     } finally {
       setIsProcessing(false);
+      setIsRemovingBackground(false);
     }
   }, [user, isProcessing]);
 
