@@ -292,14 +292,13 @@ export default function PlanPage() {
         {/* Laundry alert */}
         <LaundryAlertBanner />
 
-        {/* Week navigation */}
-        <div className="py-3">
-          <WeekStrip 
-            selectedDate={selectedDate}
-            onSelectDate={setSelectedDate}
-            plannedOutfits={plannedOutfits}
-          />
-        </div>
+        {/* Week overview with thumbnails + repetition detection */}
+        <WeekOverview
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+          plannedOutfits={plannedOutfits}
+          className="py-3"
+        />
 
         {/* Day content */}
         <motion.div
