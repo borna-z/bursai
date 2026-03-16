@@ -2415,19 +2415,26 @@ function scoreCombo(
   const occasionScore = occasionTemplateScore(items, occasion, weather);
   const practicality = weatherPracticalityScore(items, weather);
 
+  // Enrichment-aware combo scores (Phase 1)
+  const silBalance = silhouetteBalanceScore(items);
+  const texDepth = textureDepthScore(items);
+
   // Pair memory scoring
   const garmentIds = items.map(i => i.garment.id);
   const pairMem = getPairMemoryScore(garmentIds, pairMemory);
 
+  // Rebalanced weights: added silhouette + texture, slightly reduced others
   const totalScore =
-    avgBaseScore * 0.32 +
-    colorScore * 0.15 +
-    matScore * 0.07 +
-    formalityConsistency * 0.11 +
-    fitScore * 0.09 +
-    styleScore * 0.09 +
-    occasionScore * 0.09 +
-    practicality * 0.08 +
+    avgBaseScore * 0.28 +
+    colorScore * 0.13 +
+    matScore * 0.06 +
+    formalityConsistency * 0.09 +
+    fitScore * 0.07 +
+    styleScore * 0.08 +
+    occasionScore * 0.08 +
+    practicality * 0.07 +
+    silBalance * 0.07 +    // NEW: silhouette balance
+    texDepth * 0.07 +      // NEW: texture depth
     pairMem.boost -
     pairMem.penalty -
     repetitionPenalty;
@@ -2450,6 +2457,8 @@ function scoreCombo(
       occasion_fit: occasionScore,
       practicality,
       fitProportion: fitScore,
+      silhouette_balance: silBalance,
+      texture_depth: texDepth,
       repetitionPenalty,
       pair_memory_boost: pairMem.boost,
       pair_memory_penalty: pairMem.penalty,
