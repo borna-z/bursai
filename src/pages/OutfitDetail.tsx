@@ -56,6 +56,12 @@ function SwapSheet({
 }: SwapSheetProps) {
   const slotLabel = t(`outfit.slot.${slot}`) || slot;
 
+  const modeDescriptions: Record<string, string> = {
+    safe: t('swap.mode_safe_desc') || 'Similar style, minimal risk',
+    bold: t('swap.mode_bold_desc') || 'Push your boundaries',
+    fresh: t('swap.mode_fresh_desc') || 'Least worn items first',
+  };
+
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="bottom" className="h-[72vh]">
@@ -64,34 +70,28 @@ function SwapSheet({
           <SheetDescription>{t('outfit.swap_description')}</SheetDescription>
         </SheetHeader>
 
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <Button
-            type="button"
-            variant={mode === 'safe' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onModeChange('safe')}
-          >
-            {t('swap.mode_safe') || 'Safe'}
-          </Button>
-          <Button
-            type="button"
-            variant={mode === 'bold' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onModeChange('bold')}
-          >
-            {t('swap.mode_bold') || 'Bold'}
-          </Button>
-          <Button
-            type="button"
-            variant={mode === 'fresh' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onModeChange('fresh')}
-          >
-            {t('swap.mode_fresh') || 'Fresh'}
-          </Button>
+        <div className="mt-4 space-y-2">
+          <div className="grid grid-cols-3 gap-2">
+            {(['safe', 'bold', 'fresh'] as const).map((m) => (
+              <Button
+                key={m}
+                type="button"
+                variant={mode === m ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => onModeChange(m)}
+                className="rounded-xl"
+              >
+                {m === 'safe' ? '🔒' : m === 'bold' ? '⚡' : '🌿'}{' '}
+                {t(`swap.mode_${m}`) || m.charAt(0).toUpperCase() + m.slice(1)}
+              </Button>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted-foreground/50 text-center">
+            {modeDescriptions[mode]}
+          </p>
         </div>
 
-        <div className="mt-4 pb-8 space-y-2">
+        <div className="mt-4 pb-8 space-y-2 overflow-y-auto">
           {isLoading ? (
             <SwapLoadingState />
           ) : candidates.length === 0 ? (
@@ -100,26 +100,32 @@ function SwapSheet({
               <p className="text-sm mt-1">{t('outfit.add_more')}</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {candidates.map((candidate) => (
+            <div className="space-y-1.5">
+              {candidates.map((candidate, idx) => (
                 <button
                   key={candidate.garment.id}
                   onClick={() => onSelect(candidate.garment.id)}
                   disabled={isSwapping}
                   className={cn(
-                    "w-full flex items-center gap-3 p-3 rounded-xl transition-all hover:bg-secondary/80 bg-secondary/60 backdrop-blur-sm active:scale-[0.99]",
+                    "w-full flex items-center gap-3 p-3 rounded-xl transition-all hover:bg-secondary/80 bg-secondary/40 backdrop-blur-sm active:scale-[0.99]",
+                    idx === 0 && "ring-1 ring-primary/20 bg-primary/5",
                     isSwapping && "opacity-50"
                   )}
                 >
                   <LazyImageSimple
                     imagePath={candidate.garment.image_path}
                     alt={candidate.garment.title}
-                    className="w-16 h-16 rounded-lg flex-shrink-0"
+                    className="w-14 h-14 rounded-lg flex-shrink-0"
                   />
                   <div className="flex-1 text-left min-w-0">
-                    <p className="font-medium truncate">{stripBrands(candidate.garment.title)}</p>
-                    <p className="text-sm text-muted-foreground capitalize">{candidate.garment.color_primary}</p>
+                    <p className="font-medium text-sm truncate">{stripBrands(candidate.garment.title)}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{candidate.garment.color_primary}</p>
                   </div>
+                  {idx === 0 && (
+                    <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full flex-shrink-0">
+                      {t('swap.best_match') || 'Best'}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
