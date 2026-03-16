@@ -20,6 +20,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { WeekStrip } from '@/components/plan/WeekStrip';
+import { WeekOverview } from '@/components/plan/WeekOverview';
 
 import { QuickGenerateSheet } from '@/components/plan/QuickGenerateSheet';
 import { SwapSheet } from '@/components/plan/SwapSheet';
@@ -291,14 +292,13 @@ export default function PlanPage() {
         {/* Laundry alert */}
         <LaundryAlertBanner />
 
-        {/* Week navigation */}
-        <div className="py-3">
-          <WeekStrip 
-            selectedDate={selectedDate}
-            onSelectDate={setSelectedDate}
-            plannedOutfits={plannedOutfits}
-          />
-        </div>
+        {/* Week overview with thumbnails + repetition detection */}
+        <WeekOverview
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+          plannedOutfits={plannedOutfits}
+          className="py-3"
+        />
 
         {/* Day content */}
         <motion.div
@@ -474,11 +474,11 @@ export default function PlanPage() {
               )}
             </div>
           ) : (
-            /* Empty state — centered with single primary CTA */
+            /* Empty state — editorial stylist copy */
             <EmptyState
               icon={CalendarDays}
-              title={t('plan.no_outfit')}
-              description={t('plan.no_outfit_desc') || t('plan.no_outfit')}
+              title={isToday(selectedDate) ? 'Nothing planned for today' : isTomorrow(selectedDate) ? 'Tomorrow is wide open' : 'No outfit planned yet'}
+              description={isToday(selectedDate) ? 'Let me suggest something based on your day.' : 'Generate an outfit and I\'ll match it to the weather and your schedule.'}
               action={{
                 label: t('plan.generate'),
                 onClick: () => setQuickGenerateSheetOpen(true),

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Settings, Heart, Sparkles, CalendarDays, CloudRain, Shirt, ChevronRight } from 'lucide-react';
+import { TodayOutfitHero } from '@/components/home/TodayOutfitHero';
 import { format } from 'date-fns';
 import { enUS, nb, sv, da, fi, de, fr, es, it, pt, nl, pl, ar } from 'date-fns/locale';
 
@@ -17,7 +18,10 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { AISuggestions } from '@/components/insights/AISuggestions';
 import { QuickActionsRow } from '@/components/home/QuickActionsRow';
 import { WardrobeGapSection } from '@/components/discover/WardrobeGapSection';
-import { usePlannedOutfitsForDate } from '@/hooks/usePlannedOutfits';
+import { usePlannedOutfitsForDate, usePlannedOutfits } from '@/hooks/usePlannedOutfits';
+import { useInsights } from '@/hooks/useInsights';
+import { UnusedGemBanner } from '@/components/home/UnusedGemBanner';
+import { WeekPlanningNudge } from '@/components/home/WeekPlanningNudge';
 import { useWeather } from '@/hooks/useWeather';
 import { useLocation } from '@/contexts/LocationContext';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
@@ -60,6 +64,8 @@ export default function HomePage() {
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const { data: todayOutfits, isLoading: isOutfitsLoading } = usePlannedOutfitsForDate(todayStr);
+  const { data: weekPlannedOutfits = [] } = usePlannedOutfits();
+  const { data: insightsData } = useInsights();
   const { effectiveCity } = useLocation();
   const { weather } = useWeather({ city: effectiveCity });
 
@@ -133,29 +139,7 @@ export default function HomePage() {
             {getStylistTip({ weather, garmentCount: garmentCount ?? undefined })}
           </motion.p>
 
-          {/* ── Weather alert banner ── */}
-          {homeState === 'weather_alert' && !todayOutfit && (
-            <motion.div
-              variants={reveal.variants}
-              initial="initial"
-              animate="animate"
-              transition={reveal.transition}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl surface-secondary"
-            >
-              <CloudRain className="w-4 h-4 text-primary shrink-0" />
-              <p className="text-[12px] text-foreground/80 leading-snug flex-1">
-                {t('home.weather_alert_rain')}
-              </p>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="shrink-0 h-8 text-xs text-primary"
-                onClick={() => { hapticLight(); navigate('/outfits/generate'); }}
-              >
-                {t('home.generate_now')}
-              </Button>
-            </motion.div>
-          )}
+          {/* Weather alert is now handled by the TodayOutfitHero context-awareness */}
 
           {/* ── 2. Hero — state-aware with FadeReplace ── */}
           <FadeReplace
@@ -226,34 +210,26 @@ export default function HomePage() {
                 <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
               </motion.button>
             ) : (
-              /* no_outfit — stylist prompt */
-              <motion.div
-                variants={reveal.variants}
-                initial="initial"
-                animate="animate"
-                transition={reveal.transition}
-                className="rounded-[var(--radius,1rem)] surface-secondary p-8 text-center space-y-5"
-              >
-                <Sparkles className="w-8 h-8 text-primary/50 mx-auto" />
-                <div className="space-y-2">
-                  <h3 className="text-[15px] font-semibold">{t('home.no_outfit_title')}</h3>
-                  <p className="text-[12px] text-muted-foreground/60 max-w-[260px] mx-auto leading-relaxed">
-                    Tell me the occasion — I'll pull together something that works.
-                  </p>
-                </div>
-                <Button
-                  onClick={() => { hapticLight(); navigate('/outfits/generate'); }}
-                  className="w-full max-w-[200px] h-11"
-                >
-                  {t('home.generate_now')}
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
-              </motion.div>
+              /* no_outfit — premium "What should I wear?" hero */
+              <TodayOutfitHero
+                weather={weather}
+                garmentCount={garmentCount ?? undefined}
+              />
             )}
           </FadeReplace>
 
           {/* ── 3. Quick Actions — secondary shortcuts ── */}
           <QuickActionsRow />
+
+          {/* ── Retention: Planning nudge + Unused gem ── */}
+          {(garmentCount || 0) >= 3 && (
+            <div className="space-y-2">
+              <WeekPlanningNudge plannedOutfits={weekPlannedOutfits} />
+              {insightsData?.unusedGarments && insightsData.unusedGarments.length > 3 && (
+                <UnusedGemBanner unusedGarments={insightsData.unusedGarments} />
+              )}
+            </div>
+          )}
 
           {/* ── 3b. AI Suggestions — always visible with 3+ garments ── */}
           {(garmentCount || 0) >= 3 && (
