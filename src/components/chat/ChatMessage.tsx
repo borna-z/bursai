@@ -79,12 +79,12 @@ export function ChatMessage({ message, isStreaming, garmentMap, isShopping, onTr
           {images.length > 0 && (
             <div className="flex gap-2 flex-wrap justify-end">
               {images.map((url, i) => (
-                <img key={i} src={url} alt="Upload" className="h-32 w-32 object-cover rounded-2xl" />
+                <img key={i} src={url} alt="Upload" className="h-32 w-32 object-cover rounded-2xl shadow-sm" />
               ))}
             </div>
           )}
           {text && (
-            <div className="bg-foreground/[0.06] rounded-2xl rounded-br-sm px-4 py-3 text-[15px] leading-[1.7] whitespace-pre-wrap text-foreground">
+            <div className="bg-primary/10 text-foreground rounded-2xl rounded-br-md px-4 py-3 text-[15px] leading-[1.7] whitespace-pre-wrap">
               {text}
             </div>
           )}
