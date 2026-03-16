@@ -51,7 +51,7 @@
 | Task | Title | Status |
 |------|-------|--------|
 | 23 | Real Stylist Mode | ✅ Done |
-| 24 | Stronger premium subscription experience | 🔲 |
+| 24 | Stronger premium subscription experience | ✅ Done |
 | 25 | Trust pass | 🔲 |
 | 26 | Reduce feature chaos | 🔲 |
 
