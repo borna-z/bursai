@@ -2782,7 +2782,8 @@ async function aiRefine(
   style: string | null,
   weather: WeatherInput,
   styleContext: string,
-  locale: string
+  locale: string,
+  isStylistMode = false
 ): Promise<any> {
   const localeName = LOCALE_NAMES[locale] || "English";
 
@@ -2798,12 +2799,21 @@ async function aiRefine(
   const hintsStr = styleHints.length > 0 ? `\nSTYLE DIRECTION: ${styleHints.join(", ")}` : "";
   const seasonStr = `\nSEASON: ${season}`;
 
+  const stylistEnhancement = isStylistMode
+    ? `\n\nSTYLIST MODE: You are operating at the highest level. Apply deeper reasoning:
+- Consider silhouette balance, proportion, and visual weight
+- Evaluate texture interplay between pieces
+- Assess color temperature harmony (warm vs cool tones)
+- Factor in the overall mood and confidence the outfit projects
+- Write the explanation as editorial styling notes — mention WHY specific pieces work together in terms of proportion, texture, and color logic. Be specific, not generic.`
+    : "";
+
   const systemPrompt = mode === "generate"
     ? `You are a world-class stylist. Pick the SINGLE best outfit from the pre-scored candidates below. Consider overall aesthetic, color harmony, seasonal appropriateness, and suitability for the occasion.
 
 OCCASION: ${occasion}${style ? `\nSTYLE: ${style}` : ""}${hintsStr}${seasonStr}
 WEATHER: ${weather.temperature !== undefined ? weather.temperature + "°C" : "unknown"}${weather.precipitation ? ", " + weather.precipitation : ""}${weather.wind ? ", wind: " + weather.wind : ""}
-${styleContext ? `\nUSER PROFILE: ${styleContext}` : ""}
+${styleContext ? `\nUSER PROFILE: ${styleContext}` : ""}${stylistEnhancement}
 
 Write the explanation in ${localeName}.
 
