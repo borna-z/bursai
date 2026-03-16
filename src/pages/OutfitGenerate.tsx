@@ -46,6 +46,7 @@ const STYLE_GROUPS = [
 ] as const;
 
 type Phase = 'picking' | 'generating' | 'error';
+type GenerationMode = 'standard' | 'stylist';
 
 export default function OutfitGeneratePage() {
   const navigate = useNavigate();
