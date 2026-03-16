@@ -632,6 +632,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'chat.based_on': 'Baserat på',
     'chat.garments_label': 'plagg',
     'chat.garments_in_wardrobe': 'plagg i din garderob',
+    'chat.greeting_prefix': 'Hej',
+    'chat.welcome_title': 'Din personliga stylist',
+    'chat.welcome_subtitle': 'Fråga mig om din garderob, outfits eller stil',
 
     // Live Scan
     'scan.auto': 'Auto',
@@ -2829,6 +2832,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'chat.based_on': 'Based on',
     'chat.garments_label': 'garments',
     'chat.garments_in_wardrobe': 'garments in your wardrobe',
+    'chat.greeting_prefix': 'Hey',
+    'chat.welcome_title': 'Your personal stylist',
+    'chat.welcome_subtitle': 'Ask me anything about your wardrobe, outfits, or style',
     'scan.auto': 'Auto',
     'scan.scanned': 'scanned',
     'scan.done': 'Done',
