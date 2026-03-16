@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, AlertCircle, CloudSun, Wind, Droplets, Zap } from 'lucide-react';
+import { Sparkles, AlertCircle, CloudSun, Wind, Droplets, Zap, Crown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
