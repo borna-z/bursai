@@ -236,6 +236,9 @@ async function generateOutfitViaEngine(
     limitation_note: limitationNote,
     family_label: familyLabel,
     wardrobe_insights: wardrobeInsights,
+    layer_order: layerOrder,
+    needs_base_layer: needsBaseLayer,
+    occasion_submode: occasionSubmode,
   };
 }
 
