@@ -11,6 +11,7 @@ export interface OutfitRequest {
   style?: string | null;
   locale?: string;
   eventTitle?: string | null;
+  mode?: 'standard' | 'stylist';
   weather: {
     temperature?: number;
     precipitation: string;
