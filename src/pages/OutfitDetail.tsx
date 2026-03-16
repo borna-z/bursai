@@ -356,6 +356,7 @@ export default function OutfitDetailPage() {
     setRating(value);
     try {
       await updateOutfit.mutateAsync({ id: outfit.id, updates: { rating: value } });
+      recordSignal({ signal_type: 'rating', outfit_id: outfit.id, value: String(value) });
       toast.success(t('outfit.rating_saved'));
     } catch {
       toast.error(t('common.something_wrong'));
