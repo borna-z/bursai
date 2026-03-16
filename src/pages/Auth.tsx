@@ -62,7 +62,6 @@ export default function AuthPage() {
     e.preventDefault();
     if (!email || !password) { toast.error(t('auth.fill_all')); return; }
     setIsLoading(true);
-    localStorage.setItem('remember_me', rememberMe ? 'true' : 'false');
     const { error } = await signIn(email, password);
     setIsLoading(false);
     if (error) {
