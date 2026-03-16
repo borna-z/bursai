@@ -12,14 +12,18 @@ import { LocationProvider } from "@/contexts/LocationContext";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import { AnimatedRoutes } from "@/components/layout/AnimatedRoutes";
 import { useDeepLink } from "@/hooks/useDeepLink";
+import { CookieConsent } from "@/components/landing/CookieConsent";
+import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
 
 /** Renders nothing — just activates the deep link listener inside BrowserRouter */
 function DeepLinkHandler() {
   useDeepLink();
   return null;
 }
-import { CookieConsent } from "@/components/landing/CookieConsent";
-import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
+
+function SentryFallback() {
+  return <ErrorBoundary>{null}</ErrorBoundary>;
+}
 
 // Lazy-load Sentry ErrorBoundary — only wraps if Sentry is available
 const SentryErrorBoundary = lazy(() =>
@@ -31,11 +35,11 @@ const SentryErrorBoundary = lazy(() =>
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 2,      // 2 minutes
-      gcTime: 1000 * 60 * 30,         // 30 minutes — keep cache longer for offline
+      staleTime: 1000 * 60 * 2,
+      gcTime: 1000 * 60 * 30,
       refetchOnWindowFocus: false,
       retry: 1,
-      networkMode: 'offlineFirst',     // serve cached data when offline
+      networkMode: 'offlineFirst',
     },
     mutations: {
       networkMode: 'offlineFirst',
@@ -51,16 +55,16 @@ const AppInner = () => (
           <AuthProvider>
             <LanguageProvider>
               <LocationProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Sonner />
-                <BrowserRouter>
-                  <ScrollToTop />
-                  <DeepLinkHandler />
-                  <AnimatedRoutes />
-                  <CookieConsent />
-                </BrowserRouter>
-              </TooltipProvider>
+                <TooltipProvider>
+                  <Toaster />
+                  <Sonner />
+                  <BrowserRouter>
+                    <ScrollToTop />
+                    <DeepLinkHandler />
+                    <AnimatedRoutes />
+                    <CookieConsent />
+                  </BrowserRouter>
+                </TooltipProvider>
               </LocationProvider>
             </LanguageProvider>
           </AuthProvider>
@@ -76,7 +80,7 @@ const App = () => {
   if (hasSentry) {
     return (
       <Suspense fallback={<AppInner />}>
-        <SentryErrorBoundary fallback={<ErrorBoundary><></></ErrorBoundary>}>
+        <SentryErrorBoundary fallback={<SentryFallback />}>
           <AppInner />
         </SentryErrorBoundary>
       </Suspense>
