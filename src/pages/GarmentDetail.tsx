@@ -259,11 +259,30 @@ export default function GarmentDetailPage() {
           </p>
         )}
 
-        {/* Enrichment: Style tags */}
-        {enrichment?.style_tags && enrichment.style_tags.length > 0 && (
+        {/* Stylist note — editorial highlight */}
+        {enrichment?.stylist_note && (
+          <div className="border-l-2 border-primary/30 pl-4 py-1">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 mb-1">{t('garment.stylist_note') || 'Stylist note'}</p>
+            <p className="text-[13px] text-foreground/80 italic leading-relaxed">{enrichment.stylist_note}</p>
+          </div>
+        )}
+
+        {/* Style archetype + tags */}
+        {(enrichment?.style_archetype || (enrichment?.style_tags && enrichment.style_tags.length > 0)) && (
           <div className="space-y-2">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50">{t('garment.style') || 'Style'}</p>
-            <DetailChips items={enrichment.style_tags} />
+            <div className="flex flex-wrap gap-1.5">
+              {enrichment?.style_archetype && (
+                <Badge variant="default" className="text-[11px] px-2.5 py-1 capitalize font-medium">
+                  {enrichment.style_archetype}
+                </Badge>
+              )}
+              {enrichment?.style_tags?.map((tag) => (
+                <Badge key={tag} variant="secondary" className="text-[11px] px-2.5 py-1 capitalize font-normal">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
           </div>
         )}
 
@@ -275,15 +294,31 @@ export default function GarmentDetailPage() {
           </div>
         )}
 
-        {/* Enrichment: Construction specs */}
-        {enrichment && (enrichment.neckline || enrichment.sleeve_length || enrichment.garment_length || enrichment.closure || enrichment.fabric_weight || enrichment.layering_role) && (
+        {/* Garment intelligence — silhouette, texture, structure */}
+        {enrichment && (enrichment.silhouette || enrichment.visual_weight || enrichment.texture_intensity || enrichment.drape) && (
           <div className="space-y-1 border border-border/10 px-4 py-1">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 pt-2 pb-1">{t('garment.intelligence') || 'Garment intelligence'}</p>
+            {enrichment.silhouette && <SpecRow label={t('garment.silhouette') || 'Silhouette'} value={enrichment.silhouette} />}
+            {enrichment.visual_weight && <SpecRow label={t('garment.visual_weight') || 'Visual weight'} value={enrichment.visual_weight} />}
+            {enrichment.texture_intensity && <SpecRow label={t('garment.texture') || 'Texture'} value={enrichment.texture_intensity} />}
+            {enrichment.drape && <SpecRow label={t('garment.drape') || 'Drape'} value={enrichment.drape} />}
+            {enrichment.shoulder_structure && <SpecRow label={t('garment.shoulder') || 'Shoulder'} value={enrichment.shoulder_structure} />}
+            {enrichment.hem_detail && <SpecRow label={t('garment.hem') || 'Hem'} value={enrichment.hem_detail} />}
+          </div>
+        )}
+
+        {/* Construction specs — bottoms-specific + general */}
+        {enrichment && (enrichment.neckline || enrichment.sleeve_length || enrichment.garment_length || enrichment.closure || enrichment.fabric_weight || enrichment.layering_role || enrichment.rise || enrichment.leg_shape) && (
+          <div className="space-y-1 border border-border/10 px-4 py-1">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 pt-2 pb-1">{t('garment.construction') || 'Construction'}</p>
             {enrichment.neckline && <SpecRow label={t('garment.neckline') || 'Neckline'} value={enrichment.neckline} />}
             {enrichment.sleeve_length && <SpecRow label={t('garment.sleeve') || 'Sleeve'} value={enrichment.sleeve_length} />}
             {enrichment.garment_length && <SpecRow label={t('garment.length') || 'Length'} value={enrichment.garment_length} />}
             {enrichment.closure && <SpecRow label={t('garment.closure') || 'Closure'} value={enrichment.closure} />}
             {enrichment.fabric_weight && <SpecRow label={t('garment.weight') || 'Weight'} value={enrichment.fabric_weight} />}
             {enrichment.layering_role && <SpecRow label={t('garment.layering') || 'Layering'} value={enrichment.layering_role} />}
+            {enrichment.rise && <SpecRow label={t('garment.rise') || 'Rise'} value={enrichment.rise} />}
+            {enrichment.leg_shape && <SpecRow label={t('garment.leg_shape') || 'Leg shape'} value={enrichment.leg_shape} />}
           </div>
         )}
 
@@ -298,6 +333,13 @@ export default function GarmentDetailPage() {
               )}
             </div>
           </div>
+        )}
+
+        {/* Confidence indicator */}
+        {enrichment?.confidence != null && enrichment.confidence < 0.7 && (
+          <p className="text-[11px] text-muted-foreground/40 italic">
+            {t('garment.low_confidence') || 'Some details may need manual review'} · {Math.round(enrichment.confidence * 100)}%
+          </p>
         )}
 
         {/* Enrichment: Care instructions */}
