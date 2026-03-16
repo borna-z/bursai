@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Check, RotateCcw, Camera, Zap, ZapOff, ImagePlus } from 'lucide-react';
+import { X, Check, RotateCcw, Camera, Zap, ZapOff, ImagePlus, Shirt } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -198,6 +198,48 @@ function ConfidenceBadge({ confidence }: { confidence?: number }) {
   return <Badge variant={variant} className="text-[10px]">{label}</Badge>;
 }
 
+/* ─── Scan history thumbnail strip ─── */
+function ScanHistoryStrip({ thumbnails }: { thumbnails: string[] }) {
+  if (thumbnails.length === 0) return null;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: EASE_CURVE }}
+      className="absolute bottom-4 left-4 right-20 z-10 flex items-center gap-2 overflow-x-auto scrollbar-hide"
+    >
+      {thumbnails.map((url, i) => (
+        <motion.div
+          key={i}
+          initial={{ scale: 0.7, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: i * 0.05, duration: 0.2 }}
+          className="w-11 h-11 rounded-lg overflow-hidden border border-border/20 bg-secondary/40 flex-shrink-0 shadow-sm"
+        >
+          <img src={url} alt="" className="w-full h-full object-cover" />
+        </motion.div>
+      ))}
+    </motion.div>
+  );
+}
+
+/* ─── Remaining slots pill ─── */
+function SlotsPill({ remaining, isPremium }: { remaining: number; isPremium: boolean }) {
+  const { t } = useLanguage();
+  if (isPremium) return null;
+  return (
+    <div className={cn(
+      'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium backdrop-blur-sm border',
+      remaining <= 2
+        ? 'bg-destructive/10 text-destructive border-destructive/20'
+        : 'bg-foreground/5 text-muted-foreground border-border/10'
+    )}>
+      <Shirt className="w-3 h-3" />
+      <span>{remaining} {t('scan.slots_left') || 'left'}</span>
+    </div>
+  );
+}
+
 /* ─── Permission check helper ─── */
 async function checkCameraPermission(): Promise<PermissionState | 'unknown'> {
   try {
@@ -220,6 +262,7 @@ export default function LiveScan() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [showAccepted, setShowAccepted] = useState(false);
   const [autoMode, setAutoMode] = useState(true);
+  const [scanThumbnails, setScanThumbnails] = useState<string[]>([]);
 
   const isMedian = isMedianApp();
   const useFileInputMode = isMedian || !navigator.mediaDevices?.getUserMedia;
@@ -323,7 +366,15 @@ export default function LiveScan() {
     capture(videoRef.current);
   }, [capture, isProcessing, lastResult, isPremium, remainingSlots, useFileInputMode, handleFileCapture]);
 
-  const handleAccept = useCallback(() => { accept(); setShowAccepted(true); }, [accept]);
+  const handleAccept = useCallback(() => {
+    // Save thumbnail for history strip
+    if (lastResult?.thumbnailUrl) {
+      setScanThumbnails(prev => [...prev, lastResult.thumbnailUrl]);
+    }
+    accept();
+    setShowAccepted(true);
+  }, [accept, lastResult]);
+
   const handleAcceptedDone = useCallback(() => { setShowAccepted(false); }, []);
 
   const handleDone = useCallback(async () => {
@@ -356,6 +407,7 @@ export default function LiveScan() {
           <X className="w-5 h-5" />
         </Button>
         <div className="flex items-center gap-2">
+          <SlotsPill remaining={remainingSlots === Infinity ? 999 : remainingSlots} isPremium={isPremium} />
           {cameraReady && !useFileInputMode && (
             <button
               onClick={() => setAutoMode((v) => !v)}
@@ -436,7 +488,7 @@ export default function LiveScan() {
           </div>
         )}
 
-        {/* Fullscreen result overlay */}
+        {/* Fullscreen result overlay — editorial card */}
         <AnimatePresence>
           {lastResult && (
             <motion.div
@@ -445,35 +497,65 @@ export default function LiveScan() {
               exit={{ opacity: 0 }}
               className="absolute inset-0 z-20 bg-background/90 backdrop-blur-xl flex flex-col items-center justify-center p-6"
             >
-              <div className="w-full max-w-sm space-y-6">
-                <img
-                  src={lastResult.thumbnailUrl}
-                  alt="Scanned garment"
-                  className="w-full aspect-[3/4] object-cover rounded-2xl shadow-2xl border border-border/20"
-                />
-                <div className="text-center space-y-2">
-                  <p className="text-foreground text-lg font-semibold">{lastResult.analysis.title}</p>
-                  <p className="text-muted-foreground text-sm capitalize">
-                    {lastResult.analysis.category} · {lastResult.analysis.color_primary}
-                    {lastResult.analysis.material ? ` · ${lastResult.analysis.material}` : ''}
-                  </p>
-                  <ConfidenceBadge confidence={lastResult.confidence} />
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.35, ease: EASE_CURVE }}
+                className="w-full max-w-sm space-y-5"
+              >
+                {/* Image with editorial overlay */}
+                <div className="relative">
+                  <img
+                    src={lastResult.thumbnailUrl}
+                    alt="Scanned garment"
+                    className="w-full aspect-[3/4] object-cover rounded-2xl shadow-2xl border border-border/20"
+                  />
+                  {/* Gradient overlay at bottom for text */}
+                  <div className="absolute bottom-0 inset-x-0 h-1/3 bg-gradient-to-t from-background/80 to-transparent rounded-b-2xl" />
+                  <div className="absolute bottom-4 left-4 right-4 space-y-1.5">
+                    <p className="text-foreground text-lg font-semibold leading-tight drop-shadow-sm">{lastResult.analysis.title}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-foreground/70 text-sm capitalize">
+                        {lastResult.analysis.category}
+                      </span>
+                      <span className="text-foreground/30 text-sm">·</span>
+                      <span className="text-foreground/70 text-sm capitalize">
+                        {lastResult.analysis.color_primary}
+                      </span>
+                      {lastResult.analysis.material && (
+                        <>
+                          <span className="text-foreground/30 text-sm">·</span>
+                          <span className="text-foreground/70 text-sm capitalize">
+                            {lastResult.analysis.material}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <ConfidenceBadge confidence={lastResult.confidence} />
+                  </div>
                 </div>
+
+                {/* Actions */}
                 <div className="flex gap-3">
-                  <Button variant="outline" className="flex-1" onClick={retake}>
+                  <Button variant="outline" className="flex-1 h-12" onClick={retake}>
                     <RotateCcw className="w-4 h-4 mr-2" />{t('scan.retake')}
                   </Button>
-                  <Button className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground" onClick={handleAccept}>
+                  <Button className="flex-1 h-12 bg-accent hover:bg-accent/90 text-accent-foreground" onClick={handleAccept}>
                     <Check className="w-4 h-4 mr-2" />{t('scan.accept')}
                   </Button>
                 </div>
-              </div>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Scan counter pill — bottom left */}
-        {scanCount > 0 && !lastResult && (
+        {/* Scan history thumbnail strip — bottom left */}
+        {!lastResult && !isProcessing && !showAccepted && (
+          <ScanHistoryStrip thumbnails={scanThumbnails} />
+        )}
+
+        {/* Scan counter pill — bottom right (if no history strip or as supplement) */}
+        {scanCount > 0 && !lastResult && scanThumbnails.length === 0 && (
           <div className="absolute bottom-4 left-4 z-10">
             <div className="flex items-center gap-1.5 bg-background/60 backdrop-blur-sm px-3 py-1.5 rounded-full border border-border/10">
               <Check className="w-3.5 h-3.5 text-accent" />
