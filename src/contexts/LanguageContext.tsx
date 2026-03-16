@@ -115,10 +115,13 @@ export function useLanguage() {
       locale: fallbackLocale,
       setLocale: () => {},
       t: (key: string) => {
-        // Try from cache first
         const cached = dictCache.get(fallbackLocale);
         const enCached = dictCache.get('en');
-        return cached?.[key] ?? enCached?.[key] ?? key;
+        const value = cached?.[key] ?? enCached?.[key];
+        if (value != null) return value;
+        const segment = key.includes('.') ? key.slice(key.lastIndexOf('.') + 1) : key;
+        const humanized = segment.replace(/[_-]/g, ' ');
+        return humanized.charAt(0).toUpperCase() + humanized.slice(1);
       },
     };
   }
