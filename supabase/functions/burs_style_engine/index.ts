@@ -1258,8 +1258,77 @@ function inferLayeringRole(category: string, subcategory: string | null): string
   const both = `${category} ${subcategory || ''}`.toLowerCase();
   if (OUTERWEAR_CATS.some(c => both.includes(c))) return 'outer';
   if (['t-shirt', 'tank', 'camisole', 'undershirt'].some(c => both.includes(c))) return 'base';
-  if (['cardigan', 'sweater', 'hoodie', 'vest'].some(c => both.includes(c))) return 'mid';
+  if (['cardigan', 'sweater', 'hoodie', 'vest', 'shacket', 'overshirt', 'utility shirt', 'shirt jacket'].some(c => both.includes(c))) return 'mid';
   return 'standalone';
+}
+
+// ─────────────────────────────────────────────
+// LAYERING COMPLETENESS VALIDATION
+// ─────────────────────────────────────────────
+
+interface LayeringValidation {
+  needs_base_layer: boolean;
+  layer_order: { slot: string; garment_id: string; layer_role: string }[];
+}
+
+const LAYER_SORT_ORDER: Record<string, number> = {
+  base: 0, standalone: 1, mid: 2, outer: 3, bottom: 4, shoes: 5, accessory: 6,
+};
+
+function validateLayeringCompleteness(items: ComboItem[]): LayeringValidation {
+  // Check if any top-slotted garment has a mid layering role without a base layer
+  const topItems = items.filter(i => i.slot === 'top');
+  const hasMidAsTop = topItems.some(i => i.garment.layering_role === 'mid');
+  const hasBaseLayer = items.some(i => i.garment.layering_role === 'base');
+  const needs_base_layer = hasMidAsTop && !hasBaseLayer;
+
+  // Build sorted layer order
+  const layer_order = items
+    .map(i => {
+      let layer_role = i.garment.layering_role || 'standalone';
+      // For non-top/outerwear slots, use the slot name as role
+      if (['bottom', 'shoes', 'accessory', 'dress'].includes(i.slot)) {
+        layer_role = i.slot;
+      }
+      return { slot: i.slot, garment_id: i.garment.id, layer_role };
+    })
+    .sort((a, b) => (LAYER_SORT_ORDER[a.layer_role] ?? 99) - (LAYER_SORT_ORDER[b.layer_role] ?? 99));
+
+  return { needs_base_layer, layer_order };
+}
+
+// ─────────────────────────────────────────────
+// OCCASION SUB-MODE RESOLUTION
+// ─────────────────────────────────────────────
+
+function resolveOccasionSubmode(
+  occasion: string,
+  prefs: Record<string, any> | null,
+  styleVector: StyleVector | null
+): string | null {
+  const occ = occasion.toLowerCase();
+  const isWork = ['work', 'jobb', 'office', 'kontor'].includes(occ);
+  if (!isWork) return null;
+
+  // Determine formality target from user's style vector or preferences
+  const sp = prefs ? getStylePrefs(prefs) : {};
+  const userFormalityCenter = styleVector?.formalityCenter ?? null;
+  const primaryGoal = String(sp.primaryGoal || '').toLowerCase();
+
+  let formalityTarget = 5; // default business casual
+  if (userFormalityCenter !== null) {
+    formalityTarget = userFormalityCenter;
+  }
+  if (primaryGoal.includes('formal') || primaryGoal.includes('professional')) {
+    formalityTarget = Math.max(formalityTarget, 7);
+  }
+  if (primaryGoal.includes('comfort') || primaryGoal.includes('relaxed') || primaryGoal.includes('creative')) {
+    formalityTarget = Math.min(formalityTarget, 4);
+  }
+
+  if (formalityTarget >= 7) return 'Formal Office';
+  if (formalityTarget >= 5) return 'Business Casual';
+  return 'Relaxed Office';
 }
 
 // ─────────────────────────────────────────────
