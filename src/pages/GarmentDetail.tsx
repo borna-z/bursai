@@ -158,11 +158,11 @@ export default function GarmentDetailPage() {
 
   const enrichmentStatus: EnrichmentStatus = (garment?.enrichment_status as EnrichmentStatus) || 'none';
 
-  // Update polling state when enrichment status changes
-  const shouldPoll = enrichmentStatus === 'pending' || enrichmentStatus === 'in_progress';
-  if (shouldPoll !== isEnrichmentPending) {
+  useEffect(() => {
+    const shouldPoll = enrichmentStatus === 'pending' || enrichmentStatus === 'in_progress';
     setIsEnrichmentPending(shouldPoll);
-  }
+  }, [enrichmentStatus]);
+
   const { data: similarGarments } = useSimilarGarments(garment);
   const { data: outfitHistory } = useGarmentOutfitHistory(id);
   const updateGarment = useUpdateGarment();
