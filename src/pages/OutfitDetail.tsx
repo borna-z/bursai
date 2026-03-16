@@ -626,7 +626,7 @@ export default function OutfitDetailPage() {
                   cx="22" cy="22" r="18" fill="none" strokeWidth="2.5"
                   className={cn(
                     genConfidenceLevel === 'high' ? 'stroke-primary' :
-                    genConfidenceLevel === 'medium' ? 'stroke-amber-500' :
+                    genConfidenceLevel === 'medium' ? 'stroke-warning' :
                     'stroke-muted-foreground/30'
                   )}
                   strokeLinecap="round"
