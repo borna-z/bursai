@@ -28,12 +28,23 @@ interface EnrichmentData {
   garment_length?: string | null;
   closure?: string | null;
   fabric_weight?: string | null;
+  silhouette?: string | null;
+  visual_weight?: string | null;
+  texture_intensity?: string | null;
+  shoulder_structure?: string | null;
+  drape?: string | null;
+  rise?: string | null;
+  leg_shape?: string | null;
+  hem_detail?: string | null;
+  style_archetype?: string | null;
   style_tags?: string[];
   occasion_tags?: string[];
   layering_role?: string | null;
   care_instructions?: string[];
   versatility_score?: number | null;
   color_harmony_notes?: string | null;
+  stylist_note?: string | null;
+  confidence?: number | null;
 }
 
 function extractEnrichment(aiRaw: unknown): EnrichmentData | null {
@@ -41,18 +52,32 @@ function extractEnrichment(aiRaw: unknown): EnrichmentData | null {
   const raw = aiRaw as Record<string, unknown>;
   const enrichment = (raw.enrichment as Record<string, unknown>) || null;
   if (!enrichment) return null;
+  const str = (key: string) => typeof enrichment[key] === 'string' ? enrichment[key] as string : null;
+  const num = (key: string) => typeof enrichment[key] === 'number' ? enrichment[key] as number : null;
+  const arr = (key: string) => Array.isArray(enrichment[key]) ? enrichment[key] as string[] : undefined;
   return {
-    neckline: enrichment.neckline as string | null,
-    sleeve_length: enrichment.sleeve_length as string | null,
-    garment_length: enrichment.garment_length as string | null,
-    closure: enrichment.closure as string | null,
-    fabric_weight: enrichment.fabric_weight as string | null,
-    style_tags: Array.isArray(enrichment.style_tags) ? enrichment.style_tags : undefined,
-    occasion_tags: Array.isArray(enrichment.occasion_tags) ? enrichment.occasion_tags : undefined,
-    layering_role: enrichment.layering_role as string | null,
-    care_instructions: Array.isArray(enrichment.care_instructions) ? enrichment.care_instructions : undefined,
-    versatility_score: typeof enrichment.versatility_score === 'number' ? enrichment.versatility_score : null,
-    color_harmony_notes: typeof enrichment.color_harmony_notes === 'string' ? enrichment.color_harmony_notes : null,
+    neckline: str('neckline'),
+    sleeve_length: str('sleeve_length'),
+    garment_length: str('garment_length'),
+    closure: str('closure'),
+    fabric_weight: str('fabric_weight'),
+    silhouette: str('silhouette'),
+    visual_weight: str('visual_weight'),
+    texture_intensity: str('texture_intensity'),
+    shoulder_structure: str('shoulder_structure'),
+    drape: str('drape'),
+    rise: str('rise'),
+    leg_shape: str('leg_shape'),
+    hem_detail: str('hem_detail'),
+    style_archetype: str('style_archetype'),
+    style_tags: arr('style_tags'),
+    occasion_tags: arr('occasion_tags'),
+    layering_role: str('layering_role'),
+    care_instructions: arr('care_instructions'),
+    versatility_score: num('versatility_score'),
+    color_harmony_notes: str('color_harmony_notes'),
+    stylist_note: str('stylist_note'),
+    confidence: num('confidence'),
   };
 }
 
@@ -234,11 +259,30 @@ export default function GarmentDetailPage() {
           </p>
         )}
 
-        {/* Enrichment: Style tags */}
-        {enrichment?.style_tags && enrichment.style_tags.length > 0 && (
+        {/* Stylist note — editorial highlight */}
+        {enrichment?.stylist_note && (
+          <div className="border-l-2 border-primary/30 pl-4 py-1">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 mb-1">{t('garment.stylist_note') || 'Stylist note'}</p>
+            <p className="text-[13px] text-foreground/80 italic leading-relaxed">{enrichment.stylist_note}</p>
+          </div>
+        )}
+
+        {/* Style archetype + tags */}
+        {(enrichment?.style_archetype || (enrichment?.style_tags && enrichment.style_tags.length > 0)) && (
           <div className="space-y-2">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50">{t('garment.style') || 'Style'}</p>
-            <DetailChips items={enrichment.style_tags} />
+            <div className="flex flex-wrap gap-1.5">
+              {enrichment?.style_archetype && (
+                <Badge variant="default" className="text-[11px] px-2.5 py-1 capitalize font-medium">
+                  {enrichment.style_archetype}
+                </Badge>
+              )}
+              {enrichment?.style_tags?.map((tag) => (
+                <Badge key={tag} variant="secondary" className="text-[11px] px-2.5 py-1 capitalize font-normal">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
           </div>
         )}
 
@@ -250,15 +294,31 @@ export default function GarmentDetailPage() {
           </div>
         )}
 
-        {/* Enrichment: Construction specs */}
-        {enrichment && (enrichment.neckline || enrichment.sleeve_length || enrichment.garment_length || enrichment.closure || enrichment.fabric_weight || enrichment.layering_role) && (
+        {/* Garment intelligence — silhouette, texture, structure */}
+        {enrichment && (enrichment.silhouette || enrichment.visual_weight || enrichment.texture_intensity || enrichment.drape) && (
           <div className="space-y-1 border border-border/10 px-4 py-1">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 pt-2 pb-1">{t('garment.intelligence') || 'Garment intelligence'}</p>
+            {enrichment.silhouette && <SpecRow label={t('garment.silhouette') || 'Silhouette'} value={enrichment.silhouette} />}
+            {enrichment.visual_weight && <SpecRow label={t('garment.visual_weight') || 'Visual weight'} value={enrichment.visual_weight} />}
+            {enrichment.texture_intensity && <SpecRow label={t('garment.texture') || 'Texture'} value={enrichment.texture_intensity} />}
+            {enrichment.drape && <SpecRow label={t('garment.drape') || 'Drape'} value={enrichment.drape} />}
+            {enrichment.shoulder_structure && <SpecRow label={t('garment.shoulder') || 'Shoulder'} value={enrichment.shoulder_structure} />}
+            {enrichment.hem_detail && <SpecRow label={t('garment.hem') || 'Hem'} value={enrichment.hem_detail} />}
+          </div>
+        )}
+
+        {/* Construction specs — bottoms-specific + general */}
+        {enrichment && (enrichment.neckline || enrichment.sleeve_length || enrichment.garment_length || enrichment.closure || enrichment.fabric_weight || enrichment.layering_role || enrichment.rise || enrichment.leg_shape) && (
+          <div className="space-y-1 border border-border/10 px-4 py-1">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 pt-2 pb-1">{t('garment.construction') || 'Construction'}</p>
             {enrichment.neckline && <SpecRow label={t('garment.neckline') || 'Neckline'} value={enrichment.neckline} />}
             {enrichment.sleeve_length && <SpecRow label={t('garment.sleeve') || 'Sleeve'} value={enrichment.sleeve_length} />}
             {enrichment.garment_length && <SpecRow label={t('garment.length') || 'Length'} value={enrichment.garment_length} />}
             {enrichment.closure && <SpecRow label={t('garment.closure') || 'Closure'} value={enrichment.closure} />}
             {enrichment.fabric_weight && <SpecRow label={t('garment.weight') || 'Weight'} value={enrichment.fabric_weight} />}
             {enrichment.layering_role && <SpecRow label={t('garment.layering') || 'Layering'} value={enrichment.layering_role} />}
+            {enrichment.rise && <SpecRow label={t('garment.rise') || 'Rise'} value={enrichment.rise} />}
+            {enrichment.leg_shape && <SpecRow label={t('garment.leg_shape') || 'Leg shape'} value={enrichment.leg_shape} />}
           </div>
         )}
 
@@ -273,6 +333,13 @@ export default function GarmentDetailPage() {
               )}
             </div>
           </div>
+        )}
+
+        {/* Confidence indicator */}
+        {enrichment?.confidence != null && enrichment.confidence < 0.7 && (
+          <p className="text-[11px] text-muted-foreground/40 italic">
+            {t('garment.low_confidence') || 'Some details may need manual review'} · {Math.round(enrichment.confidence * 100)}%
+          </p>
         )}
 
         {/* Enrichment: Care instructions */}
