@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { hapticMedium, hapticHeavy, hapticSuccess, hapticLight } from '@/lib/haptics';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -158,11 +158,11 @@ export default function GarmentDetailPage() {
 
   const enrichmentStatus: EnrichmentStatus = (garment?.enrichment_status as EnrichmentStatus) || 'none';
 
-  // Update polling state when enrichment status changes
-  const shouldPoll = enrichmentStatus === 'pending' || enrichmentStatus === 'in_progress';
-  if (shouldPoll !== isEnrichmentPending) {
+  useEffect(() => {
+    const shouldPoll = enrichmentStatus === 'pending' || enrichmentStatus === 'in_progress';
     setIsEnrichmentPending(shouldPoll);
-  }
+  }, [enrichmentStatus]);
+
   const { data: similarGarments } = useSimilarGarments(garment);
   const { data: outfitHistory } = useGarmentOutfitHistory(id);
   const updateGarment = useUpdateGarment();
@@ -258,6 +258,7 @@ export default function GarmentDetailPage() {
       });
       if (error || !data?.enrichment) {
         await supabase.from('garments').update({ enrichment_status: 'failed' } as Record<string, unknown>).eq('id', garment.id);
+        queryClient.invalidateQueries({ queryKey: ['garment', garment.id] });
         toast.error('Deep analysis failed — try again later');
         return;
       }
@@ -271,6 +272,8 @@ export default function GarmentDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['garment', garment.id] });
       toast.success('Deep analysis complete');
     } catch {
+      await supabase.from('garments').update({ enrichment_status: 'failed' } as Record<string, unknown>).eq('id', garment.id);
+      queryClient.invalidateQueries({ queryKey: ['garment', garment.id] });
       toast.error('Something went wrong');
     } finally {
       setIsRetrying(false);
