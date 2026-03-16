@@ -421,6 +421,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     // Outfit Detail
     'outfit.swap': 'Byt',
     'outfit.swap_slot': 'Byt',
+    'outfit.swap_description': 'Välj hur annorlunda du vill att bytet ska kännas.',
     'outfit.just_created': 'Ny outfit skapad!',
     'outfit.why_works': 'Varför detta funkar',
     'outfit.rating': 'Betyg',
