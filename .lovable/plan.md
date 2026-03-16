@@ -1,91 +1,37 @@
 
-# Full i18n Translation Plan — 110 Steps
 
-**Status: 🔲 Not Started**
+# Add Style Selection Step to OutfitGenerate Page
 
-## Current State
+## Overview
+Rewrite `OutfitGenerate.tsx` to include an inline style/vibe picker with 18+ styles before generating. The page becomes a two-phase state machine: **pick** → **generating** (with auto-navigate on success). Uses existing `Chip` component for style grid, auto-fetches weather, and calls the existing `useOutfitGenerator` hook.
 
-- **14 supported locales**: sv, en, no, da, fi, de, fr, es, it, pt, nl, pl, ar, fa
-- **sv and en** are fully translated (~700+ keys each)
-- **Other 12 locales** have partial coverage (~100-200 keys each), missing large sections
-- Fallback chain: `locale → en → sv → raw key`
-- File: `src/i18n/translations.ts` (~9,800 lines)
+## Flow
+1. User taps "What to wear" → lands on `/outfits/generate`
+2. Page shows occasion chips (6) + style grid (18+) + weather auto-detected + Generate button
+3. On tap Generate → shows `OutfitGenerationState` loading UI
+4. On success → navigates to `/outfits/{id}`
+5. On error → shows error card with retry
 
----
+## Style Options (18)
+Minimal, Street, Smart Casual, Classic, Sporty, Romantic, Bohemian, Preppy, Edgy, Retro, Scandinavian, Glamorous, Casual Chic, Monochrome, Layered, Relaxed, Avant-Garde, Coastal
 
-## Architecture Change (Steps 1-2)
+## Changes
 
-**Step 1** — Create `src/i18n/locales/` directory with one file per locale, each exporting `Record<string, string>`.
+### `src/pages/OutfitGenerate.tsx` — Full rewrite
+- State machine: `picking | generating | error`
+- **Picking phase**: Show occasion chips (casual/work/party/date/workout/travel), style grid (18 chips in flex-wrap), auto weather from `useWeather`, Generate button
+- **Generating phase**: Show `OutfitGenerationState` with subtitle
+- **Error phase**: Show error card with retry/back buttons
+- On success: `navigate(/outfits/{id}, { replace: true })`
+- Remove dependency on `location.state` — page is now self-contained
+- Keep wardrobe unlock gate
 
-**Step 2** — Refactor `src/i18n/translations.ts` to import from individual locale files. No functional change.
+### `src/components/home/QuickActionsRow.tsx` — No change needed
+Already points to `/outfits/generate`.
 
----
+### `src/pages/Home.tsx` — No change needed  
+Already navigates to `/outfits/generate` without state.
 
-## Per-Locale Translation (Steps 3-110)
+### Navigation references in `UsedGarments.tsx`
+Keep as-is — it passes `garmentIds` in state which isn't used by the current generator anyway.
 
-Each locale gets 9 steps covering these domains:
-
-| Step offset | Domain |
-|---|---|
-| +0 | Navigation, common, auth, error |
-| +1 | Onboarding (all sub-steps, body, style, tutorial) |
-| +2 | Settings (profile, appearance, privacy, GDPR, notifications, account) |
-| +3 | Home, weather, plan, calendar |
-| +4 | Wardrobe, garment details, scan, import, batch, duplicate |
-| +5 | Outfits, outfit generation, stylist/chat |
-| +6 | Insights, discover, premium, billing, pricing, trial |
-| +7 | Landing page (hero, bento, showcase, pricing section, FAQ, footer, comparison) |
-| +8 | Contact, privacy policy, terms, seed/admin, genimg, social reactions |
-
-### Steps 3-11: Norwegian (no)
-### Steps 12-20: Danish (da)
-### Steps 21-29: Finnish (fi)
-### Steps 30-38: German (de)
-### Steps 39-47: French (fr)
-### Steps 48-56: Spanish (es)
-### Steps 57-65: Italian (it)
-### Steps 66-74: Portuguese (pt)
-### Steps 75-83: Dutch (nl)
-### Steps 84-92: Polish (pl)
-### Steps 93-101: Arabic (ar)
-### Steps 102-110: Farsi (fa)
-
----
-
-## Technical Details
-
-### File structure after refactor
-```text
-src/i18n/
-  translations.ts          ← imports + re-exports composed object
-  locales/
-    sv.ts                  ← ~700 keys (already complete)
-    en.ts                  ← ~700 keys (already complete)
-    no.ts                  ← fill to ~700 keys
-    da.ts                  ← fill to ~700 keys
-    fi.ts                  ← fill to ~700 keys
-    de.ts                  ← fill to ~700 keys
-    fr.ts                  ← fill to ~700 keys
-    es.ts                  ← fill to ~700 keys
-    it.ts                  ← fill to ~700 keys
-    pt.ts                  ← fill to ~700 keys
-    nl.ts                  ← fill to ~700 keys
-    pl.ts                  ← fill to ~700 keys
-    ar.ts                  ← fill to ~700 keys (RTL)
-    fa.ts                  ← fill to ~700 keys (RTL)
-```
-
-### Key count target
-Every locale file must contain the exact same set of keys as `en.ts`.
-
-### Translation quality
-- AI-assisted translation with native-quality output
-- Preserve placeholders like `{count}`, `{done}`, `{failed}`
-- RTL languages (ar, fa) keep the same key structure; RTL layout handled by CSS
-- Currency/number formatting stays locale-aware via `getLocalizedPricing()`
-
-### Edge functions
-Edge functions already use `LANG_CONFIG` mappings. No changes needed.
-
-### No new dependencies
-All translations are static strings in TypeScript files. No runtime i18n library needed.
