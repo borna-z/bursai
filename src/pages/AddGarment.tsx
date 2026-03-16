@@ -399,7 +399,17 @@ export default function AddGarmentPage() {
         season_tags: selectedSeasons.length > 0 ? selectedSeasons : null,
         formality: formality[0],
         in_laundry: inLaundry,
+        ai_analyzed_at: aiAnalysis ? new Date().toISOString() : null,
+        ai_provider: aiAnalysis?.ai_provider || null,
+        ai_raw: (aiAnalysis?.ai_raw ?? null) as Json,
       });
+
+      // Stage 2 enrichment in background (same as live scan)
+      if (storagePath && garmentId) {
+        enrichGarmentInBackground(garmentId, storagePath).catch((err) =>
+          console.error('Enrichment error (non-blocking):', err)
+        );
+      }
 
       const newCount = (garmentCount || 0) + 1;
       if (newCount === 10) {
