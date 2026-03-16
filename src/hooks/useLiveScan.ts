@@ -47,20 +47,44 @@ export function useLiveScan() {
     setError(null);
     setLastResult(null);
 
-    try {
-      // Phase 1: compress
-      const canvas = getCanvas();
-      const { blob: rawBlob, base64: rawBase64 } = await compressCenterCrop(canvas, videoEl);
-
-      // Phase 2: background removal (visible to user)
+    // Phase 1: compress
+    const canvas = getCanvas();
+    if (!canvas) {
+      setError('Could not capture image');
       setIsProcessing(false);
-      setIsRemovingBackground(true);
-      const { blob, base64 } = await removeBackgroundFromDataUrl(rawBase64);
+      return;
+    }
 
-      // Phase 3: AI analysis
-      setIsRemovingBackground(false);
-      setIsProcessing(true);
+    let rawBlob: Blob;
+    let rawBase64: string;
+    try {
+      const result = await compressCenterCrop(canvas, videoEl);
+      rawBlob = result.blob;
+      rawBase64 = result.base64;
+    } catch (err) {
+      console.error('[LiveScan] compress failed:', err);
+      setError('Could not capture image');
+      setIsProcessing(false);
+      return;
+    }
 
+    // Phase 2: background removal — always succeeds, degrades to original
+    setIsProcessing(false);
+    setIsRemovingBackground(true);
+    let blob = rawBlob;
+    let base64 = rawBase64;
+    try {
+      const result = await removeBackgroundFromDataUrl(rawBase64);
+      blob = result.blob;
+      base64 = result.base64;
+    } catch (err) {
+      console.warn('[LiveScan] background removal failed, using original:', err);
+    }
+    setIsRemovingBackground(false);
+    setIsProcessing(true);
+
+    // Phase 3: AI analysis
+    try {
       const thumbnailUrl = URL.createObjectURL(blob);
 
       const { data, error: fnError } = await invokeEdgeFunction<GarmentAnalysis & { error?: string; confidence?: number }>('analyze_garment', {
@@ -70,6 +94,7 @@ export function useLiveScan() {
       if (fnError || data?.error) {
         setError(fnError?.message || data?.error || 'Analysis failed');
         URL.revokeObjectURL(thumbnailUrl);
+        setIsProcessing(false);
         return;
       }
 
@@ -77,8 +102,8 @@ export function useLiveScan() {
       setLastResult({ analysis: data as GarmentAnalysis, thumbnailUrl, blob, confidence });
       hapticMedium();
     } catch (err) {
-      console.error('Capture error:', err);
-      setError('Could not capture image');
+      console.error('[LiveScan] analysis failed:', err);
+      setError('Analysis failed — please try again');
     } finally {
       setIsProcessing(false);
       setIsRemovingBackground(false);
@@ -94,21 +119,34 @@ export function useLiveScan() {
     setError(null);
     setLastResult(null);
 
+    // Phase 1: compress
+    let rawBlob: Blob;
+    let previewUrl: string;
     try {
-      // Phase 1: compress
-      const { file: compressed, previewUrl } = await compressImage(file, { maxDimension: 480, quality: 0.5 });
-      const rawBlob = compressed as Blob;
-
-      // Phase 2: background removal (visible to user)
+      const result = await compressImage(file, { maxDimension: 480, quality: 0.5 });
+      rawBlob = result.file as Blob;
+      previewUrl = result.previewUrl;
+    } catch (err) {
+      console.error('[LiveScan] compress failed:', err);
+      setError('Could not process image');
       setIsProcessing(false);
-      setIsRemovingBackground(true);
-      const processedBlob = await removeBackground(rawBlob);
+      return;
+    }
 
-      // Phase 3: AI analysis
-      setIsRemovingBackground(false);
-      setIsProcessing(true);
+    // Phase 2: background removal — always succeeds, degrades to original
+    setIsProcessing(false);
+    setIsRemovingBackground(true);
+    let processedBlob = rawBlob;
+    try {
+      processedBlob = await removeBackground(rawBlob);
+    } catch (err) {
+      console.warn('[LiveScan] background removal failed, using original:', err);
+    }
+    setIsRemovingBackground(false);
+    setIsProcessing(true);
 
-      // Revoke old preview, create new one from processed blob
+    // Phase 3: AI analysis
+    try {
       URL.revokeObjectURL(previewUrl);
       const thumbnailUrl = URL.createObjectURL(processedBlob);
 
@@ -126,6 +164,7 @@ export function useLiveScan() {
       if (fnError || data?.error) {
         setError(fnError?.message || data?.error || 'Analysis failed');
         URL.revokeObjectURL(thumbnailUrl);
+        setIsProcessing(false);
         return;
       }
 
@@ -133,8 +172,8 @@ export function useLiveScan() {
       setLastResult({ analysis: data as GarmentAnalysis, thumbnailUrl, blob: processedBlob, confidence });
       hapticMedium();
     } catch (err) {
-      console.error('File capture error:', err);
-      setError('Could not process image');
+      console.error('[LiveScan] analysis failed:', err);
+      setError('Analysis failed — please try again');
     } finally {
       setIsProcessing(false);
       setIsRemovingBackground(false);

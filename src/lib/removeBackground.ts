@@ -8,7 +8,12 @@ let removeModule: typeof import('@imgly/background-removal') | null = null;
 
 async function getModule() {
   if (!removeModule) {
-    removeModule = await import('@imgly/background-removal');
+    try {
+      removeModule = await import('@imgly/background-removal');
+    } catch (err) {
+      console.warn('[removeBackground] WASM module unavailable:', err);
+      return null;
+    }
   }
   return removeModule;
 }
@@ -33,6 +38,7 @@ function dataUrlToBlob(dataUrl: string): Blob {
 export async function removeBackground(input: Blob): Promise<Blob> {
   try {
     const mod = await getModule();
+    if (!mod) return input;
     const result = await mod.removeBackground(input, {
       model: 'isnet',
       output: { format: 'image/png', quality: 0.9 },
@@ -53,6 +59,9 @@ export async function removeBackgroundFromDataUrl(
   base64: string,
 ): Promise<{ blob: Blob; base64: string }> {
   try {
+    const mod = await getModule();
+    if (!mod) return { blob: dataUrlToBlob(base64), base64 };
+
     const originalBlob = dataUrlToBlob(base64);
 
     const processedBlob = await removeBackground(originalBlob);
