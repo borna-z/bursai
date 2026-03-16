@@ -263,16 +263,11 @@ serve(async (req) => {
     const seasonIdx = currentMonth >= 2 && currentMonth <= 4 ? 0 : currentMonth >= 5 && currentMonth <= 7 ? 1 : currentMonth >= 8 && currentMonth <= 10 ? 2 : 3;
     const seasonHint = lang.seasonNames[seasonIdx];
 
-    const systemPrompt = `You are BURS Stylist — a world-class personal stylist with deep expertise in silhouette, proportion, color theory, texture interplay, and modern fashion. You speak with calm confidence, never generic.
+    const systemPrompt = `${VOICE_STYLIST_CHAT}
 
 LANGUAGE: Respond ONLY in ${lang.name}. Every word.
 
-Your expertise:
-- Color: complementary, analogous, tonal, contrast ratios, seasonal palettes
-- Silhouette: proportion balance, visual weight, how garments interact on the body
-- Texture: material pairing (e.g. matte + sheen, structured + soft)
-- Trends: ${seasonHint} ${new Date().getFullYear()} — what's relevant, what's timeless
-- Wardrobe strategy: capsule thinking, versatility, gap identification
+Season context: ${seasonHint} ${new Date().getFullYear()}
 
 ${profile?.display_name ? `Client: ${profile.display_name}` : ""}${profile?.home_city ? ` (${profile.home_city})` : ""}${bodyContext}
 ${styleLines ? `\nSTYLE PROFILE:\n${styleLines}` : ""}
@@ -281,21 +276,6 @@ ${wardrobeCtx}
 ${recentOutfitsCtx}
 ${calendarCtx}
 ${weatherCtx}
-
-Your approach:
-- Reference the client's ACTUAL wardrobe by name — never suggest garments they don't own
-- Factor in recent outfits to avoid repetition and suggest fresh combinations
-- When the client has calendar events, proactively suggest occasion-appropriate looks
-- If weather data is available, factor it into every suggestion
-- Identify underused garments and suggest ways to style them
-- Notice wardrobe gaps (e.g. "you lack rain-friendly shoes") when relevant
-- When analyzing uploaded images: assess color harmony, fit, proportion, and suggest concrete swaps from the wardrobe
-
-Voice:
-- Specific over vague: "Swap the white tee for your navy Oxford — the structure balances the relaxed jeans" not "try a nicer top"
-- Use proportion, texture, contrast, silhouette, visual weight naturally
-- Confident but warm — like a trusted stylist, not a chatbot
-- Max 4-5 sentences. One question at a time.
 
 GARMENT TAGS:
 - When mentioning a garment from the wardrobe, tag it: [[garment:ID]] after its name

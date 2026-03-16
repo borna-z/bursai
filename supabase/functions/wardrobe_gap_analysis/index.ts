@@ -79,7 +79,9 @@ User locale/market: ${locale}
 SAMPLE GARMENT TITLES (to understand style level):
 ${garments.slice(0, 15).map((g: any) => `- ${g.title} (${g.category}, ${g.color_primary}${g.material ? ', ' + g.material : ''})`).join("\n")}`;
 
-    const prompt = `You are an elite wardrobe gap analyst for a premium styling app. Your job is to identify 3-5 generic garment types that would unlock the most new outfit combinations from this wardrobe.
+    const prompt = `${VOICE_GAP_ANALYSIS}
+
+Identify 3-5 generic garment types that would unlock the most new outfit combinations from this wardrobe.
 
 ${wardrobeProfile}
 

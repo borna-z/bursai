@@ -73,9 +73,11 @@ serve(async (req) => {
       cacheTtlSeconds: 900,
       cacheNamespace: `mood_${mood}_${userId?.slice(0, 8)}`,
       messages: [
-        { role: "system", content: `Mood-based stylist. Mood:"${mood}" Dir:${moodParams.formality}|${moodParams.colors}|${moodParams.vibe}
-${weather?.temperature !== undefined ? `Weather:${weather.temperature}°C` : ""}
-Rules: top+bottom+shoes(or dress+shoes). Only IDs from list. Prioritize less-worn. ${langName}.
+        { role: "system", content: `${VOICE_MOOD_OUTFIT}
+
+Mood:"${mood}" — Direction: ${moodParams.formality} | Colors: ${moodParams.colors} | Vibe: ${moodParams.vibe}
+${weather?.temperature !== undefined ? `Weather: ${weather.temperature}°C` : ""}
+Rules: top+bottom+shoes (or dress+shoes). Only IDs from list. Prioritize less-worn. Respond in ${langName}.
 WARDROBE:\n${garmentList}` },
         { role: "user", content: `Feeling ${mood}. Create outfit.` },
       ],

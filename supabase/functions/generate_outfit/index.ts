@@ -264,7 +264,9 @@ serve(async (req) => {
     const needsOuterwear = (weather?.temperature !== undefined && weather.temperature < 15) ||
       (weather?.precipitation && weather.precipitation !== "none" && weather.precipitation !== "ingen");
 
-    const systemPrompt = `You are a world-class personal stylist. Create ONE complete, wearable outfit.
+    const systemPrompt = `${VOICE_OUTFIT_GENERATION}
+
+Create ONE complete, wearable outfit.
 
 MANDATORY RULES — FOLLOW STRICTLY:
 1. Every outfit MUST include ALL of these slots: "top" + "bottom" + "shoes" (minimum 3 items)

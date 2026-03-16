@@ -121,7 +121,9 @@ serve(async (req) => {
 
     // System prompt: English for reliability, locale instruction for content language only.
     // No JSON schema here — tool_choice handles structure.
-    const systemPrompt = `You are a travel packing expert. Your task: select the MINIMUM garments from the user's wardrobe that create the MOST outfit combinations for a trip.
+    const systemPrompt = `${VOICE_TRAVEL_CAPSULE}
+
+Your task: select the MINIMUM garments from the user's wardrobe that create the MOST outfit combinations for a trip.
 
 TRIP DETAILS:
 - Duration: ${duration_days} days to ${destination || "unknown destination"}
