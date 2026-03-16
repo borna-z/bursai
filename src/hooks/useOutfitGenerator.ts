@@ -221,6 +221,11 @@ async function generateOutfitViaEngine(
     explanation,
     weather: request.weather,
     items: selectedItems,
+    confidence_score: confidenceScore,
+    confidence_level: confidenceLevel,
+    limitation_note: limitationNote,
+    family_label: familyLabel,
+    wardrobe_insights: wardrobeInsights,
   };
 }
 
