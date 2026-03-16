@@ -7,7 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 const actions: { key: string; icon: typeof CalendarDays; path: string; tomorrow?: boolean }[] = [
   { key: 'plan_tomorrow', icon: CalendarDays, path: '/plan', tomorrow: true },
-  { key: 'what_to_wear', icon: Sparkles, path: '/style-picker' },
+  { key: 'what_to_wear', icon: Sparkles, path: '/outfits/generate' },
 ];
 
 export function QuickActionsRow() {

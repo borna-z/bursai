@@ -139,7 +139,7 @@ export default function HomePage() {
                 size="sm"
                 variant="ghost"
                 className="shrink-0 h-8 text-xs text-primary"
-                onClick={() => { hapticLight(); navigate('/style-picker'); }}
+                onClick={() => { hapticLight(); navigate('/outfits/generate'); }}
               >
                 {t('home.generate_now')}
               </Button>
@@ -231,7 +231,7 @@ export default function HomePage() {
                   </p>
                 </div>
                 <Button
-                  onClick={() => { hapticLight(); navigate('/style-picker'); }}
+                  onClick={() => { hapticLight(); navigate('/outfits/generate'); }}
                   className="w-full max-w-[200px] h-11 bg-accent text-accent-foreground hover:bg-accent/90"
                 >
                   {t('home.generate_now')}
