@@ -278,16 +278,15 @@ export default function GarmentDetailPage() {
 
   // Build metadata string
   const metaParts: string[] = [];
-  if (garment.color_primary) metaParts.push(t(`color.${garment.color_primary}`));
-  if (garment.color_secondary) metaParts.push(t(`color.${garment.color_secondary}`));
-  if (garment.material) metaParts.push(t(`garment.material.${garment.material}`));
-  if (garment.pattern && garment.pattern !== 'solid') metaParts.push(t(`garment.pattern.${garment.pattern}`));
-  if (garment.fit) metaParts.push(t(`garment.fit.${garment.fit}`));
+  if (garment.color_primary) metaParts.push(colorLabel(t, garment.color_primary));
+  if (garment.color_secondary) metaParts.push(colorLabel(t, garment.color_secondary));
+  if (garment.material) metaParts.push(materialLabel(t, garment.material));
+  if (garment.pattern && garment.pattern !== 'solid') metaParts.push(patternLabel(t, garment.pattern));
+  if (garment.fit) metaParts.push(fitLabel(t, garment.fit));
 
   const seasonParts: string[] = [];
   garment.season_tags?.forEach((season) => {
-    const key = season === 'vår' ? 'spring' : season === 'sommar' ? 'summer' : season === 'höst' ? 'autumn' : season === 'vinter' ? 'winter' : season;
-    seasonParts.push(t(`garment.season.${key}`));
+    seasonParts.push(seasonLabel(t, season));
   });
   if (garment.formality) seasonParts.push(`${t('garment.formality')} ${garment.formality}/5`);
 
