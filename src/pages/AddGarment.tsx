@@ -162,26 +162,36 @@ function mapSeasonTagsToFormValue(aiSeasons: string[]): string[] {
     .map(s => s.toLowerCase())
     .filter(s => seasons.map(ss => ss.toLowerCase()).includes(s));
 }
-/** Fire-and-forget Stage 2 enrichment (mirrors backgroundGarmentSave.ts) */
+/** Fire-and-forget Stage 2 enrichment with status tracking and auto-retry */
 async function enrichGarmentInBackground(garmentId: string, storagePath: string): Promise<void> {
-  const { data, error } = await invokeEdgeFunction<{ enrichment?: Record<string, unknown>; error?: string }>('analyze_garment', {
-    body: { storagePath, mode: 'enrich' },
-  });
-  if (error || data?.error || !data?.enrichment) return;
+  await supabase.from('garments').update({ enrichment_status: 'in_progress' }).eq('id', garmentId);
 
-  const { data: existing } = await supabase
-    .from('garments')
-    .select('ai_raw')
-    .eq('id', garmentId)
-    .single();
+  const attempt = async (): Promise<boolean> => {
+    const { data, error } = await invokeEdgeFunction<{ enrichment?: Record<string, unknown>; error?: string }>('analyze_garment', {
+      body: { storagePath, mode: 'enrich' },
+    });
+    if (error || !data?.enrichment) return false;
 
-  const currentRaw = (existing?.ai_raw as Record<string, unknown>) || {};
-  const mergedRaw = { ...currentRaw, enrichment: data.enrichment };
-  const updates: Record<string, unknown> = { ai_raw: mergedRaw as Json };
-  if (data.enrichment.refined_title && typeof data.enrichment.refined_title === 'string') {
-    updates.title = (data.enrichment.refined_title as string).substring(0, 50);
+    const { data: existing } = await supabase.from('garments').select('ai_raw').eq('id', garmentId).single();
+    const currentRaw = (existing?.ai_raw as Record<string, unknown>) || {};
+    const mergedRaw = { ...currentRaw, enrichment: data.enrichment };
+    const updates: Record<string, unknown> = { ai_raw: mergedRaw as Json, enrichment_status: 'complete' };
+    if (data.enrichment.refined_title && typeof data.enrichment.refined_title === 'string') {
+      updates.title = (data.enrichment.refined_title as string).substring(0, 50);
+    }
+    await supabase.from('garments').update(updates).eq('id', garmentId);
+    return true;
+  };
+
+  const success = await attempt();
+  if (success) return;
+
+  // Auto-retry after 3s
+  await new Promise(r => setTimeout(r, 3000));
+  const retrySuccess = await attempt();
+  if (!retrySuccess) {
+    await supabase.from('garments').update({ enrichment_status: 'failed' }).eq('id', garmentId);
   }
-  await supabase.from('garments').update(updates).eq('id', garmentId);
 }
 
 export default function AddGarmentPage() {
