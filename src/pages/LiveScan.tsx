@@ -88,7 +88,7 @@ function ScanOverlay() {
           animate={{ opacity: 1, y: 0 }}
           exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
           transition={{ duration: 0.25, ease: EASE_CURVE }}
-          className="text-foreground text-sm font-medium bg-background/60 px-4 py-2 rounded-full backdrop-blur-sm"
+          className="text-foreground text-sm font-medium bg-background/60 px-4 py-2 backdrop-blur-sm"
         >
           {phases[phase]}
         </motion.span>
