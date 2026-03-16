@@ -21,7 +21,7 @@ export async function removeBackground(input: Blob): Promise<Blob> {
   try {
     const mod = await getModule();
     const result = await mod.removeBackground(input, {
-      model: 'small',
+      model: 'isnet_quint8',
       output: { format: 'image/png', quality: 0.9 },
     });
     return result;
