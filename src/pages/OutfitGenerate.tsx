@@ -207,7 +207,18 @@ export default function OutfitGeneratePage() {
             {t('generate.button') || 'Style me'}
           </Button>
         </div>
+        {!isPremium && remainingOutfits() < Infinity && (
+          <p className="text-xs text-muted-foreground/60 text-center mt-2">
+            {remainingOutfits()} {t('paywall.outfits_remaining') || 'outfits remaining'}
+          </p>
+        )}
       </div>
+
+      <PaywallModal
+        open={showPaywall}
+        onOpenChange={setShowPaywall}
+        feature="outfits"
+      />
     </AppLayout>
   );
 }
