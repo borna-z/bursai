@@ -209,6 +209,49 @@ export default function OutfitGeneratePage() {
           </div>
         )}
 
+        {/* Stylist Mode toggle — premium feature */}
+        <section className="space-y-2">
+          <h2 className="label-editorial">{t('generate.mode') || 'Generation mode'}</h2>
+          <div className="grid grid-cols-2 gap-2">
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => setGenerationMode('standard')}
+              className={cn(
+                'rounded-xl p-3.5 text-left border transition-all',
+                generationMode === 'standard'
+                  ? 'border-primary/30 bg-primary/5 ring-1 ring-primary/15'
+                  : 'border-border/15 hover:border-border/30'
+              )}
+            >
+              <Sparkles className={cn('w-4 h-4 mb-1.5', generationMode === 'standard' ? 'text-primary' : 'text-muted-foreground/40')} />
+              <p className="text-xs font-semibold">Standard</p>
+              <p className="text-[10px] text-muted-foreground/60 mt-0.5">Quick, balanced outfits</p>
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => {
+                if (!isPremium) { setShowPaywall(true); return; }
+                setGenerationMode('stylist');
+              }}
+              className={cn(
+                'rounded-xl p-3.5 text-left border transition-all relative overflow-hidden',
+                generationMode === 'stylist'
+                  ? 'border-premium/40 bg-premium/5 ring-1 ring-premium/15'
+                  : 'border-border/15 hover:border-border/30'
+              )}
+            >
+              <Crown className={cn('w-4 h-4 mb-1.5', generationMode === 'stylist' ? 'text-premium' : 'text-muted-foreground/40')} />
+              <p className="text-xs font-semibold">Stylist Mode</p>
+              <p className="text-[10px] text-muted-foreground/60 mt-0.5">Deeper reasoning, editorial picks</p>
+              {!isPremium && (
+                <span className="absolute top-2 right-2 text-[9px] font-semibold text-premium uppercase tracking-wider">
+                  Premium
+                </span>
+              )}
+            </motion.button>
+          </div>
+        </section>
+
         {/* Occasion grid */}
         <section className="space-y-3">
           <h2 className="label-editorial">
