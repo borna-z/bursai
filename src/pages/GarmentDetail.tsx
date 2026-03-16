@@ -147,7 +147,14 @@ export default function GarmentDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { t, locale } = useLanguage();
-  const { data: garment, isLoading } = useGarment(id);
+  const queryClient = useQueryClient();
+
+  const enrichmentStatus: EnrichmentStatus = (garment as Record<string, unknown>)?.enrichment_status as EnrichmentStatus || 'none';
+  const isEnrichmentPending = enrichmentStatus === 'pending' || enrichmentStatus === 'in_progress';
+
+  const { data: garment, isLoading } = useGarment(id, {
+    refetchInterval: isEnrichmentPending ? 5000 : false,
+  });
   const { data: similarGarments } = useSimilarGarments(garment);
   const { data: outfitHistory } = useGarmentOutfitHistory(id);
   const updateGarment = useUpdateGarment();
@@ -160,6 +167,7 @@ export default function GarmentDetailPage() {
   );
   const [editingPrice, setEditingPrice] = useState(false);
   const [priceInput, setPriceInput] = useState('');
+  const [isRetrying, setIsRetrying] = useState(false);
   const enrichment = useMemo(() => garment ? extractEnrichment(garment.ai_raw) : null, [garment]);
 
   // Usage insights
