@@ -343,6 +343,7 @@ export default function OutfitDetailPage() {
     hapticMedium();
     try {
       await updateOutfit.mutateAsync({ id: outfit.id, updates: { saved: !outfit.saved } });
+      recordSignal({ signal_type: outfit.saved ? 'unsave' : 'save', outfit_id: outfit.id });
       toast.success(outfit.saved ? t('outfit.removed') : t('outfit.saved'));
     } catch {
       toast.error(t('common.something_wrong'));
