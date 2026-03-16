@@ -152,7 +152,7 @@ export default function GarmentDetailPage() {
       </div>
 
       {/* Content */}
-      <div className="px-6 pt-8 space-y-8 max-w-lg mx-auto">
+      <div className="px-5 pt-8 space-y-8 max-w-lg mx-auto">
         {/* Title + category */}
         <div>
           <h1 className="text-2xl font-semibold">{garment.title}</h1>
