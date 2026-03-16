@@ -80,9 +80,9 @@ async function getCalendarContext(supabase: ReturnType<typeof createClient>, use
 async function getWardrobeContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
   const { data: garments } = await supabase
     .from("garments")
-    .select("id, title, category, color_primary, formality, season_tags, image_path")
+    .select("id, title, category, subcategory, color_primary, color_secondary, material, fit, formality, pattern, season_tags, wear_count, last_worn_at, image_path")
     .eq("user_id", userId)
-    .limit(50);
+    .limit(80);
   if (!garments?.length) return "The user has no garments in their wardrobe yet.";
 
   const summary = Object.entries(
@@ -92,13 +92,61 @@ async function getWardrobeContext(supabase: ReturnType<typeof createClient>, use
     }, {})
   ).map(([cat, count]) => `${count} ${cat}`).join(", ");
 
-  const details = garments.slice(0, 15).map((g: {
-    id: string; title: string; category: string; color_primary: string; formality: number | null; season_tags: string[] | null
-  }) =>
-    `• ${g.title} [ID:${g.id}] (${g.category}, ${g.color_primary}${g.formality ? `, formality ${g.formality}` : ""}${g.season_tags?.length ? `, ${g.season_tags.join("/")}` : ""})`
-  ).join("\n");
+  // Identify underused and overused
+  const sorted = [...garments].sort((a: any, b: any) => (b.wear_count ?? 0) - (a.wear_count ?? 0));
+  const overused = sorted.slice(0, 3).filter((g: any) => (g.wear_count ?? 0) >= 10);
+  const unworn = garments.filter((g: any) => (g.wear_count ?? 0) === 0);
 
-  return `Wardrobe (${garments.length} garments: ${summary}):\n${details}`;
+  const details = garments.slice(0, 25).map((g: {
+    id: string; title: string; category: string; subcategory: string | null;
+    color_primary: string; material: string | null; fit: string | null;
+    formality: number | null; pattern: string | null;
+    season_tags: string[] | null; wear_count: number | null; last_worn_at: string | null;
+  }) => {
+    const parts = [
+      `${g.title} [ID:${g.id}]`,
+      `(${g.category}${g.subcategory ? '/' + g.subcategory : ''}, ${g.color_primary}`,
+      g.material ? `, ${g.material}` : '',
+      g.fit ? `, ${g.fit}` : '',
+      g.formality ? `, formality ${g.formality}` : '',
+      g.pattern && g.pattern !== 'solid' ? `, ${g.pattern}` : '',
+      g.season_tags?.length ? `, ${g.season_tags.join("/")}` : '',
+      `, worn ${g.wear_count ?? 0}x`,
+      g.last_worn_at ? `, last ${g.last_worn_at.slice(0, 10)}` : '',
+      ')',
+    ];
+    return `• ${parts.join('')}`;
+  }).join("\n");
+
+  let insightLines = "";
+  if (unworn.length > 0) {
+    insightLines += `\nUnworn items (${unworn.length}): ${unworn.slice(0, 5).map((g: any) => g.title).join(", ")}`;
+  }
+  if (overused.length > 0) {
+    insightLines += `\nMost worn: ${overused.map((g: any) => `${g.title} (${g.wear_count}x)`).join(", ")}`;
+  }
+
+  return `Wardrobe (${garments.length} garments: ${summary}):\n${details}${insightLines}`;
+}
+
+async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
+  const { data: outfits } = await supabase
+    .from("outfits")
+    .select("id, occasion, style_vibe, explanation, worn_at, generated_at, outfit_items(slot, garment_id, garments(title, color_primary))")
+    .eq("user_id", userId)
+    .order("generated_at", { ascending: false })
+    .limit(5);
+  if (!outfits?.length) return "";
+
+  const lines = outfits.map((o: any) => {
+    const items = (o.outfit_items || []).map((i: any) =>
+      `${i.slot}: ${i.garments?.title || 'unknown'} (${i.garments?.color_primary || ''})`
+    ).join(" + ");
+    const wornStr = o.worn_at ? ` [worn ${o.worn_at.slice(0, 10)}]` : " [not worn]";
+    return `- ${o.occasion}${o.style_vibe ? '/' + o.style_vibe : ''}: ${items}${wornStr}`;
+  });
+
+  return `\nRecent outfits:\n${lines.join("\n")}`;
 }
 
 serve(async (req) => {
@@ -140,10 +188,11 @@ serve(async (req) => {
     const lang = getLang(locale);
 
     // Fetch all context in parallel
-    const [profileRes, wardrobeCtx, calendarCtx] = await Promise.all([
+    const [profileRes, wardrobeCtx, calendarCtx, recentOutfitsCtx] = await Promise.all([
       supabase.from("profiles").select("display_name, preferences, home_city, height_cm, weight_kg").eq("id", user.id).single(),
       getWardrobeContext(supabase, user.id),
       getCalendarContext(supabase, user.id, lang),
+      getRecentOutfitsContext(supabase, user.id),
     ]);
 
     const profile = profileRes.data;
@@ -213,52 +262,45 @@ serve(async (req) => {
     const seasonIdx = currentMonth >= 2 && currentMonth <= 4 ? 0 : currentMonth >= 5 && currentMonth <= 7 ? 1 : currentMonth >= 8 && currentMonth <= 10 ? 2 : 3;
     const seasonHint = lang.seasonNames[seasonIdx];
 
-    const systemPrompt = `You are BURS Stylist – a personal AI styling assistant with deep expertise in fashion, trends, and color theory. Warm, professional, and specific.
+    const systemPrompt = `You are BURS Stylist — a world-class personal stylist with deep expertise in silhouette, proportion, color theory, texture interplay, and modern fashion. You speak with calm confidence, never generic.
 
-CRITICAL LANGUAGE RULE: You MUST write ALL responses in ${lang.name}. Every single word of your response must be in ${lang.name}. Never respond in any other language.
+LANGUAGE: Respond ONLY in ${lang.name}. Every word.
 
-You have deep understanding of:
-- Color theory (complementary colors, analogous matching, tonal)
-- Current ${seasonHint} trends ${new Date().getFullYear()}
-- Silhouettes, proportions, and how garments interact
-- How to build a cohesive wardrobe
+Your expertise:
+- Color: complementary, analogous, tonal, contrast ratios, seasonal palettes
+- Silhouette: proportion balance, visual weight, how garments interact on the body
+- Texture: material pairing (e.g. matte + sheen, structured + soft)
+- Trends: ${seasonHint} ${new Date().getFullYear()} — what's relevant, what's timeless
+- Wardrobe strategy: capsule thinking, versatility, gap identification
 
-${profile?.display_name ? `User: ${profile.display_name}` : ""}${profile?.home_city ? ` (${profile.home_city})` : ""}${bodyContext}
+${profile?.display_name ? `Client: ${profile.display_name}` : ""}${profile?.home_city ? ` (${profile.home_city})` : ""}${bodyContext}
 ${styleLines ? `\nSTYLE PROFILE:\n${styleLines}` : ""}
 
 ${wardrobeCtx}
+${recentOutfitsCtx}
 ${calendarCtx}
 ${weatherCtx}
 
-Your mission:
-- Give personal style and outfit advice based on wardrobe, style profile, body, weather, and calendar
-- ALWAYS reference the user's style profile when giving advice — adapt to their taste
-- When user uploads an image: analyze the outfit (colors, fit, style), compare with wardrobe, suggest specific garment swaps BY NAME
-- Adapt fit advice based on body measurements and preferences
-- Check today's calendar events and match outfit to occasion
-- Warn if outfit doesn't match the weather
-- Be specific: e.g. "Swap the white t-shirt for your navy Oxford shirt for tomorrow's meeting"
-- Consider seasonal trends and color harmony
+Your approach:
+- Reference the client's ACTUAL wardrobe by name — never suggest garments they don't own
+- Factor in recent outfits to avoid repetition and suggest fresh combinations
+- When the client has calendar events, proactively suggest occasion-appropriate looks
+- If weather data is available, factor it into every suggestion
+- Identify underused garments and suggest ways to style them
+- Notice wardrobe gaps (e.g. "you lack rain-friendly shoes") when relevant
+- When analyzing uploaded images: assess color harmony, fit, proportion, and suggest concrete swaps from the wardrobe
 
-Rules:
-- ALWAYS respond in ${lang.name}
-- Max 4-5 sentences per response
-- Ask max ONE question at a time
-- Give specific suggestions with garment names from the wardrobe
-- Avoid technical jargon
+Voice:
+- Specific over vague: "Swap the white tee for your navy Oxford — the structure balances the relaxed jeans" not "try a nicer top"
+- Use proportion, texture, contrast, silhouette, visual weight naturally
+- Confident but warm — like a trusted stylist, not a chatbot
+- Max 4-5 sentences. One question at a time.
 
-IMPORTANT – Garment display:
-- Each garment has a unique ID marked with [ID:xxx].
-- When recommending a specific garment, include the tag [[garment:ID]] right after the garment name.
-- ALWAYS use these tags when mentioning garments from the wardrobe.
-
-IMPORTANT – Outfit cards:
-- When suggesting a COMPLETE outfit (2+ garments together), you MUST use the outfit tag:
-  [[outfit:id1,id2,id3|Short explanation why this outfit works]]
-- The outfit tag displays a visual card with all garments and a "Try outfit" button.
-- Use outfit tags for FULL outfit suggestions. Use garment tags only when mentioning individual garments in running text.
-- ALWAYS include a short explanation after | in the outfit tag.
-- The explanation after | MUST also be in ${lang.name}.`;
+GARMENT TAGS:
+- When mentioning a garment from the wardrobe, tag it: [[garment:ID]] after its name
+- For complete outfit suggestions (2+ garments), use: [[outfit:id1,id2,id3|Why this works]]
+- The explanation after | must be in ${lang.name}
+- ALWAYS tag garments and outfits — this creates visual cards in the chat`;
 
     // Prepare messages - parse any JSON-stringified multimodal content
     const preparedMessages = messages.map((m: { role: string; content: string | unknown[] }) => {
