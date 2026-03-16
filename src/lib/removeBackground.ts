@@ -14,6 +14,19 @@ async function getModule() {
 }
 
 /**
+ * Convert a data URL to a Blob without using fetch().
+ * Works reliably in Median WebView and all mobile browsers.
+ */
+function dataUrlToBlob(dataUrl: string): Blob {
+  const [header, data] = dataUrl.split(',');
+  const mime = header.match(/:(.*?);/)?.[1] ?? 'image/jpeg';
+  const bytes = atob(data);
+  const arr = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+/**
  * Remove the background from an image blob.
  * Returns a transparent PNG blob on success, or the original blob on failure.
  */
@@ -21,7 +34,7 @@ export async function removeBackground(input: Blob): Promise<Blob> {
   try {
     const mod = await getModule();
     const result = await mod.removeBackground(input, {
-      model: 'isnet_quint8',
+      model: 'isnet',
       output: { format: 'image/png', quality: 0.9 },
     });
     return result;
@@ -40,9 +53,7 @@ export async function removeBackgroundFromDataUrl(
   base64: string,
 ): Promise<{ blob: Blob; base64: string }> {
   try {
-    // Convert data URL to blob
-    const response = await fetch(base64);
-    const originalBlob = await response.blob();
+    const originalBlob = dataUrlToBlob(base64);
 
     const processedBlob = await removeBackground(originalBlob);
 
@@ -57,9 +68,8 @@ export async function removeBackgroundFromDataUrl(
     return { blob: processedBlob, base64: processedBase64 };
   } catch (err) {
     console.warn('Background removal unavailable, using original image', err);
-    // Return original — convert data URL back to blob
-    const response = await fetch(base64);
-    const blob = await response.blob();
+    // Return original — convert data URL to blob without fetch
+    const blob = dataUrlToBlob(base64);
     return { blob, base64 };
   }
 }
