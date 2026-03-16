@@ -111,6 +111,7 @@ export default function PlanPage() {
   const deletePlanned = useDeletePlannedOutfit();
   const updateStatus = useUpdatePlannedOutfitStatus();
   const { generateOutfit, isGenerating } = useOutfitGenerator();
+  const { generateWeek, isGenerating: isWeekGenerating, progress: weekProgress } = useWeekGenerator();
   const markWorn = useMarkOutfitWorn();
   const undoMarkWorn = useUndoMarkWorn();
 
