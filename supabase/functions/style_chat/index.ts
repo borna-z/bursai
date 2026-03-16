@@ -81,29 +81,63 @@ async function getCalendarContext(supabase: ReturnType<typeof createClient>, use
 async function getWardrobeContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
   const { data: garments } = await supabase
     .from("garments")
-    .select("id, title, category, subcategory, color_primary, color_secondary, material, fit, formality, pattern, season_tags, wear_count, last_worn_at, image_path")
+    .select("id, title, category, subcategory, color_primary, color_secondary, material, fit, formality, pattern, season_tags, wear_count, last_worn_at, image_path, ai_raw")
     .eq("user_id", userId)
     .limit(80);
   if (!garments?.length) return "The user has no garments in their wardrobe yet.";
 
-  const summary = Object.entries(
-    garments.reduce((acc: Record<string, number>, g: { category: string }) => {
-      acc[g.category] = (acc[g.category] || 0) + 1;
-      return acc;
-    }, {})
-  ).map(([cat, count]) => `${count} ${cat}`).join(", ");
+  // ── IB-4b: Wardrobe composition summary ──
+  const catCounts: Record<string, number> = {};
+  const styleClusters: Record<string, number> = {};
+  const materialCounts: Record<string, number> = {};
+  const colorCounts: Record<string, number> = {};
+  let totalVersatility = 0;
+  let versatilityCount = 0;
+
+  for (const g of garments as any[]) {
+    catCounts[g.category] = (catCounts[g.category] || 0) + 1;
+    if (g.color_primary) colorCounts[g.color_primary] = (colorCounts[g.color_primary] || 0) + 1;
+    if (g.material) materialCounts[g.material] = (materialCounts[g.material] || 0) + 1;
+
+    // Extract enrichment for composition
+    const aiRaw = g.ai_raw && typeof g.ai_raw === 'object' ? g.ai_raw : {};
+    const e = aiRaw.enrichment || aiRaw;
+    if (e.style_archetype) styleClusters[e.style_archetype] = (styleClusters[e.style_archetype] || 0) + 1;
+    if (typeof e.versatility_score === 'number') { totalVersatility += e.versatility_score; versatilityCount++; }
+  }
+
+  const summary = Object.entries(catCounts).map(([cat, count]) => `${count} ${cat}`).join(", ");
+
+  // Detect gaps
+  const gaps: string[] = [];
+  const hasCat = (keyword: string) => Object.keys(catCounts).some(k => k.toLowerCase().includes(keyword));
+  if (!hasCat('shoes') && !hasCat('footwear')) gaps.push('shoes');
+  if (!hasCat('outerwear') && !hasCat('jacket') && !hasCat('coat')) gaps.push('outerwear');
+  if (!hasCat('bottom') && !hasCat('pants') && !hasCat('jeans')) gaps.push('bottoms');
+
+  // Top colors and materials
+  const topColors = Object.entries(colorCounts).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([c]) => c);
+  const topMaterials = Object.entries(materialCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([m]) => m);
+  const topArchetypes = Object.entries(styleClusters).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([a, c]) => `${a} (${c})`);
+  const avgVersatility = versatilityCount > 0 ? (totalVersatility / versatilityCount).toFixed(1) : null;
+
+  let compositionBlock = `\nWARDROBE COMPOSITION:`;
+  compositionBlock += `\nDominant colors: ${topColors.join(', ')}`;
+  if (topMaterials.length) compositionBlock += `\nKey materials: ${topMaterials.join(', ')}`;
+  if (topArchetypes.length) compositionBlock += `\nStyle clusters: ${topArchetypes.join(', ')}`;
+  if (avgVersatility) compositionBlock += `\nAvg versatility: ${avgVersatility}/10`;
+  if (gaps.length) compositionBlock += `\nWardrobe gaps: missing ${gaps.join(', ')}`;
 
   // Identify underused and overused
   const sorted = [...garments].sort((a: any, b: any) => (b.wear_count ?? 0) - (a.wear_count ?? 0));
   const overused = sorted.slice(0, 3).filter((g: any) => (g.wear_count ?? 0) >= 10);
   const unworn = garments.filter((g: any) => (g.wear_count ?? 0) === 0);
 
-  const details = garments.slice(0, 25).map((g: {
-    id: string; title: string; category: string; subcategory: string | null;
-    color_primary: string; material: string | null; fit: string | null;
-    formality: number | null; pattern: string | null;
-    season_tags: string[] | null; wear_count: number | null; last_worn_at: string | null;
-  }) => {
+  // ── IB-4a: Include enrichment data per garment ──
+  const details = garments.slice(0, 25).map((g: any) => {
+    const aiRaw = g.ai_raw && typeof g.ai_raw === 'object' ? g.ai_raw : {};
+    const e = aiRaw.enrichment || aiRaw;
+
     const parts = [
       `${g.title} [ID:${g.id}]`,
       `(${g.category}${g.subcategory ? '/' + g.subcategory : ''}, ${g.color_primary}`,
@@ -114,8 +148,19 @@ async function getWardrobeContext(supabase: ReturnType<typeof createClient>, use
       g.season_tags?.length ? `, ${g.season_tags.join("/")}` : '',
       `, worn ${g.wear_count ?? 0}x`,
       g.last_worn_at ? `, last ${g.last_worn_at.slice(0, 10)}` : '',
-      ')',
     ];
+
+    // Enrichment fields (compact)
+    const enrichParts: string[] = [];
+    if (e.style_archetype) enrichParts.push(e.style_archetype);
+    if (e.silhouette) enrichParts.push(`sil:${e.silhouette}`);
+    if (typeof e.versatility_score === 'number') enrichParts.push(`vers:${e.versatility_score}`);
+    if (e.layering_role) enrichParts.push(`layer:${e.layering_role}`);
+    if (Array.isArray(e.occasion_tags) && e.occasion_tags.length) enrichParts.push(`occ:${e.occasion_tags.slice(0, 3).join(',')}`);
+
+    if (enrichParts.length) parts.push(` | ${enrichParts.join(', ')}`);
+    parts.push(')');
+
     return `• ${parts.join('')}`;
   }).join("\n");
 
@@ -127,11 +172,36 @@ async function getWardrobeContext(supabase: ReturnType<typeof createClient>, use
     insightLines += `\nMost worn: ${overused.map((g: any) => `${g.title} (${g.wear_count}x)`).join(", ")}`;
   }
 
-  return `Wardrobe (${garments.length} garments: ${summary}):\n${details}${insightLines}`;
+  return `Wardrobe (${garments.length} garments: ${summary}):${compositionBlock}\n\n${details}${insightLines}`;
 }
 
 async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
-  const { data: outfits } = await supabase
+// ── IB-4c: Recent rejection/swap context ──
+async function getRejectionsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
+  const { data: signals } = await supabase
+    .from("feedback_signals")
+    .select("signal_type, value, metadata, created_at")
+    .eq("user_id", userId)
+    .in("signal_type", ["swap", "reject", "dislike", "thumbs_down"])
+    .order("created_at", { ascending: false })
+    .limit(8);
+  if (!signals?.length) return "";
+
+  const lines = signals.map((s: any) => {
+    const meta = s.metadata || {};
+    const parts = [s.signal_type];
+    if (s.value) parts.push(s.value);
+    if (meta.slot) parts.push(`slot:${meta.slot}`);
+    if (meta.reason) parts.push(`reason:${meta.reason}`);
+    if (meta.swapped_garment_title) parts.push(`swapped:${meta.swapped_garment_title}`);
+    if (meta.replacement_title) parts.push(`→${meta.replacement_title}`);
+    return `- ${parts.join(' | ')} (${s.created_at?.slice(0, 10) || ''})`;
+  });
+
+  return `\nRECENT REJECTIONS/SWAPS (avoid repeating these patterns):\n${lines.join("\n")}`;
+}
+
+
     .from("outfits")
     .select("id, occasion, style_vibe, explanation, worn_at, generated_at, outfit_items(slot, garment_id, garments(title, color_primary))")
     .eq("user_id", userId)
@@ -189,11 +259,12 @@ serve(async (req) => {
     const lang = getLang(locale);
 
     // Fetch all context in parallel
-    const [profileRes, wardrobeCtx, calendarCtx, recentOutfitsCtx] = await Promise.all([
+    const [profileRes, wardrobeCtx, calendarCtx, recentOutfitsCtx, rejectionsCtx] = await Promise.all([
       supabase.from("profiles").select("display_name, preferences, home_city, height_cm, weight_kg").eq("id", user.id).single(),
       getWardrobeContext(supabase, user.id),
       getCalendarContext(supabase, user.id, lang),
       getRecentOutfitsContext(supabase, user.id),
+      getRejectionsContext(supabase, user.id),
     ]);
 
     const profile = profileRes.data;
@@ -274,6 +345,7 @@ ${styleLines ? `\nSTYLE PROFILE:\n${styleLines}` : ""}
 
 ${wardrobeCtx}
 ${recentOutfitsCtx}
+${rejectionsCtx}
 ${calendarCtx}
 ${weatherCtx}
 
