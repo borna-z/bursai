@@ -637,7 +637,7 @@ export default function OutfitDetailPage() {
               <span className={cn(
                 'text-[13px] font-bold relative z-10',
                 genConfidenceLevel === 'high' ? 'text-primary' :
-                genConfidenceLevel === 'medium' ? 'text-amber-600' :
+                genConfidenceLevel === 'medium' ? 'text-warning' :
                 'text-muted-foreground'
               )}>
                 {genConfidence.toFixed(0)}
