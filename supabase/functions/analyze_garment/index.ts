@@ -171,11 +171,15 @@ function buildEnrichMessages(imageUrl: string) {
 "garment_length": "cropped|regular|long|midi|maxi|null",
 "closure": "button|zip|pullover|snap|belt|tie|null",
 "fabric_weight": "lightweight|midweight|heavyweight|null",
-"style_tags": ["up to 5 style descriptors, e.g. casual, classic, streetwear, preppy, athleisure"],
-"occasion_tags": ["up to 3 occasions, e.g. work, weekend, evening, sport, date"],
+"style_tags": ["up to 5 style descriptors, e.g. casual, classic, streetwear, preppy, athleisure, minimalist, bohemian"],
+"occasion_tags": ["up to 3 occasions, e.g. work, weekend, evening, sport, date, travel"],
 "layering_role": "base|mid|outer|standalone|null",
+"care_instructions": ["up to 3 short care tips, e.g. machine wash cold, hang dry, dry clean only"],
+"versatility_score": 7,
+"color_harmony_notes": "short note on what colors pair well with this garment (max 60 chars)",
 "refined_title": "improved concise garment title (max 30 chars)"
 }
+versatility_score: 1-10 (1=very specific use, 10=extremely versatile wardrobe staple).
 JSON only, no explanation.`
     },
     {

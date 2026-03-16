@@ -250,7 +250,39 @@ export default function GarmentDetailPage() {
           </div>
         )}
 
-        {/* Stats */}
+        {/* Enrichment: Construction specs */}
+        {enrichment && (enrichment.neckline || enrichment.sleeve_length || enrichment.garment_length || enrichment.closure || enrichment.fabric_weight || enrichment.layering_role) && (
+          <div className="space-y-1 border border-border/10 rounded-xl px-4 py-1">
+            {enrichment.neckline && <SpecRow label={t('garment.neckline') || 'Neckline'} value={enrichment.neckline} />}
+            {enrichment.sleeve_length && <SpecRow label={t('garment.sleeve') || 'Sleeve'} value={enrichment.sleeve_length} />}
+            {enrichment.garment_length && <SpecRow label={t('garment.length') || 'Length'} value={enrichment.garment_length} />}
+            {enrichment.closure && <SpecRow label={t('garment.closure') || 'Closure'} value={enrichment.closure} />}
+            {enrichment.fabric_weight && <SpecRow label={t('garment.weight') || 'Weight'} value={enrichment.fabric_weight} />}
+            {enrichment.layering_role && <SpecRow label={t('garment.layering') || 'Layering'} value={enrichment.layering_role} />}
+          </div>
+        )}
+
+        {/* Enrichment: Versatility + color harmony */}
+        {enrichment?.versatility_score != null && (
+          <div className="flex items-center gap-3 py-2">
+            <Layers className="w-4 h-4 text-muted-foreground/50" />
+            <div>
+              <p className="text-xs text-foreground">{t('garment.versatility') || 'Versatility'}: {enrichment.versatility_score}/10</p>
+              {enrichment.color_harmony_notes && (
+                <p className="text-[11px] text-muted-foreground mt-0.5">{enrichment.color_harmony_notes}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Enrichment: Care instructions */}
+        {enrichment?.care_instructions && enrichment.care_instructions.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50">{t('garment.care') || 'Care'}</p>
+            <DetailChips items={enrichment.care_instructions} variant="outline" />
+          </div>
+        )}
+
         <div className="flex">
           <div className="flex-1 text-center">
             <p className="text-2xl font-semibold tabular-nums">{garment.wear_count || 0}</p>
