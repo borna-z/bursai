@@ -227,29 +227,11 @@ export default function HomePage() {
                 <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
               </motion.button>
             ) : (
-              /* no_outfit — stylist prompt */
-              <motion.div
-                variants={reveal.variants}
-                initial="initial"
-                animate="animate"
-                transition={reveal.transition}
-                className="rounded-[var(--radius,1rem)] surface-secondary p-8 text-center space-y-5"
-              >
-                <Sparkles className="w-8 h-8 text-primary/50 mx-auto" />
-                <div className="space-y-2">
-                  <h3 className="text-[15px] font-semibold">{t('home.no_outfit_title')}</h3>
-                  <p className="text-[12px] text-muted-foreground/60 max-w-[260px] mx-auto leading-relaxed">
-                    Tell me the occasion — I'll pull together something that works.
-                  </p>
-                </div>
-                <Button
-                  onClick={() => { hapticLight(); navigate('/outfits/generate'); }}
-                  className="w-full max-w-[200px] h-11"
-                >
-                  {t('home.generate_now')}
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
-              </motion.div>
+              /* no_outfit — premium "What should I wear?" hero */
+              <TodayOutfitHero
+                weather={weather}
+                garmentCount={garmentCount ?? undefined}
+              />
             )}
           </FadeReplace>
 
