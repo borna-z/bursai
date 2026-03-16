@@ -431,9 +431,9 @@ export default function LiveScan() {
           /* File-input mode (Median or no getUserMedia) */
           <div className="absolute inset-0 flex items-center justify-center p-8 text-center">
             <div className="space-y-6">
-              <div className="w-20 h-20 rounded-full bg-accent/10 flex items-center justify-center mx-auto">
-                <ImagePlus className="w-10 h-10 text-accent" />
-              </div>
+            <div className="w-20 h-20 bg-accent/10 flex items-center justify-center mx-auto">
+              <ImagePlus className="w-10 h-10 text-accent" />
+            </div>
               <div className="space-y-2">
                 <p className="text-foreground text-base font-medium">{t('scan.title')}</p>
                 <p className="text-muted-foreground text-sm">{t('scan.tap_to_capture')}</p>
