@@ -206,6 +206,8 @@ export default function PlanPage() {
     }
   };
 
+  const { canCreateOutfit } = useSubscription();
+
   const handleAutoGenerateWeek = async (days: number) => {
     setIsAutoGenerating(true);
     const occasions = ['vardag', 'jobb', 'vardag', 'jobb', 'vardag', 'fest', 'vardag'];
