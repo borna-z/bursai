@@ -224,6 +224,7 @@ export default function OutfitDetailPage() {
   const genLimitationNote = (location.state as { limitation_note?: string | null })?.limitation_note;
   const genFamilyLabel = (location.state as { family_label?: string })?.family_label;
   const genWardrobeInsights = (location.state as { wardrobe_insights?: string[] })?.wardrobe_insights;
+  const shareUrl = outfit ? `${window.location.origin}/share/${outfit.id}` : '';
   const outfitItems = Array.isArray(outfit?.outfit_items) ? outfit.outfit_items : [];
 
   const feedbackOptions = [
