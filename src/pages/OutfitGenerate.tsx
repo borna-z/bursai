@@ -132,7 +132,7 @@ export default function OutfitGeneratePage() {
             {t('generate.title') || 'What to wear'}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {t('generate.subtitle') || 'Pick a vibe and we'll style you'}
+            {t('generate.subtitle') || 'Pick a vibe and we\u2019ll style you'}
           </p>
         </div>
 
