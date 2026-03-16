@@ -1,4 +1,4 @@
-# BURS Prompt Pack v2 — Full Roadmap (33 Tasks)
+# BURS Prompt Pack v2 — Full Roadmap (33 Tasks + Intelligence Blueprint)
 
 **Global rule:** BURS must remain on Lovable. Use burs.me/welcome as the visual source of truth.
 
@@ -13,7 +13,7 @@
 | 3 | Premium app feel pass | ✅ Done |
 | 4 | Protect critical flows while refactoring | ✅ Done |
 
-## Phase 2 — Core Stylist Quality (partially done)
+## Phase 2 — Core Stylist Quality ✅
 
 | Task | Title | Status |
 |------|-------|--------|
@@ -26,7 +26,7 @@
 | 11 | Elite stylist chat | ✅ Done |
 | 12 | Sharper stylist language system | ✅ Done |
 
-## Phase 3 — Personalization
+## Phase 3 — Personalization ✅
 
 | Task | Title | Status |
 |------|-------|--------|
@@ -36,7 +36,7 @@
 | 16 | Personal uniform / style DNA | ✅ Done |
 | 17 | Make the app feel like a stylist, not a tool | ✅ Done |
 
-## Phase 4 — Retention and Habit
+## Phase 4 — Retention and Habit ✅
 
 | Task | Title | Status |
 |------|-------|--------|
@@ -46,7 +46,7 @@
 | 21 | Wardrobe health dashboard | ✅ Done |
 | 22 | Retention loops | ✅ Done |
 
-## Phase 5 — Premium Conversion and Trust
+## Phase 5 — Premium Conversion and Trust ✅
 
 | Task | Title | Status |
 |------|-------|--------|
@@ -55,7 +55,7 @@
 | 25 | Trust pass | ✅ Done |
 | 26 | Reduce feature chaos | ✅ Done |
 
-## Phase 6 — Final Polish
+## Phase 6 — Final Polish ✅
 
 | Task | Title | Status |
 |------|-------|--------|
@@ -69,88 +69,69 @@
 
 ---
 
-## Task Details
+## Intelligence Blueprint — AI Stylist Upgrade
 
-### Task 6 — Expand garment intelligence
-Support richer garment attributes: silhouette, visual weight, texture intensity, neckline, sleeve length, shoulder structure, rise, leg shape, hem length, drape, layering role, style archetype, occasion suitability, confidence scores, stylist notes. Improve the garment detail UI so these attributes are visible and editable in a premium, usable way. Prefer incremental expansion over disruptive data-model change.
+### IB Phase 1 — Unlock Enrichment Data in Style Engine ✅
 
-### Task 7 — Real outfit engine experience
-Make outfit generation feel deliberate, constrained, and stylist-grade. User should understand why the outfit was chosen, how it fits occasion/weather, confidence level, and what swaps exist. Improve both generation-state and result-state UX.
+| Task | Title | Status |
+|------|-------|--------|
+| IB-1a | Expand GarmentRow with enrichment fields (silhouette, visual_weight, texture_intensity, layering_role, versatility_score, occasion_tags, style_archetype) | ✅ Done |
+| IB-1b | Hydrate enrichment from ai_raw with safe defaults | ✅ Done |
+| IB-1c | Upgrade scoreGarment: occasion tag matching, layering role vs weather, versatility boost | ✅ Done |
+| IB-1d | Upgrade scoreCombo: silhouette balance scoring, texture depth scoring | ✅ Done |
+| IB-1e | Add texture monotony rule to quality gate | ✅ Done |
 
-### Task 8 — Hard outfit quality rules
-Prevent weak outfits: incomplete outfits, duplicate core roles, weather mismatch, silhouette imbalance, poor layering, incompatible footwear, excessive statement-item conflict, formality mismatch, lazy filler garments. Production-safe and explainable.
+### IB Phase 2 — Travel Capsule Constrained Optimizer ✅
 
-### Task 9 — Editorial result screen
-Redesign the outfit result screen so it feels editorial, premium, and subscription-worthy.
+| Task | Title | Status |
+|------|-------|--------|
+| IB-2a | Score pack-worthiness per garment (versatility, material, weather, pairing potential) | ✅ Done |
+| IB-2b | Pre-filter to top 40 most packable garments before AI call | ✅ Done |
+| IB-2c | Matrix coverage validation after AI response | 🔲 Todo |
 
-### Task 10 — Smart swaps
-Swaps preserve outfit logic: vibe, weather fit, formality, silhouette balance, style profile alignment. Explain why each swap works.
+### IB Phase 3 — Planner Week Intelligence
 
-### Task 11 — Elite stylist chat
-Use wardrobe context, recent outfits, style profile, weather, calendar, wardrobe gaps. Responses: specific, concise, confident, fashion-literate.
+| Task | Title | Status |
+|------|-------|--------|
+| IB-3a | Add plan_week mode to style engine (sequential generation with used_garments carry-forward) | 🔲 Todo |
+| IB-3b | Inter-day repetition penalty (hero garments heavy, accessories light) | 🔲 Todo |
+| IB-3c | Formality variation across planned days | 🔲 Todo |
+| IB-3d | Expose backup outfit (2nd-ranked combo) per day | 🔲 Todo |
+| IB-3e | Laundry-aware generation with dirty garment warnings | 🔲 Todo |
 
-### Task 12 — Sharper stylist language system
-All AI outputs sound like BURS. Prefer silhouette, texture, contrast, proportion, polish, structure, mood, visual weight, occasion fit. Remove weak generic phrases. Calm, confident, modern, premium.
+### IB Phase 4 — Chat Intelligence Upgrade
 
-### Task 13 — Stronger style profile
-Support: silhouette, color comfort, fit tolerance, style adjectives, formality range, trend tolerance, outfit energy, comfort priority, season habits, social context, work style, favorite garment roles. Make profile useful throughout the app.
+| Task | Title | Status |
+|------|-------|--------|
+| IB-4a | Include enrichment data in wardrobe context sent to chat | 🔲 Todo |
+| IB-4b | Add wardrobe composition summary (style clusters, gaps) | 🔲 Todo |
+| IB-4c | Include recent rejection/swap context in chat prompt | 🔲 Todo |
 
-### Task 14 — Better onboarding
-Collect highest-value early inputs: style direction, climate relevance, main use cases, fit/comfort preferences, stylist expectations. Delay lower-value questions.
+### IB Phase 5 — Learning & Signal Refinement
 
-### Task 15 — Better feedback learning
-Capture: save vs ignore, wear confirmations, quick reactions, swap choices, outfit follow-through, garment edits. Subtle premium feedback moments.
+| Task | Title | Status |
+|------|-------|--------|
+| IB-5a | Track rejection reasons (swapped garment + slot, ignored outfits) | 🔲 Todo |
+| IB-5b | Weight "wore it" 3x over "saved it", add planned-but-not-worn negative signal | 🔲 Todo |
+| IB-5c | Personal uniform detection (>60% same silhouette formula → boost) | 🔲 Todo |
 
-### Task 16 — Personal uniform / style DNA
-Detect repeated silhouettes, category combos, color habits, mood/style directions, comfort behavior, formality behavior. Present beautifully and use for recommendations.
+### IB Phase 6 — UI Trust & Polish
 
-### Task 17 — Make the app feel like a stylist, not a tool
-Increase confidence, tastefulness, editorial quality, clarity, emotional polish. Reduce generic utility-app feel.
+| Task | Title | Status |
+|------|-------|--------|
+| IB-6a | Audit and fix raw enum/key exposure in UI (occasion labels, categories) | 🔲 Todo |
+| IB-6b | Per-attribute confidence indicators on garment detail | 🔲 Todo |
+| IB-6c | Editorial formatting for limitation_note and gap strings | 🔲 Todo |
 
-### Task 18 — Weekly stylist planner
-Plan outfits for weather, events, repetition control, wardrobe rotation, reduced decision fatigue. Visually beautiful and worth returning to.
+---
 
-### Task 19 — Daily "What should I wear?" flow
-Premium signature moment. Polished daily flow as emotional core of BURS.
+## Intelligence Blueprint Priority Order
 
-### Task 20 — High-end wardrobe insights
-Underused gems, over-relied staples, category imbalance, seasonal weakness, color imbalance, occasion gaps, personal uniform patterns, high-value styling opportunities. Editorial premium format.
-
-### Task 21 — Wardrobe health dashboard
-Category balance, seasonal readiness, repeat-wear concentration, idle garments, wardrobe diversity, styling strength, missing essentials, planning readiness. Strategic, calm, premium.
-
-### Task 22 — Retention loops
-Morning outfit recommendation, weekly planning, weather-triggered suggestions, underused item resurfacing, travel packing, occasion prep, seasonal transition advice.
-
-### Task 23 — Real Stylist Mode
-Flagship premium mode. Fewer but higher-quality outfits. Deeper reasoning, stronger constraints, smarter swaps, editorial explanations. Obviously better than standard.
-
-### Task 24 — Stronger premium subscription experience
-Frame premium as access to real personal stylist. Improve free vs premium boundaries, upsell timing, premium explanation, plan comparison, value communication.
-
-### Task 25 — Trust pass
-Confidence indicators, quality language, result consistency, low-confidence handling, error states, recovery paths, editability, user control. Transparent and dependable.
-
-### Task 26 — Reduce feature chaos
-Audit overlapping features, simplify where value overlaps, improve navigation clarity, reduce cognitive overload, strengthen main product journey.
-
-### Task 27 — Premium empty states
-Every empty state: wardrobe, scan, planner, outfit history, stylist chat, gap analysis, favorites, travel capsule, mood styling, weather styling. Explain value, reduce friction, suggest next action.
-
-### Task 28 — Premium loading states
-Garment scanning, outfit generation, swap generation, stylist chat, wardrobe analysis, travel capsule, planning suggestions. Subtle motion, meaningful skeletons, reassuring progress.
-
-### Task 29 — Make the app feel more native
-Touch targets, bottom sheets, transitions, safe-area handling, sticky actions, keyboard behavior, spacing, scrolling, app-like responsiveness.
-
-### Task 30 — World-class garment detail screen
-Understand garment, edit scan results quickly, view usage insights, outfit relationships, style tags, occasion fit, seasonality, underuse/overuse. Launch outfit gen or styling advice from garment.
-
-### Task 31 — Lookbook-level visual polish
-Image treatment, card cropping, visual hierarchy, whitespace, overlays, outfit composition presentation. Fashion product, not utility app.
-
-### Task 32 — Full polish pass
-Fix spacing, hierarchy, misaligned components, awkward buttons, poor icon alignment, weak loading states, abrupt transitions, generic empty states, weak upsell surfaces, clunky sheets/modals.
-
-### Task 33 — Final 90+ market-leader pass
-Premium feel, trust, outfit quality, consistency, retention, simplicity, hero experience strength, emotional desirability, subscription value, category-level polish.
+| Phase | Scope | Risk | Priority |
+|-------|-------|------|----------|
+| IB-1 | Style engine enrichment | Low — additive scoring | ✅ Complete |
+| IB-2 | Travel capsule optimizer | Medium — changes AI input | ✅ Complete (validation pending) |
+| IB-3 | Planner week intelligence | Medium — new mode | High — retention driver |
+| IB-4 | Chat intelligence | Low — prompt changes | Medium |
+| IB-5 | Learning refinement | Low — additive | Medium |
+| IB-6 | UI polish | Low — frontend only | Medium |
