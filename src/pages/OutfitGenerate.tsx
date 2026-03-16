@@ -215,9 +215,9 @@ export default function OutfitGeneratePage() {
       </div>
 
       <PaywallModal
-        open={showPaywall}
-        onOpenChange={setShowPaywall}
-        feature="outfits"
+        isOpen={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        reason="outfits"
       />
     </AppLayout>
   );
