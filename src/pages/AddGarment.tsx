@@ -184,7 +184,7 @@ async function enrichGarmentInBackground(garmentId: string, storagePath: string)
   await supabase.from('garments').update(updates).eq('id', garmentId);
 }
 
-
+export default function AddGarmentPage() {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
