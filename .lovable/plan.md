@@ -33,7 +33,7 @@
 | 13 | Stronger style profile | ✅ Done |
 | 14 | Better onboarding | ✅ Done |
 | 15 | Better feedback learning | ✅ Done |
-| 16 | Personal uniform / style DNA | 🔲 |
+| 16 | Personal uniform / style DNA | ✅ Done |
 | 17 | Make the app feel like a stylist, not a tool | 🔲 |
 
 ## Phase 4 — Retention and Habit
