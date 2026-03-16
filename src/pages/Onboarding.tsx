@@ -8,7 +8,6 @@ import { useUpdateProfile, useProfile } from '@/hooks/useProfile';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { LanguageStep } from '@/components/onboarding/LanguageStep';
-import { AccentColorStep } from '@/components/onboarding/AccentColorStep';
 import { QuickStyleQuiz } from '@/components/onboarding/QuickStyleQuiz';
 import { QuickUploadStep } from '@/components/onboarding/QuickUploadStep';
 import { GetStartedStep } from '@/components/onboarding/GetStartedStep';
@@ -16,7 +15,9 @@ import type { StyleProfileV3 } from '@/components/onboarding/StyleQuizV3';
 import { asPreferences } from '@/types/preferences';
 import { toast } from 'sonner';
 
-const STEPS = ['lang', 'accent', 'quiz', 'upload', 'getstarted'] as const;
+// Streamlined: lang (admin only) → quiz → upload → get started
+// Accent color moved to settings (lower priority for first-run)
+const STEPS = ['lang', 'quiz', 'upload', 'getstarted'] as const;
 type StepKey = typeof STEPS[number];
 
 function StepProgress({ current }: { current: StepKey }) {
@@ -48,7 +49,6 @@ export default function OnboardingPage() {
 
   const { data: isAdmin, isLoading: adminLoading } = useIsAdmin();
   const [languageStepDone, setLanguageStepDone] = useState(false);
-  const [accentStepDone, setAccentStepDone] = useState(false);
   const [quizDone, setQuizDone] = useState(false);
   const [uploadDone, setUploadDone] = useState(false);
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
@@ -124,13 +124,11 @@ export default function OnboardingPage() {
 
   const stepKey: StepKey = !effectiveLanguageDone
     ? 'lang'
-    : !accentStepDone
-      ? 'accent'
-      : !quizDone
-        ? 'quiz'
-        : !uploadDone
-          ? 'upload'
-          : 'getstarted';
+    : !quizDone
+      ? 'quiz'
+      : !uploadDone
+        ? 'upload'
+        : 'getstarted';
 
   return (
     <>
@@ -144,7 +142,6 @@ export default function OnboardingPage() {
           transition={{ duration: 0.3, ease: EASE_CURVE }}
         >
           {stepKey === 'lang' && <LanguageStep onComplete={() => setLanguageStepDone(true)} />}
-          {stepKey === 'accent' && <AccentColorStep onComplete={() => setAccentStepDone(true)} />}
           {stepKey === 'quiz' && (
             <QuickStyleQuiz
               onComplete={handleQuizComplete}

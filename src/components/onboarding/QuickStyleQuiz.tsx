@@ -13,7 +13,31 @@ interface Props {
   isSaving: boolean;
 }
 
-const TOTAL = 8;
+// ── 10 questions, ordered by AI-impact value ──
+// 1. Goal (what do you want from BURS?)
+// 2. Climate (affects every outfit suggestion)
+// 3. Style words (core identity)
+// 4. Gender (fit/silhouette)
+// 5. Fit preference
+// 6. Favorite colors (high value for outfit gen)
+// 7. Hardest occasions
+// 8. Work formality
+// 9. Morning time (usage pattern)
+// 10. Age range (lowest priority — optional)
+
+const TOTAL = 10;
+
+const COLOR_SWATCHES = [
+  { id: 'black', hex: '#111111' }, { id: 'white', hex: '#FAFAFA' },
+  { id: 'grey', hex: '#9CA3AF' }, { id: 'navy', hex: '#1E3A5F' },
+  { id: 'blue', hex: '#3B82F6' }, { id: 'beige', hex: '#D4C5A9' },
+  { id: 'camel', hex: '#C19A6B' }, { id: 'brown', hex: '#78350F' },
+  { id: 'olive', hex: '#6B7040' }, { id: 'green', hex: '#22C55E' },
+  { id: 'red', hex: '#EF4444' }, { id: 'burgundy', hex: '#7F1D1D' },
+  { id: 'pink', hex: '#F472B6' }, { id: 'purple', hex: '#A855F7' },
+  { id: 'orange', hex: '#F97316' }, { id: 'teal', hex: '#14B8A6' },
+  { id: 'cream', hex: '#FFF8E7' }, { id: 'denim', hex: '#4B6C8A' },
+];
 
 export function QuickStyleQuiz({ onComplete, onSkip, isSaving }: Props) {
   const { t } = useLanguage();
@@ -22,21 +46,23 @@ export function QuickStyleQuiz({ onComplete, onSkip, isSaving }: Props) {
   const [dir, setDir] = useState(1);
 
   const [answers, setAnswers] = useState({
-    gender: '',
-    ageRange: '',
+    bursGoal: '',
     climate: '',
     styleWords: [] as string[],
+    gender: '',
     fit: '',
-    bursGoal: '',
+    favoriteColors: [] as string[],
     hardestOccasions: [] as string[],
+    workFormality: '',
     morningTime: '',
+    ageRange: '',
   });
 
   const set = useCallback(<K extends keyof typeof answers>(key: K, val: (typeof answers)[K]) => {
     setAnswers(prev => ({ ...prev, [key]: val }));
   }, []);
 
-  const toggleMulti = useCallback((key: 'styleWords' | 'hardestOccasions', val: string, max?: number) => {
+  const toggleMulti = useCallback((key: 'styleWords' | 'hardestOccasions' | 'favoriteColors', val: string, max?: number) => {
     setAnswers(prev => {
       const list = prev[key];
       if (list.includes(val)) return { ...prev, [key]: list.filter(v => v !== val) };
@@ -50,10 +76,10 @@ export function QuickStyleQuiz({ onComplete, onSkip, isSaving }: Props) {
     else {
       const full: StyleProfileV3 = {
         gender: answers.gender, ageRange: answers.ageRange, height: '', climate: answers.climate,
-        weekday: '', workFormality: '', weekend: '', specialOccasion: '',
+        weekday: '', workFormality: answers.workFormality, weekend: '', specialOccasion: '',
         styleWords: answers.styleWords, comfortVsStyle: 50, adventurousness: '', trendFollowing: '',
         genderNeutral: '', fit: answers.fit, layering: '', topStyle: '', bottomLength: '',
-        favoriteColors: [], dislikedColors: [], paletteVibe: '', patternFeeling: '',
+        favoriteColors: answers.favoriteColors, dislikedColors: [], paletteVibe: '', patternFeeling: '',
         shoppingMindset: '', sustainability: '', capsuleWardrobe: '', frustrations: [],
         styleIcons: '', hardestOccasions: answers.hardestOccasions, fabricFeel: '',
         signaturePieces: '', bursGoal: answers.bursGoal, morningTime: answers.morningTime, freeText: '',
@@ -70,6 +96,8 @@ export function QuickStyleQuiz({ onComplete, onSkip, isSaving }: Props) {
       if (qi < TOTAL - 1) { setDir(1); setQi(prev => prev + 1); }
     }, 250);
   };
+
+  // ── Shared components ──
 
   const OptionBtn = ({ value, selected, onSelect, label }: {
     value: string; selected: boolean; onSelect: (v: string) => void; label: string;
@@ -105,30 +133,30 @@ export function QuickStyleQuiz({ onComplete, onSkip, isSaving }: Props) {
     </button>
   );
 
+  // ── Questions ──
+
   const renderQuestion = () => {
     switch (qi) {
+      // 1. Goal — highest value, frames the entire experience
       case 0: return (
-        <QWrap question={t('q3.q1')} subtitle={t('q3.q1_sub')} dark={dark}>
-          {['male', 'female', 'nonbinary', 'prefer_not'].map(v => (
-            <OptionBtn key={v} value={v} selected={answers.gender === v} onSelect={() => selectAndAdvance('gender', v)} label={t(`q3.gender.${v}`)} />
+        <QWrap question={t('q3.q30')} subtitle={t('onboarding.quiz.goal_sub') || 'This helps us personalize everything for you.'} dark={dark}>
+          {['daily_outfits', 'better_wardrobe', 'personal_style', 'plan_events', 'all'].map(v => (
+            <OptionBtn key={v} value={v} selected={answers.bursGoal === v} onSelect={() => selectAndAdvance('bursGoal', v)} label={t(`q3.goal.${v}`)} />
           ))}
         </QWrap>
       );
+
+      // 2. Climate — affects every outfit suggestion
       case 1: return (
-        <QWrap question={t('q3.q2')} dark={dark}>
-          {['18-24', '25-34', '35-44', '45-54', '55+'].map(v => (
-            <OptionBtn key={v} value={v} selected={answers.ageRange === v} onSelect={() => selectAndAdvance('ageRange', v)} label={v} />
-          ))}
-        </QWrap>
-      );
-      case 2: return (
-        <QWrap question={t('q3.q4')} dark={dark}>
+        <QWrap question={t('q3.q4')} subtitle={t('onboarding.quiz.climate_sub') || 'So we can factor in weather from day one.'} dark={dark}>
           {['nordic', 'temperate', 'warm', 'varies'].map(v => (
             <OptionBtn key={v} value={v} selected={answers.climate === v} onSelect={() => selectAndAdvance('climate', v)} label={t(`q3.climate.${v}`)} />
           ))}
         </QWrap>
       );
-      case 3: return (
+
+      // 3. Style words — core identity
+      case 2: return (
         <QWrap question={t('q3.q9')} subtitle={t('q3.q9_sub')} dark={dark}>
           <div className="flex flex-wrap gap-2.5">
             {['minimal', 'classic', 'street', 'preppy', 'bohemian', 'sporty', 'edgy', 'romantic', 'scandi', 'avantgarde'].map(v => (
@@ -137,6 +165,17 @@ export function QuickStyleQuiz({ onComplete, onSkip, isSaving }: Props) {
           </div>
         </QWrap>
       );
+
+      // 4. Gender
+      case 3: return (
+        <QWrap question={t('q3.q1')} subtitle={t('q3.q1_sub')} dark={dark}>
+          {['male', 'female', 'nonbinary', 'prefer_not'].map(v => (
+            <OptionBtn key={v} value={v} selected={answers.gender === v} onSelect={() => selectAndAdvance('gender', v)} label={t(`q3.gender.${v}`)} />
+          ))}
+        </QWrap>
+      );
+
+      // 5. Fit
       case 4: return (
         <QWrap question={t('q3.q14')} dark={dark}>
           {['loose', 'regular', 'slim', 'depends'].map(v => (
@@ -144,13 +183,41 @@ export function QuickStyleQuiz({ onComplete, onSkip, isSaving }: Props) {
           ))}
         </QWrap>
       );
+
+      // 6. Favorite colors — NEW, high value
       case 5: return (
-        <QWrap question={t('q3.q30')} dark={dark}>
-          {['daily_outfits', 'better_wardrobe', 'personal_style', 'plan_events', 'all'].map(v => (
-            <OptionBtn key={v} value={v} selected={answers.bursGoal === v} onSelect={() => selectAndAdvance('bursGoal', v)} label={t(`q3.goal.${v}`)} />
-          ))}
+        <QWrap question={t('onboarding.quiz.colors_q') || 'Colors you love to wear'} subtitle={t('onboarding.quiz.colors_sub') || 'Pick up to 5. This shapes your outfit palette.'} dark={dark}>
+          <div className="flex flex-wrap gap-2.5">
+            {COLOR_SWATCHES.map(c => (
+              <button
+                key={c.id}
+                onClick={() => toggleMulti('favoriteColors', c.id, 5)}
+                className={cn(
+                  'w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center',
+                  answers.favoriteColors.includes(c.id)
+                    ? (dark ? 'border-white scale-110 shadow-lg' : 'border-foreground scale-110 shadow-md')
+                    : (dark ? 'border-white/[0.08] hover:border-white/20' : 'border-border/40 hover:border-border')
+                )}
+                style={{ backgroundColor: c.hex }}
+                title={t(`q3.color.${c.id}`) !== `q3.color.${c.id}` ? t(`q3.color.${c.id}`) : c.id}
+              >
+                {answers.favoriteColors.includes(c.id) && (
+                  <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none">
+                    <path d="M4 8l3 3 5-5" stroke={c.id === 'white' || c.id === 'cream' || c.id === 'beige' ? '#111' : '#fff'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </button>
+            ))}
+          </div>
+          {answers.favoriteColors.length > 0 && (
+            <p className={cn('text-xs mt-2', dark ? 'text-white/30' : 'text-muted-foreground')}>
+              {answers.favoriteColors.length}/5 {t('onboarding.quiz.selected') || 'selected'}
+            </p>
+          )}
         </QWrap>
       );
+
+      // 7. Hardest occasions
       case 6: return (
         <QWrap question={t('q3.q27')} subtitle={t('q3.q27_sub')} dark={dark}>
           <div className="space-y-2">
@@ -160,13 +227,34 @@ export function QuickStyleQuiz({ onComplete, onSkip, isSaving }: Props) {
           </div>
         </QWrap>
       );
+
+      // 8. Work formality
       case 7: return (
+        <QWrap question={t('onboarding.quiz.formality_q') || 'How formal is your typical day?'} dark={dark}>
+          {['very_casual', 'casual', 'smart_casual', 'business', 'formal'].map(v => (
+            <OptionBtn key={v} value={v} selected={answers.workFormality === v} onSelect={() => selectAndAdvance('workFormality', v)} label={t(`q3.formality.${v}`)} />
+          ))}
+        </QWrap>
+      );
+
+      // 9. Morning time
+      case 8: return (
         <QWrap question={t('q3.q31')} dark={dark}>
           {['under5', '5to15', 'enjoy'].map(v => (
             <OptionBtn key={v} value={v} selected={answers.morningTime === v} onSelect={() => selectAndAdvance('morningTime', v)} label={t(`q3.morning.${v}`)} />
           ))}
         </QWrap>
       );
+
+      // 10. Age range — lowest priority, last
+      case 9: return (
+        <QWrap question={t('q3.q2')} dark={dark}>
+          {['18-24', '25-34', '35-44', '45-54', '55+'].map(v => (
+            <OptionBtn key={v} value={v} selected={answers.ageRange === v} onSelect={() => selectAndAdvance('ageRange', v)} label={v} />
+          ))}
+        </QWrap>
+      );
+
       default: return null;
     }
   };
