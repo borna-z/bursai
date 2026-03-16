@@ -39,6 +39,10 @@ export function useLiveScan() {
    */
   const capture = useCallback(async (videoEl: HTMLVideoElement) => {
     if (!user || isProcessing) return;
+    if (!videoEl.videoWidth || !videoEl.videoHeight) {
+      setError('Camera not ready, try again');
+      return;
+    }
     setIsProcessing(true);
     setError(null);
     setLastResult(null);
