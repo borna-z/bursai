@@ -160,7 +160,7 @@ export default function HomePage() {
                 transition={reveal.transition}
                 className="rounded-2xl surface-secondary p-8 text-center space-y-5"
               >
-                <Shirt className="w-8 h-8 text-muted-foreground/25 mx-auto" />
+                <Shirt className="w-8 h-8 text-muted-foreground/40 mx-auto" />
                 <div className="space-y-2">
                   <h3 className="text-[15px] font-semibold">{t('home.min_garments')}</h3>
                   <p className="text-[12px] text-muted-foreground/60 max-w-[240px] mx-auto">
