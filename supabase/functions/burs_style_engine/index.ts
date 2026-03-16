@@ -3058,7 +3058,7 @@ function scoreSwapCandidates(
   prefs: Record<string, any> | null,
   swapMode: SwapMode = 'safe',
   pairMemory: PairMemoryMap | null = null
-): ScoredGarment[] {
+): (ScoredGarment & { swap_reason?: string })[] {
   const currentGarment = allGarments.find((g) => g.id === currentGarmentId) || null;
 
   const slotGarments = allGarments.filter((g) => {
@@ -3163,6 +3163,12 @@ function scoreSwapCandidates(
 
       const finalScore = Math.max(0, totalScore);
 
+      // Generate swap reason
+      const swap_reason = buildSwapReason(garment, currentGarment, {
+        colorHarmony, materialCompat, formalityAlignment, fitConsistency,
+        dnaPreservation, practicality, expressiveLift, freshness, swapMode,
+      });
+
       return {
         garment,
         score: finalScore,
@@ -3181,10 +3187,53 @@ function scoreSwapCandidates(
           pair_memory_penalty: pairMem.penalty,
           swap_mode: swapMode === 'safe' ? 1 : swapMode === 'bold' ? 2 : 3,
         },
-      } as ScoredGarment;
+        swap_reason,
+      } as ScoredGarment & { swap_reason?: string };
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, 10);
+}
+
+/** Build a concise, stylist-grade swap reason */
+function buildSwapReason(
+  candidate: GarmentRow,
+  current: GarmentRow | null,
+  scores: {
+    colorHarmony: number;
+    materialCompat: number;
+    formalityAlignment: number;
+    fitConsistency: number;
+    dnaPreservation: number;
+    practicality: number;
+    expressiveLift: number;
+    freshness: number;
+    swapMode: SwapMode;
+  }
+): string {
+  const reasons: string[] = [];
+
+  // Pick the top 1-2 strongest signals
+  if (scores.colorHarmony >= 8) reasons.push('strong color harmony with the rest');
+  if (scores.dnaPreservation >= 8.5 && scores.swapMode === 'safe') reasons.push('preserves the outfit\'s DNA');
+  if (scores.expressiveLift >= 8 && scores.swapMode === 'bold') reasons.push('adds visual contrast');
+  if (scores.freshness >= 8 && scores.swapMode === 'fresh') reasons.push('brings something new');
+  if (scores.practicality >= 9) reasons.push('ideal for this weather');
+  if (scores.formalityAlignment >= 9) reasons.push('perfect formality match');
+  if (scores.materialCompat >= 9) reasons.push('great material pairing');
+  if (scores.fitConsistency >= 9) reasons.push('balanced silhouette');
+
+  // If no strong signal, use relative comparison
+  if (reasons.length === 0 && current) {
+    const candidateColor = (candidate.color_primary || '').toLowerCase();
+    const currentColor = (current.color_primary || '').toLowerCase();
+    if (candidateColor !== currentColor) reasons.push(`shifts the palette with ${candidateColor}`);
+    if (fitFamily(candidate.fit) !== fitFamily(current.fit)) reasons.push('changes the silhouette');
+    if (candidate.wear_count === 0) reasons.push('unworn — time to debut');
+  }
+
+  if (reasons.length === 0) reasons.push('solid alternative');
+
+  return reasons.slice(0, 2).join(', ');
 }
 
 // ─────────────────────────────────────────────
