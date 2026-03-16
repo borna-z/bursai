@@ -596,10 +596,15 @@ export default function GarmentDetailPage() {
         )}
 
         {/* Confidence indicator */}
-        {enrichment?.confidence != null && enrichment.confidence < 0.7 && (
-          <p className="text-[11px] text-muted-foreground/40 italic">
-            Some details may need manual review · {Math.round(enrichment.confidence * 100)}%
-          </p>
+        {enrichment?.confidence != null && (
+          <Section index={10.5}>
+            <div className="flex items-center gap-2 py-1">
+              <div className={cn('w-2 h-2 rounded-full', enrichment.confidence >= 0.85 ? 'bg-emerald-500' : enrichment.confidence >= 0.6 ? 'bg-amber-500' : 'bg-muted-foreground/40')} />
+              <p className={cn('text-[11px]', confidenceLabel(enrichment.confidence).color)}>
+                {confidenceLabel(enrichment.confidence).label} · {Math.round(enrichment.confidence * 100)}%
+              </p>
+            </div>
+          </Section>
         )}
 
         {/* Care instructions */}
