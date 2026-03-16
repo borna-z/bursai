@@ -192,6 +192,10 @@ serve(async (req) => {
       packScore: scorePackWorthiness(g, weatherMin, weatherMax, occasions || [], allGarments),
     })).sort((a, b) => b.packScore - a.packScore);
 
+    // Must-have items — declared early so pre-filter can use them
+    const preValidIds = new Set(allGarments.map(g => g.id));
+    const mustHaveIds: string[] = (must_have_items || []).filter((id: string) => preValidIds.has(id));
+
     // Send top 40 most packable garments to AI (reduces input size, improves quality)
     const MAX_AI_INPUT = 40;
     const garments = scoredGarments.length > MAX_AI_INPUT
