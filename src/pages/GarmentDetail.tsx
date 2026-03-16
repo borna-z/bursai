@@ -96,6 +96,7 @@ export default function GarmentDetailPage() {
   );
   const [editingPrice, setEditingPrice] = useState(false);
   const [priceInput, setPriceInput] = useState('');
+  const enrichment = useMemo(() => garment ? extractEnrichment(garment.ai_raw) : null, [garment]);
 
   if (isLoading) {
     return (
