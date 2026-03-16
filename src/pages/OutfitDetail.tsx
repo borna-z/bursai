@@ -56,6 +56,12 @@ function SwapSheet({
 }: SwapSheetProps) {
   const slotLabel = t(`outfit.slot.${slot}`) || slot;
 
+  const modeDescriptions: Record<string, string> = {
+    safe: t('swap.mode_safe_desc') || 'Similar style, minimal risk',
+    bold: t('swap.mode_bold_desc') || 'Push your boundaries',
+    fresh: t('swap.mode_fresh_desc') || 'Least worn items first',
+  };
+
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="bottom" className="h-[72vh]">
@@ -64,34 +70,28 @@ function SwapSheet({
           <SheetDescription>{t('outfit.swap_description')}</SheetDescription>
         </SheetHeader>
 
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <Button
-            type="button"
-            variant={mode === 'safe' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onModeChange('safe')}
-          >
-            {t('swap.mode_safe') || 'Safe'}
-          </Button>
-          <Button
-            type="button"
-            variant={mode === 'bold' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onModeChange('bold')}
-          >
-            {t('swap.mode_bold') || 'Bold'}
-          </Button>
-          <Button
-            type="button"
-            variant={mode === 'fresh' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onModeChange('fresh')}
-          >
-            {t('swap.mode_fresh') || 'Fresh'}
-          </Button>
+        <div className="mt-4 space-y-2">
+          <div className="grid grid-cols-3 gap-2">
+            {(['safe', 'bold', 'fresh'] as const).map((m) => (
+              <Button
+                key={m}
+                type="button"
+                variant={mode === m ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => onModeChange(m)}
+                className="rounded-xl"
+              >
+                {m === 'safe' ? '🔒' : m === 'bold' ? '⚡' : '🌿'}{' '}
+                {t(`swap.mode_${m}`) || m.charAt(0).toUpperCase() + m.slice(1)}
+              </Button>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted-foreground/50 text-center">
+            {modeDescriptions[mode]}
+          </p>
         </div>
 
-        <div className="mt-4 pb-8 space-y-2">
+        <div className="mt-4 pb-8 space-y-2 overflow-y-auto">
           {isLoading ? (
             <SwapLoadingState />
           ) : candidates.length === 0 ? (
@@ -100,26 +100,32 @@ function SwapSheet({
               <p className="text-sm mt-1">{t('outfit.add_more')}</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {candidates.map((candidate) => (
+            <div className="space-y-1.5">
+              {candidates.map((candidate, idx) => (
                 <button
                   key={candidate.garment.id}
                   onClick={() => onSelect(candidate.garment.id)}
                   disabled={isSwapping}
                   className={cn(
-                    "w-full flex items-center gap-3 p-3 rounded-xl transition-all hover:bg-secondary/80 bg-secondary/60 backdrop-blur-sm active:scale-[0.99]",
+                    "w-full flex items-center gap-3 p-3 rounded-xl transition-all hover:bg-secondary/80 bg-secondary/40 backdrop-blur-sm active:scale-[0.99]",
+                    idx === 0 && "ring-1 ring-primary/20 bg-primary/5",
                     isSwapping && "opacity-50"
                   )}
                 >
                   <LazyImageSimple
                     imagePath={candidate.garment.image_path}
                     alt={candidate.garment.title}
-                    className="w-16 h-16 rounded-lg flex-shrink-0"
+                    className="w-14 h-14 rounded-lg flex-shrink-0"
                   />
                   <div className="flex-1 text-left min-w-0">
-                    <p className="font-medium truncate">{stripBrands(candidate.garment.title)}</p>
-                    <p className="text-sm text-muted-foreground capitalize">{candidate.garment.color_primary}</p>
+                    <p className="font-medium text-sm truncate">{stripBrands(candidate.garment.title)}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{candidate.garment.color_primary}</p>
                   </div>
+                  {idx === 0 && (
+                    <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full flex-shrink-0">
+                      {t('swap.best_match') || 'Best'}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -568,37 +574,73 @@ export default function OutfitDetailPage() {
 
         {outfit.style_score && (() => {
           const rawScore = outfit.style_score as Record<string, unknown>;
+          const overallValue = Number(rawScore.overall);
           const metrics = [
-            { key: 'color_harmony', label: t('outfit.score.color') || 'Color Harmony', color: 'bg-primary' },
-            { key: 'material_compatibility', label: t('outfit.score.material') || 'Material Match', color: 'bg-accent' },
-            { key: 'formality', label: t('outfit.score.formality') || 'Formality Fit', color: 'bg-secondary-foreground/60' },
-            { key: 'overall', label: t('outfit.score.overall') || 'Overall', color: 'bg-primary' },
+            { key: 'color_harmony', label: t('outfit.score.color') || 'Color Harmony', emoji: '🎨' },
+            { key: 'material_compatibility', label: t('outfit.score.material') || 'Material Match', emoji: '🧵' },
+            { key: 'formality', label: t('outfit.score.formality') || 'Formality Fit', emoji: '👔' },
           ].map((metric) => ({
             ...metric,
             value: Number(rawScore[metric.key]),
           })).filter((metric) => Number.isFinite(metric.value));
 
-          if (metrics.length === 0) return null;
+          if (metrics.length === 0 && !Number.isFinite(overallValue)) return null;
 
           return (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-primary" />
                 <p className="label-editorial text-muted-foreground/60">
                   {t('outfit.score.title') || 'Style Score'}
                 </p>
               </div>
-              <div className="space-y-4">
-                {metrics.map(({ key, label, color, value }) => {
+
+              {/* Overall score hero */}
+              {Number.isFinite(overallValue) && (
+                <div className="flex items-center gap-5">
+                  <div className="relative w-20 h-20 flex-shrink-0">
+                    <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
+                      <circle cx="40" cy="40" r="34" fill="none" strokeWidth="5" className="stroke-muted/30" />
+                      <circle
+                        cx="40" cy="40" r="34" fill="none" strokeWidth="5"
+                        className="stroke-primary"
+                        strokeLinecap="round"
+                        strokeDasharray={`${Math.round(overallValue * 21.36)} 213.6`}
+                        style={{ transition: 'stroke-dasharray 1s ease-out' }}
+                      />
+                    </svg>
+                    <span className="absolute inset-0 flex items-center justify-center text-xl font-bold text-foreground">
+                      {overallValue.toFixed(1)}
+                    </span>
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <p className="text-sm font-semibold text-foreground">{t('outfit.score.overall') || 'Overall'}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {overallValue >= 8 ? (t('outfit.score.excellent') || 'An excellent combination')
+                        : overallValue >= 6 ? (t('outfit.score.good') || 'A solid, well-balanced look')
+                        : (t('outfit.score.decent') || 'A decent starting point')}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Breakdown bars */}
+              <div className="space-y-3">
+                {metrics.map(({ key, label, emoji, value }) => {
                   const pct = Math.max(0, Math.min(100, Math.round(value * 10)));
                   return (
-                    <div key={key} className="space-y-1">
+                    <div key={key} className="space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">{label}</span>
-                        <span className="text-sm font-semibold">{value.toFixed(1)}</span>
+                        <span className="text-[13px] text-muted-foreground flex items-center gap-1.5">
+                          <span>{emoji}</span> {label}
+                        </span>
+                        <span className="text-[13px] font-semibold tabular-nums">{value.toFixed(1)}</span>
                       </div>
-                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div className={cn('h-full rounded-full transition-all duration-700', color)} style={{ width: `${pct}%` }} />
+                      <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all duration-1000 ease-out"
+                          style={{ width: `${pct}%` }}
+                        />
                       </div>
                     </div>
                   );

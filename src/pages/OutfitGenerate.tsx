@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, AlertCircle, CloudSun } from 'lucide-react';
+import { Sparkles, AlertCircle, CloudSun, Wind, Droplets, Zap } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
@@ -17,18 +18,31 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 const OCCASIONS = [
-  { key: 'casual', emoji: '👕' },
-  { key: 'work', emoji: '💼' },
-  { key: 'party', emoji: '🎉' },
-  { key: 'date', emoji: '❤️' },
-  { key: 'workout', emoji: '🏃' },
-  { key: 'travel', emoji: '✈️' },
+  { key: 'casual', emoji: '👕', gradient: 'from-blue-500/10 to-cyan-500/10' },
+  { key: 'work', emoji: '💼', gradient: 'from-amber-500/10 to-orange-500/10' },
+  { key: 'party', emoji: '🎉', gradient: 'from-pink-500/10 to-rose-500/10' },
+  { key: 'date', emoji: '❤️', gradient: 'from-red-500/10 to-pink-500/10' },
+  { key: 'workout', emoji: '🏃', gradient: 'from-green-500/10 to-emerald-500/10' },
+  { key: 'travel', emoji: '✈️', gradient: 'from-violet-500/10 to-purple-500/10' },
 ] as const;
 
-const STYLES = [
-  'Minimal', 'Street', 'Smart Casual', 'Classic', 'Sporty', 'Romantic',
-  'Bohemian', 'Preppy', 'Edgy', 'Retro', 'Scandinavian', 'Glamorous',
-  'Casual Chic', 'Monochrome', 'Layered', 'Relaxed', 'Avant-Garde', 'Coastal',
+const STYLE_GROUPS = [
+  {
+    label: 'Essentials',
+    styles: ['Minimal', 'Smart Casual', 'Classic', 'Casual Chic', 'Relaxed'],
+  },
+  {
+    label: 'Expressive',
+    styles: ['Street', 'Edgy', 'Avant-Garde', 'Bohemian', 'Retro'],
+  },
+  {
+    label: 'Refined',
+    styles: ['Scandinavian', 'Preppy', 'Glamorous', 'Monochrome', 'Romantic'],
+  },
+  {
+    label: 'Seasonal',
+    styles: ['Layered', 'Coastal', 'Sporty'],
+  },
 ] as const;
 
 type Phase = 'picking' | 'generating' | 'error';
@@ -133,85 +147,157 @@ export default function OutfitGeneratePage() {
   // --- PICKING PHASE ---
   return (
     <AppLayout>
-        <div className="page-container space-y-6 pb-32 animate-fade-in">
+      <div className="page-container space-y-8 pb-32 animate-fade-in">
         {/* Header */}
-        <div>
-          <h1 className="text-xl font-semibold tracking-[-0.025em] text-foreground">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-[-0.03em] text-foreground">
             {t('generate.title') || 'What to wear'}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground">
             {t('generate.subtitle') || 'Pick a vibe and we\u2019ll style you'}
           </p>
         </div>
 
-        {/* Weather badge */}
+        {/* Weather context card */}
         {weather && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CloudSun className="w-4 h-4" />
-            <span>{weather.temperature}°C · {t(weather.condition) || weather.condition}</span>
-            <span className="text-muted-foreground/50">· {weather.location}</span>
+          <div className="rounded-2xl bg-secondary/30 backdrop-blur-sm border border-border/10 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <CloudSun className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    {weather.temperature}°C
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {weather.location}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                {weather.precipitation && weather.precipitation !== 'none' && (
+                  <span className="flex items-center gap-1">
+                    <Droplets className="w-3.5 h-3.5" />
+                    {t(weather.precipitation) || weather.precipitation}
+                  </span>
+                )}
+                {weather.wind && weather.wind !== 'low' && (
+                  <span className="flex items-center gap-1">
+                    <Wind className="w-3.5 h-3.5" />
+                    {t(weather.wind) || weather.wind}
+                  </span>
+                )}
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground/50 mt-2">
+              {t('generate.weather_note') || 'Weather is factored into your outfit automatically'}
+            </p>
           </div>
         )}
 
-        {/* Occasion */}
-        <section className="space-y-2">
+        {/* Occasion grid */}
+        <section className="space-y-3">
           <h2 className="label-editorial">
             {t('generate.occasion') || 'Occasion'}
           </h2>
-          <div className="flex flex-wrap gap-2">
-            {OCCASIONS.map(({ key, emoji }) => (
-              <Chip
-                key={key}
-                selected={selectedOccasion === key}
-                onClick={() => setSelectedOccasion(key)}
-                size="lg"
-              >
-                <span>{emoji}</span>
-                <span className="capitalize">{t(`occasion.${key}`) || key}</span>
-              </Chip>
-            ))}
+          <div className="grid grid-cols-3 gap-2">
+            {OCCASIONS.map(({ key, emoji, gradient }) => {
+              const isSelected = selectedOccasion === key;
+              return (
+                <motion.button
+                  key={key}
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => setSelectedOccasion(key)}
+                  className={cn(
+                    'relative rounded-2xl p-4 text-center transition-all border',
+                    'bg-gradient-to-br',
+                    gradient,
+                    isSelected
+                      ? 'border-primary/40 shadow-[0_0_20px_hsl(var(--primary)/0.1)] ring-1 ring-primary/20'
+                      : 'border-border/15 hover:border-border/30'
+                  )}
+                >
+                  <span className="text-2xl block mb-1.5">{emoji}</span>
+                  <span className={cn(
+                    'text-xs font-semibold capitalize transition-colors',
+                    isSelected ? 'text-foreground' : 'text-muted-foreground'
+                  )}>
+                    {t(`occasion.${key}`) || key}
+                  </span>
+                  {isSelected && (
+                    <motion.div
+                      layoutId="occasion-indicator"
+                      className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-primary shadow-sm"
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    />
+                  )}
+                </motion.button>
+              );
+            })}
           </div>
         </section>
 
-        {/* Style grid */}
-        <section className="space-y-2">
-          <h2 className="label-editorial">
-            {t('generate.style') || 'Style'}
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {STYLES.map((style) => (
-              <Chip
-                key={style}
-                selected={selectedStyle === style}
-                onClick={() => setSelectedStyle(selectedStyle === style ? null : style)}
-                size="md"
+        {/* Style groups */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="label-editorial">
+              {t('generate.style') || 'Style'}
+            </h2>
+            {selectedStyle && (
+              <button
+                onClick={() => setSelectedStyle(null)}
+                className="text-xs text-primary/70 hover:text-primary transition-colors"
               >
-                {style}
-              </Chip>
-            ))}
+                {t('common.clear') || 'Clear'}
+              </button>
+            )}
           </div>
-          <p className="text-xs text-muted-foreground/60">
+          
+          {STYLE_GROUPS.map((group) => (
+            <div key={group.label} className="space-y-2">
+              <p className="text-[11px] text-muted-foreground/40 uppercase tracking-wider font-medium">
+                {group.label}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {group.styles.map((style) => (
+                  <Chip
+                    key={style}
+                    selected={selectedStyle === style}
+                    onClick={() => setSelectedStyle(selectedStyle === style ? null : style)}
+                    size="md"
+                  >
+                    {style}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+          ))}
+          <p className="text-xs text-muted-foreground/50">
             {t('generate.style_optional') || 'Optional — leave empty for a balanced look'}
           </p>
         </section>
 
         {/* Generate button */}
-        <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-background via-background/95 to-transparent">
-          <Button
-            onClick={handleGenerate}
-            disabled={isGenerating}
-            className="w-full max-w-md mx-auto flex"
-            size="lg"
-          >
-            <Sparkles className="w-4 h-4 mr-2" />
-            {t('generate.button') || 'Style me'}
-          </Button>
+        <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-background via-background/95 to-transparent z-20">
+          <div className="max-w-md mx-auto space-y-2">
+            <Button
+              onClick={handleGenerate}
+              disabled={isGenerating}
+              className="w-full rounded-2xl h-13 text-base font-semibold shadow-lg shadow-primary/10"
+              size="lg"
+            >
+              <Sparkles className="w-4.5 h-4.5 mr-2" />
+              {t('generate.button') || 'Style me'}
+            </Button>
+            {!isPremium && remainingOutfits() < Infinity && (
+              <p className="text-[11px] text-muted-foreground/50 text-center">
+                <Zap className="w-3 h-3 inline mr-0.5 -mt-0.5" />
+                {remainingOutfits()} {t('paywall.outfits_remaining') || 'outfits remaining'}
+              </p>
+            )}
+          </div>
         </div>
-        {!isPremium && remainingOutfits() < Infinity && (
-          <p className="text-xs text-muted-foreground/60 text-center mt-2">
-            {remainingOutfits()} {t('paywall.outfits_remaining') || 'outfits remaining'}
-          </p>
-        )}
       </div>
 
       <PaywallModal
