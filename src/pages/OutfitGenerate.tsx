@@ -39,11 +39,13 @@ export default function OutfitGeneratePage() {
   const { generateOutfit, isGenerating } = useOutfitGenerator();
   const { isUnlocked } = useWardrobeUnlocks();
   const { weather } = useWeather();
+  const { canCreateOutfit, remainingOutfits, isPremium } = useSubscription();
 
   const [phase, setPhase] = useState<Phase>('picking');
   const [selectedOccasion, setSelectedOccasion] = useState<string>('casual');
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [showPaywall, setShowPaywall] = useState(false);
 
   // Gate: require enough garments
   if (!isUnlocked('outfit_gen')) {
