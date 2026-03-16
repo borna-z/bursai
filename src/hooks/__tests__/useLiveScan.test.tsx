@@ -332,7 +332,7 @@ describe('useLiveScan', () => {
     expect(compressImage).toHaveBeenCalledWith(fakeFile, { maxDimension: 480, quality: 0.5 });
     expect(result.current.lastResult?.analysis.title).toBe('Navy Wool Blazer');
     expect(result.current.lastResult?.confidence).toBe(0.92);
-    expect(result.current.lastResult?.thumbnailUrl).toBe('blob:mock-preview-url');
+    expect(result.current.lastResult?.thumbnailUrl).toBe('blob:mock-thumbnail-url');
     expect(result.current.isProcessing).toBe(false);
     expect(invokeEdgeFunction).toHaveBeenCalledWith('analyze_garment', {
       body: { base64Image: expect.stringContaining('data:image/jpeg'), mode: 'fast' },
