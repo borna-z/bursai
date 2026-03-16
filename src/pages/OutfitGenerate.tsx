@@ -136,17 +136,6 @@ export default function OutfitGeneratePage() {
     }
   };
 
-  const contextSubtitle = useMemo(() => {
-    const parts: string[] = [];
-    const occ = OCCASIONS.find(o => o.key === selectedOccasion);
-    if (occ) parts.push(occ.label);
-    if (selectedStyle) parts.push(selectedStyle);
-    if (weather?.temperature !== undefined) parts.push(`${weather.temperature}°C`);
-    return parts.join(' · ');
-  }, [selectedOccasion, selectedStyle, weather?.temperature]);
-
-  const weatherAdvice = getWeatherAdvice(weather?.temperature, weather?.precipitation);
-
   // ── GENERATING PHASE ──
   if (phase === 'generating') {
     return (
