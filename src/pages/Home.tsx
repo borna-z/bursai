@@ -114,10 +114,10 @@ export default function HomePage() {
               <WeatherPill />
               <button
                 onClick={() => navigate('/settings')}
-                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted/40 transition-colors active:scale-95"
+                className="w-9 h-9 rounded-full surface-inset flex items-center justify-center hover:bg-foreground/[0.06] transition-colors active:scale-95"
                 aria-label="Settings"
               >
-                <Settings className="w-4 h-4 text-muted-foreground" />
+                <Settings className="w-4 h-4 text-muted-foreground/70" />
               </button>
             </div>
           </motion.div>
