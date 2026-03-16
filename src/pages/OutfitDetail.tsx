@@ -61,7 +61,7 @@ function SwapSheet({
       <SheetContent side="bottom" className="h-[72vh]">
         <SheetHeader>
           <SheetTitle>{t('outfit.swap')} {slotLabel}</SheetTitle>
-          <SheetDescription>Choose how different you want the replacement to feel.</SheetDescription>
+          <SheetDescription>{t('outfit.swap_description')}</SheetDescription>
         </SheetHeader>
 
         <div className="mt-4 grid grid-cols-3 gap-2">
@@ -427,10 +427,10 @@ export default function OutfitDetailPage() {
     }
   };
 
-  console.log('[OutfitDetail] render state:', { id, isLoading, hasOutfit: !!outfit, outfitItemsCount: outfitItems.length, userId: outfit?.user_id?.slice(0, 8) });
+  
 
   if (isLoading) {
-    console.log('[OutfitDetail] Showing loading skeleton for', id);
+    
     return (
       <div className="min-h-screen bg-background">
         <div className="sticky top-0 z-10 p-4 flex items-center justify-between">

@@ -196,7 +196,7 @@ export default function OutfitGeneratePage() {
             size="lg"
           >
             <Sparkles className="w-4 h-4 mr-2" />
-            {t('generate.button') || 'Generate outfit'}
+            {t('generate.button') || 'Style me'}
           </Button>
         </div>
       </div>
