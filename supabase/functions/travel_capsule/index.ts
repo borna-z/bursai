@@ -238,8 +238,7 @@ serve(async (req) => {
     const validIds = new Set(garments.map(g => g.id));
     const titleIndex = new Map(garments.map(g => [g.title.toLowerCase().trim(), g.id]));
 
-    // Must-have items filtering
-    const mustHaveIds: string[] = (must_have_items || []).filter((id: string) => validIds.has(id));
+    // (mustHaveIds declared earlier for pre-filter use)
 
     // Scale max_tokens generously — each outfit with 4 UUIDs ≈ 100 tokens, capsule_items ≈ 20 tokens/item
     const maxTokens = estimateMaxTokens({ outputItems: targetOutfits + maxItems, perItemTokens: 120, baseTokens: 1000, cap: 8192 });
