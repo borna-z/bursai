@@ -202,6 +202,7 @@ export default function OutfitDetailPage() {
   const { candidates, isLoadingCandidates, fetchCandidates, swapGarment, isSwapping, clearCandidates } = useSwapGarment();
   const { data: photoFeedback, isLoading: isLoadingFeedback } = useOutfitFeedback(id);
   const submitFeedback = useSubmitPhotoFeedback();
+  const { record: recordSignal } = useFeedbackSignals();
   const selfieInputRef = useRef<HTMLInputElement>(null);
 
   const [rating, setRating] = useState<number | null>(null);
