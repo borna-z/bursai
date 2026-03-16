@@ -136,7 +136,7 @@ function SwapSheet({
   );
 }
 
-/* ── Garment Slot (inline, Apple-style) ─────────────── */
+/* ── Garment Slot (editorial card) ─────────────── */
 
 interface SlotRowProps {
   slot: string;
@@ -151,28 +151,28 @@ interface SlotRowProps {
 function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, onSwap, t }: SlotRowProps) {
   const navigate = useNavigate();
   return (
-    <div className="flex items-center gap-4 py-5 border-b border-border/10 last:border-b-0">
+    <div className="flex items-center gap-4 py-4 border-b border-border/8 last:border-b-0 group">
       <div
-        className="w-16 h-20 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer bg-muted/30"
+        className="w-[68px] h-[84px] rounded-2xl overflow-hidden flex-shrink-0 cursor-pointer bg-muted/20 ring-1 ring-border/10"
         onClick={() => navigate(`/wardrobe/${garmentId}`)}
       >
         <LazyImageSimple
           imagePath={imagePath}
           alt={garmentTitle || slot}
-          className="w-16 h-20 object-cover"
-          fallbackIcon={<Shirt className="w-6 h-6 text-muted-foreground/30" />}
+          className="w-[68px] h-[84px] object-cover"
+          fallbackIcon={<Shirt className="w-6 h-6 text-muted-foreground/20" />}
         />
       </div>
       <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/wardrobe/${garmentId}`)}>
-        <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">
+        <p className="text-[10px] text-muted-foreground/40 uppercase tracking-[0.12em] font-medium">
           {t(`outfit.slot.${slot}`) || slot}
         </p>
-        <p className="font-semibold text-sm truncate mt-0.5">{stripBrands(garmentTitle || '') || t('outfit.unknown')}</p>
-        {garmentColor && <p className="text-[13px] text-muted-foreground capitalize mt-0.5">{garmentColor}</p>}
+        <p className="font-semibold text-[15px] truncate mt-0.5 tracking-tight">{stripBrands(garmentTitle || '') || t('outfit.unknown')}</p>
+        {garmentColor && <p className="text-[12px] text-muted-foreground/60 capitalize mt-0.5">{garmentColor}</p>}
       </div>
       <button
         onClick={(e) => { e.stopPropagation(); onSwap(); }}
-        className="p-2 rounded-full hover:bg-muted/60 transition-colors active:scale-95 flex-shrink-0"
+        className="p-2.5 rounded-xl bg-muted/20 hover:bg-muted/40 transition-all active:scale-95 flex-shrink-0 opacity-60 group-hover:opacity-100"
         aria-label={t('outfit.swap_out')}
       >
         <RefreshCw className="w-4 h-4 text-muted-foreground" />
