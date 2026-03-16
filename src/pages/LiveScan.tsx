@@ -508,10 +508,10 @@ export default function LiveScan() {
                   <img
                     src={lastResult.thumbnailUrl}
                     alt="Scanned garment"
-                    className="w-full aspect-[3/4] object-cover rounded-2xl shadow-2xl border border-border/20"
+                    className="w-full aspect-[3/4] object-cover border border-border/20"
                   />
                   {/* Gradient overlay at bottom for text */}
-                  <div className="absolute bottom-0 inset-x-0 h-1/3 bg-gradient-to-t from-background/80 to-transparent rounded-b-2xl" />
+                  <div className="absolute bottom-0 inset-x-0 h-1/3 bg-gradient-to-t from-background/80 to-transparent" />
                   <div className="absolute bottom-4 left-4 right-4 space-y-1.5">
                     <p className="text-foreground text-lg font-semibold leading-tight drop-shadow-sm">{lastResult.analysis.title}</p>
                     <div className="flex items-center gap-2 flex-wrap">
