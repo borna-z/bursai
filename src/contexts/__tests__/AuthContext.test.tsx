@@ -38,6 +38,8 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 describe('AuthContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+    sessionStorage.clear();
     mockOnAuthStateChange.mockReturnValue({
       data: { subscription: { unsubscribe: vi.fn() } },
     });
@@ -173,5 +175,23 @@ describe('AuthContext', () => {
         }),
       })
     );
+  });
+
+  it('keeps an existing session even when remember_me is false and sessionStorage is empty', async () => {
+    const mockUser = { id: 'user-1', email: 'test@test.com' };
+    const mockSession = { user: mockUser };
+
+    localStorage.setItem('remember_me', 'false');
+    mockGetSession.mockResolvedValue({ data: { session: mockSession } });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.user).toEqual(mockUser);
+      expect(result.current.session).toEqual(mockSession);
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(mockSignOut).not.toHaveBeenCalled();
   });
 });

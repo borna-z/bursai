@@ -22,44 +22,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('[AuthContext] onAuthStateChange', event, { hasSession: !!session, userId: session?.user?.id?.slice(0, 8) });
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
-
-        // When user signs in, mark session active in sessionStorage
-        if (event === 'SIGNED_IN') {
-          sessionStorage.setItem('session_active', 'true');
-        }
-        if (event === 'SIGNED_OUT') {
-          sessionStorage.removeItem('session_active');
-        }
       }
     );
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      // If "remember me" was unchecked and this is a new browser session, sign out
-      const rememberMe = localStorage.getItem('remember_me');
-      const sessionActive = sessionStorage.getItem('session_active');
-
-      if (session && rememberMe === 'false' && !sessionActive) {
-        // Session exists but user didn't want to stay logged in and this is a new tab/window session
-        supabase.auth.signOut().then(() => {
-          setSession(null);
-          setUser(null);
-          setLoading(false);
-        });
-        return;
-      }
-
+      console.log('[AuthContext] getSession resolved', { hasSession: !!session, userId: session?.user?.id?.slice(0, 8) });
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-
-      // Mark session active for current browser session
-      if (session) {
-        sessionStorage.setItem('session_active', 'true');
-      }
+    }).catch((error) => {
+      console.error('[AuthContext] getSession failed', error);
+      setSession(null);
+      setUser(null);
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
