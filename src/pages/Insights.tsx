@@ -303,6 +303,13 @@ export default function InsightsPage() {
             </div>
           )}
 
+          {/* ─── Wardrobe Health Insights ─── */}
+          <WardrobeHealthCard
+            garments={[...insights.topFiveWorn, ...insights.unusedGarments]}
+            usedGarments={insights.usedGarments}
+            unusedGarments={insights.unusedGarments}
+          />
+
           {/* ─── Smart Insight ─── */}
           <SmartInsightCard />
 
