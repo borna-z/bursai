@@ -125,10 +125,10 @@ export default function OutfitGeneratePage() {
   // --- PICKING PHASE ---
   return (
     <AppLayout>
-      <div className="p-4 max-w-md mx-auto space-y-6 pb-32 animate-fade-in">
+        <div className="page-container space-y-6 pb-32 animate-fade-in">
         {/* Header */}
-        <div className="pt-2">
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">
+        <div>
+          <h1 className="text-xl font-semibold tracking-[-0.025em] text-foreground">
             {t('generate.title') || 'What to wear'}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
