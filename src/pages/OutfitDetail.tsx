@@ -247,8 +247,29 @@ export default function OutfitDetailPage() {
   const genLimitationNote = (location.state as { limitation_note?: string | null })?.limitation_note;
   const genFamilyLabel = (location.state as { family_label?: string })?.family_label;
   const genWardrobeInsights = (location.state as { wardrobe_insights?: string[] })?.wardrobe_insights;
+  const genLayerOrder = (location.state as { layer_order?: { slot: string; garment_id: string; layer_role: string }[] })?.layer_order;
+  const genNeedsBaseLayer = (location.state as { needs_base_layer?: boolean })?.needs_base_layer;
+  const genOccasionSubmode = (location.state as { occasion_submode?: string | null })?.occasion_submode;
   const shareUrl = outfit ? `${window.location.origin}/share/${outfit.id}` : '';
   const outfitItems = Array.isArray(outfit?.outfit_items) ? outfit.outfit_items : [];
+
+  // Build a layer role lookup from generation metadata
+  const layerRoleMap = new Map<string, string>();
+  if (genLayerOrder) {
+    for (const entry of genLayerOrder) {
+      layerRoleMap.set(entry.garment_id, entry.layer_role);
+    }
+  }
+
+  // Sort outfit items by layer order when available
+  const SLOT_SORT_ORDER: Record<string, number> = {
+    base: 0, standalone: 1, mid: 2, outer: 3, top: 1, bottom: 4, dress: 1, shoes: 5, accessory: 6,
+  };
+  const sortedOutfitItems = [...outfitItems].sort((a, b) => {
+    const aRole = layerRoleMap.get(a.garment_id) || a.slot;
+    const bRole = layerRoleMap.get(b.garment_id) || b.slot;
+    return (SLOT_SORT_ORDER[aRole] ?? 99) - (SLOT_SORT_ORDER[bRole] ?? 99);
+  });
 
   const feedbackOptions = [
     { id: 'loved_it', label: t('outfit.loved_it'), icon: Heart },
