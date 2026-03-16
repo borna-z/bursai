@@ -393,6 +393,7 @@ export default function OutfitDetailPage() {
     try {
       const garmentIds = outfitItems.map((item) => item.garment_id);
       const result = await markWorn.mutateAsync({ outfitId: outfit.id, garmentIds, occasion: outfit.occasion });
+      recordSignal({ signal_type: 'wear_confirm', outfit_id: outfit.id, metadata: { garment_count: garmentIds.length } });
       toast.success(t('outfit.marked_worn'), {
         action: {
           label: t('outfit.undo'),
