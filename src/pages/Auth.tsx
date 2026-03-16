@@ -74,7 +74,6 @@ export default function AuthPage() {
     if (!email || !password) { toast.error(t('auth.fill_all')); return; }
     const passOk = password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password);
     if (!passOk) { toast.error(t('auth.password_too_short')); return; }
-    localStorage.setItem('remember_me', rememberMe ? 'true' : 'false');
     setIsLoading(true);
     const { data, error } = await signUp(email, password);
     setIsLoading(false);

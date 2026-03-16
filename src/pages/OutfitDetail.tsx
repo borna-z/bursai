@@ -430,7 +430,7 @@ export default function OutfitDetailPage() {
   
 
   if (isLoading) {
-    console.log('[OutfitDetail] Showing loading skeleton for', id);
+    
     return (
       <div className="min-h-screen bg-background">
         <div className="sticky top-0 z-10 p-4 flex items-center justify-between">
