@@ -3387,8 +3387,8 @@ serve(async (req) => {
         .limit(200),
     ]);
 
-    if (garmentsRes.error) throw garmentsRes.error;
-    const garments = garmentsRes.data as GarmentRow[];
+    if (garmentsRawRes.error) throw garmentsRawRes.error;
+    const garments = (garmentsRawRes.data || []).map(hydrateEnrichment) as GarmentRow[];
 
     if (garments.length < 3) {
       return new Response(
