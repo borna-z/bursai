@@ -427,7 +427,7 @@ export default function OutfitDetailPage() {
     }
   };
 
-  console.log('[OutfitDetail] render state:', { id, isLoading, hasOutfit: !!outfit, outfitItemsCount: outfitItems.length, userId: outfit?.user_id?.slice(0, 8) });
+  
 
   if (isLoading) {
     console.log('[OutfitDetail] Showing loading skeleton for', id);
