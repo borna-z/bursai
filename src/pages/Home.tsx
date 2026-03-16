@@ -29,6 +29,7 @@ import { getOccasionLabel } from '@/lib/occasionLabel';
 import { FadeReplace } from '@/components/ui/fade-replace';
 import { HomePageSkeleton } from '@/components/ui/skeletons';
 import { cn } from '@/lib/utils';
+import { getStylistTip } from '@/lib/stylistCopy';
 
 type HomeState = 'loading' | 'empty_wardrobe' | 'outfit_planned' | 'weather_alert' | 'no_outfit';
 
@@ -122,6 +123,16 @@ export default function HomePage() {
             </div>
           </motion.div>
 
+          {/* ── Stylist tip ── */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3, duration: 0.6 }}
+            className="text-[12px] text-muted-foreground/40 italic leading-relaxed -mt-2 px-0.5"
+          >
+            {getStylistTip({ weather, garmentCount: garmentCount ?? undefined })}
+          </motion.p>
+
           {/* ── Weather alert banner ── */}
           {homeState === 'weather_alert' && !todayOutfit && (
             <motion.div
@@ -163,8 +174,8 @@ export default function HomePage() {
                 <Shirt className="w-8 h-8 text-muted-foreground/40 mx-auto" />
                 <div className="space-y-2">
                   <h3 className="text-[15px] font-semibold">{t('home.min_garments')}</h3>
-                  <p className="text-[12px] text-muted-foreground/60 max-w-[240px] mx-auto">
-                    {t('home.add_first_items_desc')}
+                  <p className="text-[12px] text-muted-foreground/60 max-w-[260px] mx-auto leading-relaxed">
+                    Every great wardrobe starts with a few key pieces. Add yours and I'll start styling.
                   </p>
                 </div>
                 <Button
@@ -215,7 +226,7 @@ export default function HomePage() {
                 <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
               </motion.button>
             ) : (
-              /* no_outfit — simple generate CTA */
+              /* no_outfit — stylist prompt */
               <motion.div
                 variants={reveal.variants}
                 initial="initial"
@@ -226,8 +237,8 @@ export default function HomePage() {
                 <Sparkles className="w-8 h-8 text-primary/50 mx-auto" />
                 <div className="space-y-2">
                   <h3 className="text-[15px] font-semibold">{t('home.no_outfit_title')}</h3>
-                  <p className="text-[12px] text-muted-foreground/60 max-w-[240px] mx-auto">
-                    {t('home.no_outfit_desc')}
+                  <p className="text-[12px] text-muted-foreground/60 max-w-[260px] mx-auto leading-relaxed">
+                    Tell me the occasion — I'll pull together something that works.
                   </p>
                 </div>
                 <Button
@@ -252,7 +263,7 @@ export default function HomePage() {
           {/* ── 4. Tertiary: Wardrobe Gap + Mood ── */}
           {(garmentCount || 0) >= 3 && (
             <div className="space-y-4">
-              <p className="label-editorial text-muted-foreground/40">{t('home.more_for_you') || 'More for you'}</p>
+              <p className="label-editorial text-muted-foreground/40">{t('home.more_for_you') || 'Styled for you'}</p>
               {(garmentCount || 0) >= 5 && <WardrobeGapSection />}
 
               <motion.button

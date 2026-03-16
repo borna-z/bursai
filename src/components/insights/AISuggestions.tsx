@@ -283,7 +283,8 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
        {/* Header */}
       <div className="flex items-center justify-between pb-3 mb-1 border-b border-border/10">
         <div className="flex items-center gap-2">
-          <span className="label-editorial text-muted-foreground/60">
+          <Sparkles className="w-3.5 h-3.5 text-primary/60" />
+          <span className="text-[13px] font-semibold text-foreground/80 tracking-tight">
             {t('insights.ai_title')}
           </span>
           <StaleIndicator
