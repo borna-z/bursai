@@ -309,6 +309,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'home.add_first_items_desc': 'Lägg till dina kläder så börjar din stylist skapa outfits',
     'home.view_outfit': 'Visa outfit',
     'common.see_all': 'Visa alla',
+    'home.more_for_you': 'Mer för dig',
 
     // Auth
     'auth.tagline': 'Din personliga stylist.',
