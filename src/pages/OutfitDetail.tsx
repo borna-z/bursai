@@ -628,7 +628,7 @@ export default function OutfitDetailPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Camera className="w-4 h-4 text-primary" />
-              <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">
+              <p className="label-editorial text-muted-foreground/60">
                 {t('outfit.photo_feedback')}
               </p>
             </div>
