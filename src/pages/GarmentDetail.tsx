@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { hapticMedium, hapticHeavy, hapticSuccess, hapticLight } from '@/lib/haptics';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Edit, Trash2, WashingMachine, Check, Loader2, ExternalLink,
