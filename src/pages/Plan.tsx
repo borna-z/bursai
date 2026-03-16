@@ -487,6 +487,7 @@ export default function PlanPage() {
                 icon: Sparkles,
               }}
               compact
+              variant="editorial"
             />
           )}
         </motion.div>
