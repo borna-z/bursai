@@ -18,7 +18,7 @@ export function SettingsRow({ icon, label, sublabel, children, last, onClick, cl
     <>
       <div className="flex items-center gap-3.5 min-w-0 flex-1">
         {icon && (
-          <span className="flex-shrink-0 w-8 h-8 rounded-lg bg-muted/40 flex items-center justify-center [&>svg]:w-[16px] [&>svg]:h-[16px] text-foreground/70">
+          <span className="settings-icon flex-shrink-0 w-8 h-8 flex items-center justify-center bg-muted/40 [&>svg]:w-[16px] [&>svg]:h-[16px] text-foreground/70">
             {icon}
           </span>
         )}
