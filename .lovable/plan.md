@@ -131,7 +131,7 @@
 |-------|-------|------|----------|
 | IB-1 | Style engine enrichment | Low — additive scoring | ✅ Complete |
 | IB-2 | Travel capsule optimizer | Medium — changes AI input | ✅ Complete (validation pending) |
-| IB-3 | Planner week intelligence | Medium — new mode | High — retention driver |
+| IB-3 | Planner week intelligence | Medium — new mode | ✅ Complete |
 | IB-4 | Chat intelligence | Low — prompt changes | Medium |
 | IB-5 | Learning refinement | Low — additive | Medium |
 | IB-6 | UI polish | Low — frontend only | Medium |
