@@ -184,6 +184,18 @@
   box-shadow: none;
 }
 
+/* Flat surfaces in light mode — no shadows, square edges */
+:root:not(.dark) .surface-hero {
+  box-shadow: none;
+}
+
+:root:not(.dark) .surface-hero,
+:root:not(.dark) .surface-secondary,
+:root:not(.dark) .surface-interactive,
+:root:not(.dark) .surface-inset {
+  border-radius: 0px;
+}
+
 /* Light-mode PageHeader: solid border, no blur */
 :root:not(.dark) header[class*="backdrop-blur"] {
   backdrop-filter: none;

@@ -456,7 +456,7 @@ export default function OutfitDetailPage() {
   }
 
   if (!outfit) {
-    console.log('[OutfitDetail] No outfit found for id:', id);
+    
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
         <div className="max-w-xs w-full text-center space-y-4">
@@ -703,7 +703,7 @@ export default function OutfitDetailPage() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-primary" />
-                    <p className="label-editorial text-muted-foreground/60">AI Feedback</p>
+                    <p className="label-editorial text-muted-foreground/60">{t('outfit.ai_feedback')}</p>
                   </div>
                   <p className="text-sm text-muted-foreground leading-relaxed">{photoFeedback.commentary}</p>
                 </div>
