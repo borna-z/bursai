@@ -562,10 +562,10 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
     console.log(`IB-2c matrix validation: ${resolvedOutfits.length} outfits → ${validatedOutfits.length} valid (${patchCount} patched, ${dropCount} dropped), capsule ${resolvedItems.length} → ${prunedCapsule.length} items`);
 
     return new Response(JSON.stringify({
-      capsule_items: resolvedItems,
-      outfits: resolvedOutfits,
+      capsule_items: prunedCapsule,
+      outfits: validatedOutfits,
       packing_tips: result.packing_tips || [],
-      total_combinations: result.total_combinations || resolvedOutfits.length,
+      total_combinations: result.total_combinations || validatedOutfits.length,
       reasoning: result.reasoning || "",
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
