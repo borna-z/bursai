@@ -3762,7 +3762,7 @@ serve(async (req) => {
           });
         }
       } else if (sig.signal_type === 'save' && sig.outfit_id) {
-        // Save = positive signal
+        // IB-5b: Save = mild positive (1x weight, rating 3.5 vs wore=5)
         const outfitGarments = new Set<string>();
         for (const item of recentOutfitsRes.data || []) {
           if (item.outfit_id === sig.outfit_id) outfitGarments.add(item.garment_id);
@@ -3770,7 +3770,31 @@ serve(async (req) => {
         if (outfitGarments.size > 0) {
           feedbackSignals.push({
             garmentIds: outfitGarments,
-            rating: 4, // equivalent to "liked"
+            rating: 3.5, // save = 1x weight (mild positive)
+            feedback: null,
+            weather: null,
+            generatedAt: sig.created_at,
+          });
+        }
+      } else if ((sig.signal_type === 'swap' || sig.signal_type === 'reject' || sig.signal_type === 'dislike' || sig.signal_type === 'thumbs_down') && sig.garment_id) {
+        // IB-5a: Direct garment rejection — penalize the specific garment
+        feedbackSignals.push({
+          garmentIds: new Set([sig.garment_id]),
+          rating: 1, // strong negative
+          feedback: sig.value ? [sig.value] : null,
+          weather: null,
+          generatedAt: sig.created_at,
+        });
+      } else if (sig.signal_type === 'ignore' && sig.outfit_id) {
+        // IB-5a: Ignored outfit suggestion — mild negative for all garments
+        const outfitGarments = new Set<string>();
+        for (const item of recentOutfitsRes.data || []) {
+          if (item.outfit_id === sig.outfit_id) outfitGarments.add(item.garment_id);
+        }
+        if (outfitGarments.size > 0) {
+          feedbackSignals.push({
+            garmentIds: outfitGarments,
+            rating: 2.5, // mild negative
             feedback: null,
             weather: null,
             generatedAt: sig.created_at,
@@ -3778,6 +3802,39 @@ serve(async (req) => {
         }
       }
     }
+
+    // IB-5b: "Wore it" = 3x stronger signal than "saved it"
+    // Inject wear logs as strong positive signals
+    for (const log of (wearLogsRes.data || []) as WearLog[]) {
+      feedbackSignals.push({
+        garmentIds: new Set([log.garment_id]),
+        rating: 5, // max positive (3x the weight of save's 3.5 after decay)
+        feedback: ['loved_it'],
+        weather: null,
+        generatedAt: log.worn_at,
+      });
+    }
+
+    // IB-5b: Planned-but-not-worn = negative signal
+    const plannedNotWorn = (plannedNotWornRes.data || []) as { outfit_id: string | null; date: string }[];
+    for (const planned of plannedNotWorn) {
+      if (!planned.outfit_id) continue;
+      // Check if this outfit was actually worn
+      const outfitGarments = new Set<string>();
+      for (const item of recentOutfitsRes.data || []) {
+        if (item.outfit_id === planned.outfit_id) outfitGarments.add(item.garment_id);
+      }
+      if (outfitGarments.size > 0) {
+        feedbackSignals.push({
+          garmentIds: outfitGarments,
+          rating: 2, // negative: planned but skipped
+          feedback: null,
+          weather: null,
+          generatedAt: planned.date,
+        });
+      }
+    }
+
     const penalties = buildFeedbackPenalties(feedbackSignals);
 
     // Build pair memory from DB
@@ -3798,6 +3855,8 @@ serve(async (req) => {
     const socialMap = wearLogs.length > 0 ? buildSocialContextMap(wearLogs) : null;
     // Seasonal transition info
     const transInfo = getSeasonTransitionInfo();
+    // IB-5c: Personal uniform detection
+    const personalUniform = wearLogs.length >= 15 ? buildPersonalUniform(wearLogs, garments) : null;
 
     // Build recent outfit sets for anti-repetition
     const recentOutfitSets: Set<string>[] = [];
