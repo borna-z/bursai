@@ -12,6 +12,7 @@ import { useInsights, type Garment } from '@/hooks/useInsights';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useSustainabilityScore } from '@/hooks/useAdvancedFeatures';
 import { StyleDNACard } from '@/components/insights/StyleDNACard';
+import { WardrobeHealthCard } from '@/components/insights/WardrobeHealthCard';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { PageHeader } from '@/components/layout/PageHeader';
