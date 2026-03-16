@@ -72,20 +72,18 @@ function buildCalendarSuggestion(locale: string): string {
   return 'I have a meeting today';
 }
 
+function truncate(str: string, max: number): string {
+  return str.length > max ? str.slice(0, max - 1) + '…' : str;
+}
+
 function buildLeastWornSuggestion(garment: Garment | null, locale: string): string {
-  if (!garment) {
-    return 'Style my least worn item';
-  }
-  const name = garment.title.toLowerCase();
-  return `Style my ${name}`;
+  if (!garment) return 'Style my least worn item';
+  return truncate(`Style my ${garment.title.toLowerCase()}`, 32);
 }
 
 function buildMostWornSuggestion(garment: Garment | null, locale: string): string {
-  if (!garment) {
-    return 'New ways to wear my favorite';
-  }
-  const name = garment.title.toLowerCase();
-  return `New ways to wear my ${name}`;
+  if (!garment) return 'New ways to wear my favorite';
+  return truncate(`New ways to wear my ${garment.title.toLowerCase()}`, 36);
 }
 
 export function ChatWelcome({ onSuggestion, displayName, garmentCount }: ChatWelcomeProps) {
