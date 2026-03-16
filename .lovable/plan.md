@@ -99,13 +99,13 @@
 | IB-3d | Expose backup outfit (2nd-ranked combo) per day | ✅ Done |
 | IB-3e | Laundry-aware generation with dirty garment warnings | ✅ Done |
 
-### IB Phase 4 — Chat Intelligence Upgrade
+### IB Phase 4 — Chat Intelligence Upgrade ✅
 
 | Task | Title | Status |
 |------|-------|--------|
-| IB-4a | Include enrichment data in wardrobe context sent to chat | 🔲 Todo |
-| IB-4b | Add wardrobe composition summary (style clusters, gaps) | 🔲 Todo |
-| IB-4c | Include recent rejection/swap context in chat prompt | 🔲 Todo |
+| IB-4a | Include enrichment data in wardrobe context sent to chat | ✅ Done |
+| IB-4b | Add wardrobe composition summary (style clusters, gaps) | ✅ Done |
+| IB-4c | Include recent rejection/swap context in chat prompt | ✅ Done |
 
 ### IB Phase 5 — Learning & Signal Refinement
 
