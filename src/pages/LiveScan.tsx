@@ -214,7 +214,7 @@ function ScanHistoryStrip({ thumbnails }: { thumbnails: string[] }) {
           initial={{ scale: 0.7, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: i * 0.05, duration: 0.2 }}
-          className="w-11 h-11 rounded-lg overflow-hidden border border-border/20 bg-secondary/40 flex-shrink-0 shadow-sm"
+          className="w-11 h-11 overflow-hidden border border-border/20 bg-secondary/40 flex-shrink-0 shadow-sm"
         >
           <img src={url} alt="" className="w-full h-full object-cover" />
         </motion.div>
