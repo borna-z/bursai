@@ -103,10 +103,10 @@ export default function HomePage() {
             className="flex items-center justify-between overflow-visible"
           >
             <div>
-              <h1 className="text-xl font-semibold tracking-[-0.025em]">
+              <h1 className="text-[1.625rem] font-bold tracking-[-0.025em] leading-tight">
                 {getGreeting()}
               </h1>
-              <p className="label-editorial mt-1 text-muted-foreground/50 capitalize">
+              <p className="label-editorial mt-1.5 text-muted-foreground/60 capitalize">
                 {formattedDate}
               </p>
             </div>
