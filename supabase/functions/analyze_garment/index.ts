@@ -209,6 +209,8 @@ function cleanJsonResponse(raw: string): string {
   let s = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   // Remove trailing commas before } or ]
   s = s.replace(/,\s*([\]}])/g, '$1');
+  // Repair truncated decimal numbers (e.g. 0.} → 0} or 0., → 0,)
+  s = s.replace(/(\d+)\.\s*([\]},])/g, '$1$2');
   // Remove any text before the first { or after the last }
   const firstBrace = s.indexOf('{');
   const lastBrace = s.lastIndexOf('}');
