@@ -104,7 +104,6 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
           return;
         }
 
-        // Save with AI defaults
         await createGarment.mutateAsync({
           id: garmentId,
           image_path: path,
@@ -119,7 +118,15 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
           season_tags: data.season_tags || null,
           formality: data.formality || 3,
           in_laundry: false,
+          ai_analyzed_at: new Date().toISOString(),
+          ai_provider: data.ai_provider || 'unknown',
+          ai_raw: (data.ai_raw ?? null) as Json,
         });
+
+        // Stage 2 enrichment in background
+        enrichBatchGarment(garmentId, path).catch((err) =>
+          console.error('Batch enrichment error (non-blocking):', err)
+        );
 
         updateItem(currentIndex, { status: 'done' });
       } catch {
