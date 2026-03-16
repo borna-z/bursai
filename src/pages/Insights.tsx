@@ -150,51 +150,52 @@ export default function InsightsPage() {
     <AppLayout>
       <PageHeader title={t('insights.title')} />
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="page-container space-y-12">
-
-          {/* ─── 0. Wardrobe Usage Banner + Smart Insight ─── */}
+        <AnimatedPage className="page-container space-y-10 pb-28">
 
           {/* ─── 1. Usage Ring + Stats ─── */}
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center pt-2">
             <div className="relative">
-              <UsageRing value={insights.usageRate} size={140} />
+              <UsageRing value={insights.usageRate} size={130} />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-4xl font-bold tracking-tight tabular-nums">{insights.usageRate}</span>
-                <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wider">%</span>
+                <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">%</span>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-4">{t('insights.last_30d')}</p>
+            <p className="text-xs text-muted-foreground/50 mt-3">{t('insights.last_30d')}</p>
 
-            <div className="flex items-center w-full mt-10">
+            <div className="flex items-center w-full mt-8 rounded-2xl bg-secondary/20 p-1">
               <StatPill value={insights.totalGarments} label={t('insights.total')} onClick={() => navigate('/wardrobe')} />
-              <div className="w-px h-8 bg-border/20" />
+              <div className="w-px h-8 bg-border/10" />
               <StatPill value={insights.garmentsUsedLast30Days} label={t('insights.used_30d')} onClick={() => navigate('/wardrobe/used')} />
-              <div className="w-px h-8 bg-border/20" />
+              <div className="w-px h-8 bg-border/10" />
               <StatPill value={insights.unusedGarments.length} label={t('insights.unused')} onClick={() => navigate('/outfits/unused')} />
             </div>
           </div>
 
-          {/* ─── 2. Top 5 Garments (horizontal scroll) ─── */}
+          {/* ─── 2. Top 5 Garments ─── */}
           {insights.topFiveWorn.length > 0 && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <SectionLabel icon={Trophy} label={t('insights.top_garments')} />
-              <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-4 px-4">
-                {insights.topFiveWorn.map((garment) => (
+              <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-1">
+                {insights.topFiveWorn.map((garment, idx) => (
                   <div
                     key={garment.id}
-                    className="flex-shrink-0 w-[72px] cursor-pointer"
+                    className="flex-shrink-0 w-[72px] cursor-pointer group"
                     onClick={() => navigate(`/wardrobe/${garment.id}`)}
                   >
                     <div className="relative">
                       <LazyImageSimple
                         imagePath={garment.image_path}
                         alt={garment.title}
-                        className="w-[72px] h-24 rounded-xl"
+                        className="w-[72px] h-24 rounded-xl group-active:scale-95 transition-transform"
                         fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/50" />}
                       />
                       <Badge
                         variant="secondary"
-                        className="absolute -top-1.5 -right-1.5 text-[10px] font-bold tabular-nums px-1.5 py-0 min-w-0 h-5"
+                        className={cn(
+                          "absolute -top-1.5 -right-1.5 text-[10px] font-bold tabular-nums px-1.5 py-0 min-w-0 h-5",
+                          idx === 0 && "bg-primary text-primary-foreground"
+                        )}
                       >
                         {garment.wearCountLast30}×
                       </Badge>
@@ -206,8 +207,39 @@ export default function InsightsPage() {
             </div>
           )}
 
-          {/* ─── 3. Color Breakdown (horizontal bar + percentages) ─── */}
-          <div className="space-y-4">
+          {/* ─── 3. Unused garments preview ─── */}
+          {insights.unusedGarments.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <SectionLabel icon={Shirt} label={t('insights.forgotten') || 'Forgotten gems'} />
+                <button
+                  onClick={() => navigate('/outfits/unused')}
+                  className="text-[11px] text-primary/70 hover:text-primary transition-colors"
+                >
+                  {t('common.view_all') || 'View all'} →
+                </button>
+              </div>
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-1">
+                {insights.unusedGarments.slice(0, 6).map((garment) => (
+                  <div
+                    key={garment.id}
+                    className="flex-shrink-0 w-16 cursor-pointer"
+                    onClick={() => navigate(`/wardrobe/${garment.id}`)}
+                  >
+                    <LazyImageSimple
+                      imagePath={garment.image_path}
+                      alt={garment.title}
+                      className="w-16 h-20 rounded-lg opacity-70 hover:opacity-100 transition-opacity"
+                      fallbackIcon={<Shirt className="w-4 h-4 text-muted-foreground/30" />}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ─── 4. Color Breakdown ─── */}
+          <div className="space-y-3">
             <SectionLabel icon={Palette} label={t('insights.colors')} />
             <div className={cn(!isPremium && "relative")}>
               <div className={cn(!isPremium && "blur-sm select-none")}>
@@ -229,10 +261,9 @@ export default function InsightsPage() {
             </div>
           </div>
 
-
           {/* ─── 5. Sustainability Score ─── */}
           {sustainability && (
-          <div className="space-y-4">
+          <div className="space-y-3">
               <SectionLabel icon={Leaf} label={t('insights.sustainability')} />
               <div className={cn(!isPremium && "relative")}>
                 <div className={cn(!isPremium && "blur-sm select-none")}>
@@ -240,21 +271,21 @@ export default function InsightsPage() {
                     <span className={cn("text-5xl font-bold tabular-nums", sustainColor)}>
                       {sustainability.score}
                     </span>
-                    <span className="text-lg text-muted-foreground/60">/100</span>
-                    <p className="text-xs text-muted-foreground mt-1.5">{t('insights.sustainability_desc')}</p>
+                    <span className="text-lg text-muted-foreground/50">/100</span>
+                    <p className="text-xs text-muted-foreground/50 mt-1.5">{t('insights.sustainability_desc')}</p>
                   </div>
-                  <div className="grid grid-cols-3 gap-3 mt-5">
-                     <div className="rounded-xl surface-secondary p-4 text-center">
+                  <div className="grid grid-cols-3 gap-2 mt-4">
+                     <div className="rounded-xl bg-secondary/30 p-3.5 text-center">
                       <span className="text-lg font-bold tabular-nums">{sustainability.utilizationRate}%</span>
-                      <p className="text-[10px] text-muted-foreground/60 mt-1">{t('insights.utilization')}</p>
+                      <p className="text-[10px] text-muted-foreground/50 mt-0.5">{t('insights.utilization')}</p>
                     </div>
-                     <div className="rounded-xl surface-secondary p-4 text-center">
+                     <div className="rounded-xl bg-secondary/30 p-3.5 text-center">
                       <span className="text-lg font-bold tabular-nums">{sustainability.avgWearCount}×</span>
-                      <p className="text-[10px] text-muted-foreground/60 mt-1">{t('insights.avg_wears')}</p>
+                      <p className="text-[10px] text-muted-foreground/50 mt-0.5">{t('insights.avg_wears')}</p>
                     </div>
-                    <div className="rounded-xl surface-secondary p-4 text-center">
+                    <div className="rounded-xl bg-secondary/30 p-3.5 text-center">
                       <span className="text-lg font-bold tabular-nums">{sustainability.underusedCount}</span>
-                      <p className="text-[10px] text-muted-foreground/60 mt-1">{t('insights.underused')}</p>
+                      <p className="text-[10px] text-muted-foreground/50 mt-0.5">{t('insights.underused')}</p>
                     </div>
                   </div>
                 </div>
@@ -267,9 +298,12 @@ export default function InsightsPage() {
             </div>
           )}
 
+          {/* ─── Smart Insight ─── */}
+          <SmartInsightCard />
+
           {/* ─── Premium link ─── */}
           {!isPremium && (
-            <p className="text-center text-xs text-muted-foreground/40 pt-2">
+            <p className="text-center text-xs text-muted-foreground/40">
               <button onClick={() => navigate('/pricing')} className="underline underline-offset-2 hover:text-foreground transition-colors">
                 {t('insights.unlock')} {t('common.premium')}
               </button>
@@ -277,9 +311,7 @@ export default function InsightsPage() {
           )}
 
           {/* ─── CTA ─── */}
-          <SmartInsightCard />
-
-          <Button className="w-full rounded-xl" size="lg" onClick={() => navigate('/')}>
+          <Button className="w-full rounded-2xl h-12" size="lg" onClick={() => navigate('/')}>
             <Sparkles className="w-4 h-4 mr-2" />{t('insights.get_outfits')}
           </Button>
 
