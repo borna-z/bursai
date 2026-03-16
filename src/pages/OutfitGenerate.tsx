@@ -91,7 +91,17 @@ export default function OutfitGeneratePage() {
           wind: weather?.wind ?? 'low',
         },
       });
-      navigate(`/outfits/${result.id}`, { replace: true, state: { justGenerated: true } });
+      navigate(`/outfits/${result.id}`, {
+        replace: true,
+        state: {
+          justGenerated: true,
+          confidence_score: result.confidence_score,
+          confidence_level: result.confidence_level,
+          limitation_note: result.limitation_note,
+          family_label: result.family_label,
+          wardrobe_insights: result.wardrobe_insights,
+        },
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : t('generate.error_desc');
       setLastError(message);
