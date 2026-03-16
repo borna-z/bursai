@@ -2072,7 +2072,8 @@ function scoreGarment(
   comfortProfile: ComfortStyleProfile | null = null,
   socialMap: SocialContextMap | null = null,
   currentEventTitle: string | null = null,
-  transInfo: SeasonTransitionInfo | null = null
+  transInfo: SeasonTransitionInfo | null = null,
+  uniform: PersonalUniform | null = null
 ): ScoredGarment {
   const ws = weatherSuitability(garment, weather);
   const fs = formalityScore(garment, occasion);
@@ -2094,15 +2095,19 @@ function scoreGarment(
   const lrs = layeringRoleScore(garment, weather);
   const vb = versatilityBoost(garment);
 
-  // Weighted composite: 10 base factors + 3 enrichment factors + social penalty
+  // IB-5c: Personal uniform boost
+  const pus = personalUniformScore(garment, uniform);
+
+  // Weighted composite: base factors + enrichment + uniform + social penalty
   const vectorConf = styleVector?.confidence || 0;
   const saWeight = 0.06 * (1 - vectorConf * 0.5);
   const svWeight = 0.06 + vectorConf * 0.04;
 
-  // Rebalanced weights: base factors slightly reduced to make room for enrichment
-  const score = ws * 0.14 + fs * 0.14 + wr * 0.10 + fb * 0.08 + sa * saWeight + wp * 0.07 + sv * svWeight + cs * 0.07 + sts * 0.07
+  // Rebalanced weights: slight reduction to accommodate uniform score
+  const score = ws * 0.13 + fs * 0.13 + wr * 0.10 + fb * 0.08 + sa * saWeight + wp * 0.06 + sv * svWeight + cs * 0.06 + sts * 0.06
     + ots * 0.07   // occasion tag match
     + lrs * 0.06   // layering role fit
+    + pus * 0.05   // personal uniform match (IB-5c)
     + vb           // versatility bonus (additive, max ~1.8)
     - scp * 0.5;
 
@@ -2113,6 +2118,7 @@ function scoreGarment(
       weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp,
       vector: sv, comfort: cs, socialPenalty: scp, seasonalTransition: sts,
       occasion_tag: ots, layering_role: lrs, versatility: garment.versatility_score,
+      uniform: pus,
     },
   };
 }
