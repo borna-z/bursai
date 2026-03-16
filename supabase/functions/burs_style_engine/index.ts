@@ -2750,7 +2750,9 @@ function computeConfidence(
   candidateCount: number,
   slotCandidates: Record<string, ScoredGarment[]>,
   weather: WeatherInput,
-  occasion: string
+  occasion: string,
+  gaps: string[] = [],
+  needsBaseLayer: boolean = false
 ): ConfidenceResult {
   const b = combo.breakdown;
   let score = 0;
@@ -2780,6 +2782,16 @@ function computeConfidence(
     else if (count <= 3) coverageScore -= 0.5;
   }
   score += Math.max(0, coverageScore) * 0.15;
+
+  // Gap-aware penalty: reduce confidence when wardrobe gaps are detected
+  for (const gap of gaps) {
+    if (gap.includes('formal')) score -= 0.8;
+    else if (gap.includes('weather') || gap.includes('rain') || gap.includes('outerwear')) score -= 0.6;
+    else score -= 0.4;
+  }
+
+  // Structural incompleteness penalty
+  if (needsBaseLayer) score -= 0.5;
 
   const final = Math.max(0, Math.min(10, score));
   const level: ConfidenceLevel = final >= 7 ? 'high' : final >= 4.5 ? 'medium' : 'low';
