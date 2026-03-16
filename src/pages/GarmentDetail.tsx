@@ -147,12 +147,13 @@ export default function GarmentDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { t, locale } = useLanguage();
-  const queryClient = useQueryClient();
 
-  const enrichmentStatus: EnrichmentStatus = (garment as Record<string, unknown>)?.enrichment_status as EnrichmentStatus || 'none';
+  const { data: garment, isLoading } = useGarment(id);
+  const enrichmentStatus: EnrichmentStatus = (garment as unknown as Record<string, unknown>)?.enrichment_status as EnrichmentStatus || 'none';
   const isEnrichmentPending = enrichmentStatus === 'pending' || enrichmentStatus === 'in_progress';
 
-  const { data: garment, isLoading } = useGarment(id, {
+  // Re-fetch while enrichment is running (max ~60s of polling)
+  useGarment(id, {
     refetchInterval: isEnrichmentPending ? 5000 : false,
   });
   const { data: similarGarments } = useSimilarGarments(garment);
