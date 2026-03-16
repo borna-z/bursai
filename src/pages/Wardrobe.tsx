@@ -545,7 +545,7 @@ export default function WardrobePage() {
           </div>
 
           {/* Segmented control */}
-          <div className="flex p-1 rounded-xl surface-inset border border-border/10">
+          <div className="flex p-1 rounded-[var(--radius,0.75rem)] surface-inset border border-border/10">
             {(['garments', 'outfits'] as const).map((tab) => (
               <button
                 key={tab}
