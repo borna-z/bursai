@@ -34,6 +34,9 @@ export interface GeneratedOutfit {
   limitation_note?: string | null;
   family_label?: string;
   wardrobe_insights?: string[];
+  layer_order?: { slot: string; garment_id: string; layer_role: string }[];
+  needs_base_layer?: boolean;
+  occasion_submode?: string | null;
 }
 
 const INSUFFICIENT_GARMENTS_MESSAGE =
