@@ -52,8 +52,8 @@
 |------|-------|--------|
 | 23 | Real Stylist Mode | ✅ Done |
 | 24 | Stronger premium subscription experience | ✅ Done |
-| 25 | Trust pass | 🔲 |
-| 26 | Reduce feature chaos | 🔲 |
+| 25 | Trust pass | ✅ Done |
+| 26 | Reduce feature chaos | ✅ Done |
 
 ## Phase 6 — Final Polish
 
