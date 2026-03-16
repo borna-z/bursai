@@ -165,7 +165,7 @@ function ScanGuidance({ hint, autoMode }: { hint: FramingHint; autoMode: boolean
   return (
     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-[120px] pointer-events-none z-10">
       <div className={cn(
-        'px-4 py-2 rounded-full backdrop-blur-sm text-xs font-medium transition-all duration-300',
+        'px-4 py-2 backdrop-blur-sm text-xs font-medium transition-all duration-300',
         hint === 'ready' ? 'bg-accent/20 text-accent' :
         hint === 'more_light' ? 'bg-warning/20 text-warning' :
         hint === 'multiple_objects' ? 'bg-warning/20 text-warning' :
