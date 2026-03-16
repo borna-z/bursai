@@ -4929,6 +4929,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'outfit.accessory_title': 'Tilbehør', 'outfit.accessory_suggest': 'Foreslå tilbehør', 'outfit.accessory_loading': 'Leter...', 'outfit.accessory_error': 'Kunne ikke foreslå', 'outfit.accessory_hint': 'AI foreslår tilbehør som passer',
     'garment.use_in_outfit': 'Bruk i antrekk', 'garment.similar_items': 'Lignende plagg', 'garment.edit_title': 'Rediger plagg', 'garment.edit_save': 'Lagre', 'garment.edit_saved': 'Plagg oppdatert',
     'chat.based_on': 'Basert på', 'chat.garments_label': 'plagg', 'chat.garments_in_wardrobe': 'plagg i garderoben din',
+    'chat.greeting_prefix': 'Hei', 'chat.welcome_title': 'Din personlige stylist', 'chat.welcome_subtitle': 'Spør meg om garderoben, antrekk eller stil',
     'insights.color_temp': 'Fargetemperatur', 'insights.warm': 'Varm', 'insights.cool': 'Kald', 'insights.neutral': 'Nøytral',
     'insights.palette_warm': 'Varm palett', 'insights.palette_cool': 'Kald palett', 'insights.palette_neutral': 'Nøytral palett', 'insights.palette_balanced': 'Balansert palett',
     'insights.temp_desc': 'Garderobens overordnede fargefølelse',
