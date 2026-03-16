@@ -5615,6 +5615,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'chat.shopping_placeholder': 'Kuvaile tuotetta jota harkitset...',
     'chat.outfit_from_stylist': 'Luotu stylistin ehdotuksesta', 'chat.based_on': 'Perustuu',
     'chat.garments_label': 'vaatetta', 'chat.garments_in_wardrobe': 'vaatetta vaatekaapissasi',
+    'chat.greeting_prefix': 'Hei', 'chat.welcome_title': 'Henkilökohtainen stylistisi', 'chat.welcome_subtitle': 'Kysy minulta vaatekaapista, asuista tai tyylistä',
     'chat.suggestion_1': 'Mitä minun pitäisi pukea tänään?', 'chat.suggestion_2': 'Analysoi tyylini', 'chat.suggestion_3': 'Auta minua valitsemaan töihin',
     'scan.auto': 'Auto', 'scan.scanned': 'skannattu', 'scan.done': 'Valmis',
     'scan.hold_still': 'Pidä vaate paikallaan…', 'scan.point_garment': 'Osoita vaatetta',
