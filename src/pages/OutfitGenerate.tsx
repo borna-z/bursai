@@ -126,6 +126,9 @@ export default function OutfitGeneratePage() {
           limitation_note: result.limitation_note,
           family_label: result.family_label,
           wardrobe_insights: result.wardrobe_insights,
+          layer_order: result.layer_order,
+          needs_base_layer: result.needs_base_layer,
+          occasion_submode: result.occasion_submode,
         },
       });
     } catch (err) {
