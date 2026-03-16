@@ -28,12 +28,23 @@ interface EnrichmentData {
   garment_length?: string | null;
   closure?: string | null;
   fabric_weight?: string | null;
+  silhouette?: string | null;
+  visual_weight?: string | null;
+  texture_intensity?: string | null;
+  shoulder_structure?: string | null;
+  drape?: string | null;
+  rise?: string | null;
+  leg_shape?: string | null;
+  hem_detail?: string | null;
+  style_archetype?: string | null;
   style_tags?: string[];
   occasion_tags?: string[];
   layering_role?: string | null;
   care_instructions?: string[];
   versatility_score?: number | null;
   color_harmony_notes?: string | null;
+  stylist_note?: string | null;
+  confidence?: number | null;
 }
 
 function extractEnrichment(aiRaw: unknown): EnrichmentData | null {
@@ -41,18 +52,32 @@ function extractEnrichment(aiRaw: unknown): EnrichmentData | null {
   const raw = aiRaw as Record<string, unknown>;
   const enrichment = (raw.enrichment as Record<string, unknown>) || null;
   if (!enrichment) return null;
+  const str = (key: string) => typeof enrichment[key] === 'string' ? enrichment[key] as string : null;
+  const num = (key: string) => typeof enrichment[key] === 'number' ? enrichment[key] as number : null;
+  const arr = (key: string) => Array.isArray(enrichment[key]) ? enrichment[key] as string[] : undefined;
   return {
-    neckline: enrichment.neckline as string | null,
-    sleeve_length: enrichment.sleeve_length as string | null,
-    garment_length: enrichment.garment_length as string | null,
-    closure: enrichment.closure as string | null,
-    fabric_weight: enrichment.fabric_weight as string | null,
-    style_tags: Array.isArray(enrichment.style_tags) ? enrichment.style_tags : undefined,
-    occasion_tags: Array.isArray(enrichment.occasion_tags) ? enrichment.occasion_tags : undefined,
-    layering_role: enrichment.layering_role as string | null,
-    care_instructions: Array.isArray(enrichment.care_instructions) ? enrichment.care_instructions : undefined,
-    versatility_score: typeof enrichment.versatility_score === 'number' ? enrichment.versatility_score : null,
-    color_harmony_notes: typeof enrichment.color_harmony_notes === 'string' ? enrichment.color_harmony_notes : null,
+    neckline: str('neckline'),
+    sleeve_length: str('sleeve_length'),
+    garment_length: str('garment_length'),
+    closure: str('closure'),
+    fabric_weight: str('fabric_weight'),
+    silhouette: str('silhouette'),
+    visual_weight: str('visual_weight'),
+    texture_intensity: str('texture_intensity'),
+    shoulder_structure: str('shoulder_structure'),
+    drape: str('drape'),
+    rise: str('rise'),
+    leg_shape: str('leg_shape'),
+    hem_detail: str('hem_detail'),
+    style_archetype: str('style_archetype'),
+    style_tags: arr('style_tags'),
+    occasion_tags: arr('occasion_tags'),
+    layering_role: str('layering_role'),
+    care_instructions: arr('care_instructions'),
+    versatility_score: num('versatility_score'),
+    color_harmony_notes: str('color_harmony_notes'),
+    stylist_note: str('stylist_note'),
+    confidence: num('confidence'),
   };
 }
 

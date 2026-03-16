@@ -164,28 +164,40 @@ function buildEnrichMessages(imageUrl: string) {
   return [
     {
       role: 'system',
-      content: `You are a fashion expert. Analyze this garment image for additional details beyond basic category/color. Return ONLY valid JSON:
+      content: `You are an elite fashion stylist analyzing a garment image for deep intelligence. Return ONLY valid JSON:
 {
-"neckline": "crew|v-neck|scoop|collar|turtleneck|boat|hooded|null",
-"sleeve_length": "sleeveless|short|three-quarter|long|null",
+"neckline": "crew|v-neck|scoop|collar|turtleneck|boat|hooded|off-shoulder|mock-neck|null",
+"sleeve_length": "sleeveless|cap|short|three-quarter|long|null",
 "garment_length": "cropped|regular|long|midi|maxi|null",
-"closure": "button|zip|pullover|snap|belt|tie|null",
-"fabric_weight": "lightweight|midweight|heavyweight|null",
-"style_tags": ["up to 5 style descriptors, e.g. casual, classic, streetwear, preppy, athleisure, minimalist, bohemian"],
-"occasion_tags": ["up to 3 occasions, e.g. work, weekend, evening, sport, date, travel"],
+"closure": "button|zip|pullover|snap|belt|tie|wrap|null",
+"fabric_weight": "sheer|lightweight|midweight|heavyweight|null",
+"silhouette": "fitted|tailored|relaxed|boxy|a-line|straight|flared|draped|null",
+"visual_weight": "light|medium|heavy — how dominant this piece is in an outfit",
+"texture_intensity": "smooth|subtle|moderate|pronounced|bold — tactile/visual texture level",
+"shoulder_structure": "natural|dropped|structured|padded|raglan|null",
+"drape": "crisp|structured|soft|fluid|null — how the fabric falls",
+"rise": "low|mid|high|null — for bottoms only",
+"leg_shape": "skinny|straight|tapered|wide|bootcut|null — for bottoms only",
+"hem_detail": "raw|finished|cuffed|frayed|asymmetric|null",
+"style_archetype": "one of: classic, minimalist, streetwear, preppy, bohemian, athleisure, romantic, edgy, avant-garde, workwear, coastal, retro",
+"style_tags": ["up to 5 style descriptors"],
+"occasion_tags": ["up to 4 occasions: work, weekend, evening, sport, date, travel, formal, lounge"],
 "layering_role": "base|mid|outer|standalone|null",
-"care_instructions": ["up to 3 short care tips, e.g. machine wash cold, hang dry, dry clean only"],
+"care_instructions": ["up to 3 short care tips"],
 "versatility_score": 7,
-"color_harmony_notes": "short note on what colors pair well with this garment (max 60 chars)",
+"color_harmony_notes": "what colors/tones pair well (max 80 chars)",
+"stylist_note": "one-sentence styling insight — how a real stylist would use this piece (max 120 chars)",
+"confidence": 0.9,
 "refined_title": "improved concise garment title (max 30 chars)"
 }
-versatility_score: 1-10 (1=very specific use, 10=extremely versatile wardrobe staple).
+versatility_score: 1-10 (1=very specific, 10=ultimate wardrobe staple).
+confidence: 0-1 (how confident you are in this analysis).
 JSON only, no explanation.`
     },
     {
       role: 'user',
       content: [
-        { type: 'text', text: 'Provide additional garment details. JSON only.' },
+        { type: 'text', text: 'Provide deep garment intelligence. JSON only.' },
         { type: 'image_url', image_url: { url: imageUrl } }
       ]
     }
