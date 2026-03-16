@@ -820,7 +820,7 @@ export default function OutfitDetailPage() {
           <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/40 font-semibold mb-3">
             {t('outfit.pieces') || 'Pieces'}
           </p>
-          {outfitItems.map((item) => (
+          {sortedOutfitItems.map((item) => (
             <SlotRow
               key={item.id}
               slot={item.slot}
@@ -830,8 +830,15 @@ export default function OutfitDetailPage() {
               imagePath={item.garment?.image_path}
               onSwap={() => handleOpenSwap(item.slot, item.id, item.garment_id)}
               t={t}
+              layerRole={layerRoleMap.get(item.garment_id)}
             />
           ))}
+          {/* Base layer note */}
+          {justGenerated && genNeedsBaseLayer && (
+            <p className="text-[11px] text-muted-foreground/50 italic pt-2 pl-1 leading-relaxed">
+              This look assumes a simple base layer underneath
+            </p>
+          )}
         </div>
 
         {/* ── Photo Feedback (Mirror Check) — compact ── */}
