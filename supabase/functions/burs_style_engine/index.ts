@@ -2005,17 +2005,31 @@ function scoreGarment(
   // Seasonal transition score
   const sts = transInfo ? seasonalTransitionScore(garment, transInfo) : 7;
 
-  // Weighted composite: 10 factors + social penalty
-  const vectorConf = styleVector?.confidence || 0;
-  const saWeight = 0.07 * (1 - vectorConf * 0.5);
-  const svWeight = 0.07 + vectorConf * 0.04;
+  // Enrichment-aware scores (Phase 1)
+  const ots = occasionTagScore(garment, occasion);
+  const lrs = layeringRoleScore(garment, weather);
+  const vb = versatilityBoost(garment);
 
-  const score = ws * 0.16 + fs * 0.16 + wr * 0.12 + fb * 0.09 + sa * saWeight + wp * 0.09 + sv * svWeight + cs * 0.09 + sts * 0.08 - scp * 0.5;
+  // Weighted composite: 10 base factors + 3 enrichment factors + social penalty
+  const vectorConf = styleVector?.confidence || 0;
+  const saWeight = 0.06 * (1 - vectorConf * 0.5);
+  const svWeight = 0.06 + vectorConf * 0.04;
+
+  // Rebalanced weights: base factors slightly reduced to make room for enrichment
+  const score = ws * 0.14 + fs * 0.14 + wr * 0.10 + fb * 0.08 + sa * saWeight + wp * 0.07 + sv * svWeight + cs * 0.07 + sts * 0.07
+    + ots * 0.07   // occasion tag match
+    + lrs * 0.06   // layering role fit
+    + vb           // versatility bonus (additive, max ~1.8)
+    - scp * 0.5;
 
   return {
     garment,
     score,
-    breakdown: { weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp, vector: sv, comfort: cs, socialPenalty: scp, seasonalTransition: sts },
+    breakdown: {
+      weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp,
+      vector: sv, comfort: cs, socialPenalty: scp, seasonalTransition: sts,
+      occasion_tag: ots, layering_role: lrs, versatility: garment.versatility_score,
+    },
   };
 }
 
