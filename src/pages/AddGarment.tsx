@@ -249,7 +249,7 @@ export default function AddGarmentPage() {
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [batchFiles, setBatchFiles] = useState<File[]>([]);
   const batchInputRef = useRef<HTMLInputElement>(null);
-
+  const [isRemovingBg, setIsRemovingBg] = useState(false);
   // Form state
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
