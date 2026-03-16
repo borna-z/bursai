@@ -134,6 +134,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
           ai_analyzed_at: new Date().toISOString(),
           ai_provider: data.ai_provider || 'unknown',
           ai_raw: (data.ai_raw ?? null) as Json,
+          enrichment_status: 'pending',
         });
 
         // Stage 2 enrichment in background

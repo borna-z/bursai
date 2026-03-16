@@ -433,6 +433,7 @@ export default function AddGarmentPage() {
         ai_analyzed_at: aiAnalysis ? new Date().toISOString() : null,
         ai_provider: aiAnalysis?.ai_provider || null,
         ai_raw: (aiAnalysis?.ai_raw ?? null) as Json,
+        enrichment_status: 'pending',
       });
 
       // Stage 2 enrichment in background (same as live scan)

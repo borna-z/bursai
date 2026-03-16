@@ -204,6 +204,20 @@ JSON only, no explanation.`
   ];
 }
 
+// ─── Clean malformed JSON from AI responses ───
+function cleanJsonResponse(raw: string): string {
+  let s = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  // Remove trailing commas before } or ]
+  s = s.replace(/,\s*([\]}])/g, '$1');
+  // Remove any text before the first { or after the last }
+  const firstBrace = s.indexOf('{');
+  const lastBrace = s.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    s = s.substring(firstBrace, lastBrace + 1);
+  }
+  return s;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
