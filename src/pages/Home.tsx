@@ -64,6 +64,8 @@ export default function HomePage() {
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const { data: todayOutfits, isLoading: isOutfitsLoading } = usePlannedOutfitsForDate(todayStr);
+  const { data: weekPlannedOutfits = [] } = usePlannedOutfits();
+  const { data: insightsData } = useInsights();
   const { effectiveCity } = useLocation();
   const { weather } = useWeather({ city: effectiveCity });
 
