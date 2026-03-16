@@ -29,6 +29,14 @@ interface GarmentRow {
   wear_count: number | null;
   last_worn_at: string | null;
   image_path: string;
+  // Enrichment fields from ai_raw (populated at load time with safe defaults)
+  silhouette: string;           // e.g. "boxy", "fitted", "relaxed", "straight", "a-line"
+  visual_weight: number;        // 1-10, higher = heavier/chunkier
+  texture_intensity: number;    // 1-10, 1=smooth, 10=bold texture
+  layering_role: string;        // "base", "mid", "outer", "standalone"
+  versatility_score: number;    // 1-10, how many contexts it works in
+  occasion_tags: string[];      // e.g. ["casual", "work", "date"]
+  style_archetype: string;      // e.g. "minimal", "classic", "street", "romantic"
 }
 
 interface ScoredGarment {
@@ -1012,21 +1020,12 @@ function occasionTemplateScore(
     : 5;
 
   const shoeText = garmentText(items.find((item) => item.slot === 'shoes')?.garment || {
-    id: '',
-    title: '',
-    category: '',
-    subcategory: '',
-    color_primary: '',
-    color_secondary: null,
-    pattern: null,
-    material: null,
-    fit: null,
-    formality: null,
-    season_tags: null,
-    wear_count: null,
-    last_worn_at: null,
-    image_path: '',
-  });
+    id: '', title: '', category: '', subcategory: '', color_primary: '', color_secondary: null,
+    pattern: null, material: null, fit: null, formality: null, season_tags: null,
+    wear_count: null, last_worn_at: null, image_path: '',
+    silhouette: 'straight', visual_weight: 5, texture_intensity: 3, layering_role: 'standalone',
+    versatility_score: 5, occasion_tags: [], style_archetype: '',
+  } as GarmentRow);
 
   let score = 7;
 
@@ -1219,6 +1218,182 @@ function styleVectorScore(garment: GarmentRow, vector: StyleVector | null): numb
   }
 
   return Math.max(0, Math.min(10, score));
+}
+
+// ─────────────────────────────────────────────
+// ENRICHMENT DATA HYDRATION (Phase 1: AI Intelligence)
+// ─────────────────────────────────────────────
+
+/** Extract enrichment fields from ai_raw JSONB into the GarmentRow with safe defaults. */
+function hydrateEnrichment(raw: any): GarmentRow {
+  const aiRaw = (raw.ai_raw && typeof raw.ai_raw === 'object') ? raw.ai_raw : {};
+  const enrichment = aiRaw.enrichment || aiRaw;
+
+  return {
+    ...raw,
+    silhouette: String(enrichment.silhouette || inferSilhouetteFromFit(raw.fit)).toLowerCase(),
+    visual_weight: clampNum(enrichment.visual_weight, 1, 10, 5),
+    texture_intensity: clampNum(enrichment.texture_intensity, 1, 10, 3),
+    layering_role: String(enrichment.layering_role || inferLayeringRole(raw.category, raw.subcategory)).toLowerCase(),
+    versatility_score: clampNum(enrichment.versatility_score, 1, 10, 5),
+    occasion_tags: Array.isArray(enrichment.occasion_tags) ? enrichment.occasion_tags.map((t: any) => String(t).toLowerCase()) : [],
+    style_archetype: String(enrichment.style_archetype || '').toLowerCase(),
+  };
+}
+
+function clampNum(val: any, min: number, max: number, fallback: number): number {
+  const n = typeof val === 'number' ? val : fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
+function inferSilhouetteFromFit(fit: string | null): string {
+  const f = (fit || '').toLowerCase();
+  if (['oversized', 'loose', 'wide'].some(k => f.includes(k))) return 'relaxed';
+  if (['slim', 'skinny', 'fitted', 'tailored'].some(k => f.includes(k))) return 'fitted';
+  if (f.includes('regular')) return 'straight';
+  return 'straight';
+}
+
+function inferLayeringRole(category: string, subcategory: string | null): string {
+  const both = `${category} ${subcategory || ''}`.toLowerCase();
+  if (OUTERWEAR_CATS.some(c => both.includes(c))) return 'outer';
+  if (['t-shirt', 'tank', 'camisole', 'undershirt'].some(c => both.includes(c))) return 'base';
+  if (['cardigan', 'sweater', 'hoodie', 'vest'].some(c => both.includes(c))) return 'mid';
+  return 'standalone';
+}
+
+// ─────────────────────────────────────────────
+// ENRICHMENT-AWARE SCORING FUNCTIONS
+// ─────────────────────────────────────────────
+
+/** Score occasion suitability using enrichment occasion_tags. */
+function occasionTagScore(garment: GarmentRow, occasion: string): number {
+  if (garment.occasion_tags.length === 0) return 7; // unenriched → neutral
+  const occ = occasion.toLowerCase();
+  // Direct match
+  if (garment.occasion_tags.includes(occ)) return 10;
+  // Partial match (e.g., occasion "jobb" matches tag "work")
+  const OCCASION_ALIASES: Record<string, string[]> = {
+    work: ['jobb', 'kontor', 'office', 'möte', 'meeting'],
+    casual: ['vardag', 'everyday', 'weekend', 'helg'],
+    date: ['dejt', 'romantic'],
+    party: ['fest', 'celebration'],
+    formal: ['bröllop', 'wedding', 'gala', 'ceremoni'],
+    sport: ['träning', 'gym', 'yoga'],
+    travel: ['resa', 'flygresa', 'flight'],
+  };
+  for (const [canonical, aliases] of Object.entries(OCCASION_ALIASES)) {
+    const allNames = [canonical, ...aliases];
+    if (allNames.includes(occ) && garment.occasion_tags.some(t => allNames.includes(t))) return 9;
+  }
+  // No match at all
+  return 5;
+}
+
+/** Score layering role against weather context. */
+function layeringRoleScore(garment: GarmentRow, weather: WeatherInput): number {
+  const temp = weather.temperature;
+  if (temp === undefined) return 7;
+  const role = garment.layering_role;
+
+  if (temp < 5) {
+    // Cold: outer layers highly valued, base layers good for layering
+    if (role === 'outer') return 10;
+    if (role === 'mid') return 9;
+    if (role === 'base') return 7;
+    return 6;
+  }
+  if (temp < 15) {
+    // Cool: mid layers ideal for flexibility
+    if (role === 'mid') return 9;
+    if (role === 'outer') return 8;
+    if (role === 'standalone') return 7;
+    return 6;
+  }
+  if (temp < 25) {
+    // Mild: standalone pieces preferred
+    if (role === 'standalone') return 9;
+    if (role === 'base') return 8;
+    if (role === 'outer') return 5;
+    return 7;
+  }
+  // Hot: base/standalone only
+  if (role === 'base' || role === 'standalone') return 9;
+  if (role === 'mid') return 4;
+  if (role === 'outer') return 2;
+  return 7;
+}
+
+/** Versatility boost: more versatile garments get a small base score bump. */
+function versatilityBoost(garment: GarmentRow): number {
+  // Map 1-10 versatility to 0-1.5 bonus
+  return Math.max(0, (garment.versatility_score - 4) * 0.3);
+}
+
+/** Silhouette balance scoring for a combo. Rewards contrast, penalizes monotony. */
+function silhouetteBalanceScore(items: ComboItem[]): number {
+  const coreItems = items.filter(i => ['top', 'bottom', 'dress', 'outerwear'].includes(i.slot));
+  if (coreItems.length < 2) return 7;
+
+  const silhouettes = coreItems.map(i => i.garment.silhouette);
+  const weights = coreItems.map(i => i.garment.visual_weight);
+
+  // Silhouette variety: penalize if all same
+  const uniqueSilhouettes = new Set(silhouettes);
+  let score = 7;
+
+  if (uniqueSilhouettes.size === 1 && coreItems.length >= 2) {
+    // All same silhouette — penalize
+    const sil = silhouettes[0];
+    if (sil === 'relaxed') score -= 2;      // all baggy
+    else if (sil === 'fitted') score -= 1.5; // all tight
+    else score -= 1;
+  } else if (uniqueSilhouettes.size >= 2) {
+    // Good contrast
+    score += 1.5;
+    // Bonus for classic combos like relaxed+fitted or relaxed+straight
+    const hasRelaxed = silhouettes.includes('relaxed') || silhouettes.includes('boxy');
+    const hasFitted = silhouettes.includes('fitted') || silhouettes.includes('slim');
+    const hasStraight = silhouettes.includes('straight');
+    if (hasRelaxed && (hasFitted || hasStraight)) score += 1;
+  }
+
+  // Visual weight balance: top vs bottom contrast
+  const topItem = coreItems.find(i => i.slot === 'top' || i.slot === 'dress');
+  const bottomItem = coreItems.find(i => i.slot === 'bottom');
+  if (topItem && bottomItem) {
+    const weightDiff = Math.abs(topItem.garment.visual_weight - bottomItem.garment.visual_weight);
+    if (weightDiff >= 2 && weightDiff <= 5) score += 0.8;  // nice contrast
+    if (weightDiff === 0) score -= 0.5;                      // too uniform
+  }
+
+  return clampScore(score);
+}
+
+/** Texture depth scoring for a combo. Rewards variety, penalizes monotony. */
+function textureDepthScore(items: ComboItem[]): number {
+  const coreItems = items.filter(i => ['top', 'bottom', 'dress', 'outerwear'].includes(i.slot));
+  if (coreItems.length < 2) return 7;
+
+  const textures = coreItems.map(i => i.garment.texture_intensity);
+  const avg = textures.reduce((s, v) => s + v, 0) / textures.length;
+  const spread = Math.max(...textures) - Math.min(...textures);
+
+  let score = 7;
+
+  // Reward texture variety
+  if (spread >= 3) score += 1.5;       // good mix of smooth and textured
+  else if (spread >= 1.5) score += 0.8;
+  else if (spread < 1) score -= 1;     // all same texture → flat
+
+  // Penalty for all very high texture (busy/clashing)
+  if (avg > 7) score -= 1;
+  // Bonus for controlled texture: smooth base + one textured piece
+  const smoothCount = textures.filter(t => t <= 3).length;
+  const texturedCount = textures.filter(t => t >= 6).length;
+  if (smoothCount >= 1 && texturedCount === 1) score += 0.8;
+
+  return clampScore(score);
 }
 
 // ─────────────────────────────────────────────
@@ -1821,17 +1996,31 @@ function scoreGarment(
   // Seasonal transition score
   const sts = transInfo ? seasonalTransitionScore(garment, transInfo) : 7;
 
-  // Weighted composite: 10 factors + social penalty
-  const vectorConf = styleVector?.confidence || 0;
-  const saWeight = 0.07 * (1 - vectorConf * 0.5);
-  const svWeight = 0.07 + vectorConf * 0.04;
+  // Enrichment-aware scores (Phase 1)
+  const ots = occasionTagScore(garment, occasion);
+  const lrs = layeringRoleScore(garment, weather);
+  const vb = versatilityBoost(garment);
 
-  const score = ws * 0.16 + fs * 0.16 + wr * 0.12 + fb * 0.09 + sa * saWeight + wp * 0.09 + sv * svWeight + cs * 0.09 + sts * 0.08 - scp * 0.5;
+  // Weighted composite: 10 base factors + 3 enrichment factors + social penalty
+  const vectorConf = styleVector?.confidence || 0;
+  const saWeight = 0.06 * (1 - vectorConf * 0.5);
+  const svWeight = 0.06 + vectorConf * 0.04;
+
+  // Rebalanced weights: base factors slightly reduced to make room for enrichment
+  const score = ws * 0.14 + fs * 0.14 + wr * 0.10 + fb * 0.08 + sa * saWeight + wp * 0.07 + sv * svWeight + cs * 0.07 + sts * 0.07
+    + ots * 0.07   // occasion tag match
+    + lrs * 0.06   // layering role fit
+    + vb           // versatility bonus (additive, max ~1.8)
+    - scp * 0.5;
 
   return {
     garment,
     score,
-    breakdown: { weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp, vector: sv, comfort: cs, socialPenalty: scp, seasonalTransition: sts },
+    breakdown: {
+      weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp,
+      vector: sv, comfort: cs, socialPenalty: scp, seasonalTransition: sts,
+      occasion_tag: ots, layering_role: lrs, versatility: garment.versatility_score,
+    },
   };
 }
 
@@ -2217,19 +2406,26 @@ function scoreCombo(
   const occasionScore = occasionTemplateScore(items, occasion, weather);
   const practicality = weatherPracticalityScore(items, weather);
 
+  // Enrichment-aware combo scores (Phase 1)
+  const silBalance = silhouetteBalanceScore(items);
+  const texDepth = textureDepthScore(items);
+
   // Pair memory scoring
   const garmentIds = items.map(i => i.garment.id);
   const pairMem = getPairMemoryScore(garmentIds, pairMemory);
 
+  // Rebalanced weights: added silhouette + texture, slightly reduced others
   const totalScore =
-    avgBaseScore * 0.32 +
-    colorScore * 0.15 +
-    matScore * 0.07 +
-    formalityConsistency * 0.11 +
-    fitScore * 0.09 +
-    styleScore * 0.09 +
-    occasionScore * 0.09 +
-    practicality * 0.08 +
+    avgBaseScore * 0.28 +
+    colorScore * 0.13 +
+    matScore * 0.06 +
+    formalityConsistency * 0.09 +
+    fitScore * 0.07 +
+    styleScore * 0.08 +
+    occasionScore * 0.08 +
+    practicality * 0.07 +
+    silBalance * 0.07 +    // NEW: silhouette balance
+    texDepth * 0.07 +      // NEW: texture depth
     pairMem.boost -
     pairMem.penalty -
     repetitionPenalty;
@@ -2252,6 +2448,8 @@ function scoreCombo(
       occasion_fit: occasionScore,
       practicality,
       fitProportion: fitScore,
+      silhouette_balance: silBalance,
+      texture_depth: texDepth,
       repetitionPenalty,
       pair_memory_boost: pairMem.boost,
       pair_memory_penalty: pairMem.penalty,
@@ -2349,6 +2547,18 @@ function getQualityViolations(combo: ScoredCombo, weather: WeatherInput): Qualit
     }
     if (feelsTemp > 30 && (both.includes('boot') || both.includes('stövel')) && !both.includes('chelsea')) {
       violations.push({ rule: 'footwear_mismatch', detail: 'heavy boots in extreme heat' });
+    }
+  }
+
+  // 9. Texture monotony — all core items have nearly identical texture intensity (Phase 1)
+  const coreTextures = items
+    .filter(i => ['top', 'bottom', 'dress', 'outerwear'].includes(i.slot))
+    .map(i => i.garment.texture_intensity);
+  if (coreTextures.length >= 3) {
+    const texSpread = Math.max(...coreTextures) - Math.min(...coreTextures);
+    const allBold = coreTextures.every(t => t >= 7);
+    if (texSpread < 1 && allBold) {
+      violations.push({ rule: 'texture_monotony', detail: 'all items have bold/heavy texture' });
     }
   }
 
@@ -3329,10 +3539,10 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const [garmentsRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes, laundryCountRes, pairMemoryRes, feedbackSignalsRes] = await Promise.all([
+    const [garmentsRawRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes, laundryCountRes, pairMemoryRes, feedbackSignalsRes] = await Promise.all([
       supabase
         .from("garments")
-        .select("id, title, category, subcategory, color_primary, color_secondary, pattern, material, fit, formality, season_tags, wear_count, last_worn_at, image_path")
+        .select("id, title, category, subcategory, color_primary, color_secondary, pattern, material, fit, formality, season_tags, wear_count, last_worn_at, image_path, ai_raw")
         .eq("user_id", userId)
         .eq("in_laundry", false),
       supabase.from("profiles").select("preferences, height_cm, weight_kg").eq("id", userId).single(),
@@ -3379,8 +3589,8 @@ serve(async (req) => {
         .limit(200),
     ]);
 
-    if (garmentsRes.error) throw garmentsRes.error;
-    const garments = garmentsRes.data as GarmentRow[];
+    if (garmentsRawRes.error) throw garmentsRawRes.error;
+    const garments = (garmentsRawRes.data || []).map(hydrateEnrichment) as GarmentRow[];
 
     if (garments.length < 3) {
       return new Response(
