@@ -536,18 +536,18 @@ export default function AddGarmentPage() {
                 <div className="grid grid-cols-2 gap-3 w-full">
                   <button
                     onClick={() => takePhoto()}
-                    className="group flex flex-col items-center gap-3 p-6 rounded-2xl border border-border/50 bg-card hover:border-accent/40 hover:bg-accent/5 transition-all"
+                    className="group flex flex-col items-center gap-3 p-6 border border-border/50 bg-card hover:border-accent/40 hover:bg-accent/5 transition-all"
                   >
-                    <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
+                    <div className="w-12 h-12 bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
                       <Camera className="w-6 h-6 text-accent" />
                     </div>
                     <span className="text-sm font-medium text-foreground">{t('addgarment.camera')}</span>
                   </button>
                   <button
                     onClick={() => pickFromGallery()}
-                    className="group flex flex-col items-center gap-3 p-6 rounded-2xl border border-border/50 bg-card hover:border-accent/40 hover:bg-accent/5 transition-all"
+                    className="group flex flex-col items-center gap-3 p-6 border border-border/50 bg-card hover:border-accent/40 hover:bg-accent/5 transition-all"
                   >
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                    <div className="w-12 h-12 bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                       <ImageIcon className="w-6 h-6 text-primary" />
                     </div>
                     <span className="text-sm font-medium text-foreground">{t('addgarment.gallery')}</span>
