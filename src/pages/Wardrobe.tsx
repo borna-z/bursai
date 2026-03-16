@@ -78,7 +78,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
         />
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm truncate">{garment.title}</p>
-          <p className="text-xs text-muted-foreground capitalize">{garment.category} · {garment.color_primary}</p>
+          <p className="text-xs text-muted-foreground capitalize">{categoryLabel(t, garment.category)} · {colorLabel(t, garment.color_primary)}</p>
         </div>
       </motion.button>
     );

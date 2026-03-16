@@ -507,7 +507,7 @@ export default function GarmentDetailPage() {
                       ))}
                     </div>
                     <p className="text-[10px] text-muted-foreground/60 truncate capitalize">
-                      {outfit.occasion}
+                      {occasionLabel(t, outfit.occasion)}
                     </p>
                   </button>
                 ))}

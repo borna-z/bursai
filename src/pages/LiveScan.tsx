@@ -516,17 +516,17 @@ export default function LiveScan() {
                     <p className="text-foreground text-lg font-semibold leading-tight drop-shadow-sm">{lastResult.analysis.title}</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-foreground/70 text-sm capitalize">
-                        {lastResult.analysis.category}
+                        {categoryLabel(t, lastResult.analysis.category)}
                       </span>
                       <span className="text-foreground/30 text-sm">·</span>
                       <span className="text-foreground/70 text-sm capitalize">
-                        {lastResult.analysis.color_primary}
+                        {colorLabel(t, lastResult.analysis.color_primary)}
                       </span>
                       {lastResult.analysis.material && (
                         <>
                           <span className="text-foreground/30 text-sm">·</span>
                           <span className="text-foreground/70 text-sm capitalize">
-                            {lastResult.analysis.material}
+                            {materialLabel(t, lastResult.analysis.material)}
                           </span>
                         </>
                       )}
