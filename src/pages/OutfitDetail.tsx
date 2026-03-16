@@ -79,7 +79,7 @@ function SwapSheet({
             size="sm"
             onClick={() => onModeChange('bold')}
           >
-            Bold
+            {t('swap.mode_bold') || 'Bold'}
           </Button>
           <Button
             type="button"
