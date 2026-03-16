@@ -159,6 +159,9 @@ async function generateOutfitViaEngine(
   const limitationNote = data?.limitation_note;
   const familyLabel = data?.family_label;
   const wardrobeInsights = data?.wardrobe_insights;
+  const layerOrder = data?.layer_order;
+  const needsBaseLayer = data?.needs_base_layer;
+  const occasionSubmode = data?.occasion_submode;
 
   if (!aiItems.length) throw new Error('AI returned no garments');
 
