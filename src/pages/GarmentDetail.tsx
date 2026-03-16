@@ -241,6 +241,36 @@ export default function GarmentDetailPage() {
     } catch { toast.error(t('common.something_wrong')); }
   };
 
+  const handleRetryEnrichment = useCallback(async () => {
+    if (!garment || isRetrying) return;
+    setIsRetrying(true);
+    try {
+      await supabase.from('garments').update({ enrichment_status: 'in_progress' } as Record<string, unknown>).eq('id', garment.id);
+      const { data, error } = await invokeEdgeFunction<{ enrichment?: Record<string, unknown>; error?: string }>('analyze_garment', {
+        body: { storagePath: garment.image_path, mode: 'enrich' },
+      });
+      if (error || !data?.enrichment) {
+        await supabase.from('garments').update({ enrichment_status: 'failed' } as Record<string, unknown>).eq('id', garment.id);
+        toast.error('Deep analysis failed — try again later');
+        return;
+      }
+      const currentRaw = (garment.ai_raw as Record<string, unknown>) || {};
+      const mergedRaw = { ...currentRaw, enrichment: data.enrichment };
+      const updates: Record<string, unknown> = { ai_raw: mergedRaw as Json, enrichment_status: 'complete' };
+      if (data.enrichment.refined_title && typeof data.enrichment.refined_title === 'string') {
+        updates.title = (data.enrichment.refined_title as string).substring(0, 50);
+      }
+      await supabase.from('garments').update(updates).eq('id', garment.id);
+      // Invalidate to refresh
+      queryClient.invalidateQueries({ queryKey: ['garment', garment.id] });
+      toast.success('Deep analysis complete');
+    } catch {
+      toast.error('Something went wrong');
+    } finally {
+      setIsRetrying(false);
+    }
+  }, [garment, isRetrying, queryClient]);
+
   // Build metadata string
   const metaParts: string[] = [];
   if (garment.color_primary) metaParts.push(t(`color.${garment.color_primary}`));
