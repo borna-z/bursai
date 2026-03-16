@@ -650,7 +650,7 @@ export default function AddGarmentPage() {
       <div className="p-4 space-y-6">
         {/* Image Preview */}
         {imagePreview && (
-          <div className="relative aspect-square max-w-xs mx-auto rounded-xl overflow-hidden bg-secondary">
+          <div className="relative aspect-square max-w-xs mx-auto overflow-hidden bg-secondary">
             <img
               src={imagePreview}
               alt="Preview"
