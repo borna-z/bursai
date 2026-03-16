@@ -29,6 +29,14 @@ interface GarmentRow {
   wear_count: number | null;
   last_worn_at: string | null;
   image_path: string;
+  // Enrichment fields from ai_raw (populated at load time with safe defaults)
+  silhouette: string;           // e.g. "boxy", "fitted", "relaxed", "straight", "a-line"
+  visual_weight: number;        // 1-10, higher = heavier/chunkier
+  texture_intensity: number;    // 1-10, 1=smooth, 10=bold texture
+  layering_role: string;        // "base", "mid", "outer", "standalone"
+  versatility_score: number;    // 1-10, how many contexts it works in
+  occasion_tags: string[];      // e.g. ["casual", "work", "date"]
+  style_archetype: string;      // e.g. "minimal", "classic", "street", "romantic"
 }
 
 interface ScoredGarment {
