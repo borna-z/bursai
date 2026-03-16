@@ -2559,6 +2559,18 @@ function getQualityViolations(combo: ScoredCombo, weather: WeatherInput): Qualit
     }
   }
 
+  // 9. Texture monotony — all core items have nearly identical texture intensity (Phase 1)
+  const coreTextures = items
+    .filter(i => ['top', 'bottom', 'dress', 'outerwear'].includes(i.slot))
+    .map(i => i.garment.texture_intensity);
+  if (coreTextures.length >= 3) {
+    const texSpread = Math.max(...coreTextures) - Math.min(...coreTextures);
+    const allBold = coreTextures.every(t => t >= 7);
+    if (texSpread < 1 && allBold) {
+      violations.push({ rule: 'texture_monotony', detail: 'all items have bold/heavy texture' });
+    }
+  }
+
   return violations;
 }
 
