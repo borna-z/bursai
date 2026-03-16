@@ -169,7 +169,7 @@ export default function HomePage() {
                 </div>
                 <Button
                   onClick={() => { hapticLight(); navigate('/wardrobe/add'); }}
-                  className="w-full max-w-[200px] h-11 bg-accent text-accent-foreground hover:bg-accent/90"
+                  className="w-full max-w-[200px] h-11"
                 >
                   <Shirt className="w-4 h-4 mr-2" />
                   {t('wardrobe.add')}
