@@ -617,7 +617,7 @@ export default function OutfitDetailPage() {
             <div className={cn(
               'relative w-11 h-11 rounded-full flex items-center justify-center shrink-0',
               genConfidenceLevel === 'high' ? 'bg-primary/8' :
-              genConfidenceLevel === 'medium' ? 'bg-amber-500/8' :
+              genConfidenceLevel === 'medium' ? 'bg-warning/8' :
               'bg-muted/30'
             )}>
               <svg className="w-11 h-11 -rotate-90 absolute inset-0" viewBox="0 0 44 44">
