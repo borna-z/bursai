@@ -169,7 +169,7 @@ export default function GarmentDetailPage() {
   return (
     <div className="min-h-screen bg-background pb-40">
       {/* Hero image with floating controls */}
-      <div className="relative rounded-b-3xl overflow-hidden">
+      <div className="relative overflow-hidden">
         <LazyImage imagePath={garment.image_path} alt={garment.title} aspectRatio="3/4" className="w-full !rounded-none" />
         
         {/* Floating back button */}
@@ -177,7 +177,7 @@ export default function GarmentDetailPage() {
           variant="ghost"
           size="icon"
           onClick={() => navigate(-1)}
-          className="absolute top-4 left-4 z-10 backdrop-blur-xl bg-background/40 rounded-full h-10 w-10 shadow-lg"
+          className="absolute top-4 left-4 z-10 backdrop-blur-xl bg-background/40 h-10 w-10 shadow-lg"
         >
           <ArrowLeft className="w-5 h-5" />
         </Button>
@@ -188,13 +188,13 @@ export default function GarmentDetailPage() {
             variant="ghost"
             size="icon"
             onClick={() => navigate(`/wardrobe/${garment.id}/edit`)}
-            className="backdrop-blur-xl bg-background/40 rounded-full h-10 w-10 shadow-lg"
+            className="backdrop-blur-xl bg-background/40 h-10 w-10 shadow-lg"
           >
             <Edit className="w-4 h-4" />
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="backdrop-blur-xl bg-background/40 rounded-full h-10 w-10 shadow-lg">
+              <Button variant="ghost" size="icon" className="backdrop-blur-xl bg-background/40 h-10 w-10 shadow-lg">
                 <Trash2 className="w-4 h-4 text-destructive" />
               </Button>
             </AlertDialogTrigger>
