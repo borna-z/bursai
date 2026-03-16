@@ -107,13 +107,13 @@
 | IB-4b | Add wardrobe composition summary (style clusters, gaps) | ✅ Done |
 | IB-4c | Include recent rejection/swap context in chat prompt | ✅ Done |
 
-### IB Phase 5 — Learning & Signal Refinement
+### IB Phase 5 — Learning & Signal Refinement ✅
 
 | Task | Title | Status |
 |------|-------|--------|
-| IB-5a | Track rejection reasons (swapped garment + slot, ignored outfits) | 🔲 Todo |
-| IB-5b | Weight "wore it" 3x over "saved it", add planned-but-not-worn negative signal | 🔲 Todo |
-| IB-5c | Personal uniform detection (>60% same silhouette formula → boost) | 🔲 Todo |
+| IB-5a | Track rejection reasons (swapped garment + slot, ignored outfits) | ✅ Done |
+| IB-5b | Weight "wore it" 3x over "saved it", add planned-but-not-worn negative signal | ✅ Done |
+| IB-5c | Personal uniform detection (>60% same silhouette formula → boost) | ✅ Done |
 
 ### IB Phase 6 — UI Trust & Polish
 

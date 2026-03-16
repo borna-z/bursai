@@ -1965,6 +1965,99 @@ function socialContextPenalty(
 }
 
 // ─────────────────────────────────────────────
+// PERSONAL UNIFORM DETECTION (IB-5c)
+// ─────────────────────────────────────────────
+// Detects if >60% of worn outfits follow the same silhouette formula
+// (e.g., "fitted top + straight bottom + sneakers") and boosts garments
+// that match the dominant formula.
+
+interface UniformFormula {
+  topSilhouette: string;
+  bottomSilhouette: string;
+  shoeCategory: string;
+}
+
+interface PersonalUniform {
+  formula: UniformFormula | null;
+  frequency: number; // 0-1
+  confidence: number; // 0-1 based on data volume
+}
+
+function buildPersonalUniform(wearLogs: WearLog[], garments: GarmentRow[]): PersonalUniform | null {
+  if (wearLogs.length < 15) return null; // Need enough data
+
+  const garmentMap = new Map(garments.map(g => [g.id, g]));
+
+  // Group wear logs by date to reconstruct "outfit-like" groupings
+  const dayGroups = new Map<string, string[]>();
+  for (const log of wearLogs) {
+    const date = log.worn_at.slice(0, 10);
+    if (!dayGroups.has(date)) dayGroups.set(date, []);
+    dayGroups.get(date)!.push(log.garment_id);
+  }
+
+  // Build silhouette formulas from daily groupings
+  const formulaCounts = new Map<string, number>();
+  let totalDays = 0;
+
+  for (const [, garmentIds] of dayGroups) {
+    const gs = garmentIds.map(id => garmentMap.get(id)).filter(Boolean) as GarmentRow[];
+    const top = gs.find(g => ['top', 'shirt', 'blouse', 'sweater', 't-shirt', 'hoodie', 'polo'].some(c => g.category.toLowerCase().includes(c)));
+    const bottom = gs.find(g => ['bottom', 'pants', 'jeans', 'trousers', 'shorts', 'skirt'].some(c => g.category.toLowerCase().includes(c)));
+    const shoes = gs.find(g => ['shoes', 'sneakers', 'boots', 'loafers', 'sandals'].some(c => g.category.toLowerCase().includes(c)));
+
+    if (top && bottom && shoes) {
+      const key = `${top.silhouette}|${bottom.silhouette}|${shoes.subcategory || shoes.category}`.toLowerCase();
+      formulaCounts.set(key, (formulaCounts.get(key) || 0) + 1);
+      totalDays++;
+    }
+  }
+
+  if (totalDays < 10) return null;
+
+  // Find dominant formula
+  let maxCount = 0;
+  let dominantKey = '';
+  for (const [key, count] of formulaCounts) {
+    if (count > maxCount) { maxCount = count; dominantKey = key; }
+  }
+
+  const frequency = maxCount / totalDays;
+  if (frequency < 0.3) return null; // Not enough consistency
+
+  const parts = dominantKey.split('|');
+  return {
+    formula: {
+      topSilhouette: parts[0] || 'straight',
+      bottomSilhouette: parts[1] || 'straight',
+      shoeCategory: parts[2] || 'shoes',
+    },
+    frequency,
+    confidence: Math.min(1, totalDays / 30),
+  };
+}
+
+function personalUniformScore(garment: GarmentRow, uniform: PersonalUniform | null): number {
+  if (!uniform || !uniform.formula || uniform.confidence < 0.3) return 7;
+
+  const slot = categorizeSlot(garment.category, garment.subcategory);
+  const boost = uniform.frequency >= 0.6 ? 1.5 : uniform.frequency >= 0.4 ? 1.0 : 0.5;
+
+  if (slot === 'top' && garment.silhouette === uniform.formula.topSilhouette) {
+    return 7 + boost * uniform.confidence;
+  }
+  if (slot === 'bottom' && garment.silhouette === uniform.formula.bottomSilhouette) {
+    return 7 + boost * uniform.confidence;
+  }
+  if (slot === 'shoes') {
+    const shoeMatch = (garment.subcategory || garment.category).toLowerCase().includes(uniform.formula.shoeCategory);
+    if (shoeMatch) return 7 + boost * 0.7 * uniform.confidence;
+  }
+
+  return 7;
+}
+
+// ─────────────────────────────────────────────
 // COMPOSITE SCORING
 // ─────────────────────────────────────────────
 
@@ -1979,7 +2072,8 @@ function scoreGarment(
   comfortProfile: ComfortStyleProfile | null = null,
   socialMap: SocialContextMap | null = null,
   currentEventTitle: string | null = null,
-  transInfo: SeasonTransitionInfo | null = null
+  transInfo: SeasonTransitionInfo | null = null,
+  uniform: PersonalUniform | null = null
 ): ScoredGarment {
   const ws = weatherSuitability(garment, weather);
   const fs = formalityScore(garment, occasion);
@@ -2001,15 +2095,19 @@ function scoreGarment(
   const lrs = layeringRoleScore(garment, weather);
   const vb = versatilityBoost(garment);
 
-  // Weighted composite: 10 base factors + 3 enrichment factors + social penalty
+  // IB-5c: Personal uniform boost
+  const pus = personalUniformScore(garment, uniform);
+
+  // Weighted composite: base factors + enrichment + uniform + social penalty
   const vectorConf = styleVector?.confidence || 0;
   const saWeight = 0.06 * (1 - vectorConf * 0.5);
   const svWeight = 0.06 + vectorConf * 0.04;
 
-  // Rebalanced weights: base factors slightly reduced to make room for enrichment
-  const score = ws * 0.14 + fs * 0.14 + wr * 0.10 + fb * 0.08 + sa * saWeight + wp * 0.07 + sv * svWeight + cs * 0.07 + sts * 0.07
+  // Rebalanced weights: slight reduction to accommodate uniform score
+  const score = ws * 0.13 + fs * 0.13 + wr * 0.10 + fb * 0.08 + sa * saWeight + wp * 0.06 + sv * svWeight + cs * 0.06 + sts * 0.06
     + ots * 0.07   // occasion tag match
     + lrs * 0.06   // layering role fit
+    + pus * 0.05   // personal uniform match (IB-5c)
     + vb           // versatility bonus (additive, max ~1.8)
     - scp * 0.5;
 
@@ -2020,6 +2118,7 @@ function scoreGarment(
       weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp,
       vector: sv, comfort: cs, socialPenalty: scp, seasonalTransition: sts,
       occasion_tag: ots, layering_role: lrs, versatility: garment.versatility_score,
+      uniform: pus,
     },
   };
 }
@@ -3539,7 +3638,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const [garmentsRawRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes, laundryCountRes, pairMemoryRes, feedbackSignalsRes] = await Promise.all([
+    const [garmentsRawRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes, laundryCountRes, pairMemoryRes, feedbackSignalsRes, plannedNotWornRes] = await Promise.all([
       supabase
         .from("garments")
         .select("id, title, category, subcategory, color_primary, color_secondary, pattern, material, fit, formality, season_tags, wear_count, last_worn_at, image_path, ai_raw")
@@ -3587,6 +3686,15 @@ serve(async (req) => {
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(200),
+      // IB-5b: Planned-but-not-worn outfits (negative signal)
+      supabase
+        .from("planned_outfits")
+        .select("outfit_id, date")
+        .eq("user_id", userId)
+        .eq("status", "planned")
+        .lt("date", new Date().toISOString().split("T")[0])
+        .order("date", { ascending: false })
+        .limit(30),
     ]);
 
     if (garmentsRawRes.error) throw garmentsRawRes.error;
@@ -3654,7 +3762,7 @@ serve(async (req) => {
           });
         }
       } else if (sig.signal_type === 'save' && sig.outfit_id) {
-        // Save = positive signal
+        // IB-5b: Save = mild positive (1x weight, rating 3.5 vs wore=5)
         const outfitGarments = new Set<string>();
         for (const item of recentOutfitsRes.data || []) {
           if (item.outfit_id === sig.outfit_id) outfitGarments.add(item.garment_id);
@@ -3662,7 +3770,31 @@ serve(async (req) => {
         if (outfitGarments.size > 0) {
           feedbackSignals.push({
             garmentIds: outfitGarments,
-            rating: 4, // equivalent to "liked"
+            rating: 3.5, // save = 1x weight (mild positive)
+            feedback: null,
+            weather: null,
+            generatedAt: sig.created_at,
+          });
+        }
+      } else if ((sig.signal_type === 'swap' || sig.signal_type === 'reject' || sig.signal_type === 'dislike' || sig.signal_type === 'thumbs_down') && sig.garment_id) {
+        // IB-5a: Direct garment rejection — penalize the specific garment
+        feedbackSignals.push({
+          garmentIds: new Set([sig.garment_id]),
+          rating: 1, // strong negative
+          feedback: sig.value ? [sig.value] : null,
+          weather: null,
+          generatedAt: sig.created_at,
+        });
+      } else if (sig.signal_type === 'ignore' && sig.outfit_id) {
+        // IB-5a: Ignored outfit suggestion — mild negative for all garments
+        const outfitGarments = new Set<string>();
+        for (const item of recentOutfitsRes.data || []) {
+          if (item.outfit_id === sig.outfit_id) outfitGarments.add(item.garment_id);
+        }
+        if (outfitGarments.size > 0) {
+          feedbackSignals.push({
+            garmentIds: outfitGarments,
+            rating: 2.5, // mild negative
             feedback: null,
             weather: null,
             generatedAt: sig.created_at,
@@ -3670,6 +3802,39 @@ serve(async (req) => {
         }
       }
     }
+
+    // IB-5b: "Wore it" = 3x stronger signal than "saved it"
+    // Inject wear logs as strong positive signals
+    for (const log of (wearLogsRes.data || []) as WearLog[]) {
+      feedbackSignals.push({
+        garmentIds: new Set([log.garment_id]),
+        rating: 5, // max positive (3x the weight of save's 3.5 after decay)
+        feedback: ['loved_it'],
+        weather: null,
+        generatedAt: log.worn_at,
+      });
+    }
+
+    // IB-5b: Planned-but-not-worn = negative signal
+    const plannedNotWorn = (plannedNotWornRes.data || []) as { outfit_id: string | null; date: string }[];
+    for (const planned of plannedNotWorn) {
+      if (!planned.outfit_id) continue;
+      // Check if this outfit was actually worn
+      const outfitGarments = new Set<string>();
+      for (const item of recentOutfitsRes.data || []) {
+        if (item.outfit_id === planned.outfit_id) outfitGarments.add(item.garment_id);
+      }
+      if (outfitGarments.size > 0) {
+        feedbackSignals.push({
+          garmentIds: outfitGarments,
+          rating: 2, // negative: planned but skipped
+          feedback: null,
+          weather: null,
+          generatedAt: planned.date,
+        });
+      }
+    }
+
     const penalties = buildFeedbackPenalties(feedbackSignals);
 
     // Build pair memory from DB
@@ -3690,6 +3855,8 @@ serve(async (req) => {
     const socialMap = wearLogs.length > 0 ? buildSocialContextMap(wearLogs) : null;
     // Seasonal transition info
     const transInfo = getSeasonTransitionInfo();
+    // IB-5c: Personal uniform detection
+    const personalUniform = wearLogs.length >= 15 ? buildPersonalUniform(wearLogs, garments) : null;
 
     // Build recent outfit sets for anti-repetition
     const recentOutfitSets: Set<string>[] = [];
@@ -3765,7 +3932,7 @@ serve(async (req) => {
           if (!slot) continue;
           if (!daySlotCandidates[slot]) daySlotCandidates[slot] = [];
 
-          const scored = scoreGarment(garment, dayOccasion, dayWeather, penalties, preferences, wearPatterns, styleVector, comfortProfile, socialMap, dayEventTitle, transInfo);
+          const scored = scoreGarment(garment, dayOccasion, dayWeather, penalties, preferences, wearPatterns, styleVector, comfortProfile, socialMap, dayEventTitle, transInfo, personalUniform);
 
           // Inter-day repetition penalty for hero garments
           if (HERO_SLOTS.has(slot) && usedHeroGarments.has(garment.id)) {
@@ -3878,7 +4045,7 @@ serve(async (req) => {
       const slot = categorizeSlot(garment.category, garment.subcategory);
       if (!slot) continue;
       if (!slotCandidates[slot]) slotCandidates[slot] = [];
-      const scored = scoreGarment(garment, occasion, weather, penalties, preferences, wearPatterns, styleVector, comfortProfile, socialMap, eventTitle, transInfo);
+      const scored = scoreGarment(garment, occasion, weather, penalties, preferences, wearPatterns, styleVector, comfortProfile, socialMap, eventTitle, transInfo, personalUniform);
       // Boost preferred (unused) garments
       if (preferGarmentIds.size > 0 && preferGarmentIds.has(garment.id)) {
         scored.score += 2.5;
