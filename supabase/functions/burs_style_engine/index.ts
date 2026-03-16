@@ -3173,14 +3173,18 @@ async function aiRefine(
   weather: WeatherInput,
   styleContext: string,
   locale: string,
-  isStylistMode = false
+  isStylistMode = false,
+  occasionSubmode: string | null = null,
+  layeringContext: { needs_base_layer: boolean } | null = null
 ): Promise<any> {
   const localeName = LOCALE_NAMES[locale] || "English";
 
   const comboDescriptions = combos.map((combo, idx) => {
-    const parts = combo.items.map(i =>
-      `${i.slot}: ${i.garment.title} (${i.garment.color_primary}${i.garment.material ? ", " + i.garment.material : ""})`
-    );
+    const parts = combo.items.map(i => {
+      const role = i.garment.layering_role || 'standalone';
+      const roleLabel = ['base', 'mid', 'outer'].includes(role) ? ` (${role}-layer)` : '';
+      return `${i.slot}${roleLabel}: ${i.garment.title} (${i.garment.color_primary}${i.garment.material ? ", " + i.garment.material : ""})`;
+    });
     return `Combo ${idx}: [score: ${combo.totalScore.toFixed(1)}] ${parts.join(" + ")}`;
   }).join("\n");
 
@@ -3188,6 +3192,12 @@ async function aiRefine(
   const season = getCurrentSeason();
   const hintsStr = styleHints.length > 0 ? `\nSTYLE DIRECTION: ${styleHints.join(", ")}` : "";
   const seasonStr = `\nSEASON: ${season}`;
+  const submodeStr = occasionSubmode ? `\nOCCASION SUB-MODE: ${occasionSubmode}` : "";
+
+  let layeringStr = "";
+  if (layeringContext?.needs_base_layer) {
+    layeringStr = "\nLAYERING CONTEXT: The top item is a mid-layer (e.g., cardigan, sweater). No explicit base layer is included — this look assumes a simple t-shirt or similar underneath.";
+  }
 
   const stylistEnhancement = isStylistMode
     ? `\n\nSTYLIST MODE: You are operating at the highest level. Apply deeper reasoning:
@@ -3198,12 +3208,21 @@ async function aiRefine(
 - Write the explanation as editorial styling notes — mention WHY specific pieces work together in terms of proportion, texture, and color logic. Be specific, not generic.`
     : "";
 
+  const explanationGuidance = `
+
+EXPLANATION RULES:
+- Explain WHY the layering structure works (which piece is the base, mid, or outer layer)
+- Explain how this outfit handles the current weather
+- State what type of occasion this outfit is best for${occasionSubmode ? ` (specifically: ${occasionSubmode})` : ''}
+- If there are wardrobe limitations, mention them honestly
+- Explain why these garments work together structurally, not just aesthetically`;
+
   const systemPrompt = mode === "generate"
     ? `You are a world-class stylist. Pick the SINGLE best outfit from the pre-scored candidates below. Consider overall aesthetic, color harmony, seasonal appropriateness, and suitability for the occasion.
 
-OCCASION: ${occasion}${style ? `\nSTYLE: ${style}` : ""}${hintsStr}${seasonStr}
+OCCASION: ${occasion}${submodeStr}${style ? `\nSTYLE: ${style}` : ""}${hintsStr}${seasonStr}${layeringStr}
 WEATHER: ${weather.temperature !== undefined ? weather.temperature + "°C" : "unknown"}${weather.precipitation ? ", " + weather.precipitation : ""}${weather.wind ? ", wind: " + weather.wind : ""}
-${styleContext ? `\nUSER PROFILE: ${styleContext}` : ""}${stylistEnhancement}
+${styleContext ? `\nUSER PROFILE: ${styleContext}` : ""}${stylistEnhancement}${explanationGuidance}
 
 Write the explanation in ${localeName}.
 
@@ -3211,7 +3230,7 @@ CANDIDATES:
 ${comboDescriptions}`
     : `You are a world-class stylist. Select the 2-3 BEST and most DIVERSE outfits from the candidates below. Each should suit a different occasion or vibe. Prioritize variety.
 
-${styleContext ? `USER PROFILE: ${styleContext}` : ""}
+${styleContext ? `USER PROFILE: ${styleContext}` : ""}${explanationGuidance}
 
 Write all text in ${localeName}.
 
@@ -3230,7 +3249,7 @@ ${comboDescriptions}`;
       tools: [tool],
       tool_choice: { type: "function", function: { name: toolName } },
       complexity: isStylistMode ? "standard" : "standard",
-      max_tokens: mode === "generate" ? (isStylistMode ? 400 : 200) : estimateMaxTokens({ outputItems: 3, perItemTokens: 100, baseTokens: 150 }),
+      max_tokens: mode === "generate" ? (isStylistMode ? 400 : 250) : estimateMaxTokens({ outputItems: 3, perItemTokens: 100, baseTokens: 150 }),
     });
     return { data };
   } catch (e: any) {
