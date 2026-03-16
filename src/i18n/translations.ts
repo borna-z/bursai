@@ -478,6 +478,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'outfit.photo_feedback_fit': 'Passform',
     'outfit.photo_feedback_color': 'Färgmatchning',
     'outfit.photo_feedback_overall': 'Helhetsintryck',
+    'outfit.ai_feedback': 'AI-feedback',
     'outfit.dna_title': 'Outfit-DNA',
     'outfit.dna_clone': 'Hitta liknande',
     'outfit.dna_analyzing': 'Analyserar...',
