@@ -10,6 +10,9 @@ export function compressFrame(
   return new Promise((resolve, reject) => {
     const vw = video.videoWidth;
     const vh = video.videoHeight;
+    if (vw === 0 || vh === 0) {
+      return reject(new Error('Video not ready'));
+    }
     const scale = Math.min(maxDim / Math.max(vw, vh), 1);
     canvas.width = Math.round(vw * scale);
     canvas.height = Math.round(vh * scale);
