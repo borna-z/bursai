@@ -176,7 +176,32 @@ async function getWardrobeContext(supabase: ReturnType<typeof createClient>, use
 }
 
 async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
-  const { data: outfits } = await supabase
+// ── IB-4c: Recent rejection/swap context ──
+async function getRejectionsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
+  const { data: signals } = await supabase
+    .from("feedback_signals")
+    .select("signal_type, value, metadata, created_at")
+    .eq("user_id", userId)
+    .in("signal_type", ["swap", "reject", "dislike", "thumbs_down"])
+    .order("created_at", { ascending: false })
+    .limit(8);
+  if (!signals?.length) return "";
+
+  const lines = signals.map((s: any) => {
+    const meta = s.metadata || {};
+    const parts = [s.signal_type];
+    if (s.value) parts.push(s.value);
+    if (meta.slot) parts.push(`slot:${meta.slot}`);
+    if (meta.reason) parts.push(`reason:${meta.reason}`);
+    if (meta.swapped_garment_title) parts.push(`swapped:${meta.swapped_garment_title}`);
+    if (meta.replacement_title) parts.push(`→${meta.replacement_title}`);
+    return `- ${parts.join(' | ')} (${s.created_at?.slice(0, 10) || ''})`;
+  });
+
+  return `\nRECENT REJECTIONS/SWAPS (avoid repeating these patterns):\n${lines.join("\n")}`;
+}
+
+
     .from("outfits")
     .select("id, occasion, style_vibe, explanation, worn_at, generated_at, outfit_items(slot, garment_id, garments(title, color_primary))")
     .eq("user_id", userId)
