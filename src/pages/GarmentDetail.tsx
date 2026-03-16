@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, Edit, Trash2, WashingMachine, Check, Loader2, ExternalLink,
   Sparkles, Shield, DollarSign, Layers, Shirt, Clock, TrendingUp,
-  Calendar, ChevronRight,
+  Calendar, ChevronRight, RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
