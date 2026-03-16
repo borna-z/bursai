@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { streamBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
+import { VOICE_STYLIST_CHAT } from "../_shared/burs-voice.ts";
 
 import { allowedOrigin } from "../_shared/cors.ts";
 
