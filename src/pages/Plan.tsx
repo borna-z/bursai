@@ -255,13 +255,13 @@ export default function PlanPage() {
   return (
     <AppLayout>
       {/* ─── Sticky header ─── */}
-      <header className="sticky top-0 bg-background/80 backdrop-blur-xl z-20">
-        <div className="flex items-center justify-between px-4 h-16 max-w-lg mx-auto">
+      <header className="sticky top-0 bg-background/80 backdrop-blur-xl z-20 border-b border-border/5">
+        <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
-              <button className="flex items-center gap-2 hover:opacity-70 transition-opacity press">
-                <h1 className="text-base font-medium capitalize">{dateLabel}</h1>
-                <CalendarDays className="w-4 h-4 text-muted-foreground/50" />
+              <button className="flex items-center gap-2.5 hover:opacity-70 transition-opacity press">
+                <h1 className="text-lg font-semibold tracking-[-0.02em] capitalize">{dateLabel}</h1>
+                <CalendarDays className="w-4 h-4 text-primary/50" />
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -273,6 +273,12 @@ export default function PlanPage() {
               />
             </PopoverContent>
           </Popover>
+          {isAutoGenerating && (
+            <Badge variant="secondary" className="text-[10px] animate-pulse">
+              <Wand2 className="w-3 h-3 mr-1" />
+              {t('plan.generating_day') || 'Generating'} {generatingDayIndex}/7
+            </Badge>
+          )}
         </div>
       </header>
 
