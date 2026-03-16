@@ -460,7 +460,106 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       result = { ...fallback, ...result };
     }
 
-    console.log("Resolved items:", resolvedItems.length, "Resolved outfits:", resolvedOutfits.length);
+    console.log("Resolved items (pre-validation):", resolvedItems.length, "Resolved outfits:", resolvedOutfits.length);
+
+    // ─────────────────────────────────────────────
+    // IB-2c: MATRIX COVERAGE VALIDATION
+    // ─────────────────────────────────────────────
+
+    const garmentById = new Map(garments.map(g => [g.id, g]));
+
+    function categorizeForCoverage(cat: string, sub: string | null): string {
+      const both = `${cat} ${sub || ''}`.toLowerCase();
+      if (['dress', 'jumpsuit', 'romper'].some(c => both.includes(c))) return 'fullbody';
+      if (['top', 'shirt', 'blouse', 'sweater', 't-shirt', 'polo', 'tank', 'hoodie', 'cardigan'].some(c => both.includes(c))) return 'top';
+      if (['bottom', 'pants', 'jeans', 'trousers', 'shorts', 'skirt', 'chinos', 'leggings'].some(c => both.includes(c))) return 'bottom';
+      if (['shoes', 'sneakers', 'boots', 'sandals', 'loafers', 'heels', 'footwear'].some(c => both.includes(c))) return 'shoes';
+      if (['outerwear', 'jacket', 'coat', 'blazer', 'parka'].some(c => both.includes(c))) return 'outerwear';
+      return 'other';
+    }
+
+    // Build lookup for capsule garments by coverage slot
+    const capsuleBySlot: Record<string, string[]> = {};
+    for (const id of resolvedItems) {
+      const g = garmentById.get(id);
+      if (!g) continue;
+      const slot = categorizeForCoverage(g.category, g.subcategory);
+      if (!capsuleBySlot[slot]) capsuleBySlot[slot] = [];
+      capsuleBySlot[slot].push(id);
+    }
+
+    // Validate and patch each outfit
+    let patchCount = 0;
+    let dropCount = 0;
+    const validatedOutfits: typeof resolvedOutfits = [];
+
+    for (const outfit of resolvedOutfits) {
+      const slots = new Set<string>();
+      for (const id of outfit.items) {
+        const g = garmentById.get(id);
+        if (g) slots.add(categorizeForCoverage(g.category, g.subcategory));
+      }
+
+      const hasFullbody = slots.has('fullbody');
+      const hasTop = slots.has('top');
+      const hasBottom = slots.has('bottom');
+      const hasShoes = slots.has('shoes');
+
+      // Valid paths: (top + bottom + shoes) or (fullbody + shoes)
+      const isComplete = (hasFullbody && hasShoes) || (hasTop && hasBottom && hasShoes);
+
+      if (isComplete) {
+        validatedOutfits.push(outfit);
+        continue;
+      }
+
+      // Attempt to patch missing slots from capsule items not already in outfit
+      const usedInOutfit = new Set(outfit.items);
+      const patched = [...outfit.items];
+      let wasPatched = false;
+
+      const tryPatch = (slot: string) => {
+        const candidates = (capsuleBySlot[slot] || []).filter(id => !usedInOutfit.has(id));
+        if (candidates.length > 0) {
+          patched.push(candidates[0]);
+          usedInOutfit.add(candidates[0]);
+          wasPatched = true;
+        }
+      };
+
+      if (!hasFullbody) {
+        if (!hasTop) tryPatch('top');
+        if (!hasBottom) tryPatch('bottom');
+      }
+      if (!hasShoes) tryPatch('shoes');
+
+      // Re-check after patching
+      const patchedSlots = new Set<string>();
+      for (const id of patched) {
+        const g = garmentById.get(id);
+        if (g) patchedSlots.add(categorizeForCoverage(g.category, g.subcategory));
+      }
+      const patchedComplete = (patchedSlots.has('fullbody') && patchedSlots.has('shoes')) ||
+        (patchedSlots.has('top') && patchedSlots.has('bottom') && patchedSlots.has('shoes'));
+
+      if (patchedComplete) {
+        validatedOutfits.push({ ...outfit, items: patched });
+        if (wasPatched) patchCount++;
+      } else {
+        dropCount++;
+        console.warn(`Dropped incomplete outfit for day ${outfit.day}: slots=${[...patchedSlots].join(',')}`);
+      }
+    }
+
+    // Prune capsule items not used in any validated outfit
+    const usedInAnyOutfit = new Set<string>();
+    for (const o of validatedOutfits) {
+      for (const id of o.items) usedInAnyOutfit.add(id);
+    }
+    // Keep must-haves even if unused
+    const prunedCapsule = resolvedItems.filter((id: string) => usedInAnyOutfit.has(id) || mustHaveIds.includes(id));
+
+    console.log(`IB-2c matrix validation: ${resolvedOutfits.length} outfits → ${validatedOutfits.length} valid (${patchCount} patched, ${dropCount} dropped), capsule ${resolvedItems.length} → ${prunedCapsule.length} items`);
 
     return new Response(JSON.stringify({
       capsule_items: resolvedItems,
