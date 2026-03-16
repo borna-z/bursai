@@ -80,9 +80,9 @@ async function getCalendarContext(supabase: ReturnType<typeof createClient>, use
 async function getWardrobeContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
   const { data: garments } = await supabase
     .from("garments")
-    .select("id, title, category, color_primary, formality, season_tags, image_path")
+    .select("id, title, category, subcategory, color_primary, color_secondary, material, fit, formality, pattern, season_tags, wear_count, last_worn_at, image_path")
     .eq("user_id", userId)
-    .limit(50);
+    .limit(80);
   if (!garments?.length) return "The user has no garments in their wardrobe yet.";
 
   const summary = Object.entries(
@@ -92,13 +92,61 @@ async function getWardrobeContext(supabase: ReturnType<typeof createClient>, use
     }, {})
   ).map(([cat, count]) => `${count} ${cat}`).join(", ");
 
-  const details = garments.slice(0, 15).map((g: {
-    id: string; title: string; category: string; color_primary: string; formality: number | null; season_tags: string[] | null
-  }) =>
-    `• ${g.title} [ID:${g.id}] (${g.category}, ${g.color_primary}${g.formality ? `, formality ${g.formality}` : ""}${g.season_tags?.length ? `, ${g.season_tags.join("/")}` : ""})`
-  ).join("\n");
+  // Identify underused and overused
+  const sorted = [...garments].sort((a: any, b: any) => (b.wear_count ?? 0) - (a.wear_count ?? 0));
+  const overused = sorted.slice(0, 3).filter((g: any) => (g.wear_count ?? 0) >= 10);
+  const unworn = garments.filter((g: any) => (g.wear_count ?? 0) === 0);
 
-  return `Wardrobe (${garments.length} garments: ${summary}):\n${details}`;
+  const details = garments.slice(0, 25).map((g: {
+    id: string; title: string; category: string; subcategory: string | null;
+    color_primary: string; material: string | null; fit: string | null;
+    formality: number | null; pattern: string | null;
+    season_tags: string[] | null; wear_count: number | null; last_worn_at: string | null;
+  }) => {
+    const parts = [
+      `${g.title} [ID:${g.id}]`,
+      `(${g.category}${g.subcategory ? '/' + g.subcategory : ''}, ${g.color_primary}`,
+      g.material ? `, ${g.material}` : '',
+      g.fit ? `, ${g.fit}` : '',
+      g.formality ? `, formality ${g.formality}` : '',
+      g.pattern && g.pattern !== 'solid' ? `, ${g.pattern}` : '',
+      g.season_tags?.length ? `, ${g.season_tags.join("/")}` : '',
+      `, worn ${g.wear_count ?? 0}x`,
+      g.last_worn_at ? `, last ${g.last_worn_at.slice(0, 10)}` : '',
+      ')',
+    ];
+    return `• ${parts.join('')}`;
+  }).join("\n");
+
+  let insightLines = "";
+  if (unworn.length > 0) {
+    insightLines += `\nUnworn items (${unworn.length}): ${unworn.slice(0, 5).map((g: any) => g.title).join(", ")}`;
+  }
+  if (overused.length > 0) {
+    insightLines += `\nMost worn: ${overused.map((g: any) => `${g.title} (${g.wear_count}x)`).join(", ")}`;
+  }
+
+  return `Wardrobe (${garments.length} garments: ${summary}):\n${details}${insightLines}`;
+}
+
+async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
+  const { data: outfits } = await supabase
+    .from("outfits")
+    .select("id, occasion, style_vibe, explanation, worn_at, generated_at, outfit_items(slot, garment_id, garments(title, color_primary))")
+    .eq("user_id", userId)
+    .order("generated_at", { ascending: false })
+    .limit(5);
+  if (!outfits?.length) return "";
+
+  const lines = outfits.map((o: any) => {
+    const items = (o.outfit_items || []).map((i: any) =>
+      `${i.slot}: ${i.garments?.title || 'unknown'} (${i.garments?.color_primary || ''})`
+    ).join(" + ");
+    const wornStr = o.worn_at ? ` [worn ${o.worn_at.slice(0, 10)}]` : " [not worn]";
+    return `- ${o.occasion}${o.style_vibe ? '/' + o.style_vibe : ''}: ${items}${wornStr}`;
+  });
+
+  return `\nRecent outfits:\n${lines.join("\n")}`;
 }
 
 serve(async (req) => {
