@@ -568,37 +568,73 @@ export default function OutfitDetailPage() {
 
         {outfit.style_score && (() => {
           const rawScore = outfit.style_score as Record<string, unknown>;
+          const overallValue = Number(rawScore.overall);
           const metrics = [
-            { key: 'color_harmony', label: t('outfit.score.color') || 'Color Harmony', color: 'bg-primary' },
-            { key: 'material_compatibility', label: t('outfit.score.material') || 'Material Match', color: 'bg-accent' },
-            { key: 'formality', label: t('outfit.score.formality') || 'Formality Fit', color: 'bg-secondary-foreground/60' },
-            { key: 'overall', label: t('outfit.score.overall') || 'Overall', color: 'bg-primary' },
+            { key: 'color_harmony', label: t('outfit.score.color') || 'Color Harmony', emoji: '🎨' },
+            { key: 'material_compatibility', label: t('outfit.score.material') || 'Material Match', emoji: '🧵' },
+            { key: 'formality', label: t('outfit.score.formality') || 'Formality Fit', emoji: '👔' },
           ].map((metric) => ({
             ...metric,
             value: Number(rawScore[metric.key]),
           })).filter((metric) => Number.isFinite(metric.value));
 
-          if (metrics.length === 0) return null;
+          if (metrics.length === 0 && !Number.isFinite(overallValue)) return null;
 
           return (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-primary" />
                 <p className="label-editorial text-muted-foreground/60">
                   {t('outfit.score.title') || 'Style Score'}
                 </p>
               </div>
-              <div className="space-y-4">
-                {metrics.map(({ key, label, color, value }) => {
+
+              {/* Overall score hero */}
+              {Number.isFinite(overallValue) && (
+                <div className="flex items-center gap-5">
+                  <div className="relative w-20 h-20 flex-shrink-0">
+                    <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
+                      <circle cx="40" cy="40" r="34" fill="none" strokeWidth="5" className="stroke-muted/30" />
+                      <circle
+                        cx="40" cy="40" r="34" fill="none" strokeWidth="5"
+                        className="stroke-primary"
+                        strokeLinecap="round"
+                        strokeDasharray={`${Math.round(overallValue * 21.36)} 213.6`}
+                        style={{ transition: 'stroke-dasharray 1s ease-out' }}
+                      />
+                    </svg>
+                    <span className="absolute inset-0 flex items-center justify-center text-xl font-bold text-foreground">
+                      {overallValue.toFixed(1)}
+                    </span>
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <p className="text-sm font-semibold text-foreground">{t('outfit.score.overall') || 'Overall'}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {overallValue >= 8 ? (t('outfit.score.excellent') || 'An excellent combination')
+                        : overallValue >= 6 ? (t('outfit.score.good') || 'A solid, well-balanced look')
+                        : (t('outfit.score.decent') || 'A decent starting point')}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Breakdown bars */}
+              <div className="space-y-3">
+                {metrics.map(({ key, label, emoji, value }) => {
                   const pct = Math.max(0, Math.min(100, Math.round(value * 10)));
                   return (
-                    <div key={key} className="space-y-1">
+                    <div key={key} className="space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">{label}</span>
-                        <span className="text-sm font-semibold">{value.toFixed(1)}</span>
+                        <span className="text-[13px] text-muted-foreground flex items-center gap-1.5">
+                          <span>{emoji}</span> {label}
+                        </span>
+                        <span className="text-[13px] font-semibold tabular-nums">{value.toFixed(1)}</span>
                       </div>
-                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div className={cn('h-full rounded-full transition-all duration-700', color)} style={{ width: `${pct}%` }} />
+                      <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all duration-1000 ease-out"
+                          style={{ width: `${pct}%` }}
+                        />
                       </div>
                     </div>
                   );
