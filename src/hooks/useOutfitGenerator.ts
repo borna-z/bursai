@@ -34,6 +34,9 @@ export interface GeneratedOutfit {
   limitation_note?: string | null;
   family_label?: string;
   wardrobe_insights?: string[];
+  layer_order?: { slot: string; garment_id: string; layer_role: string }[];
+  needs_base_layer?: boolean;
+  occasion_submode?: string | null;
 }
 
 const INSUFFICIENT_GARMENTS_MESSAGE =
@@ -116,6 +119,9 @@ async function generateOutfitViaEngine(
     limitation_note?: string | null;
     family_label?: string;
     wardrobe_insights?: string[];
+    layer_order?: { slot: string; garment_id: string; layer_role: string }[];
+    needs_base_layer?: boolean;
+    occasion_submode?: string | null;
     error?: string;
   }>('burs_style_engine', {
     timeout: 45000,
@@ -153,6 +159,9 @@ async function generateOutfitViaEngine(
   const limitationNote = data?.limitation_note;
   const familyLabel = data?.family_label;
   const wardrobeInsights = data?.wardrobe_insights;
+  const layerOrder = data?.layer_order;
+  const needsBaseLayer = data?.needs_base_layer;
+  const occasionSubmode = data?.occasion_submode;
 
   if (!aiItems.length) throw new Error('AI returned no garments');
 
@@ -227,6 +236,9 @@ async function generateOutfitViaEngine(
     limitation_note: limitationNote,
     family_label: familyLabel,
     wardrobe_insights: wardrobeInsights,
+    layer_order: layerOrder,
+    needs_base_layer: needsBaseLayer,
+    occasion_submode: occasionSubmode,
   };
 }
 

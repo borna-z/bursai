@@ -1258,8 +1258,77 @@ function inferLayeringRole(category: string, subcategory: string | null): string
   const both = `${category} ${subcategory || ''}`.toLowerCase();
   if (OUTERWEAR_CATS.some(c => both.includes(c))) return 'outer';
   if (['t-shirt', 'tank', 'camisole', 'undershirt'].some(c => both.includes(c))) return 'base';
-  if (['cardigan', 'sweater', 'hoodie', 'vest'].some(c => both.includes(c))) return 'mid';
+  if (['cardigan', 'sweater', 'hoodie', 'vest', 'shacket', 'overshirt', 'utility shirt', 'shirt jacket'].some(c => both.includes(c))) return 'mid';
   return 'standalone';
+}
+
+// ─────────────────────────────────────────────
+// LAYERING COMPLETENESS VALIDATION
+// ─────────────────────────────────────────────
+
+interface LayeringValidation {
+  needs_base_layer: boolean;
+  layer_order: { slot: string; garment_id: string; layer_role: string }[];
+}
+
+const LAYER_SORT_ORDER: Record<string, number> = {
+  base: 0, standalone: 1, mid: 2, outer: 3, bottom: 4, shoes: 5, accessory: 6,
+};
+
+function validateLayeringCompleteness(items: ComboItem[]): LayeringValidation {
+  // Check if any top-slotted garment has a mid layering role without a base layer
+  const topItems = items.filter(i => i.slot === 'top');
+  const hasMidAsTop = topItems.some(i => i.garment.layering_role === 'mid');
+  const hasBaseLayer = items.some(i => i.garment.layering_role === 'base');
+  const needs_base_layer = hasMidAsTop && !hasBaseLayer;
+
+  // Build sorted layer order
+  const layer_order = items
+    .map(i => {
+      let layer_role = i.garment.layering_role || 'standalone';
+      // For non-top/outerwear slots, use the slot name as role
+      if (['bottom', 'shoes', 'accessory', 'dress'].includes(i.slot)) {
+        layer_role = i.slot;
+      }
+      return { slot: i.slot, garment_id: i.garment.id, layer_role };
+    })
+    .sort((a, b) => (LAYER_SORT_ORDER[a.layer_role] ?? 99) - (LAYER_SORT_ORDER[b.layer_role] ?? 99));
+
+  return { needs_base_layer, layer_order };
+}
+
+// ─────────────────────────────────────────────
+// OCCASION SUB-MODE RESOLUTION
+// ─────────────────────────────────────────────
+
+function resolveOccasionSubmode(
+  occasion: string,
+  prefs: Record<string, any> | null,
+  styleVector: StyleVector | null
+): string | null {
+  const occ = occasion.toLowerCase();
+  const isWork = ['work', 'jobb', 'office', 'kontor'].includes(occ);
+  if (!isWork) return null;
+
+  // Determine formality target from user's style vector or preferences
+  const sp = prefs ? getStylePrefs(prefs) : {};
+  const userFormalityCenter = styleVector?.formalityCenter ?? null;
+  const primaryGoal = String(sp.primaryGoal || '').toLowerCase();
+
+  let formalityTarget = 5; // default business casual
+  if (userFormalityCenter !== null) {
+    formalityTarget = userFormalityCenter;
+  }
+  if (primaryGoal.includes('formal') || primaryGoal.includes('professional')) {
+    formalityTarget = Math.max(formalityTarget, 7);
+  }
+  if (primaryGoal.includes('comfort') || primaryGoal.includes('relaxed') || primaryGoal.includes('creative')) {
+    formalityTarget = Math.min(formalityTarget, 4);
+  }
+
+  if (formalityTarget >= 7) return 'Formal Office';
+  if (formalityTarget >= 5) return 'Business Casual';
+  return 'Relaxed Office';
 }
 
 // ─────────────────────────────────────────────
@@ -2681,7 +2750,9 @@ function computeConfidence(
   candidateCount: number,
   slotCandidates: Record<string, ScoredGarment[]>,
   weather: WeatherInput,
-  occasion: string
+  occasion: string,
+  gaps: string[] = [],
+  needsBaseLayer: boolean = false
 ): ConfidenceResult {
   const b = combo.breakdown;
   let score = 0;
@@ -2711,6 +2782,16 @@ function computeConfidence(
     else if (count <= 3) coverageScore -= 0.5;
   }
   score += Math.max(0, coverageScore) * 0.15;
+
+  // Gap-aware penalty: reduce confidence when wardrobe gaps are detected
+  for (const gap of gaps) {
+    if (gap.includes('formal')) score -= 0.8;
+    else if (gap.includes('weather') || gap.includes('rain') || gap.includes('outerwear')) score -= 0.6;
+    else score -= 0.4;
+  }
+
+  // Structural incompleteness penalty
+  if (needsBaseLayer) score -= 0.5;
 
   const final = Math.max(0, Math.min(10, score));
   const level: ConfidenceLevel = final >= 7 ? 'high' : final >= 4.5 ? 'medium' : 'low';
@@ -3092,14 +3173,18 @@ async function aiRefine(
   weather: WeatherInput,
   styleContext: string,
   locale: string,
-  isStylistMode = false
+  isStylistMode = false,
+  occasionSubmode: string | null = null,
+  layeringContext: { needs_base_layer: boolean } | null = null
 ): Promise<any> {
   const localeName = LOCALE_NAMES[locale] || "English";
 
   const comboDescriptions = combos.map((combo, idx) => {
-    const parts = combo.items.map(i =>
-      `${i.slot}: ${i.garment.title} (${i.garment.color_primary}${i.garment.material ? ", " + i.garment.material : ""})`
-    );
+    const parts = combo.items.map(i => {
+      const role = i.garment.layering_role || 'standalone';
+      const roleLabel = ['base', 'mid', 'outer'].includes(role) ? ` (${role}-layer)` : '';
+      return `${i.slot}${roleLabel}: ${i.garment.title} (${i.garment.color_primary}${i.garment.material ? ", " + i.garment.material : ""})`;
+    });
     return `Combo ${idx}: [score: ${combo.totalScore.toFixed(1)}] ${parts.join(" + ")}`;
   }).join("\n");
 
@@ -3107,6 +3192,12 @@ async function aiRefine(
   const season = getCurrentSeason();
   const hintsStr = styleHints.length > 0 ? `\nSTYLE DIRECTION: ${styleHints.join(", ")}` : "";
   const seasonStr = `\nSEASON: ${season}`;
+  const submodeStr = occasionSubmode ? `\nOCCASION SUB-MODE: ${occasionSubmode}` : "";
+
+  let layeringStr = "";
+  if (layeringContext?.needs_base_layer) {
+    layeringStr = "\nLAYERING CONTEXT: The top item is a mid-layer (e.g., cardigan, sweater). No explicit base layer is included — this look assumes a simple t-shirt or similar underneath.";
+  }
 
   const stylistEnhancement = isStylistMode
     ? `\n\nSTYLIST MODE: You are operating at the highest level. Apply deeper reasoning:
@@ -3117,12 +3208,21 @@ async function aiRefine(
 - Write the explanation as editorial styling notes — mention WHY specific pieces work together in terms of proportion, texture, and color logic. Be specific, not generic.`
     : "";
 
+  const explanationGuidance = `
+
+EXPLANATION RULES:
+- Explain WHY the layering structure works (which piece is the base, mid, or outer layer)
+- Explain how this outfit handles the current weather
+- State what type of occasion this outfit is best for${occasionSubmode ? ` (specifically: ${occasionSubmode})` : ''}
+- If there are wardrobe limitations, mention them honestly
+- Explain why these garments work together structurally, not just aesthetically`;
+
   const systemPrompt = mode === "generate"
     ? `You are a world-class stylist. Pick the SINGLE best outfit from the pre-scored candidates below. Consider overall aesthetic, color harmony, seasonal appropriateness, and suitability for the occasion.
 
-OCCASION: ${occasion}${style ? `\nSTYLE: ${style}` : ""}${hintsStr}${seasonStr}
+OCCASION: ${occasion}${submodeStr}${style ? `\nSTYLE: ${style}` : ""}${hintsStr}${seasonStr}${layeringStr}
 WEATHER: ${weather.temperature !== undefined ? weather.temperature + "°C" : "unknown"}${weather.precipitation ? ", " + weather.precipitation : ""}${weather.wind ? ", wind: " + weather.wind : ""}
-${styleContext ? `\nUSER PROFILE: ${styleContext}` : ""}${stylistEnhancement}
+${styleContext ? `\nUSER PROFILE: ${styleContext}` : ""}${stylistEnhancement}${explanationGuidance}
 
 Write the explanation in ${localeName}.
 
@@ -3130,7 +3230,7 @@ CANDIDATES:
 ${comboDescriptions}`
     : `You are a world-class stylist. Select the 2-3 BEST and most DIVERSE outfits from the candidates below. Each should suit a different occasion or vibe. Prioritize variety.
 
-${styleContext ? `USER PROFILE: ${styleContext}` : ""}
+${styleContext ? `USER PROFILE: ${styleContext}` : ""}${explanationGuidance}
 
 Write all text in ${localeName}.
 
@@ -3149,7 +3249,7 @@ ${comboDescriptions}`;
       tools: [tool],
       tool_choice: { type: "function", function: { name: toolName } },
       complexity: isStylistMode ? "standard" : "standard",
-      max_tokens: mode === "generate" ? (isStylistMode ? 400 : 200) : estimateMaxTokens({ outputItems: 3, perItemTokens: 100, baseTokens: 150 }),
+      max_tokens: mode === "generate" ? (isStylistMode ? 400 : 250) : estimateMaxTokens({ outputItems: 3, perItemTokens: 100, baseTokens: 150 }),
     });
     return { data };
   } catch (e: any) {
@@ -4079,8 +4179,16 @@ serve(async (req) => {
     // Confidence scoring + wardrobe gap detection
     const bestCombo = combos[0];
     const candidateCount = combos.length;
-    const confidence = computeConfidence(bestCombo, candidateCount, slotCandidates, weather, occasion);
     const gaps = detectWardrobeGapForRequest(slotCandidates, weather, occasion);
+
+    // Layering validation on best combo
+    const bestLayering = validateLayeringCompleteness(bestCombo.items);
+
+    // Occasion sub-mode resolution
+    const occasionSubmode = resolveOccasionSubmode(occasion, preferences, styleVector);
+
+    // Gap-aware confidence
+    const confidence = computeConfidence(bestCombo, candidateCount, slotCandidates, weather, occasion, gaps, bestLayering.needs_base_layer);
     const limitationNote = generateLimitationNote(gaps, confidence);
 
     // Build generation failure signal for insight derivation
@@ -4092,7 +4200,10 @@ serve(async (req) => {
     // AI refinement — stylist mode gets richer prompting
     const isStylistMode = mode === "stylist";
     const aiMode = mode === "suggest" ? "suggest" : "generate";
-    const aiResult = await aiRefine(combos, aiMode, occasion, style, weather, styleContext, locale, isStylistMode);
+    const aiResult = await aiRefine(
+      combos, aiMode, occasion, style, weather, styleContext, locale, isStylistMode,
+      occasionSubmode, { needs_base_layer: bestLayering.needs_base_layer }
+    );
 
     if (aiResult.error) {
       if (aiResult.status === 429) {
@@ -4125,10 +4236,14 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      const fallbackLayering = validateLayeringCompleteness(best.items);
       return new Response(JSON.stringify({
         items: best.items.map(i => ({ slot: i.slot, garment_id: i.garment.id })),
         explanation: "",
         style_score: best.breakdown,
+        layer_order: fallbackLayering.layer_order,
+        needs_base_layer: fallbackLayering.needs_base_layer,
+        occasion_submode: occasionSubmode,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -4149,7 +4264,8 @@ serve(async (req) => {
         }
       }
       const dc = chosen as DeduplicatedCombo;
-      const chosenConf = computeConfidence(chosen, candidateCount, slotCandidates, weather, occasion);
+      const chosenLayering = validateLayeringCompleteness(chosen.items);
+      const chosenConf = computeConfidence(chosen, candidateCount, slotCandidates, weather, occasion, gaps, chosenLayering.needs_base_layer);
       const chosenNote = generateLimitationNote(gaps, chosenConf);
       return new Response(JSON.stringify({
         items: chosen.items.map(i => ({ slot: i.slot, garment_id: i.garment.id })),
@@ -4159,6 +4275,9 @@ serve(async (req) => {
         confidence_score: chosenConf.confidence_score,
         confidence_level: chosenConf.confidence_level,
         limitation_note: chosenNote,
+        layer_order: chosenLayering.layer_order,
+        needs_base_layer: chosenLayering.needs_base_layer,
+        occasion_submode: occasionSubmode,
         laundry: laundryCount > 0 ? { count: laundryCount, items: laundryItems.slice(0, 5).map(i => ({ id: i.id, title: i.title, category: i.category })) } : undefined,
         wardrobe_insights: wardrobeInsights.length > 0 ? wardrobeInsights : undefined,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });

@@ -146,6 +146,13 @@ function SwapSheet({
 
 /* ── Garment Slot (editorial card) ─────────────── */
 
+const LAYER_ROLE_LABELS: Record<string, string> = {
+  base: 'Base Layer',
+  mid: 'Mid Layer',
+  outer: 'Outer Layer',
+  standalone: '',
+};
+
 interface SlotRowProps {
   slot: string;
   garmentId: string;
@@ -154,10 +161,17 @@ interface SlotRowProps {
   imagePath?: string;
   onSwap: () => void;
   t: (key: string) => string;
+  layerRole?: string;
 }
 
-function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, onSwap, t }: SlotRowProps) {
+function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, onSwap, t, layerRole }: SlotRowProps) {
   const navigate = useNavigate();
+  // Use layering role label for top-area slots when available
+  const isLayeredSlot = ['top', 'outerwear'].includes(slot);
+  const roleLabel = isLayeredSlot && layerRole && LAYER_ROLE_LABELS[layerRole]
+    ? LAYER_ROLE_LABELS[layerRole]
+    : (t(`outfit.slot.${slot}`) || slot);
+  
   return (
     <div className="flex items-center gap-4 py-4 border-b border-border/8 last:border-b-0 group">
       <div
@@ -173,7 +187,7 @@ function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, onSwa
       </div>
       <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/wardrobe/${garmentId}`)}>
         <p className="text-[10px] text-muted-foreground/40 uppercase tracking-[0.12em] font-medium">
-          {t(`outfit.slot.${slot}`) || slot}
+          {roleLabel}
         </p>
         <p className="font-semibold text-[15px] truncate mt-0.5 tracking-tight">{stripBrands(garmentTitle || '') || t('outfit.unknown')}</p>
         {garmentColor && <p className="text-[12px] text-muted-foreground/60 capitalize mt-0.5">{garmentColor}</p>}
@@ -233,8 +247,29 @@ export default function OutfitDetailPage() {
   const genLimitationNote = (location.state as { limitation_note?: string | null })?.limitation_note;
   const genFamilyLabel = (location.state as { family_label?: string })?.family_label;
   const genWardrobeInsights = (location.state as { wardrobe_insights?: string[] })?.wardrobe_insights;
+  const genLayerOrder = (location.state as { layer_order?: { slot: string; garment_id: string; layer_role: string }[] })?.layer_order;
+  const genNeedsBaseLayer = (location.state as { needs_base_layer?: boolean })?.needs_base_layer;
+  const genOccasionSubmode = (location.state as { occasion_submode?: string | null })?.occasion_submode;
   const shareUrl = outfit ? `${window.location.origin}/share/${outfit.id}` : '';
   const outfitItems = Array.isArray(outfit?.outfit_items) ? outfit.outfit_items : [];
+
+  // Build a layer role lookup from generation metadata
+  const layerRoleMap = new Map<string, string>();
+  if (genLayerOrder) {
+    for (const entry of genLayerOrder) {
+      layerRoleMap.set(entry.garment_id, entry.layer_role);
+    }
+  }
+
+  // Sort outfit items by layer order when available
+  const SLOT_SORT_ORDER: Record<string, number> = {
+    base: 0, standalone: 1, mid: 2, outer: 3, top: 1, bottom: 4, dress: 1, shoes: 5, accessory: 6,
+  };
+  const sortedOutfitItems = [...outfitItems].sort((a, b) => {
+    const aRole = layerRoleMap.get(a.garment_id) || a.slot;
+    const bRole = layerRoleMap.get(b.garment_id) || b.slot;
+    return (SLOT_SORT_ORDER[aRole] ?? 99) - (SLOT_SORT_ORDER[bRole] ?? 99);
+  });
 
   const feedbackOptions = [
     { id: 'loved_it', label: t('outfit.loved_it'), icon: Heart },
@@ -621,9 +656,11 @@ export default function OutfitDetailPage() {
               </span>
             )}
           </div>
-          <h1 className="text-[26px] font-bold tracking-tight capitalize leading-tight">{displayOccasion}</h1>
+          <h1 className="text-[26px] font-bold tracking-tight capitalize leading-tight">
+            {genOccasionSubmode || displayOccasion}
+          </h1>
           <p className="text-[12px] text-muted-foreground/40 mt-1 tracking-wide">
-            {metaParts.filter(p => p !== displayOccasion && p !== outfit.style_vibe).join(' · ')}
+            {[genOccasionSubmode ? displayOccasion : null, ...metaParts.filter(p => p !== displayOccasion && p !== outfit.style_vibe)].filter(Boolean).join(' · ')}
           </p>
         </div>
 
@@ -783,7 +820,7 @@ export default function OutfitDetailPage() {
           <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/40 font-semibold mb-3">
             {t('outfit.pieces') || 'Pieces'}
           </p>
-          {outfitItems.map((item) => (
+          {sortedOutfitItems.map((item) => (
             <SlotRow
               key={item.id}
               slot={item.slot}
@@ -793,8 +830,15 @@ export default function OutfitDetailPage() {
               imagePath={item.garment?.image_path}
               onSwap={() => handleOpenSwap(item.slot, item.id, item.garment_id)}
               t={t}
+              layerRole={layerRoleMap.get(item.garment_id)}
             />
           ))}
+          {/* Base layer note */}
+          {justGenerated && genNeedsBaseLayer && (
+            <p className="text-[11px] text-muted-foreground/50 italic pt-2 pl-1 leading-relaxed">
+              This look assumes a simple base layer underneath
+            </p>
+          )}
         </div>
 
         {/* ── Photo Feedback (Mirror Check) — compact ── */}
