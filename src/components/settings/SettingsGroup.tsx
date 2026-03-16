@@ -15,7 +15,7 @@ export function SettingsGroup({ title, children, className }: SettingsGroupProps
           {title}
         </p>
       )}
-      <div className="rounded-[var(--radius,1rem)] bg-card/60 border border-border/15 overflow-hidden">
+      <div className="bg-card/60 border border-border/15 overflow-hidden">
         {children}
       </div>
     </div>
