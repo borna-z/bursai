@@ -210,16 +210,25 @@ export default function AddGarmentPage() {
   // Process a captured file from the Median camera bridge
   const processNativeCapture = async (result: { file: File; previewUrl: string }) => {
     if (!user || !canAddGarment()) { setShowPaywall(true); return; }
-    const file = result.file;
-    setImageFile(file);
+    let file: File | Blob = result.file;
+    setImageFile(result.file);
     setImagePreview(result.previewUrl);
     const newGarmentId = crypto.randomUUID();
     setGarmentId(newGarmentId);
     setStep('analyzing');
     try {
-      const fileExt = file.name.split('.').pop() || 'jpg';
+      // Remove background
+      setIsRemovingBg(true);
+      const processedBlob = await removeBackground(file as Blob);
+      setIsRemovingBg(false);
+      file = processedBlob;
+      URL.revokeObjectURL(result.previewUrl);
+      const newPreview = URL.createObjectURL(processedBlob);
+      setImagePreview(newPreview);
+
+      const fileExt = processedBlob.type === 'image/png' ? 'png' : (result.file.name.split('.').pop() || 'jpg');
       const path = `${user.id}/${newGarmentId}.${fileExt}`;
-      await uploadGarmentImage(file, newGarmentId);
+      await uploadGarmentImage(file as File, newGarmentId);
       setStoragePath(path);
       const signedUrl = await getGarmentSignedUrl(path);
       setImagePreview(signedUrl);
@@ -228,6 +237,7 @@ export default function AddGarmentPage() {
       console.error('Upload/analysis error:', err);
       toast.error(t('addgarment.upload_error'));
       setStep('upload');
+      setIsRemovingBg(false);
     }
   };
 
