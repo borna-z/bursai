@@ -366,6 +366,49 @@ export default function GarmentDetailPage() {
           )}
         </Section>
 
+        {/* Enrichment status: pending/in_progress */}
+        {isEnrichmentPending && !enrichment && (
+          <Section index={2}>
+            <div className="rounded-xl border border-border/10 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary/60 animate-pulse" />
+                <p className="text-[13px] text-foreground/70 font-medium">Deep analysis in progress</p>
+              </div>
+              <p className="text-[11px] text-muted-foreground/50">Silhouette, texture, styling intelligence and more will appear here shortly.</p>
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
+            </div>
+          </Section>
+        )}
+
+        {/* Enrichment status: failed */}
+        {enrichmentStatus === 'failed' && !enrichment && (
+          <Section index={2}>
+            <div className="rounded-xl border border-border/10 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-muted-foreground/40" />
+                  <p className="text-[13px] text-foreground/70 font-medium">Analysis incomplete</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7 gap-1.5"
+                  onClick={handleRetryEnrichment}
+                  disabled={isRetrying}
+                >
+                  {isRetrying ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                  Retry
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground/50">Deep garment intelligence couldn't be generated. Tap retry to try again.</p>
+            </div>
+          </Section>
+        )}
+
         {/* Stylist note — editorial highlight */}
         {enrichment?.stylist_note && (
           <Section index={2}>
