@@ -3638,7 +3638,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const [garmentsRawRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes, laundryCountRes, pairMemoryRes, feedbackSignalsRes] = await Promise.all([
+    const [garmentsRawRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes, laundryCountRes, pairMemoryRes, feedbackSignalsRes, plannedNotWornRes] = await Promise.all([
       supabase
         .from("garments")
         .select("id, title, category, subcategory, color_primary, color_secondary, pattern, material, fit, formality, season_tags, wear_count, last_worn_at, image_path, ai_raw")
@@ -3686,6 +3686,15 @@ serve(async (req) => {
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(200),
+      // IB-5b: Planned-but-not-worn outfits (negative signal)
+      supabase
+        .from("planned_outfits")
+        .select("outfit_id, date")
+        .eq("user_id", userId)
+        .eq("status", "planned")
+        .lt("date", new Date().toISOString().split("T")[0])
+        .order("date", { ascending: false })
+        .limit(30),
     ]);
 
     if (garmentsRawRes.error) throw garmentsRawRes.error;
