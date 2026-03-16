@@ -223,7 +223,7 @@ export default function HomePage() {
                 transition={reveal.transition}
                 className="rounded-2xl surface-secondary p-8 text-center space-y-5"
               >
-                <Sparkles className="w-8 h-8 text-primary/40 mx-auto" />
+                <Sparkles className="w-8 h-8 text-primary/50 mx-auto" />
                 <div className="space-y-2">
                   <h3 className="text-[15px] font-semibold">{t('home.no_outfit_title')}</h3>
                   <p className="text-[12px] text-muted-foreground/60 max-w-[240px] mx-auto">
