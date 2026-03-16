@@ -89,15 +89,15 @@
 | IB-2b | Pre-filter to top 40 most packable garments before AI call | ✅ Done |
 | IB-2c | Matrix coverage validation after AI response | 🔲 Todo |
 
-### IB Phase 3 — Planner Week Intelligence
+### IB Phase 3 — Planner Week Intelligence ✅
 
 | Task | Title | Status |
 |------|-------|--------|
-| IB-3a | Add plan_week mode to style engine (sequential generation with used_garments carry-forward) | 🔲 Todo |
-| IB-3b | Inter-day repetition penalty (hero garments heavy, accessories light) | 🔲 Todo |
-| IB-3c | Formality variation across planned days | 🔲 Todo |
-| IB-3d | Expose backup outfit (2nd-ranked combo) per day | 🔲 Todo |
-| IB-3e | Laundry-aware generation with dirty garment warnings | 🔲 Todo |
+| IB-3a | Add plan_week mode to style engine (sequential generation with used_garments carry-forward) | ✅ Done |
+| IB-3b | Inter-day repetition penalty (hero garments heavy, accessories light) | ✅ Done |
+| IB-3c | Formality variation across planned days | ✅ Done |
+| IB-3d | Expose backup outfit (2nd-ranked combo) per day | ✅ Done |
+| IB-3e | Laundry-aware generation with dirty garment warnings | ✅ Done |
 
 ### IB Phase 4 — Chat Intelligence Upgrade
 
