@@ -30,7 +30,7 @@
 
 | Task | Title | Status |
 |------|-------|--------|
-| 13 | Stronger style profile | 🔲 |
+| 13 | Stronger style profile | ✅ Done |
 | 14 | Better onboarding | 🔲 |
 | 15 | Better feedback learning | 🔲 |
 | 16 | Personal uniform / style DNA | 🔲 |

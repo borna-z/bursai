@@ -34,6 +34,46 @@ export interface ProfilePreferences {
 }
 
 export interface StyleProfile {
+  // Identity
+  gender?: string;
+  ageRange?: string;
+  climate?: string;
+  // Daily life
+  weekdayLife?: string;
+  workFormality?: string;
+  weekendLife?: string;
+  specialOccasion?: string;
+  // Style direction
+  styleWords?: string[];
+  comfortVsStyle?: number;
+  adventurousness?: string;
+  trendFollowing?: string;
+  genderNeutral?: string;
+  // Fit & silhouette
+  fit?: string;
+  layering?: string;
+  topFit?: string;
+  bottomLength?: string;
+  // Color & pattern
+  favoriteColors?: string[];
+  dislikedColors?: string[];
+  paletteVibe?: string;
+  patternFeeling?: string;
+  // Philosophy
+  shoppingMindset?: string;
+  sustainability?: string;
+  capsuleWardrobe?: string;
+  wardrobeFrustrations?: string[];
+  // Inspiration
+  styleIcons?: string;
+  hardestOccasions?: string[];
+  fabricFeel?: string;
+  signaturePieces?: string;
+  // Goals
+  primaryGoal?: string;
+  morningTime?: string;
+  freeNote?: string;
+  // Legacy compat
   vibe?: string;
   formality_range?: [number, number];
   favorite_colors?: string[];
