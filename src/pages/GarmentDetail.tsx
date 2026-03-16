@@ -397,7 +397,7 @@ export default function GarmentDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              className="rounded-xl text-xs"
+              className="text-xs"
               onClick={() => {
                 setPriceInput(String(garment.purchase_price || ''));
                 setEditingPrice(true);
