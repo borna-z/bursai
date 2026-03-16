@@ -86,10 +86,10 @@ export function WeekOverview({ selectedDate, onSelectDate, plannedOutfits, class
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: EASE_CURVE }}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/8 border border-amber-500/15"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-warning/8 border border-warning/15"
         >
-          <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-          <p className="text-[11px] text-amber-600 dark:text-amber-400">
+          <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0" />
+          <p className="text-[11px] text-warning">
             {repeatedGarments.size === 1
               ? (t('plan.repeat_warning_single') || '1 piece repeats across days — consider swapping for variety.')
               : (t('plan.repeat_warning') || `${repeatedGarments.size} pieces repeat across days — consider swapping for variety.`)}
