@@ -101,7 +101,7 @@ export default function GarmentDetailPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background pb-32">
-        <Skeleton className="aspect-[3/4] w-full rounded-b-3xl" />
+        <Skeleton className="aspect-[3/4] w-full" />
         <div className="px-6 pt-8 space-y-6">
           <div>
             <Skeleton className="h-7 w-2/3 mb-2" />
