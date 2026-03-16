@@ -263,7 +263,7 @@ export default function HomePage() {
           {/* ── 4. Tertiary: Wardrobe Gap + Mood ── */}
           {(garmentCount || 0) >= 3 && (
             <div className="space-y-4">
-              <p className="label-editorial text-muted-foreground/40">{t('home.more_for_you') || 'More for you'}</p>
+              <p className="label-editorial text-muted-foreground/40">{t('home.more_for_you') || 'Styled for you'}</p>
               {(garmentCount || 0) >= 5 && <WardrobeGapSection />}
 
               <motion.button
