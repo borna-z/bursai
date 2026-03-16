@@ -587,7 +587,7 @@ export default function AddGarmentPage() {
               className="flex flex-col items-center gap-4 w-full"
             >
               {imagePreview && (
-                <div className="aspect-square w-48 rounded-xl overflow-hidden bg-secondary/60">
+                <div className="aspect-square w-48 overflow-hidden bg-secondary/60">
                   <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                 </div>
               )}
