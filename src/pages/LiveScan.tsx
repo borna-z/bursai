@@ -412,7 +412,7 @@ export default function LiveScan() {
             <button
               onClick={() => setAutoMode((v) => !v)}
               className={cn(
-                'w-9 h-9 rounded-full flex items-center justify-center transition-all',
+                'w-9 h-9 flex items-center justify-center transition-all',
                 autoMode ? 'bg-accent/20 text-accent' : 'bg-foreground/10 text-muted-foreground'
               )}
             >
