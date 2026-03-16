@@ -1230,6 +1230,182 @@ function styleVectorScore(garment: GarmentRow, vector: StyleVector | null): numb
 }
 
 // ─────────────────────────────────────────────
+// ENRICHMENT DATA HYDRATION (Phase 1: AI Intelligence)
+// ─────────────────────────────────────────────
+
+/** Extract enrichment fields from ai_raw JSONB into the GarmentRow with safe defaults. */
+function hydrateEnrichment(raw: any): GarmentRow {
+  const aiRaw = (raw.ai_raw && typeof raw.ai_raw === 'object') ? raw.ai_raw : {};
+  const enrichment = aiRaw.enrichment || aiRaw;
+
+  return {
+    ...raw,
+    silhouette: String(enrichment.silhouette || inferSilhouetteFromFit(raw.fit)).toLowerCase(),
+    visual_weight: clampNum(enrichment.visual_weight, 1, 10, 5),
+    texture_intensity: clampNum(enrichment.texture_intensity, 1, 10, 3),
+    layering_role: String(enrichment.layering_role || inferLayeringRole(raw.category, raw.subcategory)).toLowerCase(),
+    versatility_score: clampNum(enrichment.versatility_score, 1, 10, 5),
+    occasion_tags: Array.isArray(enrichment.occasion_tags) ? enrichment.occasion_tags.map((t: any) => String(t).toLowerCase()) : [],
+    style_archetype: String(enrichment.style_archetype || '').toLowerCase(),
+  };
+}
+
+function clampNum(val: any, min: number, max: number, fallback: number): number {
+  const n = typeof val === 'number' ? val : fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
+function inferSilhouetteFromFit(fit: string | null): string {
+  const f = (fit || '').toLowerCase();
+  if (['oversized', 'loose', 'wide'].some(k => f.includes(k))) return 'relaxed';
+  if (['slim', 'skinny', 'fitted', 'tailored'].some(k => f.includes(k))) return 'fitted';
+  if (f.includes('regular')) return 'straight';
+  return 'straight';
+}
+
+function inferLayeringRole(category: string, subcategory: string | null): string {
+  const both = `${category} ${subcategory || ''}`.toLowerCase();
+  if (OUTERWEAR_CATS.some(c => both.includes(c))) return 'outer';
+  if (['t-shirt', 'tank', 'camisole', 'undershirt'].some(c => both.includes(c))) return 'base';
+  if (['cardigan', 'sweater', 'hoodie', 'vest'].some(c => both.includes(c))) return 'mid';
+  return 'standalone';
+}
+
+// ─────────────────────────────────────────────
+// ENRICHMENT-AWARE SCORING FUNCTIONS
+// ─────────────────────────────────────────────
+
+/** Score occasion suitability using enrichment occasion_tags. */
+function occasionTagScore(garment: GarmentRow, occasion: string): number {
+  if (garment.occasion_tags.length === 0) return 7; // unenriched → neutral
+  const occ = occasion.toLowerCase();
+  // Direct match
+  if (garment.occasion_tags.includes(occ)) return 10;
+  // Partial match (e.g., occasion "jobb" matches tag "work")
+  const OCCASION_ALIASES: Record<string, string[]> = {
+    work: ['jobb', 'kontor', 'office', 'möte', 'meeting'],
+    casual: ['vardag', 'everyday', 'weekend', 'helg'],
+    date: ['dejt', 'romantic'],
+    party: ['fest', 'celebration'],
+    formal: ['bröllop', 'wedding', 'gala', 'ceremoni'],
+    sport: ['träning', 'gym', 'yoga'],
+    travel: ['resa', 'flygresa', 'flight'],
+  };
+  for (const [canonical, aliases] of Object.entries(OCCASION_ALIASES)) {
+    const allNames = [canonical, ...aliases];
+    if (allNames.includes(occ) && garment.occasion_tags.some(t => allNames.includes(t))) return 9;
+  }
+  // No match at all
+  return 5;
+}
+
+/** Score layering role against weather context. */
+function layeringRoleScore(garment: GarmentRow, weather: WeatherInput): number {
+  const temp = weather.temperature;
+  if (temp === undefined) return 7;
+  const role = garment.layering_role;
+
+  if (temp < 5) {
+    // Cold: outer layers highly valued, base layers good for layering
+    if (role === 'outer') return 10;
+    if (role === 'mid') return 9;
+    if (role === 'base') return 7;
+    return 6;
+  }
+  if (temp < 15) {
+    // Cool: mid layers ideal for flexibility
+    if (role === 'mid') return 9;
+    if (role === 'outer') return 8;
+    if (role === 'standalone') return 7;
+    return 6;
+  }
+  if (temp < 25) {
+    // Mild: standalone pieces preferred
+    if (role === 'standalone') return 9;
+    if (role === 'base') return 8;
+    if (role === 'outer') return 5;
+    return 7;
+  }
+  // Hot: base/standalone only
+  if (role === 'base' || role === 'standalone') return 9;
+  if (role === 'mid') return 4;
+  if (role === 'outer') return 2;
+  return 7;
+}
+
+/** Versatility boost: more versatile garments get a small base score bump. */
+function versatilityBoost(garment: GarmentRow): number {
+  // Map 1-10 versatility to 0-1.5 bonus
+  return Math.max(0, (garment.versatility_score - 4) * 0.3);
+}
+
+/** Silhouette balance scoring for a combo. Rewards contrast, penalizes monotony. */
+function silhouetteBalanceScore(items: ComboItem[]): number {
+  const coreItems = items.filter(i => ['top', 'bottom', 'dress', 'outerwear'].includes(i.slot));
+  if (coreItems.length < 2) return 7;
+
+  const silhouettes = coreItems.map(i => i.garment.silhouette);
+  const weights = coreItems.map(i => i.garment.visual_weight);
+
+  // Silhouette variety: penalize if all same
+  const uniqueSilhouettes = new Set(silhouettes);
+  let score = 7;
+
+  if (uniqueSilhouettes.size === 1 && coreItems.length >= 2) {
+    // All same silhouette — penalize
+    const sil = silhouettes[0];
+    if (sil === 'relaxed') score -= 2;      // all baggy
+    else if (sil === 'fitted') score -= 1.5; // all tight
+    else score -= 1;
+  } else if (uniqueSilhouettes.size >= 2) {
+    // Good contrast
+    score += 1.5;
+    // Bonus for classic combos like relaxed+fitted or relaxed+straight
+    const hasRelaxed = silhouettes.includes('relaxed') || silhouettes.includes('boxy');
+    const hasFitted = silhouettes.includes('fitted') || silhouettes.includes('slim');
+    const hasStraight = silhouettes.includes('straight');
+    if (hasRelaxed && (hasFitted || hasStraight)) score += 1;
+  }
+
+  // Visual weight balance: top vs bottom contrast
+  const topItem = coreItems.find(i => i.slot === 'top' || i.slot === 'dress');
+  const bottomItem = coreItems.find(i => i.slot === 'bottom');
+  if (topItem && bottomItem) {
+    const weightDiff = Math.abs(topItem.garment.visual_weight - bottomItem.garment.visual_weight);
+    if (weightDiff >= 2 && weightDiff <= 5) score += 0.8;  // nice contrast
+    if (weightDiff === 0) score -= 0.5;                      // too uniform
+  }
+
+  return clampScore(score);
+}
+
+/** Texture depth scoring for a combo. Rewards variety, penalizes monotony. */
+function textureDepthScore(items: ComboItem[]): number {
+  const coreItems = items.filter(i => ['top', 'bottom', 'dress', 'outerwear'].includes(i.slot));
+  if (coreItems.length < 2) return 7;
+
+  const textures = coreItems.map(i => i.garment.texture_intensity);
+  const avg = textures.reduce((s, v) => s + v, 0) / textures.length;
+  const spread = Math.max(...textures) - Math.min(...textures);
+
+  let score = 7;
+
+  // Reward texture variety
+  if (spread >= 3) score += 1.5;       // good mix of smooth and textured
+  else if (spread >= 1.5) score += 0.8;
+  else if (spread < 1) score -= 1;     // all same texture → flat
+
+  // Penalty for all very high texture (busy/clashing)
+  if (avg > 7) score -= 1;
+  // Bonus for controlled texture: smooth base + one textured piece
+  const smoothCount = textures.filter(t => t <= 3).length;
+  const texturedCount = textures.filter(t => t >= 6).length;
+  if (smoothCount >= 1 && texturedCount === 1) score += 0.8;
+
+  return clampScore(score);
+}
+
+// ─────────────────────────────────────────────
 // SLOT CATEGORIZATION
 // ─────────────────────────────────────────────
 
