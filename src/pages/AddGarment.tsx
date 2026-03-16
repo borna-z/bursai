@@ -729,11 +729,11 @@ export default function AddGarmentPage() {
       <div className="p-4 space-y-6">
         {/* Image Preview */}
         {imagePreview && (
-          <div className="relative aspect-square max-w-xs mx-auto overflow-hidden bg-secondary">
+          <div className="relative aspect-square max-w-xs mx-auto overflow-hidden bg-[hsl(36_33%_93%)]">
             <img
               src={imagePreview}
               alt="Preview"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
             />
             <Button
               variant="secondary"
