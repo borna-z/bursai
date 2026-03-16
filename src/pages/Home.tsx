@@ -221,6 +221,16 @@ export default function HomePage() {
           {/* ── 3. Quick Actions — secondary shortcuts ── */}
           <QuickActionsRow />
 
+          {/* ── Retention: Planning nudge + Unused gem ── */}
+          {(garmentCount || 0) >= 3 && (
+            <div className="space-y-2">
+              <WeekPlanningNudge plannedOutfits={weekPlannedOutfits} />
+              {insightsData?.unusedGarments && insightsData.unusedGarments.length > 3 && (
+                <UnusedGemBanner unusedGarments={insightsData.unusedGarments} />
+              )}
+            </div>
+          )}
+
           {/* ── 3b. AI Suggestions — always visible with 3+ garments ── */}
           {(garmentCount || 0) >= 3 && (
             <AISuggestions isPremium={isPremium} />
