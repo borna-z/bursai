@@ -27,6 +27,7 @@ import { SectionHeader } from '@/components/ui/section-header';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
 import { cn } from '@/lib/utils';
+import { humanize, categoryLabel, colorLabel, materialLabel, patternLabel, fitLabel, seasonLabel, occasionLabel, confidenceLabel } from '@/lib/humanize';
 import { EASE_CURVE } from '@/lib/motion';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { supabase } from '@/integrations/supabase/client';
@@ -278,16 +279,15 @@ export default function GarmentDetailPage() {
 
   // Build metadata string
   const metaParts: string[] = [];
-  if (garment.color_primary) metaParts.push(t(`color.${garment.color_primary}`));
-  if (garment.color_secondary) metaParts.push(t(`color.${garment.color_secondary}`));
-  if (garment.material) metaParts.push(t(`garment.material.${garment.material}`));
-  if (garment.pattern && garment.pattern !== 'solid') metaParts.push(t(`garment.pattern.${garment.pattern}`));
-  if (garment.fit) metaParts.push(t(`garment.fit.${garment.fit}`));
+  if (garment.color_primary) metaParts.push(colorLabel(t, garment.color_primary));
+  if (garment.color_secondary) metaParts.push(colorLabel(t, garment.color_secondary));
+  if (garment.material) metaParts.push(materialLabel(t, garment.material));
+  if (garment.pattern && garment.pattern !== 'solid') metaParts.push(patternLabel(t, garment.pattern));
+  if (garment.fit) metaParts.push(fitLabel(t, garment.fit));
 
   const seasonParts: string[] = [];
   garment.season_tags?.forEach((season) => {
-    const key = season === 'vår' ? 'spring' : season === 'sommar' ? 'summer' : season === 'höst' ? 'autumn' : season === 'vinter' ? 'winter' : season;
-    seasonParts.push(t(`garment.season.${key}`));
+    seasonParts.push(seasonLabel(t, season));
   });
   if (garment.formality) seasonParts.push(`${t('garment.formality')} ${garment.formality}/5`);
 
@@ -353,7 +353,7 @@ export default function GarmentDetailPage() {
         <Section index={0}>
           <h1 className="text-2xl font-semibold tracking-[-0.02em]">{garment.title}</h1>
           <p className="text-[13px] text-muted-foreground/60 uppercase tracking-wide mt-1">
-            {t(`garment.category.${garment.category}`) || garment.subcategory || garment.category}
+            {categoryLabel(t, garment.category)}{garment.subcategory ? ` · ${humanize(garment.subcategory)}` : ''}
           </p>
         </Section>
 
@@ -508,7 +508,7 @@ export default function GarmentDetailPage() {
                       ))}
                     </div>
                     <p className="text-[10px] text-muted-foreground/60 truncate capitalize">
-                      {outfit.occasion}
+                      {occasionLabel(t, outfit.occasion)}
                     </p>
                   </button>
                 ))}
@@ -596,10 +596,15 @@ export default function GarmentDetailPage() {
         )}
 
         {/* Confidence indicator */}
-        {enrichment?.confidence != null && enrichment.confidence < 0.7 && (
-          <p className="text-[11px] text-muted-foreground/40 italic">
-            Some details may need manual review · {Math.round(enrichment.confidence * 100)}%
-          </p>
+        {enrichment?.confidence != null && (
+          <Section index={10.5}>
+            <div className="flex items-center gap-2 py-1">
+              <div className={cn('w-2 h-2 rounded-full', enrichment.confidence >= 0.85 ? 'bg-emerald-500' : enrichment.confidence >= 0.6 ? 'bg-amber-500' : 'bg-muted-foreground/40')} />
+              <p className={cn('text-[11px]', confidenceLabel(enrichment.confidence).color)}>
+                {confidenceLabel(enrichment.confidence).label} · {Math.round(enrichment.confidence * 100)}%
+              </p>
+            </div>
+          </Section>
         )}
 
         {/* Care instructions */}
