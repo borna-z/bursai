@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { hapticMedium, hapticHeavy, hapticSuccess } from '@/lib/haptics';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, WashingMachine, Check, Loader2, ExternalLink, Sparkles, Shield, DollarSign } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, WashingMachine, Check, Loader2, ExternalLink, Sparkles, Shield, DollarSign, Layers, Shirt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -19,6 +20,65 @@ import { SectionHeader } from '@/components/ui/section-header';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
 import { cn } from '@/lib/utils';
+
+/* ─── Enrichment data extracted from ai_raw ─── */
+interface EnrichmentData {
+  neckline?: string | null;
+  sleeve_length?: string | null;
+  garment_length?: string | null;
+  closure?: string | null;
+  fabric_weight?: string | null;
+  style_tags?: string[];
+  occasion_tags?: string[];
+  layering_role?: string | null;
+  care_instructions?: string[];
+  versatility_score?: number | null;
+  color_harmony_notes?: string | null;
+}
+
+function extractEnrichment(aiRaw: unknown): EnrichmentData | null {
+  if (!aiRaw || typeof aiRaw !== 'object') return null;
+  const raw = aiRaw as Record<string, unknown>;
+  const enrichment = (raw.enrichment as Record<string, unknown>) || null;
+  if (!enrichment) return null;
+  return {
+    neckline: enrichment.neckline as string | null,
+    sleeve_length: enrichment.sleeve_length as string | null,
+    garment_length: enrichment.garment_length as string | null,
+    closure: enrichment.closure as string | null,
+    fabric_weight: enrichment.fabric_weight as string | null,
+    style_tags: Array.isArray(enrichment.style_tags) ? enrichment.style_tags : undefined,
+    occasion_tags: Array.isArray(enrichment.occasion_tags) ? enrichment.occasion_tags : undefined,
+    layering_role: enrichment.layering_role as string | null,
+    care_instructions: Array.isArray(enrichment.care_instructions) ? enrichment.care_instructions : undefined,
+    versatility_score: typeof enrichment.versatility_score === 'number' ? enrichment.versatility_score : null,
+    color_harmony_notes: typeof enrichment.color_harmony_notes === 'string' ? enrichment.color_harmony_notes : null,
+  };
+}
+
+/* ─── Detail chip row ─── */
+function DetailChips({ items, variant = 'secondary' }: { items: string[]; variant?: 'secondary' | 'outline' }) {
+  if (!items.length) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {items.map((item) => (
+        <Badge key={item} variant={variant} className="text-[11px] px-2.5 py-1 capitalize font-normal">
+          {item}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
+/* ─── Specs row ─── */
+function SpecRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between py-2.5">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-xs text-foreground capitalize">{value}</span>
+    </div>
+  );
+}
 
 export default function GarmentDetailPage() {
   const navigate = useNavigate();
@@ -36,6 +96,7 @@ export default function GarmentDetailPage() {
   );
   const [editingPrice, setEditingPrice] = useState(false);
   const [priceInput, setPriceInput] = useState('');
+  const enrichment = useMemo(() => garment ? extractEnrichment(garment.ai_raw) : null, [garment]);
 
   if (isLoading) {
     return (
@@ -173,7 +234,55 @@ export default function GarmentDetailPage() {
           </p>
         )}
 
-        {/* Stats */}
+        {/* Enrichment: Style tags */}
+        {enrichment?.style_tags && enrichment.style_tags.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50">{t('garment.style') || 'Style'}</p>
+            <DetailChips items={enrichment.style_tags} />
+          </div>
+        )}
+
+        {/* Enrichment: Occasion tags */}
+        {enrichment?.occasion_tags && enrichment.occasion_tags.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50">{t('garment.occasions') || 'Occasions'}</p>
+            <DetailChips items={enrichment.occasion_tags} variant="outline" />
+          </div>
+        )}
+
+        {/* Enrichment: Construction specs */}
+        {enrichment && (enrichment.neckline || enrichment.sleeve_length || enrichment.garment_length || enrichment.closure || enrichment.fabric_weight || enrichment.layering_role) && (
+          <div className="space-y-1 border border-border/10 rounded-xl px-4 py-1">
+            {enrichment.neckline && <SpecRow label={t('garment.neckline') || 'Neckline'} value={enrichment.neckline} />}
+            {enrichment.sleeve_length && <SpecRow label={t('garment.sleeve') || 'Sleeve'} value={enrichment.sleeve_length} />}
+            {enrichment.garment_length && <SpecRow label={t('garment.length') || 'Length'} value={enrichment.garment_length} />}
+            {enrichment.closure && <SpecRow label={t('garment.closure') || 'Closure'} value={enrichment.closure} />}
+            {enrichment.fabric_weight && <SpecRow label={t('garment.weight') || 'Weight'} value={enrichment.fabric_weight} />}
+            {enrichment.layering_role && <SpecRow label={t('garment.layering') || 'Layering'} value={enrichment.layering_role} />}
+          </div>
+        )}
+
+        {/* Enrichment: Versatility + color harmony */}
+        {enrichment?.versatility_score != null && (
+          <div className="flex items-center gap-3 py-2">
+            <Layers className="w-4 h-4 text-muted-foreground/50" />
+            <div>
+              <p className="text-xs text-foreground">{t('garment.versatility') || 'Versatility'}: {enrichment.versatility_score}/10</p>
+              {enrichment.color_harmony_notes && (
+                <p className="text-[11px] text-muted-foreground mt-0.5">{enrichment.color_harmony_notes}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Enrichment: Care instructions */}
+        {enrichment?.care_instructions && enrichment.care_instructions.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50">{t('garment.care') || 'Care'}</p>
+            <DetailChips items={enrichment.care_instructions} variant="outline" />
+          </div>
+        )}
+
         <div className="flex">
           <div className="flex-1 text-center">
             <p className="text-2xl font-semibold tabular-nums">{garment.wear_count || 0}</p>
