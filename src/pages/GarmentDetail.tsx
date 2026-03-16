@@ -321,17 +321,20 @@ export default function GarmentDetailPage() {
           </div>
         )}
 
-        {/* Use in outfit */}
-        <Button className="w-full rounded-2xl h-12 bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => navigate('/', { state: { prefillGarmentId: garment.id } })}>
-          <Sparkles className="w-4 h-4 mr-2" />
-          {t('garment.use_in_outfit')}
-        </Button>
+      </div>
 
-        {/* Mark worn */}
-        <Button variant="outline" className="w-full rounded-2xl h-12" onClick={handleMarkWorn} disabled={markWorn.isPending}>
-          {markWorn.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-          {t('garment.mark_worn')}
-        </Button>
+      {/* ── Sticky bottom action bar ── */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/60 backdrop-blur-2xl border-t border-border/15 safe-bottom">
+        <div className="flex items-center gap-3 px-5 py-4 max-w-lg mx-auto">
+          <Button className="flex-1 h-12" onClick={() => navigate('/', { state: { prefillGarmentId: garment.id } })}>
+            <Sparkles className="w-4 h-4 mr-2" />
+            {t('garment.use_in_outfit')}
+          </Button>
+          <Button variant="outline" className="h-12 px-4 shrink-0" onClick={handleMarkWorn} disabled={markWorn.isPending}>
+            {markWorn.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+          </Button>
+        </div>
+      </div>
 
         {/* AI analyzed */}
         {garment.ai_analyzed_at && (

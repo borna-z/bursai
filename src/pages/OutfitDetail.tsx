@@ -87,7 +87,7 @@ function SwapSheet({
             size="sm"
             onClick={() => onModeChange('fresh')}
           >
-            Fresh
+            {t('swap.mode_fresh') || 'Fresh'}
           </Button>
         </div>
 
