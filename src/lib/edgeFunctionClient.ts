@@ -37,8 +37,7 @@ export async function invokeEdgeFunction<T = unknown>(
 
     try {
       const invokePromise = supabase.functions.invoke(functionName, {
-        body: body ? JSON.stringify(body) : undefined,
-        headers: { 'Content-Type': 'application/json' },
+        body: body ?? undefined,
       });
 
       const timeoutPromise = new Promise<never>((_, reject) => {
