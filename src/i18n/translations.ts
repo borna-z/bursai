@@ -2498,6 +2498,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'home.add_first_items_desc': 'Add your clothes and your AI stylist will start creating outfits',
     'home.view_outfit': 'View outfit',
     'common.see_all': 'See all',
+    'home.more_for_you': 'More for you',
     'auth.tagline': 'Your personal stylist.',
     'auth.or': 'or',
     'auth.login': 'Log in',

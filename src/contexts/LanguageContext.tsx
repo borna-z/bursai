@@ -94,7 +94,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     if (import.meta.env.DEV) {
       console.warn(`[i18n] Missing translation key: "${key}"`);
     }
-    return key;
+    // Safety net: humanize the key instead of showing raw dotted/underscored strings
+    const segment = key.includes('.') ? key.slice(key.lastIndexOf('.') + 1) : key;
+    const humanized = segment.replace(/[_-]/g, ' ');
+    return humanized.charAt(0).toUpperCase() + humanized.slice(1);
   }, [dict, enDict]);
 
   return (
