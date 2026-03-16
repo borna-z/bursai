@@ -214,6 +214,7 @@ export default function OutfitDetailPage() {
 
   const justGenerated = (location.state as { justGenerated?: boolean })?.justGenerated;
   const shareUrl = outfit ? `${window.location.origin}/share/${outfit.id}` : '';
+  const outfitItems = Array.isArray(outfit?.outfit_items) ? outfit.outfit_items : [];
 
   const feedbackOptions = [
     { id: 'loved_it', label: t('outfit.loved_it'), icon: Heart },
@@ -232,23 +233,20 @@ export default function OutfitDetailPage() {
   }, [outfit?.rating, outfit?.feedback]);
 
   const buildSwapRequestContext = (outfitItemId: string) => {
-    const otherItems =
-      outfit?.outfit_items
-        .filter((item) => item.id !== outfitItemId)
-        .map((item) => ({
-          slot: item.slot,
-          garment_id: item.garment_id,
-        })) || [];
+    const otherItems = outfitItems
+      .filter((item) => item.id !== outfitItemId)
+      .map((item) => ({
+        slot: item.slot,
+        garment_id: item.garment_id,
+      }));
 
-    const otherColors =
-      outfit?.outfit_items
-        .filter((item) => item.id !== outfitItemId && item.garment?.color_primary)
-        .map((item) => item.garment!.color_primary.toLowerCase()) || [];
+    const otherColors = outfitItems
+      .filter((item) => item.id !== outfitItemId && item.garment?.color_primary)
+      .map((item) => item.garment.color_primary.toLowerCase());
 
     const outfitWeather = outfit?.weather as Record<string, unknown> | undefined;
     const normalizedWeather = normalizeWeather(outfitWeather);
 
-    // Merge with current live weather as fallback
     const mergedWeather = {
       temperature: normalizedWeather.temperature ?? currentWeather?.temperature,
       precipitation: normalizedWeather.precipitation !== 'none'
@@ -315,8 +313,11 @@ export default function OutfitDetailPage() {
     try {
       await swapGarment({ outfitItemId: swapSheet.outfitItemId, newGarmentId });
       toast.success(t('outfit.swapped'));
-      setSwapSheet({ isOpen: false, slot: '', outfitItemId: '', currentGarmentId: '' }); refetch();
-    } catch { toast.error(t('outfit.swap_error')); }
+      setSwapSheet({ isOpen: false, slot: '', outfitItemId: '', currentGarmentId: '' });
+      refetch();
+    } catch {
+      toast.error(t('outfit.swap_error'));
+    }
   };
 
   const handleToggleSave = async () => {
@@ -325,41 +326,74 @@ export default function OutfitDetailPage() {
     try {
       await updateOutfit.mutateAsync({ id: outfit.id, updates: { saved: !outfit.saved } });
       toast.success(outfit.saved ? t('outfit.removed') : t('outfit.saved'));
-    } catch { toast.error(t('common.something_wrong')); }
+    } catch {
+      toast.error(t('common.something_wrong'));
+    }
   };
 
   const handleRating = async (value: number) => {
     if (!outfit) return;
     hapticLight();
     setRating(value);
-    try { await updateOutfit.mutateAsync({ id: outfit.id, updates: { rating: value } }); toast.success(t('outfit.rating_saved')); } catch { toast.error(t('common.something_wrong')); }
+    try {
+      await updateOutfit.mutateAsync({ id: outfit.id, updates: { rating: value } });
+      toast.success(t('outfit.rating_saved'));
+    } catch {
+      toast.error(t('common.something_wrong'));
+    }
   };
 
   const handleFeedbackToggle = async (feedbackId: string) => {
     if (!outfit) return;
-    const newFeedback = selectedFeedback.includes(feedbackId) ? selectedFeedback.filter(f => f !== feedbackId) : [...selectedFeedback, feedbackId];
+    const newFeedback = selectedFeedback.includes(feedbackId)
+      ? selectedFeedback.filter((f) => f !== feedbackId)
+      : [...selectedFeedback, feedbackId];
     setSelectedFeedback(newFeedback);
-    try { await updateOutfit.mutateAsync({ id: outfit.id, updates: { feedback: newFeedback } as TablesUpdate<'outfits'> }); } catch { setSelectedFeedback(selectedFeedback); }
+    try {
+      await updateOutfit.mutateAsync({ id: outfit.id, updates: { feedback: newFeedback } as TablesUpdate<'outfits'> });
+    } catch {
+      setSelectedFeedback(selectedFeedback);
+    }
   };
 
   const handleMarkWorn = async () => {
     if (!outfit) return;
     hapticSuccess();
     try {
-      const garmentIds = outfit.outfit_items.map((item) => item.garment_id);
+      const garmentIds = outfitItems.map((item) => item.garment_id);
       const result = await markWorn.mutateAsync({ outfitId: outfit.id, garmentIds, occasion: outfit.occasion });
       toast.success(t('outfit.marked_worn'), {
-        action: { label: t('outfit.undo'), onClick: async () => { try { await undoMarkWorn.mutateAsync(result); toast.success(t('outfit.undone')); } catch { toast.error(t('outfit.undo_error')); } } },
+        action: {
+          label: t('outfit.undo'),
+          onClick: async () => {
+            try {
+              await undoMarkWorn.mutateAsync(result);
+              toast.success(t('outfit.undone'));
+            } catch {
+              toast.error(t('outfit.undo_error'));
+            }
+          },
+        },
         duration: 10000,
       });
-    } catch { toast.error(t('common.something_wrong')); }
+    } catch {
+      toast.error(t('common.something_wrong'));
+    }
   };
 
-  const handleCreateSimilar = () => { navigate('/', { state: { prefillOccasion: outfit?.occasion, prefillStyle: outfit?.style_vibe } }); };
+  const handleCreateSimilar = () => {
+    navigate('/', { state: { prefillOccasion: outfit?.occasion, prefillStyle: outfit?.style_vibe } });
+  };
 
   const handleToggleShareEnabled = async () => {
     if (!outfit) return;
-    try { await updateOutfit.mutateAsync({ id: outfit.id, updates: { share_enabled: !outfit.share_enabled } }); toast.success(outfit.share_enabled ? t('outfit.share_off') : t('outfit.share_on')); refetch(); } catch { toast.error(t('common.something_wrong')); }
+    try {
+      await updateOutfit.mutateAsync({ id: outfit.id, updates: { share_enabled: !outfit.share_enabled } });
+      toast.success(outfit.share_enabled ? t('outfit.share_off') : t('outfit.share_on'));
+      refetch();
+    } catch {
+      toast.error(t('common.something_wrong'));
+    }
   };
 
   const handleCopyShareLink = async () => {
@@ -381,21 +415,28 @@ export default function OutfitDetailPage() {
     try {
       const { toPng } = await import('html-to-image');
       const dataUrl = await toPng(outfitRef.current, { quality: 1.0, backgroundColor: '#ffffff', pixelRatio: 2 });
-      const link = document.createElement('a'); link.download = `outfit-${outfit.occasion}.png`; link.href = dataUrl; link.click();
+      const link = document.createElement('a');
+      link.download = `outfit-${outfit.occasion}.png`;
+      link.href = dataUrl;
+      link.click();
       toast.success(t('outfit.downloaded'));
-    } catch { toast.error(t('outfit.download_error')); } finally { setIsDownloading(false); }
+    } catch {
+      toast.error(t('outfit.download_error'));
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
-  /* ── Loading skeleton ── */
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        {/* Floating header skeleton */}
         <div className="sticky top-0 z-10 p-4 flex items-center justify-between">
           <Skeleton className="w-10 h-10 rounded-full" />
-          <div className="flex gap-2"><Skeleton className="w-10 h-10 rounded-full" /><Skeleton className="w-10 h-10 rounded-full" /></div>
+          <div className="flex gap-2">
+            <Skeleton className="w-10 h-10 rounded-full" />
+            <Skeleton className="w-10 h-10 rounded-full" />
+          </div>
         </div>
-        {/* Hero grid skeleton */}
         <div className="grid grid-cols-2 gap-1 px-1">
           <Skeleton className="aspect-[3/4] rounded-xl" />
           <Skeleton className="aspect-[3/4] rounded-xl" />
@@ -431,17 +472,15 @@ export default function OutfitDetailPage() {
     );
   }
 
-  const weather = outfit.weather as Record<string, unknown> | null;
-  const normalizedOutfitWeather = normalizeWeather(weather);
+  const normalizedOutfitWeather = normalizeWeather(outfit.weather as Record<string, unknown> | null);
   const displayOccasion = getOccasionLabel(outfit.occasion, t);
-
-  // Build metadata pieces
-  const metaParts = [displayOccasion, outfit.style_vibe].filter(Boolean);
-  if (normalizedOutfitWeather.temperature !== undefined) metaParts.push(`${normalizedOutfitWeather.temperature}°C`);
+  const metaParts = [displayOccasion, outfit.style_vibe].filter(Boolean) as string[];
+  if (normalizedOutfitWeather.temperature !== undefined) {
+    metaParts.push(`${normalizedOutfitWeather.temperature}°C`);
+  }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* ── Floating header ── */}
       <div className="fixed top-0 left-0 right-0 z-20 p-4 flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
@@ -465,37 +504,26 @@ export default function OutfitDetailPage() {
         </div>
       </div>
 
-      {/* ── Hero: outfit image grid ── */}
       <div ref={outfitRef} className="relative sm:rounded-b-3xl overflow-hidden bg-muted/20">
-        <div className={cn(
-          "grid gap-0.5",
-          outfit.outfit_items.length <= 2 ? "grid-cols-2" :
-          outfit.outfit_items.length === 3 ? "grid-cols-2" :
-          "grid-cols-2"
-        )}>
-          {outfit.outfit_items.map((item, index) => (
+        <div className="grid grid-cols-2 gap-0.5">
+          {outfitItems.map((item, index) => (
             <div
               key={item.id}
               className={cn(
-                "relative overflow-hidden bg-muted/30",
-                // If 3 items, make the last one span full width
-                outfit.outfit_items.length === 3 && index === 2 && "col-span-2",
-                // If 1 item, span full
-                outfit.outfit_items.length === 1 && "col-span-2",
+                'relative overflow-hidden bg-muted/30',
+                outfitItems.length === 3 && index === 2 && 'col-span-2',
+                outfitItems.length === 1 && 'col-span-2'
               )}
             >
               <LazyImageSimple
                 imagePath={item.garment?.image_path}
                 alt={item.garment?.title || item.slot}
                 className={cn(
-                  "w-full object-cover",
-                  outfit.outfit_items.length <= 2 ? "aspect-[3/4]" :
-                  outfit.outfit_items.length === 3 && index === 2 ? "aspect-[2/1]" :
-                  "aspect-square"
+                  'w-full object-cover',
+                  outfitItems.length <= 2 ? 'aspect-[3/4]' : outfitItems.length === 3 && index === 2 ? 'aspect-[2/1]' : 'aspect-square'
                 )}
                 fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/20" />}
               />
-              {/* Subtle slot label overlay */}
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/40 to-transparent p-2">
                 <p className="text-[10px] text-white/80 uppercase tracking-wider font-medium">
                   {t(`outfit.slot.${item.slot}`) || item.slot}
@@ -505,7 +533,6 @@ export default function OutfitDetailPage() {
           ))}
         </div>
 
-        {/* Just generated badge */}
         {justGenerated && (
           <div className="absolute bottom-4 left-4 flex items-center gap-1.5 bg-background/60 backdrop-blur-xl rounded-full px-3 py-1.5">
             <Sparkles className="w-3.5 h-3.5 text-primary" />
@@ -514,17 +541,12 @@ export default function OutfitDetailPage() {
         )}
       </div>
 
-      {/* ── Content ── */}
       <div className="px-5 sm:px-6 pt-8 pb-40 space-y-10">
-        {/* Title + meta */}
         <div>
           <h1 className="text-2xl font-bold tracking-tight capitalize">{displayOccasion}</h1>
-          <p className="text-[13px] text-muted-foreground/60 mt-1.5">
-            {metaParts.join(' · ')}
-          </p>
+          <p className="text-[13px] text-muted-foreground/60 mt-1.5">{metaParts.join(' · ')}</p>
         </div>
 
-        {/* AI explanation */}
         {outfit.explanation && (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -533,22 +555,24 @@ export default function OutfitDetailPage() {
             </div>
             <p className={`text-sm text-muted-foreground leading-relaxed ${!explExpanded ? 'line-clamp-2' : ''}`}>{outfit.explanation}</p>
             {outfit.explanation.length > 120 && (
-              <button onClick={() => setExplExpanded(v => !v)} className="text-xs text-primary/70 hover:text-primary transition-colors">
+              <button onClick={() => setExplExpanded((v) => !v)} className="text-xs text-primary/70 hover:text-primary transition-colors">
                 {explExpanded ? t('common.less') : t('common.read_more')}
               </button>
             )}
           </div>
         )}
 
-        {/* ── Style Score Breakdown ── */}
         {outfit.style_score && (() => {
-          const score = outfit.style_score as Record<string, number | undefined>;
+          const rawScore = outfit.style_score as Record<string, unknown>;
           const metrics = [
             { key: 'color_harmony', label: t('outfit.score.color') || 'Color Harmony', color: 'bg-primary' },
             { key: 'material_compatibility', label: t('outfit.score.material') || 'Material Match', color: 'bg-accent' },
             { key: 'formality', label: t('outfit.score.formality') || 'Formality Fit', color: 'bg-secondary-foreground/60' },
             { key: 'overall', label: t('outfit.score.overall') || 'Overall', color: 'bg-primary' },
-          ].filter(m => typeof score[m.key] === 'number');
+          ].map((metric) => ({
+            ...metric,
+            value: Number(rawScore[metric.key]),
+          })).filter((metric) => Number.isFinite(metric.value));
 
           if (metrics.length === 0) return null;
 
@@ -561,20 +585,16 @@ export default function OutfitDetailPage() {
                 </p>
               </div>
               <div className="space-y-4">
-                {metrics.map(({ key, label, color }) => {
-                  const val = (score[key] as number) ?? 0;
-                  const pct = Math.round(val * 10); // assuming 0-10 scale
+                {metrics.map(({ key, label, color, value }) => {
+                  const pct = Math.max(0, Math.min(100, Math.round(value * 10)));
                   return (
                     <div key={key} className="space-y-1">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">{label}</span>
-                        <span className="text-sm font-semibold">{val.toFixed(1)}</span>
+                        <span className="text-sm font-semibold">{value.toFixed(1)}</span>
                       </div>
                       <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className={cn("h-full rounded-full transition-all duration-700", color)}
-                          style={{ width: `${pct}%` }}
-                        />
+                        <div className={cn('h-full rounded-full transition-all duration-700', color)} style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   );
@@ -584,9 +604,8 @@ export default function OutfitDetailPage() {
           );
         })()}
 
-        {/* ── Garment list ── */}
         <div>
-          {outfit.outfit_items.map((item) => (
+          {outfitItems.map((item) => (
             <SlotRow
               key={item.id}
               slot={item.slot}
