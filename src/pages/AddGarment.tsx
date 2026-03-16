@@ -170,7 +170,7 @@ export default function AddGarmentPage() {
   const { data: garmentCount } = useGarmentCount();
   const { analyzeGarment, isAnalyzing, analysisProgress } = useAnalyzeGarment();
   const { user } = useAuth();
-  const { canAddGarment, remainingGarments, refresh: refreshSubscription } = useSubscription();
+  const { canAddGarment, remainingGarments, isPremium, refresh: refreshSubscription } = useSubscription();
   const { checkDuplicates, duplicates, clearDuplicates } = useDuplicateDetection();
 
   // Process a captured file from the Median camera bridge
