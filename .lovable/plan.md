@@ -40,7 +40,7 @@
 
 | Task | Title | Status |
 |------|-------|--------|
-| 18 | Weekly stylist planner | 🔲 |
+| 18 | Weekly stylist planner | ✅ Done |
 | 19 | Daily "What should I wear?" flow | 🔲 |
 | 20 | High-end wardrobe insights | 🔲 |
 | 21 | Wardrobe health dashboard | 🔲 |
