@@ -9,6 +9,7 @@ export interface SwapCandidate {
   garment: Garment;
   score: number;
   breakdown?: Record<string, number>;
+  swap_reason?: string | null;
 }
 
 export type SwapMode = 'safe' | 'bold' | 'fresh';
