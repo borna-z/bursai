@@ -371,7 +371,7 @@ export default function AddGarmentPage() {
     }
 
     // Compress image before upload (resize + WebP conversion)
-    let file: File;
+    let file: File | Blob;
     let previewUrl: string;
     try {
       const compressed = await compressImage(rawFile);
@@ -383,21 +383,27 @@ export default function AddGarmentPage() {
       previewUrl = URL.createObjectURL(rawFile);
     }
 
-    setImageFile(file);
+    // Remove background
+    setStep('analyzing');
+    setIsRemovingBg(true);
+    const processedBlob = await removeBackground(file as Blob);
+    setIsRemovingBg(false);
+    URL.revokeObjectURL(previewUrl);
+    previewUrl = URL.createObjectURL(processedBlob);
+    file = processedBlob;
+
+    setImageFile(file as File);
     setImagePreview(previewUrl);
 
     // Generate garment ID
     const newGarmentId = crypto.randomUUID();
     setGarmentId(newGarmentId);
-
-    // Upload to storage first
-    setStep('analyzing');
     
     try {
-      const fileExt = file.name.split('.').pop() || 'jpg';
+      const fileExt = processedBlob.type === 'image/png' ? 'png' : (rawFile.name.split('.').pop() || 'jpg');
       const path = `${user.id}/${newGarmentId}.${fileExt}`;
       
-      await uploadGarmentImage(file, newGarmentId);
+      await uploadGarmentImage(file as File, newGarmentId);
       setStoragePath(path);
 
       // Fetch signed URL for display
