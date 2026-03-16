@@ -176,6 +176,25 @@ async function getWardrobeContext(supabase: ReturnType<typeof createClient>, use
 }
 
 async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
+  const { data: outfits } = await supabase
+    .from("outfits")
+    .select("id, occasion, style_vibe, explanation, worn_at, generated_at, outfit_items(slot, garment_id, garments(title, color_primary))")
+    .eq("user_id", userId)
+    .order("generated_at", { ascending: false })
+    .limit(5);
+  if (!outfits?.length) return "";
+
+  const lines = outfits.map((o: any) => {
+    const items = (o.outfit_items || []).map((i: any) =>
+      `${i.slot}: ${i.garments?.title || 'unknown'} (${i.garments?.color_primary || ''})`
+    ).join(" + ");
+    const wornStr = o.worn_at ? ` [worn ${o.worn_at.slice(0, 10)}]` : " [not worn]";
+    return `- ${o.occasion}${o.style_vibe ? '/' + o.style_vibe : ''}: ${items}${wornStr}`;
+  });
+
+  return `\nRecent outfits:\n${lines.join("\n")}`;
+}
+
 // ── IB-4c: Recent rejection/swap context ──
 async function getRejectionsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
   const { data: signals } = await supabase
@@ -199,25 +218,6 @@ async function getRejectionsContext(supabase: ReturnType<typeof createClient>, u
   });
 
   return `\nRECENT REJECTIONS/SWAPS (avoid repeating these patterns):\n${lines.join("\n")}`;
-}
-
-
-    .from("outfits")
-    .select("id, occasion, style_vibe, explanation, worn_at, generated_at, outfit_items(slot, garment_id, garments(title, color_primary))")
-    .eq("user_id", userId)
-    .order("generated_at", { ascending: false })
-    .limit(5);
-  if (!outfits?.length) return "";
-
-  const lines = outfits.map((o: any) => {
-    const items = (o.outfit_items || []).map((i: any) =>
-      `${i.slot}: ${i.garments?.title || 'unknown'} (${i.garments?.color_primary || ''})`
-    ).join(" + ");
-    const wornStr = o.worn_at ? ` [worn ${o.worn_at.slice(0, 10)}]` : " [not worn]";
-    return `- ${o.occasion}${o.style_vibe ? '/' + o.style_vibe : ''}: ${items}${wornStr}`;
-  });
-
-  return `\nRecent outfits:\n${lines.join("\n")}`;
 }
 
 serve(async (req) => {
