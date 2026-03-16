@@ -3319,7 +3319,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const [garmentsRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes, laundryCountRes, pairMemoryRes] = await Promise.all([
+    const [garmentsRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes, laundryCountRes, pairMemoryRes, feedbackSignalsRes] = await Promise.all([
       supabase
         .from("garments")
         .select("id, title, category, subcategory, color_primary, color_secondary, pattern, material, fit, formality, season_tags, wear_count, last_worn_at, image_path")
@@ -3360,6 +3360,13 @@ serve(async (req) => {
         .select("garment_a_id, garment_b_id, positive_count, negative_count, last_positive_at, last_negative_at")
         .eq("user_id", userId)
         .limit(500),
+      // Fetch implicit feedback signals (Task 15)
+      supabase
+        .from("feedback_signals")
+        .select("signal_type, outfit_id, garment_id, value, metadata, created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(200),
     ]);
 
     if (garmentsRes.error) throw garmentsRes.error;
@@ -3403,6 +3410,44 @@ serve(async (req) => {
           weather: outfit.weather as WeatherInput | null,
           generatedAt: (outfit as any).generated_at || null,
         });
+      }
+    }
+    // Integrate implicit feedback signals (Task 15) into penalties
+    const implicitSignals = (feedbackSignalsRes.data || []) as {
+      signal_type: string; outfit_id: string | null; garment_id: string | null;
+      value: string | null; metadata: Record<string, any> | null; created_at: string;
+    }[];
+    for (const sig of implicitSignals) {
+      if (sig.signal_type === 'quick_reaction' && sig.outfit_id && sig.value) {
+        // Quick reactions map to feedback tags — find garments for that outfit
+        const outfitGarments = new Set<string>();
+        for (const item of recentOutfitsRes.data || []) {
+          if (item.outfit_id === sig.outfit_id) outfitGarments.add(item.garment_id);
+        }
+        if (outfitGarments.size > 0) {
+          feedbackSignals.push({
+            garmentIds: outfitGarments,
+            rating: null,
+            feedback: [sig.value],
+            weather: null,
+            generatedAt: sig.created_at,
+          });
+        }
+      } else if (sig.signal_type === 'save' && sig.outfit_id) {
+        // Save = positive signal
+        const outfitGarments = new Set<string>();
+        for (const item of recentOutfitsRes.data || []) {
+          if (item.outfit_id === sig.outfit_id) outfitGarments.add(item.garment_id);
+        }
+        if (outfitGarments.size > 0) {
+          feedbackSignals.push({
+            garmentIds: outfitGarments,
+            rating: 4, // equivalent to "liked"
+            feedback: null,
+            weather: null,
+            generatedAt: sig.created_at,
+          });
+        }
       }
     }
     const penalties = buildFeedbackPenalties(feedbackSignals);

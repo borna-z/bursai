@@ -26,6 +26,7 @@ import { useWeather } from '@/hooks/useWeather';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOutfitFeedback, useSubmitPhotoFeedback } from '@/hooks/usePhotoFeedback';
+import { useFeedbackSignals } from '@/hooks/useFeedbackSignals';
 
 /* ── Swap Sheet ─────────────────────────────────────── */
 
@@ -201,6 +202,7 @@ export default function OutfitDetailPage() {
   const { candidates, isLoadingCandidates, fetchCandidates, swapGarment, isSwapping, clearCandidates } = useSwapGarment();
   const { data: photoFeedback, isLoading: isLoadingFeedback } = useOutfitFeedback(id);
   const submitFeedback = useSubmitPhotoFeedback();
+  const { record: recordSignal } = useFeedbackSignals();
   const selfieInputRef = useRef<HTMLInputElement>(null);
 
   const [rating, setRating] = useState<number | null>(null);
@@ -328,6 +330,13 @@ export default function OutfitDetailPage() {
   const handleSwap = async (newGarmentId: string) => {
     try {
       await swapGarment({ outfitItemId: swapSheet.outfitItemId, newGarmentId });
+      recordSignal({
+        signal_type: 'swap_choice',
+        outfit_id: outfit?.id,
+        garment_id: newGarmentId,
+        value: swapSheet.slot,
+        metadata: { replaced: swapSheet.currentGarmentId, mode: swapMode },
+      });
       toast.success(t('outfit.swapped'));
       setSwapSheet({ isOpen: false, slot: '', outfitItemId: '', currentGarmentId: '' });
       refetch();
@@ -341,6 +350,7 @@ export default function OutfitDetailPage() {
     hapticMedium();
     try {
       await updateOutfit.mutateAsync({ id: outfit.id, updates: { saved: !outfit.saved } });
+      recordSignal({ signal_type: outfit.saved ? 'unsave' : 'save', outfit_id: outfit.id });
       toast.success(outfit.saved ? t('outfit.removed') : t('outfit.saved'));
     } catch {
       toast.error(t('common.something_wrong'));
@@ -353,6 +363,7 @@ export default function OutfitDetailPage() {
     setRating(value);
     try {
       await updateOutfit.mutateAsync({ id: outfit.id, updates: { rating: value } });
+      recordSignal({ signal_type: 'rating', outfit_id: outfit.id, value: String(value) });
       toast.success(t('outfit.rating_saved'));
     } catch {
       toast.error(t('common.something_wrong'));
@@ -361,12 +372,16 @@ export default function OutfitDetailPage() {
 
   const handleFeedbackToggle = async (feedbackId: string) => {
     if (!outfit) return;
-    const newFeedback = selectedFeedback.includes(feedbackId)
-      ? selectedFeedback.filter((f) => f !== feedbackId)
-      : [...selectedFeedback, feedbackId];
+    const isAdding = !selectedFeedback.includes(feedbackId);
+    const newFeedback = isAdding
+      ? [...selectedFeedback, feedbackId]
+      : selectedFeedback.filter((f) => f !== feedbackId);
     setSelectedFeedback(newFeedback);
     try {
       await updateOutfit.mutateAsync({ id: outfit.id, updates: { feedback: newFeedback } as TablesUpdate<'outfits'> });
+      if (isAdding) {
+        recordSignal({ signal_type: 'quick_reaction', outfit_id: outfit.id, value: feedbackId });
+      }
     } catch {
       setSelectedFeedback(selectedFeedback);
     }
@@ -378,6 +393,7 @@ export default function OutfitDetailPage() {
     try {
       const garmentIds = outfitItems.map((item) => item.garment_id);
       const result = await markWorn.mutateAsync({ outfitId: outfit.id, garmentIds, occasion: outfit.occasion });
+      recordSignal({ signal_type: 'wear_confirm', outfit_id: outfit.id, metadata: { garment_count: garmentIds.length } });
       toast.success(t('outfit.marked_worn'), {
         action: {
           label: t('outfit.undo'),
