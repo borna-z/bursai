@@ -1020,21 +1020,12 @@ function occasionTemplateScore(
     : 5;
 
   const shoeText = garmentText(items.find((item) => item.slot === 'shoes')?.garment || {
-    id: '',
-    title: '',
-    category: '',
-    subcategory: '',
-    color_primary: '',
-    color_secondary: null,
-    pattern: null,
-    material: null,
-    fit: null,
-    formality: null,
-    season_tags: null,
-    wear_count: null,
-    last_worn_at: null,
-    image_path: '',
-  });
+    id: '', title: '', category: '', subcategory: '', color_primary: '', color_secondary: null,
+    pattern: null, material: null, fit: null, formality: null, season_tags: null,
+    wear_count: null, last_worn_at: null, image_path: '',
+    silhouette: 'straight', visual_weight: 5, texture_intensity: 3, layering_role: 'standalone',
+    versatility_score: 5, occasion_tags: [], style_archetype: '',
+  } as GarmentRow);
 
   let score = 7;
 
