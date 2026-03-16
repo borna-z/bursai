@@ -158,7 +158,7 @@ export default function HomePage() {
                 initial="initial"
                 animate="animate"
                 transition={reveal.transition}
-                className="rounded-2xl surface-secondary p-8 text-center space-y-5"
+                className="rounded-[var(--radius,1rem)] surface-secondary p-8 text-center space-y-5"
               >
                 <Shirt className="w-8 h-8 text-muted-foreground/40 mx-auto" />
                 <div className="space-y-2">
