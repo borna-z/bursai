@@ -59,6 +59,7 @@ export default function OutfitGeneratePage() {
   const [phase, setPhase] = useState<Phase>('picking');
   const [selectedOccasion, setSelectedOccasion] = useState<string>('casual');
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
+  const [generationMode, setGenerationMode] = useState<GenerationMode>(isPremium ? 'stylist' : 'standard');
   const [lastError, setLastError] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
 
