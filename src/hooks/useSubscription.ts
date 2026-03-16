@@ -78,15 +78,17 @@ export function useSubscription() {
   const plan = subscription?.plan || 'free';
   const limits = PLAN_LIMITS[plan];
 
-  // Check if user can add more garments
+  // Check if user can add more garments (false while loading to prevent bypass)
   const canAddGarment = () => {
+    if (query.isLoading) return false;
     if (plan === 'premium') return true;
     const currentCount = subscription?.garments_count || 0;
     return currentCount < limits.maxGarments;
   };
 
-  // Check if user can create more outfits this month
+  // Check if user can create more outfits this month (false while loading to prevent bypass)
   const canCreateOutfit = () => {
+    if (query.isLoading) return false;
     if (plan === 'premium') return true;
     const usedThisMonth = subscription?.outfits_used_month || 0;
     return usedThisMonth < limits.maxOutfitsPerMonth;

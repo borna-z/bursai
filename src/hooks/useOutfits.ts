@@ -135,10 +135,12 @@ export function useCreateOutfit() {
 }
 
 export function useUpdateOutfit() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: TablesUpdate<'outfits'> }) => {
+      if (!user) throw new Error('Not authenticated');
       const { data, error } = await supabase
         .from('outfits')
         .update(updates)
@@ -172,10 +174,12 @@ export function useUpdateOutfit() {
 }
 
 export function useDeleteOutfit() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: async (id: string) => {
+      if (!user) throw new Error('Not authenticated');
       const { error } = await supabase
         .from('outfits')
         .delete()
