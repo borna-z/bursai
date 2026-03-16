@@ -87,7 +87,7 @@
 |------|-------|--------|
 | IB-2a | Score pack-worthiness per garment (versatility, material, weather, pairing potential) | ✅ Done |
 | IB-2b | Pre-filter to top 40 most packable garments before AI call | ✅ Done |
-| IB-2c | Matrix coverage validation after AI response | 🔲 Todo |
+| IB-2c | Matrix coverage validation after AI response | ✅ Done |
 
 ### IB Phase 3 — Planner Week Intelligence ✅
 
