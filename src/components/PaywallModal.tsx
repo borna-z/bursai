@@ -40,39 +40,29 @@ export function PaywallModal({ isOpen, onClose, reason }: PaywallModalProps) {
             <Crown className="w-8 h-8 text-white" />
           </div>
           <DialogTitle className="text-2xl">{t('paywall.title')}</DialogTitle>
-          <DialogDescription className="text-base">
-            {reason === 'garments' ? t('paywall.garment_limit') : t('paywall.outfit_limit')}
+          <DialogDescription className="text-base leading-relaxed">
+            {reason === 'garments'
+              ? t('paywall.garment_limit')
+              : 'Upgrade to unlock your personal AI stylist — deeper reasoning, unlimited outfits, and editorial-grade recommendations.'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 my-6">
-          <div className="flex items-center gap-3 p-3 bg-secondary/60 backdrop-blur-sm rounded-lg">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Infinity className="w-5 h-5 text-primary" />
+        <div className="space-y-2.5 my-6">
+          {[
+            { icon: Crown, title: 'Stylist Mode', desc: 'Deeper reasoning, editorial explanations, stronger outfit logic' },
+            { icon: Infinity, title: t('premium.unlimited_wardrobe'), desc: 'No limits on garments or outfit generation' },
+            { icon: Sparkles, title: t('premium.smarter_ai'), desc: 'Personalized to your style DNA, wardrobe, and habits' },
+          ].map(({ icon: Icon, title, desc }) => (
+            <div key={title} className="flex items-start gap-3 p-3 bg-secondary/40 rounded-xl">
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Icon className="w-4.5 h-4.5 text-primary" />
+              </div>
+              <div>
+                <p className="text-[13px] font-medium">{title}</p>
+                <p className="text-[11px] text-muted-foreground/70 leading-snug mt-0.5">{desc}</p>
+              </div>
             </div>
-            <div>
-              <p className="font-medium">{t('premium.unlimited_wardrobe')}</p>
-              <p className="text-sm text-muted-foreground">{t('paywall.unlimited_wardrobe_desc')}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-secondary/60 backdrop-blur-sm rounded-lg">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="font-medium">{t('premium.unlimited_outfits')}</p>
-              <p className="text-sm text-muted-foreground">{t('paywall.unlimited_outfits_desc')}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-secondary/60 backdrop-blur-sm rounded-lg">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Crown className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="font-medium">{t('premium.smarter_ai')}</p>
-              <p className="text-sm text-muted-foreground">{t('paywall.smarter_desc')}</p>
-            </div>
-          </div>
+          ))}
         </div>
 
         <div className="space-y-2">
