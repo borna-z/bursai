@@ -219,7 +219,11 @@ export default function OutfitDetailPage() {
   const outfitRef = useRef<HTMLDivElement>(null);
 
   const justGenerated = (location.state as { justGenerated?: boolean })?.justGenerated;
-  const shareUrl = outfit ? `${window.location.origin}/share/${outfit.id}` : '';
+  const genConfidence = (location.state as { confidence_score?: number })?.confidence_score;
+  const genConfidenceLevel = (location.state as { confidence_level?: string })?.confidence_level;
+  const genLimitationNote = (location.state as { limitation_note?: string | null })?.limitation_note;
+  const genFamilyLabel = (location.state as { family_label?: string })?.family_label;
+  const genWardrobeInsights = (location.state as { wardrobe_insights?: string[] })?.wardrobe_insights;
   const outfitItems = Array.isArray(outfit?.outfit_items) ? outfit.outfit_items : [];
 
   const feedbackOptions = [
