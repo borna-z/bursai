@@ -28,6 +28,11 @@ export interface GeneratedOutfit {
     slot: string;
     garment: Garment;
   }[];
+  confidence_score?: number;
+  confidence_level?: string;
+  limitation_note?: string | null;
+  family_label?: string;
+  wardrobe_insights?: string[];
 }
 
 const INSUFFICIENT_GARMENTS_MESSAGE =
