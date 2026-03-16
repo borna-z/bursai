@@ -607,7 +607,7 @@ export default function AddGarmentPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              className="flex flex-col items-center gap-2 bg-card rounded-xl p-4 w-full shadow-sm"
+              className="flex flex-col items-center gap-2 bg-card p-4 w-full shadow-sm"
             >
               <CheckCircle className="w-6 h-6 text-accent" />
               <p className="font-medium text-center">{analysisSummary}</p>
