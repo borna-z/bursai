@@ -3412,6 +3412,44 @@ serve(async (req) => {
         });
       }
     }
+    // Integrate implicit feedback signals (Task 15) into penalties
+    const implicitSignals = (feedbackSignalsRes.data || []) as {
+      signal_type: string; outfit_id: string | null; garment_id: string | null;
+      value: string | null; metadata: Record<string, any> | null; created_at: string;
+    }[];
+    for (const sig of implicitSignals) {
+      if (sig.signal_type === 'quick_reaction' && sig.outfit_id && sig.value) {
+        // Quick reactions map to feedback tags — find garments for that outfit
+        const outfitGarments = new Set<string>();
+        for (const item of recentOutfitsRes.data || []) {
+          if (item.outfit_id === sig.outfit_id) outfitGarments.add(item.garment_id);
+        }
+        if (outfitGarments.size > 0) {
+          feedbackSignals.push({
+            garmentIds: outfitGarments,
+            rating: null,
+            feedback: [sig.value],
+            weather: null,
+            generatedAt: sig.created_at,
+          });
+        }
+      } else if (sig.signal_type === 'save' && sig.outfit_id) {
+        // Save = positive signal
+        const outfitGarments = new Set<string>();
+        for (const item of recentOutfitsRes.data || []) {
+          if (item.outfit_id === sig.outfit_id) outfitGarments.add(item.garment_id);
+        }
+        if (outfitGarments.size > 0) {
+          feedbackSignals.push({
+            garmentIds: outfitGarments,
+            rating: 4, // equivalent to "liked"
+            feedback: null,
+            weather: null,
+            generatedAt: sig.created_at,
+          });
+        }
+      }
+    }
     const penalties = buildFeedbackPenalties(feedbackSignals);
 
     // Build pair memory from DB
