@@ -57,6 +57,7 @@ export function useSwapGarment() {
         garment: c.garment,
         score: c.score,
         breakdown: c.breakdown,
+        swap_reason: c.swap_reason || null,
       }));
 
       setCandidates(scored);

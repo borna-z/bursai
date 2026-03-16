@@ -3457,6 +3457,7 @@ serve(async (req) => {
           garment: c.garment,
           score: c.score,
           breakdown: c.breakdown,
+          swap_reason: (c as any).swap_reason || null,
         })),
         confidence_score: swapConf.confidence_score,
         confidence_level: swapConf.confidence_level,
