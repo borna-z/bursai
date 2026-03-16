@@ -542,7 +542,13 @@ export default function OutfitDetailPage() {
       </div>
 
       {/* ── Editorial image mosaic ── */}
-      <div ref={outfitRef} className="relative overflow-hidden bg-muted/10">
+      <motion.div
+        ref={outfitRef}
+        className="relative overflow-hidden bg-muted/10"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5, ease: EASE_CURVE }}
+      >
         <div className={cn(
           'grid gap-[1px]',
           outfitItems.length <= 2 ? 'grid-cols-2' :
@@ -550,8 +556,11 @@ export default function OutfitDetailPage() {
           'grid-cols-2'
         )}>
           {outfitItems.map((item, index) => (
-            <div
+            <motion.div
               key={item.id}
+              initial={{ opacity: 0, scale: 1.02 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: index * 0.08, duration: 0.5, ease: EASE_CURVE }}
               className={cn(
                 'relative overflow-hidden bg-muted/20',
                 outfitItems.length === 1 && 'col-span-2',
@@ -577,17 +586,22 @@ export default function OutfitDetailPage() {
                   {t(`outfit.slot.${item.slot}`) || item.slot}
                 </p>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
 
         {justGenerated && (
-          <div className="absolute bottom-4 left-4 flex items-center gap-1.5 bg-background/70 backdrop-blur-2xl rounded-full px-3 py-1.5 ring-1 ring-border/10">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.3, ease: EASE_CURVE }}
+            className="absolute bottom-4 left-4 flex items-center gap-1.5 bg-background/70 backdrop-blur-2xl rounded-full px-3 py-1.5 ring-1 ring-border/10"
+          >
             <Sparkles className="w-3 h-3 text-primary" />
             <span className="text-[11px] font-medium tracking-wide">{t('outfit.just_created')}</span>
-          </div>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
 
       {/* ── Editorial content ── */}
       <div className="px-5 sm:px-6 pt-8 pb-40 space-y-8">
