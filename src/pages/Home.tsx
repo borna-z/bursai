@@ -29,6 +29,7 @@ import { getOccasionLabel } from '@/lib/occasionLabel';
 import { FadeReplace } from '@/components/ui/fade-replace';
 import { HomePageSkeleton } from '@/components/ui/skeletons';
 import { cn } from '@/lib/utils';
+import { getStylistTip } from '@/lib/stylistCopy';
 
 type HomeState = 'loading' | 'empty_wardrobe' | 'outfit_planned' | 'weather_alert' | 'no_outfit';
 
