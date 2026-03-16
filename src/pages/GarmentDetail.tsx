@@ -27,6 +27,7 @@ import { SectionHeader } from '@/components/ui/section-header';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
 import { cn } from '@/lib/utils';
+import { humanize, categoryLabel, colorLabel, materialLabel, patternLabel, fitLabel, seasonLabel, occasionLabel, confidenceLabel } from '@/lib/humanize';
 import { EASE_CURVE } from '@/lib/motion';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { supabase } from '@/integrations/supabase/client';

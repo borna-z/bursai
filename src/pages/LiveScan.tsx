@@ -12,6 +12,7 @@ import { PaywallModal } from '@/components/PaywallModal';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { isMedianApp } from '@/lib/median';
 import { EASE_CURVE } from '@/lib/motion';
+import { categoryLabel, colorLabel, materialLabel } from '@/lib/humanize';
 
 /* ─── Accepted overlay — fast checkmark fade ─── */
 function AcceptedOverlay({ onDone, label }: { onDone: () => void; label: string }) {

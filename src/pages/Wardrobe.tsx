@@ -28,6 +28,7 @@ import { WardrobeOutfitsTab } from '@/components/wardrobe/WardrobeOutfitsTab';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { AnimatedTab } from '@/components/ui/animated-tab';
 import { FilterSheet } from '@/components/wardrobe/FilterSheet';
+import { categoryLabel, colorLabel } from '@/lib/humanize';
 import { Chip } from '@/components/ui/chip';
 
 // ── Garment Card ──
