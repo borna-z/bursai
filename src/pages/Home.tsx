@@ -123,6 +123,16 @@ export default function HomePage() {
             </div>
           </motion.div>
 
+          {/* ── Stylist tip ── */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3, duration: 0.6 }}
+            className="text-[12px] text-muted-foreground/40 italic leading-relaxed -mt-2 px-0.5"
+          >
+            {getStylistTip({ weather, garmentCount: garmentCount ?? undefined })}
+          </motion.p>
+
           {/* ── Weather alert banner ── */}
           {homeState === 'weather_alert' && !todayOutfit && (
             <motion.div
