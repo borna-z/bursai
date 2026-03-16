@@ -48,6 +48,7 @@ export default function StylePickerPage() {
     setSelectedKey(key);
     setErrorMessage(null);
     try {
+      console.log('[StylePicker] Generating outfit with style:', key);
       const result = await generateOutfit({
         occasion: 'vardag',
         style: key,
@@ -57,13 +58,18 @@ export default function StylePickerPage() {
           wind: weather?.wind ?? 'low',
         },
       });
-      navigate(`/outfits/${result.id}`, { replace: true, state: { justGenerated: true } });
+      console.log('[StylePicker] Generated outfit:', result?.id);
+      if (result?.id) {
+        navigate(`/outfits/${result.id}`, { replace: true, state: { justGenerated: true } });
+      } else {
+        throw new Error('No outfit ID returned');
+      }
     } catch (err) {
+      console.error('[StylePicker] Generation failed:', err);
       const msg = err instanceof Error ? err.message : t('common.something_wrong');
       setErrorMessage(msg);
-      toast.error(msg);
-    } finally {
       setSelectedKey(null);
+      toast.error(msg);
     }
   };
 

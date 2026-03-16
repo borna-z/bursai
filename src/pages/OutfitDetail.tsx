@@ -413,9 +413,20 @@ export default function OutfitDetailPage() {
 
   if (!outfit) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-        <p className="text-lg font-medium">{t('outfit.not_found')}</p>
-        <Button variant="link" onClick={() => navigate('/outfits')}>{t('common.back')}</Button>
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+        <div className="max-w-xs w-full text-center space-y-4">
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-muted flex items-center justify-center">
+            <Shirt className="w-7 h-7 text-muted-foreground" />
+          </div>
+          <div className="space-y-1.5">
+            <p className="text-lg font-semibold text-foreground">{t('outfit.not_found')}</p>
+            <p className="text-sm text-muted-foreground">{t('common.something_wrong')}</p>
+          </div>
+          <Button variant="outline" onClick={() => navigate('/outfits')} className="w-full">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            {t('common.back')}
+          </Button>
+        </div>
       </div>
     );
   }

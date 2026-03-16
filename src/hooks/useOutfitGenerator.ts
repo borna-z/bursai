@@ -100,6 +100,7 @@ async function generateOutfitViaEngine(
 
   const normalizedWeather = normalizeWeather(request.weather as Record<string, unknown>);
 
+  console.log('[OutfitGen] Calling burs_style_engine…');
   const { data, error: fnError } = await invokeEdgeFunction<{
     items?: { slot: string; garment_id: string }[];
     explanation?: string;
@@ -117,6 +118,8 @@ async function generateOutfitViaEngine(
     },
   });
 
+  console.log('[OutfitGen] Edge response:', { data, fnError: fnError?.message });
+
   if (fnError) {
     if (isInsufficientGarmentsError(fnError.message)) {
       throw new Error(INSUFFICIENT_GARMENTS_MESSAGE);
@@ -131,11 +134,11 @@ async function generateOutfitViaEngine(
     throw new Error(data.error);
   }
 
-  const aiItems: { slot: string; garment_id: string }[] = data.items;
-  const explanation: string = data.explanation;
-  const styleScore = data.style_score || null;
+  const aiItems: { slot: string; garment_id: string }[] = data?.items ?? [];
+  const explanation: string = data?.explanation ?? '';
+  const styleScore = data?.style_score || null;
 
-  if (!aiItems?.length) throw new Error('AI returned no garments');
+  if (!aiItems.length) throw new Error('AI returned no garments');
 
   // Fetch full garment data
   const garmentIds = aiItems.map((i) => i.garment_id);
