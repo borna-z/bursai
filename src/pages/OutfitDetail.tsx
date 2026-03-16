@@ -365,12 +365,16 @@ export default function OutfitDetailPage() {
 
   const handleFeedbackToggle = async (feedbackId: string) => {
     if (!outfit) return;
-    const newFeedback = selectedFeedback.includes(feedbackId)
-      ? selectedFeedback.filter((f) => f !== feedbackId)
-      : [...selectedFeedback, feedbackId];
+    const isAdding = !selectedFeedback.includes(feedbackId);
+    const newFeedback = isAdding
+      ? [...selectedFeedback, feedbackId]
+      : selectedFeedback.filter((f) => f !== feedbackId);
     setSelectedFeedback(newFeedback);
     try {
       await updateOutfit.mutateAsync({ id: outfit.id, updates: { feedback: newFeedback } as TablesUpdate<'outfits'> });
+      if (isAdding) {
+        recordSignal({ signal_type: 'quick_reaction', outfit_id: outfit.id, value: feedbackId });
+      }
     } catch {
       setSelectedFeedback(selectedFeedback);
     }
