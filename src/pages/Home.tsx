@@ -234,11 +234,6 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* ── 3b. AI Suggestions — always visible with 3+ garments ── */}
-          {(garmentCount || 0) >= 3 && (
-            <AISuggestions isPremium={isPremium} />
-          )}
-
           {/* ── 4. Tertiary: Wardrobe Gap + Mood ── */}
           {(garmentCount || 0) >= 3 && (
             <div className="space-y-4">
