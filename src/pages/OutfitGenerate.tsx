@@ -60,6 +60,10 @@ export default function OutfitGeneratePage() {
   }
 
   const handleGenerate = async () => {
+    if (!canCreateOutfit()) {
+      setShowPaywall(true);
+      return;
+    }
     setPhase('generating');
     setLastError(null);
     try {
