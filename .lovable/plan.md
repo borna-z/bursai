@@ -115,13 +115,13 @@
 | IB-5b | Weight "wore it" 3x over "saved it", add planned-but-not-worn negative signal | ✅ Done |
 | IB-5c | Personal uniform detection (>60% same silhouette formula → boost) | ✅ Done |
 
-### IB Phase 6 — UI Trust & Polish
+### IB Phase 6 — UI Trust & Polish ✅
 
 | Task | Title | Status |
 |------|-------|--------|
-| IB-6a | Audit and fix raw enum/key exposure in UI (occasion labels, categories) | 🔲 Todo |
-| IB-6b | Per-attribute confidence indicators on garment detail | 🔲 Todo |
-| IB-6c | Editorial formatting for limitation_note and gap strings | 🔲 Todo |
+| IB-6a | Audit and fix raw enum/key exposure in UI (occasion labels, categories) | ✅ Done |
+| IB-6b | Per-attribute confidence indicators on garment detail | ✅ Done |
+| IB-6c | Editorial formatting for limitation_note and gap strings | ✅ Done |
 
 ---
 
