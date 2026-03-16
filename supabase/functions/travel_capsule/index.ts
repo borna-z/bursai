@@ -184,6 +184,27 @@ serve(async (req) => {
     const localeName = LOCALE_NAMES[locale] || "English";
     const isSv = locale === "sv";
 
+    // Phase 2: Score pack-worthiness and pre-filter
+    const weatherMin = weather?.temperature_min ?? 10;
+    const weatherMax = weather?.temperature_max ?? 22;
+    const scoredGarments = allGarments.map(g => ({
+      garment: g,
+      packScore: scorePackWorthiness(g, weatherMin, weatherMax, occasions || [], allGarments),
+    })).sort((a, b) => b.packScore - a.packScore);
+
+    // Send top 40 most packable garments to AI (reduces input size, improves quality)
+    const MAX_AI_INPUT = 40;
+    const garments = scoredGarments.length > MAX_AI_INPUT
+      ? [
+          // Always include must-have items
+          ...scoredGarments.filter(s => mustHaveIds.includes(s.garment.id)),
+          // Fill rest with top-scoring
+          ...scoredGarments.filter(s => !mustHaveIds.includes(s.garment.id)),
+        ].slice(0, MAX_AI_INPUT).map(s => s.garment)
+      : scoredGarments.map(s => s.garment);
+
+    console.log(`travel_capsule pack-worthiness: ${allGarments.length} total → ${garments.length} sent to AI (top scores: ${scoredGarments.slice(0, 3).map(s => s.packScore.toFixed(1)).join(', ')})`);
+
     const byCategory: Record<string, GarmentRow[]> = {};
     for (const g of garments) {
       if (!byCategory[g.category]) byCategory[g.category] = [];
