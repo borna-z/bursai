@@ -87,7 +87,7 @@
 |------|-------|--------|
 | IB-2a | Score pack-worthiness per garment (versatility, material, weather, pairing potential) | ✅ Done |
 | IB-2b | Pre-filter to top 40 most packable garments before AI call | ✅ Done |
-| IB-2c | Matrix coverage validation after AI response | 🔲 Todo |
+| IB-2c | Matrix coverage validation after AI response | ✅ Done |
 
 ### IB Phase 3 — Planner Week Intelligence ✅
 
@@ -130,7 +130,7 @@
 | Phase | Scope | Risk | Priority |
 |-------|-------|------|----------|
 | IB-1 | Style engine enrichment | Low — additive scoring | ✅ Complete |
-| IB-2 | Travel capsule optimizer | Medium — changes AI input | ✅ Complete (validation pending) |
+| IB-2 | Travel capsule optimizer | Medium — changes AI input | ✅ Complete |
 | IB-3 | Planner week intelligence | Medium — new mode | ✅ Complete |
 | IB-4 | Chat intelligence | Low — prompt changes | Medium |
 | IB-5 | Learning refinement | Low — additive | Medium |
