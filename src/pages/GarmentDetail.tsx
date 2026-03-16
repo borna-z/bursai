@@ -421,7 +421,7 @@ export default function GarmentDetailPage() {
                     imagePath={g.image_path}
                     alt={g.title}
                     aspectRatio="3/4"
-                    className="rounded-xl"
+                    className=""
                   />
                   <p className="text-[11px] text-muted-foreground truncate">{g.title}</p>
                 </button>
