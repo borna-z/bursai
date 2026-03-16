@@ -26,6 +26,7 @@ import { useWeather } from '@/hooks/useWeather';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOutfitFeedback, useSubmitPhotoFeedback } from '@/hooks/usePhotoFeedback';
+import { useFeedbackSignals } from '@/hooks/useFeedbackSignals';
 
 /* ── Swap Sheet ─────────────────────────────────────── */
 
