@@ -345,6 +345,7 @@ ${styleLines ? `\nSTYLE PROFILE:\n${styleLines}` : ""}
 
 ${wardrobeCtx}
 ${recentOutfitsCtx}
+${rejectionsCtx}
 ${calendarCtx}
 ${weatherCtx}
 
