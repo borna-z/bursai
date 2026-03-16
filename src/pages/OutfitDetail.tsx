@@ -427,7 +427,10 @@ export default function OutfitDetailPage() {
     }
   };
 
+  console.log('[OutfitDetail] render state:', { id, isLoading, hasOutfit: !!outfit, outfitItemsCount: outfitItems.length, userId: outfit?.user_id?.slice(0, 8) });
+
   if (isLoading) {
+    console.log('[OutfitDetail] Showing loading skeleton for', id);
     return (
       <div className="min-h-screen bg-background">
         <div className="sticky top-0 z-10 p-4 flex items-center justify-between">
@@ -453,6 +456,7 @@ export default function OutfitDetailPage() {
   }
 
   if (!outfit) {
+    console.log('[OutfitDetail] No outfit found for id:', id);
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
         <div className="max-w-xs w-full text-center space-y-4">
