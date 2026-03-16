@@ -29,7 +29,7 @@ function AcceptedOverlay({ onDone, label }: { onDone: () => void; label: string 
         transition={{ duration: 0.2 }}
         className="flex flex-col items-center gap-3"
       >
-        <div className="w-20 h-20 rounded-full bg-accent/20 flex items-center justify-center">
+        <div className="w-20 h-20 bg-accent/20 flex items-center justify-center">
           <Check className="w-10 h-10 text-accent" strokeWidth={3} />
         </div>
         <p className="text-foreground text-sm font-medium">{label}</p>
@@ -88,7 +88,7 @@ function ScanOverlay() {
           animate={{ opacity: 1, y: 0 }}
           exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
           transition={{ duration: 0.25, ease: EASE_CURVE }}
-          className="text-foreground text-sm font-medium bg-background/60 px-4 py-2 rounded-full backdrop-blur-sm"
+          className="text-foreground text-sm font-medium bg-background/60 px-4 py-2 backdrop-blur-sm"
         >
           {phases[phase]}
         </motion.span>
@@ -96,7 +96,7 @@ function ScanOverlay() {
 
       {/* Shimmer line */}
       {!prefersReduced && (
-        <div className="w-24 h-px bg-border/20 rounded-full overflow-hidden relative">
+        <div className="w-24 h-px bg-border/20 overflow-hidden relative">
           <motion.div
             className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-accent/40 to-transparent"
             animate={{ x: ['-100%', '200%'] }}
@@ -165,7 +165,7 @@ function ScanGuidance({ hint, autoMode }: { hint: FramingHint; autoMode: boolean
   return (
     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-[120px] pointer-events-none z-10">
       <div className={cn(
-        'px-4 py-2 rounded-full backdrop-blur-sm text-xs font-medium transition-all duration-300',
+        'px-4 py-2 backdrop-blur-sm text-xs font-medium transition-all duration-300',
         hint === 'ready' ? 'bg-accent/20 text-accent' :
         hint === 'more_light' ? 'bg-warning/20 text-warning' :
         hint === 'multiple_objects' ? 'bg-warning/20 text-warning' :
@@ -214,7 +214,7 @@ function ScanHistoryStrip({ thumbnails }: { thumbnails: string[] }) {
           initial={{ scale: 0.7, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: i * 0.05, duration: 0.2 }}
-          className="w-11 h-11 rounded-lg overflow-hidden border border-border/20 bg-secondary/40 flex-shrink-0 shadow-sm"
+          className="w-11 h-11 overflow-hidden border border-border/20 bg-secondary/40 flex-shrink-0 shadow-sm"
         >
           <img src={url} alt="" className="w-full h-full object-cover" />
         </motion.div>
@@ -229,7 +229,7 @@ function SlotsPill({ remaining, isPremium }: { remaining: number; isPremium: boo
   if (isPremium) return null;
   return (
     <div className={cn(
-      'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium backdrop-blur-sm border',
+      'flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium backdrop-blur-sm border',
       remaining <= 2
         ? 'bg-destructive/10 text-destructive border-destructive/20'
         : 'bg-foreground/5 text-muted-foreground border-border/10'
@@ -412,7 +412,7 @@ export default function LiveScan() {
             <button
               onClick={() => setAutoMode((v) => !v)}
               className={cn(
-                'w-9 h-9 rounded-full flex items-center justify-center transition-all',
+                'w-9 h-9 flex items-center justify-center transition-all',
                 autoMode ? 'bg-accent/20 text-accent' : 'bg-foreground/10 text-muted-foreground'
               )}
             >
@@ -431,9 +431,9 @@ export default function LiveScan() {
           /* File-input mode (Median or no getUserMedia) */
           <div className="absolute inset-0 flex items-center justify-center p-8 text-center">
             <div className="space-y-6">
-              <div className="w-20 h-20 rounded-full bg-accent/10 flex items-center justify-center mx-auto">
-                <ImagePlus className="w-10 h-10 text-accent" />
-              </div>
+            <div className="w-20 h-20 bg-accent/10 flex items-center justify-center mx-auto">
+              <ImagePlus className="w-10 h-10 text-accent" />
+            </div>
               <div className="space-y-2">
                 <p className="text-foreground text-base font-medium">{t('scan.title')}</p>
                 <p className="text-muted-foreground text-sm">{t('scan.tap_to_capture')}</p>
@@ -482,7 +482,7 @@ export default function LiveScan() {
 
         {error && !isProcessing && (
           <div className="absolute bottom-32 left-4 right-4 z-20">
-            <div className="bg-destructive/80 backdrop-blur-md rounded-xl p-3 text-center">
+            <div className="bg-destructive/80 backdrop-blur-md p-3 text-center">
               <p className="text-destructive-foreground text-sm">{error}</p>
             </div>
           </div>
@@ -508,10 +508,10 @@ export default function LiveScan() {
                   <img
                     src={lastResult.thumbnailUrl}
                     alt="Scanned garment"
-                    className="w-full aspect-[3/4] object-cover rounded-2xl shadow-2xl border border-border/20"
+                    className="w-full aspect-[3/4] object-cover border border-border/20"
                   />
                   {/* Gradient overlay at bottom for text */}
-                  <div className="absolute bottom-0 inset-x-0 h-1/3 bg-gradient-to-t from-background/80 to-transparent rounded-b-2xl" />
+                  <div className="absolute bottom-0 inset-x-0 h-1/3 bg-gradient-to-t from-background/80 to-transparent" />
                   <div className="absolute bottom-4 left-4 right-4 space-y-1.5">
                     <p className="text-foreground text-lg font-semibold leading-tight drop-shadow-sm">{lastResult.analysis.title}</p>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -557,7 +557,7 @@ export default function LiveScan() {
         {/* Scan counter pill — bottom right (if no history strip or as supplement) */}
         {scanCount > 0 && !lastResult && scanThumbnails.length === 0 && (
           <div className="absolute bottom-4 left-4 z-10">
-            <div className="flex items-center gap-1.5 bg-background/60 backdrop-blur-sm px-3 py-1.5 rounded-full border border-border/10">
+            <div className="flex items-center gap-1.5 bg-background/60 backdrop-blur-sm px-3 py-1.5 border border-border/10">
               <Check className="w-3.5 h-3.5 text-accent" />
               <span className="text-foreground text-xs font-medium">{scanCount}</span>
             </div>
