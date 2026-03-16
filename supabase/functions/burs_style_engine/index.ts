@@ -3562,9 +3562,10 @@ serve(async (req) => {
 
     const styleContext = buildStyleContext(preferences);
 
-    // AI refinement
+    // AI refinement — stylist mode gets richer prompting
+    const isStylistMode = mode === "stylist";
     const aiMode = mode === "suggest" ? "suggest" : "generate";
-    const aiResult = await aiRefine(combos, aiMode, occasion, style, weather, styleContext, locale);
+    const aiResult = await aiRefine(combos, aiMode, occasion, style, weather, styleContext, locale, isStylistMode);
 
     if (aiResult.error) {
       if (aiResult.status === 429) {
