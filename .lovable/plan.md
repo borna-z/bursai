@@ -62,10 +62,10 @@
 | 27 | Premium empty states | ✅ Done |
 | 28 | Premium loading states | ✅ Done |
 | 29 | Make the app feel more native | ✅ Done |
-| 30 | World-class garment detail screen | 🔲 |
-| 31 | Lookbook-level visual polish | 🔲 |
-| 32 | Full polish pass | 🔲 |
-| 33 | Final 90+ market-leader pass | 🔲 |
+| 30 | World-class garment detail screen | ✅ Done |
+| 31 | Lookbook-level visual polish | ✅ Done |
+| 32 | Full polish pass | ✅ Done |
+| 33 | Final 90+ market-leader pass | ✅ Done |
 
 ---
 
