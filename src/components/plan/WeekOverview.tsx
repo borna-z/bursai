@@ -170,7 +170,7 @@ export function WeekOverview({ selectedDate, onSelectDate, plannedOutfits, class
               <div className="h-2 flex items-center gap-0.5">
                 {isWorn && <Check className={cn('w-2.5 h-2.5', isSelected ? 'text-background/60' : 'text-success')} />}
                 {hasRepeat && !isWorn && (
-                  <div className={cn('w-1.5 h-1.5 rounded-full', isSelected ? 'bg-amber-300' : 'bg-amber-500/60')} />
+                  <div className={cn('w-1.5 h-1.5 rounded-full', isSelected ? 'bg-warning/60' : 'bg-warning/50')} />
                 )}
               </div>
             </motion.button>
