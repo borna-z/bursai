@@ -120,6 +120,11 @@ function SwapSheet({
                   <div className="flex-1 text-left min-w-0">
                     <p className="font-medium text-sm truncate">{stripBrands(candidate.garment.title)}</p>
                     <p className="text-xs text-muted-foreground capitalize">{candidate.garment.color_primary}</p>
+                    {candidate.swap_reason && (
+                      <p className="text-[11px] text-primary/70 mt-0.5 leading-snug line-clamp-1 italic">
+                        {candidate.swap_reason}
+                      </p>
+                    )}
                   </div>
                   {idx === 0 && (
                     <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full flex-shrink-0">
