@@ -258,6 +258,7 @@ export default function GarmentDetailPage() {
       });
       if (error || !data?.enrichment) {
         await supabase.from('garments').update({ enrichment_status: 'failed' } as Record<string, unknown>).eq('id', garment.id);
+        queryClient.invalidateQueries({ queryKey: ['garment', garment.id] });
         toast.error('Deep analysis failed — try again later');
         return;
       }
@@ -271,6 +272,8 @@ export default function GarmentDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['garment', garment.id] });
       toast.success('Deep analysis complete');
     } catch {
+      await supabase.from('garments').update({ enrichment_status: 'failed' } as Record<string, unknown>).eq('id', garment.id);
+      queryClient.invalidateQueries({ queryKey: ['garment', garment.id] });
       toast.error('Something went wrong');
     } finally {
       setIsRetrying(false);
