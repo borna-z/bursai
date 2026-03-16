@@ -5192,6 +5192,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     'chat.shopping_placeholder': 'Beskriv beklædningen du overvejer...',
     'chat.outfit_from_stylist': 'Skabt fra stylistens forslag',
     'chat.based_on': 'Baseret på', 'chat.garments_label': 'beklædning', 'chat.garments_in_wardrobe': 'beklædninger i din garderobe',
+    'chat.greeting_prefix': 'Hej', 'chat.welcome_title': 'Din personlige stylist', 'chat.welcome_subtitle': 'Spørg mig om din garderobe, outfits eller stil',
     'chat.suggestion_1': 'Hvad skal jeg have på i dag?', 'chat.suggestion_2': 'Analyser min stil', 'chat.suggestion_3': 'Hjælp mig med at vælge til arbejde',
     'scan.auto': 'Auto', 'scan.scanned': 'scannet', 'scan.done': 'Færdig',
     'scan.hold_still': 'Hold beklædningen stille…', 'scan.point_garment': 'Ret mod en beklædning',
