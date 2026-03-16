@@ -217,6 +217,10 @@ export default function PlanPage() {
       const dateStr = format(date, 'yyyy-MM-dd');
       const existing = getPlannedForDate(date);
       if (existing?.outfit_id) continue;
+      if (!canCreateOutfit()) {
+        toast.error(t('paywall.outfit_limit') || 'Outfit limit reached');
+        break;
+      }
       const forecast = getForecastForDate(dateStr);
       const temp = forecast ? Math.round((forecast.temperature_max + forecast.temperature_min) / 2) : 15;
       try {

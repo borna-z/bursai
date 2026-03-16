@@ -225,9 +225,10 @@ export default function LiveScan() {
   const useFileInputMode = isMedian || !navigator.mediaDevices?.getUserMedia;
 
   const { scanCount, isProcessing, lastResult, error, capture, captureFromFile, accept, retake, finish } = useLiveScan();
-  const { subscription, isPremium } = useSubscription();
+  const { subscription, isPremium, isLoading: isSubLoading } = useSubscription();
 
-  const remainingSlots = isPremium ? Infinity : PLAN_LIMITS.free.maxGarments - (subscription?.garments_count || 0) - scanCount;
+  // Guard: don't allow scanning until subscription data is loaded (prevents race condition)
+  const remainingSlots = isPremium ? Infinity : isSubLoading ? 0 : PLAN_LIMITS.free.maxGarments - (subscription?.garments_count || 0) - scanCount;
   const canCapture = useFileInputMode
     ? !isProcessing && !lastResult && !showAccepted
     : cameraReady && !isProcessing && !lastResult && !showAccepted;
