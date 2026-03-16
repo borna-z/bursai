@@ -321,6 +321,12 @@ export default function GarmentDetailPage() {
           </div>
         )}
 
+        {/* AI analyzed */}
+        {garment.ai_analyzed_at && (
+          <p className="text-[11px] text-muted-foreground/40 text-center">
+            {t('garment.analyzed_at')} {new Date(garment.ai_analyzed_at).toLocaleDateString(getBCP47(locale))}
+          </p>
+        )}
       </div>
 
       {/* ── Sticky bottom action bar ── */}
@@ -334,14 +340,6 @@ export default function GarmentDetailPage() {
             {markWorn.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
           </Button>
         </div>
-      </div>
-
-        {/* AI analyzed */}
-        {garment.ai_analyzed_at && (
-          <p className="text-[11px] text-muted-foreground/40 text-center">
-            {t('garment.analyzed_at')} {new Date(garment.ai_analyzed_at).toLocaleDateString(getBCP47(locale))}
-          </p>
-        )}
       </div>
     </div>
   );
