@@ -555,7 +555,7 @@ export default function OutfitDetailPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
-              <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">{t('outfit.why_works')}</p>
+              <p className="label-editorial text-muted-foreground/60">{t('outfit.why_works')}</p>
             </div>
             <p className={`text-sm text-muted-foreground leading-relaxed ${!explExpanded ? 'line-clamp-2' : ''}`}>{outfit.explanation}</p>
             {outfit.explanation.length > 120 && (
