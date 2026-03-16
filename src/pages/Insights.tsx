@@ -173,6 +173,9 @@ export default function InsightsPage() {
             </div>
           </div>
 
+          {/* ─── Style DNA ─── */}
+          <StyleDNACard />
+
           {/* ─── 2. Top 5 Garments ─── */}
           {insights.topFiveWorn.length > 0 && (
             <div className="space-y-3">
