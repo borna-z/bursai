@@ -34,7 +34,7 @@ export default function SettingsPage() {
 
   return (
     <AppLayout>
-      <AnimatedPage className="px-6 pb-8 pt-12 space-y-10 max-w-lg mx-auto">
+      <AnimatedPage className="page-container space-y-10">
         {/* Profile */}
         <ProfileCard />
 

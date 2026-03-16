@@ -65,7 +65,7 @@ function SectionLabel({ icon: Icon, label }: { icon: React.ElementType; label: s
   return (
     <div className="flex items-center gap-2">
       <Icon className="w-4 h-4 text-muted-foreground/50" />
-      <span className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wider">{label}</span>
+      <span className="label-editorial">{label}</span>
     </div>
   );
 }
@@ -150,7 +150,7 @@ export default function InsightsPage() {
     <AppLayout>
       <PageHeader title={t('insights.title')} />
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="max-w-lg mx-auto px-5 pb-12 pt-8 space-y-12">
+        <AnimatedPage className="page-container space-y-12">
 
           {/* ─── 0. Wardrobe Usage Banner + Smart Insight ─── */}
 

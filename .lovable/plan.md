@@ -1,70 +1,91 @@
 
+# Full i18n Translation Plan — 110 Steps
 
-# Unify BURS Design System
+**Status: 🔲 Not Started**
 
-## Audit Summary
+## Current State
 
-After reviewing index.css, tailwind.config.ts, and 15+ component/page files, here are the inconsistencies found:
+- **14 supported locales**: sv, en, no, da, fi, de, fr, es, it, pt, nl, pl, ar, fa
+- **sv and en** are fully translated (~700+ keys each)
+- **Other 12 locales** have partial coverage (~100-200 keys each), missing large sections
+- Fallback chain: `locale → en → sv → raw key`
+- File: `src/i18n/translations.ts` (~9,800 lines)
 
-### Issues Identified
+---
 
-**1. Border radius chaos** — The codebase uses `rounded-lg`, `rounded-xl`, `rounded-2xl`, `rounded-3xl` interchangeably across 91 files. No consistent rule for which surface gets which radius. Light mode sets `--radius: 0px` (square edges) but many components hardcode `rounded-xl`/`rounded-2xl` directly, bypassing the token.
+## Architecture Change (Steps 1-2)
 
-**2. PaywallModal breaks brand palette** — Uses `from-amber-500 to-orange-500` gradient and `text-amber-600` instead of the semantic `--premium` token already defined in the design system.
+**Step 1** — Create `src/i18n/locales/` directory with one file per locale, each exporting `Record<string, string>`.
 
-**3. Section header inconsistency** — Three different patterns exist: `SectionHeader` component (label-editorial), inline `SectionLabel` in Insights (custom 11px), and raw `h2` tags with ad-hoc uppercase styling in OutfitGenerate. Should converge on `SectionHeader` or `label-editorial`.
+**Step 2** — Refactor `src/i18n/translations.ts` to import from individual locale files. No functional change.
 
-**4. Page padding inconsistency** — Home uses `px-5 pt-8`, Insights uses `px-5 pb-12 pt-8`, Settings uses `px-6 pb-8 pt-12`, OutfitGenerate uses `p-4`. Should standardize.
+---
 
-**5. Button sizes mixed** — Some pages use hardcoded `h-11 rounded-xl`, others use the Button component's `size="lg"` (h-12 rounded-xl). The component and inline styles conflict.
+## Per-Locale Translation (Steps 3-110)
 
-**6. Chip component ignores light-mode radius** — Hardcodes `rounded-full` regardless of theme. In light mode (editorial, square edges), chips should still use `rounded-full` since they're pills, but interactive chips in OutfitGenerate should match surface radius.
+Each locale gets 9 steps covering these domains:
 
-**7. Skeleton shimmer uses custom CSS class** — Good, but the `Skeleton` component hardcodes `rounded-lg` instead of using `rounded-md` (the token-derived value from `--radius`).
+| Step offset | Domain |
+|---|---|
+| +0 | Navigation, common, auth, error |
+| +1 | Onboarding (all sub-steps, body, style, tutorial) |
+| +2 | Settings (profile, appearance, privacy, GDPR, notifications, account) |
+| +3 | Home, weather, plan, calendar |
+| +4 | Wardrobe, garment details, scan, import, batch, duplicate |
+| +5 | Outfits, outfit generation, stylist/chat |
+| +6 | Insights, discover, premium, billing, pricing, trial |
+| +7 | Landing page (hero, bento, showcase, pricing section, FAQ, footer, comparison) |
+| +8 | Contact, privacy policy, terms, seed/admin, genimg, social reactions |
 
-**8. Glass utilities are defined but inconsistently applied** — `glass`, `glass-card`, `glass-chip`, `glass-surface` exist but most components use inline `bg-card/70 backdrop-blur-md` instead.
+### Steps 3-11: Norwegian (no)
+### Steps 12-20: Danish (da)
+### Steps 21-29: Finnish (fi)
+### Steps 30-38: German (de)
+### Steps 39-47: French (fr)
+### Steps 48-56: Spanish (es)
+### Steps 57-65: Italian (it)
+### Steps 66-74: Portuguese (pt)
+### Steps 75-83: Dutch (nl)
+### Steps 84-92: Polish (pl)
+### Steps 93-101: Arabic (ar)
+### Steps 102-110: Farsi (fa)
 
-**9. Heading font-family conflict** — Base CSS sets headings to Sora, but light-mode override sets them to Playfair Display. The tailwind config defines `font-heading: Sora`. Components don't use `font-heading` class, relying on the CSS cascade, which is fragile.
+---
 
-**10. OutfitGenerate section headers use raw h2** — With inline `text-sm font-medium text-muted-foreground tracking-wide uppercase` instead of the existing `label-editorial` class.
+## Technical Details
 
-## Plan
+### File structure after refactor
+```text
+src/i18n/
+  translations.ts          ← imports + re-exports composed object
+  locales/
+    sv.ts                  ← ~700 keys (already complete)
+    en.ts                  ← ~700 keys (already complete)
+    no.ts                  ← fill to ~700 keys
+    da.ts                  ← fill to ~700 keys
+    fi.ts                  ← fill to ~700 keys
+    de.ts                  ← fill to ~700 keys
+    fr.ts                  ← fill to ~700 keys
+    es.ts                  ← fill to ~700 keys
+    it.ts                  ← fill to ~700 keys
+    pt.ts                  ← fill to ~700 keys
+    nl.ts                  ← fill to ~700 keys
+    pl.ts                  ← fill to ~700 keys
+    ar.ts                  ← fill to ~700 keys (RTL)
+    fa.ts                  ← fill to ~700 keys (RTL)
+```
 
-### File 1: `src/index.css` — Standardize spacing and surface tokens
-- Add `--page-px` and `--page-pt` CSS custom properties for consistent page padding
-- Add `.page-container` utility class: `max-w-lg mx-auto px-[var(--page-px)] pt-[var(--page-pt)] pb-12`
-- Fix Skeleton component's base radius reference
+### Key count target
+Every locale file must contain the exact same set of keys as `en.ts`.
 
-### File 2: `src/components/ui/skeleton.tsx` — Use token radius
-- Change `rounded-lg` to `rounded-[var(--radius)]` so it respects light/dark theme radius
+### Translation quality
+- AI-assisted translation with native-quality output
+- Preserve placeholders like `{count}`, `{done}`, `{failed}`
+- RTL languages (ar, fa) keep the same key structure; RTL layout handled by CSS
+- Currency/number formatting stays locale-aware via `getLocalizedPricing()`
 
-### File 3: `src/components/PaywallModal.tsx` — Use brand premium tokens
-- Replace `from-amber-500 to-orange-500` with `gradient-premium` utility
-- Replace `text-amber-600` with `text-premium`
-- Replace `border-amber-500/50` with `border-premium/50`
+### Edge functions
+Edge functions already use `LANG_CONFIG` mappings. No changes needed.
 
-### File 4: `src/pages/OutfitGenerate.tsx` — Use label-editorial class
-- Replace inline section header styling with `label-editorial` class for Occasion and Style headers
-- Standardize page padding to match other pages
-
-### File 5: `src/pages/Insights.tsx` — Use SectionHeader or label-editorial
-- Replace inline `SectionLabel` component with `label-editorial` class for consistency
-
-### File 6: `src/pages/Settings.tsx` — Standardize page padding
-- Align `px-6 pb-8 pt-12` → use consistent padding values
-
-### File 7: `src/pages/Home.tsx` — Ensure consistent page padding
-- Verify and align with standardized page spacing
-
-### File 8: `src/components/ui/AILoadingCard.tsx` — Use surface class
-- Replace inline `rounded-xl border border-border/10 bg-card/60` with `surface-secondary rounded-xl`
-
-### Summary of changes:
-- **8 files** modified
-- **0 new components** (reuse existing utilities)
-- Standardized page padding across 4+ pages
-- PaywallModal brought into brand palette
-- Section headers unified to `label-editorial`
-- Skeleton radius made token-aware
-- Surface classes applied consistently
-
+### No new dependencies
+All translations are static strings in TypeScript files. No runtime i18n library needed.
