@@ -158,15 +158,16 @@ serve(async (req) => {
       throw new Error("duration_days must be 1-30");
     }
 
-    const { data: garments, error: gError } = await supabase
+    const { data: garmentsRaw, error: gError } = await supabase
       .from("garments")
-      .select("id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, formality, season_tags, in_laundry, image_path")
+      .select("id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, formality, season_tags, in_laundry, image_path, ai_raw")
       .eq("user_id", user.id)
       .or("in_laundry.is.null,in_laundry.eq.false")
       .order("id", { ascending: true });
 
     if (gError) throw gError;
-    if (!garments || garments.length < 5) {
+    const allGarments = (garmentsRaw || []).map(hydrateGarment) as GarmentRow[];
+    if (allGarments.length < 5) {
       throw new Error("Need at least 5 garments to build a capsule");
     }
 
