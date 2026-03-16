@@ -75,6 +75,17 @@ export default function OutfitGeneratePage() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [styleExpanded, setStyleExpanded] = useState(false);
 
+  const contextSubtitle = useMemo(() => {
+    const parts: string[] = [];
+    const occ = OCCASIONS.find(o => o.key === selectedOccasion);
+    if (occ) parts.push(occ.label);
+    if (selectedStyle) parts.push(selectedStyle);
+    if (weather?.temperature !== undefined) parts.push(`${weather.temperature}°C`);
+    return parts.join(' · ');
+  }, [selectedOccasion, selectedStyle, weather?.temperature]);
+
+  const weatherAdvice = getWeatherAdvice(weather?.temperature, weather?.precipitation);
+
   // Gate: require enough garments
   if (!isUnlocked('outfit_gen')) {
     return (
