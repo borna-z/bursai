@@ -157,9 +157,10 @@ export function WardrobeOutfitsTab() {
     return (
       <EmptyState
         icon={Sparkles}
-        title={t('wardrobe.no_outfits')}
-        description={t('wardrobe.no_outfits_desc')}
+        title="No outfits yet"
+        description="Generate your first outfit and it will appear here. Every look is saved for easy access."
         action={{ label: t('outfits.create'), onClick: () => navigate('/'), icon: Sparkles }}
+        variant="editorial"
       />
     );
   }
