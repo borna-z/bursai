@@ -1,6 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, AlertCircle, CloudSun, Wind, Droplets, Zap, Crown } from 'lucide-react';
+import {
+  Sparkles, AlertCircle, Crown, Zap,
+  Briefcase, Coffee, Wine, Heart, Dumbbell, Plane,
+  Check, ChevronDown, Thermometer,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,36 +21,43 @@ import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
+/* ── Occasions with Lucide icons ── */
 const OCCASIONS = [
-  { key: 'casual', emoji: '👕', gradient: 'from-blue-500/10 to-cyan-500/10' },
-  { key: 'work', emoji: '💼', gradient: 'from-amber-500/10 to-orange-500/10' },
-  { key: 'party', emoji: '🎉', gradient: 'from-pink-500/10 to-rose-500/10' },
-  { key: 'date', emoji: '❤️', gradient: 'from-red-500/10 to-pink-500/10' },
-  { key: 'workout', emoji: '🏃', gradient: 'from-green-500/10 to-emerald-500/10' },
-  { key: 'travel', emoji: '✈️', gradient: 'from-violet-500/10 to-purple-500/10' },
+  { key: 'casual', label: 'Casual', icon: Coffee },
+  { key: 'work', label: 'Work', icon: Briefcase },
+  { key: 'party', label: 'Evening', icon: Wine },
+  { key: 'date', label: 'Date', icon: Heart },
+  { key: 'workout', label: 'Workout', icon: Dumbbell },
+  { key: 'travel', label: 'Travel', icon: Plane },
 ] as const;
 
-const STYLE_GROUPS = [
-  {
-    label: 'Essentials',
-    styles: ['Minimal', 'Smart Casual', 'Classic', 'Casual Chic', 'Relaxed'],
-  },
-  {
-    label: 'Expressive',
-    styles: ['Street', 'Edgy', 'Avant-Garde', 'Bohemian', 'Retro'],
-  },
-  {
-    label: 'Refined',
-    styles: ['Scandinavian', 'Preppy', 'Glamorous', 'Monochrome', 'Romantic'],
-  },
-  {
-    label: 'Seasonal',
-    styles: ['Layered', 'Coastal', 'Sporty'],
-  },
+/* ── Curated styles (single flat list) ── */
+const STYLES = [
+  'Minimal', 'Smart Casual', 'Street', 'Scandinavian',
+  'Edgy', 'Bohemian', 'Preppy', 'Relaxed',
 ] as const;
 
 type Phase = 'picking' | 'generating' | 'error';
 type GenerationMode = 'standard' | 'stylist';
+
+/* ── Weather styling advice ── */
+function getWeatherAdvice(temp?: number, precipitation?: string): string {
+  if (temp === undefined) return '';
+  if (precipitation === 'rain') return 'Rain-ready fabrics';
+  if (precipitation === 'snow') return 'Warm & layered';
+  if (temp <= 5) return 'Bundle up';
+  if (temp <= 12) return 'Layer up';
+  if (temp <= 20) return 'Light layers';
+  return 'Light & breathable';
+}
+
+/* ── Time-aware greeting ── */
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
 
 export default function OutfitGeneratePage() {
   const navigate = useNavigate();
@@ -62,6 +73,7 @@ export default function OutfitGeneratePage() {
   const [generationMode, setGenerationMode] = useState<GenerationMode>(isPremium ? 'stylist' : 'standard');
   const [lastError, setLastError] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [styleExpanded, setStyleExpanded] = useState(false);
 
   // Gate: require enough garments
   if (!isUnlocked('outfit_gen')) {
@@ -106,23 +118,31 @@ export default function OutfitGeneratePage() {
         },
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : t('generate.error_desc');
+      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
       setLastError(message);
       setPhase('error');
-      toast.error(t('generate.error_toast'), { description: message });
+      toast.error('Generation failed', { description: message });
     }
   };
 
-  const subtitle = [selectedOccasion, selectedStyle].filter(Boolean).join(' · ') +
-    (weather?.temperature !== undefined ? ` · ${weather.temperature}°C` : '');
+  const contextSubtitle = useMemo(() => {
+    const parts: string[] = [];
+    const occ = OCCASIONS.find(o => o.key === selectedOccasion);
+    if (occ) parts.push(occ.label);
+    if (selectedStyle) parts.push(selectedStyle);
+    if (weather?.temperature !== undefined) parts.push(`${weather.temperature}°C`);
+    return parts.join(' · ');
+  }, [selectedOccasion, selectedStyle, weather?.temperature]);
 
-  // --- GENERATING PHASE ---
+  const weatherAdvice = getWeatherAdvice(weather?.temperature, weather?.precipitation);
+
+  // ── GENERATING PHASE ──
   if (phase === 'generating') {
     return (
       <AppLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
           <OutfitGenerationState
-            subtitle={subtitle || undefined}
+            subtitle={contextSubtitle || undefined}
             variant="full"
             className="max-w-sm w-full"
           />
@@ -131,7 +151,7 @@ export default function OutfitGeneratePage() {
     );
   }
 
-  // --- ERROR PHASE ---
+  // ── ERROR PHASE ──
   if (phase === 'error') {
     return (
       <AppLayout>
@@ -139,15 +159,15 @@ export default function OutfitGeneratePage() {
           <Card className="max-w-sm w-full">
             <CardContent className="p-6 text-center">
               <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-              <h2 className="text-lg font-semibold mb-2">{t('generate.error_title')}</h2>
-              <p className="text-muted-foreground mb-4 text-sm">{lastError || t('generate.error_desc')}</p>
+              <h2 className="text-lg font-semibold mb-2">Something went wrong</h2>
+              <p className="text-muted-foreground mb-4 text-sm">{lastError || 'Please try again.'}</p>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setPhase('picking')} className="flex-1">
-                  {t('generate.back')}
+                  Back
                 </Button>
                 <Button onClick={handleGenerate} disabled={isGenerating} className="flex-1">
                   <Sparkles className="w-4 h-4 mr-2" />
-                  {t('generate.retry')}
+                  Retry
                 </Button>
               </div>
             </CardContent>
@@ -157,76 +177,65 @@ export default function OutfitGeneratePage() {
     );
   }
 
-  // --- PICKING PHASE ---
+  // ── PICKING PHASE ──
   return (
     <AppLayout>
-      <div className="page-container space-y-8 pb-32 animate-fade-in">
-        {/* Header */}
-        <div className="space-y-1">
+      <div className="page-container pb-36 animate-fade-in">
+
+        {/* ── Header + Weather ── */}
+        <section className="pt-8 pb-6 space-y-2">
           <h1 className="text-2xl font-bold tracking-[-0.03em] text-foreground">
-            {t('generate.title') || 'What to wear'}
+            {getGreeting()}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            {t('generate.subtitle') || 'Pick a vibe and we\u2019ll style you'}
+          <p className="text-base text-muted-foreground">
+            Let me style you today.
           </p>
-        </div>
-
-        {/* Weather context card */}
-        {weather && (
-          <div className="rounded-2xl bg-secondary/30 backdrop-blur-sm border border-border/10 p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <CloudSun className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    {weather.temperature}°C
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {weather.location}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                {weather.precipitation && weather.precipitation !== 'none' && (
-                  <span className="flex items-center gap-1">
-                    <Droplets className="w-3.5 h-3.5" />
-                    {t(weather.precipitation) || weather.precipitation}
-                  </span>
-                )}
-                {weather.wind && weather.wind !== 'low' && (
-                  <span className="flex items-center gap-1">
-                    <Wind className="w-3.5 h-3.5" />
-                    {t(weather.wind) || weather.wind}
-                  </span>
-                )}
-              </div>
+          {weather && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
+              <Thermometer className="w-3.5 h-3.5 text-muted-foreground/60" />
+              <span>
+                {weather.temperature}° in {weather.location}
+                {weatherAdvice && <span className="text-foreground/70"> — {weatherAdvice}</span>}
+              </span>
             </div>
-            <p className="text-[11px] text-muted-foreground/50 mt-2">
-              {t('generate.weather_note') || 'Weather is factored into your outfit automatically'}
-            </p>
-          </div>
-        )}
+          )}
+        </section>
 
-        {/* Stylist Mode toggle — premium feature */}
-        <section className="space-y-2">
-          <h2 className="label-editorial">{t('generate.mode') || 'Generation mode'}</h2>
-          <div className="grid grid-cols-2 gap-2">
+        {/* ── Step 1: Mode ── */}
+        <section className="space-y-3 pb-10">
+          <p className="label-editorial">How should I style you?</p>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Quick Look */}
             <motion.button
               whileTap={{ scale: 0.97 }}
               onClick={() => setGenerationMode('standard')}
               className={cn(
-                'rounded-xl p-3.5 text-left border transition-all',
+                'relative rounded-xl border p-4 text-left transition-all',
                 generationMode === 'standard'
-                  ? 'border-primary/30 bg-primary/5 ring-1 ring-primary/15'
-                  : 'border-border/15 hover:border-border/30'
+                  ? 'border-primary bg-primary/[0.04] ring-1 ring-primary/10'
+                  : 'border-border/30 hover:border-border/50'
               )}
             >
-              <Sparkles className={cn('w-4 h-4 mb-1.5', generationMode === 'standard' ? 'text-primary' : 'text-muted-foreground/40')} />
-              <p className="text-xs font-semibold">Standard</p>
-              <p className="text-[10px] text-muted-foreground/60 mt-0.5">Quick, balanced outfits</p>
+              <Sparkles className={cn(
+                'w-5 h-5 mb-3',
+                generationMode === 'standard' ? 'text-foreground' : 'text-muted-foreground/40'
+              )} />
+              <p className="text-sm font-semibold text-foreground">Quick Look</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                Fast, balanced, everyday
+              </p>
+              {generationMode === 'standard' && (
+                <motion.div
+                  layoutId="mode-check"
+                  className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary flex items-center justify-center"
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                >
+                  <Check className="w-3 h-3 text-primary-foreground" />
+                </motion.div>
+              )}
             </motion.button>
+
+            {/* Stylist Mode */}
             <motion.button
               whileTap={{ scale: 0.97 }}
               onClick={() => {
@@ -234,122 +243,152 @@ export default function OutfitGeneratePage() {
                 setGenerationMode('stylist');
               }}
               className={cn(
-                'rounded-xl p-3.5 text-left border transition-all relative overflow-hidden',
+                'relative rounded-xl border p-4 text-left transition-all',
                 generationMode === 'stylist'
-                  ? 'border-premium/40 bg-premium/5 ring-1 ring-premium/15'
-                  : 'border-border/15 hover:border-border/30'
+                  ? 'border-premium/40 bg-premium/[0.04] ring-1 ring-premium/10'
+                  : 'border-border/30 hover:border-border/50'
               )}
             >
-              <Crown className={cn('w-4 h-4 mb-1.5', generationMode === 'stylist' ? 'text-premium' : 'text-muted-foreground/40')} />
-              <p className="text-xs font-semibold">Stylist Mode</p>
-              <p className="text-[10px] text-muted-foreground/60 mt-0.5">Deeper reasoning, editorial picks</p>
+              <Crown className={cn(
+                'w-5 h-5 mb-3',
+                generationMode === 'stylist' ? 'text-premium' : 'text-muted-foreground/40'
+              )} />
+              <p className="text-sm font-semibold text-foreground">Stylist Mode</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                Deeper curation, editorial picks
+              </p>
               {!isPremium && (
-                <span className="absolute top-2 right-2 text-[9px] font-semibold text-premium uppercase tracking-wider">
+                <span className="absolute top-3 right-3 text-[9px] font-semibold text-premium uppercase tracking-wider">
                   Premium
                 </span>
+              )}
+              {generationMode === 'stylist' && isPremium && (
+                <motion.div
+                  layoutId="mode-check"
+                  className="absolute top-3 right-3 w-5 h-5 rounded-full bg-premium flex items-center justify-center"
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                >
+                  <Check className="w-3 h-3 text-premium-foreground" />
+                </motion.div>
               )}
             </motion.button>
           </div>
         </section>
 
-        {/* Occasion grid */}
-        <section className="space-y-3">
-          <h2 className="label-editorial">
-            {t('generate.occasion') || 'Occasion'}
-          </h2>
-          <div className="grid grid-cols-3 gap-2">
-            {OCCASIONS.map(({ key, emoji, gradient }) => {
+        {/* ── Step 2: Occasion ── */}
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1, duration: 0.35 }}
+          className="space-y-3 pb-10"
+        >
+          <p className="label-editorial">What's the occasion?</p>
+          <div className="grid grid-cols-2 gap-2">
+            {OCCASIONS.map(({ key, label, icon: Icon }) => {
               const isSelected = selectedOccasion === key;
               return (
                 <motion.button
                   key={key}
-                  whileTap={{ scale: 0.96 }}
+                  whileTap={{ scale: 0.97 }}
                   onClick={() => setSelectedOccasion(key)}
                   className={cn(
-                    'relative rounded-2xl p-4 text-center transition-all border',
-                    'bg-gradient-to-br',
-                    gradient,
+                    'flex items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-all',
                     isSelected
-                      ? 'border-primary/40 shadow-[0_0_20px_hsl(var(--primary)/0.1)] ring-1 ring-primary/20'
-                      : 'border-border/15 hover:border-border/30'
+                      ? 'border-primary bg-primary/[0.04] ring-1 ring-primary/10'
+                      : 'border-border/30 hover:border-border/50'
                   )}
                 >
-                  <span className="text-2xl block mb-1.5">{emoji}</span>
+                  <Icon className={cn(
+                    'w-4.5 h-4.5 shrink-0',
+                    isSelected ? 'text-foreground' : 'text-muted-foreground/50'
+                  )} />
                   <span className={cn(
-                    'text-xs font-semibold capitalize transition-colors',
+                    'text-sm font-medium',
                     isSelected ? 'text-foreground' : 'text-muted-foreground'
                   )}>
-                    {t(`occasion.${key}`) || key}
+                    {label}
                   </span>
                   {isSelected && (
-                    <motion.div
-                      layoutId="occasion-indicator"
-                      className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-primary shadow-sm"
-                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    />
+                    <Check className="w-3.5 h-3.5 text-primary ml-auto shrink-0" />
                   )}
                 </motion.button>
               );
             })}
           </div>
-        </section>
+        </motion.section>
 
-        {/* Style groups */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="label-editorial">
-              {t('generate.style') || 'Style'}
-            </h2>
-            {selectedStyle && (
-              <button
-                onClick={() => setSelectedStyle(null)}
-                className="text-xs text-primary/70 hover:text-primary transition-colors"
+        {/* ── Step 3: Style (optional, collapsed) ── */}
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.35 }}
+          className="pb-8"
+        >
+          <button
+            onClick={() => setStyleExpanded(!styleExpanded)}
+            className="flex items-center gap-2 mb-3 group"
+          >
+            <p className="label-editorial group-hover:text-foreground transition-colors">
+              Add a style direction
+            </p>
+            <ChevronDown className={cn(
+              'w-3.5 h-3.5 text-muted-foreground/50 transition-transform',
+              styleExpanded && 'rotate-180'
+            )} />
+          </button>
+
+          <AnimatePresence>
+            {styleExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                className="overflow-hidden"
               >
-                {t('common.clear') || 'Clear'}
-              </button>
+                <div className="flex flex-wrap gap-2 pb-2">
+                  {STYLES.map((style) => (
+                    <Chip
+                      key={style}
+                      selected={selectedStyle === style}
+                      onClick={() => setSelectedStyle(selectedStyle === style ? null : style)}
+                      size="md"
+                    >
+                      {style}
+                    </Chip>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground/50 mt-2">
+                  Optional — leave empty for a balanced look
+                </p>
+              </motion.div>
             )}
-          </div>
-          
-          {STYLE_GROUPS.map((group) => (
-            <div key={group.label} className="space-y-2">
-              <p className="text-[11px] text-muted-foreground/40 uppercase tracking-wider font-medium">
-                {group.label}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {group.styles.map((style) => (
-                  <Chip
-                    key={style}
-                    selected={selectedStyle === style}
-                    onClick={() => setSelectedStyle(selectedStyle === style ? null : style)}
-                    size="md"
-                  >
-                    {style}
-                  </Chip>
-                ))}
-              </div>
-            </div>
-          ))}
-          <p className="text-xs text-muted-foreground/50">
-            {t('generate.style_optional') || 'Optional — leave empty for a balanced look'}
-          </p>
-        </section>
+          </AnimatePresence>
+        </motion.section>
+      </div>
 
-        {/* Generate button */}
-        <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-background via-background/95 to-transparent z-20">
+      {/* ── Sticky CTA ── */}
+      <div className="fixed bottom-20 left-0 right-0 z-20">
+        <div className="bg-background/80 backdrop-blur-2xl border-t border-border/15 px-4 pt-3 pb-4">
           <div className="max-w-md mx-auto space-y-2">
+            {contextSubtitle && (
+              <p className="text-[11px] text-muted-foreground/60 text-center tracking-wide">
+                {contextSubtitle}
+              </p>
+            )}
             <Button
               onClick={handleGenerate}
               disabled={isGenerating}
-              className="w-full rounded-2xl h-13 text-base font-semibold shadow-lg shadow-primary/10"
+              className="w-full rounded-xl h-13 text-base font-semibold"
               size="lg"
             >
-              <Sparkles className="w-4.5 h-4.5 mr-2" />
-              {t('generate.button') || 'Style me'}
+              <Sparkles className="w-4 h-4 mr-2" />
+              Style me
             </Button>
             {!isPremium && remainingOutfits() < Infinity && (
               <p className="text-[11px] text-muted-foreground/50 text-center">
                 <Zap className="w-3 h-3 inline mr-0.5 -mt-0.5" />
-                {remainingOutfits()} {t('paywall.outfits_remaining') || 'outfits remaining'}
+                {remainingOutfits()} outfits remaining
               </p>
             )}
           </div>
