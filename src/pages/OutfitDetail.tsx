@@ -496,38 +496,46 @@ export default function OutfitDetailPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* ── Floating nav ── */}
       <div className="fixed top-0 left-0 right-0 z-20 p-4 flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
-          className="w-10 h-10 rounded-full bg-background/40 backdrop-blur-xl flex items-center justify-center active:scale-95 transition-transform"
+          className="w-10 h-10 rounded-full bg-background/50 backdrop-blur-2xl flex items-center justify-center active:scale-95 transition-transform ring-1 ring-border/10"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex gap-2">
           <button
             onClick={handleToggleSave}
-            className="w-10 h-10 rounded-full bg-background/40 backdrop-blur-xl flex items-center justify-center active:scale-95 transition-transform"
+            className="w-10 h-10 rounded-full bg-background/50 backdrop-blur-2xl flex items-center justify-center active:scale-95 transition-transform ring-1 ring-border/10"
           >
             {outfit.saved ? <BookmarkCheck className="w-5 h-5 text-primary" /> : <Bookmark className="w-5 h-5" />}
           </button>
           <button
             onClick={() => setShareSheetOpen(true)}
-            className="w-10 h-10 rounded-full bg-background/40 backdrop-blur-xl flex items-center justify-center active:scale-95 transition-transform"
+            className="w-10 h-10 rounded-full bg-background/50 backdrop-blur-2xl flex items-center justify-center active:scale-95 transition-transform ring-1 ring-border/10"
           >
             <Share2 className="w-5 h-5" />
           </button>
         </div>
       </div>
 
-      <div ref={outfitRef} className="relative sm:rounded-b-3xl overflow-hidden bg-muted/20">
-        <div className="grid grid-cols-2 gap-0.5">
+      {/* ── Editorial image mosaic ── */}
+      <div ref={outfitRef} className="relative overflow-hidden bg-muted/10">
+        <div className={cn(
+          'grid gap-[1px]',
+          outfitItems.length <= 2 ? 'grid-cols-2' :
+          outfitItems.length === 3 ? 'grid-cols-2' :
+          'grid-cols-2'
+        )}>
           {outfitItems.map((item, index) => (
             <div
               key={item.id}
               className={cn(
-                'relative overflow-hidden bg-muted/30',
-                outfitItems.length === 3 && index === 2 && 'col-span-2',
-                outfitItems.length === 1 && 'col-span-2'
+                'relative overflow-hidden bg-muted/20',
+                outfitItems.length === 1 && 'col-span-2',
+                outfitItems.length === 3 && index === 0 && 'row-span-2',
+                outfitItems.length >= 5 && index === 0 && 'row-span-2',
               )}
             >
               <LazyImageSimple
@@ -535,12 +543,16 @@ export default function OutfitDetailPage() {
                 alt={item.garment?.title || item.slot}
                 className={cn(
                   'w-full object-cover',
-                  outfitItems.length <= 2 ? 'aspect-[3/4]' : outfitItems.length === 3 && index === 2 ? 'aspect-[2/1]' : 'aspect-square'
+                  outfitItems.length === 1 ? 'aspect-[3/4]' :
+                  outfitItems.length === 2 ? 'aspect-[3/4]' :
+                  outfitItems.length === 3 && index === 0 ? 'aspect-[3/4]' :
+                  outfitItems.length === 3 ? 'aspect-[3/4] max-h-[38vh]' :
+                  'aspect-square'
                 )}
-                fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/20" />}
+                fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/15" />}
               />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/40 to-transparent p-2">
-                <p className="text-[10px] text-white/80 uppercase tracking-wider font-medium">
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent p-3 pt-8">
+                <p className="text-[9px] text-white/70 uppercase tracking-[0.15em] font-medium">
                   {t(`outfit.slot.${item.slot}`) || item.slot}
                 </p>
               </div>
@@ -549,83 +561,120 @@ export default function OutfitDetailPage() {
         </div>
 
         {justGenerated && (
-          <div className="absolute bottom-4 left-4 flex items-center gap-1.5 bg-background/60 backdrop-blur-xl rounded-full px-3 py-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-primary" />
-            <span className="text-xs font-medium">{t('outfit.just_created')}</span>
+          <div className="absolute bottom-4 left-4 flex items-center gap-1.5 bg-background/70 backdrop-blur-2xl rounded-full px-3 py-1.5 ring-1 ring-border/10">
+            <Sparkles className="w-3 h-3 text-primary" />
+            <span className="text-[11px] font-medium tracking-wide">{t('outfit.just_created')}</span>
           </div>
         )}
       </div>
 
-      <div className="px-5 sm:px-6 pt-8 pb-40 space-y-10">
+      {/* ── Editorial content ── */}
+      <div className="px-5 sm:px-6 pt-8 pb-40 space-y-8">
+        {/* Headline */}
         <div>
-          <h1 className="text-2xl font-bold tracking-tight capitalize">{displayOccasion}</h1>
-          <p className="text-[13px] text-muted-foreground/60 mt-1.5">
-            {genFamilyLabel && <span className="capitalize">{genFamilyLabel} · </span>}
-            {metaParts.join(' · ')}
+          <div className="flex items-center gap-2 mb-2">
+            {genFamilyLabel && (
+              <span className="text-[10px] uppercase tracking-[0.15em] font-semibold text-primary bg-primary/8 px-2.5 py-1 rounded-full">
+                {genFamilyLabel}
+              </span>
+            )}
+            {outfit.style_vibe && (
+              <span className="text-[10px] uppercase tracking-[0.15em] font-medium text-muted-foreground/50 bg-muted/20 px-2.5 py-1 rounded-full">
+                {outfit.style_vibe}
+              </span>
+            )}
+          </div>
+          <h1 className="text-[26px] font-bold tracking-tight capitalize leading-tight">{displayOccasion}</h1>
+          <p className="text-[12px] text-muted-foreground/40 mt-1 tracking-wide">
+            {metaParts.filter(p => p !== displayOccasion && p !== outfit.style_vibe).join(' · ')}
           </p>
         </div>
 
-        {/* Confidence indicator — shown on fresh generation */}
+        {/* Confidence — editorial inline */}
         {justGenerated && genConfidence != null && (
-          <div className={cn(
-            'flex items-center gap-3 rounded-xl px-4 py-3 border',
-            genConfidenceLevel === 'high' ? 'bg-primary/5 border-primary/15' :
-            genConfidenceLevel === 'medium' ? 'bg-amber-500/5 border-amber-500/15' :
-            'bg-muted/30 border-border/20'
-          )}>
+          <div className="flex items-center gap-4">
             <div className={cn(
-              'w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0',
-              genConfidenceLevel === 'high' ? 'bg-primary/10 text-primary' :
-              genConfidenceLevel === 'medium' ? 'bg-amber-500/10 text-amber-600' :
-              'bg-muted text-muted-foreground'
+              'relative w-11 h-11 rounded-full flex items-center justify-center shrink-0',
+              genConfidenceLevel === 'high' ? 'bg-primary/8' :
+              genConfidenceLevel === 'medium' ? 'bg-amber-500/8' :
+              'bg-muted/30'
             )}>
-              {genConfidence.toFixed(0)}
+              <svg className="w-11 h-11 -rotate-90 absolute inset-0" viewBox="0 0 44 44">
+                <circle cx="22" cy="22" r="18" fill="none" strokeWidth="2.5" className="stroke-border/10" />
+                <circle
+                  cx="22" cy="22" r="18" fill="none" strokeWidth="2.5"
+                  className={cn(
+                    genConfidenceLevel === 'high' ? 'stroke-primary' :
+                    genConfidenceLevel === 'medium' ? 'stroke-amber-500' :
+                    'stroke-muted-foreground/30'
+                  )}
+                  strokeLinecap="round"
+                  strokeDasharray={`${Math.round((genConfidence / 10) * 113)} 113`}
+                  style={{ transition: 'stroke-dasharray 1.2s ease-out' }}
+                />
+              </svg>
+              <span className={cn(
+                'text-[13px] font-bold relative z-10',
+                genConfidenceLevel === 'high' ? 'text-primary' :
+                genConfidenceLevel === 'medium' ? 'text-amber-600' :
+                'text-muted-foreground'
+              )}>
+                {genConfidence.toFixed(0)}
+              </span>
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-medium text-foreground">
+              <p className="text-[13px] font-semibold text-foreground">
                 {genConfidenceLevel === 'high' ? (t('outfit.confidence_high') || 'Strong match') :
                  genConfidenceLevel === 'medium' ? (t('outfit.confidence_medium') || 'Good match') :
                  (t('outfit.confidence_low') || 'Best available')}
               </p>
               {genLimitationNote && (
-                <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{genLimitationNote}</p>
+                <p className="text-[11px] text-muted-foreground/50 mt-0.5 leading-relaxed">{genLimitationNote}</p>
               )}
             </div>
           </div>
         )}
 
+        {/* Stylist explanation — editorial pull-quote */}
         {outfit.explanation && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary" />
-              <p className="label-editorial text-muted-foreground/60">{t('outfit.why_works')}</p>
-            </div>
-            <p className={`text-sm text-muted-foreground leading-relaxed ${!explExpanded ? 'line-clamp-2' : ''}`}>{outfit.explanation}</p>
-            {outfit.explanation.length > 120 && (
-              <button onClick={() => setExplExpanded((v) => !v)} className="text-xs text-primary/70 hover:text-primary transition-colors">
+          <div className="relative pl-4 border-l-2 border-primary/20">
+            <p className={cn(
+              'text-[14px] text-foreground/80 leading-[1.7] italic',
+              !explExpanded && 'line-clamp-3'
+            )}>
+              {outfit.explanation}
+            </p>
+            {outfit.explanation.length > 140 && (
+              <button
+                onClick={() => setExplExpanded((v) => !v)}
+                className="text-[11px] text-primary/60 hover:text-primary mt-1.5 font-medium transition-colors"
+              >
                 {explExpanded ? t('common.less') : t('common.read_more')}
               </button>
             )}
           </div>
         )}
 
-        {/* Wardrobe insights from generation */}
+        {/* Wardrobe insights */}
         {justGenerated && genWardrobeInsights && genWardrobeInsights.length > 0 && (
-          <div className="rounded-xl bg-muted/10 border border-border/15 px-4 py-3 space-y-1.5">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50">{t('outfit.wardrobe_insight') || 'Wardrobe insight'}</p>
+          <div className="rounded-2xl bg-primary/3 border border-primary/8 px-4 py-3.5 space-y-1.5">
+            <p className="text-[10px] uppercase tracking-[0.14em] text-primary/60 font-semibold">
+              {t('outfit.wardrobe_insight') || 'Wardrobe insight'}
+            </p>
             {genWardrobeInsights.map((insight, i) => (
-              <p key={i} className="text-[12px] text-muted-foreground leading-relaxed">{insight}</p>
+              <p key={i} className="text-[12px] text-foreground/60 leading-relaxed">{insight}</p>
             ))}
           </div>
         )}
 
+        {/* Style Score — editorial presentation */}
         {outfit.style_score && (() => {
           const rawScore = outfit.style_score as Record<string, unknown>;
           const overallValue = Number(rawScore.overall);
           const metrics = [
-            { key: 'color_harmony', label: t('outfit.score.color') || 'Color Harmony', emoji: '🎨' },
-            { key: 'material_compatibility', label: t('outfit.score.material') || 'Material Match', emoji: '🧵' },
-            { key: 'formality', label: t('outfit.score.formality') || 'Formality Fit', emoji: '👔' },
+            { key: 'color_harmony', label: t('outfit.score.color') || 'Color', emoji: '🎨' },
+            { key: 'material_compatibility', label: t('outfit.score.material') || 'Material', emoji: '🧵' },
+            { key: 'formality', label: t('outfit.score.formality') || 'Formality', emoji: '👔' },
           ].map((metric) => ({
             ...metric,
             value: Number(rawScore[metric.key]),
@@ -635,69 +684,68 @@ export default function OutfitDetailPage() {
 
           return (
             <div className="space-y-5">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-primary" />
-                <p className="label-editorial text-muted-foreground/60">
-                  {t('outfit.score.title') || 'Style Score'}
-                </p>
-              </div>
+              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/40 font-semibold">
+                {t('outfit.score.title') || 'Style Score'}
+              </p>
 
-              {/* Overall score hero */}
-              {Number.isFinite(overallValue) && (
-                <div className="flex items-center gap-5">
-                  <div className="relative w-20 h-20 flex-shrink-0">
-                    <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
-                      <circle cx="40" cy="40" r="34" fill="none" strokeWidth="5" className="stroke-muted/30" />
-                      <circle
-                        cx="40" cy="40" r="34" fill="none" strokeWidth="5"
-                        className="stroke-primary"
-                        strokeLinecap="round"
-                        strokeDasharray={`${Math.round(overallValue * 21.36)} 213.6`}
-                        style={{ transition: 'stroke-dasharray 1s ease-out' }}
-                      />
-                    </svg>
-                    <span className="absolute inset-0 flex items-center justify-center text-xl font-bold text-foreground">
-                      {overallValue.toFixed(1)}
-                    </span>
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm font-semibold text-foreground">{t('outfit.score.overall') || 'Overall'}</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      {overallValue >= 8 ? (t('outfit.score.excellent') || 'An excellent combination')
-                        : overallValue >= 6 ? (t('outfit.score.good') || 'A solid, well-balanced look')
-                        : (t('outfit.score.decent') || 'A decent starting point')}
+              {/* Overall + breakdown in one row */}
+              <div className="flex items-start gap-6">
+                {Number.isFinite(overallValue) && (
+                  <div className="flex flex-col items-center shrink-0">
+                    <div className="relative w-[72px] h-[72px]">
+                      <svg className="w-[72px] h-[72px] -rotate-90" viewBox="0 0 72 72">
+                        <circle cx="36" cy="36" r="30" fill="none" strokeWidth="4" className="stroke-muted/20" />
+                        <circle
+                          cx="36" cy="36" r="30" fill="none" strokeWidth="4"
+                          className="stroke-primary"
+                          strokeLinecap="round"
+                          strokeDasharray={`${Math.round(overallValue * 18.85)} 188.5`}
+                          style={{ transition: 'stroke-dasharray 1.2s ease-out' }}
+                        />
+                      </svg>
+                      <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-foreground">
+                        {overallValue.toFixed(1)}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/40 mt-1.5 font-medium">
+                      {overallValue >= 8 ? (t('outfit.score.excellent') || 'Excellent')
+                        : overallValue >= 6 ? (t('outfit.score.good') || 'Solid')
+                        : (t('outfit.score.decent') || 'Decent')}
                     </p>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Breakdown bars */}
-              <div className="space-y-3">
-                {metrics.map(({ key, label, emoji, value }) => {
-                  const pct = Math.max(0, Math.min(100, Math.round(value * 10)));
-                  return (
-                    <div key={key} className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[13px] text-muted-foreground flex items-center gap-1.5">
-                          <span>{emoji}</span> {label}
-                        </span>
-                        <span className="text-[13px] font-semibold tabular-nums">{value.toFixed(1)}</span>
-                      </div>
-                      <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all duration-1000 ease-out"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+                {metrics.length > 0 && (
+                  <div className="flex-1 space-y-3 pt-1">
+                    {metrics.map(({ key, label, value }) => {
+                      const pct = Math.max(0, Math.min(100, Math.round(value * 10)));
+                      return (
+                        <div key={key} className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[12px] text-muted-foreground/60">{label}</span>
+                            <span className="text-[12px] font-semibold tabular-nums text-foreground/70">{value.toFixed(1)}</span>
+                          </div>
+                          <div className="h-[3px] rounded-full bg-muted/20 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-primary/70 transition-all duration-1000 ease-out"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           );
         })()}
 
-        <div>
+        {/* ── Garment list — editorial ── */}
+        <div className="space-y-1">
+          <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/40 font-semibold mb-3">
+            {t('outfit.pieces') || 'Pieces'}
+          </p>
           {outfitItems.map((item) => (
             <SlotRow
               key={item.id}
