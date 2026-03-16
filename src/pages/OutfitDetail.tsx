@@ -609,6 +609,16 @@ export default function OutfitDetailPage() {
           </div>
         )}
 
+        {/* Wardrobe insights from generation */}
+        {justGenerated && genWardrobeInsights && genWardrobeInsights.length > 0 && (
+          <div className="rounded-xl bg-muted/10 border border-border/15 px-4 py-3 space-y-1.5">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50">{t('outfit.wardrobe_insight') || 'Wardrobe insight'}</p>
+            {genWardrobeInsights.map((insight, i) => (
+              <p key={i} className="text-[12px] text-muted-foreground leading-relaxed">{insight}</p>
+            ))}
+          </div>
+        )}
+
         {outfit.style_score && (() => {
           const rawScore = outfit.style_score as Record<string, unknown>;
           const overallValue = Number(rawScore.overall);
