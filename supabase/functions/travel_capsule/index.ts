@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
+import { VOICE_TRAVEL_CAPSULE } from "../_shared/burs-voice.ts";
 
 import { allowedOrigin } from "../_shared/cors.ts";
 
@@ -120,7 +121,9 @@ serve(async (req) => {
 
     // System prompt: English for reliability, locale instruction for content language only.
     // No JSON schema here — tool_choice handles structure.
-    const systemPrompt = `You are a travel packing expert. Your task: select the MINIMUM garments from the user's wardrobe that create the MOST outfit combinations for a trip.
+    const systemPrompt = `${VOICE_TRAVEL_CAPSULE}
+
+Your task: select the MINIMUM garments from the user's wardrobe that create the MOST outfit combinations for a trip.
 
 TRIP DETAILS:
 - Duration: ${duration_days} days to ${destination || "unknown destination"}

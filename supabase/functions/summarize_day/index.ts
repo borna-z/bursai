@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
+import { VOICE_DAY_SUMMARY } from "../_shared/burs-voice.ts";
 
 import { allowedOrigin } from "../_shared/cors.ts";
 
@@ -50,7 +51,7 @@ serve(async (req) => {
 
     const isMultiEvent = events.length >= 2;
 
-    const systemPrompt = `You are a style-conscious day planner. Analyze the calendar events and provide a brief summary with outfit tips. Respond in ${localeName}.`;
+    const systemPrompt = `${VOICE_DAY_SUMMARY}\n\nRespond in ${localeName}.`;
 
     const eventsCacheKey = events.map((e: any) => e.title).sort().join(",").slice(0, 40);
 
