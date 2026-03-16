@@ -87,6 +87,7 @@ export default function OutfitGeneratePage() {
         occasion: selectedOccasion,
         style: selectedStyle,
         locale,
+        mode: generationMode,
         weather: {
           temperature: weather?.temperature,
           precipitation: weather?.precipitation ?? 'none',
