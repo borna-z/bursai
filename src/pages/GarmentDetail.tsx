@@ -352,7 +352,7 @@ export default function GarmentDetailPage() {
         <Section index={0}>
           <h1 className="text-2xl font-semibold tracking-[-0.02em]">{garment.title}</h1>
           <p className="text-[13px] text-muted-foreground/60 uppercase tracking-wide mt-1">
-            {t(`garment.category.${garment.category}`) || garment.subcategory || garment.category}
+            {categoryLabel(t, garment.category)}{garment.subcategory ? ` · ${humanize(garment.subcategory)}` : ''}
           </p>
         </Section>
 
