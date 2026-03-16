@@ -47,7 +47,7 @@ export function EmptyState({
         animate={{ scale: 1 }}
         transition={{ duration: 0.5, delay: 0.1, type: 'spring', stiffness: 200 }}
         className={cn(
-          'rounded-3xl bg-muted/30 flex items-center justify-center',
+          'rounded-[var(--radius,1.5rem)] bg-muted/30 flex items-center justify-center',
           compact ? 'w-14 h-14 mb-6' : 'w-20 h-20 mb-10',
         )}
       >

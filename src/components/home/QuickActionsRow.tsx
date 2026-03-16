@@ -31,7 +31,7 @@ export function QuickActionsRow() {
               navigate(action.path);
             }
           }}
-          className="flex-1 flex items-center justify-center gap-2 h-12 rounded-2xl surface-interactive min-h-[44px]"
+          className="flex-1 flex items-center justify-center gap-2 h-12 rounded-[var(--radius,1rem)] surface-interactive min-h-[44px]"
         >
           <action.icon className="w-4 h-4 text-muted-foreground/60" />
           <span className="text-[0.8125rem] font-semibold text-foreground/80 tracking-[-0.01em]">

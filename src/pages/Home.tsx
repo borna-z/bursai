@@ -221,7 +221,7 @@ export default function HomePage() {
                 initial="initial"
                 animate="animate"
                 transition={reveal.transition}
-                className="rounded-2xl surface-secondary p-8 text-center space-y-5"
+                className="rounded-[var(--radius,1rem)] surface-secondary p-8 text-center space-y-5"
               >
                 <Sparkles className="w-8 h-8 text-primary/50 mx-auto" />
                 <div className="space-y-2">
