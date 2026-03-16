@@ -48,6 +48,7 @@ interface GarmentCardProps {
 
 function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, index = 0 }: GarmentCardProps) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const handleClick = () => {
     if (isSelecting) { onSelect(); } else { navigate(`/wardrobe/${garment.id}`); }
