@@ -103,10 +103,10 @@ export default function HomePage() {
             className="flex items-center justify-between overflow-visible"
           >
             <div>
-              <h1 className="text-xl font-semibold tracking-[-0.025em]">
+              <h1 className="text-[1.625rem] font-bold tracking-[-0.025em] leading-tight">
                 {getGreeting()}
               </h1>
-              <p className="label-editorial mt-1 text-muted-foreground/50 capitalize">
+              <p className="label-editorial mt-1.5 text-muted-foreground/60 capitalize">
                 {formattedDate}
               </p>
             </div>
@@ -114,10 +114,10 @@ export default function HomePage() {
               <WeatherPill />
               <button
                 onClick={() => navigate('/settings')}
-                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted/40 transition-colors active:scale-95"
+                className="w-9 h-9 rounded-full surface-inset flex items-center justify-center hover:bg-foreground/[0.06] transition-colors active:scale-95"
                 aria-label="Settings"
               >
-                <Settings className="w-4 h-4 text-muted-foreground" />
+                <Settings className="w-4 h-4 text-muted-foreground/70" />
               </button>
             </div>
           </motion.div>
@@ -160,7 +160,7 @@ export default function HomePage() {
                 transition={reveal.transition}
                 className="rounded-2xl surface-secondary p-8 text-center space-y-5"
               >
-                <Shirt className="w-8 h-8 text-muted-foreground/25 mx-auto" />
+                <Shirt className="w-8 h-8 text-muted-foreground/40 mx-auto" />
                 <div className="space-y-2">
                   <h3 className="text-[15px] font-semibold">{t('home.min_garments')}</h3>
                   <p className="text-[12px] text-muted-foreground/60 max-w-[240px] mx-auto">
@@ -169,7 +169,7 @@ export default function HomePage() {
                 </div>
                 <Button
                   onClick={() => { hapticLight(); navigate('/wardrobe/add'); }}
-                  className="w-full max-w-[200px] h-11 bg-accent text-accent-foreground hover:bg-accent/90"
+                  className="w-full max-w-[200px] h-11"
                 >
                   <Shirt className="w-4 h-4 mr-2" />
                   {t('wardrobe.add')}
@@ -223,7 +223,7 @@ export default function HomePage() {
                 transition={reveal.transition}
                 className="rounded-2xl surface-secondary p-8 text-center space-y-5"
               >
-                <Sparkles className="w-8 h-8 text-primary/40 mx-auto" />
+                <Sparkles className="w-8 h-8 text-primary/50 mx-auto" />
                 <div className="space-y-2">
                   <h3 className="text-[15px] font-semibold">{t('home.no_outfit_title')}</h3>
                   <p className="text-[12px] text-muted-foreground/60 max-w-[240px] mx-auto">
@@ -232,7 +232,7 @@ export default function HomePage() {
                 </div>
                 <Button
                   onClick={() => { hapticLight(); navigate('/outfits/generate'); }}
-                  className="w-full max-w-[200px] h-11 bg-accent text-accent-foreground hover:bg-accent/90"
+                  className="w-full max-w-[200px] h-11"
                 >
                   {t('home.generate_now')}
                   <ChevronRight className="w-4 h-4 ml-1" />

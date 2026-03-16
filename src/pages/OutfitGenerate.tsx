@@ -188,7 +188,7 @@ export default function OutfitGeneratePage() {
         </section>
 
         {/* Generate button */}
-        <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent">
+        <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-background via-background/95 to-transparent">
           <Button
             onClick={handleGenerate}
             disabled={isGenerating}

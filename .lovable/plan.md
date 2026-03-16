@@ -1,75 +1,91 @@
 
+# Full i18n Translation Plan — 110 Steps
 
-# Premium App Feel Pass
+**Status: 🔲 Not Started**
 
-## Current State Assessment
+## Current State
 
-The app has solid bones — working flows, semantic surfaces (hero/secondary/inset/interactive), editorial typography tokens, and motion presets. But several high-visibility areas feel unfinished or inconsistent, creating gaps in the "one premium product" feeling.
+- **14 supported locales**: sv, en, no, da, fi, de, fr, es, it, pt, nl, pl, ar, fa
+- **sv and en** are fully translated (~700+ keys each)
+- **Other 12 locales** have partial coverage (~100-200 keys each), missing large sections
+- Fallback chain: `locale → en → sv → raw key`
+- File: `src/i18n/translations.ts` (~9,800 lines)
 
-## What's Already Strong (Preserve)
-- BottomNav: frosted glass, animated pill, haptic feedback — premium
-- Surface hierarchy: 4-tier system is well-defined
-- Motion system: purpose-based presets with reduced-motion support
-- Settings page: clean grouped rows with consistent spacing
-- Garment Detail: hero image with floating controls — editorial
+---
 
-## Issues & Improvements
+## Architecture Change (Steps 1-2)
 
-### 1. Home Page — Greeting & Hero Polish
-**Problem**: Greeting section uses `text-xl` which feels small for a hero moment. Date line opacity (`/50`) is too faint. Settings icon button lacks the glass treatment used elsewhere.
-**Fix**: Bump greeting to `text-[1.625rem]` (h1 token). Increase date opacity to `/60`. Add `surface-inset` to settings button for consistency.
+**Step 1** — Create `src/i18n/locales/` directory with one file per locale, each exporting `Record<string, string>`.
 
-### 2. Home Page — Empty & No-Outfit States
-**Problem**: Empty states use `rounded-2xl surface-secondary p-8` but icons are too faint (`/25`). The CTA buttons use `bg-accent` inline instead of the Button component's default variant.
-**Fix**: Increase icon opacity to `/40`. Use the `surface-hero` class for empty states (they're the primary content when visible). Standardize button approach.
+**Step 2** — Refactor `src/i18n/translations.ts` to import from individual locale files. No functional change.
 
-### 3. QuickActionsRow — Touch Target & Visual Weight
-**Problem**: Two buttons feel sparse. Text at `0.75rem` is hard to read. The `surface-inset` class makes them recede too much for action buttons.
-**Fix**: Bump text to `0.8125rem` (13px). Switch from `surface-inset` to `surface-interactive` for better affordance. Add subtle icon color bump.
+---
 
-### 4. AISuggestions — Card Polish
-**Problem**: Garment circles use hardcoded `border-2 border-border/20` and `shadow-sm`. The occasion label uses inline `text-[9px]` which is inconsistently small. CTA buttons lack visual hierarchy — "Try it" and "Plan" look similar.
-**Fix**: Use consistent `border border-border/30` on garment circles. Bump occasion to `text-[10px]`. Make "Try it" button use accent color for clear primary action.
+## Per-Locale Translation (Steps 3-110)
 
-### 5. OutfitDetail — Section Labels Inconsistency  
-**Problem**: Multiple section labels use inline `text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium` instead of the `label-editorial` class. This appears on lines for "Why it works", "Style Score", "Photo Feedback", "Rating", "Feedback".
-**Fix**: Replace all inline section label patterns with `label-editorial` class.
+Each locale gets 9 steps covering these domains:
 
-### 6. OutfitDetail — Sticky Bottom Bar
-**Problem**: The action bar uses `bg-background/60 backdrop-blur-2xl` which matches BottomNav but the `border-border/15` is inconsistent. The "Mark Worn" button uses default variant, not accent.
-**Fix**: Align border opacity with BottomNav. Use accent color for primary action.
+| Step offset | Domain |
+|---|---|
+| +0 | Navigation, common, auth, error |
+| +1 | Onboarding (all sub-steps, body, style, tutorial) |
+| +2 | Settings (profile, appearance, privacy, GDPR, notifications, account) |
+| +3 | Home, weather, plan, calendar |
+| +4 | Wardrobe, garment details, scan, import, batch, duplicate |
+| +5 | Outfits, outfit generation, stylist/chat |
+| +6 | Insights, discover, premium, billing, pricing, trial |
+| +7 | Landing page (hero, bento, showcase, pricing section, FAQ, footer, comparison) |
+| +8 | Contact, privacy policy, terms, seed/admin, genimg, social reactions |
 
-### 7. GarmentDetail — Content Spacing
-**Problem**: Uses `px-6 pt-8 space-y-8` which doesn't match the `page-container` pattern. Stats section uses `text-3xl font-light` which feels web-template-like, not editorial.
-**Fix**: Align padding with page-container. Refine stat typography to `text-2xl font-semibold` for editorial weight.
+### Steps 3-11: Norwegian (no)
+### Steps 12-20: Danish (da)
+### Steps 21-29: Finnish (fi)
+### Steps 30-38: German (de)
+### Steps 39-47: French (fr)
+### Steps 48-56: Spanish (es)
+### Steps 57-65: Italian (it)
+### Steps 66-74: Portuguese (pt)
+### Steps 75-83: Dutch (nl)
+### Steps 84-92: Polish (pl)
+### Steps 93-101: Arabic (ar)
+### Steps 102-110: Farsi (fa)
 
-### 8. GarmentDetail — Bottom CTAs
-**Problem**: Two full-width stacked buttons with `rounded-2xl h-12` feel heavy. "Use in outfit" has `bg-accent` inline, "Mark worn" is outline — good hierarchy but both could use a sticky bottom bar like OutfitDetail for consistency.
-**Fix**: Wrap in sticky bottom bar matching OutfitDetail's pattern for consistency across detail pages.
+---
 
-### 9. PageHeader — Border & Blur
-**Problem**: Uses `border-b border-border` (full opacity) while BottomNav uses `border-border/15`. This creates a heavy top bar vs. light bottom bar inconsistency.
-**Fix**: Match border to `border-border/15` for unified feel. Increase blur from `backdrop-blur-lg` to `backdrop-blur-2xl`.
+## Technical Details
 
-### 10. OutfitGenerate — Fixed Button Gradient
-**Problem**: The fixed generate button uses `bg-gradient-to-t from-background via-background to-transparent` which can feel harsh.
-**Fix**: Use `from-background via-background/95` for softer fade.
+### File structure after refactor
+```text
+src/i18n/
+  translations.ts          ← imports + re-exports composed object
+  locales/
+    sv.ts                  ← ~700 keys (already complete)
+    en.ts                  ← ~700 keys (already complete)
+    no.ts                  ← fill to ~700 keys
+    da.ts                  ← fill to ~700 keys
+    fi.ts                  ← fill to ~700 keys
+    de.ts                  ← fill to ~700 keys
+    fr.ts                  ← fill to ~700 keys
+    es.ts                  ← fill to ~700 keys
+    it.ts                  ← fill to ~700 keys
+    pt.ts                  ← fill to ~700 keys
+    nl.ts                  ← fill to ~700 keys
+    pl.ts                  ← fill to ~700 keys
+    ar.ts                  ← fill to ~700 keys (RTL)
+    fa.ts                  ← fill to ~700 keys (RTL)
+```
 
-### 11. Swap Sheet Mode Buttons — Not i18n'd
-**Problem**: "Safe", "Bold", "Fresh" labels in the swap sheet are hardcoded English.
-**Fix**: Use `t()` keys.
+### Key count target
+Every locale file must contain the exact same set of keys as `en.ts`.
 
-## Files to Change
+### Translation quality
+- AI-assisted translation with native-quality output
+- Preserve placeholders like `{count}`, `{done}`, `{failed}`
+- RTL languages (ar, fa) keep the same key structure; RTL layout handled by CSS
+- Currency/number formatting stays locale-aware via `getLocalizedPricing()`
 
-1. **`src/pages/Home.tsx`** — Greeting typography, empty state icon opacity, surface class upgrades
-2. **`src/components/home/QuickActionsRow.tsx`** — Text size, surface class, icon opacity
-3. **`src/components/insights/AISuggestions.tsx`** — Garment circle borders, occasion label size, CTA button accent
-4. **`src/pages/OutfitDetail.tsx`** — Replace inline section labels with `label-editorial`, fix sticky bar styling, i18n swap mode labels
-5. **`src/pages/GarmentDetail.tsx`** — Stat typography refinement, sticky bottom CTA bar, padding alignment
-6. **`src/components/layout/PageHeader.tsx`** — Border opacity and blur alignment
-7. **`src/pages/OutfitGenerate.tsx`** — Softer gradient fade on fixed button
-8. **`src/i18n/translations.ts`** — Add swap mode keys (safe/bold/fresh)
+### Edge functions
+Edge functions already use `LANG_CONFIG` mappings. No changes needed.
 
-## Summary
-8 files modified. No new components. No structural changes. Focus on typography weight, surface consistency, border/blur alignment, and label standardization across the 5 highest-visibility screens (Home, OutfitDetail, GarmentDetail, OutfitGenerate, PageHeader).
-
+### No new dependencies
+All translations are static strings in TypeScript files. No runtime i18n library needed.

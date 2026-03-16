@@ -106,7 +106,7 @@ export default function GarmentDetailPage() {
   if (garment.formality) seasonParts.push(`${t('garment.formality')} ${garment.formality}/5`);
 
   return (
-    <div className="min-h-screen bg-background pb-32">
+    <div className="min-h-screen bg-background pb-40">
       {/* Hero image with floating controls */}
       <div className="relative rounded-b-3xl overflow-hidden">
         <LazyImage imagePath={garment.image_path} alt={garment.title} aspectRatio="3/4" className="w-full !rounded-none" />
@@ -152,7 +152,7 @@ export default function GarmentDetailPage() {
       </div>
 
       {/* Content */}
-      <div className="px-6 pt-8 space-y-8 max-w-lg mx-auto">
+      <div className="px-5 pt-8 space-y-8 max-w-lg mx-auto">
         {/* Title + category */}
         <div>
           <h1 className="text-2xl font-semibold">{garment.title}</h1>
@@ -176,12 +176,12 @@ export default function GarmentDetailPage() {
         {/* Stats */}
         <div className="flex">
           <div className="flex-1 text-center">
-            <p className="text-3xl font-light tabular-nums">{garment.wear_count || 0}</p>
+            <p className="text-2xl font-semibold tabular-nums">{garment.wear_count || 0}</p>
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 mt-1">{t('garment.worn_count')}</p>
           </div>
           <div className="w-px bg-border/20" />
           <div className="flex-1 text-center">
-            <p className="text-3xl font-light tabular-nums">
+            <p className="text-2xl font-semibold tabular-nums">
               {garment.last_worn_at
                 ? new Date(garment.last_worn_at).toLocaleDateString(getBCP47(locale), { day: 'numeric', month: 'short' })
                 : '—'}
@@ -321,24 +321,25 @@ export default function GarmentDetailPage() {
           </div>
         )}
 
-        {/* Use in outfit */}
-        <Button className="w-full rounded-2xl h-12 bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => navigate('/', { state: { prefillGarmentId: garment.id } })}>
-          <Sparkles className="w-4 h-4 mr-2" />
-          {t('garment.use_in_outfit')}
-        </Button>
-
-        {/* Mark worn */}
-        <Button variant="outline" className="w-full rounded-2xl h-12" onClick={handleMarkWorn} disabled={markWorn.isPending}>
-          {markWorn.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-          {t('garment.mark_worn')}
-        </Button>
-
         {/* AI analyzed */}
         {garment.ai_analyzed_at && (
           <p className="text-[11px] text-muted-foreground/40 text-center">
             {t('garment.analyzed_at')} {new Date(garment.ai_analyzed_at).toLocaleDateString(getBCP47(locale))}
           </p>
         )}
+      </div>
+
+      {/* ── Sticky bottom action bar ── */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/60 backdrop-blur-2xl border-t border-border/15 safe-bottom">
+        <div className="flex items-center gap-3 px-5 py-4 max-w-lg mx-auto">
+          <Button className="flex-1 h-12" onClick={() => navigate('/', { state: { prefillGarmentId: garment.id } })}>
+            <Sparkles className="w-4 h-4 mr-2" />
+            {t('garment.use_in_outfit')}
+          </Button>
+          <Button variant="outline" className="h-12 px-4 shrink-0" onClick={handleMarkWorn} disabled={markWorn.isPending}>
+            {markWorn.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+          </Button>
+        </div>
       </div>
     </div>
   );

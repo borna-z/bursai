@@ -964,6 +964,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'swap.generate_new': 'Generera ny',
     'swap.generate_new_desc': 'Skapa en helt ny outfit för dagen',
     'swap.view_details': 'Visa detaljer och byt enskilda plagg',
+    'swap.mode_safe': 'Säker',
+    'swap.mode_bold': 'Djärv',
+    'swap.mode_fresh': 'Fräsch',
 
     // Planning sheet
     'planning.choose_how': 'Välj hur du vill planera din outfit',
@@ -3131,6 +3134,9 @@ export const translations: Record<Locale, Record<string, string>> = {
     'swap.generate_new': 'Generate new',
     'swap.generate_new_desc': 'Create a brand new outfit for the day',
     'swap.view_details': 'View details and swap individual garments',
+    'swap.mode_safe': 'Safe',
+    'swap.mode_bold': 'Bold',
+    'swap.mode_fresh': 'Fresh',
     'planning.choose_how': 'Choose how to plan your outfit',
     'planning.choose_saved': 'Choose a saved outfit',
     'planning.from_saved': 'Choose from saved outfits',

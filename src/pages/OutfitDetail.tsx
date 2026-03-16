@@ -71,7 +71,7 @@ function SwapSheet({
             size="sm"
             onClick={() => onModeChange('safe')}
           >
-            Safe
+            {t('swap.mode_safe') || 'Safe'}
           </Button>
           <Button
             type="button"
@@ -79,7 +79,7 @@ function SwapSheet({
             size="sm"
             onClick={() => onModeChange('bold')}
           >
-            Bold
+            {t('swap.mode_bold') || 'Bold'}
           </Button>
           <Button
             type="button"
@@ -87,7 +87,7 @@ function SwapSheet({
             size="sm"
             onClick={() => onModeChange('fresh')}
           >
-            Fresh
+            {t('swap.mode_fresh') || 'Fresh'}
           </Button>
         </div>
 
@@ -555,7 +555,7 @@ export default function OutfitDetailPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
-              <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">{t('outfit.why_works')}</p>
+              <p className="label-editorial text-muted-foreground/60">{t('outfit.why_works')}</p>
             </div>
             <p className={`text-sm text-muted-foreground leading-relaxed ${!explExpanded ? 'line-clamp-2' : ''}`}>{outfit.explanation}</p>
             {outfit.explanation.length > 120 && (
@@ -584,7 +584,7 @@ export default function OutfitDetailPage() {
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-primary" />
-                <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">
+                <p className="label-editorial text-muted-foreground/60">
                   {t('outfit.score.title') || 'Style Score'}
                 </p>
               </div>
@@ -628,7 +628,7 @@ export default function OutfitDetailPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Camera className="w-4 h-4 text-primary" />
-              <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">
+              <p className="label-editorial text-muted-foreground/60">
                 {t('outfit.photo_feedback')}
               </p>
             </div>
@@ -703,7 +703,7 @@ export default function OutfitDetailPage() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-primary" />
-                    <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">AI Feedback</p>
+                    <p className="label-editorial text-muted-foreground/60">AI Feedback</p>
                   </div>
                   <p className="text-sm text-muted-foreground leading-relaxed">{photoFeedback.commentary}</p>
                 </div>
@@ -733,7 +733,7 @@ export default function OutfitDetailPage() {
 
         {/* ── Rating ── */}
         <div className="space-y-4">
-          <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">{t('outfit.rating')}</p>
+          <p className="label-editorial text-muted-foreground/60">{t('outfit.rating')}</p>
           <div className="flex gap-1.5">
             {[1, 2, 3, 4, 5].map((value) => (
               <button key={value} onClick={() => handleRating(value)} className="p-1 rounded-lg hover:bg-muted/40 transition-colors active:scale-95">
@@ -745,7 +745,7 @@ export default function OutfitDetailPage() {
 
         {/* ── Feedback chips ── */}
         <div className="space-y-4">
-          <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">{t('outfit.feedback')}</p>
+          <p className="label-editorial text-muted-foreground/60">{t('outfit.feedback')}</p>
           <div className="flex flex-wrap gap-2.5">
             {feedbackOptions.map(({ id, label, icon: Icon }) => {
               const isSelected = selectedFeedback.includes(id);
