@@ -252,7 +252,7 @@ export default function GarmentDetailPage() {
 
         {/* Enrichment: Construction specs */}
         {enrichment && (enrichment.neckline || enrichment.sleeve_length || enrichment.garment_length || enrichment.closure || enrichment.fabric_weight || enrichment.layering_role) && (
-          <div className="space-y-1 border border-border/10 rounded-xl px-4 py-1">
+          <div className="space-y-1 border border-border/10 px-4 py-1">
             {enrichment.neckline && <SpecRow label={t('garment.neckline') || 'Neckline'} value={enrichment.neckline} />}
             {enrichment.sleeve_length && <SpecRow label={t('garment.sleeve') || 'Sleeve'} value={enrichment.sleeve_length} />}
             {enrichment.garment_length && <SpecRow label={t('garment.length') || 'Length'} value={enrichment.garment_length} />}
