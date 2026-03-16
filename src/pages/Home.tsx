@@ -226,7 +226,7 @@ export default function HomePage() {
                 <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
               </motion.button>
             ) : (
-              /* no_outfit — simple generate CTA */
+              /* no_outfit — stylist prompt */
               <motion.div
                 variants={reveal.variants}
                 initial="initial"
@@ -237,8 +237,8 @@ export default function HomePage() {
                 <Sparkles className="w-8 h-8 text-primary/50 mx-auto" />
                 <div className="space-y-2">
                   <h3 className="text-[15px] font-semibold">{t('home.no_outfit_title')}</h3>
-                  <p className="text-[12px] text-muted-foreground/60 max-w-[240px] mx-auto">
-                    {t('home.no_outfit_desc')}
+                  <p className="text-[12px] text-muted-foreground/60 max-w-[260px] mx-auto leading-relaxed">
+                    Tell me the occasion — I'll pull together something that works.
                   </p>
                 </div>
                 <Button
