@@ -10,6 +10,8 @@ import { useOutfitGenerator } from '@/hooks/useOutfitGenerator';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
 import { useWeather } from '@/hooks/useWeather';
+import { useSubscription } from '@/hooks/useSubscription';
+import { PaywallModal } from '@/components/PaywallModal';
 import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
