@@ -476,6 +476,13 @@ export default function LiveScan() {
         )}
 
         {isProcessing && <ScanOverlay />}
+        {!isProcessing && isRemovingBackground && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center">
+            <span className="text-foreground text-sm font-medium bg-background/60 px-4 py-2 backdrop-blur-sm">
+              Isolating garment…
+            </span>
+          </div>
+        )}
         
         <AnimatePresence>
           {showAccepted && <AcceptedOverlay onDone={handleAcceptedDone} label={t('scan.added')} />}
