@@ -136,12 +136,15 @@ export default function HomePage() {
             transition={{ delay: 0.3, duration: 0.6 }}
             className="text-[12px] text-muted-foreground/40 italic leading-relaxed -mt-2 px-0.5"
           >
-            {getStylistTip({ weather, garmentCount: garmentCount ?? undefined })}
+          {getStylistTip({ weather, garmentCount: garmentCount ?? undefined })}
           </motion.p>
 
-          {/* Weather alert is now handled by the TodayOutfitHero context-awareness */}
+          {/* ── 2. AI Suggestions — promoted to first content block ── */}
+          {(garmentCount || 0) >= 3 && (
+            <AISuggestions isPremium={isPremium} />
+          )}
 
-          {/* ── 2. Hero — state-aware with FadeReplace ── */}
+          {/* ── 3. Hero — state-aware with FadeReplace ── */}
           <FadeReplace
             show={homeState !== 'loading'}
             contentKey={homeState}
@@ -229,11 +232,6 @@ export default function HomePage() {
                 <UnusedGemBanner unusedGarments={insightsData.unusedGarments} />
               )}
             </div>
-          )}
-
-          {/* ── 3b. AI Suggestions — always visible with 3+ garments ── */}
-          {(garmentCount || 0) >= 3 && (
-            <AISuggestions isPremium={isPremium} />
           )}
 
           {/* ── 4. Tertiary: Wardrobe Gap + Mood ── */}
