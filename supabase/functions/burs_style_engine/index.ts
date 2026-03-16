@@ -2161,9 +2161,13 @@ function buildCombos(
     }
   }
 
+  // Hard quality gate — reject weak outfits before ranking
+  const qualityFiltered = Array.from(unique.values()).filter(c => qualityGate(c, weather));
+
   // Exact-id dedup first, then family-level dedup
-  const exactDeduped = Array.from(unique.values())
-    .sort((a, b) => b.totalScore - a.totalScore);
+  const exactDeduped = qualityFiltered.length > 0
+    ? qualityFiltered.sort((a, b) => b.totalScore - a.totalScore)
+    : Array.from(unique.values()).sort((a, b) => b.totalScore - a.totalScore).slice(0, 3); // fallback: top 3 even if weak
 
   return pickRepresentativeOutfits(exactDeduped, maxCombos, 0.8);
 }
