@@ -105,6 +105,11 @@ async function generateOutfitViaEngine(
     items?: { slot: string; garment_id: string }[];
     explanation?: string;
     style_score?: Record<string, number> | null;
+    confidence_score?: number;
+    confidence_level?: string;
+    limitation_note?: string | null;
+    family_label?: string;
+    wardrobe_insights?: string[];
     error?: string;
   }>('burs_style_engine', {
     timeout: 45000,
@@ -137,6 +142,11 @@ async function generateOutfitViaEngine(
   const aiItems: { slot: string; garment_id: string }[] = data?.items ?? [];
   const explanation: string = data?.explanation ?? '';
   const styleScore = data?.style_score || null;
+  const confidenceScore = data?.confidence_score;
+  const confidenceLevel = data?.confidence_level;
+  const limitationNote = data?.limitation_note;
+  const familyLabel = data?.family_label;
+  const wardrobeInsights = data?.wardrobe_insights;
 
   if (!aiItems.length) throw new Error('AI returned no garments');
 
