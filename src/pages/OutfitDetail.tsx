@@ -146,6 +146,13 @@ function SwapSheet({
 
 /* ── Garment Slot (editorial card) ─────────────── */
 
+const LAYER_ROLE_LABELS: Record<string, string> = {
+  base: 'Base Layer',
+  mid: 'Mid Layer',
+  outer: 'Outer Layer',
+  standalone: '',
+};
+
 interface SlotRowProps {
   slot: string;
   garmentId: string;
@@ -154,10 +161,17 @@ interface SlotRowProps {
   imagePath?: string;
   onSwap: () => void;
   t: (key: string) => string;
+  layerRole?: string;
 }
 
-function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, onSwap, t }: SlotRowProps) {
+function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, onSwap, t, layerRole }: SlotRowProps) {
   const navigate = useNavigate();
+  // Use layering role label for top-area slots when available
+  const isLayeredSlot = ['top', 'outerwear'].includes(slot);
+  const roleLabel = isLayeredSlot && layerRole && LAYER_ROLE_LABELS[layerRole]
+    ? LAYER_ROLE_LABELS[layerRole]
+    : (t(`outfit.slot.${slot}`) || slot);
+  
   return (
     <div className="flex items-center gap-4 py-4 border-b border-border/8 last:border-b-0 group">
       <div
@@ -173,7 +187,7 @@ function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, onSwa
       </div>
       <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/wardrobe/${garmentId}`)}>
         <p className="text-[10px] text-muted-foreground/40 uppercase tracking-[0.12em] font-medium">
-          {t(`outfit.slot.${slot}`) || slot}
+          {roleLabel}
         </p>
         <p className="font-semibold text-[15px] truncate mt-0.5 tracking-tight">{stripBrands(garmentTitle || '') || t('outfit.unknown')}</p>
         {garmentColor && <p className="text-[12px] text-muted-foreground/60 capitalize mt-0.5">{garmentColor}</p>}
