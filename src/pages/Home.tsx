@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Settings, Heart, Sparkles, CalendarDays, CloudRain, Shirt, ChevronRight } from 'lucide-react';
+import { TodayOutfitHero } from '@/components/home/TodayOutfitHero';
 import { format } from 'date-fns';
 import { enUS, nb, sv, da, fi, de, fr, es, it, pt, nl, pl, ar } from 'date-fns/locale';
 
