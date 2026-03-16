@@ -263,40 +263,303 @@ export default function OutfitDetailPage() {
       occasion: outfit?.occasion || 'vardag',
       weather: mergedWeather,
     };
+  const handleOpenSwap = async (slot: string, outfitItemId: string, currentGarmentId: string) => {
+    const ctx = buildSwapRequestContext(outfitItemId);
+
+    setSwapSheet({
+      isOpen: true,
+      slot,
+      outfitItemId,
+      currentGarmentId,
+    });
+
+    await fetchCandidates(
+      slot,
+      currentGarmentId,
+      ctx.otherColors,
+      ctx.otherItems,
+      ctx.occasion,
+      ctx.weather,
+      swapMode
+    );
   };
-...
-        {/* ── Hero: outfit image grid ── */}
-        <div ref={outfitRef} className="relative sm:rounded-b-3xl overflow-hidden bg-muted/20">
-          <div className="grid grid-cols-2 gap-0.5">
-            {outfitItems.map((item, index) => (
-              <div
-                key={item.id}
-                className={cn(
-                  "relative overflow-hidden bg-muted/30",
-                  outfitItems.length === 3 && index === 2 && "col-span-2",
-                  outfitItems.length === 1 && "col-span-2",
-                )}
-              >
-                <LazyImageSimple
-                  imagePath={item.garment?.image_path}
-                  alt={item.garment?.title || item.slot}
-                  className={cn(
-                    "w-full object-cover",
-                    outfitItems.length <= 2 ? "aspect-[3/4]" :
-                    outfitItems.length === 3 && index === 2 ? "aspect-[2/1]" :
-                    "aspect-square"
-                  )}
-                  fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/20" />}
-                />
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/40 to-transparent p-2">
-                  <p className="text-[10px] text-white/80 uppercase tracking-wider font-medium">
-                    {t(`outfit.slot.${item.slot}`) || item.slot}
-                  </p>
-                </div>
-              </div>
-            ))}
+
+  useEffect(() => {
+    if (!swapSheet.isOpen || !swapSheet.currentGarmentId || !swapSheet.outfitItemId) return;
+
+    const ctx = buildSwapRequestContext(swapSheet.outfitItemId);
+
+    void fetchCandidates(
+      swapSheet.slot,
+      swapSheet.currentGarmentId,
+      ctx.otherColors,
+      ctx.otherItems,
+      ctx.occasion,
+      ctx.weather,
+      swapMode
+    );
+  }, [swapMode]);
+
+  const handleSwapModeChange = async (mode: SwapMode) => {
+    setSwapMode(mode);
+    if (!swapSheet.isOpen || !swapSheet.slot || !swapSheet.currentGarmentId) return;
+    const ctx = buildSwapRequestContext(swapSheet.outfitItemId);
+    await fetchCandidates(swapSheet.slot, swapSheet.currentGarmentId, ctx.otherColors, ctx.otherItems, ctx.occasion, ctx.weather, mode);
+  };
+
+  const handleSwap = async (newGarmentId: string) => {
+    try {
+      await swapGarment({ outfitItemId: swapSheet.outfitItemId, newGarmentId });
+      toast.success(t('outfit.swapped'));
+      setSwapSheet({ isOpen: false, slot: '', outfitItemId: '', currentGarmentId: '' });
+      refetch();
+    } catch {
+      toast.error(t('outfit.swap_error'));
+    }
+  };
+
+  const handleToggleSave = async () => {
+    if (!outfit) return;
+    hapticMedium();
+    try {
+      await updateOutfit.mutateAsync({ id: outfit.id, updates: { saved: !outfit.saved } });
+      toast.success(outfit.saved ? t('outfit.removed') : t('outfit.saved'));
+    } catch {
+      toast.error(t('common.something_wrong'));
+    }
+  };
+
+  const handleRating = async (value: number) => {
+    if (!outfit) return;
+    hapticLight();
+    setRating(value);
+    try {
+      await updateOutfit.mutateAsync({ id: outfit.id, updates: { rating: value } });
+      toast.success(t('outfit.rating_saved'));
+    } catch {
+      toast.error(t('common.something_wrong'));
+    }
+  };
+
+  const handleFeedbackToggle = async (feedbackId: string) => {
+    if (!outfit) return;
+    const newFeedback = selectedFeedback.includes(feedbackId)
+      ? selectedFeedback.filter((f) => f !== feedbackId)
+      : [...selectedFeedback, feedbackId];
+    setSelectedFeedback(newFeedback);
+    try {
+      await updateOutfit.mutateAsync({ id: outfit.id, updates: { feedback: newFeedback } as TablesUpdate<'outfits'> });
+    } catch {
+      setSelectedFeedback(selectedFeedback);
+    }
+  };
+
+  const handleMarkWorn = async () => {
+    if (!outfit) return;
+    hapticSuccess();
+    try {
+      const garmentIds = outfitItems.map((item) => item.garment_id);
+      const result = await markWorn.mutateAsync({ outfitId: outfit.id, garmentIds, occasion: outfit.occasion });
+      toast.success(t('outfit.marked_worn'), {
+        action: {
+          label: t('outfit.undo'),
+          onClick: async () => {
+            try {
+              await undoMarkWorn.mutateAsync(result);
+              toast.success(t('outfit.undone'));
+            } catch {
+              toast.error(t('outfit.undo_error'));
+            }
+          },
+        },
+        duration: 10000,
+      });
+    } catch {
+      toast.error(t('common.something_wrong'));
+    }
+  };
+
+  const handleCreateSimilar = () => {
+    navigate('/', { state: { prefillOccasion: outfit?.occasion, prefillStyle: outfit?.style_vibe } });
+  };
+
+  const handleToggleShareEnabled = async () => {
+    if (!outfit) return;
+    try {
+      await updateOutfit.mutateAsync({ id: outfit.id, updates: { share_enabled: !outfit.share_enabled } });
+      toast.success(outfit.share_enabled ? t('outfit.share_off') : t('outfit.share_on'));
+      refetch();
+    } catch {
+      toast.error(t('common.something_wrong'));
+    }
+  };
+
+  const handleCopyShareLink = async () => {
+    const shared = await nativeShare({
+      title: 'BURS Outfit',
+      text: outfit?.explanation || undefined,
+      url: shareUrl,
+    });
+    if (shared) {
+      setCopied(true);
+      toast.success(t('outfit.copied'));
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleDownloadImage = async () => {
+    if (!outfitRef.current || !outfit) return;
+    setIsDownloading(true);
+    try {
+      const { toPng } = await import('html-to-image');
+      const dataUrl = await toPng(outfitRef.current, { quality: 1.0, backgroundColor: '#ffffff', pixelRatio: 2 });
+      const link = document.createElement('a');
+      link.download = `outfit-${outfit.occasion}.png`;
+      link.href = dataUrl;
+      link.click();
+      toast.success(t('outfit.downloaded'));
+    } catch {
+      toast.error(t('outfit.download_error'));
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="sticky top-0 z-10 p-4 flex items-center justify-between">
+          <Skeleton className="w-10 h-10 rounded-full" />
+          <div className="flex gap-2">
+            <Skeleton className="w-10 h-10 rounded-full" />
+            <Skeleton className="w-10 h-10 rounded-full" />
           </div>
-...
+        </div>
+        <div className="grid grid-cols-2 gap-1 px-1">
+          <Skeleton className="aspect-[3/4] rounded-xl" />
+          <Skeleton className="aspect-[3/4] rounded-xl" />
+        </div>
+        <div className="px-6 pt-8 space-y-4">
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-px w-full" />
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!outfit) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+        <div className="max-w-xs w-full text-center space-y-4">
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-muted flex items-center justify-center">
+            <Shirt className="w-7 h-7 text-muted-foreground" />
+          </div>
+          <div className="space-y-1.5">
+            <p className="text-lg font-semibold text-foreground">{t('outfit.not_found')}</p>
+            <p className="text-sm text-muted-foreground">{t('common.something_wrong')}</p>
+          </div>
+          <Button variant="outline" onClick={() => navigate('/outfits')} className="w-full">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            {t('common.back')}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const normalizedOutfitWeather = normalizeWeather(outfit.weather as Record<string, unknown> | null);
+  const displayOccasion = getOccasionLabel(outfit.occasion, t);
+  const metaParts = [displayOccasion, outfit.style_vibe].filter(Boolean) as string[];
+  if (normalizedOutfitWeather.temperature !== undefined) {
+    metaParts.push(`${normalizedOutfitWeather.temperature}°C`);
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="fixed top-0 left-0 right-0 z-20 p-4 flex items-center justify-between">
+        <button
+          onClick={() => navigate(-1)}
+          className="w-10 h-10 rounded-full bg-background/40 backdrop-blur-xl flex items-center justify-center active:scale-95 transition-transform"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleToggleSave}
+            className="w-10 h-10 rounded-full bg-background/40 backdrop-blur-xl flex items-center justify-center active:scale-95 transition-transform"
+          >
+            {outfit.saved ? <BookmarkCheck className="w-5 h-5 text-primary" /> : <Bookmark className="w-5 h-5" />}
+          </button>
+          <button
+            onClick={() => setShareSheetOpen(true)}
+            className="w-10 h-10 rounded-full bg-background/40 backdrop-blur-xl flex items-center justify-center active:scale-95 transition-transform"
+          >
+            <Share2 className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      <div ref={outfitRef} className="relative sm:rounded-b-3xl overflow-hidden bg-muted/20">
+        <div className="grid grid-cols-2 gap-0.5">
+          {outfitItems.map((item, index) => (
+            <div
+              key={item.id}
+              className={cn(
+                'relative overflow-hidden bg-muted/30',
+                outfitItems.length === 3 && index === 2 && 'col-span-2',
+                outfitItems.length === 1 && 'col-span-2'
+              )}
+            >
+              <LazyImageSimple
+                imagePath={item.garment?.image_path}
+                alt={item.garment?.title || item.slot}
+                className={cn(
+                  'w-full object-cover',
+                  outfitItems.length <= 2 ? 'aspect-[3/4]' : outfitItems.length === 3 && index === 2 ? 'aspect-[2/1]' : 'aspect-square'
+                )}
+                fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/20" />}
+              />
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/40 to-transparent p-2">
+                <p className="text-[10px] text-white/80 uppercase tracking-wider font-medium">
+                  {t(`outfit.slot.${item.slot}`) || item.slot}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {justGenerated && (
+          <div className="absolute bottom-4 left-4 flex items-center gap-1.5 bg-background/60 backdrop-blur-xl rounded-full px-3 py-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs font-medium">{t('outfit.just_created')}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="px-5 sm:px-6 pt-8 pb-40 space-y-10">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight capitalize">{displayOccasion}</h1>
+          <p className="text-[13px] text-muted-foreground/60 mt-1.5">{metaParts.join(' · ')}</p>
+        </div>
+
+        {outfit.explanation && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wide font-medium">{t('outfit.why_works')}</p>
+            </div>
+            <p className={`text-sm text-muted-foreground leading-relaxed ${!explExpanded ? 'line-clamp-2' : ''}`}>{outfit.explanation}</p>
+            {outfit.explanation.length > 120 && (
+              <button onClick={() => setExplExpanded((v) => !v)} className="text-xs text-primary/70 hover:text-primary transition-colors">
+                {explExpanded ? t('common.less') : t('common.read_more')}
+              </button>
+            )}
+          </div>
+        )}
+
         {outfit.style_score && (() => {
           const rawScore = outfit.style_score as Record<string, unknown>;
           const metrics = [
@@ -329,10 +592,7 @@ export default function OutfitDetailPage() {
                         <span className="text-sm font-semibold">{value.toFixed(1)}</span>
                       </div>
                       <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className={cn("h-full rounded-full transition-all duration-700", color)}
-                          style={{ width: `${pct}%` }}
-                        />
+                        <div className={cn('h-full rounded-full transition-all duration-700', color)} style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   );
@@ -342,7 +602,6 @@ export default function OutfitDetailPage() {
           );
         })()}
 
-        {/* ── Garment list ── */}
         <div>
           {outfitItems.map((item) => (
             <SlotRow
