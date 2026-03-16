@@ -46,6 +46,9 @@ export function compressCenterCrop(
   return new Promise((resolve, reject) => {
     const vw = video.videoWidth;
     const vh = video.videoHeight;
+    if (vw === 0 || vh === 0) {
+      return reject(new Error('Video not ready'));
+    }
     // Crop center 70%
     const cropRatio = 0.7;
     const sx = Math.round(vw * (1 - cropRatio) / 2);

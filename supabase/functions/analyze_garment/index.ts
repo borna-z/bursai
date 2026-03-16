@@ -300,7 +300,7 @@ serve(async (req) => {
       const tryEnrich = async (attempt: number) => {
         const { data } = await callBursAI({
           complexity: "standard",
-          max_tokens: 300,
+          max_tokens: 800,
           timeout: 20000,
           functionName: "analyze_garment_enrich",
           messages: buildEnrichMessages(resolvedImageUrl),
