@@ -3932,7 +3932,7 @@ serve(async (req) => {
           if (!slot) continue;
           if (!daySlotCandidates[slot]) daySlotCandidates[slot] = [];
 
-          const scored = scoreGarment(garment, dayOccasion, dayWeather, penalties, preferences, wearPatterns, styleVector, comfortProfile, socialMap, dayEventTitle, transInfo);
+          const scored = scoreGarment(garment, dayOccasion, dayWeather, penalties, preferences, wearPatterns, styleVector, comfortProfile, socialMap, dayEventTitle, transInfo, personalUniform);
 
           // Inter-day repetition penalty for hero garments
           if (HERO_SLOTS.has(slot) && usedHeroGarments.has(garment.id)) {
