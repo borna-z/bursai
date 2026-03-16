@@ -2835,12 +2835,12 @@ ${comboDescriptions}`;
     const { data } = await callBursAI({
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: mode === "generate" ? "Pick the best outfit." : "Select the best 2-3 outfits." },
+        { role: "user", content: mode === "generate" ? (isStylistMode ? "Pick the best outfit. Write a detailed editorial explanation." : "Pick the best outfit.") : "Select the best 2-3 outfits." },
       ],
       tools: [tool],
       tool_choice: { type: "function", function: { name: toolName } },
-      complexity: "standard",
-      max_tokens: mode === "generate" ? 200 : estimateMaxTokens({ outputItems: 3, perItemTokens: 100, baseTokens: 150 }),
+      complexity: isStylistMode ? "standard" : "standard",
+      max_tokens: mode === "generate" ? (isStylistMode ? 400 : 200) : estimateMaxTokens({ outputItems: 3, perItemTokens: 100, baseTokens: 150 }),
     });
     return { data };
   } catch (e: any) {
