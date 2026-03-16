@@ -83,7 +83,7 @@ function GarmentRow({ garments }: { garments: AISuggestion['garments'] }) {
             transition={{ delay: i * 0.07, duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
             className="flex flex-col items-center gap-1.5"
           >
-            <div className="w-[72px] h-[72px] rounded-full overflow-hidden border-2 border-border/20 shadow-sm bg-muted">
+            <div className="w-[72px] h-[72px] rounded-full overflow-hidden border border-border/30 bg-muted">
               <LazyImageSimple
                 imagePath={garment.image_path}
                 alt={garment.title}
