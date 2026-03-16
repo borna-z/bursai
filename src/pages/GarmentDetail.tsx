@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react';
 import { hapticMedium, hapticHeavy, hapticSuccess, hapticLight } from '@/lib/haptics';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Edit, Trash2, WashingMachine, Check, Loader2, ExternalLink,
   Sparkles, Shield, DollarSign, Layers, Shirt, Clock, TrendingUp,
-  Calendar, ChevronRight,
+  Calendar, ChevronRight, RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -27,6 +28,11 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
 import { cn } from '@/lib/utils';
 import { EASE_CURVE } from '@/lib/motion';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
+
+type EnrichmentStatus = 'none' | 'pending' | 'in_progress' | 'complete' | 'failed';
 
 /* ─── Enrichment data extracted from ai_raw ─── */
 interface EnrichmentData {
@@ -141,7 +147,16 @@ export default function GarmentDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { t, locale } = useLanguage();
+  const queryClient = useQueryClient();
+
   const { data: garment, isLoading } = useGarment(id);
+  const enrichmentStatus: EnrichmentStatus = (garment as unknown as Record<string, unknown>)?.enrichment_status as EnrichmentStatus || 'none';
+  const isEnrichmentPending = enrichmentStatus === 'pending' || enrichmentStatus === 'in_progress';
+
+  // Re-fetch while enrichment is running (max ~60s of polling)
+  useGarment(id, {
+    refetchInterval: isEnrichmentPending ? 5000 : false,
+  });
   const { data: similarGarments } = useSimilarGarments(garment);
   const { data: outfitHistory } = useGarmentOutfitHistory(id);
   const updateGarment = useUpdateGarment();
@@ -154,6 +169,7 @@ export default function GarmentDetailPage() {
   );
   const [editingPrice, setEditingPrice] = useState(false);
   const [priceInput, setPriceInput] = useState('');
+  const [isRetrying, setIsRetrying] = useState(false);
   const enrichment = useMemo(() => garment ? extractEnrichment(garment.ai_raw) : null, [garment]);
 
   // Usage insights
@@ -224,6 +240,35 @@ export default function GarmentDetailPage() {
       toast.success(t('garment.deleted'));
       navigate('/wardrobe');
     } catch { toast.error(t('common.something_wrong')); }
+  };
+
+  const handleRetryEnrichment = async () => {
+    if (!garment || isRetrying) return;
+    setIsRetrying(true);
+    try {
+      await supabase.from('garments').update({ enrichment_status: 'in_progress' } as Record<string, unknown>).eq('id', garment.id);
+      const { data, error } = await invokeEdgeFunction<{ enrichment?: Record<string, unknown>; error?: string }>('analyze_garment', {
+        body: { storagePath: garment.image_path, mode: 'enrich' },
+      });
+      if (error || !data?.enrichment) {
+        await supabase.from('garments').update({ enrichment_status: 'failed' } as Record<string, unknown>).eq('id', garment.id);
+        toast.error('Deep analysis failed — try again later');
+        return;
+      }
+      const currentRaw = (garment.ai_raw as Record<string, unknown>) || {};
+      const mergedRaw = { ...currentRaw, enrichment: data.enrichment };
+      const updates: Record<string, unknown> = { ai_raw: mergedRaw as Json, enrichment_status: 'complete' };
+      if (data.enrichment.refined_title && typeof data.enrichment.refined_title === 'string') {
+        updates.title = (data.enrichment.refined_title as string).substring(0, 50);
+      }
+      await supabase.from('garments').update(updates).eq('id', garment.id);
+      queryClient.invalidateQueries({ queryKey: ['garment', garment.id] });
+      toast.success('Deep analysis complete');
+    } catch {
+      toast.error('Something went wrong');
+    } finally {
+      setIsRetrying(false);
+    }
   };
 
   // Build metadata string
@@ -320,6 +365,49 @@ export default function GarmentDetailPage() {
             </p>
           )}
         </Section>
+
+        {/* Enrichment status: pending/in_progress */}
+        {isEnrichmentPending && !enrichment && (
+          <Section index={2}>
+            <div className="rounded-xl border border-border/10 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary/60 animate-pulse" />
+                <p className="text-[13px] text-foreground/70 font-medium">Deep analysis in progress</p>
+              </div>
+              <p className="text-[11px] text-muted-foreground/50">Silhouette, texture, styling intelligence and more will appear here shortly.</p>
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
+            </div>
+          </Section>
+        )}
+
+        {/* Enrichment status: failed */}
+        {enrichmentStatus === 'failed' && !enrichment && (
+          <Section index={2}>
+            <div className="rounded-xl border border-border/10 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-muted-foreground/40" />
+                  <p className="text-[13px] text-foreground/70 font-medium">Analysis incomplete</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7 gap-1.5"
+                  onClick={handleRetryEnrichment}
+                  disabled={isRetrying}
+                >
+                  {isRetrying ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                  Retry
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground/50">Deep garment intelligence couldn't be generated. Tap retry to try again.</p>
+            </div>
+          </Section>
+        )}
 
         {/* Stylist note — editorial highlight */}
         {enrichment?.stylist_note && (

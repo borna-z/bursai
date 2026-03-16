@@ -1,100 +1,137 @@
+# BURS Prompt Pack v2 — Full Roadmap (33 Tasks + Intelligence Blueprint)
 
+**Global rule:** BURS must remain on Lovable. Use burs.me/welcome as the visual source of truth.
 
-# Consistent Garment Intelligence Pipeline
+---
 
-## Current Divergence Analysis
+## Phase 1 — Foundation ✅
 
-All three input flows (live scan, gallery/add-garment, batch upload) now trigger the same two-stage pipeline:
-- **Stage 1**: `analyze_garment` with `mode: 'fast'` or `mode: 'full'` — produces basic metadata
-- **Stage 2**: `analyze_garment` with `mode: 'enrich'` — produces deep intelligence (silhouette, texture, stylist note, etc.)
+| Task | Title | Status |
+|------|-------|--------|
+| 1 | Full product audit | ✅ Done |
+| 2 | Unify the design system | ✅ Done |
+| 3 | Premium app feel pass | ✅ Done |
+| 4 | Protect critical flows while refactoring | ✅ Done |
 
-The flows are already wired correctly in code. **The real problems are:**
+## Phase 2 — Core Stylist Quality ✅
 
-1. **Silent enrichment failures**: Edge function logs show `SyntaxError` when parsing enrichment JSON responses. When enrichment fails, it silently returns — no retry, no status tracking, no UI indication. The garment just permanently lacks deep intelligence.
+| Task | Title | Status |
+|------|-------|--------|
+| 5 | Best-in-class scan flow | ✅ Done |
+| 6 | Expand garment intelligence | ✅ Done |
+| 7 | Real outfit engine experience | ✅ Done |
+| 8 | Hard outfit quality rules | ✅ Done |
+| 9 | Editorial result screen | ✅ Done |
+| 10 | Smart swaps | ✅ Done |
+| 11 | Elite stylist chat | ✅ Done |
+| 12 | Sharper stylist language system | ✅ Done |
 
-2. **No enrichment status model**: There's no `enrichment_status` field on garments. The detail page simply checks if `ai_raw.enrichment` exists — if not, all deep intelligence sections silently vanish. Users see inconsistent detail pages with no explanation.
+## Phase 3 — Personalization ✅
 
-3. **No retry mechanism**: If Stage 2 enrichment fails (bad JSON, timeout, AI error), there's no way to retry — the garment is stuck with basic metadata forever.
+| Task | Title | Status |
+|------|-------|--------|
+| 13 | Stronger style profile | ✅ Done |
+| 14 | Better onboarding | ✅ Done |
+| 15 | Better feedback learning | ✅ Done |
+| 16 | Personal uniform / style DNA | ✅ Done |
+| 17 | Make the app feel like a stylist, not a tool | ✅ Done |
 
-4. **Detail page doesn't refresh after enrichment**: Enrichment runs in the background after save. If the user navigates to garment detail before it completes, they see basic-only data with no indication that more is coming.
+## Phase 4 — Retention and Habit ✅
 
-5. **JSON parsing brittleness**: The enrichment prompt asks for many fields, increasing the chance of malformed JSON from the AI. There's no fallback parsing or cleanup.
+| Task | Title | Status |
+|------|-------|--------|
+| 18 | Weekly stylist planner | ✅ Done |
+| 19 | Daily "What should I wear?" flow | ✅ Done |
+| 20 | High-end wardrobe insights | ✅ Done |
+| 21 | Wardrobe health dashboard | ✅ Done |
+| 22 | Retention loops | ✅ Done |
 
-## Implementation Plan
+## Phase 5 — Premium Conversion and Trust ✅
 
-### 1. Database: Add `enrichment_status` column to garments
+| Task | Title | Status |
+|------|-------|--------|
+| 23 | Real Stylist Mode | ✅ Done |
+| 24 | Stronger premium subscription experience | ✅ Done |
+| 25 | Trust pass | ✅ Done |
+| 26 | Reduce feature chaos | ✅ Done |
 
-Migration SQL:
-```sql
-ALTER TABLE public.garments 
-ADD COLUMN enrichment_status text NOT NULL DEFAULT 'pending';
+## Phase 6 — Final Polish ✅
 
--- Backfill existing garments
-UPDATE public.garments 
-SET enrichment_status = CASE 
-  WHEN ai_raw::text LIKE '%enrichment%' THEN 'complete'
-  WHEN ai_analyzed_at IS NOT NULL THEN 'pending'
-  ELSE 'none'
-END;
-```
+| Task | Title | Status |
+|------|-------|--------|
+| 27 | Premium empty states | ✅ Done |
+| 28 | Premium loading states | ✅ Done |
+| 29 | Make the app feel more native | ✅ Done |
+| 30 | World-class garment detail screen | ✅ Done |
+| 31 | Lookbook-level visual polish | ✅ Done |
+| 32 | Full polish pass | ✅ Done |
+| 33 | Final 90+ market-leader pass | ✅ Done |
 
-Values: `'none'` | `'pending'` | `'in_progress'` | `'complete'` | `'failed'`
+---
 
-### 2. Edge Function: Harden enrichment JSON parsing
+## Intelligence Blueprint — AI Stylist Upgrade
 
-**File**: `supabase/functions/analyze_garment/index.ts`
+### IB Phase 1 — Unlock Enrichment Data in Style Engine ✅
 
-In the `mode === 'enrich'` block:
-- Add a `cleanJsonResponse()` utility that strips trailing commas, fixes common AI JSON errors before `JSON.parse`
-- Wrap in try/catch with a retry (1 retry with slightly modified prompt asking for simpler JSON)
-- On final failure, return `{ enrichment: null, error: 'parse_failed' }` instead of crashing
+| Task | Title | Status |
+|------|-------|--------|
+| IB-1a | Expand GarmentRow with enrichment fields (silhouette, visual_weight, texture_intensity, layering_role, versatility_score, occasion_tags, style_archetype) | ✅ Done |
+| IB-1b | Hydrate enrichment from ai_raw with safe defaults | ✅ Done |
+| IB-1c | Upgrade scoreGarment: occasion tag matching, layering role vs weather, versatility boost | ✅ Done |
+| IB-1d | Upgrade scoreCombo: silhouette balance scoring, texture depth scoring | ✅ Done |
+| IB-1e | Add texture monotony rule to quality gate | ✅ Done |
 
-### 3. Background save: Track enrichment status
+### IB Phase 2 — Travel Capsule Constrained Optimizer ✅
 
-**Files**: `src/lib/backgroundGarmentSave.ts`, `src/pages/AddGarment.tsx`, `src/components/wardrobe/BatchUploadProgress.tsx`
+| Task | Title | Status |
+|------|-------|--------|
+| IB-2a | Score pack-worthiness per garment (versatility, material, weather, pairing potential) | ✅ Done |
+| IB-2b | Pre-filter to top 40 most packable garments before AI call | ✅ Done |
+| IB-2c | Matrix coverage validation after AI response | 🔲 Todo |
 
-- After garment insert, set `enrichment_status: 'pending'`
-- Before calling enrichment, update to `'in_progress'`
-- On success, update to `'complete'`
-- On failure, update to `'failed'`
-- All three enrichment functions (backgroundGarmentSave, AddGarment, BatchUploadProgress) get this same status tracking
+### IB Phase 3 — Planner Week Intelligence
 
-### 4. Garment Detail: Show enrichment status UI
+| Task | Title | Status |
+|------|-------|--------|
+| IB-3a | Add plan_week mode to style engine (sequential generation with used_garments carry-forward) | 🔲 Todo |
+| IB-3b | Inter-day repetition penalty (hero garments heavy, accessories light) | 🔲 Todo |
+| IB-3c | Formality variation across planned days | 🔲 Todo |
+| IB-3d | Expose backup outfit (2nd-ranked combo) per day | 🔲 Todo |
+| IB-3e | Laundry-aware generation with dirty garment warnings | 🔲 Todo |
 
-**File**: `src/pages/GarmentDetail.tsx`
+### IB Phase 4 — Chat Intelligence Upgrade
 
-- Read `garment.enrichment_status` from the query
-- If `'pending'` or `'in_progress'`: show a calm, premium "Deep analysis in progress" card with a subtle shimmer animation, positioned where the intelligence sections would appear
-- If `'failed'`: show a minimal "Analysis incomplete" card with a "Retry" button
-- If `'complete'`: show enrichment sections as today
-- Retry button calls `analyze_garment` with `mode: 'enrich'`, updates status, and refetches the garment
+| Task | Title | Status |
+|------|-------|--------|
+| IB-4a | Include enrichment data in wardrobe context sent to chat | 🔲 Todo |
+| IB-4b | Add wardrobe composition summary (style clusters, gaps) | 🔲 Todo |
+| IB-4c | Include recent rejection/swap context in chat prompt | 🔲 Todo |
 
-### 5. Auto-refresh after enrichment completes
+### IB Phase 5 — Learning & Signal Refinement
 
-**File**: `src/pages/GarmentDetail.tsx`
+| Task | Title | Status |
+|------|-------|--------|
+| IB-5a | Track rejection reasons (swapped garment + slot, ignored outfits) | 🔲 Todo |
+| IB-5b | Weight "wore it" 3x over "saved it", add planned-but-not-worn negative signal | 🔲 Todo |
+| IB-5c | Personal uniform detection (>60% same silhouette formula → boost) | 🔲 Todo |
 
-- When `enrichment_status` is `'pending'` or `'in_progress'`, set up a polling interval (every 5s, max 60s) that refetches the garment query
-- Once status changes to `'complete'`, stop polling and the enrichment sections animate in naturally
-- Use `refetchInterval` from React Query for clean implementation
+### IB Phase 6 — UI Trust & Polish
 
-### 6. Automatic retry for failed enrichments
+| Task | Title | Status |
+|------|-------|--------|
+| IB-6a | Audit and fix raw enum/key exposure in UI (occasion labels, categories) | 🔲 Todo |
+| IB-6b | Per-attribute confidence indicators on garment detail | 🔲 Todo |
+| IB-6c | Editorial formatting for limitation_note and gap strings | 🔲 Todo |
 
-**File**: `src/lib/backgroundGarmentSave.ts` (and the AddGarment/Batch variants)
+---
 
-- On enrichment failure, wait 3s and retry once automatically
-- Only set `'failed'` after the retry also fails
-- This handles transient AI errors without user intervention
+## Intelligence Blueprint Priority Order
 
-## Files Changed
-
-| File | Change |
-|------|--------|
-| `supabase/functions/analyze_garment/index.ts` | Add `cleanJsonResponse()`, retry logic for malformed JSON |
-| `src/lib/backgroundGarmentSave.ts` | Track `enrichment_status` through lifecycle, auto-retry |
-| `src/pages/AddGarment.tsx` | Track `enrichment_status` in enrichment function |
-| `src/components/wardrobe/BatchUploadProgress.tsx` | Track `enrichment_status` in enrichment function |
-| `src/pages/GarmentDetail.tsx` | Show enrichment status UI, retry button, auto-refresh polling |
-| Migration | Add `enrichment_status` column with backfill |
-
-No changes to auth, routing, storage, subscriptions, or existing save behavior. All changes are additive.
-
+| Phase | Scope | Risk | Priority |
+|-------|-------|------|----------|
+| IB-1 | Style engine enrichment | Low — additive scoring | ✅ Complete |
+| IB-2 | Travel capsule optimizer | Medium — changes AI input | ✅ Complete (validation pending) |
+| IB-3 | Planner week intelligence | Medium — new mode | High — retention driver |
+| IB-4 | Chat intelligence | Low — prompt changes | Medium |
+| IB-5 | Learning refinement | Low — additive | Medium |
+| IB-6 | UI polish | Low — frontend only | Medium |

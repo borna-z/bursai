@@ -204,6 +204,20 @@ JSON only, no explanation.`
   ];
 }
 
+// ─── Clean malformed JSON from AI responses ───
+function cleanJsonResponse(raw: string): string {
+  let s = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  // Remove trailing commas before } or ]
+  s = s.replace(/,\s*([\]}])/g, '$1');
+  // Remove any text before the first { or after the last }
+  const firstBrace = s.indexOf('{');
+  const lastBrace = s.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    s = s.substring(firstBrace, lastBrace + 1);
+  }
+  return s;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -281,29 +295,39 @@ serve(async (req) => {
 
     // ─── Enrich mode: return enrichment data only ───
     if (mode === 'enrich') {
-      try {
+      const tryEnrich = async (attempt: number) => {
         const { data } = await callBursAI({
           complexity: "standard",
           max_tokens: 300,
           timeout: 20000,
           functionName: "analyze_garment_enrich",
           messages: buildEnrichMessages(resolvedImageUrl),
-          extraBody: { temperature: 0.1 },
+          extraBody: { temperature: attempt === 0 ? 0.1 : 0.05 },
         }, serviceClient);
 
         const content = typeof data === 'string' ? data : JSON.stringify(data);
-        const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        const enrichment = JSON.parse(cleaned);
+        return cleanJsonResponse(content);
+      };
+
+      try {
+        let enrichment: Record<string, unknown>;
+        try {
+          enrichment = JSON.parse(await tryEnrich(0));
+        } catch {
+          // Retry once with lower temperature on parse failure
+          console.warn('Enrichment JSON parse failed, retrying...');
+          enrichment = JSON.parse(await tryEnrich(1));
+        }
 
         return new Response(
           JSON.stringify({ enrichment, ai_provider: 'lovable_ai' }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (err) {
-        console.error('Enrichment error:', err);
+        console.error('Enrichment error after retry:', err);
         return new Response(
-          JSON.stringify({ error: "Enrichment failed" }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ enrichment: null, error: "parse_failed", ai_provider: 'lovable_ai' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
     }

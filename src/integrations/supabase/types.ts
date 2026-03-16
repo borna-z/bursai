@@ -402,6 +402,7 @@ export type Database = {
           condition_notes: string | null
           condition_score: number | null
           created_at: string | null
+          enrichment_status: string
           fit: string | null
           formality: number | null
           id: string
@@ -431,6 +432,7 @@ export type Database = {
           condition_notes?: string | null
           condition_score?: number | null
           created_at?: string | null
+          enrichment_status?: string
           fit?: string | null
           formality?: number | null
           id?: string
@@ -460,6 +462,7 @@ export type Database = {
           condition_notes?: string | null
           condition_score?: number | null
           created_at?: string | null
+          enrichment_status?: string
           fit?: string | null
           formality?: number | null
           id?: string

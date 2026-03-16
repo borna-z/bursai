@@ -99,7 +99,7 @@ export function useFlatGarments(filters?: GarmentFilters) {
   return { ...query, data: garments };
 }
 
-export function useGarment(id: string | undefined) {
+export function useGarment(id: string | undefined, options?: { refetchInterval?: number | false }) {
   const { user } = useAuth();
   
   return useQuery({
@@ -118,6 +118,7 @@ export function useGarment(id: string | undefined) {
       return data as Garment;
     },
     enabled: !!id && !!user,
+    refetchInterval: options?.refetchInterval,
   });
 }
 
