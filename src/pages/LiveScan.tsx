@@ -29,7 +29,7 @@ function AcceptedOverlay({ onDone, label }: { onDone: () => void; label: string 
         transition={{ duration: 0.2 }}
         className="flex flex-col items-center gap-3"
       >
-        <div className="w-20 h-20 rounded-full bg-accent/20 flex items-center justify-center">
+        <div className="w-20 h-20 bg-accent/20 flex items-center justify-center">
           <Check className="w-10 h-10 text-accent" strokeWidth={3} />
         </div>
         <p className="text-foreground text-sm font-medium">{label}</p>
