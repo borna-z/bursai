@@ -1015,6 +1015,12 @@ export const translations: Record<Locale, Record<string, string>> = {
     'insights.create_error': 'Kunde inte skapa',
 
     // Generate
+    'generate.title': 'Vad ska du ha på dig',
+    'generate.subtitle': 'Välj en stil och vi klär dig',
+    'generate.button': 'Styla mig',
+    'generate.occasion': 'Tillfälle',
+    'generate.style': 'Stil',
+    'generate.style_optional': 'Valfritt \u2014 lämna tomt för en balanserad look',
     'generate.creating': 'Skapar din outfit...',
     'generate.matching_for': 'Matchar plagg för',
     'generate.error_title': 'Kunde inte skapa outfit',
