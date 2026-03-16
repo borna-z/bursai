@@ -61,7 +61,7 @@ function SwapSheet({
       <SheetContent side="bottom" className="h-[72vh]">
         <SheetHeader>
           <SheetTitle>{t('outfit.swap')} {slotLabel}</SheetTitle>
-          <SheetDescription>Choose how different you want the replacement to feel.</SheetDescription>
+          <SheetDescription>{t('outfit.swap_description')}</SheetDescription>
         </SheetHeader>
 
         <div className="mt-4 grid grid-cols-3 gap-2">
