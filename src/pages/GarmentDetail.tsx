@@ -242,7 +242,7 @@ export default function GarmentDetailPage() {
     } catch { toast.error(t('common.something_wrong')); }
   };
 
-  const handleRetryEnrichment = useCallback(async () => {
+  const handleRetryEnrichment = async () => {
     if (!garment || isRetrying) return;
     setIsRetrying(true);
     try {
@@ -262,7 +262,6 @@ export default function GarmentDetailPage() {
         updates.title = (data.enrichment.refined_title as string).substring(0, 50);
       }
       await supabase.from('garments').update(updates).eq('id', garment.id);
-      // Invalidate to refresh
       queryClient.invalidateQueries({ queryKey: ['garment', garment.id] });
       toast.success('Deep analysis complete');
     } catch {
@@ -270,7 +269,7 @@ export default function GarmentDetailPage() {
     } finally {
       setIsRetrying(false);
     }
-  }, [garment, isRetrying, queryClient]);
+  };
 
   // Build metadata string
   const metaParts: string[] = [];
