@@ -28,6 +28,11 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
 import { cn } from '@/lib/utils';
 import { EASE_CURVE } from '@/lib/motion';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
+
+type EnrichmentStatus = 'none' | 'pending' | 'in_progress' | 'complete' | 'failed';
 
 /* ─── Enrichment data extracted from ai_raw ─── */
 interface EnrichmentData {
