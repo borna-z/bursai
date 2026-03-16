@@ -259,11 +259,12 @@ serve(async (req) => {
     const lang = getLang(locale);
 
     // Fetch all context in parallel
-    const [profileRes, wardrobeCtx, calendarCtx, recentOutfitsCtx] = await Promise.all([
+    const [profileRes, wardrobeCtx, calendarCtx, recentOutfitsCtx, rejectionsCtx] = await Promise.all([
       supabase.from("profiles").select("display_name, preferences, home_city, height_cm, weight_kg").eq("id", user.id).single(),
       getWardrobeContext(supabase, user.id),
       getCalendarContext(supabase, user.id, lang),
       getRecentOutfitsContext(supabase, user.id),
+      getRejectionsContext(supabase, user.id),
     ]);
 
     const profile = profileRes.data;
