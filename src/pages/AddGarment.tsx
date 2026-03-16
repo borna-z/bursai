@@ -492,7 +492,7 @@ export default function AddGarmentPage() {
         <div className="flex flex-col items-center px-6 pt-8 pb-12 space-y-8 max-w-md mx-auto">
           {/* Hero icon */}
           <div className="space-y-3 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto">
+            <div className="w-16 h-16 bg-accent/10 flex items-center justify-center mx-auto">
               <Upload className="w-7 h-7 text-accent" />
             </div>
             <h1 className="text-xl font-semibold text-foreground">{t('addgarment.title')}</h1>
@@ -536,18 +536,18 @@ export default function AddGarmentPage() {
                 <div className="grid grid-cols-2 gap-3 w-full">
                   <button
                     onClick={() => takePhoto()}
-                    className="group flex flex-col items-center gap-3 p-6 rounded-2xl border border-border/50 bg-card hover:border-accent/40 hover:bg-accent/5 transition-all"
+                    className="group flex flex-col items-center gap-3 p-6 border border-border/50 bg-card hover:border-accent/40 hover:bg-accent/5 transition-all"
                   >
-                    <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
+                    <div className="w-12 h-12 bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
                       <Camera className="w-6 h-6 text-accent" />
                     </div>
                     <span className="text-sm font-medium text-foreground">{t('addgarment.camera')}</span>
                   </button>
                   <button
                     onClick={() => pickFromGallery()}
-                    className="group flex flex-col items-center gap-3 p-6 rounded-2xl border border-border/50 bg-card hover:border-accent/40 hover:bg-accent/5 transition-all"
+                    className="group flex flex-col items-center gap-3 p-6 border border-border/50 bg-card hover:border-accent/40 hover:bg-accent/5 transition-all"
                   >
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                    <div className="w-12 h-12 bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                       <ImageIcon className="w-6 h-6 text-primary" />
                     </div>
                     <span className="text-sm font-medium text-foreground">{t('addgarment.gallery')}</span>
@@ -587,7 +587,7 @@ export default function AddGarmentPage() {
               className="flex flex-col items-center gap-4 w-full"
             >
               {imagePreview && (
-                <div className="aspect-square w-48 rounded-xl overflow-hidden bg-secondary/60">
+                <div className="aspect-square w-48 overflow-hidden bg-secondary/60">
                   <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                 </div>
               )}
@@ -607,7 +607,7 @@ export default function AddGarmentPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              className="flex flex-col items-center gap-2 bg-card rounded-xl p-4 w-full shadow-sm"
+              className="flex flex-col items-center gap-2 bg-card p-4 w-full shadow-sm"
             >
               <CheckCircle className="w-6 h-6 text-accent" />
               <p className="font-medium text-center">{analysisSummary}</p>
@@ -650,7 +650,7 @@ export default function AddGarmentPage() {
       <div className="p-4 space-y-6">
         {/* Image Preview */}
         {imagePreview && (
-          <div className="relative aspect-square max-w-xs mx-auto rounded-xl overflow-hidden bg-secondary">
+          <div className="relative aspect-square max-w-xs mx-auto overflow-hidden bg-secondary">
             <img
               src={imagePreview}
               alt="Preview"
@@ -856,7 +856,7 @@ export default function AddGarmentPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-secondary rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-secondary">
             <Label>{t('addgarment.form.in_laundry')}</Label>
             <Switch checked={inLaundry} onCheckedChange={setInLaundry} />
           </div>

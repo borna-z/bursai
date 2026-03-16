@@ -101,7 +101,7 @@ export default function GarmentDetailPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background pb-32">
-        <Skeleton className="aspect-[3/4] w-full rounded-b-3xl" />
+        <Skeleton className="aspect-[3/4] w-full" />
         <div className="px-6 pt-8 space-y-6">
           <div>
             <Skeleton className="h-7 w-2/3 mb-2" />
@@ -169,7 +169,7 @@ export default function GarmentDetailPage() {
   return (
     <div className="min-h-screen bg-background pb-40">
       {/* Hero image with floating controls */}
-      <div className="relative rounded-b-3xl overflow-hidden">
+      <div className="relative overflow-hidden">
         <LazyImage imagePath={garment.image_path} alt={garment.title} aspectRatio="3/4" className="w-full !rounded-none" />
         
         {/* Floating back button */}
@@ -177,7 +177,7 @@ export default function GarmentDetailPage() {
           variant="ghost"
           size="icon"
           onClick={() => navigate(-1)}
-          className="absolute top-4 left-4 z-10 backdrop-blur-xl bg-background/40 rounded-full h-10 w-10 shadow-lg"
+          className="absolute top-4 left-4 z-10 backdrop-blur-xl bg-background/40 h-10 w-10 shadow-lg"
         >
           <ArrowLeft className="w-5 h-5" />
         </Button>
@@ -188,13 +188,13 @@ export default function GarmentDetailPage() {
             variant="ghost"
             size="icon"
             onClick={() => navigate(`/wardrobe/${garment.id}/edit`)}
-            className="backdrop-blur-xl bg-background/40 rounded-full h-10 w-10 shadow-lg"
+            className="backdrop-blur-xl bg-background/40 h-10 w-10 shadow-lg"
           >
             <Edit className="w-4 h-4" />
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="backdrop-blur-xl bg-background/40 rounded-full h-10 w-10 shadow-lg">
+              <Button variant="ghost" size="icon" className="backdrop-blur-xl bg-background/40 h-10 w-10 shadow-lg">
                 <Trash2 className="w-4 h-4 text-destructive" />
               </Button>
             </AlertDialogTrigger>
@@ -252,7 +252,7 @@ export default function GarmentDetailPage() {
 
         {/* Enrichment: Construction specs */}
         {enrichment && (enrichment.neckline || enrichment.sleeve_length || enrichment.garment_length || enrichment.closure || enrichment.fabric_weight || enrichment.layering_role) && (
-          <div className="space-y-1 border border-border/10 rounded-xl px-4 py-1">
+          <div className="space-y-1 border border-border/10 px-4 py-1">
             {enrichment.neckline && <SpecRow label={t('garment.neckline') || 'Neckline'} value={enrichment.neckline} />}
             {enrichment.sleeve_length && <SpecRow label={t('garment.sleeve') || 'Sleeve'} value={enrichment.sleeve_length} />}
             {enrichment.garment_length && <SpecRow label={t('garment.length') || 'Length'} value={enrichment.garment_length} />}
@@ -337,7 +337,7 @@ export default function GarmentDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            className="rounded-xl text-xs"
+              className="text-xs"
             onClick={async () => {
               try {
                 await assessCondition.mutateAsync(garment.id);
@@ -397,7 +397,7 @@ export default function GarmentDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              className="rounded-xl text-xs"
+              className="text-xs"
               onClick={() => {
                 setPriceInput(String(garment.purchase_price || ''));
                 setEditingPrice(true);
@@ -421,7 +421,7 @@ export default function GarmentDetailPage() {
                     imagePath={g.image_path}
                     alt={g.title}
                     aspectRatio="3/4"
-                    className="rounded-xl"
+                    className=""
                   />
                   <p className="text-[11px] text-muted-foreground truncate">{g.title}</p>
                 </button>
