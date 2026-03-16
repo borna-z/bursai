@@ -1,5 +1,7 @@
 import { useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import type { Json } from '@/integrations/supabase/types';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, Image as ImageIcon, ArrowLeft, Loader2, X, Sparkles, RefreshCw, Link2, Upload, Palette, CheckCircle, Images } from 'lucide-react';
@@ -159,6 +161,27 @@ function mapSeasonTagsToFormValue(aiSeasons: string[]): string[] {
   return aiSeasons
     .map(s => s.toLowerCase())
     .filter(s => seasons.map(ss => ss.toLowerCase()).includes(s));
+}
+/** Fire-and-forget Stage 2 enrichment (mirrors backgroundGarmentSave.ts) */
+async function enrichGarmentInBackground(garmentId: string, storagePath: string): Promise<void> {
+  const { data, error } = await invokeEdgeFunction<{ enrichment?: Record<string, unknown>; error?: string }>('analyze_garment', {
+    body: { storagePath, mode: 'enrich' },
+  });
+  if (error || data?.error || !data?.enrichment) return;
+
+  const { data: existing } = await supabase
+    .from('garments')
+    .select('ai_raw')
+    .eq('id', garmentId)
+    .single();
+
+  const currentRaw = (existing?.ai_raw as Record<string, unknown>) || {};
+  const mergedRaw = { ...currentRaw, enrichment: data.enrichment };
+  const updates: Record<string, unknown> = { ai_raw: mergedRaw as Json };
+  if (data.enrichment.refined_title && typeof data.enrichment.refined_title === 'string') {
+    updates.title = (data.enrichment.refined_title as string).substring(0, 50);
+  }
+  await supabase.from('garments').update(updates).eq('id', garmentId);
 }
 
 export default function AddGarmentPage() {
@@ -397,7 +420,17 @@ export default function AddGarmentPage() {
         season_tags: selectedSeasons.length > 0 ? selectedSeasons : null,
         formality: formality[0],
         in_laundry: inLaundry,
+        ai_analyzed_at: aiAnalysis ? new Date().toISOString() : null,
+        ai_provider: aiAnalysis?.ai_provider || null,
+        ai_raw: (aiAnalysis?.ai_raw ?? null) as Json,
       });
+
+      // Stage 2 enrichment in background (same as live scan)
+      if (storagePath && garmentId) {
+        enrichGarmentInBackground(garmentId, storagePath).catch((err) =>
+          console.error('Enrichment error (non-blocking):', err)
+        );
+      }
 
       const newCount = (garmentCount || 0) + 1;
       if (newCount === 10) {

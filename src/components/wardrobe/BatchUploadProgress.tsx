@@ -10,6 +10,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import type { Json } from '@/integrations/supabase/types';
 
 interface BatchItem {
   file: File;
@@ -22,6 +25,22 @@ interface BatchUploadProgressProps {
   files: File[];
   onComplete: () => void;
   onCancel: () => void;
+}
+
+/** Fire-and-forget Stage 2 enrichment */
+async function enrichBatchGarment(garmentId: string, storagePath: string): Promise<void> {
+  const { data, error } = await invokeEdgeFunction<{ enrichment?: Record<string, unknown>; error?: string }>('analyze_garment', {
+    body: { storagePath, mode: 'enrich' },
+  });
+  if (error || data?.error || !data?.enrichment) return;
+  const { data: existing } = await supabase.from('garments').select('ai_raw').eq('id', garmentId).single();
+  const currentRaw = (existing?.ai_raw as Record<string, unknown>) || {};
+  const mergedRaw = { ...currentRaw, enrichment: data.enrichment };
+  const updates: Record<string, unknown> = { ai_raw: mergedRaw as Json };
+  if (data.enrichment.refined_title && typeof data.enrichment.refined_title === 'string') {
+    updates.title = (data.enrichment.refined_title as string).substring(0, 50);
+  }
+  await supabase.from('garments').update(updates).eq('id', garmentId);
 }
 
 export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUploadProgressProps) {
@@ -85,7 +104,6 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
           return;
         }
 
-        // Save with AI defaults
         await createGarment.mutateAsync({
           id: garmentId,
           image_path: path,
@@ -100,7 +118,15 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
           season_tags: data.season_tags || null,
           formality: data.formality || 3,
           in_laundry: false,
+          ai_analyzed_at: new Date().toISOString(),
+          ai_provider: data.ai_provider || 'unknown',
+          ai_raw: (data.ai_raw ?? null) as Json,
         });
+
+        // Stage 2 enrichment in background
+        enrichBatchGarment(garmentId, path).catch((err) =>
+          console.error('Batch enrichment error (non-blocking):', err)
+        );
 
         updateItem(currentIndex, { status: 'done' });
       } catch {
