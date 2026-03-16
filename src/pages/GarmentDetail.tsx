@@ -106,7 +106,7 @@ export default function GarmentDetailPage() {
   if (garment.formality) seasonParts.push(`${t('garment.formality')} ${garment.formality}/5`);
 
   return (
-    <div className="min-h-screen bg-background pb-32">
+    <div className="min-h-screen bg-background pb-40">
       {/* Hero image with floating controls */}
       <div className="relative rounded-b-3xl overflow-hidden">
         <LazyImage imagePath={garment.image_path} alt={garment.title} aspectRatio="3/4" className="w-full !rounded-none" />
