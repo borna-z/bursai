@@ -2782,7 +2782,8 @@ async function aiRefine(
   style: string | null,
   weather: WeatherInput,
   styleContext: string,
-  locale: string
+  locale: string,
+  isStylistMode = false
 ): Promise<any> {
   const localeName = LOCALE_NAMES[locale] || "English";
 
@@ -2798,12 +2799,21 @@ async function aiRefine(
   const hintsStr = styleHints.length > 0 ? `\nSTYLE DIRECTION: ${styleHints.join(", ")}` : "";
   const seasonStr = `\nSEASON: ${season}`;
 
+  const stylistEnhancement = isStylistMode
+    ? `\n\nSTYLIST MODE: You are operating at the highest level. Apply deeper reasoning:
+- Consider silhouette balance, proportion, and visual weight
+- Evaluate texture interplay between pieces
+- Assess color temperature harmony (warm vs cool tones)
+- Factor in the overall mood and confidence the outfit projects
+- Write the explanation as editorial styling notes — mention WHY specific pieces work together in terms of proportion, texture, and color logic. Be specific, not generic.`
+    : "";
+
   const systemPrompt = mode === "generate"
     ? `You are a world-class stylist. Pick the SINGLE best outfit from the pre-scored candidates below. Consider overall aesthetic, color harmony, seasonal appropriateness, and suitability for the occasion.
 
 OCCASION: ${occasion}${style ? `\nSTYLE: ${style}` : ""}${hintsStr}${seasonStr}
 WEATHER: ${weather.temperature !== undefined ? weather.temperature + "°C" : "unknown"}${weather.precipitation ? ", " + weather.precipitation : ""}${weather.wind ? ", wind: " + weather.wind : ""}
-${styleContext ? `\nUSER PROFILE: ${styleContext}` : ""}
+${styleContext ? `\nUSER PROFILE: ${styleContext}` : ""}${stylistEnhancement}
 
 Write the explanation in ${localeName}.
 
@@ -2825,12 +2835,12 @@ ${comboDescriptions}`;
     const { data } = await callBursAI({
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: mode === "generate" ? "Pick the best outfit." : "Select the best 2-3 outfits." },
+        { role: "user", content: mode === "generate" ? (isStylistMode ? "Pick the best outfit. Write a detailed editorial explanation." : "Pick the best outfit.") : "Select the best 2-3 outfits." },
       ],
       tools: [tool],
       tool_choice: { type: "function", function: { name: toolName } },
-      complexity: "standard",
-      max_tokens: mode === "generate" ? 200 : estimateMaxTokens({ outputItems: 3, perItemTokens: 100, baseTokens: 150 }),
+      complexity: isStylistMode ? "standard" : "standard",
+      max_tokens: mode === "generate" ? (isStylistMode ? 400 : 200) : estimateMaxTokens({ outputItems: 3, perItemTokens: 100, baseTokens: 150 }),
     });
     return { data };
   } catch (e: any) {
@@ -3562,9 +3572,10 @@ serve(async (req) => {
 
     const styleContext = buildStyleContext(preferences);
 
-    // AI refinement
+    // AI refinement — stylist mode gets richer prompting
+    const isStylistMode = mode === "stylist";
     const aiMode = mode === "suggest" ? "suggest" : "generate";
-    const aiResult = await aiRefine(combos, aiMode, occasion, style, weather, styleContext, locale);
+    const aiResult = await aiRefine(combos, aiMode, occasion, style, weather, styleContext, locale, isStylistMode);
 
     if (aiResult.error) {
       if (aiResult.status === 429) {

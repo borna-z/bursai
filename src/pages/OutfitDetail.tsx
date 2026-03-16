@@ -617,7 +617,7 @@ export default function OutfitDetailPage() {
             <div className={cn(
               'relative w-11 h-11 rounded-full flex items-center justify-center shrink-0',
               genConfidenceLevel === 'high' ? 'bg-primary/8' :
-              genConfidenceLevel === 'medium' ? 'bg-amber-500/8' :
+              genConfidenceLevel === 'medium' ? 'bg-warning/8' :
               'bg-muted/30'
             )}>
               <svg className="w-11 h-11 -rotate-90 absolute inset-0" viewBox="0 0 44 44">
@@ -626,7 +626,7 @@ export default function OutfitDetailPage() {
                   cx="22" cy="22" r="18" fill="none" strokeWidth="2.5"
                   className={cn(
                     genConfidenceLevel === 'high' ? 'stroke-primary' :
-                    genConfidenceLevel === 'medium' ? 'stroke-amber-500' :
+                    genConfidenceLevel === 'medium' ? 'stroke-warning' :
                     'stroke-muted-foreground/30'
                   )}
                   strokeLinecap="round"
@@ -637,7 +637,7 @@ export default function OutfitDetailPage() {
               <span className={cn(
                 'text-[13px] font-bold relative z-10',
                 genConfidenceLevel === 'high' ? 'text-primary' :
-                genConfidenceLevel === 'medium' ? 'text-amber-600' :
+                genConfidenceLevel === 'medium' ? 'text-warning' :
                 'text-muted-foreground'
               )}>
                 {genConfidence.toFixed(0)}

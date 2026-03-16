@@ -11,6 +11,7 @@ export interface OutfitRequest {
   style?: string | null;
   locale?: string;
   eventTitle?: string | null;
+  mode?: 'standard' | 'stylist';
   weather: {
     temperature?: number;
     precipitation: string;
@@ -119,7 +120,7 @@ async function generateOutfitViaEngine(
   }>('burs_style_engine', {
     timeout: 45000,
     body: {
-      mode: 'generate',
+      mode: request.mode === 'stylist' ? 'stylist' : 'generate',
       occasion: request.occasion,
       style: request.style,
       weather: normalizedWeather,
