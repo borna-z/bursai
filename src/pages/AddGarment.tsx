@@ -492,7 +492,7 @@ export default function AddGarmentPage() {
         <div className="flex flex-col items-center px-6 pt-8 pb-12 space-y-8 max-w-md mx-auto">
           {/* Hero icon */}
           <div className="space-y-3 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto">
+            <div className="w-16 h-16 bg-accent/10 flex items-center justify-center mx-auto">
               <Upload className="w-7 h-7 text-accent" />
             </div>
             <h1 className="text-xl font-semibold text-foreground">{t('addgarment.title')}</h1>
