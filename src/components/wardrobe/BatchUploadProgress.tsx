@@ -27,6 +27,22 @@ interface BatchUploadProgressProps {
   onCancel: () => void;
 }
 
+/** Fire-and-forget Stage 2 enrichment */
+async function enrichBatchGarment(garmentId: string, storagePath: string): Promise<void> {
+  const { data, error } = await invokeEdgeFunction<{ enrichment?: Record<string, unknown>; error?: string }>('analyze_garment', {
+    body: { storagePath, mode: 'enrich' },
+  });
+  if (error || data?.error || !data?.enrichment) return;
+  const { data: existing } = await supabase.from('garments').select('ai_raw').eq('id', garmentId).single();
+  const currentRaw = (existing?.ai_raw as Record<string, unknown>) || {};
+  const mergedRaw = { ...currentRaw, enrichment: data.enrichment };
+  const updates: Record<string, unknown> = { ai_raw: mergedRaw as Json };
+  if (data.enrichment.refined_title && typeof data.enrichment.refined_title === 'string') {
+    updates.title = (data.enrichment.refined_title as string).substring(0, 50);
+  }
+  await supabase.from('garments').update(updates).eq('id', garmentId);
+}
+
 export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUploadProgressProps) {
   const { user } = useAuth();
   const { t } = useLanguage();
