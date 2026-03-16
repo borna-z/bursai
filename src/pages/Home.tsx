@@ -134,29 +134,7 @@ export default function HomePage() {
             {getStylistTip({ weather, garmentCount: garmentCount ?? undefined })}
           </motion.p>
 
-          {/* ── Weather alert banner ── */}
-          {homeState === 'weather_alert' && !todayOutfit && (
-            <motion.div
-              variants={reveal.variants}
-              initial="initial"
-              animate="animate"
-              transition={reveal.transition}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl surface-secondary"
-            >
-              <CloudRain className="w-4 h-4 text-primary shrink-0" />
-              <p className="text-[12px] text-foreground/80 leading-snug flex-1">
-                {t('home.weather_alert_rain')}
-              </p>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="shrink-0 h-8 text-xs text-primary"
-                onClick={() => { hapticLight(); navigate('/outfits/generate'); }}
-              >
-                {t('home.generate_now')}
-              </Button>
-            </motion.div>
-          )}
+          {/* Weather alert is now handled by the TodayOutfitHero context-awareness */}
 
           {/* ── 2. Hero — state-aware with FadeReplace ── */}
           <FadeReplace
