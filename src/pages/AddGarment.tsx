@@ -30,6 +30,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useMedianCamera } from '@/hooks/useMedianCamera';
 import { compressImage } from '@/lib/imageCompression';
 import { GarmentAnalysisState } from '@/components/ui/GarmentAnalysisState';
+import { removeBackground } from '@/lib/removeBackground';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
 const PATTERN_IDS = ['solid', 'striped', 'checked', 'dotted', 'floral', 'patterned', 'camo'] as const;
