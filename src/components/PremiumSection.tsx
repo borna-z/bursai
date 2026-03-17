@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Crown, Infinity, Sparkles, Loader2, Settings, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Crown, Infinity as InfinityIcon, Sparkles, Loader2, Settings, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -121,7 +121,7 @@ export function PremiumSection({ isPremium, subscription, limits }: PremiumSecti
           <div className="space-y-4">
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
-                <Infinity className="w-4 h-4 text-amber-500" />
+                <InfinityIcon className="w-4 h-4 text-amber-500" />
                 <span>{t('premium.unlimited_wardrobe')}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">

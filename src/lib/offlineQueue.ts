@@ -140,13 +140,13 @@ export async function replayQueue(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic table names from offline queue are inherently untyped
       const table = supabase.from(mutation.table as any);
       if (mutation.type === 'insert') {
-        result = await table.insert(mutation.payload as any);
+        result = await table.insert(mutation.payload);
       } else if (mutation.type === 'update' && mutation.match) {
-        result = await table.update(mutation.payload as any).match(mutation.match as any);
+        result = await table.update(mutation.payload).match(mutation.match);
       } else if (mutation.type === 'upsert') {
-        result = await table.upsert(mutation.payload as any);
+        result = await table.upsert(mutation.payload);
       } else if (mutation.type === 'delete' && mutation.match) {
-        result = await table.delete().match(mutation.match as any);
+        result = await table.delete().match(mutation.match);
       }
 
       if (result.error) {

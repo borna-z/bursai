@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Infinity, Brain, CalendarDays, BarChart3, Image, Sparkles, ArrowRight, ChevronDown } from 'lucide-react';
+import { Infinity as InfinityIcon, Brain, CalendarDays, BarChart3, Image, Sparkles, ArrowRight, ChevronDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getLocalizedPricing } from '@/lib/localizedPricing';
 import { ComparisonTable } from './ComparisonTable';
 import type { Locale } from '@/i18n/types';
 
 const FEATURES = [
-  { icon: Infinity, label: 'landing.comp_garments', value: 'landing.comp_unlimited' },
+  { icon: InfinityIcon, label: 'landing.comp_garments', value: 'landing.comp_unlimited' },
   { icon: Sparkles, label: 'landing.comp_outfits', value: 'landing.comp_unlimited' },
   { icon: Brain, label: 'landing.comp_ai', value: 'landing.comp_advanced' },
   { icon: CalendarDays, label: 'landing.comp_calendar' },

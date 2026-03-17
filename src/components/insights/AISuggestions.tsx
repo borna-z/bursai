@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Sparkles,
@@ -27,13 +27,13 @@ import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 function LoadingIndicator() {
   const { t } = useLanguage();
 
-  const LOADING_STEPS = [
+  const LOADING_STEPS = useMemo(() => [
     { icon: Wand2, text: t('insights.loading.analyzing'), duration: 1500 },
     { icon: Eye, text: t('insights.loading.identifying'), duration: 1500 },
     { icon: Shirt, text: t('insights.loading.matching'), duration: 1500 },
     { icon: Sparkles, text: t('insights.loading.creating'), duration: 2000 },
     { icon: Wand2, text: t('insights.loading.almost'), duration: 3000 },
-  ];
+  ], [t]);
 
   const [, setCurrentStep] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -56,7 +56,7 @@ function LoadingIndicator() {
     updateStep(0);
 
     return () => { clearInterval(progressInterval); clearTimeout(stepTimeout); };
-  }, []);
+  }, [LOADING_STEPS]);
 
   return (
     <div className="py-14">

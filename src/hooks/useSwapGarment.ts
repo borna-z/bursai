@@ -117,7 +117,7 @@ export function useSwapGarment() {
       return 5.5;
     };
 
-    const expressiveLift = (garment: any) => {
+    const expressiveLift = (garment: Garment) => {
       const color = String(garment.color_primary || '').toLowerCase();
       const pattern = String(garment.pattern || 'solid').toLowerCase();
       const material = String(garment.material || '').toLowerCase();
