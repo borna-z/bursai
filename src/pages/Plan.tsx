@@ -359,7 +359,7 @@ export default function PlanPage() {
               </motion.button>
               <motion.button
                 whileTap={prefersReduced ? undefined : { scale: 0.97 }}
-                onClick={() => navigate('/travel-capsule')}
+                onClick={() => navigate('/plan/travel-capsule')}
                 className="w-full h-[72px] rounded-2xl bg-card border border-border/20 flex items-center px-4 gap-3 text-left"
               >
                 <Luggage className="w-5 h-5 text-foreground/50 shrink-0" />
