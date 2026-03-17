@@ -172,11 +172,7 @@ export default function TravelCapsule() {
     [capsuleGarments]
   );
 
-  // ── Derived values ──
-  const tripNights = useMemo(() => {
-    if (!dateRange?.from || !dateRange?.to) return 0;
-    return differenceInCalendarDays(dateRange.to, dateRange.from);
-  }, [dateRange]);
+  // ── Derived values (tripNights moved above travelCardPhases) ──
 
   const tripDays = tripNights + (includeTravelDays ? 2 : 0);
 
