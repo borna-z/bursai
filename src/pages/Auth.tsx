@@ -36,6 +36,28 @@ function PasswordRequirements({ password, t }: { password: string; t: (k: string
   );
 }
 
+function getLoginErrorMessage(error: Error, t: (k: string) => string) {
+  const message = error.message.toLowerCase();
+
+  if (message.includes('invalid login credentials')) {
+    return 'Wrong email or password. If this account was created with Google, use Continue with Google.';
+  }
+
+  if (message.includes('email not confirmed')) {
+    return 'Please confirm your email before logging in.';
+  }
+
+  if (message.includes('provider') || message.includes('oauth') || message.includes('identity')) {
+    return 'This account is set up with Google sign-in. Use Continue with Google or reset your password.';
+  }
+
+  if (message.includes('fetch') || message.includes('network')) {
+    return 'Connection problem. Please refresh and try again.';
+  }
+
+  return t('auth.something_wrong');
+}
+
 export default function AuthPage() {
   const { user, loading, signIn, signUp } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
@@ -65,7 +87,7 @@ export default function AuthPage() {
     const { error } = await signIn(email, password);
     setIsLoading(false);
     if (error) {
-      toast.error(error.message.includes('Invalid login credentials') ? t('auth.wrong_credentials') : t('auth.something_wrong'));
+      toast.error(getLoginErrorMessage(error, t));
     }
   };
 
