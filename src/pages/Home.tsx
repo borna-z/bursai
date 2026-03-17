@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Settings, Heart, Shirt, ChevronRight } from 'lucide-react';
 import { TodayOutfitHero } from '@/components/home/TodayOutfitHero';
 import { format } from 'date-fns';
@@ -33,6 +33,7 @@ import { getOccasionLabel } from '@/lib/occasionLabel';
 import { FadeReplace } from '@/components/ui/fade-replace';
 import { HomePageSkeleton } from '@/components/ui/skeletons';
 import { getStylistTip } from '@/lib/stylistCopy';
+import { StyleDNACard } from '@/components/insights/StyleDNACard';
 
 type HomeState = 'loading' | 'empty_wardrobe' | 'outfit_planned' | 'weather_alert' | 'no_outfit';
 
@@ -57,6 +58,7 @@ export default function HomePage() {
   const queryClient = useQueryClient();
   const { isPremium } = useSubscription();
 
+  const prefersReduced = useReducedMotion();
   const hero = useMotionPreset('HERO');
   const reveal = useMotionPreset('REVEAL');
   const press = useMotionPreset('PRESS');
@@ -219,6 +221,15 @@ export default function HomePage() {
               />
             )}
           </FadeReplace>
+
+          {/* ── Style DNA ── */}
+          <motion.div
+            initial={prefersReduced ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+          >
+            <StyleDNACard />
+          </motion.div>
 
           {/* ── 3. Quick Actions — secondary shortcuts ── */}
           <QuickActionsRow />
