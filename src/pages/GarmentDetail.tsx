@@ -5,8 +5,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Edit, Trash2, WashingMachine, Check, Loader2, ExternalLink,
-  Sparkles, Shield, DollarSign, Layers, Shirt, Clock, TrendingUp,
-  Calendar, ChevronRight, RefreshCw,
+  Sparkles, Shield, DollarSign, Layers, Clock, TrendingUp,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';

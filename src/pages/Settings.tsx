@@ -15,7 +15,7 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { signOut } = useAuth();
-  const { data: profile, isLoading } = useProfile();
+  const { isLoading } = useProfile();
   const { t } = useLanguage();
   const { data: isAdmin } = useIsAdmin();
 

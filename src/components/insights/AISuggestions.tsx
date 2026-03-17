@@ -12,7 +12,6 @@ import {
   Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 import { StaleIndicator } from '@/components/ui/StaleIndicator';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
@@ -36,7 +35,7 @@ function LoadingIndicator() {
     { icon: Wand2, text: t('insights.loading.almost'), duration: 3000 },
   ];
 
-  const [currentStep, setCurrentStep] = useState(0);
+  const [, setCurrentStep] = useState(0);
   const [progress, setProgress] = useState(0);
   const startTimeRef = useRef(Date.now());
 

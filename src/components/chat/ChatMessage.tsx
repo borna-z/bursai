@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { cn } from '@/lib/utils';
 import { GarmentInlineCard } from '@/components/chat/GarmentInlineCard';
 import { OutfitSuggestionCard } from '@/components/chat/OutfitSuggestionCard';
 import type { GarmentBasic } from '@/hooks/useGarmentsByIds';
@@ -27,7 +26,7 @@ interface ChatMessageProps {
   isCreatingOutfit?: boolean;
 }
 
-export function ChatMessage({ message, isStreaming, garmentMap, isShopping, onTryOutfit, isCreatingOutfit }: ChatMessageProps) {
+export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isCreatingOutfit }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const text = getTextContent(message.content);
   const images = getImageUrls(message.content);

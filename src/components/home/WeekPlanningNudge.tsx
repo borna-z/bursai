@@ -19,7 +19,7 @@ interface WeekPlanningNudgeProps {
 export function WeekPlanningNudge({ plannedOutfits, className }: WeekPlanningNudgeProps) {
   const navigate = useNavigate();
 
-  const { planned, total } = useMemo(() => {
+  const { planned } = useMemo(() => {
     const today = new Date();
     const days = Array.from({ length: 7 }, (_, i) => format(addDays(today, i), 'yyyy-MM-dd'));
     const plannedDates = new Set(

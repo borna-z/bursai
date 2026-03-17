@@ -124,8 +124,6 @@ export function DaySummaryCard({
   className,
   compact = false,
 }: DaySummaryCardProps) {
-  const { t } = useLanguage();
-  
   if (isLoading) return <SummarySkeleton compact={compact} />;
   if (!summary) return null;
 

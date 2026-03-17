@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, Clock } from 'lucide-react';
 import { usePlannedOutfits } from '@/hooks/usePlannedOutfits';
-import { useForecast } from '@/hooks/useForecast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { motion } from 'framer-motion';
 

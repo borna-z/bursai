@@ -1,11 +1,8 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, AlertCircle, Gem, BarChart3 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { EASE_CURVE } from '@/lib/motion';
-import { useLanguage } from '@/contexts/LanguageContext';
 import type { Garment } from '@/hooks/useInsights';
 
 interface WardrobeHealthCardProps {
@@ -22,12 +19,9 @@ interface Insight {
   severity: 'info' | 'positive' | 'warning';
 }
 
-const CORE_CATEGORIES = ['tops', 'bottoms', 'outerwear', 'shoes', 'dresses'];
 const SEASON_LABELS = ['spring', 'summer', 'fall', 'winter'];
 
 export function WardrobeHealthCard({ garments, usedGarments, unusedGarments, className }: WardrobeHealthCardProps) {
-  const { t } = useLanguage();
-  const navigate = useNavigate();
 
   const insights = useMemo(() => {
     const result: Insight[] = [];

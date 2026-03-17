@@ -1,4 +1,4 @@
-import { WashingMachine, AlertTriangle, ChevronRight } from 'lucide-react';
+import { WashingMachine, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, parseISO, isToday, isTomorrow } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 export function LaundryAlertBanner() {
   const { t, locale } = useLanguage();
   const navigate = useNavigate();
-  const { alerts, inLaundryCount } = useLaundryCycle();
+  const { alerts } = useLaundryCycle();
 
   if (alerts.length === 0) return null;
 

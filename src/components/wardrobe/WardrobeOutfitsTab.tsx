@@ -1,8 +1,7 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, Star, Clock, Loader2, Calendar, Bookmark, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Sparkles, Star, Clock, Loader2, Calendar, Bookmark } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,

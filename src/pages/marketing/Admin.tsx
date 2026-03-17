@@ -12,8 +12,10 @@
  interface Lead {
    id: string;
    email: string;
-   source: string;
+   source: string | null;
    utm_source: string | null;
+   utm_medium: string | null;
+   utm_content: string | null;
    utm_campaign: string | null;
    created_at: string;
  }

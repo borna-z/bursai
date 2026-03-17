@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from 'framer-motion';
-import { Shirt, Palette, Wand2, type LucideIcon } from 'lucide-react';
+import { Shirt, Palette, Wand2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AILoadingCard } from '@/components/ui/AILoadingCard';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -21,7 +21,6 @@ export function OutfitGenerationState({
   subtitle,
   className,
   variant = 'full',
-  tone = 'neutral',
 }: OutfitGenerationStateProps) {
   const { t } = useLanguage();
   const prefersReduced = useReducedMotion();

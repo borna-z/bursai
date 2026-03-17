@@ -4,13 +4,12 @@ import {
   Sun, Moon, Cloud, CloudFog, CloudRain, CloudDrizzle, CloudSnow, CloudLightning,
   ChevronDown, MapPin, X,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { getBCP47 } from '@/lib/dateLocale';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useWeather } from '@/hooks/useWeather';
-import { useForecast, type ForecastDay } from '@/hooks/useForecast';
+import { useForecast } from '@/hooks/useForecast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useLocation } from '@/contexts/LocationContext';
 import { useProfile } from '@/hooks/useProfile';

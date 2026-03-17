@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { WashingMachine, X } from 'lucide-react';
+import { WashingMachine } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';

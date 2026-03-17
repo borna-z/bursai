@@ -8,7 +8,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function BillingSuccess() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  useSearchParams();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { t } = useLanguage();

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Heart, Zap, EyeOff, Flame, Sparkles, Palette, Cloud } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';

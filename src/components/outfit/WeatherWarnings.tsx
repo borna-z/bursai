@@ -1,4 +1,4 @@
-import { AlertTriangle, Thermometer, ThermometerSnowflake, ThermometerSun, Droplets, Wind, Shirt, Snowflake } from 'lucide-react';
+import { AlertTriangle, Thermometer, ThermometerSnowflake, ThermometerSun, Droplets, Wind, Snowflake } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { Garment } from '@/hooks/useGarments';
@@ -34,7 +34,6 @@ const WARM_SEASONS = ['winter', 'autumn', 'Vinter', 'Höst'];
 const COLD_SEASONS = ['summer', 'Sommar'];
 
 const WARM_CATEGORIES = ['outerwear'];
-const LIGHT_CATEGORIES = ['t-shirt', 'shorts', 'linne'];
 
 function hasOuterwear(items: OutfitItem[]): boolean {
   return items.some(item => item.slot === 'outerwear' && item.garment);

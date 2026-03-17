@@ -45,7 +45,7 @@ export function useDeepLink() {
 
     // Also handle initial URL if it matches a deep link pattern
     const currentPath = location.pathname;
-    for (const { pattern, handler } of DEEP_LINK_PATTERNS) {
+    for (const { pattern } of DEEP_LINK_PATTERNS) {
       const match = currentPath.match(pattern);
       if (match) {
         // Already on the right route — no action needed

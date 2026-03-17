@@ -116,7 +116,7 @@ export function QuickStyleQuiz({ onComplete, onSkip, isSaving }: Props) {
     </button>
   );
 
-  const ChipBtn = ({ value, selected, onToggle, label }: {
+  const ChipBtn = ({ value: _value, selected, onToggle, label }: {
     value: string; selected: boolean; onToggle: () => void; label: string;
   }) => (
     <button

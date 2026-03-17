@@ -55,7 +55,7 @@ function findMostWorn(garments: Garment[]): Garment | null {
   }, eligible[0]);
 }
 
-function buildWeatherSuggestion(weather: WeatherData | undefined, locale: string): string {
+function buildWeatherSuggestion(weather: WeatherData | undefined, _locale: string): string {
   if (!weather) {
     return 'What should I wear today?';
   }
@@ -68,7 +68,7 @@ function buildWeatherSuggestion(weather: WeatherData | undefined, locale: string
   return `It's ${temp}°C and ${cond} — what works?`;
 }
 
-function buildCalendarSuggestion(locale: string): string {
+function buildCalendarSuggestion(_locale: string): string {
   return 'I have a meeting today';
 }
 
@@ -76,19 +76,19 @@ function truncate(str: string, max: number): string {
   return str.length > max ? str.slice(0, max - 1) + '…' : str;
 }
 
-function buildLeastWornSuggestion(garment: Garment | null, locale: string): string {
+function buildLeastWornSuggestion(garment: Garment | null, _locale: string): string {
   if (!garment) return 'Style my least worn item';
   return truncate(`Style my ${garment.title.toLowerCase()}`, 32);
 }
 
-function buildMostWornSuggestion(garment: Garment | null, locale: string): string {
+function buildMostWornSuggestion(garment: Garment | null, _locale: string): string {
   if (!garment) return 'New ways to wear my favorite';
   return truncate(`New ways to wear my ${garment.title.toLowerCase()}`, 36);
 }
 
-export function ChatWelcome({ onSuggestion, displayName, garmentCount }: ChatWelcomeProps) {
+export function ChatWelcome({ onSuggestion, displayName }: ChatWelcomeProps) {
   const { t, locale } = useLanguage();
-  const { user } = useAuth();
+  useAuth();
   const { data: profile } = useProfile();
   const city = profile?.home_city || 'Stockholm';
   const { weather } = useWeather({ city });
@@ -116,14 +116,6 @@ export function ChatWelcome({ onSuggestion, displayName, garmentCount }: ChatWel
       discoveryChips,
     ];
   }, [weather, garmentList, locale]);
-
-  const baseWelcome = t('chat.welcome');
-  const personalizedWelcome = displayName
-    ? baseWelcome.replace(/^/, `${displayName}, `)
-    : baseWelcome;
-  const welcomeText = garmentCount && garmentCount > 0
-    ? `${personalizedWelcome}\n${garmentCount} ${t('chat.garments_in_wardrobe')}`
-    : personalizedWelcome;
 
   const name = displayName || profile?.display_name || '';
 

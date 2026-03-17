@@ -4,8 +4,8 @@ import { format, differenceInCalendarDays, addDays } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Minus, Plus } from 'lucide-react';
 import {
-  ArrowLeft, Globe, CalendarIcon, Loader2, Shirt,
-  LightbulbIcon, Plane, Umbrella, Sun, CloudRain, Cloud,
+  ArrowLeft, Globe, CalendarIcon, Shirt,
+  LightbulbIcon, Sun, CloudRain, Cloud,
   CalendarPlus, Package, SlidersHorizontal, Pencil,
   Check, Share2, Snowflake, RefreshCw,
 } from 'lucide-react';
@@ -17,7 +17,6 @@ import { asPreferences } from '@/types/preferences';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { LocationAutocomplete } from '@/components/ui/LocationAutocomplete';
 import { Label } from '@/components/ui/label';
 import { Chip } from '@/components/ui/chip';
@@ -30,7 +29,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useFlatGarments } from '@/hooks/useGarments';
 import { useProfile } from '@/hooks/useProfile';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
-import { getCoordinatesFromCity, fetchForecast, fetchHistoricalWeather, type ForecastDay, type CitySuggestion } from '@/hooks/useForecast';
+import { getCoordinatesFromCity, fetchForecast, fetchHistoricalWeather, type ForecastDay } from '@/hooks/useForecast';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getDateFnsLocale } from '@/lib/dateLocale';
@@ -140,8 +139,7 @@ export default function TravelCapsule() {
   // ── Generation state ──
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<CapsuleResult | null>(null);
-  const [loadingPhase, setLoadingPhase] = useState<string | null>(null);
-  const loadingTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useState<string | null>(null); // loadingPhase - kept for future use
 
   // Progressive loading phases (~60s total, last phase holds indefinitely)
   // Memoized so AILoadingOverlay's phase timer isn't reset on re-renders
@@ -365,7 +363,7 @@ export default function TravelCapsule() {
   }, [dateRange?.from?.getTime(), dateRange?.to?.getTime()]);
 
   // Handle location autocomplete selection
-  const handleLocationSelect = useCallback((city: string, coords: { lat: number; lon: number }) => {
+  const handleLocationSelect = useCallback((_city: string, coords: { lat: number; lon: number }) => {
     setDestCoords(coords);
     lookupWeatherWithCoords(coords);
   }, [lookupWeatherWithCoords]);

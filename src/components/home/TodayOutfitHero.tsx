@@ -1,13 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, ChevronRight, CloudSun, CalendarDays } from 'lucide-react';
+import { Sparkles, ChevronRight, CloudSun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { hapticLight } from '@/lib/haptics';
 import { EASE_CURVE } from '@/lib/motion';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { WeatherPill } from '@/components/weather/WeatherPill';
+
 
 interface TodayOutfitHeroProps {
   weather?: { temperature?: number; precipitation?: string; condition?: string };
@@ -19,7 +19,7 @@ interface TodayOutfitHeroProps {
  * Premium "What should I wear?" hero card.
  * The emotional core of BURS's daily flow.
  */
-export function TodayOutfitHero({ weather, garmentCount, className }: TodayOutfitHeroProps) {
+export function TodayOutfitHero({ weather, className }: TodayOutfitHeroProps) {
   const navigate = useNavigate();
   const { t } = useLanguage();
 

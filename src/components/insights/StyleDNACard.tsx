@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Dna, Fingerprint } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useStyleDNA, type StyleDNA } from '@/hooks/useStyleDNA';
+import { useStyleDNA } from '@/hooks/useStyleDNA';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const COLOR_MAP: Record<string, string> = {

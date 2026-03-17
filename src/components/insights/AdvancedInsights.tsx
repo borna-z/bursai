@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Loader2, Sparkles, Puzzle, ShoppingBag, Leaf, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useWardrobeGapAnalysis, useSustainabilityScore, useStyleEvolution } from '@/hooks/useAdvancedFeatures';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';

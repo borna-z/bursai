@@ -49,7 +49,7 @@ interface ColorBarProps {
 export function ColorBar({ colors, total }: ColorBarProps) {
   return (
     <div className="flex h-3 rounded-full overflow-hidden bg-muted">
-      {colors.map((item, index) => {
+      {colors.map((item) => {
         const width = (item.count / total) * 100;
         return (
           <div

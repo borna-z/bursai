@@ -5,7 +5,6 @@ import { Loader2, Shirt, Users, Crown, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AnimatedPage } from '@/components/ui/animated-page';

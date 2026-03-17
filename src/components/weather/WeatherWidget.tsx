@@ -4,7 +4,6 @@ import {
   Sun, Moon, Cloud, CloudFog, CloudRain, CloudDrizzle, CloudSnow, CloudLightning,
   MapPin, X,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { getBCP47 } from '@/lib/dateLocale';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { Sparkles, Eye, Palette, CheckCircle } from 'lucide-react';
+import { Sparkles, Eye, Palette } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { EASE_CURVE } from '@/lib/motion';

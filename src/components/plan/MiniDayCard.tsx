@@ -1,5 +1,5 @@
 import { format, isToday, isTomorrow } from 'date-fns';
-import { Calendar, Check, Briefcase, PartyPopper, Heart, Plus } from 'lucide-react';
+import { Calendar, Briefcase, PartyPopper, Heart, Plus } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Pause, Play, Download } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
