@@ -13,6 +13,7 @@ import { useOutfitGenerator } from '@/hooks/useOutfitGenerator';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
 import { useWeather } from '@/hooks/useWeather';
+import { useCalendarEvents } from '@/hooks/useCalendarSync';
 import { useSubscription } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
@@ -75,6 +76,8 @@ export default function OutfitGeneratePage() {
   const { generateOutfit, isGenerating } = useOutfitGenerator();
   const { isUnlocked } = useWardrobeUnlocks();
   const { weather } = useWeather();
+  const todayDate = new Date().toISOString().slice(0, 10);
+  const { data: calendarEvents } = useCalendarEvents(todayDate);
   const { canCreateOutfit, remainingOutfits, isPremium } = useSubscription();
 
   const [phase, setPhase] = useState<Phase>('picking');
@@ -161,6 +164,10 @@ export default function OutfitGeneratePage() {
             subtitle={contextSubtitle || undefined}
             variant="full"
             className="max-w-sm w-full"
+            occasion={selectedOccasion}
+            weatherTemp={weather?.temperature}
+            weatherCondition={weather?.condition}
+            eventTitle={calendarEvents?.[0]?.title ?? null}
           />
         </div>
       </AppLayout>
