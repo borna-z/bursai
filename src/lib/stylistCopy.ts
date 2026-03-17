@@ -51,6 +51,33 @@ const LARGE_WARDROBE_TIPS: StylistTip[] = [
   { text: 'With this many pieces, the secret is rotation — not repetition.', category: 'wardrobe' },
 ];
 
+const DNA_TIPS: Record<string, StylistTip[]> = {
+  Minimalist: [
+    { text: 'Your minimalist instinct is your superpower — lean into it.', category: 'wardrobe' },
+    { text: 'Fewer choices, sharper looks. Your DNA knows the way.', category: 'wardrobe' },
+  ],
+  Classic: [
+    { text: 'Classic never fades. Your style DNA proves it.', category: 'wardrobe' },
+    { text: 'Timeless taste is rare — yours is consistent.', category: 'wardrobe' },
+  ],
+  'Casual Creative': [
+    { text: 'Effortless and expressive — your DNA is all about creative comfort.', category: 'wardrobe' },
+    { text: 'Relaxed doesn\'t mean random. Your style has a clear signature.', category: 'wardrobe' },
+  ],
+  'Sharp Dresser': [
+    { text: 'Polished every time — your wardrobe DNA is built to impress.', category: 'wardrobe' },
+    { text: 'You dress with precision. Your style DNA confirms it.', category: 'wardrobe' },
+  ],
+  'Color Explorer': [
+    { text: 'Bold palette choices set you apart. Keep experimenting.', category: 'wardrobe' },
+    { text: 'Your color instincts are your signature — trust them.', category: 'wardrobe' },
+  ],
+  'Uniform Builder': [
+    { text: 'A personal uniform is peak efficiency. Yours is dialled in.', category: 'wardrobe' },
+    { text: 'Repetition isn\'t boring when it\'s intentional. Own your formula.', category: 'wardrobe' },
+  ],
+};
+
 function pickRandom<T>(arr: T[]): T {
   // Use day-of-year as seed for daily consistency
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
@@ -61,6 +88,7 @@ export interface StylistContext {
   weather?: { temperature?: number; precipitation?: string };
   garmentCount?: number;
   hasPlannedOutfit?: boolean;
+  styleDNA?: { archetype: string };
   archetype?: string;
   topColor?: string;
   topCombo?: string[];
@@ -104,6 +132,11 @@ export function getStylistTip(ctx: StylistContext = {}): string {
   }
   if (ctx.garmentCount != null && ctx.garmentCount > 80) {
     return pickRandom(LARGE_WARDROBE_TIPS).text;
+  }
+
+  // Style DNA tips
+  if (ctx.styleDNA?.archetype && DNA_TIPS[ctx.styleDNA.archetype]) {
+    return pickRandom(DNA_TIPS[ctx.styleDNA.archetype]).text;
   }
 
   // Time-based
