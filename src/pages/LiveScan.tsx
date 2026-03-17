@@ -11,7 +11,7 @@ import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
 import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { isMedianApp } from '@/lib/median';
+import { isMedianApp, isMedianAndroid } from '@/lib/median';
 import { EASE_CURVE } from '@/lib/motion';
 import { categoryLabel, colorLabel, materialLabel } from '@/lib/humanize';
 
@@ -252,6 +252,43 @@ async function checkCameraPermission(): Promise<PermissionState | 'unknown'> {
   }
 }
 
+/* ─── Progressive camera constraint fallback (FIX 1) ─── */
+async function tryGetCamera(): Promise<MediaStream> {
+  const constraintSets: MediaStreamConstraints[] = [
+    {
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+      audio: false,
+    },
+    {
+      video: { facingMode: 'environment' },
+      audio: false,
+    },
+    {
+      video: true,
+      audio: false,
+    },
+  ];
+
+  let lastError: unknown;
+  for (const constraints of constraintSets) {
+    try {
+      return await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (err: unknown) {
+      lastError = err;
+      const name = err instanceof Error ? err.name : '';
+      // Only fall through for constraint-related errors
+      if (name !== 'OverconstrainedError' && name !== 'NotFoundError') {
+        throw err;
+      }
+    }
+  }
+  throw lastError;
+}
+
 function LiveScanFallback() {
   const navigate = useNavigate();
   return (
@@ -316,11 +353,7 @@ export default function LiveScan() {
   /** Trigger file input for Median / fallback capture */
   const handleFileCapture = useCallback(() => {
     if (!hasSlots) { setShowPaywall(true); return; }
-    if (fileInputRef.current) {
-      fileInputRef.current.setAttribute('capture', 'environment');
-      fileInputRef.current.setAttribute('accept', 'image/*');
-      fileInputRef.current.click();
-    }
+    fileInputRef.current?.click();
   }, [hasSlots]);
 
   /** Start camera — must be called from a user gesture (onClick) for Android WebView */
@@ -341,22 +374,30 @@ export default function LiveScan() {
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
-        audio: false,
-      });
+      const stream = await tryGetCamera();
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        try {
+          await videoRef.current.play();
+          setCameraReady(true);
+        } catch (playErr) {
+          console.warn('[LiveScan] play() failed:', playErr);
+          // Still mark ready — some Android versions autoplay without explicit play()
+          setCameraReady(true);
+        }
       }
     } catch (err: unknown) {
       console.error('Camera error:', err);
-      const error = err instanceof Error ? err : null;
-      if (error?.name === 'NotAllowedError' || error?.name === 'PermissionDeniedError') {
-        setCameraError(t('scan.camera_denied'));
-      } else if (error?.name === 'NotFoundError') {
-        setCameraError(t('scan.no_camera'));
+      const errObj = err instanceof Error ? err : null;
+      if (errObj?.name === 'NotAllowedError' || errObj?.name === 'PermissionDeniedError') {
+        setCameraError(
+          isMedianAndroid()
+            ? 'Camera permission denied. Go to your phone Settings → Apps → BURS → Permissions → Camera → Allow'
+            : t('scan.camera_denied')
+        );
+      } else if (errObj?.name === 'NotFoundError' || errObj?.name === 'OverconstrainedError') {
+        setCameraError('Camera not available. Try using the photo upload option instead.');
       } else {
         setCameraError(t('scan.camera_error'));
       }
@@ -474,15 +515,22 @@ export default function LiveScan() {
             <div className="space-y-4">
               <Camera className="w-16 h-16 text-muted-foreground/50 mx-auto" />
               <p className="text-muted-foreground text-sm">{cameraError}</p>
-              <Button variant="outline" onClick={handleClose}>{t('common.back')}</Button>
+              <div className="flex flex-col gap-2">
+                <Button onClick={() => fileInputRef.current?.click()} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                  <ImagePlus className="w-4 h-4 mr-2" />Upload a photo instead
+                </Button>
+                <Button variant="outline" onClick={handleClose}>{t('common.back')}</Button>
+              </div>
             </div>
           </div>
         ) : (
+          {/* eslint-disable-next-line react/no-unknown-property */}
           <video
             ref={videoRef}
             autoPlay
             playsInline
             muted
+            {...({ 'x-webkit-airplay': 'allow', 'webkit-playsinline': 'true' } as React.HTMLAttributes<HTMLVideoElement>)}
             onLoadedMetadata={() => {
               if (videoRef.current?.videoWidth && videoRef.current?.videoHeight) {
                 setCameraReady(true);
@@ -493,7 +541,8 @@ export default function LiveScan() {
                 setCameraReady(true);
               }
             }}
-            className="absolute inset-0 w-full h-full object-cover"
+            style={{ width: '100%', height: '100%' }}
+            className="absolute inset-0 object-cover"
           />
         )}
 
