@@ -18,6 +18,7 @@ const SLOT_ICONS = [Shirt, ArrowDownUp, Footprints, Layers] as const;
 const SLOT_KEYS = ['top', 'bottom', 'shoes', 'layer'] as const;
 
 export function OutfitGenerationState({
+  subtitle,
   className,
   variant = 'full',
 }: OutfitGenerationStateProps) {
@@ -97,6 +98,12 @@ export function OutfitGenerationState({
         <span className={cn('w-1.5 h-1.5 rounded-full bg-foreground', !prefersReduced ? 'dot-cycle-2' : 'opacity-20')} />
         <span className={cn('w-1.5 h-1.5 rounded-full bg-foreground', !prefersReduced ? 'dot-cycle-3' : 'opacity-20')} />
       </div>
+      <p
+        data-testid="ai-loading-card"
+        className="text-center text-sm text-muted-foreground/70 font-['DM_Sans'] px-4"
+      >
+        {subtitle}
+      </p>
     </div>
   );
 }
