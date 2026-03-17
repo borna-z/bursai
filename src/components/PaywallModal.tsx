@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Crown, Infinity, Sparkles, Loader2 } from 'lucide-react';
+import { Crown, Infinity as InfinityIcon, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
@@ -50,7 +50,7 @@ export function PaywallModal({ isOpen, onClose, reason }: PaywallModalProps) {
         <div className="space-y-2.5 my-6">
           {[
             { icon: Crown, title: 'Stylist Mode', desc: 'Deeper reasoning, editorial explanations, stronger outfit logic' },
-            { icon: Infinity, title: t('premium.unlimited_wardrobe'), desc: 'No limits on garments or outfit generation' },
+            { icon: InfinityIcon, title: t('premium.unlimited_wardrobe'), desc: 'No limits on garments or outfit generation' },
             { icon: Sparkles, title: t('premium.smarter_ai'), desc: 'Personalized to your style DNA, wardrobe, and habits' },
           ].map(({ icon: Icon, title, desc }) => (
             <div key={title} className="flex items-start gap-3 p-3 bg-secondary/40 rounded-xl">

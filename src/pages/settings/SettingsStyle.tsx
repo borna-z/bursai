@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import type { StyleProfile } from '@/types/preferences';
+import type { Json, TablesUpdate } from '@/integrations/supabase/types';
 
 // ── Color palette ──
 
@@ -59,7 +60,7 @@ export default function SettingsStyle() {
     const newSp = { ...sp, [key]: value };
     try {
       await updateProfile.mutateAsync({
-        preferences: { ...prefs, styleProfile: newSp } as any,
+        preferences: { ...prefs, styleProfile: newSp } as Json,
       });
     } catch { toast.error(t('settings.pref_error')); }
   };
@@ -92,7 +93,7 @@ export default function SettingsStyle() {
       await updateProfile.mutateAsync({
         height_cm: heightCm ? parseInt(heightCm, 10) : null,
         weight_kg: weightKg ? parseInt(weightKg, 10) : null,
-      } as any);
+      } as TablesUpdate<'profiles'>);
       setBodySaved(true);
       setTimeout(() => setBodySaved(false), 2500);
     } catch { toast.error(t('settings.body_save_error')); }

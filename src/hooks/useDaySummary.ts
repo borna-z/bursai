@@ -70,7 +70,7 @@ export function useDaySummary(date: string) {
 
       const locale = (asPreferences(profile?.preferences)?.language as string) || 'sv';
 
-      const { data, error } = await invokeEdgeFunction<any>('summarize_day', {
+      const { data, error } = await invokeEdgeFunction<DaySummary & { error?: string }>('summarize_day', {
         body: { events, weather, locale },
       });
 

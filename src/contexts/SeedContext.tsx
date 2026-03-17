@@ -3,20 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { SEED_GARMENTS } from '@/data/seedGarments';
-import { type Locale } from '@/i18n/types';
 
-/** Lightweight t() that reads from cached translations or falls back to key */
+/** Lightweight t() — falls back to key until translations are loaded */
 function t(key: string): string {
-  const stored = localStorage.getItem('burs-locale') as Locale | null;
-  stored || 'en';
-  // Try to use the cached translations from LanguageContext's loader
-  try {
-    // Access the module cache synchronously if already loaded
-    // Falls back to key if translations haven't loaded yet
-    return key;
-  } catch {
-    return key;
-  }
+  return key;
 }
 
 const BATCH_SIZE = 1;

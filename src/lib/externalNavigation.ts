@@ -10,7 +10,11 @@ export function prepareExternalNavigation() {
     return {
       popup: null,
       go: (url: string) => {
-        window.median?.open?.externalBrowser?.(url) ?? (window.location.href = url);
+        if (window.median?.open?.externalBrowser) {
+          window.median.open.externalBrowser(url);
+        } else {
+          window.location.href = url;
+        }
       },
       closePopup: () => {},
     };

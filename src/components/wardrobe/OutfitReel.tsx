@@ -22,6 +22,7 @@ export function OutfitReel({ outfits, onClose }: OutfitReelProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [progress, setProgress] = useState(0);
+  const progressRef = useRef(0);
   const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   const slideRef = useRef<HTMLDivElement>(null);
@@ -33,6 +34,7 @@ export function OutfitReel({ outfits, onClose }: OutfitReelProps) {
       setSlideDirection('left');
       setDragOffset(0);
       setCurrentIndex(i => i + 1);
+      progressRef.current = 0;
       setProgress(0);
       startTimeRef.current = Date.now();
     } else {
@@ -45,6 +47,7 @@ export function OutfitReel({ outfits, onClose }: OutfitReelProps) {
       setSlideDirection('right');
       setDragOffset(0);
       setCurrentIndex(i => i - 1);
+      progressRef.current = 0;
       setProgress(0);
       startTimeRef.current = Date.now();
     }
@@ -53,11 +56,12 @@ export function OutfitReel({ outfits, onClose }: OutfitReelProps) {
   // Auto-advance timer with smooth progress
   useEffect(() => {
     if (isPaused) return;
-    startTimeRef.current = Date.now() - (progress * SLIDE_DURATION);
+    startTimeRef.current = Date.now() - (progressRef.current * SLIDE_DURATION);
 
     const tick = () => {
       const elapsed = Date.now() - startTimeRef.current;
       const pct = Math.min(elapsed / SLIDE_DURATION, 1);
+      progressRef.current = pct;
       setProgress(pct);
       if (pct >= 1) {
         goNext();

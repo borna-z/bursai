@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
-import { Crown, Check, Sparkles, Infinity, Shield, Lock, ArrowLeft, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Crown, Check, Sparkles, Infinity as InfinityIcon, Shield, Lock, ArrowLeft, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
@@ -108,7 +108,7 @@ export default function PricingPage() {
             )}
           </div>
           <div className="space-y-3 pt-2">
-            <div className="flex items-center gap-3"><Infinity className="w-4 h-4 text-foreground" /><span className="text-sm">{t('pricing.unlimited_wardrobe')}</span></div>
+            <div className="flex items-center gap-3"><InfinityIcon className="w-4 h-4 text-foreground" /><span className="text-sm">{t('pricing.unlimited_wardrobe')}</span></div>
             <div className="flex items-center gap-3"><Sparkles className="w-4 h-4 text-foreground" /><span className="text-sm">{t('pricing.unlimited_outfits')}</span></div>
             <div className="flex items-center gap-3"><Crown className="w-4 h-4 text-foreground" /><span className="text-sm">{t('pricing.smarter_ai')}</span></div>
           </div>

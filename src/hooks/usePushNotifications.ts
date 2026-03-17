@@ -64,7 +64,11 @@ export function usePushNotifications() {
     // Median native push — delegate to native bridge
     if (isMedianApp()) {
       try {
-        window.median?.onesignal?.register?.() ?? window.median?.push?.register?.();
+        if (window.median?.onesignal?.register) {
+          window.median.onesignal.register();
+        } else {
+          window.median?.push?.register?.();
+        }
         setIsSubscribed(true);
         setPermission('granted');
       } catch {

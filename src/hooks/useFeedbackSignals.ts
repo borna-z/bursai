@@ -33,8 +33,7 @@ export function useFeedbackSignals() {
   const mutation = useMutation({
     mutationFn: async (input: SignalInput) => {
       if (!user) return;
-      // Cast to any to work with auto-generated types that may not include the new table yet
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('feedback_signals')
         .insert({
           user_id: user.id,
