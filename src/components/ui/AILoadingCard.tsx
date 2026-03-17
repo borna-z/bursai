@@ -107,7 +107,7 @@ export function AILoadingCard({ phases, subtitle, className, phase: externalPhas
         {/* Segmented progress bar — N segments, one per phase */}
         {phases.length > 1 && (
           <div className="flex w-full gap-1.5">
-            {phases.map((p, i) => (
+            {phases.map((_, i) => (
               <div key={i} className="relative flex-1 h-1 rounded-full bg-foreground/10 overflow-hidden">
                 {/* Completed segment */}
                 {i < phase && (
