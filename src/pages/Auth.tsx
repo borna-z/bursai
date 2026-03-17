@@ -87,7 +87,7 @@ export default function AuthPage() {
     const { error } = await signIn(email, password);
     setIsLoading(false);
     if (error) {
-      toast.error(error.message.includes('Invalid login credentials') ? t('auth.wrong_credentials') : t('auth.something_wrong'));
+      toast.error(getLoginErrorMessage(error, t));
     }
   };
 
