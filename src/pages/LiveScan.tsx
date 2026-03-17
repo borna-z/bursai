@@ -524,7 +524,6 @@ export default function LiveScan() {
             </div>
           </div>
         ) : (
-          {/* eslint-disable-next-line react/no-unknown-property */}
           <video
             ref={videoRef}
             autoPlay
