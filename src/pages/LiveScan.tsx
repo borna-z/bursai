@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useLiveScan } from '@/hooks/useLiveScan';
 import { useAutoDetect, type FramingHint } from '@/hooks/useAutoDetect';
+import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
 import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -251,6 +252,18 @@ async function checkCameraPermission(): Promise<PermissionState | 'unknown'> {
   }
 }
 
+function LiveScanFallback() {
+  const navigate = useNavigate();
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+      <div className="max-w-sm w-full text-center space-y-6">
+        <h1 className="text-xl font-semibold text-foreground">Something went wrong with the scanner</h1>
+        <Button onClick={() => navigate('/wardrobe')}>Go to Wardrobe</Button>
+      </div>
+    </div>
+  );
+}
+
 export default function LiveScan() {
   const navigate = useNavigate();
   const { t } = useLanguage();
@@ -391,6 +404,7 @@ export default function LiveScan() {
   const isLocked = autoMode && autoProgress > 0;
 
   return (
+    <PageErrorBoundary fallback={<LiveScanFallback />}>
     <div className="fixed inset-0 bg-background z-50 flex flex-col">
       {/* Hidden file input for Median / fallback mode */}
       <input
@@ -616,5 +630,6 @@ export default function LiveScan() {
 
       <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="garments" />
     </div>
+    </PageErrorBoundary>
   );
 }

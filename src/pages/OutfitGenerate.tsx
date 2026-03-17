@@ -20,6 +20,7 @@ import { PaywallModal } from '@/components/PaywallModal';
 import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
 
 /* ── Occasions with Lucide icons ── */
 const OCCASIONS = [
@@ -59,6 +60,17 @@ function getGreeting(): string {
   return 'Good evening';
 }
 
+function OutfitGenerateFallback() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+      <div className="max-w-sm w-full text-center space-y-6">
+        <h1 className="text-xl font-semibold text-foreground">Outfit generation is unavailable right now</h1>
+        <Button onClick={() => window.location.reload()}>Reload</Button>
+      </div>
+    </div>
+  );
+}
+
 export default function OutfitGeneratePage() {
   const navigate = useNavigate();
   const { t, locale } = useLanguage();
@@ -89,12 +101,14 @@ export default function OutfitGeneratePage() {
   // Gate: require enough garments
   if (!isUnlocked('outfit_gen')) {
     return (
+      <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
       <AppLayout>
         <div className="p-4 max-w-sm mx-auto pt-16 space-y-6">
           <h2 className="text-lg font-semibold tracking-tight text-foreground">{t('unlock.outfit_gen')}</h2>
           <WardrobeProgress message={t('unlock.outfit_gen_message')} />
         </div>
       </AppLayout>
+      </PageErrorBoundary>
     );
   }
 
@@ -142,6 +156,7 @@ export default function OutfitGeneratePage() {
   // ── GENERATING PHASE ──
   if (phase === 'generating') {
     return (
+      <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
       <AppLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
           <OutfitGenerationState
@@ -151,12 +166,14 @@ export default function OutfitGeneratePage() {
           />
         </div>
       </AppLayout>
+      </PageErrorBoundary>
     );
   }
 
   // ── ERROR PHASE ──
   if (phase === 'error') {
     return (
+      <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
       <AppLayout>
         <div className="p-4 flex flex-col items-center justify-center min-h-[60vh] animate-fade-in">
           <Card className="max-w-sm w-full">
@@ -177,11 +194,13 @@ export default function OutfitGeneratePage() {
           </Card>
         </div>
       </AppLayout>
+      </PageErrorBoundary>
     );
   }
 
   // ── PICKING PHASE ──
   return (
+    <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
     <AppLayout>
       <div className="page-container pb-36 animate-fade-in">
 
@@ -404,5 +423,6 @@ export default function OutfitGeneratePage() {
         reason="outfits"
       />
     </AppLayout>
+    </PageErrorBoundary>
   );
 }

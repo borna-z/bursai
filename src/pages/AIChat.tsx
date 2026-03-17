@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
 
 type MultimodalPart =
   | { type: 'text'; text: string }
@@ -86,6 +87,18 @@ function extractGarmentIds(messages: Message[]): string[] {
     }
   }
   return Array.from(ids);
+}
+
+function AIChatFallback() {
+  const navigate = useNavigate();
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+      <div className="max-w-sm w-full text-center space-y-6">
+        <h1 className="text-xl font-semibold text-foreground">Your stylist is temporarily unavailable</h1>
+        <Button onClick={() => navigate(-1)}>Go Back</Button>
+      </div>
+    </div>
+  );
 }
 
 export default function AIChat() {
@@ -256,6 +269,7 @@ export default function AIChat() {
   }, [garmentMap, createOutfit, navigate, t]);
 
   return (
+    <PageErrorBoundary fallback={<AIChatFallback />}>
     <AppLayout>
       <div className="absolute inset-0 flex flex-col overflow-hidden pb-20">
         {/* Header — simple title + menu */}
@@ -342,5 +356,6 @@ export default function AIChat() {
         <div className="pb-2 shrink-0" />
       </div>
     </AppLayout>
+    </PageErrorBoundary>
   );
 }
