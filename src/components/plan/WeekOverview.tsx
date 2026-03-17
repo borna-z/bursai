@@ -1,13 +1,12 @@
-import { useMemo } from 'react';
-import { format, addDays } from 'date-fns';
-import { motion } from 'framer-motion';
-import { Plus, AlertTriangle, Check } from 'lucide-react';
+import { useMemo, useRef, useEffect } from 'react';
+import { format, addDays, isToday, isSameDay } from 'date-fns';
+import { motion, useReducedMotion } from 'framer-motion';
+import { RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getDateFnsLocale } from '@/lib/dateLocale';
-import { EASE_CURVE } from '@/lib/motion';
+import { EASE_CURVE, STAGGER_DELAY } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
 import type { PlannedOutfit } from '@/hooks/usePlannedOutfits';
 
@@ -49,6 +48,8 @@ function detectRepetitions(plannedOutfits: PlannedOutfit[], days: Date[]): Map<s
 export function WeekOverview({ selectedDate, onSelectDate, plannedOutfits, className }: WeekOverviewProps) {
   const { t, locale } = useLanguage();
   const dfLocale = getDateFnsLocale(locale);
+  const prefersReduced = useReducedMotion();
+  const todayRef = useRef<HTMLButtonElement>(null);
 
   const days = useMemo(() => {
     const today = new Date();
@@ -67,6 +68,11 @@ export function WeekOverview({ selectedDate, onSelectDate, plannedOutfits, class
     }).length;
   }, [plannedOutfits, days]);
 
+  // Scroll today into view on mount
+  useEffect(() => {
+    todayRef.current?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  }, []);
+
   return (
     <div className={cn('space-y-4', className)}>
       {/* Header with coverage stat */}
@@ -79,99 +85,85 @@ export function WeekOverview({ selectedDate, onSelectDate, plannedOutfits, class
         </Badge>
       </div>
 
-      {/* Repetition warning */}
+      {/* Repetition warning — REDESIGN 2 */}
       {repeatedGarments.size > 0 && (
         <motion.div
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 4 }}
+          animate={prefersReduced ? { opacity: 1 } : { opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: EASE_CURVE }}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-warning/8 border border-warning/15"
+          className="flex items-center gap-3 bg-card border border-border/15 rounded-2xl px-4 py-3"
         >
-          <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0" />
-          <p className="text-[11px] text-warning">
-            {repeatedGarments.size === 1
-              ? (t('plan.repeat_warning_single') || '1 piece repeats across days — consider swapping for variety.')
-              : (t('plan.repeat_warning') || `${repeatedGarments.size} pieces repeat across days — consider swapping for variety.`)}
+          <RefreshCw className="w-4 h-4 text-foreground/40 shrink-0" />
+          <p className="flex-1 text-[13px] font-['DM_Sans',sans-serif] text-foreground/70">
+            {t('plan.repeat_warning_generic') || 'Some garments repeat this week'}
           </p>
+          <span className="text-[12px] font-['DM_Sans',sans-serif] text-muted-foreground/50 underline cursor-pointer">
+            {t('plan.review') || 'Review'}
+          </span>
         </motion.div>
       )}
 
-      {/* Day cards grid */}
-      <div className="grid grid-cols-7 gap-1.5">
+      {/* Week strip — REDESIGN 1 */}
+      <div className="flex gap-1.5 justify-between overflow-x-auto scrollbar-hide">
         {days.map((date, idx) => {
           const dateStr = format(date, 'yyyy-MM-dd');
-          const isSelected = format(selectedDate, 'yyyy-MM-dd') === dateStr;
-          const dayOutfits = plannedOutfits.filter(p => p.date === dateStr && p.outfit);
-          const firstOutfit = dayOutfits[0]?.outfit;
-          const isWorn = dayOutfits.some(p => p.status === 'worn');
-          const hasRepeat = dayOutfits.some(po =>
-            po.outfit?.outfit_items.some(item => repeatedGarments.has(item.garment_id)),
-          );
+          const isSelected = isSameDay(date, selectedDate);
+          const isTodayDate = isToday(date);
+          const dayOutfits = plannedOutfits.filter(p => p.date === dateStr && p.outfit_id);
+          const hasOutfit = dayOutfits.length > 0;
+
+          // Determine pill state
+          const isTodayWithOutfit = isTodayDate && hasOutfit;
+          const isTodayNoOutfit = isTodayDate && !hasOutfit;
+          const isSelectedNotToday = isSelected && !isTodayDate;
 
           return (
             <motion.button
               key={dateStr}
+              ref={isTodayDate ? todayRef : undefined}
               onClick={() => { hapticLight(); onSelectDate(date); }}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: idx * 0.04, ease: EASE_CURVE }}
+              initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 8 }}
+              animate={prefersReduced ? { opacity: 1 } : { opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: idx * STAGGER_DELAY, ease: EASE_CURVE }}
               className={cn(
-                'flex flex-col items-center gap-1 py-2 px-1 rounded-xl transition-all duration-200',
+                'w-[44px] h-[64px] rounded-2xl flex flex-col items-center justify-center gap-1 shrink-0 transition-all duration-200',
                 'active:scale-95',
-                isSelected
-                  ? 'bg-foreground text-background shadow-sm ring-1 ring-foreground/20'
-                  : 'hover:bg-muted/50',
+                // Default — no outfit
+                !isTodayDate && !isSelected && !hasOutfit && 'bg-transparent text-muted-foreground/40',
+                // Has outfit, not today, not selected
+                !isTodayDate && !isSelected && hasOutfit && 'bg-transparent text-foreground/70',
+                // Today no outfit (not selected — but today auto-highlights)
+                isTodayNoOutfit && 'bg-foreground/[0.06] text-foreground font-semibold border border-border/30',
+                // Today has outfit
+                isTodayWithOutfit && 'bg-foreground text-background',
+                // Selected not today
+                isSelectedNotToday && 'bg-foreground/[0.08] text-foreground border border-border/20',
               )}
             >
-              {/* Day label */}
+              {/* Day name */}
               <span className={cn(
-                'text-[9px] uppercase font-semibold tracking-wider',
-                isSelected ? 'text-background/60' : 'text-muted-foreground/50',
+                "text-[10px] font-medium tracking-widest font-['DM_Sans',sans-serif] uppercase",
+                isTodayWithOutfit ? 'text-background/70' : '',
               )}>
                 {format(date, 'EEE', { locale: dfLocale }).slice(0, 2)}
               </span>
 
-              {/* Date number */}
+              {/* Day number */}
               <span className={cn(
-                'text-sm font-bold leading-none',
-                isSelected ? 'text-background' : isWorn ? 'text-success' : firstOutfit ? 'text-foreground' : 'text-muted-foreground/40',
+                "text-[18px] font-medium font-['DM_Sans',sans-serif] leading-none",
+                isTodayWithOutfit ? 'text-background' : '',
+                isTodayNoOutfit ? 'font-semibold' : '',
               )}>
                 {format(date, 'd')}
               </span>
 
-              {/* Outfit thumbnail or empty indicator */}
-              <div className={cn(
-                'w-8 h-8 rounded-lg overflow-hidden mt-0.5',
-                !firstOutfit && 'border border-dashed flex items-center justify-center',
-                !firstOutfit && (isSelected ? 'border-background/30' : 'border-muted-foreground/20'),
-              )}>
-                {firstOutfit ? (
-                  <div className="grid grid-cols-2 w-full h-full">
-                    {firstOutfit.outfit_items.slice(0, 4).map((item) => (
-                      <div key={item.id} className="overflow-hidden">
-                        <LazyImageSimple
-                          imagePath={item.garment?.image_path}
-                          alt=""
-                          className="w-full h-full"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <Plus className={cn(
-                    'w-3 h-3',
-                    isSelected ? 'text-background/40' : 'text-muted-foreground/25',
-                  )} />
-                )}
-              </div>
-
-              {/* Status indicators */}
-              <div className="h-2 flex items-center gap-0.5">
-                {isWorn && <Check className={cn('w-2.5 h-2.5', isSelected ? 'text-background/60' : 'text-success')} />}
-                {hasRepeat && !isWorn && (
-                  <div className={cn('w-1.5 h-1.5 rounded-full', isSelected ? 'bg-warning/60' : 'bg-warning/50')} />
-                )}
-              </div>
+              {/* Outfit dot */}
+              {hasOutfit && (
+                <div className={cn(
+                  'w-1.5 h-1.5 rounded-full',
+                  isTodayWithOutfit ? 'bg-background/40' : 'bg-foreground/30',
+                )} />
+              )}
             </motion.button>
           );
         })}
