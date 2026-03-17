@@ -6,7 +6,6 @@ import { hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { compressImage } from '@/lib/imageCompression';
 import { compressCenterCrop } from '@/lib/compressFrame';
 import { saveGarmentInBackground } from '@/lib/backgroundGarmentSave';
-import { removeBackground, removeBackgroundFromDataUrl } from '@/lib/removeBackground';
 import type { GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
 
 export interface ScanResult {
@@ -21,7 +20,6 @@ export function useLiveScan() {
   const queryClient = useQueryClient();
   const [scanCount, setScanCount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isRemovingBackground, setIsRemovingBackground] = useState(false);
   const [lastResult, setLastResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -35,7 +33,7 @@ export function useLiveScan() {
   }, []);
 
   /**
-   * Capture the current video frame with center-crop, compress, remove background, and send to AI.
+   * Capture the current video frame with center-crop, compress, and send to AI.
    */
   const capture = useCallback(async (videoEl: HTMLVideoElement) => {
     if (!user || isProcessing) return;
@@ -48,18 +46,8 @@ export function useLiveScan() {
     setLastResult(null);
 
     try {
-      // Phase 1: compress
       const canvas = getCanvas();
-      const { blob: rawBlob, base64: rawBase64 } = await compressCenterCrop(canvas, videoEl);
-
-      // Phase 2: background removal (visible to user)
-      setIsProcessing(false);
-      setIsRemovingBackground(true);
-      const { blob, base64 } = await removeBackgroundFromDataUrl(rawBase64);
-
-      // Phase 3: AI analysis
-      setIsRemovingBackground(false);
-      setIsProcessing(true);
+      const { blob, base64 } = await compressCenterCrop(canvas, videoEl);
 
       const thumbnailUrl = URL.createObjectURL(blob);
 
@@ -81,7 +69,6 @@ export function useLiveScan() {
       setError('Could not capture image');
     } finally {
       setIsProcessing(false);
-      setIsRemovingBackground(false);
     }
   }, [user, isProcessing, getCanvas]);
 
@@ -95,28 +82,15 @@ export function useLiveScan() {
     setLastResult(null);
 
     try {
-      // Phase 1: compress
       const { file: compressed, previewUrl } = await compressImage(file, { maxDimension: 480, quality: 0.5 });
-      const rawBlob = compressed as Blob;
-
-      // Phase 2: background removal (visible to user)
-      setIsProcessing(false);
-      setIsRemovingBackground(true);
-      const processedBlob = await removeBackground(rawBlob);
-
-      // Phase 3: AI analysis
-      setIsRemovingBackground(false);
-      setIsProcessing(true);
-
-      // Revoke old preview, create new one from processed blob
-      URL.revokeObjectURL(previewUrl);
-      const thumbnailUrl = URL.createObjectURL(processedBlob);
+      const blob = compressed as Blob;
+      const thumbnailUrl = previewUrl;
 
       const base64: string = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result as string);
         reader.onerror = reject;
-        reader.readAsDataURL(processedBlob);
+        reader.readAsDataURL(blob);
       });
 
       const { data, error: fnError } = await invokeEdgeFunction<GarmentAnalysis & { error?: string; confidence?: number }>('analyze_garment', {
@@ -130,14 +104,13 @@ export function useLiveScan() {
       }
 
       const confidence = typeof data?.confidence === 'number' ? data.confidence : undefined;
-      setLastResult({ analysis: data as GarmentAnalysis, thumbnailUrl, blob: processedBlob, confidence });
+      setLastResult({ analysis: data as GarmentAnalysis, thumbnailUrl, blob, confidence });
       hapticMedium();
     } catch (err) {
       console.error('File capture error:', err);
       setError('Could not process image');
     } finally {
       setIsProcessing(false);
-      setIsRemovingBackground(false);
     }
   }, [user, isProcessing]);
 
@@ -181,7 +154,6 @@ export function useLiveScan() {
   return {
     scanCount,
     isProcessing,
-    isRemovingBackground,
     lastResult,
     error,
     capture,

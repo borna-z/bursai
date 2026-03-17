@@ -66,6 +66,9 @@ export async function saveGarmentInBackground(
       return;
     }
 
+    // Background removal — async, never blocks, updates image in storage
+    removeBackgroundAsync(garmentId, userId, result.blob).catch(() => {});
+
     // Stage 2: Fire enrichment in background (never blocks)
     enrichGarment(garmentId, userId, storagePath).catch((err) => {
       console.error('Enrichment error (non-blocking):', err);
@@ -142,6 +145,31 @@ async function enrichGarment(
   if (!retrySuccess) {
     await supabase.from('garments').update({ enrichment_status: 'failed' }).eq('id', garmentId);
   }
+}
+
+/**
+ * Remove background from the garment image async after save.
+ * Updates the stored image in-place. Never throws — failures are silently logged.
+ */
+async function removeBackgroundAsync(
+  garmentId: string,
+  userId: string,
+  originalBlob: Blob,
+): Promise<void> {
+  const { removeBackground } = await import('@/lib/removeBackground');
+  const processedBlob = await removeBackground(originalBlob);
+  if (processedBlob === originalBlob) return; // No change, WASM unavailable
+  const isPng = processedBlob.type === 'image/png';
+  const ext = isPng ? 'png' : 'jpg';
+  const storagePath = `${userId}/${garmentId}.${ext}`;
+  await supabase.storage.from('garments').update(storagePath, processedBlob, {
+    contentType: isPng ? 'image/png' : 'image/jpeg',
+    upsert: true,
+  });
+  await supabase
+    .from('garments')
+    .update({ image_path: storagePath })
+    .eq('id', garmentId);
 }
 
 /**
