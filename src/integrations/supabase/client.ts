@@ -4,9 +4,15 @@ import type { Database } from './types';
 
 // Guard against missing env vars — createClient throws synchronously if these are
 // undefined, which crashes the module before React can mount (white blank screen).
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://placeholder.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? 'placeholder-key';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  throw new Error(
+    'Missing Supabase environment variables. ' +
+    'Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.'
+  );
+}
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
