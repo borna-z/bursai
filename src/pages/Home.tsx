@@ -71,6 +71,7 @@ export default function HomePage() {
   const { effectiveCity } = useLocation();
   const { weather } = useWeather({ city: effectiveCity });
   const { data: styleDNA } = useStyleDNA();
+  const { data: dna } = useStyleDNA();
 
   const homeState = deriveHomeState(garmentCount, todayOutfits, weather ?? undefined, isCountLoading || isOutfitsLoading);
 
@@ -140,6 +141,7 @@ export default function HomePage() {
             className="text-[12px] text-muted-foreground/40 italic leading-relaxed -mt-2 px-0.5"
           >
           {getStylistTip({ weather: weather ?? undefined, garmentCount: garmentCount ?? undefined, styleDNA: styleDNA ?? undefined })}
+          {getStylistTip({ weather: weather ?? undefined, garmentCount: garmentCount ?? undefined, archetype: dna?.archetype, topColor: dna?.signatureColors?.[0]?.color, topCombo: dna?.uniformCombos?.[0]?.combo, formalityCenter: dna?.formalityCenter })}
           </motion.p>
 
           {/* ── 2. AI Suggestions — promoted to first content block ── */}

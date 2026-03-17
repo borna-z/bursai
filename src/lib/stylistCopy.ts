@@ -89,6 +89,10 @@ export interface StylistContext {
   garmentCount?: number;
   hasPlannedOutfit?: boolean;
   styleDNA?: { archetype: string };
+  archetype?: string;
+  topColor?: string;
+  topCombo?: string[];
+  formalityCenter?: number;
 }
 
 /**
@@ -96,6 +100,20 @@ export interface StylistContext {
  */
 export function getStylistTip(ctx: StylistContext = {}): string {
   const hour = new Date().getHours();
+
+  // Personalized DNA tips take highest priority
+  const hasDna = ctx.topColor || ctx.topCombo || ctx.archetype || ctx.formalityCenter != null;
+  if (hasDna) {
+    if (ctx.topColor) {
+      return `Your wardrobe anchors on ${ctx.topColor}. Today's look keeps that signature.`;
+    }
+    if (ctx.topCombo && ctx.topCombo.length >= 2) {
+      return `Your signature is ${ctx.topCombo[0]} + ${ctx.topCombo[1]} — we know what works.`;
+    }
+    if (ctx.archetype) {
+      return `You dress like a ${ctx.archetype}. Let's stay true to that today.`;
+    }
+  }
 
   // Weather-specific tips take priority
   if (ctx.weather?.precipitation === 'rain' || ctx.weather?.precipitation === 'snow') {
