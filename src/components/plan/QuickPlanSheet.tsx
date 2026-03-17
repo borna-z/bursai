@@ -1,11 +1,10 @@
-import { useState } from 'react';
-import { Wand2, Check, Calendar, CloudSun, Shirt } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Check, Calendar, CloudSun, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet';
-import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
+import { AILoadingCard } from '@/components/ui/AILoadingCard';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
 import { addDays } from 'date-fns';
@@ -28,18 +27,20 @@ export function QuickPlanSheet({ open, onOpenChange, onAutoGenerate, isGeneratin
     setIsComplete(true);
   };
 
-  const progress = isGenerating ? Math.round((generatingDay / 7) * 100) : (isComplete ? 100 : 0);
-
   const getDayLabel = (dayIndex: number) => {
     const date = addDays(new Date(), dayIndex);
     return date.toLocaleDateString(getBCP47(locale), { weekday: 'long' });
   };
 
-  const planningPhases = [
-    { icon: Calendar, label: `${t('plan.creating_for')} ${getDayLabel(generatingDay)}`, duration: 1500 },
-    { icon: CloudSun, label: t('plan.adapts_weather'), duration: 1200 },
-    { icon: Shirt, label: t('plan.prioritizes_unused'), duration: 0 },
-  ];
+  // 7 phases — one per day, externally driven by generatingDay prop
+  const weekPhases = useMemo(() =>
+    Array.from({ length: 7 }, (_, i) => ({
+      icon: Calendar,
+      label: `Planning ${getDayLabel(i)}`,
+      duration: 3000,
+    })),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [locale]);
 
   return (
     <Sheet open={open} onOpenChange={(o) => {
@@ -53,15 +54,15 @@ export function QuickPlanSheet({ open, onOpenChange, onAutoGenerate, isGeneratin
 
         <div className="space-y-6 pb-6">
           {isGenerating ? (
-            <div className="space-y-4">
-              <AILoadingOverlay
-                variant="inline"
-                phases={planningPhases}
-                subtitle={`${generatingDay} ${t('plan.of_days')} 7`}
-                className="py-4"
+            <div className="space-y-3">
+              {/* Day counter — shown once above the card */}
+              <p className="text-[13px] font-body text-muted-foreground text-center">
+                Day {generatingDay} of 7
+              </p>
+              <AILoadingCard
+                phases={weekPhases}
+                phase={Math.max(0, Math.min(generatingDay - 1, 6))}
               />
-              <Progress value={progress} className="h-2" />
-              <p className="text-xs text-muted-foreground text-center">{generatingDay} {t('plan.of_days')} 7</p>
             </div>
           ) : isComplete ? (
             <div className="text-center py-4">
@@ -89,7 +90,7 @@ export function QuickPlanSheet({ open, onOpenChange, onAutoGenerate, isGeneratin
                 <ul className="text-sm text-muted-foreground space-y-1 ml-13">
                   <li className="flex items-center gap-2"><Check className="w-3 h-3 text-primary" />{t('plan.avoids_recent')}</li>
                   <li className="flex items-center gap-2"><Check className="w-3 h-3 text-primary" />{t('plan.prioritizes_unused')}</li>
-                  <li className="flex items-center gap-2"><Check className="w-3 h-3 text-primary" />{t('plan.adapts_weather')}</li>
+                  <li className="flex items-center gap-2"><Check className="w-3 h-3 text-primary" /><CloudSun className="w-3 h-3" />{t('plan.adapts_weather')}</li>
                 </ul>
               </div>
 
