@@ -268,7 +268,7 @@ export default function LiveScan() {
   const isMedian = isMedianApp();
   const useFileInputMode = isMedian || !navigator.mediaDevices?.getUserMedia;
 
-  const { scanCount, isProcessing, isRemovingBackground, lastResult, error, capture, captureFromFile, accept, retake, finish } = useLiveScan();
+  const { scanCount, isProcessing, lastResult, error, capture, captureFromFile, accept, retake, finish } = useLiveScan();
   const { subscription, isPremium, isLoading: isSubLoading } = useSubscription();
 
   // Guard: don't allow scanning until subscription data is loaded (prevents race condition)
@@ -492,13 +492,6 @@ export default function LiveScan() {
         )}
 
         {isProcessing && <ScanOverlay />}
-        {!isProcessing && isRemovingBackground && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center">
-            <span className="text-foreground text-sm font-medium bg-background/60 px-4 py-2 backdrop-blur-sm">
-              Isolating garment…
-            </span>
-          </div>
-        )}
         
         <AnimatePresence>
           {showAccepted && <AcceptedOverlay onDone={handleAcceptedDone} label={t('scan.added')} />}
