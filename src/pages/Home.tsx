@@ -33,6 +33,7 @@ import { getOccasionLabel } from '@/lib/occasionLabel';
 import { FadeReplace } from '@/components/ui/fade-replace';
 import { HomePageSkeleton } from '@/components/ui/skeletons';
 import { getStylistTip } from '@/lib/stylistCopy';
+import { useStyleDNA } from '@/hooks/useStyleDNA';
 
 type HomeState = 'loading' | 'empty_wardrobe' | 'outfit_planned' | 'weather_alert' | 'no_outfit';
 
@@ -67,6 +68,7 @@ export default function HomePage() {
   const { data: insightsData } = useInsights();
   const { effectiveCity } = useLocation();
   const { weather } = useWeather({ city: effectiveCity });
+  const { data: dna } = useStyleDNA();
 
   const homeState = deriveHomeState(garmentCount, todayOutfits, weather ?? undefined, isCountLoading || isOutfitsLoading);
 
@@ -135,7 +137,7 @@ export default function HomePage() {
             transition={{ delay: 0.3, duration: 0.6 }}
             className="text-[12px] text-muted-foreground/40 italic leading-relaxed -mt-2 px-0.5"
           >
-          {getStylistTip({ weather: weather ?? undefined, garmentCount: garmentCount ?? undefined })}
+          {getStylistTip({ weather: weather ?? undefined, garmentCount: garmentCount ?? undefined, archetype: dna?.archetype, topColor: dna?.signatureColors?.[0]?.color, topCombo: dna?.uniformCombos?.[0]?.combo, formalityCenter: dna?.formalityCenter })}
           </motion.p>
 
           {/* ── 2. AI Suggestions — promoted to first content block ── */}
