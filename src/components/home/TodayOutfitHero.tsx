@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, ChevronRight, CloudSun } from 'lucide-react';
+import { Sparkles, CloudSun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -41,9 +41,7 @@ export function TodayOutfitHero({ weather, className }: TodayOutfitHeroProps) {
   else if (weather?.temperature != null && weather.temperature > 28)
     subtitle = 'Hot day ahead — light fabrics and breathable fits.';
 
-  const ctaLabel = hour >= 18
-    ? (t('home.plan_tomorrow') || 'Plan tomorrow')
-    : (t('home.generate_now') || 'Style me');
+  const ctaLabel = 'Style me';
 
   return (
     <motion.div
@@ -109,13 +107,12 @@ export function TodayOutfitHero({ weather, className }: TodayOutfitHeroProps) {
         <Button
           onClick={() => {
             hapticLight();
-            navigate(hour >= 18 ? '/plan' : '/outfits/generate');
+            navigate('/outfits/generate');
           }}
-          className="h-11 px-6 rounded-xl"
+          className="bg-foreground text-background h-12 rounded-full w-full text-[15px] font-medium font-['DM_Sans']"
         >
           <Sparkles className="w-4 h-4 mr-2" />
           {ctaLabel}
-          <ChevronRight className="w-4 h-4 ml-1" />
         </Button>
       </motion.div>
     </motion.div>

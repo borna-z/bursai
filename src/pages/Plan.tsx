@@ -1,11 +1,11 @@
 import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { PRESETS } from '@/lib/motion';
 import { format, addDays, isToday, isTomorrow } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
-import { Wand2, Shirt, CalendarDays, Repeat, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart, Luggage, CalendarRange } from 'lucide-react';
+import { Wand2, Shirt, CalendarDays, Repeat, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart, Luggage, ChevronRight } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PlanPageSkeleton } from '@/components/ui/skeletons';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -247,6 +247,7 @@ export default function PlanPage() {
     }
   };
 
+  const prefersReduced = useReducedMotion();
   const hasGarments = garments.length > 0;
 
   const handleRefresh = useCallback(async () => {
@@ -323,24 +324,33 @@ export default function PlanPage() {
             )}
           </div>
 
-          {/* Power actions — demoted to compact text links */}
+          {/* Action cards */}
           {hasGarments && (
-            <div className="flex items-center justify-center gap-4">
-              <button
+            <div className="flex flex-col gap-2">
+              <motion.button
+                whileTap={prefersReduced ? undefined : { scale: 0.97 }}
                 onClick={() => setQuickPlanSheetOpen(true)}
-                className="text-[11px] text-muted-foreground/50 hover:text-foreground flex items-center gap-1.5 transition-colors press min-h-[44px]"
+                className="w-full h-[72px] rounded-2xl bg-card border border-border/20 flex items-center px-4 gap-3 text-left"
               >
-                <CalendarRange className="w-3.5 h-3.5" />
-                {t('plan.plan_week_btn')}
-              </button>
-              <span className="text-muted-foreground/20">·</span>
-              <button
-                onClick={() => navigate('/plan/travel-capsule')}
-                className="text-[11px] text-muted-foreground/50 hover:text-foreground flex items-center gap-1.5 transition-colors press min-h-[44px]"
+                <CalendarDays className="w-5 h-5 text-foreground/50 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[15px] font-medium text-foreground">Plan the week</p>
+                  <p className="text-[12px] text-muted-foreground">AI fills all 7 days</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+              </motion.button>
+              <motion.button
+                whileTap={prefersReduced ? undefined : { scale: 0.97 }}
+                onClick={() => navigate('/travel-capsule')}
+                className="w-full h-[72px] rounded-2xl bg-card border border-border/20 flex items-center px-4 gap-3 text-left"
               >
-                <Luggage className="w-3.5 h-3.5" />
-                {t('plan.pack_trip_btn')}
-              </button>
+                <Luggage className="w-5 h-5 text-foreground/50 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[15px] font-medium text-foreground">Pack for a trip</p>
+                  <p className="text-[12px] text-muted-foreground">Capsule wardrobe for any destination</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+              </motion.button>
             </div>
           )}
 
