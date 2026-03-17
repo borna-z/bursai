@@ -3,8 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import type { Json } from '@/integrations/supabase/types';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Image as ImageIcon, ArrowLeft, Loader2, X, Sparkles, RefreshCw, Link2, Upload, Palette, CheckCircle, Images } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Camera, Image as ImageIcon, ArrowLeft, Loader2, X, Sparkles, RefreshCw, Link2, Upload, CheckCircle, Images } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -202,44 +202,10 @@ export default function AddGarmentPage() {
   const { uploadGarmentImage, getGarmentSignedUrl } = useStorage();
   const createGarment = useCreateGarment();
   const { data: garmentCount } = useGarmentCount();
-  const { analyzeGarment, isAnalyzing, analysisProgress } = useAnalyzeGarment();
+  const { analyzeGarment, isAnalyzing } = useAnalyzeGarment();
   const { user } = useAuth();
   const { canAddGarment, remainingGarments, isPremium, refresh: refreshSubscription } = useSubscription();
   const { checkDuplicates, duplicates, clearDuplicates } = useDuplicateDetection();
-
-  // Process a captured file from the Median camera bridge
-  const processNativeCapture = async (result: { file: File; previewUrl: string }) => {
-    if (!user || !canAddGarment()) { setShowPaywall(true); return; }
-    let file: File | Blob = result.file;
-    setImageFile(result.file);
-    setImagePreview(result.previewUrl);
-    const newGarmentId = crypto.randomUUID();
-    setGarmentId(newGarmentId);
-    setStep('analyzing');
-    try {
-      // Remove background
-      setIsRemovingBg(true);
-      const processedBlob = await removeBackground(file as Blob);
-      setIsRemovingBg(false);
-      file = processedBlob;
-      URL.revokeObjectURL(result.previewUrl);
-      const newPreview = URL.createObjectURL(processedBlob);
-      setImagePreview(newPreview);
-
-      const fileExt = processedBlob.type === 'image/png' ? 'png' : (result.file.name.split('.').pop() || 'jpg');
-      const path = `${user.id}/${newGarmentId}.${fileExt}`;
-      await uploadGarmentImage(file as File, newGarmentId);
-      setStoragePath(path);
-      const signedUrl = await getGarmentSignedUrl(path);
-      setImagePreview(signedUrl);
-      await runAnalysis(path);
-    } catch (err) {
-      console.error('Upload/analysis error:', err);
-      toast.error(t('addgarment.upload_error'));
-      setStep('upload');
-      setIsRemovingBg(false);
-    }
-  };
 
   const { takePhoto, pickFromGallery } = useMedianCamera({
     fileInputRef,
@@ -247,14 +213,14 @@ export default function AddGarmentPage() {
   const [showDuplicateSheet, setShowDuplicateSheet] = useState(false);
 
   const [step, setStep] = useState<'upload' | 'analyzing' | 'form' | 'batch'>('upload');
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [storagePath, setStoragePath] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [garmentId, setGarmentId] = useState<string | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<GarmentAnalysis | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
-  const [analysisPhase, setAnalysisPhase] = useState(0); // 0-3 for 4 phases
+  const [, setAnalysisPhase] = useState(0); // 0-3 for 4 phases
   const [analysisSummary, setAnalysisSummary] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [batchFiles, setBatchFiles] = useState<File[]>([]);
@@ -274,13 +240,6 @@ export default function AddGarmentPage() {
   const [inLaundry, setInLaundry] = useState(false);
 
   // Check limit on mount
-  const handleStartUpload = () => {
-    if (!canAddGarment()) {
-      setShowPaywall(true);
-      return false;
-    }
-    return true;
-  };
 
   const applyAIAnalysis = (analysis: GarmentAnalysis) => {
     setAiAnalysis(analysis);

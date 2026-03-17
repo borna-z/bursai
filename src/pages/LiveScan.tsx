@@ -110,7 +110,7 @@ function ScanOverlay() {
 }
 
 /* ─── Focus frame reticle (corner brackets) ─── */
-function FocusFrame({ locked, confidence }: { locked: boolean; confidence: number }) {
+function FocusFrame({ locked, confidence: _confidence }: { locked: boolean; confidence: number }) {
   const size = 200;
   const corner = 28;
   const stroke = locked ? 'stroke-accent' : 'stroke-foreground/20';

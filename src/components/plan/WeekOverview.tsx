@@ -1,11 +1,10 @@
 import { useMemo } from 'react';
-import { format, addDays, isToday, isTomorrow } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { motion } from 'framer-motion';
-import { CalendarDays, Plus, AlertTriangle, Check } from 'lucide-react';
+import { Plus, AlertTriangle, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
-import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getDateFnsLocale } from '@/lib/dateLocale';
 import { EASE_CURVE } from '@/lib/motion';

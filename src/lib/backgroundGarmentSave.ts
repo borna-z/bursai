@@ -92,7 +92,7 @@ export async function saveGarmentInBackground(
  */
 async function enrichGarment(
   garmentId: string,
-  userId: string,
+  _userId: string,
   storagePath: string
 ): Promise<void> {
   // Mark as in_progress

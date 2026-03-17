@@ -45,7 +45,7 @@ export function WeatherForecastBadge({
   const { effectiveCity } = useLocation();
   const { getForecastForDate, isLoading, error } = useForecast({ city: effectiveCity });
   const forecast = getForecastForDate(date);
-  const warningText = useWeatherWarning(forecast);
+  const warningText = useWeatherWarning(forecast ?? undefined);
   const warning = showWarning ? warningText : null;
 
   if (isLoading) {
@@ -138,7 +138,7 @@ interface ForecastPreviewProps {
 export function ForecastPreview({ date, originalTemp }: ForecastPreviewProps) {
   const { t } = useLanguage();
   const { effectiveCity } = useLocation();
-  const { getForecastForDate, isLoading, error } = useForecast({ city: effectiveCity });
+  const { getForecastForDate, isLoading } = useForecast({ city: effectiveCity });
   const forecast = getForecastForDate(date);
 
   if (isLoading) {

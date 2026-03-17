@@ -31,7 +31,7 @@ export function LinkImportForm() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const queryClient = useQueryClient();
-  const { canAddGarment, remainingGarments, subscription, isPremium } = useSubscription();
+  const { canAddGarment, subscription, isPremium } = useSubscription();
   
   const [linksText, setLinksText] = useState('');
   const [linkItems, setLinkItems] = useState<LinkItem[]>([]);

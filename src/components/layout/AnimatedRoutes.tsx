@@ -6,7 +6,6 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { PageSkeleton } from '@/components/layout/PageSkeleton';
 
 // Eager-loaded (tiny, critical path only)
-import Home from '@/pages/Home';
 import NotFound from '@/pages/NotFound';
 
 // Lazy-loaded — all other pages

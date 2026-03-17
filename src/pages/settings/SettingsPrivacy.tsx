@@ -57,10 +57,11 @@ export default function SettingsPrivacy() {
   const handleExportData = async () => {
     setIsExporting(true);
     try {
+      const userId = user?.id ?? '';
       const [garmentsRes, outfitsRes, profileRes] = await Promise.all([
-        supabase.from('garments').select('*').eq('user_id', user?.id),
-        supabase.from('outfits').select('*, outfit_items(*)').eq('user_id', user?.id),
-        supabase.from('profiles').select('*').eq('id', user?.id).single(),
+        supabase.from('garments').select('*').eq('user_id', userId),
+        supabase.from('outfits').select('*, outfit_items(*)').eq('user_id', userId),
+        supabase.from('profiles').select('*').eq('id', userId).single(),
       ]);
       const data = { profile: profileRes.data, garments: garmentsRes.data, outfits: outfitsRes.data, exportedAt: new Date().toISOString() };
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });

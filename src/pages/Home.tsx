@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Settings, Heart, Sparkles, CalendarDays, CloudRain, Shirt, ChevronRight } from 'lucide-react';
+import { Settings, Heart, Shirt, ChevronRight } from 'lucide-react';
 import { TodayOutfitHero } from '@/components/home/TodayOutfitHero';
 import { format } from 'date-fns';
 import { enUS, nb, sv, da, fi, de, fr, es, it, pt, nl, pl, ar } from 'date-fns/locale';
@@ -28,11 +28,10 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { hapticLight } from '@/lib/haptics';
-import { PRESETS, useMotionPreset } from '@/lib/motion';
+import { useMotionPreset } from '@/lib/motion';
 import { getOccasionLabel } from '@/lib/occasionLabel';
 import { FadeReplace } from '@/components/ui/fade-replace';
 import { HomePageSkeleton } from '@/components/ui/skeletons';
-import { cn } from '@/lib/utils';
 import { getStylistTip } from '@/lib/stylistCopy';
 
 type HomeState = 'loading' | 'empty_wardrobe' | 'outfit_planned' | 'weather_alert' | 'no_outfit';
@@ -69,7 +68,7 @@ export default function HomePage() {
   const { effectiveCity } = useLocation();
   const { weather } = useWeather({ city: effectiveCity });
 
-  const homeState = deriveHomeState(garmentCount, todayOutfits, weather, isCountLoading || isOutfitsLoading);
+  const homeState = deriveHomeState(garmentCount, todayOutfits, weather ?? undefined, isCountLoading || isOutfitsLoading);
 
   const handleRefresh = useCallback(async () => {
     await Promise.all([
@@ -136,7 +135,7 @@ export default function HomePage() {
             transition={{ delay: 0.3, duration: 0.6 }}
             className="text-[12px] text-muted-foreground/40 italic leading-relaxed -mt-2 px-0.5"
           >
-          {getStylistTip({ weather, garmentCount: garmentCount ?? undefined })}
+          {getStylistTip({ weather: weather ?? undefined, garmentCount: garmentCount ?? undefined })}
           </motion.p>
 
           {/* ── 2. AI Suggestions — promoted to first content block ── */}
@@ -215,7 +214,7 @@ export default function HomePage() {
             ) : (
               /* no_outfit — premium "What should I wear?" hero */
               <TodayOutfitHero
-                weather={weather}
+                weather={weather ?? undefined}
                 garmentCount={garmentCount ?? undefined}
               />
             )}

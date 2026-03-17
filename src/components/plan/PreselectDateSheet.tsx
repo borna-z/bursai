@@ -1,6 +1,5 @@
 import { format, addDays, isToday, isTomorrow } from 'date-fns';
-import { Calendar, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Calendar } from 'lucide-react';
 import {
   Sheet,
   SheetContent,

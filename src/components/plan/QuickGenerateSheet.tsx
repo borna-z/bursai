@@ -92,7 +92,7 @@ export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGen
     } catch { setTravelError(t('qgen.weather_error')); setTravelForecast(null); } finally { setIsFetchingTravel(false); }
   }, [t]);
 
-  const handleTravelSelect = useCallback((city: string, coords: { lat: number; lon: number }) => {
+  const handleTravelSelect = useCallback((_city: string, coords: { lat: number; lon: number }) => {
     lookupTravelWeather(coords, dateStr);
   }, [lookupTravelWeather, dateStr]);
 

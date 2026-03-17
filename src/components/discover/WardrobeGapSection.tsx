@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ExternalLink, Sparkles, ShoppingBag, AlertCircle } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -10,11 +10,8 @@ import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { StaleIndicator } from '@/components/ui/StaleIndicator';
 import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import { EASE_CURVE, STAGGER_DELAY } from '@/lib/motion';
 import { hapticSuccess } from '@/lib/haptics';
-import { cn } from '@/lib/utils';
 
 interface GapResult {
   item: string;

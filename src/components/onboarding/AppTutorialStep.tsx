@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { cn } from '@/lib/utils';
 
 interface AppTutorialStepProps {
   onComplete: () => void;

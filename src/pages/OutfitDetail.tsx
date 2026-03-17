@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { hapticLight, hapticMedium, hapticSuccess, hapticHeavy } from '@/lib/haptics';
+import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { stripBrands } from '@/lib/stripBrands';
 import { nativeShare } from '@/lib/nativeShare';
 import { normalizeWeather } from '@/lib/outfitContext';
@@ -21,7 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getOccasionLabel } from '@/lib/occasionLabel';
-import { useOutfit, useUpdateOutfit, useMarkOutfitWorn, useUndoMarkWorn, type OutfitWeather } from '@/hooks/useOutfits';
+import { useOutfit, useUpdateOutfit, useMarkOutfitWorn, useUndoMarkWorn } from '@/hooks/useOutfits';
 import type { TablesUpdate } from '@/integrations/supabase/types';
 import { useSwapGarment, type SwapCandidate, type SwapMode } from '@/hooks/useSwapGarment';
 import { useWeather } from '@/hooks/useWeather';
@@ -216,7 +216,7 @@ export default function OutfitDetailPage() {
   const markWorn = useMarkOutfitWorn();
   const undoMarkWorn = useUndoMarkWorn();
   const { candidates, isLoadingCandidates, fetchCandidates, swapGarment, isSwapping, clearCandidates } = useSwapGarment();
-  const { data: photoFeedback, isLoading: isLoadingFeedback } = useOutfitFeedback(id);
+  const { data: photoFeedback } = useOutfitFeedback(id);
   const submitFeedback = useSubmitPhotoFeedback();
   const { record: recordSignal } = useFeedbackSignals();
   const selfieInputRef = useRef<HTMLInputElement>(null);
@@ -356,13 +356,6 @@ export default function OutfitDetailPage() {
       swapMode
     );
   }, [swapMode]);
-
-  const handleSwapModeChange = async (mode: SwapMode) => {
-    setSwapMode(mode);
-    if (!swapSheet.isOpen || !swapSheet.slot || !swapSheet.currentGarmentId) return;
-    const ctx = buildSwapRequestContext(swapSheet.outfitItemId);
-    await fetchCandidates(swapSheet.slot, swapSheet.currentGarmentId, ctx.otherColors, ctx.otherItems, ctx.occasion, ctx.weather, mode);
-  };
 
   const handleSwap = async (newGarmentId: string) => {
     try {

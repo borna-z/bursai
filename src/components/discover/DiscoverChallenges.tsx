@@ -1,6 +1,5 @@
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Check, Lock, ChevronRight, Trophy } from 'lucide-react';
+import { Check, Lock, Trophy } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { EASE_CURVE, STAGGER_DELAY } from '@/lib/motion';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
@@ -28,7 +27,6 @@ interface Props {
 
 export function DiscoverChallenges({ challenges, participations, garmentCount, thresholds, loading, onJoin }: Props) {
   const { t } = useLanguage();
-  const navigate = useNavigate();
 
   if (loading) {
     return (

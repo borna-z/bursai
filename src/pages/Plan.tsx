@@ -1,9 +1,9 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { PRESETS } from '@/lib/motion';
-import { format, addDays, isSameDay, isToday, isTomorrow } from 'date-fns';
+import { format, addDays, isToday, isTomorrow } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
 import { Wand2, Shirt, CalendarDays, Repeat, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart, Luggage, CalendarRange } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -14,12 +14,10 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 import { getOccasionLabel } from '@/lib/occasionLabel';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { EmptyState } from '@/components/layout/EmptyState';
-import { WeekStrip } from '@/components/plan/WeekStrip';
 import { WeekOverview } from '@/components/plan/WeekOverview';
 
 import { QuickGenerateSheet } from '@/components/plan/QuickGenerateSheet';
@@ -56,15 +54,6 @@ const occasionIcons: Record<string, React.ElementType> = {
   date: Heart, dejt: Heart,
 };
 
-const OCCASION_I18N: Record<string, string> = {
-  work: 'occasion.work', jobb: 'occasion.jobb',
-  casual: 'occasion.casual', vardag: 'occasion.vardag',
-  party: 'occasion.party', fest: 'occasion.fest',
-  travel: 'occasion.travel', resa: 'occasion.resa',
-  workout: 'occasion.workout', traning: 'occasion.traning',
-  date: 'occasion.date', dejt: 'occasion.dejt',
-};
-
 const MAX_OUTFITS_PER_DAY = 4;
 
 export default function PlanPage() {
@@ -87,7 +76,7 @@ export default function PlanPage() {
   const [swapSheetOpen, setSwapSheetOpen] = useState(false);
   const [quickPlanSheetOpen, setQuickPlanSheetOpen] = useState(false);
   const [currentOutfitId, setCurrentOutfitId] = useState<string | null>(null);
-  const [currentPlannedId, setCurrentPlannedId] = useState<string | null>(null);
+  const [, setCurrentPlannedId] = useState<string | null>(null);
   
   const [isAutoGenerating, setIsAutoGenerating] = useState(false);
   const [generatingDayIndex, setGeneratingDayIndex] = useState(0);
@@ -111,7 +100,7 @@ export default function PlanPage() {
   const deletePlanned = useDeletePlannedOutfit();
   const updateStatus = useUpdatePlannedOutfitStatus();
   const { generateOutfit, isGenerating } = useOutfitGenerator();
-  const { generateWeek, isGenerating: isWeekGenerating, progress: weekProgress } = useWeekGenerator();
+  const { generateWeek } = useWeekGenerator();
   const markWorn = useMarkOutfitWorn();
   const undoMarkWorn = useUndoMarkWorn();
 
@@ -129,17 +118,6 @@ export default function PlanPage() {
   else if (isTomorrow(selectedDate)) dateLabel = t('plan.tomorrow');
 
   // ── Handlers ──
-  const handleSelectOutfit = async (outfitId: string) => {
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    try {
-      await upsertPlanned.mutateAsync({ date: dateStr, outfitId });
-      toast.success(t('plan.planned'));
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '';
-      toast.error(msg.includes('Maximum') ? msg : t('plan.plan_error'));
-    }
-  };
-
   const handleGenerateForDate = async (request: {
     occasion: string;
     style: string | null;

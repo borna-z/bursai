@@ -8,7 +8,7 @@ import { hapticLight } from '@/lib/haptics';
 import { InsightsPageSkeleton } from '@/components/ui/skeletons';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useInsights, type Garment } from '@/hooks/useInsights';
+import { useInsights } from '@/hooks/useInsights';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useSustainabilityScore } from '@/hooks/useAdvancedFeatures';
 import { StyleDNACard } from '@/components/insights/StyleDNACard';

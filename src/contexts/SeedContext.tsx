@@ -8,7 +8,7 @@ import { type Locale } from '@/i18n/types';
 /** Lightweight t() that reads from cached translations or falls back to key */
 function t(key: string): string {
   const stored = localStorage.getItem('burs-locale') as Locale | null;
-  const locale = stored || 'en';
+  stored || 'en';
   // Try to use the cached translations from LanguageContext's loader
   try {
     // Access the module cache synchronously if already loaded

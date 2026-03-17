@@ -10,8 +10,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { type OutfitWithItems } from '@/hooks/useOutfits';
-import { useForecast } from '@/hooks/useForecast';
-import { useLocation } from '@/contexts/LocationContext';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
@@ -103,9 +101,7 @@ interface PlannedOutfitsListProps {
 }
 
 export function PlannedOutfitsList({ outfits, onDelete }: PlannedOutfitsListProps) {
-  const { effectiveCity } = useLocation();
   const { t, locale } = useLanguage();
-  const { getForecastForDate } = useForecast({ city: effectiveCity });
   
   const groupedByDate = useMemo(() => {
     const groups: PlannedGroup[] = [];

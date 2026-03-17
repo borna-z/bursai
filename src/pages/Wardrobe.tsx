@@ -5,8 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { TAP_TRANSITION, EASE_CURVE, STAGGER_DELAY, DISTANCE, DURATION_MEDIUM, PRESETS } from '@/lib/motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Plus, Search, X, Trash2, Shirt, ScanLine, Camera, Link,
-  SlidersHorizontal, Grid3X3, List, WashingMachine, Loader2, Sparkles,
+  Plus, Search, X, Trash2, Shirt, ScanLine, Camera,
+  SlidersHorizontal, Grid3X3, List, WashingMachine, Sparkles,
 } from 'lucide-react';
 import { SwipeableGarmentCard } from '@/components/wardrobe/SwipeableGarmentCard';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GarmentGridSkeleton } from '@/components/ui/skeletons';
-import { useGarments, useUpdateGarment, useDeleteGarment, useGarmentCount, type GarmentFilters, type Garment } from '@/hooks/useGarments';
+import { useGarments, useUpdateGarment, useDeleteGarment, useGarmentCount, type Garment } from '@/hooks/useGarments';
 import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -294,7 +294,7 @@ function VirtualGarmentGrid({
           );
         })}
       </div>
-      <div ref={sentinelRef} className="h-1" />
+      <div ref={sentinelRef as React.RefObject<HTMLDivElement>} className="h-1" />
       {isFetchingNextPage && <LoadingSkeletons isGridView={isGridView} />}
     </div>
   );

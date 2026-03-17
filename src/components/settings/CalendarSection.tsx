@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, RefreshCw, Loader2, Trash2, ExternalLink, CheckCircle2, Clock, AlertCircle, Link2 } from 'lucide-react';
+import { RefreshCw, Loader2, Trash2, ExternalLink, CheckCircle2, Clock, AlertCircle, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -120,10 +120,10 @@ function GoogleCalendarCard({
 
 /* ─── ICS Link Section ─── */
 function IcsCalendarCard({
-  isConnected, currentUrl, isSyncing, isRemoving, lastSynced, onSave: onSaveAndSync, onRemove, onSync, t,
+  isConnected, currentUrl, isSyncing, isRemoving, lastSynced, onSave: onSaveAndSync, onRemove, t,
 }: {
   isConnected: boolean; currentUrl: string | null; isSyncing: boolean; isRemoving: boolean; lastSynced: string | null;
-  onSave: (url: string) => Promise<void>; onRemove: () => Promise<void>; onSync: () => Promise<void>;
+  onSave: (url: string) => Promise<void>; onRemove: () => Promise<void>;
   t: (key: string) => string;
 }) {
   const [inputUrl, setInputUrl] = useState(currentUrl || '');
@@ -239,7 +239,7 @@ export function CalendarSection() {
   const { t } = useLanguage();
   const {
     icsUrl, lastSynced, isSyncing, syncCalendar, saveIcsUrl,
-    removeIcsUrl, isRemoving, connectedProvider,
+    removeIcsUrl, isRemoving,
     connectGoogle, disconnectGoogle, isDisconnectingGoogle, googleConnection,
   } = useCalendarSync();
 
@@ -269,7 +269,6 @@ export function CalendarSection() {
         lastSynced={isIcsConnected ? lastSynced : null}
         onSave={async (url) => { await saveIcsUrl(url); await syncCalendar(); }}
         onRemove={removeIcsUrl}
-        onSync={async () => { await syncCalendar(); }}
         t={t}
       />
     </div>

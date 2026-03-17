@@ -27,7 +27,7 @@ export function LazyImage({
   height,
   fetchPriority,
 }: LazyImageProps) {
-  const { signedUrl, placeholderUrl, isLoading, hasError, setRef } = useCachedSignedUrl(imagePath);
+  const { signedUrl, isLoading, hasError, setRef } = useCachedSignedUrl(imagePath);
   const [imageLoaded, setImageLoaded] = React.useState(false);
 
   const aspectClasses = {
@@ -92,7 +92,7 @@ export function LazyImageSimple({
   fallbackIcon,
   ...props
 }: LazyImageSimpleProps) {
-  const { signedUrl, placeholderUrl, isLoading, hasError, setRef } = useCachedSignedUrl(imagePath);
+  const { signedUrl, hasError, setRef } = useCachedSignedUrl(imagePath);
   const [imageLoaded, setImageLoaded] = React.useState(false);
 
   return (

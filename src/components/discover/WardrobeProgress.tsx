@@ -18,7 +18,7 @@ interface Props {
 export function WardrobeProgress({ message, compact = false }: Props) {
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const { tiers, currentCount, nextTier, garmentsNeeded, isUnlocked } = useWardrobeUnlocks();
+  const { tiers, currentCount, nextTier, garmentsNeeded } = useWardrobeUnlocks();
 
   // Progress toward next milestone
   const nextTarget = nextTier?.minGarments ?? currentCount;
