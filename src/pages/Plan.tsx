@@ -377,6 +377,7 @@ export default function PlanPage() {
             summary={daySummary}
             isLoading={isSummaryLoading}
             onGenerateFromHint={() => setQuickGenerateSheetOpen(true)}
+            eventCount={calendarEvents.length}
           />
 
           {/* Fallback: show raw events only when no AI summary available */}

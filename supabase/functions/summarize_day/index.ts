@@ -17,7 +17,7 @@ serve(async (req) => {
   }
 
   try {
-    const { events, weather, locale = "en" } = await req.json();
+    const { events, weather } = await req.json();
 
     if (!events || events.length === 0) {
       return new Response(
@@ -31,14 +31,6 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const LOCALE_NAMES: Record<string, string> = {
-      sv: "svenska", en: "English", no: "norsk", da: "dansk", fi: "finska",
-      de: "Deutsch", fr: "français", es: "español", it: "italiano",
-      pt: "português", nl: "Nederlands", ja: "日本語", ko: "한국어", ar: "العربية",
-    };
-    const localeName = LOCALE_NAMES[locale] || "English";
-    const isSv = locale === "sv";
-
     const weatherContext = weather
       ? `${weather.temperature}°C, ${weather.precipitation === "none" ? "clear" : weather.precipitation}`
       : "";
@@ -51,7 +43,7 @@ serve(async (req) => {
 
     const isMultiEvent = events.length >= 2;
 
-    const systemPrompt = `${VOICE_DAY_SUMMARY}\n\nRespond in ${localeName}.`;
+    const systemPrompt = `${VOICE_DAY_SUMMARY}\n\nAlways respond in English regardless of the language of the calendar event titles. Event titles may be in Swedish, Finnish, or any other language — interpret them but always write your output in English.`;
 
     const eventsCacheKey = events.map((e: any) => e.title).sort().join(",").slice(0, 40);
 
