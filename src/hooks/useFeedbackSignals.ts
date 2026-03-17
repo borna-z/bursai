@@ -41,7 +41,7 @@ export function useFeedbackSignals() {
           outfit_id: input.outfit_id || null,
           garment_id: input.garment_id || null,
           value: input.value || null,
-          metadata: input.metadata || {},
+          metadata: (input.metadata || {}) as Record<string, string>,
         }]);
       if (error) console.warn('Feedback signal failed:', error.message);
     },
