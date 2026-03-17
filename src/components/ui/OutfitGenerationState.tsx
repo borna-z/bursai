@@ -12,6 +12,10 @@ interface OutfitGenerationStateProps {
   variant?: 'compact' | 'full';
   /** Tonal warmth passed to loading card */
   tone?: 'neutral' | 'warm' | 'expressive';
+  occasion?: string;
+  weatherTemp?: number;
+  weatherCondition?: string;
+  eventTitle?: string | null;
 }
 
 const SLOT_ICONS = [Shirt, ArrowDownUp, Footprints, Layers] as const;
@@ -21,15 +25,25 @@ export function OutfitGenerationState({
   subtitle,
   className,
   variant = 'full',
+  occasion,
+  weatherTemp,
+  weatherCondition,
+  eventTitle,
 }: OutfitGenerationStateProps) {
   const { t } = useLanguage();
   const prefersReduced = useReducedMotion();
   const [phaseIndex, setPhaseIndex] = useState(0);
 
   const phaseLabels = [
-    t('ai.selecting_pieces'),
-    t('ai.balancing_look'),
-    t('ai.refining_outfit'),
+    eventTitle
+      ? `Reading your ${eventTitle.length > 20 ? eventTitle.slice(0, 20) + '…' : eventTitle} note`
+      : occasion
+        ? `Reading your ${occasion} context`
+        : 'Reading your wardrobe',
+    weatherTemp !== undefined
+      ? `Checking the ${weatherTemp}°C forecast`
+      : 'Matching today\'s conditions',
+    'Assembling your look',
   ];
 
   useEffect(() => {
@@ -58,7 +72,7 @@ export function OutfitGenerationState({
             animate={{ opacity: 1, y: 0 }}
             exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
             transition={{ duration: 0.2, ease: EASE_CURVE }}
-            className="text-[15px] font-body text-muted-foreground text-center absolute inset-x-0"
+            className="text-[13px] font-['DM_Sans'] text-muted-foreground text-center absolute inset-x-0"
           >
             {phaseLabels[phaseIndex]}
           </motion.p>
