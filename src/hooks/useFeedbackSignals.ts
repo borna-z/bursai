@@ -35,14 +35,14 @@ export function useFeedbackSignals() {
       if (!user) return;
       const { error } = await supabase
         .from('feedback_signals')
-        .insert({
+        .insert([{
           user_id: user.id,
           signal_type: input.signal_type,
           outfit_id: input.outfit_id || null,
           garment_id: input.garment_id || null,
           value: input.value || null,
-          metadata: input.metadata || {},
-        });
+          metadata: (input.metadata || {}) as Record<string, string>,
+        }]);
       if (error) console.warn('Feedback signal failed:', error.message);
     },
     // Silent — never block UI

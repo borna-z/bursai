@@ -140,6 +140,12 @@ export default function TravelCapsule() {
   const [result, setResult] = useState<CapsuleResult | null>(null);
   useState<string | null>(null); // loadingPhase - kept for future use
 
+  // ── Derived values (moved before travelCardPhases) ──
+  const tripNights = useMemo(() => {
+    if (!dateRange?.from || !dateRange?.to) return 0;
+    return differenceInCalendarDays(dateRange.to, dateRange.from);
+  }, [dateRange]);
+
   // Context-aware travel loading phases (~60s total, last phase holds)
   const travelCardPhases = useMemo(() => [
     { icon: Shirt, label: `Scanning your ${allGarments?.length ? `${allGarments.length} ` : ''}garments`, duration: 15000 },
@@ -166,11 +172,7 @@ export default function TravelCapsule() {
     [capsuleGarments]
   );
 
-  // ── Derived values ──
-  const tripNights = useMemo(() => {
-    if (!dateRange?.from || !dateRange?.to) return 0;
-    return differenceInCalendarDays(dateRange.to, dateRange.from);
-  }, [dateRange]);
+  // ── Derived values (tripNights moved above travelCardPhases) ──
 
   const tripDays = tripNights + (includeTravelDays ? 2 : 0);
 
