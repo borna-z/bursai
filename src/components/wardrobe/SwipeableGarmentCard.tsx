@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Pencil, WashingMachine, Trash2, Shirt } from 'lucide-react';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { Badge } from '@/components/ui/badge';
+import { Chip } from '@/components/ui/chip';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { hapticLight } from '@/lib/haptics';
@@ -132,6 +133,33 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({ garment
           <p className="text-xs text-muted-foreground capitalize">
             {t(`garment.category.${garment.category}`)} · {t(`color.${garment.color_primary}`)}
           </p>
+          {(garment.formality != null || ((garment.ai_raw as Record<string, unknown>)?.occasions as string[] | undefined)?.length) && (
+            <div className="flex flex-row items-center gap-2 max-h-[28px]">
+              {garment.formality != null && (
+                <div className="flex flex-row items-center gap-[4px]">
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <span
+                      key={i}
+                      className={cn(
+                        'inline-block w-[6px] h-[6px] rounded-full',
+                        i < garment.formality! ? 'bg-foreground/70' : 'bg-foreground/10'
+                      )}
+                    />
+                  ))}
+                </div>
+              )}
+              {((garment.ai_raw as Record<string, unknown>)?.occasions as string[] | undefined)?.slice(0, 2).map((occ) => (
+                <Chip
+                  key={occ}
+                  size="sm"
+                  variant="outline"
+                  className="text-[11px] py-0 cursor-default pointer-events-none"
+                >
+                  {occ}
+                </Chip>
+              ))}
+            </div>
+          )}
         </div>
       </motion.div>
     </div>
