@@ -11,6 +11,7 @@ interface DaySummaryCardProps {
   onGenerateFromHint?: (occasion: string) => void;
   className?: string;
   compact?: boolean;
+  eventCount?: number;
 }
 
 const occasionIcons: Record<string, React.ElementType> = {
@@ -123,9 +124,10 @@ export function DaySummaryCard({
   onGenerateFromHint,
   className,
   compact = false,
+  eventCount = 0,
 }: DaySummaryCardProps) {
-  if (isLoading) return <SummarySkeleton compact={compact} />;
-  if (!summary) return null;
+  if (isLoading && eventCount > 0) return <SummarySkeleton compact={compact} />;
+  if (!summary || eventCount === 0) return null;
 
   const hasTransitions = summary.transitions?.needs_change && summary.transitions.blocks.length > 0;
 
@@ -134,10 +136,19 @@ export function DaySummaryCard({
       'rounded-xl glass-card p-5 space-y-4',
       className
     )}>
-      <p className={cn(
-        'text-sm text-foreground/85 leading-relaxed',
-        compact && !hasTransitions && 'line-clamp-2'
-      )}>
+      {/* Event titles list */}
+      {summary.priorities.length > 0 && (
+        <ul className="space-y-1">
+          {summary.priorities.map((p, idx) => (
+            <li key={idx} className="text-xs font-medium text-foreground/60 flex items-center gap-2">
+              <span className="w-1 h-1 rounded-full bg-foreground/30 shrink-0" />
+              {p.time} — {p.title}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <p className="text-sm text-foreground/85 leading-relaxed line-clamp-2">
         {summary.summary}
       </p>
 

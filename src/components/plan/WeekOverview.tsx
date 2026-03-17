@@ -95,7 +95,7 @@ export function WeekOverview({ selectedDate, onSelectDate, plannedOutfits, class
         >
           <RefreshCw className="w-4 h-4 text-foreground/40 shrink-0" />
           <p className="flex-1 text-[13px] font-['DM_Sans',sans-serif] text-foreground/70">
-            {t('plan.repeat_warning_generic') || 'Some garments repeat this week'}
+            Some garments repeat this week
           </p>
           <span className="text-[12px] font-['DM_Sans',sans-serif] text-muted-foreground/50 underline cursor-pointer">
             {t('plan.review') || 'Review'}
