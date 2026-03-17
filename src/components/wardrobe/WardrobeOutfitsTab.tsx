@@ -1,7 +1,8 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, Star, Clock, Loader2, Calendar, Bookmark } from 'lucide-react';
+import { Sparkles, Star, Clock, Calendar, Bookmark } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -92,13 +93,13 @@ function OutfitCard({
       className="w-full cursor-pointer select-none will-change-transform"
     >
       <OutfitMosaic items={outfit.outfit_items} />
-      <div className="mt-2 px-0.5 flex items-center gap-1.5">
-        <Badge variant="secondary" className="capitalize text-[10px] px-1.5 py-0">{t(`occasion.${outfit.occasion}`)}</Badge>
+      <div className="mt-2 px-0.5 flex items-center gap-1.5 min-w-0">
+        <Badge variant="secondary" className="capitalize text-[10px] px-1.5 py-0 truncate max-w-[7rem]">{t(`occasion.${outfit.occasion}`)}</Badge>
         {outfit.saved && (
           <Bookmark className="w-3 h-3 fill-primary text-primary flex-shrink-0" />
         )}
         {outfit.rating && (
-          <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+          <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground shrink-0">
             <Star className="w-2.5 h-2.5 fill-primary text-primary" />{outfit.rating}
           </div>
         )}
@@ -146,8 +147,13 @@ export function WardrobeOutfitsTab() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      <div className="grid grid-cols-2 gap-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="space-y-2">
+            <Skeleton className="w-full aspect-square rounded-xl bg-foreground/[0.06] animate-pulse" />
+            <Skeleton className="w-2/3 h-3 rounded bg-foreground/[0.06] animate-pulse" />
+          </div>
+        ))}
       </div>
     );
   }

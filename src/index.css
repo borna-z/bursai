@@ -742,6 +742,25 @@
   animation: shimmer-sweep 2s ease-in-out infinite;
 }
 
+/* ── Cycling dot indicator for outfit generation ── */
+@keyframes dot-cycle-pulse {
+  0%, 28%, 94%, 100% { opacity: 0.2; }
+  11% { opacity: 0.9; }
+}
+
+.dot-cycle-1 {
+  animation: dot-cycle-pulse 1.8s ease-in-out infinite;
+  animation-delay: 0s;
+}
+.dot-cycle-2 {
+  animation: dot-cycle-pulse 1.8s ease-in-out infinite;
+  animation-delay: -1.2s;
+}
+.dot-cycle-3 {
+  animation: dot-cycle-pulse 1.8s ease-in-out infinite;
+  animation-delay: -0.6s;
+}
+
 /* ─── Reduced motion ─── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

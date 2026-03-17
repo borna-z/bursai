@@ -37,7 +37,6 @@ import { hapticLight, hapticSuccess } from '@/lib/haptics';
 import { EASE_CURVE, STAGGER_DELAY } from '@/lib/motion';
 import type { DateRange } from 'react-day-picker';
 import { AILoadingCard } from '@/components/ui/AILoadingCard';
-import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 
 /* ─── Types ─── */
 interface CapsuleOutfit {
@@ -141,30 +140,13 @@ export default function TravelCapsule() {
   const [result, setResult] = useState<CapsuleResult | null>(null);
   useState<string | null>(null); // loadingPhase - kept for future use
 
-  // Progressive loading phases (~60s total, last phase holds indefinitely)
-  // Memoized so AILoadingOverlay's phase timer isn't reset on re-renders
-  const travelLoadingPhases = useMemo(() => [
-    { icon: Cloud, label: t('ai.checking_forecast'), duration: 10000 },
-    { icon: Shirt, label: t('ai.scanning_wardrobe'), duration: 10000 },
-    { icon: SlidersHorizontal, label: t('ai.curating_capsule'), duration: 20000 },
-    { icon: Package, label: t('ai.assembling_outfits'), duration: 0 },
-  ], [t]);
-
-  // Simulated progress (smooth 0→95% over 60s)
-  const [simulatedProgress, setSimulatedProgress] = useState(0);
-  useEffect(() => {
-    if (!isGenerating) { setSimulatedProgress(0); return; }
-    const start = Date.now();
-    const duration = 60000;
-    const tick = () => {
-      const elapsed = Date.now() - start;
-      const pct = Math.min(95, (elapsed / duration) * 95);
-      setSimulatedProgress(pct);
-      if (elapsed < duration) requestAnimationFrame(tick);
-    };
-    const raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [isGenerating]);
+  // Context-aware travel loading phases (~60s total, last phase holds)
+  const travelCardPhases = useMemo(() => [
+    { icon: Shirt, label: `Scanning your ${allGarments?.length ? `${allGarments.length} ` : ''}garments`, duration: 15000 },
+    { icon: Globe, label: `Finding combinations for ${destination || 'your destination'}`, duration: 15000 },
+    { icon: Package, label: 'Building your capsule', duration: 15000 },
+    { icon: SlidersHorizontal, label: `Optimizing for ${tripNights || 0} nights`, duration: 0 },
+  ], [allGarments?.length, destination, tripNights]);
 
   // ── Weather state ──
   const [weatherForecast, setWeatherForecast] = useState<ForecastDay | null>(null);
@@ -761,12 +743,24 @@ export default function TravelCapsule() {
             {/* Generate */}
             <div className="space-y-1">
               {isGenerating ? (
-                <AILoadingOverlay
-                  variant="card"
-                  phases={travelLoadingPhases}
-                  subtitle={`${destination} · ${tripNights} ${t('capsule.nights')}`}
-                  progress={simulatedProgress}
-                />
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3, ease: EASE_CURVE }}
+                  className="space-y-3"
+                >
+                  <div className="text-center space-y-1">
+                    <p className="text-[22px] font-display text-foreground leading-tight">
+                      {destination}
+                    </p>
+                    {tripNights > 0 && (
+                      <p className="text-[13px] font-body text-muted-foreground">
+                        · {tripNights} {t('capsule.nights')}
+                      </p>
+                    )}
+                  </div>
+                  <AILoadingCard phases={travelCardPhases} />
+                </motion.div>
               ) : (
                 <Button onClick={handleGenerate} disabled={!isFormValid} className="w-full h-12 rounded-xl" size="lg">
                   <Package className="w-4 h-4 mr-2" />{t('capsule.generate_new')}
