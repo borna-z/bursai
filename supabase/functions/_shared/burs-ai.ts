@@ -12,26 +12,23 @@
  * caching layer.
  */
 
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const GOOGLE_DIRECT_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 
 // ─── Complexity-based model routing ───────────────────────────
 type Complexity = "trivial" | "standard" | "complex";
 
 const COMPLEXITY_CHAINS: Record<Complexity, string[]> = {
   trivial: [
-    "google/gemini-2.5-flash-lite",
-    "google/gemini-2.5-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-2.0-flash",
   ],
   standard: [
-    "google/gemini-3-flash-preview",
-    "google/gemini-2.5-flash",
-    "google/gemini-2.5-flash-lite",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
   ],
   complex: [
-    "google/gemini-2.5-pro",
-    "google/gemini-3-flash-preview",
-    "google/gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
   ],
 };
 
@@ -40,8 +37,8 @@ const MODEL_CHAINS: Record<string, string[]> = {
   default: COMPLEXITY_CHAINS.standard,
   vision: COMPLEXITY_CHAINS.complex,
   "image-gen": [
-    "google/gemini-3-pro-image-preview",
-    "google/gemini-2.5-flash-image",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
   ],
   fast: COMPLEXITY_CHAINS.trivial,
   streaming: COMPLEXITY_CHAINS.standard,
@@ -273,8 +270,8 @@ export async function callBursAI(
   options: BursAIOptions,
   supabaseServiceClient?: any
 ): Promise<BursAIResponse> {
-  const apiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!apiKey) throw new BursAIError("LOVABLE_API_KEY not configured", 500);
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
+  if (!apiKey) throw new BursAIError("GEMINI_API_KEY not configured", 500);
 
   const startTime = Date.now();
   const {
@@ -398,11 +395,11 @@ export async function callBursAI(
     let gatewayHad5xxOrTimeout = false;
     const body = buildBody();
 
-    // ── Phase 1: Lovable Gateway ──
+    // ── Phase 1: Google Gemini ──
     for (const model of modelChain) {
       for (let attempt = 0; attempt < 2; attempt++) {
         const outcome = await tryModel(
-          GATEWAY_URL,
+          GEMINI_URL,
           { Authorization: `Bearer ${apiKey}` },
           model, body, timeout,
         );
@@ -437,49 +434,6 @@ export async function callBursAI(
       }
     }
 
-    // ── Phase 2: Google AI Studio direct fallback ──
-    const googleApiKey = Deno.env.get("GOOGLE_API_KEY");
-    const googleModels = modelChain.filter((m) => m.startsWith("google/"));
-
-    if (gatewayHad5xxOrTimeout && googleApiKey && googleModels.length > 0) {
-      console.log("BURS AI: Lovable gateway failed with 5xx/timeout, falling back to Google AI Studio");
-
-      for (const model of googleModels) {
-        const directModel = model.replace(/^google\//, "");
-        for (let attempt = 0; attempt < 2; attempt++) {
-          const outcome = await tryModel(
-            GOOGLE_DIRECT_URL,
-            { Authorization: `Bearer ${googleApiKey}` },
-            directModel, body, timeout,
-          );
-
-          if ("fatal" in outcome && outcome.fatal) throw (outcome as any).error;
-          if ("retry" in outcome) continue;
-          if ("error" in outcome) {
-            lastError = outcome.error;
-            if (attempt === 0) { await sleep(500); continue; }
-            break;
-          }
-
-          const resp = outcome.resp;
-          const usedModel = `google/${directModel} (direct)`;
-          if (stream) return { data: resp, model_used: usedModel, from_cache: false };
-
-          const aiData = await resp.json();
-          const result = parseResult(aiData);
-          if (result?.__parseError) { lastError = new Error("Failed to parse AI tool call response"); break; }
-
-          if (cacheTtlSeconds > 0 && cacheKey) {
-            if (supabaseServiceClient) storeCache(supabaseServiceClient, cacheKey, result, usedModel, cacheTtlSeconds);
-          }
-          logUsage(supabaseServiceClient, {
-            functionName: options.functionName, model_used: usedModel,
-            latency_ms: Date.now() - startTime, from_cache: false, status: "ok",
-          });
-          return { data: result, model_used: usedModel, from_cache: false };
-        }
-      }
-    }
 
     logUsage(supabaseServiceClient, {
       functionName: options.functionName, model_used: modelChain[0] || "unknown",
