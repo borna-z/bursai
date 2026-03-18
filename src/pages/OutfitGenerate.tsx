@@ -2,9 +2,9 @@ import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Sparkles, AlertCircle, Crown, Zap,
-  Check, Thermometer, Bookmark, CalendarPlus,
+  Check, Thermometer, Bookmark, CalendarDays, Shirt,
 } from 'lucide-react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { motion, LayoutGroup, useReducedMotion, type Transition } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -41,6 +41,8 @@ const STYLES = [
 
 type Phase = 'picking' | 'generating' | 'done' | 'error';
 type GenerationMode = 'standard' | 'stylist';
+
+const SPRING_LAYOUT: Transition = { type: 'spring', stiffness: 350, damping: 30 };
 
 /* ── Weather styling advice ── */
 function getWeatherAdvice(temp?: number, precipitation?: string): string {
@@ -211,44 +213,64 @@ export default function OutfitGeneratePage() {
     const primary = generatedResults[primaryIndex];
     const secondaryIdx = primaryIndex === 0 ? 1 : 0;
     const secondary = generatedResults[secondaryIdx] ?? null;
-    const primaryItems = primary.items.slice(0, 4);
     const reasoningText =
       primary.outfit_reasoning?.why_it_works ||
-      (primary.explanation ? primary.explanation.slice(0, 100) + (primary.explanation.length > 100 ? '…' : '') : '');
+      (primary.explanation
+        ? primary.explanation.length > 100
+          ? `${primary.explanation.slice(0, 100)}…`
+          : primary.explanation
+        : '');
 
     return (
       <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
         <AppLayout>
-          <div className="page-container pb-12 animate-fade-in">
-            <AnimatePresence mode="popLayout">
+          <div className="page-container pt-6 pb-36">
+            <LayoutGroup>
               {/* ── Primary Card ── */}
               <motion.div
                 key={`primary-${primary.id}`}
                 layout={!prefersReduced}
-                initial={prefersReduced ? undefined : { opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={prefersReduced ? undefined : { opacity: 0, y: -20 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                className="pt-8"
+                transition={prefersReduced ? { duration: 0 } : SPRING_LAYOUT}
+                className="w-full"
               >
                 {/* 2x2 Garment Grid */}
-                <div className="grid grid-cols-2 gap-1.5 rounded-2xl overflow-hidden">
-                  {primaryItems.map((item) => (
-                    <LazyImageSimple
+                <div className="rounded-2xl overflow-hidden grid grid-cols-2 gap-[1px] bg-muted/30">
+                  {primary.items.slice(0, 4).map((item, i) => (
+                    <motion.div
                       key={item.garment.id}
-                      imagePath={item.garment.image_path}
-                      alt={item.garment.title || item.slot}
-                      className="aspect-[3/4] rounded-xl object-cover"
-                    />
+                      initial={prefersReduced ? false : { opacity: 0, scale: 1.02 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: i * 0.08, duration: 0.45 }}
+                      className={cn(
+                        'relative overflow-hidden bg-muted/20',
+                        i === 0 && 'rounded-tl-2xl',
+                        i === 1 && 'rounded-tr-2xl',
+                        i === 2 && 'rounded-bl-2xl',
+                        i === 3 && 'rounded-br-2xl',
+                      )}
+                    >
+                      <LazyImageSimple
+                        imagePath={item.garment.image_path}
+                        alt={item.garment.title || item.slot}
+                        className="w-full aspect-square object-cover"
+                        fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/15" />}
+                      />
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent p-2 pt-6">
+                        <p className="text-[9px] text-white/70 uppercase tracking-[0.15em] font-medium">
+                          {item.slot}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ))}
+                  {/* Fill empty slots if fewer than 4 items */}
+                  {Array.from({ length: Math.max(0, 4 - primary.items.length) }).map((_, i) => (
+                    <div key={`empty-${i}`} className="bg-muted/20 aspect-square" />
                   ))}
                 </div>
 
                 {/* Reasoning text */}
                 {reasoningText && (
-                  <p
-                    className="mt-4 text-[14px] italic text-muted-foreground/70 leading-relaxed"
-                    style={{ fontFamily: "'Playfair Display', serif" }}
-                  >
+                  <p className="mt-4 text-[14px] font-['Playfair_Display'] italic text-muted-foreground/70 leading-relaxed px-1">
                     {reasoningText}
                   </p>
                 )}
@@ -263,7 +285,7 @@ export default function OutfitGeneratePage() {
                 </Button>
 
                 {/* Secondary action row */}
-                <div className="flex items-center justify-between mt-3 px-2">
+                <div className="flex items-center justify-between mt-3 px-4">
                   <button
                     onClick={() => handleSaveOutfit(primary)}
                     className="flex items-center gap-1.5 text-[13px] font-['DM_Sans'] text-muted-foreground/60 active:opacity-70 transition-opacity"
@@ -275,7 +297,7 @@ export default function OutfitGeneratePage() {
                     onClick={() => handlePlanOutfit(primary)}
                     className="flex items-center gap-1.5 text-[13px] font-['DM_Sans'] text-muted-foreground/60 active:opacity-70 transition-opacity"
                   >
-                    <CalendarPlus className="w-4 h-4" />
+                    <CalendarDays className="w-4 h-4" />
                     Plan
                   </button>
                 </div>
@@ -286,10 +308,7 @@ export default function OutfitGeneratePage() {
                 <motion.div
                   key={`secondary-${secondary.id}`}
                   layout={!prefersReduced}
-                  initial={prefersReduced ? undefined : { opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={prefersReduced ? undefined : { opacity: 0, y: -20 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  transition={prefersReduced ? { duration: 0 } : SPRING_LAYOUT}
                   className="mt-6"
                 >
                   <p className="text-[10px] font-['DM_Sans'] tracking-widest text-muted-foreground/40 uppercase mb-3">
@@ -301,12 +320,17 @@ export default function OutfitGeneratePage() {
                   >
                     <div className="flex gap-2">
                       {secondary.items.slice(0, 4).map((item) => (
-                        <LazyImageSimple
+                        <div
                           key={item.garment.id}
-                          imagePath={item.garment.image_path}
-                          alt={item.garment.title || item.slot}
-                          className="w-16 h-20 rounded-xl object-cover flex-shrink-0"
-                        />
+                          className="w-16 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-muted/20"
+                        >
+                          <LazyImageSimple
+                            imagePath={item.garment.image_path}
+                            alt={item.garment.title || item.slot}
+                            className="w-full h-full object-cover"
+                            fallbackIcon={<Shirt className="w-4 h-4 text-muted-foreground/15" />}
+                          />
+                        </div>
                       ))}
                     </div>
                     <p className="text-[12px] font-['DM_Sans'] text-muted-foreground/50 mt-2">
@@ -315,7 +339,17 @@ export default function OutfitGeneratePage() {
                   </button>
                 </motion.div>
               )}
-            </AnimatePresence>
+            </LayoutGroup>
+
+            {/* Back to picking */}
+            <div className="mt-8 text-center">
+              <button
+                onClick={() => setPhase('picking')}
+                className="text-[13px] font-['DM_Sans'] text-muted-foreground/50 underline underline-offset-2"
+              >
+                Start over
+              </button>
+            </div>
           </div>
         </AppLayout>
       </PageErrorBoundary>
