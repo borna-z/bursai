@@ -9,6 +9,12 @@
 const LOVABLE_PREVIEW_RE = /^https:\/\/.*\.lovable\.app$/;
 const LOVABLE_DEV_RE = /^https:\/\/.*\.lovableproject\.com$/;
 
+const KNOWN_ORIGINS = new Set([
+  "https://burs.me",
+  "https://bursai-mu9m.vercel.app",
+  "http://localhost:8080",
+]);
+
 /**
  * Returns the correct Access-Control-Allow-Origin for a given request origin.
  * Call this per-request when you have access to the Origin header.
@@ -20,6 +26,9 @@ export function resolveOrigin(requestOrigin: string | null): string {
 
   // Production domain match
   if (allowed && requestOrigin === allowed) return allowed;
+
+  // Known origins (production, Vercel preview, local dev)
+  if (KNOWN_ORIGINS.has(requestOrigin)) return requestOrigin;
 
   // Lovable preview & published domains
   if (LOVABLE_PREVIEW_RE.test(requestOrigin) || LOVABLE_DEV_RE.test(requestOrigin)) {
