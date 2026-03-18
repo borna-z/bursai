@@ -39,7 +39,11 @@ describe('useProfile', () => {
 
   it('fetches profile for authenticated user', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: { id: 'user-1', email: 'test@test.com', user_metadata: {} }, loading: false } as any);
-    const profileData = { id: 'user-1', display_name: 'Test', preferences: { onboarding: { completed: true } } };
+    const profileData = {
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      display_name: 'Test',
+      preferences: { onboarding: { completed: true, toured: false, tour_step: 2 } },
+    };
     
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
@@ -52,7 +56,9 @@ describe('useProfile', () => {
     const { useProfile } = await import('../useProfile');
     const { result } = renderHook(() => useProfile(), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data?.id).toBe('user-1');
+    expect(result.current.data?.id).toBe('550e8400-e29b-41d4-a716-446655440000');
+    expect((result.current.data?.preferences as any)?.onboarding?.tour_step).toBe(2);
+    expect((result.current.data?.preferences as any)?.onboarding?.toured).toBe(false);
   });
 
   it('auto-creates profile when none exists', async () => {

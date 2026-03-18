@@ -1,5 +1,3 @@
-import { useEffect } from 'react';
-import { toast } from 'sonner';
 import { useProfile, useUpdateProfile } from './useProfile';
 import { useGarmentCount } from './useGarments';
 import { asPreferences } from '@/types/preferences';
@@ -40,23 +38,6 @@ export function useFirstRunCoach() {
       },
     });
   };
-
-  // Auto-complete when enough garments added
-  useEffect(() => {
-    if (hasEnoughGarments && isActive) {
-      completeTour();
-      toast('You\'re ready — generate your first outfit', { duration: 4000 });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasEnoughGarments]);
-
-  // Skip tour for users who already have garments when they finish onboarding
-  useEffect(() => {
-    if (isActive && garmentCount !== undefined && garmentCount > 0) {
-      completeTour();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, garmentCount]);
 
   return {
     isActive,

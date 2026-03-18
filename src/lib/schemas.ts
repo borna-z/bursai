@@ -9,7 +9,9 @@ import { z } from 'zod';
 export const onboardingPrefsSchema = z.object({
   completed: z.boolean().optional().default(false),
   quiz: z.record(z.string(), z.unknown()).optional(),
-});
+  toured: z.boolean().optional(),
+  tour_step: z.number().optional(),
+}).passthrough();
 
 export const profilePreferencesSchema = z.object({
   onboarding: onboardingPrefsSchema.optional(),
