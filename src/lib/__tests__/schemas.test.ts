@@ -93,5 +93,21 @@ describe('schemas', () => {
       });
       expect(result.success).toBe(true);
     });
+
+    it('preserves onboarding coach progress fields', () => {
+      const result = profilePreferencesSchema.safeParse({
+        onboarding: {
+          completed: true,
+          toured: false,
+          tour_step: 2,
+          future_onboarding_key: 'kept',
+        },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data?.onboarding?.toured).toBe(false);
+      expect(result.data?.onboarding?.tour_step).toBe(2);
+      expect(result.data?.onboarding?.future_onboarding_key).toBe('kept');
+    });
   });
 });
