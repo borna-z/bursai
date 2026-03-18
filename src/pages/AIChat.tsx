@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
 import { useGarmentCount } from '@/hooks/useGarments';
+import { useStyleDNA } from '@/hooks/useStyleDNA';
 import { useCreateOutfit } from '@/hooks/useOutfits';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ChatWelcome } from '@/components/chat/ChatWelcome';
@@ -107,6 +108,7 @@ export default function AIChat() {
   const navigate = useNavigate();
   const createOutfit = useCreateOutfit();
   const { data: garmentCount } = useGarmentCount();
+  const { data: styleDNA } = useStyleDNA();
 
   const welcomeMessage: Message = { role: 'assistant', content: t('chat.welcome') };
 
@@ -190,7 +192,12 @@ export default function AIChat() {
       const resp = await fetch(STYLE_CHAT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ messages: newMessages, locale }),
+        body: JSON.stringify({
+          messages: newMessages,
+          locale,
+          garmentCount: garmentCount ?? 0,
+          archetype: styleDNA?.archetype ?? null,
+        }),
       });
       if (!resp.ok) { const errData = await resp.json().catch(() => ({ error: t('chat.unknown_error') })); throw new Error(errData.error || `HTTP ${resp.status}`); }
       if (!resp.body) throw new Error(t('chat.no_response'));
