@@ -6,6 +6,8 @@
 export interface OnboardingPreferences {
   completed?: boolean;
   quiz?: StyleQuizAnswers;
+  toured?: boolean;
+  tour_step?: number;
 }
 
 export interface StyleQuizAnswers {

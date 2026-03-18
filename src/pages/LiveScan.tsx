@@ -14,6 +14,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { isMedianApp, isMedianAndroid } from '@/lib/median';
 import { EASE_CURVE } from '@/lib/motion';
 import { categoryLabel, colorLabel, materialLabel } from '@/lib/humanize';
+import { CoachMark } from '@/components/coach/CoachMark';
+import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 
 /* ─── Accepted overlay — fast checkmark fade ─── */
 function AcceptedOverlay({ onDone, label }: { onDone: () => void; label: string }) {
@@ -318,6 +320,7 @@ export default function LiveScan() {
   const isMedian = isMedianApp();
   const useFileInputMode = isMedian || !navigator.mediaDevices?.getUserMedia;
 
+  const coach = useFirstRunCoach();
   const { scanCount, isProcessing, lastResult, error, capture, captureFromFile, accept, retake, finish } = useLiveScan();
   const { subscription, isPremium, isLoading: isSubLoading } = useSubscription();
 
@@ -647,23 +650,34 @@ export default function LiveScan() {
       {/* Shutter button — only in camera stream mode */}
       {!useFileInputMode && cameraReady && (
         <div className="relative z-10 flex items-center justify-center py-6 bg-background/70 backdrop-blur-xl border-t border-border/10">
-          <div className="relative w-16 h-16">
-            {autoMode && autoProgress > 0 && <AutoProgressRing progress={autoProgress} />}
-            <button
-              disabled={!canCapture}
-              onClick={handleCapture}
-              className={cn(
-                'w-16 h-16 rounded-full border-[3px] border-foreground flex items-center justify-center transition-all active:scale-90',
-                !canCapture ? 'opacity-30' : 'opacity-100'
-              )}
-              aria-label="Scan"
-            >
-              <div className={cn(
-                'w-12 h-12 rounded-full transition-colors',
-                autoMode && autoProgress > 0.5 ? 'bg-accent/80' : 'bg-foreground/90'
-              )} />
-            </button>
-          </div>
+          <CoachMark
+            step={2}
+            currentStep={coach.currentStep}
+            isCoachActive={coach.isActive}
+            title="Scan anything"
+            body="Point at a garment and hold still. BURS detects category, colour and material."
+            ctaLabel="Understood"
+            onCta={() => coach.advanceStep()}
+            position="bottom"
+          >
+            <div className="relative w-16 h-16">
+              {autoMode && autoProgress > 0 && <AutoProgressRing progress={autoProgress} />}
+              <button
+                disabled={!canCapture}
+                onClick={handleCapture}
+                className={cn(
+                  'w-16 h-16 rounded-full border-[3px] border-foreground flex items-center justify-center transition-all active:scale-90',
+                  !canCapture ? 'opacity-30' : 'opacity-100'
+                )}
+                aria-label="Scan"
+              >
+                <div className={cn(
+                  'w-12 h-12 rounded-full transition-colors',
+                  autoMode && autoProgress > 0.5 ? 'bg-accent/80' : 'bg-foreground/90'
+                )} />
+              </button>
+            </div>
+          </CoachMark>
         </div>
       )}
 
