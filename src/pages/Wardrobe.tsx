@@ -30,6 +30,8 @@ import { AnimatedTab } from '@/components/ui/animated-tab';
 import { FilterSheet } from '@/components/wardrobe/FilterSheet';
 import { categoryLabel, colorLabel } from '@/lib/humanize';
 import { Chip } from '@/components/ui/chip';
+import { CoachMark } from '@/components/coach/CoachMark';
+import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 
 // ── Garment Card ──
 
@@ -513,6 +515,8 @@ export default function WardrobePage() {
     setSmartFilter(null);
   };
 
+  const coach = useFirstRunCoach();
+
   const handleRefresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['garments'] });
     await queryClient.invalidateQueries({ queryKey: ['garments-count'] });
@@ -674,11 +678,22 @@ export default function WardrobePage() {
 
           {/* FAB */}
           {activeTab === 'garments' ? (
-            <AddFAB
-              onPhoto={handleAddGarment}
-              onScan={() => navigate('/wardrobe/scan')}
-              isOverLimit={isOverLimit}
-            />
+            <CoachMark
+              step={1}
+              currentStep={coach.currentStep}
+              isCoachActive={coach.isActive}
+              title="Add your first garment"
+              body="Tap + to scan or upload. You need a top, bottom and shoes for your first outfit."
+              ctaLabel="Got it"
+              onCta={() => coach.advanceStep()}
+              position="top"
+            >
+              <AddFAB
+                onPhoto={handleAddGarment}
+                onScan={() => navigate('/wardrobe/scan')}
+                isOverLimit={isOverLimit}
+              />
+            </CoachMark>
           ) : (
             <div className="fixed bottom-24 right-4 z-50">
               <motion.button

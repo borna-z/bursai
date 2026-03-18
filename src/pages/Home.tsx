@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Settings, Heart, Shirt, ChevronRight } from 'lucide-react';
 import { TodayOutfitHero } from '@/components/home/TodayOutfitHero';
 import { format } from 'date-fns';
@@ -35,6 +35,8 @@ import { HomePageSkeleton } from '@/components/ui/skeletons';
 import { getStylistTip } from '@/lib/stylistCopy';
 import { StyleDNACard } from '@/components/insights/StyleDNACard';
 import { useStyleDNA } from '@/hooks/useStyleDNA';
+import { CoachMark } from '@/components/coach/CoachMark';
+import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 
 type HomeState = 'loading' | 'empty_wardrobe' | 'outfit_planned' | 'weather_alert' | 'no_outfit';
 
@@ -58,6 +60,8 @@ export default function HomePage() {
   const { data: profile } = useProfile();
   const queryClient = useQueryClient();
   const { isPremium } = useSubscription();
+
+  const coach = useFirstRunCoach();
 
   const prefersReduced = useReducedMotion();
   const hero = useMotionPreset('HERO');
@@ -144,6 +148,34 @@ export default function HomePage() {
           {getStylistTip({ weather: weather ?? undefined, garmentCount: garmentCount ?? undefined, archetype: dna?.archetype, topColor: dna?.signatureColors?.[0]?.color, topCombo: dna?.uniformCombos?.[0]?.combo, formalityCenter: dna?.formalityCenter })}
           </motion.p>
 
+          {/* ── First-run garment banner ── */}
+          <AnimatePresence>
+            {coach.isActive && !coach.hasEnoughGarments && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.3 }}
+                className="mx-4 mb-4 bg-foreground text-background rounded-2xl p-4 flex items-center justify-between gap-4"
+              >
+                <div>
+                  <p className="text-[15px] font-['Playfair_Display'] text-background">
+                    Add garments to get started
+                  </p>
+                  <p className="text-[12px] font-['DM_Sans'] text-background/60 mt-0.5">
+                    You need a top, bottom + shoes for your first outfit.
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate('/wardrobe')}
+                  className="bg-background text-foreground rounded-full px-4 h-9 text-[13px] font-medium font-['DM_Sans'] shrink-0"
+                >
+                  Add now →
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* ── 2. AI Suggestions — promoted to first content block ── */}
           {(garmentCount || 0) >= 3 && (
             <AISuggestions isPremium={isPremium} />
@@ -219,10 +251,21 @@ export default function HomePage() {
               </motion.button>
             ) : (
               /* no_outfit — premium "What should I wear?" hero */
-              <TodayOutfitHero
-                weather={weather ?? undefined}
-                garmentCount={garmentCount ?? undefined}
-              />
+              <CoachMark
+                step={3}
+                currentStep={coach.currentStep}
+                isCoachActive={coach.isActive}
+                title="Your first outfit"
+                body="Once you have a top, bottom and shoes — tap here and BURS generates your first outfit."
+                ctaLabel="Let's go"
+                onCta={() => coach.completeTour()}
+                position="bottom"
+              >
+                <TodayOutfitHero
+                  weather={weather ?? undefined}
+                  garmentCount={garmentCount ?? undefined}
+                />
+              </CoachMark>
             )}
           </FadeReplace>
 
