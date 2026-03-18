@@ -40,6 +40,7 @@ vi.mock('@/hooks/useSubscription', () => ({
 
 vi.mock('@/hooks/useProfile', () => ({
   useProfile: vi.fn(() => ({ data: { preferences: { onboarding: { completed: true } } }, isLoading: false })),
+  useUpdateProfile: vi.fn(() => ({ mutateAsync: vi.fn() })),
 }));
 
 vi.mock('@/contexts/LocationContext', () => ({
