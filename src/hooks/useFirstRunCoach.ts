@@ -33,17 +33,17 @@ export function useFirstRunCoach() {
     setOptimisticToured(profileToured);
   }, [profileToured]);
 
-  const isActive = onboardingDone && !optimisticToured;
+  const isEligibleForCoach = !onboardingDone && !optimisticToured && !hasEnoughGarments;
   const currentStep = optimisticStep;
 
   const isStepActive = useMemo(() => {
     return (step: number) => {
-      if (!isActive || currentStep !== step) return false;
+      if (!isEligibleForCoach || currentStep !== step) return false;
 
       const routeMatcher = COACH_STEP_ROUTES[step];
       return routeMatcher ? routeMatcher(location.pathname) : true;
     };
-  }, [currentStep, isActive, location.pathname]);
+  }, [currentStep, isEligibleForCoach, location.pathname]);
 
   const advanceStep = async () => {
     const nextStep = currentStep + 1;
@@ -84,7 +84,7 @@ export function useFirstRunCoach() {
   };
 
   return {
-    isActive,
+    isActive: isEligibleForCoach,
     currentStep,
     hasEnoughGarments,
     isStepActive,

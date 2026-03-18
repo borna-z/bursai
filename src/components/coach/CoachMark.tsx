@@ -89,16 +89,25 @@ export function CoachMark({
             ? {
                 position: 'relative',
                 zIndex: 9999,
-                borderRadius: 12,
-                boxShadow:
-                  '0 0 0 4px white, 0 0 0 9999px rgba(0,0,0,0.4)',
               }
             : undefined
         }
       >
         {children}
       </div>
-      {isVisible && rect && createPortal(<Callout rect={rect} position={position} step={step} title={title} body={body} ctaLabel={ctaLabel} onCta={onCta} prefersReduced={!!prefersReduced} />, document.body)}
+      {isVisible && rect && createPortal(
+        <Callout
+          rect={rect}
+          position={position}
+          step={step}
+          title={title}
+          body={body}
+          ctaLabel={ctaLabel}
+          onCta={onCta}
+          prefersReduced={!!prefersReduced}
+        />,
+        document.body,
+      )}
     </>
   );
 }
@@ -118,31 +127,34 @@ function Callout({ rect, position, step, title, body, ctaLabel, onCta, prefersRe
   const calloutWidth = Math.min(280, window.innerWidth * 0.9);
   const gap = 12;
 
-  // Center callout horizontally relative to target, clamped to viewport
   const rawLeft = rect.left + rect.width / 2 - calloutWidth / 2;
   const left = Math.max(8, Math.min(rawLeft, window.innerWidth - calloutWidth - 8));
-
-  // Arrow horizontal position relative to callout
   const arrowLeft = Math.max(16, Math.min(rect.left + rect.width / 2 - left, calloutWidth - 16));
-
-  let top: number;
-  if (position === 'bottom') {
-    top = rect.bottom + gap;
-  } else {
-    // Will be set after we know callout height — use estimate
-    top = rect.top - gap - 180;
-  }
 
   return (
     <>
-      {/* Backdrop — blocks taps outside */}
       <div
         aria-hidden="true"
         style={{
           position: 'fixed',
           inset: 0,
-          zIndex: 9998,
+          zIndex: 9997,
+          background: 'rgba(0,0,0,0.4)',
           pointerEvents: 'auto',
+        }}
+      />
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          zIndex: 9998,
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+          borderRadius: 12,
+          boxShadow: '0 0 0 4px white',
+          pointerEvents: 'none',
         }}
       />
       <motion.div
@@ -159,7 +171,6 @@ function Callout({ rect, position, step, title, body, ctaLabel, onCta, prefersRe
         }}
         className="bg-[#1C1917] rounded-2xl p-4"
       >
-        {/* Arrow */}
         <div
           style={{
             position: 'absolute',

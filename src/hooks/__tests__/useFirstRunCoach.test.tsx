@@ -21,13 +21,13 @@ vi.mock('@/hooks/useGarments', () => ({
 
 import { useFirstRunCoach } from '../useFirstRunCoach';
 
-function makeProfile(step: number, toured = false) {
+function makeProfile(step: number, options?: { completed?: boolean; toured?: boolean }) {
   return {
     data: {
       preferences: {
         onboarding: {
-          completed: true,
-          toured,
+          completed: options?.completed ?? false,
+          toured: options?.toured ?? false,
           tour_step: step,
         },
       },
@@ -97,6 +97,25 @@ describe('useFirstRunCoach', () => {
         }),
       }),
     }));
+  });
+
+  it('disables the coach for users who already completed onboarding', () => {
+    mockUseProfile.mockReturnValue(makeProfile(0, { completed: true }));
+
+    const { result } = renderHook(() => useFirstRunCoach(), { wrapper: createWrapper('/wardrobe') });
+
+    expect(result.current.isActive).toBe(false);
+    expect(result.current.isStepActive(0)).toBe(false);
+    expect(result.current.isStepActive(1)).toBe(false);
+  });
+
+  it('disables the coach for users who already have enough garments', () => {
+    mockUseGarmentCount.mockReturnValue({ data: 3 });
+
+    const { result } = renderHook(() => useFirstRunCoach(), { wrapper: createWrapper('/wardrobe') });
+
+    expect(result.current.isActive).toBe(false);
+    expect(result.current.isStepActive(1)).toBe(false);
   });
 
   it('hides the coach immediately when completing the tour', async () => {
