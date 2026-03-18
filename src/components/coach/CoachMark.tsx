@@ -1,6 +1,7 @@
-import { useRef, useEffect, useState, type ReactNode } from 'react';
+import { useRef, useEffect, useState, useCallback, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, useReducedMotion } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 import { EASE_CURVE } from '@/lib/motion';
 
 interface CoachMarkProps {
@@ -28,33 +29,61 @@ export function CoachMark({
   position,
   children,
 }: CoachMarkProps) {
+  const location = useLocation();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const prefersReduced = useReducedMotion();
   const isVisible = step === currentStep && isCoachActive;
 
+  const updateRect = useCallback(() => {
+    const node = wrapperRef.current;
+
+    if (!node || !node.isConnected) {
+      setRect(null);
+      return;
+    }
+
+    const nextRect = node.getBoundingClientRect();
+    if (nextRect.width <= 0 || nextRect.height <= 0) {
+      setRect(null);
+      return;
+    }
+
+    setRect(nextRect);
+  }, []);
+
   useEffect(() => {
-    if (!isVisible || !wrapperRef.current) return;
+    if (!isVisible) {
+      setRect(null);
+      return;
+    }
 
-    const update = () => {
-      if (wrapperRef.current) {
-        setRect(wrapperRef.current.getBoundingClientRect());
-      }
-    };
+    const node = wrapperRef.current;
+    if (!node) return;
 
-    update();
-    window.addEventListener('resize', update);
-    window.addEventListener('scroll', update, true);
+    let frame = window.requestAnimationFrame(updateRect);
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => updateRect())
+      : null;
+
+    resizeObserver?.observe(node);
+    window.addEventListener('resize', updateRect);
+    window.addEventListener('scroll', updateRect, true);
+
     return () => {
-      window.removeEventListener('resize', update);
-      window.removeEventListener('scroll', update, true);
+      window.cancelAnimationFrame(frame);
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', updateRect);
+      window.removeEventListener('scroll', updateRect, true);
+      setRect(null);
     };
-  }, [isVisible]);
+  }, [isVisible, location.pathname, updateRect]);
 
   return (
     <>
       <div
         ref={wrapperRef}
+        data-coach-active={isVisible ? 'true' : 'false'}
         style={
           isVisible
             ? {
@@ -108,10 +137,12 @@ function Callout({ rect, position, step, title, body, ctaLabel, onCta, prefersRe
     <>
       {/* Backdrop — blocks taps outside */}
       <div
+        aria-hidden="true"
         style={{
           position: 'fixed',
           inset: 0,
           zIndex: 9998,
+          pointerEvents: 'auto',
         }}
       />
       <motion.div

@@ -36,6 +36,7 @@ vi.mock('@/hooks/useFirstRunCoach', () => ({
     isActive: false,
     currentStep: 0,
     hasEnoughGarments: false,
+    isStepActive: vi.fn(() => false),
     advanceStep: vi.fn(),
     completeTour: vi.fn(),
   })),
@@ -87,6 +88,7 @@ describe('BottomNav smoke', () => {
       isActive: true,
       currentStep: 0,
       hasEnoughGarments: false,
+      isStepActive: vi.fn(() => false),
       advanceStep: vi.fn(),
       completeTour: vi.fn(),
     });
@@ -100,6 +102,7 @@ describe('BottomNav smoke', () => {
       isActive: true,
       currentStep: 0,
       hasEnoughGarments: false,
+      isStepActive: vi.fn((step: number) => step === 0),
       advanceStep: vi.fn(),
       completeTour: vi.fn(),
     });

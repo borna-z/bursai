@@ -681,7 +681,7 @@ export default function WardrobePage() {
             <CoachMark
               step={1}
               currentStep={coach.currentStep}
-              isCoachActive={coach.isActive}
+              isCoachActive={coach.isStepActive(1)}
               title="Add your first garment"
               body="Tap + to scan or upload. You need a top, bottom and shoes for your first outfit."
               ctaLabel="Got it"

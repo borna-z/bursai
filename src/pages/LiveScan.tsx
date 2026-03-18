@@ -653,7 +653,7 @@ export default function LiveScan() {
           <CoachMark
             step={2}
             currentStep={coach.currentStep}
-            isCoachActive={coach.isActive}
+            isCoachActive={coach.isStepActive(2)}
             title="Scan anything"
             body="Point at a garment and hold still. BURS detects category, colour and material."
             ctaLabel="Understood"
