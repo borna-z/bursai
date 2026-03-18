@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -79,5 +80,31 @@ describe('BottomNav smoke', () => {
     renderNav('/wardrobe');
     const wardrobeLink = screen.getByText('nav.wardrobe').closest('a');
     expect(wardrobeLink?.className).toContain('text-accent');
+  });
+
+  it('does not show the wardrobe coach overlay once the wardrobe route is active', () => {
+    vi.mocked(useFirstRunCoach).mockReturnValue({
+      isActive: true,
+      currentStep: 0,
+      hasEnoughGarments: false,
+      advanceStep: vi.fn(),
+      completeTour: vi.fn(),
+    });
+
+    renderNav('/wardrobe');
+    expect(screen.queryByText('Start here')).not.toBeInTheDocument();
+  });
+
+  it('shows the wardrobe coach overlay on other routes when step 0 is active', () => {
+    vi.mocked(useFirstRunCoach).mockReturnValue({
+      isActive: true,
+      currentStep: 0,
+      hasEnoughGarments: false,
+      advanceStep: vi.fn(),
+      completeTour: vi.fn(),
+    });
+
+    renderNav('/');
+    expect(screen.getByText('Start here')).toBeInTheDocument();
   });
 });
