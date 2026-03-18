@@ -248,6 +248,7 @@ export default function OutfitDetailPage() {
   const genWardrobeInsights = (location.state as { wardrobe_insights?: string[] })?.wardrobe_insights;
   const genLayerOrder = (location.state as { layer_order?: { slot: string; garment_id: string; layer_role: string }[] })?.layer_order;
   const genNeedsBaseLayer = (location.state as { needs_base_layer?: boolean })?.needs_base_layer;
+  const genOutfitReasoning = (location.state as { outfit_reasoning?: { why_it_works?: string; occasion_fit?: string; weather_logic?: string | null; color_note?: string } })?.outfit_reasoning;
   const genOccasionSubmode = (location.state as { occasion_submode?: string | null })?.occasion_submode;
   const shareUrl = outfit ? `${window.location.origin}/share/${outfit.id}` : '';
   const outfitItems = Array.isArray(outfit?.outfit_items) ? outfit.outfit_items : [];
@@ -691,6 +692,30 @@ export default function OutfitDetailPage() {
                   >
                     {explExpanded ? t('common.less') : t('common.read_more')}
                   </button>
+                )}
+              </div>
+            )}
+
+            {/* Outfit reasoning */}
+            {genOutfitReasoning && (
+              <div className="mt-3 flex flex-col gap-2">
+                {genOutfitReasoning.occasion_fit && (
+                  <div>
+                    <p className="text-[10px] font-['DM_Sans'] tracking-widest text-muted-foreground/30 uppercase">OCCASION</p>
+                    <p className="text-[13px] font-['DM_Sans'] text-muted-foreground/60">{genOutfitReasoning.occasion_fit}</p>
+                  </div>
+                )}
+                {genOutfitReasoning.weather_logic && (
+                  <div>
+                    <p className="text-[10px] font-['DM_Sans'] tracking-widest text-muted-foreground/30 uppercase">WEATHER</p>
+                    <p className="text-[13px] font-['DM_Sans'] text-muted-foreground/60">{genOutfitReasoning.weather_logic}</p>
+                  </div>
+                )}
+                {genOutfitReasoning.color_note && (
+                  <div>
+                    <p className="text-[10px] font-['DM_Sans'] tracking-widest text-muted-foreground/30 uppercase">COLOUR</p>
+                    <p className="text-[13px] font-['DM_Sans'] text-muted-foreground/60">{genOutfitReasoning.color_note}</p>
+                  </div>
                 )}
               </div>
             )}
