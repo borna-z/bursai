@@ -20,9 +20,6 @@ vi.mock('@/integrations/supabase/client', () => ({
   supabase: { auth: { signInWithOAuth: vi.fn() } },
 }));
 
-vi.mock('@/integrations/lovable/index', () => ({
-  lovable: { auth: { signInWithOAuth: vi.fn() } },
-}));
 
 import AuthPage from '../Auth';
 
