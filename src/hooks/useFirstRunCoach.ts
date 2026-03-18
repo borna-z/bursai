@@ -41,22 +41,22 @@ export function useFirstRunCoach() {
     });
   };
 
-  // Auto-complete when enough garments added
+  // Auto-complete when enough garments added (fires on mount when both ready)
   useEffect(() => {
     if (hasEnoughGarments && isActive) {
       completeTour();
       toast('You\'re ready — generate your first outfit', { duration: 4000 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasEnoughGarments]);
+  }, [hasEnoughGarments, isActive]);
 
-  // Skip tour for users who already have garments when they finish onboarding
+  // Skip coach for existing/migrated users who already have garments
   useEffect(() => {
-    if (isActive && garmentCount !== undefined && garmentCount > 0) {
+    if (isActive && currentStep === 0 && garmentCount !== undefined && garmentCount > 0) {
       completeTour();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, garmentCount]);
+  }, [isActive, currentStep, garmentCount]);
 
   return {
     isActive,
