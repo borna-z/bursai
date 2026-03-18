@@ -21,6 +21,20 @@ vi.mock('@/hooks/useGarments', () => ({
 
 import { useFirstRunCoach } from '../useFirstRunCoach';
 
+function makeProfile(step: number, toured = false) {
+  return {
+    data: {
+      preferences: {
+        onboarding: {
+          completed: true,
+          toured,
+          tour_step: step,
+        },
+      },
+    },
+  };
+}
+
 function createWrapper(initialPath = '/') {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -41,17 +55,7 @@ function createWrapper(initialPath = '/') {
 describe('useFirstRunCoach', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseProfile.mockReturnValue({
-      data: {
-        preferences: {
-          onboarding: {
-            completed: true,
-            toured: false,
-            tour_step: 0,
-          },
-        },
-      },
-    });
+    mockUseProfile.mockReturnValue(makeProfile(0));
     mockUseGarmentCount.mockReturnValue({ data: 0 });
     mockMutateAsync.mockResolvedValue({});
   });
@@ -61,25 +65,17 @@ describe('useFirstRunCoach', () => {
     expect(navResult.current.isStepActive(0)).toBe(true);
     expect(navResult.current.isStepActive(1)).toBe(false);
 
+    mockUseProfile.mockReturnValue(makeProfile(1));
     const { result: wardrobeResult } = renderHook(() => useFirstRunCoach(), { wrapper: createWrapper('/wardrobe') });
     expect(wardrobeResult.current.isStepActive(0)).toBe(false);
     expect(wardrobeResult.current.isStepActive(1)).toBe(true);
 
+    mockUseProfile.mockReturnValue(makeProfile(2));
     const { result: scanResult } = renderHook(() => useFirstRunCoach(), { wrapper: createWrapper('/wardrobe/scan') });
     expect(scanResult.current.isStepActive(1)).toBe(false);
     expect(scanResult.current.isStepActive(2)).toBe(true);
 
-    mockUseProfile.mockReturnValue({
-      data: {
-        preferences: {
-          onboarding: {
-            completed: true,
-            toured: false,
-            tour_step: 3,
-          },
-        },
-      },
-    });
+    mockUseProfile.mockReturnValue(makeProfile(3));
 
     const { result: homeResult } = renderHook(() => useFirstRunCoach(), { wrapper: createWrapper('/') });
     expect(homeResult.current.isStepActive(3)).toBe(true);
@@ -90,33 +86,29 @@ describe('useFirstRunCoach', () => {
     const { result } = renderHook(() => useFirstRunCoach(), { wrapper: createWrapper('/wardrobe') });
 
     await act(async () => {
-      const promise = result.current.advanceStep();
-      expect(result.current.currentStep).toBe(1);
-      await waitFor(() => expect(mockMutateAsync).toHaveBeenCalled());
-      await promise;
+      await result.current.advanceStep();
     });
+
+    await waitFor(() => expect(result.current.currentStep).toBe(1));
+    expect(mockMutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+      preferences: expect.objectContaining({
+        onboarding: expect.objectContaining({
+          tour_step: 1,
+        }),
+      }),
+    }));
   });
 
   it('hides the coach immediately when completing the tour', async () => {
-    mockUseProfile.mockReturnValue({
-      data: {
-        preferences: {
-          onboarding: {
-            completed: true,
-            toured: false,
-            tour_step: 3,
-          },
-        },
-      },
-    });
+    mockUseProfile.mockReturnValue(makeProfile(3));
 
     const { result } = renderHook(() => useFirstRunCoach(), { wrapper: createWrapper('/') });
 
     await act(async () => {
-      const promise = result.current.completeTour();
-      expect(result.current.isActive).toBe(false);
-      expect(result.current.currentStep).toBe(99);
-      await promise;
+      await result.current.completeTour();
     });
+
+    await waitFor(() => expect(result.current.isActive).toBe(false));
+    expect(result.current.currentStep).toBe(99);
   });
 });
