@@ -10,6 +10,7 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
 import { DaySummaryCard } from '@/components/plan/DaySummaryCard';
 import { useDaySummary } from '@/hooks/useDaySummary';
+import { useCalendarEvents } from '@/hooks/useCalendarSync';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
 import type { PlannedOutfit } from '@/hooks/usePlannedOutfits';
@@ -58,6 +59,7 @@ export function DayCard({
   const isWorn = plannedOutfit?.status === 'worn';
 
   const { data: daySummary, isLoading: isSummaryLoading } = useDaySummary(dateStr);
+  const { data: calendarEvents = [] } = useCalendarEvents(dateStr);
 
   let dateLabel = date.toLocaleDateString(getBCP47(locale), { weekday: 'long', day: 'numeric', month: 'long' });
   if (isToday(date)) {
@@ -91,7 +93,7 @@ export function DayCard({
           <WeatherForecastBadge date={dateStr} compact />
         </div>
 
-        <DaySummaryCard summary={daySummary} isLoading={isSummaryLoading} onGenerateFromHint={() => onQuickGenerate()} compact className="mb-3" />
+        <DaySummaryCard summary={daySummary} isLoading={isSummaryLoading} onGenerateFromHint={() => onQuickGenerate()} compact className="mb-3" eventCount={calendarEvents.length} />
 
         {hasOutfit ? (
           <>

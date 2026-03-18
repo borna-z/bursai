@@ -14,6 +14,40 @@ vi.mock('@/lib/routePrefetch', () => ({
   prefetchRoute: vi.fn(),
 }));
 
+vi.mock('@/hooks/useProfile', () => ({
+  useProfile: vi.fn(() => ({
+    data: null,
+    isLoading: false,
+  })),
+  useUpdateProfile: vi.fn(() => ({
+    mutateAsync: vi.fn(),
+  })),
+}));
+
+vi.mock('@/hooks/useGarments', () => ({
+  useGarmentCount: vi.fn(() => ({
+    data: 0,
+  })),
+}));
+
+vi.mock('@/hooks/useFirstRunCoach', () => ({
+  useFirstRunCoach: vi.fn(() => ({
+    isActive: false,
+    currentStep: 0,
+    hasEnoughGarments: false,
+    advanceStep: vi.fn(),
+    completeTour: vi.fn(),
+  })),
+}));
+
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: vi.fn(() => ({
+    user: { id: 'u1' },
+    session: {},
+    loading: false,
+  })),
+}));
+
 import { BottomNav } from '../BottomNav';
 
 function renderNav(path = '/') {

@@ -600,16 +600,25 @@ export default function TravelCapsule() {
               </Label>
               <p className="text-[11px] text-muted-foreground/50">{t('capsule.occasions_hint')}</p>
               <div className="flex flex-wrap gap-2">
-                {OCCASIONS.map(o => (
-                  <Chip
-                    key={o.id}
-                    selected={selectedOccasions.includes(o.id)}
-                    onClick={() => { hapticLight(); toggleOccasion(o.id); }}
-                    size="lg"
-                  >
-                    {t(o.labelKey)}
-                  </Chip>
-                ))}
+                {OCCASIONS.map(o => {
+                  const isSelected = selectedOccasions.includes(o.id);
+                  return (
+                    <Chip
+                      key={o.id}
+                      selected={isSelected}
+                      onClick={() => { hapticLight(); toggleOccasion(o.id); }}
+                      size="lg"
+                      className={cn(
+                        'rounded-xl',
+                        isSelected
+                          ? 'bg-foreground text-background border-transparent'
+                          : 'bg-card border-border/20 text-foreground'
+                      )}
+                    >
+                      {t(o.labelKey)}
+                    </Chip>
+                  );
+                })}
               </div>
             </div>
 

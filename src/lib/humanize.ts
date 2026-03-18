@@ -92,9 +92,9 @@ export function seasonLabel(t: (key: string) => string, season: string): string 
  * Confidence level label for AI enrichment attributes.
  */
 export function confidenceLabel(confidence: number): { label: string; color: string } {
-  if (confidence >= 0.85) return { label: 'High confidence', color: 'text-emerald-500' };
-  if (confidence >= 0.6) return { label: 'Moderate confidence', color: 'text-amber-500' };
-  return { label: 'Low confidence — may need review', color: 'text-muted-foreground/60' };
+  if (confidence >= 0.85) return { label: '', color: '' };
+  if (confidence >= 0.6) return { label: 'Strong match', color: 'text-foreground/50' };
+  return { label: '', color: '' };
 }
 
 /**

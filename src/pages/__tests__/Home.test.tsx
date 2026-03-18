@@ -26,6 +26,7 @@ vi.mock('@/contexts/LanguageContext', () => ({
 
 vi.mock('@/hooks/useProfile', () => ({
   useProfile: vi.fn(() => ({ data: { display_name: 'Test User', preferences: { onboarding: { completed: true } } }, isLoading: false })),
+  useUpdateProfile: vi.fn(() => ({ mutateAsync: vi.fn() })),
 }));
 
 vi.mock('@/hooks/useGarments', () => ({

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { stripBrands } from '@/lib/stripBrands';
 import { nativeShare } from '@/lib/nativeShare';
@@ -239,16 +239,16 @@ export default function OutfitDetailPage() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [selectedFeedback, setSelectedFeedback] = useState<string[]>([]);
   const [explExpanded, setExplExpanded] = useState(false);
+  const prefersReduced = useReducedMotion();
   const outfitRef = useRef<HTMLDivElement>(null);
 
   const justGenerated = (location.state as { justGenerated?: boolean })?.justGenerated;
-  const genConfidence = (location.state as { confidence_score?: number })?.confidence_score;
-  const genConfidenceLevel = (location.state as { confidence_level?: string })?.confidence_level;
   const genLimitationNote = (location.state as { limitation_note?: string | null })?.limitation_note;
   const genFamilyLabel = (location.state as { family_label?: string })?.family_label;
   const genWardrobeInsights = (location.state as { wardrobe_insights?: string[] })?.wardrobe_insights;
   const genLayerOrder = (location.state as { layer_order?: { slot: string; garment_id: string; layer_role: string }[] })?.layer_order;
   const genNeedsBaseLayer = (location.state as { needs_base_layer?: boolean })?.needs_base_layer;
+  const genOutfitReasoning = (location.state as { outfit_reasoning?: { why_it_works?: string; occasion_fit?: string; weather_logic?: string | null; color_note?: string } })?.outfit_reasoning;
   const genOccasionSubmode = (location.state as { occasion_submode?: string | null })?.occasion_submode;
   const shareUrl = outfit ? `${window.location.origin}/share/${outfit.id}` : '';
   const outfitItems = Array.isArray(outfit?.outfit_items) ? outfit.outfit_items : [];
@@ -657,81 +657,92 @@ export default function OutfitDetailPage() {
           </p>
         </div>
 
-        {/* Confidence — editorial inline */}
-        {justGenerated && genConfidence != null && (
-          <div className="flex items-center gap-4">
-            <div className={cn(
-              'relative w-11 h-11 rounded-full flex items-center justify-center shrink-0',
-              genConfidenceLevel === 'high' ? 'bg-primary/8' :
-              genConfidenceLevel === 'medium' ? 'bg-warning/8' :
-              'bg-muted/30'
-            )}>
-              <svg className="w-11 h-11 -rotate-90 absolute inset-0" viewBox="0 0 44 44">
-                <circle cx="22" cy="22" r="18" fill="none" strokeWidth="2.5" className="stroke-border/10" />
-                <circle
-                  cx="22" cy="22" r="18" fill="none" strokeWidth="2.5"
-                  className={cn(
-                    genConfidenceLevel === 'high' ? 'stroke-primary' :
-                    genConfidenceLevel === 'medium' ? 'stroke-warning' :
-                    'stroke-muted-foreground/30'
-                  )}
-                  strokeLinecap="round"
-                  strokeDasharray={`${Math.round((genConfidence / 10) * 113)} 113`}
-                  style={{ transition: 'stroke-dasharray 1.2s ease-out' }}
-                />
-              </svg>
-              <span className={cn(
-                'text-[13px] font-bold relative z-10',
-                genConfidenceLevel === 'high' ? 'text-primary' :
-                genConfidenceLevel === 'medium' ? 'text-warning' :
-                'text-muted-foreground'
-              )}>
-                {genConfidence.toFixed(0)}
-              </span>
-            </div>
-            <div className="min-w-0">
-              <p className="text-[13px] font-semibold text-foreground">
-                {genConfidenceLevel === 'high' ? (t('outfit.confidence_high') || 'Strong match') :
-                 genConfidenceLevel === 'medium' ? (t('outfit.confidence_medium') || 'Good match') :
-                 (t('outfit.confidence_low') || 'Best available')}
-              </p>
-              {genLimitationNote && (
-                <p className="text-[11px] text-muted-foreground/50 mt-0.5 leading-relaxed">{genLimitationNote}</p>
+        {/* Structured explanation card */}
+        {(outfit.explanation || (genWardrobeInsights && genWardrobeInsights.length > 0) || genLimitationNote) && (
+          <motion.div
+            initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: EASE_CURVE }}
+          >
+            {/* Context chips */}
+            <div className="flex items-center gap-2 mb-4">
+              <Chip size="sm" variant="outline">{displayOccasion}</Chip>
+              {normalizedOutfitWeather.temperature !== undefined && (
+                <span className="text-[11px] font-['DM_Sans'] px-2.5 py-1 rounded-full border border-border/20 text-muted-foreground/50">
+                  {normalizedOutfitWeather.temperature}°C
+                </span>
               )}
             </div>
-          </div>
-        )}
 
-        {/* Stylist explanation — editorial pull-quote */}
-        {outfit.explanation && (
-          <div className="relative pl-4 border-l-2 border-primary/20">
-            <p className={cn(
-              'text-[14px] text-foreground/80 leading-[1.7] italic',
-              !explExpanded && 'line-clamp-3'
-            )}>
-              {outfit.explanation}
-            </p>
-            {outfit.explanation.length > 140 && (
-              <button
-                onClick={() => setExplExpanded((v) => !v)}
-                className="text-[11px] text-primary/60 hover:text-primary mt-1.5 font-medium transition-colors"
-              >
-                {explExpanded ? t('common.less') : t('common.read_more')}
-              </button>
+            {/* Primary explanation */}
+            {outfit.explanation && (
+              <div className="border-l-2 border-foreground/20 pl-4">
+                <p
+                  className={cn(
+                    "font-['Playfair_Display'] italic text-[15px] text-foreground/80 leading-[1.7]",
+                    !explExpanded && 'line-clamp-3'
+                  )}
+                >
+                  {outfit.explanation}
+                </p>
+                {outfit.explanation.length > 140 && (
+                  <button
+                    onClick={() => setExplExpanded((v) => !v)}
+                    className="text-[11px] text-primary/60 hover:text-primary mt-1.5 font-medium transition-colors"
+                  >
+                    {explExpanded ? t('common.less') : t('common.read_more')}
+                  </button>
+                )}
+              </div>
             )}
-          </div>
-        )}
 
-        {/* Wardrobe insights */}
-        {justGenerated && genWardrobeInsights && genWardrobeInsights.length > 0 && (
-          <div className="rounded-2xl bg-primary/3 border border-primary/8 px-4 py-3.5 space-y-1.5">
-            <p className="text-[10px] uppercase tracking-[0.14em] text-primary/60 font-semibold">
-              {t('outfit.wardrobe_insight') || 'Wardrobe insight'}
-            </p>
-            {genWardrobeInsights.map((insight, i) => (
-              <p key={i} className="text-[12px] text-foreground/60 leading-relaxed">{insight}</p>
-            ))}
-          </div>
+            {/* Outfit reasoning */}
+            {genOutfitReasoning && (
+              <div className="mt-3 flex flex-col gap-2">
+                {genOutfitReasoning.occasion_fit && (
+                  <div>
+                    <p className="text-[10px] font-['DM_Sans'] tracking-widest text-muted-foreground/30 uppercase">OCCASION</p>
+                    <p className="text-[13px] font-['DM_Sans'] text-muted-foreground/60">{genOutfitReasoning.occasion_fit}</p>
+                  </div>
+                )}
+                {genOutfitReasoning.weather_logic && (
+                  <div>
+                    <p className="text-[10px] font-['DM_Sans'] tracking-widest text-muted-foreground/30 uppercase">WEATHER</p>
+                    <p className="text-[13px] font-['DM_Sans'] text-muted-foreground/60">{genOutfitReasoning.weather_logic}</p>
+                  </div>
+                )}
+                {genOutfitReasoning.color_note && (
+                  <div>
+                    <p className="text-[10px] font-['DM_Sans'] tracking-widest text-muted-foreground/30 uppercase">COLOUR</p>
+                    <p className="text-[13px] font-['DM_Sans'] text-muted-foreground/60">{genOutfitReasoning.color_note}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Wardrobe insights */}
+            {genWardrobeInsights && genWardrobeInsights.length > 0 && (
+              <div className="mt-4">
+                <p className="text-[10px] font-['DM_Sans'] tracking-widest text-muted-foreground/40 uppercase mb-2">
+                  {t('outfit.wardrobe_doing') || 'WHAT YOUR WARDROBE IS DOING'}
+                </p>
+                <div className="flex flex-col gap-1.5">
+                  {genWardrobeInsights.map((insight, i) => (
+                    <p key={i} className="text-[13px] font-['DM_Sans'] text-muted-foreground/60">
+                      <span className="text-muted-foreground/30">—</span> {insight}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Limitation note */}
+            {genLimitationNote && (
+              <p className="text-[13px] font-['DM_Sans'] italic text-muted-foreground/50 mt-3">
+                Your stylist suggests: {genLimitationNote}
+              </p>
+            )}
+          </motion.div>
         )}
 
         {/* Style Score — editorial presentation */}

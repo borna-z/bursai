@@ -1,20 +1,21 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Sparkles, AlertCircle, Crown, Zap,
-  Briefcase, Coffee, Wine, Heart, Dumbbell, Plane,
-  Check, ChevronDown, Thermometer,
+  Check, Thermometer, Bookmark, CalendarDays, Shirt,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, LayoutGroup, useReducedMotion, type Transition } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Chip } from '@/components/ui/chip';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
-import { useOutfitGenerator } from '@/hooks/useOutfitGenerator';
+import { LazyImageSimple } from '@/components/ui/lazy-image';
+import { useOutfitGenerator, type GeneratedOutfit } from '@/hooks/useOutfitGenerator';
+import { useUpdateOutfit } from '@/hooks/useOutfits';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
 import { useWeather } from '@/hooks/useWeather';
+import { useCalendarEvents } from '@/hooks/useCalendarSync';
 import { useSubscription } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
@@ -22,14 +23,14 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
 
-/* ── Occasions with Lucide icons ── */
+/* ── Occasions ── */
 const OCCASIONS = [
-  { key: 'casual', label: 'Casual', icon: Coffee },
-  { key: 'work', label: 'Work', icon: Briefcase },
-  { key: 'party', label: 'Evening', icon: Wine },
-  { key: 'date', label: 'Date', icon: Heart },
-  { key: 'workout', label: 'Workout', icon: Dumbbell },
-  { key: 'travel', label: 'Travel', icon: Plane },
+  { key: 'casual', label: 'Casual' },
+  { key: 'work', label: 'Work' },
+  { key: 'party', label: 'Evening' },
+  { key: 'date', label: 'Date' },
+  { key: 'workout', label: 'Workout' },
+  { key: 'travel', label: 'Travel' },
 ] as const;
 
 /* ── Curated styles (single flat list) ── */
@@ -38,8 +39,10 @@ const STYLES = [
   'Edgy', 'Bohemian', 'Preppy', 'Relaxed',
 ] as const;
 
-type Phase = 'picking' | 'generating' | 'error';
+type Phase = 'picking' | 'generating' | 'done' | 'error';
 type GenerationMode = 'standard' | 'stylist';
+
+const SPRING_LAYOUT: Transition = { type: 'spring', stiffness: 350, damping: 30 };
 
 /* ── Weather styling advice ── */
 function getWeatherAdvice(temp?: number, precipitation?: string): string {
@@ -77,26 +80,49 @@ export default function OutfitGeneratePage() {
   const { generateOutfit, isGenerating } = useOutfitGenerator();
   const { isUnlocked } = useWardrobeUnlocks();
   const { weather } = useWeather();
+  const todayDate = new Date().toISOString().slice(0, 10);
+  const { data: calendarEvents } = useCalendarEvents(todayDate);
   const { canCreateOutfit, remainingOutfits, isPremium } = useSubscription();
 
   const [phase, setPhase] = useState<Phase>('picking');
   const [selectedOccasion, setSelectedOccasion] = useState<string>('casual');
-  const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
+  const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
+  const prefersReduced = useReducedMotion();
   const [generationMode, setGenerationMode] = useState<GenerationMode>(isPremium ? 'stylist' : 'standard');
   const [lastError, setLastError] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
-  const [styleExpanded, setStyleExpanded] = useState(false);
+  const [generatedResults, setGeneratedResults] = useState<GeneratedOutfit[]>([]);
+  const [primaryIndex, setPrimaryIndex] = useState(0);
+  const updateOutfit = useUpdateOutfit();
 
   const contextSubtitle = useMemo(() => {
     const parts: string[] = [];
     const occ = OCCASIONS.find(o => o.key === selectedOccasion);
     if (occ) parts.push(occ.label);
-    if (selectedStyle) parts.push(selectedStyle);
+    if (selectedStyles.length > 0) parts.push(selectedStyles.join(', '));
     if (weather?.temperature !== undefined) parts.push(`${weather.temperature}°C`);
     return parts.join(' · ');
-  }, [selectedOccasion, selectedStyle, weather?.temperature]);
+  }, [selectedOccasion, selectedStyles, weather?.temperature]);
 
   const weatherAdvice = getWeatherAdvice(weather?.temperature, weather?.precipitation);
+
+  const navigateToDetail = useCallback((outfit: GeneratedOutfit) => {
+    navigate(`/outfits/${outfit.id}`, {
+      replace: true,
+      state: {
+        justGenerated: true,
+        confidence_score: outfit.confidence_score,
+        confidence_level: outfit.confidence_level,
+        limitation_note: outfit.limitation_note,
+        family_label: outfit.family_label,
+        wardrobe_insights: outfit.wardrobe_insights,
+        layer_order: outfit.layer_order,
+        needs_base_layer: outfit.needs_base_layer,
+        occasion_submode: outfit.occasion_submode,
+        outfit_reasoning: outfit.outfit_reasoning,
+      },
+    });
+  }, [navigate]);
 
   // Gate: require enough garments
   if (!isUnlocked('outfit_gen')) {
@@ -122,7 +148,7 @@ export default function OutfitGeneratePage() {
     try {
       const result = await generateOutfit({
         occasion: selectedOccasion,
-        style: selectedStyle,
+        style: selectedStyles.length > 0 ? selectedStyles.join(', ') : null,
         locale,
         mode: generationMode,
         weather: {
@@ -131,26 +157,34 @@ export default function OutfitGeneratePage() {
           wind: weather?.wind ?? 'low',
         },
       });
-      navigate(`/outfits/${result.id}`, {
-        replace: true,
-        state: {
-          justGenerated: true,
-          confidence_score: result.confidence_score,
-          confidence_level: result.confidence_level,
-          limitation_note: result.limitation_note,
-          family_label: result.family_label,
-          wardrobe_insights: result.wardrobe_insights,
-          layer_order: result.layer_order,
-          needs_base_layer: result.needs_base_layer,
-          occasion_submode: result.occasion_submode,
-        },
-      });
+      setGeneratedResults([result]);
+      setPrimaryIndex(0);
+      setPhase('done');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
       setLastError(message);
       setPhase('error');
       toast.error('Generation failed', { description: message });
     }
+  };
+
+  const handleSaveOutfit = async (outfit: GeneratedOutfit) => {
+    try {
+      await updateOutfit.mutateAsync({ id: outfit.id, updates: { saved: true } });
+      toast.success('Outfit saved');
+    } catch {
+      toast.error('Could not save outfit');
+    }
+  };
+
+  const handlePlanOutfit = (outfit: GeneratedOutfit) => {
+    navigate(`/outfits/${outfit.id}`, {
+      state: { openPlanner: true },
+    });
+  };
+
+  const handleSwapPrimary = () => {
+    setPrimaryIndex((prev) => (prev === 0 ? 1 : 0));
   };
 
   // ── GENERATING PHASE ──
@@ -163,9 +197,161 @@ export default function OutfitGeneratePage() {
             subtitle={contextSubtitle || undefined}
             variant="full"
             className="max-w-sm w-full"
+            occasion={selectedOccasion}
+            weatherTemp={weather?.temperature}
+            weatherCondition={weather?.condition}
+            eventTitle={calendarEvents?.[0]?.title ?? null}
           />
         </div>
       </AppLayout>
+      </PageErrorBoundary>
+    );
+  }
+
+  // ── DONE PHASE — Primary recommendation ──
+  if (phase === 'done' && generatedResults.length > 0) {
+    const primary = generatedResults[primaryIndex];
+    const secondaryIdx = primaryIndex === 0 ? 1 : 0;
+    const secondary = generatedResults[secondaryIdx] ?? null;
+    const reasoningText =
+      primary.outfit_reasoning?.why_it_works ||
+      (primary.explanation
+        ? primary.explanation.length > 100
+          ? `${primary.explanation.slice(0, 100)}…`
+          : primary.explanation
+        : '');
+
+    return (
+      <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
+        <AppLayout>
+          <div className="page-container pt-6 pb-36">
+            <LayoutGroup>
+              {/* ── Primary Card ── */}
+              <motion.div
+                key={`primary-${primary.id}`}
+                layout={!prefersReduced}
+                transition={prefersReduced ? { duration: 0 } : SPRING_LAYOUT}
+                className="w-full"
+              >
+                {/* 2x2 Garment Grid */}
+                <div className="rounded-2xl overflow-hidden grid grid-cols-2 gap-[1px] bg-muted/30">
+                  {primary.items.slice(0, 4).map((item, i) => (
+                    <motion.div
+                      key={item.garment.id}
+                      initial={prefersReduced ? false : { opacity: 0, scale: 1.02 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: i * 0.08, duration: 0.45 }}
+                      className={cn(
+                        'relative overflow-hidden bg-muted/20',
+                        i === 0 && 'rounded-tl-2xl',
+                        i === 1 && 'rounded-tr-2xl',
+                        i === 2 && 'rounded-bl-2xl',
+                        i === 3 && 'rounded-br-2xl',
+                      )}
+                    >
+                      <LazyImageSimple
+                        imagePath={item.garment.image_path}
+                        alt={item.garment.title || item.slot}
+                        className="w-full aspect-square object-cover"
+                        fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/15" />}
+                      />
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent p-2 pt-6">
+                        <p className="text-[9px] text-white/70 uppercase tracking-[0.15em] font-medium">
+                          {item.slot}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ))}
+                  {/* Fill empty slots if fewer than 4 items */}
+                  {Array.from({ length: Math.max(0, 4 - primary.items.length) }).map((_, i) => (
+                    <div key={`empty-${i}`} className="bg-muted/20 aspect-square" />
+                  ))}
+                </div>
+
+                {/* Reasoning text */}
+                {reasoningText && (
+                  <p className="mt-4 text-[14px] font-['Playfair_Display'] italic text-muted-foreground/70 leading-relaxed px-1">
+                    {reasoningText}
+                  </p>
+                )}
+
+                {/* Primary CTA */}
+                <Button
+                  onClick={() => navigateToDetail(primary)}
+                  className="bg-foreground text-background h-12 rounded-full w-full text-[15px] font-medium font-['DM_Sans'] mt-5"
+                  size="lg"
+                >
+                  Wear this today
+                </Button>
+
+                {/* Secondary action row */}
+                <div className="flex items-center justify-between mt-3 px-4">
+                  <button
+                    onClick={() => handleSaveOutfit(primary)}
+                    className="flex items-center gap-1.5 text-[13px] font-['DM_Sans'] text-muted-foreground/60 active:opacity-70 transition-opacity"
+                  >
+                    <Bookmark className="w-4 h-4" />
+                    Save
+                  </button>
+                  <button
+                    onClick={() => handlePlanOutfit(primary)}
+                    className="flex items-center gap-1.5 text-[13px] font-['DM_Sans'] text-muted-foreground/60 active:opacity-70 transition-opacity"
+                  >
+                    <CalendarDays className="w-4 h-4" />
+                    Plan
+                  </button>
+                </div>
+              </motion.div>
+
+              {/* ── Secondary Card ── */}
+              {secondary && (
+                <motion.div
+                  key={`secondary-${secondary.id}`}
+                  layout={!prefersReduced}
+                  transition={prefersReduced ? { duration: 0 } : SPRING_LAYOUT}
+                  className="mt-6"
+                >
+                  <p className="text-[10px] font-['DM_Sans'] tracking-widest text-muted-foreground/40 uppercase mb-3">
+                    OR TRY THIS INSTEAD
+                  </p>
+                  <button
+                    onClick={handleSwapPrimary}
+                    className="w-full text-left active:opacity-80 transition-opacity"
+                  >
+                    <div className="flex gap-2">
+                      {secondary.items.slice(0, 4).map((item) => (
+                        <div
+                          key={item.garment.id}
+                          className="w-16 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-muted/20"
+                        >
+                          <LazyImageSimple
+                            imagePath={item.garment.image_path}
+                            alt={item.garment.title || item.slot}
+                            className="w-full h-full object-cover"
+                            fallbackIcon={<Shirt className="w-4 h-4 text-muted-foreground/15" />}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[12px] font-['DM_Sans'] text-muted-foreground/50 mt-2">
+                      {OCCASIONS.find(o => o.key === secondary.occasion)?.label ?? secondary.occasion}
+                    </p>
+                  </button>
+                </motion.div>
+              )}
+            </LayoutGroup>
+
+            {/* Back to picking */}
+            <div className="mt-8 text-center">
+              <button
+                onClick={() => setPhase('picking')}
+                className="text-[13px] font-['DM_Sans'] text-muted-foreground/50 underline underline-offset-2"
+              >
+                Start over
+              </button>
+            </div>
+          </div>
+        </AppLayout>
       </PageErrorBoundary>
     );
   }
@@ -305,87 +491,66 @@ export default function OutfitGeneratePage() {
           className="space-y-3 pb-10"
         >
           <p className="label-editorial">What's the occasion?</p>
-          <div className="grid grid-cols-2 gap-2">
-            {OCCASIONS.map(({ key, label, icon: Icon }) => {
+          <div className="grid grid-cols-3 gap-2">
+            {OCCASIONS.map(({ key, label }) => {
               const isSelected = selectedOccasion === key;
               return (
                 <motion.button
                   key={key}
-                  whileTap={{ scale: 0.97 }}
+                  whileTap={prefersReduced ? undefined : { scale: 0.97 }}
                   onClick={() => setSelectedOccasion(key)}
                   className={cn(
-                    'flex items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-all',
+                    'h-[52px] flex items-center justify-center rounded-xl border transition-all',
+                    "text-[14px] font-medium font-['DM_Sans']",
                     isSelected
-                      ? 'border-primary bg-primary/[0.04] ring-1 ring-primary/10'
-                      : 'border-border/30 hover:border-border/50'
+                      ? 'bg-foreground text-background border-transparent'
+                      : 'bg-card text-foreground border-border/20'
                   )}
                 >
-                  <Icon className={cn(
-                    'w-4.5 h-4.5 shrink-0',
-                    isSelected ? 'text-foreground' : 'text-muted-foreground/50'
-                  )} />
-                  <span className={cn(
-                    'text-sm font-medium',
-                    isSelected ? 'text-foreground' : 'text-muted-foreground'
-                  )}>
-                    {label}
-                  </span>
-                  {isSelected && (
-                    <Check className="w-3.5 h-3.5 text-primary ml-auto shrink-0" />
-                  )}
+                  {label}
                 </motion.button>
               );
             })}
           </div>
         </motion.section>
 
-        {/* ── Step 3: Style (optional, collapsed) ── */}
+        {/* ── Step 3: Style ── */}
         <motion.section
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.35 }}
-          className="pb-8"
+          className="pb-8 space-y-3"
         >
-          <button
-            onClick={() => setStyleExpanded(!styleExpanded)}
-            className="flex items-center gap-2 mb-3 group"
-          >
-            <p className="label-editorial group-hover:text-foreground transition-colors">
-              Add a style direction
-            </p>
-            <ChevronDown className={cn(
-              'w-3.5 h-3.5 text-muted-foreground/50 transition-transform',
-              styleExpanded && 'rotate-180'
-            )} />
-          </button>
-
-          <AnimatePresence>
-            {styleExpanded && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25 }}
-                className="overflow-hidden"
-              >
-                <div className="flex flex-wrap gap-2 pb-2">
-                  {STYLES.map((style) => (
-                    <Chip
-                      key={style}
-                      selected={selectedStyle === style}
-                      onClick={() => setSelectedStyle(selectedStyle === style ? null : style)}
-                      size="md"
-                    >
-                      {style}
-                    </Chip>
-                  ))}
-                </div>
-                <p className="text-[11px] text-muted-foreground/50 mt-2">
-                  Optional — leave empty for a balanced look
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <p className="text-[11px] tracking-widest text-muted-foreground/50 uppercase">STYLE</p>
+          <div className="flex flex-wrap gap-2">
+            {STYLES.map((style) => {
+              const isSelected = selectedStyles.includes(style);
+              return (
+                <motion.button
+                  key={style}
+                  whileTap={prefersReduced ? undefined : { scale: 0.97 }}
+                  onClick={() => {
+                    if (isSelected) {
+                      setSelectedStyles(selectedStyles.filter(s => s !== style));
+                    } else if (selectedStyles.length >= 2) {
+                      toast.error('Pick up to 2 styles');
+                    } else {
+                      setSelectedStyles([...selectedStyles, style]);
+                    }
+                  }}
+                  className={cn(
+                    "h-[44px] px-4 rounded-xl border transition-all",
+                    "text-[14px] font-['DM_Sans']",
+                    isSelected
+                      ? 'bg-foreground text-background border-transparent'
+                      : 'bg-card text-foreground border-border/20'
+                  )}
+                >
+                  {style}
+                </motion.button>
+              );
+            })}
+          </div>
         </motion.section>
       </div>
 
@@ -401,7 +566,7 @@ export default function OutfitGeneratePage() {
             <Button
               onClick={handleGenerate}
               disabled={isGenerating}
-              className="w-full rounded-xl h-13 text-base font-semibold"
+              className="bg-foreground text-background h-12 rounded-full w-full text-[15px] font-medium font-['DM_Sans']"
               size="lg"
             >
               <Sparkles className="w-4 h-4 mr-2" />

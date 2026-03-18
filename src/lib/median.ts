@@ -41,7 +41,12 @@ const UA = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() 
 
 /** True when app is running inside the Median.co native wrapper */
 export function isMedianApp(): boolean {
-  return UA.includes('median') || UA.includes('gonative') || !!window.gonative;
+  return (
+    UA.includes('median') ||
+    UA.includes('gonative') ||
+    !!window.gonative ||
+    typeof window.median !== 'undefined'
+  );
 }
 
 /** True when running in Median on iOS */

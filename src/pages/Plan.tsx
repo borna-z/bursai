@@ -1,11 +1,11 @@
 import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { PRESETS } from '@/lib/motion';
 import { format, addDays, isToday, isTomorrow } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
-import { Wand2, Shirt, CalendarDays, Repeat, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart, Luggage, CalendarRange } from 'lucide-react';
+import { Wand2, Shirt, CalendarDays, Repeat, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart, Luggage, ChevronRight } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PlanPageSkeleton } from '@/components/ui/skeletons';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -15,6 +15,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { getOccasionLabel } from '@/lib/occasionLabel';
+import { humanize } from '@/lib/humanize';
+import { cn } from '@/lib/utils';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { EmptyState } from '@/components/layout/EmptyState';
@@ -55,6 +57,22 @@ const occasionIcons: Record<string, React.ElementType> = {
 };
 
 const MAX_OUTFITS_PER_DAY = 4;
+
+/** Expandable explanation text — tap to toggle line clamp (REDESIGN 4) */
+function ExpandableExplanation({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <p
+      onClick={() => setExpanded(v => !v)}
+      className={cn(
+        "text-[14px] font-['Playfair_Display',serif] italic text-muted-foreground/70 leading-relaxed cursor-pointer",
+        !expanded && 'line-clamp-2',
+      )}
+    >
+      {text}
+    </p>
+  );
+}
 
 export default function PlanPage() {
   useBackgroundSyncNotification();
@@ -247,6 +265,7 @@ export default function PlanPage() {
     }
   };
 
+  const prefersReduced = useReducedMotion();
   const hasGarments = garments.length > 0;
 
   const handleRefresh = useCallback(async () => {
@@ -323,24 +342,33 @@ export default function PlanPage() {
             )}
           </div>
 
-          {/* Power actions — demoted to compact text links */}
+          {/* Action cards */}
           {hasGarments && (
-            <div className="flex items-center justify-center gap-4">
-              <button
+            <div className="flex flex-col gap-2">
+              <motion.button
+                whileTap={prefersReduced ? undefined : { scale: 0.97 }}
                 onClick={() => setQuickPlanSheetOpen(true)}
-                className="text-[11px] text-muted-foreground/50 hover:text-foreground flex items-center gap-1.5 transition-colors press min-h-[44px]"
+                className="w-full h-[72px] rounded-2xl bg-card border border-border/20 flex items-center px-4 gap-3 text-left"
               >
-                <CalendarRange className="w-3.5 h-3.5" />
-                {t('plan.plan_week_btn')}
-              </button>
-              <span className="text-muted-foreground/20">·</span>
-              <button
+                <CalendarDays className="w-5 h-5 text-foreground/50 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[15px] font-medium text-foreground">Plan the week</p>
+                  <p className="text-[12px] text-muted-foreground">AI fills all 7 days</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+              </motion.button>
+              <motion.button
+                whileTap={prefersReduced ? undefined : { scale: 0.97 }}
                 onClick={() => navigate('/plan/travel-capsule')}
-                className="text-[11px] text-muted-foreground/50 hover:text-foreground flex items-center gap-1.5 transition-colors press min-h-[44px]"
+                className="w-full h-[72px] rounded-2xl bg-card border border-border/20 flex items-center px-4 gap-3 text-left"
               >
-                <Luggage className="w-3.5 h-3.5" />
-                {t('plan.pack_trip_btn')}
-              </button>
+                <Luggage className="w-5 h-5 text-foreground/50 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[15px] font-medium text-foreground">Pack for a trip</p>
+                  <p className="text-[12px] text-muted-foreground">Capsule wardrobe for any destination</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+              </motion.button>
             </div>
           )}
 
@@ -349,6 +377,7 @@ export default function PlanPage() {
             summary={daySummary}
             isLoading={isSummaryLoading}
             onGenerateFromHint={() => setQuickGenerateSheetOpen(true)}
+            eventCount={calendarEvents.length}
           />
 
           {/* Fallback: show raw events only when no AI summary available */}
@@ -374,12 +403,29 @@ export default function PlanPage() {
                 const outfit = planned.outfit;
                 if (!outfit) return null;
                 const isWorn = planned.status === 'worn';
-                const OccasionIcon = outfit.occasion ? occasionIcons[outfit.occasion] || CalendarDays : CalendarDays;
+
+                // REDESIGN 3 — occasion + style as single text line
+                const occasionText = getOccasionLabel(outfit.occasion || '', t).toUpperCase();
+                const styleText = outfit.style_vibe ? humanize(outfit.style_vibe).toUpperCase() : '';
+                const tagLine = [occasionText, styleText].filter(Boolean).join(' · ');
 
                 return (
-                  <div key={planned.id} className="space-y-5 pb-6 border-b border-border/5 last:border-0 last:pb-0">
-                    {/* Outfit image grid */}
-                    <div 
+                  <div key={planned.id} className="space-y-4 pb-6 border-b border-border/5 last:border-0 last:pb-0">
+                    {/* 1. Occasion + style line (REDESIGN 3 + 4) */}
+                    <div className="flex items-center gap-2">
+                      <p className="text-[11px] font-['DM_Sans',sans-serif] tracking-widest text-muted-foreground/50 uppercase">
+                        {tagLine}
+                      </p>
+                      {isWorn && (
+                        <Badge variant="secondary" className="text-[10px] uppercase tracking-wider bg-success/10 text-success font-medium">
+                          <Check className="w-3 h-3 mr-1" />
+                          {t('plan.worn')}
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* 2. Garment grid 2x2 (hero) */}
+                    <div
                       className="rounded-2xl overflow-hidden cursor-pointer press"
                       onClick={() => navigate(`/outfits/${outfit.id}`)}
                     >
@@ -396,44 +442,25 @@ export default function PlanPage() {
                       </div>
                     </div>
 
-                    {/* Tags */}
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                      <Badge variant="secondary" className="capitalize text-xs font-medium">
-                        <OccasionIcon className="w-3 h-3 mr-1.5" />
-                        {getOccasionLabel(outfit.occasion || '', t)}
-                      </Badge>
-                      {outfit.style_vibe && (
-                        <Badge variant="outline" className="text-xs font-normal">{outfit.style_vibe}</Badge>
-                      )}
-                      {isWorn && (
-                        <Badge variant="secondary" className="text-[10px] uppercase tracking-wider bg-success/10 text-success font-medium">
-                          <Check className="w-3 h-3 mr-1" />
-                          {t('plan.worn')}
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Explanation */}
+                    {/* 3. Explanation — Playfair Display italic */}
                     {outfit.explanation && (
-                      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
-                        {outfit.explanation}
-                      </p>
+                      <ExpandableExplanation text={outfit.explanation} />
                     )}
 
-                    {/* Actions */}
+                    {/* 4. Swap + Details buttons */}
                     <div className="flex items-center gap-3 pt-1">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => { setCurrentOutfitId(outfit.id); setCurrentPlannedId(planned.id); setSwapSheetOpen(true); }}
                         className="flex-1 rounded-xl h-11 press"
                       >
                         <Repeat className="w-4 h-4 mr-2" />
                         {t('plan.swap')}
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => navigate(`/outfits/${outfit.id}`)}
                         className="flex-1 rounded-xl h-10 press"
                       >
@@ -441,10 +468,10 @@ export default function PlanPage() {
                       </Button>
                     </div>
 
-                    {/* Secondary actions */}
+                    {/* 5. Mark as worn + Remove */}
                     <div className="flex items-center justify-between">
                       {!isWorn && (
-                        <button 
+                        <button
                           onClick={() => handleMarkWorn(planned)}
                           className="text-xs text-muted-foreground/60 hover:text-success flex items-center gap-1.5 transition-colors press"
                         >
@@ -452,7 +479,7 @@ export default function PlanPage() {
                           {t('plan.mark_worn')}
                         </button>
                       )}
-                      <button 
+                      <button
                         onClick={() => handleRemove(planned.id)}
                         className="text-xs text-muted-foreground/40 hover:text-destructive flex items-center gap-1.5 transition-colors ml-auto press"
                       >
@@ -481,19 +508,19 @@ export default function PlanPage() {
               )}
             </div>
           ) : (
-            /* Empty state — editorial stylist copy */
-            <EmptyState
-              icon={CalendarDays}
-              title={isToday(selectedDate) ? 'Nothing planned for today' : isTomorrow(selectedDate) ? 'Tomorrow is wide open' : 'No outfit planned yet'}
-              description={isToday(selectedDate) ? 'Let me suggest something based on your day.' : 'Generate an outfit and I\'ll match it to the weather and your schedule.'}
-              action={{
-                label: t('plan.generate'),
-                onClick: () => setQuickGenerateSheetOpen(true),
-                icon: Sparkles,
-              }}
-              compact
-              variant="editorial"
-            />
+            /* REDESIGN 5 — Empty day state */
+            <div className="border border-border/20 border-dashed rounded-2xl min-h-[120px] flex flex-col items-center justify-center gap-3 py-6">
+              <p className="text-[13px] font-['DM_Sans',sans-serif] text-muted-foreground/40">
+                {t('plan.no_outfit') || 'No outfit planned'}
+              </p>
+              <button
+                onClick={() => setQuickGenerateSheetOpen(true)}
+                className="text-[13px] font-medium font-['DM_Sans',sans-serif] text-foreground/60 border border-border/20 rounded-full px-4 h-8 flex items-center gap-1.5 hover:bg-muted/40 transition-colors press"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {t('plan.plan_this_day') || '+ Plan this day'}
+              </button>
+            </div>
           )}
         </motion.div>
       </AnimatedPage>

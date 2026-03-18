@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCallback } from 'react';
+import { toast } from 'sonner';
 
 export type SignalType =
   | 'save'
@@ -44,6 +45,13 @@ export function useFeedbackSignals() {
           metadata: (input.metadata || {}) as Record<string, string>,
         }]);
       if (error) console.warn('Feedback signal failed:', error.message);
+    },
+    onSuccess: (_data, input) => {
+      if (input.signal_type === 'wear_confirm') {
+        toast("Noted — I'll remember what worked today.", { duration: 2000 });
+      } else if (input.signal_type === 'swap_choice') {
+        toast('Preference saved. Your stylist is learning.', { duration: 2000 });
+      }
     },
     // Silent — never block UI
     onError: () => {},

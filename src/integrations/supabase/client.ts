@@ -2,19 +2,19 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// Guard against missing env vars — createClient throws synchronously if these are
-// undefined, which crashes the module before React can mount (white blank screen).
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
-  || 'https://khvkwojtlkcvxjxztduj.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-  || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtodmt3b2p0bGtjdnhqeHp0ZHVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NDc0NzQsImV4cCI6MjA4OTQyMzQ3NH0.1ALSpWhawlnvTN5GeSLuBl99b4T6XQ9_rJLI_mdat8s';
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL 
+  || 'https://dvrdxjmnydcjzpcwjxgv.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY 
+  || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2cmR4am1ueWRjanpwY3dqeGd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMTY0NTcsImV4cCI6MjA4NDc5MjQ1N30.hBeJlcIRvvrQHwFNgGBvqsmM76hoOKHkXJo2dat-AnE';
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
+export const supabase = createClient<Database>(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY,
+  {
+    auth: {
+      storage: localStorage,
+      persistSession: true,
+      autoRefreshToken: true,
+    }
   }
-});
+);

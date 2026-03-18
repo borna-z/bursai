@@ -41,11 +41,42 @@ const SHOES_CATEGORIES = ["shoes", "sneakers", "boots", "loafers", "sandals", "h
 const OUTERWEAR_CATEGORIES = ["outerwear", "jacket", "coat", "blazer", "parka", "windbreaker", "jacka", "kappa", "rock"];
 const DRESS_CATEGORIES = ["dress", "jumpsuit", "overall", "klänning"];
 
+// Layering classification — mid-layers CANNOT be the sole upper body garment
+const MID_LAYER_KEYWORDS = [
+  "cardigan", "overshirt", "hoodie", "zip-up", "zip up", "fleece",
+  "chunky knit", "shawl collar", "open-front", "open front",
+  "vest", "shirt jacket", "shacket",
+];
+
+// Base layers CAN be worn directly against skin
+const BASE_LAYER_KEYWORDS = [
+  "t-shirt", "tshirt", "t_shirt", "tee",
+  "shirt", "dress_shirt", "dress shirt", "fitted shirt",
+  "polo",
+  "blouse",
+  "tank", "tank_top", "tank top",
+  "turtleneck", "roll_neck", "roll neck",
+  "crewneck", "crew neck",
+  "henley",
+];
+
+function isBaseLayer(garment: GarmentRow): boolean {
+  const text = `${garment.title} ${garment.category} ${garment.subcategory || ""}`.toLowerCase();
+  // Exclude items that match mid-layer keywords (e.g. "shawl collar cardigan" contains "shirt" but is mid-layer)
+  if (MID_LAYER_KEYWORDS.some(kw => text.includes(kw))) return false;
+  return BASE_LAYER_KEYWORDS.some(kw => text.includes(kw));
+}
+
+function isMidLayer(garment: GarmentRow): boolean {
+  const text = `${garment.title} ${garment.category} ${garment.subcategory || ""}`.toLowerCase();
+  return MID_LAYER_KEYWORDS.some(kw => text.includes(kw));
+}
+
 function categorizeSlot(category: string, subcategory: string | null): string | null {
   const cat = (category || "").toLowerCase();
   const sub = (subcategory || "").toLowerCase();
   const both = `${cat} ${sub}`;
-  
+
   if (DRESS_CATEGORIES.some(d => both.includes(d))) return "dress";
   if (OUTERWEAR_CATEGORIES.some(o => both.includes(o))) return "outerwear";
   if (TOP_CATEGORIES.some(t => both.includes(t))) return "top";
@@ -137,8 +168,20 @@ const TOOL_DEF = {
           type: "string",
           description: "2-3 sentence explanation of why this outfit works stylistically",
         },
+        outfit_reasoning: {
+          type: "object",
+          description: "Structured reasoning about why this outfit works. Each field is exactly one sentence.",
+          properties: {
+            why_it_works: { type: "string", description: "One sentence on why this combination works as a whole" },
+            occasion_fit: { type: "string", description: "One sentence on why it matches the requested occasion" },
+            weather_logic: { type: ["string", "null"], description: "One sentence on the weather consideration — null if weather is neutral (no precipitation, temperature 10-22°C)" },
+            color_note: { type: "string", description: "One sentence on color harmony or contrast at play" },
+          },
+          required: ["why_it_works", "occasion_fit", "weather_logic", "color_note"],
+          additionalProperties: false,
+        },
       },
-      required: ["items", "explanation"],
+      required: ["items", "explanation", "outfit_reasoning"],
       additionalProperties: false,
     },
   },
@@ -266,6 +309,15 @@ serve(async (req) => {
 
     const systemPrompt = `${VOICE_OUTFIT_GENERATION}
 
+Layering must follow real-world dressing logic.
+Build outfits from skin outward:
+1. Base layer against skin (shirt, tee, polo)
+2. Mid layer over base (cardigan, overshirt, knit)
+3. Outer shell last (coat, parka, jacket)
+Never assign a cardigan, overshirt, hoodie or open-front knit as the sole upper body garment.
+These pieces require something underneath.
+A physically unwearable outfit is always wrong regardless of style or occasion.
+
 Create ONE complete, wearable outfit.
 
 MANDATORY RULES — FOLLOW STRICTLY:
@@ -277,6 +329,23 @@ MANDATORY RULES — FOLLOW STRICTLY:
 6. Consider color harmony: complementary, analogous, tone-on-tone, or neutral base + accent
 7. Match formality levels across all items
 8. Each garment ID can only appear ONCE in the outfit
+
+LAYERING RULES — CRITICAL:
+9. LAYERING CLASSIFICATION:
+   MID-LAYER pieces (CANNOT be the only upper body garment — require a base layer underneath):
+   cardigan, overshirt, blazer (worn as casual top), hoodie, zip-up, fleece, chunky knit,
+   shawl collar, open-front knit, vest (knit), shirt jacket / shacket
+   BASE LAYER pieces (CAN be worn directly against skin):
+   t-shirt, fitted shirt, polo, blouse, tank top, turtleneck, crewneck (fitted), henley
+10. SLOT HIERARCHY for cold-weather outfits:
+    Layer 1 (base — slot "top"): t-shirt / shirt / polo
+    Layer 2 (mid — additional "top" item): cardigan / overshirt / hoodie
+    Layer 3 (outer — slot "outerwear"): coat / parka / jacket
+    Only include outerwear when temperature < 15°C OR precipitation is rain/snow.
+11. VALIDATION: Before returning the outfit, check:
+    - If the "top" slot contains a mid-layer piece AND no base layer is present:
+      → Add a base layer garment from the wardrobe as an additional "top" item
+      → If no base layer is available, swap the mid-layer for a true base layer top
 
 WEATHER CONTEXT:
 ${weather?.temperature !== undefined ? `Temperature: ${weather.temperature}°C` : "Unknown temperature"}
@@ -293,6 +362,14 @@ ${profile?.height_cm ? `Height: ${profile.height_cm}cm` : ""}
 
 Write the explanation in ${localeName}.
 
+OUTFIT REASONING:
+In addition to the explanation, return a structured outfit_reasoning object:
+- why_it_works: One sentence on why this combination works as a whole
+- occasion_fit: One sentence on why it matches the requested occasion
+- weather_logic: One sentence on the weather consideration — set to null if weather is neutral (no precipitation, temperature 10-22°C)
+- color_note: One sentence on color harmony or contrast at play
+Each field must be exactly one sentence. Write in ${localeName}.
+
 WARDROBE (choose ONLY from these):
 ${garmentList}`;
 
@@ -306,7 +383,7 @@ ${garmentList}`;
       complexity: "standard",
       max_tokens: estimateMaxTokens({ outputItems: needsOuterwear ? 5 : 4, perItemTokens: 40, baseTokens: 120 }),
         });
-        return { data: data as { items: { slot: string; garment_id: string }[]; explanation: string } };
+        return { data: data as { items: { slot: string; garment_id: string }[]; explanation: string; outfit_reasoning?: { why_it_works: string; occasion_fit: string; weather_logic: string | null; color_note: string } } };
       } catch (e: any) {
         if (e.status === 429) return { error: "rate_limit", status: 429 };
         if (e.status === 402) return { error: "payment", status: 402 };
@@ -338,6 +415,49 @@ ${garmentList}`;
     const garmentIdSet = new Set(garments.map((g) => g.id));
     let validItems = result.data!.items.filter((item) => garmentIdSet.has(item.garment_id));
     let explanation = result.data!.explanation;
+    const outfitReasoning = result.data!.outfit_reasoning || null;
+
+    // Validate layering — ensure mid-layer tops have a base layer underneath
+    const topItems = validItems.filter(i => i.slot === "top");
+    const garmentById = new Map(garments.map(g => [g.id, g]));
+    const usedIdsForLayering = new Set(validItems.map(i => i.garment_id));
+    const hasMidLayerTop = topItems.some(i => {
+      const g = garmentById.get(i.garment_id);
+      return g && isMidLayer(g);
+    });
+    const hasBaseLayerTop = topItems.some(i => {
+      const g = garmentById.get(i.garment_id);
+      return g && isBaseLayer(g);
+    });
+
+    let limitationNote = "";
+    if (hasMidLayerTop && !hasBaseLayerTop) {
+      // Try to find a base layer in the wardrobe
+      const baseCandidate = garments.find(g =>
+        isBaseLayer(g) && !usedIdsForLayering.has(g.id)
+      );
+      if (baseCandidate) {
+        console.log("Layering fix: adding base layer", baseCandidate.title);
+        validItems.push({ slot: "top", garment_id: baseCandidate.id });
+        usedIdsForLayering.add(baseCandidate.id);
+      } else {
+        // Try to swap mid-layer for a true base layer top
+        const baseSwap = availableBySlot.top.find(g =>
+          isBaseLayer(g) && !usedIdsForLayering.has(g.id)
+        );
+        if (baseSwap) {
+          const midIdx = validItems.findIndex(i =>
+            i.slot === "top" && garmentById.get(i.garment_id) && isMidLayer(garmentById.get(i.garment_id)!)
+          );
+          if (midIdx !== -1) {
+            console.log("Layering fix: swapping mid-layer for base layer", baseSwap.title);
+            validItems[midIdx] = { slot: "top", garment_id: baseSwap.id };
+          }
+        } else {
+          limitationNote = "Add a simple shirt or t-shirt to complete this layered look";
+        }
+      }
+    }
 
     // Validate completeness
     const slots = new Set(validItems.map(i => i.slot));
@@ -384,11 +504,19 @@ ${garmentList}`;
       throw new Error("Could not create a complete outfit with your wardrobe");
     }
 
+    const responseBody: Record<string, unknown> = {
+      items: validItems,
+      explanation: explanation || "Great combination!",
+    };
+    if (outfitReasoning) {
+      responseBody.outfit_reasoning = outfitReasoning;
+    }
+    if (limitationNote) {
+      responseBody.limitation_note = limitationNote;
+    }
+
     return new Response(
-      JSON.stringify({
-        items: validItems,
-        explanation: explanation || "Great combination!",
-      }),
+      JSON.stringify(responseBody),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
