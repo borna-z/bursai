@@ -251,11 +251,11 @@ export default function HomePage() {
               </motion.button>
             ) : (
               /* no_outfit — premium "What should I wear?" hero */
-              <CoachMark
-                step={3}
-                currentStep={coach.currentStep}
-                isCoachActive={coach.isActive}
-                title="Your first outfit"
+                <CoachMark
+                  step={3}
+                  currentStep={coach.currentStep}
+                  isCoachActive={coach.isStepActive(3)}
+                  title="Your first outfit"
                 body="Once you have a top, bottom and shoes — tap here and BURS generates your first outfit."
                 ctaLabel="Let's go"
                 onCta={() => coach.completeTour()}

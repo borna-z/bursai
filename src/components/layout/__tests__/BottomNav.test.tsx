@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -36,6 +36,7 @@ vi.mock('@/hooks/useFirstRunCoach', () => ({
     isActive: false,
     currentStep: 0,
     hasEnoughGarments: false,
+    isStepActive: vi.fn(() => false),
     advanceStep: vi.fn(),
     completeTour: vi.fn(),
   })),
@@ -51,6 +52,25 @@ vi.mock('@/contexts/AuthContext', () => ({
 
 import { BottomNav } from '../BottomNav';
 
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({
+    x: 0,
+    y: 0,
+    top: 0,
+    left: 0,
+    bottom: 44,
+    right: 120,
+    width: 120,
+    height: 44,
+    toJSON: () => ({}),
+  }) as DOMRect);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 function renderNav(path = '/') {
   return render(
     <MemoryRouter initialEntries={[path]}>
@@ -60,8 +80,6 @@ function renderNav(path = '/') {
 }
 
 describe('BottomNav smoke', () => {
-  beforeEach(() => vi.clearAllMocks());
-
   it('renders all 5 tab labels', () => {
     renderNav();
     expect(screen.getByText('nav.today')).toBeInTheDocument();
@@ -87,24 +105,26 @@ describe('BottomNav smoke', () => {
       isActive: true,
       currentStep: 0,
       hasEnoughGarments: false,
+      isStepActive: vi.fn(() => false),
       advanceStep: vi.fn(),
       completeTour: vi.fn(),
     });
 
     renderNav('/wardrobe');
-    expect(screen.queryByText('Start here')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /take me there/i })).not.toBeInTheDocument();
   });
 
-  it('shows the wardrobe coach overlay on other routes when step 0 is active', () => {
+  it('shows the wardrobe coach overlay on other routes when step 0 is active', async () => {
     vi.mocked(useFirstRunCoach).mockReturnValue({
       isActive: true,
       currentStep: 0,
       hasEnoughGarments: false,
+      isStepActive: vi.fn((step: number) => step === 0),
       advanceStep: vi.fn(),
       completeTour: vi.fn(),
     });
 
     renderNav('/');
-    expect(screen.getByText('Start here')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /take me there/i })).toBeInTheDocument();
   });
 });
