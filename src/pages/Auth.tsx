@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { lovable } from '@/integrations/lovable/index';
 import { toast } from 'sonner';
 import { Loader2, Eye, EyeOff, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -125,10 +124,25 @@ export default function AuthPage() {
 
   const handleOAuth = async (provider: 'google' | 'apple') => {
     setIsLoading(true);
-    const { error } = await lovable.auth.signInWithOAuth(provider, {
-      redirect_uri: window.location.origin,
-    });
-    if (error) { toast.error(t('auth.something_wrong')); setIsLoading(false); }
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+      if (error) {
+        toast.error(t('auth.something_wrong'));
+        setIsLoading(false);
+      }
+    } catch {
+      toast.error(t('auth.something_wrong'));
+      setIsLoading(false);
+    }
   };
 
   const isLogin = tab === 'login';

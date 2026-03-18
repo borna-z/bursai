@@ -1,15 +1,22 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { lovable } from '@/integrations/lovable/index';
+import { supabase } from '@/integrations/supabase/client';
 
 export function HeroSection() {
   const navigate = useNavigate();
   const { t } = useLanguage();
 
   const handleOAuth = async (provider: 'google' | 'apple') => {
-    await lovable.auth.signInWithOAuth(provider, {
-      redirect_uri: window.location.origin,
+    await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
     });
   };
 
