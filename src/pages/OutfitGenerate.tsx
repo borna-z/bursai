@@ -144,6 +144,7 @@ export default function OutfitGeneratePage() {
           layer_order: result.layer_order,
           needs_base_layer: result.needs_base_layer,
           occasion_submode: result.occasion_submode,
+          outfit_reasoning: result.outfit_reasoning,
         },
       });
     } catch (err) {

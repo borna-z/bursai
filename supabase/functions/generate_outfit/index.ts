@@ -168,8 +168,20 @@ const TOOL_DEF = {
           type: "string",
           description: "2-3 sentence explanation of why this outfit works stylistically",
         },
+        outfit_reasoning: {
+          type: "object",
+          description: "Structured reasoning about why this outfit works. Each field is exactly one sentence.",
+          properties: {
+            why_it_works: { type: "string", description: "One sentence on why this combination works as a whole" },
+            occasion_fit: { type: "string", description: "One sentence on why it matches the requested occasion" },
+            weather_logic: { type: ["string", "null"], description: "One sentence on the weather consideration — null if weather is neutral (no precipitation, temperature 10-22°C)" },
+            color_note: { type: "string", description: "One sentence on color harmony or contrast at play" },
+          },
+          required: ["why_it_works", "occasion_fit", "weather_logic", "color_note"],
+          additionalProperties: false,
+        },
       },
-      required: ["items", "explanation"],
+      required: ["items", "explanation", "outfit_reasoning"],
       additionalProperties: false,
     },
   },
@@ -350,6 +362,14 @@ ${profile?.height_cm ? `Height: ${profile.height_cm}cm` : ""}
 
 Write the explanation in ${localeName}.
 
+OUTFIT REASONING:
+In addition to the explanation, return a structured outfit_reasoning object:
+- why_it_works: One sentence on why this combination works as a whole
+- occasion_fit: One sentence on why it matches the requested occasion
+- weather_logic: One sentence on the weather consideration — set to null if weather is neutral (no precipitation, temperature 10-22°C)
+- color_note: One sentence on color harmony or contrast at play
+Each field must be exactly one sentence. Write in ${localeName}.
+
 WARDROBE (choose ONLY from these):
 ${garmentList}`;
 
@@ -363,7 +383,7 @@ ${garmentList}`;
       complexity: "standard",
       max_tokens: estimateMaxTokens({ outputItems: needsOuterwear ? 5 : 4, perItemTokens: 40, baseTokens: 120 }),
         });
-        return { data: data as { items: { slot: string; garment_id: string }[]; explanation: string } };
+        return { data: data as { items: { slot: string; garment_id: string }[]; explanation: string; outfit_reasoning?: { why_it_works: string; occasion_fit: string; weather_logic: string | null; color_note: string } } };
       } catch (e: any) {
         if (e.status === 429) return { error: "rate_limit", status: 429 };
         if (e.status === 402) return { error: "payment", status: 402 };
@@ -395,6 +415,7 @@ ${garmentList}`;
     const garmentIdSet = new Set(garments.map((g) => g.id));
     let validItems = result.data!.items.filter((item) => garmentIdSet.has(item.garment_id));
     let explanation = result.data!.explanation;
+    const outfitReasoning = result.data!.outfit_reasoning || null;
 
     // Validate layering — ensure mid-layer tops have a base layer underneath
     const topItems = validItems.filter(i => i.slot === "top");
@@ -487,6 +508,9 @@ ${garmentList}`;
       items: validItems,
       explanation: explanation || "Great combination!",
     };
+    if (outfitReasoning) {
+      responseBody.outfit_reasoning = outfitReasoning;
+    }
     if (limitationNote) {
       responseBody.limitation_note = limitationNote;
     }
