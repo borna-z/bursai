@@ -114,7 +114,7 @@ describe('BottomNav smoke', () => {
     expect(screen.queryByRole('button', { name: /take me there/i })).not.toBeInTheDocument();
   });
 
-  it('shows the wardrobe coach overlay on other routes when step 0 is active', () => {
+  it('shows the wardrobe coach overlay on other routes when step 0 is active', async () => {
     vi.mocked(useFirstRunCoach).mockReturnValue({
       isActive: true,
       currentStep: 0,
@@ -125,6 +125,6 @@ describe('BottomNav smoke', () => {
     });
 
     renderNav('/');
-    expect(screen.getByRole('button', { name: /take me there/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /take me there/i })).toBeInTheDocument();
   });
 });
