@@ -61,7 +61,7 @@ export function CoachMark({
     const node = wrapperRef.current;
     if (!node) return;
 
-    let frame = window.requestAnimationFrame(updateRect);
+    const frame = window.requestAnimationFrame(updateRect);
     const resizeObserver = typeof ResizeObserver !== 'undefined'
       ? new ResizeObserver(() => updateRect())
       : null;
