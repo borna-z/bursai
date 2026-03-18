@@ -1,15 +1,17 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Sparkles, AlertCircle, Crown, Zap,
-  Check, Thermometer,
+  Check, Thermometer, Bookmark, CalendarPlus,
 } from 'lucide-react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
-import { useOutfitGenerator } from '@/hooks/useOutfitGenerator';
+import { LazyImageSimple } from '@/components/ui/lazy-image';
+import { useOutfitGenerator, type GeneratedOutfit } from '@/hooks/useOutfitGenerator';
+import { useUpdateOutfit } from '@/hooks/useOutfits';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
 import { useWeather } from '@/hooks/useWeather';
@@ -37,7 +39,7 @@ const STYLES = [
   'Edgy', 'Bohemian', 'Preppy', 'Relaxed',
 ] as const;
 
-type Phase = 'picking' | 'generating' | 'error';
+type Phase = 'picking' | 'generating' | 'done' | 'error';
 type GenerationMode = 'standard' | 'stylist';
 
 /* ── Weather styling advice ── */
@@ -87,6 +89,9 @@ export default function OutfitGeneratePage() {
   const [generationMode, setGenerationMode] = useState<GenerationMode>(isPremium ? 'stylist' : 'standard');
   const [lastError, setLastError] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [generatedResults, setGeneratedResults] = useState<GeneratedOutfit[]>([]);
+  const [primaryIndex, setPrimaryIndex] = useState(0);
+  const updateOutfit = useUpdateOutfit();
 
   const contextSubtitle = useMemo(() => {
     const parts: string[] = [];
@@ -98,6 +103,24 @@ export default function OutfitGeneratePage() {
   }, [selectedOccasion, selectedStyles, weather?.temperature]);
 
   const weatherAdvice = getWeatherAdvice(weather?.temperature, weather?.precipitation);
+
+  const navigateToDetail = useCallback((outfit: GeneratedOutfit) => {
+    navigate(`/outfits/${outfit.id}`, {
+      replace: true,
+      state: {
+        justGenerated: true,
+        confidence_score: outfit.confidence_score,
+        confidence_level: outfit.confidence_level,
+        limitation_note: outfit.limitation_note,
+        family_label: outfit.family_label,
+        wardrobe_insights: outfit.wardrobe_insights,
+        layer_order: outfit.layer_order,
+        needs_base_layer: outfit.needs_base_layer,
+        occasion_submode: outfit.occasion_submode,
+        outfit_reasoning: outfit.outfit_reasoning,
+      },
+    });
+  }, [navigate]);
 
   // Gate: require enough garments
   if (!isUnlocked('outfit_gen')) {
@@ -132,27 +155,34 @@ export default function OutfitGeneratePage() {
           wind: weather?.wind ?? 'low',
         },
       });
-      navigate(`/outfits/${result.id}`, {
-        replace: true,
-        state: {
-          justGenerated: true,
-          confidence_score: result.confidence_score,
-          confidence_level: result.confidence_level,
-          limitation_note: result.limitation_note,
-          family_label: result.family_label,
-          wardrobe_insights: result.wardrobe_insights,
-          layer_order: result.layer_order,
-          needs_base_layer: result.needs_base_layer,
-          occasion_submode: result.occasion_submode,
-          outfit_reasoning: result.outfit_reasoning,
-        },
-      });
+      setGeneratedResults([result]);
+      setPrimaryIndex(0);
+      setPhase('done');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
       setLastError(message);
       setPhase('error');
       toast.error('Generation failed', { description: message });
     }
+  };
+
+  const handleSaveOutfit = async (outfit: GeneratedOutfit) => {
+    try {
+      await updateOutfit.mutateAsync({ id: outfit.id, updates: { saved: true } });
+      toast.success('Outfit saved');
+    } catch {
+      toast.error('Could not save outfit');
+    }
+  };
+
+  const handlePlanOutfit = (outfit: GeneratedOutfit) => {
+    navigate(`/outfits/${outfit.id}`, {
+      state: { openPlanner: true },
+    });
+  };
+
+  const handleSwapPrimary = () => {
+    setPrimaryIndex((prev) => (prev === 0 ? 1 : 0));
   };
 
   // ── GENERATING PHASE ──
@@ -172,6 +202,122 @@ export default function OutfitGeneratePage() {
           />
         </div>
       </AppLayout>
+      </PageErrorBoundary>
+    );
+  }
+
+  // ── DONE PHASE — Primary recommendation ──
+  if (phase === 'done' && generatedResults.length > 0) {
+    const primary = generatedResults[primaryIndex];
+    const secondaryIdx = primaryIndex === 0 ? 1 : 0;
+    const secondary = generatedResults[secondaryIdx] ?? null;
+    const primaryItems = primary.items.slice(0, 4);
+    const reasoningText =
+      primary.outfit_reasoning?.why_it_works ||
+      (primary.explanation ? primary.explanation.slice(0, 100) + (primary.explanation.length > 100 ? '…' : '') : '');
+
+    return (
+      <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
+        <AppLayout>
+          <div className="page-container pb-12 animate-fade-in">
+            <AnimatePresence mode="popLayout">
+              {/* ── Primary Card ── */}
+              <motion.div
+                key={`primary-${primary.id}`}
+                layout={!prefersReduced}
+                initial={prefersReduced ? undefined : { opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReduced ? undefined : { opacity: 0, y: -20 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                className="pt-8"
+              >
+                {/* 2x2 Garment Grid */}
+                <div className="grid grid-cols-2 gap-1.5 rounded-2xl overflow-hidden">
+                  {primaryItems.map((item) => (
+                    <LazyImageSimple
+                      key={item.garment.id}
+                      imagePath={item.garment.image_path}
+                      alt={item.garment.title || item.slot}
+                      className="aspect-[3/4] rounded-xl object-cover"
+                    />
+                  ))}
+                </div>
+
+                {/* Reasoning text */}
+                {reasoningText && (
+                  <p
+                    className="mt-4 text-[14px] italic text-muted-foreground/70 leading-relaxed"
+                    style={{ fontFamily: "'Playfair Display', serif" }}
+                  >
+                    {reasoningText}
+                  </p>
+                )}
+
+                {/* Primary CTA */}
+                <Button
+                  onClick={() => navigateToDetail(primary)}
+                  className="bg-foreground text-background h-12 rounded-full w-full text-[15px] font-medium font-['DM_Sans'] mt-5"
+                  size="lg"
+                >
+                  Wear this today
+                </Button>
+
+                {/* Secondary action row */}
+                <div className="flex items-center justify-between mt-3 px-2">
+                  <button
+                    onClick={() => handleSaveOutfit(primary)}
+                    className="flex items-center gap-1.5 text-[13px] font-['DM_Sans'] text-muted-foreground/60 active:opacity-70 transition-opacity"
+                  >
+                    <Bookmark className="w-4 h-4" />
+                    Save
+                  </button>
+                  <button
+                    onClick={() => handlePlanOutfit(primary)}
+                    className="flex items-center gap-1.5 text-[13px] font-['DM_Sans'] text-muted-foreground/60 active:opacity-70 transition-opacity"
+                  >
+                    <CalendarPlus className="w-4 h-4" />
+                    Plan
+                  </button>
+                </div>
+              </motion.div>
+
+              {/* ── Secondary Card ── */}
+              {secondary && (
+                <motion.div
+                  key={`secondary-${secondary.id}`}
+                  layout={!prefersReduced}
+                  initial={prefersReduced ? undefined : { opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={prefersReduced ? undefined : { opacity: 0, y: -20 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  className="mt-6"
+                >
+                  <p className="text-[10px] font-['DM_Sans'] tracking-widest text-muted-foreground/40 uppercase mb-3">
+                    OR TRY THIS INSTEAD
+                  </p>
+                  <button
+                    onClick={handleSwapPrimary}
+                    className="w-full text-left active:opacity-80 transition-opacity"
+                  >
+                    <div className="flex gap-2">
+                      {secondary.items.slice(0, 4).map((item) => (
+                        <LazyImageSimple
+                          key={item.garment.id}
+                          imagePath={item.garment.image_path}
+                          alt={item.garment.title || item.slot}
+                          className="w-16 h-20 rounded-xl object-cover flex-shrink-0"
+                        />
+                      ))}
+                    </div>
+                    <p className="text-[12px] font-['DM_Sans'] text-muted-foreground/50 mt-2">
+                      {OCCASIONS.find(o => o.key === secondary.occasion)?.label ?? secondary.occasion}
+                    </p>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </AppLayout>
       </PageErrorBoundary>
     );
   }
