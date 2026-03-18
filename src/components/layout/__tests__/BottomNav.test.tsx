@@ -111,7 +111,7 @@ describe('BottomNav smoke', () => {
     });
 
     renderNav('/wardrobe');
-    expect(screen.queryByText('Start here')).not.toBeInTheDocument();
+    expect(screen.queryByText((content) => content.includes('Start here'))).not.toBeInTheDocument();
   });
 
   it('shows the wardrobe coach overlay on other routes when step 0 is active', () => {
@@ -125,6 +125,6 @@ describe('BottomNav smoke', () => {
     });
 
     renderNav('/');
-    expect(screen.getByText('Start here')).toBeInTheDocument();
+    expect(screen.getByText((content) => content.includes('Start here'))).toBeInTheDocument();
   });
 });
