@@ -1,5 +1,5 @@
 import { Home, Shirt, CalendarDays, Bot, BarChart3 } from 'lucide-react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -20,7 +20,9 @@ export function BottomNav() {
   const { t } = useLanguage();
   const prefersReduced = useReducedMotion();
   const navigate = useNavigate();
+  const location = useLocation();
   const coach = useFirstRunCoach();
+  const isWardrobeRoute = location.pathname.startsWith('/wardrobe');
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/60 backdrop-blur-2xl backdrop-saturate-[1.8] border-t border-border/15 safe-bottom" aria-label="Main navigation">
@@ -72,7 +74,7 @@ export function BottomNav() {
                 key={tab.path}
                 step={0}
                 currentStep={coach.currentStep}
-                isCoachActive={coach.isActive}
+                isCoachActive={coach.isActive && !isWardrobeRoute}
                 title="Start here"
                 body="Add your clothes to BURS. The AI reads each garment automatically."
                 ctaLabel="Take me there"
