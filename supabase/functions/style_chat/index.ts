@@ -78,13 +78,19 @@ async function getCalendarContext(supabase: ReturnType<typeof createClient>, use
   return `\nCalendar events:\n${lines.join("\n")}`;
 }
 
-async function getWardrobeContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
+interface WardrobeResult {
+  text: string;
+  garmentCount: number;
+  dominantArchetype: string | null;
+}
+
+async function getWardrobeContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<WardrobeResult> {
   const { data: garments } = await supabase
     .from("garments")
     .select("id, title, category, subcategory, color_primary, color_secondary, material, fit, formality, pattern, season_tags, wear_count, last_worn_at, image_path, ai_raw")
     .eq("user_id", userId)
     .limit(80);
-  if (!garments?.length) return "The user has no garments in their wardrobe yet.";
+  if (!garments?.length) return { text: "The user has no garments in their wardrobe yet.", garmentCount: 0, dominantArchetype: null };
 
   // ── IB-4b: Wardrobe composition summary ──
   const catCounts: Record<string, number> = {};
@@ -172,17 +178,32 @@ async function getWardrobeContext(supabase: ReturnType<typeof createClient>, use
     insightLines += `\nMost worn: ${overused.map((g: any) => `${g.title} (${g.wear_count}x)`).join(", ")}`;
   }
 
-  return `Wardrobe (${garments.length} garments: ${summary}):${compositionBlock}\n\n${details}${insightLines}`;
+  const dominantArchetype = topArchetypes.length > 0
+    ? Object.entries(styleClusters).sort((a, b) => b[1] - a[1])[0][0]
+    : null;
+
+  return {
+    text: `Wardrobe (${garments.length} garments: ${summary}):${compositionBlock}\n\n${details}${insightLines}`,
+    garmentCount: garments.length,
+    dominantArchetype,
+  };
 }
 
-async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
+interface RecentOutfitsResult {
+  text: string;
+  occasions: string[];
+}
+
+async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<RecentOutfitsResult> {
   const { data: outfits } = await supabase
     .from("outfits")
     .select("id, occasion, style_vibe, explanation, worn_at, generated_at, outfit_items(slot, garment_id, garments(title, color_primary))")
     .eq("user_id", userId)
     .order("generated_at", { ascending: false })
     .limit(5);
-  if (!outfits?.length) return "";
+  if (!outfits?.length) return { text: "", occasions: [] };
+
+  const occasions = [...new Set(outfits.map((o: any) => o.occasion).filter(Boolean))] as string[];
 
   const lines = outfits.map((o: any) => {
     const items = (o.outfit_items || []).map((i: any) =>
@@ -192,7 +213,7 @@ async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>
     return `- ${o.occasion}${o.style_vibe ? '/' + o.style_vibe : ''}: ${items}${wornStr}`;
   });
 
-  return `\nRecent outfits:\n${lines.join("\n")}`;
+  return { text: `\nRecent outfits:\n${lines.join("\n")}`, occasions };
 }
 
 // ── IB-4c: Recent rejection/swap context ──
@@ -248,7 +269,7 @@ serve(async (req) => {
     }
     const user = { id: claimsData.claims.sub as string };
 
-    const { messages, locale: rawLocale } = await req.json();
+    const { messages, locale: rawLocale, garmentCount: _clientGarmentCount, archetype: _clientArchetype } = await req.json();
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "Invalid messages" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -334,6 +355,17 @@ serve(async (req) => {
     const seasonIdx = currentMonth >= 2 && currentMonth <= 4 ? 0 : currentMonth >= 5 && currentMonth <= 7 ? 1 : currentMonth >= 8 && currentMonth <= 10 ? 2 : 3;
     const seasonHint = lang.seasonNames[seasonIdx];
 
+    // Build user identity summary block
+    const identityParts: string[] = [];
+    identityParts.push(`This user's wardrobe has ${wardrobeCtx.garmentCount} garments.`);
+    if (wardrobeCtx.dominantArchetype) {
+      identityParts.push(`Their dominant style is ${wardrobeCtx.dominantArchetype}.`);
+    }
+    if (recentOutfitsCtx.occasions.length > 0) {
+      identityParts.push(`Recent outfit occasions: ${recentOutfitsCtx.occasions.join(", ")}.`);
+    }
+    const identityBlock = identityParts.join("\n");
+
     const systemPrompt = `${VOICE_STYLIST_CHAT}
 
 LANGUAGE: Respond ONLY in ${lang.name}. Every word.
@@ -341,10 +373,13 @@ LANGUAGE: Respond ONLY in ${lang.name}. Every word.
 Season context: ${seasonHint} ${new Date().getFullYear()}
 
 ${profile?.display_name ? `Client: ${profile.display_name}` : ""}${profile?.home_city ? ` (${profile.home_city})` : ""}${bodyContext}
+
+USER IDENTITY:
+${identityBlock}
 ${styleLines ? `\nSTYLE PROFILE:\n${styleLines}` : ""}
 
-${wardrobeCtx}
-${recentOutfitsCtx}
+${wardrobeCtx.text}
+${recentOutfitsCtx.text}
 ${rejectionsCtx}
 ${calendarCtx}
 ${weatherCtx}
