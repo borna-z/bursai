@@ -13,9 +13,9 @@ const COACH_STEP_ROUTES: Record<number, (pathname: string) => boolean> = {
 
 export function useFirstRunCoach() {
   const location = useLocation();
-  const { data: profile } = useProfile();
+  const { data: profile, isLoading: isProfileLoading } = useProfile();
   const updateProfile = useUpdateProfile();
-  const { data: garmentCount } = useGarmentCount();
+  const { data: garmentCount, isLoading: isGarmentCountLoading } = useGarmentCount();
 
   const prefs = asPreferences(profile?.preferences);
   const onboardingDone = prefs?.onboarding?.completed === true;
@@ -24,6 +24,8 @@ export function useFirstRunCoach() {
   const [optimisticStep, setOptimisticStep] = useState(profileStep);
   const [optimisticToured, setOptimisticToured] = useState(profileToured);
   const hasEnoughGarments = (garmentCount ?? 0) >= 3;
+  const isSupportedCoachStep = Object.prototype.hasOwnProperty.call(COACH_STEP_ROUTES, optimisticStep);
+  const isCoachResolved = !isProfileLoading && !isGarmentCountLoading && garmentCount !== undefined;
 
   useEffect(() => {
     setOptimisticStep(profileStep);
@@ -33,7 +35,7 @@ export function useFirstRunCoach() {
     setOptimisticToured(profileToured);
   }, [profileToured]);
 
-  const isEligibleForCoach = !onboardingDone && !optimisticToured && !hasEnoughGarments;
+  const isEligibleForCoach = isCoachResolved && isSupportedCoachStep && !onboardingDone && !optimisticToured && !hasEnoughGarments;
   const currentStep = optimisticStep;
 
   const isStepActive = useMemo(() => {

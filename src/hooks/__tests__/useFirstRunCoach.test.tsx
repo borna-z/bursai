@@ -32,6 +32,7 @@ function makeProfile(step: number, options?: { completed?: boolean; toured?: boo
         },
       },
     },
+    isLoading: false,
   };
 }
 
@@ -56,7 +57,7 @@ describe('useFirstRunCoach', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseProfile.mockReturnValue(makeProfile(0));
-    mockUseGarmentCount.mockReturnValue({ data: 0 });
+    mockUseGarmentCount.mockReturnValue({ data: 0, isLoading: false });
     mockMutateAsync.mockResolvedValue({});
   });
 
@@ -80,6 +81,27 @@ describe('useFirstRunCoach', () => {
     const { result: homeResult } = renderHook(() => useFirstRunCoach(), { wrapper: createWrapper('/') });
     expect(homeResult.current.isStepActive(3)).toBe(true);
     expect(homeResult.current.isStepActive(0)).toBe(false);
+  });
+
+
+  it('keeps the coach inactive until profile and garment state are resolved', () => {
+    mockUseProfile.mockReturnValue({ data: undefined, isLoading: true });
+    mockUseGarmentCount.mockReturnValue({ data: undefined, isLoading: true });
+
+    const { result } = renderHook(() => useFirstRunCoach(), { wrapper: createWrapper('/wardrobe') });
+
+    expect(result.current.isActive).toBe(false);
+    expect(result.current.isStepActive(0)).toBe(false);
+    expect(result.current.isStepActive(1)).toBe(false);
+  });
+
+  it('keeps the coach inactive for unsupported stored steps', () => {
+    mockUseProfile.mockReturnValue(makeProfile(99));
+
+    const { result } = renderHook(() => useFirstRunCoach(), { wrapper: createWrapper('/') });
+
+    expect(result.current.isActive).toBe(false);
+    expect(result.current.isStepActive(3)).toBe(false);
   });
 
   it('optimistically advances the step before the profile query refreshes', async () => {
@@ -110,7 +132,7 @@ describe('useFirstRunCoach', () => {
   });
 
   it('disables the coach for users who already have enough garments', () => {
-    mockUseGarmentCount.mockReturnValue({ data: 3 });
+    mockUseGarmentCount.mockReturnValue({ data: 3, isLoading: false });
 
     const { result } = renderHook(() => useFirstRunCoach(), { wrapper: createWrapper('/wardrobe') });
 
