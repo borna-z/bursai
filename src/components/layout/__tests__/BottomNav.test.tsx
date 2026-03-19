@@ -94,6 +94,14 @@ describe('BottomNav smoke', () => {
     expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument();
   });
 
+  it('keeps safe-area spacing separate from the centered nav row', () => {
+    const { container } = renderNav();
+    const nav = screen.getByRole('navigation', { name: 'Main navigation' });
+
+    expect(nav.className).not.toContain('safe-bottom');
+    expect(container.querySelector('[aria-hidden="true"].safe-bottom')).toBeInTheDocument();
+  });
+
   it('marks active tab with accent color class', () => {
     renderNav('/wardrobe');
     const wardrobeLink = screen.getByText('nav.wardrobe').closest('a');
