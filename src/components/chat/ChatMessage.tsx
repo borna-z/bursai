@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { GarmentInlineCard } from '@/components/chat/GarmentInlineCard';
 import { OutfitSuggestionCard } from '@/components/chat/OutfitSuggestionCard';
 import type { GarmentBasic } from '@/hooks/useGarmentsByIds';
-import { GARMENT_TAG_RE, OUTFIT_TAG_RE } from '@/lib/garmentTokens';
+import { OUTFIT_TAG_RE, parseGarmentTextSegments } from '@/lib/garmentTokens';
 
 type MultimodalPart =
   | { type: 'text'; text: string }
@@ -53,26 +53,19 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
       cleanText = cleanText.replace(om.fullMatch, '');
     }
 
-    let lastIndex = 0;
-    GARMENT_TAG_RE.lastIndex = 0;
-    let match: RegExpExecArray | null;
-    while ((match = GARMENT_TAG_RE.exec(cleanText)) !== null) {
-      if (match.index > lastIndex) {
-        const segment = cleanText.slice(lastIndex, match.index).trim();
-        if (segment) parts.push(<span key={`t-${lastIndex}`}>{segment} </span>);
+    parseGarmentTextSegments(cleanText).forEach((segment, index) => {
+      if (segment.type === 'text') {
+        parts.push(<span key={`t-${index}`}>{segment.value} </span>);
+        return;
       }
-      const garment = garmentMap.get(match[1]);
+
+      const garment = garmentMap.get(segment.id);
       if (garment) {
         cards.push(garment);
-      } else if (match[2]?.trim()) {
-        parts.push(<span key={`g-${match.index}`}>{match[2].trim()} </span>);
+      } else if (segment.label) {
+        parts.push(<span key={`g-${index}`}>{segment.label} </span>);
       }
-      lastIndex = match.index + match[0].length;
-    }
-    if (lastIndex < cleanText.length) {
-      const segment = cleanText.slice(lastIndex).trim();
-      if (segment) parts.push(<span key={`t-${lastIndex}`}>{segment}</span>);
-    }
+    });
     return { textParts: parts.length > 0 ? parts : null, garmentCards: cards, outfitCards: outfits };
   }, [text, garmentMap]);
 

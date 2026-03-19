@@ -65,6 +65,19 @@ describe('ChatMessage', () => {
     expect(container.firstChild).toBeInTheDocument();
   });
 
+  it('renders garment cards for legacy garment tags without labels', () => {
+    renderMessage({
+      message: {
+        role: 'assistant',
+        content: 'Wear this [[garment:11111111-1111-1111-1111-111111111111]] tonight.',
+      },
+    });
+
+    expect(screen.getByText('Wear this')).toBeInTheDocument();
+    expect(screen.getByText('tonight.')).toBeInTheDocument();
+    expect(screen.getByTestId('garment-inline-card')).toBeInTheDocument();
+  });
+
   it('renders garment cards for labeled garment tags', () => {
     renderMessage({
       message: {

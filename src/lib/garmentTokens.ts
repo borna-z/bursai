@@ -1,6 +1,10 @@
 export const GARMENT_TAG_RE = /\[\[garment:([a-f0-9-]+)(?:\|([^\]]+))?\]\]/gi;
 export const OUTFIT_TAG_RE = /\[\[outfit:([a-f0-9-,]+)\|([^\]]*)\]\]/gi;
 
+export type GarmentTextSegment =
+  | { type: 'text'; value: string }
+  | { type: 'garment'; id: string; label?: string };
+
 export function extractGarmentIdsFromText(text: string): string[] {
   const ids = new Set<string>();
   let match: RegExpExecArray | null;
@@ -16,4 +20,33 @@ export function extractGarmentIdsFromText(text: string): string[] {
   }
 
   return Array.from(ids);
+}
+
+export function parseGarmentTextSegments(text: string): GarmentTextSegment[] {
+  const segments: GarmentTextSegment[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  GARMENT_TAG_RE.lastIndex = 0;
+  while ((match = GARMENT_TAG_RE.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      const value = text.slice(lastIndex, match.index).trim();
+      if (value) segments.push({ type: 'text', value });
+    }
+
+    segments.push({
+      type: 'garment',
+      id: match[1],
+      label: match[2]?.trim() || undefined,
+    });
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    const value = text.slice(lastIndex).trim();
+    if (value) segments.push({ type: 'text', value });
+  }
+
+  return segments;
 }
