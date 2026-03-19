@@ -23,8 +23,8 @@ export function BottomNav() {
   const coach = useFirstRunCoach();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/60 backdrop-blur-2xl backdrop-saturate-[1.8] border-t border-border/15 safe-bottom" aria-label="Main navigation">
-      <div className="flex justify-around items-center h-[58px] max-w-lg mx-auto px-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/15 bg-background/60 backdrop-blur-2xl backdrop-saturate-[1.8] safe-bottom" aria-label="Main navigation">
+      <div className="mx-auto flex min-h-[60px] max-w-lg items-stretch px-2 pb-1 pt-1.5">
         {tabKeys.map((tab) => {
           const navLink = (
             <NavLink
@@ -35,7 +35,7 @@ export function BottomNav() {
               onFocus={() => prefetchRoute(tab.path)}
               className={({ isActive }) =>
                 cn(
-                  'relative flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[10px] font-medium transition-colors duration-150 min-h-[44px]',
+                  'relative flex h-full min-h-[44px] flex-1 flex-col items-center justify-center gap-1 py-1 text-[10px] font-medium leading-none transition-colors duration-150',
                   isActive
                     ? 'text-accent'
                     : 'text-muted-foreground hover:text-foreground'
@@ -44,7 +44,7 @@ export function BottomNav() {
             >
               {({ isActive }) => (
                 <>
-                  <div className="relative flex items-center justify-center w-10 h-8 rounded-2xl">
+                  <div className="relative flex h-9 w-10 items-center justify-center rounded-2xl">
                     {isActive && (
                       <motion.div
                         layoutId={prefersReduced ? undefined : 'nav-pill'}
@@ -60,7 +60,7 @@ export function BottomNav() {
                       strokeWidth={isActive ? 2.4 : 2}
                     />
                   </div>
-                  <span>{t(tab.labelKey)}</span>
+                  <span className="leading-none">{t(tab.labelKey)}</span>
                 </>
               )}
             </NavLink>

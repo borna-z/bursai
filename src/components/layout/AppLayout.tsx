@@ -21,7 +21,7 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
   return (
     <div className="h-[100dvh] overflow-hidden bg-background flex flex-col">
       <OfflineBanner />
-      <main className={`flex-1 overflow-y-auto scrollbar-hide relative ${hideNav ? '' : 'pb-[80px]'}`}>
+      <main className={`relative flex-1 overflow-y-auto scrollbar-hide ${hideNav ? '' : 'pb-[calc(80px+env(safe-area-inset-bottom,0px))]'}`}>
         {children}
       </main>
       {!hideNav && <BottomNav />}
