@@ -86,7 +86,7 @@ export function useCalendarSync() {
   const syncGoogleMutation = useMutation({
     mutationFn: async () => {
       setIsSyncing(true);
-      const { data, error } = await invokeEdgeFunction<{ synced?: number; reconnect?: boolean; error?: string }>('calendar', {
+      const { data, error } = await invokeEdgeFunction<{ synced?: number; reconnect?: boolean; error?: string; calendarsSynced?: number; syncWindowDays?: number }>('calendar', {
         body: { action: 'sync_google' },
       });
 
@@ -106,7 +106,13 @@ export function useCalendarSync() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       queryClient.invalidateQueries({ queryKey: ['profile-calendar'] });
-      toast.success(t('calsync.synced_google').replace('{count}', String(data?.synced)));
+      const syncedCount = data?.synced ?? 0;
+      const windowDays = data?.syncWindowDays ?? 30;
+      if (syncedCount === 0) {
+        toast.info(`Google Calendar connected, but no events were found in the next ${windowDays} days.`);
+      } else {
+        toast.success(t('calsync.synced_google').replace('{count}', String(syncedCount)));
+      }
     },
     onError: (error: Error & { reconnect?: boolean }) => {
       if (error.reconnect) {
@@ -302,7 +308,7 @@ export function useBackgroundSyncNotification() {
 
     localStorage.setItem('burs_last_known_sync', dbTime);
     hasShown.current = true;
-  }, [profile?.last_calendar_sync]);
+  }, [profile?.last_calendar_sync, t]);
 }
 
 export function inferOccasionFromEvent(title: string): { occasion: string; formality: number; confidence: number } | null {
