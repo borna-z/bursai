@@ -19,16 +19,16 @@ type Complexity = "trivial" | "standard" | "complex";
 
 const COMPLEXITY_CHAINS: Record<Complexity, string[]> = {
   trivial: [
-    "gemini-2.0-flash-lite",
-    "gemini-2.0-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash",
   ],
   standard: [
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash",
   ],
   complex: [
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
   ],
 };
 
@@ -37,8 +37,8 @@ const MODEL_CHAINS: Record<string, string[]> = {
   default: COMPLEXITY_CHAINS.standard,
   vision: COMPLEXITY_CHAINS.complex,
   "image-gen": [
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
   ],
   fast: COMPLEXITY_CHAINS.trivial,
   streaming: COMPLEXITY_CHAINS.standard,
