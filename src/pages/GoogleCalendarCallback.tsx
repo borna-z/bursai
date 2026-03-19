@@ -62,13 +62,10 @@ export default function GoogleCalendarCallback() {
         }
 
         if ((syncData.synced ?? 0) === 0) {
-          const calendarsSynced = syncData.calendarsSynced ?? 0;
           const syncWindowDays = syncData.syncWindowDays ?? 30;
           setStatus('empty');
           setMessage(
-            calendarsSynced > 0
-              ? `Google Calendar connected, but no upcoming events were found in the next ${syncWindowDays} days.`
-              : 'Google Calendar connected, but no eligible calendars were available to sync.'
+            `Google Calendar connected, but no upcoming events were found in the next ${syncWindowDays} days.`
           );
           setTimeout(() => navigate('/settings', { replace: true }), 2500);
           return;

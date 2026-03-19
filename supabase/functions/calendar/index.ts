@@ -145,13 +145,6 @@ interface GoogleEvent {
   end?: { dateTime?: string; date?: string };
 }
 
-interface GoogleCalendarListEntry {
-  id: string;
-  primary?: boolean;
-  selected?: boolean;
-  accessRole?: string;
-}
-
 function parseGoogleEvent(event: GoogleEvent): {
   title: string; description: string | null;
   date: string; start_time: string | null; end_time: string | null;
@@ -235,8 +228,7 @@ async function syncIcsForUser(
 
 /** Sync a single user's Google Calendar */
 const GOOGLE_SYNC_WINDOW_DAYS = 30;
-const GOOGLE_MAX_CALENDARS = 10;
-const GOOGLE_MAX_RESULTS_PER_CALENDAR = 250;
+const GOOGLE_MAX_RESULTS = 250;
 
 async function syncGoogleForUser(
   supabase: ReturnType<typeof createClient>,
@@ -266,53 +258,32 @@ async function syncGoogleForUser(
   const maxDate = new Date(now);
   maxDate.setDate(maxDate.getDate() + GOOGLE_SYNC_WINDOW_DAYS);
 
-  const calendarListResponse = await fetch(
-    'https://www.googleapis.com/calendar/v3/users/me/calendarList',
+  const params = new URLSearchParams({
+    timeMin: now.toISOString(), timeMax: maxDate.toISOString(),
+    singleEvents: 'true', orderBy: 'startTime', maxResults: String(GOOGLE_MAX_RESULTS),
+  });
+
+  const apiResponse = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
     { headers: { Authorization: `Bearer ${currentToken}` } }
   );
 
-  if (!calendarListResponse.ok) {
-    const errText = await calendarListResponse.text();
-    console.error(`Google Calendar list error for user ${userId.substring(0, 8)}:`, errText);
-    return { success: false, synced: 0, calendarsSynced: 0, syncWindowDays: GOOGLE_SYNC_WINDOW_DAYS, error: `Google API ${calendarListResponse.status}` };
+  if (!apiResponse.ok) {
+    const errText = await apiResponse.text();
+    console.error(`Google primary calendar events error for user ${userId.substring(0, 8)}:`, errText);
+    return { success: false, synced: 0, calendarsSynced: 0, syncWindowDays: GOOGLE_SYNC_WINDOW_DAYS, error: `Google API ${apiResponse.status}` };
   }
 
-  const calendarListData = await calendarListResponse.json();
-  const calendars = ((calendarListData.items || []) as GoogleCalendarListEntry[])
-    .filter((calendar) => calendar.selected !== false)
-    .sort((a, b) => Number(Boolean(b.primary)) - Number(Boolean(a.primary)))
-    .slice(0, GOOGLE_MAX_CALENDARS);
-
-  const params = new URLSearchParams({
-    timeMin: now.toISOString(), timeMax: maxDate.toISOString(),
-    singleEvents: 'true', orderBy: 'startTime', maxResults: String(GOOGLE_MAX_RESULTS_PER_CALENDAR),
-  });
-
+  const apiData = await apiResponse.json();
   const parsedEvents: Array<{
     title: string;
     description: string | null;
     date: string;
     start_time: string | null;
     end_time: string | null;
-  }> = [];
-
-  for (const calendar of calendars) {
-    const apiResponse = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.id)}/events?${params}`,
-      { headers: { Authorization: `Bearer ${currentToken}` } }
-    );
-
-    if (!apiResponse.ok) {
-      const errText = await apiResponse.text();
-      console.error(`Google events error for user ${userId.substring(0, 8)} calendar ${calendar.id}:`, errText);
-      return { success: false, synced: 0, calendarsSynced: calendars.length, syncWindowDays: GOOGLE_SYNC_WINDOW_DAYS, error: `Google API ${apiResponse.status}` };
-    }
-
-    const apiData = await apiResponse.json();
-    parsedEvents.push(...((apiData.items || []) as GoogleEvent[])
-      .map(parseGoogleEvent)
-      .filter((e): e is NonNullable<typeof e> => e !== null));
-  }
+  }> = ((apiData.items || []) as GoogleEvent[])
+    .map(parseGoogleEvent)
+    .filter((e): e is NonNullable<typeof e> => e !== null);
 
   const dedupedEvents = Array.from(new Map(
     parsedEvents.map((event) => [`${event.title}|${event.date}|${event.start_time ?? ''}|${event.end_time ?? ''}`, event])
@@ -327,11 +298,11 @@ async function syncGoogleForUser(
       date: e.date, start_time: e.start_time, end_time: e.end_time, provider: 'google',
     }));
     const { error: insertError } = await supabase.from('calendar_events').insert(eventsToInsert);
-    if (insertError) return { success: false, synced: 0, calendarsSynced: calendars.length, syncWindowDays: GOOGLE_SYNC_WINDOW_DAYS, error: insertError.message };
+    if (insertError) return { success: false, synced: 0, calendarsSynced: 1, syncWindowDays: GOOGLE_SYNC_WINDOW_DAYS, error: insertError.message };
   }
 
   await supabase.from('profiles').update({ last_calendar_sync: new Date().toISOString() }).eq('id', userId);
-  return { success: true, synced: dedupedEvents.length, calendarsSynced: calendars.length, syncWindowDays: GOOGLE_SYNC_WINDOW_DAYS };
+  return { success: true, synced: dedupedEvents.length, calendarsSynced: 1, syncWindowDays: GOOGLE_SYNC_WINDOW_DAYS };
 }
 
 // ─── Auth helpers ─────────────────────────────────────────────
