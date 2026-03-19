@@ -92,13 +92,12 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
     const processItem = async () => {
       setIsProcessing(true);
       const garmentId = crypto.randomUUID();
-      const fileExt = items[currentIndex].file.name.split('.').pop() || 'jpg';
-      const path = `${user.id}/${garmentId}.${fileExt}`;
+      let path = '';
 
       // Upload
       updateItem(currentIndex, { status: 'uploading' });
       try {
-        await uploadGarmentImage(items[currentIndex].file, garmentId);
+        path = await uploadGarmentImage(items[currentIndex].file, garmentId);
       } catch {
         updateItem(currentIndex, { status: 'error', error: t('batch.upload_failed') });
         setCurrentIndex(i => i + 1);

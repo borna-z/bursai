@@ -360,9 +360,7 @@ export default function AddGarmentPage() {
     
     try {
       const fileExt = processedBlob.type === 'image/png' ? 'png' : (rawFile.name.split('.').pop() || 'jpg');
-      const path = `${user.id}/${newGarmentId}.${fileExt}`;
-      
-      await uploadGarmentImage(file as File, newGarmentId);
+      const path = await uploadGarmentImage(processedBlob, newGarmentId, { extension: fileExt });
       setStoragePath(path);
 
       // Fetch signed URL for display

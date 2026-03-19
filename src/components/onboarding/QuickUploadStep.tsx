@@ -5,7 +5,7 @@ import { EASE_CURVE } from '@/lib/motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useStorage } from '@/hooks/useStorage';
-import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { useAnalyzeGarment } from '@/hooks/useAnalyzeGarment';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { useIsDark } from '@/hooks/useIsDark';
@@ -34,6 +34,7 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { uploadGarmentImage } = useStorage();
+  const { analyzeGarment } = useAnalyzeGarment();
   const dark = useIsDark();
   const [items, setItems] = useState<UploadItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -74,12 +75,36 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
         const garmentId = crypto.randomUUID();
         const path = await uploadGarmentImage(item.file, garmentId);
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'analyzing' } : i));
-        await supabase.from('garments').insert({
-          id: garmentId, user_id: user.id, image_path: path,
-          title: item.file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') || 'New garment',
-          category: 'tops', color_primary: 'black',
+
+        const { data: analysis, error: analysisError } = await analyzeGarment(path);
+        if (analysisError) {
+          console.error('Quick upload analysis error:', analysisError);
+        }
+
+        const fallbackTitle = item.file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') || 'New garment';
+        const { error: insertError } = await supabase.from('garments').insert({
+          id: garmentId,
+          user_id: user.id,
+          image_path: path,
+          title: analysis?.title || fallbackTitle,
+          category: analysis?.category || 'top',
+          subcategory: analysis?.subcategory || null,
+          color_primary: analysis?.color_primary || 'black',
+          color_secondary: analysis?.color_secondary || null,
+          pattern: analysis?.pattern || null,
+          material: analysis?.material || null,
+          fit: analysis?.fit || null,
+          season_tags: analysis?.season_tags || null,
+          formality: analysis?.formality || 3,
+          ai_analyzed_at: analysis ? new Date().toISOString() : null,
+          ai_provider: analysis?.ai_provider || null,
+          ai_raw: analysis?.ai_raw || null,
+          enrichment_status: analysis ? 'complete' : 'failed',
+          imported_via: 'quick_upload',
         });
-        try { await invokeEdgeFunction('analyze_garment', { body: { image_path: path, user_id: user.id } }); } catch { /* non-critical */ }
+
+        if (insertError) throw insertError;
+
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'done' } : i));
       } catch {
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'error' } : i));
