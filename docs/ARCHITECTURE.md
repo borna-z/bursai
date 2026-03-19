@@ -32,9 +32,9 @@ The `burs-ai.ts` shared module is the core IP of the platform. It provides:
 
 ### Complexity-Based Model Routing
 ```
-trivial  → gemini-2.0-flash-lite → gemini-2.0-flash
-standard → gemini-2.0-flash → gemini-2.0-flash-lite
-complex  → gemini-2.0-flash → gemini-2.0-flash-lite
+trivial  → gemini-2.5-flash-lite → gemini-2.5-flash
+standard → gemini-2.5-flash-lite → gemini-2.5-flash
+complex  → gemini-2.5-flash → gemini-2.5-flash-lite
 ```
 
 Each complexity level auto-configures:
