@@ -301,15 +301,13 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
 }
 
 async function getAuthenticatedUser(
-  supabase: ReturnType<typeof createClient>,
-  authHeader: string
+  supabase: ReturnType<typeof createClient>
 ): Promise<string | Response> {
-  const token = authHeader.replace('Bearer ', '');
-  const { data: claimsData, error } = await supabase.auth.getClaims(token);
-  if (error || !claimsData?.claims) {
+  const { data: userData, error } = await supabase.auth.getUser();
+  if (error || !userData.user) {
     return jsonResponse({ error: 'Invalid auth' }, 401);
   }
-  return claimsData.claims.sub as string;
+  return userData.user.id;
 }
 
 // ─── Action handlers ──────────────────────────────────────────
@@ -322,7 +320,7 @@ async function handleSyncIcs(authHeader: string): Promise<Response> {
     global: { headers: { Authorization: authHeader } },
   });
 
-  const userOrError = await getAuthenticatedUser(supabase, authHeader);
+  const userOrError = await getAuthenticatedUser(supabase);
   if (typeof userOrError !== 'string') return userOrError;
   const userId = userOrError;
 
@@ -345,7 +343,7 @@ async function handleSyncGoogle(authHeader: string): Promise<Response> {
     global: { headers: { Authorization: authHeader } },
   });
 
-  const userOrError = await getAuthenticatedUser(supabase, authHeader);
+  const userOrError = await getAuthenticatedUser(supabase);
   if (typeof userOrError !== 'string') return userOrError;
   const userId = userOrError;
 
