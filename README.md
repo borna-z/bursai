@@ -35,7 +35,7 @@ BURS is a premium fashion-tech platform that helps users digitize their wardrobe
 │  └──────────────────────────────────────────────────┘   │
 │                          ↓                              │
 │  ┌──────────────────────────────────────────────────┐   │
-│  │         Lovable AI Gateway / Google AI           │   │
+│  │              Google AI / model APIs              │   │
 │  └──────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────┘
                           │
@@ -99,15 +99,16 @@ The app runs at `http://localhost:8080`.
 
 ### Environment Variables
 
-The following environment variables are required (set via `.env`):
+The frontend expects the Supabase runtime config below in `.env`; startup now fails fast if either required value is missing.
 
-| Variable | Description |
-|----------|-------------|
-| `VITE_SUPABASE_URL` | Supabase project URL |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase anon/public key |
-| `VITE_SUPABASE_PROJECT_ID` | Supabase project ID |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_SUPABASE_URL` | Yes | Supabase project URL used by the shared frontend client |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes | Supabase anon/public key used by the shared frontend client |
+| `VITE_SUPABASE_PROJECT_ID` | No | Optional project identifier for tooling or diagnostics |
+| `BURS_APP_URL` | No (Edge env) | Canonical frontend origin for Stripe/app redirects when the request origin is absent or does not match a BURS/Vercel preview origin |
 
-Edge functions require additional secrets configured in the Supabase dashboard (Stripe keys, VAPID keys, Google OAuth credentials, etc.).
+Edge functions still require additional secrets configured in the Supabase dashboard or function environment (Stripe keys, VAPID keys, Google OAuth credentials, etc.).
 
 ### Scripts
 
@@ -163,13 +164,7 @@ supabase/
 
 ## Deployment
 
-The app is deployed via Lovable's publishing system:
-
-1. **Frontend**: Click "Publish" → "Update" in the Lovable editor
-2. **Backend**: Edge functions deploy automatically on save
-3. **Database**: Migrations run automatically
-
-Custom domain: Configure in Project → Settings → Domains.
+The frontend is built with Vite and can be deployed to any static host. Supabase handles backend services, and Edge Functions / database changes are deployed through the Supabase toolchain you use for your environment.
 
 ## License
 

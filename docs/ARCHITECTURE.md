@@ -16,7 +16,7 @@ BURS follows a three-tier architecture:
 
 1. **Client** — React SPA with offline-first data layer
 2. **Backend** — Supabase (Auth, PostgreSQL, Storage, Edge Functions)
-3. **External** — Stripe (billing), Google Calendar, Lovable AI Gateway
+3. **External** — Stripe (billing), Google Calendar, AI model providers
 
 ### Key Design Decisions
 - **Offline-first**: React Query with `networkMode: 'offlineFirst'` and 30-min GC time
