@@ -188,4 +188,3 @@ signature verification or are read-only.
 | `detect_duplicate_garment` | Duplicate detection | JWT | No |
 | `get_vapid_public_key` | Push notification key | Public | No |
 | `send_push_notification` | Send push notification | Service | No |
-| `auth-email-hook` | Custom email templates | Hook | No |
