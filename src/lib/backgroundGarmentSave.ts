@@ -75,7 +75,7 @@ export async function saveGarmentInBackground(
     });
 
     // Duplicate detection in background (never blocks)
-    detectDuplicates(result.analysis, garmentId).catch((err) => {
+    detectDuplicates(result.analysis, garmentId, storagePath).catch((err) => {
       console.error('Duplicate detection error (non-blocking):', err);
     });
   } catch (err) {
@@ -177,10 +177,12 @@ async function removeBackgroundAsync(
  */
 async function detectDuplicates(
   analysis: GarmentAnalysis,
-  excludeGarmentId: string
+  excludeGarmentId: string,
+  imagePath: string,
 ): Promise<void> {
   await invokeEdgeFunction('detect_duplicate_garment', {
     body: {
+      image_path: imagePath,
       category: analysis.category,
       color_primary: analysis.color_primary,
       title: analysis.title,

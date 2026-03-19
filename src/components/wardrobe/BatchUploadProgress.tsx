@@ -141,6 +141,20 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
           console.error('Batch enrichment error (non-blocking):', err)
         );
 
+        invokeEdgeFunction('detect_duplicate_garment', {
+          body: {
+            image_path: path,
+            category: data.category,
+            color_primary: data.color_primary,
+            title: data.title,
+            subcategory: data.subcategory,
+            material: data.material,
+            exclude_garment_id: garmentId,
+          },
+        }).catch((err) =>
+          console.error('Batch duplicate detection error (non-blocking):', err)
+        );
+
         updateItem(currentIndex, { status: 'done' });
       } catch {
         updateItem(currentIndex, { status: 'error', error: t('batch.save_failed') });

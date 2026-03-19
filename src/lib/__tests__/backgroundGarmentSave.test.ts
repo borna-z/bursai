@@ -167,6 +167,7 @@ describe('saveGarmentInBackground', () => {
       expect(dupCall).toBeDefined();
       expect(dupCall![1]).toEqual({
         body: expect.objectContaining({
+          image_path: 'user-1/test-uuid.jpg',
           category: 'tops',
           color_primary: '#1a2a5e',
           exclude_garment_id: 'test-uuid',

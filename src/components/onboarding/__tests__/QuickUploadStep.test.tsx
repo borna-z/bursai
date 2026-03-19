@@ -2,9 +2,17 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QuickUploadStep } from '@/components/onboarding/QuickUploadStep';
 
-const uploadGarmentImageMock = vi.fn();
-const analyzeGarmentMock = vi.fn();
-const insertMock = vi.fn();
+const {
+  uploadGarmentImageMock,
+  analyzeGarmentMock,
+  insertMock,
+  invokeEdgeFunctionMock,
+} = vi.hoisted(() => ({
+  uploadGarmentImageMock: vi.fn(),
+  analyzeGarmentMock: vi.fn(),
+  insertMock: vi.fn(),
+  invokeEdgeFunctionMock: vi.fn(),
+}));
 
 vi.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ t: (key: string) => key }),
@@ -20,6 +28,10 @@ vi.mock('@/hooks/useStorage', () => ({
 
 vi.mock('@/hooks/useAnalyzeGarment', () => ({
   useAnalyzeGarment: () => ({ analyzeGarment: analyzeGarmentMock }),
+}));
+
+vi.mock('@/lib/edgeFunctionClient', () => ({
+  invokeEdgeFunction: invokeEdgeFunctionMock,
 }));
 
 vi.mock('@/hooks/useIsDark', () => ({
@@ -55,6 +67,7 @@ describe('QuickUploadStep', () => {
       error: null,
     });
     insertMock.mockReset().mockResolvedValue({ error: null });
+    invokeEdgeFunctionMock.mockReset().mockResolvedValue({ data: { duplicates: [] }, error: null });
   });
 
   it('uses the shared analyzeGarment contract and persists the returned analysis', async () => {
@@ -76,6 +89,15 @@ describe('QuickUploadStep', () => {
         imported_via: 'quick_upload',
         ai_provider: 'burs_ai',
       })),
+    );
+    await waitFor(() =>
+      expect(invokeEdgeFunctionMock).toHaveBeenCalledWith('detect_duplicate_garment', {
+        body: expect.objectContaining({
+          image_path: 'user-1/uploaded-path.png',
+          category: 'top',
+          exclude_garment_id: expect.any(String),
+        }),
+      }),
     );
   });
 });

@@ -9,6 +9,7 @@ import { useAnalyzeGarment } from '@/hooks/useAnalyzeGarment';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { useIsDark } from '@/hooks/useIsDark';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 
 interface QuickUploadStepProps {
   onComplete: () => void;
@@ -104,6 +105,22 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
         });
 
         if (insertError) throw insertError;
+
+        if (analysis) {
+          invokeEdgeFunction('detect_duplicate_garment', {
+            body: {
+              image_path: path,
+              category: analysis.category,
+              color_primary: analysis.color_primary,
+              title: analysis.title,
+              subcategory: analysis.subcategory,
+              material: analysis.material,
+              exclude_garment_id: garmentId,
+            },
+          }).catch((err) => {
+            console.error('Quick upload duplicate detection error (non-blocking):', err);
+          });
+        }
 
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'done' } : i));
       } catch {
