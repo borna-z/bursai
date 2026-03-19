@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
+import { extractGarmentIdsFromText } from '@/lib/garmentTokens';
 
 type MultimodalPart =
   | { type: 'text'; text: string }
@@ -72,20 +73,10 @@ async function deleteHistory(userId: string, accessToken: string) {
   });
 }
 
-const GARMENT_TAG_RE = /\[\[garment:([a-f0-9-]+)\]\]/gi;
-const OUTFIT_TAG_RE = /\[\[outfit:([a-f0-9-,]+)\|[^\]]*\]\]/gi;
-
 function extractGarmentIds(messages: Message[]): string[] {
   const ids = new Set<string>();
   for (const m of messages) {
-    const text = getTextContent(m.content);
-    let match: RegExpExecArray | null;
-    GARMENT_TAG_RE.lastIndex = 0;
-    while ((match = GARMENT_TAG_RE.exec(text)) !== null) ids.add(match[1]);
-    OUTFIT_TAG_RE.lastIndex = 0;
-    while ((match = OUTFIT_TAG_RE.exec(text)) !== null) {
-      match[1].split(',').forEach(id => ids.add(id.trim()));
-    }
+    extractGarmentIdsFromText(getTextContent(m.content)).forEach((id) => ids.add(id));
   }
   return Array.from(ids);
 }
