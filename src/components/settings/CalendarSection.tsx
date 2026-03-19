@@ -87,11 +87,11 @@ function GoogleCalendarCard({
 
         {isConnected ? (
           <>
-            {lastSynced && (
-              <p className="text-xs text-muted-foreground">
-                {t('calendar.last_synced')} {formatDistanceToNow(new Date(lastSynced), { addSuffix: true })} · {t('calendar.auto_every_6h')}
-              </p>
-            )}
+            <p className="text-xs text-muted-foreground">
+              {lastSynced
+                ? `${t('calendar.last_synced')} ${formatDistanceToNow(new Date(lastSynced), { addSuffix: true })} · ${t('calendar.auto_every_6h')}`
+                : 'Connected, but no calendar events have been imported yet.'}
+            </p>
             <div className="flex gap-2">
               <Button size="sm" onClick={() => onSync()} disabled={isLoading} className="flex-1">
                 {isSyncing ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}

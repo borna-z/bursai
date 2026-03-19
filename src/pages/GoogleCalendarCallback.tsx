@@ -4,12 +4,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
+type CallbackStatus = 'loading' | 'success' | 'empty' | 'error';
+
+interface CalendarSyncResponse {
+  success?: boolean;
+  synced?: number;
+  calendarsSynced?: number;
+  syncWindowDays?: number;
+  error?: string;
+  reconnect?: boolean;
+}
+
 export default function GoogleCalendarCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [errorMsg, setErrorMsg] = useState('');
+  const [status, setStatus] = useState<CallbackStatus>('loading');
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     const code = searchParams.get('code');
@@ -17,13 +28,13 @@ export default function GoogleCalendarCallback() {
 
     if (error) {
       setStatus('error');
-      setErrorMsg(t('gcal.denied'));
+      setMessage(t('gcal.denied'));
       return;
     }
 
     if (!code) {
       setStatus('error');
-      setErrorMsg(t('gcal.no_code'));
+      setMessage(t('gcal.no_code'));
       return;
     }
 
@@ -42,19 +53,39 @@ export default function GoogleCalendarCallback() {
           throw new Error(data?.error || fnError?.message || 'Exchange failed');
         }
 
-        await supabase.functions.invoke('calendar', { body: { action: 'sync_google' } });
+        const { data: syncData, error: syncError } = await supabase.functions.invoke<CalendarSyncResponse>('calendar', {
+          body: { action: 'sync_google' },
+        });
+
+        if (syncError || syncData?.error || !syncData?.success) {
+          throw new Error(syncData?.error || syncError?.message || 'Google calendar sync failed');
+        }
+
+        if ((syncData.synced ?? 0) === 0) {
+          const calendarsSynced = syncData.calendarsSynced ?? 0;
+          const syncWindowDays = syncData.syncWindowDays ?? 30;
+          setStatus('empty');
+          setMessage(
+            calendarsSynced > 0
+              ? `Google Calendar connected, but no upcoming events were found in the next ${syncWindowDays} days.`
+              : 'Google Calendar connected, but no eligible calendars were available to sync.'
+          );
+          setTimeout(() => navigate('/settings', { replace: true }), 2500);
+          return;
+        }
 
         setStatus('success');
+        setMessage(t('gcal.redirecting'));
         setTimeout(() => navigate('/settings', { replace: true }), 1500);
       } catch (err) {
         console.error('Google calendar callback error:', err);
         setStatus('error');
-        setErrorMsg(t('gcal.error'));
+        setMessage(err instanceof Error ? err.message : t('gcal.error'));
       }
     };
 
     exchangeCode();
-  }, [searchParams, navigate]);
+  }, [searchParams, navigate, t]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -70,14 +101,21 @@ export default function GoogleCalendarCallback() {
           <>
             <CheckCircle2 className="w-10 h-10 text-green-500 mx-auto" />
             <p className="text-lg font-medium">{t('gcal.connected')}</p>
-            <p className="text-sm text-muted-foreground">{t('gcal.redirecting')}</p>
+            <p className="text-sm text-muted-foreground">{message}</p>
+          </>
+        )}
+        {status === 'empty' && (
+          <>
+            <CheckCircle2 className="w-10 h-10 text-green-500 mx-auto" />
+            <p className="text-lg font-medium">{t('gcal.connected')}</p>
+            <p className="text-sm text-muted-foreground">{message}</p>
           </>
         )}
         {status === 'error' && (
           <>
             <XCircle className="w-10 h-10 text-destructive mx-auto" />
             <p className="text-lg font-medium">{t('gcal.something_wrong')}</p>
-            <p className="text-sm text-muted-foreground">{errorMsg}</p>
+            <p className="text-sm text-muted-foreground">{message}</p>
             <button
               onClick={() => navigate('/settings', { replace: true })}
               className="text-primary underline text-sm mt-2"

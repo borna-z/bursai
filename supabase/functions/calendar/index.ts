@@ -145,6 +145,13 @@ interface GoogleEvent {
   end?: { dateTime?: string; date?: string };
 }
 
+interface GoogleCalendarListEntry {
+  id: string;
+  primary?: boolean;
+  selected?: boolean;
+  accessRole?: string;
+}
+
 function parseGoogleEvent(event: GoogleEvent): {
   title: string; description: string | null;
   date: string; start_time: string | null; end_time: string | null;
@@ -227,6 +234,10 @@ async function syncIcsForUser(
 }
 
 /** Sync a single user's Google Calendar */
+const GOOGLE_SYNC_WINDOW_DAYS = 30;
+const GOOGLE_MAX_CALENDARS = 10;
+const GOOGLE_MAX_RESULTS_PER_CALENDAR = 250;
+
 async function syncGoogleForUser(
   supabase: ReturnType<typeof createClient>,
   userId: string,
@@ -234,7 +245,7 @@ async function syncGoogleForUser(
   refreshToken: string | null,
   tokenExpiresAt: string | null,
   connectionId: string
-): Promise<{ success: boolean; synced: number; error?: string; reconnect?: boolean }> {
+): Promise<{ success: boolean; synced: number; calendarsSynced: number; syncWindowDays: number; error?: string; reconnect?: boolean }> {
   const clientId = Deno.env.get('GOOGLE_CLIENT_ID')!;
   const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')!;
   let currentToken = accessToken;
@@ -244,7 +255,7 @@ async function syncGoogleForUser(
     if (!refreshed) {
       console.error(`Token refresh failed for user ${userId.substring(0, 8)}, deleting stale connection`);
       await supabase.from('calendar_connections').delete().eq('id', connectionId);
-      return { success: false, synced: 0, error: 'reconnect_required', reconnect: true };
+      return { success: false, synced: 0, calendarsSynced: 0, syncWindowDays: GOOGLE_SYNC_WINDOW_DAYS, error: 'reconnect_required', reconnect: true };
     }
     currentToken = refreshed.access_token;
     const newExpiry = new Date(Date.now() + refreshed.expires_in * 1000).toISOString();
@@ -253,42 +264,74 @@ async function syncGoogleForUser(
 
   const now = new Date();
   const maxDate = new Date(now);
-  maxDate.setDate(maxDate.getDate() + 14);
+  maxDate.setDate(maxDate.getDate() + GOOGLE_SYNC_WINDOW_DAYS);
+
+  const calendarListResponse = await fetch(
+    'https://www.googleapis.com/calendar/v3/users/me/calendarList',
+    { headers: { Authorization: `Bearer ${currentToken}` } }
+  );
+
+  if (!calendarListResponse.ok) {
+    const errText = await calendarListResponse.text();
+    console.error(`Google Calendar list error for user ${userId.substring(0, 8)}:`, errText);
+    return { success: false, synced: 0, calendarsSynced: 0, syncWindowDays: GOOGLE_SYNC_WINDOW_DAYS, error: `Google API ${calendarListResponse.status}` };
+  }
+
+  const calendarListData = await calendarListResponse.json();
+  const calendars = ((calendarListData.items || []) as GoogleCalendarListEntry[])
+    .filter((calendar) => calendar.selected !== false)
+    .sort((a, b) => Number(Boolean(b.primary)) - Number(Boolean(a.primary)))
+    .slice(0, GOOGLE_MAX_CALENDARS);
 
   const params = new URLSearchParams({
     timeMin: now.toISOString(), timeMax: maxDate.toISOString(),
-    singleEvents: 'true', orderBy: 'startTime', maxResults: '100',
+    singleEvents: 'true', orderBy: 'startTime', maxResults: String(GOOGLE_MAX_RESULTS_PER_CALENDAR),
   });
 
-  const apiResponse = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
-    { headers: { Authorization: `Bearer ${currentToken}` } }
-  );
-  if (!apiResponse.ok) {
-    const errText = await apiResponse.text();
-    console.error(`Google API error for user ${userId.substring(0, 8)}:`, errText);
-    return { success: false, synced: 0, error: `Google API ${apiResponse.status}` };
+  const parsedEvents: Array<{
+    title: string;
+    description: string | null;
+    date: string;
+    start_time: string | null;
+    end_time: string | null;
+  }> = [];
+
+  for (const calendar of calendars) {
+    const apiResponse = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.id)}/events?${params}`,
+      { headers: { Authorization: `Bearer ${currentToken}` } }
+    );
+
+    if (!apiResponse.ok) {
+      const errText = await apiResponse.text();
+      console.error(`Google events error for user ${userId.substring(0, 8)} calendar ${calendar.id}:`, errText);
+      return { success: false, synced: 0, calendarsSynced: calendars.length, syncWindowDays: GOOGLE_SYNC_WINDOW_DAYS, error: `Google API ${apiResponse.status}` };
+    }
+
+    const apiData = await apiResponse.json();
+    parsedEvents.push(...((apiData.items || []) as GoogleEvent[])
+      .map(parseGoogleEvent)
+      .filter((e): e is NonNullable<typeof e> => e !== null));
   }
 
-  const apiData = await apiResponse.json();
-  const parsedEvents = ((apiData.items || []) as GoogleEvent[])
-    .map(parseGoogleEvent)
-    .filter((e): e is NonNullable<typeof e> => e !== null);
+  const dedupedEvents = Array.from(new Map(
+    parsedEvents.map((event) => [`${event.title}|${event.date}|${event.start_time ?? ''}|${event.end_time ?? ''}`, event])
+  ).values());
 
   const today = now.toISOString().split('T')[0];
   await supabase.from('calendar_events').delete().eq('user_id', userId).eq('provider', 'google').gte('date', today);
 
-  if (parsedEvents.length > 0) {
-    const eventsToInsert = parsedEvents.map(e => ({
+  if (dedupedEvents.length > 0) {
+    const eventsToInsert = dedupedEvents.map(e => ({
       user_id: userId, title: e.title, description: e.description,
       date: e.date, start_time: e.start_time, end_time: e.end_time, provider: 'google',
     }));
     const { error: insertError } = await supabase.from('calendar_events').insert(eventsToInsert);
-    if (insertError) return { success: false, synced: 0, error: insertError.message };
+    if (insertError) return { success: false, synced: 0, calendarsSynced: calendars.length, syncWindowDays: GOOGLE_SYNC_WINDOW_DAYS, error: insertError.message };
   }
 
   await supabase.from('profiles').update({ last_calendar_sync: new Date().toISOString() }).eq('id', userId);
-  return { success: true, synced: parsedEvents.length };
+  return { success: true, synced: dedupedEvents.length, calendarsSynced: calendars.length, syncWindowDays: GOOGLE_SYNC_WINDOW_DAYS };
 }
 
 // ─── Auth helpers ─────────────────────────────────────────────
@@ -368,7 +411,7 @@ async function handleSyncGoogle(authHeader: string): Promise<Response> {
     const status = result.reconnect ? 401 : 500;
     return jsonResponse({ error: result.error, reconnect: result.reconnect || false }, status);
   }
-  return jsonResponse({ success: true, synced: result.synced });
+  return jsonResponse({ success: true, synced: result.synced, calendarsSynced: result.calendarsSynced, syncWindowDays: result.syncWindowDays });
 }
 
 async function handleSyncAll(authHeader: string): Promise<Response> {
