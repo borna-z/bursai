@@ -28,18 +28,17 @@ export function BottomNav() {
       aria-label="Main navigation"
     >
       <div className="mx-auto max-w-lg px-2">
-        <div className="flex h-[60px] items-center">
+        <div className="flex h-[60px] w-full items-stretch justify-evenly">
           {tabKeys.map((tab) => {
             const navLink = (
               <NavLink
-                key={tab.path}
                 to={tab.path}
                 onClick={() => hapticLight()}
                 onPointerEnter={() => prefetchRoute(tab.path)}
                 onFocus={() => prefetchRoute(tab.path)}
                 className={({ isActive }) =>
                   cn(
-                    'relative flex min-h-[44px] flex-1 items-center justify-center text-[10px] font-medium leading-none transition-colors duration-150',
+                    'relative flex min-h-[44px] flex-1 items-stretch justify-center px-2 py-2 text-[10px] font-medium leading-none transition-colors duration-150',
                     isActive
                       ? 'text-accent'
                       : 'text-muted-foreground hover:text-foreground'
@@ -47,7 +46,7 @@ export function BottomNav() {
                 }
               >
                 {({ isActive }) => (
-                  <div className="flex min-h-[44px] flex-col items-center justify-center gap-1">
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-center">
                     <div className="relative flex h-9 w-10 items-center justify-center rounded-2xl">
                       {isActive && (
                         <motion.div
@@ -70,28 +69,29 @@ export function BottomNav() {
               </NavLink>
             );
 
-            if (tab.path === '/wardrobe') {
-              return (
-                <CoachMark
-                  key={tab.path}
-                  step={0}
-                  currentStep={coach.currentStep}
-                  isCoachActive={coach.isStepActive(0)}
-                  title="Start here"
-                  body="Add your clothes to BURS. The AI reads each garment automatically."
-                  ctaLabel="Take me there"
-                  onCta={() => {
-                    navigate('/wardrobe');
-                    coach.advanceStep();
-                  }}
-                  position="top"
-                >
-                  {navLink}
-                </CoachMark>
-              );
-            }
-
-            return navLink;
+            return (
+              <div key={tab.path} className="flex flex-1 justify-center">
+                {tab.path === '/wardrobe' ? (
+                  <CoachMark
+                    step={0}
+                    currentStep={coach.currentStep}
+                    isCoachActive={coach.isStepActive(0)}
+                    title="Start here"
+                    body="Add your clothes to BURS. The AI reads each garment automatically."
+                    ctaLabel="Take me there"
+                    onCta={() => {
+                      navigate('/wardrobe');
+                      coach.advanceStep();
+                    }}
+                    position="top"
+                  >
+                    {navLink}
+                  </CoachMark>
+                ) : (
+                  navLink
+                )}
+              </div>
+            );
           })}
         </div>
       </div>
