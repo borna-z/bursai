@@ -2,7 +2,14 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-function requireEnv(name: 'VITE_SUPABASE_URL' | 'VITE_SUPABASE_PUBLISHABLE_KEY'): string {
+type FrontendEnvName = 'VITE_SUPABASE_URL' | 'VITE_SUPABASE_PUBLISHABLE_KEY';
+
+type FrontendSupabaseConfig = {
+  url: string;
+  publishableKey: string;
+};
+
+function requireEnv(name: FrontendEnvName): string {
   const value = import.meta.env[name];
 
   if (!value) {
@@ -15,8 +22,34 @@ function requireEnv(name: 'VITE_SUPABASE_URL' | 'VITE_SUPABASE_PUBLISHABLE_KEY')
   return value;
 }
 
-export const supabaseUrl = requireEnv('VITE_SUPABASE_URL');
-export const supabasePublishableKey = requireEnv('VITE_SUPABASE_PUBLISHABLE_KEY');
+function loadFrontendSupabaseConfig(): FrontendSupabaseConfig {
+  return {
+    url: requireEnv('VITE_SUPABASE_URL'),
+    publishableKey: requireEnv('VITE_SUPABASE_PUBLISHABLE_KEY'),
+  };
+}
+
+export const frontendSupabaseConfig = loadFrontendSupabaseConfig();
+export const supabaseUrl = frontendSupabaseConfig.url;
+export const supabasePublishableKey = frontendSupabaseConfig.publishableKey;
+
+export function getSupabaseFunctionUrl(functionName: string): string {
+  return `${supabaseUrl}/functions/v1/${functionName}`;
+}
+
+export function getSupabaseRestUrl(path: string): string {
+  const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
+  return `${supabaseUrl}/rest/v1/${normalizedPath}`;
+}
+
+export async function createSupabaseRestHeaders(accessToken?: string): Promise<Record<string, string>> {
+  const resolvedAccessToken = accessToken ?? (await supabase.auth.getSession()).data.session?.access_token ?? '';
+
+  return {
+    apikey: supabasePublishableKey,
+    Authorization: `Bearer ${resolvedAccessToken}`,
+  };
+}
 
 export const supabase = createClient<Database>(
   supabaseUrl,

@@ -32,9 +32,9 @@ The `burs-ai.ts` shared module is the core IP of the platform. It provides:
 
 ### Complexity-Based Model Routing
 ```
-trivial  → gemini-2.5-flash-lite → gemini-2.5-flash
-standard → gemini-3-flash-preview → gemini-2.5-flash → gemini-2.5-flash-lite
-complex  → gemini-2.5-pro → gemini-3-flash-preview → gemini-2.5-flash
+trivial  → gemini-2.0-flash-lite → gemini-2.0-flash
+standard → gemini-2.0-flash → gemini-2.0-flash-lite
+complex  → gemini-2.0-flash → gemini-2.0-flash-lite
 ```
 
 Each complexity level auto-configures:
@@ -87,8 +87,8 @@ User Request → Edge Function → Rate Limit Check → Cache Check
 
 ### Wardrobe Upload Flow
 ```
-User Photo → Client Upload to Storage → Edge Function: analyze_garment
-  → callBursAI (complexity: complex, vision model)
+User Photo → Client Upload to Storage (`garments` bucket) → Edge Function: analyze_garment
+  → callBursAI (Gemini via `GEMINI_API_KEY`)
   → Extract: category, color, material, pattern, formality, season
   → Update garments table → Trigger: update_garments_count
   → Return analysis to client
@@ -188,3 +188,10 @@ signature verification or are read-only.
 | `detect_duplicate_garment` | Duplicate detection | JWT | No |
 | `get_vapid_public_key` | Push notification key | Public | No |
 | `send_push_notification` | Send push notification | Service | No |
+
+
+## Deployment Notes
+
+- Frontend runtime must provide `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`; the app now fails fast at startup instead of silently falling back to another project.
+- Active AI edge functions (`style_chat`, `shopping_chat`, `analyze_garment`) all use the shared `burs-ai.ts` layer and therefore depend on `GEMINI_API_KEY`, not `LOVABLE_API_KEY`.
+- Wardrobe upload flows require the private `garments` storage bucket plus authenticated per-user policies; these are now reproducible from migrations.

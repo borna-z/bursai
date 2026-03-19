@@ -6,7 +6,7 @@ import { ChatPageSkeleton } from '@/components/ui/skeletons';
 import { motion } from 'framer-motion';
 import { PRESETS } from '@/lib/motion';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { supabase, supabasePublishableKey, supabaseUrl } from '@/integrations/supabase/client';
+import { createSupabaseRestHeaders, getSupabaseFunctionUrl, getSupabaseRestUrl, supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -35,7 +35,7 @@ type Message = {
   content: string | MultimodalPart[];
 };
 
-const STYLE_CHAT_URL = `${supabaseUrl}/functions/v1/style_chat`;
+const STYLE_CHAT_URL = getSupabaseFunctionUrl('style_chat');
 
 function getTextContent(content: string | MultimodalPart[]): string {
   if (typeof content === 'string') return content;
@@ -44,8 +44,8 @@ function getTextContent(content: string | MultimodalPart[]): string {
 
 async function loadMessages(userId: string): Promise<Message[]> {
   const res = await fetch(
-    `${supabaseUrl}/rest/v1/chat_messages?user_id=eq.${userId}&mode=eq.stylist&order=created_at.asc&limit=100`,
-    { headers: { apikey: supabasePublishableKey, Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}` } }
+    `${getSupabaseRestUrl('chat_messages')}?user_id=eq.${userId}&mode=eq.stylist&order=created_at.asc&limit=100`,
+    { headers: await createSupabaseRestHeaders() }
   );
   if (!res.ok) return [];
   const rows = await res.json() as { role: 'user' | 'assistant'; content: string }[];
@@ -58,17 +58,17 @@ async function loadMessages(userId: string): Promise<Message[]> {
 }
 
 async function persistMessages(userId: string, msgs: Message[], accessToken: string) {
-  await fetch(`${supabaseUrl}/rest/v1/chat_messages`, {
+  await fetch(getSupabaseRestUrl('chat_messages'), {
     method: 'POST',
-    headers: { apikey: supabasePublishableKey, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    headers: { ...(await createSupabaseRestHeaders(accessToken)), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
     body: JSON.stringify(msgs.map(m => ({ user_id: userId, role: m.role, content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content), mode: 'stylist' }))),
   });
 }
 
 async function deleteHistory(userId: string, accessToken: string) {
-  await fetch(`${supabaseUrl}/rest/v1/chat_messages?user_id=eq.${userId}&mode=eq.stylist`, {
+  await fetch(`${getSupabaseRestUrl('chat_messages')}?user_id=eq.${userId}&mode=eq.stylist`, {
     method: 'DELETE',
-    headers: { apikey: supabasePublishableKey, Authorization: `Bearer ${accessToken}` },
+    headers: await createSupabaseRestHeaders(accessToken),
   });
 }
 

@@ -108,7 +108,12 @@ The frontend expects the Supabase runtime config below in `.env`; startup now fa
 | `VITE_SUPABASE_PROJECT_ID` | No | Optional project identifier for tooling or diagnostics |
 | `BURS_APP_URL` | No (Edge env) | Canonical frontend origin for Stripe/app redirects when the request origin is absent or does not match a BURS/Vercel preview origin |
 
-Edge functions still require additional secrets configured in the Supabase dashboard or function environment (Stripe keys, VAPID keys, Google OAuth credentials, etc.).
+Edge functions still require additional secrets configured in the Supabase dashboard or function environment. For the active stylist, shopping, and garment-analysis flows, set `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. `LOVABLE_API_KEY` is not used by the current production code paths. Other functions may also need Stripe keys, VAPID keys, Google OAuth credentials, etc.
+
+
+### Required Storage Setup
+
+The wardrobe/photo flows expect a private Supabase Storage bucket named `garments` with authenticated per-user access scoped to the first path segment (`<user-id>/...`). This repo now includes a migration that creates the bucket plus insert/select/update/delete policies, so `supabase db push` reproduces the required storage setup for image upload, stylist image chat, live scan saves, and add-garment-by-photo.
 
 ### Scripts
 
