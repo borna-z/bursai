@@ -168,7 +168,7 @@ export function useCalendarSync() {
 
   const connectGoogle = async () => {
     try {
-      const redirectUri = 'https://burs.me/calendar/callback';
+      const redirectUri = `${window.location.origin}/calendar/callback`;
       const { data, error } = await invokeEdgeFunction<{ url?: string; error?: string }>('google_calendar_auth', {
         body: { action: 'get_auth_url', redirect_uri: redirectUri },
       });

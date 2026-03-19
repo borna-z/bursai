@@ -29,11 +29,12 @@ export default function GoogleCalendarCallback() {
 
     const exchangeCode = async () => {
       try {
+        const redirectUri = `${window.location.origin}/calendar/callback`;
         const { data, error: fnError } = await supabase.functions.invoke('google_calendar_auth', {
           body: {
             action: 'exchange_code',
             code,
-            redirect_uri: 'https://burs.me/calendar/callback',
+            redirect_uri: redirectUri,
           },
         });
 

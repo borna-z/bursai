@@ -55,15 +55,14 @@ Deno.serve(async (req) => {
       const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         global: { headers: { Authorization: authHeader } },
       });
-      const token = authHeader.replace("Bearer ", "");
-      const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-      if (claimsError || !claimsData?.claims) {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) {
         return new Response(JSON.stringify({ error: "Invalid auth" }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const user = { id: claimsData.claims.sub as string };
+      const user = userData.user;
 
       const params = new URLSearchParams({
         client_id: clientId,
@@ -94,15 +93,14 @@ Deno.serve(async (req) => {
       const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         global: { headers: { Authorization: authHeader } },
       });
-      const token = authHeader.replace("Bearer ", "");
-      const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-      if (claimsError || !claimsData?.claims) {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) {
         return new Response(JSON.stringify({ error: "Invalid auth" }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const user = { id: claimsData.claims.sub as string };
+      const user = userData.user;
 
       // Exchange authorization code for tokens
       const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
@@ -171,15 +169,14 @@ Deno.serve(async (req) => {
       const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         global: { headers: { Authorization: authHeader } },
       });
-      const token = authHeader.replace("Bearer ", "");
-      const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-      if (claimsError || !claimsData?.claims) {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) {
         return new Response(JSON.stringify({ error: "Invalid auth" }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const user = { id: claimsData.claims.sub as string };
+      const user = userData.user;
 
       const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const adminClient = createClient(supabaseUrl, serviceRoleKey);
