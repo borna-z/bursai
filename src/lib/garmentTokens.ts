@@ -1,0 +1,19 @@
+export const GARMENT_TAG_RE = /\[\[garment:([a-f0-9-]+)(?:\|([^\]]+))?\]\]/gi;
+export const OUTFIT_TAG_RE = /\[\[outfit:([a-f0-9-,]+)\|([^\]]*)\]\]/gi;
+
+export function extractGarmentIdsFromText(text: string): string[] {
+  const ids = new Set<string>();
+  let match: RegExpExecArray | null;
+
+  GARMENT_TAG_RE.lastIndex = 0;
+  while ((match = GARMENT_TAG_RE.exec(text)) !== null) {
+    ids.add(match[1]);
+  }
+
+  OUTFIT_TAG_RE.lastIndex = 0;
+  while ((match = OUTFIT_TAG_RE.exec(text)) !== null) {
+    match[1].split(',').forEach((id) => ids.add(id.trim()));
+  }
+
+  return Array.from(ids);
+}

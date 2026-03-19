@@ -15,7 +15,10 @@ vi.mock('@/components/chat/OutfitSuggestionCard', () => ({
 
 import { ChatMessage } from '../ChatMessage';
 
-const garmentMap = new Map();
+const garmentMap = new Map([[
+  '11111111-1111-1111-1111-111111111111',
+  { id: '11111111-1111-1111-1111-111111111111', title: 'Navy blazer', image_path: null, category: 'outerwear' },
+]]);
 
 function renderMessage(overrides: Partial<Parameters<typeof ChatMessage>[0]> = {}) {
   const defaults: Parameters<typeof ChatMessage>[0] = {
@@ -60,5 +63,31 @@ describe('ChatMessage', () => {
       message: { role: 'assistant', content: '' },
     });
     expect(container.firstChild).toBeInTheDocument();
+  });
+
+  it('renders garment cards for labeled garment tags', () => {
+    renderMessage({
+      message: {
+        role: 'assistant',
+        content: 'Wear this [[garment:11111111-1111-1111-1111-111111111111|Navy blazer]] tonight.',
+      },
+    });
+
+    expect(screen.getByText('Wear this')).toBeInTheDocument();
+    expect(screen.getByText('tonight.')).toBeInTheDocument();
+    expect(screen.getByTestId('garment-inline-card')).toBeInTheDocument();
+  });
+
+  it('falls back to the garment label when the garment is not loaded', () => {
+    renderMessage({
+      garmentMap: new Map(),
+      message: {
+        role: 'assistant',
+        content: 'Pair it with [[garment:99999999-9999-9999-9999-999999999999|Black loafers]].',
+      },
+    });
+
+    expect(screen.getByText('Pair it with')).toBeInTheDocument();
+    expect(screen.getByText('Black loafers')).toBeInTheDocument();
   });
 });

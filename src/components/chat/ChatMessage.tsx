@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { GarmentInlineCard } from '@/components/chat/GarmentInlineCard';
 import { OutfitSuggestionCard } from '@/components/chat/OutfitSuggestionCard';
 import type { GarmentBasic } from '@/hooks/useGarmentsByIds';
+import { GARMENT_TAG_RE, OUTFIT_TAG_RE } from '@/lib/garmentTokens';
 
 type MultimodalPart =
   | { type: 'text'; text: string }
@@ -37,11 +38,11 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
     const cards: GarmentBasic[] = [];
     const outfits: { garments: GarmentBasic[]; explanation: string }[] = [];
 
-    const outfitRe = /\[\[outfit:([a-f0-9-,]+)\|([^\]]*)\]\]/gi;
     let cleanText = text;
     const outfitMatches: { fullMatch: string; ids: string[]; explanation: string }[] = [];
     let oMatch: RegExpExecArray | null;
-    while ((oMatch = outfitRe.exec(text)) !== null) {
+    OUTFIT_TAG_RE.lastIndex = 0;
+    while ((oMatch = OUTFIT_TAG_RE.exec(text)) !== null) {
       const ids = oMatch[1].split(',').map(id => id.trim());
       outfitMatches.push({ fullMatch: oMatch[0], ids, explanation: oMatch[2].trim() });
     }
@@ -53,15 +54,19 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
     }
 
     let lastIndex = 0;
-    const re = /\[\[garment:([a-f0-9-]+)\]\]/gi;
+    GARMENT_TAG_RE.lastIndex = 0;
     let match: RegExpExecArray | null;
-    while ((match = re.exec(cleanText)) !== null) {
+    while ((match = GARMENT_TAG_RE.exec(cleanText)) !== null) {
       if (match.index > lastIndex) {
         const segment = cleanText.slice(lastIndex, match.index).trim();
         if (segment) parts.push(<span key={`t-${lastIndex}`}>{segment} </span>);
       }
       const garment = garmentMap.get(match[1]);
-      if (garment) cards.push(garment);
+      if (garment) {
+        cards.push(garment);
+      } else if (match[2]?.trim()) {
+        parts.push(<span key={`g-${match.index}`}>{match[2].trim()} </span>);
+      }
       lastIndex = match.index + match[0].length;
     }
     if (lastIndex < cleanText.length) {
