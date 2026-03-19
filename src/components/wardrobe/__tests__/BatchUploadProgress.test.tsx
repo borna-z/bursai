@@ -105,5 +105,14 @@ describe('BatchUploadProgress', () => {
         category: 'top',
       })),
     );
+    await waitFor(() =>
+      expect(invokeEdgeFunctionMock).toHaveBeenCalledWith('detect_duplicate_garment', {
+        body: expect.objectContaining({
+          image_path: 'user-1/actual-upload.webp',
+          category: 'top',
+          exclude_garment_id: expect.any(String),
+        }),
+      }),
+    );
   });
 });
