@@ -36,49 +36,6 @@ function getStripeConfig() {
   };
 }
 
-// Multi-currency price mapping — TEST mode
-const TEST_CURRENCY_PRICES: Record<string, { monthly: string; yearly: string }> = {
-  fi: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
-  de: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
-  fr: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
-  es: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
-  it: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
-  pt: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
-  nl: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
-  fa: { monthly: 'price_1TAVutRfXibG26O75yc5qKKt', yearly: 'price_1TAVuuRfXibG26O7FgKIt5Uh' },
-  en: { monthly: 'price_1TAVuvRfXibG26O7DJR2wkuI', yearly: 'price_1TAVuwRfXibG26O7aj2xxdto' },
-  'en-gb': { monthly: 'price_1TAVuxRfXibG26O75oBJGdLl', yearly: 'price_1TAVuyRfXibG26O7F45XmVBZ' },
-  no: { monthly: 'price_1TAVbJRfXibG26O7fKNigbBC', yearly: 'price_1TAVbKRfXibG26O7N7JKBbp2' },
-  da: { monthly: 'price_1TAVbLRfXibG26O7NgZDiJ96', yearly: 'price_1TAVbMRfXibG26O7c75gExpI' },
-  pl: { monthly: 'price_1TAVbORfXibG26O7DpZIjTeP', yearly: 'price_1TAVbORfXibG26O7faEeW7ZL' },
-  ar: { monthly: 'price_1TAVbORfXibG26O7U5nUssVx', yearly: 'price_1TAVbPRfXibG26O7ndrBmQ5R' },
-};
-
-// Multi-currency price mapping — LIVE mode
-const LIVE_CURRENCY_PRICES: Record<string, { monthly: string; yearly: string }> = {
-  // EUR (€7.99/month, €69.99/year)
-  fi: { monthly: 'price_1TB1jCRfXibG26O7F6GQEIfV', yearly: 'price_1TB1jDRfXibG26O7Rrgi4lCx' },
-  de: { monthly: 'price_1TB1jCRfXibG26O7F6GQEIfV', yearly: 'price_1TB1jDRfXibG26O7Rrgi4lCx' },
-  fr: { monthly: 'price_1TB1jCRfXibG26O7F6GQEIfV', yearly: 'price_1TB1jDRfXibG26O7Rrgi4lCx' },
-  es: { monthly: 'price_1TB1jCRfXibG26O7F6GQEIfV', yearly: 'price_1TB1jDRfXibG26O7Rrgi4lCx' },
-  it: { monthly: 'price_1TB1jCRfXibG26O7F6GQEIfV', yearly: 'price_1TB1jDRfXibG26O7Rrgi4lCx' },
-  pt: { monthly: 'price_1TB1jCRfXibG26O7F6GQEIfV', yearly: 'price_1TB1jDRfXibG26O7Rrgi4lCx' },
-  nl: { monthly: 'price_1TB1jCRfXibG26O7F6GQEIfV', yearly: 'price_1TB1jDRfXibG26O7Rrgi4lCx' },
-  fa: { monthly: 'price_1TB1jCRfXibG26O7F6GQEIfV', yearly: 'price_1TB1jDRfXibG26O7Rrgi4lCx' },
-  // USD ($7.99/month, $69.99/year)
-  en: { monthly: 'price_1TB1jBRfXibG26O71TseHUiM', yearly: 'price_1TB1jBRfXibG26O7BQ8Bx0in' },
-  // GBP (£7.99/month, £69.99/year)
-  'en-gb': { monthly: 'price_1TB1jERfXibG26O7GEWnWS2o', yearly: 'price_1TB1jFRfXibG26O7zWj4lFjX' },
-  // NOK (79 kr/month, 699 kr/year)
-  no: { monthly: 'price_1TB1jGRfXibG26O7jGj1qDAG', yearly: 'price_1TB1jHRfXibG26O7iMGjH7oc' },
-  // DKK (59 kr/month, 499 kr/year)
-  da: { monthly: 'price_1TB1jIRfXibG26O7kFJxqw65', yearly: 'price_1TB1jJRfXibG26O72VaeTkMP' },
-  // PLN (29.99 zł/month, 249 zł/year)
-  pl: { monthly: 'price_1TB1jKRfXibG26O7PmQnB6Xr', yearly: 'price_1TB1jMRfXibG26O7LoofeXsx' },
-  // AED (25 د.إ/month, 219 د.إ/year)
-  ar: { monthly: 'price_1TB1jMRfXibG26O7uOM5ONIQ', yearly: 'price_1TB1jNRfXibG26O7CXRc9F7D' },
-};
-
 interface CheckoutRequest {
   plan: 'monthly' | 'yearly';
   locale?: string;
@@ -155,19 +112,8 @@ serve(async (req) => {
       throw new Error("Invalid plan. Must be 'monthly' or 'yearly'");
     }
 
-    // Determine price: use locale-based currency map for the active Stripe mode
-    let priceId: string;
-    const normalizedLocale = locale?.toLowerCase();
-    const shortLocale = normalizedLocale?.split('-')[0];
-    const priceMap = stripeConfig.mode === 'live' ? LIVE_CURRENCY_PRICES : TEST_CURRENCY_PRICES;
-    const currencyPrices = normalizedLocale
-      ? (priceMap[normalizedLocale] || priceMap[shortLocale!])
-      : null;
-    if (currencyPrices) {
-      priceId = plan === 'monthly' ? currencyPrices.monthly : currencyPrices.yearly;
-    } else {
-      priceId = plan === 'monthly' ? stripeConfig.priceIdMonthly : stripeConfig.priceIdYearly;
-    }
+    // Determine price directly from environment-configured Stripe price IDs
+    const priceId = plan === 'monthly' ? stripeConfig.priceIdMonthly : stripeConfig.priceIdYearly;
     if (!priceId) {
       throw new Error(`Missing price ID for ${plan} plan`);
     }
@@ -209,7 +155,7 @@ serve(async (req) => {
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' });
 
-    // Get origin for redirect URLs
+    // Get origin for redirect URLs using known BURS origins or configured app URL fallbacks
     const origin = resolveAppOrigin(req.headers.get("origin"));
 
     // Create checkout session
