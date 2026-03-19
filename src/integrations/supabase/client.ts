@@ -2,19 +2,30 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
-  || 'https://khvkwojtlkcvxjxztduj.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-  || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtodmt3b2p0bGtjdnhqeHp0ZHVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NDc0NzQsImV4cCI6MjA4OTQyMzQ3NH0.1ALSpWhawlnvTN5GeSLuBl99b4T6XQ9_rJLI_mdat8s';
+function requireEnv(name: 'VITE_SUPABASE_URL' | 'VITE_SUPABASE_PUBLISHABLE_KEY'): string {
+  const value = import.meta.env[name];
+
+  if (!value) {
+    throw new Error(
+      `Missing required Supabase environment variable: ${name}. `
+      + 'Set it in your frontend environment before starting BURS.'
+    );
+  }
+
+  return value;
+}
+
+export const supabaseUrl = requireEnv('VITE_SUPABASE_URL');
+export const supabasePublishableKey = requireEnv('VITE_SUPABASE_PUBLISHABLE_KEY');
 
 export const supabase = createClient<Database>(
-  SUPABASE_URL,
-  SUPABASE_PUBLISHABLE_KEY,
+  supabaseUrl,
+  supabasePublishableKey,
   {
     auth: {
       storage: localStorage,
       persistSession: true,
       autoRefreshToken: true,
-    }
+    },
   }
 );

@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
-import { allowedOrigin } from "../_shared/cors.ts";
+import { allowedOrigin, resolveAppOrigin } from "../_shared/cors.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": allowedOrigin,
@@ -210,7 +210,7 @@ serve(async (req) => {
       }, { onConflict: 'user_id' });
 
     // Get origin for redirect URLs
-    const origin = req.headers.get("origin") || "https://id-preview--33b2a235-7025-49d2-9bf2-b33460a200cf.lovable.app";
+    const origin = resolveAppOrigin(req.headers.get("origin"));
 
     // Create checkout session
     const session = await stripe.checkout.sessions.create({

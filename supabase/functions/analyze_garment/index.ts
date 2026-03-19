@@ -322,13 +322,13 @@ serve(async (req) => {
         }
 
         return new Response(
-          JSON.stringify({ enrichment, ai_provider: 'lovable_ai' }),
+          JSON.stringify({ enrichment, ai_provider: 'burs_ai' }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (err) {
         console.error('Enrichment error after retry:', err);
         return new Response(
-          JSON.stringify({ enrichment: null, error: "parse_failed", ai_provider: 'lovable_ai' }),
+          JSON.stringify({ enrichment: null, error: "parse_failed", ai_provider: 'burs_ai' }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -420,7 +420,7 @@ serve(async (req) => {
     };
 
     return new Response(
-      JSON.stringify({ ...analysis, ai_provider: 'lovable_ai', ai_raw: rawAnalysis }),
+      JSON.stringify({ ...analysis, ai_provider: 'burs_ai', ai_raw: rawAnalysis }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
