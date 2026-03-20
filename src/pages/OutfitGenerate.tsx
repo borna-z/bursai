@@ -78,7 +78,7 @@ function OutfitGenerateFallback() {
 export default function OutfitGeneratePage() {
   const navigate = useNavigate();
   const { t, locale } = useLanguage();
-  const { generateOutfit, isGenerating } = useOutfitGenerator();
+  const { generateOutfit, generateOutfitCandidates, isGenerating } = useOutfitGenerator();
   const { isUnlocked } = useWardrobeUnlocks();
   const { weather } = useWeather();
   const todayDate = new Date().toISOString().slice(0, 10);
@@ -147,7 +147,7 @@ export default function OutfitGeneratePage() {
     setPhase('generating');
     setLastError(null);
     try {
-      const result = await generateOutfit({
+      const request = {
         occasion: selectedOccasion,
         style: selectedStyles.length > 0 ? selectedStyles.join(', ') : null,
         locale,
@@ -158,8 +158,12 @@ export default function OutfitGeneratePage() {
           precipitation: weather?.precipitation ?? 'none',
           wind: weather?.wind ?? 'low',
         },
-      });
-      setGeneratedResults([result]);
+      };
+      const result = generationMode === 'stylist'
+        ? await generateOutfitCandidates(request)
+        : await generateOutfit(request);
+      const results = Array.isArray(result) ? result : [result];
+      setGeneratedResults(results);
       setPrimaryIndex(0);
       setPhase('done');
     } catch (err) {
@@ -183,10 +187,6 @@ export default function OutfitGeneratePage() {
     navigate(`/outfits/${outfit.id}`, {
       state: { openPlanner: true },
     });
-  };
-
-  const handleSwapPrimary = () => {
-    setPrimaryIndex((prev) => (prev === 0 ? 1 : 0));
   };
 
   // ── GENERATING PHASE ──
@@ -213,8 +213,7 @@ export default function OutfitGeneratePage() {
   // ── DONE PHASE — Primary recommendation ──
   if (phase === 'done' && generatedResults.length > 0) {
     const primary = generatedResults[primaryIndex];
-    const secondaryIdx = primaryIndex === 0 ? 1 : 0;
-    const secondary = generatedResults[secondaryIdx] ?? null;
+    const alternateResults = generatedResults.filter((_, index) => index !== primaryIndex);
     const reasoningText =
       primary.outfit_reasoning?.why_it_works ||
       (primary.explanation
@@ -305,40 +304,62 @@ export default function OutfitGeneratePage() {
                 </div>
               </motion.div>
 
-              {/* ── Secondary Card ── */}
-              {secondary && (
+              {/* ── Alternate builder options ── */}
+              {alternateResults.length > 0 && (
                 <motion.div
-                  key={`secondary-${secondary.id}`}
                   layout={!prefersReduced}
                   transition={prefersReduced ? { duration: 0 } : SPRING_LAYOUT}
                   className="mt-6"
                 >
-                  <p className="text-[10px] font-['DM_Sans'] tracking-widest text-muted-foreground/40 uppercase mb-3">
-                    OR TRY THIS INSTEAD
-                  </p>
-                  <button
-                    onClick={handleSwapPrimary}
-                    className="w-full text-left active:opacity-80 transition-opacity"
-                  >
-                    <div className="flex gap-2">
-                      {secondary.items.slice(0, 4).map((item) => (
-                        <div
-                          key={item.garment.id}
-                          className="w-16 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-muted/20"
-                        >
-                          <LazyImageSimple
-                            imagePath={getPreferredGarmentImagePath(item.garment)}
-                            alt={item.garment.title || item.slot}
-                            className="w-full h-full object-cover"
-                            fallbackIcon={<Shirt className="w-4 h-4 text-muted-foreground/15" />}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-[12px] font-['DM_Sans'] text-muted-foreground/50 mt-2">
-                      {OCCASIONS.find(o => o.key === secondary.occasion)?.label ?? secondary.occasion}
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[10px] font-['DM_Sans'] tracking-widest text-muted-foreground/40 uppercase">
+                      STYLIST OPTIONS
                     </p>
-                  </button>
+                    <p className="text-[11px] text-muted-foreground/50">
+                      {primaryIndex + 1} of {generatedResults.length}
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    {alternateResults.map((option) => {
+                      const optionIndex = generatedResults.findIndex((result) => result.id === option.id);
+                      return (
+                        <button
+                          key={option.id}
+                          onClick={() => setPrimaryIndex(optionIndex)}
+                          className="w-full rounded-2xl border border-border/20 bg-card/60 p-3 text-left active:opacity-80 transition-opacity"
+                        >
+                          <div className="flex gap-2">
+                            {option.items.slice(0, 4).map((item) => (
+                              <div
+                                key={item.garment.id}
+                                className="w-16 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-muted/20"
+                              >
+                                <LazyImageSimple
+                                  imagePath={getPreferredGarmentImagePath(item.garment)}
+                                  alt={item.garment.title || item.slot}
+                                  className="w-full h-full object-cover"
+                                  fallbackIcon={<Shirt className="w-4 h-4 text-muted-foreground/15" />}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          <div className="mt-3 flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-[12px] font-medium text-foreground">
+                                Option {optionIndex + 1}
+                              </p>
+                              <p className="text-[12px] font-['DM_Sans'] text-muted-foreground/50 mt-1">
+                                {option.family_label ? `${option.family_label} · ` : ''}
+                                {OCCASIONS.find(o => o.key === option.occasion)?.label ?? option.occasion}
+                              </p>
+                            </div>
+                            <span className="text-[11px] text-muted-foreground/50">Tap to compare</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </motion.div>
               )}
             </LayoutGroup>

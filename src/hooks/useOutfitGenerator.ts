@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
@@ -47,6 +46,112 @@ export interface GeneratedOutfit {
 
 const INSUFFICIENT_GARMENTS_MESSAGE =
   'Add more garments before generating an outfit. You need either top + bottom + shoes, or dress + shoes.';
+
+
+interface EngineSuggestion {
+  title?: string;
+  garment_ids?: string[];
+  garments?: Garment[];
+  explanation?: string;
+  occasion?: string;
+  family_label?: string;
+  confidence_score?: number;
+  confidence_level?: string;
+  limitation_note?: string | null;
+}
+
+interface EngineGenerateResponse {
+  items?: { slot: string; garment_id: string }[];
+  explanation?: string;
+  style_score?: Record<string, number> | null;
+  confidence_score?: number;
+  confidence_level?: string;
+  limitation_note?: string | null;
+  family_label?: string;
+  wardrobe_insights?: string[];
+  layer_order?: { slot: string; garment_id: string; layer_role: string }[];
+  needs_base_layer?: boolean;
+  occasion_submode?: string | null;
+  outfit_reasoning?: {
+    why_it_works?: string;
+    occasion_fit?: string;
+    weather_logic?: string | null;
+    color_note?: string;
+  };
+  suggestions?: EngineSuggestion[];
+  error?: string;
+}
+
+function inferSlotFromGarment(garment: Pick<Garment, 'category' | 'subcategory'>): string {
+  const category = String(garment.category || '').toLowerCase();
+  const subcategory = String(garment.subcategory || '').toLowerCase();
+  const value = `${category} ${subcategory}`.trim();
+
+  if (['dress', 'jumpsuit', 'overall', 'klänning'].some((token) => value.includes(token))) return 'dress';
+  if (['shoes', 'sneakers', 'boots', 'heels', 'sandals', 'loafers', 'skor', 'stövlar'].some((token) => value.includes(token))) return 'shoes';
+  if (['outerwear', 'coat', 'jacket', 'blazer', 'trench', 'jacka', 'kappa'].some((token) => value.includes(token))) return 'outerwear';
+  if (['accessory', 'bag', 'hat', 'belt', 'scarf', 'smycke', 'väska'].some((token) => value.includes(token))) return 'accessory';
+  if (['bottom', 'pants', 'jeans', 'trousers', 'shorts', 'skirt', 'byxor', 'kjol'].some((token) => value.includes(token))) return 'bottom';
+  return 'top';
+}
+
+async function fetchGarmentsByIds(garmentIds: string[]): Promise<Map<string, Garment>> {
+  const uniqueIds = Array.from(new Set(garmentIds.filter(Boolean)));
+  if (uniqueIds.length === 0) return new Map();
+
+  const { data: garments, error } = await supabase
+    .from('garments')
+    .select('*')
+    .in('id', uniqueIds);
+
+  if (error) throw error;
+  return new Map((garments || []).map((g) => [g.id, g as Garment]));
+}
+
+async function persistGeneratedOutfit(
+  userId: string,
+  request: OutfitRequest,
+  normalizedWeather: ReturnType<typeof normalizeWeather>,
+  selectedItems: { slot: string; garment: Garment }[],
+  explanation: string,
+  styleScore: Record<string, number> | null,
+  saved: boolean,
+): Promise<{ id: string; occasion: string; style_vibe: string | null }> {
+  const weatherJson = {
+    temperature: normalizedWeather.temperature,
+    precipitation: normalizedWeather.precipitation,
+    wind: normalizedWeather.wind,
+    condition: normalizedWeather.condition,
+  };
+
+  const { data: outfit, error: outfitError } = await supabase
+    .from('outfits')
+    .insert([{
+      user_id: userId,
+      occasion: request.occasion,
+      style_vibe: request.style || null,
+      weather: weatherJson,
+      explanation,
+      saved,
+      style_score: styleScore,
+    }])
+    .select()
+    .single();
+
+  if (outfitError) throw outfitError;
+
+  const outfitItems = selectedItems.map((item) => ({
+    outfit_id: outfit.id,
+    garment_id: item.garment.id,
+    slot: item.slot,
+  }));
+
+  const { error: itemsError } = await supabase.from('outfit_items').insert(outfitItems);
+  if (itemsError) throw itemsError;
+
+  return outfit;
+}
+
 
 function isCompleteOutfitClient(items: { slot: string }[]): boolean {
   const slots = new Set(items.map(i => i.slot));
@@ -109,36 +214,17 @@ async function validateWardrobeForGeneration(userId: string): Promise<void> {
 
 async function generateOutfitViaEngine(
   userId: string,
-  request: OutfitRequest
-): Promise<GeneratedOutfit> {
+  request: OutfitRequest,
+  resultMode: 'single' | 'multi' = 'single',
+): Promise<GeneratedOutfit | GeneratedOutfit[]> {
   await validateWardrobeForGeneration(userId);
 
   const normalizedWeather = normalizeWeather(request.weather as Record<string, unknown>);
 
-  console.log('[OutfitGen] Calling burs_style_engine…');
-  const { data, error: fnError } = await invokeEdgeFunction<{
-    items?: { slot: string; garment_id: string }[];
-    explanation?: string;
-    style_score?: Record<string, number> | null;
-    confidence_score?: number;
-    confidence_level?: string;
-    limitation_note?: string | null;
-    family_label?: string;
-    wardrobe_insights?: string[];
-    layer_order?: { slot: string; garment_id: string; layer_role: string }[];
-    needs_base_layer?: boolean;
-    occasion_submode?: string | null;
-    outfit_reasoning?: {
-      why_it_works?: string;
-      occasion_fit?: string;
-      weather_logic?: string | null;
-      color_note?: string;
-    };
-    error?: string;
-  }>('burs_style_engine', {
+  const { data, error: fnError } = await invokeEdgeFunction<EngineGenerateResponse>('burs_style_engine', {
     timeout: 45000,
     body: {
-      mode: request.mode === 'stylist' ? 'stylist' : 'generate',
+      mode: resultMode === 'multi' ? 'suggest' : 'generate',
       occasion: request.occasion,
       style: request.style,
       weather: normalizedWeather,
@@ -147,7 +233,6 @@ async function generateOutfitViaEngine(
     },
   });
 
-  console.log('[OutfitGen] Edge response:', { data, fnError: fnError?.message });
 
   if (fnError) {
     if (isInsufficientGarmentsError(fnError.message)) {
@@ -161,6 +246,60 @@ async function generateOutfitViaEngine(
       throw new Error(INSUFFICIENT_GARMENTS_MESSAGE);
     }
     throw new Error(data.error);
+  }
+
+  if (resultMode === 'multi') {
+    const suggestions = data?.suggestions ?? [];
+    if (!suggestions.length) {
+      return [await generateOutfitViaEngine(userId, request, 'single') as GeneratedOutfit];
+    }
+
+    const garmentIds = suggestions.flatMap((suggestion) =>
+      suggestion.garment_ids?.length
+        ? suggestion.garment_ids
+        : (suggestion.garments ?? []).map((garment) => garment.id)
+    );
+    const garmentMap = await fetchGarmentsByIds(garmentIds);
+
+    const outfits = await Promise.all(suggestions.map(async (suggestion, index) => {
+      const orderedGarments = (suggestion.garment_ids?.length
+        ? suggestion.garment_ids.map((id) => garmentMap.get(id)).filter(Boolean)
+        : (suggestion.garments ?? []).map((garment) => garmentMap.get(garment.id) ?? garment).filter(Boolean)) as Garment[];
+
+      const selectedItems = orderedGarments.map((garment) => ({
+        slot: inferSlotFromGarment(garment),
+        garment,
+      }));
+
+      if (!isCompleteOutfitClient(selectedItems)) {
+        throw new Error(`Incomplete outfit returned for option ${index + 1}.`);
+      }
+
+      const persisted = await persistGeneratedOutfit(
+        userId,
+        request,
+        normalizedWeather,
+        selectedItems,
+        suggestion.explanation ?? '',
+        null,
+        false,
+      );
+
+      return {
+        id: persisted.id,
+        occasion: persisted.occasion,
+        style_vibe: persisted.style_vibe,
+        explanation: suggestion.explanation ?? '',
+        weather: request.weather,
+        items: selectedItems,
+        confidence_score: suggestion.confidence_score,
+        confidence_level: suggestion.confidence_level,
+        limitation_note: suggestion.limitation_note,
+        family_label: suggestion.family_label,
+      } satisfies GeneratedOutfit;
+    }));
+
+    return outfits;
   }
 
   const aiItems: { slot: string; garment_id: string }[] = data?.items ?? [];
@@ -178,16 +317,7 @@ async function generateOutfitViaEngine(
 
   if (!aiItems.length) throw new Error('AI returned no garments');
 
-  // Fetch full garment data
-  const garmentIds = aiItems.map((i) => i.garment_id);
-  const { data: garments, error: gError } = await supabase
-    .from('garments')
-    .select('*')
-    .in('id', garmentIds);
-
-  if (gError) throw gError;
-
-  const garmentMap = new Map((garments || []).map((g) => [g.id, g]));
+  const garmentMap = await fetchGarmentsByIds(aiItems.map((i) => i.garment_id));
   const selectedItems = aiItems
     .map((item) => ({ slot: item.slot, garment: garmentMap.get(item.garment_id) as Garment }))
     .filter((item) => item.garment);
@@ -203,39 +333,15 @@ async function generateOutfitViaEngine(
     throw new Error(`Incomplete outfit returned.${detail}`);
   }
 
-  // Save outfit — always use normalized `temperature` key
-  const weatherJson = {
-    temperature: normalizedWeather.temperature,
-    precipitation: normalizedWeather.precipitation,
-    wind: normalizedWeather.wind,
-    condition: normalizedWeather.condition,
-  };
-
-  const { data: outfit, error: outfitError } = await supabase
-    .from('outfits')
-    .insert([{
-      user_id: userId,
-      occasion: request.occasion,
-      style_vibe: request.style || null,
-      weather: weatherJson,
-      explanation,
-      saved: true,
-      style_score: styleScore,
-    }])
-    .select()
-    .single();
-
-  if (outfitError) throw outfitError;
-
-  // Save outfit items
-  const outfitItems = selectedItems.map((item) => ({
-    outfit_id: outfit.id,
-    garment_id: item.garment.id,
-    slot: item.slot,
-  }));
-
-  const { error: itemsError } = await supabase.from('outfit_items').insert(outfitItems);
-  if (itemsError) throw itemsError;
+  const outfit = await persistGeneratedOutfit(
+    userId,
+    request,
+    normalizedWeather,
+    selectedItems,
+    explanation,
+    styleScore,
+    true,
+  );
 
   return {
     id: outfit.id,
@@ -259,27 +365,31 @@ async function generateOutfitViaEngine(
 export function useOutfitGenerator() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [isGenerating, setIsGenerating] = useState(false);
 
-  const mutation = useMutation({
+  const invalidateOutfits = () => {
+    queryClient.invalidateQueries({ queryKey: ['outfits'] });
+  };
+
+  const singleMutation = useMutation({
     mutationFn: async (request: OutfitRequest) => {
       if (!user) throw new Error('Not logged in');
-      setIsGenerating(true);
-      try {
-        return await generateOutfitViaEngine(user.id, request);
-      } finally {
-        setIsGenerating(false);
-      }
+      return await generateOutfitViaEngine(user.id, request, 'single') as GeneratedOutfit;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['outfits'] });
+    onSuccess: invalidateOutfits,
+  });
+
+  const multiMutation = useMutation({
+    mutationFn: async (request: OutfitRequest) => {
+      if (!user) throw new Error('Not logged in');
+      return await generateOutfitViaEngine(user.id, request, 'multi') as GeneratedOutfit[];
     },
+    onSuccess: invalidateOutfits,
   });
 
   return {
-    generateOutfit: mutation.mutateAsync,
-    isGenerating: isGenerating || mutation.isPending,
-    error: mutation.error,
+    generateOutfit: singleMutation.mutateAsync,
+    generateOutfitCandidates: multiMutation.mutateAsync,
+    isGenerating: singleMutation.isPending || multiMutation.isPending,
+    error: singleMutation.error ?? multiMutation.error,
   };
 }
-

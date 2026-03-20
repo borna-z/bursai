@@ -29,6 +29,11 @@ interface GarmentRow {
   wear_count: number | null;
   last_worn_at: string | null;
   image_path: string;
+  created_at: string | null;
+  enrichment_status: string | null;
+  image_processing_status: string | null;
+  image_processing_confidence: number | null;
+  ai_raw: any;
   // Enrichment fields from ai_raw (populated at load time with safe defaults)
   silhouette: string;           // e.g. "boxy", "fitted", "relaxed", "straight", "a-line"
   visual_weight: number;        // 1-10, higher = heavier/chunkier
@@ -2106,6 +2111,73 @@ function buildPersonalUniform(wearLogs: WearLog[], garments: GarmentRow[]): Pers
   };
 }
 
+
+interface GarmentReadinessSignals {
+  analysisConfidence: number | null;
+  enrichmentReady: boolean;
+  imageReady: boolean;
+  imageConfidence: number | null;
+  isRecentlyAdded: boolean;
+  penalty: number;
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function garmentReadinessSignals(garment: GarmentRow): GarmentReadinessSignals {
+  const aiRaw = garment.ai_raw && typeof garment.ai_raw === 'object' ? garment.ai_raw as Record<string, any> : {};
+  const systemSignals = aiRaw.system_signals && typeof aiRaw.system_signals === 'object'
+    ? aiRaw.system_signals as Record<string, any>
+    : {};
+
+  const analysisConfidenceRaw =
+    typeof systemSignals.analysis_confidence === 'number'
+      ? systemSignals.analysis_confidence
+      : typeof aiRaw.confidence === 'number'
+        ? aiRaw.confidence
+        : typeof aiRaw?.enrichment?.confidence === 'number'
+          ? aiRaw.enrichment.confidence
+          : null;
+
+  const analysisConfidence = analysisConfidenceRaw == null ? null : clamp01(analysisConfidenceRaw);
+  const enrichmentReady = garment.enrichment_status === 'complete';
+  const imageReady = garment.image_processing_status === 'ready' || garment.image_processing_status === 'failed';
+  const imageConfidence = garment.image_processing_confidence == null ? null : clamp01(garment.image_processing_confidence);
+  const createdAt = garment.created_at ? new Date(garment.created_at).getTime() : null;
+  const ageHours = createdAt == null ? Number.POSITIVE_INFINITY : (Date.now() - createdAt) / 36e5;
+  const isRecentlyAdded = Number.isFinite(ageHours) && ageHours <= 72;
+
+  let penalty = 0;
+  if (!enrichmentReady) penalty += 0.55;
+  if (!imageReady) penalty += 0.3;
+
+  if (analysisConfidence != null && analysisConfidence < 0.75) {
+    penalty += Math.min(0.8, (0.75 - analysisConfidence) * 2);
+  }
+
+  if (imageConfidence != null && imageConfidence < 0.55) {
+    penalty += Math.min(0.25, (0.55 - imageConfidence) * 0.6);
+  }
+
+  if (isRecentlyAdded && analysisConfidence != null && analysisConfidence < 0.65) {
+    penalty += 0.45;
+  }
+
+  if (isRecentlyAdded && (!enrichmentReady || !imageReady)) {
+    penalty += 0.2;
+  }
+
+  return {
+    analysisConfidence,
+    enrichmentReady,
+    imageReady,
+    imageConfidence,
+    isRecentlyAdded,
+    penalty: Math.min(1.6, penalty),
+  };
+}
+
 function personalUniformScore(garment: GarmentRow, uniform: PersonalUniform | null): number {
   if (!uniform || !uniform.formula || uniform.confidence < 0.3) return 7;
 
@@ -2167,6 +2239,9 @@ function scoreGarment(
   // IB-5c: Personal uniform boost
   const pus = personalUniformScore(garment, uniform);
 
+  // Readiness awareness: softly down-rank low-confidence / still-processing garments
+  const readiness = garmentReadinessSignals(garment);
+
   // Weighted composite: base factors + enrichment + uniform + social penalty
   const vectorConf = styleVector?.confidence || 0;
   const saWeight = 0.06 * (1 - vectorConf * 0.5);
@@ -2178,7 +2253,8 @@ function scoreGarment(
     + lrs * 0.06   // layering role fit
     + pus * 0.05   // personal uniform match (IB-5c)
     + vb           // versatility bonus (additive, max ~1.8)
-    - scp * 0.5;
+    - scp * 0.5
+    - readiness.penalty;
 
   return {
     garment,
@@ -2187,7 +2263,7 @@ function scoreGarment(
       weather: ws, formality: fs, rotation: wr, feedback: fb, style: sa, pattern: wp,
       vector: sv, comfort: cs, socialPenalty: scp, seasonalTransition: sts,
       occasion_tag: ots, layering_role: lrs, versatility: garment.versatility_score,
-      uniform: pus,
+      uniform: pus, readiness_penalty: readiness.penalty, analysis_confidence: readiness.analysisConfidence ?? -1,
     },
   };
 }
@@ -3741,7 +3817,7 @@ serve(async (req) => {
     const [garmentsRawRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes, laundryCountRes, pairMemoryRes, feedbackSignalsRes, plannedNotWornRes] = await Promise.all([
       supabase
         .from("garments")
-        .select("id, title, category, subcategory, color_primary, color_secondary, pattern, material, fit, formality, season_tags, wear_count, last_worn_at, image_path, ai_raw")
+        .select("id, title, category, subcategory, color_primary, color_secondary, pattern, material, fit, formality, season_tags, wear_count, last_worn_at, image_path, created_at, enrichment_status, image_processing_status, image_processing_confidence, ai_raw")
         .eq("user_id", userId)
         .eq("in_laundry", false),
       supabase.from("profiles").select("preferences, height_cm, weight_kg").eq("id", userId).single(),

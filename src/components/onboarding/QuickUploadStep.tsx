@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { useIsDark } from '@/hooks/useIsDark';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { standardizeGarmentAiRaw } from '@/lib/garmentIntelligence';
 
 interface QuickUploadStepProps {
   onComplete: () => void;
@@ -99,7 +100,11 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
           formality: analysis?.formality || 3,
           ai_analyzed_at: analysis ? new Date().toISOString() : null,
           ai_provider: analysis?.ai_provider || null,
-          ai_raw: analysis?.ai_raw || null,
+          ai_raw: standardizeGarmentAiRaw({
+            aiRaw: analysis?.ai_raw || null,
+            analysisConfidence: analysis?.confidence,
+            source: 'quick_upload',
+          }),
           enrichment_status: analysis ? 'complete' : 'failed',
           imported_via: 'quick_upload',
         });

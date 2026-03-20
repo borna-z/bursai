@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import type { GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
 import type { Json } from '@/integrations/supabase/types';
-import { buildGarmentIntelligenceFields, GARMENT_IMAGE_PROCESSING_VERSION, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
+import { buildGarmentIntelligenceFields, GARMENT_IMAGE_PROCESSING_VERSION, standardizeGarmentAiRaw, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
 
 export interface SaveableResult {
   analysis: GarmentAnalysis;
@@ -57,7 +57,11 @@ export async function saveGarmentInBackground(
       formality: result.analysis.formality || 3,
       ai_analyzed_at: new Date().toISOString(),
       ai_provider: result.analysis.ai_provider || 'unknown',
-      ai_raw: (result.analysis.ai_raw ?? null) as Json,
+      ai_raw: standardizeGarmentAiRaw({
+        aiRaw: (result.analysis.ai_raw ?? null) as Json,
+        analysisConfidence: result.analysis.confidence,
+        source: 'live_scan',
+      }),
       imported_via: 'live_scan',
       ...buildGarmentIntelligenceFields({ storagePath }),
     });

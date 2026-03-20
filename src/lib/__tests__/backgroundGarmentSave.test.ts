@@ -31,7 +31,8 @@ const MOCK_ANALYSIS = {
   season_tags: ['fall', 'winter'],
   formality: 4,
   ai_provider: '',
-  ai_raw: null,
+  confidence: 0.42,
+  ai_raw: { confidence: 0.42 },
 };
 
 function makeResult(): SaveableResult {
@@ -98,6 +99,13 @@ describe('saveGarmentInBackground', () => {
         category: 'tops',
         imported_via: 'live_scan',
         ai_provider: 'unknown',
+        ai_raw: expect.objectContaining({
+          confidence: 0.42,
+          system_signals: expect.objectContaining({
+            analysis_confidence: 0.42,
+            source: 'live_scan',
+          }),
+        }),
       }),
     );
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-thumb');
