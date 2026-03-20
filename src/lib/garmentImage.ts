@@ -1,5 +1,3 @@
-import type { Garment } from '@/hooks/useGarments';
-
 const PROCESSING_PHASES = [
   'Preparing your garment',
   'Removing background',
@@ -9,7 +7,14 @@ const PROCESSING_PHASES = [
 
 export type GarmentProcessingPhase = (typeof PROCESSING_PHASES)[number];
 
-export function getPreferredGarmentImagePath(garment: Pick<Garment, 'image_path' | 'original_image_path' | 'processed_image_path' | 'image_processing_status'>): string | undefined {
+type GarmentImageLike = {
+  image_path?: string | null;
+  original_image_path?: string | null;
+  processed_image_path?: string | null;
+  image_processing_status?: string | null;
+};
+
+export function getPreferredGarmentImagePath(garment: GarmentImageLike): string | undefined {
   if (garment.image_processing_status === 'ready' && garment.processed_image_path) {
     return garment.processed_image_path;
   }

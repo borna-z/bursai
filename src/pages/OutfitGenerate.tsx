@@ -21,6 +21,7 @@ import { PaywallModal } from '@/components/PaywallModal';
 import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
 
 /* ── Occasions ── */
@@ -150,6 +151,7 @@ export default function OutfitGeneratePage() {
         occasion: selectedOccasion,
         style: selectedStyles.length > 0 ? selectedStyles.join(', ') : null,
         locale,
+        eventTitle: calendarEvents?.[0]?.title ?? null,
         mode: generationMode,
         weather: {
           temperature: weather?.temperature,
@@ -250,7 +252,7 @@ export default function OutfitGeneratePage() {
                       )}
                     >
                       <LazyImageSimple
-                        imagePath={item.garment.image_path}
+                        imagePath={getPreferredGarmentImagePath(item.garment)}
                         alt={item.garment.title || item.slot}
                         className="w-full aspect-square object-cover"
                         fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/15" />}
@@ -325,7 +327,7 @@ export default function OutfitGeneratePage() {
                           className="w-16 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-muted/20"
                         >
                           <LazyImageSimple
-                            imagePath={item.garment.image_path}
+                            imagePath={getPreferredGarmentImagePath(item.garment)}
                             alt={item.garment.title || item.slot}
                             className="w-full h-full object-cover"
                             fallbackIcon={<Shirt className="w-4 h-4 text-muted-foreground/15" />}

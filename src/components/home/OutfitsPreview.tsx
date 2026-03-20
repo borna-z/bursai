@@ -7,6 +7,7 @@ import { useOutfits, type OutfitWithItems } from '@/hooks/useOutfits';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { SectionHeader } from '@/components/ui/section-header';
 import { getOccasionLabel } from '@/lib/occasionLabel';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 export function OutfitsPreview() {
   const { t } = useLanguage();
@@ -52,7 +53,7 @@ function OutfitMiniCard({ outfit, onTap }: { outfit: OutfitWithItems; onTap: () 
         {items.map((item) => (
           <LazyImage
             key={item.id}
-            imagePath={item.garment?.image_path}
+            imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
             alt={item.garment?.title || ''}
             aspectRatio="square"
             className="rounded-lg"

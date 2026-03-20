@@ -18,6 +18,7 @@ import { getDateFnsLocale } from '@/lib/dateLocale';
 import type { Locale as AppLocale } from '@/i18n/types';
 import { toast } from 'sonner';
 import { TAP_TRANSITION } from '@/lib/motion';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 type FilterTab = 'all' | 'saved' | 'planned';
 
@@ -28,7 +29,7 @@ function OutfitMosaic({ items }: { items: OutfitWithItems['outfit_items'] }) {
       {slots.map((item, i) => (
         <div key={item.id} className={cn('overflow-hidden', i === 0 && 'rounded-tl-xl', i === 1 && 'rounded-tr-xl', i === 2 && 'rounded-bl-xl', i === 3 && 'rounded-br-xl')}>
           <LazyImageSimple
-            imagePath={item.garment?.image_path}
+            imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
             alt={item.garment?.title || item.slot}
             className="w-full h-full"
           />

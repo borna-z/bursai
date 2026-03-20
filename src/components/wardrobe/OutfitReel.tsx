@@ -9,6 +9,7 @@ import type { OutfitWithItems } from '@/hooks/useOutfits';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 interface OutfitReelProps {
   outfits: OutfitWithItems[];
@@ -199,7 +200,7 @@ export function OutfitReel({ outfits, onClose }: OutfitReelProps) {
             {outfit.outfit_items.slice(0, 4).map((item) => (
               <div key={item.id} className="aspect-square rounded-xl overflow-hidden bg-muted/10">
                 <LazyImageSimple
-                  imagePath={item.garment?.image_path}
+                  imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
                   alt={item.garment?.title || item.slot}
                   className="w-full h-full"
                 />
