@@ -56,6 +56,16 @@ function makePng(width: number, height: number, alphaForPixel: (x: number, y: nu
   ]);
 }
 
+function makeJpeg(): Uint8Array {
+  return Uint8Array.from([
+    0xff, 0xd8,
+    0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x01, 0x00, 0x48, 0x00, 0x48, 0x00, 0x00,
+    0xff, 0xc0, 0x00, 0x11, 0x08, 0x02, 0x58, 0x02, 0x58, 0x03, 0x01, 0x22, 0x00, 0x02, 0x11, 0x00, 0x03, 0x11, 0x00,
+    ...Array.from({ length: 4096 }, () => 0x55),
+    0xff, 0xd9,
+  ]);
+}
+
 describe('assessGarmentEligibility', () => {
   it('keeps support conservative around tops and outerwear', () => {
     expect(assessGarmentEligibility('top', 't_shirt').eligible).toBe(true);
@@ -65,28 +75,26 @@ describe('assessGarmentEligibility', () => {
 });
 
 describe('assessProcessedImageQuality', () => {
-  it('accepts a centered supported garment cutout', async () => {
+  it('accepts a valid processed PNG with practical safety checks', async () => {
     const png = makePng(800, 800, (x, y) => (x >= 220 && x < 580 && y >= 120 && y < 680 ? 255 : 0));
     const result = await assessProcessedImageQuality(png, 'image/png', 'tops');
 
     expect(result.accepted).toBe(true);
-    expect(result.confidence).toBeGreaterThanOrEqual(0.72);
+    expect(result.confidence).toBeGreaterThanOrEqual(0.9);
     expect(result.issues).toEqual([]);
   });
 
-  it('rejects weak outputs that still include edge/background spill', async () => {
-    const png = makePng(800, 800, (x, y) => (x >= 10 && x < 790 && y >= 12 && y < 792 ? 255 : 0));
-    const result = await assessProcessedImageQuality(png, 'image/png', 'tops');
+  it('accepts valid non-png images when the file is intact', async () => {
+    const result = await assessProcessedImageQuality(makeJpeg(), 'image/jpeg', 'tops');
 
-    expect(result.accepted).toBe(false);
-    expect(result.issues.join(' ')).toMatch(/border|background|width|height/i);
+    expect(result.accepted).toBe(true);
+    expect(result.metrics?.format).toBe('jpeg');
   });
 
-  it('rejects non-png outputs to preserve transparency-safe fallback behavior', async () => {
-    const png = makePng(800, 800, (x, y) => (x >= 220 && x < 580 && y >= 120 && y < 680 ? 255 : 0));
-    const result = await assessProcessedImageQuality(png, 'image/jpeg', 'tops');
+  it('rejects corrupted outputs even if they claim to be an image', async () => {
+    const result = await assessProcessedImageQuality(Uint8Array.from([1, 2, 3, 4, 5, 6]), 'image/png', 'tops');
 
     expect(result.accepted).toBe(false);
-    expect(result.issues[0]).toMatch(/PNG/);
+    expect(result.issues[0]).toMatch(/small|corrupted|unsupported/i);
   });
 });

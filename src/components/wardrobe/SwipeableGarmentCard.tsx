@@ -11,6 +11,7 @@ import { hapticLight } from '@/lib/haptics';
 import type { Garment } from '@/hooks/useGarments';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
+import { GarmentProcessingPreview } from '@/components/wardrobe/GarmentProcessingPreview';
 
 const ACTION_WIDTH = 72; // width per action button
 const TOTAL_WIDTH = ACTION_WIDTH * 3; // 3 actions
@@ -118,12 +119,19 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({ garment
           garment.in_laundry && 'opacity-60'
         )}
       >
-        <LazyImageSimple
-          imagePath={displayImagePath}
-          alt={garment.title}
-          className="w-14 h-14 rounded-lg shrink-0"
-          fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/30" />}
-        />
+        <div className="relative w-14 h-14 shrink-0 overflow-hidden rounded-lg">
+          <LazyImageSimple
+            imagePath={displayImagePath}
+            alt={garment.title}
+            className="w-14 h-14 rounded-lg shrink-0"
+            fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/30" />}
+          />
+          <GarmentProcessingPreview
+            status={garment.image_processing_status}
+            error={garment.image_processing_error}
+            className="inset-0 p-1.5 [&>div]:rounded-xl [&>div]:p-2 [&_p]:hidden [&_.grid]:hidden"
+          />
+        </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <p className="font-medium text-sm truncate">{garment.title}</p>

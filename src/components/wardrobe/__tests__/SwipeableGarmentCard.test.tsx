@@ -20,7 +20,9 @@ vi.mock('framer-motion', () => ({
       const { style, drag, dragDirectionLock, dragConstraints, dragElastic, onDragEnd, ...rest } = p;
       return <div {...rest}>{children}</div>;
     },
+    p: ({ children, ...p }: React.PropsWithChildren<Record<string, unknown>>) => <p {...p}>{children}</p>,
   },
+  AnimatePresence: ({ children }: React.PropsWithChildren) => <>{children}</>,
   useMotionValue: () => ({ get: () => 0, set: vi.fn() }),
   useTransform: () => ({ get: () => 1 }),
   animate: vi.fn(),
