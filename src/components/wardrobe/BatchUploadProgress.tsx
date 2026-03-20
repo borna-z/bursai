@@ -10,9 +10,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import type { Json } from '@/integrations/supabase/types';
+import { buildGarmentIntelligenceFields, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
 
 interface BatchItem {
   file: File;
@@ -25,35 +25,6 @@ interface BatchUploadProgressProps {
   files: File[];
   onComplete: () => void;
   onCancel: () => void;
-}
-
-/** Fire-and-forget Stage 2 enrichment with status tracking and auto-retry */
-async function enrichBatchGarment(garmentId: string, storagePath: string): Promise<void> {
-  await supabase.from('garments').update({ enrichment_status: 'in_progress' }).eq('id', garmentId);
-
-  const attempt = async (): Promise<boolean> => {
-    const { data, error } = await invokeEdgeFunction<{ enrichment?: Record<string, unknown>; error?: string }>('analyze_garment', {
-      body: { storagePath, mode: 'enrich' },
-    });
-    if (error || !data?.enrichment) return false;
-    const { data: existing } = await supabase.from('garments').select('ai_raw').eq('id', garmentId).single();
-    const currentRaw = (existing?.ai_raw as Record<string, unknown>) || {};
-    const mergedRaw = { ...currentRaw, enrichment: data.enrichment };
-    const updates: Record<string, unknown> = { ai_raw: mergedRaw as Json, enrichment_status: 'complete' };
-    if (data.enrichment.refined_title && typeof data.enrichment.refined_title === 'string') {
-      updates.title = (data.enrichment.refined_title as string).substring(0, 50);
-    }
-    await supabase.from('garments').update(updates).eq('id', garmentId);
-    return true;
-  };
-
-  const success = await attempt();
-  if (success) return;
-  await new Promise(r => setTimeout(r, 3000));
-  const retrySuccess = await attempt();
-  if (!retrySuccess) {
-    await supabase.from('garments').update({ enrichment_status: 'failed' }).eq('id', garmentId);
-  }
 }
 
 export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUploadProgressProps) {
@@ -133,13 +104,15 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
           ai_analyzed_at: new Date().toISOString(),
           ai_provider: data.ai_provider || 'unknown',
           ai_raw: (data.ai_raw ?? null) as Json,
-          enrichment_status: 'pending',
+          ...buildGarmentIntelligenceFields({ storagePath: path }),
         });
 
-        // Stage 2 enrichment in background
-        enrichBatchGarment(garmentId, path).catch((err) =>
-          console.error('Batch enrichment error (non-blocking):', err)
-        );
+        triggerGarmentPostSaveIntelligence({
+          garmentId,
+          storagePath: path,
+          source: 'batch_add',
+          imageProcessing: { mode: 'edge' },
+        });
 
         invokeEdgeFunction('detect_duplicate_garment', {
           body: {
