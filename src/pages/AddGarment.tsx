@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import type { Json } from '@/integrations/supabase/types';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -31,6 +30,7 @@ import { useMedianCamera } from '@/hooks/useMedianCamera';
 import { compressImage } from '@/lib/imageCompression';
 import { GarmentAnalysisState } from '@/components/ui/GarmentAnalysisState';
 import { getGarmentProcessingMessage } from '@/lib/garmentImage';
+import { buildGarmentIntelligenceFields, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
 const PATTERN_IDS = ['solid', 'striped', 'checked', 'dotted', 'floral', 'patterned', 'camo'] as const;
@@ -163,55 +163,6 @@ function mapSeasonTagsToFormValue(aiSeasons: string[]): string[] {
     .map(s => s.toLowerCase())
     .filter(s => seasons.map(ss => ss.toLowerCase()).includes(s));
 }
-const ADD_PHOTO_PROCESSING_VERSION = 'garment-restructure-v2.1';
-
-/** Fire-and-forget Stage 2 enrichment with status tracking and auto-retry */
-async function enrichGarmentInBackground(garmentId: string, storagePath: string): Promise<void> {
-  await supabase.from('garments').update({ enrichment_status: 'in_progress' }).eq('id', garmentId);
-
-  const attempt = async (): Promise<boolean> => {
-    const { data, error } = await invokeEdgeFunction<{ enrichment?: Record<string, unknown>; error?: string }>('analyze_garment', {
-      body: { storagePath, mode: 'enrich' },
-    });
-    if (error || !data?.enrichment) return false;
-
-    const { data: existing } = await supabase.from('garments').select('ai_raw').eq('id', garmentId).single();
-    const currentRaw = (existing?.ai_raw as Record<string, unknown>) || {};
-    const mergedRaw = { ...currentRaw, enrichment: data.enrichment };
-    const updates: Record<string, unknown> = { ai_raw: mergedRaw as Json, enrichment_status: 'complete' };
-    if (data.enrichment.refined_title && typeof data.enrichment.refined_title === 'string') {
-      updates.title = (data.enrichment.refined_title as string).substring(0, 50);
-    }
-    await supabase.from('garments').update(updates).eq('id', garmentId);
-    return true;
-  };
-
-  const success = await attempt();
-  if (success) return;
-
-  // Auto-retry after 3s
-  await new Promise(r => setTimeout(r, 3000));
-  const retrySuccess = await attempt();
-  if (!retrySuccess) {
-    await supabase.from('garments').update({ enrichment_status: 'failed' }).eq('id', garmentId);
-  }
-}
-
-async function startGarmentImageProcessingInBackground(garmentId: string): Promise<void> {
-  const { error } = await invokeEdgeFunction<{ ok?: boolean; skipped?: boolean; error?: string }>(
-    'process_garment_image',
-    {
-      timeout: 1000,
-      retries: 0,
-      body: { garmentId },
-    },
-  );
-
-  if (error) {
-    console.warn('Garment image processing trigger did not confirm in time', error);
-  }
-}
-
 export default function AddGarmentPage() {
   const navigate = useNavigate();
   const { t } = useLanguage();
@@ -419,25 +370,16 @@ export default function AddGarmentPage() {
         ai_analyzed_at: aiAnalysis ? new Date().toISOString() : null,
         ai_provider: aiAnalysis?.ai_provider || null,
         ai_raw: (aiAnalysis?.ai_raw ?? null) as Json,
-        enrichment_status: 'pending',
-        original_image_path: storagePath,
-        processed_image_path: null,
-        image_processing_status: 'pending',
-        image_processing_provider: null,
-        image_processing_version: ADD_PHOTO_PROCESSING_VERSION,
-        image_processing_confidence: null,
-        image_processing_error: null,
-        image_processed_at: null,
+        ...buildGarmentIntelligenceFields({ storagePath }),
       });
 
-      // Stage 2 enrichment in background (same as live scan)
       if (storagePath && garmentId) {
-        enrichGarmentInBackground(garmentId, storagePath).catch((err) =>
-          console.error('Enrichment error (non-blocking):', err)
-        );
-        startGarmentImageProcessingInBackground(garmentId).catch((err) =>
-          console.error('Garment restructuring trigger error (non-blocking):', err)
-        );
+        triggerGarmentPostSaveIntelligence({
+          garmentId,
+          storagePath,
+          source: 'add_photo',
+          imageProcessing: { mode: 'edge' },
+        });
       }
 
       const newCount = (garmentCount || 0) + 1;

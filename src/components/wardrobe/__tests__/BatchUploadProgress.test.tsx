@@ -8,6 +8,7 @@ const {
   createGarmentMock,
   updateMock,
   selectMock,
+  selectEqMock,
   eqMock,
   invokeEdgeFunctionMock,
 } = vi.hoisted(() => ({
@@ -16,6 +17,7 @@ const {
   createGarmentMock: vi.fn(),
   updateMock: vi.fn(),
   selectMock: vi.fn(),
+  selectEqMock: vi.fn(),
   eqMock: vi.fn(),
   invokeEdgeFunctionMock: vi.fn(),
 }));
@@ -57,9 +59,9 @@ vi.mock('@/integrations/supabase/client', () => ({
         eq: eqMock.mockResolvedValue({ error: null }),
       }),
       select: selectMock.mockReturnValue({
-        eq: {
+        eq: selectEqMock.mockReturnValue({
           single: vi.fn().mockResolvedValue({ data: { ai_raw: null } }),
-        },
+        }),
       }),
     })),
   },
@@ -84,6 +86,7 @@ describe('BatchUploadProgress', () => {
     createGarmentMock.mockReset().mockResolvedValue({ id: 'garment-1' });
     updateMock.mockClear();
     selectMock.mockClear();
+    selectEqMock.mockClear();
     eqMock.mockClear();
     invokeEdgeFunctionMock.mockReset().mockResolvedValue({
       data: { enrichment: { refined_title: 'Blue shirt' } },

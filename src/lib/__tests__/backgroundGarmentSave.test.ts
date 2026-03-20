@@ -12,6 +12,10 @@ vi.mock('@/lib/edgeFunctionClient', () => ({
   invokeEdgeFunction: vi.fn(),
 }));
 
+vi.mock('@/lib/removeBackground', () => ({
+  removeBackground: vi.fn(async (input: Blob) => input),
+}));
+
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 
