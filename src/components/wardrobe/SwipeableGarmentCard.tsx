@@ -9,6 +9,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { hapticLight } from '@/lib/haptics';
 import type { Garment } from '@/hooks/useGarments';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
 
 const ACTION_WIDTH = 72; // width per action button
 const TOTAL_WIDTH = ACTION_WIDTH * 3; // 3 actions
@@ -30,6 +32,7 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({ garment
     return Date.now() - new Date(garment.created_at).getTime() < 24 * 60 * 60 * 1000;
   }, [garment.created_at]);
   const [isOpen, setIsOpen] = useState(false);
+  const displayImagePath = getPreferredGarmentImagePath(garment);
   const x = useMotionValue(0);
   const constraintRef = useRef<HTMLDivElement>(null);
 
@@ -116,7 +119,7 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({ garment
         )}
       >
         <LazyImageSimple
-          imagePath={garment.image_path}
+          imagePath={displayImagePath}
           alt={garment.title}
           className="w-14 h-14 rounded-lg shrink-0"
           fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/30" />}
@@ -133,6 +136,7 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({ garment
           <p className="text-xs text-muted-foreground capitalize">
             {t(`garment.category.${garment.category}`)} · {t(`color.${garment.color_primary}`)}
           </p>
+          <GarmentProcessingBadge status={garment.image_processing_status} className="mt-1" />
           {(garment.formality != null || ((garment.ai_raw as Record<string, unknown>)?.occasions as string[] | undefined)?.length) && (
             <div className="flex flex-row items-center gap-2 max-h-[28px]">
               {garment.formality != null && (

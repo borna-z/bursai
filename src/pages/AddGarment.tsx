@@ -30,7 +30,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useMedianCamera } from '@/hooks/useMedianCamera';
 import { compressImage } from '@/lib/imageCompression';
 import { GarmentAnalysisState } from '@/components/ui/GarmentAnalysisState';
-import { removeBackground } from '@/lib/removeBackground';
+import { getGarmentProcessingMessage } from '@/lib/garmentImage';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
 const PATTERN_IDS = ['solid', 'striped', 'checked', 'dotted', 'floral', 'patterned', 'camo'] as const;
@@ -163,6 +163,8 @@ function mapSeasonTagsToFormValue(aiSeasons: string[]): string[] {
     .map(s => s.toLowerCase())
     .filter(s => seasons.map(ss => ss.toLowerCase()).includes(s));
 }
+const ADD_PHOTO_PROCESSING_VERSION = 'garment-restructure-v1';
+
 /** Fire-and-forget Stage 2 enrichment with status tracking and auto-retry */
 async function enrichGarmentInBackground(garmentId: string, storagePath: string): Promise<void> {
   await supabase.from('garments').update({ enrichment_status: 'in_progress' }).eq('id', garmentId);
@@ -192,6 +194,21 @@ async function enrichGarmentInBackground(garmentId: string, storagePath: string)
   const retrySuccess = await attempt();
   if (!retrySuccess) {
     await supabase.from('garments').update({ enrichment_status: 'failed' }).eq('id', garmentId);
+  }
+}
+
+async function startGarmentImageProcessingInBackground(garmentId: string): Promise<void> {
+  const { error } = await invokeEdgeFunction<{ ok?: boolean; skipped?: boolean; error?: string }>(
+    'process_garment_image',
+    {
+      timeout: 1000,
+      retries: 0,
+      body: { garmentId },
+    },
+  );
+
+  if (error) {
+    console.warn('Garment image processing trigger did not confirm in time', error);
   }
 }
 
@@ -225,7 +242,7 @@ export default function AddGarmentPage() {
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [batchFiles, setBatchFiles] = useState<File[]>([]);
   const batchInputRef = useRef<HTMLInputElement>(null);
-  const [isRemovingBg, setIsRemovingBg] = useState(false);
+  const processingMessage = getGarmentProcessingMessage('processing');
   // Form state
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
@@ -342,15 +359,6 @@ export default function AddGarmentPage() {
       previewUrl = URL.createObjectURL(rawFile);
     }
 
-    // Remove background
-    setStep('analyzing');
-    setIsRemovingBg(true);
-    const processedBlob = await removeBackground(file as Blob);
-    setIsRemovingBg(false);
-    URL.revokeObjectURL(previewUrl);
-    previewUrl = URL.createObjectURL(processedBlob);
-    file = processedBlob;
-
     setImageFile(file as File);
     setImagePreview(previewUrl);
 
@@ -359,8 +367,12 @@ export default function AddGarmentPage() {
     setGarmentId(newGarmentId);
     
     try {
-      const fileExt = processedBlob.type === 'image/png' ? 'png' : (rawFile.name.split('.').pop() || 'jpg');
-      const path = await uploadGarmentImage(processedBlob, newGarmentId, { extension: fileExt });
+      const fileExt = 'type' in file && file.type === 'image/png' ? 'png' : (rawFile.name.split('.').pop() || 'jpg');
+      const path = await uploadGarmentImage(file, newGarmentId, {
+        extension: fileExt,
+        upsert: false,
+        filePath: `${user.id}/${newGarmentId}/original.${fileExt}`,
+      });
       setStoragePath(path);
 
       // Fetch signed URL for display
@@ -408,12 +420,23 @@ export default function AddGarmentPage() {
         ai_provider: aiAnalysis?.ai_provider || null,
         ai_raw: (aiAnalysis?.ai_raw ?? null) as Json,
         enrichment_status: 'pending',
+        original_image_path: storagePath,
+        processed_image_path: null,
+        image_processing_status: 'pending',
+        image_processing_provider: null,
+        image_processing_version: ADD_PHOTO_PROCESSING_VERSION,
+        image_processing_confidence: null,
+        image_processing_error: null,
+        image_processed_at: null,
       });
 
       // Stage 2 enrichment in background (same as live scan)
       if (storagePath && garmentId) {
         enrichGarmentInBackground(garmentId, storagePath).catch((err) =>
           console.error('Enrichment error (non-blocking):', err)
+        );
+        startGarmentImageProcessingInBackground(garmentId).catch((err) =>
+          console.error('Garment restructuring trigger error (non-blocking):', err)
         );
       }
 
@@ -517,6 +540,9 @@ export default function AddGarmentPage() {
             <p className="text-sm text-muted-foreground max-w-[260px] mx-auto leading-relaxed">
               {t('addgarment.photo_prompt')}
             </p>
+            <p className="text-xs text-muted-foreground/80 max-w-[260px] mx-auto">
+              Upload complete first, then BURS creates a clean wardrobe image in the background.
+            </p>
           </div>
 
           <Tabs defaultValue="photo" className="w-full">
@@ -592,31 +618,12 @@ export default function AddGarmentPage() {
     );
   }
 
-
   if (step === 'analyzing') {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8">
         <div className="flex flex-col items-center gap-6 w-full max-w-xs">
-          {/* Background removal indicator */}
-          {isRemovingBg && !analysisError && !analysisSummary && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex flex-col items-center gap-3 w-full"
-            >
-              {imagePreview && (
-                <div className="aspect-square w-48 overflow-hidden bg-[hsl(36_33%_93%)]">
-                  <img src={imagePreview} alt="Preview" className="w-full h-full object-contain" />
-                </div>
-              )}
-              <div className="w-full space-y-2">
-                <Progress value={undefined} className="h-1.5 animate-pulse" />
-                <p className="text-sm text-muted-foreground text-center">Removing background…</p>
-              </div>
-            </motion.div>
-          )}
           {/* Error state */}
-          {!isRemovingBg && analysisError ? (
+          {analysisError ? (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -638,7 +645,7 @@ export default function AddGarmentPage() {
                 </Button>
               </div>
             </motion.div>
-          ) : !isRemovingBg && analysisSummary ? (
+          ) : analysisSummary ? (
             /* Summary card */
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -648,11 +655,20 @@ export default function AddGarmentPage() {
               <CheckCircle className="w-6 h-6 text-accent" />
               <p className="font-medium text-center">{analysisSummary}</p>
               <p className="text-xs text-muted-foreground">{t('addgarment.ai_review')}</p>
+              <p className="text-xs text-muted-foreground">{processingMessage?.label ?? 'Creating clean wardrobe image'}</p>
             </motion.div>
-          ) : !isRemovingBg ? (
+          ) : (
             /* GarmentAnalysisState */
-            <GarmentAnalysisState imageUrl={imagePreview} />
-          ) : null}
+            <div className="w-full space-y-4">
+              <GarmentAnalysisState imageUrl={imagePreview} />
+              <div className="space-y-2">
+                <Progress value={undefined} className="h-1.5 animate-pulse" />
+                <p className="text-sm text-muted-foreground text-center">
+                  {processingMessage?.label ?? 'Creating clean wardrobe image'}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );

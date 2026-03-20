@@ -32,6 +32,8 @@ import { EASE_CURVE } from '@/lib/motion';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
+import { getPreferredGarmentImagePath, getGarmentProcessingMessage } from '@/lib/garmentImage';
+import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
 
 type EnrichmentStatus = 'none' | 'pending' | 'in_progress' | 'complete' | 'failed';
 
@@ -159,9 +161,13 @@ export default function GarmentDetailPage() {
   const enrichmentStatus: EnrichmentStatus = (garment?.enrichment_status as EnrichmentStatus) || 'none';
 
   useEffect(() => {
-    const shouldPoll = enrichmentStatus === 'pending' || enrichmentStatus === 'in_progress';
+    const shouldPoll =
+      enrichmentStatus === 'pending' ||
+      enrichmentStatus === 'in_progress' ||
+      garment?.image_processing_status === 'pending' ||
+      garment?.image_processing_status === 'processing';
     setIsEnrichmentPending(shouldPoll);
-  }, [enrichmentStatus]);
+  }, [enrichmentStatus, garment?.image_processing_status]);
 
   const { data: similarGarments } = useSimilarGarments(garment);
   const { data: outfitHistory } = useGarmentOutfitHistory(id);
@@ -293,12 +299,14 @@ export default function GarmentDetailPage() {
     seasonParts.push(seasonLabel(t, season));
   });
   if (garment.formality) seasonParts.push(`${t('garment.formality')} ${garment.formality}/5`);
+  const displayImagePath = getPreferredGarmentImagePath(garment);
+  const processingMessage = getGarmentProcessingMessage(garment.image_processing_status);
 
   return (
     <div className="min-h-screen bg-background pb-40">
       {/* Hero image with floating controls */}
       <div className="relative overflow-hidden">
-        <LazyImage imagePath={garment.image_path} alt={garment.title} aspectRatio="3/4" className="w-full !rounded-none" />
+        <LazyImage imagePath={displayImagePath} alt={garment.title} aspectRatio="3/4" className="w-full !rounded-none" />
         
         {/* Floating back button */}
         <Button
@@ -771,6 +779,17 @@ export default function GarmentDetailPage() {
             {markWorn.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
           </Button>
         </div>
+
+        {processingMessage && (
+          <div className="absolute bottom-4 left-4 z-10 flex flex-col items-start gap-2">
+            <GarmentProcessingBadge status={garment.image_processing_status} className="bg-background/85" />
+            {garment.image_processing_status === 'failed' && (
+              <p className="max-w-xs rounded-lg bg-background/85 px-3 py-2 text-xs text-muted-foreground shadow-sm">
+                We kept your original photo while we work on cleaner wardrobe images.
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
