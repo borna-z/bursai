@@ -30,12 +30,12 @@ export function useStorage() {
   const uploadGarmentImage = async (
     file: Blob | File,
     garmentId: string,
-    options: { extension?: string; upsert?: boolean } = {}
+    options: { extension?: string; upsert?: boolean; filePath?: string } = {}
   ) => {
     if (!user) throw new Error('Not authenticated');
 
     const fileExt = options.extension || resolveFileExtension(file);
-    const filePath = `${user.id}/${garmentId}.${fileExt}`;
+    const filePath = options.filePath || `${user.id}/${garmentId}.${fileExt}`;
     
     const { error } = await supabase.storage
       .from('garments')
