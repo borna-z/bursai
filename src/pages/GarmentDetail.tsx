@@ -34,6 +34,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { getPreferredGarmentImagePath, getGarmentProcessingMessage } from '@/lib/garmentImage';
 import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
+import { GarmentProcessingPreview } from '@/components/wardrobe/GarmentProcessingPreview';
 
 type EnrichmentStatus = 'none' | 'pending' | 'in_progress' | 'complete' | 'failed';
 
@@ -307,6 +308,12 @@ export default function GarmentDetailPage() {
       {/* Hero image with floating controls */}
       <div className="relative overflow-hidden">
         <LazyImage imagePath={displayImagePath} alt={garment.title} aspectRatio="3/4" className="w-full !rounded-none" />
+        <GarmentProcessingPreview
+          status={garment.image_processing_status}
+          error={garment.image_processing_error}
+          variant="hero"
+          className="rounded-none"
+        />
         
         {/* Floating back button */}
         <Button
@@ -785,7 +792,7 @@ export default function GarmentDetailPage() {
             <GarmentProcessingBadge status={garment.image_processing_status} className="bg-background/85" />
             {garment.image_processing_status === 'failed' && (
               <p className="max-w-xs rounded-lg bg-background/85 px-3 py-2 text-xs text-muted-foreground shadow-sm">
-                We kept your original photo while we work on cleaner wardrobe images.
+                We kept your original photo and will only swap in a cleaned cutout when it is safely ready.
               </p>
             )}
           </div>

@@ -98,7 +98,7 @@ serve(async (req) => {
         image_processing_status: 'failed',
         image_processing_provider: 'skip',
         image_processing_confidence: null,
-        image_processing_error: eligibility.reason || 'Unsupported garment type for garment restructure v2.1.',
+        image_processing_error: eligibility.reason || 'Unsupported garment type for background removal.',
       }).eq('id', garment.id);
 
       return new Response(JSON.stringify({ ok: true, skipped: true, reason: eligibility.reason }), {
@@ -177,7 +177,7 @@ serve(async (req) => {
       processed_image_path: processedPath,
       image_processing_status: 'ready',
       image_processing_provider: result.provider,
-      image_processing_version: 'garment-restructure-v2.1',
+      image_processing_version: 'background-removal-v1',
       image_processing_confidence: quality.confidence,
       image_processing_error: null,
       image_processed_at: new Date().toISOString(),

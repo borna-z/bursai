@@ -26,7 +26,7 @@ describe('garmentImage', () => {
 
   it('returns soft fallback copy for failed processing', () => {
     expect(getGarmentProcessingMessage('failed')).toEqual({
-      label: 'Using your original photo',
+      label: 'Original photo kept',
       tone: 'muted',
     });
   });
