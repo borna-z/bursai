@@ -1,7 +1,8 @@
 import { serve } from 'https://deno.land/std@0.220.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { allowedOrigin } from '../_shared/cors.ts';
-import { garmentImageProvider, isEligibleGarment } from '../_shared/garment-image-processing/provider.ts';
+import { garmentImageProvider, getGarmentEligibility } from '../_shared/garment-image-processing/provider.ts';
+import { assessProcessedImageQuality } from '../_shared/garment-image-processing/quality.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': allowedOrigin,
@@ -91,14 +92,16 @@ serve(async (req) => {
       });
     }
 
-    if (!isEligibleGarment(garment.category, garment.subcategory)) {
+    const eligibility = getGarmentEligibility(garment.category, garment.subcategory, garment.title);
+    if (!eligibility.eligible || eligibility.profile === 'unsupported') {
       await supabase.from('garments').update({
         image_processing_status: 'failed',
         image_processing_provider: 'skip',
-        image_processing_error: 'Unsupported garment type for garment restructure v1.',
+        image_processing_confidence: null,
+        image_processing_error: eligibility.reason || 'Unsupported garment type for garment restructure v2.1.',
       }).eq('id', garment.id);
 
-      return new Response(JSON.stringify({ ok: true, skipped: true }), {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: eligibility.reason }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -125,6 +128,7 @@ serve(async (req) => {
       category: garment.category,
       subcategory: garment.subcategory,
       title: garment.title,
+      supportProfile: eligibility.profile,
     });
 
     if (!result.success || !result.outputBytes) {
@@ -136,6 +140,21 @@ serve(async (req) => {
       }).eq('id', garment.id);
 
       return new Response(JSON.stringify({ ok: true, processed: false, error: result.error }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const quality = await assessProcessedImageQuality(result.outputBytes, result.outputContentType, eligibility.profile);
+    if (!quality.accepted) {
+      const qualityIssues = quality.issues.slice(0, 4).join(' | ');
+      await supabase.from('garments').update({
+        image_processing_status: 'failed',
+        image_processing_provider: result.provider,
+        image_processing_confidence: quality.confidence,
+        image_processing_error: qualityIssues || 'Processed garment output did not pass wardrobe-quality checks.',
+      }).eq('id', garment.id);
+
+      return new Response(JSON.stringify({ ok: true, processed: false, rejected: true, error: qualityIssues, quality }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -158,13 +177,13 @@ serve(async (req) => {
       processed_image_path: processedPath,
       image_processing_status: 'ready',
       image_processing_provider: result.provider,
-      image_processing_version: 'garment-restructure-v1',
-      image_processing_confidence: result.confidence,
+      image_processing_version: 'garment-restructure-v2.1',
+      image_processing_confidence: quality.confidence,
       image_processing_error: null,
       image_processed_at: new Date().toISOString(),
     }).eq('id', garment.id);
 
-    return new Response(JSON.stringify({ ok: true, processed: true, processedImagePath: processedPath }), {
+    return new Response(JSON.stringify({ ok: true, processed: true, processedImagePath: processedPath, quality }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

@@ -1,30 +1,15 @@
 import type { GarmentImageProviderInput, GarmentImageProviderResult } from './types.ts';
-
-const SUPPORTED_SUBCATEGORIES = new Set([
-  't-shirt',
-  'shirt',
-  'sweater',
-  'hoodie',
-  'dress',
-  'jacket',
-  'pants',
-  'skirt',
-]);
+import { assessGarmentEligibility } from './quality.ts';
 
 const PHOTOROOM_REMOVE_BG_URL = 'https://sdk.photoroom.com/v1/segment';
 const MIN_OUTPUT_BYTES = 2048;
 
-function normalizeSubcategory(value: string | null): string | null {
-  return value?.toLowerCase().replace(/_/g, '-').trim() || null;
+export function isEligibleGarment(category: string, subcategory: string | null, title?: string | null): boolean {
+  return assessGarmentEligibility(category, subcategory, title).eligible;
 }
 
-export function isEligibleGarment(category: string, subcategory: string | null): boolean {
-  const normalizedSubcategory = normalizeSubcategory(subcategory);
-  if (normalizedSubcategory && SUPPORTED_SUBCATEGORIES.has(normalizedSubcategory)) {
-    return true;
-  }
-
-  return ['top', 'bottom', 'outerwear', 'dress'].includes(category);
+export function getGarmentEligibility(category: string, subcategory: string | null, title?: string | null) {
+  return assessGarmentEligibility(category, subcategory, title);
 }
 
 class UnconfiguredGarmentImageProvider {
@@ -80,6 +65,8 @@ class PhotoRoomGarmentImageProvider {
         `garment-${input.garmentId}`,
       );
       formData.append('format', 'png');
+      formData.append('size', 'hd');
+      formData.append('crop', 'true');
 
       const providerResponse = await fetch(this.endpoint, {
         method: 'POST',
@@ -122,9 +109,10 @@ class PhotoRoomGarmentImageProvider {
       return {
         success: true,
         provider: this.name,
-        confidence: 0.7,
+        confidence: 0.78,
         outputContentType,
         outputBytes,
+        notes: [`support-profile:${input.supportProfile}`],
       };
     } catch (error) {
       return {
