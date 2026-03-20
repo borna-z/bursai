@@ -4,6 +4,51 @@ import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 
 export const GARMENT_IMAGE_PROCESSING_VERSION = 'background-removal-v1';
 
+
+interface StandardizeGarmentAiRawOptions {
+  aiRaw: Json | null | undefined;
+  analysisConfidence?: number | null;
+  source?: string | null;
+}
+
+export function standardizeGarmentAiRaw({
+  aiRaw,
+  analysisConfidence,
+  source,
+}: StandardizeGarmentAiRawOptions): Json | null {
+  if (!aiRaw || typeof aiRaw !== 'object' || Array.isArray(aiRaw)) {
+    if (analysisConfidence == null && !source) return aiRaw ?? null;
+
+    return {
+      system_signals: {
+        analysis_confidence: analysisConfidence ?? null,
+        source: source ?? null,
+      },
+    } as Json;
+  }
+
+  const record = aiRaw as Record<string, unknown>;
+  const existingSignals =
+    record.system_signals && typeof record.system_signals === 'object' && !Array.isArray(record.system_signals)
+      ? record.system_signals as Record<string, unknown>
+      : {};
+
+  return {
+    ...record,
+    system_signals: {
+      ...existingSignals,
+      analysis_confidence:
+        analysisConfidence ??
+        (typeof existingSignals.analysis_confidence === 'number'
+          ? existingSignals.analysis_confidence
+          : typeof record.confidence === 'number'
+            ? record.confidence
+            : null),
+      source: source ?? (typeof existingSignals.source === 'string' ? existingSignals.source : null),
+    },
+  } as Json;
+}
+
 interface BuildGarmentIntelligenceFieldsOptions {
   storagePath: string;
 }

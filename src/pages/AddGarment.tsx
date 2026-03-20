@@ -30,7 +30,7 @@ import { useMedianCamera } from '@/hooks/useMedianCamera';
 import { compressImage } from '@/lib/imageCompression';
 import { GarmentAnalysisState } from '@/components/ui/GarmentAnalysisState';
 import { getGarmentProcessingMessage } from '@/lib/garmentImage';
-import { buildGarmentIntelligenceFields, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
+import { buildGarmentIntelligenceFields, standardizeGarmentAiRaw, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
 const PATTERN_IDS = ['solid', 'striped', 'checked', 'dotted', 'floral', 'patterned', 'camo'] as const;
@@ -369,7 +369,11 @@ export default function AddGarmentPage() {
         in_laundry: inLaundry,
         ai_analyzed_at: aiAnalysis ? new Date().toISOString() : null,
         ai_provider: aiAnalysis?.ai_provider || null,
-        ai_raw: (aiAnalysis?.ai_raw ?? null) as Json,
+        ai_raw: standardizeGarmentAiRaw({
+          aiRaw: (aiAnalysis?.ai_raw ?? null) as Json,
+          analysisConfidence: aiAnalysis?.confidence,
+          source: 'add_photo',
+        }),
         ...buildGarmentIntelligenceFields({ storagePath }),
       });
 

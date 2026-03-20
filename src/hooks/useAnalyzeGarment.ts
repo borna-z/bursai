@@ -16,6 +16,7 @@ export interface GarmentAnalysis {
   formality: number;
   ai_provider?: string;
   ai_raw?: Record<string, unknown>;
+  confidence?: number;
 }
 
 export interface AnalyzeGarmentResult {

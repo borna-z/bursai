@@ -324,4 +324,104 @@ describe('useOutfitGenerator', () => {
       await expect(result.current.generateOutfit(baseRequest)).rejects.toThrow(/incomplete/i);
     });
   });
+
+  it('returns multiple persisted stylist candidates when requested', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+
+    const validationData = [
+      { category: 'top', subcategory: 'shirt' },
+      { category: 'bottom', subcategory: 'jeans' },
+      { category: 'shoes', subcategory: 'sneakers' },
+      { category: 'top', subcategory: 'knit' },
+      { category: 'bottom', subcategory: 'trousers' },
+      { category: 'shoes', subcategory: 'boots' },
+    ];
+    const garments = [
+      { id: 'g1', category: 'top', subcategory: 'shirt' },
+      { id: 'g2', category: 'bottom', subcategory: 'jeans' },
+      { id: 'g3', category: 'shoes', subcategory: 'sneakers' },
+      { id: 'g4', category: 'top', subcategory: 'knit' },
+      { id: 'g5', category: 'bottom', subcategory: 'trousers' },
+      { id: 'g6', category: 'shoes', subcategory: 'boots' },
+    ];
+
+    const outfitInsert = vi
+      .fn()
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: { id: 'outfit-a', occasion: 'casual', style_vibe: 'Minimal' }, error: null }),
+        }),
+      })
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: { id: 'outfit-b', occasion: 'casual', style_vibe: 'Minimal' }, error: null }),
+        }),
+      });
+    const outfitItemsInsert = vi.fn().mockResolvedValue({ error: null });
+
+    let fromCallCount = 0;
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'garments') {
+        fromCallCount++;
+        if (fromCallCount === 1) {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ data: validationData, error: null }),
+            }),
+          };
+        }
+        return {
+          select: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({ data: garments, error: null }),
+          }),
+        };
+      }
+      if (table === 'outfits') {
+        return { insert: outfitInsert };
+      }
+      return { insert: outfitItemsInsert };
+    });
+
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: {
+        suggestions: [
+          {
+            garment_ids: ['g1', 'g2', 'g3'],
+            explanation: 'Minimal weekend look',
+            occasion: 'casual',
+            family_label: 'classic',
+            confidence_score: 0.82,
+            confidence_level: 'high',
+          },
+          {
+            garment_ids: ['g4', 'g5', 'g6'],
+            explanation: 'Sharper alternative',
+            occasion: 'casual',
+            family_label: 'elevated',
+            confidence_score: 0.77,
+            confidence_level: 'medium',
+          },
+        ],
+      },
+      error: null,
+    });
+
+    const { useOutfitGenerator } = await import('../useOutfitGenerator');
+    const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
+
+    let outfits: GeneratedOutfit[] | undefined;
+    await act(async () => {
+      outfits = await result.current.generateOutfitCandidates({ ...baseRequest, style: 'Minimal', mode: 'stylist' });
+    });
+
+    expect(outfits).toHaveLength(2);
+    expect(outfits?.[0].id).toBe('outfit-a');
+    expect(outfits?.[1].id).toBe('outfit-b');
+    expect(outfits?.[0].items.map((item) => item.slot)).toEqual(['top', 'bottom', 'shoes']);
+    expect(outfitItemsInsert).toHaveBeenCalledTimes(2);
+    expect(outfitInsert).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({ saved: false, style_vibe: 'Minimal' }),
+    ]));
+  });
+
 });
