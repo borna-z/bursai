@@ -32,6 +32,8 @@ import { categoryLabel, colorLabel } from '@/lib/humanize';
 import { Chip } from '@/components/ui/chip';
 import { CoachMark } from '@/components/coach/CoachMark';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
 
 // ── Garment Card ──
 
@@ -56,6 +58,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
   const handleClick = () => {
     if (isSelecting) { onSelect(); } else { navigate(`/wardrobe/${garment.id}`); }
   };
+  const displayImagePath = getPreferredGarmentImagePath(garment);
 
   if (!isGridView) {
     return (
@@ -75,7 +78,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
       >
         {isSelecting && <Checkbox checked={isSelected} className="shrink-0" />}
         <LazyImageSimple
-          imagePath={garment.image_path}
+          imagePath={displayImagePath}
           alt={garment.title}
           className="w-16 h-16 rounded-xl shrink-0"
           fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/30" />}
@@ -83,6 +86,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm truncate">{garment.title}</p>
           <p className="text-xs text-muted-foreground capitalize">{categoryLabel(t, garment.category)} · {colorLabel(t, garment.color_primary)}</p>
+          <GarmentProcessingBadge status={garment.image_processing_status} className="mt-1" />
         </div>
       </motion.button>
     );
@@ -106,11 +110,14 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
     >
       <div className="aspect-[3/4] bg-muted relative overflow-hidden rounded-xl">
         <LazyImageSimple
-          imagePath={garment.image_path}
+          imagePath={displayImagePath}
           alt={garment.title}
           className="w-full h-full"
           fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/50" />}
         />
+        <div className="absolute left-2 bottom-2">
+          <GarmentProcessingBadge status={garment.image_processing_status} />
+        </div>
         {isSelecting && (
           <div className="absolute top-2 left-2">
             <Checkbox checked={isSelected} className="bg-background/80" />

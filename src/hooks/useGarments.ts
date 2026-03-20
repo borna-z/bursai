@@ -86,6 +86,16 @@ export function useGarments(filters?: GarmentFilters) {
     initialPageParam: 0,
     enabled: !!user,
     staleTime: 2 * 60 * 1000,
+    refetchInterval: (query) => {
+      const pages = query.state.data?.pages ?? [];
+      const hasProcessingGarments = pages.some((page) =>
+        page.items.some((garment) =>
+          garment.image_processing_status === 'pending' || garment.image_processing_status === 'processing'
+        )
+      );
+
+      return hasProcessingGarments ? 5000 : false;
+    },
   });
 }
 
