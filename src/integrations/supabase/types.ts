@@ -406,12 +406,20 @@ export type Database = {
           fit: string | null
           formality: number | null
           id: string
+          image_processed_at: string | null
+          image_processing_confidence: number | null
+          image_processing_error: string | null
+          image_processing_provider: string | null
+          image_processing_status: string
+          image_processing_version: string | null
           image_path: string
           imported_via: string | null
           in_laundry: boolean | null
           last_worn_at: string | null
           material: string | null
+          original_image_path: string | null
           pattern: string | null
+          processed_image_path: string | null
           purchase_currency: string | null
           purchase_price: number | null
           season_tags: string[] | null
@@ -436,12 +444,20 @@ export type Database = {
           fit?: string | null
           formality?: number | null
           id?: string
+          image_processed_at?: string | null
+          image_processing_confidence?: number | null
+          image_processing_error?: string | null
+          image_processing_provider?: string | null
+          image_processing_status?: string
+          image_processing_version?: string | null
           image_path: string
           imported_via?: string | null
           in_laundry?: boolean | null
           last_worn_at?: string | null
           material?: string | null
+          original_image_path?: string | null
           pattern?: string | null
+          processed_image_path?: string | null
           purchase_currency?: string | null
           purchase_price?: number | null
           season_tags?: string[] | null
@@ -466,12 +482,20 @@ export type Database = {
           fit?: string | null
           formality?: number | null
           id?: string
+          image_processed_at?: string | null
+          image_processing_confidence?: number | null
+          image_processing_error?: string | null
+          image_processing_provider?: string | null
+          image_processing_status?: string
+          image_processing_version?: string | null
           image_path?: string
           imported_via?: string | null
           in_laundry?: boolean | null
           last_worn_at?: string | null
           material?: string | null
+          original_image_path?: string | null
           pattern?: string | null
+          processed_image_path?: string | null
           purchase_currency?: string | null
           purchase_price?: number | null
           season_tags?: string[] | null
