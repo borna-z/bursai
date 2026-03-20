@@ -8,6 +8,7 @@ export interface GarmentImageProviderInput {
   category: string;
   subcategory: string | null;
   title: string;
+  supportProfile: 'tops' | 'outerwear' | 'dress';
 }
 
 export interface GarmentImageProviderResult {
@@ -17,4 +18,5 @@ export interface GarmentImageProviderResult {
   outputContentType?: string;
   outputBytes?: Uint8Array;
   error?: string;
+  notes?: string[];
 }

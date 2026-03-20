@@ -163,7 +163,7 @@ function mapSeasonTagsToFormValue(aiSeasons: string[]): string[] {
     .map(s => s.toLowerCase())
     .filter(s => seasons.map(ss => ss.toLowerCase()).includes(s));
 }
-const ADD_PHOTO_PROCESSING_VERSION = 'garment-restructure-v1';
+const ADD_PHOTO_PROCESSING_VERSION = 'garment-restructure-v2.1';
 
 /** Fire-and-forget Stage 2 enrichment with status tracking and auto-retry */
 async function enrichGarmentInBackground(garmentId: string, storagePath: string): Promise<void> {
