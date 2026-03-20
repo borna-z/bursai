@@ -22,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 /* ── Loading indicator ── */
 function LoadingIndicator() {
@@ -84,7 +85,7 @@ function GarmentRow({ garments }: { garments: AISuggestion['garments'] }) {
           >
             <div className="w-[72px] h-[72px] rounded-full overflow-hidden border border-border/30 bg-muted">
               <LazyImageSimple
-                imagePath={garment.image_path}
+                imagePath={getPreferredGarmentImagePath(garment)}
                 alt={garment.title}
                 className="w-full h-full object-cover"
                 fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/30" />}

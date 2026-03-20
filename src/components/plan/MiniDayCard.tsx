@@ -8,6 +8,7 @@ import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
 import type { PlannedOutfit } from '@/hooks/usePlannedOutfits';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 const occasionIcons: Record<string, React.ElementType> = {
   jobb: Briefcase,
@@ -81,7 +82,7 @@ export function MiniDayCard({ date, plannedOutfit, isSelected, onClick }: MiniDa
                 )}
               >
                 <LazyImageSimple
-                  imagePath={item.garment?.image_path}
+                  imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
                   alt={item.garment?.title || item.slot}
                   className="w-full h-full"
                 />

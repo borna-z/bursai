@@ -14,6 +14,7 @@ import { useCalendarEvents } from '@/hooks/useCalendarSync';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
 import type { PlannedOutfit } from '@/hooks/usePlannedOutfits';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 interface DayCardProps {
   date: Date;
@@ -103,7 +104,7 @@ export function DayCard({
             >
               {outfit.outfit_items.slice(0, 4).map((item, index) => (
                 <div key={item.id} className={cn("flex-1 overflow-hidden", index < outfit.outfit_items.slice(0, 4).length - 1 && "border-r border-background")}>
-                  <LazyImageSimple imagePath={item.garment?.image_path} alt={item.garment?.title || item.slot} className="w-full h-full" />
+                  <LazyImageSimple imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined} alt={item.garment?.title || item.slot} className="w-full h-full" />
                 </div>
               ))}
             </div>

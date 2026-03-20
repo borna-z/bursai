@@ -12,6 +12,7 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
 import { getOccasionLabel } from '@/lib/occasionLabel';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 interface PlanningSheetProps {
   open: boolean;
@@ -82,7 +83,7 @@ export function PlanningSheet({ open, onOpenChange, date, onSelectOutfit, onCrea
                     <div className="flex h-12 w-20 rounded overflow-hidden bg-muted/30 flex-shrink-0">
                       {outfit.outfit_items.slice(0, 3).map((item, index) => (
                         <div key={item.id} className={cn("flex-1 overflow-hidden", index < 2 && "border-r border-background")}>
-                          <LazyImageSimple imagePath={item.garment?.image_path} alt={item.garment?.title || ''} className="w-full h-full" />
+                          <LazyImageSimple imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined} alt={item.garment?.title || ''} className="w-full h-full" />
                         </div>
                       ))}
                     </div>

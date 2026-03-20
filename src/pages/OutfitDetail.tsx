@@ -29,6 +29,7 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOutfitFeedback, useSubmitPhotoFeedback } from '@/hooks/usePhotoFeedback';
 import { useFeedbackSignals } from '@/hooks/useFeedbackSignals';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 /* ── Swap Sheet ─────────────────────────────────────── */
 
@@ -116,7 +117,7 @@ function SwapSheet({
                   )}
                 >
                   <LazyImageSimple
-                    imagePath={candidate.garment.image_path}
+                    imagePath={getPreferredGarmentImagePath(candidate.garment)}
                     alt={candidate.garment.title}
                     className="w-14 h-14 rounded-lg flex-shrink-0"
                   />
@@ -599,7 +600,7 @@ export default function OutfitDetailPage() {
               )}
             >
               <LazyImageSimple
-                imagePath={item.garment?.image_path}
+                imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
                 alt={item.garment?.title || item.slot}
                 className={cn(
                   'w-full object-cover',
@@ -831,7 +832,7 @@ export default function OutfitDetailPage() {
               garmentId={item.garment_id}
               garmentTitle={stripBrands(item.garment?.title || '')}
               garmentColor={item.garment?.color_primary}
-              imagePath={item.garment?.image_path}
+              imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
               onSwap={() => handleOpenSwap(item.slot, item.id, item.garment_id)}
               t={t}
               layerRole={layerRoleMap.get(item.garment_id)}

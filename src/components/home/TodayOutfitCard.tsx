@@ -12,6 +12,7 @@ import { useMarkOutfitWorn } from '@/hooks/useOutfits';
 import { useSubscription } from '@/hooks/useSubscription';
 import { hapticSuccess, hapticLight } from '@/lib/haptics';
 import { EASE_CURVE, TAP_TRANSITION } from '@/lib/motion';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 interface TodayOutfitCardProps {
   weather?: OutfitRequest['weather'];
@@ -115,7 +116,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
               className="cursor-pointer active:scale-[0.97] transition-transform"
             >
               <LazyImage
-                imagePath={item.garment.image_path}
+                imagePath={getPreferredGarmentImagePath(item.garment)}
                 alt={item.garment.title}
                 aspectRatio="3/4"
                 className="rounded-xl"

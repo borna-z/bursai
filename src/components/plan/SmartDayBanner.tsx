@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { OccasionSlot } from '@/hooks/useSmartDayRecommendation';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 interface SmartDayBannerProps {
   slots: OccasionSlot[];
@@ -60,7 +61,7 @@ export function SmartDayBanner({ slots, onGenerate, className }: SmartDayBannerP
                 {slot.garments.map((g) => (
                   <div key={g.id} className="w-10 h-10 rounded-lg overflow-hidden bg-muted shrink-0">
                     <LazyImageSimple
-                      imagePath={g.image_path}
+                      imagePath={getPreferredGarmentImagePath(g)}
                       alt={g.title}
                       className="w-full h-full"
                     />
