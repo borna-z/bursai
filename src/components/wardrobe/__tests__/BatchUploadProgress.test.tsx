@@ -11,6 +11,7 @@ const {
   selectEqMock,
   eqMock,
   invokeEdgeFunctionMock,
+  toastSuccessMock,
 } = vi.hoisted(() => ({
   uploadGarmentImageMock: vi.fn(),
   analyzeGarmentMock: vi.fn(),
@@ -20,6 +21,7 @@ const {
   selectEqMock: vi.fn(),
   eqMock: vi.fn(),
   invokeEdgeFunctionMock: vi.fn(),
+  toastSuccessMock: vi.fn(),
 }));
 
 vi.mock('@/contexts/AuthContext', () => ({
@@ -45,7 +47,7 @@ vi.mock('@/hooks/useGarments', () => ({
 }));
 
 vi.mock('sonner', () => ({
-  toast: { success: vi.fn() },
+  toast: { success: toastSuccessMock },
 }));
 
 vi.mock('@/lib/edgeFunctionClient', () => ({
@@ -93,6 +95,7 @@ describe('BatchUploadProgress', () => {
       data: { enrichment: { refined_title: 'Blue shirt' } },
       error: null,
     });
+    toastSuccessMock.mockReset();
   });
 
   it('reuses the exact uploaded path for analysis and persistence', async () => {
@@ -157,5 +160,45 @@ describe('BatchUploadProgress', () => {
         }),
       }),
     })));
+  });
+
+  it('does not auto-complete while review items are still pending', async () => {
+    const onComplete = vi.fn();
+    const file = new File(['image'], 'uncertain.jpg', { type: 'image/jpeg' });
+
+    analyzeGarmentMock.mockResolvedValueOnce({
+      data: {
+        title: 'Dark top',
+        category: 'top',
+        subcategory: 'shirt',
+        color_primary: 'blue',
+        season_tags: ['spring'],
+        formality: 3,
+        confidence: 0.42,
+        ai_provider: 'burs_ai',
+        ai_raw: { source: 'test' },
+      },
+      error: null,
+    });
+
+    render(<BatchUploadProgress files={[file]} onComplete={onComplete} onCancel={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getByText('Quick review')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Review still needed')).toBeInTheDocument());
+
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(toastSuccessMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /continue/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /skip/i }));
+
+    await waitFor(() => expect(screen.getByText('Review complete')).toBeInTheDocument());
+    const continueButton = screen.getByRole('button', { name: /continue/i });
+    expect(onComplete).not.toHaveBeenCalled();
+
+    fireEvent.click(continueButton);
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    expect(toastSuccessMock).toHaveBeenCalledTimes(1);
   });
 });
