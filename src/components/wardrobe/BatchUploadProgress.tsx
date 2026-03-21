@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, AlertCircle, Upload, Sparkles, X } from 'lucide-react';
+import { CheckCircle, AlertCircle, Upload, Sparkles, X, Clock3, ArrowRight, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useStorage } from '@/hooks/useStorage';
@@ -12,13 +12,16 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import type { Json } from '@/integrations/supabase/types';
-import { buildGarmentIntelligenceFields, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
+import { buildGarmentIntelligenceFields, getGarmentReviewDecision, standardizeGarmentAiRaw, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
 
 interface BatchItem {
   file: File;
   preview: string;
-  status: 'waiting' | 'uploading' | 'analyzing' | 'done' | 'error';
+  status: 'waiting' | 'uploading' | 'analyzing' | 'review' | 'done' | 'error' | 'skipped';
   error?: string;
+  storagePath?: string;
+  garmentId?: string;
+  analysis?: Awaited<ReturnType<ReturnType<typeof useAnalyzeGarment>['analyzeGarment']>>['data'];
 }
 
 interface BatchUploadProgressProps {
@@ -49,28 +52,94 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
     return () => newItems.forEach(item => URL.revokeObjectURL(item.preview));
   }, [files]);
 
+  const updateItem = useCallback((index: number, updates: Partial<BatchItem>) => {
+    setItems(prev => prev.map((item, i) => i === index ? { ...item, ...updates } : item));
+  }, []);
+
+  const reviewCount = items.filter(i => i.status === 'review').length;
+  const doneCount = items.filter(i => i.status === 'done').length;
+  const skippedCount = items.filter(i => i.status === 'skipped').length;
+  const errorCount = items.filter(i => i.status === 'error').length;
+  const totalProgress = items.length > 0 ? ((doneCount + skippedCount + errorCount) / items.length) * 100 : 0;
+
+  const saveApprovedItem = useCallback(async (item: BatchItem) => {
+    if (!item.analysis || !item.storagePath || !item.garmentId) {
+      throw new Error('Missing review item context');
+    }
+
+    await createGarment.mutateAsync({
+      id: item.garmentId,
+      image_path: item.storagePath,
+      title: item.analysis.title,
+      category: item.analysis.category,
+      subcategory: item.analysis.subcategory || null,
+      color_primary: item.analysis.color_primary,
+      color_secondary: item.analysis.color_secondary || null,
+      pattern: item.analysis.pattern || null,
+      material: item.analysis.material || null,
+      fit: item.analysis.fit || null,
+      season_tags: item.analysis.season_tags || null,
+      formality: item.analysis.formality || 3,
+      in_laundry: false,
+      ai_analyzed_at: new Date().toISOString(),
+      ai_provider: item.analysis.ai_provider || 'unknown',
+      ai_raw: standardizeGarmentAiRaw({
+        aiRaw: (item.analysis.ai_raw ?? null) as Json,
+        analysisConfidence: item.analysis.confidence,
+        source: 'batch_add',
+        reviewDecision: getGarmentReviewDecision(item.analysis.confidence),
+      }),
+      ...buildGarmentIntelligenceFields({ storagePath: item.storagePath }),
+    });
+
+    triggerGarmentPostSaveIntelligence({
+      garmentId: item.garmentId,
+      storagePath: item.storagePath,
+      source: 'batch_add',
+      imageProcessing: { mode: 'edge' },
+    });
+
+    invokeEdgeFunction('detect_duplicate_garment', {
+      body: {
+        image_path: item.storagePath,
+        category: item.analysis.category,
+        color_primary: item.analysis.color_primary,
+        title: item.analysis.title,
+        subcategory: item.analysis.subcategory,
+        material: item.analysis.material,
+        exclude_garment_id: item.garmentId,
+      },
+    }).catch((err) =>
+      console.error('Batch duplicate detection error (non-blocking):', err)
+    );
+  }, [createGarment]);
+
   // Process queue
   useEffect(() => {
     if (processedRef.current || !user || items.length === 0 || isProcessing) return;
     if (currentIndex >= items.length) {
       processedRef.current = true;
-      const doneCount = items.filter(i => i.status === 'done').length;
-      toast.success(`${doneCount}/${items.length} ${t('batch.complete_toast')}`, {
-        description: 'Added to wardrobe. Background cleanup continues automatically.',
+      const completedCount = items.filter(i => i.status === 'done').length;
+      toast.success(`${completedCount}/${items.length} ${t('batch.complete_toast')}`, {
+        description: reviewCount > 0
+          ? `${reviewCount} item${reviewCount === 1 ? '' : 's'} need a quick review before adding.`
+          : 'Added to wardrobe. Background cleanup continues automatically.',
       });
       setTimeout(onComplete, 800);
       return;
     }
+
+    const currentItem = items[currentIndex];
+    if (!currentItem) return;
 
     const processItem = async () => {
       setIsProcessing(true);
       const garmentId = crypto.randomUUID();
       let path = '';
 
-      // Upload
       updateItem(currentIndex, { status: 'uploading' });
       try {
-        path = await uploadGarmentImage(items[currentIndex].file, garmentId);
+        path = await uploadGarmentImage(currentItem.file, garmentId);
       } catch {
         updateItem(currentIndex, { status: 'error', error: t('batch.upload_failed') });
         setCurrentIndex(i => i + 1);
@@ -78,7 +147,6 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
         return;
       }
 
-      // Analyze
       updateItem(currentIndex, { status: 'analyzing' });
       try {
         const { data, error } = await analyzeGarment(path);
@@ -89,48 +157,27 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
           return;
         }
 
-        await createGarment.mutateAsync({
-          id: garmentId,
-          image_path: path,
-          title: data.title,
-          category: data.category,
-          subcategory: data.subcategory || null,
-          color_primary: data.color_primary,
-          color_secondary: data.color_secondary || null,
-          pattern: data.pattern || null,
-          material: data.material || null,
-          fit: data.fit || null,
-          season_tags: data.season_tags || null,
-          formality: data.formality || 3,
-          in_laundry: false,
-          ai_analyzed_at: new Date().toISOString(),
-          ai_provider: data.ai_provider || 'unknown',
-          ai_raw: (data.ai_raw ?? null) as Json,
-          ...buildGarmentIntelligenceFields({ storagePath: path }),
-        });
+        const reviewDecision = getGarmentReviewDecision(data.confidence);
+        if (reviewDecision.needsReview) {
+          updateItem(currentIndex, {
+            status: 'review',
+            storagePath: path,
+            garmentId,
+            analysis: data,
+            error: reviewDecision.reason === 'missing_confidence'
+              ? 'Needs quick review before adding.'
+              : 'Low-confidence match — review before adding.',
+          });
+        } else {
+          await saveApprovedItem({
+            ...currentItem,
+            storagePath: path,
+            garmentId,
+            analysis: data,
+          });
 
-        triggerGarmentPostSaveIntelligence({
-          garmentId,
-          storagePath: path,
-          source: 'batch_add',
-          imageProcessing: { mode: 'edge' },
-        });
-
-        invokeEdgeFunction('detect_duplicate_garment', {
-          body: {
-            image_path: path,
-            category: data.category,
-            color_primary: data.color_primary,
-            title: data.title,
-            subcategory: data.subcategory,
-            material: data.material,
-            exclude_garment_id: garmentId,
-          },
-        }).catch((err) =>
-          console.error('Batch duplicate detection error (non-blocking):', err)
-        );
-
-        updateItem(currentIndex, { status: 'done' });
+          updateItem(currentIndex, { status: 'done', storagePath: path, garmentId, analysis: data });
+        }
       } catch {
         updateItem(currentIndex, { status: 'error', error: t('batch.save_failed') });
       }
@@ -140,15 +187,21 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
     };
 
     processItem();
-  }, [currentIndex, items.length, isProcessing, user]);
+  }, [analyzeGarment, currentIndex, isProcessing, items, onComplete, reviewCount, saveApprovedItem, t, updateItem, uploadGarmentImage, user]);
 
-  const updateItem = (index: number, updates: Partial<BatchItem>) => {
-    setItems(prev => prev.map((item, i) => i === index ? { ...item, ...updates } : item));
+  const handleApproveReviewItem = async (index: number) => {
+    updateItem(index, { status: 'uploading', error: undefined });
+    try {
+      await saveApprovedItem(items[index]);
+      updateItem(index, { status: 'done' });
+    } catch {
+      updateItem(index, { status: 'error', error: t('batch.save_failed') });
+    }
   };
 
-  const doneCount = items.filter(i => i.status === 'done').length;
-  const errorCount = items.filter(i => i.status === 'error').length;
-  const totalProgress = items.length > 0 ? ((doneCount + errorCount) / items.length) * 100 : 0;
+  const handleSkipReviewItem = (index: number) => {
+    updateItem(index, { status: 'skipped', error: undefined });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -166,9 +219,14 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
             <span className="text-muted-foreground">
               {doneCount}/{items.length} added
             </span>
-            {errorCount > 0 && (
-              <span className="text-destructive text-xs">{errorCount} {t('batch.errors')}</span>
-            )}
+            <div className="flex items-center gap-2">
+              {reviewCount > 0 && (
+                <span className="text-amber-600 text-xs">{reviewCount} pending review</span>
+              )}
+              {errorCount > 0 && (
+                <span className="text-destructive text-xs">{errorCount} {t('batch.errors')}</span>
+              )}
+            </div>
           </div>
           <Progress value={totalProgress} className="h-2" />
         </div>
@@ -189,7 +247,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
                   alt=""
                   className={cn(
                     'w-full h-full object-cover transition-opacity',
-                    item.status === 'error' && 'opacity-40'
+                    (item.status === 'error' || item.status === 'skipped') && 'opacity-40'
                   )}
                 />
                 {/* Status overlay */}
@@ -197,6 +255,8 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
                   'absolute inset-0 flex items-center justify-center',
                   item.status === 'done' && 'bg-black/20',
                   item.status === 'error' && 'bg-destructive/10',
+                  item.status === 'review' && 'bg-amber-500/20',
+                  item.status === 'skipped' && 'bg-muted/40',
                   (item.status === 'uploading' || item.status === 'analyzing') && 'bg-black/30'
                 )}>
                   {item.status === 'waiting' && (
@@ -230,17 +290,59 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
                       <span className="text-[10px] text-white font-medium">Saving details</span>
                     </div>
                   )}
+                  {item.status === 'review' && (
+                    <div className="flex flex-col items-center gap-1">
+                      <Clock3 className="w-7 h-7 text-amber-700 drop-shadow-md" />
+                      <span className="text-[10px] font-medium text-amber-900">Review</span>
+                    </div>
+                  )}
                   {item.status === 'done' && (
                     <CheckCircle className="w-7 h-7 text-white drop-shadow-md" />
                   )}
                   {item.status === 'error' && (
                     <AlertCircle className="w-7 h-7 text-destructive drop-shadow-md" />
                   )}
+                  {item.status === 'skipped' && (
+                    <SkipForward className="w-7 h-7 text-muted-foreground drop-shadow-md" />
+                  )}
                 </div>
               </motion.div>
             ))}
           </AnimatePresence>
         </div>
+
+        {reviewCount > 0 && (
+          <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+            <div className="flex items-center gap-2">
+              <Clock3 className="h-4 w-4 text-amber-700" />
+              <div>
+                <p className="text-sm font-medium text-amber-950">Quick review</p>
+                <p className="text-xs text-amber-800">Only low-confidence garments need approval. Confident items were added automatically.</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {items.map((item, index) => item.status === 'review' ? (
+                <div key={`review-${index}`} className="flex items-center gap-3 rounded-lg bg-background p-3 shadow-sm">
+                  <img src={item.preview} alt={item.analysis?.title || 'Review garment'} className="h-16 w-16 rounded-md object-cover bg-muted" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{item.analysis?.title || 'Untitled garment'}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {[item.analysis?.category, item.analysis?.color_primary, item.analysis?.material].filter(Boolean).join(' · ')}
+                    </p>
+                    <p className="text-xs text-amber-700">{item.error}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => handleSkipReviewItem(index)}>Skip</Button>
+                    <Button size="sm" onClick={() => handleApproveReviewItem(index)}>
+                      Add
+                      <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ) : null)}
+            </div>
+          </div>
+        )}
 
         {/* Hint */}
         <p className="text-xs text-muted-foreground text-center">
