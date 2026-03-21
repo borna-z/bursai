@@ -23,6 +23,7 @@ import { useSimilarGarments } from '@/hooks/useSimilarGarments';
 import { useAssessCondition, useCostPerWear } from '@/hooks/useAdvancedFeatures';
 import { useGarmentOutfitHistory } from '@/hooks/useGarmentOutfitHistory';
 import { LazyImage, LazyImageSimple } from '@/components/ui/lazy-image';
+import { OutfitMosaic } from '@/components/outfit/OutfitMosaic';
 import { SectionHeader } from '@/components/ui/section-header';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
@@ -515,17 +516,16 @@ export default function GarmentDetailPage() {
                     onClick={() => { hapticLight(); navigate(`/outfits/${outfit.id}`); }}
                     className="flex-shrink-0 w-[72px] space-y-1.5 press"
                   >
-                    <div className="aspect-square rounded-lg overflow-hidden grid grid-cols-2 gap-px bg-muted/30">
-                      {outfit.outfit_items.slice(0, 4).map((item) => (
-                        <div key={item.id} className="overflow-hidden">
-                          <LazyImageSimple
-                            imagePath={item.garment?.image_path}
-                            alt={item.garment?.title || item.slot}
-                            className="w-full h-full"
-                          />
-                        </div>
-                      ))}
-                    </div>
+                    <OutfitMosaic
+                      items={outfit.outfit_items.map((item) => ({
+                        id: item.id,
+                        imagePath: item.garment?.image_path,
+                        alt: item.garment?.title || item.slot,
+                      }))}
+                      variant="thumbnail"
+                      gap="gap-px"
+                      rounded="rounded-lg"
+                    />
                     <p className="text-[10px] text-muted-foreground/60 truncate capitalize">
                       {occasionLabel(t, outfit.occasion)}
                     </p>

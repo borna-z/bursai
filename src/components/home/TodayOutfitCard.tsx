@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Check, Palette } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { LazyImage } from '@/components/ui/lazy-image';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
+import { OutfitMosaic } from '@/components/outfit/OutfitMosaic';
 import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOutfitGenerator, type GeneratedOutfit, type OutfitRequest } from '@/hooks/useOutfitGenerator';
@@ -107,22 +107,20 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
               handleWearThis();
             }
           }}
-          className="grid grid-cols-2 gap-2 cursor-grab active:cursor-grabbing"
+          className="cursor-grab active:cursor-grabbing"
         >
-          {outfit.items.slice(0, 4).map((item) => (
-            <div
-              key={item.garment.id}
-              onClick={() => navigate(`/wardrobe/${item.garment.id}`)}
-              className="cursor-pointer active:scale-[0.97] transition-transform"
-            >
-              <LazyImage
-                imagePath={getPreferredGarmentImagePath(item.garment)}
-                alt={item.garment.title}
-                aspectRatio="3/4"
-                className="rounded-xl"
-              />
-            </div>
-          ))}
+          <OutfitMosaic
+            items={outfit.items.map((item) => ({
+              id: item.garment.id,
+              imagePath: getPreferredGarmentImagePath(item.garment),
+              alt: item.garment.title,
+              slot: item.slot,
+            }))}
+            variant="full"
+            gap="gap-1.5"
+            rounded="rounded-xl"
+            onItemClick={(id) => navigate(`/wardrobe/${id}`)}
+          />
         </motion.div>
       </AnimatePresence>
 

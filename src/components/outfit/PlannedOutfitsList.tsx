@@ -11,8 +11,9 @@ import {
 import { cn } from '@/lib/utils';
 import { type OutfitWithItems } from '@/hooks/useOutfits';
 import { EmptyState } from '@/components/layout/EmptyState';
-import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
+import { OutfitMosaic } from '@/components/outfit/OutfitMosaic';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
 import { isToday, isTomorrow } from 'date-fns';
@@ -42,16 +43,15 @@ function PlannedOutfitCard({ outfit, onDelete }: PlannedOutfitCardProps) {
       className="cursor-pointer hover:shadow-md transition-all overflow-hidden active:scale-[0.99] animate-drape-in opacity-0 [animation-fill-mode:both]"
       onClick={() => navigate(`/outfits/${outfit.id}`)}
     >
-      <div className="flex h-20 bg-muted/30">
-        {outfit.outfit_items.slice(0, 4).map((item, index) => (
-          <div key={item.id} className={cn("flex-1 overflow-hidden", index < outfit.outfit_items.slice(0, 4).length - 1 && "border-r border-background")}>
-            <LazyImageSimple imagePath={item.garment?.image_path} alt={item.garment?.title || item.slot} className="w-full h-full" />
-          </div>
-        ))}
-        {outfit.outfit_items.length > 4 && (
-          <div className="w-10 flex items-center justify-center bg-muted/50 text-xs text-muted-foreground">+{outfit.outfit_items.length - 4}</div>
-        )}
-      </div>
+      <OutfitMosaic
+        items={outfit.outfit_items.map((item) => ({
+          id: item.id,
+          imagePath: item.garment ? getPreferredGarmentImagePath(item.garment) : undefined,
+          alt: item.garment?.title || item.slot,
+        }))}
+        variant="strip"
+        className="h-20 bg-muted/20"
+      />
 
       <CardContent className="p-3">
         <div className="flex items-start justify-between gap-2">
