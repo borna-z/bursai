@@ -13,6 +13,38 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error ?? 'Unknown error');
 }
 
+function normalizeImageMimeType(contentType: string | null, sourceImagePath: string): string {
+  const normalizedHeader = contentType?.split(';')[0]?.trim().toLowerCase();
+  if (normalizedHeader && normalizedHeader.startsWith('image/')) {
+    return normalizedHeader;
+  }
+
+  const extension = sourceImagePath.split('.').pop()?.toLowerCase();
+  switch (extension) {
+    case 'png':
+      return 'image/png';
+    case 'webp':
+      return 'image/webp';
+    case 'gif':
+      return 'image/gif';
+    case 'jpg':
+    case 'jpeg':
+    default:
+      return 'image/jpeg';
+  }
+}
+
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 8192) {
+    const chunk = bytes.subarray(i, i + 8192);
+    for (let j = 0; j < chunk.length; j++) {
+      binary += String.fromCharCode(chunk[j]);
+    }
+  }
+  return btoa(binary);
+}
+
 async function updateGarmentRenderState(
   supabase: ReturnType<typeof createClient>,
   garmentId: string,
@@ -205,18 +237,16 @@ serve(async (req) => {
     }
 
     const imageBytes = new Uint8Array(await imageResp.arrayBuffer());
-    const contentType = imageResp.headers.get('content-type') || 'image/jpeg';
+    const contentType = imageResp.headers.get('content-type');
+    const mimeType = normalizeImageMimeType(contentType, sourceImagePath);
+    const base64 = uint8ArrayToBase64(imageBytes);
+    const hasDataUrlPrefix = base64.startsWith('data:');
 
-    // Convert to base64 data URL for Gemini inline input
-    let base64 = '';
-    const chunks: string[] = [];
-    for (let i = 0; i < imageBytes.length; i += 8192) {
-      const slice = imageBytes.subarray(i, i + 8192);
-      const binStr = Array.from(slice, (b) => String.fromCharCode(b)).join('');
-      chunks.push(btoa(binStr));
+    if (hasDataUrlPrefix) {
+      throw new Error('Source image base64 unexpectedly contains a data URL prefix');
     }
-    base64 = chunks.join('');
-    const dataUrl = `data:${contentType};base64,${base64}`;
+
+    const dataUrl = `data:${mimeType};base64,${base64}`;
 
     // ── Build prompt ──
     const parts = [garment.color_primary];
@@ -248,7 +278,10 @@ serve(async (req) => {
       provider: 'gemini',
       model: 'google/gemini-2.5-flash-image',
       sourceContentType: contentType,
+      sourceMimeType: mimeType,
       sourceBytes: imageBytes.length,
+      sourceBase64Length: base64.length,
+      sourceHasDataUrlPrefix: hasDataUrlPrefix,
     });
 
     // ── Call Gemini image-gen with reference image ──
