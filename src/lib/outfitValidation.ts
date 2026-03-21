@@ -1,0 +1,74 @@
+import type { Tables } from '@/integrations/supabase/types';
+
+export type BasicGarmentLike = Pick<Tables<'garments'>, 'category' | 'subcategory'> & {
+  id?: string;
+  title?: string | null;
+};
+
+export type OutfitValidationItem<TGarment extends BasicGarmentLike = BasicGarmentLike> = {
+  slot?: string | null;
+  garment?: TGarment | null;
+};
+
+export interface OutfitValidationResult {
+  isValid: boolean;
+  isStandard: boolean;
+  isDressBased: boolean;
+  missing: Array<'top' | 'bottom' | 'dress'>;
+  presentSlots: string[];
+}
+
+const DRESS_TOKENS = ['dress', 'jumpsuit', 'overall', 'fullbody', 'full body', 'romper', 'klänning'];
+const SHOES_TOKENS = ['shoes', 'shoe', 'sneakers', 'boots', 'heels', 'sandals', 'loafers', 'skor', 'stövlar'];
+const OUTERWEAR_TOKENS = ['outerwear', 'coat', 'jacket', 'blazer', 'trench', 'jacka', 'kappa'];
+const ACCESSORY_TOKENS = ['accessory', 'bag', 'hat', 'belt', 'scarf', 'smycke', 'väska'];
+const BOTTOM_TOKENS = ['bottom', 'pants', 'jeans', 'trousers', 'shorts', 'skirt', 'byxor', 'kjol'];
+
+function normalizeTokenValue(value: unknown): string {
+  return String(value || '').trim().toLowerCase();
+}
+
+export function inferOutfitSlotFromGarment(garment: Pick<BasicGarmentLike, 'category' | 'subcategory'>): string {
+  const category = normalizeTokenValue(garment.category);
+  const subcategory = normalizeTokenValue(garment.subcategory);
+  const value = `${category} ${subcategory}`.trim();
+
+  if (DRESS_TOKENS.some((token) => value.includes(token))) return 'dress';
+  if (SHOES_TOKENS.some((token) => value.includes(token))) return 'shoes';
+  if (OUTERWEAR_TOKENS.some((token) => value.includes(token))) return 'outerwear';
+  if (ACCESSORY_TOKENS.some((token) => value.includes(token))) return 'accessory';
+  if (BOTTOM_TOKENS.some((token) => value.includes(token))) return 'bottom';
+  return 'top';
+}
+
+export function normalizeOutfitItemSlot<TGarment extends BasicGarmentLike>(item: OutfitValidationItem<TGarment>): string {
+  const explicitSlot = normalizeTokenValue(item.slot);
+  if (explicitSlot === 'fullbody' || explicitSlot === 'full_body') return 'dress';
+  if (explicitSlot) return explicitSlot;
+  if (item.garment) return inferOutfitSlotFromGarment(item.garment);
+  return '';
+}
+
+export function validateBaseOutfit<TGarment extends BasicGarmentLike>(items: OutfitValidationItem<TGarment>[]): OutfitValidationResult {
+  const presentSlots = Array.from(new Set(items.map((item) => normalizeOutfitItemSlot(item)).filter(Boolean)));
+  const slots = new Set(presentSlots);
+  const hasDressBase = slots.has('dress');
+  const hasStandardBase = slots.has('top') && slots.has('bottom');
+  const missing: Array<'top' | 'bottom' | 'dress'> = [];
+
+  if (!hasDressBase && !slots.has('top')) missing.push('top');
+  if (!hasDressBase && !slots.has('bottom')) missing.push('bottom');
+  if (!hasDressBase && !hasStandardBase && missing.length === 0) missing.push('dress');
+
+  return {
+    isValid: hasDressBase || hasStandardBase,
+    isStandard: hasStandardBase,
+    isDressBased: hasDressBase,
+    missing,
+    presentSlots,
+  };
+}
+
+export function filterValidBaseOutfits<T extends { outfit_items?: OutfitValidationItem[] | null }>(outfits: T[]): T[] {
+  return outfits.filter((outfit) => validateBaseOutfit(outfit.outfit_items || []).isValid);
+}

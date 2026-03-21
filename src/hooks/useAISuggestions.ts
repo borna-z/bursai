@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useWeather } from '@/hooks/useWeather';
+import { validateBaseOutfit } from '@/lib/outfitValidation';
 import { useGarmentCount } from '@/hooks/useGarments';
 
 export interface AISuggestion {
@@ -74,7 +75,9 @@ export function useAISuggestions() {
         throw new Error(response.data.error);
       }
 
-      return response.data?.suggestions || [];
+      return (response.data?.suggestions || []).filter((suggestion) =>
+        validateBaseOutfit((suggestion.garments || []).map((garment) => ({ garment }))).isValid
+      );
     },
     enabled: !!user && !!session?.access_token && !isGarmentCountLoading && garmentCount >= 3,
     staleTime: 1000 * 60 * 5,

@@ -250,6 +250,111 @@ describe('useOutfitGenerator', () => {
     expect(outfit!.items.length).toBe(2);
   });
 
+
+  it('rejects top + shoes without bottom before persistence', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+
+    const validationData = [{ category: 'top', subcategory: null }, { category: 'bottom', subcategory: null }];
+    const garments = [
+      { id: 'g1', category: 'top' },
+      { id: 'g3', category: 'shoes' },
+    ];
+
+    let fromCallCount = 0;
+    mockFrom.mockImplementation(() => {
+      fromCallCount++;
+      if (fromCallCount === 1) {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: validationData, error: null }),
+          }),
+        };
+      }
+      if (fromCallCount === 2) {
+        return {
+          select: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({ data: garments, error: null }),
+          }),
+        };
+      }
+      return {
+        insert: vi.fn(() => {
+          throw new Error('persist should not be called');
+        }),
+      };
+    });
+
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: {
+        items: [
+          { slot: 'top', garment_id: 'g1' },
+          { slot: 'shoes', garment_id: 'g3' },
+        ],
+        explanation: 'invalid',
+        style_score: null,
+      },
+      error: null,
+    });
+
+    const { useOutfitGenerator } = await import('../useOutfitGenerator');
+    const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
+    await act(async () => {
+      await expect(result.current.generateOutfit(baseRequest)).rejects.toThrow(/Incomplete outfit returned/i);
+    });
+  });
+
+  it('rejects bottom + shoes without top before persistence', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+
+    const validationData = [{ category: 'top', subcategory: null }, { category: 'bottom', subcategory: null }];
+    const garments = [
+      { id: 'g2', category: 'bottom' },
+      { id: 'g3', category: 'shoes' },
+    ];
+
+    let fromCallCount = 0;
+    mockFrom.mockImplementation(() => {
+      fromCallCount++;
+      if (fromCallCount === 1) {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: validationData, error: null }),
+          }),
+        };
+      }
+      if (fromCallCount === 2) {
+        return {
+          select: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({ data: garments, error: null }),
+          }),
+        };
+      }
+      return {
+        insert: vi.fn(() => {
+          throw new Error('persist should not be called');
+        }),
+      };
+    });
+
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: {
+        items: [
+          { slot: 'bottom', garment_id: 'g2' },
+          { slot: 'shoes', garment_id: 'g3' },
+        ],
+        explanation: 'invalid',
+        style_score: null,
+      },
+      error: null,
+    });
+
+    const { useOutfitGenerator } = await import('../useOutfitGenerator');
+    const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
+    await act(async () => {
+      await expect(result.current.generateOutfit(baseRequest)).rejects.toThrow(/Incomplete outfit returned/i);
+    });
+  });
+
   it('returns generated outfit on success', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
 

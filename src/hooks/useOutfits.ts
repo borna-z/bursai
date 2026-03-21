@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { hapticSuccess, hapticHeavy } from '@/lib/haptics';
 import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
+import { filterValidBaseOutfits, validateBaseOutfit } from '@/lib/outfitValidation';
 
 export type Outfit = Tables<'outfits'>;
 export type OutfitItem = Tables<'outfit_items'>;
@@ -51,7 +52,7 @@ export function useOutfits(savedOnly = true) {
       const { data, error } = await query;
       
       if (error) throw error;
-      return data as unknown as OutfitWithItems[];
+      return filterValidBaseOutfits((data as unknown as OutfitWithItems[]) || []);
     },
     enabled: !!user,
     staleTime: 2 * 60 * 1000,
@@ -80,7 +81,8 @@ export function useOutfit(id: string | undefined) {
         .single();
       
       if (error) throw error;
-      return data as unknown as OutfitWithItems;
+      const outfit = data as unknown as OutfitWithItems;
+      return validateBaseOutfit(outfit?.outfit_items || []).isValid ? outfit : null;
     },
     enabled: !!id && !!user,
     staleTime: 60 * 1000,
@@ -101,6 +103,12 @@ export function useCreateOutfit() {
     }) => {
       if (!user) throw new Error('Not authenticated');
       
+      const normalizedItems = items.map((item) => ({ ...item, slot: item.slot }));
+      const baseValidation = validateBaseOutfit(normalizedItems.map((item) => ({ slot: item.slot })));
+      if (!baseValidation.isValid) {
+        throw new Error(`Refusing to persist invalid outfit. Missing: ${baseValidation.missing.join(', ')}`);
+      }
+
       // Create outfit
       const { data: outfitData, error: outfitError } = await supabase
         .from('outfits')
@@ -111,7 +119,7 @@ export function useCreateOutfit() {
       if (outfitError) throw outfitError;
       
       // Create outfit items
-      const outfitItems = items.map(item => ({
+      const outfitItems = normalizedItems.map(item => ({
         outfit_id: outfitData.id,
         garment_id: item.garment_id,
         slot: item.slot,
