@@ -94,16 +94,25 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
   return (
     <div className="animate-fade-in">
       <div className="space-y-2 max-w-[92%]">
-        {isStreaming && !text ? (
+        {isStreaming && !text && images.length === 0 ? (
           <span className="inline-block w-0.5 h-5 bg-accent/60 animate-pulse rounded-full" />
         ) : (
           <>
-            <div className="text-[15px] leading-[1.7] whitespace-pre-wrap text-foreground">
-              {textParts}
-              {isStreaming && (
-                <span className="inline-block w-[1.5px] h-[18px] bg-accent/60 animate-pulse ml-0.5 align-text-bottom rounded-full" />
-              )}
-            </div>
+            {textParts && (
+              <div className="text-[15px] leading-[1.7] whitespace-pre-wrap text-foreground">
+                {textParts}
+                {isStreaming && (
+                  <span className="inline-block w-[1.5px] h-[18px] bg-accent/60 animate-pulse ml-0.5 align-text-bottom rounded-full" />
+                )}
+              </div>
+            )}
+            {images.length > 0 && (
+              <div className="flex gap-2 flex-wrap">
+                {images.map((url, i) => (
+                  <img key={i} src={url} alt="Stylist reference" className="h-40 w-40 object-cover rounded-2xl shadow-sm" />
+                ))}
+              </div>
+            )}
             {garmentCards.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {garmentCards.map(g => (

@@ -91,6 +91,40 @@ describe('ChatMessage', () => {
     expect(screen.getByTestId('garment-inline-card')).toBeInTheDocument();
   });
 
+
+
+  it('renders assistant image_url parts alongside text and garment cards', () => {
+    renderMessage({
+      message: {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'Try the blazer' },
+          { type: 'image_url', image_url: { url: 'https://example.com/look-1.jpg' } },
+          { type: 'text', text: 'with [[garment:11111111-1111-1111-1111-111111111111]].' },
+        ],
+      },
+    });
+
+    expect(screen.getByText(/Try the blazer with/)).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Stylist reference' })).toHaveAttribute('src', 'https://example.com/look-1.jpg');
+    expect(screen.getByTestId('garment-inline-card')).toBeInTheDocument();
+  });
+
+  it('renders assistant image_url parts alongside outfit suggestion cards', () => {
+    renderMessage({
+      message: {
+        role: 'assistant',
+        content: [
+          { type: 'image_url', image_url: { url: 'https://example.com/look-2.jpg' } },
+          { type: 'text', text: '[[outfit:11111111-1111-1111-1111-111111111111|Clean tonal layering]]' },
+        ],
+      },
+    });
+
+    expect(screen.getByRole('img', { name: 'Stylist reference' })).toHaveAttribute('src', 'https://example.com/look-2.jpg');
+    expect(screen.getByTestId('outfit-suggestion-card')).toBeInTheDocument();
+  });
+
   it('falls back to the garment label when the garment is not loaded', () => {
     renderMessage({
       garmentMap: new Map(),
