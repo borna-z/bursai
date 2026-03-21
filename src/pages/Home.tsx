@@ -25,6 +25,8 @@ import { WeekPlanningNudge } from '@/components/home/WeekPlanningNudge';
 import { useWeather } from '@/hooks/useWeather';
 import { useLocation } from '@/contexts/LocationContext';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
+import { OutfitMosaic } from '@/components/outfit/OutfitMosaic';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { hapticLight } from '@/lib/haptics';
@@ -219,21 +221,16 @@ export default function HomePage() {
                 className="w-full rounded-[var(--radius,1rem)] surface-hero p-4 flex items-center gap-4 text-left cursor-pointer active:scale-[0.98] transition-transform"
               >
                 {/* Horizontal thumbnail strip */}
-                <div className="flex items-center gap-2 shrink-0">
-                  {todayOutfit.outfit_items.slice(0, 4).map((item) => (
-                    <div key={item.id} className="w-14 h-14 rounded-xl overflow-hidden bg-muted shrink-0">
-                      <LazyImageSimple
-                        imagePath={item.garment?.image_path}
-                        alt={item.garment?.title || item.slot}
-                        className="w-full h-full"
-                      />
-                    </div>
-                  ))}
-                  {todayOutfit.outfit_items.length > 4 && (
-                    <div className="w-14 h-14 rounded-xl bg-muted/40 flex items-center justify-center shrink-0">
-                      <span className="text-[11px] font-semibold text-muted-foreground">+{todayOutfit.outfit_items.length - 4}</span>
-                    </div>
-                  )}
+                <div className="shrink-0 rounded-lg overflow-hidden">
+                  <OutfitMosaic
+                    items={todayOutfit.outfit_items.map((item) => ({
+                      id: item.id,
+                      imagePath: item.garment ? getPreferredGarmentImagePath(item.garment) : item.garment?.image_path,
+                      alt: item.garment?.title || item.slot,
+                    }))}
+                    variant="strip"
+                    className="h-14"
+                  />
                 </div>
 
                 {/* Occasion + chevron */}

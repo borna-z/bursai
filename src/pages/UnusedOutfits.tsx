@@ -219,7 +219,7 @@ export default function UnusedOutfits() {
                     <div key={`empty-${j}`} className="bg-muted/10" />
                   ))}
                   {outfit.items.length > 4 && (
-                    <div className="absolute bottom-1.5 right-1.5 bg-black/60 backdrop-blur-sm text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none">
+                    <div className="absolute bottom-1.5 right-1.5 bg-background/80 backdrop-blur-sm text-foreground/60 ring-1 ring-border/10 text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none">
                       +{outfit.items.length - 4}
                     </div>
                   )}

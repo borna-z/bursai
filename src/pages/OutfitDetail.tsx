@@ -30,6 +30,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useOutfitFeedback, useSubmitPhotoFeedback } from '@/hooks/usePhotoFeedback';
 import { useFeedbackSignals } from '@/hooks/useFeedbackSignals';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { OutfitMosaic, type MosaicItem } from '@/components/outfit/OutfitMosaic';
 
 /* ── Swap Sheet ─────────────────────────────────────── */
 
@@ -204,83 +205,28 @@ function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, onSwa
   );
 }
 
-/* ── Detail Mosaic — adaptive hero image grid ──────── */
+/* ── Detail Mosaic — delegates to shared OutfitMosaic ── */
 
-function DetailMosaic({
-  items,
-  t,
-  layerRoleMap,
-  prefersReduced,
-}: {
-  items: { id: string; garment_id: string; slot: string; garment: Tables<'garments'> }[];
-  t: (key: string) => string;
-  layerRoleMap: Map<string, string>;
-  prefersReduced: boolean | null;
-}) {
-  const count = items.length;
-
-  // Grid class and per-item layout logic based on garment count
-  const getGridClass = () => {
-    if (count <= 2) return 'grid-cols-2';
-    if (count === 3) return 'grid-cols-2 grid-rows-2';
-    if (count === 4) return 'grid-cols-2';
-    if (count === 5) return 'grid-cols-6';
-    return 'grid-cols-3'; // 6+
-  };
-
-  const getItemClass = (index: number) => {
-    if (count === 1) return 'col-span-2';
-    if (count === 3 && index === 0) return 'row-span-2';
-    if (count === 5 && index < 3) return 'col-span-2';
-    if (count === 5 && index >= 3) return 'col-span-3';
-    return '';
-  };
-
-  const getAspectClass = (index: number) => {
-    if (count <= 2) return 'aspect-[3/4]';
-    if (count === 3) return index === 0 ? 'aspect-[3/4]' : 'aspect-[3/4] max-h-[38vh]';
-    if (count === 4) return 'aspect-square';
-    if (count === 5) return index < 3 ? 'aspect-[3/4]' : 'aspect-[4/3]';
-    return 'aspect-square'; // 6+
-  };
-
-  const getSlotLabel = (item: typeof items[number]) => {
+function buildDetailMosaicItems(
+  items: { id: string; garment_id: string; slot: string; garment: Tables<'garments'> }[],
+  t: (key: string) => string,
+  layerRoleMap: Map<string, string>,
+): MosaicItem[] {
+  return items.map((item) => {
     const isLayeredSlot = ['top', 'outerwear'].includes(item.slot);
     const layerRole = layerRoleMap.get(item.garment_id);
-    if (isLayeredSlot && layerRole && LAYER_ROLE_LABELS[layerRole]) {
-      return LAYER_ROLE_LABELS[layerRole];
-    }
-    return t(`outfit.slot.${item.slot}`) || item.slot;
-  };
+    const slotLabel =
+      isLayeredSlot && layerRole && LAYER_ROLE_LABELS[layerRole]
+        ? LAYER_ROLE_LABELS[layerRole]
+        : (t(`outfit.slot.${item.slot}`) || item.slot);
 
-  return (
-    <div className={cn('grid gap-[1px]', getGridClass())}>
-      {items.map((item, index) => (
-        <motion.div
-          key={item.id}
-          initial={prefersReduced ? false : { opacity: 0, scale: 1.02 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: index * 0.08, duration: 0.5, ease: EASE_CURVE }}
-          className={cn(
-            'relative overflow-hidden bg-muted/20',
-            getItemClass(index),
-          )}
-        >
-          <LazyImageSimple
-            imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
-            alt={item.garment?.title || item.slot}
-            className={cn('w-full object-cover', getAspectClass(index))}
-            fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/15" />}
-          />
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent p-3 pt-8">
-            <p className="text-[9px] text-white/70 uppercase tracking-[0.15em] font-medium">
-              {getSlotLabel(item)}
-            </p>
-          </div>
-        </motion.div>
-      ))}
-    </div>
-  );
+    return {
+      id: item.id,
+      imagePath: item.garment ? getPreferredGarmentImagePath(item.garment) : undefined,
+      alt: item.garment?.title || item.slot,
+      slot: slotLabel,
+    };
+  });
 }
 
 /* ── Main Page ──────────────────────────────────────── */
@@ -659,7 +605,12 @@ export default function OutfitDetailPage() {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5, ease: EASE_CURVE }}
       >
-        <DetailMosaic items={outfitItems} t={t} layerRoleMap={layerRoleMap} prefersReduced={prefersReduced} />
+        <OutfitMosaic
+          items={buildDetailMosaicItems(outfitItems, t, layerRoleMap)}
+          variant="full"
+          rounded="rounded-none"
+          showSlotLabels
+        />
 
         {justGenerated && (
           <motion.div

@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
+import { OutfitMosaic } from '@/components/outfit/OutfitMosaic';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
@@ -72,27 +73,16 @@ export function MiniDayCard({ date, plannedOutfit, isSelected, onClick }: MiniDa
       {/* Outfit thumbnails or empty state */}
       {hasOutfit ? (
         <div className="flex items-center gap-2">
-          <div className="flex h-10 flex-1 rounded-md overflow-hidden bg-muted/30">
-            {outfit.outfit_items.slice(0, 4).map((item, index) => (
-              <div
-                key={item.id}
-                className={cn(
-                  "flex-1 overflow-hidden",
-                  index < Math.min(outfit.outfit_items.length, 4) - 1 && "border-r border-background"
-                )}
-              >
-                <LazyImageSimple
-                  imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
-                  alt={item.garment?.title || item.slot}
-                  className="w-full h-full"
-                />
-              </div>
-            ))}
-            {outfit.outfit_items.length > 4 && (
-              <div className="w-8 flex items-center justify-center bg-muted/50 shrink-0">
-                <span className="text-[9px] font-semibold text-muted-foreground">+{outfit.outfit_items.length - 4}</span>
-              </div>
-            )}
+          <div className="flex-1 rounded-md overflow-hidden">
+            <OutfitMosaic
+              items={outfit.outfit_items.map((item) => ({
+                id: item.id,
+                imagePath: item.garment ? getPreferredGarmentImagePath(item.garment) : undefined,
+                alt: item.garment?.title || item.slot,
+              }))}
+              variant="strip"
+              className="h-10"
+            />
           </div>
           {OccasionIcon && (
             <Badge variant="outline" className="text-[10px] capitalize shrink-0">
