@@ -1,5 +1,22 @@
-import { describe, expect, it } from 'vitest';
-import { getGarmentReviewDecision, standardizeGarmentAiRaw } from '@/lib/garmentIntelligence';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: {
+    from: vi.fn(() => ({ update: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) })) })),
+  },
+}));
+
+vi.mock('@/lib/edgeFunctionClient', () => ({
+  invokeEdgeFunction: vi.fn().mockResolvedValue({ data: {}, error: null }),
+}));
+
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import {
+  buildGarmentIntelligenceFields,
+  getGarmentReviewDecision,
+  standardizeGarmentAiRaw,
+  triggerGarmentPostSaveIntelligence,
+} from '@/lib/garmentIntelligence';
 
 describe('getGarmentReviewDecision', () => {
   it('auto-approves high-confidence garments', () => {
@@ -51,5 +68,66 @@ describe('standardizeGarmentAiRaw', () => {
         review_reason: 'low_confidence',
       },
     });
+  });
+});
+
+
+describe('buildGarmentIntelligenceFields', () => {
+  it('marks render-only add photo records as skipped for background removal', () => {
+    expect(buildGarmentIntelligenceFields({
+      storagePath: 'user-1/photo.jpg',
+      enableRender: true,
+      skipImageProcessing: true,
+    })).toEqual(expect.objectContaining({
+      original_image_path: 'user-1/photo.jpg',
+      image_processing_status: 'failed',
+      image_processing_error: 'Background removal skipped for Gemini render pilot; original photo remains until render succeeds.',
+      render_status: 'pending',
+    }));
+  });
+});
+
+describe('triggerGarmentPostSaveIntelligence', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('skips background removal for add photo when imageProcessing mode is skip', async () => {
+    triggerGarmentPostSaveIntelligence({
+      garmentId: 'garment-1',
+      storagePath: 'user-1/photo.jpg',
+      source: 'add_photo',
+      imageProcessing: { mode: 'skip' },
+    });
+
+    await vi.waitFor(() => {
+      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('analyze_garment', {
+        body: { storagePath: 'user-1/photo.jpg', mode: 'enrich' },
+      });
+      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
+        body: { garmentId: 'garment-1', source: 'add_photo' },
+      }));
+    });
+
+    expect(vi.mocked(invokeEdgeFunction)).not.toHaveBeenCalledWith('process_garment_image', expect.anything());
+  });
+
+  it('keeps background removal enabled for batch add', async () => {
+    triggerGarmentPostSaveIntelligence({
+      garmentId: 'garment-2',
+      storagePath: 'user-1/photo.jpg',
+      source: 'batch_add',
+      imageProcessing: { mode: 'edge' },
+    });
+
+    await vi.waitFor(() => {
+      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('process_garment_image', expect.objectContaining({
+        body: { garmentId: 'garment-2', source: 'batch_add' },
+      }));
+    });
+
+    expect(vi.mocked(invokeEdgeFunction)).not.toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
+      body: { garmentId: 'garment-2', source: 'batch_add' },
+    }));
   });
 });
