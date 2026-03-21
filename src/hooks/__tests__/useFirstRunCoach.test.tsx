@@ -78,9 +78,9 @@ describe('useFirstRunCoach', () => {
 
     mockUseProfile.mockReturnValue(makeProfile(3));
 
-    const { result: homeResult } = renderHook(() => useFirstRunCoach(), { wrapper: createWrapper('/') });
-    expect(homeResult.current.isStepActive(3)).toBe(true);
-    expect(homeResult.current.isStepActive(0)).toBe(false);
+    const { result: generateResult } = renderHook(() => useFirstRunCoach(), { wrapper: createWrapper('/outfits/generate') });
+    expect(generateResult.current.isStepActive(3)).toBe(true);
+    expect(generateResult.current.isStepActive(0)).toBe(false);
   });
 
 
