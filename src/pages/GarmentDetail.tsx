@@ -34,7 +34,6 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { getPreferredGarmentImagePath, getGarmentProcessingMessage } from '@/lib/garmentImage';
 import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
-import { GarmentProcessingPreview } from '@/components/wardrobe/GarmentProcessingPreview';
 
 type EnrichmentStatus = 'none' | 'pending' | 'in_progress' | 'complete' | 'failed';
 
@@ -308,13 +307,7 @@ export default function GarmentDetailPage() {
       {/* Hero image with floating controls */}
       <div className="relative overflow-hidden">
         <LazyImage imagePath={displayImagePath} alt={garment.title} aspectRatio="3/4" className="w-full !rounded-none" />
-        <GarmentProcessingPreview
-          status={garment.image_processing_status}
-          error={garment.image_processing_error}
-          variant="hero"
-          className="rounded-none"
-        />
-        
+
         {/* Floating back button */}
         <Button
           variant="ghost"
@@ -377,16 +370,24 @@ export default function GarmentDetailPage() {
 
         {/* Metadata — dot-separated */}
         <Section index={1}>
-          {metaParts.length > 0 && (
-            <p className="text-[13px] text-muted-foreground capitalize">
-              {metaParts.join(' · ')}
-            </p>
-          )}
-          {seasonParts.length > 0 && (
-            <p className="text-[13px] text-muted-foreground/60 capitalize mt-1">
-              {seasonParts.join(' · ')}
-            </p>
-          )}
+          <div className="space-y-2">
+            {metaParts.length > 0 && (
+              <p className="text-[13px] text-muted-foreground capitalize">
+                {metaParts.join(' · ')}
+              </p>
+            )}
+            {seasonParts.length > 0 && (
+              <p className="text-[13px] text-muted-foreground/60 capitalize">
+                {seasonParts.join(' · ')}
+              </p>
+            )}
+            {processingMessage && processingMessage.tone === 'muted' && (
+              <div className="inline-flex items-center gap-2 rounded-full border border-border/40 bg-background/70 px-3 py-1.5 text-[12px] text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50" />
+                <span>{processingMessage.label}</span>
+              </div>
+            )}
+          </div>
         </Section>
 
         {/* Enrichment status: pending/in_progress */}

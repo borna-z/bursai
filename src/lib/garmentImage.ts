@@ -25,11 +25,9 @@ export function getPreferredGarmentImagePath(garment: GarmentImageLike): string 
 export function getGarmentProcessingMessage(status: string | null | undefined): { label: string; tone: 'muted' | 'success' } | null {
   switch (status) {
     case 'pending':
-      return { label: 'Preparing wardrobe image', tone: 'muted' };
+      return { label: 'Using original photo for now', tone: 'muted' };
     case 'processing':
-      return { label: 'Removing background', tone: 'muted' };
-    case 'ready':
-      return { label: 'Background removed', tone: 'success' };
+      return { label: 'Background cleanup in progress', tone: 'muted' };
     case 'failed':
       return { label: 'Original photo kept', tone: 'muted' };
     default:
