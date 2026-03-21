@@ -9,6 +9,53 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error ?? 'Unknown error');
+}
+
+async function updateGarmentRenderState(
+  supabase: ReturnType<typeof createClient>,
+  garmentId: string,
+  updates: Record<string, unknown>,
+  context: string,
+) {
+  const { error } = await supabase.from('garments').update(updates).eq('id', garmentId);
+  if (error) {
+    throw new Error(`${context}: ${error.message}`);
+  }
+}
+
+async function safeMarkRenderFailed(
+  supabase: ReturnType<typeof createClient>,
+  garmentId: string,
+  updates: Record<string, unknown>,
+  context: string,
+) {
+  try {
+    const { error } = await supabase.from('garments').update({
+      render_status: 'failed',
+      render_provider: 'gemini',
+      ...updates,
+    }).eq('id', garmentId);
+
+    if (error) {
+      console.error('render_garment_image failed to persist failure state', {
+        garmentId,
+        context,
+        updateError: error.message,
+        attemptedRenderError: updates.render_error,
+      });
+    }
+  } catch (updateError) {
+    console.error('render_garment_image failure-state update crashed', {
+      garmentId,
+      context,
+      updateError: getErrorMessage(updateError),
+      attemptedRenderError: updates.render_error,
+    });
+  }
+}
+
 /**
  * render_garment_image — Gemini-based canonical garment render pipeline.
  *
@@ -112,10 +159,9 @@ serve(async (req) => {
         : garment.original_image_path || garment.image_path;
 
     if (!sourceImagePath) {
-      await supabase.from('garments').update({
-        render_status: 'failed',
+      await safeMarkRenderFailed(supabase, garment.id, {
         render_error: 'No source image available.',
-      }).eq('id', garment.id);
+      }, 'missing_source_image');
 
       return new Response(
         JSON.stringify({ ok: false, error: 'No source image' }),
@@ -124,10 +170,25 @@ serve(async (req) => {
     }
 
     // ── Mark as rendering ──
-    await supabase.from('garments').update({
+    await updateGarmentRenderState(supabase, garment.id, {
       render_status: 'rendering',
       render_error: null,
-    }).eq('id', garment.id);
+      render_provider: 'gemini',
+    }, 'Failed to mark garment as rendering');
+
+    const hasGeminiApiKey = Boolean(Deno.env.get('GEMINI_API_KEY')?.trim());
+    console.log('render_garment_image Gemini provider config', {
+      garmentId: garment.id,
+      provider: 'gemini',
+      geminiApiKeyConfigured: hasGeminiApiKey,
+      model: 'google/gemini-2.5-flash-image',
+      sourceImagePath,
+      usedProcessedSource: sourceImagePath === garment.processed_image_path,
+    });
+
+    if (!hasGeminiApiKey) {
+      throw new Error('GEMINI_API_KEY not configured for render_garment_image');
+    }
 
     // ── Download source image as base64 ──
     const { data: signedUrlData, error: signedUrlError } = await supabase.storage
@@ -135,11 +196,13 @@ serve(async (req) => {
       .createSignedUrl(sourceImagePath, 900);
 
     if (signedUrlError || !signedUrlData?.signedUrl) {
-      throw signedUrlError || new Error('Unable to read source garment image.');
+      throw new Error(`Unable to read source garment image: ${signedUrlError?.message ?? 'missing signed URL'}`);
     }
 
     const imageResp = await fetch(signedUrlData.signedUrl);
-    if (!imageResp.ok) throw new Error(`Failed to download source image: ${imageResp.status}`);
+    if (!imageResp.ok) {
+      throw new Error(`Failed to download source image: ${imageResp.status}`);
+    }
 
     const imageBytes = new Uint8Array(await imageResp.arrayBuffer());
     const contentType = imageResp.headers.get('content-type') || 'image/jpeg';
@@ -180,6 +243,14 @@ serve(async (req) => {
       `- Single garment only, centered`,
     ].join('\n');
 
+    console.log('render_garment_image Gemini request start', {
+      garmentId: garment.id,
+      provider: 'gemini',
+      model: 'google/gemini-2.5-flash-image',
+      sourceContentType: contentType,
+      sourceBytes: imageBytes.length,
+    });
+
     // ── Call Gemini image-gen with reference image ──
     const { data: aiResult } = await callBursAI({
       messages: [
@@ -204,11 +275,16 @@ serve(async (req) => {
       aiResult?.__raw?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
     if (!imageData || !imageData.startsWith('data:image')) {
-      await supabase.from('garments').update({
-        render_status: 'failed',
-        render_provider: 'gemini',
+      console.error('render_garment_image invalid Gemini output', {
+        garmentId: garment.id,
+        provider: 'gemini',
+        hasImagesArray: Boolean(aiResult?.images?.length),
+        rawChoiceImageCount: aiResult?.__raw?.choices?.[0]?.message?.images?.length ?? 0,
+      });
+
+      await safeMarkRenderFailed(supabase, garment.id, {
         render_error: 'No image in AI response.',
-      }).eq('id', garment.id);
+      }, 'invalid_ai_output');
 
       return new Response(
         JSON.stringify({ ok: true, rendered: false, error: 'No image in AI response' }),
@@ -222,16 +298,20 @@ serve(async (req) => {
     const outputBytes = new Uint8Array(binaryStr.length);
     for (let i = 0; i < binaryStr.length; i++) outputBytes[i] = binaryStr.charCodeAt(i);
 
+    console.log('render_garment_image Gemini response received', {
+      garmentId: garment.id,
+      provider: 'gemini',
+      outputBytes: outputBytes.length,
+    });
+
     // ── Quality gate v1: structural checks ──
     const MIN_SIZE_BYTES = 10240; // 10KB — catches blank/corrupt images
     const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB sanity cap
 
     if (outputBytes.length < MIN_SIZE_BYTES) {
-      await supabase.from('garments').update({
-        render_status: 'failed',
-        render_provider: 'gemini',
+      await safeMarkRenderFailed(supabase, garment.id, {
         render_error: `Output too small (${outputBytes.length} bytes). Likely blank or corrupt.`,
-      }).eq('id', garment.id);
+      }, 'quality_gate_output_too_small');
 
       return new Response(
         JSON.stringify({ ok: true, rendered: false, error: 'Output too small' }),
@@ -240,11 +320,9 @@ serve(async (req) => {
     }
 
     if (outputBytes.length > MAX_SIZE_BYTES) {
-      await supabase.from('garments').update({
-        render_status: 'failed',
-        render_provider: 'gemini',
+      await safeMarkRenderFailed(supabase, garment.id, {
         render_error: `Output too large (${outputBytes.length} bytes).`,
-      }).eq('id', garment.id);
+      }, 'quality_gate_output_too_large');
 
       return new Response(
         JSON.stringify({ ok: true, rendered: false, error: 'Output too large' }),
@@ -262,16 +340,18 @@ serve(async (req) => {
         upsert: true,
       });
 
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      throw new Error(`Failed to upload rendered image: ${uploadError.message}`);
+    }
 
     // ── Update garment record ──
-    await supabase.from('garments').update({
+    await updateGarmentRenderState(supabase, garment.id, {
       rendered_image_path: renderedPath,
       render_status: 'ready',
       render_provider: 'gemini',
       render_error: null,
       rendered_at: new Date().toISOString(),
-    }).eq('id', garment.id);
+    }, 'Failed to mark garment render as ready');
 
     console.log(`Rendered garment ${garment.id} → ${renderedPath}`);
 
@@ -280,14 +360,19 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (error) {
-    console.error('render_garment_image error', error);
+    const errorMessage = getErrorMessage(error);
+    console.error('render_garment_image error', {
+      garmentId: garmentIdForFailure,
+      provider: 'gemini',
+      geminiApiKeyConfigured: Boolean(Deno.env.get('GEMINI_API_KEY')?.trim()),
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
 
     if (supabase && garmentIdForFailure) {
-      await supabase.from('garments').update({
-        render_status: 'failed',
-        render_provider: 'gemini',
-        render_error: error instanceof Error ? error.message : 'Unknown error',
-      }).eq('id', garmentIdForFailure).catch(() => {});
+      await safeMarkRenderFailed(supabase, garmentIdForFailure, {
+        render_error: errorMessage,
+      }, 'top_level_catch');
     }
 
     return bursAIErrorResponse(error, corsHeaders);
