@@ -688,6 +688,32 @@ function requiresOuterwear(
   return coldEnough || wet || hasSnow || highWind;
 }
 
+function inferLayeringRole(category: string, subcategory: string | null): string {
+  const both = `${category} ${subcategory || ''}`.toLowerCase();
+  if (['outerwear', 'jacket', 'coat', 'blazer', 'vest'].some(c => both.includes(c))) return 'outer';
+  if (['t-shirt', 'tee', 'tank', 'camisole', 'undershirt'].some(c => both.includes(c))) return 'base';
+  if (['cardigan', 'sweater', 'hoodie', 'shacket', 'overshirt', 'shirt jacket', 'knit'].some(c => both.includes(c))) return 'mid';
+  return 'standalone';
+}
+
+function validateLayeringCompleteness(items: ComboItem[]): { valid: boolean; violations: string[] } {
+  const topItems = items.filter(i => i.slot === 'top');
+  const topRoles = topItems.map(i => inferLayeringRole(i.garment.category, i.garment.subcategory));
+  const baseLikeTopCount = topRoles.filter(role => role === 'base' || role === 'standalone').length;
+  const midTopCount = topRoles.filter(role => role === 'mid').length;
+  const outerwearCount = items.filter(i => i.slot === 'outerwear').length;
+  const violations: string[] = [];
+
+  if (midTopCount > 0 && baseLikeTopCount === 0) violations.push('mid_layer_without_base');
+  if (baseLikeTopCount > 1) violations.push('multiple_base_tops');
+  if (midTopCount > 1) violations.push('multiple_mid_layers');
+  if (topItems.length > 2) violations.push('too_many_top_layers');
+  if (outerwearCount > 1) violations.push('multiple_outerwear');
+  if (items.length > 6) violations.push('too_many_garments');
+
+  return { valid: violations.length === 0, violations };
+}
+
 function isCompleteOutfit(
   items: ComboItem[],
   weather: { temperature?: number; precipitation?: string; wind?: string }
@@ -696,17 +722,15 @@ function isCompleteOutfit(
   const missing: string[] = [];
   const hasTop = slots.has('top');
   const hasBottom = slots.has('bottom');
-  const hasShoes = slots.has('shoes');
   const hasDress = slots.has('dress');
   const hasOuterwear = slots.has('outerwear');
 
-  const standardPath = hasTop && hasBottom && hasShoes;
-  const dressPath = hasDress && hasShoes;
+  const standardPath = hasTop && hasBottom;
+  const dressPath = hasDress;
 
   if (!standardPath && !dressPath) {
     if (!hasDress && !hasTop) missing.push('top');
     if (!hasDress && !hasBottom) missing.push('bottom');
-    if (!hasShoes) missing.push('shoes');
   }
 
   const needsOuter = requiresOuterwear(weather);
@@ -715,7 +739,8 @@ function isCompleteOutfit(
   }
 
   const hasValidBase = standardPath || dressPath;
-  const complete = hasValidBase && (!needsOuter || hasOuterwear);
+  const layering = hasDress ? { valid: true, violations: [] } : validateLayeringCompleteness(items);
+  const complete = hasValidBase && layering.valid && (!needsOuter || hasOuterwear);
   return { complete, missing };
 }
 
@@ -724,7 +749,6 @@ function explainMissingRequiredSlots(missing: string[]): string {
   const slotLabels: Record<string, string> = {
     top: 'a top',
     bottom: 'a bottom',
-    shoes: 'shoes',
     outerwear: 'outerwear for the weather',
   };
   const parts = missing.map(s => slotLabels[s] || s);
@@ -756,7 +780,6 @@ describe('Outfit completeness', () => {
     const result = isCompleteOutfit(items, mildWeather);
     expect(result.complete).toBe(false);
     expect(result.missing).toContain('top');
-    expect(result.missing).toContain('shoes');
   });
 
   it('rejects trousers + vest + loafers (vest is outerwear, not top)', () => {
@@ -770,12 +793,57 @@ describe('Outfit completeness', () => {
     expect(result.missing).toContain('top');
   });
 
+
+  it('accepts top + bottom without shoes', () => {
+    const items = [
+      item('top', g({ id: 't1', category: 'shirt', color_primary: 'white' })),
+      item('bottom', g({ id: 'b1', category: 'pants', color_primary: 'blue' })),
+    ];
+    expect(isCompleteOutfit(items, mildWeather).complete).toBe(true);
+  });
+
   it('accepts top + bottom + shoes', () => {
     const items = [
       item('top', g({ id: 't1', category: 'shirt', color_primary: 'white' })),
       item('bottom', g({ id: 'b1', category: 'pants', color_primary: 'blue' })),
       item('shoes', g({ id: 's1', category: 'shoes', color_primary: 'black' })),
     ];
+    expect(isCompleteOutfit(items, mildWeather).complete).toBe(true);
+  });
+
+
+  it('rejects top + shoes + outerwear without bottom', () => {
+    const items = [
+      item('top', g({ id: 't1', category: 'shirt', color_primary: 'white' })),
+      item('shoes', g({ id: 's1', category: 'shoes', color_primary: 'black' })),
+      item('outerwear', g({ id: 'o1', category: 'jacket', color_primary: 'black' })),
+    ];
+    const result = isCompleteOutfit(items, mildWeather);
+    expect(result.complete).toBe(false);
+    expect(result.missing).toContain('bottom');
+  });
+
+  it('rejects layered outfit when mid-layer tries to replace base top', () => {
+    const items = [
+      item('top', g({ id: 't1', category: 'cardigan', subcategory: 'cardigan', color_primary: 'grey' })),
+      item('top', g({ id: 't2', category: 'hoodie', subcategory: 'hoodie', color_primary: 'black' })),
+      item('bottom', g({ id: 'b1', category: 'pants', color_primary: 'blue' })),
+      item('shoes', g({ id: 's1', category: 'boots', color_primary: 'black' })),
+    ];
+    expect(validateLayeringCompleteness(items).valid).toBe(false);
+    expect(isCompleteOutfit(items, mildWeather).complete).toBe(false);
+  });
+
+  it('accepts a structurally layered 6-garment outfit', () => {
+    const items = [
+      item('top', g({ id: 't1', category: 'top', subcategory: 't-shirt', color_primary: 'white' })),
+      item('top', g({ id: 't2', category: 'top', subcategory: 'cardigan', color_primary: 'grey' })),
+      item('bottom', g({ id: 'b1', category: 'pants', color_primary: 'blue' })),
+      item('shoes', g({ id: 's1', category: 'boots', color_primary: 'black' })),
+      item('outerwear', g({ id: 'o1', category: 'coat', color_primary: 'camel' })),
+      item('accessory', g({ id: 'a1', category: 'scarf', color_primary: 'red' })),
+    ];
+    expect(validateLayeringCompleteness(items).valid).toBe(true);
     expect(isCompleteOutfit(items, mildWeather).complete).toBe(true);
   });
 
@@ -798,13 +866,11 @@ describe('Outfit completeness', () => {
     expect(isCompleteOutfit(items, mildWeather).complete).toBe(true);
   });
 
-  it('rejects dress without shoes', () => {
+  it('accepts dress without shoes when no suitable shoes exist', () => {
     const items = [
       item('dress', g({ id: 'd1', category: 'dress', color_primary: 'red' })),
     ];
-    const result = isCompleteOutfit(items, mildWeather);
-    expect(result.complete).toBe(false);
-    expect(result.missing).toContain('shoes');
+    expect(isCompleteOutfit(items, mildWeather).complete).toBe(true);
   });
 
   it('rejects cold-weather outfit without outerwear', () => {
@@ -867,7 +933,6 @@ describe('Outfit completeness', () => {
     const result = isCompleteOutfit(items, mildWeather);
     expect(result.complete).toBe(false);
     expect(result.missing).toContain('top');
-    expect(result.missing).toContain('shoes');
   });
 
   it('returns missing-slot explanation when incomplete', () => {
