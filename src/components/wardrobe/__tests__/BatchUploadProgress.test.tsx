@@ -162,6 +162,117 @@ describe('BatchUploadProgress', () => {
     })));
   });
 
+  it('auto-saves high-confidence single garments without review', async () => {
+    const file = new File(['image'], 'confident.jpg', { type: 'image/jpeg' });
+
+    render(<BatchUploadProgress files={[file]} onComplete={vi.fn()} onCancel={vi.fn()} />);
+
+    await waitFor(() => expect(createGarmentMock).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Blue shirt',
+      image_path: 'user-1/actual-upload.webp',
+    })));
+    expect(screen.queryByText('Quick review')).not.toBeInTheDocument();
+  });
+
+  it('queues multi-garment photos as sequential review items', async () => {
+    const file = new File(['image'], 'multi.jpg', { type: 'image/jpeg' });
+    analyzeGarmentMock.mockResolvedValueOnce({
+      data: {
+        title: 'Layered outfit',
+        category: 'top',
+        subcategory: 'shirt',
+        color_primary: 'blue',
+        season_tags: ['spring'],
+        formality: 3,
+        confidence: 0.91,
+        image_contains_multiple_garments: true,
+        detected_garments: [
+          {
+            title: 'Blue shirt',
+            category: 'top',
+            subcategory: 'shirt',
+            color_primary: 'blue',
+            season_tags: ['spring'],
+            formality: 3,
+            confidence: 0.88,
+          },
+          {
+            title: 'White sneakers',
+            category: 'shoes',
+            subcategory: 'sneakers',
+            color_primary: 'white',
+            season_tags: ['spring'],
+            formality: 2,
+            confidence: 0.86,
+          },
+        ],
+        ai_provider: 'burs_ai',
+        ai_raw: { source: 'test' },
+      },
+      error: null,
+    });
+
+    render(<BatchUploadProgress files={[file]} onComplete={vi.fn()} onCancel={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getByText('Quick review')).toBeInTheDocument());
+    expect(screen.getByText('Blue shirt')).toBeInTheDocument();
+    expect(screen.getByText('White sneakers')).toBeInTheDocument();
+    expect(screen.getByText('Multiple garments detected — review item 1 of 2.')).toBeInTheDocument();
+    expect(screen.getByText('Multiple garments detected — review item 2 of 2.')).toBeInTheDocument();
+    expect(createGarmentMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps the review queue stable while approving one item from a multi-garment photo', async () => {
+    const file = new File(['image'], 'multi.jpg', { type: 'image/jpeg' });
+    analyzeGarmentMock.mockResolvedValueOnce({
+      data: {
+        title: 'Layered outfit',
+        category: 'top',
+        subcategory: 'shirt',
+        color_primary: 'blue',
+        season_tags: ['spring'],
+        formality: 3,
+        confidence: 0.91,
+        image_contains_multiple_garments: true,
+        detected_garments: [
+          {
+            title: 'Blue shirt',
+            category: 'top',
+            subcategory: 'shirt',
+            color_primary: 'blue',
+            season_tags: ['spring'],
+            formality: 3,
+            confidence: 0.88,
+          },
+          {
+            title: 'White sneakers',
+            category: 'shoes',
+            subcategory: 'sneakers',
+            color_primary: 'white',
+            season_tags: ['spring'],
+            formality: 2,
+            confidence: 0.86,
+          },
+        ],
+        ai_provider: 'burs_ai',
+        ai_raw: { source: 'test' },
+      },
+      error: null,
+    });
+
+    render(<BatchUploadProgress files={[file]} onComplete={vi.fn()} onCancel={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getByText('Blue shirt')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByRole('button', { name: /add/i })[0]);
+
+    await waitFor(() => expect(createGarmentMock).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Blue shirt',
+      image_path: 'user-1/actual-upload.webp',
+    })));
+    expect(screen.getByText('White sneakers')).toBeInTheDocument();
+  });
+
   it('does not auto-complete while review items are still pending', async () => {
     const onComplete = vi.fn();
     const file = new File(['image'], 'uncertain.jpg', { type: 'image/jpeg' });

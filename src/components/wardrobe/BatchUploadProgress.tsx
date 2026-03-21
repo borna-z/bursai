@@ -22,6 +22,7 @@ interface BatchItem {
   storagePath?: string;
   garmentId?: string;
   analysis?: Awaited<ReturnType<ReturnType<typeof useAnalyzeGarment>['analyzeGarment']>>['data'];
+  reviewSourceIndex?: number;
 }
 
 interface BatchUploadProgressProps {
@@ -100,7 +101,9 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
         aiRaw: (item.analysis.ai_raw ?? null) as Json,
         analysisConfidence: item.analysis.confidence,
         source: 'batch_add',
-        reviewDecision: getGarmentReviewDecision(item.analysis.confidence),
+        reviewDecision: getGarmentReviewDecision(item.analysis.confidence, {
+          imageContainsMultipleGarments: item.analysis.image_contains_multiple_garments,
+        }),
       }),
       ...buildGarmentIntelligenceFields({ storagePath: item.storagePath }),
     });
@@ -127,6 +130,70 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
     );
   }, [createGarment]);
 
+  const queueReviewItems = useCallback((index: number, item: BatchItem, storagePath: string, garmentId: string) => {
+    const detectedGarments = Array.isArray(item.analysis?.detected_garments)
+      ? item.analysis.detected_garments.filter((garment) => garment && typeof garment === 'object')
+      : [];
+
+    if (detectedGarments.length <= 1) {
+      updateItem(index, {
+        status: 'review',
+        storagePath,
+        garmentId,
+        analysis: item.analysis,
+        error: item.analysis?.image_contains_multiple_garments
+          ? 'Multiple garments detected — review this photo before adding.'
+          : item.analysis?.confidence == null
+            ? 'Needs quick review before adding.'
+            : 'Low-confidence match — review before adding.',
+      });
+      return;
+    }
+
+    setItems((prev) => {
+      const next = [...prev];
+      next[index] = {
+        ...next[index],
+        status: 'review',
+        storagePath,
+        garmentId,
+        analysis: {
+          ...item.analysis!,
+          ...detectedGarments[0],
+          season_tags: detectedGarments[0].season_tags ?? item.analysis?.season_tags ?? [],
+          formality: detectedGarments[0].formality ?? item.analysis?.formality ?? 3,
+          confidence: detectedGarments[0].confidence ?? item.analysis?.confidence,
+          image_contains_multiple_garments: true,
+          detected_garments: [detectedGarments[0]],
+        },
+        reviewSourceIndex: index,
+        error: `Multiple garments detected — review item 1 of ${detectedGarments.length}.`,
+      };
+
+      const reviewChildren = detectedGarments.slice(1).map((garment, garmentIndex) => ({
+        file: next[index].file,
+        preview: next[index].preview,
+        status: 'review' as const,
+        storagePath,
+        garmentId: crypto.randomUUID(),
+        reviewSourceIndex: index,
+        analysis: {
+          ...item.analysis!,
+          ...garment,
+          season_tags: garment.season_tags ?? item.analysis?.season_tags ?? [],
+          formality: garment.formality ?? item.analysis?.formality ?? 3,
+          confidence: garment.confidence ?? item.analysis?.confidence,
+          image_contains_multiple_garments: true,
+          detected_garments: [garment],
+        },
+        error: `Multiple garments detected — review item ${garmentIndex + 2} of ${detectedGarments.length}.`,
+      }));
+
+      next.splice(index + 1, 0, ...reviewChildren);
+      return next;
+    });
+  }, [updateItem]);
+
   // Process queue
   useEffect(() => {
     if (!user || items.length === 0 || isProcessing) return;
@@ -136,6 +203,10 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
 
     const currentItem = items[currentIndex];
     if (!currentItem) return;
+    if (currentItem.status !== 'waiting') {
+      setCurrentIndex((i) => i + 1);
+      return;
+    }
 
     const processItem = async () => {
       setIsProcessing(true);
@@ -162,17 +233,16 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
           return;
         }
 
-        const reviewDecision = getGarmentReviewDecision(data.confidence);
+        const reviewDecision = getGarmentReviewDecision(data.confidence, {
+          imageContainsMultipleGarments: data.image_contains_multiple_garments,
+        });
         if (reviewDecision.needsReview) {
-          updateItem(currentIndex, {
-            status: 'review',
+          queueReviewItems(currentIndex, {
+            ...currentItem,
             storagePath: path,
             garmentId,
             analysis: data,
-            error: reviewDecision.reason === 'missing_confidence'
-              ? 'Needs quick review before adding.'
-              : 'Low-confidence match — review before adding.',
-          });
+          }, path, garmentId);
         } else {
           await saveApprovedItem({
             ...currentItem,
@@ -192,7 +262,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
     };
 
     processItem();
-  }, [analyzeGarment, currentIndex, isProcessing, items, saveApprovedItem, t, updateItem, uploadGarmentImage, user]);
+  }, [analyzeGarment, currentIndex, isProcessing, items, queueReviewItems, saveApprovedItem, t, updateItem, uploadGarmentImage, user]);
 
   const handleApproveReviewItem = async (index: number) => {
     updateItem(index, { status: 'uploading', error: undefined });
@@ -366,7 +436,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
               <Clock3 className="h-4 w-4 text-amber-700" />
               <div>
                 <p className="text-sm font-medium text-amber-950">Quick review</p>
-                <p className="text-xs text-amber-800">Only low-confidence garments need approval. Confident items were added automatically.</p>
+                <p className="text-xs text-amber-800">Only uncertain or multi-garment photos need approval. Confident single-garment items were added automatically.</p>
               </div>
             </div>
             <div className="space-y-3">
