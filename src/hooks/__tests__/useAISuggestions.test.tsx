@@ -65,7 +65,18 @@ describe('useAISuggestions', () => {
     });
     useGarmentCountMock.mockReturnValue({ data: 3, isLoading: false });
     invokeEdgeFunctionMock.mockResolvedValue({
-      data: { suggestions: [{ title: 'Look', garment_ids: [], garments: [], explanation: 'Nice', occasion: 'daily' }] },
+      data: {
+        suggestions: [{
+          title: 'Look',
+          garment_ids: ['g1', 'g2'],
+          garments: [
+            { id: 'g1', title: 'Top', category: 'top', color_primary: 'black', image_path: 'top.jpg' },
+            { id: 'g2', title: 'Bottom', category: 'bottom', color_primary: 'blue', image_path: 'bottom.jpg' },
+          ],
+          explanation: 'Nice',
+          occasion: 'daily',
+        }],
+      },
       error: null,
     });
   });
@@ -80,6 +91,43 @@ describe('useAISuggestions', () => {
     expect(invokeEdgeFunctionMock).not.toHaveBeenCalled();
   });
 
+
+  it('filters invalid standard suggestions missing a bottom', async () => {
+    invokeEdgeFunctionMock.mockResolvedValueOnce({
+      data: {
+        suggestions: [
+          {
+            title: 'Bad look',
+            garment_ids: ['g1', 'g2'],
+            garments: [
+              { id: 'g1', title: 'Top', category: 'top', color_primary: 'black', image_path: 'top.jpg' },
+              { id: 'g2', title: 'Shoes', category: 'shoes', color_primary: 'black', image_path: 'shoes.jpg' },
+            ],
+            explanation: 'No bottom',
+            occasion: 'daily',
+          },
+          {
+            title: 'Good look',
+            garment_ids: ['g3', 'g4'],
+            garments: [
+              { id: 'g3', title: 'Top', category: 'top', color_primary: 'white', image_path: 'top2.jpg' },
+              { id: 'g4', title: 'Bottom', category: 'bottom', color_primary: 'blue', image_path: 'bottom.jpg' },
+            ],
+            explanation: 'Valid',
+            occasion: 'daily',
+          },
+        ],
+      },
+      error: null,
+    });
+
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useAISuggestions(), { wrapper });
+
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+    expect(result.current.data?.[0]?.title).toBe('Good look');
+  });
+
   it('keys the query by garment count so wardrobe changes do not reuse stale empty results', async () => {
     const { queryClient, wrapper } = createWrapper();
 
@@ -90,7 +138,18 @@ describe('useAISuggestions', () => {
 
     useGarmentCountMock.mockReturnValue({ data: 4, isLoading: false });
     invokeEdgeFunctionMock.mockResolvedValueOnce({
-      data: { suggestions: [{ title: 'Fresh look', garment_ids: [], garments: [], explanation: 'Updated', occasion: 'daily' }] },
+      data: {
+        suggestions: [{
+          title: 'Fresh look',
+          garment_ids: ['g5', 'g6'],
+          garments: [
+            { id: 'g5', title: 'Top', category: 'top', color_primary: 'white', image_path: 'top3.jpg' },
+            { id: 'g6', title: 'Bottom', category: 'bottom', color_primary: 'black', image_path: 'bottom2.jpg' },
+          ],
+          explanation: 'Updated',
+          occasion: 'daily',
+        }],
+      },
       error: null,
     });
 

@@ -58,7 +58,7 @@ describe('useOutfits', () => {
 
   it('fetches outfits with items', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: { id: 'user-1' } } as ReturnType<typeof useAuth>);
-    const outfits = [{ id: 'o1', occasion: 'casual', outfit_items: [] }];
+    const outfits = [{ id: 'o1', occasion: 'casual', outfit_items: [{ id: 'oi1', slot: 'top', garment_id: 'g1', garment: { id: 'g1', category: 'top' } }, { id: 'oi2', slot: 'bottom', garment_id: 'g2', garment: { id: 'g2', category: 'bottom' } }] }];
     mockFrom.mockReturnValue(mockChain(outfits));
 
     const { useOutfits } = await import('../useOutfits');
@@ -69,13 +69,60 @@ describe('useOutfits', () => {
 
   it('useOutfit returns single outfit', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: { id: 'user-1' } } as ReturnType<typeof useAuth>);
-    const outfit = { id: 'o1', occasion: 'formal', outfit_items: [] };
+    const outfit = { id: 'o1', occasion: 'formal', outfit_items: [{ id: 'oi1', slot: 'dress', garment_id: 'g1', garment: { id: 'g1', category: 'dress' } }] };
     mockFrom.mockReturnValue(mockChain([outfit]));
 
     const { useOutfit } = await import('../useOutfits');
     const { result } = renderHook(() => useOutfit('o1'), { wrapper });
     await waitFor(() => expect(result.current.data).toBeTruthy());
     expect(result.current.data?.occasion).toBe('formal');
+  });
+
+
+  it('filters legacy invalid persisted outfits from collections', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: { id: 'user-1' } } as ReturnType<typeof useAuth>);
+    const outfits = [
+      {
+        id: 'bad',
+        occasion: 'casual',
+        outfit_items: [
+          { id: 'oi-1', slot: 'top', garment_id: 'g1', garment: { id: 'g1', category: 'top' } },
+          { id: 'oi-2', slot: 'shoes', garment_id: 'g2', garment: { id: 'g2', category: 'shoes' } },
+        ],
+      },
+      {
+        id: 'good',
+        occasion: 'casual',
+        outfit_items: [
+          { id: 'oi-3', slot: 'top', garment_id: 'g3', garment: { id: 'g3', category: 'top' } },
+          { id: 'oi-4', slot: 'bottom', garment_id: 'g4', garment: { id: 'g4', category: 'bottom' } },
+        ],
+      },
+    ];
+    mockFrom.mockReturnValue(mockChain(outfits));
+
+    const { useOutfits } = await import('../useOutfits');
+    const { result } = renderHook(() => useOutfits(), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.map((outfit) => outfit.id)).toEqual(['good']);
+  });
+
+  it('returns null for a legacy invalid persisted outfit detail', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: { id: 'user-1' } } as ReturnType<typeof useAuth>);
+    const outfit = {
+      id: 'bad',
+      occasion: 'formal',
+      outfit_items: [
+        { id: 'oi-1', slot: 'bottom', garment_id: 'g1', garment: { id: 'g1', category: 'bottom' } },
+        { id: 'oi-2', slot: 'shoes', garment_id: 'g2', garment: { id: 'g2', category: 'shoes' } },
+      ],
+    };
+    mockFrom.mockReturnValue(mockChain([outfit]));
+
+    const { useOutfit } = await import('../useOutfits');
+    const { result } = renderHook(() => useOutfit('bad'), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toBeNull();
   });
 
   it('useDeleteOutfit calls delete', async () => {

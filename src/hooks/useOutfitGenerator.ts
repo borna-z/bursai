@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { normalizeWeather } from '@/lib/outfitContext';
+import { inferOutfitSlotFromGarment, validateBaseOutfit } from '@/lib/outfitValidation';
 import type { Garment } from './useGarments';
 
 export interface OutfitRequest {
@@ -82,19 +83,6 @@ interface EngineGenerateResponse {
   error?: string;
 }
 
-function inferSlotFromGarment(garment: Pick<Garment, 'category' | 'subcategory'>): string {
-  const category = String(garment.category || '').toLowerCase();
-  const subcategory = String(garment.subcategory || '').toLowerCase();
-  const value = `${category} ${subcategory}`.trim();
-
-  if (['dress', 'jumpsuit', 'overall', 'klänning'].some((token) => value.includes(token))) return 'dress';
-  if (['shoes', 'sneakers', 'boots', 'heels', 'sandals', 'loafers', 'skor', 'stövlar'].some((token) => value.includes(token))) return 'shoes';
-  if (['outerwear', 'coat', 'jacket', 'blazer', 'trench', 'jacka', 'kappa'].some((token) => value.includes(token))) return 'outerwear';
-  if (['accessory', 'bag', 'hat', 'belt', 'scarf', 'smycke', 'väska'].some((token) => value.includes(token))) return 'accessory';
-  if (['bottom', 'pants', 'jeans', 'trousers', 'shorts', 'skirt', 'byxor', 'kjol'].some((token) => value.includes(token))) return 'bottom';
-  return 'top';
-}
-
 async function fetchGarmentsByIds(garmentIds: string[]): Promise<Map<string, Garment>> {
   const uniqueIds = Array.from(new Set(garmentIds.filter(Boolean)));
   if (uniqueIds.length === 0) return new Map();
@@ -165,13 +153,9 @@ function inferLayerRoleClient(garment: Pick<Garment, 'category' | 'subcategory'>
 }
 
 function isCompleteOutfitClient(items: { slot: string; garment: Pick<Garment, 'category' | 'subcategory'> }[]): boolean {
-  const slots = new Set(items.map(i => i.slot));
-  const hasDress = slots.has('dress');
-  const hasStandardBase = slots.has('top') && slots.has('bottom');
-  const hasDressBase = hasDress;
-
-  if (!hasStandardBase && !hasDressBase) return false;
-  if (hasDress) return true;
+  const baseValidation = validateBaseOutfit(items);
+  if (!baseValidation.isValid) return false;
+  if (baseValidation.isDressBased) return true;
 
   const topItems = items.filter((item) => item.slot === 'top');
   const topRoles = topItems.map((item) => inferLayerRoleClient(item.garment));
@@ -290,7 +274,7 @@ async function generateOutfitViaEngine(
         : (suggestion.garments ?? []).map((garment) => garmentMap.get(garment.id) ?? garment).filter(Boolean)) as Garment[];
 
       const selectedItems = orderedGarments.map((garment) => ({
-        slot: inferSlotFromGarment(garment),
+        slot: inferOutfitSlotFromGarment(garment),
         garment,
       }));
 

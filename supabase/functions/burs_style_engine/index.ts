@@ -4439,13 +4439,15 @@ serve(async (req) => {
     }
 
     // Suggest mode
-    const suggestions = (aiResult.data.suggestions || []).map((s: any) => {
+    const suggestions = (aiResult.data.suggestions || []).flatMap((s: any) => {
       const idx = Math.min(s.combo_index || 0, combos.length - 1);
       const combo = combos[idx];
+      const { complete } = isCompleteOutfit(combo.items, weather);
+      if (!complete) return [];
       const dc = combo as DeduplicatedCombo;
       const sConf = computeConfidence(combo, candidateCount, slotCandidates, weather, occasion);
       const sNote = generateLimitationNote(gaps, sConf);
-      return {
+      return [{
         title: s.title,
         garment_ids: combo.items.map((i: any) => i.garment.id),
         garments: combo.items.map((i: any) => i.garment),
@@ -4456,8 +4458,15 @@ serve(async (req) => {
         confidence_score: sConf.confidence_score,
         confidence_level: sConf.confidence_level,
         limitation_note: sNote,
-      };
+      }];
     });
+
+    if (!suggestions.length) {
+      return new Response(JSON.stringify(buildIncompleteOutfitFailure(weather, occasion, slotCandidates)), {
+        status: 422,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     return new Response(JSON.stringify({
       suggestions,

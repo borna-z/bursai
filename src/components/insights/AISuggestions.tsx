@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { inferOutfitSlotFromGarment, validateBaseOutfit } from '@/lib/outfitValidation';
 
 /* ── Loading indicator ── */
 function LoadingIndicator() {
@@ -207,14 +208,22 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
     if (!user) return;
     setCreatingOutfitId(index);
     try {
+      const baseValidation = validateBaseOutfit(suggestion.garments.map((garment) => ({ garment })));
+      if (!baseValidation.isValid) {
+        throw new Error(`Refusing to persist invalid outfit suggestion. Missing: ${baseValidation.missing.join(', ')}`);
+      }
+
       const { data: outfit, error: outfitError } = await supabase
         .from('outfits')
         .insert({ user_id: user.id, occasion: suggestion.occasion, explanation: suggestion.explanation, style_vibe: suggestion.title, saved: true })
         .select().single();
       if (outfitError) throw outfitError;
 
-      const categoryToSlot: Record<string, string> = { top: 'top', bottom: 'bottom', shoes: 'shoes', outerwear: 'outerwear', accessory: 'accessory', dress: 'dress', fullbody: 'fullbody' };
-      const outfitItems = suggestion.garments.map((g) => ({ outfit_id: outfit.id, garment_id: g.id, slot: categoryToSlot[g.category] || g.category }));
+      const outfitItems = suggestion.garments.map((garment) => ({
+        outfit_id: outfit.id,
+        garment_id: garment.id,
+        slot: inferOutfitSlotFromGarment(garment),
+      }));
       const { error: itemsError } = await supabase.from('outfit_items').insert(outfitItems);
       if (itemsError) throw itemsError;
 
