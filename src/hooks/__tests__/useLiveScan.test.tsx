@@ -378,7 +378,7 @@ describe('useLiveScan', () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-preview-url');
   });
 
-  it('finish() waits for background saves and invalidates garments, garment-count, and subscription queries', async () => {
+  it('finish() waits for background saves and invalidates garments, garments-count, and subscription queries', async () => {
     mockAuthUser();
     setupCanvasMock();
     setupFileReaderMock();
@@ -421,7 +421,7 @@ describe('useLiveScan', () => {
     });
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments'] });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garment-count'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments-count'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['subscription'] });
     expect(invalidateSpy).toHaveBeenCalledTimes(3);
   });

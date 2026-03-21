@@ -128,7 +128,7 @@ export function LinkImportForm() {
     setIsImporting(false);
 
     queryClient.invalidateQueries({ queryKey: ['garments'] });
-    queryClient.invalidateQueries({ queryKey: ['garment-count'] });
+    queryClient.invalidateQueries({ queryKey: ['garments-count'] });
     queryClient.invalidateQueries({ queryKey: ['subscription'] });
 
     if (successCount > 0) {
