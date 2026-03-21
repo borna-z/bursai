@@ -1274,32 +1274,54 @@ function inferLayeringRole(category: string, subcategory: string | null): string
 interface LayeringValidation {
   needs_base_layer: boolean;
   layer_order: { slot: string; garment_id: string; layer_role: string }[];
+  valid: boolean;
+  violations: string[];
 }
 
 const LAYER_SORT_ORDER: Record<string, number> = {
   base: 0, standalone: 1, mid: 2, outer: 3, bottom: 4, shoes: 5, accessory: 6,
 };
 
-function validateLayeringCompleteness(items: ComboItem[]): LayeringValidation {
-  // Check if any top-slotted garment has a mid layering role without a base layer
-  const topItems = items.filter(i => i.slot === 'top');
-  const hasMidAsTop = topItems.some(i => i.garment.layering_role === 'mid');
-  const hasBaseLayer = items.some(i => i.garment.layering_role === 'base');
-  const needs_base_layer = hasMidAsTop && !hasBaseLayer;
+function normalizeLayerRole(item: ComboItem): string {
+  if (item.slot === 'outerwear') return 'outer';
+  if (['bottom', 'shoes', 'accessory', 'dress'].includes(item.slot)) return item.slot;
+  return item.garment.layering_role || 'standalone';
+}
 
-  // Build sorted layer order
+function validateLayeringCompleteness(items: ComboItem[]): LayeringValidation {
+  const topItems = items.filter(i => i.slot === 'top');
+  const topRoles = topItems.map(normalizeLayerRole);
+  const baseLikeTopCount = topRoles.filter(role => role === 'base' || role === 'standalone').length;
+  const midTopCount = topRoles.filter(role => role === 'mid').length;
+  const outerwearCount = items.filter(i => i.slot === 'outerwear').length;
+
+  const needs_base_layer = midTopCount > 0 && baseLikeTopCount === 0;
+  const violations: string[] = [];
+
+  if (needs_base_layer) {
+    violations.push('mid_layer_without_base');
+  }
+  if (baseLikeTopCount > 1) {
+    violations.push('multiple_base_tops');
+  }
+  if (midTopCount > 1) {
+    violations.push('multiple_mid_layers');
+  }
+  if (topItems.length > 2) {
+    violations.push('too_many_top_layers');
+  }
+  if (outerwearCount > 1) {
+    violations.push('multiple_outerwear');
+  }
+  if (items.length > 6) {
+    violations.push('too_many_garments');
+  }
+
   const layer_order = items
-    .map(i => {
-      let layer_role = i.garment.layering_role || 'standalone';
-      // For non-top/outerwear slots, use the slot name as role
-      if (['bottom', 'shoes', 'accessory', 'dress'].includes(i.slot)) {
-        layer_role = i.slot;
-      }
-      return { slot: i.slot, garment_id: i.garment.id, layer_role };
-    })
+    .map(i => ({ slot: i.slot, garment_id: i.garment.id, layer_role: normalizeLayerRole(i) }))
     .sort((a, b) => (LAYER_SORT_ORDER[a.layer_role] ?? 99) - (LAYER_SORT_ORDER[b.layer_role] ?? 99));
 
-  return { needs_base_layer, layer_order };
+  return { needs_base_layer, layer_order, valid: violations.length === 0, violations };
 }
 
 // ─────────────────────────────────────────────
@@ -1520,6 +1542,24 @@ function requiresOuterwear(weather: WeatherInput): boolean {
   return coldEnough || wet || hasSnow || highWind;
 }
 
+function isSuitableShoeCandidate(candidate: ScoredGarment, weather: WeatherInput): boolean {
+  if (candidate.score < 5) return false;
+
+  const text = garmentText(candidate.garment);
+  const temp = weather.temperature ?? 18;
+  const feelsTemp = feelsLikeTemp(temp, weather.wind);
+  const wet = isWetWeather(weather);
+
+  if ((wet || feelsTemp < 5) && (text.includes('sandal') || text.includes('flip'))) return false;
+  if (feelsTemp > 30 && (text.includes('boot') || text.includes('stövel')) && !text.includes('chelsea')) return false;
+
+  return true;
+}
+
+function hasSuitableShoesAvailable(shoes: ScoredGarment[], weather: WeatherInput): boolean {
+  return shoes.some((shoe) => isSuitableShoeCandidate(shoe, weather));
+}
+
 interface OutfitCompletenessResult {
   complete: boolean;
   missing: string[];
@@ -1534,7 +1574,7 @@ function getRequiredSlotsForContext(
 ): string[] {
   const slots = new Set(items.map(i => i.slot));
   const hasDress = slots.has('dress');
-  const required = hasDress ? ['dress', 'shoes'] : ['top', 'bottom', 'shoes'];
+  const required = hasDress ? ['dress'] : ['top', 'bottom'];
   if (requiresOuterwear(weather)) required.push('outerwear');
   return required;
 }
@@ -1549,17 +1589,15 @@ function isCompleteOutfit(
 
   const hasTop = slots.has('top');
   const hasBottom = slots.has('bottom');
-  const hasShoes = slots.has('shoes');
   const hasDress = slots.has('dress');
   const hasOuterwear = slots.has('outerwear');
 
-  const standardPath = hasTop && hasBottom && hasShoes;
-  const dressPath = hasDress && hasShoes;
+  const standardPath = hasTop && hasBottom;
+  const dressPath = hasDress;
 
   if (!standardPath && !dressPath) {
     if (!hasDress && !hasTop) missing.push('top');
     if (!hasDress && !hasBottom) missing.push('bottom');
-    if (!hasShoes) missing.push('shoes');
   }
 
   const needsOuter = requiresOuterwear(weather);
@@ -1568,7 +1606,8 @@ function isCompleteOutfit(
   }
 
   const hasValidBase = standardPath || dressPath;
-  const complete = hasValidBase && (!needsOuter || hasOuterwear);
+  const layering = hasDress ? { valid: true } : validateLayeringCompleteness(items);
+  const complete = hasValidBase && layering.valid && (!needsOuter || hasOuterwear);
 
   const requiredSlots = getRequiredSlotsForContext(items, weather);
 
@@ -2457,9 +2496,14 @@ function buildCombos(
   const outerwear = slotCandidates['outerwear'] || [];
   const dresses = slotCandidates['dress'] || [];
   const accessories = slotCandidates['accessory'] || [];
+  const suitableShoes = shoes.filter((shoe) => isSuitableShoeCandidate(shoe, weather));
+  const baseTops = tops.filter(t => {
+    const role = t.garment.layering_role || 'standalone';
+    return role === 'base' || role === 'standalone';
+  });
+  const midLayers = tops.filter(t => (t.garment.layering_role || 'standalone') === 'mid');
 
   const wet = isWetWeather(weather);
-  const outerwearRequired = requiresOuterwear(weather);
   const needsOuterwear =
     (weather.temperature !== undefined && weather.temperature < 15) || wet;
 
@@ -2475,6 +2519,15 @@ function buildCombos(
       ? [null, ...accessories.slice(0, 2)]
       : [null];
 
+  const midLayerOptions: Array<ScoredGarment | null> =
+    midLayers.length > 0
+      ? [null, ...midLayers.slice(0, 2)]
+      : [null];
+
+  const shoeOptions: Array<ScoredGarment | null> = suitableShoes.length > 0
+    ? suitableShoes.slice(0, 5)
+    : [null];
+
   const combos: ScoredCombo[] = [];
 
   const pushCombo = (items: ComboItem[]) => {
@@ -2487,7 +2540,7 @@ function buildCombos(
 
   // Dress-based combos
   for (const d of dresses.slice(0, 4)) {
-    for (const s of shoes.slice(0, 5)) {
+    for (const s of shoeOptions) {
       for (const ow of outerwearOptions) {
         for (const acc of accessoryOptions) {
           const items: ComboItem[] = [
@@ -2497,13 +2550,16 @@ function buildCombos(
               baseScore: d.score,
               baseBreakdown: d.breakdown,
             },
-            {
+          ];
+
+          if (s) {
+            items.push({
               slot: 'shoes',
               garment: s.garment,
               baseScore: s.score,
               baseBreakdown: s.breakdown,
-            },
-          ];
+            });
+          }
 
           if (ow) {
             items.push({
@@ -2530,51 +2586,65 @@ function buildCombos(
   }
 
   // Standard combos
-  for (const t of tops.slice(0, 5)) {
+  for (const t of baseTops.slice(0, 5)) {
     for (const b of bottoms.slice(0, 5)) {
-      for (const s of shoes.slice(0, 5)) {
-        for (const ow of outerwearOptions) {
-          for (const acc of accessoryOptions) {
-            const items: ComboItem[] = [
-              {
-                slot: 'top',
-                garment: t.garment,
-                baseScore: t.score,
-                baseBreakdown: t.breakdown,
-              },
-              {
-                slot: 'bottom',
-                garment: b.garment,
-                baseScore: b.score,
-                baseBreakdown: b.breakdown,
-              },
-              {
-                slot: 'shoes',
-                garment: s.garment,
-                baseScore: s.score,
-                baseBreakdown: s.breakdown,
-              },
-            ];
+      for (const s of shoeOptions) {
+        for (const mid of midLayerOptions) {
+          for (const ow of outerwearOptions) {
+            for (const acc of accessoryOptions) {
+              const items: ComboItem[] = [
+                {
+                  slot: 'top',
+                  garment: t.garment,
+                  baseScore: t.score,
+                  baseBreakdown: t.breakdown,
+                },
+                {
+                  slot: 'bottom',
+                  garment: b.garment,
+                  baseScore: b.score,
+                  baseBreakdown: b.breakdown,
+                },
+              ];
 
-            if (ow) {
-              items.push({
-                slot: 'outerwear',
-                garment: ow.garment,
-                baseScore: ow.score,
-                baseBreakdown: ow.breakdown,
-              });
+              if (s) {
+                items.push({
+                  slot: 'shoes',
+                  garment: s.garment,
+                  baseScore: s.score,
+                  baseBreakdown: s.breakdown,
+                });
+              }
+
+              if (mid && mid.garment.id !== t.garment.id) {
+                items.push({
+                  slot: 'top',
+                  garment: mid.garment,
+                  baseScore: mid.score,
+                  baseBreakdown: mid.breakdown,
+                });
+              }
+
+              if (ow) {
+                items.push({
+                  slot: 'outerwear',
+                  garment: ow.garment,
+                  baseScore: ow.score,
+                  baseBreakdown: ow.breakdown,
+                });
+              }
+
+              if (acc && acc.score >= 5.5) {
+                items.push({
+                  slot: 'accessory',
+                  garment: acc.garment,
+                  baseScore: acc.score,
+                  baseBreakdown: acc.breakdown,
+                });
+              }
+
+              pushCombo(items);
             }
-
-            if (acc && acc.score >= 5.5) {
-              items.push({
-                slot: 'accessory',
-                garment: acc.garment,
-                baseScore: acc.score,
-                baseBreakdown: acc.breakdown,
-              });
-            }
-
-            pushCombo(items);
           }
         }
       }
@@ -2719,15 +2789,22 @@ function getQualityViolations(combo: ScoredCombo, weather: WeatherInput): Qualit
   const violations: QualityViolation[] = [];
   const { items, breakdown } = combo;
 
-  // 1. Duplicate core roles — two items in same mandatory slot
+  // 1. Duplicate core roles — only top may repeat, and only as a valid base + mid stack
   const slotCounts = new Map<string, number>();
   for (const item of items) {
     const s = item.slot;
     slotCounts.set(s, (slotCounts.get(s) || 0) + 1);
   }
   for (const [slot, count] of slotCounts) {
-    if (['top', 'bottom', 'shoes', 'dress'].includes(slot) && count > 1) {
+    if (['bottom', 'shoes', 'dress'].includes(slot) && count > 1) {
       violations.push({ rule: 'duplicate_core_role', detail: `${count}x ${slot}` });
+    }
+  }
+
+  const layering = validateLayeringCompleteness(items);
+  if (!layering.valid) {
+    for (const violation of layering.violations) {
+      violations.push({ rule: 'layering_invalid', detail: violation });
     }
   }
 
@@ -2849,7 +2926,9 @@ function computeConfidence(
   score += poolScore * 0.15;
 
   // Wardrobe slot coverage: 15% — penalize thin slots
-  const requiredSlots = ['top', 'bottom', 'shoes'];
+  const requiredSlots = hasSuitableShoesAvailable(slotCandidates['shoes'] || [], weather)
+    ? ['top', 'bottom', 'shoes']
+    : ['top', 'bottom'];
   let coverageScore = 10;
   for (const slot of requiredSlots) {
     const count = (slotCandidates[slot] || []).length;

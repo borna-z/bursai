@@ -45,7 +45,7 @@ export interface GeneratedOutfit {
 }
 
 const INSUFFICIENT_GARMENTS_MESSAGE =
-  'Add more garments before generating an outfit. You need either top + bottom + shoes, or dress + shoes.';
+  'Add more garments before generating an outfit. You need either at least 1 top + 1 bottom, or a dress.';
 
 
 interface EngineSuggestion {
@@ -153,11 +153,40 @@ async function persistGeneratedOutfit(
 }
 
 
-function isCompleteOutfitClient(items: { slot: string }[]): boolean {
+function inferLayerRoleClient(garment: Pick<Garment, 'category' | 'subcategory'>): 'base' | 'mid' | 'outer' | 'standalone' {
+  const category = String(garment.category || '').toLowerCase();
+  const subcategory = String(garment.subcategory || '').toLowerCase();
+  const value = `${category} ${subcategory}`.trim();
+
+  if (['outerwear', 'coat', 'jacket', 'blazer', 'trench', 'jacka', 'kappa', 'vest', 'väst'].some((token) => value.includes(token))) return 'outer';
+  if (['t-shirt', 'tee', 'tank', 'camisole', 'undershirt', 'linne'].some((token) => value.includes(token))) return 'base';
+  if (['cardigan', 'sweater', 'hoodie', 'overshirt', 'shacket', 'shirt jacket', 'utility shirt', 'vest', 'väst', 'knit'].some((token) => value.includes(token))) return 'mid';
+  return 'standalone';
+}
+
+function isCompleteOutfitClient(items: { slot: string; garment: Pick<Garment, 'category' | 'subcategory'> }[]): boolean {
   const slots = new Set(items.map(i => i.slot));
-  const hasStandard = slots.has('top') && slots.has('bottom') && slots.has('shoes');
-  const hasDress = slots.has('dress') && slots.has('shoes');
-  return hasStandard || hasDress;
+  const hasDress = slots.has('dress');
+  const hasStandardBase = slots.has('top') && slots.has('bottom');
+  const hasDressBase = hasDress;
+
+  if (!hasStandardBase && !hasDressBase) return false;
+  if (hasDress) return true;
+
+  const topItems = items.filter((item) => item.slot === 'top');
+  const topRoles = topItems.map((item) => inferLayerRoleClient(item.garment));
+  const baseLikeTopCount = topRoles.filter((role) => role === 'base' || role === 'standalone').length;
+  const midTopCount = topRoles.filter((role) => role === 'mid').length;
+  const outerwearCount = items.filter((item) => item.slot === 'outerwear').length;
+
+  if (baseLikeTopCount === 0) return false;
+  if (baseLikeTopCount > 1) return false;
+  if (midTopCount > 1) return false;
+  if (topItems.length > 2) return false;
+  if (outerwearCount > 1) return false;
+  if (items.length > 6) return false;
+
+  return true;
 }
 
 function isInsufficientGarmentsError(message?: string | null) {
@@ -194,18 +223,12 @@ async function validateWardrobeForGeneration(userId: string): Promise<void> {
     )
   );
 
-  const hasShoes = normalized.some((v) =>
-    ['shoes', 'sneakers', 'boots', 'loafers', 'sandals', 'heels', 'skor', 'stövlar'].some((x) =>
-      v.includes(x)
-    )
-  );
-
   const hasDress = normalized.some((v) =>
     ['dress', 'jumpsuit', 'overall', 'klänning'].some((x) => v.includes(x))
   );
 
-  const hasTopBottomPath = hasTop && hasBottom && hasShoes;
-  const hasDressPath = hasDress && hasShoes;
+  const hasTopBottomPath = hasTop && hasBottom;
+  const hasDressPath = hasDress;
 
   if (!hasTopBottomPath && !hasDressPath) {
     throw new Error(INSUFFICIENT_GARMENTS_MESSAGE);
@@ -328,7 +351,6 @@ async function generateOutfitViaEngine(
     const hasDress = slots.has('dress');
     if (!hasDress && !slots.has('top')) missing.push('top');
     if (!hasDress && !slots.has('bottom')) missing.push('bottom');
-    if (!slots.has('shoes')) missing.push('shoes');
     const detail = missing.length > 0 ? ` Missing: ${missing.join(', ')}.` : '';
     throw new Error(`Incomplete outfit returned.${detail}`);
   }
