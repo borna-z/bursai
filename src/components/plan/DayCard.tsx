@@ -7,7 +7,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
-import { OutfitMosaic } from '@/components/outfit/OutfitMosaic';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
 import { DaySummaryCard } from '@/components/plan/DaySummaryCard';
 import { useDaySummary } from '@/hooks/useDaySummary';
@@ -99,19 +98,15 @@ export function DayCard({
 
         {hasOutfit ? (
           <>
-            <div
-              className="rounded-lg overflow-hidden cursor-pointer mb-3 active:scale-[0.99] transition-transform"
+            <div 
+              className="flex h-16 rounded-lg overflow-hidden bg-muted/30 cursor-pointer mb-3 active:scale-[0.99] transition-transform"
               onClick={() => navigate(`/outfits/${outfit.id}`)}
             >
-              <OutfitMosaic
-                items={outfit.outfit_items.map((item) => ({
-                  id: item.id,
-                  imagePath: item.garment ? getPreferredGarmentImagePath(item.garment) : undefined,
-                  alt: item.garment?.title || item.slot,
-                }))}
-                variant="strip"
-                className="h-16"
-              />
+              {outfit.outfit_items.slice(0, 4).map((item, index) => (
+                <div key={item.id} className={cn("flex-1 overflow-hidden", index < outfit.outfit_items.slice(0, 4).length - 1 && "border-r border-background")}>
+                  <LazyImageSimple imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined} alt={item.garment?.title || item.slot} className="w-full h-full" />
+                </div>
+              ))}
             </div>
 
             <div className="flex items-center gap-2 mb-3 flex-wrap">
