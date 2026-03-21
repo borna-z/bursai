@@ -374,7 +374,11 @@ export default function AddGarmentPage() {
           analysisConfidence: aiAnalysis?.confidence,
           source: 'add_photo',
         }),
-        ...buildGarmentIntelligenceFields({ storagePath }),
+        ...buildGarmentIntelligenceFields({
+          storagePath,
+          enableRender: true,
+          skipImageProcessing: true,
+        }),
       });
 
       if (storagePath && garmentId) {
@@ -382,7 +386,7 @@ export default function AddGarmentPage() {
           garmentId,
           storagePath,
           source: 'add_photo',
-          imageProcessing: { mode: 'edge' },
+          imageProcessing: { mode: 'skip' },
         });
       }
 
