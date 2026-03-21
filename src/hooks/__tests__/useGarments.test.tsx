@@ -139,6 +139,7 @@ describe('useGarments', () => {
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments-count'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ai-suggestions'] });
   });
 
   it('invalidates garment list and garment count after delete', async () => {
@@ -156,5 +157,6 @@ describe('useGarments', () => {
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments-count'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ai-suggestions'] });
   });
 });

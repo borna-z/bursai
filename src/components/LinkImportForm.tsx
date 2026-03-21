@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateWardrobeQueries } from '@/hooks/useGarments';
 import { useNavigate } from 'react-router-dom';
 import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
@@ -127,8 +128,7 @@ export function LinkImportForm() {
 
     setIsImporting(false);
 
-    queryClient.invalidateQueries({ queryKey: ['garments'] });
-    queryClient.invalidateQueries({ queryKey: ['garments-count'] });
+    invalidateWardrobeQueries(queryClient);
     queryClient.invalidateQueries({ queryKey: ['subscription'] });
 
     if (successCount > 0) {

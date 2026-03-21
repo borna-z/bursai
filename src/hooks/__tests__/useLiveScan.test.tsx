@@ -422,7 +422,8 @@ describe('useLiveScan', () => {
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments-count'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ai-suggestions'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['subscription'] });
-    expect(invalidateSpy).toHaveBeenCalledTimes(3);
+    expect(invalidateSpy).toHaveBeenCalledTimes(4);
   });
 });
