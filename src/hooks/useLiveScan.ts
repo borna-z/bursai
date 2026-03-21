@@ -147,7 +147,7 @@ export function useLiveScan() {
     savingRef.current = [];
 
     queryClient.invalidateQueries({ queryKey: ['garments'] });
-    queryClient.invalidateQueries({ queryKey: ['garment-count'] });
+    queryClient.invalidateQueries({ queryKey: ['garments-count'] });
     queryClient.invalidateQueries({ queryKey: ['subscription'] });
   }, [queryClient]);
 
