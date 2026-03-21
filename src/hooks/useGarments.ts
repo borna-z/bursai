@@ -132,6 +132,11 @@ export function useGarment(id: string | undefined, options?: { refetchInterval?:
   });
 }
 
+function invalidateGarmentQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ['garments'] });
+  queryClient.invalidateQueries({ queryKey: ['garments-count'] });
+}
+
 export function useCreateGarment() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -163,7 +168,7 @@ export function useCreateGarment() {
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     onSuccess: () => {
       hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ['garments'] });
+      invalidateGarmentQueries(queryClient);
     },
   });
 }
@@ -234,7 +239,7 @@ export function useDeleteGarment() {
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     onSuccess: () => {
       hapticHeavy();
-      queryClient.invalidateQueries({ queryKey: ['garments'] });
+      invalidateGarmentQueries(queryClient);
     },
   });
 }

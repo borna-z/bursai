@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode } from 'react';
 
@@ -22,9 +22,13 @@ vi.mock('@/contexts/AuthContext', () => ({
 
 import { useAuth } from '@/contexts/AuthContext';
 
-function wrapper({ children }: { children: ReactNode }) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+function createWrapper() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+  );
+
+  return { qc, wrapper };
 }
 
 interface MockChain {
@@ -58,12 +62,13 @@ function mockChain(data: unknown[] = [], error: unknown = null): MockChain {
 describe('useGarments', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
+    vi.stubGlobal('navigator', { onLine: true });
   });
 
   it('returns empty when user is null', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: null } as ReturnType<typeof useAuth>);
     const { useFlatGarments } = await import('../useGarments');
+    const { wrapper } = createWrapper();
     const { result } = renderHook(() => useFlatGarments(), { wrapper });
     await waitFor(() => expect(result.current.data).toEqual([]));
   });
@@ -74,6 +79,7 @@ describe('useGarments', () => {
     mockFrom.mockReturnValue(mockChain(garments));
 
     const { useFlatGarments } = await import('../useGarments');
+    const { wrapper } = createWrapper();
     const { result } = renderHook(() => useFlatGarments(), { wrapper });
     await waitFor(() => expect(result.current.data.length).toBeGreaterThan(0));
     expect(result.current.data[0].title).toBe('Shirt');
@@ -85,6 +91,7 @@ describe('useGarments', () => {
     mockFrom.mockReturnValue(chain);
 
     const { useFlatGarments } = await import('../useGarments');
+    const { wrapper } = createWrapper();
     renderHook(() => useFlatGarments({ category: 'top' }), { wrapper });
     await waitFor(() => expect(chain.eq).toHaveBeenCalledWith('category', 'top'));
   });
@@ -98,6 +105,7 @@ describe('useGarments', () => {
     mockFrom.mockReturnValue(mockChain(garments));
 
     const { useFlatGarments } = await import('../useGarments');
+    const { wrapper } = createWrapper();
     const { result } = renderHook(() => useFlatGarments({ search: 'blue' }), { wrapper });
     await waitFor(() => expect(result.current.data.length).toBe(1));
     expect(result.current.data[0].title).toBe('Blue Shirt');
@@ -111,7 +119,42 @@ describe('useGarments', () => {
     mockFrom.mockReturnValue(chain);
 
     const { useGarmentCount } = await import('../useGarments');
+    const { wrapper } = createWrapper();
     const { result } = renderHook(() => useGarmentCount(), { wrapper });
     await waitFor(() => expect(result.current.data).toBe(5));
+  });
+
+  it('invalidates garment list and garment count after create', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+    mockFrom.mockReturnValue(mockChain([{ id: 'g1', title: 'Shirt', category: 'top', color_primary: 'blue' }]));
+
+    const { useCreateGarment } = await import('../useGarments');
+    const { qc, wrapper } = createWrapper();
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useCreateGarment(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ title: 'Shirt', category: 'top', color_primary: 'blue' } as never);
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments-count'] });
+  });
+
+  it('invalidates garment list and garment count after delete', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+    mockFrom.mockReturnValue(mockChain());
+
+    const { useDeleteGarment } = await import('../useGarments');
+    const { qc, wrapper } = createWrapper();
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useDeleteGarment(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync('g1');
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments-count'] });
   });
 });
