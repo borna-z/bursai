@@ -656,8 +656,12 @@ export default function LiveScan() {
             isCoachActive={coach.isStepActive(2)}
             title="Scan anything"
             body="Point at a garment and hold still. BURS detects category, colour and material."
-            ctaLabel="Understood"
-            onCta={() => coach.advanceStep()}
+            ctaLabel="Generate a look"
+            onCta={() => {
+              coach.advanceStep();
+              navigate('/outfits/generate');
+            }}
+            onSkip={() => coach.completeTour()}
             position="bottom"
           >
             <div className="relative w-16 h-16">

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Palette, Shirt, Bell, User, Shield, LogOut, ChevronRight, TrendingUp, Database } from 'lucide-react';
+import { Palette, Shirt, Bell, User, Shield, LogOut, ChevronRight, TrendingUp, Database, Sparkles } from 'lucide-react';
 import { SettingsPageSkeleton } from '@/components/ui/skeletons';
 const APP_VERSION = (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : undefined) ?? '1.0.0';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,6 +11,7 @@ import { SettingsGroup } from '@/components/settings/SettingsGroup';
 import { ProfileCard } from '@/components/settings/ProfileCard';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ export default function SettingsPage() {
   const { isLoading } = useProfile();
   const { t } = useLanguage();
   const { data: isAdmin } = useIsAdmin();
+  const coach = useFirstRunCoach();
 
   const handleSignOut = async () => {
     await signOut();
@@ -56,6 +58,9 @@ export default function SettingsPage() {
             <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
           </SettingsRow>
           <SettingsRow icon={<TrendingUp />} label={t('settings.row.insights') || 'Wardrobe Insights'} sublabel={t('settings.row.insights_sub') || 'Usage stats & analytics'} onClick={() => navigate('/insights')} last={!isAdmin}>
+            <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
+          </SettingsRow>
+          <SettingsRow icon={<Sparkles />} label={t('settings.row.view_coach') || 'View coach'} sublabel={t('settings.row.view_coach_sub') || 'Replay the guided walkthrough any time'} onClick={async () => { await coach.restartCoach(); navigate('/settings'); }} last={false}>
             <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
           </SettingsRow>
           {isAdmin && (

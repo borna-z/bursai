@@ -49,6 +49,8 @@ import { useForecast } from '@/hooks/useForecast';
 import { useLocation as useLocationCtx } from '@/contexts/LocationContext';
 import { useBackgroundSyncNotification, useCalendarEvents } from '@/hooks/useCalendarSync';
 import { CalendarEventsList } from '@/components/plan/CalendarEventBadge';
+import { CoachMark } from '@/components/coach/CoachMark';
+import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 
 const occasionIcons: Record<string, React.ElementType> = {
   work: Briefcase, jobb: Briefcase,
@@ -80,6 +82,7 @@ export default function PlanPage() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const { t, locale } = useLanguage();
+  const coach = useFirstRunCoach();
   const initialDate = (location.state as { initialDate?: string })?.initialDate;
   const [selectedDate, setSelectedDate] = useState(() =>
     initialDate ? new Date(initialDate) : new Date()
@@ -345,18 +348,30 @@ export default function PlanPage() {
           {/* Action cards */}
           {hasGarments && (
             <div className="flex flex-col gap-2">
-              <motion.button
-                whileTap={prefersReduced ? undefined : { scale: 0.97 }}
-                onClick={() => setQuickPlanSheetOpen(true)}
-                className="w-full h-[72px] rounded-2xl bg-card border border-border/20 flex items-center px-4 gap-3 text-left"
+              <CoachMark
+                step={4}
+                currentStep={coach.currentStep}
+                isCoachActive={coach.isStepActive(4)}
+                title="Plan ahead"
+                body="Use planning to line up looks for the week, or save a generated outfit to a specific day."
+                ctaLabel="Finish coach"
+                onCta={() => coach.completeTour()}
+                onSkip={() => coach.completeTour()}
+                position="bottom"
               >
-                <CalendarDays className="w-5 h-5 text-foreground/50 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[15px] font-medium text-foreground">Plan the week</p>
-                  <p className="text-[12px] text-muted-foreground">AI fills all 7 days</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
-              </motion.button>
+                <motion.button
+                  whileTap={prefersReduced ? undefined : { scale: 0.97 }}
+                  onClick={() => setQuickPlanSheetOpen(true)}
+                  className="w-full h-[72px] rounded-2xl bg-card border border-border/20 flex items-center px-4 gap-3 text-left"
+                >
+                  <CalendarDays className="w-5 h-5 text-foreground/50 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[15px] font-medium text-foreground">Plan the week</p>
+                    <p className="text-[12px] text-muted-foreground">AI fills all 7 days</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+                </motion.button>
+              </CoachMark>
               <motion.button
                 whileTap={prefersReduced ? undefined : { scale: 0.97 }}
                 onClick={() => navigate('/plan/travel-capsule')}

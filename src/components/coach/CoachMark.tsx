@@ -12,11 +12,12 @@ interface CoachMarkProps {
   body: string;
   ctaLabel: string;
   onCta: () => void;
+  onSkip?: () => void;
   position: 'top' | 'bottom';
   children: ReactNode;
 }
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 export function CoachMark({
   step,
@@ -26,6 +27,7 @@ export function CoachMark({
   body,
   ctaLabel,
   onCta,
+  onSkip,
   position,
   children,
 }: CoachMarkProps) {
@@ -104,6 +106,7 @@ export function CoachMark({
           body={body}
           ctaLabel={ctaLabel}
           onCta={onCta}
+          onSkip={onSkip}
           prefersReduced={!!prefersReduced}
         />,
         document.body,
@@ -120,10 +123,11 @@ interface CalloutProps {
   body: string;
   ctaLabel: string;
   onCta: () => void;
+  onSkip?: () => void;
   prefersReduced: boolean;
 }
 
-function Callout({ rect, position, step, title, body, ctaLabel, onCta, prefersReduced }: CalloutProps) {
+function Callout({ rect, position, step, title, body, ctaLabel, onCta, onSkip, prefersReduced }: CalloutProps) {
   const calloutWidth = Math.min(280, window.innerWidth * 0.9);
   const gap = 12;
 
@@ -221,6 +225,15 @@ function Callout({ rect, position, step, title, body, ctaLabel, onCta, prefersRe
         >
           {ctaLabel}
         </button>
+        {onSkip && (
+          <button
+            onClick={onSkip}
+            className="w-full mt-2 text-[12px] text-white/65 hover:text-white transition-colors"
+            style={{ fontFamily: "'DM Sans', sans-serif" }}
+          >
+            Skip coach
+          </button>
+        )}
       </motion.div>
     </>
   );

@@ -693,6 +693,7 @@ export default function WardrobePage() {
               body="Tap + to scan or upload. You need a top, bottom and shoes for your first outfit."
               ctaLabel="Got it"
               onCta={() => coach.advanceStep()}
+              onSkip={() => coach.completeTour()}
               position="top"
             >
               <AddFAB

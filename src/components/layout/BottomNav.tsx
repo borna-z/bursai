@@ -83,6 +83,7 @@ export function BottomNav() {
                       navigate('/wardrobe');
                       coach.advanceStep();
                     }}
+                    onSkip={() => coach.completeTour()}
                     position="top"
                   >
                     {navLink}
