@@ -26,22 +26,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
 import { extractGarmentIdsFromText } from '@/lib/garmentTokens';
-
-type MultimodalPart =
-  | { type: 'text'; text: string }
-  | { type: 'image_url'; image_url: { url: string } };
+import { getTextContent, mergeAssistantContent, type MessageContent, type MultimodalPart } from '@/lib/chatStream';
 
 type Message = {
   role: 'user' | 'assistant';
-  content: string | MultimodalPart[];
+  content: MessageContent;
 };
 
 const STYLE_CHAT_URL = getSupabaseFunctionUrl('style_chat');
-
-function getTextContent(content: string | MultimodalPart[]): string {
-  if (typeof content === 'string') return content;
-  return content.filter(p => p.type === 'text').map(p => (p as { type: 'text'; text: string }).text).join(' ');
-}
 
 async function loadMessages(userId: string): Promise<Message[]> {
   const res = await fetch(
@@ -178,7 +170,7 @@ export default function AIChat() {
     const newMessages = [...messages.filter((m, i) => !(i === 0 && getTextContent(m.content) === welcomeText)), userMsg];
     setMessages([...newMessages, { role: 'assistant', content: '' }]);
 
-    let assistantContent = '';
+    let assistantContent: MessageContent = '';
     try {
       const resp = await fetch(STYLE_CHAT_URL, {
         method: 'POST',
@@ -211,9 +203,10 @@ export default function AIChat() {
           if (jsonStr === '[DONE]') break;
           try {
             const parsed = JSON.parse(jsonStr);
-            const delta = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (delta) {
-              assistantContent += delta;
+            const delta = parsed.choices?.[0]?.delta?.content;
+            const nextAssistantContent = mergeAssistantContent(assistantContent, delta);
+            if (nextAssistantContent !== assistantContent) {
+              assistantContent = nextAssistantContent;
               setMessages(prev => {
                 const updated = [...prev];
                 const lastIdx = updated.length - 1;
