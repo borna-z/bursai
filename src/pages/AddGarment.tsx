@@ -392,7 +392,9 @@ export default function AddGarmentPage() {
           description: t('addgarment.milestone_desc'),
         });
       } else {
-        toast.success(t('addgarment.saved'));
+        toast.success('Added to wardrobe', {
+          description: 'Background cleanup will finish automatically.',
+        });
       }
 
       navigate('/wardrobe');
@@ -487,7 +489,7 @@ export default function AddGarmentPage() {
               {t('addgarment.photo_prompt')}
             </p>
             <p className="text-xs text-muted-foreground/80 max-w-[260px] mx-auto">
-              Upload complete first, then BURS creates a clean wardrobe image in the background.
+              Your item appears as soon as you save it. Any cleanup finishes quietly in the background.
             </p>
           </div>
 

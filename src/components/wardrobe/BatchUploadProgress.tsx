@@ -55,7 +55,9 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
     if (currentIndex >= items.length) {
       processedRef.current = true;
       const doneCount = items.filter(i => i.status === 'done').length;
-      toast.success(`${doneCount}/${items.length} ${t('batch.complete_toast')}`);
+      toast.success(`${doneCount}/${items.length} ${t('batch.complete_toast')}`, {
+        description: 'Added to wardrobe. Background cleanup continues automatically.',
+      });
       setTimeout(onComplete, 800);
       return;
     }
@@ -162,7 +164,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">
-              {doneCount}/{items.length} {t('batch.analyzed')}
+              {doneCount}/{items.length} added
             </span>
             {errorCount > 0 && (
               <span className="text-destructive text-xs">{errorCount} {t('batch.errors')}</span>
@@ -212,7 +214,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
                         />
                         <Upload className="w-4 h-4 text-white z-10" />
                       </div>
-                      <span className="text-[10px] text-white font-medium">{t('batch.uploading')}</span>
+                      <span className="text-[10px] text-white font-medium">Uploading</span>
                     </div>
                   )}
                   {item.status === 'analyzing' && (
@@ -225,7 +227,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
                         />
                         <Sparkles className="w-4 h-4 text-white z-10" />
                       </div>
-                      <span className="text-[10px] text-white font-medium">{t('batch.analyzing')}</span>
+                      <span className="text-[10px] text-white font-medium">Saving details</span>
                     </div>
                   )}
                   {item.status === 'done' && (
@@ -242,7 +244,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
 
         {/* Hint */}
         <p className="text-xs text-muted-foreground text-center">
-          {t('batch.hint')}
+          Items appear in your wardrobe as they finish saving. Cleanup and enrichment continue quietly in the background.
         </p>
       </div>
     </div>

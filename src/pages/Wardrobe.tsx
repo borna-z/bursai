@@ -34,7 +34,6 @@ import { CoachMark } from '@/components/coach/CoachMark';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
-import { GarmentProcessingPreview } from '@/components/wardrobe/GarmentProcessingPreview';
 
 // ── Garment Card ──
 
@@ -115,10 +114,6 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
           alt={garment.title}
           className="w-full h-full"
           fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/50" />}
-        />
-        <GarmentProcessingPreview
-          status={garment.image_processing_status}
-          error={garment.image_processing_error}
         />
         <div className="absolute left-2 bottom-2">
           <GarmentProcessingBadge status={garment.image_processing_status} />
