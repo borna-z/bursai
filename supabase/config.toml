@@ -65,6 +65,8 @@ project_id = "khvkwojtlkcvxjxztduj"
     verify_jwt = false
   [functions.process_garment_image]
     verify_jwt = false
+  [functions.render_garment_image]
+    verify_jwt = false
   [functions.seed_wardrobe]
     verify_jwt = false
   [functions.cleanup_ai_cache]

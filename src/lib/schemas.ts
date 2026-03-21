@@ -76,6 +76,8 @@ export const garmentSchema = z.object({
   ai_analyzed_at: z.string().nullable().optional(),
   ai_provider: z.string().nullable().optional(),
   ai_raw: z.unknown().nullable().optional(),
+  rendered_image_path: z.string().nullable().optional(),
+  render_status: z.string().optional(),
   created_at: z.string().nullable().optional(),
   updated_at: z.string().nullable().optional(),
 });

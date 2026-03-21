@@ -420,6 +420,11 @@ export type Database = {
           original_image_path: string | null
           pattern: string | null
           processed_image_path: string | null
+          render_error: string | null
+          render_provider: string | null
+          render_status: string
+          rendered_at: string | null
+          rendered_image_path: string | null
           purchase_currency: string | null
           purchase_price: number | null
           season_tags: string[] | null
@@ -458,6 +463,11 @@ export type Database = {
           original_image_path?: string | null
           pattern?: string | null
           processed_image_path?: string | null
+          render_error?: string | null
+          render_provider?: string | null
+          render_status?: string
+          rendered_at?: string | null
+          rendered_image_path?: string | null
           purchase_currency?: string | null
           purchase_price?: number | null
           season_tags?: string[] | null
@@ -496,6 +506,11 @@ export type Database = {
           original_image_path?: string | null
           pattern?: string | null
           processed_image_path?: string | null
+          render_error?: string | null
+          render_provider?: string | null
+          render_status?: string
+          rendered_at?: string | null
+          rendered_image_path?: string | null
           purchase_currency?: string | null
           purchase_price?: number | null
           season_tags?: string[] | null

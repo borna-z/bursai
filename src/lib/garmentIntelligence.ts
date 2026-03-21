@@ -111,6 +111,8 @@ export function getGarmentReviewDecision(
 
 interface BuildGarmentIntelligenceFieldsOptions {
   storagePath: string;
+  /** Set render_status to 'pending' on insert (pilot: Add Photo only) */
+  enableRender?: boolean;
 }
 
 interface TriggerGarmentPostSaveIntelligenceOptions {
@@ -121,10 +123,13 @@ interface TriggerGarmentPostSaveIntelligenceOptions {
     | { mode: 'edge' }
     | { mode: 'local'; run: () => Promise<void> }
     | { mode: 'skip' };
+  /** Skip Gemini render for this garment (default: auto based on source) */
+  skipRender?: boolean;
 }
 
 export function buildGarmentIntelligenceFields({
   storagePath,
+  enableRender = false,
 }: BuildGarmentIntelligenceFieldsOptions): Pick<
   TablesInsert<'garments'>,
   | 'enrichment_status'
@@ -136,6 +141,7 @@ export function buildGarmentIntelligenceFields({
   | 'image_processing_confidence'
   | 'image_processing_error'
   | 'image_processed_at'
+  | 'render_status'
 > {
   return {
     enrichment_status: 'pending',
@@ -147,6 +153,7 @@ export function buildGarmentIntelligenceFields({
     image_processing_confidence: null,
     image_processing_error: null,
     image_processed_at: null,
+    render_status: enableRender ? 'pending' : 'none',
   };
 }
 
@@ -155,6 +162,7 @@ export function triggerGarmentPostSaveIntelligence({
   storagePath,
   source,
   imageProcessing = { mode: 'edge' },
+  skipRender,
 }: TriggerGarmentPostSaveIntelligenceOptions): void {
   enrichGarmentInBackground(garmentId, storagePath).catch((err) => {
     console.error(`[${source}] garment enrichment error (non-blocking):`, err);
@@ -164,12 +172,17 @@ export function triggerGarmentPostSaveIntelligence({
     startGarmentImageProcessingInBackground(garmentId, source).catch((err) => {
       console.error(`[${source}] garment image processing trigger error (non-blocking):`, err);
     });
-    return;
-  }
-
-  if (imageProcessing.mode === 'local') {
+  } else if (imageProcessing.mode === 'local') {
     imageProcessing.run().catch((err) => {
       console.error(`[${source}] local garment image processing error (non-blocking):`, err);
+    });
+  }
+
+  // Gemini render pipeline — pilot: Add Photo only
+  const shouldRender = !skipRender && source === 'add_photo';
+  if (shouldRender) {
+    startGarmentRenderInBackground(garmentId, source).catch((err) => {
+      console.error(`[${source}] garment render trigger error (non-blocking):`, err);
     });
   }
 }
@@ -221,5 +234,17 @@ async function startGarmentImageProcessingInBackground(garmentId: string, source
 
   if (error) {
     console.warn('Garment image processing trigger did not confirm in time', error);
+  }
+}
+
+async function startGarmentRenderInBackground(garmentId: string, source: string): Promise<void> {
+  const { error } = await invokeEdgeFunction<{ ok?: boolean; skipped?: boolean; error?: string }>('render_garment_image', {
+    timeout: 1000,
+    retries: 0,
+    body: { garmentId, source },
+  });
+
+  if (error) {
+    console.warn('Garment render trigger did not confirm in time (non-blocking)', error);
   }
 }
