@@ -25,6 +25,14 @@ describe('getGarmentReviewDecision', () => {
       reason: 'missing_confidence',
     });
   });
+
+  it('flags multi-garment photos for review even when confidence is high', () => {
+    expect(getGarmentReviewDecision(0.91, { imageContainsMultipleGarments: true })).toEqual({
+      needsReview: true,
+      confidence: 0.91,
+      reason: 'multiple_garments',
+    });
+  });
 });
 
 describe('standardizeGarmentAiRaw', () => {

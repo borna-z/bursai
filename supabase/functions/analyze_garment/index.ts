@@ -144,9 +144,15 @@ Respond ONLY with valid JSON matching this schema:
 "material": "one of: cotton, polyester, linen, denim, leather, wool, silk, synthetic, null",
 "fit": "one of: slim, regular, loose, oversized, null",
 "season_tags": ["list from: spring, summer, autumn, winter"],
-"formality": 3
+"formality": 3,
+"confidence": 0.9,
+"image_contains_multiple_garments": false,
+"detected_garments": [{"title": "string", "category": "top|bottom|shoes|outerwear|accessory|dress", "subcategory": "string", "color_primary": "black|white|grey|blue|navy|beige|brown|green|red|pink|purple|yellow|orange", "color_secondary": "color|null", "pattern": "solid|striped|checked|dotted|floral|patterned|null", "material": "cotton|polyester|linen|denim|leather|wool|silk|synthetic|null", "fit": "slim|regular|loose|oversized|null", "season_tags": ["spring","summer","autumn","winter"], "formality": 3, "confidence": 0.9}]
 }
 Formality: 1=very casual, 5=very formal.
+confidence: 0-1 for the main garment decision.
+Set image_contains_multiple_garments=true if the photo clearly contains more than one distinct garment that could be added separately.
+When image_contains_multiple_garments=true, populate detected_garments with one entry per distinct garment. When false, omit detected_garments or return a single main garment only.
 Respond ONLY with JSON, no explanatory text.`
     },
     {
@@ -405,18 +411,46 @@ serve(async (req) => {
       );
     }
 
+    const normalizedTitle = rawAnalysis.title.substring(0, 50);
+    const normalizedCategory = normalizeCategory(rawAnalysis.category);
+    const normalizedColorPrimary = normalizeColor(rawAnalysis.color_primary);
+    const normalizedSeasonTags = normalizeSeasonTags(rawAnalysis.season_tags || []);
+    const normalizedFormality = normalizeFormality(rawAnalysis.formality || 3);
+    const detectedGarments = Array.isArray(rawAnalysis.detected_garments)
+      ? rawAnalysis.detected_garments
+          .filter((item) => item && typeof item === 'object')
+          .map((item) => {
+            const garment = item as Record<string, unknown>;
+            return {
+              title: typeof garment.title === 'string' ? garment.title.substring(0, 50) : normalizedTitle,
+              category: normalizeCategory(typeof garment.category === 'string' ? garment.category : rawAnalysis.category),
+              subcategory: typeof garment.subcategory === 'string' ? garment.subcategory.toLowerCase() : '',
+              color_primary: normalizeColor(typeof garment.color_primary === 'string' ? garment.color_primary : rawAnalysis.color_primary),
+              color_secondary: typeof garment.color_secondary === 'string' ? normalizeColor(garment.color_secondary) : null,
+              pattern: typeof garment.pattern === 'string' ? garment.pattern.toLowerCase() : null,
+              material: typeof garment.material === 'string' ? garment.material.toLowerCase() : null,
+              fit: typeof garment.fit === 'string' ? garment.fit.toLowerCase() : null,
+              season_tags: normalizeSeasonTags(Array.isArray(garment.season_tags) ? garment.season_tags.filter((tag): tag is string => typeof tag === 'string') : []),
+              formality: normalizeFormality(typeof garment.formality === 'number' ? garment.formality : rawAnalysis.formality || 3),
+              confidence: typeof garment.confidence === 'number' ? Math.max(0, Math.min(1, garment.confidence)) : null,
+            };
+          })
+      : undefined;
+
     const analysis: GarmentAnalysis = {
-      title: rawAnalysis.title.substring(0, 50),
-      category: normalizeCategory(rawAnalysis.category),
+      title: normalizedTitle,
+      category: normalizedCategory,
       subcategory: rawAnalysis.subcategory?.toLowerCase() || '',
-      color_primary: normalizeColor(rawAnalysis.color_primary),
+      color_primary: normalizedColorPrimary,
       color_secondary: rawAnalysis.color_secondary ? normalizeColor(rawAnalysis.color_secondary) : null,
       pattern: rawAnalysis.pattern?.toLowerCase() || null,
       material: rawAnalysis.material?.toLowerCase() || null,
       fit: rawAnalysis.fit?.toLowerCase() || null,
-      season_tags: normalizeSeasonTags(rawAnalysis.season_tags || []),
-      formality: normalizeFormality(rawAnalysis.formality || 3),
+      season_tags: normalizedSeasonTags,
+      formality: normalizedFormality,
       confidence: typeof rawAnalysis.confidence === 'number' ? Math.max(0, Math.min(1, rawAnalysis.confidence)) : undefined,
+      image_contains_multiple_garments: rawAnalysis.image_contains_multiple_garments === true,
+      detected_garments: detectedGarments,
     };
 
     return new Response(

@@ -5,12 +5,16 @@ import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 export const GARMENT_IMAGE_PROCESSING_VERSION = 'background-removal-v1';
 
 
-export const GARMENT_REVIEW_CONFIDENCE_THRESHOLD = 0.65;
+export const GARMENT_REVIEW_CONFIDENCE_THRESHOLD = 0.55;
 
 export interface GarmentReviewDecision {
   needsReview: boolean;
   confidence: number | null;
-  reason: 'low_confidence' | 'missing_confidence' | null;
+  reason: 'low_confidence' | 'missing_confidence' | 'multiple_garments' | null;
+}
+
+interface GarmentReviewContext {
+  imageContainsMultipleGarments?: boolean | null;
 }
 
 interface StandardizeGarmentAiRawOptions {
@@ -67,7 +71,20 @@ export function standardizeGarmentAiRaw({
   } as Json;
 }
 
-export function getGarmentReviewDecision(analysisConfidence?: number | null): GarmentReviewDecision {
+export function getGarmentReviewDecision(
+  analysisConfidence?: number | null,
+  context: GarmentReviewContext = {},
+): GarmentReviewDecision {
+  if (context.imageContainsMultipleGarments) {
+    return {
+      needsReview: true,
+      confidence: typeof analysisConfidence === 'number' && !Number.isNaN(analysisConfidence)
+        ? Math.max(0, Math.min(1, analysisConfidence))
+        : null,
+      reason: 'multiple_garments',
+    };
+  }
+
   if (typeof analysisConfidence !== 'number' || Number.isNaN(analysisConfidence)) {
     return {
       needsReview: true,

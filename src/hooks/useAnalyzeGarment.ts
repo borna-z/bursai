@@ -17,6 +17,20 @@ export interface GarmentAnalysis {
   ai_provider?: string;
   ai_raw?: Record<string, unknown>;
   confidence?: number;
+  image_contains_multiple_garments?: boolean;
+  detected_garments?: Array<{
+    title: string;
+    category: string;
+    subcategory?: string | null;
+    color_primary: string;
+    color_secondary?: string | null;
+    pattern?: string | null;
+    material?: string | null;
+    fit?: string | null;
+    season_tags?: string[] | null;
+    formality?: number | null;
+    confidence?: number | null;
+  }>;
 }
 
 export interface AnalyzeGarmentResult {
