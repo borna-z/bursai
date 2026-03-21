@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useWeather } from '@/hooks/useWeather';
+import { useGarmentCount } from '@/hooks/useGarments';
 
 export interface AISuggestion {
   title: string;
@@ -36,13 +37,14 @@ export function useAISuggestions() {
   const { user, session } = useAuth();
   const { locale } = useLanguage();
   const { weather } = useWeather();
+  const { data: garmentCount = 0, isLoading: isGarmentCountLoading } = useGarmentCount();
 
   const weatherInput = weather
     ? { temperature: weather.temperature, precipitation: weather.precipitation, wind: weather.wind }
     : undefined;
 
   return useQuery({
-    queryKey: ['ai-suggestions', user?.id, locale, weatherInput?.temperature, weatherInput?.precipitation, weatherInput?.wind],
+    queryKey: ['ai-suggestions', user?.id, locale, garmentCount, weatherInput?.temperature, weatherInput?.precipitation, weatherInput?.wind],
     queryFn: async (): Promise<AISuggestion[]> => {
       if (!session?.access_token) {
         throw new Error('Not authenticated');
@@ -74,8 +76,8 @@ export function useAISuggestions() {
 
       return response.data?.suggestions || [];
     },
-    enabled: !!user && !!session?.access_token,
-    staleTime: 1000 * 60 * 30,
+    enabled: !!user && !!session?.access_token && !isGarmentCountLoading && garmentCount >= 3,
+    staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 60,
     retry: 1,
   });

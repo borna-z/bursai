@@ -7,6 +7,7 @@ import { compressImage } from '@/lib/imageCompression';
 import { compressCenterCrop } from '@/lib/compressFrame';
 import { saveGarmentInBackground } from '@/lib/backgroundGarmentSave';
 import type { GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
+import { invalidateWardrobeQueries } from '@/hooks/useGarments';
 
 export interface ScanResult {
   analysis: GarmentAnalysis;
@@ -146,8 +147,7 @@ export function useLiveScan() {
     await Promise.allSettled(savingRef.current);
     savingRef.current = [];
 
-    queryClient.invalidateQueries({ queryKey: ['garments'] });
-    queryClient.invalidateQueries({ queryKey: ['garments-count'] });
+    invalidateWardrobeQueries(queryClient);
     queryClient.invalidateQueries({ queryKey: ['subscription'] });
   }, [queryClient]);
 
