@@ -8,6 +8,7 @@ export interface OnboardingPreferences {
   quiz?: StyleQuizAnswers;
   toured?: boolean;
   tour_step?: number;
+  coach_reopened?: boolean;
 }
 
 export interface StyleQuizAnswers {

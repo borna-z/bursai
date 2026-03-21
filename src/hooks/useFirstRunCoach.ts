@@ -8,7 +8,8 @@ const COACH_STEP_ROUTES: Record<number, (pathname: string) => boolean> = {
   0: (pathname: string) => !pathname.startsWith('/wardrobe'),
   1: (pathname: string) => pathname.startsWith('/wardrobe') && !pathname.startsWith('/wardrobe/scan'),
   2: (pathname: string) => pathname.startsWith('/wardrobe/scan'),
-  3: (pathname: string) => pathname === '/',
+  3: (pathname: string) => pathname.startsWith('/outfits/generate'),
+  4: (pathname: string) => pathname.startsWith('/plan'),
 };
 
 export function useFirstRunCoach() {
@@ -21,8 +22,10 @@ export function useFirstRunCoach() {
   const onboardingDone = prefs?.onboarding?.completed === true;
   const profileToured = prefs?.onboarding?.toured === true;
   const profileStep = prefs?.onboarding?.tour_step ?? 0;
+  const profileReopened = prefs?.onboarding?.coach_reopened === true;
   const [optimisticStep, setOptimisticStep] = useState(profileStep);
   const [optimisticToured, setOptimisticToured] = useState(profileToured);
+  const [optimisticReopened, setOptimisticReopened] = useState(profileReopened);
   const hasEnoughGarments = (garmentCount ?? 0) >= 3;
   const isSupportedCoachStep = Object.prototype.hasOwnProperty.call(COACH_STEP_ROUTES, optimisticStep);
   const isCoachResolved = !isProfileLoading && !isGarmentCountLoading && garmentCount !== undefined;
@@ -35,7 +38,12 @@ export function useFirstRunCoach() {
     setOptimisticToured(profileToured);
   }, [profileToured]);
 
-  const isEligibleForCoach = isCoachResolved && isSupportedCoachStep && !onboardingDone && !optimisticToured && !hasEnoughGarments;
+  useEffect(() => {
+    setOptimisticReopened(profileReopened);
+  }, [profileReopened]);
+
+  const shouldShowCoach = optimisticReopened || (!onboardingDone && !hasEnoughGarments);
+  const isEligibleForCoach = isCoachResolved && isSupportedCoachStep && !optimisticToured && shouldShowCoach;
   const currentStep = optimisticStep;
 
   const isStepActive = useMemo(() => {
@@ -56,6 +64,7 @@ export function useFirstRunCoach() {
         ...prefs,
         onboarding: {
           ...prefs?.onboarding,
+          coach_reopened: optimisticReopened,
           tour_step: nextStep,
         },
       },
@@ -68,6 +77,7 @@ export function useFirstRunCoach() {
   const completeTour = async () => {
     setOptimisticToured(true);
     setOptimisticStep(99);
+    setOptimisticReopened(false);
 
     await updateProfile.mutateAsync({
       preferences: {
@@ -75,12 +85,37 @@ export function useFirstRunCoach() {
         onboarding: {
           ...prefs?.onboarding,
           toured: true,
+          coach_reopened: false,
           tour_step: 99,
         },
       },
     }).catch((error) => {
       setOptimisticToured(profileToured);
       setOptimisticStep(profileStep);
+      setOptimisticReopened(profileReopened);
+      throw error;
+    });
+  };
+
+  const restartCoach = async () => {
+    setOptimisticToured(false);
+    setOptimisticStep(0);
+    setOptimisticReopened(true);
+
+    await updateProfile.mutateAsync({
+      preferences: {
+        ...prefs,
+        onboarding: {
+          ...prefs?.onboarding,
+          toured: false,
+          coach_reopened: true,
+          tour_step: 0,
+        },
+      },
+    }).catch((error) => {
+      setOptimisticToured(profileToured);
+      setOptimisticStep(profileStep);
+      setOptimisticReopened(profileReopened);
       throw error;
     });
   };
@@ -92,5 +127,6 @@ export function useFirstRunCoach() {
     isStepActive,
     advanceStep,
     completeTour,
+    restartCoach,
   };
 }

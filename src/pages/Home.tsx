@@ -35,7 +35,6 @@ import { HomePageSkeleton } from '@/components/ui/skeletons';
 import { getStylistTip } from '@/lib/stylistCopy';
 import { StyleDNACard } from '@/components/insights/StyleDNACard';
 import { useStyleDNA } from '@/hooks/useStyleDNA';
-import { CoachMark } from '@/components/coach/CoachMark';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 
 type HomeState = 'loading' | 'empty_wardrobe' | 'outfit_planned' | 'weather_alert' | 'no_outfit';
@@ -251,21 +250,10 @@ export default function HomePage() {
               </motion.button>
             ) : (
               /* no_outfit — premium "What should I wear?" hero */
-                <CoachMark
-                  step={3}
-                  currentStep={coach.currentStep}
-                  isCoachActive={coach.isStepActive(3)}
-                  title="Your first outfit"
-                body="Once you have a top, bottom and shoes — tap here and BURS generates your first outfit."
-                ctaLabel="Let's go"
-                onCta={() => coach.completeTour()}
-                position="bottom"
-              >
-                <TodayOutfitHero
-                  weather={weather ?? undefined}
-                  garmentCount={garmentCount ?? undefined}
-                />
-              </CoachMark>
+              <TodayOutfitHero
+                weather={weather ?? undefined}
+                garmentCount={garmentCount ?? undefined}
+              />
             )}
           </FadeReplace>
 

@@ -23,6 +23,8 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
+import { CoachMark } from '@/components/coach/CoachMark';
+import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 
 /* ── Occasions ── */
 const OCCASIONS = [
@@ -84,6 +86,7 @@ export default function OutfitGeneratePage() {
   const todayDate = new Date().toISOString().slice(0, 10);
   const { data: calendarEvents } = useCalendarEvents(todayDate);
   const { canCreateOutfit, remainingOutfits, isPremium } = useSubscription();
+  const coach = useFirstRunCoach();
 
   const [phase, setPhase] = useState<Phase>('picking');
   const [selectedOccasion, setSelectedOccasion] = useState<string>('casual');
@@ -586,15 +589,30 @@ export default function OutfitGeneratePage() {
                 {contextSubtitle}
               </p>
             )}
-            <Button
-              onClick={handleGenerate}
-              disabled={isGenerating}
-              className="bg-foreground text-background h-12 rounded-full w-full text-[15px] font-medium font-['DM_Sans']"
-              size="lg"
+            <CoachMark
+              step={3}
+              currentStep={coach.currentStep}
+              isCoachActive={coach.isStepActive(3)}
+              title="Generate outfits in seconds"
+              body="Pick the occasion, add a style if you want, and BURS will build a look from your wardrobe."
+              ctaLabel="Plan next"
+              onCta={() => {
+                coach.advanceStep();
+                navigate('/plan');
+              }}
+              onSkip={() => coach.completeTour()}
+              position="top"
             >
-              <Sparkles className="w-4 h-4 mr-2" />
-              Style me
-            </Button>
+              <Button
+                onClick={handleGenerate}
+                disabled={isGenerating}
+                className="bg-foreground text-background h-12 rounded-full w-full text-[15px] font-medium font-['DM_Sans']"
+                size="lg"
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                Style me
+              </Button>
+            </CoachMark>
             {!isPremium && remainingOutfits() < Infinity && (
               <p className="text-[11px] text-muted-foreground/50 text-center">
                 <Zap className="w-3 h-3 inline mr-0.5 -mt-0.5" />
