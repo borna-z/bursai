@@ -22,7 +22,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getOccasionLabel } from '@/lib/occasionLabel';
 import { useOutfit, useUpdateOutfit, useMarkOutfitWorn, useUndoMarkWorn } from '@/hooks/useOutfits';
-import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import { useSwapGarment, type SwapCandidate, type SwapMode } from '@/hooks/useSwapGarment';
 import { useWeather } from '@/hooks/useWeather';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
@@ -30,7 +30,6 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useOutfitFeedback, useSubmitPhotoFeedback } from '@/hooks/usePhotoFeedback';
 import { useFeedbackSignals } from '@/hooks/useFeedbackSignals';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
-import { OutfitMosaic, type MosaicItem } from '@/components/outfit/OutfitMosaic';
 
 /* ── Swap Sheet ─────────────────────────────────────── */
 
@@ -203,30 +202,6 @@ function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, onSwa
       </button>
     </div>
   );
-}
-
-/* ── Detail Mosaic — delegates to shared OutfitMosaic ── */
-
-function buildDetailMosaicItems(
-  items: { id: string; garment_id: string; slot: string; garment: Tables<'garments'> }[],
-  t: (key: string) => string,
-  layerRoleMap: Map<string, string>,
-): MosaicItem[] {
-  return items.map((item) => {
-    const isLayeredSlot = ['top', 'outerwear'].includes(item.slot);
-    const layerRole = layerRoleMap.get(item.garment_id);
-    const slotLabel =
-      isLayeredSlot && layerRole && LAYER_ROLE_LABELS[layerRole]
-        ? LAYER_ROLE_LABELS[layerRole]
-        : (t(`outfit.slot.${item.slot}`) || item.slot);
-
-    return {
-      id: item.id,
-      imagePath: item.garment ? getPreferredGarmentImagePath(item.garment) : undefined,
-      alt: item.garment?.title || item.slot,
-      slot: slotLabel,
-    };
-  });
 }
 
 /* ── Main Page ──────────────────────────────────────── */
@@ -605,12 +580,46 @@ export default function OutfitDetailPage() {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5, ease: EASE_CURVE }}
       >
-        <OutfitMosaic
-          items={buildDetailMosaicItems(outfitItems, t, layerRoleMap)}
-          variant="full"
-          rounded="rounded-none"
-          showSlotLabels
-        />
+        <div className={cn(
+          'grid gap-[1px]',
+          outfitItems.length <= 2 ? 'grid-cols-2' :
+          outfitItems.length === 3 ? 'grid-cols-2' :
+          'grid-cols-2'
+        )}>
+          {outfitItems.map((item, index) => (
+            <motion.div
+              key={item.id}
+              initial={{ opacity: 0, scale: 1.02 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: index * 0.08, duration: 0.5, ease: EASE_CURVE }}
+              className={cn(
+                'relative overflow-hidden bg-muted/20',
+                outfitItems.length === 1 && 'col-span-2',
+                outfitItems.length === 3 && index === 0 && 'row-span-2',
+                outfitItems.length >= 5 && index === 0 && 'row-span-2',
+              )}
+            >
+              <LazyImageSimple
+                imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
+                alt={item.garment?.title || item.slot}
+                className={cn(
+                  'w-full object-cover',
+                  outfitItems.length === 1 ? 'aspect-[3/4]' :
+                  outfitItems.length === 2 ? 'aspect-[3/4]' :
+                  outfitItems.length === 3 && index === 0 ? 'aspect-[3/4]' :
+                  outfitItems.length === 3 ? 'aspect-[3/4] max-h-[38vh]' :
+                  'aspect-square'
+                )}
+                fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/15" />}
+              />
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent p-3 pt-8">
+                <p className="text-[9px] text-white/70 uppercase tracking-[0.15em] font-medium">
+                  {t(`outfit.slot.${item.slot}`) || item.slot}
+                </p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
 
         {justGenerated && (
           <motion.div
@@ -814,7 +823,7 @@ export default function OutfitDetailPage() {
         {/* ── Garment list — editorial ── */}
         <div className="space-y-1">
           <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/40 font-semibold mb-3">
-            {t('outfit.pieces') || 'Pieces'} · {sortedOutfitItems.length}
+            {t('outfit.pieces') || 'Pieces'}
           </p>
           {sortedOutfitItems.map((item) => (
             <SlotRow

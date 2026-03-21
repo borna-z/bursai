@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { TAP_TRANSITION } from '@/lib/motion';
+import { LazyImage } from '@/components/ui/lazy-image';
 import { useOutfits, type OutfitWithItems } from '@/hooks/useOutfits';
-import { OutfitMosaic } from '@/components/outfit/OutfitMosaic';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { SectionHeader } from '@/components/ui/section-header';
 
@@ -30,7 +30,7 @@ export function SwipeSuggestions() {
 
 function SuggestionCard({ outfit, onTap }: { outfit: OutfitWithItems; onTap: () => void }) {
   const { t } = useLanguage();
-  const items = outfit.outfit_items || [];
+  const items = outfit.outfit_items?.slice(0, 4) || [];
 
   return (
     <motion.button
@@ -39,17 +39,16 @@ function SuggestionCard({ outfit, onTap }: { outfit: OutfitWithItems; onTap: () 
       onClick={onTap}
       className="flex-shrink-0 w-[180px] rounded-2xl bg-foreground/[0.02] border border-border/30 overflow-hidden will-change-transform"
     >
-      <div className="p-1">
-        <OutfitMosaic
-          items={items.map((item) => ({
-            id: item.id,
-            imagePath: item.garment?.image_path,
-            alt: item.garment?.title || '',
-          }))}
-          variant="thumbnail"
-          gap="gap-0.5"
-          rounded="rounded-lg"
-        />
+      <div className="grid grid-cols-2 gap-0.5 p-1">
+        {items.map((item) => (
+          <LazyImage
+            key={item.id}
+            imagePath={item.garment?.image_path}
+            alt={item.garment?.title || ''}
+            aspectRatio="4/5"
+            className="rounded-lg"
+          />
+        ))}
       </div>
       {/* Occasion pill */}
       <div className="px-2.5 pb-2.5 pt-1">

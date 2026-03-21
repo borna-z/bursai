@@ -10,7 +10,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
-import { OutfitMosaic } from '@/components/outfit/OutfitMosaic';
 import { useOutfitGenerator, type GeneratedOutfit } from '@/hooks/useOutfitGenerator';
 import { useUpdateOutfit } from '@/hooks/useOutfits';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -238,25 +237,40 @@ export default function OutfitGeneratePage() {
                 transition={prefersReduced ? { duration: 0 } : SPRING_LAYOUT}
                 className="w-full"
               >
-                {/* Adaptive Garment Grid */}
-                <motion.div
-                  initial={prefersReduced ? false : { opacity: 0, scale: 1.02 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.45 }}
-                >
-                  <OutfitMosaic
-                    items={primary.items.map((item) => ({
-                      id: item.garment.id,
-                      imagePath: getPreferredGarmentImagePath(item.garment),
-                      alt: item.garment.title || item.slot,
-                      slot: item.slot,
-                    }))}
-                    variant="full"
-                    rounded="rounded-2xl"
-                    showSlotLabels
-                    onItemClick={(id) => navigate(`/wardrobe/${id}`)}
-                  />
-                </motion.div>
+                {/* 2x2 Garment Grid */}
+                <div className="rounded-2xl overflow-hidden grid grid-cols-2 gap-[1px] bg-muted/30">
+                  {primary.items.slice(0, 4).map((item, i) => (
+                    <motion.div
+                      key={item.garment.id}
+                      initial={prefersReduced ? false : { opacity: 0, scale: 1.02 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: i * 0.08, duration: 0.45 }}
+                      className={cn(
+                        'relative overflow-hidden bg-muted/20',
+                        i === 0 && 'rounded-tl-2xl',
+                        i === 1 && 'rounded-tr-2xl',
+                        i === 2 && 'rounded-bl-2xl',
+                        i === 3 && 'rounded-br-2xl',
+                      )}
+                    >
+                      <LazyImageSimple
+                        imagePath={getPreferredGarmentImagePath(item.garment)}
+                        alt={item.garment.title || item.slot}
+                        className="w-full aspect-square object-cover"
+                        fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/15" />}
+                      />
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent p-2 pt-6">
+                        <p className="text-[9px] text-white/70 uppercase tracking-[0.15em] font-medium">
+                          {item.slot}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ))}
+                  {/* Fill empty slots if fewer than 4 items */}
+                  {Array.from({ length: Math.max(0, 4 - primary.items.length) }).map((_, i) => (
+                    <div key={`empty-${i}`} className="bg-muted/20 aspect-square" />
+                  ))}
+                </div>
 
                 {/* Reasoning text */}
                 {reasoningText && (
@@ -319,10 +333,10 @@ export default function OutfitGeneratePage() {
                           className="w-full rounded-2xl border border-border/20 bg-card/60 p-3 text-left active:opacity-80 transition-opacity"
                         >
                           <div className="flex gap-2">
-                            {option.items.map((item) => (
+                            {option.items.slice(0, 4).map((item) => (
                               <div
                                 key={item.garment.id}
-                                className="w-14 h-[70px] rounded-xl overflow-hidden flex-shrink-0 bg-muted/20"
+                                className="w-16 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-muted/20"
                               >
                                 <LazyImageSimple
                                   imagePath={getPreferredGarmentImagePath(item.garment)}

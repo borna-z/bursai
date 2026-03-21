@@ -31,7 +31,6 @@ import { DaySummaryCard } from '@/components/plan/DaySummaryCard';
 import { LaundryAlertBanner } from '@/components/plan/LaundryAlertBanner';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
-import { OutfitMosaic } from '@/components/outfit/OutfitMosaic';
 import { useDaySummary } from '@/hooks/useDaySummary';
 import { 
   usePlannedOutfits, 
@@ -445,17 +444,16 @@ export default function PlanPage() {
                       className="rounded-2xl overflow-hidden cursor-pointer press"
                       onClick={() => navigate(`/outfits/${outfit.id}`)}
                     >
-                      <div className="p-1">
-                        <OutfitMosaic
-                          items={outfit.outfit_items.map((item) => ({
-                            id: item.id,
-                            imagePath: item.garment?.image_path,
-                            alt: item.garment?.title || item.slot,
-                          }))}
-                          variant="thumbnail"
-                          gap="gap-1"
-                          rounded="rounded-xl"
-                        />
+                      <div className="grid grid-cols-2 gap-1 p-1">
+                        {outfit.outfit_items.slice(0, 4).map((item) => (
+                          <div key={item.id} className="bg-muted aspect-[4/5] rounded-xl overflow-hidden">
+                            <LazyImageSimple
+                              imagePath={item.garment?.image_path}
+                              alt={item.garment?.title || item.slot}
+                              className="w-full h-full"
+                            />
+                          </div>
+                        ))}
                       </div>
                     </div>
 
