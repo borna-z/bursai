@@ -103,10 +103,15 @@ export function DayCard({
               onClick={() => navigate(`/outfits/${outfit.id}`)}
             >
               {outfit.outfit_items.slice(0, 4).map((item, index) => (
-                <div key={item.id} className={cn("flex-1 overflow-hidden", index < outfit.outfit_items.slice(0, 4).length - 1 && "border-r border-background")}>
+                <div key={item.id} className={cn("flex-1 overflow-hidden", index < Math.min(outfit.outfit_items.length, 4) - 1 && "border-r border-background")}>
                   <LazyImageSimple imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined} alt={item.garment?.title || item.slot} className="w-full h-full" />
                 </div>
               ))}
+              {outfit.outfit_items.length > 4 && (
+                <div className="w-10 flex items-center justify-center bg-muted/50 shrink-0">
+                  <span className="text-[10px] font-semibold text-muted-foreground">+{outfit.outfit_items.length - 4}</span>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-2 mb-3 flex-wrap">

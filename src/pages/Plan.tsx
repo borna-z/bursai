@@ -444,7 +444,7 @@ export default function PlanPage() {
                       className="rounded-2xl overflow-hidden cursor-pointer press"
                       onClick={() => navigate(`/outfits/${outfit.id}`)}
                     >
-                      <div className="grid grid-cols-2 gap-1 p-1">
+                      <div className="grid grid-cols-2 gap-1 p-1 relative">
                         {outfit.outfit_items.slice(0, 4).map((item) => (
                           <div key={item.id} className="bg-muted aspect-[4/5] rounded-xl overflow-hidden">
                             <LazyImageSimple
@@ -454,6 +454,11 @@ export default function PlanPage() {
                             />
                           </div>
                         ))}
+                        {outfit.outfit_items.length > 4 && (
+                          <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none">
+                            +{outfit.outfit_items.length - 4}
+                          </div>
+                        )}
                       </div>
                     </div>
 

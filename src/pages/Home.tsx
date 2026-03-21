@@ -229,6 +229,11 @@ export default function HomePage() {
                       />
                     </div>
                   ))}
+                  {todayOutfit.outfit_items.length > 4 && (
+                    <div className="w-14 h-14 rounded-xl bg-muted/40 flex items-center justify-center shrink-0">
+                      <span className="text-[11px] font-semibold text-muted-foreground">+{todayOutfit.outfit_items.length - 4}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Occasion + chevron */}

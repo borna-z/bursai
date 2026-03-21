@@ -11,7 +11,6 @@ import {
 import { cn } from '@/lib/utils';
 import { useOutfits, useDeleteOutfit, type OutfitWithItems } from '@/hooks/useOutfits';
 import { EmptyState } from '@/components/layout/EmptyState';
-import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
@@ -19,29 +18,9 @@ import type { Locale as AppLocale } from '@/i18n/types';
 import { toast } from 'sonner';
 import { TAP_TRANSITION } from '@/lib/motion';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { OutfitMosaic } from '@/components/outfit/OutfitMosaic';
 
 type FilterTab = 'all' | 'saved' | 'planned';
-
-function OutfitMosaic({ items }: { items: OutfitWithItems['outfit_items'] }) {
-  const slots = items.slice(0, 4);
-  return (
-    <div className="aspect-square rounded-xl overflow-hidden grid grid-cols-2 grid-rows-2 bg-muted/30">
-      {slots.map((item, i) => (
-        <div key={item.id} className={cn('overflow-hidden', i === 0 && 'rounded-tl-xl', i === 1 && 'rounded-tr-xl', i === 2 && 'rounded-bl-xl', i === 3 && 'rounded-br-xl')}>
-          <LazyImageSimple
-            imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
-            alt={item.garment?.title || item.slot}
-            className="w-full h-full"
-          />
-        </div>
-      ))}
-      {/* Fill empty slots */}
-      {Array.from({ length: Math.max(0, 4 - slots.length) }).map((_, i) => (
-        <div key={`empty-${i}`} className="bg-muted/20" />
-      ))}
-    </div>
-  );
-}
 
 function OutfitCard({
   outfit,
@@ -93,7 +72,14 @@ function OutfitCard({
       onPointerLeave={handlePointerLeave}
       className="w-full cursor-pointer select-none will-change-transform"
     >
-      <OutfitMosaic items={outfit.outfit_items} />
+      <OutfitMosaic
+        items={outfit.outfit_items.map((item) => ({
+          id: item.id,
+          imagePath: item.garment ? getPreferredGarmentImagePath(item.garment) : undefined,
+          alt: item.garment?.title || item.slot,
+        }))}
+        variant="thumbnail"
+      />
       <div className="mt-2 px-0.5 flex items-center gap-1.5 min-w-0">
         <Badge variant="secondary" className="capitalize text-[10px] px-1.5 py-0 truncate max-w-[7rem]">{t(`occasion.${outfit.occasion}`)}</Badge>
         {outfit.saved && (

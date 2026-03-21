@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Pause, Play, Download } from 'lucide-react';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
+import { OutfitMosaic } from '@/components/outfit/OutfitMosaic';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
@@ -195,17 +196,20 @@ export function OutfitReel({ outfits, onClose }: OutfitReelProps) {
           }}
           onAnimationEnd={() => setSlideDirection(null)}
         >
-          {/* Outfit images grid */}
-          <div className="w-full max-w-sm mx-auto grid grid-cols-2 gap-1 px-4">
-            {outfit.outfit_items.slice(0, 4).map((item) => (
-              <div key={item.id} className="aspect-square rounded-xl overflow-hidden bg-muted/10">
-                <LazyImageSimple
-                  imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
-                  alt={item.garment?.title || item.slot}
-                  className="w-full h-full"
-                />
-              </div>
-            ))}
+          {/* Outfit images grid — adaptive layout */}
+          <div className="w-full max-w-sm mx-auto px-4">
+            <OutfitMosaic
+              items={outfit.outfit_items.map((item) => ({
+                id: item.id,
+                imagePath: item.garment ? getPreferredGarmentImagePath(item.garment) : undefined,
+                alt: item.garment?.title || item.slot,
+                slot: item.slot,
+              }))}
+              variant="full"
+              gap="gap-1"
+              rounded="rounded-xl"
+              showSlotLabels
+            />
           </div>
 
           {/* Info */}

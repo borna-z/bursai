@@ -515,7 +515,7 @@ export default function GarmentDetailPage() {
                     onClick={() => { hapticLight(); navigate(`/outfits/${outfit.id}`); }}
                     className="flex-shrink-0 w-[72px] space-y-1.5 press"
                   >
-                    <div className="aspect-square rounded-lg overflow-hidden grid grid-cols-2 gap-px bg-muted/30">
+                    <div className="aspect-square rounded-lg overflow-hidden grid grid-cols-2 gap-px bg-muted/30 relative">
                       {outfit.outfit_items.slice(0, 4).map((item) => (
                         <div key={item.id} className="overflow-hidden">
                           <LazyImageSimple
@@ -525,6 +525,11 @@ export default function GarmentDetailPage() {
                           />
                         </div>
                       ))}
+                      {outfit.outfit_items.length > 4 && (
+                        <div className="absolute bottom-1 right-1 bg-black/60 backdrop-blur-sm text-white text-[9px] font-semibold px-1 py-0.5 rounded-full leading-none">
+                          +{outfit.outfit_items.length - 4}
+                        </div>
+                      )}
                     </div>
                     <p className="text-[10px] text-muted-foreground/60 truncate capitalize">
                       {occasionLabel(t, outfit.occasion)}

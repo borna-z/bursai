@@ -196,7 +196,7 @@ export default function UnusedOutfits() {
                 className="rounded-xl border border-border/30 overflow-hidden bg-card text-left hover:border-accent/30 transition-colors active:scale-[0.98]"
               >
                 {/* Garment thumbnails grid */}
-                <div className="grid grid-cols-2 aspect-square">
+                <div className="grid grid-cols-2 aspect-square relative">
                   {outfit.items.slice(0, 4).map((item, j) => {
                     const isUnused = unusedSet.has(item.garment.id);
                     return (
@@ -218,6 +218,11 @@ export default function UnusedOutfits() {
                   {outfit.items.length < 4 && Array.from({ length: 4 - outfit.items.length }).map((_, j) => (
                     <div key={`empty-${j}`} className="bg-muted/10" />
                   ))}
+                  {outfit.items.length > 4 && (
+                    <div className="absolute bottom-1.5 right-1.5 bg-black/60 backdrop-blur-sm text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none">
+                      +{outfit.items.length - 4}
+                    </div>
+                  )}
                 </div>
                 <div className="p-3 space-y-1">
                   <span className="text-[10px] uppercase tracking-wider text-accent font-medium">

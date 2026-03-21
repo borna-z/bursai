@@ -78,7 +78,7 @@ export function MiniDayCard({ date, plannedOutfit, isSelected, onClick }: MiniDa
                 key={item.id}
                 className={cn(
                   "flex-1 overflow-hidden",
-                  index < outfit.outfit_items.slice(0, 4).length - 1 && "border-r border-background"
+                  index < Math.min(outfit.outfit_items.length, 4) - 1 && "border-r border-background"
                 )}
               >
                 <LazyImageSimple
@@ -88,6 +88,11 @@ export function MiniDayCard({ date, plannedOutfit, isSelected, onClick }: MiniDa
                 />
               </div>
             ))}
+            {outfit.outfit_items.length > 4 && (
+              <div className="w-8 flex items-center justify-center bg-muted/50 shrink-0">
+                <span className="text-[9px] font-semibold text-muted-foreground">+{outfit.outfit_items.length - 4}</span>
+              </div>
+            )}
           </div>
           {OccasionIcon && (
             <Badge variant="outline" className="text-[10px] capitalize shrink-0">
