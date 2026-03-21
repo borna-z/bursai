@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, AlertCircle, Upload, Sparkles, X, Clock3, ArrowRight, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -39,7 +39,6 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
   const [items, setItems] = useState<BatchItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
-  const processedRef = useRef(false);
 
   // Initialize items with previews
   useEffect(() => {
@@ -60,7 +59,21 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
   const doneCount = items.filter(i => i.status === 'done').length;
   const skippedCount = items.filter(i => i.status === 'skipped').length;
   const errorCount = items.filter(i => i.status === 'error').length;
+  const unresolvedCount = items.filter(i => ['waiting', 'uploading', 'analyzing', 'review'].includes(i.status)).length;
+  const processingComplete = items.length > 0 && currentIndex >= items.length && !isProcessing;
+  const readyToContinue = processingComplete && unresolvedCount === 0;
   const totalProgress = items.length > 0 ? ((doneCount + skippedCount + errorCount) / items.length) * 100 : 0;
+  const statusMessage = useMemo(() => {
+    if (readyToContinue) {
+      return `All ${items.length} items are resolved. Review is complete.`;
+    }
+
+    if (processingComplete && reviewCount > 0) {
+      return `${reviewCount} review item${reviewCount === 1 ? '' : 's'} still need a decision.`;
+    }
+
+    return null;
+  }, [items.length, processingComplete, readyToContinue, reviewCount]);
 
   const saveApprovedItem = useCallback(async (item: BatchItem) => {
     if (!item.analysis || !item.storagePath || !item.garmentId) {
@@ -116,16 +129,8 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
 
   // Process queue
   useEffect(() => {
-    if (processedRef.current || !user || items.length === 0 || isProcessing) return;
+    if (!user || items.length === 0 || isProcessing) return;
     if (currentIndex >= items.length) {
-      processedRef.current = true;
-      const completedCount = items.filter(i => i.status === 'done').length;
-      toast.success(`${completedCount}/${items.length} ${t('batch.complete_toast')}`, {
-        description: reviewCount > 0
-          ? `${reviewCount} item${reviewCount === 1 ? '' : 's'} need a quick review before adding.`
-          : 'Added to wardrobe. Background cleanup continues automatically.',
-      });
-      setTimeout(onComplete, 800);
       return;
     }
 
@@ -187,7 +192,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
     };
 
     processItem();
-  }, [analyzeGarment, currentIndex, isProcessing, items, onComplete, reviewCount, saveApprovedItem, t, updateItem, uploadGarmentImage, user]);
+  }, [analyzeGarment, currentIndex, isProcessing, items, saveApprovedItem, t, updateItem, uploadGarmentImage, user]);
 
   const handleApproveReviewItem = async (index: number) => {
     updateItem(index, { status: 'uploading', error: undefined });
@@ -201,6 +206,18 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
 
   const handleSkipReviewItem = (index: number) => {
     updateItem(index, { status: 'skipped', error: undefined });
+  };
+
+  const handleContinue = () => {
+    if (!readyToContinue) return;
+
+    toast.success(`${doneCount}/${items.length} ${t('batch.complete_toast')}`, {
+      description: skippedCount > 0
+        ? `${skippedCount} item${skippedCount === 1 ? '' : 's'} were skipped during review.`
+        : 'Added to wardrobe. Background cleanup continues automatically.',
+    });
+
+    onComplete();
   };
 
   return (
@@ -310,6 +327,38 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
             ))}
           </AnimatePresence>
         </div>
+
+        {statusMessage && (
+          <div className={cn(
+            'rounded-xl border p-4',
+            readyToContinue
+              ? 'border-emerald-200 bg-emerald-50/70'
+              : 'border-amber-200 bg-amber-50/60'
+          )}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <p className={cn(
+                  'text-sm font-medium',
+                  readyToContinue ? 'text-emerald-950' : 'text-amber-950'
+                )}>
+                  {readyToContinue ? 'Review complete' : 'Review still needed'}
+                </p>
+                <p className={cn(
+                  'text-xs',
+                  readyToContinue ? 'text-emerald-800' : 'text-amber-800'
+                )}>
+                  {statusMessage}
+                </p>
+              </div>
+              {readyToContinue && (
+                <Button size="sm" onClick={handleContinue}>
+                  Continue
+                  <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
 
         {reviewCount > 0 && (
           <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
