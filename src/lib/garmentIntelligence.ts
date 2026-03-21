@@ -5,24 +5,36 @@ import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 export const GARMENT_IMAGE_PROCESSING_VERSION = 'background-removal-v1';
 
 
+export const GARMENT_REVIEW_CONFIDENCE_THRESHOLD = 0.65;
+
+export interface GarmentReviewDecision {
+  needsReview: boolean;
+  confidence: number | null;
+  reason: 'low_confidence' | 'missing_confidence' | null;
+}
+
 interface StandardizeGarmentAiRawOptions {
   aiRaw: Json | null | undefined;
   analysisConfidence?: number | null;
   source?: string | null;
+  reviewDecision?: GarmentReviewDecision | null;
 }
 
 export function standardizeGarmentAiRaw({
   aiRaw,
   analysisConfidence,
   source,
+  reviewDecision,
 }: StandardizeGarmentAiRawOptions): Json | null {
   if (!aiRaw || typeof aiRaw !== 'object' || Array.isArray(aiRaw)) {
-    if (analysisConfidence == null && !source) return aiRaw ?? null;
+    if (analysisConfidence == null && !source && !reviewDecision) return aiRaw ?? null;
 
     return {
       system_signals: {
         analysis_confidence: analysisConfidence ?? null,
         source: source ?? null,
+        needs_review: reviewDecision?.needsReview ?? null,
+        review_reason: reviewDecision?.reason ?? null,
       },
     } as Json;
   }
@@ -45,8 +57,39 @@ export function standardizeGarmentAiRaw({
             ? record.confidence
             : null),
       source: source ?? (typeof existingSignals.source === 'string' ? existingSignals.source : null),
+      needs_review:
+        reviewDecision?.needsReview ??
+        (typeof existingSignals.needs_review === 'boolean' ? existingSignals.needs_review : null),
+      review_reason:
+        reviewDecision?.reason ??
+        (typeof existingSignals.review_reason === 'string' ? existingSignals.review_reason : null),
     },
   } as Json;
+}
+
+export function getGarmentReviewDecision(analysisConfidence?: number | null): GarmentReviewDecision {
+  if (typeof analysisConfidence !== 'number' || Number.isNaN(analysisConfidence)) {
+    return {
+      needsReview: true,
+      confidence: null,
+      reason: 'missing_confidence',
+    };
+  }
+
+  const confidence = Math.max(0, Math.min(1, analysisConfidence));
+  if (confidence < GARMENT_REVIEW_CONFIDENCE_THRESHOLD) {
+    return {
+      needsReview: true,
+      confidence,
+      reason: 'low_confidence',
+    };
+  }
+
+  return {
+    needsReview: false,
+    confidence,
+    reason: null,
+  };
 }
 
 interface BuildGarmentIntelligenceFieldsOptions {

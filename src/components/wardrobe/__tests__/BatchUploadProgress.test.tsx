@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BatchUploadProgress } from '@/components/wardrobe/BatchUploadProgress';
 
@@ -79,6 +79,7 @@ describe('BatchUploadProgress', () => {
         season_tags: ['spring'],
         formality: 3,
         ai_provider: 'burs_ai',
+        confidence: 0.9,
         ai_raw: { source: 'test' },
       },
       error: null,
@@ -117,5 +118,44 @@ describe('BatchUploadProgress', () => {
         }),
       }),
     );
+  });
+
+  it('queues only low-confidence garments for quick approval', async () => {
+    const file = new File(['image'], 'uncertain.jpg', { type: 'image/jpeg' });
+    analyzeGarmentMock.mockResolvedValueOnce({
+      data: {
+        title: 'Dark top',
+        category: 'top',
+        subcategory: 'shirt',
+        color_primary: 'blue',
+        season_tags: ['spring'],
+        formality: 3,
+        confidence: 0.42,
+        ai_provider: 'burs_ai',
+        ai_raw: { source: 'test' },
+      },
+      error: null,
+    });
+
+    render(<BatchUploadProgress files={[file]} onComplete={vi.fn()} onCancel={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getByText('Quick review')).toBeInTheDocument());
+    expect(createGarmentMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /add/i }));
+
+    await waitFor(() => expect(createGarmentMock).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Dark top',
+      image_path: 'user-1/actual-upload.webp',
+      ai_raw: expect.objectContaining({
+        source: 'test',
+        system_signals: expect.objectContaining({
+          analysis_confidence: 0.42,
+          needs_review: true,
+          review_reason: 'low_confidence',
+          source: 'batch_add',
+        }),
+      }),
+    })));
   });
 });
