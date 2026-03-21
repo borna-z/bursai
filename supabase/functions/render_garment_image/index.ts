@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.220.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { callBursAI, bursAIErrorResponse } from '../_shared/burs-ai.ts';
+import { bursAIErrorResponse } from '../_shared/burs-ai.ts';
 import { allowedOrigin } from '../_shared/cors.ts';
 
 const corsHeaders = {
@@ -9,8 +9,157 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+const GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image';
+const GEMINI_IMAGE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent`;
+
+
+type GeminiInlineData = {
+  mimeType?: string;
+  mime_type?: string;
+  data?: string;
+};
+
+type GeminiPart = {
+  inlineData?: GeminiInlineData;
+  inline_data?: GeminiInlineData;
+};
+
+type GeminiCandidate = {
+  finishReason?: string;
+  content?: {
+    parts?: GeminiPart[];
+  };
+};
+
+type GeminiGenerateContentResponse = {
+  candidates?: GeminiCandidate[];
+  error?: {
+    message?: string;
+  };
+};
+
+class RenderProviderError extends Error {
+  code: string;
+  status?: number;
+
+  constructor(code: string, message: string, status?: number) {
+    super(message);
+    this.name = 'RenderProviderError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
+function maskApiKey(apiKey: string | null | undefined): string {
+  if (!apiKey) return 'missing';
+  if (apiKey.length <= 8) return 'configured';
+  return `${apiKey.slice(0, 4)}...${apiKey.slice(-4)}`;
+}
+
+function classifyGeminiError(status: number, message: string): RenderProviderError {
+  const lower = message.toLowerCase();
+
+  if (status === 401 || status == 403) {
+    return new RenderProviderError('gemini_auth', `Gemini auth failed (${status}): ${message}`, status);
+  }
+
+  if (status === 404 || lower.includes('model not found') || lower.includes('not supported for generatecontent')) {
+    return new RenderProviderError('gemini_model_path', `Gemini model/path mismatch (${status}): ${message}`, status);
+  }
+
+  return new RenderProviderError('gemini_api', `Gemini API error (${status}): ${message}`, status);
+}
+
+function extractGeminiImagePart(aiData: GeminiGenerateContentResponse | null): { mimeType: string; data: string } | null {
+  const parts = aiData?.candidates?.flatMap((candidate) => candidate?.content?.parts ?? []) ?? [];
+  for (const part of parts) {
+    const inlineData = part?.inlineData ?? part?.inline_data;
+    if (inlineData?.data && inlineData?.mimeType) {
+      return { mimeType: inlineData.mimeType, data: inlineData.data };
+    }
+  }
+  return null;
+}
+
+async function generateGarmentRenderWithGeminiDirect(opts: {
+  garmentId: string;
+  apiKey: string;
+  prompt: string;
+  dataUrl: string;
+}): Promise<{ outputBytes: Uint8Array; mimeType: string }> {
+  const response = await fetch(GEMINI_IMAGE_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': opts.apiKey,
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: opts.prompt },
+            {
+              inlineData: {
+                mimeType: dataUrl.slice(5, dataUrl.indexOf(';')),
+                data: dataUrl.split(',')[1],
+              },
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseModalities: ['TEXT', 'IMAGE'],
+      },
+    }),
+  });
+
+  const responseText = await response.text();
+  let aiData: GeminiGenerateContentResponse | null = null;
+  try {
+    aiData = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    aiData = null;
+  }
+
+  if (!response.ok) {
+    const apiMessage = aiData?.error?.message || responseText || 'Unknown Gemini error';
+    throw classifyGeminiError(response.status, apiMessage);
+  }
+
+  const imagePart = extractGeminiImagePart(aiData);
+  if (!imagePart) {
+    const finishReason = aiData?.candidates?.[0]?.finishReason ?? 'unknown';
+    throw new RenderProviderError(
+      'gemini_no_image',
+      `Gemini returned no image output (finishReason=${finishReason})`,
+      response.status,
+    );
+  }
+
+  const binaryStr = atob(imagePart.data);
+  const outputBytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i++) outputBytes[i] = binaryStr.charCodeAt(i);
+
+  return { outputBytes, mimeType: imagePart.mimeType };
+}
+
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error ?? 'Unknown error');
+}
+
+
+function extensionForMimeType(mimeType: string): string {
+  switch (mimeType.toLowerCase()) {
+    case 'image/png':
+      return 'png';
+    case 'image/webp':
+      return 'webp';
+    case 'image/jpeg':
+    case 'image/jpg':
+    default:
+      return 'jpg';
+  }
 }
 
 function normalizeImageMimeType(contentType: string | null, sourceImagePath: string): string {
@@ -213,7 +362,8 @@ serve(async (req) => {
       garmentId: garment.id,
       provider: 'gemini',
       geminiApiKeyConfigured: hasGeminiApiKey,
-      model: 'google/gemini-2.5-flash-image',
+      model: GEMINI_IMAGE_MODEL,
+      endpoint: GEMINI_IMAGE_API_URL,
       sourceImagePath,
       usedProcessedSource: sourceImagePath === garment.processed_image_path,
     });
@@ -276,7 +426,8 @@ serve(async (req) => {
     console.log('render_garment_image Gemini request start', {
       garmentId: garment.id,
       provider: 'gemini',
-      model: 'google/gemini-2.5-flash-image',
+      model: GEMINI_IMAGE_MODEL,
+      endpoint: GEMINI_IMAGE_API_URL,
       sourceContentType: contentType,
       sourceMimeType: mimeType,
       sourceBytes: imageBytes.length,
@@ -284,57 +435,55 @@ serve(async (req) => {
       sourceHasDataUrlPrefix: hasDataUrlPrefix,
     });
 
-    // ── Call Gemini image-gen with reference image ──
-    const { data: aiResult } = await callBursAI({
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'image_url', image_url: { url: dataUrl } },
-            { type: 'text', text: prompt },
-          ],
-        },
-      ],
-      modelType: 'image-gen',
-      extraBody: { modalities: ['image', 'text'] },
-      models: ['google/gemini-2.5-flash-image'],
-      timeout: 60000,
-      functionName: 'render_garment_image',
-    });
+    // ── Call Gemini image-gen with direct generateContent endpoint ──
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY')?.trim() ?? '';
+    let outputBytes: Uint8Array;
+    let outputMimeType: string;
 
-    // ── Extract generated image ──
-    const imageData =
-      aiResult?.images?.[0]?.image_url?.url ||
-      aiResult?.__raw?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    try {
+      const result = await generateGarmentRenderWithGeminiDirect({
+        garmentId: garment.id,
+        apiKey: geminiApiKey,
+        prompt,
+        dataUrl,
+      });
+      outputBytes = result.outputBytes;
+      outputMimeType = result.mimeType;
+    } catch (providerError) {
+      const errorMessage = getErrorMessage(providerError);
+      const errorCode = providerError instanceof RenderProviderError ? providerError.code : 'gemini_unknown';
 
-    if (!imageData || !imageData.startsWith('data:image')) {
-      console.error('render_garment_image invalid Gemini output', {
+      console.error('render_garment_image Gemini direct request failed', {
         garmentId: garment.id,
         provider: 'gemini',
-        hasImagesArray: Boolean(aiResult?.images?.length),
-        rawChoiceImageCount: aiResult?.__raw?.choices?.[0]?.message?.images?.length ?? 0,
+        model: GEMINI_IMAGE_MODEL,
+        endpoint: GEMINI_IMAGE_API_URL,
+        geminiApiKeyFingerprint: maskApiKey(geminiApiKey),
+        errorCode,
+        error: errorMessage,
       });
 
-      await safeMarkRenderFailed(supabase, garment.id, {
-        render_error: 'No image in AI response.',
-      }, 'invalid_ai_output');
+      if (errorCode === 'gemini_no_image') {
+        await safeMarkRenderFailed(supabase, garment.id, {
+          render_error: errorMessage,
+        }, 'invalid_ai_output');
 
-      return new Response(
-        JSON.stringify({ ok: true, rendered: false, error: 'No image in AI response' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
+        return new Response(
+          JSON.stringify({ ok: true, rendered: false, error: errorMessage }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      throw providerError;
     }
-
-    // ── Decode output ──
-    const outputBase64 = imageData.split(',')[1];
-    const binaryStr = atob(outputBase64);
-    const outputBytes = new Uint8Array(binaryStr.length);
-    for (let i = 0; i < binaryStr.length; i++) outputBytes[i] = binaryStr.charCodeAt(i);
 
     console.log('render_garment_image Gemini response received', {
       garmentId: garment.id,
       provider: 'gemini',
+      model: GEMINI_IMAGE_MODEL,
+      endpoint: GEMINI_IMAGE_API_URL,
       outputBytes: outputBytes.length,
+      outputMimeType,
     });
 
     // ── Quality gate v1: structural checks ──
@@ -343,7 +492,7 @@ serve(async (req) => {
 
     if (outputBytes.length < MIN_SIZE_BYTES) {
       await safeMarkRenderFailed(supabase, garment.id, {
-        render_error: `Output too small (${outputBytes.length} bytes). Likely blank or corrupt.`,
+        render_error: `Quality gate rejected image: output too small (${outputBytes.length} bytes). Likely blank or corrupt.`,
       }, 'quality_gate_output_too_small');
 
       return new Response(
@@ -354,7 +503,7 @@ serve(async (req) => {
 
     if (outputBytes.length > MAX_SIZE_BYTES) {
       await safeMarkRenderFailed(supabase, garment.id, {
-        render_error: `Output too large (${outputBytes.length} bytes).`,
+        render_error: `Quality gate rejected image: output too large (${outputBytes.length} bytes).`,
       }, 'quality_gate_output_too_large');
 
       return new Response(
@@ -364,17 +513,18 @@ serve(async (req) => {
     }
 
     // ── Upload rendered image ──
-    const renderedPath = `${garment.user_id}/${garment.id}/rendered.png`;
+    const renderedExtension = extensionForMimeType(outputMimeType);
+    const renderedPath = `${garment.user_id}/${garment.id}/rendered.${renderedExtension}`;
 
     const { error: uploadError } = await supabase.storage
       .from('garments')
       .upload(renderedPath, outputBytes, {
-        contentType: 'image/png',
+        contentType: outputMimeType,
         upsert: true,
       });
 
     if (uploadError) {
-      throw new Error(`Failed to upload rendered image: ${uploadError.message}`);
+      throw new Error(`Storage upload failed for rendered image: ${uploadError.message}`);
     }
 
     // ── Update garment record ──
