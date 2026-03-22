@@ -53,6 +53,27 @@ function inferLayeringRole(category: string, subcategory: string | null): string
   return 'standalone';
 }
 
+
+function normalizeCategoryToken(value: string | null | undefined): string {
+  return String(value || '').trim().toLowerCase();
+}
+
+function classifyCoreSlot(category: string, subcategory: string | null): 'dress' | 'top' | 'bottom' | 'shoes' | 'outerwear' | 'accessory' | 'other' {
+  const both = `${normalizeCategoryToken(category)} ${normalizeCategoryToken(subcategory)}`.trim();
+  if (['dress', 'jumpsuit', 'overall', 'fullbody', 'full body', 'romper', 'klänning'].some(c => both.includes(c))) return 'dress';
+  if (['shoes', 'shoe', 'sneakers', 'boots', 'heels', 'sandals', 'loafers', 'footwear', 'skor', 'stövlar'].some(c => both.includes(c))) return 'shoes';
+  if (['outerwear', 'coat', 'jacket', 'blazer', 'trench', 'parka', 'jacka', 'kappa'].some(c => both.includes(c))) return 'outerwear';
+  if (['accessory', 'accessories', 'bag', 'hat', 'belt', 'scarf', 'smycke', 'väska'].some(c => both.includes(c))) return 'accessory';
+  if (['bottom', 'pants', 'jeans', 'trousers', 'shorts', 'skirt', 'chinos', 'leggings', 'byxor', 'kjol'].some(c => both.includes(c))) return 'bottom';
+  if (['top', 'shirt', 'blouse', 'sweater', 't-shirt', 'tee', 'polo', 'tank', 'hoodie', 'cardigan', 'skjorta', 'tröja'].some(c => both.includes(c))) return 'top';
+  return 'other';
+}
+
+function isCompleteCoreOutfit(slotNames: Iterable<string>): boolean {
+  const slots = new Set(slotNames);
+  return (slots.has('dress') && slots.has('shoes')) || (slots.has('top') && slots.has('bottom') && slots.has('shoes'));
+}
+
 // ─────────────────────────────────────────────
 // PACK-WORTHINESS SCORING (Phase 2)
 // ─────────────────────────────────────────────
@@ -317,12 +338,13 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
     let lastError: Error | null = null;
 
     const buildDeterministicFallback = () => {
-      const occasionCount = occasions?.length || 1;
-      const tops = garments.filter(g => g.category === "top").slice(0, 6);
-      const bottoms = garments.filter(g => g.category === "bottom").slice(0, 4);
-      const shoes = garments.filter(g => g.category === "shoes").slice(0, 3);
-      const outerwear = garments.filter(g => g.category === "outerwear").slice(0, 2);
-      const accessories = garments.filter(g => g.category === "accessory" || g.category === "accessories" || g.category === "bag").slice(0, 2);
+      const garmentLookup = new Map(garments.map(g => [g.id, g]));
+      const tops = garments.filter(g => classifyCoreSlot(g.category, g.subcategory) === 'top').slice(0, 6);
+      const bottoms = garments.filter(g => classifyCoreSlot(g.category, g.subcategory) === 'bottom').slice(0, 4);
+      const dresses = garments.filter(g => classifyCoreSlot(g.category, g.subcategory) === 'dress').slice(0, 3);
+      const shoes = garments.filter(g => classifyCoreSlot(g.category, g.subcategory) === 'shoes').slice(0, 3);
+      const outerwear = garments.filter(g => classifyCoreSlot(g.category, g.subcategory) === 'outerwear').slice(0, 2);
+      const accessories = garments.filter(g => classifyCoreSlot(g.category, g.subcategory) === 'accessory').slice(0, 2);
 
       const capsuleItems = Array.from(new Set([
         ...mustHaveIds,
@@ -338,11 +360,18 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       for (let day = 1; day <= duration_days && outfits.length < totalOutfits; day++) {
         for (let slot = 0; slot < outfitsPerDay && outfits.length < totalOutfits; slot++) {
           const idx = outfits.length;
-          const items = [
-            tops[idx % Math.max(tops.length, 1)]?.id,
-            bottoms[idx % Math.max(bottoms.length, 1)]?.id,
-            shoes[idx % Math.max(shoes.length, 1)]?.id,
-          ].filter(Boolean) as string[];
+          const baseItems = dresses.length > 0 && (idx % Math.max(dresses.length + tops.length, 1)) < dresses.length
+            ? [
+                dresses[idx % Math.max(dresses.length, 1)]?.id,
+                shoes[idx % Math.max(shoes.length, 1)]?.id,
+              ]
+            : [
+                tops[idx % Math.max(tops.length, 1)]?.id,
+                bottoms[idx % Math.max(bottoms.length, 1)]?.id,
+                shoes[idx % Math.max(shoes.length, 1)]?.id,
+              ];
+
+          const items = baseItems.filter(Boolean) as string[];
 
           if ((weather?.temperature_min ?? 15) <= 12 && outerwear.length > 0) {
             items.push(outerwear[idx % outerwear.length].id);
@@ -353,7 +382,11 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
           }
 
           const uniqueItems = Array.from(new Set(items)).slice(0, 4);
-          if (uniqueItems.length < 2) continue;
+          const uniqueSlots = uniqueItems
+            .map((itemId) => garmentLookup.get(itemId))
+            .filter((garment): garment is GarmentRow => Boolean(garment))
+            .map((garment) => classifyCoreSlot(garment.category, garment.subcategory));
+          if (!isCompleteCoreOutfit(uniqueSlots)) continue;
 
           outfits.push({
             day,
@@ -468,22 +501,12 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
 
     const garmentById = new Map(garments.map(g => [g.id, g]));
 
-    function categorizeForCoverage(cat: string, sub: string | null): string {
-      const both = `${cat} ${sub || ''}`.toLowerCase();
-      if (['dress', 'jumpsuit', 'romper'].some(c => both.includes(c))) return 'fullbody';
-      if (['top', 'shirt', 'blouse', 'sweater', 't-shirt', 'polo', 'tank', 'hoodie', 'cardigan'].some(c => both.includes(c))) return 'top';
-      if (['bottom', 'pants', 'jeans', 'trousers', 'shorts', 'skirt', 'chinos', 'leggings'].some(c => both.includes(c))) return 'bottom';
-      if (['shoes', 'sneakers', 'boots', 'sandals', 'loafers', 'heels', 'footwear'].some(c => both.includes(c))) return 'shoes';
-      if (['outerwear', 'jacket', 'coat', 'blazer', 'parka'].some(c => both.includes(c))) return 'outerwear';
-      return 'other';
-    }
-
     // Build lookup for capsule garments by coverage slot
     const capsuleBySlot: Record<string, string[]> = {};
     for (const id of resolvedItems) {
       const g = garmentById.get(id);
       if (!g) continue;
-      const slot = categorizeForCoverage(g.category, g.subcategory);
+      const slot = classifyCoreSlot(g.category, g.subcategory);
       if (!capsuleBySlot[slot]) capsuleBySlot[slot] = [];
       capsuleBySlot[slot].push(id);
     }
@@ -497,16 +520,16 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       const slots = new Set<string>();
       for (const id of outfit.items) {
         const g = garmentById.get(id);
-        if (g) slots.add(categorizeForCoverage(g.category, g.subcategory));
+        if (g) slots.add(classifyCoreSlot(g.category, g.subcategory));
       }
 
-      const hasFullbody = slots.has('fullbody');
+      const hasDress = slots.has('dress');
       const hasTop = slots.has('top');
       const hasBottom = slots.has('bottom');
       const hasShoes = slots.has('shoes');
 
-      // Valid paths: (top + bottom + shoes) or (fullbody + shoes)
-      const isComplete = (hasFullbody && hasShoes) || (hasTop && hasBottom && hasShoes);
+      // Valid paths: (top + bottom + shoes) or (dress + shoes)
+      const isComplete = isCompleteCoreOutfit(slots);
 
       if (isComplete) {
         validatedOutfits.push(outfit);
@@ -527,7 +550,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
         }
       };
 
-      if (!hasFullbody) {
+      if (!hasDress) {
         if (!hasTop) tryPatch('top');
         if (!hasBottom) tryPatch('bottom');
       }
@@ -537,10 +560,9 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       const patchedSlots = new Set<string>();
       for (const id of patched) {
         const g = garmentById.get(id);
-        if (g) patchedSlots.add(categorizeForCoverage(g.category, g.subcategory));
+        if (g) patchedSlots.add(classifyCoreSlot(g.category, g.subcategory));
       }
-      const patchedComplete = (patchedSlots.has('fullbody') && patchedSlots.has('shoes')) ||
-        (patchedSlots.has('top') && patchedSlots.has('bottom') && patchedSlots.has('shoes'));
+      const patchedComplete = isCompleteCoreOutfit(patchedSlots);
 
       if (patchedComplete) {
         validatedOutfits.push({ ...outfit, items: patched });

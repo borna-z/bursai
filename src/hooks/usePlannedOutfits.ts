@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { OutfitWithItems } from './useOutfits';
 import { addDays, format, startOfDay } from 'date-fns';
-import { validateBaseOutfit } from '@/lib/outfitValidation';
+import { validateCompleteOutfit } from '@/lib/outfitValidation';
 
 export interface PlannedOutfit {
   id: string;
@@ -57,7 +57,7 @@ export function usePlannedOutfits(dateRange?: DateRange) {
       if (error) throw error;
       return (data as PlannedOutfit[]).map((entry) => ({
         ...entry,
-        outfit: entry.outfit && validateBaseOutfit(entry.outfit.outfit_items || []).isValid ? entry.outfit : null,
+        outfit: entry.outfit && validateCompleteOutfit(entry.outfit.outfit_items || []).isValid ? entry.outfit : null,
       }));
     },
     enabled: !!user,
@@ -82,7 +82,7 @@ export function usePlannedOutfitsForDate(date: string) {
       if (error) throw error;
       return (data as PlannedOutfit[]).map((entry) => ({
         ...entry,
-        outfit: entry.outfit && validateBaseOutfit(entry.outfit.outfit_items || []).isValid ? entry.outfit : null,
+        outfit: entry.outfit && validateCompleteOutfit(entry.outfit.outfit_items || []).isValid ? entry.outfit : null,
       }));
     },
     enabled: !!user && !!date,
@@ -108,7 +108,7 @@ export function usePlannedOutfitForDate(date: string) {
       if (error) throw error;
       const entry = data as PlannedOutfit | null;
       if (!entry?.outfit) return entry;
-      return validateBaseOutfit(entry.outfit.outfit_items || []).isValid ? entry : { ...entry, outfit: null };
+      return validateCompleteOutfit(entry.outfit.outfit_items || []).isValid ? entry : { ...entry, outfit: null };
     },
     enabled: !!user && !!date,
   });

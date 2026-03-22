@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useWeather } from '@/hooks/useWeather';
-import { validateBaseOutfit } from '@/lib/outfitValidation';
+import { validateCompleteOutfit } from '@/lib/outfitValidation';
 import { useGarmentCount } from '@/hooks/useGarments';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -82,7 +82,7 @@ export function useAISuggestions() {
       }
 
       const suggestions = (response.data?.suggestions || []).filter((suggestion) =>
-        validateBaseOutfit((suggestion.garments || []).map((garment) => ({ garment }))).isValid
+        validateCompleteOutfit((suggestion.garments || []).map((garment) => ({ garment }))).isValid
       );
 
       const garmentIds = Array.from(new Set(suggestions.flatMap((suggestion) => suggestion.garment_ids || [])));

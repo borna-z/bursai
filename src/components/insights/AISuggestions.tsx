@@ -23,7 +23,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
-import { inferOutfitSlotFromGarment, validateBaseOutfit } from '@/lib/outfitValidation';
+import { inferOutfitSlotFromGarment, validateCompleteOutfit } from '@/lib/outfitValidation';
 
 /* ── Loading indicator ── */
 function LoadingIndicator() {
@@ -208,7 +208,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
     if (!user) return;
     setCreatingOutfitId(index);
     try {
-      const baseValidation = validateBaseOutfit(suggestion.garments.map((garment) => ({ garment })));
+      const baseValidation = validateCompleteOutfit(suggestion.garments.map((garment) => ({ garment })));
       if (!baseValidation.isValid) {
         throw new Error(`Refusing to persist invalid outfit suggestion. Missing: ${baseValidation.missing.join(', ')}`);
       }
