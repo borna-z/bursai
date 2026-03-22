@@ -101,8 +101,8 @@ async function generateGarmentRenderWithGeminiDirect(opts: {
             { text: opts.prompt },
             {
               inlineData: {
-                mimeType: dataUrl.slice(5, dataUrl.indexOf(';')),
-                data: dataUrl.split(',')[1],
+                mimeType: opts.dataUrl.slice(5, opts.dataUrl.indexOf(';')),
+                data: opts.dataUrl.split(',')[1],
               },
             },
           ],
