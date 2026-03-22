@@ -105,7 +105,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
           imageContainsMultipleGarments: item.analysis.image_contains_multiple_garments,
         }),
       }),
-      ...buildGarmentIntelligenceFields({ storagePath: item.storagePath }),
+      ...buildGarmentIntelligenceFields({ storagePath: item.storagePath, enableRender: true }),
     });
 
     triggerGarmentPostSaveIntelligence({

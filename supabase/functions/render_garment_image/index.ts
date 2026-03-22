@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { bursAIErrorResponse } from '../_shared/burs-ai.ts';
 import { allowedOrigin } from '../_shared/cors.ts';
 import { assessRenderEligibilityWithGemini, PRODUCT_READY_RENDER_GATE_PROVIDER } from '../_shared/render-eligibility.ts';
+import { mannequinPresentationInstruction, normalizeMannequinPresentation } from '../_shared/mannequin-presentation.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': allowedOrigin,
@@ -294,7 +295,7 @@ function buildGarmentRenderPrompt(garment: {
   pattern: string | null;
   fit: string | null;
   ai_raw: unknown;
-}): string {
+}, mannequinPresentation: 'male' | 'female' | 'mixed'): string {
   const enrichment = extractPromptEnrichment(garment.ai_raw);
   const metadataLines = [
     garment.category ? `- Category: ${garment.category}` : null,
@@ -328,6 +329,7 @@ function buildGarmentRenderPrompt(garment: {
     'Hard requirements:',
     '- Show one garment only',
     '- Convert it into a ghost mannequin / shadow mannequin product render',
+    `- ${mannequinPresentationInstruction(mannequinPresentation)}`,
     '- Preserve the EXACT color, silhouette, proportions, material texture, pattern or print, graphics or logos if present, buttons, zipper, pockets, collar, neckline, sleeves, hem, seams, trim, and all distinctive construction details from the reference image',
     '- Reconstruct hidden interior or occluded garment areas only as needed to complete the garment naturally and realistically',
     '- Remove the person, body, head, skin, hair, hands, mannequin, hanger, props, and the original background completely',
@@ -503,7 +505,7 @@ serve(async (req) => {
       .from('garments')
       .select(
         'id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, ai_raw, ' +
-        'original_image_path, processed_image_path, image_path, image_processing_status, render_status, render_error, rendered_image_path',
+        'original_image_path, processed_image_path, image_path, image_processing_status, render_status, render_error, rendered_image_path, render_presentation_used',
       )
       .eq('id', garmentId)
       .eq('user_id', user.id)
@@ -543,6 +545,18 @@ serve(async (req) => {
     }
 
     const hasGeminiApiKey = Boolean(Deno.env.get('GEMINI_API_KEY')?.trim());
+    if (!hasGeminiApiKey) {
+      throw new Error('GEMINI_API_KEY not configured for render_garment_image');
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('mannequin_presentation')
+      .eq('id', garment.user_id)
+      .maybeSingle();
+
+    const mannequinPresentation = normalizeMannequinPresentation(profile?.mannequin_presentation);
+
     console.log('render_garment_image Gemini provider config', {
       garmentId: garment.id,
       provider: 'gemini',
@@ -551,11 +565,8 @@ serve(async (req) => {
       endpoint: GEMINI_IMAGE_API_URL,
       sourceImagePath,
       usedProcessedSource: sourceImagePath === garment.processed_image_path,
+      mannequinPresentation,
     });
-
-    if (!hasGeminiApiKey) {
-      throw new Error('GEMINI_API_KEY not configured for render_garment_image');
-    }
 
     // ── Download source image as base64 ──
     const { data: signedUrlData, error: signedUrlError } = await supabase.storage
@@ -604,6 +615,7 @@ serve(async (req) => {
         : eligibilityAssessment.confidence.toFixed(2);
       await updateGarmentRenderState(supabase, garment.id, {
         render_status: 'skipped',
+        render_presentation_used: mannequinPresentation,
         render_provider: PRODUCT_READY_RENDER_GATE_PROVIDER,
         render_error: `Skipped render: ${eligibilityAssessment.reason} (confidence=${confidenceLabel})`,
         rendered_image_path: null,
@@ -624,12 +636,13 @@ serve(async (req) => {
     // ── Mark as rendering ──
     await updateGarmentRenderState(supabase, garment.id, {
       render_status: 'rendering',
+      render_presentation_used: mannequinPresentation,
       render_error: null,
       render_provider: 'gemini',
     }, 'Failed to mark garment as rendering');
 
     // ── Build prompt ──
-    const prompt = buildGarmentRenderPrompt(garment);
+    const prompt = buildGarmentRenderPrompt(garment, mannequinPresentation);
 
     console.log('render_garment_image Gemini request start', {
       garmentId: garment.id,
@@ -741,6 +754,7 @@ serve(async (req) => {
     // ── Update garment record ──
     await updateGarmentRenderState(supabase, garment.id, {
       rendered_image_path: renderedPath,
+      render_presentation_used: mannequinPresentation,
       render_status: 'ready',
       render_provider: 'gemini',
       render_error: null,

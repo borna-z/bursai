@@ -184,7 +184,7 @@ export function triggerGarmentPostSaveIntelligence({
   }
 
   // Gemini render pipeline — pilot: Add Photo only
-  const shouldRender = !skipRender && source === 'add_photo';
+  const shouldRender = !skipRender && (source === 'add_photo' || source === 'batch_add');
   if (shouldRender) {
     startGarmentRenderInBackground(garmentId, source).catch((err) => {
       console.error(`[${source}] garment render trigger error (non-blocking):`, err);

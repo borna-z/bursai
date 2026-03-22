@@ -15,6 +15,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { cn } from '@/lib/utils';
 import type { StyleProfile } from '@/types/preferences';
 import type { Json, TablesUpdate } from '@/integrations/supabase/types';
+import { mannequinPresentationFromStyleProfileGender } from '@/lib/mannequinPresentation';
 
 // ── Color palette ──
 
@@ -60,6 +61,9 @@ export default function SettingsStyle() {
     const newSp = { ...sp, [key]: value };
     try {
       await updateProfile.mutateAsync({
+        mannequin_presentation: key === 'gender'
+          ? mannequinPresentationFromStyleProfileGender(value)
+          : undefined,
         preferences: { ...prefs, styleProfile: newSp } as Json,
       });
     } catch { toast.error(t('settings.pref_error')); }

@@ -32,6 +32,7 @@ export interface ProfilePreferences {
   accent_color?: string;
   language?: string;
   style_profile?: StyleProfile;
+  styleProfile?: StyleProfile;
   notifications?: NotificationPreferences;
   [key: string]: unknown;
 }

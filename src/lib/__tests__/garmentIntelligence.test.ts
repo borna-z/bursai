@@ -112,7 +112,7 @@ describe('triggerGarmentPostSaveIntelligence', () => {
     expect(vi.mocked(invokeEdgeFunction)).not.toHaveBeenCalledWith('process_garment_image', expect.anything());
   });
 
-  it('keeps background removal enabled for batch add', async () => {
+  it('keeps background removal enabled for batch add and also triggers render', async () => {
     triggerGarmentPostSaveIntelligence({
       garmentId: 'garment-2',
       storagePath: 'user-1/photo.jpg',
@@ -124,10 +124,9 @@ describe('triggerGarmentPostSaveIntelligence', () => {
       expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('process_garment_image', expect.objectContaining({
         body: { garmentId: 'garment-2', source: 'batch_add' },
       }));
+      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
+        body: { garmentId: 'garment-2', source: 'batch_add' },
+      }));
     });
-
-    expect(vi.mocked(invokeEdgeFunction)).not.toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
-      body: { garmentId: 'garment-2', source: 'batch_add' },
-    }));
   });
 });

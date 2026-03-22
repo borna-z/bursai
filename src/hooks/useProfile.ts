@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { safeParse, profileSchema } from '@/lib/schemas';
 import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
+import { normalizeMannequinPresentation } from '@/lib/mannequinPresentation';
 
 export type Profile = Tables<'profiles'>;
 
@@ -32,6 +33,7 @@ export function useProfile() {
             id: user.id,
             display_name: displayName,
             preferences: { onboarding: { completed: false } },
+            mannequin_presentation: 'mixed',
           })
           .select()
           .single();
@@ -47,10 +49,17 @@ export function useProfile() {
           // Other errors: return minimal profile so app doesn't loop
           return { id: user.id, display_name: displayName, preferences: { onboarding: { completed: false } } } as unknown as Profile;
         }
-        return newProfile as Profile;
+        return {
+          ...newProfile,
+          mannequin_presentation: normalizeMannequinPresentation(newProfile.mannequin_presentation),
+        } as Profile;
       }
       
-      return safeParse(profileSchema, data, 'profile') as unknown as Profile;
+      const parsed = safeParse(profileSchema, data, 'profile') as unknown as Profile;
+      return {
+        ...parsed,
+        mannequin_presentation: normalizeMannequinPresentation(parsed.mannequin_presentation),
+      } as Profile;
     },
     enabled: !!user,
     staleTime: 10 * 60 * 1000,

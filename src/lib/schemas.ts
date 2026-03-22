@@ -37,6 +37,7 @@ export const profileSchema = z.object({
   username: z.string().nullable().optional(),
   ics_url: z.string().nullable().optional(),
   stripe_customer_id: z.string().nullable().optional(),
+  mannequin_presentation: z.enum(['male', 'female', 'mixed']).nullable().optional(),
   preferences: z.unknown().transform((v) => {
     const result = profilePreferencesSchema.safeParse(v);
     return result.success ? result.data : (v as ProfilePreferences);
@@ -77,6 +78,7 @@ export const garmentSchema = z.object({
   ai_provider: z.string().nullable().optional(),
   ai_raw: z.unknown().nullable().optional(),
   rendered_image_path: z.string().nullable().optional(),
+  render_presentation_used: z.enum(['male', 'female', 'mixed']).nullable().optional(),
   render_status: z.string().optional(),
   created_at: z.string().nullable().optional(),
   updated_at: z.string().nullable().optional(),

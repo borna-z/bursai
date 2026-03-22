@@ -421,6 +421,7 @@ export type Database = {
           pattern: string | null
           processed_image_path: string | null
           render_error: string | null
+          render_presentation_used: string | null
           render_provider: string | null
           render_status: string
           rendered_at: string | null
@@ -464,6 +465,7 @@ export type Database = {
           pattern?: string | null
           processed_image_path?: string | null
           render_error?: string | null
+          render_presentation_used?: string | null
           render_provider?: string | null
           render_status?: string
           rendered_at?: string | null
@@ -507,6 +509,7 @@ export type Database = {
           pattern?: string | null
           processed_image_path?: string | null
           render_error?: string | null
+          render_presentation_used?: string | null
           render_provider?: string | null
           render_status?: string
           rendered_at?: string | null
@@ -873,6 +876,7 @@ export type Database = {
           id: string
           is_premium: boolean | null
           last_calendar_sync: string | null
+          mannequin_presentation: string
           preferences: Json | null
           stripe_customer_id: string | null
           updated_at: string | null
@@ -890,6 +894,7 @@ export type Database = {
           id: string
           is_premium?: boolean | null
           last_calendar_sync?: string | null
+          mannequin_presentation?: string
           preferences?: Json | null
           stripe_customer_id?: string | null
           updated_at?: string | null
@@ -907,6 +912,7 @@ export type Database = {
           id?: string
           is_premium?: boolean | null
           last_calendar_sync?: string | null
+          mannequin_presentation?: string
           preferences?: Json | null
           stripe_customer_id?: string | null
           updated_at?: string | null
