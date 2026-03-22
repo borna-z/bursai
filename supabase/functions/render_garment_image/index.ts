@@ -87,6 +87,8 @@ async function generateGarmentRenderWithGeminiDirect(opts: {
   prompt: string;
   dataUrl: string;
 }): Promise<{ outputBytes: Uint8Array; mimeType: string }> {
+  const sourceDataUrl = opts.dataUrl;
+
   const response = await fetch(GEMINI_IMAGE_API_URL, {
     method: 'POST',
     headers: {
@@ -101,8 +103,8 @@ async function generateGarmentRenderWithGeminiDirect(opts: {
             { text: opts.prompt },
             {
               inlineData: {
-                mimeType: dataUrl.slice(5, dataUrl.indexOf(';')),
-                data: dataUrl.split(',')[1],
+                mimeType: sourceDataUrl.slice(5, sourceDataUrl.indexOf(';')),
+                data: sourceDataUrl.split(',')[1],
               },
             },
           ],
