@@ -4,11 +4,12 @@ import { cn } from '@/lib/utils';
 
 interface GarmentProcessingBadgeProps {
   status?: string | null;
+  renderStatus?: string | null;
   className?: string;
 }
 
-export function GarmentProcessingBadge({ status, className }: GarmentProcessingBadgeProps) {
-  const message = getGarmentProcessingMessage(status);
+export function GarmentProcessingBadge({ status, renderStatus, className }: GarmentProcessingBadgeProps) {
+  const message = getGarmentProcessingMessage(status, renderStatus);
 
   if (!message) return null;
 

@@ -138,7 +138,11 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({ garment
           <p className="text-xs text-muted-foreground capitalize">
             {t(`garment.category.${garment.category}`)} · {t(`color.${garment.color_primary}`)}
           </p>
-          <GarmentProcessingBadge status={garment.image_processing_status} className="mt-1" />
+          <GarmentProcessingBadge
+            status={garment.image_processing_status}
+            renderStatus={garment.render_status}
+            className="mt-1"
+          />
           {(garment.formality != null || ((garment.ai_raw as Record<string, unknown>)?.occasions as string[] | undefined)?.length) && (
             <div className="flex flex-row items-center gap-2 max-h-[28px]">
               {garment.formality != null && (
