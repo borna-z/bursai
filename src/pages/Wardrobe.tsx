@@ -86,7 +86,11 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm truncate">{garment.title}</p>
           <p className="text-xs text-muted-foreground capitalize">{categoryLabel(t, garment.category)} · {colorLabel(t, garment.color_primary)}</p>
-          <GarmentProcessingBadge status={garment.image_processing_status} className="mt-1" />
+          <GarmentProcessingBadge
+            status={garment.image_processing_status}
+            renderStatus={garment.render_status}
+            className="mt-1"
+          />
         </div>
       </motion.button>
     );
@@ -116,7 +120,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
           fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/50" />}
         />
         <div className="absolute left-2 bottom-2">
-          <GarmentProcessingBadge status={garment.image_processing_status} />
+          <GarmentProcessingBadge status={garment.image_processing_status} renderStatus={garment.render_status} />
         </div>
         {isSelecting && (
           <div className="absolute top-2 left-2">

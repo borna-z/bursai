@@ -90,7 +90,10 @@ export function useGarments(filters?: GarmentFilters) {
       const pages = query.state.data?.pages ?? [];
       const hasProcessingGarments = pages.some((page) =>
         page.items.some((garment) =>
-          garment.image_processing_status === 'pending' || garment.image_processing_status === 'processing'
+          garment.image_processing_status === 'pending' ||
+          garment.image_processing_status === 'processing' ||
+          garment.render_status === 'pending' ||
+          garment.render_status === 'rendering'
         )
       );
 

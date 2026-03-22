@@ -240,6 +240,105 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error ?? 'Unknown error');
 }
 
+type RenderPromptEnrichment = {
+  neckline: string | null;
+  sleeveLength: string | null;
+  garmentLength: string | null;
+  closure: string | null;
+  fabricWeight: string | null;
+  silhouette: string | null;
+  drape: string | null;
+  hemDetail: string | null;
+  rise: string | null;
+  legShape: string | null;
+};
+
+function normalizeMetadataValue(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  if (!normalized) return null;
+  if (normalized === 'null' || normalized === 'unknown' || normalized === 'n/a') return null;
+  return normalized;
+}
+
+function extractPromptEnrichment(aiRaw: unknown): RenderPromptEnrichment {
+  const raw = aiRaw && typeof aiRaw === 'object' && !Array.isArray(aiRaw)
+    ? aiRaw as Record<string, unknown>
+    : null;
+  const enrichment = raw?.enrichment && typeof raw.enrichment === 'object' && !Array.isArray(raw.enrichment)
+    ? raw.enrichment as Record<string, unknown>
+    : null;
+
+  return {
+    neckline: normalizeMetadataValue(enrichment?.neckline),
+    sleeveLength: normalizeMetadataValue(enrichment?.sleeve_length),
+    garmentLength: normalizeMetadataValue(enrichment?.garment_length),
+    closure: normalizeMetadataValue(enrichment?.closure),
+    fabricWeight: normalizeMetadataValue(enrichment?.fabric_weight),
+    silhouette: normalizeMetadataValue(enrichment?.silhouette),
+    drape: normalizeMetadataValue(enrichment?.drape),
+    hemDetail: normalizeMetadataValue(enrichment?.hem_detail),
+    rise: normalizeMetadataValue(enrichment?.rise),
+    legShape: normalizeMetadataValue(enrichment?.leg_shape),
+  };
+}
+
+function buildGarmentRenderPrompt(garment: {
+  title: string;
+  category: string;
+  subcategory: string | null;
+  color_primary: string;
+  color_secondary: string | null;
+  material: string | null;
+  pattern: string | null;
+  fit: string | null;
+  ai_raw: unknown;
+}): string {
+  const enrichment = extractPromptEnrichment(garment.ai_raw);
+  const metadataLines = [
+    garment.category ? `- Category: ${garment.category}` : null,
+    garment.subcategory ? `- Subcategory: ${garment.subcategory}` : null,
+    garment.color_primary ? `- Primary color: ${garment.color_primary}` : null,
+    garment.color_secondary ? `- Secondary color: ${garment.color_secondary}` : null,
+    garment.pattern && garment.pattern !== 'solid' ? `- Pattern or print: ${garment.pattern}` : null,
+    garment.material ? `- Material or fabric: ${garment.material}` : null,
+    garment.fit ? `- Fit: ${garment.fit}` : null,
+    enrichment.silhouette ? `- Silhouette: ${enrichment.silhouette}` : null,
+    enrichment.sleeveLength ? `- Sleeve length: ${enrichment.sleeveLength}` : null,
+    enrichment.neckline ? `- Collar or neckline: ${enrichment.neckline}` : null,
+    enrichment.closure ? `- Closure: ${enrichment.closure}` : null,
+    enrichment.fabricWeight ? `- Fabric weight: ${enrichment.fabricWeight}` : null,
+    enrichment.garmentLength ? `- Garment length: ${enrichment.garmentLength}` : null,
+    enrichment.rise ? `- Rise: ${enrichment.rise}` : null,
+    enrichment.legShape ? `- Leg shape: ${enrichment.legShape}` : null,
+    enrichment.drape ? `- Drape: ${enrichment.drape}` : null,
+    enrichment.hemDetail ? `- Hem detail: ${enrichment.hemDetail}` : null,
+  ].filter((value): value is string => Boolean(value));
+
+  const garmentLabel = garment.subcategory ?? garment.category ?? garment.title;
+
+  return [
+    'Create exactly one premium studio e-commerce image of the single garment shown in the reference photo.',
+    'Use the reference image as the source of truth. Metadata below is only a steering hint when it matches the image.',
+    `Garment type: ${garmentLabel}.`,
+    metadataLines.length > 0
+      ? ['Use these confirmed garment details when visible in the reference image:', ...metadataLines].join('\n')
+      : 'No extra garment metadata is available beyond the reference image.',
+    'Hard requirements:',
+    '- Show one garment only',
+    '- Convert it into a ghost mannequin / shadow mannequin product render',
+    '- Preserve the EXACT color, silhouette, proportions, material texture, pattern or print, graphics or logos if present, buttons, zipper, pockets, collar, neckline, sleeves, hem, seams, trim, and all distinctive construction details from the reference image',
+    '- Reconstruct hidden interior or occluded garment areas only as needed to complete the garment naturally and realistically',
+    '- Remove the person, body, head, skin, hair, hands, mannequin, hanger, props, and the original background completely',
+    '- Keep the garment centered with clean soft catalog lighting on a pure white background',
+    '- Make the result commercially usable and photorealistic',
+    'Negative requirements:',
+    '- No extra garments, no layering, no duplicate pieces',
+    '- No redesign, no embellishment, no color shift, no silhouette change, no invented details',
+    '- No text, watermark, labels, packaging, accessories, or decorative props',
+    '- Return only the edited image',
+  ].join('\n');
+}
 
 function extensionForMimeType(mimeType: string): string {
   switch (mimeType.toLowerCase()) {
@@ -402,7 +501,7 @@ serve(async (req) => {
     const { data: garment, error: garmentError } = await supabase
       .from('garments')
       .select(
-        'id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, ' +
+        'id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, ai_raw, ' +
         'original_image_path, processed_image_path, image_path, image_processing_status, render_status',
       )
       .eq('id', garmentId)
@@ -491,34 +590,7 @@ serve(async (req) => {
     const dataUrl = `data:${mimeType};base64,${base64}`;
 
     // ── Build prompt ──
-    const parts = [garment.color_primary];
-    if (garment.color_secondary) parts.push(`and ${garment.color_secondary}`);
-    if (garment.material) parts.push(garment.material);
-    if (garment.pattern && garment.pattern !== 'solid') parts.push(garment.pattern);
-    if (garment.fit) parts.push(`${garment.fit} fit`);
-
-    const itemName = garment.subcategory
-      ? `${garment.subcategory} ${garment.category}`
-      : garment.title;
-
-    const prompt = [
-      `Create one studio e-commerce product image of only the garment from the reference photo.`,
-      `Output a ghost mannequin / shadow mannequin result, as if the garment is worn by an invisible form.`,
-      `Garment description: ${parts.join(' ')} ${itemName}.`,
-      `Hard requirements:`,
-      `- Keep only the garment from the reference image`,
-      `- Preserve the EXACT color, silhouette, fabric texture, print, logo placement, buttons, pockets, sleeve length, collar, hem, and proportions`,
-      `- Remove the person, body, face, hair, hands, mannequin, hanger, props, and background completely`,
-      `- Reconstruct any hidden or occluded garment areas naturally so the garment looks complete and commercially usable`,
-      `- Center the single garment in frame`,
-      `- Use a clean pure white studio background with soft realistic catalog lighting`,
-      `- Maintain a premium fashion e-commerce product photo look`,
-      `Negative requirements:`,
-      `- No extra garments or layering`,
-      `- No redesign, no embellishment, no color shift, no style change`,
-      `- No text, labels, watermark, branding additions, or decorative props`,
-      `- Do not describe the edit in text; return the edited image`,
-    ].join('\n');
+    const prompt = buildGarmentRenderPrompt(garment);
 
     console.log('render_garment_image Gemini request start', {
       garmentId: garment.id,

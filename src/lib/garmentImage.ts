@@ -37,16 +37,20 @@ export function getGarmentProcessingMessage(
 ): { label: string; tone: 'muted' | 'success' } | null {
   // Render status takes precedence when active
   if (renderStatus === 'pending' || renderStatus === 'rendering') {
-    return { label: 'Generating wardrobe image', tone: 'muted' };
+    return { label: 'Rendering mannequin image in background', tone: 'muted' };
+  }
+
+  if (renderStatus === 'failed') {
+    return { label: 'Using original photo', tone: 'muted' };
   }
 
   switch (status) {
     case 'pending':
-      return { label: 'Using original photo for now', tone: 'muted' };
+      return { label: 'Preparing image in background', tone: 'muted' };
     case 'processing':
       return { label: 'Background cleanup in progress', tone: 'muted' };
     case 'failed':
-      return { label: 'Original photo kept', tone: 'muted' };
+      return { label: 'Using original photo', tone: 'muted' };
     default:
       return null;
   }

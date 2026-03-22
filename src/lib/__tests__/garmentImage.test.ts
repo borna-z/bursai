@@ -61,28 +61,36 @@ describe('garmentImage', () => {
 
   it('returns soft fallback copy for failed processing', () => {
     expect(getGarmentProcessingMessage('failed')).toEqual({
-      label: 'Original photo kept',
+      label: 'Using original photo',
       tone: 'muted',
     });
   });
 
   it('shows render message when render is pending', () => {
     expect(getGarmentProcessingMessage('ready', 'pending')).toEqual({
-      label: 'Generating wardrobe image',
+      label: 'Rendering mannequin image in background',
       tone: 'muted',
     });
   });
 
   it('shows render message when rendering', () => {
     expect(getGarmentProcessingMessage('ready', 'rendering')).toEqual({
-      label: 'Generating wardrobe image',
+      label: 'Rendering mannequin image in background',
+      tone: 'muted',
+    });
+  });
+
+
+  it('shows neutral fallback copy when render fails', () => {
+    expect(getGarmentProcessingMessage('ready', 'failed')).toEqual({
+      label: 'Using original photo',
       tone: 'muted',
     });
   });
 
   it('falls through to processing message when render is none', () => {
     expect(getGarmentProcessingMessage('pending', 'none')).toEqual({
-      label: 'Using original photo for now',
+      label: 'Preparing image in background',
       tone: 'muted',
     });
   });
