@@ -19,7 +19,13 @@ export interface OutfitValidationResult {
 }
 
 export interface CompleteOutfitValidationResult extends Omit<OutfitValidationResult, 'missing'> {
-  missing: Array<'top' | 'bottom' | 'dress' | 'shoes'>;
+  missing: Array<'top' | 'bottom' | 'dress' | 'shoes' | 'outerwear'>;
+}
+
+export interface OutfitWeatherContext {
+  temperature?: number;
+  precipitation?: string | null;
+  wind?: string | null;
 }
 
 const DRESS_TOKENS = ['dress', 'jumpsuit', 'overall', 'fullbody', 'full body', 'romper', 'klänning'];
@@ -71,6 +77,41 @@ export function validateBaseOutfit<TGarment extends BasicGarmentLike>(items: Out
     missing,
     presentSlots,
   };
+}
+
+
+function requiresOuterwear(weather?: OutfitWeatherContext): boolean {
+  if (!weather) return false;
+  const temp = weather.temperature;
+  const precipitation = normalizeTokenValue(weather.precipitation);
+  const wind = normalizeTokenValue(weather.wind);
+  const coldEnough = temp !== undefined && temp < 8;
+  const wet = precipitation !== '' && !['none', 'ingen'].includes(precipitation);
+  const snowy = precipitation.includes('snow') || precipitation.includes('snö');
+  const highWind = wind === 'high' || wind === 'hög';
+  return coldEnough || wet || snowy || highWind;
+}
+
+export function getVisibleOutfitMissingSlots<TGarment extends BasicGarmentLike>(
+  items: OutfitValidationItem<TGarment>[],
+  weather?: OutfitWeatherContext,
+): CompleteOutfitValidationResult['missing'] {
+  const validation = validateCompleteOutfit(items);
+  const missing = [...validation.missing];
+  const slots = new Set(validation.presentSlots);
+
+  if (requiresOuterwear(weather) && !slots.has('outerwear')) {
+    missing.push('outerwear');
+  }
+
+  return Array.from(new Set(missing));
+}
+
+export function canBuildVisibleOutfit<TGarment extends BasicGarmentLike>(
+  items: OutfitValidationItem<TGarment>[],
+  weather?: OutfitWeatherContext,
+): boolean {
+  return getVisibleOutfitMissingSlots(items, weather).length === 0;
 }
 
 export function filterValidBaseOutfits<T extends { outfit_items?: OutfitValidationItem[] | null }>(outfits: T[]): T[] {
