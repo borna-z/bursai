@@ -378,7 +378,7 @@ describe('useLiveScan', () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-preview-url');
   });
 
-  it('finish() waits for background saves and invalidates garments, garments-count, and subscription queries', async () => {
+  it('finish() waits for background saves and invalidates required wardrobe and subscription queries', async () => {
     mockAuthUser();
     setupCanvasMock();
     setupFileReaderMock();
@@ -420,10 +420,37 @@ describe('useLiveScan', () => {
       await result.current.finish();
     });
 
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments'] });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments-count'] });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ai-suggestions'] });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['subscription'] });
-    expect(invalidateSpy).toHaveBeenCalledTimes(4);
+    const invalidatedKeys = invalidateSpy.mock.calls
+      .map(([arg]) => arg?.queryKey)
+      .filter((queryKey): queryKey is string[] => Array.isArray(queryKey));
+
+    expect(invalidatedKeys).toEqual(expect.arrayContaining([
+      ['garments'],
+      ['garments-count'],
+      ['ai-suggestions'],
+      ['subscription'],
+    ]));
+
+    expect(invalidatedKeys).toEqual(expect.arrayContaining([
+      ['garment'],
+      ['insights'],
+      ['outfits'],
+      ['planned-outfits'],
+      ['planned-outfits-day'],
+      ['garments-by-ids'],
+    ]));
+
+    expect(new Set(invalidatedKeys.map((queryKey) => queryKey.join('|')))).toEqual(new Set([
+      'garments',
+      'garments-count',
+      'garment',
+      'ai-suggestions',
+      'insights',
+      'outfits',
+      'planned-outfits',
+      'planned-outfits-day',
+      'garments-by-ids',
+      'subscription',
+    ]));
   });
 });
