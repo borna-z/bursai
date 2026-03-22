@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 const CATEGORIES = ['tops', 'bottoms', 'outerwear', 'shoes', 'dresses', 'accessories'];
 
@@ -154,7 +155,7 @@ export default function PickMustHaves() {
               >
                 <div className="aspect-[3/4] bg-muted/20">
                   <LazyImageSimple
-                    imagePath={g.image_path}
+                    imagePath={getPreferredGarmentImagePath(g)}
                     alt={g.title}
                     className="w-full h-full object-cover"
                   />

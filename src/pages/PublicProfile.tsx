@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { OutfitReactions } from '@/components/social/OutfitReactions';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 interface PublicProfile {
   id: string;
@@ -23,7 +24,16 @@ interface PublicOutfit {
   style_vibe: string | null;
   explanation: string | null;
   generated_at: string | null;
-  outfit_items: { id: string; slot: string; garment: { id: string; title: string; image_path: string } | null }[];
+  outfit_items: { id: string; slot: string; garment: {
+    id: string;
+    title: string;
+    image_path: string | null;
+    original_image_path?: string | null;
+    processed_image_path?: string | null;
+    image_processing_status?: string | null;
+    rendered_image_path?: string | null;
+    render_status?: string | null;
+  } | null }[];
 }
 
 export default function PublicProfile() {
@@ -60,13 +70,13 @@ export default function PublicProfile() {
       // Shared outfits
       const { data: outfitData } = await supabase
         .from('outfits')
-        .select('id, occasion, style_vibe, explanation, generated_at, outfit_items(id, slot, garment:garments(id, title, image_path))')
+        .select('id, occasion, style_vibe, explanation, generated_at, outfit_items(id, slot, garment:garments(id, title, image_path, original_image_path, processed_image_path, image_processing_status, rendered_image_path, render_status))')
         .eq('user_id', profileData.id)
         .eq('share_enabled', true)
         .order('generated_at', { ascending: false })
         .limit(12);
 
-      type RawOutfitItem = { id: string; slot: string; garment: { id: string; title: string; image_path: string } | null };
+      type RawOutfitItem = PublicOutfit['outfit_items'][number];
       type RawOutfit = {
         id: string; occasion: string; style_vibe: string | null;
         explanation: string | null; generated_at: string | null;
@@ -80,9 +90,10 @@ export default function PublicProfile() {
 
       // Load first garment image per outfit
       for (const outfit of transformed) {
-        const firstItem = outfit.outfit_items.find((i) => i.garment?.image_path);
-        if (firstItem?.garment?.image_path) {
-          const { data: urlData } = await supabase.storage.from('garments').createSignedUrl(firstItem.garment.image_path, 3600);
+        const firstItem = outfit.outfit_items.find((i) => i.garment && getPreferredGarmentImagePath(i.garment));
+        const imagePath = firstItem?.garment ? getPreferredGarmentImagePath(firstItem.garment) : undefined;
+        if (imagePath) {
+          const { data: urlData } = await supabase.storage.from('garments').createSignedUrl(imagePath, 3600);
           if (urlData) setImageUrls(prev => ({ ...prev, [outfit.id]: urlData.signedUrl }));
         }
       }
