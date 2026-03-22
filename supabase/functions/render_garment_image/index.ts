@@ -20,12 +20,29 @@ type GeminiInlineData = {
 };
 
 type GeminiPart = {
+  text?: string;
   inlineData?: GeminiInlineData;
   inline_data?: GeminiInlineData;
 };
 
+type GeminiSafetyRating = {
+  category?: string;
+  probability?: string;
+  blocked?: boolean;
+};
+
+type GeminiPromptFeedback = {
+  blockReason?: string;
+  block_reason?: string;
+  safetyRatings?: GeminiSafetyRating[];
+  safety_ratings?: GeminiSafetyRating[];
+};
+
 type GeminiCandidate = {
   finishReason?: string;
+  finish_reason?: string;
+  safetyRatings?: GeminiSafetyRating[];
+  safety_ratings?: GeminiSafetyRating[];
   content?: {
     parts?: GeminiPart[];
   };
@@ -33,6 +50,8 @@ type GeminiCandidate = {
 
 type GeminiGenerateContentResponse = {
   candidates?: GeminiCandidate[];
+  promptFeedback?: GeminiPromptFeedback;
+  prompt_feedback?: GeminiPromptFeedback;
   error?: {
     message?: string;
   };
@@ -70,15 +89,75 @@ function classifyGeminiError(status: number, message: string): RenderProviderErr
   return new RenderProviderError('gemini_api', `Gemini API error (${status}): ${message}`, status);
 }
 
+function extractGeminiParts(aiData: GeminiGenerateContentResponse | null): GeminiPart[] {
+  return aiData?.candidates?.flatMap((candidate) => candidate?.content?.parts ?? []) ?? [];
+}
+
 function extractGeminiImagePart(aiData: GeminiGenerateContentResponse | null): { mimeType: string; data: string } | null {
-  const parts = aiData?.candidates?.flatMap((candidate) => candidate?.content?.parts ?? []) ?? [];
+  const parts = extractGeminiParts(aiData);
   for (const part of parts) {
     const inlineData = part?.inlineData ?? part?.inline_data;
-    if (inlineData?.data && inlineData?.mimeType) {
-      return { mimeType: inlineData.mimeType, data: inlineData.data };
+    const mimeType = inlineData?.mimeType ?? inlineData?.mime_type;
+    if (inlineData?.data && mimeType) {
+      return { mimeType, data: inlineData.data };
     }
   }
   return null;
+}
+
+function summarizeGeminiNoImageResponse(aiData: GeminiGenerateContentResponse | null): {
+  reason: string;
+  details: Record<string, unknown>;
+} {
+  const promptFeedback = aiData?.promptFeedback ?? aiData?.prompt_feedback;
+  const candidates = aiData?.candidates ?? [];
+  const finishReasons = candidates.map((candidate) => candidate.finishReason ?? candidate.finish_reason ?? 'unknown');
+  const textParts = extractGeminiParts(aiData)
+    .map((part) => part.text?.trim())
+    .filter((value): value is string => Boolean(value));
+  const promptBlockReason = promptFeedback?.blockReason ?? promptFeedback?.block_reason ?? null;
+  const promptSafetyRatings = promptFeedback?.safetyRatings ?? promptFeedback?.safety_ratings ?? [];
+  const candidateSafetyRatings = candidates.flatMap((candidate) => candidate.safetyRatings ?? candidate.safety_ratings ?? []);
+  const blockedSafetyRatings = [...promptSafetyRatings, ...candidateSafetyRatings]
+    .filter((rating) => rating?.blocked)
+    .map((rating) => ({
+      category: rating.category ?? 'unknown',
+      probability: rating.probability ?? 'unknown',
+    }));
+
+  let reason = 'no_inline_image_parts';
+  if (promptBlockReason || blockedSafetyRatings.length > 0) {
+    reason = 'safety_or_policy_block';
+  } else if (textParts.length > 0) {
+    const combinedText = textParts.join(' ').toLowerCase();
+    if (
+      combinedText.includes("can't")
+      || combinedText.includes('cannot')
+      || combinedText.includes('unable')
+      || combinedText.includes('instead')
+      || combinedText.includes('i can describe')
+      || combinedText.includes('policy')
+      || combinedText.includes('safety')
+    ) {
+      reason = 'text_only_guidance';
+    } else {
+      reason = 'text_only_response';
+    }
+  } else if (finishReasons.some((value) => value.includes('IMAGE_'))) {
+    reason = 'unsupported_or_incomplete_image_edit';
+  }
+
+  return {
+    reason,
+    details: {
+      finishReasons,
+      promptBlockReason,
+      blockedSafetyRatings,
+      textPreview: textParts.slice(0, 3).map((text) => text.slice(0, 280)),
+      candidateCount: candidates.length,
+      partCount: extractGeminiParts(aiData).length,
+    },
+  };
 }
 
 async function generateGarmentRenderWithGeminiDirect(opts: {
@@ -112,6 +191,9 @@ async function generateGarmentRenderWithGeminiDirect(opts: {
       ],
       generationConfig: {
         responseModalities: ['TEXT', 'IMAGE'],
+        imageConfig: {
+          aspectRatio: '4:5',
+        },
       },
     }),
   });
@@ -131,10 +213,18 @@ async function generateGarmentRenderWithGeminiDirect(opts: {
 
   const imagePart = extractGeminiImagePart(aiData);
   if (!imagePart) {
-    const finishReason = aiData?.candidates?.[0]?.finishReason ?? 'unknown';
+    const summary = summarizeGeminiNoImageResponse(aiData);
+    console.error('render_garment_image Gemini returned no inline image data', {
+      garmentId: opts.garmentId,
+      provider: 'gemini',
+      model: GEMINI_IMAGE_MODEL,
+      endpoint: GEMINI_IMAGE_API_URL,
+      ...summary.details,
+    });
+
     throw new RenderProviderError(
       'gemini_no_image',
-      `Gemini returned no image output (finishReason=${finishReason})`,
+      `Gemini returned no image output (${summary.reason}; finishReasons=${(summary.details.finishReasons as string[]).join(',') || 'unknown'})`,
       response.status,
     );
   }
@@ -412,17 +502,22 @@ serve(async (req) => {
       : garment.title;
 
     const prompt = [
-      `You are a professional fashion product photographer.`,
-      `Recreate this exact garment as a clean product photo.`,
-      `The garment is: ${parts.join(' ')} ${itemName}.`,
-      `Requirements:`,
-      `- Shadow mannequin / ghost mannequin style — show the garment as if worn on an invisible form`,
-      `- Pure white background`,
-      `- Preserve the EXACT color, print, pattern, and logos from the reference image`,
-      `- Preserve the silhouette and proportions`,
-      `- No person, no model, no hanger, no flat lay`,
-      `- High-end fashion catalog lighting`,
-      `- Single garment only, centered`,
+      `Create one studio e-commerce product image of only the garment from the reference photo.`,
+      `Output a ghost mannequin / shadow mannequin result, as if the garment is worn by an invisible form.`,
+      `Garment description: ${parts.join(' ')} ${itemName}.`,
+      `Hard requirements:`,
+      `- Keep only the garment from the reference image`,
+      `- Preserve the EXACT color, silhouette, fabric texture, print, logo placement, buttons, pockets, sleeve length, collar, hem, and proportions`,
+      `- Remove the person, body, face, hair, hands, mannequin, hanger, props, and background completely`,
+      `- Reconstruct any hidden or occluded garment areas naturally so the garment looks complete and commercially usable`,
+      `- Center the single garment in frame`,
+      `- Use a clean pure white studio background with soft realistic catalog lighting`,
+      `- Maintain a premium fashion e-commerce product photo look`,
+      `Negative requirements:`,
+      `- No extra garments or layering`,
+      `- No redesign, no embellishment, no color shift, no style change`,
+      `- No text, labels, watermark, branding additions, or decorative props`,
+      `- Do not describe the edit in text; return the edited image`,
     ].join('\n');
 
     console.log('render_garment_image Gemini request start', {
@@ -430,6 +525,9 @@ serve(async (req) => {
       provider: 'gemini',
       model: GEMINI_IMAGE_MODEL,
       endpoint: GEMINI_IMAGE_API_URL,
+      responseModalities: ['TEXT', 'IMAGE'],
+      imageAspectRatio: '4:5',
+      promptPreview: prompt.split('\n').slice(0, 6),
       sourceContentType: contentType,
       sourceMimeType: mimeType,
       sourceBytes: imageBytes.length,
