@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { Shirt } from 'lucide-react';
 import type { GarmentBasic } from '@/hooks/useGarmentsByIds';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 interface Props {
   garment: GarmentBasic;
@@ -15,7 +16,7 @@ export function GarmentInlineCard({ garment }: Props) {
     >
       <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 bg-muted">
         <LazyImageSimple
-          imagePath={garment.image_path}
+          imagePath={getPreferredGarmentImagePath(garment)}
           alt={garment.title}
           className="w-8 h-8 object-cover"
           fallbackIcon={<Shirt className="w-3.5 h-3.5" />}

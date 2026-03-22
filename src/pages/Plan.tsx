@@ -448,7 +448,7 @@ export default function PlanPage() {
                         {outfit.outfit_items.slice(0, 4).map((item) => (
                           <div key={item.id} className="bg-muted aspect-[4/5] rounded-xl overflow-hidden">
                             <LazyImageSimple
-                              imagePath={item.garment?.image_path}
+                              imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
                               alt={item.garment?.title || item.slot}
                               className="w-full h-full"
                             />

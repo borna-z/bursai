@@ -7,6 +7,7 @@ import { EASE_CURVE } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import type { Garment } from '@/hooks/useInsights';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 interface UnusedGemBannerProps {
   unusedGarments: Garment[];
@@ -44,7 +45,7 @@ export function UnusedGemBanner({ unusedGarments, className }: UnusedGemBannerPr
       )}
     >
       <div className="w-11 h-11 rounded-lg overflow-hidden bg-muted shrink-0">
-        <LazyImageSimple imagePath={gem.image_path} alt={gem.title} className="w-full h-full" />
+        <LazyImageSimple imagePath={getPreferredGarmentImagePath(gem)} alt={gem.title} className="w-full h-full" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 mb-0.5">

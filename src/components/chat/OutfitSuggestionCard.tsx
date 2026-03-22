@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { GarmentBasic } from '@/hooks/useGarmentsByIds';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 // Simplified swap scoring inline (avoid importing full hook)
 const NEUTRAL = ['black', 'white', 'grey', 'beige', 'navy', 'svart', 'vit', 'grå', 'marinblå', 'marin'];
@@ -45,7 +46,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
     try {
       const { data } = await supabase
         .from('garments')
-        .select('id, title, category, color_primary, image_path')
+        .select('id, title, category, color_primary, image_path, original_image_path, processed_image_path, image_processing_status, rendered_image_path, render_status')
         .eq('user_id', user.id)
         .eq('category', current.category)
         .neq('id', current.id)
@@ -82,7 +83,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
             <Link to={`/wardrobe/${g.id}`} className="block">
               <div className="w-[72px] h-[72px] rounded-xl overflow-hidden bg-muted border border-border/40">
                 <LazyImageSimple
-                  imagePath={g.image_path}
+                  imagePath={getPreferredGarmentImagePath(g)}
                   alt={g.title}
                   className="w-full h-full object-cover"
                   fallbackIcon={<Shirt className="w-5 h-5" />}
@@ -118,7 +119,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
                       >
                         <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted border border-border/40">
                           <LazyImageSimple
-                            imagePath={alt.image_path}
+                            imagePath={getPreferredGarmentImagePath(alt)}
                             alt={alt.title}
                             className="w-full h-full object-cover"
                             fallbackIcon={<Shirt className="w-3 h-3" />}

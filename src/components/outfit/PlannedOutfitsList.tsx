@@ -17,6 +17,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { getBCP47 } from '@/lib/dateLocale';
 import { isToday, isTomorrow } from 'date-fns';
 import { getOccasionLabel } from '@/lib/occasionLabel';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 interface PlannedGroup {
   label: string;
@@ -45,7 +46,7 @@ function PlannedOutfitCard({ outfit, onDelete }: PlannedOutfitCardProps) {
       <div className="flex h-20 bg-muted/30">
         {outfit.outfit_items.slice(0, 4).map((item, index) => (
           <div key={item.id} className={cn("flex-1 overflow-hidden", index < outfit.outfit_items.slice(0, 4).length - 1 && "border-r border-background")}>
-            <LazyImageSimple imagePath={item.garment?.image_path} alt={item.garment?.title || item.slot} className="w-full h-full" />
+            <LazyImageSimple imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined} alt={item.garment?.title || item.slot} className="w-full h-full" />
           </div>
         ))}
         {outfit.outfit_items.length > 4 && (

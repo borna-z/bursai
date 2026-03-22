@@ -4,12 +4,18 @@ import { Button } from '@/components/ui/button';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 interface UnusedGemCardProps {
   garment: {
     id: string;
     title: string;
-    image_path: string;
+    image_path: string | null;
+    original_image_path?: string | null;
+    processed_image_path?: string | null;
+    image_processing_status?: string | null;
+    rendered_image_path?: string | null;
+    render_status?: string | null;
     category: string;
     color_primary: string;
   };
@@ -28,7 +34,7 @@ export function UnusedGemCard({ garment, daysUnused, onCreateOutfit }: UnusedGem
         onClick={() => navigate(`/wardrobe/${garment.id}`)}
       >
         <LazyImageSimple
-          imagePath={garment.image_path}
+          imagePath={getPreferredGarmentImagePath(garment)}
           alt={garment.title}
           className="w-14 h-14 rounded-lg flex-shrink-0 shadow-sm"
         />

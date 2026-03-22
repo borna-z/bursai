@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { motion } from 'framer-motion';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 /* ─── Animated ring ─── */
 function UsageRing({ value, size = 140 }: { value: number; size?: number }) {
@@ -190,7 +191,7 @@ export default function InsightsPage() {
                   >
                     <div className="relative">
                       <LazyImageSimple
-                        imagePath={garment.image_path}
+                        imagePath={getPreferredGarmentImagePath(garment)}
                         alt={garment.title}
                         className="w-[72px] h-24 rounded-xl group-active:scale-95 transition-transform"
                         fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/50" />}
@@ -232,7 +233,7 @@ export default function InsightsPage() {
                     onClick={() => navigate(`/wardrobe/${garment.id}`)}
                   >
                     <LazyImageSimple
-                      imagePath={garment.image_path}
+                      imagePath={getPreferredGarmentImagePath(garment)}
                       alt={garment.title}
                       className="w-16 h-20 rounded-lg opacity-70 hover:opacity-100 transition-opacity"
                       fallbackIcon={<Shirt className="w-4 h-4 text-muted-foreground/30" />}

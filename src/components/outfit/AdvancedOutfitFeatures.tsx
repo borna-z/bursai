@@ -7,6 +7,7 @@ import { useCloneOutfitDNA, useSuggestAccessories } from '@/hooks/useAdvancedFea
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
 import { toast } from 'sonner';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 /* ── Step 19: Outfit DNA Cloning ── */
 export function OutfitDNASection({ outfitId }: { outfitId: string }) {
@@ -132,7 +133,7 @@ export function AccessoryPairingSection({ outfitId }: { outfitId: string }) {
             onClick={() => navigate(`/wardrobe/${s.garment_id}`)}
           >
             <LazyImageSimple
-              imagePath={garment?.image_path}
+              imagePath={garment ? getPreferredGarmentImagePath(garment) : undefined}
               alt={garment?.title || ''}
               className="w-14 h-16 rounded-xl flex-shrink-0"
               fallbackIcon={<Gem className="w-4 h-4 text-muted-foreground/30" />}
