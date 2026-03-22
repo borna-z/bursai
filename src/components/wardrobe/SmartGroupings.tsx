@@ -8,6 +8,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { SectionHeader } from '@/components/ui/section-header';
 import type { Garment } from '@/hooks/useGarments';
 import { cn } from '@/lib/utils';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 interface SmartGroupingsProps {
   garments: Garment[];
@@ -92,7 +93,7 @@ function GroupRow({
           >
             <div className="aspect-[3/4] bg-muted relative overflow-hidden rounded-xl">
               <LazyImageSimple
-                imagePath={g.image_path}
+                imagePath={getPreferredGarmentImagePath(g)}
                 alt={g.title}
                 className="w-full h-full"
                 fallbackIcon={<Shirt className="w-6 h-6 text-muted-foreground/30" />}

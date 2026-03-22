@@ -15,6 +15,7 @@ import { useGarment, useUpdateGarment } from '@/hooks/useGarments';
 import { LazyImage } from '@/components/ui/lazy-image';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
 const PATTERN_IDS = ['solid', 'striped', 'checked', 'dotted', 'floral', 'patterned', 'camo'] as const;
@@ -203,7 +204,7 @@ export default function EditGarmentPage() {
 
       <div className="p-4 space-y-6 max-w-lg mx-auto">
         {/* Image (read-only) */}
-        <LazyImage imagePath={garment.image_path} alt={garment.title} aspectRatio="square" className="max-w-xs mx-auto rounded-xl overflow-hidden" />
+        <LazyImage imagePath={getPreferredGarmentImagePath(garment)} alt={garment.title} aspectRatio="square" className="max-w-xs mx-auto rounded-xl overflow-hidden" />
 
         {/* Form */}
         <div className="space-y-4">

@@ -13,6 +13,7 @@ import { QuickUploadStep } from '@/components/onboarding/QuickUploadStep';
 import { GetStartedStep } from '@/components/onboarding/GetStartedStep';
 import type { StyleProfileV3 } from '@/components/onboarding/StyleQuizV3';
 import { asPreferences } from '@/types/preferences';
+import { mannequinPresentationFromStyleProfileGender } from '@/lib/mannequinPresentation';
 import { toast } from 'sonner';
 
 // Streamlined: lang (admin only) → quiz → upload → get started
@@ -68,6 +69,7 @@ export default function OnboardingPage() {
     try {
       const currentPrefs = asPreferences(profile?.preferences);
       const updates: Record<string, unknown> = {
+        mannequin_presentation: mannequinPresentationFromStyleProfileGender(sp.gender),
         preferences: {
           ...currentPrefs,
           styleProfile: { ...sp },

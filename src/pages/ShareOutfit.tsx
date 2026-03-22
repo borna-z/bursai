@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { OutfitReactions } from '@/components/social/OutfitReactions';
 import { getOccasionLabel } from '@/lib/occasionLabel';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 interface OutfitItem {
   id: string;
@@ -18,7 +19,12 @@ interface OutfitItem {
     id: string;
     title: string;
     color_primary: string;
-    image_path: string;
+    image_path: string | null;
+    original_image_path?: string | null;
+    processed_image_path?: string | null;
+    image_processing_status?: string | null;
+    rendered_image_path?: string | null;
+    render_status?: string | null;
   } | null;
 }
 
@@ -63,7 +69,7 @@ export default function ShareOutfitPage() {
 
       const { data, error } = await supabase
         .from('outfits')
-        .select(`id, occasion, style_vibe, explanation, share_enabled, outfit_items (id, slot, garment:garments (id, title, color_primary, image_path))`)
+        .select(`id, occasion, style_vibe, explanation, share_enabled, outfit_items (id, slot, garment:garments (id, title, color_primary, image_path, original_image_path, processed_image_path, image_processing_status, rendered_image_path, render_status))`)
         .eq('id', id).eq('share_enabled', true).single();
 
       if (error || !data) { setNotFound(true); setIsLoading(false); return; }
@@ -77,8 +83,9 @@ export default function ShareOutfitPage() {
       setIsLoading(false);
 
       for (const item of transformedOutfit.outfit_items) {
-        if (item.garment?.image_path) {
-          const { data: urlData } = await supabase.storage.from('garments').createSignedUrl(item.garment.image_path, 3600);
+        const imagePath = item.garment ? getPreferredGarmentImagePath(item.garment) : undefined;
+        if (imagePath) {
+          const { data: urlData } = await supabase.storage.from('garments').createSignedUrl(imagePath, 3600);
           if (urlData) { setImageUrls(prev => ({ ...prev, [item.id]: urlData.signedUrl })); }
         }
       }

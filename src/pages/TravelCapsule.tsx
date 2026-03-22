@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils';
 import { getDateFnsLocale } from '@/lib/dateLocale';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
 import { EASE_CURVE, STAGGER_DELAY } from '@/lib/motion';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import type { DateRange } from 'react-day-picker';
 import { AILoadingCard } from '@/components/ui/AILoadingCard';
 
@@ -663,7 +664,7 @@ export default function TravelCapsule() {
                       if (!g) return null;
                       return (
                         <div key={id} className="relative flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border border-primary/30 bg-muted/20">
-                          <LazyImageSimple imagePath={g.image_path} alt={g.title} className="w-full h-full object-cover" />
+                          <LazyImageSimple imagePath={getPreferredGarmentImagePath(g)} alt={g.title} className="w-full h-full object-cover" />
                           <button
                             onClick={() => { hapticLight(); setMustHaveItems(prev => prev.filter(i => i !== id)); }}
                             className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-destructive flex items-center justify-center"
@@ -944,7 +945,7 @@ export default function TravelCapsule() {
 
                             {/* Thumbnail */}
                             <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted/30 shrink-0">
-                              <LazyImageSimple imagePath={g.image_path} alt={g.title} className="w-full h-full" />
+                              <LazyImageSimple imagePath={getPreferredGarmentImagePath(g)} alt={g.title} className="w-full h-full" />
                             </div>
 
                             {/* Info */}
@@ -1043,7 +1044,7 @@ export default function TravelCapsule() {
                           return (
                             <div key={itemId} className="w-[72px] shrink-0">
                               <div className="aspect-square rounded-lg overflow-hidden bg-muted/30">
-                                <LazyImageSimple imagePath={g.image_path} alt={g.title} className="w-full h-full" />
+                                <LazyImageSimple imagePath={getPreferredGarmentImagePath(g)} alt={g.title} className="w-full h-full" />
                               </div>
                               <p className="text-[9px] text-muted-foreground/60 truncate text-center mt-1">{g.title}</p>
                             </div>
