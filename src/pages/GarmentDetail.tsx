@@ -32,7 +32,7 @@ import { EASE_CURVE } from '@/lib/motion';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
-import { getPreferredGarmentImagePath, getGarmentProcessingMessage } from '@/lib/garmentImage';
+import { getPreferredGarmentImagePath, getPreferredGarmentImageSource, getGarmentProcessingMessage } from '@/lib/garmentImage';
 import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
 
 type EnrichmentStatus = 'none' | 'pending' | 'in_progress' | 'complete' | 'failed';
@@ -302,7 +302,8 @@ export default function GarmentDetailPage() {
   });
   if (garment.formality) seasonParts.push(`${t('garment.formality')} ${garment.formality}/5`);
   const displayImagePath = getPreferredGarmentImagePath(garment);
-  const processingMessage = getGarmentProcessingMessage(garment.image_processing_status, garment.render_status);
+  const displayImageSource = getPreferredGarmentImageSource(garment);
+  const processingMessage = getGarmentProcessingMessage(garment.image_processing_status, garment.render_status, displayImageSource);
 
   return (
     <div className="min-h-screen bg-background pb-40">
@@ -796,6 +797,7 @@ export default function GarmentDetailPage() {
               status={garment.image_processing_status}
               renderStatus={garment.render_status}
               className="bg-background/85"
+              displaySource={displayImageSource}
             />
             {(garment.render_status === 'pending' || garment.render_status === 'rendering') && (
               <p className="max-w-xs rounded-lg bg-background/85 px-3 py-2 text-xs text-muted-foreground shadow-sm">

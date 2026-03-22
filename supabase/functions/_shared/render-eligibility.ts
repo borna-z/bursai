@@ -3,6 +3,7 @@ const GEMINI_TEXT_MODEL = 'gemini-2.5-flash';
 const GEMINI_TEXT_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TEXT_MODEL}:generateContent`;
 
 export type RenderEligibilityDecision = 'render' | 'skip_product_ready';
+export type RenderOutputValidationDecision = 'accept' | 'reject_visible_mannequin';
 
 export interface RenderEligibilityAssessment {
   decision: RenderEligibilityDecision;
@@ -17,6 +18,23 @@ export interface RenderEligibilityAssessment {
     productPhotoFraming: boolean | null;
     alreadyProductReady: boolean | null;
     messyEnvironment: boolean | null;
+  };
+  raw: Record<string, unknown> | null;
+}
+
+export interface RenderOutputValidationAssessment {
+  decision: RenderOutputValidationDecision;
+  confidence: number | null;
+  reason: string;
+  signals: {
+    garmentOnly: boolean | null;
+    mannequinHeadVisible: boolean | null;
+    mannequinNeckVisible: boolean | null;
+    mannequinTorsoVisible: boolean | null;
+    mannequinHipsVisible: boolean | null;
+    limbsVisible: boolean | null;
+    cleanBackground: boolean | null;
+    ghostMannequinStyling: boolean | null;
   };
   raw: Record<string, unknown> | null;
 }
@@ -123,6 +141,105 @@ export async function assessRenderEligibilityWithGemini(opts: {
   };
 
   console.log('render_garment_image eligibility gate result', {
+    garmentId: opts.garmentId,
+    model: GEMINI_TEXT_MODEL,
+    decision: assessment.decision,
+    confidence: assessment.confidence,
+    reason: assessment.reason,
+    signals: assessment.signals,
+  });
+
+  return assessment;
+}
+
+export async function validateRenderedGarmentOutputWithGemini(opts: {
+  apiKey: string;
+  garmentId: string;
+  mimeType: string;
+  imageBase64: string;
+}): Promise<RenderOutputValidationAssessment | null> {
+  const response = await fetch(GEMINI_TEXT_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': opts.apiKey,
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: [
+                'Validate whether this rendered garment image is acceptable for the BURS ghost mannequin pipeline.',
+                'Return JSON only.',
+                'Accept only true garment-only ghost/shadow mannequin product imagery.',
+                'Allowed: garment silhouette, subtle internal shaping, clean product background.',
+                'Reject if ANY visible anatomy or mannequin structure remains, including head shape, neck block, shoulder block, torso form, hip/pelvis block, arms, hands, legs, or feet.',
+                'Reject if the image still reads like a visible mannequin/body under the garment instead of a garment-only ghost mannequin render.',
+                'If uncertain, reject_visible_mannequin.',
+                'Required schema:',
+                '{"decision":"accept|reject_visible_mannequin","confidence":0.0,"reason":"short string","signals":{"garment_only":true,"mannequin_head_visible":false,"mannequin_neck_visible":false,"mannequin_torso_visible":false,"mannequin_hips_visible":false,"limbs_visible":false,"clean_background":true,"ghost_mannequin_styling":true}}',
+              ].join('\n'),
+            },
+            {
+              inlineData: {
+                mimeType: opts.mimeType,
+                data: opts.imageBase64,
+              },
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        temperature: 0,
+        responseMimeType: 'application/json',
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Render validation Gemini API error (${response.status}): ${await response.text()}`);
+  }
+
+  const payload = await response.json();
+  const text = payload?.candidates?.[0]?.content?.parts?.map((part: { text?: string }) => part?.text ?? '').join('')?.trim();
+  if (!text) {
+    throw new Error('Render validation returned no JSON text');
+  }
+
+  const parsed = JSON.parse(text) as Record<string, unknown>;
+  const signals = parsed.signals && typeof parsed.signals === 'object' && !Array.isArray(parsed.signals)
+    ? parsed.signals as Record<string, unknown>
+    : {};
+
+  const decision: RenderOutputValidationDecision = parsed.decision === 'accept'
+    ? 'accept'
+    : 'reject_visible_mannequin';
+
+  const assessment: RenderOutputValidationAssessment = {
+    decision,
+    confidence: clampConfidence(parsed.confidence),
+    reason: asReason(
+      parsed.reason,
+      decision === 'accept'
+        ? 'Rendered output appears garment-only and ghost-mannequin compliant.'
+        : 'Rendered output still shows mannequin or body anatomy.',
+    ),
+    signals: {
+      garmentOnly: asBoolean(signals.garment_only),
+      mannequinHeadVisible: asBoolean(signals.mannequin_head_visible),
+      mannequinNeckVisible: asBoolean(signals.mannequin_neck_visible),
+      mannequinTorsoVisible: asBoolean(signals.mannequin_torso_visible),
+      mannequinHipsVisible: asBoolean(signals.mannequin_hips_visible),
+      limbsVisible: asBoolean(signals.limbs_visible),
+      cleanBackground: asBoolean(signals.clean_background),
+      ghostMannequinStyling: asBoolean(signals.ghost_mannequin_styling),
+    },
+    raw: parsed,
+  };
+
+  console.log('render_garment_image output validation result', {
     garmentId: opts.garmentId,
     model: GEMINI_TEXT_MODEL,
     decision: assessment.decision,
