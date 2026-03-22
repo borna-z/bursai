@@ -37,6 +37,10 @@ vi.mock('@/hooks/useWeather', () => ({
   useWeather: useWeatherMock,
 }));
 
+vi.mock('@/contexts/LocationContext', () => ({
+  useLocation: vi.fn(() => ({ effectiveCity: 'Oslo' })),
+}));
+
 vi.mock('@/hooks/useGarments', () => ({
   useGarmentCount: useGarmentCountMock,
   useFlatGarments: useFlatGarmentsMock,
@@ -239,6 +243,23 @@ describe('useAISuggestions', () => {
 describe('useAISuggestionsVisibility', () => {
   beforeEach(() => {
     useWeatherMock.mockReturnValue({ weather: { temperature: 5, precipitation: 'rain', wind: 'low' } });
+  });
+
+  it('uses the effective city for weather-aware visibility checks', () => {
+    useGarmentCountMock.mockReturnValue({ data: 3, isLoading: false });
+    useFlatGarmentsMock.mockReturnValue({
+      data: [
+        { id: 'g1', title: 'Top', category: 'top', subcategory: null },
+        { id: 'g2', title: 'Bottom', category: 'bottom', subcategory: null },
+        { id: 'g3', title: 'Shoes', category: 'shoes', subcategory: null },
+      ],
+      isLoading: false,
+    });
+
+    const { wrapper } = createWrapper();
+    renderHook(() => useAISuggestionsVisibility(), { wrapper });
+
+    expect(useWeatherMock).toHaveBeenCalledWith({ city: 'Oslo' });
   });
 
   it('blocks the Home AI section when weather-required outerwear is missing', () => {

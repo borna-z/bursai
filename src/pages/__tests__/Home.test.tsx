@@ -43,11 +43,11 @@ vi.mock('@/hooks/useSubscription', () => ({
 }));
 
 vi.mock('@/hooks/useWeather', () => ({
-  useWeather: vi.fn(() => ({ data: null })),
+  useWeather: vi.fn(() => ({ weather: null, isLoading: false, error: null })),
 }));
 
 vi.mock('@/contexts/LocationContext', () => ({
-  useLocation: vi.fn(() => ({ coords: null })),
+  useLocation: vi.fn(() => ({ effectiveCity: null })),
 }));
 
 import HomePage from '../Home';

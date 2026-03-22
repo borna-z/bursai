@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useWeather } from '@/hooks/useWeather';
+import { useLocation } from '@/contexts/LocationContext';
 import { canBuildVisibleOutfit, getVisibleOutfitMissingSlots, inferOutfitSlotFromGarment, validateCompleteOutfit } from '@/lib/outfitValidation';
 import { useFlatGarments, useGarmentCount } from '@/hooks/useGarments';
 import { supabase } from '@/integrations/supabase/client';
@@ -50,7 +51,8 @@ function isInsufficientGarmentsError(message?: string | null) {
 }
 
 export function useAISuggestionsVisibility() {
-  const { weather } = useWeather();
+  const { effectiveCity } = useLocation();
+  const { weather } = useWeather({ city: effectiveCity });
   const { data: garmentCount = 0, isLoading: isGarmentCountLoading } = useGarmentCount();
   const { data: garments = [], isLoading: areGarmentsLoading } = useFlatGarments();
 
@@ -76,7 +78,8 @@ export function useAISuggestionsVisibility() {
 export function useAISuggestions() {
   const { user, session } = useAuth();
   const { locale } = useLanguage();
-  const { weather } = useWeather();
+  const { effectiveCity } = useLocation();
+  const { weather } = useWeather({ city: effectiveCity });
   const visibility = useAISuggestionsVisibility();
 
   const weatherInput = weather
