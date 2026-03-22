@@ -18,6 +18,10 @@ export interface OutfitValidationResult {
   presentSlots: string[];
 }
 
+export interface CompleteOutfitValidationResult extends Omit<OutfitValidationResult, 'missing'> {
+  missing: Array<'top' | 'bottom' | 'dress' | 'shoes'>;
+}
+
 const DRESS_TOKENS = ['dress', 'jumpsuit', 'overall', 'fullbody', 'full body', 'romper', 'klänning'];
 const SHOES_TOKENS = ['shoes', 'shoe', 'sneakers', 'boots', 'heels', 'sandals', 'loafers', 'skor', 'stövlar'];
 const OUTERWEAR_TOKENS = ['outerwear', 'coat', 'jacket', 'blazer', 'trench', 'jacka', 'kappa'];
@@ -71,4 +75,24 @@ export function validateBaseOutfit<TGarment extends BasicGarmentLike>(items: Out
 
 export function filterValidBaseOutfits<T extends { outfit_items?: OutfitValidationItem[] | null }>(outfits: T[]): T[] {
   return outfits.filter((outfit) => validateBaseOutfit(outfit.outfit_items || []).isValid);
+}
+
+
+export function validateCompleteOutfit<TGarment extends BasicGarmentLike>(items: OutfitValidationItem<TGarment>[]): CompleteOutfitValidationResult {
+  const baseValidation = validateBaseOutfit(items);
+  const slots = new Set(baseValidation.presentSlots);
+  const hasShoes = slots.has('shoes');
+  const missing: CompleteOutfitValidationResult['missing'] = [...baseValidation.missing];
+
+  if (!hasShoes) missing.push('shoes');
+
+  return {
+    ...baseValidation,
+    isValid: baseValidation.isValid && hasShoes,
+    missing,
+  };
+}
+
+export function filterValidCompleteOutfits<T extends { outfit_items?: OutfitValidationItem[] | null }>(outfits: T[]): T[] {
+  return outfits.filter((outfit) => validateCompleteOutfit(outfit.outfit_items || []).isValid);
 }

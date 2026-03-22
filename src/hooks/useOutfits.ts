@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { hapticSuccess, hapticHeavy } from '@/lib/haptics';
 import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
-import { filterValidBaseOutfits, validateBaseOutfit } from '@/lib/outfitValidation';
+import { filterValidCompleteOutfits, validateCompleteOutfit } from '@/lib/outfitValidation';
 
 export type Outfit = Tables<'outfits'>;
 export type OutfitItem = Tables<'outfit_items'>;
@@ -52,7 +52,7 @@ export function useOutfits(savedOnly = true) {
       const { data, error } = await query;
       
       if (error) throw error;
-      return filterValidBaseOutfits((data as unknown as OutfitWithItems[]) || []);
+      return filterValidCompleteOutfits((data as unknown as OutfitWithItems[]) || []);
     },
     enabled: !!user,
     staleTime: 2 * 60 * 1000,
@@ -82,7 +82,7 @@ export function useOutfit(id: string | undefined) {
       
       if (error) throw error;
       const outfit = data as unknown as OutfitWithItems;
-      return validateBaseOutfit(outfit?.outfit_items || []).isValid ? outfit : null;
+      return validateCompleteOutfit(outfit?.outfit_items || []).isValid ? outfit : null;
     },
     enabled: !!id && !!user,
     staleTime: 60 * 1000,
@@ -104,7 +104,7 @@ export function useCreateOutfit() {
       if (!user) throw new Error('Not authenticated');
       
       const normalizedItems = items.map((item) => ({ ...item, slot: item.slot }));
-      const baseValidation = validateBaseOutfit(normalizedItems.map((item) => ({ slot: item.slot })));
+      const baseValidation = validateCompleteOutfit(normalizedItems.map((item) => ({ slot: item.slot })));
       if (!baseValidation.isValid) {
         throw new Error(`Refusing to persist invalid outfit. Missing: ${baseValidation.missing.join(', ')}`);
       }
