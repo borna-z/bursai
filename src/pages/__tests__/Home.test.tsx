@@ -29,9 +29,14 @@ vi.mock('@/hooks/useProfile', () => ({
   useUpdateProfile: vi.fn(() => ({ mutateAsync: vi.fn() })),
 }));
 
-vi.mock('@/hooks/useGarments', () => ({
-  useGarmentCount: vi.fn(() => ({ data: 5 })),
-}));
+vi.mock('@/hooks/useGarments', async () => {
+  const actual = await vi.importActual<typeof import('@/hooks/useGarments')>('@/hooks/useGarments');
+  return {
+    ...actual,
+    useGarmentCount: vi.fn(() => ({ data: 5, isLoading: false })),
+    useFlatGarments: vi.fn(() => ({ data: [], isLoading: false })),
+  };
+});
 
 vi.mock('@/hooks/useSubscription', () => ({
   useSubscription: vi.fn(() => ({ isPremium: false, plan: 'free' })),
