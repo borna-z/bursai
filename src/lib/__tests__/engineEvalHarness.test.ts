@@ -723,14 +723,16 @@ function isCompleteOutfit(
   const hasTop = slots.has('top');
   const hasBottom = slots.has('bottom');
   const hasDress = slots.has('dress');
+  const hasShoes = slots.has('shoes');
   const hasOuterwear = slots.has('outerwear');
 
-  const standardPath = hasTop && hasBottom;
-  const dressPath = hasDress;
+  const standardPath = hasTop && hasBottom && hasShoes;
+  const dressPath = hasDress && hasShoes;
 
   if (!standardPath && !dressPath) {
     if (!hasDress && !hasTop) missing.push('top');
     if (!hasDress && !hasBottom) missing.push('bottom');
+    if (!hasShoes) missing.push('shoes');
   }
 
   const needsOuter = requiresOuterwear(weather);
@@ -794,12 +796,14 @@ describe('Outfit completeness', () => {
   });
 
 
-  it('accepts top + bottom without shoes', () => {
+  it('rejects top + bottom without shoes', () => {
     const items = [
       item('top', g({ id: 't1', category: 'shirt', color_primary: 'white' })),
       item('bottom', g({ id: 'b1', category: 'pants', color_primary: 'blue' })),
     ];
-    expect(isCompleteOutfit(items, mildWeather).complete).toBe(true);
+    const result = isCompleteOutfit(items, mildWeather);
+    expect(result.complete).toBe(false);
+    expect(result.missing).toContain('shoes');
   });
 
   it('accepts top + bottom + shoes', () => {
@@ -866,11 +870,13 @@ describe('Outfit completeness', () => {
     expect(isCompleteOutfit(items, mildWeather).complete).toBe(true);
   });
 
-  it('accepts dress without shoes when no suitable shoes exist', () => {
+  it('rejects dress without shoes', () => {
     const items = [
       item('dress', g({ id: 'd1', category: 'dress', color_primary: 'red' })),
     ];
-    expect(isCompleteOutfit(items, mildWeather).complete).toBe(true);
+    const result = isCompleteOutfit(items, mildWeather);
+    expect(result.complete).toBe(false);
+    expect(result.missing).toContain('shoes');
   });
 
   it('rejects cold-weather outfit without outerwear', () => {
