@@ -1,9 +1,10 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { hapticSuccess, hapticHeavy } from '@/lib/haptics';
 import { enqueue } from '@/lib/offlineQueue';
+import { resumePendingGarmentRenders } from '@/lib/garmentIntelligence';
 import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
 export type Garment = Tables<'garments'>;
@@ -22,8 +23,8 @@ const PAGE_SIZE = 30;
 
 export function useGarments(filters?: GarmentFilters) {
   const { user } = useAuth();
-  
-  return useInfiniteQuery({
+
+  const query = useInfiniteQuery({
     queryKey: ['garments', user?.id, filters],
     queryFn: async ({ pageParam = 0 }) => {
       if (!user) return { items: [] as Garment[], nextPage: undefined };
@@ -100,6 +101,24 @@ export function useGarments(filters?: GarmentFilters) {
       return hasProcessingGarments ? 5000 : false;
     },
   });
+
+  useEffect(() => {
+    if (!user || !query.data) {
+      return;
+    }
+
+    const hasPendingRenders = query.data.pages.some((page) =>
+      page.items.some((garment) => garment.render_status === 'pending')
+    );
+
+    if (!hasPendingRenders) {
+      return;
+    }
+
+    void resumePendingGarmentRenders(user.id);
+  }, [query.data, user]);
+
+  return query;
 }
 
 /** Flattens InfiniteData pages into a plain Garment[] for consumers that need all items */

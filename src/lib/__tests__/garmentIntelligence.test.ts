@@ -1,8 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+let pendingGarmentRows: Array<{ id: string; ai_raw: unknown }> = [];
+
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
-    from: vi.fn(() => ({ update: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) })) })),
+    from: vi.fn(() => ({
+      update: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) })),
+      select: vi.fn(() => {
+        const query = {
+          eq: vi.fn(() => query),
+          limit: vi.fn(() => query),
+          order: vi.fn().mockResolvedValue({ data: pendingGarmentRows, error: null }),
+        };
+        return query;
+      }),
+    })),
   },
 }));
 
@@ -14,6 +26,7 @@ import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import {
   buildGarmentIntelligenceFields,
   getGarmentReviewDecision,
+  resumePendingGarmentRenders,
   standardizeGarmentAiRaw,
   triggerGarmentPostSaveIntelligence,
 } from '@/lib/garmentIntelligence';
@@ -90,6 +103,7 @@ describe('buildGarmentIntelligenceFields', () => {
 describe('triggerGarmentPostSaveIntelligence', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    pendingGarmentRows = [];
   });
 
   it('skips background removal for add photo when imageProcessing mode is skip', async () => {
@@ -128,5 +142,138 @@ describe('triggerGarmentPostSaveIntelligence', () => {
         body: { garmentId: 'garment-2', source: 'batch_add' },
       }));
     });
+  });
+
+  it('bounds render kickoff concurrency and deduplicates repeated garment requests', async () => {
+    let resolveFirstRender: (() => void) | null = null;
+    let resolveSecondRender: (() => void) | null = null;
+
+    vi.mocked(invokeEdgeFunction).mockImplementation((functionName) => {
+      if (functionName === 'render_garment_image') {
+        return new Promise((resolve) => {
+          if (!resolveFirstRender) {
+            resolveFirstRender = () => resolve({ data: {}, error: null });
+            return;
+          }
+
+          if (!resolveSecondRender) {
+            resolveSecondRender = () => resolve({ data: {}, error: null });
+            return;
+          }
+
+          resolve({ data: {}, error: null });
+        });
+      }
+
+      return Promise.resolve({ data: {}, error: null });
+    });
+
+    triggerGarmentPostSaveIntelligence({
+      garmentId: 'garment-a',
+      storagePath: 'user-1/photo-a.jpg',
+      source: 'batch_add',
+      imageProcessing: { mode: 'skip' },
+    });
+    triggerGarmentPostSaveIntelligence({
+      garmentId: 'garment-a',
+      storagePath: 'user-1/photo-a.jpg',
+      source: 'batch_add',
+      imageProcessing: { mode: 'skip' },
+    });
+    triggerGarmentPostSaveIntelligence({
+      garmentId: 'garment-b',
+      storagePath: 'user-1/photo-b.jpg',
+      source: 'batch_add',
+      imageProcessing: { mode: 'skip' },
+    });
+    triggerGarmentPostSaveIntelligence({
+      garmentId: 'garment-c',
+      storagePath: 'user-1/photo-c.jpg',
+      source: 'batch_add',
+      imageProcessing: { mode: 'skip' },
+    });
+    triggerGarmentPostSaveIntelligence({
+      garmentId: 'garment-d',
+      storagePath: 'user-1/photo-d.jpg',
+      source: 'batch_add',
+      imageProcessing: { mode: 'skip' },
+    });
+
+    await vi.waitFor(() => {
+      expect(
+        vi.mocked(invokeEdgeFunction).mock.calls.filter(([name]) => name === 'render_garment_image')
+      ).toHaveLength(3);
+    });
+
+    expect(
+      vi.mocked(invokeEdgeFunction).mock.calls.filter(([name]) => name === 'render_garment_image')
+    ).toEqual([
+      ['render_garment_image', expect.objectContaining({ body: { garmentId: 'garment-a', source: 'batch_add' } })],
+      ['render_garment_image', expect.objectContaining({ body: { garmentId: 'garment-b', source: 'batch_add' } })],
+      ['render_garment_image', expect.objectContaining({ body: { garmentId: 'garment-c', source: 'batch_add' } })],
+    ]);
+
+    resolveFirstRender?.();
+    await vi.waitFor(() => {
+      expect(
+        vi.mocked(invokeEdgeFunction).mock.calls.filter(([name]) => name === 'render_garment_image')
+      ).toHaveLength(4);
+    });
+
+    expect(
+      vi.mocked(invokeEdgeFunction).mock.calls.filter(([name]) => name === 'render_garment_image')[3]
+    ).toEqual([
+      'render_garment_image',
+      expect.objectContaining({ body: { garmentId: 'garment-d', source: 'batch_add' } }),
+    ]);
+
+    resolveSecondRender?.();
+  });
+});
+
+describe('resumePendingGarmentRenders', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    pendingGarmentRows = [];
+  });
+
+  it('re-enqueues persisted pending renders and restores their saved source', async () => {
+    pendingGarmentRows = [
+      {
+        id: 'pending-batch',
+        ai_raw: { system_signals: { source: 'batch_add' } },
+      },
+      {
+        id: 'pending-add-photo',
+        ai_raw: { system_signals: { source: 'add_photo' } },
+      },
+    ];
+
+    await resumePendingGarmentRenders('user-1');
+
+    await vi.waitFor(() => {
+      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
+        body: { garmentId: 'pending-batch', source: 'batch_add' },
+      }));
+      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
+        body: { garmentId: 'pending-add-photo', source: 'add_photo' },
+      }));
+    });
+  });
+
+  it('throttles repeat pending-render sweeps for the same user', async () => {
+    pendingGarmentRows = [
+      {
+        id: 'pending-1',
+        ai_raw: { system_signals: { source: 'batch_add' } },
+      },
+    ];
+
+    await resumePendingGarmentRenders('user-2');
+    await resumePendingGarmentRenders('user-2');
+
+    expect(
+      vi.mocked(invokeEdgeFunction).mock.calls.filter(([name]) => name === 'render_garment_image')
+    ).toHaveLength(1);
   });
 });

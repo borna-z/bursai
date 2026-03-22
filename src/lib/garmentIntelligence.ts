@@ -4,6 +4,109 @@ import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 
 export const GARMENT_IMAGE_PROCESSING_VERSION = 'background-removal-v1';
 
+type RenderTriggerSource = 'add_photo' | 'batch_add';
+
+const RENDER_KICKOFF_CONCURRENCY = 3;
+const RENDER_RESUME_SWEEP_LIMIT = 12;
+const RENDER_RESUME_SWEEP_COOLDOWN_MS = 15_000;
+const queuedRenderKickoffs: Array<{ garmentId: string; source: string }> = [];
+const queuedRenderGarmentIds = new Set<string>();
+const lastRenderResumeSweepByUser = new Map<string, number>();
+const inFlightRenderResumeSweeps = new Map<string, Promise<void>>();
+let activeRenderKickoffs = 0;
+
+function pumpRenderKickoffQueue(): void {
+  while (activeRenderKickoffs < RENDER_KICKOFF_CONCURRENCY && queuedRenderKickoffs.length > 0) {
+    const next = queuedRenderKickoffs.shift();
+    if (!next) return;
+
+    activeRenderKickoffs += 1;
+
+    void invokeEdgeFunction<{ ok?: boolean; skipped?: boolean; error?: string }>('render_garment_image', {
+      timeout: 1000,
+      retries: 0,
+      body: { garmentId: next.garmentId, source: next.source },
+    })
+      .then(({ error }) => {
+        if (error) {
+          console.warn('Garment render trigger did not confirm in time (non-blocking)', error);
+        }
+      })
+      .finally(() => {
+        activeRenderKickoffs = Math.max(0, activeRenderKickoffs - 1);
+        queuedRenderGarmentIds.delete(next.garmentId);
+        pumpRenderKickoffQueue();
+      });
+  }
+}
+
+function enqueueGarmentRenderKickoff(garmentId: string, source: string): void {
+  if (queuedRenderGarmentIds.has(garmentId)) {
+    return;
+  }
+
+  queuedRenderGarmentIds.add(garmentId);
+  queuedRenderKickoffs.push({ garmentId, source });
+  pumpRenderKickoffQueue();
+}
+
+function getResumeRenderSource(aiRaw: Json | null | undefined): RenderTriggerSource {
+  if (!aiRaw || typeof aiRaw !== 'object' || Array.isArray(aiRaw)) {
+    return 'batch_add';
+  }
+
+  const systemSignals = (aiRaw as Record<string, unknown>).system_signals;
+  if (!systemSignals || typeof systemSignals !== 'object' || Array.isArray(systemSignals)) {
+    return 'batch_add';
+  }
+
+  const source = (systemSignals as Record<string, unknown>).source;
+  return source === 'add_photo' ? 'add_photo' : 'batch_add';
+}
+
+export async function resumePendingGarmentRenders(userId: string): Promise<void> {
+  if (!userId) {
+    return;
+  }
+
+  const now = Date.now();
+  const lastSweepAt = lastRenderResumeSweepByUser.get(userId) ?? 0;
+  if (now - lastSweepAt < RENDER_RESUME_SWEEP_COOLDOWN_MS) {
+    return;
+  }
+
+  const inFlight = inFlightRenderResumeSweeps.get(userId);
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const sweepPromise = (async () => {
+    lastRenderResumeSweepByUser.set(userId, now);
+
+    const { data, error } = await supabase
+      .from('garments')
+      .select('id, ai_raw')
+      .eq('user_id', userId)
+      .eq('render_status', 'pending')
+      .limit(RENDER_RESUME_SWEEP_LIMIT)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('Pending garment render resume sweep failed', error);
+      return;
+    }
+
+    for (const garment of data ?? []) {
+      enqueueGarmentRenderKickoff(garment.id, getResumeRenderSource(garment.ai_raw as Json | null | undefined));
+    }
+  })().finally(() => {
+    inFlightRenderResumeSweeps.delete(userId);
+  });
+
+  inFlightRenderResumeSweeps.set(userId, sweepPromise);
+  return sweepPromise;
+}
+
 
 export const GARMENT_REVIEW_CONFIDENCE_THRESHOLD = 0.55;
 
@@ -243,13 +346,5 @@ async function startGarmentImageProcessingInBackground(garmentId: string, source
 }
 
 async function startGarmentRenderInBackground(garmentId: string, source: string): Promise<void> {
-  const { error } = await invokeEdgeFunction<{ ok?: boolean; skipped?: boolean; error?: string }>('render_garment_image', {
-    timeout: 1000,
-    retries: 0,
-    body: { garmentId, source },
-  });
-
-  if (error) {
-    console.warn('Garment render trigger did not confirm in time (non-blocking)', error);
-  }
+  enqueueGarmentRenderKickoff(garmentId, source);
 }

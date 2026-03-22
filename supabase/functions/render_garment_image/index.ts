@@ -400,6 +400,31 @@ async function updateGarmentRenderState(
   }
 }
 
+async function claimGarmentRender(
+  supabase: ReturnType<typeof createClient>,
+  garmentId: string,
+  mannequinPresentation: MannequinPresentation,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('garments')
+    .update({
+      render_status: 'rendering',
+      render_presentation_used: mannequinPresentation,
+      render_error: null,
+      render_provider: 'gemini',
+    })
+    .eq('id', garmentId)
+    .in('render_status', ['pending', 'failed', 'none'])
+    .select('id')
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return Boolean(data?.id);
+}
+
 async function safeMarkRenderFailed(
   supabase: ReturnType<typeof createClient>,
   garmentId: string,
@@ -568,6 +593,25 @@ serve(async (req) => {
       mannequinPresentation,
     });
 
+    // ── Claim render atomically before expensive prep ──
+    const claimed = await claimGarmentRender(supabase, garment.id, mannequinPresentation);
+    if (!claimed) {
+      const { data: latestGarment } = await supabase
+        .from('garments')
+        .select('render_status')
+        .eq('id', garment.id)
+        .maybeSingle();
+
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          skipped: true,
+          reason: `Already ${latestGarment?.render_status ?? 'claimed'}`,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     // ── Download source image as base64 ──
     const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from('garments')
@@ -632,14 +676,6 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
-
-    // ── Mark as rendering ──
-    await updateGarmentRenderState(supabase, garment.id, {
-      render_status: 'rendering',
-      render_presentation_used: mannequinPresentation,
-      render_error: null,
-      render_provider: 'gemini',
-    }, 'Failed to mark garment as rendering');
 
     // ── Build prompt ──
     const prompt = buildGarmentRenderPrompt(garment, mannequinPresentation);

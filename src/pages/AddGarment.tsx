@@ -30,6 +30,7 @@ import { useMedianCamera } from '@/hooks/useMedianCamera';
 import { compressImage } from '@/lib/imageCompression';
 import { GarmentAnalysisState } from '@/components/ui/GarmentAnalysisState';
 import { getGarmentProcessingMessage } from '@/lib/garmentImage';
+import { getBulkAddSelectionLimit } from '@/lib/bulkAddLimits';
 import { buildGarmentIntelligenceFields, standardizeGarmentAiRaw, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
@@ -436,7 +437,7 @@ export default function AddGarmentPage() {
     if (!files || files.length === 0) return;
     
     const remaining = remainingGarments();
-    const maxBatch = Math.min(10, remaining);
+    const maxBatch = getBulkAddSelectionLimit(remaining);
     
     if (remaining <= 0) {
       setShowPaywall(true);
