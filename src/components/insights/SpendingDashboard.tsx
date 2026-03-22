@@ -69,7 +69,7 @@ export function SpendingDashboard({ isPremium }: { isPremium: boolean }) {
                   className="flex items-center gap-3 py-2 cursor-pointer active:scale-[0.99] transition-transform"
                   onClick={() => navigate(`/wardrobe/${g.id}`)}
                 >
-                  <LazyImageSimple imagePath={g.image_path} alt={g.title} className="w-10 h-12 rounded-lg flex-shrink-0" />
+                  <LazyImageSimple imagePath={getPreferredGarmentImagePath(g)} alt={g.title} className="w-10 h-12 rounded-lg flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{g.title}</p>
                     <p className="text-[11px] text-muted-foreground">{g.wears}× {t('insights.worn_lc')}</p>
@@ -97,7 +97,7 @@ export function SpendingDashboard({ isPremium }: { isPremium: boolean }) {
                   className="flex items-center gap-3 py-2 cursor-pointer active:scale-[0.99] transition-transform"
                   onClick={() => navigate(`/wardrobe/${g.id}`)}
                 >
-                  <LazyImageSimple imagePath={g.image_path} alt={g.title} className="w-10 h-12 rounded-lg flex-shrink-0" />
+                  <LazyImageSimple imagePath={getPreferredGarmentImagePath(g)} alt={g.title} className="w-10 h-12 rounded-lg flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{g.title}</p>
                     <p className="text-[11px] text-muted-foreground">{g.wears}× {t('insights.worn_lc')}</p>

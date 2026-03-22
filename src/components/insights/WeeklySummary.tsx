@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 interface Garment {
   id: string;
@@ -89,7 +90,7 @@ export function WeeklySummary({ garments, wearLogs, isPremium }: WeeklySummaryPr
         {mostWornThisWeek && (
           <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl">
             <LazyImageSimple
-              imagePath={mostWornThisWeek.image_path}
+              imagePath={getPreferredGarmentImagePath(mostWornThisWeek)}
               alt={mostWornThisWeek.title}
               className="w-12 h-12 rounded-lg flex-shrink-0"
             />

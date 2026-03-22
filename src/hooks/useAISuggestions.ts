@@ -5,6 +5,7 @@ import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useWeather } from '@/hooks/useWeather';
 import { validateBaseOutfit } from '@/lib/outfitValidation';
 import { useGarmentCount } from '@/hooks/useGarments';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface AISuggestion {
   title: string;
@@ -14,7 +15,12 @@ export interface AISuggestion {
     title: string;
     category: string;
     color_primary: string;
-    image_path: string;
+    image_path: string | null;
+    original_image_path?: string | null;
+    processed_image_path?: string | null;
+    image_processing_status?: string | null;
+    rendered_image_path?: string | null;
+    render_status?: string | null;
   }[];
   explanation: string;
   occasion: string;
@@ -75,14 +81,49 @@ export function useAISuggestions() {
         throw new Error(response.data.error);
       }
 
-      return (response.data?.suggestions || []).filter((suggestion) =>
+      const suggestions = (response.data?.suggestions || []).filter((suggestion) =>
         validateBaseOutfit((suggestion.garments || []).map((garment) => ({ garment }))).isValid
       );
+
+      const garmentIds = Array.from(new Set(suggestions.flatMap((suggestion) => suggestion.garment_ids || [])));
+      if (!garmentIds.length) {
+        return suggestions;
+      }
+
+      const { data: liveGarments, error: garmentsError } = await supabase
+        .from('garments')
+        .select('id, title, category, color_primary, image_path, original_image_path, processed_image_path, image_processing_status, rendered_image_path, render_status')
+        .in('id', garmentIds);
+
+      if (garmentsError) throw garmentsError;
+
+      const garmentMap = new Map((liveGarments || []).map((garment) => [garment.id, garment]));
+
+      return suggestions.map((suggestion) => ({
+        ...suggestion,
+        garments: suggestion.garments.map((garment) => ({
+          ...garment,
+          ...(garmentMap.get(garment.id) || {}),
+        })),
+      }));
     },
     enabled: !!user && !!session?.access_token && !isGarmentCountLoading && garmentCount >= 3,
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 60,
     retry: 1,
+    refetchInterval: (query) => {
+      const suggestions = query.state.data || [];
+      const hasProcessingGarments = suggestions.some((suggestion) =>
+        suggestion.garments.some((garment) =>
+          garment.image_processing_status === 'pending' ||
+          garment.image_processing_status === 'processing' ||
+          garment.render_status === 'pending' ||
+          garment.render_status === 'rendering'
+        )
+      );
+
+      return hasProcessingGarments ? 5000 : false;
+    },
   });
 }
 

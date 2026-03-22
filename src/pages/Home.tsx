@@ -32,6 +32,7 @@ import { useMotionPreset } from '@/lib/motion';
 import { getOccasionLabel } from '@/lib/occasionLabel';
 import { FadeReplace } from '@/components/ui/fade-replace';
 import { HomePageSkeleton } from '@/components/ui/skeletons';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { getStylistTip } from '@/lib/stylistCopy';
 import { StyleDNACard } from '@/components/insights/StyleDNACard';
 import { useStyleDNA } from '@/hooks/useStyleDNA';
@@ -223,7 +224,7 @@ export default function HomePage() {
                   {todayOutfit.outfit_items.slice(0, 4).map((item) => (
                     <div key={item.id} className="w-14 h-14 rounded-xl overflow-hidden bg-muted shrink-0">
                       <LazyImageSimple
-                        imagePath={item.garment?.image_path}
+                        imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
                         alt={item.garment?.title || item.slot}
                         className="w-full h-full"
                       />

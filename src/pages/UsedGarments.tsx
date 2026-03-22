@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { useInsights } from '@/hooks/useInsights';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { hapticLight } from '@/lib/haptics';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 export default function UsedGarments() {
   const navigate = useNavigate();
@@ -49,7 +50,7 @@ export default function UsedGarments() {
                 >
                   <div className="relative">
                     <LazyImageSimple
-                      imagePath={garment.image_path}
+                      imagePath={getPreferredGarmentImagePath(garment)}
                       alt={garment.title}
                       className="aspect-[3/4] rounded-xl"
                       fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/50" />}

@@ -521,7 +521,7 @@ export default function GarmentDetailPage() {
                       {outfit.outfit_items.slice(0, 4).map((item) => (
                         <div key={item.id} className="overflow-hidden">
                           <LazyImageSimple
-                            imagePath={item.garment?.image_path}
+                            imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
                             alt={item.garment?.title || item.slot}
                             className="w-full h-full"
                           />
@@ -758,7 +758,7 @@ export default function GarmentDetailPage() {
                     className="flex-shrink-0 w-[88px] space-y-1.5 press"
                   >
                     <LazyImage
-                      imagePath={g.image_path}
+                      imagePath={getPreferredGarmentImagePath(g)}
                       alt={g.title}
                       aspectRatio="3/4"
                     />

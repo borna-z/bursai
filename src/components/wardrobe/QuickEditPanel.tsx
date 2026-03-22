@@ -9,6 +9,7 @@ import { useUpdateGarment, type Garment } from '@/hooks/useGarments';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 const categoryOptions = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'];
 const colorOptionIds = ['black', 'white', 'grey', 'navy', 'blue', 'red', 'green', 'beige', 'brown'];
@@ -70,7 +71,7 @@ function QuickEditItem({ garment, onDone }: QuickEditItemProps) {
       <CardContent className="p-3">
         <div className="flex gap-3">
           <LazyImageSimple
-            imagePath={garment.image_path}
+            imagePath={getPreferredGarmentImagePath(garment)}
             alt={garment.title}
             className="w-20 h-20 rounded-lg flex-shrink-0"
           />

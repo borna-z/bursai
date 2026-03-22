@@ -9,12 +9,14 @@ const {
   useLanguageMock,
   useWeatherMock,
   useGarmentCountMock,
+  supabaseInMock,
 } = vi.hoisted(() => ({
   invokeEdgeFunctionMock: vi.fn(),
   useAuthMock: vi.fn(),
   useLanguageMock: vi.fn(),
   useWeatherMock: vi.fn(),
   useGarmentCountMock: vi.fn(),
+  supabaseInMock: vi.fn(),
 }));
 
 vi.mock('@/lib/edgeFunctionClient', () => ({
@@ -35,6 +37,16 @@ vi.mock('@/hooks/useWeather', () => ({
 
 vi.mock('@/hooks/useGarments', () => ({
   useGarmentCount: useGarmentCountMock,
+}));
+
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: {
+    from: () => ({
+      select: () => ({
+        in: supabaseInMock,
+      }),
+    }),
+  },
 }));
 
 import { useAISuggestions } from '../useAISuggestions';
@@ -64,6 +76,13 @@ describe('useAISuggestions', () => {
       weather: { temperature: 12, precipitation: 'none', wind: 'low' },
     });
     useGarmentCountMock.mockReturnValue({ data: 3, isLoading: false });
+    supabaseInMock.mockResolvedValue({
+      data: [
+        { id: 'g1', title: 'Top', category: 'top', color_primary: 'black', image_path: 'top.jpg', original_image_path: 'top.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
+        { id: 'g2', title: 'Bottom', category: 'bottom', color_primary: 'blue', image_path: 'bottom.jpg', original_image_path: 'bottom.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
+      ],
+      error: null,
+    });
     invokeEdgeFunctionMock.mockResolvedValue({
       data: {
         suggestions: [{
@@ -93,6 +112,13 @@ describe('useAISuggestions', () => {
 
 
   it('filters invalid standard suggestions missing a bottom', async () => {
+    supabaseInMock.mockResolvedValueOnce({
+      data: [
+        { id: 'g3', title: 'Top', category: 'top', color_primary: 'white', image_path: 'top2.jpg', original_image_path: 'top2.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
+        { id: 'g4', title: 'Bottom', category: 'bottom', color_primary: 'blue', image_path: 'bottom.jpg', original_image_path: 'bottom.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
+      ],
+      error: null,
+    });
     invokeEdgeFunctionMock.mockResolvedValueOnce({
       data: {
         suggestions: [
@@ -137,6 +163,13 @@ describe('useAISuggestions', () => {
     expect(queryClient.getQueryState(['ai-suggestions', 'user-1', 'en', 3, 12, 'none', 'low'])).toBeTruthy();
 
     useGarmentCountMock.mockReturnValue({ data: 4, isLoading: false });
+    supabaseInMock.mockResolvedValueOnce({
+      data: [
+        { id: 'g5', title: 'Top', category: 'top', color_primary: 'white', image_path: 'top3.jpg', original_image_path: 'top3.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
+        { id: 'g6', title: 'Bottom', category: 'bottom', color_primary: 'black', image_path: 'bottom2.jpg', original_image_path: 'bottom2.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
+      ],
+      error: null,
+    });
     invokeEdgeFunctionMock.mockResolvedValueOnce({
       data: {
         suggestions: [{

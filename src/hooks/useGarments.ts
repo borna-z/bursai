@@ -138,7 +138,13 @@ export function useGarment(id: string | undefined, options?: { refetchInterval?:
 export function invalidateWardrobeQueries(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ['garments'] });
   queryClient.invalidateQueries({ queryKey: ['garments-count'] });
+  queryClient.invalidateQueries({ queryKey: ['garment'] });
   queryClient.invalidateQueries({ queryKey: ['ai-suggestions'] });
+  queryClient.invalidateQueries({ queryKey: ['insights'] });
+  queryClient.invalidateQueries({ queryKey: ['outfits'] });
+  queryClient.invalidateQueries({ queryKey: ['planned-outfits'] });
+  queryClient.invalidateQueries({ queryKey: ['planned-outfits-day'] });
+  queryClient.invalidateQueries({ queryKey: ['garments-by-ids'] });
 }
 
 export function useCreateGarment() {

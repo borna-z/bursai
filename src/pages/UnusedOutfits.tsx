@@ -19,6 +19,7 @@ import { hapticLight } from '@/lib/haptics';
 import { stripBrands } from '@/lib/stripBrands';
 import { getOccasionLabel } from '@/lib/occasionLabel';
 import type { Garment } from '@/hooks/useGarments';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 const OCCASIONS = ['vardag', 'jobb', 'dejt', 'fest', 'casual', 'smart_casual'];
 
@@ -202,7 +203,7 @@ export default function UnusedOutfits() {
                     return (
                       <div key={j} className="relative overflow-hidden bg-muted/20">
                         <LazyImageSimple
-                          imagePath={item.garment.image_path}
+                          imagePath={getPreferredGarmentImagePath(item.garment)}
                           alt={stripBrands(item.garment.title)}
                           className="w-full h-full object-cover"
                         />

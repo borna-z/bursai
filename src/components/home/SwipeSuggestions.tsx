@@ -5,6 +5,7 @@ import { LazyImage } from '@/components/ui/lazy-image';
 import { useOutfits, type OutfitWithItems } from '@/hooks/useOutfits';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { SectionHeader } from '@/components/ui/section-header';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 export function SwipeSuggestions() {
   const { t } = useLanguage();
@@ -43,7 +44,7 @@ function SuggestionCard({ outfit, onTap }: { outfit: OutfitWithItems; onTap: () 
         {items.map((item) => (
           <LazyImage
             key={item.id}
-            imagePath={item.garment?.image_path}
+            imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
             alt={item.garment?.title || ''}
             aspectRatio="4/5"
             className="rounded-lg"
