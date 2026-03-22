@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { getOccasionLabel } from '@/lib/occasionLabel';
 import { humanize } from '@/lib/humanize';
 import { cn } from '@/lib/utils';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { EmptyState } from '@/components/layout/EmptyState';
