@@ -37,6 +37,7 @@ import { getStylistTip } from '@/lib/stylistCopy';
 import { StyleDNACard } from '@/components/insights/StyleDNACard';
 import { useStyleDNA } from '@/hooks/useStyleDNA';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
+import { useAISuggestionsVisibility } from '@/hooks/useAISuggestions';
 
 type HomeState = 'loading' | 'empty_wardrobe' | 'outfit_planned' | 'weather_alert' | 'no_outfit';
 
@@ -78,6 +79,7 @@ export default function HomePage() {
   const { data: dna } = useStyleDNA();
 
   const homeState = deriveHomeState(garmentCount, todayOutfits, weather ?? undefined, isCountLoading || isOutfitsLoading);
+  const aiSuggestionsVisibility = useAISuggestionsVisibility();
 
   const handleRefresh = useCallback(async () => {
     await Promise.all([
@@ -177,7 +179,7 @@ export default function HomePage() {
           </AnimatePresence>
 
           {/* ── 2. AI Suggestions — promoted to first content block ── */}
-          {(garmentCount || 0) >= 3 && (
+          {aiSuggestionsVisibility.canShowBlock && (
             <AISuggestions isPremium={isPremium} />
           )}
 

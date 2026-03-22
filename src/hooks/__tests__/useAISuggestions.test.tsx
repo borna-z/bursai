@@ -9,6 +9,7 @@ const {
   useLanguageMock,
   useWeatherMock,
   useGarmentCountMock,
+  useFlatGarmentsMock,
   supabaseInMock,
 } = vi.hoisted(() => ({
   invokeEdgeFunctionMock: vi.fn(),
@@ -16,6 +17,7 @@ const {
   useLanguageMock: vi.fn(),
   useWeatherMock: vi.fn(),
   useGarmentCountMock: vi.fn(),
+  useFlatGarmentsMock: vi.fn(),
   supabaseInMock: vi.fn(),
 }));
 
@@ -35,8 +37,13 @@ vi.mock('@/hooks/useWeather', () => ({
   useWeather: useWeatherMock,
 }));
 
+vi.mock('@/contexts/LocationContext', () => ({
+  useLocation: vi.fn(() => ({ effectiveCity: 'Oslo' })),
+}));
+
 vi.mock('@/hooks/useGarments', () => ({
   useGarmentCount: useGarmentCountMock,
+  useFlatGarments: useFlatGarmentsMock,
 }));
 
 vi.mock('@/integrations/supabase/client', () => ({
@@ -49,7 +56,7 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }));
 
-import { useAISuggestions } from '../useAISuggestions';
+import { useAISuggestions, useAISuggestionsVisibility } from '../useAISuggestions';
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -76,6 +83,14 @@ describe('useAISuggestions', () => {
       weather: { temperature: 12, precipitation: 'none', wind: 'low' },
     });
     useGarmentCountMock.mockReturnValue({ data: 3, isLoading: false });
+    useFlatGarmentsMock.mockReturnValue({
+      data: [
+        { id: 'g1', title: 'Top', category: 'top', subcategory: null },
+        { id: 'g2', title: 'Bottom', category: 'bottom', subcategory: null },
+        { id: 'g7', title: 'Shoes', category: 'shoes', subcategory: null },
+      ],
+      isLoading: false,
+    });
     supabaseInMock.mockResolvedValue({
       data: [
         { id: 'g1', title: 'Top', category: 'top', color_primary: 'black', image_path: 'top.jpg', original_image_path: 'top.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
@@ -104,6 +119,7 @@ describe('useAISuggestions', () => {
 
   it('does not run until garment count is ready and sufficient', () => {
     useGarmentCountMock.mockReturnValue({ data: 2, isLoading: false });
+    useFlatGarmentsMock.mockReturnValue({ data: [], isLoading: false });
     const { wrapper } = createWrapper();
 
     const { result } = renderHook(() => useAISuggestions(), { wrapper });
@@ -111,7 +127,6 @@ describe('useAISuggestions', () => {
     expect(result.current.fetchStatus).toBe('idle');
     expect(invokeEdgeFunctionMock).not.toHaveBeenCalled();
   });
-
 
   it('filters invalid standard suggestions missing a bottom', async () => {
     supabaseInMock.mockResolvedValueOnce({
@@ -154,19 +169,45 @@ describe('useAISuggestions', () => {
     const { wrapper } = createWrapper();
     const { result } = renderHook(() => useAISuggestions(), { wrapper });
 
-    await waitFor(() => expect(result.current.data).toHaveLength(1));
-    expect(result.current.data?.[0]?.title).toBe('Good look');
+    await waitFor(() => expect(result.current.data?.suggestions).toHaveLength(1));
+    expect(result.current.data?.suggestions?.[0]?.title).toBe('Good look');
+  });
+
+  it('returns a missing-slots empty state before calling the edge function when wardrobe cannot build a visible outfit', async () => {
+    useFlatGarmentsMock.mockReturnValue({
+      data: [
+        { id: 'g1', title: 'Top', category: 'top', subcategory: null },
+        { id: 'g2', title: 'Bottom', category: 'bottom', subcategory: null },
+        { id: 'g3', title: 'Jacket', category: 'outerwear', subcategory: 'jacket' },
+      ],
+      isLoading: false,
+    });
+
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useAISuggestions(), { wrapper });
+
+    await waitFor(() => expect(result.current.data?.emptyState?.missingSlots).toEqual(['shoes']));
+    expect(invokeEdgeFunctionMock).not.toHaveBeenCalled();
   });
 
   it('keys the query by garment count so wardrobe changes do not reuse stale empty results', async () => {
     const { queryClient, wrapper } = createWrapper();
 
     const first = renderHook(() => useAISuggestions(), { wrapper });
-    await waitFor(() => expect(first.result.current.data).toHaveLength(1));
+    await waitFor(() => expect(first.result.current.data?.suggestions).toHaveLength(1));
 
     expect(queryClient.getQueryState(['ai-suggestions', 'user-1', 'en', 3, 12, 'none', 'low'])).toBeTruthy();
 
     useGarmentCountMock.mockReturnValue({ data: 4, isLoading: false });
+    useFlatGarmentsMock.mockReturnValue({
+      data: [
+        { id: 'g5', title: 'Top', category: 'top', subcategory: null },
+        { id: 'g6', title: 'Bottom', category: 'bottom', subcategory: null },
+        { id: 'g9', title: 'Shoes', category: 'shoes', subcategory: null },
+        { id: 'g10', title: 'Outerwear', category: 'outerwear', subcategory: 'jacket' },
+      ],
+      isLoading: false,
+    });
     supabaseInMock.mockResolvedValueOnce({
       data: [
         { id: 'g5', title: 'Top', category: 'top', color_primary: 'white', image_path: 'top3.jpg', original_image_path: 'top3.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
@@ -193,8 +234,49 @@ describe('useAISuggestions', () => {
     });
 
     const second = renderHook(() => useAISuggestions(), { wrapper });
-    await waitFor(() => expect(second.result.current.data?.[0]?.title).toBe('Fresh look'));
+    await waitFor(() => expect(second.result.current.data?.suggestions?.[0]?.title).toBe('Fresh look'));
 
     expect(queryClient.getQueryState(['ai-suggestions', 'user-1', 'en', 4, 12, 'none', 'low'])).toBeTruthy();
+  });
+});
+
+describe('useAISuggestionsVisibility', () => {
+  beforeEach(() => {
+    useWeatherMock.mockReturnValue({ weather: { temperature: 5, precipitation: 'rain', wind: 'low' } });
+  });
+
+  it('uses the effective city for weather-aware visibility checks', () => {
+    useGarmentCountMock.mockReturnValue({ data: 3, isLoading: false });
+    useFlatGarmentsMock.mockReturnValue({
+      data: [
+        { id: 'g1', title: 'Top', category: 'top', subcategory: null },
+        { id: 'g2', title: 'Bottom', category: 'bottom', subcategory: null },
+        { id: 'g3', title: 'Shoes', category: 'shoes', subcategory: null },
+      ],
+      isLoading: false,
+    });
+
+    const { wrapper } = createWrapper();
+    renderHook(() => useAISuggestionsVisibility(), { wrapper });
+
+    expect(useWeatherMock).toHaveBeenCalledWith({ city: 'Oslo' });
+  });
+
+  it('blocks the Home AI section when weather-required outerwear is missing', () => {
+    useGarmentCountMock.mockReturnValue({ data: 3, isLoading: false });
+    useFlatGarmentsMock.mockReturnValue({
+      data: [
+        { id: 'g1', title: 'Top', category: 'top', subcategory: null },
+        { id: 'g2', title: 'Bottom', category: 'bottom', subcategory: null },
+        { id: 'g3', title: 'Shoes', category: 'shoes', subcategory: null },
+      ],
+      isLoading: false,
+    });
+
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useAISuggestionsVisibility(), { wrapper });
+
+    expect(result.current.canShowBlock).toBe(false);
+    expect(result.current.emptyState?.missingSlots).toEqual(['outerwear']);
   });
 });

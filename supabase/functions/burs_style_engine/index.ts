@@ -1574,7 +1574,7 @@ function getRequiredSlotsForContext(
 ): string[] {
   const slots = new Set(items.map(i => i.slot));
   const hasDress = slots.has('dress');
-  const required = hasDress ? ['dress'] : ['top', 'bottom'];
+  const required = hasDress ? ['dress', 'shoes'] : ['top', 'bottom', 'shoes'];
   if (requiresOuterwear(weather)) required.push('outerwear');
   return required;
 }
@@ -1590,14 +1590,16 @@ function isCompleteOutfit(
   const hasTop = slots.has('top');
   const hasBottom = slots.has('bottom');
   const hasDress = slots.has('dress');
+  const hasShoes = slots.has('shoes');
   const hasOuterwear = slots.has('outerwear');
 
-  const standardPath = hasTop && hasBottom;
-  const dressPath = hasDress;
+  const standardPath = hasTop && hasBottom && hasShoes;
+  const dressPath = hasDress && hasShoes;
 
   if (!standardPath && !dressPath) {
     if (!hasDress && !hasTop) missing.push('top');
     if (!hasDress && !hasBottom) missing.push('bottom');
+    if (!hasShoes) missing.push('shoes');
   }
 
   const needsOuter = requiresOuterwear(weather);

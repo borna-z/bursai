@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 import { StaleIndicator } from '@/components/ui/StaleIndicator';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
-import { useAISuggestions, type AISuggestion } from '@/hooks/useAISuggestions';
+import { useAISuggestions, type AISuggestion, type AISuggestionsEmptyState } from '@/hooks/useAISuggestions';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -190,6 +190,22 @@ function DotNav({ total, active, onChange }: { total: number; active: number; on
   );
 }
 
+
+function getEmptyStateCopy(emptyState: AISuggestionsEmptyState | null, t: (key: string) => string) {
+  if (!emptyState) return t('insights.add_more_garments');
+  if (emptyState.reason === 'not_enough_garments') return t('insights.add_more_garments');
+
+  const missing = new Set(emptyState.missingSlots);
+  if (missing.has('outerwear') && missing.size === 1) return 'Add outerwear for this weather to unlock AI suggestions.';
+  if (missing.has('shoes') && missing.size === 1) return 'Add shoes to unlock complete AI outfit suggestions.';
+  if (missing.has('bottom') && missing.size === 1) return 'Add a bottom to unlock complete AI outfit suggestions.';
+  if (missing.has('top') && missing.size === 1) return 'Add a top to unlock complete AI outfit suggestions.';
+  if (missing.has('dress') && missing.size === 1) return 'Add a dress or a top-and-bottom combo to unlock AI suggestions.';
+  if (missing.has('shoes') && missing.has('bottom')) return 'Add both shoes and a bottom before Home can show complete AI outfits.';
+  if (missing.has('outerwear')) return 'Your wardrobe is close, but this weather still needs outerwear for complete AI outfits.';
+  return t('insights.add_more_garments');
+}
+
 /* ── Main component ── */
 interface AISuggestionsProps {
   isPremium: boolean;
@@ -202,7 +218,9 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
   const [creatingOutfitId, setCreatingOutfitId] = useState<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const { data: suggestions, isLoading, error, refetch, isFetching, dataUpdatedAt } = useAISuggestions();
+  const { data, isLoading, error, refetch, isFetching, dataUpdatedAt } = useAISuggestions();
+  const suggestions = data?.suggestions;
+  const emptyState = data?.emptyState;
 
   const handleTryIt = async (suggestion: AISuggestion, index: number) => {
     if (!user) return;
@@ -325,7 +343,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
       ) : !suggestions?.length ? (
         <div className="text-center py-12">
           <Shirt className="w-10 h-10 mx-auto mb-2 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">{t('insights.add_more_garments')}</p>
+          <p className="text-sm text-muted-foreground">{getEmptyStateCopy(emptyState ?? null, t)}</p>
         </div>
       ) : (
         <>

@@ -29,20 +29,25 @@ vi.mock('@/hooks/useProfile', () => ({
   useUpdateProfile: vi.fn(() => ({ mutateAsync: vi.fn() })),
 }));
 
-vi.mock('@/hooks/useGarments', () => ({
-  useGarmentCount: vi.fn(() => ({ data: 5 })),
-}));
+vi.mock('@/hooks/useGarments', async () => {
+  const actual = await vi.importActual<typeof import('@/hooks/useGarments')>('@/hooks/useGarments');
+  return {
+    ...actual,
+    useGarmentCount: vi.fn(() => ({ data: 5, isLoading: false })),
+    useFlatGarments: vi.fn(() => ({ data: [], isLoading: false })),
+  };
+});
 
 vi.mock('@/hooks/useSubscription', () => ({
   useSubscription: vi.fn(() => ({ isPremium: false, plan: 'free' })),
 }));
 
 vi.mock('@/hooks/useWeather', () => ({
-  useWeather: vi.fn(() => ({ data: null })),
+  useWeather: vi.fn(() => ({ weather: null, isLoading: false, error: null })),
 }));
 
 vi.mock('@/contexts/LocationContext', () => ({
-  useLocation: vi.fn(() => ({ coords: null })),
+  useLocation: vi.fn(() => ({ effectiveCity: null })),
 }));
 
 import HomePage from '../Home';
