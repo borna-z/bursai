@@ -30,6 +30,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useOutfitFeedback, useSubmitPhotoFeedback } from '@/hooks/usePhotoFeedback';
 import { useFeedbackSignals } from '@/hooks/useFeedbackSignals';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { RenderPendingOverlay } from '@/components/wardrobe/RenderPendingOverlay';
 
 /* ── Swap Sheet ─────────────────────────────────────── */
 
@@ -160,12 +161,13 @@ interface SlotRowProps {
   garmentTitle?: string;
   garmentColor?: string;
   imagePath?: string;
+  renderStatus?: string | null;
   onSwap: () => void;
   t: (key: string) => string;
   layerRole?: string;
 }
 
-function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, onSwap, t, layerRole }: SlotRowProps) {
+function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, renderStatus, onSwap, t, layerRole }: SlotRowProps) {
   const navigate = useNavigate();
   // Use layering role label for top-area slots when available
   const isLayeredSlot = ['top', 'outerwear'].includes(slot);
@@ -176,7 +178,7 @@ function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, onSwa
   return (
     <div className="flex items-center gap-4 py-4 border-b border-border/8 last:border-b-0 group">
       <div
-        className="w-[68px] h-[84px] rounded-2xl overflow-hidden flex-shrink-0 cursor-pointer bg-muted/20 ring-1 ring-border/10"
+        className="relative w-[68px] h-[84px] rounded-2xl overflow-hidden flex-shrink-0 cursor-pointer bg-muted/20 ring-1 ring-border/10"
         onClick={() => navigate(`/wardrobe/${garmentId}`)}
       >
         <LazyImageSimple
@@ -185,6 +187,7 @@ function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, onSwa
           className="w-[68px] h-[84px] object-cover"
           fallbackIcon={<Shirt className="w-6 h-6 text-muted-foreground/20" />}
         />
+        <RenderPendingOverlay renderStatus={renderStatus} variant="overlay" className="[&>span]:hidden" />
       </div>
       <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/wardrobe/${garmentId}`)}>
         <p className="text-[10px] text-muted-foreground/40 uppercase tracking-[0.12em] font-medium">
@@ -833,6 +836,7 @@ export default function OutfitDetailPage() {
               garmentTitle={stripBrands(item.garment?.title || '')}
               garmentColor={item.garment?.color_primary}
               imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
+              renderStatus={item.garment?.render_status}
               onSwap={() => handleOpenSwap(item.slot, item.id, item.garment_id)}
               t={t}
               layerRole={layerRoleMap.get(item.garment_id)}
