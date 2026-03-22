@@ -34,6 +34,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { getPreferredGarmentImagePath, getPreferredGarmentImageSource, getGarmentProcessingMessage } from '@/lib/garmentImage';
 import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
+import { RenderPendingOverlay } from '@/components/wardrobe/RenderPendingOverlay';
 
 type EnrichmentStatus = 'none' | 'pending' | 'in_progress' | 'complete' | 'failed';
 
@@ -310,6 +311,7 @@ export default function GarmentDetailPage() {
       {/* Hero image with floating controls */}
       <div className="relative overflow-hidden">
         <LazyImage imagePath={displayImagePath} alt={garment.title} aspectRatio="3/4" className="w-full !rounded-none" />
+        <RenderPendingOverlay renderStatus={garment.render_status} variant="overlay" />
 
         {/* Floating back button */}
         <Button

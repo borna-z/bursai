@@ -34,6 +34,7 @@ import { CoachMark } from '@/components/coach/CoachMark';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
+import { RenderPendingOverlay } from '@/components/wardrobe/RenderPendingOverlay';
 
 // ── Garment Card ──
 
@@ -77,20 +78,27 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
         )}
       >
         {isSelecting && <Checkbox checked={isSelected} className="shrink-0" />}
-        <LazyImageSimple
-          imagePath={displayImagePath}
-          alt={garment.title}
-          className="w-16 h-16 rounded-xl shrink-0"
-          fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/30" />}
-        />
+        <div className="relative w-16 h-16 rounded-xl shrink-0 overflow-hidden">
+          <LazyImageSimple
+            imagePath={displayImagePath}
+            alt={garment.title}
+            className="w-16 h-16 rounded-xl shrink-0"
+            fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/30" />}
+          />
+          <RenderPendingOverlay renderStatus={garment.render_status} variant="overlay" className="[&>span]:hidden" />
+        </div>
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm truncate">{garment.title}</p>
           <p className="text-xs text-muted-foreground capitalize">{categoryLabel(t, garment.category)} · {colorLabel(t, garment.color_primary)}</p>
-          <GarmentProcessingBadge
-            status={garment.image_processing_status}
-            renderStatus={garment.render_status}
-            className="mt-1"
-          />
+          {(garment.render_status === 'pending' || garment.render_status === 'rendering') ? (
+            <RenderPendingOverlay renderStatus={garment.render_status} variant="badge" className="mt-1" />
+          ) : (
+            <GarmentProcessingBadge
+              status={garment.image_processing_status}
+              renderStatus={garment.render_status}
+              className="mt-1"
+            />
+          )}
         </div>
       </motion.button>
     );
@@ -119,9 +127,12 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
           className="w-full h-full"
           fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/50" />}
         />
-        <div className="absolute left-2 bottom-2">
-          <GarmentProcessingBadge status={garment.image_processing_status} renderStatus={garment.render_status} />
-        </div>
+        <RenderPendingOverlay renderStatus={garment.render_status} />
+        {!(garment.render_status === 'pending' || garment.render_status === 'rendering') && (
+          <div className="absolute left-2 bottom-2">
+            <GarmentProcessingBadge status={garment.image_processing_status} renderStatus={garment.render_status} />
+          </div>
+        )}
         {isSelecting && (
           <div className="absolute top-2 left-2">
             <Checkbox checked={isSelected} className="bg-background/80" />

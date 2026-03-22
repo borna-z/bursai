@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
+import { RenderPendingOverlay } from '@/components/wardrobe/RenderPendingOverlay';
 
 const slotLabelKeys: Record<string, string> = {
   top: 'outfit.slot.top',
@@ -25,6 +26,7 @@ interface OutfitSlotCardProps {
   garmentColor?: string;
   garmentCategory?: string;
   imagePath?: string;
+  renderStatus?: string | null;
   onSwap: () => void;
   isLoading?: boolean;
 }
@@ -36,6 +38,7 @@ export const OutfitSlotCard = memo(function OutfitSlotCard({
   garmentColor,
   garmentCategory,
   imagePath,
+  renderStatus,
   onSwap,
   isLoading,
 }: OutfitSlotCardProps) {
@@ -63,8 +66,8 @@ export const OutfitSlotCard = memo(function OutfitSlotCard({
     <Card className="overflow-hidden group animate-drape-in lift press">
       <CardContent className="p-0 flex">
         {/* Image with 4:5 ratio */}
-        <div 
-          className="w-24 flex-shrink-0 cursor-pointer"
+        <div
+          className="relative w-24 flex-shrink-0 cursor-pointer overflow-hidden"
           onClick={() => navigate(`/wardrobe/${garmentId}`)}
         >
           <LazyImageSimple
@@ -73,6 +76,7 @@ export const OutfitSlotCard = memo(function OutfitSlotCard({
             className="w-24 h-[120px]"
             fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/30" />}
           />
+          <RenderPendingOverlay renderStatus={renderStatus} variant="overlay" className="[&>span]:hidden" />
         </div>
         
         {/* Content */}
