@@ -80,6 +80,7 @@ describe('useAISuggestions', () => {
       data: [
         { id: 'g1', title: 'Top', category: 'top', color_primary: 'black', image_path: 'top.jpg', original_image_path: 'top.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
         { id: 'g2', title: 'Bottom', category: 'bottom', color_primary: 'blue', image_path: 'bottom.jpg', original_image_path: 'bottom.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
+        { id: 'g7', title: 'Shoes', category: 'shoes', color_primary: 'white', image_path: 'shoes.jpg', original_image_path: 'shoes.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
       ],
       error: null,
     });
@@ -87,10 +88,11 @@ describe('useAISuggestions', () => {
       data: {
         suggestions: [{
           title: 'Look',
-          garment_ids: ['g1', 'g2'],
+          garment_ids: ['g1', 'g2', 'g7'],
           garments: [
             { id: 'g1', title: 'Top', category: 'top', color_primary: 'black', image_path: 'top.jpg' },
             { id: 'g2', title: 'Bottom', category: 'bottom', color_primary: 'blue', image_path: 'bottom.jpg' },
+            { id: 'g7', title: 'Shoes', category: 'shoes', color_primary: 'white', image_path: 'shoes.jpg' },
           ],
           explanation: 'Nice',
           occasion: 'daily',
@@ -116,6 +118,7 @@ describe('useAISuggestions', () => {
       data: [
         { id: 'g3', title: 'Top', category: 'top', color_primary: 'white', image_path: 'top2.jpg', original_image_path: 'top2.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
         { id: 'g4', title: 'Bottom', category: 'bottom', color_primary: 'blue', image_path: 'bottom.jpg', original_image_path: 'bottom.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
+        { id: 'g8', title: 'Shoes', category: 'shoes', color_primary: 'tan', image_path: 'shoes2.jpg', original_image_path: 'shoes2.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
       ],
       error: null,
     });
@@ -134,10 +137,11 @@ describe('useAISuggestions', () => {
           },
           {
             title: 'Good look',
-            garment_ids: ['g3', 'g4'],
+            garment_ids: ['g3', 'g4', 'g8'],
             garments: [
               { id: 'g3', title: 'Top', category: 'top', color_primary: 'white', image_path: 'top2.jpg' },
               { id: 'g4', title: 'Bottom', category: 'bottom', color_primary: 'blue', image_path: 'bottom.jpg' },
+              { id: 'g8', title: 'Shoes', category: 'shoes', color_primary: 'tan', image_path: 'shoes2.jpg' },
             ],
             explanation: 'Valid',
             occasion: 'daily',
@@ -167,6 +171,7 @@ describe('useAISuggestions', () => {
       data: [
         { id: 'g5', title: 'Top', category: 'top', color_primary: 'white', image_path: 'top3.jpg', original_image_path: 'top3.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
         { id: 'g6', title: 'Bottom', category: 'bottom', color_primary: 'black', image_path: 'bottom2.jpg', original_image_path: 'bottom2.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
+        { id: 'g9', title: 'Shoes', category: 'shoes', color_primary: 'black', image_path: 'shoes3.jpg', original_image_path: 'shoes3.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
       ],
       error: null,
     });
@@ -174,10 +179,11 @@ describe('useAISuggestions', () => {
       data: {
         suggestions: [{
           title: 'Fresh look',
-          garment_ids: ['g5', 'g6'],
+          garment_ids: ['g5', 'g6', 'g9'],
           garments: [
             { id: 'g5', title: 'Top', category: 'top', color_primary: 'white', image_path: 'top3.jpg' },
             { id: 'g6', title: 'Bottom', category: 'bottom', color_primary: 'black', image_path: 'bottom2.jpg' },
+            { id: 'g9', title: 'Shoes', category: 'shoes', color_primary: 'black', image_path: 'shoes3.jpg' },
           ],
           explanation: 'Updated',
           occasion: 'daily',

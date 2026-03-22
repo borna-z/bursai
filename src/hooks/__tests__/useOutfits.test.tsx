@@ -58,7 +58,7 @@ describe('useOutfits', () => {
 
   it('fetches outfits with items', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: { id: 'user-1' } } as ReturnType<typeof useAuth>);
-    const outfits = [{ id: 'o1', occasion: 'casual', outfit_items: [{ id: 'oi1', slot: 'top', garment_id: 'g1', garment: { id: 'g1', category: 'top' } }, { id: 'oi2', slot: 'bottom', garment_id: 'g2', garment: { id: 'g2', category: 'bottom' } }] }];
+    const outfits = [{ id: 'o1', occasion: 'casual', outfit_items: [{ id: 'oi1', slot: 'top', garment_id: 'g1', garment: { id: 'g1', category: 'top' } }, { id: 'oi2', slot: 'bottom', garment_id: 'g2', garment: { id: 'g2', category: 'bottom' } }, { id: 'oi3', slot: 'shoes', garment_id: 'g3', garment: { id: 'g3', category: 'shoes' } }] }];
     mockFrom.mockReturnValue(mockChain(outfits));
 
     const { useOutfits } = await import('../useOutfits');
@@ -69,7 +69,7 @@ describe('useOutfits', () => {
 
   it('useOutfit returns single outfit', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: { id: 'user-1' } } as ReturnType<typeof useAuth>);
-    const outfit = { id: 'o1', occasion: 'formal', outfit_items: [{ id: 'oi1', slot: 'dress', garment_id: 'g1', garment: { id: 'g1', category: 'dress' } }] };
+    const outfit = { id: 'o1', occasion: 'formal', outfit_items: [{ id: 'oi1', slot: 'dress', garment_id: 'g1', garment: { id: 'g1', category: 'dress' } }, { id: 'oi2', slot: 'shoes', garment_id: 'g2', garment: { id: 'g2', category: 'shoes' } }] };
     mockFrom.mockReturnValue(mockChain([outfit]));
 
     const { useOutfit } = await import('../useOutfits');
@@ -96,6 +96,7 @@ describe('useOutfits', () => {
         outfit_items: [
           { id: 'oi-3', slot: 'top', garment_id: 'g3', garment: { id: 'g3', category: 'top' } },
           { id: 'oi-4', slot: 'bottom', garment_id: 'g4', garment: { id: 'g4', category: 'bottom' } },
+          { id: 'oi-5', slot: 'shoes', garment_id: 'g5', garment: { id: 'g5', category: 'shoes' } },
         ],
       },
     ];
