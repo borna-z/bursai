@@ -44,6 +44,10 @@ export function getGarmentProcessingMessage(
     return { label: 'Using original photo', tone: 'muted' };
   }
 
+  if (renderStatus === 'skipped') {
+    return { label: 'Using uploaded product photo', tone: 'success' };
+  }
+
   switch (status) {
     case 'pending':
       return { label: 'Preparing image in background', tone: 'muted' };
