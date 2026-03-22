@@ -403,7 +403,7 @@ serve(async (req) => {
       .from('garments')
       .select(
         'id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, ' +
-        'original_image_path, processed_image_path, image_path, image_processing_status, render_status',
+        'original_image_path, processed_image_path, image_path, image_processing_status, render_status, ai_raw',
       )
       .eq('id', garmentId)
       .eq('user_id', user.id)
@@ -490,21 +490,47 @@ serve(async (req) => {
 
     const dataUrl = `data:${mimeType};base64,${base64}`;
 
-    // ── Build prompt ──
-    const parts = [garment.color_primary];
-    if (garment.color_secondary) parts.push(`and ${garment.color_secondary}`);
-    if (garment.material) parts.push(garment.material);
-    if (garment.pattern && garment.pattern !== 'solid') parts.push(garment.pattern);
-    if (garment.fit) parts.push(`${garment.fit} fit`);
+    // ── Build prompt with available metadata ──
+    // Extract enrichment data from ai_raw when available
+    const enrichment: Record<string, unknown> =
+      (garment.ai_raw && typeof garment.ai_raw === 'object'
+        ? (garment.ai_raw as Record<string, unknown>).enrichment as Record<string, unknown>
+        : null) ?? {};
+    const eStr = (key: string): string | null =>
+      typeof enrichment[key] === 'string' && enrichment[key] !== 'null' ? enrichment[key] as string : null;
+
+    // Build garment description from structured fields + enrichment
+    const descParts: string[] = [];
+    if (garment.color_primary) descParts.push(garment.color_primary);
+    if (garment.color_secondary) descParts.push(`and ${garment.color_secondary}`);
+    if (garment.material) descParts.push(garment.material);
+    if (garment.pattern && garment.pattern !== 'solid') descParts.push(garment.pattern);
+    if (garment.fit) descParts.push(`${garment.fit} fit`);
 
     const itemName = garment.subcategory
       ? `${garment.subcategory} ${garment.category}`
       : garment.title;
 
+    // Conditionally add enrichment details for the prompt
+    const detailLines: string[] = [];
+    const neckline = eStr('neckline');
+    if (neckline) detailLines.push(`Neckline: ${neckline}`);
+    const sleeveLength = eStr('sleeve_length');
+    if (sleeveLength) detailLines.push(`Sleeve length: ${sleeveLength}`);
+    const closure = eStr('closure');
+    if (closure) detailLines.push(`Closure: ${closure}`);
+    const silhouette = eStr('silhouette');
+    if (silhouette) detailLines.push(`Silhouette: ${silhouette}`);
+    const garmentLength = eStr('garment_length');
+    if (garmentLength) detailLines.push(`Garment length: ${garmentLength}`);
+    const fabricWeight = eStr('fabric_weight');
+    if (fabricWeight) detailLines.push(`Fabric weight: ${fabricWeight}`);
+
     const prompt = [
       `Create one studio e-commerce product image of only the garment from the reference photo.`,
       `Output a ghost mannequin / shadow mannequin result, as if the garment is worn by an invisible form.`,
-      `Garment description: ${parts.join(' ')} ${itemName}.`,
+      `Garment: ${descParts.join(' ')} ${itemName}.`,
+      ...(detailLines.length > 0 ? [`Key details from analysis:`, ...detailLines.map((l) => `- ${l}`)] : []),
       `Hard requirements:`,
       `- Keep only the garment from the reference image`,
       `- Preserve the EXACT color, silhouette, fabric texture, print, logo placement, buttons, pockets, sleeve length, collar, hem, and proportions`,

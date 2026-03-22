@@ -165,9 +165,11 @@ export default function GarmentDetailPage() {
       enrichmentStatus === 'pending' ||
       enrichmentStatus === 'in_progress' ||
       garment?.image_processing_status === 'pending' ||
-      garment?.image_processing_status === 'processing';
+      garment?.image_processing_status === 'processing' ||
+      garment?.render_status === 'pending' ||
+      garment?.render_status === 'rendering';
     setIsEnrichmentPending(shouldPoll);
-  }, [enrichmentStatus, garment?.image_processing_status]);
+  }, [enrichmentStatus, garment?.image_processing_status, garment?.render_status]);
 
   const { data: similarGarments } = useSimilarGarments(garment);
   const { data: outfitHistory } = useGarmentOutfitHistory(id);
@@ -300,7 +302,7 @@ export default function GarmentDetailPage() {
   });
   if (garment.formality) seasonParts.push(`${t('garment.formality')} ${garment.formality}/5`);
   const displayImagePath = getPreferredGarmentImagePath(garment);
-  const processingMessage = getGarmentProcessingMessage(garment.image_processing_status);
+  const processingMessage = getGarmentProcessingMessage(garment.image_processing_status, garment.render_status);
 
   return (
     <div className="min-h-screen bg-background pb-40">
@@ -790,7 +792,7 @@ export default function GarmentDetailPage() {
 
         {processingMessage && (
           <div className="absolute bottom-4 left-4 z-10 flex flex-col items-start gap-2">
-            <GarmentProcessingBadge status={garment.image_processing_status} className="bg-background/85" />
+            <GarmentProcessingBadge status={garment.image_processing_status} renderStatus={garment.render_status} className="bg-background/85" />
             {garment.image_processing_status === 'failed' && (
               <p className="max-w-xs rounded-lg bg-background/85 px-3 py-2 text-xs text-muted-foreground shadow-sm">
                 We kept your original photo and will only swap in a cleaned cutout when it is safely ready.

@@ -68,14 +68,32 @@ describe('garmentImage', () => {
 
   it('shows render message when render is pending', () => {
     expect(getGarmentProcessingMessage('ready', 'pending')).toEqual({
-      label: 'Generating wardrobe image',
+      label: 'Enhancing your photo in the background…',
       tone: 'muted',
     });
   });
 
   it('shows render message when rendering', () => {
     expect(getGarmentProcessingMessage('ready', 'rendering')).toEqual({
-      label: 'Generating wardrobe image',
+      label: 'Enhancing your photo in the background…',
+      tone: 'muted',
+    });
+  });
+
+  it('shows render message even when processing failed (Add Photo pilot)', () => {
+    expect(getGarmentProcessingMessage('failed', 'pending')).toEqual({
+      label: 'Enhancing your photo in the background…',
+      tone: 'muted',
+    });
+  });
+
+  it('hides badge when processing failed but render succeeded', () => {
+    expect(getGarmentProcessingMessage('failed', 'ready')).toBeNull();
+  });
+
+  it('shows original photo kept when both render and processing failed', () => {
+    expect(getGarmentProcessingMessage('failed', 'failed')).toEqual({
+      label: 'Original photo kept',
       tone: 'muted',
     });
   });

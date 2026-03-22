@@ -37,7 +37,12 @@ export function getGarmentProcessingMessage(
 ): { label: string; tone: 'muted' | 'success' } | null {
   // Render status takes precedence when active
   if (renderStatus === 'pending' || renderStatus === 'rendering') {
-    return { label: 'Generating wardrobe image', tone: 'muted' };
+    return { label: 'Enhancing your photo in the background…', tone: 'muted' };
+  }
+
+  // Render failed but processing was intentionally skipped (Add Photo pilot)
+  if (renderStatus === 'failed' && status === 'failed') {
+    return { label: 'Original photo kept', tone: 'muted' };
   }
 
   switch (status) {
@@ -46,6 +51,8 @@ export function getGarmentProcessingMessage(
     case 'processing':
       return { label: 'Background cleanup in progress', tone: 'muted' };
     case 'failed':
+      // If render is ready, the rendered image is already shown — no badge needed
+      if (renderStatus === 'ready') return null;
       return { label: 'Original photo kept', tone: 'muted' };
     default:
       return null;
