@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.220.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { bursAIErrorResponse } from '../_shared/burs-ai.ts';
 import { allowedOrigin } from '../_shared/cors.ts';
+import { assessRenderEligibilityWithGemini, PRODUCT_READY_RENDER_GATE_PROVIDER } from '../_shared/render-eligibility.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': allowedOrigin,
@@ -502,7 +503,7 @@ serve(async (req) => {
       .from('garments')
       .select(
         'id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, ai_raw, ' +
-        'original_image_path, processed_image_path, image_path, image_processing_status, render_status',
+        'original_image_path, processed_image_path, image_path, image_processing_status, render_status, render_error, rendered_image_path',
       )
       .eq('id', garmentId)
       .eq('user_id', user.id)
@@ -516,7 +517,7 @@ serve(async (req) => {
     }
 
     // Don't re-render if already ready or currently rendering
-    if (garment.render_status === 'ready' || garment.render_status === 'rendering') {
+    if (garment.render_status === 'ready' || garment.render_status === 'rendering' || garment.render_status === 'skipped') {
       return new Response(
         JSON.stringify({ ok: true, skipped: true, reason: `Already ${garment.render_status}` }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -540,13 +541,6 @@ serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
-
-    // ── Mark as rendering ──
-    await updateGarmentRenderState(supabase, garment.id, {
-      render_status: 'rendering',
-      render_error: null,
-      render_provider: 'gemini',
-    }, 'Failed to mark garment as rendering');
 
     const hasGeminiApiKey = Boolean(Deno.env.get('GEMINI_API_KEY')?.trim());
     console.log('render_garment_image Gemini provider config', {
@@ -588,6 +582,51 @@ serve(async (req) => {
     }
 
     const dataUrl = `data:${mimeType};base64,${base64}`;
+
+    let eligibilityAssessment = null;
+    try {
+      eligibilityAssessment = await assessRenderEligibilityWithGemini({
+        apiKey: Deno.env.get('GEMINI_API_KEY')?.trim() ?? '',
+        garmentId: garment.id,
+        mimeType,
+        imageBase64: base64,
+      });
+    } catch (eligibilityError) {
+      console.warn('render_garment_image eligibility gate failed open', {
+        garmentId: garment.id,
+        error: getErrorMessage(eligibilityError),
+      });
+    }
+
+    if (eligibilityAssessment?.decision === 'skip_product_ready') {
+      const confidenceLabel = eligibilityAssessment.confidence == null
+        ? 'unknown'
+        : eligibilityAssessment.confidence.toFixed(2);
+      await updateGarmentRenderState(supabase, garment.id, {
+        render_status: 'skipped',
+        render_provider: PRODUCT_READY_RENDER_GATE_PROVIDER,
+        render_error: `Skipped render: ${eligibilityAssessment.reason} (confidence=${confidenceLabel})`,
+        rendered_image_path: null,
+        rendered_at: null,
+      }, 'Failed to mark garment render as skipped');
+
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          skipped: true,
+          reason: eligibilityAssessment.reason,
+          eligibility: eligibilityAssessment,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // ── Mark as rendering ──
+    await updateGarmentRenderState(supabase, garment.id, {
+      render_status: 'rendering',
+      render_error: null,
+      render_provider: 'gemini',
+    }, 'Failed to mark garment as rendering');
 
     // ── Build prompt ──
     const prompt = buildGarmentRenderPrompt(garment);
