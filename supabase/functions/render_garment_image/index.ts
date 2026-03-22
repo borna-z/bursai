@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.220.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { bursAIErrorResponse } from '../_shared/burs-ai.ts';
 import { allowedOrigin } from '../_shared/cors.ts';
-import { assessRenderEligibilityWithGemini, PRODUCT_READY_RENDER_GATE_PROVIDER } from '../_shared/render-eligibility.ts';
+import { assessRenderEligibilityWithGemini, PRODUCT_READY_RENDER_GATE_PROVIDER, validateRenderedGarmentOutputWithGemini } from '../_shared/render-eligibility.ts';
 import { mannequinPresentationInstruction, normalizeMannequinPresentation } from '../_shared/mannequin-presentation.ts';
 
 const corsHeaders = {
@@ -13,7 +13,6 @@ const corsHeaders = {
 
 const GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image';
 const GEMINI_IMAGE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent`;
-
 
 type GeminiInlineData = {
   mimeType?: string;
@@ -328,11 +327,13 @@ function buildGarmentRenderPrompt(garment: {
       : 'No extra garment metadata is available beyond the reference image.',
     'Hard requirements:',
     '- Show one garment only',
-    '- Convert it into a ghost mannequin / shadow mannequin product render',
+    '- Convert it into a garment-only ghost mannequin / shadow mannequin product render',
     `- ${mannequinPresentationInstruction(mannequinPresentation)}`,
     '- Preserve the EXACT color, silhouette, proportions, material texture, pattern or print, graphics or logos if present, buttons, zipper, pockets, collar, neckline, sleeves, hem, seams, trim, and all distinctive construction details from the reference image',
     '- Reconstruct hidden interior or occluded garment areas only as needed to complete the garment naturally and realistically',
     '- Remove the person, body, head, skin, hair, hands, mannequin, hanger, props, and the original background completely',
+    '- The final image must show the garment only: no visible mannequin head shape, no neck block, no shoulder block, no torso form, no hip or pelvis block, and no visible arms, hands, legs, or feet',
+    '- Internal shaping must be subtle and limited to natural garment volume; do not leave behind any visible anatomy silhouette',
     '- Keep the garment centered with clean soft catalog lighting on a pure white background',
     '- Make the result commercially usable and photorealistic',
     'Negative requirements:',
@@ -768,6 +769,37 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ ok: true, rendered: false, error: 'Output too large' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // ── Quality gate v2: mannequin anatomy validation ──
+    const renderedBase64 = uint8ArrayToBase64(outputBytes);
+    const validationAssessment = await validateRenderedGarmentOutputWithGemini({
+      apiKey: geminiApiKey,
+      garmentId: garment.id,
+      mimeType: outputMimeType,
+      imageBase64: renderedBase64,
+    });
+
+    if (validationAssessment?.decision === 'reject_visible_mannequin') {
+      const confidenceLabel = validationAssessment.confidence == null
+        ? 'unknown'
+        : validationAssessment.confidence.toFixed(2);
+
+      await safeMarkRenderFailed(supabase, garment.id, {
+        render_error: `Quality gate rejected render: ${validationAssessment.reason} (confidence=${confidenceLabel})`,
+        rendered_image_path: null,
+        rendered_at: null,
+      }, 'quality_gate_visible_mannequin');
+
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          rendered: false,
+          error: 'Rendered output still showed visible mannequin anatomy',
+          validation: validationAssessment,
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }

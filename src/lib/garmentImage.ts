@@ -16,6 +16,20 @@ type GarmentImageLike = {
   render_status?: string | null;
 };
 
+export type GarmentDisplaySource = 'rendered' | 'processed' | 'original';
+
+export function getPreferredGarmentImageSource(garment: GarmentImageLike): GarmentDisplaySource {
+  if (garment.render_status === 'ready' && garment.rendered_image_path) {
+    return 'rendered';
+  }
+
+  if (garment.image_processing_status === 'ready' && garment.processed_image_path) {
+    return 'processed';
+  }
+
+  return 'original';
+}
+
 export function getPreferredGarmentImagePath(garment: GarmentImageLike): string | undefined {
   // Tier 1: Gemini-rendered canonical asset
   if (garment.render_status === 'ready' && garment.rendered_image_path) {
@@ -34,6 +48,7 @@ export function getPreferredGarmentImagePath(garment: GarmentImageLike): string 
 export function getGarmentProcessingMessage(
   status: string | null | undefined,
   renderStatus?: string | null | undefined,
+  displaySource: GarmentDisplaySource = 'original',
 ): { label: string; tone: 'muted' | 'success' } | null {
   // Render status takes precedence when active
   if (renderStatus === 'pending' || renderStatus === 'rendering') {
@@ -41,6 +56,10 @@ export function getGarmentProcessingMessage(
   }
 
   if (renderStatus === 'failed') {
+    if (displaySource === 'processed') {
+      return { label: 'Using cleaned cutout', tone: 'muted' };
+    }
+
     return { label: 'Using original photo', tone: 'muted' };
   }
 
@@ -55,6 +74,16 @@ export function getGarmentProcessingMessage(
       return { label: 'Background cleanup in progress', tone: 'muted' };
     case 'failed':
       return { label: 'Using original photo', tone: 'muted' };
+    case 'ready':
+      if (displaySource === 'rendered') {
+        return { label: 'Using rendered mannequin image', tone: 'success' };
+      }
+
+      if (displaySource === 'processed') {
+        return { label: 'Using cleaned cutout', tone: 'success' };
+      }
+
+      return null;
     default:
       return null;
   }

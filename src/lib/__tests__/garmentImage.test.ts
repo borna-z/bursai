@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getGarmentProcessingMessage, getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { getGarmentProcessingMessage, getPreferredGarmentImagePath, getPreferredGarmentImageSource } from '@/lib/garmentImage';
 
 describe('garmentImage', () => {
   it('prefers rendered image when ready', () => {
@@ -80,14 +80,12 @@ describe('garmentImage', () => {
     });
   });
 
-
   it('shows neutral fallback copy when render fails', () => {
     expect(getGarmentProcessingMessage('ready', 'failed')).toEqual({
       label: 'Using original photo',
       tone: 'muted',
     });
   });
-
 
   it('shows success copy when render is intentionally skipped', () => {
     expect(getGarmentProcessingMessage('ready', 'skipped')).toEqual({
@@ -102,4 +100,30 @@ describe('garmentImage', () => {
       tone: 'muted',
     });
   });
+
+  it('reports rendered as the display source when rendered asset is active', () => {
+    expect(
+      getPreferredGarmentImageSource({
+        image_processing_status: 'ready',
+        processed_image_path: 'processed.png',
+        render_status: 'ready',
+        rendered_image_path: 'rendered.png',
+      } as never),
+    ).toBe('rendered');
+  });
+
+  it('returns truthful rendered-source copy when rendered asset is visible', () => {
+    expect(getGarmentProcessingMessage('ready', 'ready', 'rendered')).toEqual({
+      label: 'Using rendered mannequin image',
+      tone: 'success',
+    });
+  });
+
+  it('returns truthful processed-source copy when render failed but cutout is visible', () => {
+    expect(getGarmentProcessingMessage('ready', 'failed', 'processed')).toEqual({
+      label: 'Using cleaned cutout',
+      tone: 'muted',
+    });
+  });
+
 });

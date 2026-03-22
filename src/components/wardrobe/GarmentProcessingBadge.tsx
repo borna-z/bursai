@@ -1,15 +1,16 @@
 import { Badge } from '@/components/ui/badge';
-import { getGarmentProcessingMessage } from '@/lib/garmentImage';
+import { getGarmentProcessingMessage, type GarmentDisplaySource } from '@/lib/garmentImage';
 import { cn } from '@/lib/utils';
 
 interface GarmentProcessingBadgeProps {
   status?: string | null;
   renderStatus?: string | null;
   className?: string;
+  displaySource?: GarmentDisplaySource;
 }
 
-export function GarmentProcessingBadge({ status, renderStatus, className }: GarmentProcessingBadgeProps) {
-  const message = getGarmentProcessingMessage(status, renderStatus);
+export function GarmentProcessingBadge({ status, renderStatus, className, displaySource = 'original' }: GarmentProcessingBadgeProps) {
+  const message = getGarmentProcessingMessage(status, renderStatus, displaySource);
 
   if (!message) return null;
 
