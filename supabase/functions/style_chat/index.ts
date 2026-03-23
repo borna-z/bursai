@@ -141,6 +141,7 @@ const PARTIAL_TAG_CHAR_RE = /[a-z0-9,\-|]/i;
 interface NormalizedAssistantReply {
   text: string;
   outfitIds: string[];
+  outfitTag: string | null;
 }
 
 function stripPartialTagStarts(text: string): string {
@@ -265,26 +266,39 @@ function normalizeAssistantReply(params: {
   rankedGarments: GarmentRecord[];
   anchor: GarmentRecord | null;
   activeLook: ActiveLookContext;
+  placeOutfitTagFirst?: boolean;
 }): NormalizedAssistantReply {
   const candidate = pickOutfitIdsFromText(params.rawText, params.validGarmentIds);
   const fallbackIds = buildFallbackOutfitIds(params.rankedGarments, params.anchor, params.activeLook);
   const outfitIds = (candidate?.ids?.length ? candidate.ids : fallbackIds).slice(0, 5);
   const explanation = (candidate?.explanation || buildOutfitExplanation(params.rawText, outfitIds)).replace(/[\[\]\n\r|]+/g, " ").trim();
-
   const prose = stripUnknownTagMarkup(params.rawText.replace(VALID_OUTFIT_TAG_RE, ""));
-  const finalText = outfitIds.length >= 2
-    ? `${prose}\n\n[[outfit:${outfitIds.join(",")}|${explanation || "Current active look"}]]`.trim()
+  const outfitTag = outfitIds.length >= 2
+    ? `[[outfit:${outfitIds.join(",")}|${explanation || "Current active look"}]]`
+    : null;
+  const finalText = outfitTag
+    ? params.placeOutfitTagFirst
+      ? `${outfitTag}\n\n${prose}`.trim()
+      : `${prose}\n\n${outfitTag}`.trim()
     : prose;
 
   return {
     text: finalText,
     outfitIds,
+    outfitTag,
   };
 }
 
-function createSseTextResponse(text: string): Response {
+function createSseTextResponse(text: string, priorityChunk?: string | null): Response {
   const encoder = new TextEncoder();
-  const chunks = text.match(/.{1,180}(?:\s|$)|\S+/g) || [];
+  const chunks: string[] = [];
+  const normalizedPriorityChunk = priorityChunk?.trim();
+  const remainingText = normalizedPriorityChunk && text.startsWith(normalizedPriorityChunk)
+    ? text.slice(normalizedPriorityChunk.length).trimStart()
+    : text;
+
+  if (normalizedPriorityChunk) chunks.push(normalizedPriorityChunk);
+  chunks.push(...(remainingText.match(/.{1,180}(?:\s|$)|\S+/g) || []));
 
   const stream = new ReadableStream({
     start(controller) {
@@ -842,6 +856,10 @@ function chooseChatComplexity(messages: MessageInput[], anchor: GarmentRecord | 
   return "standard";
 }
 
+function isRefinementTurn(intent: RefinementIntent, activeLook: ActiveLookContext): boolean {
+  return intent.mode !== "new_look" && activeLook.garmentIds.length >= 2;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -971,6 +989,7 @@ serve(async (req) => {
     const refinementContract = buildRefinementContract(refinementIntent, activeLook);
     const candidateOutfits = buildCandidateOutfits(wardrobeCtx.rankedGarments, wardrobeCtx.anchor);
     const chatComplexity = chooseChatComplexity(messages as MessageInput[], wardrobeCtx.anchor);
+    const refinementTurn = isRefinementTurn(refinementIntent, activeLook);
 
     const systemPrompt = `${VOICE_STYLIST_CHAT}
 
@@ -1039,9 +1058,13 @@ ${refinementContract}`;
       rankedGarments: wardrobeCtx.rankedGarments,
       anchor: wardrobeCtx.anchor,
       activeLook,
+      placeOutfitTagFirst: refinementTurn,
     });
 
-    return createSseTextResponse(normalizedReply.text);
+    return createSseTextResponse(
+      normalizedReply.text,
+      refinementTurn ? normalizedReply.outfitTag : null,
+    );
   } catch (e) {
     console.error("style_chat error:", e);
     return bursAIErrorResponse(e, corsHeaders);
