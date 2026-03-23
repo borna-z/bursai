@@ -1560,6 +1560,8 @@ function hasSuitableShoesAvailable(shoes: ScoredGarment[], weather: WeatherInput
   return shoes.some((shoe) => isSuitableShoeCandidate(shoe, weather));
 }
 
+type OutfitCompletenessMode = 'strict_visible' | 'guaranteed_base';
+
 interface OutfitCompletenessResult {
   complete: boolean;
   missing: string[];
@@ -1570,18 +1572,23 @@ interface OutfitCompletenessResult {
 /** Compute the required slots for the given items and weather context. */
 function getRequiredSlotsForContext(
   items: { slot: string }[],
-  weather: WeatherInput
+  weather: WeatherInput,
+  mode: OutfitCompletenessMode = 'strict_visible'
 ): string[] {
   const slots = new Set(items.map(i => i.slot));
   const hasDress = slots.has('dress');
-  const required = hasDress ? ['dress', 'shoes'] : ['top', 'bottom', 'shoes'];
-  if (requiresOuterwear(weather)) required.push('outerwear');
+  const required = hasDress ? ['dress'] : ['top', 'bottom'];
+  if (mode === 'strict_visible') {
+    required.push('shoes');
+    if (requiresOuterwear(weather)) required.push('outerwear');
+  }
   return required;
 }
 
 function isCompleteOutfit(
   items: ComboItem[],
-  weather: WeatherInput
+  weather: WeatherInput,
+  mode: OutfitCompletenessMode = 'strict_visible'
 ): OutfitCompletenessResult {
   const presentSlots = [...new Set(items.map(i => i.slot))];
   const slots = new Set(presentSlots);
@@ -1593,25 +1600,32 @@ function isCompleteOutfit(
   const hasShoes = slots.has('shoes');
   const hasOuterwear = slots.has('outerwear');
 
-  const standardPath = hasTop && hasBottom && hasShoes;
-  const dressPath = hasDress && hasShoes;
+  const hasStandardBase = hasTop && hasBottom;
+  const hasDressBase = hasDress;
+  const hasBasePath = hasStandardBase || hasDressBase;
 
-  if (!standardPath && !dressPath) {
+  if (!hasBasePath) {
     if (!hasDress && !hasTop) missing.push('top');
     if (!hasDress && !hasBottom) missing.push('bottom');
-    if (!hasShoes) missing.push('shoes');
   }
 
-  const needsOuter = requiresOuterwear(weather);
-  if (needsOuter && !hasOuterwear) {
-    missing.push('outerwear');
+  if (mode === 'strict_visible') {
+    const strictStandardPath = hasStandardBase && hasShoes;
+    const strictDressPath = hasDressBase && hasShoes;
+    if (!strictStandardPath && !strictDressPath && !hasShoes) {
+      missing.push('shoes');
+    }
+
+    const needsOuter = requiresOuterwear(weather);
+    if (needsOuter && !hasOuterwear) {
+      missing.push('outerwear');
+    }
   }
 
-  const hasValidBase = standardPath || dressPath;
   const layering = hasDress ? { valid: true } : validateLayeringCompleteness(items);
-  const complete = hasValidBase && layering.valid && (!needsOuter || hasOuterwear);
+  const complete = hasBasePath && layering.valid;
 
-  const requiredSlots = getRequiredSlotsForContext(items, weather);
+  const requiredSlots = getRequiredSlotsForContext(items, weather, mode);
 
   return { complete, missing, required_slots: requiredSlots, present_slots: presentSlots };
 }
@@ -2533,7 +2547,7 @@ function buildCombos(
   const combos: ScoredCombo[] = [];
 
   const pushCombo = (items: ComboItem[]) => {
-    const { complete } = isCompleteOutfit(items, weather);
+    const { complete } = isCompleteOutfit(items, weather, 'guaranteed_base');
     if (!complete) return; // Reject incomplete outfits before scoring
     combos.push(
       scoreCombo(items, recentOutfitSets, occasion, weather, style, prefs, body, pairMemory)
@@ -3021,6 +3035,26 @@ function detectWardrobeGapForRequest(
   }
 
   return gaps;
+}
+
+
+function buildBaseGenerationLimitationNote(
+  combo: ScoredCombo,
+  weather: WeatherInput,
+  gaps: string[],
+  confidence: ConfidenceResult
+): string | null {
+  const parts: string[] = [];
+  const slots = new Set(combo.items.map(item => item.slot));
+  if (!slots.has('shoes')) {
+    parts.push('missing shoes, so this is a base outfit only');
+  }
+  if (requiresOuterwear(weather) && !slots.has('outerwear')) {
+    parts.push('missing weather-appropriate outerwear, so this is a base outfit only');
+  }
+  const generic = generateLimitationNote(gaps, confidence);
+  if (generic) parts.push(generic);
+  return parts.length > 0 ? Array.from(new Set(parts)).join('; ') : null;
 }
 
 function generateLimitationNote(gaps: string[], confidence: ConfidenceResult): string | null {
@@ -4346,7 +4380,7 @@ serve(async (req) => {
 
     // Gap-aware confidence
     const confidence = computeConfidence(bestCombo, candidateCount, slotCandidates, weather, occasion, gaps, bestLayering.needs_base_layer);
-    const limitationNote = generateLimitationNote(gaps, confidence);
+    const limitationNote = buildBaseGenerationLimitationNote(bestCombo, weather, gaps, confidence);
 
     // Build generation failure signal for insight derivation
     const failureSignal = buildGenerationFailureSignal(occasion, weather, gaps, confidence, slotCandidates);
@@ -4411,9 +4445,9 @@ serve(async (req) => {
       // Validate chosen combo is complete; fall back to first complete one
       let chosen = combos[chosenIdx];
       {
-        const { complete } = isCompleteOutfit(chosen.items, weather);
+        const { complete } = isCompleteOutfit(chosen.items, weather, 'guaranteed_base');
         if (!complete) {
-          const fallbackIdx = combos.findIndex(c => isCompleteOutfit(c.items, weather).complete);
+          const fallbackIdx = combos.findIndex(c => isCompleteOutfit(c.items, weather, 'guaranteed_base').complete);
           if (fallbackIdx >= 0) {
             chosenIdx = fallbackIdx;
             chosen = combos[chosenIdx];
@@ -4423,7 +4457,7 @@ serve(async (req) => {
       const dc = chosen as DeduplicatedCombo;
       const chosenLayering = validateLayeringCompleteness(chosen.items);
       const chosenConf = computeConfidence(chosen, candidateCount, slotCandidates, weather, occasion, gaps, chosenLayering.needs_base_layer);
-      const chosenNote = generateLimitationNote(gaps, chosenConf);
+      const chosenNote = buildBaseGenerationLimitationNote(chosen, weather, gaps, chosenConf);
       return new Response(JSON.stringify({
         items: chosen.items.map(i => ({ slot: i.slot, garment_id: i.garment.id })),
         explanation: aiResult.data.explanation || "",

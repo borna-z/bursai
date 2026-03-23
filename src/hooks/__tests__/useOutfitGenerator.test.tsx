@@ -119,6 +119,7 @@ describe('useOutfitGenerator', () => {
         ],
         explanation: 'Valid base outfit without shoes',
         style_score: null,
+        limitation_note: 'missing shoes, so this is a base outfit only',
       },
       error: null,
     });
@@ -130,6 +131,7 @@ describe('useOutfitGenerator', () => {
       outfit = await result.current.generateOutfit(baseRequest);
     });
     expect(outfit?.items.map((item) => item.slot)).toEqual(['top', 'bottom']);
+    expect(outfit?.limitation_note).toBe('missing shoes, so this is a base outfit only');
   });
 
   it('validates wardrobe — passes for top + bottom + shoes', async () => {
