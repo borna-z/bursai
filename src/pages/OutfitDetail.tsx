@@ -174,9 +174,15 @@ function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, rende
   const roleLabel = isLayeredSlot && layerRole && LAYER_ROLE_LABELS[layerRole]
     ? LAYER_ROLE_LABELS[layerRole]
     : (t(`outfit.slot.${slot}`) || slot);
-  
+
+  const categorySlotLabel = t(`outfit.slot.${slot}`) || slot;
+
   return (
     <div className="flex items-center gap-4 py-4 border-b border-border/8 last:border-b-0 group">
+      {/* Left-side category label */}
+      <p className="font-['DM_Sans'] text-[9px] uppercase tracking-widest text-[#1C1917]/30 w-12 shrink-0 text-right leading-tight">
+        {categorySlotLabel}
+      </p>
       <div
         className="relative w-[68px] h-[84px] rounded-2xl overflow-hidden flex-shrink-0 cursor-pointer bg-muted/20 ring-1 ring-border/10"
         onClick={() => navigate(`/wardrobe/${garmentId}`)}
@@ -639,8 +645,13 @@ export default function OutfitDetailPage() {
 
       {/* ── Editorial content ── */}
       <div className="px-5 sm:px-6 pt-8 pb-40 space-y-8">
-        {/* Headline */}
+        {/* Headline — editorial Playfair italic */}
         <div>
+          {outfit.explanation && (
+            <h1 className="font-['Playfair_Display'] italic text-[22px] text-[#1C1917] leading-snug mb-3">
+              {outfit.explanation.length > 80 ? `${outfit.explanation.slice(0, 80)}…` : outfit.explanation}
+            </h1>
+          )}
           <div className="flex items-center gap-2 mb-2">
             {genFamilyLabel && (
               <span className="text-[10px] uppercase tracking-[0.15em] font-semibold text-primary bg-primary/8 px-2.5 py-1 rounded-full">
@@ -653,12 +664,20 @@ export default function OutfitDetailPage() {
               </span>
             )}
           </div>
-          <h1 className="text-[26px] font-bold tracking-tight capitalize leading-tight">
-            {genOccasionSubmode || displayOccasion}
-          </h1>
-          <p className="text-[12px] text-muted-foreground/40 mt-1 tracking-wide">
-            {[genOccasionSubmode ? displayOccasion : null, ...metaParts.filter(p => p !== displayOccasion && p !== outfit.style_vibe)].filter(Boolean).join(' · ')}
-          </p>
+          {/* Occasion + weather chip row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-['DM_Sans'] px-2.5 py-1 rounded-full bg-[#EDE8DF] text-[#1C1917]/60 uppercase tracking-wider">
+              {genOccasionSubmode || displayOccasion}
+            </span>
+            {normalizedOutfitWeather.temperature !== undefined && (
+              <span className="text-[11px] font-['DM_Sans'] px-2.5 py-1 rounded-full bg-[#EDE8DF] text-[#1C1917]/50">
+                {normalizedOutfitWeather.temperature}°C
+                {normalizedOutfitWeather.precipitation && normalizedOutfitWeather.precipitation !== 'none'
+                  ? ` · ${normalizedOutfitWeather.precipitation}`
+                  : ''}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Structured explanation card */}
@@ -668,22 +687,12 @@ export default function OutfitDetailPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: EASE_CURVE }}
           >
-            {/* Context chips */}
-            <div className="flex items-center gap-2 mb-4">
-              <Chip size="sm" variant="outline">{displayOccasion}</Chip>
-              {normalizedOutfitWeather.temperature !== undefined && (
-                <span className="text-[11px] font-['DM_Sans'] px-2.5 py-1 rounded-full border border-border/20 text-muted-foreground/50">
-                  {normalizedOutfitWeather.temperature}°C
-                </span>
-              )}
-            </div>
-
-            {/* Primary explanation */}
+            {/* Primary explanation — editorial blockquote */}
             {outfit.explanation && (
-              <div className="border-l-2 border-foreground/20 pl-4">
+              <div className="border-l border-[#1C1917]/15 pl-4">
                 <p
                   className={cn(
-                    "font-['Playfair_Display'] italic text-[15px] text-foreground/80 leading-[1.7]",
+                    "font-['DM_Sans'] text-[14px] text-[#1C1917]/60 leading-[1.7]",
                     !explExpanded && 'line-clamp-3'
                   )}
                 >
@@ -698,6 +707,13 @@ export default function OutfitDetailPage() {
                   </button>
                 )}
               </div>
+            )}
+
+            {/* Wardrobe insights — italic note */}
+            {genWardrobeInsights && genWardrobeInsights.length > 0 && (
+              <p className="font-['DM_Sans'] italic text-[12px] text-muted-foreground/50 mt-3 leading-relaxed">
+                {genWardrobeInsights.join(' · ')}
+              </p>
             )}
 
             {/* Outfit reasoning */}
@@ -724,21 +740,7 @@ export default function OutfitDetailPage() {
               </div>
             )}
 
-            {/* Wardrobe insights */}
-            {genWardrobeInsights && genWardrobeInsights.length > 0 && (
-              <div className="mt-4">
-                <p className="text-[10px] font-['DM_Sans'] tracking-widest text-muted-foreground/40 uppercase mb-2">
-                  {t('outfit.wardrobe_doing') || 'WHAT YOUR WARDROBE IS DOING'}
-                </p>
-                <div className="flex flex-col gap-1.5">
-                  {genWardrobeInsights.map((insight, i) => (
-                    <p key={i} className="text-[13px] font-['DM_Sans'] text-muted-foreground/60">
-                      <span className="text-muted-foreground/30">—</span> {insight}
-                    </p>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Wardrobe insights moved to inline beneath explanation */}
 
             {/* Limitation note */}
             {genLimitationNote && (

@@ -407,11 +407,12 @@ export default function PlanPage() {
           ) : !hasGarments ? (
             <EmptyState
               icon={Shirt}
-              title="Add a few pieces first"
-              description="I need at least a few garments in your wardrobe before I can start planning outfits for you."
-              action={{ label: t('wardrobe.add'), onClick: () => navigate('/wardrobe/add'), icon: Shirt }}
+              title="Nothing planned yet"
+              description="Generate an outfit and add it to your week"
+              action={{ label: 'Plan your week', onClick: () => navigate('/outfits/generate'), icon: Sparkles }}
               variant="editorial"
               compact
+              titleClassName="font-['Playfair_Display']"
             />
           ) : hasOutfits ? (
             <div className="space-y-4">

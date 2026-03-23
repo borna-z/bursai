@@ -22,17 +22,20 @@ interface EmptyStateProps {
   /** Premium editorial variant with softer background and glow */
   variant?: 'default' | 'editorial';
   className?: string;
+  /** Custom class for the title element (e.g. for Playfair Display) */
+  titleClassName?: string;
 }
 
-export function EmptyState({ 
-  icon: Icon, 
-  title, 
-  description, 
+export function EmptyState({
+  icon: Icon,
+  title,
+  description,
   action,
   secondaryAction,
   compact = false,
   variant = 'default',
-  className 
+  className,
+  titleClassName,
 }: EmptyStateProps) {
   const isEditorial = variant === 'editorial';
 
@@ -73,7 +76,7 @@ export function EmptyState({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className={cn('font-bold tracking-[-0.02em] mb-2.5', compact ? 'text-base' : 'text-lg')}
+        className={cn('font-bold tracking-[-0.02em] mb-2.5', compact ? 'text-base' : 'text-lg', titleClassName)}
       >
         {title}
       </motion.h3>
