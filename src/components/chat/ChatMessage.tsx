@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { GarmentInlineCard } from '@/components/chat/GarmentInlineCard';
 import { OutfitSuggestionCard } from '@/components/chat/OutfitSuggestionCard';
 import type { GarmentBasic } from '@/hooks/useGarmentsByIds';
-import { OUTFIT_TAG_RE, parseGarmentTextSegments } from '@/lib/garmentTokens';
+import { OUTFIT_TAG_RE, parseGarmentTextSegments, stripUnknownGarmentMarkup } from '@/lib/garmentTokens';
 
 type MultimodalPart =
   | { type: 'text'; text: string }
@@ -29,7 +29,7 @@ interface ChatMessageProps {
 
 export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isCreatingOutfit }: ChatMessageProps) {
   const isUser = message.role === 'user';
-  const text = getTextContent(message.content);
+  const text = isUser ? getTextContent(message.content) : stripUnknownGarmentMarkup(getTextContent(message.content));
   const images = getImageUrls(message.content);
 
   const { textParts, garmentCards, outfitCards } = useMemo(() => {

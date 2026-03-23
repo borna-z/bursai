@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { extractGarmentIdsFromText, parseGarmentTextSegments } from '../garmentTokens';
+import { extractGarmentIdsFromText, parseGarmentTextSegments, stripUnknownGarmentMarkup } from '../garmentTokens';
 
 describe('extractGarmentIdsFromText', () => {
   it('extracts garment ids from legacy and labeled garment tags', () => {
@@ -40,5 +40,15 @@ describe('parseGarmentTextSegments', () => {
       { type: 'garment', id: '22222222-2222-2222-2222-222222222222', label: 'Black loafers' },
       { type: 'text', value: '.' },
     ]);
+  });
+});
+
+describe('stripUnknownGarmentMarkup', () => {
+  it('removes malformed double-bracket garment leakage while preserving valid tags', () => {
+    expect(
+      stripUnknownGarmentMarkup(
+        'Keep the hoodie [[Givenchy Logo Tape Hoodie: relaxed fit]] with [[garment:11111111-1111-1111-1111-111111111111|Navy blazer]].',
+      ),
+    ).toBe('Keep the hoodie with [[garment:11111111-1111-1111-1111-111111111111|Navy blazer]].');
   });
 });

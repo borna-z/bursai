@@ -74,6 +74,26 @@ interface RetrievalResult {
   retrievalSummary: string;
 }
 
+interface ActiveLookContext {
+  summary: string;
+  garmentIds: string[];
+  source: string | null;
+}
+
+interface RefinementIntent {
+  mode:
+    | "swap_shoes"
+    | "keep_jacket"
+    | "less_formal"
+    | "more_elevated"
+    | "warmer"
+    | "use_less_worn"
+    | "explain_why"
+    | "targeted_refinement"
+    | "new_look";
+  raw: string;
+}
+
 function getMessageText(content: string | unknown[]): string {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return "";
@@ -101,7 +121,15 @@ function tokenize(text: string): string[] {
 }
 
 function parseTaggedGarmentIds(text: string): string[] {
-  return Array.from(text.matchAll(/\[\[garment:([a-f0-9-]{8,})\]\]/gi)).map((m) => m[1]);
+  return Array.from(text.matchAll(/\[\[garment:([a-f0-9-]{8,})(?:\|[^\]]+)?\]\]/gi)).map((m) => m[1]);
+}
+
+function parseTaggedOutfitIds(text: string): string[] {
+  const ids = new Set<string>();
+  for (const match of text.matchAll(/\[\[outfit:([a-f0-9-,]+)\|[^\]]*\]\]/gi)) {
+    match[1].split(",").map((id) => id.trim()).filter(Boolean).forEach((id) => ids.add(id));
+  }
+  return Array.from(ids);
 }
 
 function formatGarmentLine(g: GarmentRecord): string {
@@ -262,6 +290,113 @@ function buildThreadBrief(messages: MessageInput[], anchor: GarmentRecord | null
   ].filter(Boolean);
 
   return lines.length ? `THREAD BRIEF:\n${lines.join("\n")}` : "";
+}
+
+function detectRefinementIntent(messages: MessageInput[]): RefinementIntent {
+  const latestUser = normalizeTerm(getMessageText(messages.filter((m) => m.role === "user").slice(-1)[0]?.content || ""));
+  if (!latestUser) return { mode: "new_look", raw: "" };
+
+  if (/(swap|change|switch).{0,20}(shoe|sneaker|boot|loafer|heel|trainer)/i.test(latestUser)) {
+    return { mode: "swap_shoes", raw: latestUser };
+  }
+  if (/(keep|leave|save|stick with).{0,20}(jacket|coat|blazer|outerwear)/i.test(latestUser)) {
+    return { mode: "keep_jacket", raw: latestUser };
+  }
+  if (/(less formal|more casual|relax it|dress it down)/i.test(latestUser)) {
+    return { mode: "less_formal", raw: latestUser };
+  }
+  if (/(more elevated|more polished|sharper|dress it up|make it smarter)/i.test(latestUser)) {
+    return { mode: "more_elevated", raw: latestUser };
+  }
+  if (/(warmer|more warm|add warmth|too cold|colder weather)/i.test(latestUser)) {
+    return { mode: "warmer", raw: latestUser };
+  }
+  if (/(wear less|wear more often|haven't worn|use something i wear less|less worn|underused)/i.test(latestUser)) {
+    return { mode: "use_less_worn", raw: latestUser };
+  }
+  if (/(explain why this works|why does this work|why this works|explain the look)/i.test(latestUser)) {
+    return { mode: "explain_why", raw: latestUser };
+  }
+  if (/(swap|change|keep|warmer|cooler|casual|formal|elevated|polished|refine|adjust|tweak)/i.test(latestUser)) {
+    return { mode: "targeted_refinement", raw: latestUser };
+  }
+  return { mode: "new_look", raw: latestUser };
+}
+
+function buildActiveLookContext(messages: MessageInput[], garments: GarmentRecord[]): ActiveLookContext {
+  const garmentById = new Map(garments.map((g) => [g.id, g]));
+  const assistantMessages = messages.filter((m) => m.role === "assistant").slice(-4).reverse();
+
+  for (const message of assistantMessages) {
+    const text = getMessageText(message.content);
+    const outfitIds = parseTaggedOutfitIds(text).filter((id) => garmentById.has(id));
+    const garmentIds = parseTaggedGarmentIds(text).filter((id) => garmentById.has(id));
+    const ids = Array.from(new Set([...(outfitIds.length ? outfitIds : []), ...garmentIds])).slice(0, 5);
+    if (!ids.length) continue;
+    const garmentsInLook = ids.map((id) => garmentById.get(id)).filter(Boolean) as GarmentRecord[];
+    const categories = new Set(garmentsInLook.map((item) => normalizeTerm(item.category)));
+    if (garmentsInLook.length < 2 && !categories.has("outerwear")) continue;
+
+    const summary = garmentsInLook
+      .map((item) => `${item.title} [ID:${item.id}]`)
+      .join(" + ");
+
+    return {
+      summary,
+      garmentIds: garmentsInLook.map((item) => item.id),
+      source: outfitIds.length ? "assistant_outfit_tag" : "assistant_garment_tags",
+    };
+  }
+
+  return { summary: "", garmentIds: [], source: null };
+}
+
+function buildRefinementContract(intent: RefinementIntent, activeLook: ActiveLookContext): string {
+  const activeLookLine = activeLook.summary
+    ? `ACTIVE LOOK TO PRESERVE:\n- ${activeLook.summary}\n- Source: ${activeLook.source}\n`
+    : "ACTIVE LOOK TO PRESERVE:\n- No stable active look confirmed yet.\n";
+
+  const targetedRules = [
+    "- If the latest user ask is a refinement, edit the active look instead of restarting from zero.",
+    "- Keep unchanged pieces stable unless the user explicitly asks to replace them or the look fails technically.",
+    "- Name the kept piece first, then describe the single most important swap or adjustment.",
+    "- Never expose raw [[...]] markup in prose; tags exist only to power UI cards.",
+    "- If explaining the look, explain the current active look rather than inventing a new one.",
+  ];
+
+  const modeRuleMap: Record<RefinementIntent["mode"], string[]> = {
+    swap_shoes: [
+      "- SWAP SHOES: keep the jacket/top/bottom unless there is a direct conflict; only change footwear and explain the effect on formality/proportion.",
+    ],
+    keep_jacket: [
+      "- KEEP THE JACKET: preserve the current jacket or outer layer and rebuild only the supporting pieces around it.",
+    ],
+    less_formal: [
+      "- LESS FORMAL: relax fabrication, footwear, or base layer before replacing the hero piece.",
+    ],
+    more_elevated: [
+      "- MORE ELEVATED: sharpen structure, cleaner footwear, or sleeker base layers while preserving the active look's core identity.",
+    ],
+    warmer: [
+      "- WARMER: add insulation or heavier textures by modifying as little as possible; keep the silhouette coherent.",
+    ],
+    use_less_worn: [
+      "- USE SOMETHING I WEAR LESS: swap in the best underused garment from the wardrobe while keeping the rest of the active look stable.",
+    ],
+    explain_why: [
+      "- EXPLAIN WHY THIS WORKS: do not propose a new outfit first; explain silhouette, color, texture, and occasion logic of the active look in place.",
+    ],
+    targeted_refinement: [
+      "- TARGETED REFINEMENT: treat the request as an edit to the active look, not a fresh recommendation.",
+    ],
+    new_look: [
+      "- NEW LOOK: build the strongest option from the wardrobe subset, but still stay consistent with the thread brief.",
+    ],
+  };
+
+  return `${activeLookLine}
+REFINEMENT MODE: ${intent.mode}
+${[...targetedRules, ...(modeRuleMap[intent.mode] || [])].join("\n")}`;
 }
 
 function buildCandidateOutfits(rankedGarments: GarmentRecord[], anchor: GarmentRecord | null): string {
@@ -653,6 +788,9 @@ serve(async (req) => {
     const identityBlock = identityParts.join("\n");
 
     const threadBrief = buildThreadBrief(messages as MessageInput[], wardrobeCtx.anchor);
+    const activeLook = buildActiveLookContext(messages as MessageInput[], wardrobeCtx.rankedGarments);
+    const refinementIntent = detectRefinementIntent(messages as MessageInput[]);
+    const refinementContract = buildRefinementContract(refinementIntent, activeLook);
     const candidateOutfits = buildCandidateOutfits(wardrobeCtx.rankedGarments, wardrobeCtx.anchor);
     const chatComplexity = chooseChatComplexity(messages as MessageInput[], wardrobeCtx.anchor);
 
@@ -682,13 +820,18 @@ STYLIST OPERATING CONTRACT:
 - Think silently in 2-3 outfit candidates first, then answer with the strongest option and at most one backup.
 - Explain silhouette, color harmony, texture, visual weight, and occasion fit in concrete terms.
 - Preserve continuity with the thread brief; do not reset the user's goal each turn.
+- Treat the active look as the default working look for refinements.
 - If the user asks for styling advice rather than a full outfit, still reference specific garments from the wardrobe subset.
+- Keep the tone editorial, concise, and premium. No generic helper phrasing.
 
 GARMENT TAGS:
 - When mentioning a garment from the wardrobe, tag it: [[garment:ID]] after its name
 - For complete outfit suggestions (2+ garments), use: [[outfit:id1,id2,id3|Why this works]]
 - The explanation after | must be in ${lang.name}
-- ALWAYS tag garments and outfits — this creates visual cards in the chat`;
+- ALWAYS tag garments and outfits — this creates visual cards in the chat
+- Tags must appear only after the natural-language mention, never as raw bracketed prose on their own.
+
+${refinementContract}`;
 
     const preparedMessages = (messages as MessageInput[]).map((m) => {
       if (typeof m.content === "string") {

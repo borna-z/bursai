@@ -137,4 +137,16 @@ describe('ChatMessage', () => {
     expect(screen.getByText('Pair it with')).toBeInTheDocument();
     expect(screen.getByText('Black loafers')).toBeInTheDocument();
   });
+
+  it('hides malformed raw bracket markup from assistant prose', () => {
+    renderMessage({
+      message: {
+        role: 'assistant',
+        content: 'Keep the hoodie [[Givenchy Logo Tape Hoodie: relaxed fit]] and switch the shoes.',
+      },
+    });
+
+    expect(screen.getByText('Keep the hoodie and switch the shoes.')).toBeInTheDocument();
+    expect(screen.queryByText(/\[\[/)).not.toBeInTheDocument();
+  });
 });
