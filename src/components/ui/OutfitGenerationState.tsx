@@ -55,16 +55,14 @@ export function OutfitGenerationState({
   }, [prefersReduced, phaseLabels.length]);
 
   const isCompact = variant === 'compact';
-  const slotSizeClass = isCompact ? 'w-12 h-14' : 'w-full aspect-[3/4]';
-  const gridClass = isCompact ? 'grid-cols-4 gap-1.5' : 'grid-cols-2 gap-2';
 
   return (
     <div className={cn(
-      'rounded-2xl bg-foreground/[0.02] border border-border/30 p-4 space-y-3',
+      'bg-[#F5F0E8] p-4 space-y-3',
       className,
     )}>
-      {/* Phase text — cycles every 1.8s */}
-      <div className="h-5 relative flex items-center justify-center overflow-hidden">
+      {/* Phase text — Playfair Display italic */}
+      <div className="h-6 relative flex items-center justify-center overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.p
             key={phaseIndex}
@@ -72,15 +70,18 @@ export function OutfitGenerationState({
             animate={{ opacity: 1, y: 0 }}
             exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
             transition={{ duration: 0.2, ease: EASE_CURVE }}
-            className="text-[13px] font-['DM_Sans'] text-muted-foreground text-center absolute inset-x-0"
+            className="text-[18px] font-['Playfair_Display'] italic text-[#1C1917] text-center absolute inset-x-0"
           >
             {phaseLabels[phaseIndex]}
           </motion.p>
         </AnimatePresence>
       </div>
 
-      {/* Slot cards — stagger 120ms each */}
-      <div className={cn('grid', gridClass)}>
+      {/* Slot cards — 2x2 grid with full aspect-ratio cards */}
+      <div className={cn(
+        'grid gap-2',
+        isCompact ? 'grid-cols-4 gap-1.5' : 'grid-cols-2',
+      )}>
         {SLOT_ICONS.map((SlotIcon, i) => (
           <motion.div
             key={SLOT_KEYS[i]}
@@ -88,33 +89,35 @@ export function OutfitGenerationState({
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: i * 0.12, duration: 0.3, ease: EASE_CURVE }}
             className={cn(
-              'rounded-xl bg-foreground/[0.03] border border-border/10 flex items-center justify-center',
-              slotSizeClass,
+              'bg-[#EDE8DF] flex items-center justify-center rounded-lg',
+              isCompact ? 'w-12 h-14' : 'aspect-[3/4]',
             )}
           >
             {prefersReduced ? (
-              <SlotIcon className="w-5 h-5 text-foreground/20" />
+              <SlotIcon className="w-6 h-6 text-[#1C1917]/20" />
             ) : (
               <motion.div
                 animate={{ opacity: [0.15, 0.4, 0.15] }}
                 transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
               >
-                <SlotIcon className="w-5 h-5 text-foreground" />
+                <SlotIcon className="w-6 h-6 text-[#1C1917]" />
               </motion.div>
             )}
           </motion.div>
         ))}
       </div>
 
-      {/* Three-dot cycling indicator — CSS animation only */}
+      {/* Three-dot cycling indicator — 6px dots */}
       <div className="flex items-center justify-center gap-2 pt-1">
-        <span className={cn('w-1.5 h-1.5 rounded-full bg-foreground', !prefersReduced ? 'dot-cycle-1' : 'opacity-20')} />
-        <span className={cn('w-1.5 h-1.5 rounded-full bg-foreground', !prefersReduced ? 'dot-cycle-2' : 'opacity-20')} />
-        <span className={cn('w-1.5 h-1.5 rounded-full bg-foreground', !prefersReduced ? 'dot-cycle-3' : 'opacity-20')} />
+        <span className={cn('w-1.5 h-1.5 rounded-full bg-foreground', !prefersReduced ? 'dot-cycle-1' : 'opacity-20')} style={{ width: 6, height: 6 }} />
+        <span className={cn('w-1.5 h-1.5 rounded-full bg-foreground', !prefersReduced ? 'dot-cycle-2' : 'opacity-20')} style={{ width: 6, height: 6 }} />
+        <span className={cn('w-1.5 h-1.5 rounded-full bg-foreground', !prefersReduced ? 'dot-cycle-3' : 'opacity-20')} style={{ width: 6, height: 6 }} />
       </div>
+
+      {/* Subtitle */}
       <p
         data-testid="ai-loading-card"
-        className="text-center text-sm text-muted-foreground/70 font-['DM_Sans'] px-4"
+        className="text-center text-[12px] text-muted-foreground/70 font-['DM_Sans'] px-4"
       >
         {subtitle}
       </p>

@@ -12,6 +12,7 @@ import type { Garment } from '@/hooks/useGarments';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
 import { RenderPendingOverlay } from '@/components/wardrobe/RenderPendingOverlay';
+import { triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
 
 const ACTION_WIDTH = 72; // width per action button
 const TOTAL_WIDTH = ACTION_WIDTH * 3; // 3 actions
@@ -33,6 +34,7 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({ garment
     return Date.now() - new Date(garment.created_at).getTime() < 24 * 60 * 60 * 1000;
   }, [garment.created_at]);
   const [isOpen, setIsOpen] = useState(false);
+  const [enhanceTriggered, setEnhanceTriggered] = useState(false);
   const displayImagePath = getPreferredGarmentImagePath(garment);
   const x = useMotionValue(0);
   const constraintRef = useRef<HTMLDivElement>(null);
@@ -64,6 +66,21 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({ garment
     close();
     // Small delay so the close animation starts before the action
     setTimeout(action, 150);
+  };
+
+  const showEnhancePill = !garment.rendered_image_path && garment.render_status !== 'processing' && !enhanceTriggered;
+  const showEnhancingPill = garment.render_status === 'processing' || enhanceTriggered;
+
+  const handleEnhance = (e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation();
+    hapticLight();
+    setEnhanceTriggered(true);
+    triggerGarmentPostSaveIntelligence({
+      garmentId: garment.id,
+      storagePath: garment.image_path,
+      source: 'manual_enhance',
+      imageProcessing: { mode: 'full' },
+    });
   };
 
   return (
@@ -127,6 +144,21 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({ garment
             fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/30" />}
           />
           <RenderPendingOverlay renderStatus={garment.render_status} variant="overlay" className="[&>span]:hidden" />
+
+          {/* Enhance pill — bottom-left of image */}
+          {showEnhancePill && (
+            <button
+              onClick={handleEnhance}
+              className="absolute bottom-1 left-1 z-10 bg-[#1C1917] text-white font-['DM_Sans'] text-[10px] rounded-[6px] px-2.5 py-1 leading-none"
+            >
+              Enhance ✦
+            </button>
+          )}
+          {showEnhancingPill && (
+            <span className="absolute bottom-1 left-1 z-10 border border-[#1C1917]/30 text-[#1C1917]/50 font-['DM_Sans'] text-[10px] rounded-[6px] px-2.5 py-1 leading-none bg-transparent">
+              Enhancing…
+            </span>
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">

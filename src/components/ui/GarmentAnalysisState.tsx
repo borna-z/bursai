@@ -1,84 +1,61 @@
 import { useState, useEffect } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { EASE_CURVE } from '@/lib/motion';
 
 interface GarmentAnalysisStateProps {
   imageUrl?: string | null;
   className?: string;
 }
 
-const PHASE_LABELS = [
-  'Reading material',
-  'Detecting colour',
-  'Matching occasion',
+const PHASE_MESSAGES = [
+  'Identifying category',
+  'Reading colour',
+  'Detecting fabric',
+  'Checking fit',
+  'Finalising details',
 ] as const;
-
-const PHASE_DELAYS = [0, 1200, 2400] as const;
 
 /**
  * Premium garment analysis loading state.
- * Three sequential phase lines appear one by one; previous lines dim.
+ * Full-bleed image with overlay phase messages.
  */
 export function GarmentAnalysisState({ imageUrl, className }: GarmentAnalysisStateProps) {
   const prefersReduced = useReducedMotion();
-  const [visibleCount, setVisibleCount] = useState(prefersReduced ? PHASE_LABELS.length : 1);
+  const [msgIndex, setMsgIndex] = useState(0);
 
   useEffect(() => {
-    if (prefersReduced) {
-      setVisibleCount(PHASE_LABELS.length);
-      return;
-    }
-
-    setVisibleCount(1);
-
-    const timers = PHASE_DELAYS.slice(1).map((delay, i) => {
-      return setTimeout(() => {
-        setVisibleCount(i + 2);
-      }, delay);
-    });
-
-    return () => timers.forEach(clearTimeout);
+    if (prefersReduced) return;
+    const timer = setInterval(() => {
+      setMsgIndex((i) => (i + 1) % PHASE_MESSAGES.length);
+    }, 1400);
+    return () => clearInterval(timer);
   }, [prefersReduced]);
 
   return (
-    <div className={cn('flex flex-col items-center gap-5 w-full max-w-xs', className)}>
-      {/* Garment image preview */}
+    <div className={cn('relative w-full aspect-square bg-[#EDE8DF] overflow-hidden', className)}>
+      {/* Full-bleed garment image */}
       {imageUrl && (
-        <div className="relative aspect-square w-48 rounded-xl overflow-hidden bg-secondary/60">
-          <img
-            src={imageUrl}
-            alt="Garment preview"
-            className="w-full h-full object-cover"
-          />
-        </div>
+        <img
+          src={imageUrl}
+          alt="Garment preview"
+          className="w-full h-full object-contain"
+        />
       )}
 
-      {/* Sequential phase lines */}
-      <div className="flex flex-col items-center gap-2 max-w-[240px] w-full">
-        {PHASE_LABELS.map((label, i) => {
-          const isVisible = i < visibleCount;
-          const isActive = i === visibleCount - 1;
-
-          if (!isVisible) return null;
-
-          return (
-            <motion.p
-              key={label}
-              initial={prefersReduced ? undefined : { opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2, ease: EASE_CURVE }}
-              className={cn(
-                'text-[13px] font-body text-center transition-colors duration-300',
-                isActive
-                  ? 'text-muted-foreground'
-                  : 'text-muted-foreground/40',
-              )}
-            >
-              {label}
-            </motion.p>
-          );
-        })}
+      {/* Bottom overlay bar */}
+      <div className="absolute bottom-0 inset-x-0 h-12 bg-[#1C1917]/85 flex items-center justify-center">
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={msgIndex}
+            initial={prefersReduced ? undefined : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={prefersReduced ? undefined : { opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="text-[12px] font-['DM_Sans'] text-white/60"
+          >
+            {PHASE_MESSAGES[msgIndex]}
+          </motion.p>
+        </AnimatePresence>
       </div>
     </div>
   );
