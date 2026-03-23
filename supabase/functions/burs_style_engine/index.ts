@@ -3880,6 +3880,7 @@ serve(async (req) => {
 
     const body = await req.json();
     const mode: string = body.mode || "generate"; // "generate" | "suggest" | "swap" | "record_pair"
+    const generatorMode: string = body.generator_mode || (mode === "stylist" ? "stylist" : "standard");
 
     // ── RECORD PAIR OUTCOME (lightweight, early return) ──
     if (mode === "record_pair") {
@@ -4389,7 +4390,7 @@ serve(async (req) => {
     const styleContext = buildStyleContext(preferences);
 
     // AI refinement — stylist mode gets richer prompting
-    const isStylistMode = mode === "stylist";
+    const isStylistMode = generatorMode === "stylist" || mode === "stylist";
     const aiMode = mode === "suggest" ? "suggest" : "generate";
     const aiResult = await aiRefine(
       combos, aiMode, occasion, style, weather, styleContext, locale, isStylistMode,
