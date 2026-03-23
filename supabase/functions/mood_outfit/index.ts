@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callBursAI, bursAIErrorResponse, compactGarment, estimateMaxTokens } from "../_shared/burs-ai.ts";
+import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
 import { VOICE_MOOD_OUTFIT } from "../_shared/burs-voice.ts";
 
 import { allowedOrigin } from "../_shared/cors.ts";
@@ -19,6 +19,64 @@ const MOOD_MAP: Record<string, { formality: string; colors: string; materials: s
   romantic: { formality: "soft elegant", colors: "pastels, blush, soft white, dusty rose", materials: "silk, lace, flowing fabrics", vibe: "gentle, feminine, dreamy" },
   energetic: { formality: "casual, sporty-chic", colors: "bright, vibrant — yellow, orange, electric blue", materials: "lightweight, breathable", vibe: "active, upbeat, fun" },
 };
+
+
+const SHOES_TOKENS = ["shoes", "shoe", "sneakers", "boots", "heels", "sandals", "loafers", "skor", "stövlar"];
+const OUTERWEAR_TOKENS = ["outerwear", "coat", "jacket", "blazer", "trench", "jacka", "kappa"];
+const DRESS_TOKENS = ["dress", "jumpsuit", "overall", "klänning"];
+const BOTTOM_TOKENS = ["bottom", "pants", "jeans", "trousers", "shorts", "skirt", "byxor", "kjol"];
+
+function normalizeValue(value: unknown): string {
+  return String(value || "").trim().toLowerCase();
+}
+
+function inferSlotFromGarment(garment: { category?: string | null; subcategory?: string | null }): string {
+  const value = `${normalizeValue(garment.category)} ${normalizeValue(garment.subcategory)}`.trim();
+  if (DRESS_TOKENS.some((token) => value.includes(token))) return "dress";
+  if (SHOES_TOKENS.some((token) => value.includes(token))) return "shoes";
+  if (OUTERWEAR_TOKENS.some((token) => value.includes(token))) return "outerwear";
+  if (BOTTOM_TOKENS.some((token) => value.includes(token))) return "bottom";
+  return "top";
+}
+
+function requiresOuterwear(weather?: { temperature?: number; precipitation?: string | null }): boolean {
+  const temp = weather?.temperature;
+  const precipitation = normalizeValue(weather?.precipitation);
+  const coldEnough = temp !== undefined && temp < 8;
+  const wet = precipitation !== "" && !["none", "ingen"].includes(precipitation);
+  const snowy = precipitation.includes("snow") || precipitation.includes("snö");
+  return coldEnough || wet || snowy;
+}
+
+function validateMoodOutfitBase(items: { slot: string }[]): { valid: boolean; missing: string[] } {
+  const slots = new Set(items.map((item) => item.slot));
+  const hasDress = slots.has("dress");
+  const hasStandardBase = slots.has("top") && slots.has("bottom");
+  const valid = hasDress || hasStandardBase;
+  const missing: string[] = [];
+
+  if (!valid) {
+    if (!hasDress && !slots.has("top")) missing.push("top");
+    if (!hasDress && !slots.has("bottom")) missing.push("bottom");
+    if (!hasDress && missing.length === 0) missing.push("dress");
+  }
+
+  return { valid, missing };
+}
+
+function buildMoodLimitationNote(
+  items: { slot: string }[],
+  weather?: { temperature?: number; precipitation?: string | null },
+): string | null {
+  const slots = new Set(items.map((item) => item.slot));
+  const notes: string[] = [];
+  if (!slots.has("shoes")) notes.push("missing shoes, so this is a base outfit only");
+  if (requiresOuterwear(weather) && !slots.has("outerwear")) {
+    notes.push("missing weather-appropriate outerwear, so this is a base outfit only");
+  }
+  return notes.length ? notes.join('; ') : null;
+}
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -57,8 +115,8 @@ serve(async (req) => {
       .eq("in_laundry", false);
 
     if (gErr) throw gErr;
-    if (!garments || garments.length < 3) {
-      return new Response(JSON.stringify({ error: "Need at least 3 garments" }), {
+    if (!garments || garments.length === 0) {
+      return new Response(JSON.stringify({ error: "Need garments in your wardrobe" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -77,7 +135,7 @@ serve(async (req) => {
 
 Mood:"${mood}" — Direction: ${moodParams.formality} | Colors: ${moodParams.colors} | Vibe: ${moodParams.vibe}
 ${weather?.temperature !== undefined ? `Weather: ${weather.temperature}°C` : ""}
-Rules: top+bottom+shoes (or dress+shoes). Only IDs from list. Prioritize less-worn. Respond in ${langName}.
+Rules: return a usable base outfit first. Standard base outfit = top+bottom. Dress is also allowed when it suits the mood. Shoes and outerwear are optional additions, not hard requirements. If shoes or weather-ready outerwear are unavailable, still return the best base outfit. Only IDs from list. Prioritize less-worn. Respond in ${langName}.
 WARDROBE:\n${garmentList}` },
         { role: "user", content: `Feeling ${mood}. Create outfit.` },
       ],
@@ -103,6 +161,7 @@ WARDROBE:\n${garmentList}` },
               },
               explanation: { type: "string" },
               mood_match_score: { type: "number" },
+              limitation_note: { type: ["string", "null"] },
             },
             required: ["items", "explanation", "mood_match_score"],
             additionalProperties: false,
@@ -113,10 +172,32 @@ WARDROBE:\n${garmentList}` },
     }, serviceClient);
 
     if (!result) throw new Error("AI did not return structured result");
-    const garmentIdSet = new Set(garments.map(g => g.id));
-    result.items = (result.items || []).filter((i: any) => garmentIdSet.has(i.garment_id));
+    const garmentsById = new Map(garments.map((g) => [g.id, g]));
+    const normalizedItems = (result.items || [])
+      .filter((i: any) => garmentsById.has(i.garment_id))
+      .map((i: any) => {
+        const garment = garmentsById.get(i.garment_id);
+        const inferredSlot = garment ? inferSlotFromGarment(garment) : i.slot;
+        return { slot: inferredSlot, garment_id: i.garment_id };
+      });
 
-    return new Response(JSON.stringify(result), {
+    const baseValidation = validateMoodOutfitBase(normalizedItems);
+    if (!baseValidation.valid) {
+      return new Response(JSON.stringify({
+        error: `Not enough garments to build a mood outfit base. Missing: ${baseValidation.missing.join(', ')}`,
+        missing_slots: baseValidation.missing,
+      }), {
+        status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const limitationNote = result.limitation_note || buildMoodLimitationNote(normalizedItems, weather);
+
+    return new Response(JSON.stringify({
+      ...result,
+      items: normalizedItems,
+      limitation_note: limitationNote,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
