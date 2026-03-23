@@ -1,5 +1,6 @@
 export const GARMENT_TAG_RE = /\[\[garment:([a-f0-9-]+)(?:\|([^\]]+))?\]\]/gi;
 export const OUTFIT_TAG_RE = /\[\[outfit:([a-f0-9-,]+)\|([^\]]*)\]\]/gi;
+const ANY_DOUBLE_BRACKET_TAG_RE = /\[\[[\s\S]*?\]\]/g;
 
 export type GarmentTextSegment =
   | { type: 'text'; value: string }
@@ -49,4 +50,13 @@ export function parseGarmentTextSegments(text: string): GarmentTextSegment[] {
   }
 
   return segments;
+}
+
+export function stripUnknownGarmentMarkup(text: string): string {
+  return text.replace(ANY_DOUBLE_BRACKET_TAG_RE, (match) => {
+    GARMENT_TAG_RE.lastIndex = 0;
+    OUTFIT_TAG_RE.lastIndex = 0;
+    if (GARMENT_TAG_RE.test(match) || OUTFIT_TAG_RE.test(match)) return match;
+    return "";
+  }).replace(/[ \t]{2,}/g, " ").replace(/\s+([,.!?;:])/g, "$1").trim();
 }
