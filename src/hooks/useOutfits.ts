@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { hapticSuccess, hapticHeavy } from '@/lib/haptics';
 import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
-import { filterValidCompleteOutfits, validateCompleteOutfit } from '@/lib/outfitValidation';
+import { validateBaseOutfit, validateCompleteOutfit } from '@/lib/outfitValidation';
 
 export type Outfit = Tables<'outfits'>;
 export type OutfitItem = Tables<'outfit_items'>;
@@ -24,11 +24,25 @@ export interface OutfitWithItems extends Omit<Outfit, 'feedback' | 'weather'> {
   weather?: OutfitWeather | null;
 }
 
-export function useOutfits(savedOnly = true) {
+
+type OutfitVisibilityMode = 'strict_visible' | 'allow_generated_base';
+
+function isViewableOutfit(outfit: OutfitWithItems, mode: OutfitVisibilityMode): boolean {
+  const complete = validateCompleteOutfit(outfit?.outfit_items || []).isValid;
+  if (complete) return true;
+  if (mode !== 'allow_generated_base') return false;
+  return Boolean(outfit?.saved) && validateBaseOutfit(outfit?.outfit_items || []).isValid;
+}
+
+function filterViewableOutfits(outfits: OutfitWithItems[], mode: OutfitVisibilityMode): OutfitWithItems[] {
+  return outfits.filter((outfit) => isViewableOutfit(outfit, mode));
+}
+
+export function useOutfits(savedOnly = true, visibilityMode: OutfitVisibilityMode = 'strict_visible') {
   const { user } = useAuth();
   
   return useQuery({
-    queryKey: ['outfits', user?.id, savedOnly],
+    queryKey: ['outfits', user?.id, savedOnly, visibilityMode],
     queryFn: async () => {
       if (!user) return [];
       
@@ -52,18 +66,18 @@ export function useOutfits(savedOnly = true) {
       const { data, error } = await query;
       
       if (error) throw error;
-      return filterValidCompleteOutfits((data as unknown as OutfitWithItems[]) || []);
+      return filterViewableOutfits((data as unknown as OutfitWithItems[]) || [], visibilityMode);
     },
     enabled: !!user,
     staleTime: 2 * 60 * 1000,
   });
 }
 
-export function useOutfit(id: string | undefined) {
+export function useOutfit(id: string | undefined, visibilityMode: OutfitVisibilityMode = 'allow_generated_base') {
   const { user } = useAuth();
   
   return useQuery({
-    queryKey: ['outfit', id],
+    queryKey: ['outfit', id, visibilityMode],
     queryFn: async () => {
       if (!id || !user) return null;
       
@@ -82,7 +96,7 @@ export function useOutfit(id: string | undefined) {
       
       if (error) throw error;
       const outfit = data as unknown as OutfitWithItems;
-      return validateCompleteOutfit(outfit?.outfit_items || []).isValid ? outfit : null;
+      return isViewableOutfit(outfit, visibilityMode) ? outfit : null;
     },
     enabled: !!id && !!user,
     staleTime: 60 * 1000,

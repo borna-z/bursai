@@ -108,6 +108,62 @@ describe('useOutfits', () => {
     expect(result.current.data?.map((outfit) => outfit.id)).toEqual(['good']);
   });
 
+
+  it('allows saved generated base outfits in explicit detail view', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: { id: 'user-1' } } as ReturnType<typeof useAuth>);
+    const outfit = {
+      id: 'base-detail',
+      occasion: 'mood:cozy',
+      saved: true,
+      outfit_items: [
+        { id: 'oi-1', slot: 'top', garment_id: 'g1', garment: { id: 'g1', category: 'top' } },
+        { id: 'oi-2', slot: 'bottom', garment_id: 'g2', garment: { id: 'g2', category: 'bottom' } },
+      ],
+    };
+    mockFrom.mockReturnValue(mockChain([outfit]));
+
+    const { useOutfit } = await import('../useOutfits');
+    const { result } = renderHook(() => useOutfit('base-detail'), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.id).toBe('base-detail');
+  });
+
+  it('keeps strict collections strict unless allow_generated_base is requested', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: { id: 'user-1' } } as ReturnType<typeof useAuth>);
+    const outfits = [
+      {
+        id: 'base-saved',
+        occasion: 'mood:cozy',
+        saved: true,
+        outfit_items: [
+          { id: 'oi-1', slot: 'top', garment_id: 'g1', garment: { id: 'g1', category: 'top' } },
+          { id: 'oi-2', slot: 'bottom', garment_id: 'g2', garment: { id: 'g2', category: 'bottom' } },
+        ],
+      },
+      {
+        id: 'complete',
+        occasion: 'casual',
+        saved: true,
+        outfit_items: [
+          { id: 'oi-3', slot: 'top', garment_id: 'g3', garment: { id: 'g3', category: 'top' } },
+          { id: 'oi-4', slot: 'bottom', garment_id: 'g4', garment: { id: 'g4', category: 'bottom' } },
+          { id: 'oi-5', slot: 'shoes', garment_id: 'g5', garment: { id: 'g5', category: 'shoes' } },
+        ],
+      },
+    ];
+
+    mockFrom.mockReturnValue(mockChain(outfits));
+    const { useOutfits } = await import('../useOutfits');
+    const strictResult = renderHook(() => useOutfits(true), { wrapper });
+    await waitFor(() => expect(strictResult.result.current.isSuccess).toBe(true));
+    expect(strictResult.result.current.data?.map((outfit) => outfit.id)).toEqual(['complete']);
+
+    mockFrom.mockReturnValue(mockChain(outfits));
+    const relaxedResult = renderHook(() => useOutfits(true, 'allow_generated_base'), { wrapper });
+    await waitFor(() => expect(relaxedResult.result.current.isSuccess).toBe(true));
+    expect(relaxedResult.result.current.data?.map((outfit) => outfit.id)).toEqual(['base-saved', 'complete']);
+  });
+
   it('returns null for a legacy invalid persisted outfit detail', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: { id: 'user-1' } } as ReturnType<typeof useAuth>);
     const outfit = {

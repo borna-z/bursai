@@ -232,6 +232,7 @@ async function generateOutfitViaEngine(
     timeout: 45000,
     body: {
       mode: resultMode === 'multi' ? 'suggest' : 'generate',
+      generator_mode: request.mode || 'standard',
       occasion: request.occasion,
       style: request.style,
       weather: normalizedWeather,
@@ -242,6 +243,9 @@ async function generateOutfitViaEngine(
 
 
   if (fnError) {
+    if (resultMode === 'multi' && isInsufficientGarmentsError(fnError.message)) {
+      return [await generateOutfitViaEngine(userId, request, 'single') as GeneratedOutfit];
+    }
     if (isInsufficientGarmentsError(fnError.message)) {
       throw new Error(INSUFFICIENT_GARMENTS_MESSAGE);
     }
@@ -249,6 +253,9 @@ async function generateOutfitViaEngine(
   }
 
   if (data?.error) {
+    if (resultMode === 'multi' && isInsufficientGarmentsError(data.error)) {
+      return [await generateOutfitViaEngine(userId, request, 'single') as GeneratedOutfit];
+    }
     if (isInsufficientGarmentsError(data.error)) {
       throw new Error(INSUFFICIENT_GARMENTS_MESSAGE);
     }
