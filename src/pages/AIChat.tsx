@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Sparkles, MoreVertical, Trash2 } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Sparkles, MoreVertical, Trash2, Shirt, X } from 'lucide-react';
 import { StylistReplyPlaceholder } from '@/components/ui/StylistReplyPlaceholder';
 import { ChatPageSkeleton } from '@/components/ui/skeletons';
 import { motion } from 'framer-motion';
@@ -10,7 +10,7 @@ import { createSupabaseRestHeaders, getSupabaseFunctionUrl, getSupabaseRestUrl, 
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
+import { useGarmentsByIds, type GarmentBasic } from '@/hooks/useGarmentsByIds';
 import { useGarmentCount } from '@/hooks/useGarments';
 import { useStyleDNA } from '@/hooks/useStyleDNA';
 import { useCreateOutfit } from '@/hooks/useOutfits';
@@ -73,6 +73,17 @@ function extractGarmentIds(messages: Message[]): string[] {
   return Array.from(ids);
 }
 
+function buildRequestMessages(messages: Message[]): Message[] {
+  const filtered = messages.filter((message, index) => {
+    const text = getTextContent(message.content).trim();
+    if (!text && typeof message.content === 'string') return false;
+    if (index === 0 && message.role === 'assistant') return false;
+    return true;
+  });
+
+  return filtered.slice(-16);
+}
+
 function AIChatFallback() {
   const navigate = useNavigate();
   return (
@@ -89,6 +100,7 @@ export default function AIChat() {
   const { user } = useAuth();
   const { t, locale } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const createOutfit = useCreateOutfit();
   const { data: garmentCount } = useGarmentCount();
   const { data: styleDNA } = useStyleDNA();
@@ -101,9 +113,25 @@ export default function AIChat() {
   const [isLoading, setIsLoading] = useState(true);
   const [pendingImage, setPendingImage] = useState<{ url: string; path: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [anchoredGarmentId, setAnchoredGarmentId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const activeStreamControllerRef = useRef<AbortController | null>(null);
+  const activeRequestIdRef = useRef(0);
 
   const isWelcomeState = messages.length === 1 && messages[0].role === 'assistant' && !isStreaming;
+
+  useEffect(() => {
+    const state = location.state as { selectedGarmentId?: string } | null;
+    const garmentId = state?.selectedGarmentId ?? null;
+    if (garmentId) {
+      setAnchoredGarmentId(garmentId);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, location.state, navigate]);
+
+  useEffect(() => () => {
+    activeStreamControllerRef.current?.abort();
+  }, []);
 
   useEffect(() => {
     if (!user) { setIsLoading(false); return; }
@@ -113,13 +141,15 @@ export default function AIChat() {
     }).catch(() => setIsLoading(false));
   }, [user]);
 
-  const garmentIds = useMemo(() => extractGarmentIds(messages), [messages]);
+  const garmentIds = useMemo(() => anchoredGarmentId ? Array.from(new Set([anchoredGarmentId, ...extractGarmentIds(messages)])) : extractGarmentIds(messages), [anchoredGarmentId, messages]);
   const { data: garmentsList } = useGarmentsByIds(garmentIds);
   const garmentMap = useMemo(() => {
-    const map = new Map<string, import('@/hooks/useGarmentsByIds').GarmentBasic>();
+    const map = new Map<string, GarmentBasic>();
     garmentsList?.forEach(g => map.set(g.id, g));
     return map;
   }, [garmentsList]);
+
+  const anchoredGarment = useMemo(() => anchoredGarmentId ? garmentMap.get(anchoredGarmentId) ?? null : null, [anchoredGarmentId, garmentMap]);
 
   const scrollToBottom = useCallback(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, []);
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
@@ -145,7 +175,7 @@ export default function AIChat() {
 
   const sendMessage = async (overrideText?: string) => {
     const trimmed = (overrideText ?? input).trim();
-    if ((!trimmed && !pendingImage) || isStreaming) return;
+    if ((!trimmed && !pendingImage) || isStreaming || activeStreamControllerRef.current) return;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) {
       toast.error(t('chat.error') + ' ' + (t('common.please_login') || 'Please log in again.'));
@@ -153,8 +183,8 @@ export default function AIChat() {
       return;
     }
     const token = session.access_token;
-
-    const welcomeText = t('chat.welcome');
+    const requestId = activeRequestIdRef.current + 1;
+    activeRequestIdRef.current = requestId;
 
     let userContent: string | MultimodalPart[];
     if (pendingImage) {
@@ -162,36 +192,66 @@ export default function AIChat() {
       if (trimmed) parts.push({ type: 'text', text: trimmed });
       else parts.push({ type: 'text', text: t('chat.image_default') });
       userContent = parts;
-    } else { userContent = trimmed; }
+    } else {
+      userContent = trimmed;
+    }
 
     const userMsg: Message = { role: 'user', content: userContent };
-    setInput(''); setPendingImage(null); setIsStreaming(true);
+    setInput('');
+    setPendingImage(null);
+    setIsStreaming(true);
 
-    const newMessages = [...messages.filter((m, i) => !(i === 0 && getTextContent(m.content) === welcomeText)), userMsg];
+    const welcomeText = t('chat.welcome');
+    const baseMessages = messages.filter((m, i) => !(i === 0 && getTextContent(m.content) === welcomeText));
+    const newMessages = [...baseMessages, userMsg];
+    const requestMessages = buildRequestMessages(newMessages);
     setMessages([...newMessages, { role: 'assistant', content: '' }]);
 
     let assistantContent: MessageContent = '';
+    let sawDone = false;
+    let streamTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
     try {
+      const controller = new AbortController();
+      activeStreamControllerRef.current = controller;
+      const resetStreamTimeout = () => {
+        if (streamTimeoutId) clearTimeout(streamTimeoutId);
+        streamTimeoutId = setTimeout(() => controller.abort(), 45000);
+      };
+      resetStreamTimeout();
+
       const resp = await fetch(STYLE_CHAT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          messages: newMessages,
+          messages: requestMessages,
           locale,
           garmentCount: garmentCount ?? 0,
           archetype: styleDNA?.archetype ?? null,
+          selected_garment_ids: anchoredGarmentId ? [anchoredGarmentId] : undefined,
         }),
+        signal: controller.signal,
       });
-      if (!resp.ok) { const errData = await resp.json().catch(() => ({ error: t('chat.unknown_error') })); throw new Error(errData.error || `HTTP ${resp.status}`); }
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({ error: t('chat.unknown_error') }));
+        throw new Error(errData.error || `HTTP ${resp.status}`);
+      }
       if (!resp.body) throw new Error(t('chat.no_response'));
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      while (true) {
+      let streamClosed = false;
+
+      while (!streamClosed) {
         const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+        if (done) {
+          buffer += decoder.decode();
+          streamClosed = true;
+        } else {
+          buffer += decoder.decode(value, { stream: true });
+        }
+
         let newlineIndex: number;
         while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
           let line = buffer.slice(0, newlineIndex);
@@ -199,11 +259,17 @@ export default function AIChat() {
           if (line.endsWith('\r')) line = line.slice(0, -1);
           if (line.startsWith(':') || line.trim() === '') continue;
           if (!line.startsWith('data: ')) continue;
+
           const jsonStr = line.slice(6).trim();
-          if (jsonStr === '[DONE]') break;
+          if (jsonStr === '[DONE]') {
+            sawDone = true;
+            continue;
+          }
+
           try {
             const parsed = JSON.parse(jsonStr);
             const delta = parsed.choices?.[0]?.delta?.content;
+            if (delta != null) resetStreamTimeout();
             const nextAssistantContent = mergeAssistantContent(assistantContent, delta);
             if (nextAssistantContent !== assistantContent) {
               assistantContent = nextAssistantContent;
@@ -214,16 +280,39 @@ export default function AIChat() {
                 return updated;
               });
             }
-          } catch { buffer = line + '\n' + buffer; break; }
+          } catch {
+            if (!streamClosed) {
+              buffer = line + '\n' + buffer;
+              break;
+            }
+          }
         }
       }
+
+      if (!sawDone && !getTextContent(assistantContent).trim()) {
+        throw new Error(t('chat.no_response'));
+      }
+
       const assistantMsg: Message = { role: 'assistant', content: assistantContent };
-      if (user && session) await persistMessages(user.id, [userMsg, assistantMsg], session.access_token);
+      if (user && session && getTextContent(assistantMsg.content).trim()) {
+        await persistMessages(user.id, [userMsg, assistantMsg], session.access_token);
+      }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : t('chat.unknown_error');
+      const isAbort = err instanceof DOMException && err.name === 'AbortError';
+      const msg = isAbort
+        ? 'Stylist response timed out. Please try again.'
+        : err instanceof Error
+          ? err.message
+          : t('chat.unknown_error');
       toast.error(`${t('chat.error')} ${msg}`);
       setMessages(prev => prev.filter((m, i) => !(i === prev.length - 1 && m.role === 'assistant' && getTextContent(m.content) === '')));
-    } finally { setIsStreaming(false); }
+    } finally {
+      if (streamTimeoutId) clearTimeout(streamTimeoutId);
+      if (activeRequestIdRef.current === requestId) {
+        activeStreamControllerRef.current = null;
+        setIsStreaming(false);
+      }
+    }
   };
 
   const clearHistory = async () => {
@@ -291,6 +380,41 @@ export default function AIChat() {
             <p className="text-[11px] text-muted-foreground/40 text-center">
               {t('chat.based_on')} {garmentCount} {t('chat.garments_label')}
             </p>
+          </div>
+        )}
+
+        {anchoredGarment && (
+          <div className="px-4 pb-2">
+            <div className="mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl border border-primary/15 bg-primary/5 px-3 py-2 text-left shadow-sm">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-background text-primary">
+                  <Shirt className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary/70">Style anchor</p>
+                  <p className="truncate text-sm font-medium text-foreground">{anchoredGarment.title}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 rounded-xl px-2.5 text-xs text-muted-foreground"
+                  onClick={() => navigate(`/wardrobe/${anchoredGarment.id}`)}
+                >
+                  Change
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-xl text-muted-foreground"
+                  onClick={() => setAnchoredGarmentId(null)}
+                  aria-label="Clear garment anchor"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 

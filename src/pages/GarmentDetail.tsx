@@ -784,8 +784,11 @@ export default function GarmentDetailPage() {
       {/* ── Sticky bottom action bar ── */}
       <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/60 backdrop-blur-2xl border-t border-border/15 safe-bottom">
         <div className="flex items-center gap-3 px-5 py-4 max-w-lg mx-auto">
-          <Button className="flex-1 h-12" onClick={() => navigate('/', { state: { prefillGarmentId: garment.id } })}>
+          <Button className="flex-1 h-12" onClick={() => navigate('/ai', { state: { selectedGarmentId: garment.id } })}>
             <Sparkles className="w-4 h-4 mr-2" />
+            Style around this
+          </Button>
+          <Button variant="outline" className="h-12 px-4 shrink-0" onClick={() => navigate('/', { state: { prefillGarmentId: garment.id } })}>
             {t('garment.use_in_outfit')}
           </Button>
           <Button variant="outline" className="h-12 px-4 shrink-0" onClick={handleMarkWorn} disabled={markWorn.isPending}>
