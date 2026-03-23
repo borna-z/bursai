@@ -78,6 +78,7 @@ interface ActiveLookContext {
   summary: string;
   garmentIds: string[];
   source: string | null;
+  garmentLines: string[];
 }
 
 interface RefinementIntent {
@@ -87,6 +88,12 @@ interface RefinementIntent {
     | "less_formal"
     | "more_elevated"
     | "warmer"
+    | "sharper"
+    | "softer"
+    | "more_elegant"
+    | "dinner"
+    | "work"
+    | "weekend"
     | "use_less_worn"
     | "explain_why"
     | "targeted_refinement"
@@ -338,9 +345,15 @@ function formatGarmentLine(g: GarmentRecord): string {
   const enrichParts: string[] = [];
   if (e.style_archetype) enrichParts.push(e.style_archetype);
   if (e.silhouette) enrichParts.push(`sil:${e.silhouette}`);
+  if (e.visual_weight) enrichParts.push(`weight:${e.visual_weight}`);
+  if (e.texture_intensity) enrichParts.push(`texture:${e.texture_intensity}`);
+  if (e.drape) enrichParts.push(`drape:${e.drape}`);
+  if (e.shoulder_structure) enrichParts.push(`shoulder:${e.shoulder_structure}`);
   if (typeof e.versatility_score === "number") enrichParts.push(`vers:${e.versatility_score}`);
   if (e.layering_role) enrichParts.push(`layer:${e.layering_role}`);
-  if (Array.isArray(e.occasion_tags) && e.occasion_tags.length) enrichParts.push(`occ:${e.occasion_tags.slice(0, 3).join(",")}`);
+  if (Array.isArray(e.occasion_tags) && e.occasion_tags.length) enrichParts.push(`occ:${e.occasion_tags.slice(0, 4).join(",")}`);
+  if (e.color_harmony_notes) enrichParts.push(`color:${String(e.color_harmony_notes).slice(0, 80)}`);
+  if (e.stylist_note) enrichParts.push(`note:${String(e.stylist_note).slice(0, 120)}`);
   if (enrichParts.length) parts.push(` | ${enrichParts.join(", ")}`);
   parts.push(")");
 
@@ -489,22 +502,40 @@ function detectRefinementIntent(messages: MessageInput[]): RefinementIntent {
   if (/(keep|leave|save|stick with).{0,20}(jacket|coat|blazer|outerwear)/i.test(latestUser)) {
     return { mode: "keep_jacket", raw: latestUser };
   }
-  if (/(less formal|more casual|relax it|dress it down)/i.test(latestUser)) {
-    return { mode: "less_formal", raw: latestUser };
-  }
-  if (/(more elevated|more polished|sharper|dress it up|make it smarter)/i.test(latestUser)) {
-    return { mode: "more_elevated", raw: latestUser };
-  }
-  if (/(warmer|more warm|add warmth|too cold|colder weather)/i.test(latestUser)) {
-    return { mode: "warmer", raw: latestUser };
-  }
-  if (/(wear less|wear more often|haven't worn|use something i wear less|less worn|underused)/i.test(latestUser)) {
-    return { mode: "use_less_worn", raw: latestUser };
-  }
-  if (/(explain why this works|why does this work|why this works|explain the look)/i.test(latestUser)) {
+  if (/(why this works|explain why this works|why does this work|explain the look|break down the look|what makes this work)/i.test(latestUser)) {
     return { mode: "explain_why", raw: latestUser };
   }
-  if (/(swap|change|keep|warmer|cooler|casual|formal|elevated|polished|refine|adjust|tweak)/i.test(latestUser)) {
+  if (/(use something i wear less|wear less|wear more often|haven't worn|less worn|underused)/i.test(latestUser)) {
+    return { mode: "use_less_worn", raw: latestUser };
+  }
+  if (/(warmer|more warm|add warmth|too cold|colder weather|winterize|warmer version)/i.test(latestUser)) {
+    return { mode: "warmer", raw: latestUser };
+  }
+  if (/(more elegant|elegant version|make it elegant|feel more elegant|elevate for elegance)/i.test(latestUser)) {
+    return { mode: "more_elegant", raw: latestUser };
+  }
+  if (/(less formal|more casual|relax it|dress it down|tone it down|make it easier|relaxed version)/i.test(latestUser)) {
+    return { mode: "less_formal", raw: latestUser };
+  }
+  if (/(more elevated|more polished|dress it up|make it smarter|elevate it)/i.test(latestUser)) {
+    return { mode: "more_elevated", raw: latestUser };
+  }
+  if (/(sharper|sharpen it|cleaner|make it sharper)/i.test(latestUser)) {
+    return { mode: "sharper", raw: latestUser };
+  }
+  if (/(softer|soften it|less sharp|make it softer)/i.test(latestUser)) {
+    return { mode: "softer", raw: latestUser };
+  }
+  if (/(for dinner|dinner version|make it dinner|evening version|date night|night out)/i.test(latestUser)) {
+    return { mode: "dinner", raw: latestUser };
+  }
+  if (/(for work|work version|office|meeting|client|professional|boardroom)/i.test(latestUser)) {
+    return { mode: "work", raw: latestUser };
+  }
+  if (/(for weekend|weekend version|off-duty|casual weekend|brunch|errands)/i.test(latestUser)) {
+    return { mode: "weekend", raw: latestUser };
+  }
+  if (/(swap|change|keep|warmer|cooler|casual|formal|elevated|polished|refine|adjust|tweak|sharpen|soften|elegant|weekend|work|dinner)/i.test(latestUser)) {
     return { mode: "targeted_refinement", raw: latestUser };
   }
   return { mode: "new_look", raw: latestUser };
@@ -532,23 +563,28 @@ function buildActiveLookContext(messages: MessageInput[], garments: GarmentRecor
       summary,
       garmentIds: garmentsInLook.map((item) => item.id),
       source: outfitIds.length ? "assistant_outfit_tag" : "assistant_garment_tags",
+      garmentLines: garmentsInLook.map(formatGarmentLine),
     };
   }
 
-  return { summary: "", garmentIds: [], source: null };
+  return { summary: "", garmentIds: [], source: null, garmentLines: [] };
 }
 
 function buildRefinementContract(intent: RefinementIntent, activeLook: ActiveLookContext): string {
   const activeLookLine = activeLook.summary
-    ? `ACTIVE LOOK TO PRESERVE:\n- ${activeLook.summary}\n- Source: ${activeLook.source}\n`
+    ? `ACTIVE LOOK TO PRESERVE:\n- ${activeLook.summary}\n- Source: ${activeLook.source}${activeLook.garmentLines.length ? `\n${activeLook.garmentLines.join("\n")}` : ""}\n`
     : "ACTIVE LOOK TO PRESERVE:\n- No stable active look confirmed yet.\n";
 
   const targetedRules = [
     "- If the latest user ask is a refinement, edit the active look instead of restarting from zero.",
     "- Keep unchanged pieces stable unless the user explicitly asks to replace them or the look fails technically.",
-    "- Name the kept piece first, then describe the single most important swap or adjustment.",
-    "- Never expose raw [[...]] markup in prose; tags exist only to power UI cards.",
+    "- Make one strong move, not three weak ones.",
+    "- Name the kept piece first, then describe the key swap or styling adjustment.",
+    "- Justify changes through silhouette, balance, contrast, texture, visual weight, formality, or color harmony.",
+    "- Avoid generic filler. No 'nice', 'great', 'good option', or vague encouragement.",
     "- If explaining the look, explain the current active look rather than inventing a new one.",
+    "- Keep replies tight: usually 2-4 sentences, with the rationale compressed into one decisive line.",
+    "- Never expose raw [[...]] markup in prose; tags exist only to power UI cards.",
     "- EVERY assistant reply must include exactly one authoritative [[outfit:id1,id2,...|localized explanation]] tag for the current active look.",
     "- That outfit tag must reflect the latest full look snapshot after any refinement, even if only one garment changed.",
     "- Reuse garment IDs for unchanged pieces so the UI can replace the active look instead of leaving stale cards on screen.",
@@ -570,16 +606,38 @@ function buildRefinementContract(intent: RefinementIntent, activeLook: ActiveLoo
       "- MORE ELEVATED: sharpen structure, cleaner footwear, or sleeker base layers while preserving the active look's core identity.",
     ],
     warmer: [
-      "- WARMER: add insulation or heavier textures by modifying as little as possible; keep the silhouette coherent.",
+      "- WARMER: add warmth through layer weight, knit texture, or more closed footwear before changing the outfit's character.",
+      "- Protect the vibe while making the look physically warmer.",
+    ],
+    sharper: [
+      "- SHARPER: clean the line with more structure, cleaner footwear, or tighter contrast. Think precision, not extra formality by default.",
+    ],
+    softer: [
+      "- SOFTER: relax the contrast, drape, or texture so the look feels easier and less severe without turning shapeless.",
+    ],
+    more_elegant: [
+      "- MORE ELEGANT: raise refinement through cleaner lines, richer texture, sleeker shoe choice, or a more deliberate column of color.",
+      "- Aim for poised and expensive-looking, not simply more formal.",
+    ],
+    dinner: [
+      "- DINNER SHIFT: keep the backbone of the look, then add evening definition through cleaner shoes, darker grounding pieces, sharper waist/shoulder balance, or richer texture.",
+    ],
+    work: [
+      "- WORK SHIFT: make the look credible for meetings through structure and restraint. Reduce visual noise before replacing hero pieces.",
+    ],
+    weekend: [
+      "- WEEKEND SHIFT: relax the look without making it sloppy. Ease the fabrication, footwear, or outer layer while keeping balance intact.",
     ],
     use_less_worn: [
-      "- USE SOMETHING I WEAR LESS: swap in the best underused garment from the wardrobe while keeping the rest of the active look stable.",
+      "- USE SOMETHING I WEAR LESS: swap in the strongest underused garment only if it improves or preserves outfit quality. Do not force a weak piece into the look.",
     ],
     explain_why: [
-      "- EXPLAIN WHY THIS WORKS: do not propose a new outfit first; explain silhouette, color, texture, and occasion logic of the active look in place.",
+      "- EXPLAIN WHY THIS WORKS: do not propose a new outfit first; explain silhouette, proportion, color harmony, contrast, texture, and occasion fit of the active look in place.",
+      "- Sound like a stylist reading the look visually, not a generic explainer listing garments.",
     ],
     targeted_refinement: [
       "- TARGETED REFINEMENT: treat the request as an edit to the active look, not a fresh recommendation.",
+      "- Infer whether the user wants elevate, relax, warm up, sharpen, soften, or an occasion shift, then make the cleanest possible move.",
     ],
     new_look: [
       "- NEW LOOK: build the strongest option from the wardrobe subset, but still stay consistent with the thread brief.",
@@ -1015,11 +1073,15 @@ STYLIST OPERATING CONTRACT:
 - Ground every recommendation in the ranked wardrobe subset first; only mention missing pieces when the wardrobe truly lacks them.
 - If there is an anchor garment, build around it explicitly before offering alternatives.
 - Think silently in 2-3 outfit candidates first, then answer with the strongest option and at most one backup.
-- Explain silhouette, color harmony, texture, visual weight, and occasion fit in concrete terms.
+- Make clear tradeoffs. Say what stays, what changes, and what effect that creates.
+- Explain silhouette, proportion, balance, color harmony, contrast, texture, visual weight, and occasion fit in concrete terms.
+- Distinguish clearly between elevate, relax, warm up, sharpen, soften, and occasion shifts.
 - Preserve continuity with the thread brief; do not reset the user's goal each turn.
 - Treat the active look as the default working look for refinements.
 - If the user asks for styling advice rather than a full outfit, still reference specific garments from the wardrobe subset.
 - Keep the tone editorial, concise, and premium. No generic helper phrasing.
+- Default to 2-4 short sentences. Shorter and more decisive beats longer and safer.
+- 'Why this works' should read like a stylist's visual rationale, not a generic explainer.
 
 GARMENT TAGS:
 - When mentioning a garment from the wardrobe, tag it: [[garment:ID]] after its name
