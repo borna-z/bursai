@@ -122,7 +122,7 @@ function OutfitCard({
 export function WardrobeOutfitsTab() {
   const { t, locale } = useLanguage();
   const navigate = useNavigate();
-  const { data: outfits, isLoading } = useOutfits(false);
+  const { data: outfits, isLoading } = useOutfits(false, 'allow_generated_base');
   const deleteOutfit = useDeleteOutfit();
   const [filter, setFilter] = useState<FilterTab>('all');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);

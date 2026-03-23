@@ -46,6 +46,7 @@ export default function MoodOutfitPage() {
         items?: { garment_id: string; slot: string }[];
         explanation?: string;
         mood_match_score?: number;
+        limitation_note?: string | null;
         error?: string;
       }>('mood_outfit', {
         timeout: 45000,
@@ -84,7 +85,13 @@ export default function MoodOutfitPage() {
 
       await supabase.from('outfit_items').insert(items);
 
-      navigate(`/outfits/${outfit.id}`, { replace: true, state: { justGenerated: true } });
+      navigate(`/outfits/${outfit.id}`, {
+        replace: true,
+        state: {
+          justGenerated: true,
+          limitation_note: data.limitation_note ?? null,
+        },
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('common.something_wrong'));
     } finally {
