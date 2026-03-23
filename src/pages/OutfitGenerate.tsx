@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Sparkles, AlertCircle, Crown, Zap,
   Check, Thermometer, Bookmark, CalendarDays, Shirt,
+  Coffee, Briefcase, Wine, Heart, Dumbbell, Plane,
 } from 'lucide-react';
 import { motion, LayoutGroup, useReducedMotion, type Transition } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useOutfitGenerator, type GeneratedOutfit } from '@/hooks/useOutfitGenerator';
-import { useUpdateOutfit } from '@/hooks/useOutfits';
+import { useUpdateOutfit, useMarkOutfitWorn } from '@/hooks/useOutfits';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
 import { useWeather } from '@/hooks/useWeather';
@@ -27,6 +28,15 @@ import { CoachMark } from '@/components/coach/CoachMark';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 
 /* ── Occasions ── */
+const OCCASION_ICONS: Record<string, React.ElementType> = {
+  casual: Coffee,
+  work: Briefcase,
+  party: Wine,
+  date: Heart,
+  workout: Dumbbell,
+  travel: Plane,
+};
+
 const OCCASIONS = [
   { key: 'casual', label: 'Casual' },
   { key: 'work', label: 'Work' },
@@ -98,6 +108,7 @@ export default function OutfitGeneratePage() {
   const [generatedResults, setGeneratedResults] = useState<GeneratedOutfit[]>([]);
   const [primaryIndex, setPrimaryIndex] = useState(0);
   const updateOutfit = useUpdateOutfit();
+  const markWorn = useMarkOutfitWorn();
 
   const contextSubtitle = useMemo(() => {
     const parts: string[] = [];
@@ -225,6 +236,25 @@ export default function OutfitGeneratePage() {
           : primary.explanation
         : '');
 
+    const handleWearToday = async () => {
+      try {
+        const garmentIds = primary.items.map((item) => item.garment.id);
+        await markWorn.mutateAsync({
+          outfitId: primary.id,
+          garmentIds,
+          occasion: primary.occasion,
+        });
+        toast.success('Outfit logged for today');
+        navigate('/plan');
+      } catch {
+        toast.error('Could not log outfit');
+      }
+    };
+
+    const handleRefineInChat = () => {
+      navigate(`/ai?outfit=${primary.id}`);
+    };
+
     return (
       <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
         <AppLayout>
@@ -237,56 +267,68 @@ export default function OutfitGeneratePage() {
                 transition={prefersReduced ? { duration: 0 } : SPRING_LAYOUT}
                 className="w-full"
               >
-                {/* 2x2 Garment Grid */}
-                <div className="rounded-2xl overflow-hidden grid grid-cols-2 gap-[1px] bg-muted/30">
-                  {primary.items.slice(0, 4).map((item, i) => (
-                    <motion.div
-                      key={item.garment.id}
-                      initial={prefersReduced ? false : { opacity: 0, scale: 1.02 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.08, duration: 0.45 }}
-                      className={cn(
-                        'relative overflow-hidden bg-muted/20',
-                        i === 0 && 'rounded-tl-2xl',
-                        i === 1 && 'rounded-tr-2xl',
-                        i === 2 && 'rounded-bl-2xl',
-                        i === 3 && 'rounded-br-2xl',
-                      )}
-                    >
-                      <LazyImageSimple
-                        imagePath={getPreferredGarmentImagePath(item.garment)}
-                        alt={item.garment.title || item.slot}
-                        className="w-full aspect-square object-cover"
-                        fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/15" />}
-                      />
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent p-2 pt-6">
-                        <p className="text-[9px] text-white/70 uppercase tracking-[0.15em] font-medium">
-                          {item.slot}
-                        </p>
-                      </div>
-                    </motion.div>
-                  ))}
-                  {/* Fill empty slots if fewer than 4 items */}
-                  {Array.from({ length: Math.max(0, 4 - primary.items.length) }).map((_, i) => (
-                    <div key={`empty-${i}`} className="bg-muted/20 aspect-square" />
-                  ))}
+                {/* Outfit card — brand-matched design */}
+                <div className="bg-[#EDE8DF] overflow-hidden">
+                  <div className="grid grid-cols-2 gap-[1px]">
+                    {primary.items.slice(0, 4).map((item, i) => (
+                      <motion.div
+                        key={item.garment.id}
+                        initial={prefersReduced ? false : { opacity: 0, scale: 1.02 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: i * 0.08, duration: 0.45 }}
+                        className="relative overflow-hidden bg-[#F5F0E8]"
+                      >
+                        <LazyImageSimple
+                          imagePath={getPreferredGarmentImagePath(item.garment)}
+                          alt={item.garment.title || item.slot}
+                          className="w-full aspect-square object-cover"
+                          fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/15" />}
+                        />
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent p-2 pt-6">
+                          <p className="text-[9px] text-white/70 uppercase tracking-[0.15em] font-medium">
+                            {item.slot}
+                          </p>
+                        </div>
+                      </motion.div>
+                    ))}
+                    {Array.from({ length: Math.max(0, 4 - primary.items.length) }).map((_, i) => (
+                      <div key={`empty-${i}`} className="bg-[#F5F0E8] aspect-square" />
+                    ))}
+                  </div>
+
+                  {/* Card footer */}
+                  <div className="px-3 pt-2.5 pb-3 space-y-1">
+                    <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-[#1C1917]/50">
+                      {OCCASIONS.find(o => o.key === primary.occasion)?.label ?? primary.occasion}
+                    </p>
+                    {reasoningText && (
+                      <p className="font-['Playfair_Display'] italic text-[13px] text-[#1C1917]/70 leading-snug line-clamp-2">
+                        {reasoningText}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                {/* Reasoning text */}
-                {reasoningText && (
-                  <p className="mt-4 text-[14px] font-['Playfair_Display'] italic text-muted-foreground/70 leading-relaxed px-1">
-                    {reasoningText}
-                  </p>
-                )}
+                {/* ── CTAs ── */}
+                <div className="mt-5 space-y-3">
+                  <Button
+                    onClick={handleWearToday}
+                    disabled={markWorn.isPending}
+                    className="bg-foreground text-background h-12 rounded-full w-full text-[15px] font-medium font-['DM_Sans']"
+                    size="lg"
+                  >
+                    {markWorn.isPending ? 'Logging…' : 'Wear today'}
+                  </Button>
 
-                {/* Primary CTA */}
-                <Button
-                  onClick={() => navigateToDetail(primary)}
-                  className="bg-foreground text-background h-12 rounded-full w-full text-[15px] font-medium font-['DM_Sans'] mt-5"
-                  size="lg"
-                >
-                  Wear this today
-                </Button>
+                  <Button
+                    onClick={handleRefineInChat}
+                    variant="outline"
+                    className="h-12 rounded-full w-full text-[15px] font-medium font-['DM_Sans'] border-[#1C1917]/20"
+                    size="lg"
+                  >
+                    Refine in chat
+                  </Button>
+                </div>
 
                 {/* Secondary action row */}
                 <div className="flex items-center justify-between mt-3 px-4">
@@ -367,13 +409,13 @@ export default function OutfitGeneratePage() {
               )}
             </LayoutGroup>
 
-            {/* Back to picking */}
+            {/* Generate another */}
             <div className="mt-8 text-center">
               <button
                 onClick={() => setPhase('picking')}
                 className="text-[13px] font-['DM_Sans'] text-muted-foreground/50 underline underline-offset-2"
               >
-                Start over
+                Generate another
               </button>
             </div>
           </div>
@@ -425,11 +467,9 @@ export default function OutfitGeneratePage() {
             Let me style you today.
           </p>
           {weather && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
-              <Thermometer className="w-3.5 h-3.5 text-muted-foreground/60" />
-              <span>
-                {weather.temperature}° in {weather.location}
-                {weatherAdvice && <span className="text-foreground/70"> — {weatherAdvice}</span>}
+            <div className="pt-1.5">
+              <span className="inline-flex items-center gap-1.5 font-['DM_Sans'] text-[11px] bg-[#EDE8DF] text-[#1C1917]/50 px-3 py-1.5 rounded-full">
+                {weather.temperature}°C · {weather.condition || weather.location}
               </span>
             </div>
           )}
@@ -509,7 +549,7 @@ export default function OutfitGeneratePage() {
           </div>
         </section>
 
-        {/* ── Step 2: Occasion ── */}
+        {/* ── Step 2: Occasion — visual cards ── */}
         <motion.section
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -517,30 +557,31 @@ export default function OutfitGeneratePage() {
           className="space-y-3 pb-10"
         >
           <p className="label-editorial">What's the occasion?</p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
             {OCCASIONS.map(({ key, label }) => {
               const isSelected = selectedOccasion === key;
+              const OccIcon = OCCASION_ICONS[key] || Sparkles;
               return (
                 <motion.button
                   key={key}
                   whileTap={prefersReduced ? undefined : { scale: 0.97 }}
                   onClick={() => setSelectedOccasion(key)}
                   className={cn(
-                    'h-[52px] flex items-center justify-center rounded-xl border transition-all',
-                    "text-[14px] font-medium font-['DM_Sans']",
+                    'w-[72px] h-[64px] flex flex-col items-center justify-center gap-1.5 shrink-0 transition-all',
                     isSelected
-                      ? 'bg-foreground text-background border-transparent'
-                      : 'bg-card text-foreground border-border/20'
+                      ? 'bg-[#1C1917] text-white'
+                      : 'bg-[#EDE8DF] text-[#1C1917] hover:bg-[#E8E3DA]'
                   )}
                 >
-                  {label}
+                  <OccIcon className="w-5 h-5" strokeWidth={1.8} />
+                  <span className="font-['DM_Sans'] text-[11px] leading-none">{label}</span>
                 </motion.button>
               );
             })}
           </div>
         </motion.section>
 
-        {/* ── Step 3: Style ── */}
+        {/* ── Step 3: Style — decisive chip redesign ── */}
         <motion.section
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -565,11 +606,11 @@ export default function OutfitGeneratePage() {
                     }
                   }}
                   className={cn(
-                    "h-[44px] px-4 rounded-xl border transition-all",
+                    "h-[44px] px-4 rounded-xl transition-all",
                     "text-[14px] font-['DM_Sans']",
                     isSelected
-                      ? 'bg-foreground text-background border-transparent'
-                      : 'bg-card text-foreground border-border/20'
+                      ? 'bg-[#1C1917] text-white border-transparent'
+                      : 'bg-transparent border border-[#1C1917]/25 text-[#1C1917]/60'
                   )}
                 >
                   {style}
