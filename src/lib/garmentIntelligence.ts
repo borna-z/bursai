@@ -223,11 +223,12 @@ interface BuildGarmentIntelligenceFieldsOptions {
 interface TriggerGarmentPostSaveIntelligenceOptions {
   garmentId: string;
   storagePath: string;
-  source: 'add_photo' | 'batch_add' | 'live_scan';
+  source: 'add_photo' | 'batch_add' | 'live_scan' | 'manual_enhance';
   imageProcessing?:
     | { mode: 'edge' }
     | { mode: 'local'; run: () => Promise<void> }
-    | { mode: 'skip' };
+    | { mode: 'skip' }
+    | { mode: 'full' };
   /** Skip Gemini render for this garment (default: auto based on source) */
   skipRender?: boolean;
 }
@@ -276,7 +277,7 @@ export function triggerGarmentPostSaveIntelligence({
     console.error(`[${source}] garment enrichment error (non-blocking):`, err);
   });
 
-  if (imageProcessing.mode === 'edge') {
+  if (imageProcessing.mode === 'edge' || imageProcessing.mode === 'full') {
     startGarmentImageProcessingInBackground(garmentId, source).catch((err) => {
       console.error(`[${source}] garment image processing trigger error (non-blocking):`, err);
     });
@@ -286,8 +287,8 @@ export function triggerGarmentPostSaveIntelligence({
     });
   }
 
-  // Gemini render pipeline — pilot: Add Photo only
-  const shouldRender = !skipRender && (source === 'add_photo' || source === 'batch_add');
+  // Gemini render pipeline
+  const shouldRender = !skipRender && (source === 'add_photo' || source === 'batch_add' || source === 'manual_enhance');
   if (shouldRender) {
     startGarmentRenderInBackground(garmentId, source).catch((err) => {
       console.error(`[${source}] garment render trigger error (non-blocking):`, err);

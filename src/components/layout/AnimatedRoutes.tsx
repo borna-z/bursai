@@ -3,7 +3,7 @@ import { Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import { PageSkeleton } from '@/components/layout/PageSkeleton';
+import { BursLoadingScreen } from '@/components/layout/BursLoadingScreen';
 
 // Eager-loaded (tiny, critical path only)
 import NotFound from '@/pages/NotFound';
@@ -98,7 +98,7 @@ export function AnimatedRoutes() {
         exit="exit"
         transition={transition}
       >
-        <Suspense fallback={<PageSkeleton />}>
+        <Suspense fallback={<BursLoadingScreen />}>
           <Routes location={location}>
             {/* Legal & admin */}
             <Route path="/privacy" element={<PrivacyPolicy />} />

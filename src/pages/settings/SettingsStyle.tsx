@@ -458,6 +458,40 @@ export default function SettingsStyle() {
           </CollapsibleContent>
         </Collapsible>
 
+        {/* Mannequin preference */}
+        <div className="bg-card rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <div className="min-w-0">
+              <span className="text-sm font-semibold text-foreground block">Show garments on mannequin</span>
+              <span className="text-[11px] text-muted-foreground block mt-0.5">Displays a clean ghost mannequin view when available</span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={!!prefs.show_mannequin}
+              onClick={async () => {
+                const next = !prefs.show_mannequin;
+                try {
+                  await updateProfile.mutateAsync({
+                    preferences: { ...prefs, show_mannequin: next } as Json,
+                  });
+                } catch { toast.error(t('settings.pref_error')); }
+              }}
+              className={cn(
+                'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                prefs.show_mannequin ? 'bg-accent' : 'bg-muted',
+              )}
+            >
+              <span
+                className={cn(
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow-lg ring-0 transition duration-200 ease-in-out',
+                  prefs.show_mannequin ? 'translate-x-5' : 'translate-x-0',
+                )}
+              />
+            </button>
+          </div>
+        </div>
+
       </div>
     </AppLayout>
   );
