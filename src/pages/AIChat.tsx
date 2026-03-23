@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
-import { extractGarmentIdsFromText } from '@/lib/garmentTokens';
+import { extractGarmentIdsFromText, parseOutfitTags } from '@/lib/garmentTokens';
 import { getTextContent, mergeAssistantContent, type MessageContent, type MultimodalPart } from '@/lib/chatStream';
 
 type Message = {
@@ -82,6 +82,18 @@ function buildRequestMessages(messages: Message[]): Message[] {
   });
 
   return filtered.slice(-16);
+}
+
+
+function findLatestActiveLookMessageIndex(messages: Message[]): number {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role !== 'assistant') continue;
+    const text = getTextContent(message.content);
+    return parseOutfitTags(text).length > 0 ? index : -1;
+  }
+
+  return -1;
 }
 
 function AIChatFallback() {
@@ -150,6 +162,7 @@ export default function AIChat() {
   }, [garmentsList]);
 
   const anchoredGarment = useMemo(() => anchoredGarmentId ? garmentMap.get(anchoredGarmentId) ?? null : null, [anchoredGarmentId, garmentMap]);
+  const latestActiveLookMessageIndex = useMemo(() => findLatestActiveLookMessageIndex(messages), [messages]);
 
   const scrollToBottom = useCallback(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, []);
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
@@ -448,6 +461,7 @@ export default function AIChat() {
                       garmentMap={garmentMap}
                       onTryOutfit={handleTryOutfit}
                       isCreatingOutfit={createOutfit.isPending}
+                      showStyleCards={msg.role !== 'assistant' || idx === latestActiveLookMessageIndex || isStreamingMsg}
                     />
                   )}
                 </motion.div>

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { GarmentInlineCard } from '@/components/chat/GarmentInlineCard';
 import { OutfitSuggestionCard } from '@/components/chat/OutfitSuggestionCard';
 import type { GarmentBasic } from '@/hooks/useGarmentsByIds';
-import { OUTFIT_TAG_RE, parseGarmentTextSegments, stripUnknownGarmentMarkup } from '@/lib/garmentTokens';
+import { parseGarmentTextSegments, parseOutfitTags, stripUnknownGarmentMarkup } from '@/lib/garmentTokens';
 
 type MultimodalPart =
   | { type: 'text'; text: string }
@@ -25,9 +25,10 @@ interface ChatMessageProps {
   isShopping?: boolean;
   onTryOutfit?: (garmentIds: string[]) => void;
   isCreatingOutfit?: boolean;
+  showStyleCards?: boolean;
 }
 
-export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isCreatingOutfit }: ChatMessageProps) {
+export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isCreatingOutfit, showStyleCards = true }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const text = isUser ? getTextContent(message.content) : stripUnknownGarmentMarkup(getTextContent(message.content));
   const images = getImageUrls(message.content);
@@ -39,13 +40,7 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
     const outfits: { garments: GarmentBasic[]; explanation: string }[] = [];
 
     let cleanText = text;
-    const outfitMatches: { fullMatch: string; ids: string[]; explanation: string }[] = [];
-    let oMatch: RegExpExecArray | null;
-    OUTFIT_TAG_RE.lastIndex = 0;
-    while ((oMatch = OUTFIT_TAG_RE.exec(text)) !== null) {
-      const ids = oMatch[1].split(',').map(id => id.trim());
-      outfitMatches.push({ fullMatch: oMatch[0], ids, explanation: oMatch[2].trim() });
-    }
+    const outfitMatches = parseOutfitTags(text);
 
     for (const om of outfitMatches) {
       const gs = om.ids.map(id => garmentMap.get(id)).filter(Boolean) as GarmentBasic[];
@@ -113,14 +108,14 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
                 ))}
               </div>
             )}
-            {garmentCards.length > 0 && (
+            {showStyleCards && garmentCards.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {garmentCards.map(g => (
                   <GarmentInlineCard key={g.id} garment={g} />
                 ))}
               </div>
             )}
-            {outfitCards.length > 0 && (
+            {showStyleCards && outfitCards.length > 0 && (
               <div className="space-y-2 pt-2">
                 {outfitCards.map((oc, i) => (
                   <OutfitSuggestionCard

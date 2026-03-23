@@ -138,6 +138,33 @@ describe('ChatMessage', () => {
     expect(screen.getByText('Black loafers')).toBeInTheDocument();
   });
 
+
+  it('can hide superseded outfit and garment cards while keeping the prose visible', () => {
+    renderMessage({
+      message: {
+        role: 'assistant',
+        content: 'Updated look [[outfit:11111111-1111-1111-1111-111111111111|Clean tonal layering]] with [[garment:11111111-1111-1111-1111-111111111111|Navy blazer]].',
+      },
+      showStyleCards: false,
+    });
+
+    expect(screen.getByText(/Updated look/)).toBeInTheDocument();
+    expect(screen.queryByTestId('outfit-suggestion-card')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('garment-inline-card')).not.toBeInTheDocument();
+  });
+
+  it('hides incomplete raw garment tags from assistant prose', () => {
+    renderMessage({
+      message: {
+        role: 'assistant',
+        content: 'Change the pants [[garment:11111111-1111-1111-1111-111111111111 and make it sharper.',
+      },
+    });
+
+    expect(screen.getByText('Change the pants and make it sharper.')).toBeInTheDocument();
+    expect(screen.queryByText(/\[\[garment:/)).not.toBeInTheDocument();
+  });
+
   it('hides malformed raw bracket markup from assistant prose', () => {
     renderMessage({
       message: {

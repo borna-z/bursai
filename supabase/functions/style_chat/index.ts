@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { streamBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
+import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 import { VOICE_STYLIST_CHAT } from "../_shared/burs-voice.ts";
 
 import { allowedOrigin } from "../_shared/cors.ts";
@@ -130,6 +130,179 @@ function parseTaggedOutfitIds(text: string): string[] {
     match[1].split(",").map((id) => id.trim()).filter(Boolean).forEach((id) => ids.add(id));
   }
   return Array.from(ids);
+}
+
+const VALID_GARMENT_TAG_RE = /\[\[garment:([a-f0-9-]+)(?:\|([^\]]+))?\]\]/gi;
+const VALID_OUTFIT_TAG_RE = /\[\[outfit:([a-f0-9-,]+)\|([^\]]*)\]\]/gi;
+const ANY_DOUBLE_BRACKET_TAG_RE = /\[\[[\s\S]*?\]\]/g;
+const PARTIAL_TAG_START_RE = /\[\[(?:garment|outfit):/i;
+const PARTIAL_TAG_CHAR_RE = /[a-z0-9,\-|]/i;
+
+interface NormalizedAssistantReply {
+  text: string;
+  outfitIds: string[];
+}
+
+function stripPartialTagStarts(text: string): string {
+  let output = "";
+  let index = 0;
+
+  while (index < text.length) {
+    const nextStart = text.indexOf("[[", index);
+    if (nextStart === -1) {
+      output += text.slice(index);
+      break;
+    }
+
+    output += text.slice(index, nextStart);
+    const remainder = text.slice(nextStart);
+    if (!PARTIAL_TAG_START_RE.test(remainder)) {
+      output += "[[";
+      index = nextStart + 2;
+      continue;
+    }
+
+    const closeIndex = text.indexOf("]]", nextStart + 2);
+    if (closeIndex !== -1) {
+      output += text.slice(nextStart, closeIndex + 2);
+      index = closeIndex + 2;
+      continue;
+    }
+
+    let cursor = nextStart + 2;
+    while (cursor < text.length && text[cursor] !== ":") cursor += 1;
+    if (cursor < text.length && text[cursor] === ":") cursor += 1;
+    while (cursor < text.length && PARTIAL_TAG_CHAR_RE.test(text[cursor])) {
+      cursor += 1;
+    }
+    index = cursor;
+  }
+
+  return output;
+}
+
+function stripUnknownTagMarkup(text: string): string {
+  return stripPartialTagStarts(
+    text.replace(ANY_DOUBLE_BRACKET_TAG_RE, (match) => {
+      VALID_GARMENT_TAG_RE.lastIndex = 0;
+      VALID_OUTFIT_TAG_RE.lastIndex = 0;
+      if (VALID_GARMENT_TAG_RE.test(match) || VALID_OUTFIT_TAG_RE.test(match)) return match;
+      return "";
+    }),
+  )
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\s+([,.!?;:])/g, "$1")
+    .trim();
+}
+
+function pickOutfitIdsFromText(text: string, validGarmentIds: Set<string>): { ids: string[]; explanation: string } | null {
+  let outfitMatch: RegExpExecArray | null;
+  VALID_OUTFIT_TAG_RE.lastIndex = 0;
+  let lastValidOutfit: { ids: string[]; explanation: string } | null = null;
+  while ((outfitMatch = VALID_OUTFIT_TAG_RE.exec(text)) !== null) {
+    const ids = outfitMatch[1].split(",").map((id) => id.trim()).filter((id) => validGarmentIds.has(id));
+    if (ids.length >= 2) lastValidOutfit = { ids: Array.from(new Set(ids)), explanation: outfitMatch[2].trim() };
+  }
+  if (lastValidOutfit) return lastValidOutfit;
+
+  const garmentIds = Array.from(new Set(parseTaggedGarmentIds(text).filter((id) => validGarmentIds.has(id))));
+  if (garmentIds.length >= 2) return { ids: garmentIds.slice(0, 5), explanation: "" };
+
+  return null;
+}
+
+function buildFallbackOutfitIds(rankedGarments: GarmentRecord[], anchor: GarmentRecord | null, activeLook: ActiveLookContext): string[] {
+  if (activeLook.garmentIds.length >= 2) return activeLook.garmentIds.slice(0, 5);
+
+  const slots = new Map<string, GarmentRecord[]>();
+  for (const garment of rankedGarments) {
+    const key = normalizeTerm(garment.category);
+    if (!slots.has(key)) slots.set(key, []);
+    slots.get(key)!.push(garment);
+  }
+
+  const chosen: GarmentRecord[] = [];
+  const pushUnique = (garment?: GarmentRecord | null) => {
+    if (!garment) return;
+    if (chosen.some((item) => item.id === garment.id)) return;
+    chosen.push(garment);
+  };
+
+  if (anchor) pushUnique(anchor);
+  if (chosen.length === 0) pushUnique((slots.get("dress") || [])[0]);
+  if (chosen.length === 0) pushUnique((slots.get("top") || [])[0]);
+  pushUnique((slots.get("bottom") || []).find((item) => item.id !== chosen[0]?.id) || null);
+  pushUnique((slots.get("shoes") || []).find((item) => !chosen.some((existing) => existing.id === item.id)) || null);
+  pushUnique((slots.get("outerwear") || []).find((item) => !chosen.some((existing) => existing.id === item.id)) || null);
+
+  if (chosen.length < 2) {
+    for (const garment of rankedGarments) {
+      pushUnique(garment);
+      if (chosen.length >= 3) break;
+    }
+  }
+
+  return chosen.map((item) => item.id).slice(0, 5);
+}
+
+function buildOutfitExplanation(rawText: string, fallbackIds: string[]): string {
+  const withoutTags = rawText
+    .replace(VALID_OUTFIT_TAG_RE, " ")
+    .replace(VALID_GARMENT_TAG_RE, (_match, _id, label) => (label ? String(label).trim() : " "));
+  const clean = stripUnknownTagMarkup(withoutTags)
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const firstSentence = clean.split(/(?<=[.!?])\s+/).find(Boolean) || clean;
+  if (firstSentence) return firstSentence.slice(0, 140);
+  if (fallbackIds.length >= 2) return "Current active look";
+  return "";
+}
+
+function normalizeAssistantReply(params: {
+  rawText: string;
+  validGarmentIds: Set<string>;
+  rankedGarments: GarmentRecord[];
+  anchor: GarmentRecord | null;
+  activeLook: ActiveLookContext;
+}): NormalizedAssistantReply {
+  const candidate = pickOutfitIdsFromText(params.rawText, params.validGarmentIds);
+  const fallbackIds = buildFallbackOutfitIds(params.rankedGarments, params.anchor, params.activeLook);
+  const outfitIds = (candidate?.ids?.length ? candidate.ids : fallbackIds).slice(0, 5);
+  const explanation = (candidate?.explanation || buildOutfitExplanation(params.rawText, outfitIds)).replace(/[\[\]\n\r|]+/g, " ").trim();
+
+  const prose = stripUnknownTagMarkup(params.rawText.replace(VALID_OUTFIT_TAG_RE, ""));
+  const finalText = outfitIds.length >= 2
+    ? `${prose}\n\n[[outfit:${outfitIds.join(",")}|${explanation || "Current active look"}]]`.trim()
+    : prose;
+
+  return {
+    text: finalText,
+    outfitIds,
+  };
+}
+
+function createSseTextResponse(text: string): Response {
+  const encoder = new TextEncoder();
+  const chunks = text.match(/.{1,180}(?:\s|$)|\S+/g) || [];
+
+  const stream = new ReadableStream({
+    start(controller) {
+      for (const chunk of chunks) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: chunk } }] })}\n\n`));
+      }
+      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+    },
+  });
 }
 
 function formatGarmentLine(g: GarmentRecord): string {
@@ -362,6 +535,11 @@ function buildRefinementContract(intent: RefinementIntent, activeLook: ActiveLoo
     "- Name the kept piece first, then describe the single most important swap or adjustment.",
     "- Never expose raw [[...]] markup in prose; tags exist only to power UI cards.",
     "- If explaining the look, explain the current active look rather than inventing a new one.",
+    "- EVERY assistant reply must include exactly one authoritative [[outfit:id1,id2,...|localized explanation]] tag for the current active look.",
+    "- That outfit tag must reflect the latest full look snapshot after any refinement, even if only one garment changed.",
+    "- Reuse garment IDs for unchanged pieces so the UI can replace the active look instead of leaving stale cards on screen.",
+    "- Mention the outfit naturally in prose first, then place the single outfit tag at the end of the message.",
+    "- Do not emit partial tags, placeholder IDs, or multiple competing outfit tags.",
   ];
 
   const modeRuleMap: Record<RefinementIntent["mode"], string[]> = {
@@ -826,9 +1004,10 @@ STYLIST OPERATING CONTRACT:
 
 GARMENT TAGS:
 - When mentioning a garment from the wardrobe, tag it: [[garment:ID]] after its name
-- For complete outfit suggestions (2+ garments), use: [[outfit:id1,id2,id3|Why this works]]
+- For the active outfit snapshot, use exactly one [[outfit:id1,id2,id3|Why this works]] tag in every reply
 - The explanation after | must be in ${lang.name}
-- ALWAYS tag garments and outfits — this creates visual cards in the chat
+- ALWAYS return the outfit tag, including refinement turns, so the UI can update the active look card
+- Garment tags are optional support detail; the single outfit tag is mandatory and authoritative
 - Tags must appear only after the natural-language mention, never as raw bracketed prose on their own.
 
 ${refinementContract}`;
@@ -843,22 +1022,26 @@ ${refinementContract}`;
       return m;
     });
 
-    const response = await streamBursAI({
+    const aiResponse = await callBursAI({
       messages: [
         { role: "system", content: systemPrompt },
         ...preparedMessages,
       ],
       complexity: chatComplexity,
       max_tokens: chatComplexity === "complex" ? 1200 : 1000,
+      functionName: "style_chat",
     });
 
-    return new Response(response.body, {
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-      },
+    const rawAssistantText = typeof aiResponse.data === "string" ? aiResponse.data : String(aiResponse.data ?? "");
+    const normalizedReply = normalizeAssistantReply({
+      rawText: rawAssistantText,
+      validGarmentIds: new Set(wardrobeCtx.rankedGarments.map((garment) => garment.id)),
+      rankedGarments: wardrobeCtx.rankedGarments,
+      anchor: wardrobeCtx.anchor,
+      activeLook,
     });
+
+    return createSseTextResponse(normalizedReply.text);
   } catch (e) {
     console.error("style_chat error:", e);
     return bursAIErrorResponse(e, corsHeaders);
