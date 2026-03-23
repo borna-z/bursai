@@ -1,8 +1,8 @@
-import { useState, useMemo, useEffect, useRef, useCallback, Fragment } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TAP_TRANSITION, EASE_CURVE, STAGGER_DELAY, DISTANCE, DURATION_MEDIUM, PRESETS } from '@/lib/motion';
+import { useState, useMemo, useEffect, useRef, useCallback, Fragment, type MouseEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Plus, Search, X, Trash2, Shirt, ScanLine, Camera,
@@ -59,11 +59,18 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
   const handleClick = () => {
     if (isSelecting) { onSelect(); } else { navigate(`/wardrobe/${garment.id}`); }
   };
+  const handleStyleAround = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    navigate('/ai', { state: { selectedGarmentId: garment.id } });
+  };
   const displayImagePath = getPreferredGarmentImagePath(garment);
 
   if (!isGridView) {
     return (
-      <motion.button
+      <motion.div
+        role="button"
+        tabIndex={0}
+        onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ' ) { event.preventDefault(); handleClick(); } }}
         variants={cardReveal}
         initial="hidden"
         whileInView="visible"
@@ -99,14 +106,27 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
               className="mt-1"
             />
           )}
+          {!isSelecting && (
+            <button
+              type="button"
+              onClick={handleStyleAround}
+              className="mt-2 inline-flex h-8 items-center gap-1 rounded-full border border-primary/20 bg-primary/5 px-3 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Style around this
+            </button>
+          )}
         </div>
-      </motion.button>
+      </motion.div>
     );
   }
 
   // Grid view — clean gallery, name on tap only
   return (
-    <motion.button
+    <motion.div
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ' ) { event.preventDefault(); handleClick(); } }}
       variants={cardReveal}
       initial="hidden"
       whileInView="visible"
@@ -144,8 +164,18 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
             {garment.wear_count}×
           </span>
         )}
+        {!isSelecting && (
+          <button
+            type="button"
+            onClick={handleStyleAround}
+            className="absolute inset-x-2 bottom-2 inline-flex h-8 items-center justify-center gap-1 rounded-full bg-background/88 px-3 text-xs font-medium text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-background"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            Style around this
+          </button>
+        )}
       </div>
-    </motion.button>
+    </motion.div>
   );
 }
 

@@ -481,12 +481,13 @@ export async function streamBursAI(
   const reader = upstreamBody.getReader();
   let keepaliveInterval: number | undefined;
   let aborted = false;
+  const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     start(controller) {
       keepaliveInterval = setInterval(() => {
         try {
-          controller.enqueue(new TextEncoder().encode(": keepalive\n\n"));
+          controller.enqueue(encoder.encode(": keepalive\n\n"));
         } catch {
           aborted = true;
           clearInterval(keepaliveInterval);
@@ -496,21 +497,39 @@ export async function streamBursAI(
     async pull(controller) {
       if (aborted) { controller.close(); return; }
       try {
-        const { done, value } = await reader.read();
+        const result = await Promise.race([
+          reader.read(),
+          new Promise<{ done: true; value?: Uint8Array }>((resolve) => {
+            setTimeout(() => resolve({ done: true }), 45000);
+          }),
+        ]);
+        const { done, value } = result;
         if (done) {
           clearInterval(keepaliveInterval);
+          try {
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          } catch {
+            // ignore enqueue failures during shutdown
+          }
           controller.close();
+          await reader.cancel();
           return;
         }
         controller.enqueue(value);
       } catch {
         clearInterval(keepaliveInterval);
+        try {
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        } catch {
+          // ignore enqueue failures during shutdown
+        }
         controller.close();
+        try { await reader.cancel(); } catch { /* ignore */ }
       }
     },
-    cancel() {
+    async cancel() {
       clearInterval(keepaliveInterval);
-      reader.cancel();
+      await reader.cancel();
     },
   });
 
