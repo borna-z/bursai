@@ -2518,6 +2518,15 @@ function buildCombos(
     return role === 'base' || role === 'standalone';
   });
   const midLayers = tops.filter(t => (t.garment.layering_role || 'standalone') === 'mid');
+  const primaryTopSeeds = baseTops.length > 0
+    ? baseTops
+    : midLayers.map((top) => ({
+        ...top,
+        garment: {
+          ...top.garment,
+          layering_role: 'standalone',
+        },
+      }));
 
   const wet = isWetWeather(weather);
   const needsOuterwear =
@@ -2602,7 +2611,7 @@ function buildCombos(
   }
 
   // Standard combos
-  for (const t of baseTops.slice(0, 5)) {
+  for (const t of primaryTopSeeds.slice(0, 5)) {
     for (const b of bottoms.slice(0, 5)) {
       for (const s of shoeOptions) {
         for (const mid of midLayerOptions) {

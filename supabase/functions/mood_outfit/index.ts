@@ -64,6 +64,48 @@ function validateMoodOutfitBase(items: { slot: string }[]): { valid: boolean; mi
   return { valid, missing };
 }
 
+
+function chooseBestOptionalGarment<T extends { wear_count?: number | null }>(garments: T[]): T | null {
+  if (garments.length === 0) return null;
+  return [...garments].sort((a, b) => {
+    const aWear = a.wear_count ?? 0;
+    const bWear = b.wear_count ?? 0;
+    return aWear - bWear;
+  })[0] || null;
+}
+
+function enrichMoodOutfitItems(
+  items: { slot: string; garment_id: string }[],
+  garments: Array<{ id: string; category?: string | null; subcategory?: string | null; wear_count?: number | null }>,
+  weather?: { temperature?: number; precipitation?: string | null },
+): { slot: string; garment_id: string }[] {
+  const enriched = [...items];
+  const garmentIds = new Set(enriched.map((item) => item.garment_id));
+  const slots = new Set(enriched.map((item) => item.slot));
+
+  if (!slots.has("shoes")) {
+    const shoe = chooseBestOptionalGarment(
+      garments.filter((garment) => !garmentIds.has(garment.id) && inferSlotFromGarment(garment) === "shoes"),
+    );
+    if (shoe) {
+      enriched.push({ slot: "shoes", garment_id: shoe.id });
+      garmentIds.add(shoe.id);
+      slots.add("shoes");
+    }
+  }
+
+  if (requiresOuterwear(weather) && !slots.has("outerwear")) {
+    const outerwear = chooseBestOptionalGarment(
+      garments.filter((garment) => !garmentIds.has(garment.id) && inferSlotFromGarment(garment) === "outerwear"),
+    );
+    if (outerwear) {
+      enriched.push({ slot: "outerwear", garment_id: outerwear.id });
+    }
+  }
+
+  return enriched;
+}
+
 function buildMoodLimitationNote(
   items: { slot: string }[],
   weather?: { temperature?: number; precipitation?: string | null },
@@ -135,7 +177,7 @@ serve(async (req) => {
 
 Mood:"${mood}" — Direction: ${moodParams.formality} | Colors: ${moodParams.colors} | Vibe: ${moodParams.vibe}
 ${weather?.temperature !== undefined ? `Weather: ${weather.temperature}°C` : ""}
-Rules: return a usable base outfit first. Standard base outfit = top+bottom. Dress is also allowed when it suits the mood. Shoes and outerwear are optional additions, not hard requirements. If shoes or weather-ready outerwear are unavailable, still return the best base outfit. Only IDs from list. Prioritize less-worn. Respond in ${langName}.
+Rules: prefer the fullest wearable look available. If suitable shoes exist, include shoes. If weather-appropriate outerwear exists and the weather calls for it, include outerwear. If those pieces are unavailable, still return the best usable base outfit. Standard base outfit = top+bottom. Dress is also allowed when it suits the mood. Only IDs from list. Prioritize less-worn. Respond in ${langName}.
 WARDROBE:\n${garmentList}` },
         { role: "user", content: `Feeling ${mood}. Create outfit.` },
       ],
@@ -173,13 +215,17 @@ WARDROBE:\n${garmentList}` },
 
     if (!result) throw new Error("AI did not return structured result");
     const garmentsById = new Map(garments.map((g) => [g.id, g]));
-    const normalizedItems = (result.items || [])
-      .filter((i: any) => garmentsById.has(i.garment_id))
-      .map((i: any) => {
-        const garment = garmentsById.get(i.garment_id);
-        const inferredSlot = garment ? inferSlotFromGarment(garment) : i.slot;
-        return { slot: inferredSlot, garment_id: i.garment_id };
-      });
+    const normalizedItems = enrichMoodOutfitItems(
+      (result.items || [])
+        .filter((i: any) => garmentsById.has(i.garment_id))
+        .map((i: any) => {
+          const garment = garmentsById.get(i.garment_id);
+          const inferredSlot = garment ? inferSlotFromGarment(garment) : i.slot;
+          return { slot: inferredSlot, garment_id: i.garment_id };
+        }),
+      garments,
+      weather,
+    );
 
     const baseValidation = validateMoodOutfitBase(normalizedItems);
     if (!baseValidation.valid) {
