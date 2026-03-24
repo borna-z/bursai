@@ -103,8 +103,8 @@ export function WeekOverview({ selectedDate, onSelectDate, plannedOutfits, class
         </motion.div>
       )}
 
-      {/* Week strip — REDESIGN 1 */}
-      <div className="flex gap-1.5 justify-between overflow-x-auto scrollbar-hide">
+      {/* Week strip */}
+      <div style={{ display: 'flex', width: '100%' }}>
         {days.map((date, idx) => {
           const dateStr = format(date, 'yyyy-MM-dd');
           const isSelected = isSameDay(date, selectedDate);
@@ -112,10 +112,10 @@ export function WeekOverview({ selectedDate, onSelectDate, plannedOutfits, class
           const dayOutfits = plannedOutfits.filter(p => p.date === dateStr && p.outfit_id);
           const hasOutfit = dayOutfits.length > 0;
 
-          // Determine pill state
-          const isTodayWithOutfit = isTodayDate && hasOutfit;
-          const isTodayNoOutfit = isTodayDate && !hasOutfit;
-          const isSelectedNotToday = isSelected && !isTodayDate;
+          const bg = isTodayDate ? '#1C1917' : '#EDE8DF';
+          const textColor = isTodayDate ? '#F5F0E8' : '#1C1917';
+          const textMuted = isTodayDate ? 'rgba(245,240,232,0.5)' : 'rgba(28,25,23,0.45)';
+          const dotColor = isTodayDate ? 'rgba(245,240,232,0.5)' : 'rgba(28,25,23,0.3)';
 
           return (
             <motion.button
@@ -125,44 +125,46 @@ export function WeekOverview({ selectedDate, onSelectDate, plannedOutfits, class
               initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 8 }}
               animate={prefersReduced ? { opacity: 1 } : { opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: idx * STAGGER_DELAY, ease: EASE_CURVE }}
-              className={cn(
-                'w-[44px] h-[64px] rounded-2xl flex flex-col items-center justify-center gap-1 shrink-0 transition-all duration-200',
-                'active:scale-95',
-                // Default — no outfit
-                !isTodayDate && !isSelected && !hasOutfit && 'bg-transparent text-muted-foreground/40',
-                // Has outfit, not today, not selected
-                !isTodayDate && !isSelected && hasOutfit && 'bg-transparent text-foreground/70',
-                // Today no outfit (not selected — but today auto-highlights)
-                isTodayNoOutfit && 'bg-foreground/[0.06] text-foreground font-semibold border border-border/30',
-                // Today has outfit
-                isTodayWithOutfit && 'bg-foreground text-background',
-                // Selected not today
-                isSelectedNotToday && 'bg-foreground/[0.08] text-foreground border border-border/20',
-              )}
+              style={{
+                flex: 1,
+                height: 64,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 3,
+                background: bg,
+                border: 'none',
+                borderBottom: isSelected && !isTodayDate ? '2px solid #1C1917' : '2px solid transparent',
+                cursor: 'pointer',
+                padding: 0,
+              }}
             >
-              {/* Day name */}
-              <span className={cn(
-                "text-[10px] font-medium tracking-widest font-['DM_Sans',sans-serif] uppercase",
-                isTodayWithOutfit ? 'text-background/70' : '',
-              )}>
-                {format(date, 'EEE', { locale: dfLocale }).slice(0, 2)}
+              {/* Day letter */}
+              <span style={{
+                fontFamily: 'DM Sans, sans-serif',
+                fontSize: 8,
+                fontWeight: 500,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                color: textMuted,
+              }}>
+                {format(date, 'EEE', { locale: dfLocale }).slice(0, 1)}
               </span>
 
-              {/* Day number */}
-              <span className={cn(
-                "text-[18px] font-medium font-['DM_Sans',sans-serif] leading-none",
-                isTodayWithOutfit ? 'text-background' : '',
-                isTodayNoOutfit ? 'font-semibold' : '',
-              )}>
+              {/* Date number */}
+              <span style={{
+                fontFamily: 'DM Sans, sans-serif',
+                fontSize: 9,
+                fontWeight: 500,
+                color: textColor,
+              }}>
                 {format(date, 'd')}
               </span>
 
-              {/* Outfit dot */}
+              {/* Dot */}
               {hasOutfit && (
-                <div className={cn(
-                  'w-1.5 h-1.5 rounded-full',
-                  isTodayWithOutfit ? 'bg-background/40' : 'bg-foreground/30',
-                )} />
+                <div style={{ width: 4, height: 4, background: dotColor }} />
               )}
             </motion.button>
           );

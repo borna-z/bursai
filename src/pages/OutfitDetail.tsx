@@ -249,6 +249,7 @@ export default function OutfitDetailPage() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [selectedFeedback, setSelectedFeedback] = useState<string[]>([]);
   const [explExpanded, setExplExpanded] = useState(false);
+  const [activeTab, setActiveTab] = useState<'wear' | 'swap' | 'why'>('wear');
   const prefersReduced = useReducedMotion();
   const outfitRef = useRef<HTMLDivElement>(null);
 
@@ -581,451 +582,201 @@ export default function OutfitDetailPage() {
         </div>
       </div>
 
-      {/* ── Editorial image mosaic ── */}
-      <motion.div
-        ref={outfitRef}
-        className="relative overflow-hidden bg-muted/10"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5, ease: EASE_CURVE }}
-      >
-        <div className={cn(
-          'grid gap-[1px]',
-          outfitItems.length <= 2 ? 'grid-cols-2' :
-          outfitItems.length === 3 ? 'grid-cols-2' :
-          'grid-cols-2'
-        )}>
-          {outfitItems.map((item, index) => (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, scale: 1.02 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.08, duration: 0.5, ease: EASE_CURVE }}
-              className={cn(
-                'relative overflow-hidden bg-muted/20',
-                outfitItems.length === 1 && 'col-span-2',
-                outfitItems.length === 3 && index === 0 && 'row-span-2',
-                outfitItems.length >= 5 && index === 0 && 'row-span-2',
-              )}
-            >
-              <LazyImageSimple
-                imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
-                alt={item.garment?.title || item.slot}
-                className={cn(
-                  'w-full object-cover',
-                  outfitItems.length === 1 ? 'aspect-[3/4]' :
-                  outfitItems.length === 2 ? 'aspect-[3/4]' :
-                  outfitItems.length === 3 && index === 0 ? 'aspect-[3/4]' :
-                  outfitItems.length === 3 ? 'aspect-[3/4] max-h-[38vh]' :
-                  'aspect-square'
-                )}
-                fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/15" />}
-              />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent p-3 pt-8">
-                <p className="text-[9px] text-white/70 uppercase tracking-[0.15em] font-medium">
-                  {t(`outfit.slot.${item.slot}`) || item.slot}
-                </p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+      {/* ── Full-bleed image strip ── */}
+      <div ref={outfitRef} style={{ display: 'flex', width: '100%' }}>
+        {outfitItems.slice(0, 5).map((item) => (
+          <div key={item.id} style={{ flex: 1, aspectRatio: '1/1', background: '#EDE8DF', overflow: 'hidden' }}>
+            <LazyImageSimple
+              imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
+              alt={item.garment?.title || item.slot}
+              className="w-full h-full"
+              fallbackIcon={<Shirt style={{ width: 24, height: 24, color: 'rgba(28,25,23,0.2)' }} />}
+            />
+          </div>
+        ))}
+      </div>
 
-        {justGenerated && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.3, ease: EASE_CURVE }}
-            className="absolute bottom-4 left-4 flex items-center gap-1.5 bg-background/70 backdrop-blur-2xl rounded-full px-3 py-1.5 ring-1 ring-border/10"
-          >
-            <Sparkles className="w-3 h-3 text-primary" />
-            <span className="text-[11px] font-medium tracking-wide">{t('outfit.just_created')}</span>
-          </motion.div>
+      {/* ── Dark info block ── */}
+      <div style={{ background: '#1C1917', padding: '20px' }}>
+        <p style={{
+          fontFamily: 'DM Sans, sans-serif', fontSize: 8, fontWeight: 500,
+          textTransform: 'uppercase', letterSpacing: '0.12em',
+          color: 'rgba(245,240,232,0.45)', marginBottom: 10,
+        }}>
+          {genOccasionSubmode || displayOccasion}
+        </p>
+        {outfit.explanation && (
+          <p style={{
+            fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+            fontSize: 14, color: '#F5F0E8', lineHeight: 1.55, marginBottom: 10,
+          }}>
+            {outfit.explanation}
+          </p>
         )}
-      </motion.div>
+        {genWardrobeInsights && genWardrobeInsights.length > 0 && (
+          <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: 'rgba(245,240,232,0.5)', lineHeight: 1.5 }}>
+            {genWardrobeInsights.join(' · ')}
+          </p>
+        )}
+      </div>
 
-      {/* ── Editorial content ── */}
-      <div className="px-5 sm:px-6 pt-8 pb-40 space-y-8">
-        {/* Headline — editorial Playfair italic */}
-        <div>
-          {outfit.explanation && (
-            <h1 className="font-['Playfair_Display'] italic text-[22px] text-[#1C1917] leading-snug mb-3">
-              {outfit.explanation.length > 80 ? `${outfit.explanation.slice(0, 80)}…` : outfit.explanation}
-            </h1>
-          )}
-          <div className="flex items-center gap-2 mb-2">
-            {genFamilyLabel && (
-              <span className="text-[10px] uppercase tracking-[0.15em] font-semibold text-primary bg-primary/8 px-2.5 py-1 rounded-full">
-                {genFamilyLabel}
-              </span>
-            )}
-            {outfit.style_vibe && (
-              <span className="text-[10px] uppercase tracking-[0.15em] font-medium text-muted-foreground/50 bg-muted/20 px-2.5 py-1 rounded-full">
-                {outfit.style_vibe}
-              </span>
-            )}
-          </div>
-          {/* Occasion + weather chip row */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-['DM_Sans'] px-2.5 py-1 rounded-full bg-[#EDE8DF] text-[#1C1917]/60 uppercase tracking-wider">
-              {genOccasionSubmode || displayOccasion}
-            </span>
-            {normalizedOutfitWeather.temperature !== undefined && (
-              <span className="text-[11px] font-['DM_Sans'] px-2.5 py-1 rounded-full bg-[#EDE8DF] text-[#1C1917]/50">
-                {normalizedOutfitWeather.temperature}°C
-                {normalizedOutfitWeather.precipitation && normalizedOutfitWeather.precipitation !== 'none'
-                  ? ` · ${normalizedOutfitWeather.precipitation}`
-                  : ''}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Structured explanation card */}
-        {(outfit.explanation || (genWardrobeInsights && genWardrobeInsights.length > 0) || genLimitationNote) && (
-          <motion.div
-            initial={prefersReduced ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, ease: EASE_CURVE }}
+      {/* ── 3-Tab row ── */}
+      <div style={{ display: 'flex', background: '#EDE8DF' }}>
+        {(['wear', 'swap', 'why'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{
+              flex: 1, height: 44, border: 'none', background: 'transparent',
+              borderBottom: activeTab === tab ? '2px solid #1C1917' : '2px solid transparent',
+              fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 500,
+              color: activeTab === tab ? '#1C1917' : 'rgba(28,25,23,0.4)',
+              cursor: 'pointer',
+            }}
           >
-            {/* Primary explanation — editorial blockquote */}
-            {outfit.explanation && (
-              <div className="border-l border-[#1C1917]/15 pl-4">
-                <p
-                  className={cn(
-                    "font-['DM_Sans'] text-[14px] text-[#1C1917]/60 leading-[1.7]",
-                    !explExpanded && 'line-clamp-3'
-                  )}
-                >
-                  {outfit.explanation}
-                </p>
-                {outfit.explanation.length > 140 && (
-                  <button
-                    onClick={() => setExplExpanded((v) => !v)}
-                    className="text-[11px] text-primary/60 hover:text-primary mt-1.5 font-medium transition-colors"
-                  >
-                    {explExpanded ? t('common.less') : t('common.read_more')}
-                  </button>
-                )}
-              </div>
-            )}
+            {tab === 'wear' ? 'Wear' : tab === 'swap' ? 'Swap' : 'Why'}
+          </button>
+        ))}
+      </div>
 
-            {/* Wardrobe insights — italic note */}
+      {/* ── Tab content ── */}
+      <div style={{ padding: '20px', paddingBottom: 80 }}>
+        {activeTab === 'wear' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* Wear today */}
+            <button
+              onClick={handleMarkWorn}
+              disabled={markWorn.isPending || !!outfit.worn_at}
+              style={{
+                width: '100%', height: 48, background: '#1C1917', border: 'none',
+                color: '#F5F0E8', fontFamily: 'DM Sans, sans-serif', fontSize: 14,
+                fontWeight: 500, cursor: outfit.worn_at ? 'default' : 'pointer',
+                opacity: outfit.worn_at ? 0.5 : 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}
+            >
+              {markWorn.isPending && <Loader2 style={{ width: 16, height: 16 }} className="animate-spin" />}
+              {outfit.worn_at ? t('outfit.worn') : t('outfit.mark_worn')}
+            </button>
+            {/* Plan */}
+            <button
+              onClick={() => navigate('/plan', { state: { preselectedOutfitId: outfit.id } })}
+              style={{
+                width: '100%', height: 48, background: 'transparent',
+                border: '1px solid rgba(28,25,23,0.2)', color: '#1C1917',
+                fontFamily: 'DM Sans, sans-serif', fontSize: 14, fontWeight: 500, cursor: 'pointer',
+              }}
+            >
+              {t('outfit.plan') || 'Plan'}
+            </button>
+            {/* Save to outfits */}
+            <button
+              onClick={handleToggleSave}
+              style={{
+                width: '100%', height: 48, background: 'transparent',
+                border: '1px solid rgba(28,25,23,0.2)', color: '#1C1917',
+                fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}
+            >
+              {outfit.saved
+                ? <><BookmarkCheck style={{ width: 16, height: 16 }} />{t('outfit.saved')}</>
+                : <><Bookmark style={{ width: 16, height: 16 }} />{t('outfit.save') || 'Save to outfits'}</>
+              }
+            </button>
+            {/* Actions row */}
+            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+              <button
+                onClick={() => setShareSheetOpen(true)}
+                style={{
+                  flex: 1, height: 44, background: '#EDE8DF', border: 'none',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', gap: 6,
+                  fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: '#1C1917',
+                }}
+              >
+                <Share2 style={{ width: 14, height: 14 }} />
+                Share
+              </button>
+              <button
+                onClick={handleCreateSimilar}
+                style={{
+                  flex: 1, height: 44, background: '#EDE8DF', border: 'none',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', gap: 6,
+                  fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: '#1C1917',
+                }}
+              >
+                <RefreshCw style={{ width: 14, height: 14 }} />
+                Remake
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'swap' && (
+          <div>
+            {sortedOutfitItems.map((item) => (
+              <SlotRow
+                key={item.id}
+                slot={item.slot}
+                garmentId={item.garment_id}
+                garmentTitle={stripBrands(item.garment?.title || '')}
+                garmentColor={item.garment?.color_primary}
+                imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
+                renderStatus={item.garment?.render_status}
+                onSwap={() => handleOpenSwap(item.slot, item.id, item.garment_id)}
+                t={t}
+                layerRole={layerRoleMap.get(item.garment_id)}
+              />
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'why' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {outfit.explanation && (
+              <p style={{
+                fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+                fontSize: 16, color: '#1C1917', lineHeight: 1.6,
+              }}>
+                {outfit.explanation}
+              </p>
+            )}
             {genWardrobeInsights && genWardrobeInsights.length > 0 && (
-              <p className="font-['DM_Sans'] italic text-[12px] text-muted-foreground/50 mt-3 leading-relaxed">
+              <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, color: 'rgba(28,25,23,0.55)', lineHeight: 1.6 }}>
                 {genWardrobeInsights.join(' · ')}
               </p>
             )}
-
-            {/* Outfit reasoning */}
             {genOutfitReasoning && (
-              <div className="mt-3 flex flex-col gap-2">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {genOutfitReasoning.occasion_fit && (
                   <div>
-                    <p className="text-[10px] font-['DM_Sans'] tracking-widest text-muted-foreground/30 uppercase">OCCASION</p>
-                    <p className="text-[13px] font-['DM_Sans'] text-muted-foreground/60">{genOutfitReasoning.occasion_fit}</p>
+                    <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(28,25,23,0.35)', marginBottom: 4 }}>OCCASION</p>
+                    <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, color: 'rgba(28,25,23,0.6)' }}>{genOutfitReasoning.occasion_fit}</p>
                   </div>
                 )}
                 {genOutfitReasoning.weather_logic && (
                   <div>
-                    <p className="text-[10px] font-['DM_Sans'] tracking-widest text-muted-foreground/30 uppercase">WEATHER</p>
-                    <p className="text-[13px] font-['DM_Sans'] text-muted-foreground/60">{genOutfitReasoning.weather_logic}</p>
+                    <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(28,25,23,0.35)', marginBottom: 4 }}>WEATHER</p>
+                    <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, color: 'rgba(28,25,23,0.6)' }}>{genOutfitReasoning.weather_logic}</p>
                   </div>
                 )}
                 {genOutfitReasoning.color_note && (
                   <div>
-                    <p className="text-[10px] font-['DM_Sans'] tracking-widest text-muted-foreground/30 uppercase">COLOUR</p>
-                    <p className="text-[13px] font-['DM_Sans'] text-muted-foreground/60">{genOutfitReasoning.color_note}</p>
+                    <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(28,25,23,0.35)', marginBottom: 4 }}>COLOUR</p>
+                    <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, color: 'rgba(28,25,23,0.6)' }}>{genOutfitReasoning.color_note}</p>
                   </div>
                 )}
               </div>
             )}
-
-            {/* Wardrobe insights moved to inline beneath explanation */}
-
-            {/* Limitation note */}
             {genLimitationNote && (
-              <p className="text-[13px] font-['DM_Sans'] italic text-muted-foreground/50 mt-3">
+              <p style={{ fontFamily: 'DM Sans, sans-serif', fontStyle: 'italic', fontSize: 12, color: 'rgba(28,25,23,0.4)' }}>
                 Your stylist suggests: {genLimitationNote}
               </p>
             )}
-          </motion.div>
+          </div>
         )}
-
-        {/* Style Score — editorial presentation */}
-        {outfit.style_score && (() => {
-          const rawScore = outfit.style_score as Record<string, unknown>;
-          const overallValue = Number(rawScore.overall);
-          const metrics = [
-            { key: 'color_harmony', label: t('outfit.score.color') || 'Color', emoji: '🎨' },
-            { key: 'material_compatibility', label: t('outfit.score.material') || 'Material', emoji: '🧵' },
-            { key: 'formality', label: t('outfit.score.formality') || 'Formality', emoji: '👔' },
-          ].map((metric) => ({
-            ...metric,
-            value: Number(rawScore[metric.key]),
-          })).filter((metric) => Number.isFinite(metric.value));
-
-          if (metrics.length === 0 && !Number.isFinite(overallValue)) return null;
-
-          return (
-            <div className="space-y-5">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/40 font-semibold">
-                {t('outfit.score.title') || 'Style Score'}
-              </p>
-
-              {/* Overall + breakdown in one row */}
-              <div className="flex items-start gap-6">
-                {Number.isFinite(overallValue) && (
-                  <div className="flex flex-col items-center shrink-0">
-                    <div className="relative w-[72px] h-[72px]">
-                      <svg className="w-[72px] h-[72px] -rotate-90" viewBox="0 0 72 72">
-                        <circle cx="36" cy="36" r="30" fill="none" strokeWidth="4" className="stroke-muted/20" />
-                        <circle
-                          cx="36" cy="36" r="30" fill="none" strokeWidth="4"
-                          className="stroke-primary"
-                          strokeLinecap="round"
-                          strokeDasharray={`${Math.round(overallValue * 18.85)} 188.5`}
-                          style={{ transition: 'stroke-dasharray 1.2s ease-out' }}
-                        />
-                      </svg>
-                      <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-foreground">
-                        {overallValue.toFixed(1)}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground/40 mt-1.5 font-medium">
-                      {overallValue >= 8 ? (t('outfit.score.excellent') || 'Excellent')
-                        : overallValue >= 6 ? (t('outfit.score.good') || 'Solid')
-                        : (t('outfit.score.decent') || 'Decent')}
-                    </p>
-                  </div>
-                )}
-
-                {metrics.length > 0 && (
-                  <div className="flex-1 space-y-3 pt-1">
-                    {metrics.map(({ key, label, value }) => {
-                      const pct = Math.max(0, Math.min(100, Math.round(value * 10)));
-                      return (
-                        <div key={key} className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[12px] text-muted-foreground/60">{label}</span>
-                            <span className="text-[12px] font-semibold tabular-nums text-foreground/70">{value.toFixed(1)}</span>
-                          </div>
-                          <div className="h-[3px] rounded-full bg-muted/20 overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-primary/70 transition-all duration-1000 ease-out"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* ── Garment list — editorial ── */}
-        <div className="space-y-1">
-          <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/40 font-semibold mb-3">
-            {t('outfit.pieces') || 'Pieces'}
-          </p>
-          {sortedOutfitItems.map((item) => (
-            <SlotRow
-              key={item.id}
-              slot={item.slot}
-              garmentId={item.garment_id}
-              garmentTitle={stripBrands(item.garment?.title || '')}
-              garmentColor={item.garment?.color_primary}
-              imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
-              renderStatus={item.garment?.render_status}
-              onSwap={() => handleOpenSwap(item.slot, item.id, item.garment_id)}
-              t={t}
-              layerRole={layerRoleMap.get(item.garment_id)}
-            />
-          ))}
-          {/* Base layer note */}
-          {justGenerated && genNeedsBaseLayer && (
-            <p className="text-[11px] text-muted-foreground/50 italic pt-2 pl-1 leading-relaxed">
-              This look assumes a simple base layer underneath
-            </p>
-          )}
-        </div>
-
-        {/* ── Photo Feedback (Mirror Check) — compact ── */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Camera className="w-4 h-4 text-primary" />
-              <p className="label-editorial text-muted-foreground/60">
-                {t('outfit.photo_feedback')}
-              </p>
-            </div>
-            {!photoFeedback && !submitFeedback.isPending && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-xl h-8 text-xs"
-                onClick={() => selfieInputRef.current?.click()}
-              >
-                <Camera className="w-3 h-3 mr-1.5" />{t('outfit.photo_feedback_upload')}
-              </Button>
-            )}
-          </div>
-
-          <input
-            ref={selfieInputRef}
-            type="file"
-            accept="image/*"
-            capture="user"
-            className="hidden"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file || !id) return;
-              try {
-                await submitFeedback.mutateAsync({ outfitId: id, selfieFile: file });
-                toast.success(t('outfit.photo_feedback_success'));
-              } catch {
-                toast.error(t('outfit.photo_feedback_error'));
-              }
-              e.target.value = '';
-            }}
-          />
-
-          {submitFeedback.isPending && (
-            <div className="rounded-2xl bg-muted/20 p-6 flex items-center justify-center gap-3">
-              <Loader2 className="w-5 h-5 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">{t('outfit.photo_feedback_analyzing')}</p>
-            </div>
-          )}
-
-          {photoFeedback && (
-            <div className="space-y-4">
-              <div className="rounded-2xl overflow-hidden bg-muted/20">
-                <LazyImageSimple
-                  imagePath={photoFeedback.selfie_path}
-                  alt="Your selfie"
-                  className="w-full aspect-[3/4] object-cover"
-                />
-              </div>
-              <div className="space-y-3">
-                {[
-                  { key: 'fit_score', label: t('outfit.photo_feedback_fit'), value: photoFeedback.fit_score },
-                  { key: 'color_match_score', label: t('outfit.photo_feedback_color'), value: photoFeedback.color_match_score },
-                  { key: 'overall_score', label: t('outfit.photo_feedback_overall'), value: photoFeedback.overall_score },
-                ].filter(m => m.value != null).map(({ key, label, value }) => (
-                  <div key={key} className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">{label}</span>
-                      <span className="text-sm font-semibold">{Number(value).toFixed(1)}</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-primary transition-all duration-700"
-                        style={{ width: `${Math.round(Number(value) * 10)}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {photoFeedback.commentary && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-primary" />
-                    <p className="label-editorial text-muted-foreground/60">{t('outfit.ai_feedback')}</p>
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{photoFeedback.commentary}</p>
-                </div>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-xl text-xs w-full"
-                onClick={() => selfieInputRef.current?.click()}
-                disabled={submitFeedback.isPending}
-              >
-                <Camera className="w-3 h-3 mr-1.5" />{t('outfit.photo_feedback_upload')}
-              </Button>
-            </div>
-          )}
-
-          {!photoFeedback && !submitFeedback.isPending && (
-            <button
-              onClick={() => selfieInputRef.current?.click()}
-              className="w-full flex items-center gap-3 rounded-xl bg-muted/10 border border-border/20 px-4 py-3 hover:bg-muted/20 transition-colors"
-            >
-              <Camera className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
-              <span className="text-xs text-muted-foreground/50">{t('outfit.photo_feedback_hint')}</span>
-            </button>
-          )}
-        </div>
-
-        {/* ── Rating ── */}
-        <div className="space-y-4">
-          <p className="label-editorial text-muted-foreground/60">{t('outfit.rating')}</p>
-          <div className="flex gap-1.5">
-            {[1, 2, 3, 4, 5].map((value) => (
-              <button key={value} onClick={() => handleRating(value)} className="p-1 rounded-lg hover:bg-muted/40 transition-colors active:scale-95">
-                <Star className={cn('w-7 h-7 transition-colors', (rating || 0) >= value ? 'fill-primary text-primary' : 'text-muted-foreground/20')} />
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Feedback chips ── */}
-        <div className="space-y-4">
-          <p className="label-editorial text-muted-foreground/60">{t('outfit.feedback')}</p>
-          <div className="flex flex-wrap gap-2.5">
-            {feedbackOptions.map(({ id, label, icon: Icon }) => {
-              const isSelected = selectedFeedback.includes(id);
-              const colorClass = isSelected
-                ? (id === 'loved_it' ? 'bg-pink-500/10 text-pink-500 border-pink-500/20'
-                  : id === 'too_warm' ? 'bg-red-500/10 text-red-500 border-red-500/20'
-                  : id === 'too_cold' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20'
-                  : id === 'too_formal' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
-                  : id === 'too_casual' ? 'bg-green-500/10 text-green-600 border-green-500/20'
-                  : id === 'uncomfortable' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20'
-                  : id === 'bad_color' ? 'bg-purple-500/10 text-purple-500 border-purple-500/20'
-                  : id === 'boring' ? 'bg-slate-500/10 text-slate-500 border-slate-500/20'
-                  : '')
-                : '';
-              return (
-                <Chip key={id} selected={isSelected} onClick={() => handleFeedbackToggle(id)} className={colorClass}>
-                  <Icon className="w-3.5 h-3.5 mr-1" />{label}
-                </Chip>
-              );
-            })}
-          </div>
-        </div>
-
-      </div>
-
-      {/* ── Sticky bottom action bar ── */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/60 backdrop-blur-2xl border-t border-border/15 safe-bottom">
-        <div className="flex items-center gap-3 px-5 py-4 max-w-lg mx-auto">
-          <Button
-            className="flex-1 rounded-2xl h-12"
-            onClick={handleMarkWorn}
-            disabled={markWorn.isPending || !!outfit.worn_at}
-          >
-            {markWorn.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-            {outfit.worn_at ? t('outfit.worn') : t('outfit.mark_worn')}
-          </Button>
-          <button
-            onClick={() => navigate('/plan', { state: { preselectedOutfitId: outfit.id } })}
-            className="w-12 h-12 rounded-2xl border border-border/20 flex items-center justify-center hover:bg-muted/40 transition-colors active:scale-95 shrink-0"
-            aria-label={t('outfit.plan')}
-          >
-            <Calendar className="w-5 h-5 text-muted-foreground" />
-          </button>
-          <button
-            onClick={handleCreateSimilar}
-            className="w-12 h-12 rounded-2xl border border-border/20 flex items-center justify-center hover:bg-muted/40 transition-colors active:scale-95 shrink-0"
-            aria-label={t('outfit.similar')}
-          >
-            <RefreshCw className="w-5 h-5 text-muted-foreground" />
-          </button>
-        </div>
       </div>
 
       {/* ── Swap sheet ── */}

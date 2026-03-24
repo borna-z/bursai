@@ -829,34 +829,36 @@ export default function WardrobePage() {
         </AnimatedPage>
       </PullToRefresh>
 
-      {/* Add garment bar */}
+      {/* Wardrobe bottom bar — Scan + Add */}
       {activeTab === 'garments' && (
-        <div
-          style={{
-            position: 'sticky',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            background: '#1C1917',
-            padding: '14px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            cursor: 'pointer',
-            zIndex: 40,
-          }}
-          onClick={() => navigate('/wardrobe/add')}
-        >
-          <span style={{
-            fontFamily: 'DM Sans, ui-sans-serif, sans-serif',
-            fontSize: 13,
-            fontWeight: 500,
-            color: '#F5F0E8',
-            letterSpacing: '0.02em',
-          }}>
-            + Add a garment
-          </span>
+        <div style={{
+          position: 'sticky', bottom: 0, left: 0, right: 0,
+          background: '#1C1917', display: 'flex', height: 52, zIndex: 40,
+        }}>
+          <button
+            onClick={() => navigate('/wardrobe/scan')}
+            style={{
+              flex: 1, height: '100%', border: 'none', borderRadius: 0,
+              background: 'rgba(245,240,232,0.09)',
+              borderRight: '0.5px solid rgba(245,240,232,0.1)',
+              color: '#F5F0E8',
+              fontFamily: 'DM Sans, ui-sans-serif, sans-serif',
+              fontSize: 12, fontWeight: 500, cursor: 'pointer',
+            }}
+          >
+            Scan
+          </button>
+          <button
+            onClick={() => navigate('/wardrobe/add')}
+            style={{
+              flex: 1, height: '100%', border: 'none', borderRadius: 0,
+              background: '#F5F0E8', color: '#1C1917',
+              fontFamily: 'DM Sans, ui-sans-serif, sans-serif',
+              fontSize: 12, fontWeight: 500, cursor: 'pointer',
+            }}
+          >
+            + Add
+          </button>
         </div>
       )}
 

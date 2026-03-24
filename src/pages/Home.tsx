@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { Settings, Heart, Shirt, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Settings, Shirt } from 'lucide-react';
 import { TodayOutfitHero } from '@/components/home/TodayOutfitHero';
 import { format } from 'date-fns';
 import { enUS, nb, sv, da, fi, de, fr, es, it, pt, nl, pl, ar } from 'date-fns/locale';
@@ -14,19 +14,11 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { WeatherPill } from '@/components/weather/WeatherPill';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useSubscription } from '@/hooks/useSubscription';
-import { AISuggestions } from '@/components/insights/AISuggestions';
-import { QuickActionsRow } from '@/components/home/QuickActionsRow';
-import { WardrobeGapSection } from '@/components/discover/WardrobeGapSection';
-import { usePlannedOutfitsForDate, usePlannedOutfits } from '@/hooks/usePlannedOutfits';
+import { usePlannedOutfitsForDate } from '@/hooks/usePlannedOutfits';
 import { useInsights } from '@/hooks/useInsights';
-import { UnusedGemBanner } from '@/components/home/UnusedGemBanner';
-import { WeekPlanningNudge } from '@/components/home/WeekPlanningNudge';
 import { useWeather } from '@/hooks/useWeather';
 import { useLocation } from '@/contexts/LocationContext';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { hapticLight } from '@/lib/haptics';
 import { useMotionPreset } from '@/lib/motion';
 import { getOccasionLabel } from '@/lib/occasionLabel';
@@ -37,7 +29,6 @@ import { getStylistTip } from '@/lib/stylistCopy';
 import { StyleDNACard } from '@/components/insights/StyleDNACard';
 import { useStyleDNA } from '@/hooks/useStyleDNA';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
-import { useAISuggestionsVisibility } from '@/hooks/useAISuggestions';
 
 type HomeState = 'loading' | 'empty_wardrobe' | 'outfit_planned' | 'weather_alert' | 'no_outfit';
 
@@ -60,26 +51,20 @@ export default function HomePage() {
   const { data: garmentCount, isLoading: isCountLoading } = useGarmentCount();
   const { data: profile } = useProfile();
   const queryClient = useQueryClient();
-  const { isPremium } = useSubscription();
 
   const coach = useFirstRunCoach();
 
-  const prefersReduced = useReducedMotion();
   const hero = useMotionPreset('HERO');
   const reveal = useMotionPreset('REVEAL');
-  const press = useMotionPreset('PRESS');
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const { data: todayOutfits, isLoading: isOutfitsLoading } = usePlannedOutfitsForDate(todayStr);
-  const { data: weekPlannedOutfits = [] } = usePlannedOutfits();
   const { data: insightsData } = useInsights();
   const { effectiveCity } = useLocation();
   const { weather } = useWeather({ city: effectiveCity });
-  const { data: styleDNA } = useStyleDNA();
   const { data: dna } = useStyleDNA();
 
   const homeState = deriveHomeState(garmentCount, todayOutfits, weather ?? undefined, isCountLoading || isOutfitsLoading);
-  const aiSuggestionsVisibility = useAISuggestionsVisibility();
 
   const handleRefresh = useCallback(async () => {
     await Promise.all([
@@ -87,7 +72,6 @@ export default function HomePage() {
       queryClient.invalidateQueries({ queryKey: ['insights'] }),
       queryClient.invalidateQueries({ queryKey: ['weather'] }),
       queryClient.invalidateQueries({ queryKey: ['outfits'] }),
-      queryClient.invalidateQueries({ queryKey: ['ai-suggestions'] }),
       queryClient.invalidateQueries({ queryKey: ['planned-outfits-day'] }),
     ]);
   }, [queryClient]);
@@ -110,14 +94,15 @@ export default function HomePage() {
   return (
     <AppLayout>
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="page-container pb-28 space-y-6">
-          {/* ── 1. Greeting ── */}
+        <AnimatedPage className="page-container pb-28 space-y-0">
+
+          {/* ── Greeting ── */}
           <motion.div
             variants={hero.variants}
             initial="initial"
             animate="animate"
             transition={hero.transition}
-            className="flex items-center justify-between overflow-visible"
+            className="flex items-center justify-between overflow-visible mb-6"
           >
             <div>
               <h1 className="text-[1.625rem] font-bold tracking-[-0.025em] leading-tight">
@@ -139,16 +124,6 @@ export default function HomePage() {
             </div>
           </motion.div>
 
-          {/* ── Stylist tip ── */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3, duration: 0.6 }}
-            className="text-[12px] text-muted-foreground/40 italic leading-relaxed -mt-2 px-0.5"
-          >
-          {getStylistTip({ weather: weather ?? undefined, garmentCount: garmentCount ?? undefined, archetype: dna?.archetype, topColor: dna?.signatureColors?.[0]?.color, topCombo: dna?.uniformCombos?.[0]?.combo, formalityCenter: dna?.formalityCenter })}
-          </motion.p>
-
           {/* ── First-run garment banner ── */}
           <AnimatePresence>
             {coach.isActive && !coach.hasEnoughGarments && (
@@ -157,7 +132,7 @@ export default function HomePage() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.3 }}
-                className="mx-4 mb-4 bg-foreground text-background rounded-2xl p-4 flex items-center justify-between gap-4"
+                className="mb-6 bg-foreground text-background rounded-2xl p-4 flex items-center justify-between gap-4"
               >
                 <div>
                   <p className="text-[15px] font-['Playfair_Display'] text-background">
@@ -177,62 +152,62 @@ export default function HomePage() {
             )}
           </AnimatePresence>
 
-          {/* ── 2. AI Suggestions — promoted to first content block ── */}
-          {aiSuggestionsVisibility.canShowBlock && (
-            <AISuggestions isPremium={isPremium} />
-          )}
-
-          {/* ── 3. Hero — state-aware with FadeReplace ── */}
+          {/* ── Zone 1: Dark hero ── */}
           <FadeReplace
             show={homeState !== 'loading'}
             contentKey={homeState}
             fallback={<HomePageSkeleton />}
           >
             {homeState === 'empty_wardrobe' ? (
-              <motion.div
-                variants={reveal.variants}
-                initial="initial"
-                animate="animate"
-                transition={reveal.transition}
-                className="rounded-[var(--radius,1rem)] surface-secondary p-8 text-center space-y-5"
-              >
-                <div className="w-14 h-14 rounded-2xl bg-primary/[0.08] flex items-center justify-center mx-auto relative">
-                  <Shirt className="w-6 h-6 text-primary/60" />
-                  <div className="absolute -inset-2 rounded-2xl bg-primary/5 blur-xl pointer-events-none" />
+              <div style={{
+                background: '#1C1917',
+                marginLeft: '-1.25rem', marginRight: '-1.25rem',
+                padding: '28px 20px', textAlign: 'center',
+              }}>
+                <div style={{
+                  width: 48, height: 48, background: 'rgba(245,240,232,0.08)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  margin: '0 auto 16px',
+                }}>
+                  <Shirt style={{ width: 22, height: 22, color: 'rgba(245,240,232,0.5)' }} />
                 </div>
-                <div className="space-y-2">
-                  <h3 className="text-[15px] font-['Playfair_Display'] font-semibold">{t('home.min_garments')}</h3>
-                  <p className="text-[12px] text-muted-foreground/60 max-w-[260px] mx-auto leading-relaxed">
-                    Add a top, a bottom, and shoes — that's all you need for your first AI-styled outfit.
-                  </p>
-                </div>
-                {/* Progress bar */}
-                <div className="w-full max-w-[180px] mx-auto">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider font-medium">
-                      Garments
-                    </span>
-                    <span className="text-[10px] text-muted-foreground/60 tabular-nums font-medium">
-                      {garmentCount ?? 0}/3
-                    </span>
+                <p style={{
+                  fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+                  fontSize: 18, color: '#F5F0E8', marginBottom: 6,
+                }}>
+                  {t('home.min_garments')}
+                </p>
+                <p style={{
+                  fontFamily: 'DM Sans, sans-serif', fontSize: 12,
+                  color: 'rgba(245,240,232,0.5)', marginBottom: 20, lineHeight: 1.6,
+                }}>
+                  Add a top, a bottom, and shoes — that's all you need for your first AI-styled outfit.
+                </p>
+                <div style={{ maxWidth: 180, margin: '0 auto 20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontFamily: 'DM Sans', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(245,240,232,0.4)' }}>Garments</span>
+                    <span style={{ fontFamily: 'DM Sans', fontSize: 10, color: 'rgba(245,240,232,0.5)' }}>{garmentCount ?? 0}/3</span>
                   </div>
-                  <div className="h-1 rounded-full bg-muted/30 overflow-hidden">
+                  <div style={{ height: 3, background: 'rgba(245,240,232,0.12)', overflow: 'hidden' }}>
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${Math.min(((garmentCount ?? 0) / 3) * 100, 100)}%` }}
                       transition={{ delay: 0.3, duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
-                      className="h-full rounded-full bg-primary/60"
+                      style={{ height: '100%', background: '#F5F0E8' }}
                     />
                   </div>
                 </div>
-                <Button
+                <button
                   onClick={() => { hapticLight(); navigate('/wardrobe'); }}
-                  className="w-full max-w-[200px] h-11"
+                  style={{
+                    height: 44, padding: '0 24px', background: '#F5F0E8', color: '#1C1917',
+                    border: 'none', fontFamily: 'DM Sans, sans-serif', fontSize: 13,
+                    fontWeight: 500, cursor: 'pointer',
+                  }}
                 >
-                  <Shirt className="w-4 h-4 mr-2" />
                   {t('wardrobe.add')}
-                </Button>
-              </motion.div>
+                </button>
+              </div>
             ) : homeState === 'outfit_planned' && todayOutfit ? (
               <motion.button
                 variants={reveal.variants}
@@ -240,12 +215,17 @@ export default function HomePage() {
                 animate="animate"
                 transition={reveal.transition}
                 onClick={() => { hapticLight(); navigate(`/outfits/${todayOutfit.id}`); }}
-                className="w-full rounded-[var(--radius,1rem)] surface-hero p-4 flex items-center gap-4 text-left cursor-pointer active:scale-[0.98] transition-transform"
+                style={{
+                  background: '#1C1917',
+                  marginLeft: '-1.25rem', marginRight: '-1.25rem',
+                  width: 'calc(100% + 2.5rem)', padding: '20px',
+                  display: 'block', border: 'none', textAlign: 'left', cursor: 'pointer',
+                }}
               >
-                {/* Horizontal thumbnail strip */}
-                <div className="flex items-center gap-2 shrink-0">
+                {/* Thumbnail strip */}
+                <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
                   {todayOutfit.outfit_items.slice(0, 4).map((item) => (
-                    <div key={item.id} className="w-14 h-14 rounded-xl overflow-hidden bg-muted shrink-0">
+                    <div key={item.id} style={{ width: 52, height: 68, overflow: 'hidden', background: '#2C2824', flexShrink: 0 }}>
                       <LazyImageSimple
                         imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
                         alt={item.garment?.title || item.slot}
@@ -254,84 +234,101 @@ export default function HomePage() {
                     </div>
                   ))}
                 </div>
-
-                {/* Occasion + chevron */}
-                <div className="flex-1 min-w-0">
-                  <p className="label-editorial text-muted-foreground/50 mb-1">
-                    {t('home.todays_outfit')}
+                {/* Occasion chip */}
+                <p style={{
+                  fontFamily: 'DM Sans, sans-serif', fontSize: 8, fontWeight: 500,
+                  textTransform: 'uppercase', letterSpacing: '0.12em',
+                  color: 'rgba(245,240,232,0.5)', marginBottom: 8,
+                }}>
+                  {getOccasionLabel(todayOutfit.occasion || '', t)}
+                </p>
+                {/* Explanation */}
+                {todayOutfit.explanation && (
+                  <p style={{
+                    fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+                    fontSize: 13, color: '#F5F0E8', marginBottom: 12, lineHeight: 1.55,
+                  }}>
+                    {todayOutfit.explanation}
                   </p>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="capitalize text-[10px] font-medium">
-                      {getOccasionLabel(todayOutfit.occasion || '', t)}
-                    </Badge>
-                    {todayOutfit.style_vibe && (
-                      <Badge variant="outline" className="text-[10px]">{todayOutfit.style_vibe}</Badge>
-                    )}
-                  </div>
-                </div>
-
-                <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+                )}
+                <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: 'rgba(245,240,232,0.45)' }}>
+                  View full look →
+                </p>
               </motion.button>
             ) : (
-              /* no_outfit — premium "What should I wear?" hero */
-              <TodayOutfitHero
-                weather={weather ?? undefined}
-                garmentCount={garmentCount ?? undefined}
-              />
+              /* no_outfit */
+              <div style={{ background: '#1C1917', marginLeft: '-1.25rem', marginRight: '-1.25rem' }}>
+                <TodayOutfitHero
+                  weather={weather ?? undefined}
+                  garmentCount={garmentCount ?? undefined}
+                />
+              </div>
             )}
           </FadeReplace>
 
-          {/* ── Style DNA ── */}
-          <motion.div
-            initial={prefersReduced ? false : { opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
+          {/* ── Zone 2: Stylist tip ── */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3, duration: 0.6 }}
+            className="text-[12px] text-muted-foreground/40 italic leading-relaxed px-0.5 mt-5"
           >
+            {getStylistTip({ weather: weather ?? undefined, garmentCount: garmentCount ?? undefined, archetype: dna?.archetype, topColor: dna?.signatureColors?.[0]?.color, topCombo: dna?.uniformCombos?.[0]?.combo, formalityCenter: dna?.formalityCenter })}
+          </motion.p>
+
+          {/* ── Zone 3: StyleDNA + quick buttons + Sleeping Beauties ── */}
+          <div className="space-y-3 mt-6">
             <StyleDNACard />
-          </motion.div>
 
-          {/* ── 3. Quick Actions — secondary shortcuts ── */}
-          <QuickActionsRow />
-
-          {/* ── Retention: Planning nudge + Unused gem ── */}
-          {(garmentCount || 0) >= 3 && (
-            <div className="space-y-2">
-              <WeekPlanningNudge plannedOutfits={weekPlannedOutfits} />
-              {insightsData?.unusedGarments && insightsData.unusedGarments.length > 3 && (
-                <UnusedGemBanner unusedGarments={insightsData.unusedGarments} />
-              )}
-            </div>
-          )}
-
-          {/* ── 4. Tertiary: Wardrobe Gap + Mood ── */}
-          {(garmentCount || 0) >= 3 && (
-            <div className="space-y-4">
-              <p className="label-editorial text-muted-foreground/40">{t('home.more_for_you') || 'Styled for you'}</p>
-              {(garmentCount || 0) >= 5 && <WardrobeGapSection />}
-
-              <motion.button
-                variants={reveal.variants}
-                initial="initial"
-                animate="animate"
-                transition={{ ...reveal.transition, delay: 0.1 }}
-                whileTap={press.whileTap}
-                onClick={() => { hapticLight(); navigate('/ai/mood-outfit'); }}
-                className="w-full relative overflow-hidden rounded-xl surface-interactive p-5 text-left flex items-center gap-4"
+            {/* Two equal surface buttons */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => navigate('/plan')}
+                style={{
+                  flex: 1, height: 48, background: '#EDE8DF', border: 'none', borderRadius: 0,
+                  fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 500,
+                  color: '#1C1917', cursor: 'pointer',
+                }}
               >
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10 shrink-0">
-                  <Heart className="w-5 h-5 text-primary" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="text-[13px] font-medium text-foreground leading-tight">
-                    {t('discover.tool_mood')}
-                  </h4>
-                  <p className="text-[11px] text-muted-foreground/60 leading-snug mt-0.5">
-                    {t('discover.tool_mood_desc')}
-                  </p>
-                </div>
-              </motion.button>
+                Plan week
+              </button>
+              <button
+                onClick={() => navigate('/ai/mood')}
+                style={{
+                  flex: 1, height: 48, background: '#EDE8DF', border: 'none', borderRadius: 0,
+                  fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 500,
+                  color: '#1C1917', cursor: 'pointer',
+                }}
+              >
+                Mood outfit
+              </button>
             </div>
-          )}
+
+            {/* Sleeping Beauties */}
+            {(insightsData?.unusedGarments?.length ?? 0) >= 3 && (
+              <div
+                role="button"
+                onClick={() => navigate('/outfits/unused')}
+                style={{ background: '#EDE8DF', padding: '16px 20px', cursor: 'pointer' }}
+              >
+                <p style={{
+                  fontFamily: 'DM Sans, sans-serif', fontSize: 10, textTransform: 'uppercase',
+                  letterSpacing: '0.1em', color: 'rgba(28,25,23,0.4)', marginBottom: 6,
+                }}>
+                  SLEEPING BEAUTIES
+                </p>
+                <p style={{
+                  fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+                  fontSize: 16, color: '#1C1917', marginBottom: 4,
+                }}>
+                  {insightsData!.unusedGarments!.length} garments unworn
+                </p>
+                <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: 'rgba(28,25,23,0.5)' }}>
+                  See what's being ignored →
+                </p>
+              </div>
+            )}
+          </div>
 
         </AnimatedPage>
       </PullToRefresh>
