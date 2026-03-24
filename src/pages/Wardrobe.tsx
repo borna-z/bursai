@@ -37,6 +37,40 @@ import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
 import { RenderPendingOverlay } from '@/components/wardrobe/RenderPendingOverlay';
 
+// ── Category Section Header ──
+
+const CATEGORY_ORDER = ['dress', 'top', 'bottom', 'outerwear', 'shoes', 'accessory'];
+
+function CategorySection({ category, count, t }: { category: string; count: number; t: (key: string) => string }) {
+  return (
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingTop: 16,
+      paddingBottom: 6,
+    }}>
+      <span style={{
+        fontFamily: 'DM Sans, ui-sans-serif, sans-serif',
+        fontSize: 9,
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase',
+        color: 'rgba(28,25,23,0.4)',
+      }}>
+        {categoryLabel(t, category)}
+      </span>
+      <span style={{
+        fontFamily: 'DM Sans, ui-sans-serif, sans-serif',
+        fontSize: 9,
+        letterSpacing: '0.1em',
+        color: 'rgba(28,25,23,0.4)',
+      }}>
+        {count}
+      </span>
+    </div>
+  );
+}
+
 // ── Garment Card ──
 
 const cardReveal = {
@@ -386,40 +420,6 @@ function VirtualGarmentGrid({
   );
 }
 
-// ── Category Section Header ──
-
-const CATEGORY_ORDER = ['dress', 'top', 'bottom', 'outerwear', 'shoes', 'accessory'];
-
-function CategorySection({ category, count, t }: { category: string; count: number; t: (key: string) => string }) {
-  return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingTop: 16,
-      paddingBottom: 6,
-    }}>
-      <span style={{
-        fontFamily: 'DM Sans, ui-sans-serif, sans-serif',
-        fontSize: 9,
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
-        color: 'rgba(28,25,23,0.4)',
-      }}>
-        {categoryLabel(t, category)}
-      </span>
-      <span style={{
-        fontFamily: 'DM Sans, ui-sans-serif, sans-serif',
-        fontSize: 9,
-        letterSpacing: '0.1em',
-        color: 'rgba(28,25,23,0.4)',
-      }}>
-        {count}
-      </span>
-    </div>
-  );
-}
-
 // ── FAB Menu ──
 
 const fabItems = [
@@ -591,6 +591,9 @@ export default function WardrobePage() {
     return groups;
   }, [displayGarments]);
 
+  const hasActiveFilters = selectedCategory !== 'all' || selectedColor || selectedSeason || sortBy !== 'created_at' || showLaundry || !!smartFilter;
+  const activeFilterCount = [selectedCategory !== 'all', !!selectedColor, !!selectedSeason, sortBy !== 'created_at', showLaundry].filter(Boolean).length;
+
   const showGrouped = !hasActiveFilters && !search;
 
   const categories = [
@@ -627,9 +630,6 @@ export default function WardrobePage() {
       setSelectedIds(new Set()); setIsSelecting(false);
     } catch { toast.error(t('common.something_wrong')); }
   };
-
-  const hasActiveFilters = selectedCategory !== 'all' || selectedColor || selectedSeason || sortBy !== 'created_at' || showLaundry || !!smartFilter;
-  const activeFilterCount = [selectedCategory !== 'all', !!selectedColor, !!selectedSeason, sortBy !== 'created_at', showLaundry].filter(Boolean).length;
 
   const clearFilters = () => {
     setSelectedCategory('all');
