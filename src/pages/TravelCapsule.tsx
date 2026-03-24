@@ -15,6 +15,7 @@ import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
 import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { asPreferences } from '@/types/preferences';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { StyleMeSubNav } from '@/components/ai/StyleMeSubNav';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
 import { LocationAutocomplete } from '@/components/ui/LocationAutocomplete';
@@ -516,6 +517,7 @@ export default function TravelCapsule() {
   if (!result) {
     return (
       <AppLayout hideNav>
+        <StyleMeSubNav />
         <AnimatedPage className="px-5 pb-8 pt-12 max-w-lg mx-auto space-y-6">
           {/* Header */}
           <div className="flex items-center gap-3">

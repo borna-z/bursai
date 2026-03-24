@@ -1,4 +1,4 @@
-import { Home, Shirt, CalendarDays, Bot, BarChart3 } from 'lucide-react';
+import { Home, Shirt, CalendarDays, Sparkles } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -11,9 +11,8 @@ import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 const tabKeys = [
   { path: '/', labelKey: 'nav.today', icon: Home },
   { path: '/wardrobe', labelKey: 'nav.wardrobe', icon: Shirt },
+  { path: '/ai', labelKey: 'Style Me', icon: Sparkles },
   { path: '/plan', labelKey: 'nav.plan', icon: CalendarDays },
-  { path: '/ai', labelKey: 'nav.stylist', icon: Bot },
-  { path: '/insights', labelKey: 'nav.insights', icon: BarChart3 },
 ];
 
 export function BottomNav() {

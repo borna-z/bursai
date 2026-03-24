@@ -45,6 +45,7 @@ const Contact = lazy(() => import('@/pages/marketing/Contact'));
 const Admin = lazy(() => import('@/pages/marketing/Admin'));
 const PublicProfile = lazy(() => import('@/pages/PublicProfile'));
 const MoodOutfit = lazy(() => import('@/pages/MoodOutfit'));
+const StyleMe = lazy(() => import('@/pages/StyleMe'));
 const Discover = lazy(() => import('@/pages/Discover'));
 const PickMustHaves = lazy(() => import('@/pages/PickMustHaves'));
 const UnusedOutfits = lazy(() => import('@/pages/UnusedOutfits'));
@@ -125,7 +126,11 @@ export function AnimatedRoutes() {
             <Route path="/plan/travel-capsule" element={<ProtectedRoute><TravelCapsule /></ProtectedRoute>} />
             <Route path="/plan/travel-capsule/pick-must-haves" element={<ProtectedRoute><PickMustHaves /></ProtectedRoute>} />
             <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
-            <Route path="/ai" element={<ProtectedRoute><AIChat /></ProtectedRoute>} />
+            <Route path="/ai" element={<ProtectedRoute><StyleMe /></ProtectedRoute>} />
+            <Route path="/ai/generate" element={<ProtectedRoute><OutfitGenerate /></ProtectedRoute>} />
+            <Route path="/ai/chat" element={<ProtectedRoute><AIChat /></ProtectedRoute>} />
+            <Route path="/ai/mood" element={<ProtectedRoute><MoodOutfit /></ProtectedRoute>} />
+            <Route path="/ai/travel" element={<ProtectedRoute><TravelCapsule /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/settings/appearance" element={<ProtectedRoute><SettingsAppearance /></ProtectedRoute>} />
             <Route path="/settings/style" element={<ProtectedRoute><SettingsStyle /></ProtectedRoute>} />

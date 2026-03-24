@@ -9,6 +9,7 @@ import { motion, LayoutGroup, useReducedMotion, type Transition } from 'framer-m
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { StyleMeSubNav } from '@/components/ai/StyleMeSubNav';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useOutfitGenerator, type GeneratedOutfit } from '@/hooks/useOutfitGenerator';
@@ -456,6 +457,7 @@ export default function OutfitGeneratePage() {
   return (
     <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
     <AppLayout>
+      <StyleMeSubNav />
       <div className="page-container pb-36 animate-fade-in">
 
         {/* ── Header + Weather ── */}
