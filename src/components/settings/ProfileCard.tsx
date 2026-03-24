@@ -5,7 +5,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAvatarUrl } from '@/hooks/useAvatarUrl';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Crown, Camera, Loader2 } from 'lucide-react';
+import { Camera, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { hapticSuccess } from '@/lib/haptics';
@@ -14,7 +14,7 @@ export function ProfileCard() {
   const { user } = useAuth();
   const { data: profile } = useProfile();
   const updateProfile = useUpdateProfile();
-  const { isPremium } = useSubscription();
+  const { isPremium, plan } = useSubscription();
   const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -103,14 +103,26 @@ export function ProfileCard() {
       </button>
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className="text-lg font-semibold truncate">{displayName}</p>
-          {isPremium && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary uppercase tracking-wide">
-              <Crown className="w-3 h-3" />
-              {t('common.premium')}
-            </span>
-          )}
+        <p className="text-lg font-semibold truncate">{displayName}</p>
+        {/* Plan tier badge */}
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            padding: '2px 8px',
+            backgroundColor: isPremium ? '#1C1917' : '#EDE8DF',
+            borderRadius: 0,
+            marginTop: 4,
+            marginBottom: 2,
+          }}
+        >
+          <span style={{
+            fontFamily: 'DM Sans, sans-serif',
+            fontSize: 11,
+            color: isPremium ? 'white' : 'rgba(28,25,23,0.5)',
+          }}>
+            {plan === 'premium' ? 'Plus' : 'Free plan'}
+          </span>
         </div>
         <p className="text-[13px] text-muted-foreground/60 truncate">{email}</p>
       </div>

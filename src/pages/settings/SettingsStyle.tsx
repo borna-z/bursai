@@ -458,6 +458,38 @@ export default function SettingsStyle() {
           </CollapsibleContent>
         </Collapsible>
 
+        {/* Read-only style words summary */}
+        {sp.styleWords && sp.styleWords.length > 0 && (
+          <div className="px-1 py-3 space-y-2">
+            <p style={{
+              fontFamily: 'DM Sans, sans-serif',
+              fontSize: 11,
+              textTransform: 'uppercase',
+              letterSpacing: '0.15em',
+              color: 'rgba(28,25,23,0.4)',
+            }}>
+              YOUR STYLE WORDS
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {sp.styleWords.map(word => (
+                <span
+                  key={word}
+                  style={{
+                    backgroundColor: '#EDE8DF',
+                    borderRadius: 0,
+                    padding: '6px 12px',
+                    fontFamily: 'DM Sans, sans-serif',
+                    fontSize: 12,
+                    color: '#1C1917',
+                  }}
+                >
+                  {word}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Mannequin preference */}
         <div className="bg-card rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3.5">

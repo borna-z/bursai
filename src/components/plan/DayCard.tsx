@@ -98,15 +98,34 @@ export function DayCard({
 
         {hasOutfit ? (
           <>
-            <div 
-              className="flex h-16 rounded-lg overflow-hidden bg-muted/30 cursor-pointer mb-3 active:scale-[0.99] transition-transform"
+            {/* Garment thumbnail row */}
+            <div
+              className="flex gap-1 mb-3 cursor-pointer active:scale-[0.99] transition-transform"
               onClick={() => navigate(`/outfits/${outfit.id}`)}
             >
-              {outfit.outfit_items.slice(0, 4).map((item, index) => (
-                <div key={item.id} className={cn("flex-1 overflow-hidden", index < outfit.outfit_items.slice(0, 4).length - 1 && "border-r border-background")}>
-                  <LazyImageSimple imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined} alt={item.garment?.title || item.slot} className="w-full h-full" />
-                </div>
-              ))}
+              {[0, 1, 2].map((index) => {
+                const item = outfit.outfit_items[index];
+                return (
+                  <div
+                    key={index}
+                    style={{
+                      width: 44, height: 44,
+                      backgroundColor: '#EDE8DF',
+                      borderRadius: 0,
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {item?.garment && (
+                      <LazyImageSimple
+                        imagePath={getPreferredGarmentImagePath(item.garment)}
+                        alt={item.garment.title || item.slot}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             <div className="flex items-center gap-2 mb-3 flex-wrap">

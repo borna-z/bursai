@@ -4,7 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Loader2, Copy, Download, Check, Crown, Sparkles, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -53,14 +53,6 @@ export default function ShareOutfitPage() {
   const [copied, setCopied] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const outfitRef = useRef<HTMLDivElement>(null);
-
-  const slotLabels: Record<string, string> = {
-    top: t('share.slot.top'),
-    bottom: t('share.slot.bottom'),
-    shoes: t('share.slot.shoes'),
-    outerwear: t('share.slot.outerwear'),
-    accessory: t('share.slot.accessory'),
-  };
 
   useEffect(() => {
     const fetchOutfit = async () => {
@@ -162,35 +154,90 @@ export default function ShareOutfitPage() {
       </div>
 
       <div className="max-w-lg mx-auto p-4">
-        <div ref={outfitRef} className="bg-background p-4 rounded-lg">
-          <div className="mb-6 text-center">
-            <Badge variant="secondary" className="mb-2 capitalize">{getOccasionLabel(outfit.occasion, t)}</Badge>
-            {outfit.style_vibe && <p className="text-sm text-muted-foreground capitalize">{t('share.style_label')} {outfit.style_vibe}</p>}
+        {/* Branded share card — this element is screenshotted */}
+        <div
+          ref={outfitRef}
+          id="share-card"
+          style={{
+            width: 390, height: 560,
+            backgroundColor: '#F5F0E8',
+            overflow: 'hidden',
+            position: 'relative',
+            flexShrink: 0,
+          }}
+        >
+          {/* Top: 2×2 garment grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', height: 400 }}>
+            {[0, 1, 2, 3].map((i) => {
+              const item = outfit.outfit_items[i];
+              return (
+                <div
+                  key={i}
+                  style={{
+                    width: '100%', height: 200,
+                    backgroundColor: '#EDE8DF',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {item && imageUrls[item.id] ? (
+                    <img
+                      src={imageUrls[item.id]}
+                      alt={item.garment?.title || ''}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      crossOrigin="anonymous"
+                    />
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            {outfit.outfit_items.map((item) => (
-              <Card key={item.id} className="overflow-hidden">
-                <CardContent className="p-0">
-                  <div className="aspect-square bg-secondary overflow-hidden">
-                    {imageUrls[item.id] ? (
-                      <img src={imageUrls[item.id]} alt={item.garment?.title || item.slot} className="w-full h-full object-cover" crossOrigin="anonymous" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center"><div className="w-12 h-12 rounded-full bg-muted" /></div>
-                    )}
-                  </div>
-                  <div className="p-2">
-                    <p className="text-xs text-muted-foreground">{slotLabels[item.slot] || item.slot}</p>
-                    <p className="text-sm font-medium truncate">{item.garment?.title || t('share.unknown_garment')}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+
+          {/* Bottom: branded strip */}
+          <div style={{
+            height: 160,
+            backgroundColor: '#1C1917',
+            padding: '20px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+          }}>
+            <div>
+              <p style={{
+                fontFamily: 'DM Sans, sans-serif',
+                fontSize: 10,
+                textTransform: 'uppercase',
+                letterSpacing: '0.15em',
+                color: 'rgba(255,255,255,0.5)',
+                marginBottom: 8,
+              }}>
+                {getOccasionLabel(outfit.occasion, t)}
+              </p>
+              <p style={{
+                fontFamily: '"Playfair Display", serif',
+                fontStyle: 'italic',
+                fontSize: 18,
+                color: 'white',
+                lineHeight: 1.3,
+                margin: 0,
+              }}>
+                {(outfit.explanation || "Today's look").slice(0, 50)}
+              </p>
+            </div>
+            <p style={{
+              fontFamily: 'DM Sans, sans-serif',
+              fontSize: 10,
+              color: 'rgba(255,255,255,0.35)',
+              letterSpacing: '0.1em',
+              margin: 0,
+            }}>
+              BURS · burs.me
+            </p>
           </div>
-          {outfit.explanation && <Card className="bg-primary/5 border-primary/20"><CardContent className="p-3"><p className="text-sm">{outfit.explanation}</p></CardContent></Card>}
-          <div className="mt-4">
-            <OutfitReactions outfitId={outfit.id} />
-          </div>
-          <div className="mt-6 text-center text-xs text-muted-foreground">{t('share.watermark')}</div>
+        </div>
+
+        {/* Reactions live outside the card so they don't appear in the screenshot */}
+        <div className="mt-4">
+          <OutfitReactions outfitId={outfit.id} />
         </div>
 
         <div className="mt-8 space-y-4">
