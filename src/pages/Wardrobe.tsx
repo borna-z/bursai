@@ -591,6 +591,9 @@ export default function WardrobePage() {
     return groups;
   }, [displayGarments]);
 
+  const hasActiveFilters = selectedCategory !== 'all' || selectedColor || selectedSeason || sortBy !== 'created_at' || showLaundry || !!smartFilter;
+  const activeFilterCount = [selectedCategory !== 'all', !!selectedColor, !!selectedSeason, sortBy !== 'created_at', showLaundry].filter(Boolean).length;
+
   const showGrouped = !hasActiveFilters && !search;
 
   const categories = [
@@ -627,9 +630,6 @@ export default function WardrobePage() {
       setSelectedIds(new Set()); setIsSelecting(false);
     } catch { toast.error(t('common.something_wrong')); }
   };
-
-  const hasActiveFilters = selectedCategory !== 'all' || selectedColor || selectedSeason || sortBy !== 'created_at' || showLaundry || !!smartFilter;
-  const activeFilterCount = [selectedCategory !== 'all', !!selectedColor, !!selectedSeason, sortBy !== 'created_at', showLaundry].filter(Boolean).length;
 
   const clearFilters = () => {
     setSelectedCategory('all');
