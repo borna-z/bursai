@@ -146,8 +146,18 @@ export default function UnusedOutfits() {
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
           <div className="flex-1">
-            <h1 className="text-base font-semibold tracking-tight">{t('unused_outfits.title')}</h1>
-            <p className="text-xs text-muted-foreground">{t('unused_outfits.subtitle')}</p>
+            <h1 style={{
+              fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+              fontSize: 18, color: '#1C1917', margin: 0,
+            }}>
+              Sleeping Beauties
+            </h1>
+            <p style={{
+              fontFamily: 'DM Sans, sans-serif', fontSize: 11,
+              color: 'rgba(28,25,23,0.5)', margin: '2px 0 0',
+            }}>
+              {unusedIds.length} garment{unusedIds.length !== 1 ? 's' : ''} waiting to be styled
+            </p>
           </div>
           {!generating && outfits.length > 0 && (
             <Button variant="ghost" size="icon" onClick={() => { hapticLight(); startedRef.current = false; generate(); }}>

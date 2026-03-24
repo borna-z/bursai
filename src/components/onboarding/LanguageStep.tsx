@@ -38,9 +38,13 @@ export function LanguageStep({ onComplete }: LanguageStepProps) {
         />
         <motion.h1
           variants={fadeUp} initial="hidden" animate="show" custom={1}
-          className={cn('text-2xl font-bold tracking-tight mb-2', dark ? 'text-white' : 'text-foreground')}
+          style={{
+            fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+            fontSize: 20, textAlign: 'center', maxWidth: 240, marginBottom: 8,
+          }}
+          className={cn(dark ? 'text-white' : 'text-foreground')}
         >
-          {t('onboarding.language.title')}
+          Choose your language.
         </motion.h1>
         <motion.p
           variants={fadeUp} initial="hidden" animate="show" custom={2}
@@ -86,11 +90,12 @@ export function LanguageStep({ onComplete }: LanguageStepProps) {
 
         <div className="mt-8 max-w-sm mx-auto">
           <button
-            className={cn(
-              'w-full h-[52px] text-[15px] font-semibold active:scale-[0.98] transition-all',
-              dark ? 'rounded-xl bg-white text-[#030305] hover:bg-white/90' : 'bg-primary text-primary-foreground hover:opacity-90'
-            )}
             onClick={onComplete}
+            style={{
+              width: '100%', height: 52, background: '#1C1917', color: '#F5F0E8',
+              border: 'none', fontFamily: 'DM Sans, sans-serif', fontSize: 13,
+              fontWeight: 500, cursor: 'pointer', borderRadius: 0,
+            }}
           >
             {t('onboarding.body.continue')}
           </button>

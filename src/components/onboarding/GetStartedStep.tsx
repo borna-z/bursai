@@ -45,9 +45,13 @@ export function GetStartedStep({ onAction }: GetStartedStepProps) {
 
         <motion.h1
           variants={fadeUp} initial="hidden" animate="show" custom={1}
-          className={cn('text-2xl font-bold tracking-tight mb-2', dark ? 'text-white' : 'text-foreground')}
+          style={{
+            fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+            fontSize: 20, textAlign: 'center', maxWidth: 240, marginBottom: 8,
+          }}
+          className={cn(dark ? 'text-white' : 'text-foreground')}
         >
-          {t('onboarding.getstarted.title')}
+          Your wardrobe is ready.
         </motion.h1>
 
         <motion.p
@@ -68,22 +72,21 @@ export function GetStartedStep({ onAction }: GetStartedStepProps) {
                 animate="show"
                 custom={3 + i}
                 onClick={() => onAction(action.path)}
-                className={cn(
-                  'w-full flex items-center gap-4 p-4 border transition-all text-left active:scale-[0.98]',
-                  dark
-                    ? 'rounded-2xl border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/[0.1]'
-                    : 'border-border bg-card hover:bg-muted'
-                )}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 16,
+                  padding: 16, border: 'none', background: '#EDE8DF',
+                  cursor: 'pointer', textAlign: 'left',
+                }}
               >
-                <div className={cn(
-                  'w-11 h-11 flex items-center justify-center flex-shrink-0',
-                  dark ? 'rounded-xl bg-white/[0.06]' : 'bg-muted'
-                )}>
-                  <Icon className={cn('w-5 h-5', dark ? 'text-white/70' : 'text-foreground')} />
+                <div style={{
+                  width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0, background: 'rgba(28,25,23,0.06)',
+                }}>
+                  <Icon style={{ width: 20, height: 20, color: '#1C1917' }} />
                 </div>
-                <div className="min-w-0">
-                  <p className={cn('text-[15px] font-medium', dark ? 'text-white' : 'text-foreground')}>{action.title}</p>
-                  <p className={cn('text-xs mt-0.5', dark ? 'text-white/35' : 'text-muted-foreground')}>{action.desc}</p>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 500, color: '#1C1917', margin: 0 }}>{action.title}</p>
+                  <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 11, color: 'rgba(28,25,23,0.45)', margin: '2px 0 0' }}>{action.desc}</p>
                 </div>
               </motion.button>
             );
