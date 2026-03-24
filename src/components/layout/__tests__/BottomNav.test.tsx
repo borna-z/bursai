@@ -80,13 +80,12 @@ function renderNav(path = '/') {
 }
 
 describe('BottomNav smoke', () => {
-  it('renders all 5 tab labels', () => {
+  it('renders all 4 tab labels', () => {
     renderNav();
     expect(screen.getByText('nav.today')).toBeInTheDocument();
     expect(screen.getByText('nav.wardrobe')).toBeInTheDocument();
     expect(screen.getByText('nav.plan')).toBeInTheDocument();
-    expect(screen.getByText('nav.stylist')).toBeInTheDocument();
-    expect(screen.getByText('nav.insights')).toBeInTheDocument();
+    expect(screen.getByText('Style Me')).toBeInTheDocument();
   });
 
   it('renders navigation landmark', () => {
