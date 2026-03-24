@@ -133,10 +133,16 @@ export default function AIChat() {
   const isWelcomeState = messages.length === 1 && messages[0].role === 'assistant' && !isStreaming;
 
   useEffect(() => {
-    const state = location.state as { selectedGarmentId?: string } | null;
+    const state = location.state as { selectedGarmentId?: string; outfitId?: string; mood?: string } | null;
     const garmentId = state?.selectedGarmentId ?? null;
     if (garmentId) {
       setAnchoredGarmentId(garmentId);
+    }
+    if (state?.outfitId) {
+      const moodLabel = state.mood ? ` (${state.mood} mood)` : '';
+      setInput(`I just generated a mood outfit${moodLabel}. Can you help me refine it?`);
+    }
+    if (garmentId || state?.outfitId) {
       navigate(location.pathname, { replace: true, state: null });
     }
   }, [location.pathname, location.state, navigate]);

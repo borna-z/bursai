@@ -4,13 +4,16 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
+import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useWeather } from '@/hooks/useWeather';
 import { useAuth } from '@/contexts/AuthContext';
+import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
 import { PaywallModal } from '@/components/PaywallModal';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 
@@ -36,7 +39,10 @@ export default function MoodOutfitPage() {
     id: string;
     explanation: string | null;
     mood: string;
+    garmentIds: string[];
   } | null>(null);
+
+  const { data: outfitGarments } = useGarmentsByIds(generatedOutfit?.garmentIds ?? []);
 
   const generate = async (mood: string) => {
     if (!isPremium) { setShowPaywall(true); return; }
@@ -87,7 +93,12 @@ export default function MoodOutfitPage() {
 
       await supabase.from('outfit_items').insert(items);
 
-      setGeneratedOutfit({ id: outfit.id, explanation: data.explanation || null, mood });
+      setGeneratedOutfit({
+        id: outfit.id,
+        explanation: data.explanation || null,
+        mood,
+        garmentIds: data.items.map((i: { garment_id: string; slot: string }) => i.garment_id),
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('common.something_wrong'));
     } finally {
@@ -109,31 +120,46 @@ export default function MoodOutfitPage() {
         {generatedOutfit ? (
           /* ── Result screen ── */
           <div className="space-y-2">
-            {/* Outfit card */}
-            <div style={{ backgroundColor: '#EDE8DF', borderRadius: 0, padding: '16px 20px' }}>
-              <p style={{
-                fontFamily: 'DM Sans, sans-serif', fontSize: 10,
-                textTransform: 'uppercase', letterSpacing: '0.1em',
-                color: 'rgba(28,25,23,0.4)',
-              }}>
-                MOOD OUTFIT
-              </p>
-              <p style={{
-                fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-                fontSize: 20, color: '#1C1917', marginTop: 6,
-              }}>
-                {t(`ai.mood_${generatedOutfit.mood}`)}
-              </p>
-              <button
-                onClick={() => navigate(`/outfits/${generatedOutfit.id}`)}
-                style={{
-                  marginTop: 8, fontSize: 12, fontFamily: 'DM Sans, sans-serif',
-                  color: 'rgba(28,25,23,0.5)', background: 'none', border: 'none',
-                  cursor: 'pointer', padding: 0,
-                }}
-              >
-                View full outfit →
-              </button>
+            {/* Outfit card with garment images */}
+            <div
+              style={{ backgroundColor: '#EDE8DF', borderRadius: 0, overflow: 'hidden', cursor: 'pointer' }}
+              onClick={() => navigate(`/outfits/${generatedOutfit.id}`)}
+            >
+              {/* Garment image grid */}
+              {outfitGarments && outfitGarments.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                  {outfitGarments.slice(0, 4).map((garment, i) => (
+                    <div key={garment.id} style={{ height: 130, backgroundColor: '#DDD8CF', overflow: 'hidden' }}>
+                      <LazyImageSimple
+                        imagePath={getPreferredGarmentImagePath(garment)}
+                        alt={garment.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div style={{ padding: '14px 20px' }}>
+                <p style={{
+                  fontFamily: 'DM Sans, sans-serif', fontSize: 10,
+                  textTransform: 'uppercase', letterSpacing: '0.1em',
+                  color: 'rgba(28,25,23,0.4)',
+                }}>
+                  MOOD OUTFIT · {t(`ai.mood_${generatedOutfit.mood}`).toUpperCase()}
+                </p>
+                <p style={{
+                  fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+                  fontSize: 18, color: '#1C1917', marginTop: 4,
+                }}>
+                  {t(`ai.mood_${generatedOutfit.mood}`)}
+                </p>
+                <p style={{
+                  marginTop: 4, fontSize: 11, fontFamily: 'DM Sans, sans-serif',
+                  color: 'rgba(28,25,23,0.4)',
+                }}>
+                  View full outfit →
+                </p>
+              </div>
             </div>
 
             {/* AI explanation card */}
@@ -157,7 +183,7 @@ export default function MoodOutfitPage() {
 
             {/* Refine in chat button */}
             <button
-              onClick={() => navigate(`/chat?outfitId=${generatedOutfit.id}`)}
+              onClick={() => navigate('/ai', { state: { outfitId: generatedOutfit.id, mood: generatedOutfit.mood } })}
               style={{
                 display: 'block', width: '100%', height: 48,
                 background: 'transparent', border: '1px solid rgba(28,25,23,0.3)',
