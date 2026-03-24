@@ -86,11 +86,11 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
         )}
       >
         {isSelecting && <Checkbox checked={isSelected} className="shrink-0" />}
-        <div className="relative w-16 h-16 rounded-xl shrink-0 overflow-hidden">
+        <div className="relative w-16 h-16 shrink-0 overflow-hidden">
           <LazyImageSimple
             imagePath={displayImagePath}
             alt={garment.title}
-            className="w-16 h-16 rounded-xl shrink-0"
+            className="w-16 h-16 shrink-0"
             fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/30" />}
           />
           <RenderPendingOverlay renderStatus={garment.render_status} variant="overlay" className="[&>span]:hidden" />
@@ -136,12 +136,12 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
       whileTap={PRESETS.PRESS.whileTap}
       onClick={handleClick}
       className={cn(
-        'w-full rounded-xl overflow-hidden transition-colors text-left will-change-transform relative group',
+        'w-full overflow-hidden transition-colors text-left will-change-transform relative group',
         garment.in_laundry && 'opacity-60',
         isSelected && 'ring-2 ring-accent'
       )}
     >
-      <div className="aspect-[3/4] bg-muted relative overflow-hidden rounded-xl">
+      <div className="aspect-[3/4] bg-muted relative overflow-hidden">
         <LazyImageSimple
           imagePath={displayImagePath}
           alt={garment.title}
@@ -160,21 +160,22 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
           </div>
         )}
         {/* Usage badge */}
-        {(garment.wear_count || 0) > 0 && (
-          <span className="absolute top-2 right-2 text-[11px] font-medium bg-background/70 backdrop-blur-sm border border-white/10 px-1.5 py-0.5 rounded-full text-foreground/80">
-            {garment.wear_count}×
-          </span>
-        )}
-        {!isSelecting && (
-          <button
-            type="button"
-            onClick={handleStyleAround}
-            className="absolute inset-x-2 bottom-2 inline-flex h-8 items-center justify-center gap-1 rounded-full bg-background/88 px-3 text-xs font-medium text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-background"
-          >
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
-            Style around this
-          </button>
-        )}
+        <span style={{
+          position: 'absolute',
+          top: 6,
+          right: 6,
+          background: (garment.wear_count || 0) === 0 ? '#EDE8DF' : '#1C1917',
+          color: (garment.wear_count || 0) === 0 ? 'rgba(28,25,23,0.45)' : '#F5F0E8',
+          fontFamily: 'DM Sans, ui-sans-serif, sans-serif',
+          fontSize: 9,
+          fontWeight: 500,
+          padding: '2px 6px',
+          borderRadius: 0,
+          lineHeight: 1.4,
+          letterSpacing: '0.02em',
+        }}>
+          {(garment.wear_count || 0) > 0 ? `${garment.wear_count}×` : '0×'}
+        </span>
       </div>
     </motion.div>
   );
