@@ -17,6 +17,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
+import { InsightsOnboardingEmpty } from '@/components/onboarding/OnboardingEmptyState';
 import { ColorBar } from '@/components/insights/MiniBar';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { cn } from '@/lib/utils';
@@ -134,12 +135,7 @@ export default function InsightsPage() {
     return (
       <AppLayout>
         <PageHeader title={t('insights.title')} />
-        <EmptyState
-          icon={Sparkles}
-          title={t('insights.no_insights')}
-          description={t('insights.add_garments')}
-          action={{ label: t('wardrobe.add'), onClick: () => navigate('/wardrobe/add'), icon: Shirt }}
-        />
+        <InsightsOnboardingEmpty />
       </AppLayout>
     );
   }

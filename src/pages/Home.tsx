@@ -197,15 +197,37 @@ export default function HomePage() {
                 transition={reveal.transition}
                 className="rounded-[var(--radius,1rem)] surface-secondary p-8 text-center space-y-5"
               >
-                <Shirt className="w-8 h-8 text-muted-foreground/40 mx-auto" />
+                <div className="w-14 h-14 rounded-2xl bg-primary/[0.08] flex items-center justify-center mx-auto relative">
+                  <Shirt className="w-6 h-6 text-primary/60" />
+                  <div className="absolute -inset-2 rounded-2xl bg-primary/5 blur-xl pointer-events-none" />
+                </div>
                 <div className="space-y-2">
-                  <h3 className="text-[15px] font-semibold">{t('home.min_garments')}</h3>
+                  <h3 className="text-[15px] font-['Playfair_Display'] font-semibold">{t('home.min_garments')}</h3>
                   <p className="text-[12px] text-muted-foreground/60 max-w-[260px] mx-auto leading-relaxed">
-                    Every great wardrobe starts with a few key pieces. Add yours and I'll start styling.
+                    Add a top, a bottom, and shoes — that's all you need for your first AI-styled outfit.
                   </p>
                 </div>
+                {/* Progress bar */}
+                <div className="w-full max-w-[180px] mx-auto">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider font-medium">
+                      Garments
+                    </span>
+                    <span className="text-[10px] text-muted-foreground/60 tabular-nums font-medium">
+                      {garmentCount ?? 0}/3
+                    </span>
+                  </div>
+                  <div className="h-1 rounded-full bg-muted/30 overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(((garmentCount ?? 0) / 3) * 100, 100)}%` }}
+                      transition={{ delay: 0.3, duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
+                      className="h-full rounded-full bg-primary/60"
+                    />
+                  </div>
+                </div>
                 <Button
-                  onClick={() => { hapticLight(); navigate('/wardrobe/add'); }}
+                  onClick={() => { hapticLight(); navigate('/wardrobe'); }}
                   className="w-full max-w-[200px] h-11"
                 >
                   <Shirt className="w-4 h-4 mr-2" />

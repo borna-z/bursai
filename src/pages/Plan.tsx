@@ -21,6 +21,7 @@ import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { EmptyState } from '@/components/layout/EmptyState';
+import { PlanOnboardingEmpty } from '@/components/onboarding/OnboardingEmptyState';
 import { WeekOverview } from '@/components/plan/WeekOverview';
 
 import { QuickGenerateSheet } from '@/components/plan/QuickGenerateSheet';
@@ -405,15 +406,7 @@ export default function PlanPage() {
           {isLoading || isDayLoading ? (
             <PlanPageSkeleton />
           ) : !hasGarments ? (
-            <EmptyState
-              icon={Shirt}
-              title="Nothing planned yet"
-              description="Generate an outfit and add it to your week"
-              action={{ label: 'Plan your week', onClick: () => navigate('/outfits/generate'), icon: Sparkles }}
-              variant="editorial"
-              compact
-              titleClassName="font-['Playfair_Display']"
-            />
+            <PlanOnboardingEmpty />
           ) : hasOutfits ? (
             <div className="space-y-4">
               {dayPlannedOutfits.map((planned) => {
