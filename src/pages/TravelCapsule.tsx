@@ -111,11 +111,13 @@ export default function TravelCapsule() {
   } | null;
 
   const [addedToCalendar, setAddedToCalendar] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const restoredRef = useRef(false);
 
   useEffect(() => {
     if (!locationState || restoredRef.current) return;
     restoredRef.current = true;
+    setShowForm(true);
     if (locationState.mustHaveItems) setMustHaveItems(locationState.mustHaveItems);
     if (locationState.destination) setDestination(locationState.destination);
     if (locationState.destCoords) setDestCoords(locationState.destCoords);
@@ -519,12 +521,74 @@ export default function TravelCapsule() {
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="text-xl font-semibold">{t('capsule.title')}</h1>
-              <p className="text-xs text-muted-foreground">{t('capsule.subtitle')}</p>
+              <h1 style={{
+                fontFamily: '"Playfair Display", serif',
+                fontStyle: 'italic',
+                fontSize: 22,
+                color: '#1C1917',
+                margin: 0,
+              }}>
+                Travel Capsule
+              </h1>
+              <p style={{
+                fontFamily: 'DM Sans, sans-serif',
+                fontSize: 13,
+                color: 'rgba(28,25,23,0.5)',
+                margin: 0,
+              }}>
+                A wardrobe built for the trip
+              </p>
             </div>
           </div>
 
-          <div className="space-y-6">
+          {/* Editorial empty state */}
+          {!showForm && (
+            <div
+              style={{
+                backgroundColor: '#F5F0E8',
+                padding: '40px 0 32px',
+                textAlign: 'center',
+              }}
+            >
+              <h2 style={{
+                fontFamily: '"Playfair Display", serif',
+                fontStyle: 'italic',
+                fontSize: 26,
+                color: '#1C1917',
+                marginBottom: 12,
+                lineHeight: 1.3,
+              }}>
+                Pack less. Dress better.
+              </h2>
+              <p style={{
+                fontFamily: 'DM Sans, sans-serif',
+                fontSize: 14,
+                color: 'rgba(28,25,23,0.5)',
+                lineHeight: 1.6,
+                maxWidth: 300,
+                margin: '0 auto 24px',
+              }}>
+                Tell us your destination and days — we'll build a capsule from your wardrobe.
+              </p>
+              <button
+                onClick={() => setShowForm(true)}
+                style={{
+                  backgroundColor: '#1C1917',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 0,
+                  padding: '14px 32px',
+                  fontFamily: 'DM Sans, sans-serif',
+                  fontSize: 14,
+                  cursor: 'pointer',
+                }}
+              >
+                Build a capsule
+              </button>
+            </div>
+          )}
+
+          {showForm && <div className="space-y-6">
             {/* Step 1: Where */}
             <div className="space-y-2">
               <Label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
@@ -779,7 +843,7 @@ export default function TravelCapsule() {
                 </Button>
               )}
             </div>
-          </div>
+          </div>}
         </AnimatedPage>
       </AppLayout>
     );

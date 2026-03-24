@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Zap, EyeOff, Flame, Sparkles, Palette, Cloud } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -17,12 +15,12 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 
 const MOODS = [
-  { key: 'cozy', icon: Cloud, color: 'text-amber-500 bg-amber-500/10' },
-  { key: 'confident', icon: Flame, color: 'text-red-500 bg-red-500/10' },
-  { key: 'creative', icon: Palette, color: 'text-purple-500 bg-purple-500/10' },
-  { key: 'invisible', icon: EyeOff, color: 'text-slate-500 bg-slate-500/10' },
-  { key: 'romantic', icon: Heart, color: 'text-pink-500 bg-pink-500/10' },
-  { key: 'energetic', icon: Zap, color: 'text-yellow-500 bg-yellow-500/10' },
+  { key: 'cozy', swatchColor: '#C4A882' },
+  { key: 'confident', swatchColor: '#8B4B4B' },
+  { key: 'creative', swatchColor: '#7B6B8B' },
+  { key: 'invisible', swatchColor: '#888888' },
+  { key: 'romantic', swatchColor: '#C4869A' },
+  { key: 'energetic', swatchColor: '#C4A040' },
 ] as const;
 
 export default function MoodOutfitPage() {
@@ -34,6 +32,11 @@ export default function MoodOutfitPage() {
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [generatedOutfit, setGeneratedOutfit] = useState<{
+    id: string;
+    explanation: string | null;
+    mood: string;
+  } | null>(null);
 
   const generate = async (mood: string) => {
     if (!isPremium) { setShowPaywall(true); return; }
@@ -59,7 +62,6 @@ export default function MoodOutfitPage() {
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-
       if (!data?.items?.length) throw new Error(t('generate.error_desc'));
 
       const { data: outfit, error: outfitErr } = await supabase
@@ -85,13 +87,7 @@ export default function MoodOutfitPage() {
 
       await supabase.from('outfit_items').insert(items);
 
-      navigate(`/outfits/${outfit.id}`, {
-        replace: true,
-        state: {
-          justGenerated: true,
-          limitation_note: data.limitation_note ?? null,
-        },
-      });
+      setGeneratedOutfit({ id: outfit.id, explanation: data.explanation || null, mood });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('common.something_wrong'));
     } finally {
@@ -99,55 +95,161 @@ export default function MoodOutfitPage() {
     }
   };
 
+  const handleReMood = () => {
+    setGeneratedOutfit(null);
+    setSelectedMood(null);
+    setIsGenerating(false);
+  };
+
   return (
     <AppLayout>
       <PageHeader title={t('ai.mood_title')} showBack />
       <AnimatedPage className="max-w-lg mx-auto px-4 pb-8 pt-4">
-        <div className="text-center space-y-2 mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
-            <Sparkles className="w-8 h-8 text-primary" />
-          </div>
-          <h2 className="text-lg font-semibold">{t('ai.mood_heading')}</h2>
-          <p className="text-sm text-muted-foreground">{t('ai.mood_desc')}</p>
-        </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          {MOODS.map((mood, i) => {
-            const Icon = mood.icon;
-            const isSelected = selectedMood === mood.key && isGenerating;
-            return (
-              <motion.div
-                key={mood.key}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.06 }}
+        {generatedOutfit ? (
+          /* ── Result screen ── */
+          <div className="space-y-2">
+            {/* Outfit card */}
+            <div style={{ backgroundColor: '#EDE8DF', borderRadius: 0, padding: '16px 20px' }}>
+              <p style={{
+                fontFamily: 'DM Sans, sans-serif', fontSize: 10,
+                textTransform: 'uppercase', letterSpacing: '0.1em',
+                color: 'rgba(28,25,23,0.4)',
+              }}>
+                MOOD OUTFIT
+              </p>
+              <p style={{
+                fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+                fontSize: 20, color: '#1C1917', marginTop: 6,
+              }}>
+                {t(`ai.mood_${generatedOutfit.mood}`)}
+              </p>
+              <button
+                onClick={() => navigate(`/outfits/${generatedOutfit.id}`)}
+                style={{
+                  marginTop: 8, fontSize: 12, fontFamily: 'DM Sans, sans-serif',
+                  color: 'rgba(28,25,23,0.5)', background: 'none', border: 'none',
+                  cursor: 'pointer', padding: 0,
+                }}
               >
-                <Card
-                  className={`cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${isSelected ? 'ring-2 ring-primary' : ''}`}
-                  onClick={() => !isGenerating && generate(mood.key)}
-                >
-                  <CardContent className="p-5 flex flex-col items-center gap-3 text-center">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${mood.color}`}>
-                      <Icon className="w-6 h-6" />
+                View full outfit →
+              </button>
+            </div>
+
+            {/* AI explanation card */}
+            {generatedOutfit.explanation && (
+              <div style={{ backgroundColor: '#EDE8DF', borderRadius: 0, padding: '16px 20px' }}>
+                <p style={{
+                  fontFamily: 'DM Sans, sans-serif', fontSize: 10,
+                  textTransform: 'uppercase', letterSpacing: '0.1em',
+                  color: 'rgba(28,25,23,0.4)', marginBottom: 8,
+                }}>
+                  WHY THIS MATCHES {generatedOutfit.mood.toUpperCase()}
+                </p>
+                <p style={{
+                  fontFamily: 'DM Sans, sans-serif', fontSize: 14,
+                  color: 'rgba(28,25,23,0.7)', lineHeight: 1.6,
+                }}>
+                  {generatedOutfit.explanation}
+                </p>
+              </div>
+            )}
+
+            {/* Refine in chat button */}
+            <button
+              onClick={() => navigate(`/chat?outfitId=${generatedOutfit.id}`)}
+              style={{
+                display: 'block', width: '100%', height: 48,
+                background: 'transparent', border: '1px solid rgba(28,25,23,0.3)',
+                borderRadius: 0, fontFamily: 'DM Sans, sans-serif',
+                fontSize: 14, color: '#1C1917', cursor: 'pointer',
+                marginTop: 8,
+              }}
+            >
+              Refine in chat
+            </button>
+
+            {/* Re-mood */}
+            <button
+              onClick={handleReMood}
+              style={{
+                display: 'block', width: '100%', marginTop: 12,
+                textAlign: 'center', fontFamily: 'DM Sans, sans-serif',
+                fontSize: 12, color: 'rgba(28,25,23,0.5)',
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: '4px 0',
+              }}
+            >
+              Try a different mood →
+            </button>
+          </div>
+        ) : (
+          /* ── Mood grid ── */
+          <>
+            <div className="text-center space-y-2 mb-8">
+              <h2 style={{
+                fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+                fontSize: 22, color: '#1C1917',
+              }}>
+                {t('ai.mood_heading')}
+              </h2>
+              <p className="text-sm text-muted-foreground">{t('ai.mood_desc')}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {MOODS.map((mood, i) => {
+                const isSelected = selectedMood === mood.key && isGenerating;
+                return (
+                  <motion.div
+                    key={mood.key}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.06 }}
+                  >
+                    <div
+                      style={{
+                        backgroundColor: isSelected ? '#1C1917' : '#EDE8DF',
+                        borderRadius: 0,
+                        minHeight: 80,
+                        padding: '16px',
+                        cursor: isGenerating ? 'default' : 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        gap: 8,
+                      }}
+                      onClick={() => !isGenerating && generate(mood.key)}
+                    >
+                      {isSelected ? (
+                        <OutfitGenerationState
+                          variant="compact"
+                          tone="expressive"
+                          subtitle={t(`ai.mood_${mood.key}`)}
+                          className="border-0 bg-transparent p-0"
+                        />
+                      ) : (
+                        <>
+                          <div style={{
+                            width: 16, height: 16,
+                            backgroundColor: mood.swatchColor,
+                            borderRadius: 0, flexShrink: 0,
+                          }} />
+                          <p style={{
+                            fontFamily: '"Playfair Display", serif',
+                            fontStyle: 'italic', fontSize: 16,
+                            color: '#1C1917', margin: 0,
+                          }}>
+                            {t(`ai.mood_${mood.key}`)}
+                          </p>
+                        </>
+                      )}
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold">{t(`ai.mood_${mood.key}`)}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{t(`ai.mood_${mood.key}_desc`)}</p>
-                    </div>
-                    {isSelected && (
-                      <OutfitGenerationState
-                        variant="compact"
-                        tone="expressive"
-                        subtitle={t(`ai.mood_${mood.key}`)}
-                        className="mt-2 border-0 bg-transparent p-0"
-                      />
-                    )}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })}
-        </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </AnimatedPage>
       <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="outfits" />
     </AppLayout>
