@@ -2,6 +2,7 @@
  * Resilient edge function invocation with timeout, retry, and exponential backoff.
  */
 import { supabase } from '@/integrations/supabase/client';
+import { EDGE_FUNCTION_DEFAULT_TIMEOUT_MS, EDGE_FUNCTION_MAX_BACKOFF_MS } from '@/config/constants';
 
 interface InvokeOptions {
   /** Max time in ms before aborting (default: 25000) */
@@ -26,13 +27,13 @@ export async function invokeEdgeFunction<T = unknown>(
   functionName: string,
   opts: InvokeOptions = {}
 ): Promise<{ data: T | null; error: Error | null }> {
-  const { timeout = 25000, retries = 2, body } = opts;
+  const { timeout = EDGE_FUNCTION_DEFAULT_TIMEOUT_MS, retries = 2, body } = opts;
 
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (attempt > 0) {
-      await new Promise((r) => setTimeout(r, Math.min(1000 * 2 ** (attempt - 1), 8000)));
+      await new Promise((r) => setTimeout(r, Math.min(1000 * 2 ** (attempt - 1), EDGE_FUNCTION_MAX_BACKOFF_MS)));
     }
 
     try {

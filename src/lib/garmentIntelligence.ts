@@ -1,14 +1,20 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Json, TablesInsert } from '@/integrations/supabase/types';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { logger } from '@/lib/logger';
+import {
+  GARMENT_IMAGE_PROCESSING_VERSION,
+  RENDER_KICKOFF_CONCURRENCY,
+  RENDER_RESUME_SWEEP_LIMIT,
+  RENDER_RESUME_SWEEP_COOLDOWN_MS,
+  RENDER_QUEUE_MAX_SIZE,
+  GARMENT_ENRICHMENT_RETRY_DELAY_MS,
+} from '@/config/constants';
 
-export const GARMENT_IMAGE_PROCESSING_VERSION = 'background-removal-v1';
+export { GARMENT_IMAGE_PROCESSING_VERSION };
 
 type RenderTriggerSource = 'add_photo' | 'batch_add';
 
-const RENDER_KICKOFF_CONCURRENCY = 3;
-const RENDER_RESUME_SWEEP_LIMIT = 12;
-const RENDER_RESUME_SWEEP_COOLDOWN_MS = 15_000;
 const queuedRenderKickoffs: Array<{ garmentId: string; source: string }> = [];
 const queuedRenderGarmentIds = new Set<string>();
 const lastRenderResumeSweepByUser = new Map<string, number>();
@@ -29,7 +35,7 @@ function pumpRenderKickoffQueue(): void {
     })
       .then(({ error }) => {
         if (error) {
-          console.warn('Garment render trigger did not confirm in time (non-blocking)', error);
+          logger.warn('Garment render trigger did not confirm in time (non-blocking)', error);
         }
       })
       .finally(() => {
@@ -42,6 +48,12 @@ function pumpRenderKickoffQueue(): void {
 
 function enqueueGarmentRenderKickoff(garmentId: string, source: string): void {
   if (queuedRenderGarmentIds.has(garmentId)) {
+    return;
+  }
+
+  // Guard against unbounded queue growth (e.g. after bulk imports)
+  if (queuedRenderKickoffs.length >= RENDER_QUEUE_MAX_SIZE) {
+    logger.warn(`Render queue full (>${RENDER_QUEUE_MAX_SIZE}); dropping kickoff for ${garmentId}`);
     return;
   }
 
@@ -92,7 +104,7 @@ export async function resumePendingGarmentRenders(userId: string): Promise<void>
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.warn('Pending garment render resume sweep failed', error);
+      logger.warn('Pending garment render resume sweep failed', error);
       return;
     }
 
@@ -274,16 +286,16 @@ export function triggerGarmentPostSaveIntelligence({
   skipRender,
 }: TriggerGarmentPostSaveIntelligenceOptions): void {
   enrichGarmentInBackground(garmentId, storagePath).catch((err) => {
-    console.error(`[${source}] garment enrichment error (non-blocking):`, err);
+    logger.error(`[${source}] garment enrichment error (non-blocking):`, err);
   });
 
   if (imageProcessing.mode === 'edge' || imageProcessing.mode === 'full') {
     startGarmentImageProcessingInBackground(garmentId, source).catch((err) => {
-      console.error(`[${source}] garment image processing trigger error (non-blocking):`, err);
+      logger.error(`[${source}] garment image processing trigger error (non-blocking):`, err);
     });
   } else if (imageProcessing.mode === 'local') {
     imageProcessing.run().catch((err) => {
-      console.error(`[${source}] local garment image processing error (non-blocking):`, err);
+      logger.error(`[${source}] local garment image processing error (non-blocking):`, err);
     });
   }
 
@@ -291,7 +303,7 @@ export function triggerGarmentPostSaveIntelligence({
   const shouldRender = !skipRender && (source === 'add_photo' || source === 'batch_add' || source === 'manual_enhance');
   if (shouldRender) {
     startGarmentRenderInBackground(garmentId, source).catch((err) => {
-      console.error(`[${source}] garment render trigger error (non-blocking):`, err);
+      logger.error(`[${source}] garment render trigger error (non-blocking):`, err);
     });
   }
 }
@@ -327,7 +339,7 @@ async function enrichGarmentInBackground(garmentId: string, storagePath: string)
   const success = await attempt();
   if (success) return;
 
-  await new Promise((resolve) => setTimeout(resolve, 3000));
+  await new Promise((resolve) => setTimeout(resolve, GARMENT_ENRICHMENT_RETRY_DELAY_MS));
   const retrySuccess = await attempt();
   if (!retrySuccess) {
     await supabase.from('garments').update({ enrichment_status: 'failed' }).eq('id', garmentId);
@@ -342,7 +354,7 @@ async function startGarmentImageProcessingInBackground(garmentId: string, source
   });
 
   if (error) {
-    console.warn('Garment image processing trigger did not confirm in time', error);
+    logger.warn('Garment image processing trigger did not confirm in time', error);
   }
 }
 

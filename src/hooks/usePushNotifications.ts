@@ -105,13 +105,16 @@ export function usePushNotifications() {
 
       const subJson = subscription.toJSON();
 
+      const endpoint = subJson.endpoint;
+      const p256dh = subJson.keys?.p256dh;
+      const auth = subJson.keys?.auth;
+
+      if (!endpoint || !p256dh || !auth) {
+        throw new Error('Push subscription is missing required keys');
+      }
+
       await supabase.from('push_subscriptions').upsert(
-        {
-          user_id: user.id,
-          endpoint: subJson.endpoint!,
-          p256dh: subJson.keys!.p256dh!,
-          auth: subJson.keys!.auth!,
-        },
+        { user_id: user.id, endpoint, p256dh, auth },
         { onConflict: 'user_id,endpoint' }
       );
 

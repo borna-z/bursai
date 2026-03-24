@@ -3,6 +3,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  SWAP_SAFE_FRESHNESS, SWAP_SAFE_COLOR, SWAP_SAFE_EXPRESSIVE,
+  SWAP_BOLD_FRESHNESS, SWAP_BOLD_COLOR, SWAP_BOLD_EXPRESSIVE,
+  SWAP_FRESH_FRESHNESS, SWAP_FRESH_COLOR, SWAP_FRESH_EXPRESSIVE,
+} from '@/config/constants';
+import { logger } from '@/lib/logger';
 import type { Garment } from './useGarments';
 
 export interface SwapCandidate {
@@ -49,7 +55,7 @@ export function useSwapGarment() {
       );
 
       if (error || data?.error) {
-        console.error('Swap engine error, falling back to basic scoring:', error || data?.error);
+        logger.warn('Swap engine error, falling back to basic scoring:', error || data?.error);
         return await fallbackFetchCandidates(slot, currentGarmentId, otherGarmentColors, swapMode);
       }
 
@@ -63,7 +69,7 @@ export function useSwapGarment() {
       setCandidates(scored);
       return scored;
     } catch (err) {
-      console.error('Swap fetch failed:', err);
+      logger.error('Swap fetch failed:', err);
       return await fallbackFetchCandidates(slot, currentGarmentId, otherGarmentColors, swapMode);
     } finally {
       setIsLoadingCandidates(false);
@@ -138,11 +144,11 @@ export function useSwapGarment() {
       let score = 0;
 
       if (swapMode === 'safe') {
-        score = f * 0.30 + c * 0.55 + e * 0.15;
+        score = f * SWAP_SAFE_FRESHNESS + c * SWAP_SAFE_COLOR + e * SWAP_SAFE_EXPRESSIVE;
       } else if (swapMode === 'bold') {
-        score = f * 0.20 + c * 0.30 + e * 0.50;
+        score = f * SWAP_BOLD_FRESHNESS + c * SWAP_BOLD_COLOR + e * SWAP_BOLD_EXPRESSIVE;
       } else {
-        score = f * 0.50 + c * 0.30 + e * 0.20;
+        score = f * SWAP_FRESH_FRESHNESS + c * SWAP_FRESH_COLOR + e * SWAP_FRESH_EXPRESSIVE;
       }
 
       return {
