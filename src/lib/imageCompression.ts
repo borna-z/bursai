@@ -2,9 +2,10 @@
  * Client-side image compression utility.
  * Resizes and converts images to WebP before upload to reduce bandwidth and LCP.
  */
+import { IMAGE_MAX_DIMENSION, IMAGE_QUALITY } from '@/config/constants';
 
-const MAX_DIMENSION = 1200;
-const QUALITY = 0.82;
+const MAX_DIMENSION = IMAGE_MAX_DIMENSION;
+const QUALITY = IMAGE_QUALITY;
 
 /**
  * Compress an image File via canvas resize + WebP conversion.

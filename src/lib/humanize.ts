@@ -2,6 +2,7 @@
  * Humanize raw enum/key values for user-facing display.
  * Ensures no internal keys, underscores, or raw identifiers leak to the UI.
  */
+import { CONFIDENCE_HIGH, CONFIDENCE_MEDIUM } from '@/config/constants';
 
 /** Capitalize first letter and replace underscores/hyphens with spaces */
 export function humanize(value: string | null | undefined): string {
@@ -92,8 +93,8 @@ export function seasonLabel(t: (key: string) => string, season: string): string 
  * Confidence level label for AI enrichment attributes.
  */
 export function confidenceLabel(confidence: number): { label: string; color: string } {
-  if (confidence >= 0.85) return { label: '', color: '' };
-  if (confidence >= 0.6) return { label: 'Strong match', color: 'text-foreground/50' };
+  if (confidence >= CONFIDENCE_HIGH) return { label: '', color: '' };
+  if (confidence >= CONFIDENCE_MEDIUM) return { label: 'Strong match', color: 'text-foreground/50' };
   return { label: '', color: '' };
 }
 

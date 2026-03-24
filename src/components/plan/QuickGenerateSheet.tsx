@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/lib/logger';
 import { format } from 'date-fns';
 import { Sparkles, Thermometer, CalendarDays, MapPin } from 'lucide-react';
 import { AILoadingCard } from '@/components/ui/AILoadingCard';
@@ -85,7 +86,7 @@ export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGen
         try {
           const historicalDays = await fetchHistoricalWeather(coords.lat, coords.lon, targetDate, targetDate);
           match = historicalDays.find(d => d.date === targetDate) || null;
-        } catch { /* Historical fetch failed */ }
+        } catch (histErr) { logger.warn('Historical weather fetch failed (non-blocking):', histErr); }
       }
       setTravelForecast(match);
       if (!match) setTravelError(t('qgen.no_forecast'));

@@ -402,7 +402,9 @@ export default function TravelCapsule() {
     if (!result || !dateRange?.from) return;
     setIsAddingToCalendar(true);
     try {
-      const userId = (await supabase.auth.getUser()).data.user!.id;
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error('User session expired. Please log in again.');
+      const userId = currentUser.id;
 
       // Fetch garments directly to avoid stale/empty garmentMap from async hook
       const { data: freshGarments } = await supabase
