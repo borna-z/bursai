@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GarmentGridSkeleton } from '@/components/ui/skeletons';
 import { useGarments, useUpdateGarment, useDeleteGarment, useGarmentCount, type Garment } from '@/hooks/useGarments';
-import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
+import { useSubscription } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
@@ -62,7 +62,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
   };
   const handleStyleAround = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
-    navigate('/ai', { state: { selectedGarmentId: garment.id } });
+    navigate('/ai/chat', { state: { selectedGarmentId: garment.id } });
   };
   const displayImagePath = getPreferredGarmentImagePath(garment);
 
@@ -176,6 +176,36 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
         }}>
           {(garment.wear_count || 0) > 0 ? `${garment.wear_count}×` : '0×'}
         </span>
+        {/* Name overlay */}
+        <div style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: 'rgba(28,25,23,0.38)',
+          padding: '5px 7px',
+          zIndex: 2,
+        }}>
+          <div style={{
+            fontFamily: 'DM Sans, ui-sans-serif, sans-serif',
+            fontSize: 10,
+            fontWeight: 500,
+            color: '#F5F0E8',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}>
+            {garment.title}
+          </div>
+          <div style={{
+            fontFamily: 'DM Sans, ui-sans-serif, sans-serif',
+            fontSize: 8,
+            color: 'rgba(245,240,232,0.55)',
+            marginTop: 1,
+          }}>
+            {categoryLabel(t, garment.category)}
+          </div>
+        </div>
       </div>
     </motion.div>
   );
@@ -356,6 +386,40 @@ function VirtualGarmentGrid({
   );
 }
 
+// ── Category Section Header ──
+
+const CATEGORY_ORDER = ['dress', 'top', 'bottom', 'outerwear', 'shoes', 'accessory'];
+
+function CategorySection({ category, count, t }: { category: string; count: number; t: (key: string) => string }) {
+  return (
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingTop: 16,
+      paddingBottom: 6,
+    }}>
+      <span style={{
+        fontFamily: 'DM Sans, ui-sans-serif, sans-serif',
+        fontSize: 9,
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase',
+        color: 'rgba(28,25,23,0.4)',
+      }}>
+        {categoryLabel(t, category)}
+      </span>
+      <span style={{
+        fontFamily: 'DM Sans, ui-sans-serif, sans-serif',
+        fontSize: 9,
+        letterSpacing: '0.1em',
+        color: 'rgba(28,25,23,0.4)',
+      }}>
+        {count}
+      </span>
+    </div>
+  );
+}
+
 // ── FAB Menu ──
 
 const fabItems = [
@@ -473,7 +537,7 @@ export default function WardrobePage() {
     inLaundry: showLaundry ? true : undefined,
   });
   const { data: infiniteData, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = queryResult;
-  const { canAddGarment, isPremium } = useSubscription();
+  useSubscription();
   const { data: totalCount } = useGarmentCount();
 
   const allGarments = useMemo(() => {
@@ -516,6 +580,19 @@ export default function WardrobePage() {
     };
   }, [allGarments]);
 
+  // Group garments by category when no filters/search active
+  const garmentsByCategory = useMemo(() => {
+    const groups: Record<string, Garment[]> = {};
+    for (const g of displayGarments) {
+      const cat = g.category || 'accessory';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(g);
+    }
+    return groups;
+  }, [displayGarments]);
+
+  const showGrouped = !hasActiveFilters && !search;
+
   const categories = [
     { id: 'all', label: t('wardrobe.all') },
     { id: 'top', label: t('wardrobe.top') },
@@ -526,10 +603,6 @@ export default function WardrobePage() {
     { id: 'dress', label: t('wardrobe.dress') },
     { id: 'underwear', label: t('wardrobe.underwear') },
   ];
-
-  const handleAddGarment = () => {
-    if (canAddGarment()) { navigate('/wardrobe/add'); } else { setShowPaywall(true); }
-  };
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -554,8 +627,6 @@ export default function WardrobePage() {
       setSelectedIds(new Set()); setIsSelecting(false);
     } catch { toast.error(t('common.something_wrong')); }
   };
-
-  const isOverLimit = !isPremium && (displayGarments?.length || 0) >= PLAN_LIMITS.free.maxGarments;
 
   const hasActiveFilters = selectedCategory !== 'all' || selectedColor || selectedSeason || sortBy !== 'created_at' || showLaundry || !!smartFilter;
   const activeFilterCount = [selectedCategory !== 'all', !!selectedColor, !!selectedSeason, sortBy !== 'created_at', showLaundry].filter(Boolean).length;
@@ -700,6 +771,29 @@ export default function WardrobePage() {
                 {isLoading ? (
                   <GarmentGridSkeleton count={6} grid={isGridView} />
                 ) : displayGarments.length > 0 ? (
+                  showGrouped ? (
+                    <div className="space-y-2">
+                      {CATEGORY_ORDER.filter(cat => garmentsByCategory[cat]?.length > 0).map(cat => (
+                        <div key={cat}>
+                          <CategorySection category={cat} count={garmentsByCategory[cat].length} t={t} />
+                          <div className={cn(isGridView ? 'grid grid-cols-3 gap-[5px]' : 'flex flex-col gap-1')}>
+                            {garmentsByCategory[cat].map((garment, idx) => (
+                              <div key={garment.id} className="animate-drape-in" style={{ animationDelay: `${Math.min(idx, 12) * 40}ms`, animationFillMode: 'both' }}>
+                                <GarmentCard
+                                  garment={garment}
+                                  isGridView={isGridView}
+                                  isSelecting={isSelecting}
+                                  isSelected={selectedIds.has(garment.id)}
+                                  onSelect={() => toggleSelect(garment.id)}
+                                  index={idx}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
                   <GarmentListContent
                     garments={displayGarments}
                     isGridView={isGridView}
@@ -713,6 +807,7 @@ export default function WardrobePage() {
                     hasNextPage={!!hasNextPage}
                     isFetchingNextPage={isFetchingNextPage}
                   />
+                  )
                 ) : hasActiveFilters || search ? (
                   <EmptyState
                     icon={Shirt}
@@ -731,39 +826,53 @@ export default function WardrobePage() {
             )}
           </AnimatedTab>
 
-          {/* FAB */}
-          {activeTab === 'garments' ? (
-            <CoachMark
-              step={1}
-              currentStep={coach.currentStep}
-              isCoachActive={coach.isStepActive(1)}
-              title="Add your first garment"
-              body="Tap + to scan or upload. You need a top, bottom and shoes for your first outfit."
-              ctaLabel="Got it"
-              onCta={() => coach.advanceStep()}
-              onSkip={() => coach.completeTour()}
-              position="top"
-            >
-              <AddFAB
-                onPhoto={handleAddGarment}
-                onScan={() => navigate('/wardrobe/scan')}
-                isOverLimit={isOverLimit}
-              />
-            </CoachMark>
-          ) : (
-            <div className="fixed bottom-24 right-4 z-50">
-              <motion.button
-                whileTap={{ scale: 0.92 }}
-                transition={TAP_TRANSITION}
-                onClick={() => navigate('/')}
-                className="h-14 w-14 rounded-full shadow-lg shadow-accent/25 bg-accent text-accent-foreground flex items-center justify-center"
-              >
-                <Sparkles className="w-6 h-6" />
-              </motion.button>
-            </div>
-          )}
         </AnimatedPage>
       </PullToRefresh>
+
+      {/* Add garment bar */}
+      {activeTab === 'garments' && (
+        <div
+          style={{
+            position: 'sticky',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            background: '#1C1917',
+            padding: '14px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            cursor: 'pointer',
+            zIndex: 40,
+          }}
+          onClick={() => navigate('/wardrobe/add')}
+        >
+          <span style={{
+            fontFamily: 'DM Sans, ui-sans-serif, sans-serif',
+            fontSize: 13,
+            fontWeight: 500,
+            color: '#F5F0E8',
+            letterSpacing: '0.02em',
+          }}>
+            + Add a garment
+          </span>
+        </div>
+      )}
+
+      {/* Outfits tab FAB */}
+      {activeTab === 'outfits' && (
+        <div className="fixed bottom-24 right-4 z-50">
+          <motion.button
+            whileTap={{ scale: 0.92 }}
+            transition={TAP_TRANSITION}
+            onClick={() => navigate('/')}
+            className="h-14 w-14 rounded-full shadow-lg shadow-accent/25 bg-accent text-accent-foreground flex items-center justify-center"
+          >
+            <Sparkles className="w-6 h-6" />
+          </motion.button>
+        </div>
+      )}
 
       {/* Filter bottom sheet */}
       <FilterSheet

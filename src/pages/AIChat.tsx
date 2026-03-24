@@ -6,6 +6,7 @@ import { ChatPageSkeleton } from '@/components/ui/skeletons';
 import { motion } from 'framer-motion';
 import { PRESETS } from '@/lib/motion';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { StyleMeSubNav } from '@/components/ai/StyleMeSubNav';
 import { createSupabaseRestHeaders, getSupabaseFunctionUrl, getSupabaseRestUrl, supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -365,6 +366,7 @@ export default function AIChat() {
     <PageErrorBoundary fallback={<AIChatFallback />}>
     <AppLayout>
       <div className="absolute inset-0 flex flex-col overflow-hidden pb-20">
+        <StyleMeSubNav />
         {/* Header — simple title + menu */}
         <div className="flex items-center justify-between px-4 py-3 shrink-0 sticky top-0 z-10 bg-background/80 backdrop-blur-xl">
           <div className="w-9" />

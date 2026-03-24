@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { StyleMeSubNav } from '@/components/ai/StyleMeSubNav';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -103,6 +104,7 @@ export default function MoodOutfitPage() {
 
   return (
     <AppLayout>
+      <StyleMeSubNav />
       <PageHeader title={t('ai.mood_title')} showBack />
       <AnimatedPage className="max-w-lg mx-auto px-4 pb-8 pt-4">
 
