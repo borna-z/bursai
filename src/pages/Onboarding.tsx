@@ -24,20 +24,29 @@ type StepKey = typeof STEPS[number];
 function StepProgress({ current }: { current: StepKey }) {
   const idx = STEPS.indexOf(current);
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 flex gap-1.5 px-6 pt-3 pb-2">
-      {STEPS.map((step, i) => (
-        <motion.div
-          key={step}
-          className="h-[3px] flex-1 rounded-full overflow-hidden bg-border dark:bg-white/[0.06]"
-        >
-          <motion.div
-            className="h-full bg-foreground dark:bg-white/40 rounded-full"
-            initial={{ width: '0%' }}
-            animate={{ width: i <= idx ? '100%' : '0%' }}
-            transition={{ duration: 0.4, ease: EASE_CURVE }}
-          />
-        </motion.div>
-      ))}
+    <div className="fixed top-0 left-0 right-0 z-50 px-6 pt-3 pb-2">
+      <div className="flex gap-1.5">
+        {STEPS.map((step, i) => (
+          <div
+            key={step}
+            style={{ height: 3, flex: 1, overflow: 'hidden', background: 'rgba(28,25,23,0.08)' }}
+          >
+            <motion.div
+              style={{ height: '100%', background: '#1C1917' }}
+              initial={{ width: '0%' }}
+              animate={{ width: i <= idx ? '100%' : '0%' }}
+              transition={{ duration: 0.4, ease: EASE_CURVE }}
+            />
+          </div>
+        ))}
+      </div>
+      <p style={{
+        fontFamily: 'DM Sans, sans-serif', fontSize: 9,
+        color: 'rgba(28,25,23,0.38)', textAlign: 'center',
+        marginTop: 6, letterSpacing: '0.04em',
+      }}>
+        {String(idx + 1).padStart(2, '0')} · {String(STEPS.length).padStart(2, '0')}
+      </p>
     </div>
   );
 }

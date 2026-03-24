@@ -100,6 +100,12 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
   };
   const displayImagePath = getPreferredGarmentImagePath(garment);
 
+  const categoryColorMap: Record<string, string> = {
+    top: '#C4A882', bottom: '#7B8FA0', shoes: '#8A8070',
+    outerwear: '#6B7B6B', accessory: '#A07878', dress: '#9B8BA0',
+  };
+  const categoryStripColor = categoryColorMap[garment.category] || 'rgba(28,25,23,0.12)';
+
   if (!isGridView) {
     return (
       <motion.div
@@ -174,6 +180,7 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
         garment.in_laundry && 'opacity-60',
         isSelected && 'ring-2 ring-accent'
       )}
+      style={{ borderLeft: `2px solid ${categoryStripColor}` }}
     >
       <div className="aspect-[3/4] bg-muted relative overflow-hidden">
         <LazyImageSimple

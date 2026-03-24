@@ -157,9 +157,13 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
 
         <motion.h1
           variants={fadeUp} initial="hidden" animate="show" custom={1}
-          className={cn('text-2xl font-bold tracking-tight mb-2 text-center', dark ? 'text-white' : 'text-foreground')}
+          style={{
+            fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+            fontSize: 20, textAlign: 'center', maxWidth: 240, marginBottom: 8,
+          }}
+          className={cn(dark ? 'text-white' : 'text-foreground')}
         >
-          {t('onboarding.quickUpload.title') || 'Add a few garments'}
+          Add your first piece.
         </motion.h1>
 
         <motion.p
@@ -236,32 +240,32 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
             <button
               onClick={processAll}
               disabled={isProcessing}
-              className={cn(
-                'w-full h-12 font-semibold text-[15px] flex items-center justify-center gap-2 transition-all active:scale-[0.98]',
-                dark
-                  ? 'rounded-xl bg-white text-black hover:bg-white/90'
-                  : 'bg-primary text-primary-foreground hover:opacity-90',
-                isProcessing && 'opacity-60 cursor-not-allowed'
-              )}
+              style={{
+                width: '100%', height: 52, background: '#1C1917', color: '#F5F0E8',
+                border: 'none', fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 500,
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                opacity: isProcessing ? 0.6 : 1,
+              }}
             >
               {isProcessing ? (
-                <div className={cn('w-5 h-5 border-2 border-t-transparent rounded-full animate-spin', dark ? 'border-black/40 border-t-black' : 'border-primary-foreground/40 border-t-primary-foreground')} />
+                <div className="w-5 h-5 border-2 border-[#F5F0E8]/40 border-t-[#F5F0E8] rounded-full animate-spin" />
               ) : (
                 <>
                   Add {items.length} garment{items.length > 1 ? 's' : ''}
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight style={{ width: 14, height: 14 }} />
                 </>
               )}
             </button>
           ) : (
             <button
               onClick={() => inputRef.current?.click()}
-              className={cn(
-                'w-full h-12 font-semibold text-[15px] flex items-center justify-center gap-2 active:scale-[0.98] transition-all',
-                dark ? 'rounded-xl bg-white text-black hover:bg-white/90' : 'bg-primary text-primary-foreground hover:opacity-90'
-              )}
+              style={{
+                width: '100%', height: 52, background: '#1C1917', color: '#F5F0E8',
+                border: 'none', fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 500,
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}
             >
-              <Camera className="w-4.5 h-4.5" />
+              <Camera style={{ width: 16, height: 16 }} />
               Choose photos
             </button>
           )}
@@ -269,7 +273,11 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
           <button
             onClick={onSkip}
             disabled={isProcessing}
-            className={cn('w-full h-10 text-sm transition-colors', dark ? 'text-white/30 hover:text-white/50' : 'text-muted-foreground hover:text-foreground')}
+            style={{
+              width: '100%', height: 40, background: 'none', border: 'none',
+              fontFamily: 'DM Sans, sans-serif', fontSize: 11,
+              color: 'rgba(28,25,23,0.32)', cursor: 'pointer',
+            }}
           >
             {t('onboarding.skip') || 'Skip for now'}
           </button>

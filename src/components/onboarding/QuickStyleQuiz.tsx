@@ -104,15 +104,23 @@ export function QuickStyleQuiz({ onComplete, onSkip, isSaving }: Props) {
   }) => (
     <button
       onClick={() => onSelect(value)}
-      className={cn(
-        'w-full text-left px-5 py-4 text-[15px] font-medium border transition-all',
-        dark && 'rounded-xl',
-        selected
-          ? (dark ? 'bg-white/[0.1] text-white border-white/20' : 'bg-muted text-foreground border-foreground')
-          : (dark ? 'bg-white/[0.03] border-white/[0.06] text-white/70 hover:bg-white/[0.06] hover:border-white/10' : 'bg-card border-border text-muted-foreground hover:bg-muted hover:border-foreground/20')
-      )}
+      style={{
+        width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+        padding: '12px 16px', border: 'none', cursor: 'pointer', textAlign: 'left',
+        background: selected ? '#1C1917' : '#EDE8DF',
+        transition: 'background 0.2s, color 0.2s',
+      }}
     >
-      {label}
+      <span style={{
+        width: 9, height: 9, flexShrink: 0,
+        background: selected ? '#F5F0E8' : 'rgba(28,25,23,0.15)',
+      }} />
+      <span style={{
+        fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+        fontSize: 12, color: selected ? '#F5F0E8' : '#1C1917',
+      }}>
+        {label}
+      </span>
     </button>
   );
 
@@ -273,19 +281,30 @@ export function QuickStyleQuiz({ onComplete, onSkip, isSaving }: Props) {
         </div>
       )}
 
-      {/* Progress dots */}
-      <div className="relative z-10 pt-14 pb-4 px-6 flex items-center justify-center gap-2">
-        {Array.from({ length: TOTAL }).map((_, i) => (
-          <div
-            key={i}
-            className={cn(
-              'h-1.5 rounded-full transition-all duration-300',
-              dark
-                ? (i === qi ? 'w-6 bg-white/70' : i < qi ? 'w-1.5 bg-white/30' : 'w-1.5 bg-white/10')
-                : (i === qi ? 'w-6 bg-foreground' : i < qi ? 'w-1.5 bg-foreground/30' : 'w-1.5 bg-border')
-            )}
-          />
-        ))}
+      {/* Headline + progress dots */}
+      <div className="relative z-10 pt-14 px-6">
+        <h2 style={{
+          fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+          fontSize: 20, textAlign: 'center', maxWidth: 240, margin: '0 auto 12px',
+          color: dark ? '#fff' : '#1C1917',
+        }}>
+          Tell us how you dress.
+        </h2>
+        <div className="flex items-center justify-center gap-2 pb-4">
+          {Array.from({ length: TOTAL }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                height: 4, borderRadius: 0,
+                transition: 'all 0.3s',
+                width: i === qi ? 24 : 6,
+                background: dark
+                  ? (i === qi ? 'rgba(255,255,255,0.7)' : i < qi ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)')
+                  : (i === qi ? '#1C1917' : i < qi ? 'rgba(28,25,23,0.3)' : 'rgba(28,25,23,0.08)'),
+              }}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Question */}
@@ -308,44 +327,47 @@ export function QuickStyleQuiz({ onComplete, onSkip, isSaving }: Props) {
       </div>
 
       {/* Bottom bar */}
-      <div className={cn(
-        'fixed bottom-0 left-0 right-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] z-20 border-t',
-        dark ? 'bg-[#030305]/80 backdrop-blur-xl border-white/[0.04]' : 'bg-background border-border'
-      )}>
-        <div className="max-w-sm mx-auto flex items-center gap-3">
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 20,
+        padding: '16px', paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
+        background: dark ? 'rgba(3,3,5,0.8)' : '#F5F0E8',
+        borderTop: '1px solid rgba(28,25,23,0.06)',
+        backdropFilter: dark ? 'blur(12px)' : undefined,
+      }}>
+        <div style={{ maxWidth: 384, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 12 }}>
           {qi > 0 ? (
             <button
               onClick={back}
-              className={cn(
-                'h-12 w-12 border flex items-center justify-center flex-shrink-0 transition-colors',
-                dark
-                  ? 'rounded-xl border-white/[0.08] bg-white/[0.03] text-white/50 hover:text-white/80'
-                  : 'border-border bg-card text-muted-foreground hover:text-foreground'
-              )}
+              style={{
+                width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0, background: '#EDE8DF', border: 'none', cursor: 'pointer',
+              }}
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft style={{ width: 18, height: 18, color: '#1C1917' }} />
             </button>
           ) : (
             <button
               onClick={onSkip}
-              className={cn(
-                'h-12 px-4 text-sm font-medium transition-colors flex items-center gap-1 flex-shrink-0',
-                dark ? 'text-white/30 hover:text-white/50' : 'text-muted-foreground hover:text-foreground'
-              )}
+              style={{
+                flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer',
+                fontFamily: 'DM Sans, sans-serif', fontSize: 11,
+                color: 'rgba(28,25,23,0.32)', padding: '12px 8px',
+                display: 'flex', alignItems: 'center', gap: 4,
+              }}
             >
-              <SkipForward className="w-4 h-4" />
+              <SkipForward style={{ width: 14, height: 14 }} />
               {t('q3.skip')}
             </button>
           )}
           <button
             onClick={next}
             disabled={isSaving}
-            className={cn(
-              'flex-1 h-12 text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-1.5',
-              dark
-                ? 'rounded-xl bg-white text-[#030305] hover:bg-white/90'
-                : 'bg-primary text-primary-foreground hover:opacity-90'
-            )}
+            style={{
+              flex: 1, height: 48, background: '#1C1917', color: '#F5F0E8',
+              border: 'none', fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 500,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              opacity: isSaving ? 0.4 : 1,
+            }}
           >
             {isSaving ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -354,7 +376,7 @@ export function QuickStyleQuiz({ onComplete, onSkip, isSaving }: Props) {
             ) : (
               <>
                 {t('q3.next')}
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight style={{ width: 14, height: 14 }} />
               </>
             )}
           </button>

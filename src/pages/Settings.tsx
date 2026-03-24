@@ -40,31 +40,43 @@ export default function SettingsPage() {
         {/* Profile */}
         <ProfileCard />
 
-        {/* Main settings */}
-        <SettingsGroup>
+        {/* How you look */}
+        <SettingsGroup title="How you look">
           <SettingsRow icon={<Palette />} label={t('settings.row.appearance')} sublabel={t('settings.row.appearance_sub')} onClick={() => navigate('/settings/appearance')}>
             <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
           </SettingsRow>
-          <SettingsRow icon={<Shirt />} label={t('settings.row.style')} sublabel={t('settings.row.style_sub')} onClick={() => navigate('/settings/style')}>
+          <SettingsRow icon={<Shirt />} label={t('settings.row.style')} sublabel={t('settings.row.style_sub')} onClick={() => navigate('/settings/style')} last>
             <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
           </SettingsRow>
-          <SettingsRow icon={<Bell />} label={t('settings.row.notifications')} sublabel={t('settings.row.notifications_sub')} onClick={() => navigate('/settings/notifications')}>
+        </SettingsGroup>
+
+        {/* When we reach you */}
+        <SettingsGroup title="When we reach you">
+          <SettingsRow icon={<Bell />} label={t('settings.row.notifications')} sublabel={t('settings.row.notifications_sub')} onClick={() => navigate('/settings/notifications')} last>
             <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
           </SettingsRow>
+        </SettingsGroup>
+
+        {/* Your account */}
+        <SettingsGroup title="Your account">
           <SettingsRow icon={<User />} label={t('settings.row.account')} sublabel={t('settings.row.account_sub')} onClick={() => navigate('/settings/account')}>
             <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
           </SettingsRow>
-          <SettingsRow icon={<Shield />} label={t('settings.row.privacy')} sublabel={t('settings.row.privacy_sub')} onClick={() => navigate('/settings/privacy')}>
+          <SettingsRow icon={<Shield />} label={t('settings.row.privacy')} sublabel={t('settings.row.privacy_sub')} onClick={() => navigate('/settings/privacy')} last>
             <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
           </SettingsRow>
-          <SettingsRow icon={<TrendingUp />} label={t('settings.row.insights') || 'Wardrobe Insights'} sublabel={t('settings.row.insights_sub') || 'Usage stats & analytics'} onClick={() => navigate('/insights')} last={!isAdmin}>
+        </SettingsGroup>
+
+        {/* App */}
+        <SettingsGroup title="App">
+          <SettingsRow icon={<TrendingUp />} label={t('settings.row.insights') || 'Wardrobe Insights'} sublabel={t('settings.row.insights_sub') || 'Usage stats & analytics'} onClick={() => navigate('/insights')}>
             <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
           </SettingsRow>
-          <SettingsRow icon={<Sparkles />} label={t('settings.row.view_coach') || 'View coach'} sublabel={t('settings.row.view_coach_sub') || 'Replay the guided walkthrough any time'} onClick={async () => { await coach.restartCoach(); navigate('/settings'); }} last={false}>
+          <SettingsRow icon={<Sparkles />} label={t('settings.row.view_coach') || 'View coach'} sublabel={t('settings.row.view_coach_sub') || 'Replay the guided walkthrough any time'} onClick={async () => { await coach.restartCoach(); navigate('/settings'); }} last={!isAdmin}>
             <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
           </SettingsRow>
           {isAdmin && (
-            <SettingsRow icon={<Database />} label="Seed Wardrobe" sublabel="Generate demo garments with AI" onClick={() => navigate('/settings/seed-wardrobe')}>
+            <SettingsRow icon={<Database />} label="Seed Wardrobe" sublabel="Generate demo garments with AI" onClick={() => navigate('/settings/seed-wardrobe')} last>
               <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
             </SettingsRow>
           )}
