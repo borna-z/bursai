@@ -222,26 +222,31 @@ function pickOutfitIdsFromText(text: string, validGarmentIds: Set<string>): { id
 function buildFallbackOutfitIds(rankedGarments: GarmentRecord[], anchor: GarmentRecord | null, activeLook: ActiveLookContext): string[] {
   if (activeLook.garmentIds.length >= 2) return activeLook.garmentIds.slice(0, 5);
 
+  // Group by canonical slot key so "jeans"/"pants"/"trousers" all map to "bottom" etc.
   const slots = new Map<string, GarmentRecord[]>();
   for (const garment of rankedGarments) {
-    const key = normalizeTerm(garment.category);
+    const key = getSlotKey(garment.category);
     if (!slots.has(key)) slots.set(key, []);
     slots.get(key)!.push(garment);
   }
 
   const chosen: GarmentRecord[] = [];
+  const usedSlots = new Set<string>();
   const pushUnique = (garment?: GarmentRecord | null) => {
     if (!garment) return;
     if (chosen.some((item) => item.id === garment.id)) return;
+    const slot = getSlotKey(garment.category);
+    if (usedSlots.has(slot)) return; // one per slot
+    usedSlots.add(slot);
     chosen.push(garment);
   };
 
   if (anchor) pushUnique(anchor);
   if (chosen.length === 0) pushUnique((slots.get("dress") || [])[0]);
   if (chosen.length === 0) pushUnique((slots.get("top") || [])[0]);
-  pushUnique((slots.get("bottom") || []).find((item) => item.id !== chosen[0]?.id) || null);
-  pushUnique((slots.get("shoes") || []).find((item) => !chosen.some((existing) => existing.id === item.id)) || null);
-  pushUnique((slots.get("outerwear") || []).find((item) => !chosen.some((existing) => existing.id === item.id)) || null);
+  pushUnique((slots.get("bottom") || [])[0]);
+  pushUnique((slots.get("shoes") || [])[0]);
+  pushUnique((slots.get("outerwear") || [])[0]);
 
   if (chosen.length < 2) {
     for (const garment of rankedGarments) {
@@ -252,6 +257,82 @@ function buildFallbackOutfitIds(rankedGarments: GarmentRecord[], anchor: Garment
 
   return chosen.map((item) => item.id).slice(0, 5);
 }
+
+// ── Slot deduplication ──────────────────────────────────────────────────────
+
+const SLOT_MAP: Record<string, string> = {
+  // tops
+  top: "top", shirt: "top", "t-shirt": "top", tshirt: "top", blouse: "top",
+  sweater: "top", hoodie: "top", polo: "top", tank: "top", tank_top: "top",
+  cardigan: "top", tröja: "top", skjorta: "top", knit: "top",
+  // bottoms
+  bottom: "bottom", pants: "bottom", jeans: "bottom", trousers: "bottom",
+  shorts: "bottom", skirt: "bottom", chinos: "bottom", byxor: "bottom",
+  kjol: "bottom", leggings: "bottom", culottes: "bottom",
+  // shoes
+  shoes: "shoes", sneakers: "shoes", boots: "shoes", loafers: "shoes",
+  sandals: "shoes", heels: "shoes", skor: "shoes", stövlar: "shoes",
+  footwear: "shoes", trainers: "shoes", oxfords: "shoes", mules: "shoes",
+  // outerwear
+  outerwear: "outerwear", jacket: "outerwear", coat: "outerwear",
+  blazer: "outerwear", parka: "outerwear", windbreaker: "outerwear",
+  jacka: "outerwear", kappa: "outerwear", rock: "outerwear",
+  // dress / one-piece
+  dress: "dress", jumpsuit: "dress", overall: "dress", klänning: "dress",
+  // accessory
+  accessory: "accessory", bag: "accessory", hat: "accessory",
+  scarf: "accessory", belt: "accessory",
+};
+
+function getSlotKey(category: string): string {
+  const normalized = normalizeTerm(category);
+  return SLOT_MAP[normalized] || normalized;
+}
+
+/**
+ * Ensure the outfit contains at most one garment per slot.
+ * The anchor garment always wins its slot. Order is preserved.
+ */
+function deduplicateOutfitBySlot(
+  ids: string[],
+  garments: GarmentRecord[],
+  anchor: GarmentRecord | null,
+): string[] {
+  const garmentById = new Map(garments.map((g) => [g.id, g]));
+  const seenSlots = new Set<string>();
+  const result: string[] = [];
+
+  // Anchor earns priority — place it first and claim its slot
+  if (anchor && ids.includes(anchor.id)) {
+    result.push(anchor.id);
+    seenSlots.add(getSlotKey(anchor.category));
+  }
+
+  for (const id of ids) {
+    if (anchor && id === anchor.id) continue; // already placed above
+    const g = garmentById.get(id);
+    if (!g) continue;
+    const slot = getSlotKey(g.category);
+    if (seenSlots.has(slot)) continue; // slot already claimed — skip duplicate
+    seenSlots.add(slot);
+    result.push(id);
+  }
+
+  return result;
+}
+
+/**
+ * Remove raw [ID:uuid] patterns that occasionally leak from the AI's
+ * wardrobe context into its prose output.
+ */
+function stripRawIdReferences(text: string): string {
+  return text
+    .replace(/\s*\[ID:[a-f0-9-]{8,}[^\]]*\]/gi, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 
 function buildOutfitExplanation(rawText: string, fallbackIds: string[]): string {
   const withoutTags = rawText
@@ -277,9 +358,12 @@ function normalizeAssistantReply(params: {
 }): NormalizedAssistantReply {
   const candidate = pickOutfitIdsFromText(params.rawText, params.validGarmentIds);
   const fallbackIds = buildFallbackOutfitIds(params.rankedGarments, params.anchor, params.activeLook);
-  const outfitIds = (candidate?.ids?.length ? candidate.ids : fallbackIds).slice(0, 5);
+  const rawIds = (candidate?.ids?.length ? candidate.ids : fallbackIds).slice(0, 6);
+  // Deduplicate by slot — never emit two bottoms, two jackets, etc.
+  const outfitIds = deduplicateOutfitBySlot(rawIds, params.rankedGarments, params.anchor).slice(0, 5);
   const explanation = (candidate?.explanation || buildOutfitExplanation(params.rawText, outfitIds)).replace(/[\[\]\n\r|]+/g, " ").trim();
-  const prose = stripUnknownTagMarkup(params.rawText.replace(VALID_OUTFIT_TAG_RE, ""));
+  // Strip outfit tags then remove any leaked [ID:uuid] references from the prose
+  const prose = stripRawIdReferences(stripUnknownTagMarkup(params.rawText.replace(VALID_OUTFIT_TAG_RE, "")));
   const outfitTag = outfitIds.length >= 2
     ? `[[outfit:${outfitIds.join(",")}|${explanation || "Current active look"}]]`
     : null;
@@ -650,32 +734,37 @@ ${[...targetedRules, ...(modeRuleMap[intent.mode] || [])].join("\n")}`;
 }
 
 function buildCandidateOutfits(rankedGarments: GarmentRecord[], anchor: GarmentRecord | null): string {
+  // Group garments by canonical slot key (not raw category) to avoid cross-slot confusion
   const slots = new Map<string, GarmentRecord[]>();
   for (const garment of rankedGarments) {
-    const key = normalizeTerm(garment.category);
+    const key = getSlotKey(garment.category);
     if (!slots.has(key)) slots.set(key, []);
     slots.get(key)!.push(garment);
   }
 
-  const topCandidates = anchor && normalizeTerm(anchor.category) === "top"
-    ? [anchor]
+  const anchorSlot = anchor ? getSlotKey(anchor.category) : null;
+
+  // Each slot: if anchor occupies it, anchor leads; otherwise take top-2 from slot pool
+  const topCandidates = anchorSlot === "top"
+    ? [anchor!]
     : (slots.get("top") || []).slice(0, 2);
-  const bottomCandidates = anchor && normalizeTerm(anchor.category) === "bottom"
-    ? [anchor]
+  const bottomCandidates = anchorSlot === "bottom"
+    ? [anchor!]
     : (slots.get("bottom") || []).slice(0, 2);
-  const dressCandidates = anchor && normalizeTerm(anchor.category) === "dress"
-    ? [anchor]
+  const dressCandidates = anchorSlot === "dress"
+    ? [anchor!]
     : (slots.get("dress") || []).slice(0, 2);
-  const shoeCandidates = anchor && normalizeTerm(anchor.category) === "shoes"
-    ? [anchor]
+  const shoeCandidates = anchorSlot === "shoes"
+    ? [anchor!]
     : (slots.get("shoes") || []).slice(0, 2);
-  const outerwearCandidates = anchor && normalizeTerm(anchor.category) === "outerwear"
-    ? [anchor]
+  const outerwearCandidates = anchorSlot === "outerwear"
+    ? [anchor!]
     : (slots.get("outerwear") || []).slice(0, 2);
   const accessoryCandidates = (slots.get("accessory") || []).slice(0, 2);
 
   const candidates: string[] = [];
 
+  // ── Dress-led candidates ─────────────────────────────────────────────────
   for (const dress of dressCandidates) {
     const shoes = shoeCandidates.find((item) => item.id !== dress.id);
     const outerwear = outerwearCandidates.find((item) => item.id !== dress.id && item.id !== shoes?.id);
@@ -687,21 +776,35 @@ function buildCandidateOutfits(rankedGarments: GarmentRecord[], anchor: GarmentR
     if (candidates.length >= 3) return `PREBUILT OUTFIT CANDIDATES:\n${candidates.join("\n")}`;
   }
 
+  // ── Separates candidates (top + bottom) ─────────────────────────────────
   for (const top of topCandidates) {
-    const bottom = bottomCandidates.find((item) => item.id !== top.id && item.id !== anchor?.id);
+    // Only exclude top.id from bottom — anchor CAN be the bottom, it should NOT be excluded
+    const bottom = bottomCandidates.find((item) => item.id !== top.id);
     const shoes = shoeCandidates.find((item) => ![top.id, bottom?.id].includes(item.id));
     const outerwear = outerwearCandidates.find((item) => ![top.id, bottom?.id, shoes?.id].includes(item.id));
     const accessory = accessoryCandidates.find((item) => ![top.id, bottom?.id, shoes?.id, outerwear?.id].includes(item.id));
     const items = [top, bottom, shoes, outerwear, accessory].filter(Boolean) as GarmentRecord[];
-    if (items.length >= 3) {
+    // Verify no duplicate slots in this candidate
+    const usedSlots = new Set(items.map((item) => getSlotKey(item.category)));
+    if (usedSlots.size === items.length && items.length >= 3) {
       candidates.push(`- Candidate ${candidates.length + 1}: ${items.map((item) => `${item.title} [ID:${item.id}]`).join(" + ")} — rationale: balanced separates with clear proportions and a finished focal point.`);
     }
     if (candidates.length >= 3) break;
   }
 
+  // ── Anchor-only fallback ─────────────────────────────────────────────────
   if (anchor && candidates.length === 0) {
-    const support = rankedGarments.filter((item) => item.id !== anchor.id).slice(0, 3);
-    const items = [anchor, ...support].filter(Boolean);
+    // Pick support pieces from different slots than anchor
+    const anchorSlotKey = getSlotKey(anchor.category);
+    const support = rankedGarments
+      .filter((item) => item.id !== anchor.id && getSlotKey(item.category) !== anchorSlotKey)
+      .filter((item, _i, arr) => {
+        // one per slot
+        const slot = getSlotKey(item.category);
+        return arr.findIndex((x) => getSlotKey(x.category) === slot) === arr.indexOf(item);
+      })
+      .slice(0, 4);
+    const items = [anchor, ...support];
     if (items.length >= 2) {
       candidates.push(`- Candidate 1: ${items.map((item) => `${item.title} [ID:${item.id}]`).join(" + ")} — rationale: best available support pieces around the hero garment.`);
     }
@@ -1090,6 +1193,13 @@ GARMENT TAGS:
 - ALWAYS return the outfit tag, including refinement turns, so the UI can update the active look card
 - Garment tags are optional support detail; the single outfit tag is mandatory and authoritative
 - Tags must appear only after the natural-language mention, never as raw bracketed prose on their own.
+
+OUTFIT SLOT RULES — CRITICAL:
+- An outfit must have AT MOST ONE garment per slot: top · bottom · shoes · outerwear · dress
+- A dress REPLACES top + bottom — never combine dress + pants or dress + jeans
+- NEVER include two bottoms, two jackets, two tops, or two shoes in one outfit tag
+- The anchor garment claims its slot — all remaining IDs in the tag must come from DIFFERENT slots
+- [ID:...] notation that appears in the wardrobe listing is INTERNAL REFERENCE ONLY — you must NEVER write [ID:...] patterns in your prose sentences; refer to garments by name or [[garment:ID]] tag only
 
 ${refinementContract}`;
 
