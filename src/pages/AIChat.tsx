@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Sparkles, MoreVertical, Trash2, Shirt, X } from 'lucide-react';
 import { StylistReplyPlaceholder } from '@/components/ui/StylistReplyPlaceholder';
 import { ChatPageSkeleton } from '@/components/ui/skeletons';
@@ -113,6 +113,7 @@ export default function AIChat() {
   const { t, locale } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const createOutfit = useCreateOutfit();
   const { data: garmentCount } = useGarmentCount();
   const { data: styleDNA } = useStyleDNA();
@@ -147,11 +148,48 @@ export default function AIChat() {
 
   useEffect(() => {
     if (!user) { setIsLoading(false); return; }
-    loadMessages(user.id).then(msgs => {
-      if (msgs.length > 0) setMessages(msgs);
-      setIsLoading(false);
-    }).catch(() => setIsLoading(false));
-  }, [user]);
+
+    const outfitId = searchParams.get('outfitId');
+
+    const init = async () => {
+      try {
+        const msgs = await loadMessages(user.id);
+
+        if (outfitId) {
+          // Clear the outfitId from the URL so a refresh doesn't re-inject
+          navigate(location.pathname, { replace: true });
+
+          const { data: outfitData } = await supabase
+            .from('outfits')
+            .select('explanation, outfit_items(garment_id)')
+            .eq('id', outfitId)
+            .single();
+
+          const items = (outfitData?.outfit_items ?? []) as { garment_id: string }[];
+          if (items.length) {
+            const garmentIds = items.map(i => i.garment_id);
+            const explanation = (outfitData?.explanation ?? 'Your mood outfit')
+              .replace(/[\[\]\n\r|]+/g, ' ').trim();
+            const tag = `[[outfit:${garmentIds.join(',')}|${explanation}]]`;
+            const intro: Message = {
+              role: 'assistant',
+              content: `${tag}\n\nHere's your outfit. What would you like to change?`,
+            };
+            setMessages([intro]);
+            return;
+          }
+        }
+
+        if (msgs.length > 0) setMessages(msgs);
+      } catch {
+        // keep welcome message
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    init();
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const garmentIds = useMemo(() => anchoredGarmentId ? Array.from(new Set([anchoredGarmentId, ...extractGarmentIds(messages)])) : extractGarmentIds(messages), [anchoredGarmentId, messages]);
   const { data: garmentsList } = useGarmentsByIds(garmentIds);
