@@ -101,6 +101,16 @@ interface RefinementIntent {
   raw: string;
 }
 
+type StylistChatMode =
+  | "ACTIVE_LOOK_REFINEMENT"
+  | "GARMENT_FIRST_STYLING"
+  | "OUTFIT_GENERATION"
+  | "WARDROBE_GAP_ANALYSIS"
+  | "PURCHASE_PRIORITIZATION"
+  | "STYLE_IDENTITY_ANALYSIS"
+  | "LOOK_EXPLANATION"
+  | "PLANNING";
+
 function getMessageText(content: string | unknown[]): string {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return "";
@@ -625,6 +635,100 @@ function detectRefinementIntent(messages: MessageInput[]): RefinementIntent {
   return { mode: "new_look", raw: latestUser };
 }
 
+function detectStylistChatMode(params: {
+  messages: MessageInput[];
+  activeLook: ActiveLookContext;
+  anchor: GarmentRecord | null;
+  refinementIntent: RefinementIntent;
+}): StylistChatMode {
+  const latestUser = normalizeTerm(getMessageText(params.messages.filter((m) => m.role === "user").slice(-1)[0]?.content || ""));
+  if (!latestUser) return "OUTFIT_GENERATION";
+
+  const hasActiveLook = params.activeLook.garmentIds.length >= 2;
+  const hasAnchor = !!params.anchor;
+
+  if (/(what should i buy|what to buy|buy next|top\s*\d+\s*(things|pieces).{0,20}buy|purchase priority|biggest upgrade per purchase|best purchases?|cheap(est)? high-impact|stop buying)/i.test(latestUser)) {
+    return "PURCHASE_PRIORITIZATION";
+  }
+  if (/(what am i missing|style missing|wardrobe gap|gap analysis|underrepresented|overrepresented|closet audit|wardrobe audit|pieces are weak|doing too much work|missing building blocks|upgrade my wardrobe)/i.test(latestUser)) {
+    return "WARDROBE_GAP_ANALYSIS";
+  }
+  if (/(what is my style|describe my style|style identity|more elevated|more masculine|more minimal|more premium|more expensive-looking|style direction)/i.test(latestUser)) {
+    return "STYLE_IDENTITY_ANALYSIS";
+  }
+  if (/(why does this work|why this works|explain why|break down the look|analyze this look|what makes this better)/i.test(latestUser)) {
+    return "LOOK_EXPLANATION";
+  }
+  if (/(what should i wear this week|build me \d+ .*looks|plan my week|weekly looks|week of outfits|capsule for this week)/i.test(latestUser)) {
+    return "PLANNING";
+  }
+  if (/(style around|build around|based on this|with these chinos|with this blazer|around this|anchor on)/i.test(latestUser) || hasAnchor) {
+    return "GARMENT_FIRST_STYLING";
+  }
+  if (params.refinementIntent.mode !== "new_look" && hasActiveLook) {
+    return "ACTIVE_LOOK_REFINEMENT";
+  }
+  return "OUTFIT_GENERATION";
+}
+
+function buildModeContract(mode: StylistChatMode, lang: { name: string }): string {
+  const universalRules = [
+    `MODE=${mode}. Obey this mode first, then style quality.`,
+    "- Do not collapse every request into generic outfit generation.",
+    "- Keep output decisive and premium; no generic assistant filler.",
+    "- Use wardrobe evidence: category balance, wear frequency, layering role, archetype, texture, drape, structure, versatility.",
+  ];
+
+  const modeRules: Record<StylistChatMode, string[]> = {
+    ACTIVE_LOOK_REFINEMENT: [
+      "- Keep continuity with the active look; preserve unchanged pieces unless directly asked to swap.",
+      "- Make 1-2 high-leverage edits, then explain visual impact (proportion, texture, formality, color harmony).",
+      "- Prioritize edits over full resets.",
+    ],
+    GARMENT_FIRST_STYLING: [
+      "- Build around the anchor garment first and name why it is the hero.",
+      "- Support the anchor with balancing pieces (visual weight, drape/structure, occasion coherence).",
+      "- If anchor is weak for the ask, say so and provide the cleanest adjacent option.",
+    ],
+    OUTFIT_GENERATION: [
+      "- Return the strongest complete look first; at most one backup.",
+      "- Match occasion/weather/formality and avoid repetition patterns from recent outfits.",
+      "- Briefly explain why this look wins versus nearby alternatives.",
+    ],
+    WARDROBE_GAP_ANALYSIS: [
+      "- Do NOT lead with a generic outfit card.",
+      "- Output in this order: 1) gap diagnosis, 2) ranked high-impact additions, 3) what to stop overbuying, 4) optional unlocked look example.",
+      "- Separate NEED vs NICE-TO-HAVE and explain impact per addition.",
+    ],
+    PURCHASE_PRIORITIZATION: [
+      "- Treat this as shopping strategy, not outfit generation.",
+      "- Rank top purchases by impact, versatility, and outfit unlock potential.",
+      "- Include why now, budget sensitivity (if inferred), and what each purchase replaces or upgrades.",
+    ],
+    STYLE_IDENTITY_ANALYSIS: [
+      "- Diagnose current style identity from wardrobe evidence, then define a sharper target direction.",
+      "- Identify missing identity markers (shape, texture, contrast level, footwear language, outerwear structure).",
+      "- Give a short action plan: keep / add / reduce.",
+    ],
+    LOOK_EXPLANATION: [
+      "- Explain the look as visual reasoning: silhouette, proportion, contrast, texture, color harmony, occasion fit.",
+      "- Do not default to proposing a new outfit unless the current one fails.",
+      "- Keep explanation concrete and stylist-level, not generic.",
+    ],
+    PLANNING: [
+      "- Produce a multi-look plan (days or slots) with clear non-repetitive backbone pieces.",
+      "- Reuse intelligently across looks; avoid fatigue from overused items.",
+      "- Include quick swap logic for weather/formality changes.",
+    ],
+  };
+
+  return [
+    `MODE RESPONSE CONTRACT (${lang.name}):`,
+    ...universalRules,
+    ...(modeRules[mode] || []),
+  ].join("\n");
+}
+
 function buildActiveLookContext(messages: MessageInput[], garments: GarmentRecord[]): ActiveLookContext {
   const garmentById = new Map(garments.map((g) => [g.id, g]));
   const assistantMessages = messages.filter((m) => m.role === "assistant").slice(-4).reverse();
@@ -1147,10 +1251,19 @@ serve(async (req) => {
     const threadBrief = buildThreadBrief(messages as MessageInput[], wardrobeCtx.anchor);
     const activeLook = buildActiveLookContext(messages as MessageInput[], wardrobeCtx.rankedGarments);
     const refinementIntent = detectRefinementIntent(messages as MessageInput[]);
+    const stylistMode = detectStylistChatMode({
+      messages: messages as MessageInput[],
+      activeLook,
+      anchor: wardrobeCtx.anchor,
+      refinementIntent,
+    });
     const refinementContract = buildRefinementContract(refinementIntent, activeLook);
-    const candidateOutfits = buildCandidateOutfits(wardrobeCtx.rankedGarments, wardrobeCtx.anchor);
+    const modeContract = buildModeContract(stylistMode, lang);
+    const candidateOutfits = (stylistMode === "WARDROBE_GAP_ANALYSIS" || stylistMode === "PURCHASE_PRIORITIZATION" || stylistMode === "STYLE_IDENTITY_ANALYSIS")
+      ? ""
+      : buildCandidateOutfits(wardrobeCtx.rankedGarments, wardrobeCtx.anchor);
     const chatComplexity = chooseChatComplexity(messages as MessageInput[], wardrobeCtx.anchor);
-    const refinementTurn = isRefinementTurn(refinementIntent, activeLook);
+    const refinementTurn = stylistMode === "ACTIVE_LOOK_REFINEMENT" && isRefinementTurn(refinementIntent, activeLook);
 
     const systemPrompt = `${VOICE_STYLIST_CHAT}
 
@@ -1172,6 +1285,7 @@ ${calendarCtx}
 ${weatherCtx}
 
 STYLIST OPERATING CONTRACT:
+- Primary operating mode for this user turn: ${stylistMode}
 - Act like a premium stylist, not a general assistant.
 - Ground every recommendation in the ranked wardrobe subset first; only mention missing pieces when the wardrobe truly lacks them.
 - If there is an anchor garment, build around it explicitly before offering alternatives.
@@ -1185,6 +1299,7 @@ STYLIST OPERATING CONTRACT:
 - Keep the tone editorial, concise, and premium. No generic helper phrasing.
 - Default to 2-4 short sentences. Shorter and more decisive beats longer and safer.
 - 'Why this works' should read like a stylist's visual rationale, not a generic explainer.
+${modeContract}
 
 GARMENT TAGS:
 - When mentioning a garment from the wardrobe, tag it: [[garment:ID]] after its name
