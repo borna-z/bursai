@@ -1,9 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { BursLoadingScreen } from '@/components/layout/BursLoadingScreen';
-import { EmptyState } from '@/components/layout/EmptyState';
+import { OutfitsOnboardingEmpty } from '@/components/onboarding/OnboardingEmptyState';
 import { useOutfits, type OutfitWithItems } from '@/hooks/useOutfits';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
@@ -106,17 +105,7 @@ export default function OutfitsPage() {
         </header>
 
         {!outfits || outfits.length === 0 ? (
-          <EmptyState
-            icon={Sparkles}
-            title="No looks yet"
-            description="Generate your first outfit to get started"
-            action={{
-              label: 'Create a look',
-              onClick: () => navigate('/outfits/generate'),
-              icon: Sparkles,
-            }}
-            variant="editorial"
-          />
+          <OutfitsOnboardingEmpty />
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {outfits.map((outfit, index) => (

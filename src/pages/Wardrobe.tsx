@@ -22,6 +22,7 @@ import { PaywallModal } from '@/components/PaywallModal';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { EmptyState } from '@/components/layout/EmptyState';
+import { WardrobeOnboardingEmpty } from '@/components/onboarding/OnboardingEmptyState';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { WardrobeOutfitsTab } from '@/components/wardrobe/WardrobeOutfitsTab';
@@ -711,15 +712,15 @@ export default function WardrobePage() {
                     hasNextPage={!!hasNextPage}
                     isFetchingNextPage={isFetchingNextPage}
                   />
-                ) : (
+                ) : hasActiveFilters || search ? (
                   <EmptyState
                     icon={Shirt}
-                    title={hasActiveFilters || search ? t('wardrobe.no_results') : 'Your wardrobe is empty'}
-                    description={hasActiveFilters || search ? t('wardrobe.try_other') : 'Add your first piece and let BURS do the rest'}
-                    action={!hasActiveFilters && !search ? { label: 'Add a garment', onClick: () => navigate('/wardrobe/add'), icon: Plus } : hasActiveFilters ? { label: 'Clear filters', onClick: clearFilters } : undefined}
-                    variant={!hasActiveFilters && !search ? 'editorial' : 'default'}
-                    titleClassName={!hasActiveFilters && !search ? "font-['Playfair_Display']" : undefined}
+                    title={t('wardrobe.no_results')}
+                    description={t('wardrobe.try_other')}
+                    action={hasActiveFilters ? { label: 'Clear filters', onClick: clearFilters } : undefined}
                   />
+                ) : (
+                  <WardrobeOnboardingEmpty />
                 )}
               </div>
             ) : (
