@@ -75,8 +75,8 @@ describe('Home page smoke', () => {
     expect(greeting.textContent).toContain('Test');
   });
 
-  it('renders quick actions', () => {
+  it('renders mood outfit button', () => {
     renderHome();
-    expect(screen.getByText('discover.tool_mood')).toBeInTheDocument();
+    expect(screen.getByText('Mood outfit')).toBeInTheDocument();
   });
 });
