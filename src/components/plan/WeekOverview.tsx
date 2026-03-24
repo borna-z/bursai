@@ -125,6 +125,10 @@ export function WeekOverview({ selectedDate, onSelectDate, plannedOutfits, class
               initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 8 }}
               animate={prefersReduced ? { opacity: 1 } : { opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: idx * STAGGER_DELAY, ease: EASE_CURVE }}
+              className={cn(
+                isTodayDate && 'bg-foreground',
+                isSelected && !isTodayDate && 'border',
+              )}
               style={{
                 flex: 1,
                 height: 64,
@@ -164,7 +168,7 @@ export function WeekOverview({ selectedDate, onSelectDate, plannedOutfits, class
 
               {/* Dot */}
               {hasOutfit && (
-                <div style={{ width: 4, height: 4, background: dotColor }} />
+                <div className="rounded-full" style={{ width: 4, height: 4, background: dotColor }} />
               )}
             </motion.button>
           );
