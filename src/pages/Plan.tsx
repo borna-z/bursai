@@ -420,82 +420,92 @@ export default function PlanPage() {
                 const tagLine = [occasionText, styleText].filter(Boolean).join(' · ');
 
                 return (
-                  <div key={planned.id} className="space-y-4 pb-6 border-b border-border/5 last:border-0 last:pb-0">
-                    {/* 1. Occasion + style line (REDESIGN 3 + 4) */}
-                    <div className="flex items-center gap-2">
-                      <p className="text-[11px] font-['DM_Sans',sans-serif] tracking-widest text-muted-foreground/50 uppercase">
-                        {tagLine}
-                      </p>
-                      {isWorn && (
-                        <Badge variant="secondary" className="text-[10px] uppercase tracking-wider bg-success/10 text-success font-medium">
-                          <Check className="w-3 h-3 mr-1" />
-                          {t('plan.worn')}
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* 2. Garment grid 2x2 (hero) */}
+                  <div key={planned.id} style={{ background: '#1C1917', marginBottom: 8 }}>
+                    {/* Image strip */}
                     <div
-                      className="rounded-2xl overflow-hidden cursor-pointer press"
+                      style={{ display: 'flex', height: 90, cursor: 'pointer' }}
                       onClick={() => navigate(`/outfits/${outfit.id}`)}
                     >
-                      <div className="grid grid-cols-2 gap-1 p-1">
-                        {outfit.outfit_items.slice(0, 4).map((item) => (
-                          <div key={item.id} className="bg-muted aspect-[4/5] rounded-xl overflow-hidden">
-                            <LazyImageSimple
-                              imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
-                              alt={item.garment?.title || item.slot}
-                              className="w-full h-full"
-                            />
-                          </div>
-                        ))}
+                      {outfit.outfit_items.slice(0, 3).map((item) => (
+                        <div key={item.id} style={{ flex: 1, background: '#2C2824', overflow: 'hidden' }}>
+                          <LazyImageSimple
+                            imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
+                            alt={item.garment?.title || item.slot}
+                            className="w-full h-full"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Info block */}
+                    <div style={{ padding: '14px 16px' }}>
+                      {/* Occasion */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <p style={{
+                          fontFamily: 'DM Sans, sans-serif', fontSize: 8, fontWeight: 500,
+                          textTransform: 'uppercase', letterSpacing: '0.12em',
+                          color: 'rgba(245,240,232,0.45)',
+                        }}>
+                          {tagLine}
+                        </p>
+                        {isWorn && (
+                          <span style={{
+                            fontFamily: 'DM Sans, sans-serif', fontSize: 8, fontWeight: 500,
+                            textTransform: 'uppercase', letterSpacing: '0.08em',
+                            color: 'rgba(245,240,232,0.5)',
+                          }}>
+                            · WORN
+                          </span>
+                        )}
                       </div>
-                    </div>
 
-                    {/* 3. Explanation — Playfair Display italic */}
-                    {outfit.explanation && (
-                      <ExpandableExplanation text={outfit.explanation} />
-                    )}
-
-                    {/* 4. Swap + Details buttons */}
-                    <div className="flex items-center gap-3 pt-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => { setCurrentOutfitId(outfit.id); setCurrentPlannedId(planned.id); setSwapSheetOpen(true); }}
-                        className="flex-1 rounded-xl h-11 press"
-                      >
-                        <Repeat className="w-4 h-4 mr-2" />
-                        {t('plan.swap')}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigate(`/outfits/${outfit.id}`)}
-                        className="flex-1 rounded-xl h-10 press"
-                      >
-                        {t('plan.details')}
-                      </Button>
-                    </div>
-
-                    {/* 5. Mark as worn + Remove */}
-                    <div className="flex items-center justify-between">
-                      {!isWorn && (
-                        <button
-                          onClick={() => handleMarkWorn(planned)}
-                          className="text-xs text-muted-foreground/60 hover:text-success flex items-center gap-1.5 transition-colors press"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                          {t('plan.mark_worn')}
-                        </button>
+                      {/* Explanation */}
+                      {outfit.explanation && (
+                        <p style={{
+                          fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+                          fontSize: 12, color: '#F5F0E8', lineHeight: 1.5, marginBottom: 14,
+                        }}>
+                          {outfit.explanation}
+                        </p>
                       )}
-                      <button
-                        onClick={() => handleRemove(planned.id)}
-                        className="text-xs text-muted-foreground/40 hover:text-destructive flex items-center gap-1.5 transition-colors ml-auto press"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        {t('plan.remove')}
-                      </button>
+
+                      {/* Actions */}
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {!isWorn && (
+                          <button
+                            onClick={() => handleMarkWorn(planned)}
+                            style={{
+                              flex: 1, height: 36, background: 'rgba(245,240,232,0.09)',
+                              border: 'none', color: '#F5F0E8',
+                              fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 500,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {t('plan.mark_worn')}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => { setCurrentOutfitId(outfit.id); setCurrentPlannedId(planned.id); setSwapSheetOpen(true); }}
+                          style={{
+                            flex: 1, height: 36, background: 'rgba(245,240,232,0.09)',
+                            border: 'none', color: '#F5F0E8',
+                            fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 500,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {t('plan.swap')}
+                        </button>
+                        <button
+                          onClick={() => handleRemove(planned.id)}
+                          style={{
+                            height: 36, width: 36, background: 'transparent',
+                            border: 'none', color: 'rgba(245,240,232,0.3)',
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          <Trash2 style={{ width: 14, height: 14 }} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -518,17 +528,28 @@ export default function PlanPage() {
               )}
             </div>
           ) : (
-            /* REDESIGN 5 — Empty day state */
-            <div className="border border-border/20 border-dashed rounded-2xl min-h-[120px] flex flex-col items-center justify-center gap-3 py-6">
-              <p className="text-[13px] font-['DM_Sans',sans-serif] text-muted-foreground/40">
-                {t('plan.no_outfit') || 'No outfit planned'}
+            /* Empty day state */
+            <div
+              style={{
+                background: '#EDE8DF', padding: '16px 20px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}
+            >
+              <p style={{
+                fontFamily: 'DM Sans, sans-serif', fontSize: 13,
+                color: 'rgba(28,25,23,0.4)',
+              }}>
+                {t('plan.no_outfit') || 'Nothing planned'}
               </p>
               <button
                 onClick={() => setQuickGenerateSheetOpen(true)}
-                className="text-[13px] font-medium font-['DM_Sans',sans-serif] text-foreground/60 border border-border/20 rounded-full px-4 h-8 flex items-center gap-1.5 hover:bg-muted/40 transition-colors press"
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 500,
+                  color: '#1C1917', padding: 0,
+                }}
               >
-                <Plus className="w-3.5 h-3.5" />
-                {t('plan.plan_this_day') || '+ Plan this day'}
+                {t('plan.plan_this_day') || 'Plan this day'} →
               </button>
             </div>
           )}
