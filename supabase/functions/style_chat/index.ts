@@ -111,6 +111,9 @@ type StylistChatMode =
   | "LOOK_EXPLANATION"
   | "PLANNING";
 
+/** Modes that should NOT produce outfit cards — pure analysis/strategy responses. */
+const NON_OUTFIT_MODES = new Set<StylistChatMode>(["PURCHASE_PRIORITIZATION", "WARDROBE_GAP_ANALYSIS", "STYLE_IDENTITY_ANALYSIS"]);
+
 function getMessageText(content: string | unknown[]): string {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return "";
@@ -365,7 +368,14 @@ function normalizeAssistantReply(params: {
   anchor: GarmentRecord | null;
   activeLook: ActiveLookContext;
   placeOutfitTagFirst?: boolean;
+  suppressOutfitTag?: boolean;
 }): NormalizedAssistantReply {
+  // For non-outfit modes (shopping, gap, identity): return clean prose only, no outfit card
+  if (params.suppressOutfitTag) {
+    const prose = stripRawIdReferences(stripUnknownTagMarkup(params.rawText.replace(VALID_OUTFIT_TAG_RE, "")));
+    return { text: prose, outfitIds: [], outfitTag: null };
+  }
+
   const candidate = pickOutfitIdsFromText(params.rawText, params.validGarmentIds);
   const fallbackIds = buildFallbackOutfitIds(params.rankedGarments, params.anchor, params.activeLook);
   const rawIds = (candidate?.ids?.length ? candidate.ids : fallbackIds).slice(0, 6);
@@ -673,7 +683,7 @@ function detectStylistChatMode(params: {
 
 function buildModeContract(mode: StylistChatMode, lang: { name: string }): string {
   const universalRules = [
-    `MODE=${mode}. Obey this mode first, then style quality.`,
+    `MODE=${mode}. Obey this mode's output shape first, then style quality.`,
     "- Do not collapse every request into generic outfit generation.",
     "- Keep output decisive and premium; no generic assistant filler.",
     "- Use wardrobe evidence: category balance, wear frequency, layering role, archetype, texture, drape, structure, versatility.",
@@ -684,41 +694,73 @@ function buildModeContract(mode: StylistChatMode, lang: { name: string }): strin
       "- Keep continuity with the active look; preserve unchanged pieces unless directly asked to swap.",
       "- Make 1-2 high-leverage edits, then explain visual impact (proportion, texture, formality, color harmony).",
       "- Prioritize edits over full resets.",
+      "- OUTPUT SHAPE: What stays → what changes → why that improves the look (proportion, texture, formality). Then one [[outfit:...]] tag with the updated full look.",
+      "- 2-4 sentences. Lead with the edit, not a recap of the existing look.",
     ],
     GARMENT_FIRST_STYLING: [
       "- Build around the anchor garment first and name why it is the hero.",
       "- Support the anchor with balancing pieces (visual weight, drape/structure, occasion coherence).",
       "- If anchor is weak for the ask, say so and provide the cleanest adjacent option.",
+      "- OUTPUT SHAPE: Name the hero → explain its role (silhouette, texture, color weight) → describe supporting pieces and why each earns its spot → one [[outfit:...]] tag.",
     ],
     OUTFIT_GENERATION: [
       "- Return the strongest complete look first; at most one backup.",
       "- Match occasion/weather/formality and avoid repetition patterns from recent outfits.",
       "- Briefly explain why this look wins versus nearby alternatives.",
+      "- OUTPUT SHAPE: Lead with the look's visual story (silhouette or color logic) → name pieces → one key detail that makes it work → one [[outfit:...]] tag.",
+      "- 2-4 sentences. Confident and editorial.",
     ],
     WARDROBE_GAP_ANALYSIS: [
-      "- Do NOT lead with a generic outfit card.",
-      "- Output in this order: 1) gap diagnosis, 2) ranked high-impact additions, 3) what to stop overbuying, 4) optional unlocked look example.",
-      "- Separate NEED vs NICE-TO-HAVE and explain impact per addition.",
+      "- This is a WARDROBE AUDIT, not outfit generation.",
+      "- Do NOT include any [[outfit:...]] tag. No outfit card in this mode.",
+      "- OUTPUT SHAPE — use clear section breaks:",
+      "  **Overrepresented** — categories or types the wardrobe leans too heavily on. Cite actual counts from the composition data.",
+      "  **Underrepresented** — missing or thin categories that limit outfit variety. Name specific slots, colors, or textures that are absent.",
+      "  **Weakest links** — 1-3 specific garments that underperform (low versatility, poor fit with the rest, redundant with better alternatives).",
+      "  **Highest-leverage additions** — 2-4 acquisitions ranked by how many new outfit combinations each unlocks. For each: describe the piece (type, color, weight, role), explain what it fixes, mark NEED vs NICE-TO-HAVE.",
+      "- Use real numbers from wardrobe composition (category counts, color balance, formality distribution).",
+      "- Sound like a wardrobe strategist doing an honest audit. Be direct about what holds the wardrobe back.",
     ],
     PURCHASE_PRIORITIZATION: [
-      "- Treat this as shopping strategy, not outfit generation.",
-      "- Rank top purchases by impact, versatility, and outfit unlock potential.",
-      "- Include why now, budget sensitivity (if inferred), and what each purchase replaces or upgrades.",
+      "- This is SHOPPING STRATEGY, not outfit generation.",
+      "- Do NOT include any [[outfit:...]] tag. No outfit card in this mode.",
+      "- OUTPUT SHAPE — use clear section breaks:",
+      "  **Top priorities** — 3-5 purchases ranked by impact. For each: what to buy (type, color, material, weight), why it matters for this wardrobe specifically, what new outfits it unlocks, what it replaces or makes redundant.",
+      "  **Stop buying more of** — 1-2 categories already overweight. Name the specific surplus.",
+      "  **Biggest bang for budget** — which single purchase gives the highest versatility return and why.",
+      "- Ground every recommendation in wardrobe evidence: category counts, color gaps, formality holes, versatility scores.",
+      "- Sound like a buying strategist. Be decisive: rank clearly, first priority is first for a stated reason.",
     ],
     STYLE_IDENTITY_ANALYSIS: [
-      "- Diagnose current style identity from wardrobe evidence, then define a sharper target direction.",
-      "- Identify missing identity markers (shape, texture, contrast level, footwear language, outerwear structure).",
-      "- Give a short action plan: keep / add / reduce.",
+      "- This is a STYLE DIAGNOSIS, not outfit generation.",
+      "- Do NOT include any [[outfit:...]] tag. No outfit card in this mode.",
+      "- OUTPUT SHAPE — use clear section breaks:",
+      "  **Current style read** — describe the identity the wardrobe projects now: archetype, color story, silhouette language, texture palette, formality center of gravity. Be specific, use the actual wardrobe data.",
+      "  **What's holding it back** — 2-3 specific weaknesses (e.g. no texture variety, too many safe neutrals, missing defined footwear language, outerwear doesn't match the rest).",
+      "  **How to sharpen it** — a clear target direction and what shifts would get there.",
+      "  **Keep / Add / Reduce** — concrete action plan. Keep: what already works. Add: specific types, colors, textures to introduce. Reduce: what to phase out or stop reaching for.",
+      "- Use wardrobe evidence: dominant archetype, color distribution, material mix, formality spread.",
+      "- Sound like a stylist doing an identity consultation. Be opinionated — the client wants a real read, not diplomatic hedging.",
     ],
     LOOK_EXPLANATION: [
-      "- Explain the look as visual reasoning: silhouette, proportion, contrast, texture, color harmony, occasion fit.",
-      "- Do not default to proposing a new outfit unless the current one fails.",
-      "- Keep explanation concrete and stylist-level, not generic.",
+      "- Explain the look as visual reasoning — do NOT propose a new outfit unless the current one fails.",
+      "- OUTPUT SHAPE — cover these dimensions concisely:",
+      "  **Silhouette & proportion** — what the overall shape does.",
+      "  **Texture & material** — how fabrics work together or create contrast.",
+      "  **Color logic** — tonal harmony, contrast strategy, accent placement.",
+      "  **Formality balance** — how pieces calibrate the formality level.",
+      "  **Occasion fit** — why this reads correctly for the implied setting.",
+      "- Name specific garments and what each contributes. 3-5 sentences, every sentence teaches something about WHY.",
+      "- Include one [[outfit:...]] tag to maintain the active look card in the UI.",
     ],
     PLANNING: [
-      "- Produce a multi-look plan (days or slots) with clear non-repetitive backbone pieces.",
-      "- Reuse intelligently across looks; avoid fatigue from overused items.",
-      "- Include quick swap logic for weather/formality changes.",
+      "- Produce a multi-look plan (days or slots) — this is PLANNING, not one outfit repeated.",
+      "- OUTPUT SHAPE:",
+      "  For each day/slot: a heading (e.g. **Monday — Office**), then 2-3 sentences describing the look with specific garment names, then one [[outfit:...]] tag per look.",
+      "  After all looks: **Reuse logic** — which backbone pieces appear across multiple looks and why. **Quick swaps** — 1-2 swap suggestions if weather or formality changes.",
+      "- Each look must feel intentionally different while sharing a cohesive style thread.",
+      "- Distribute high-impact garments across days — avoid repeating the same hero piece in every look.",
+      "- If the user asks for N looks, deliver exactly N distinct looks. No filler, no padding.",
     ],
   };
 
@@ -1114,7 +1156,9 @@ async function getRejectionsContext(supabase: ReturnType<typeof createClient>, u
   return `\nRECENT REJECTIONS/SWAPS (avoid repeating these patterns):\n${lines.join("\n")}`;
 }
 
-function chooseChatComplexity(messages: MessageInput[], anchor: GarmentRecord | null): "standard" | "complex" {
+function chooseChatComplexity(messages: MessageInput[], anchor: GarmentRecord | null, mode?: StylistChatMode): "standard" | "complex" {
+  // Analysis, planning, and explanation modes always benefit from the complex path
+  if (mode && (NON_OUTFIT_MODES.has(mode) || mode === "PLANNING" || mode === "LOOK_EXPLANATION")) return "complex";
   const latestUserTurn = getMessageText(messages.filter((m) => m.role === "user").slice(-1)[0]?.content || "");
   const hardAsk = /(capsule|wedding|interview|client dinner|date night|trip|travel|pack|formal|black tie|presentation|multiple looks|three looks|5 looks|why|explain|compare|elevate|style around|build around|anchor)/i.test(latestUserTurn);
   if (anchor || hardAsk || latestUserTurn.length > 180) return "complex";
@@ -1259,11 +1303,67 @@ serve(async (req) => {
     });
     const refinementContract = buildRefinementContract(refinementIntent, activeLook);
     const modeContract = buildModeContract(stylistMode, lang);
-    const candidateOutfits = (stylistMode === "WARDROBE_GAP_ANALYSIS" || stylistMode === "PURCHASE_PRIORITIZATION" || stylistMode === "STYLE_IDENTITY_ANALYSIS")
+    const isNonOutfitMode = NON_OUTFIT_MODES.has(stylistMode);
+    const candidateOutfits = isNonOutfitMode
       ? ""
       : buildCandidateOutfits(wardrobeCtx.rankedGarments, wardrobeCtx.anchor);
-    const chatComplexity = chooseChatComplexity(messages as MessageInput[], wardrobeCtx.anchor);
+    const chatComplexity = chooseChatComplexity(messages as MessageInput[], wardrobeCtx.anchor, stylistMode);
     const refinementTurn = stylistMode === "ACTIVE_LOOK_REFINEMENT" && isRefinementTurn(refinementIntent, activeLook);
+
+    const tagRulesBlock = isNonOutfitMode
+      ? `RESPONSE FORMAT:
+- This is an analysis/strategy mode. Do NOT produce [[outfit:...]] tags or outfit cards.
+- Reference specific garments by name from the wardrobe subset to ground your analysis — use real data.
+- Use clear section breaks (bold headers like **Section Name**) to structure your response.
+- [ID:...] notation in the wardrobe listing is INTERNAL REFERENCE ONLY — never write [ID:...] in prose.
+- Do NOT end with an outfit suggestion or outfit card. Stay in analysis mode throughout.`
+      : `GARMENT TAGS:
+- When mentioning a garment from the wardrobe, tag it: [[garment:ID]] after its name
+- For the active outfit snapshot, use exactly one [[outfit:id1,id2,id3|Why this works]] tag in every reply
+- The explanation after | must be in ${lang.name}
+- ALWAYS return the outfit tag, including refinement turns, so the UI can update the active look card
+- Garment tags are optional support detail; the single outfit tag is mandatory and authoritative
+- Tags must appear only after the natural-language mention, never as raw bracketed prose on their own.
+
+OUTFIT SLOT RULES — CRITICAL:
+- An outfit must have AT MOST ONE garment per slot: top · bottom · shoes · outerwear · dress
+- A dress REPLACES top + bottom — never combine dress + pants or dress + jeans
+- NEVER include two bottoms, two jackets, two tops, or two shoes in one outfit tag
+- The anchor garment claims its slot — all remaining IDs in the tag must come from DIFFERENT slots
+- [ID:...] notation that appears in the wardrobe listing is INTERNAL REFERENCE ONLY — you must NEVER write [ID:...] patterns in your prose sentences; refer to garments by name or [[garment:ID]] tag only`;
+
+    const operatingContractLines = [
+      `- Primary operating mode for this user turn: ${stylistMode}`,
+      "- Act like a premium stylist, not a general assistant.",
+      "- Ground every recommendation in the ranked wardrobe subset first; only mention missing pieces when the wardrobe truly lacks them.",
+    ];
+    if (!isNonOutfitMode) {
+      operatingContractLines.push(
+        "- If there is an anchor garment, build around it explicitly before offering alternatives.",
+        "- Think silently in 2-3 outfit candidates first, then answer with the strongest option and at most one backup.",
+        "- Make clear tradeoffs. Say what stays, what changes, and what effect that creates.",
+      );
+    }
+    operatingContractLines.push(
+      "- Explain silhouette, proportion, balance, color harmony, contrast, texture, visual weight, and occasion fit in concrete terms.",
+      "- Distinguish clearly between elevate, relax, warm up, sharpen, soften, and occasion shifts.",
+      "- Preserve continuity with the thread brief; do not reset the user's goal each turn.",
+      "- Keep the tone editorial, concise, and premium. No generic helper phrasing.",
+    );
+    if (isNonOutfitMode) {
+      operatingContractLines.push(
+        "- Use wardrobe composition data (counts, colors, archetypes, versatility) as evidence — cite specifics, not vague claims.",
+        "- Be opinionated and decisive. The client wants real insight, not diplomatic hedging.",
+        "- Structure the response with clear sections. Each section must add real value.",
+      );
+    } else {
+      operatingContractLines.push(
+        "- Treat the active look as the default working look for refinements.",
+        "- If the user asks for styling advice rather than a full outfit, still reference specific garments from the wardrobe subset.",
+        "- Default to 2-4 short sentences. Shorter and more decisive beats longer and safer.",
+        "- 'Why this works' should read like a stylist's visual rationale, not a generic explainer.",
+      );
+    }
 
     const systemPrompt = `${VOICE_STYLIST_CHAT}
 
@@ -1285,38 +1385,12 @@ ${calendarCtx}
 ${weatherCtx}
 
 STYLIST OPERATING CONTRACT:
-- Primary operating mode for this user turn: ${stylistMode}
-- Act like a premium stylist, not a general assistant.
-- Ground every recommendation in the ranked wardrobe subset first; only mention missing pieces when the wardrobe truly lacks them.
-- If there is an anchor garment, build around it explicitly before offering alternatives.
-- Think silently in 2-3 outfit candidates first, then answer with the strongest option and at most one backup.
-- Make clear tradeoffs. Say what stays, what changes, and what effect that creates.
-- Explain silhouette, proportion, balance, color harmony, contrast, texture, visual weight, and occasion fit in concrete terms.
-- Distinguish clearly between elevate, relax, warm up, sharpen, soften, and occasion shifts.
-- Preserve continuity with the thread brief; do not reset the user's goal each turn.
-- Treat the active look as the default working look for refinements.
-- If the user asks for styling advice rather than a full outfit, still reference specific garments from the wardrobe subset.
-- Keep the tone editorial, concise, and premium. No generic helper phrasing.
-- Default to 2-4 short sentences. Shorter and more decisive beats longer and safer.
-- 'Why this works' should read like a stylist's visual rationale, not a generic explainer.
+${operatingContractLines.join("\n")}
 ${modeContract}
 
-GARMENT TAGS:
-- When mentioning a garment from the wardrobe, tag it: [[garment:ID]] after its name
-- For the active outfit snapshot, use exactly one [[outfit:id1,id2,id3|Why this works]] tag in every reply
-- The explanation after | must be in ${lang.name}
-- ALWAYS return the outfit tag, including refinement turns, so the UI can update the active look card
-- Garment tags are optional support detail; the single outfit tag is mandatory and authoritative
-- Tags must appear only after the natural-language mention, never as raw bracketed prose on their own.
+${tagRulesBlock}
 
-OUTFIT SLOT RULES — CRITICAL:
-- An outfit must have AT MOST ONE garment per slot: top · bottom · shoes · outerwear · dress
-- A dress REPLACES top + bottom — never combine dress + pants or dress + jeans
-- NEVER include two bottoms, two jackets, two tops, or two shoes in one outfit tag
-- The anchor garment claims its slot — all remaining IDs in the tag must come from DIFFERENT slots
-- [ID:...] notation that appears in the wardrobe listing is INTERNAL REFERENCE ONLY — you must NEVER write [ID:...] patterns in your prose sentences; refer to garments by name or [[garment:ID]] tag only
-
-${refinementContract}`;
+${isNonOutfitMode ? "" : refinementContract}`;
 
     const preparedMessages = (messages as MessageInput[]).map((m) => {
       if (typeof m.content === "string") {
@@ -1328,13 +1402,23 @@ ${refinementContract}`;
       return m;
     });
 
+    // Mode-aware token limits: planning needs space for multiple looks, analysis needs structured sections
+    const modeMaxTokens: Partial<Record<StylistChatMode, number>> = {
+      PLANNING: 1800,
+      PURCHASE_PRIORITIZATION: 1400,
+      WARDROBE_GAP_ANALYSIS: 1400,
+      STYLE_IDENTITY_ANALYSIS: 1400,
+      LOOK_EXPLANATION: 1200,
+    };
+    const maxTokens = modeMaxTokens[stylistMode] ?? (chatComplexity === "complex" ? 1200 : 1000);
+
     const aiResponse = await callBursAI({
       messages: [
         { role: "system", content: systemPrompt },
         ...preparedMessages,
       ],
       complexity: chatComplexity,
-      max_tokens: chatComplexity === "complex" ? 1200 : 1000,
+      max_tokens: maxTokens,
       functionName: "style_chat",
     });
 
@@ -1346,6 +1430,7 @@ ${refinementContract}`;
       anchor: wardrobeCtx.anchor,
       activeLook,
       placeOutfitTagFirst: refinementTurn,
+      suppressOutfitTag: isNonOutfitMode,
     });
 
     return createSseTextResponse(
