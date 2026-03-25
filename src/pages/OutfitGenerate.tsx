@@ -300,7 +300,7 @@ export default function OutfitGeneratePage() {
                   {/* Card footer */}
                   <div className="px-3 pt-2.5 pb-3 space-y-1">
                     <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-[#1C1917]/50">
-                      {OCCASIONS.find(o => o.key === primary.occasion)?.label ?? primary.occasion}
+                      {OCCASIONS.find(o => o.key === selectedOccasion)?.label ?? selectedOccasion}
                     </p>
                     {reasoningText && (
                       <p className="font-['Playfair_Display'] italic text-[13px] text-[#1C1917]/70 leading-snug line-clamp-2">

@@ -443,8 +443,10 @@ export default function LiveScan() {
     const prefs = asPreferences(profile?.preferences);
     if (prefs.showRenderPrompt !== false && lastAccepted) {
       setShowConfirmSheet(true);
+    } else {
+      navigate('/wardrobe');
     }
-  }, [profile, lastAccepted]);
+  }, [profile, lastAccepted, navigate]);
 
   const handleDone = useCallback(async () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());

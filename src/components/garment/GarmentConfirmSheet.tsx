@@ -228,53 +228,41 @@ export function GarmentConfirmSheet({
             {/* ── IDLE STATE ── */}
             {renderState === 'idle' && (
               <>
-                {/* Primary: Generate Studio Look */}
-                <button
-                  onClick={handleGenerateClick}
-                  style={{
-                    width: '100%', background: '#1C1917', border: 'none', cursor: 'pointer',
-                    padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  }}
-                >
-                  <div style={{ textAlign: 'left' }}>
-                    <p style={{
+                {/* Primary row: equal-width, equal-height side-by-side buttons */}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={handleGenerateClick}
+                    style={{
+                      flex: 1, height: 44, background: '#1C1917', border: 'none', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    }}
+                  >
+                    <Sparkles style={{ width: 12, height: 12, color: 'rgba(245,240,232,0.6)', flexShrink: 0 }} />
+                    <span style={{
                       fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-                      fontSize: 12, color: '#F5F0E8', margin: 0,
+                      fontSize: 12, color: '#F5F0E8',
                     }}>
                       Generate Studio Look
-                    </p>
-                    <p style={{
-                      fontFamily: 'DM Sans, sans-serif', fontSize: 8.5,
-                      color: 'rgba(245,240,232,0.38)', margin: '2px 0 0',
-                    }}>
-                      Ghost mannequin render · Plus only
-                    </p>
-                  </div>
-                  <div style={{
-                    width: 26, height: 26, background: 'rgba(245,240,232,0.08)',
-                    border: '0.5px solid rgba(245,240,232,0.12)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <Sparkles style={{ width: 12, height: 12, color: 'rgba(245,240,232,0.6)' }} />
-                  </div>
-                </button>
+                    </span>
+                  </button>
 
-                {/* Secondary: Save to wardrobe */}
-                <div style={{ textAlign: 'center', marginTop: 10 }}>
                   <button
                     onClick={handleSaveAndGo}
                     style={{
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      fontFamily: 'DM Sans, sans-serif', fontSize: 10, color: '#1C1917',
-                      borderBottom: '0.5px solid rgba(28,25,23,0.25)', paddingBottom: 1,
+                      flex: 1, height: 44, background: '#EDE8DF', border: 'none', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}
                   >
-                    Save to wardrobe →
+                    <span style={{
+                      fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: '#1C1917',
+                    }}>
+                      Save to wardrobe →
+                    </span>
                   </button>
                 </div>
 
                 {/* Tertiary: Turn off renders */}
-                <div style={{ textAlign: 'center', marginTop: 6 }}>
+                <div style={{ textAlign: 'center', marginTop: 8 }}>
                   <button
                     onClick={handleTurnOffRenders}
                     style={{

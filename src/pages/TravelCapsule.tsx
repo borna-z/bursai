@@ -176,6 +176,13 @@ export default function TravelCapsule() {
     [capsuleGarments]
   );
 
+  // Fallback map so thumbnails render immediately from the pre-loaded wardrobe
+  // before capsuleGarments finishes its async fetch
+  const allGarmentsMap = useMemo(
+    () => new Map((allGarments || []).map(g => [g.id, g])),
+    [allGarments]
+  );
+
   // ── Derived values (tripNights moved above travelCardPhases) ──
 
   const tripDays = tripNights + (includeTravelDays ? 2 : 0);
@@ -315,9 +322,9 @@ export default function TravelCapsule() {
 
         // Smart occasion auto-select (only on first weather load)
         if (!hasManualOccasions) {
-          const auto: string[] = ['vardag'];
+          const auto: string[] = ['casual'];
           if (avgMax > 28) auto.push('beach');
-          if (avgPrecip > 60) { /* keep vardag, skip outdoor */ }
+          if (avgPrecip > 60) { /* keep casual, skip outdoor */ }
           else if (avgMax > 20 && avgMax <= 28) auto.push('hiking');
           setSelectedOccasions(prev => {
             const merged = new Set([...auto, ...prev]);
@@ -436,7 +443,7 @@ export default function TravelCapsule() {
           .from('outfits')
           .insert({
             user_id: userId,
-            occasion: capsuleOutfit.occasion || 'vardag',
+            occasion: capsuleOutfit.occasion || 'travel',
             explanation: capsuleOutfit.note || `${destination} – Day ${capsuleOutfit.day}`,
             saved: true,
             planned_for: outfitDate,
@@ -1107,7 +1114,7 @@ export default function TravelCapsule() {
                       {/* Outfit thumbnails */}
                       <div className="px-4 pb-3 flex gap-2 overflow-x-auto scrollbar-none">
                         {outfit.items.map(itemId => {
-                          const g = garmentMap.get(itemId);
+                          const g = garmentMap.get(itemId) ?? allGarmentsMap.get(itemId);
                           if (!g) return null;
                           return (
                             <div key={itemId} className="w-[72px] shrink-0">
@@ -1120,8 +1127,8 @@ export default function TravelCapsule() {
                         })}
                       </div>
 
-                      {/* Note / activity */}
-                      {outfit.note && (
+                      {/* Note / activity — skip the generic edge-function fallback string */}
+                      {outfit.note && outfit.note !== 'A flexible core look for travel day.' && (
                         <div className="px-4 pb-3">
                           <p className="text-[11px] text-muted-foreground/60">{outfit.note}</p>
                         </div>
