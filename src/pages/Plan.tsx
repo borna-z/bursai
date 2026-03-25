@@ -1,11 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { PRESETS } from '@/lib/motion';
 import { format, addDays, isToday, isTomorrow } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
-import { Wand2, Shirt, CalendarDays, Repeat, Check, Trash2, Plus, Sparkles, Briefcase, PartyPopper, Heart, Luggage, ChevronRight } from 'lucide-react';
+import { Wand2, CalendarDays, Plus, ChevronRight } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PlanPageSkeleton } from '@/components/ui/skeletons';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -16,11 +16,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { toast } from 'sonner';
 import { getOccasionLabel } from '@/lib/occasionLabel';
 import { humanize } from '@/lib/humanize';
-import { cn } from '@/lib/utils';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
-import { EmptyState } from '@/components/layout/EmptyState';
 import { PlanOnboardingEmpty } from '@/components/onboarding/OnboardingEmptyState';
 import { WeekOverview } from '@/components/plan/WeekOverview';
 
@@ -54,29 +52,7 @@ import { CalendarEventsList } from '@/components/plan/CalendarEventBadge';
 import { CoachMark } from '@/components/coach/CoachMark';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 
-const occasionIcons: Record<string, React.ElementType> = {
-  work: Briefcase, jobb: Briefcase,
-  party: PartyPopper, fest: PartyPopper,
-  date: Heart, dejt: Heart,
-};
-
 const MAX_OUTFITS_PER_DAY = 4;
-
-/** Expandable explanation text — tap to toggle line clamp (REDESIGN 4) */
-function ExpandableExplanation({ text }: { text: string }) {
-  const [expanded, setExpanded] = useState(false);
-  return (
-    <p
-      onClick={() => setExpanded(v => !v)}
-      className={cn(
-        "text-[14px] font-['Playfair_Display',serif] italic text-muted-foreground/70 leading-relaxed cursor-pointer",
-        !expanded && 'line-clamp-2',
-      )}
-    >
-      {text}
-    </p>
-  );
-}
 
 export default function PlanPage() {
   useBackgroundSyncNotification();
@@ -134,6 +110,18 @@ export default function PlanPage() {
 
   const hasOutfits = dayPlannedOutfits.length > 0;
   const canAddMore = dayPlannedOutfits.length < MAX_OUTFITS_PER_DAY;
+
+  const weekDays = useMemo(() => {
+    const today = new Date();
+    return Array.from({ length: 7 }, (_, i) => addDays(today, i));
+  }, []);
+
+  const weekPlannedCount = useMemo(() => {
+    return weekDays.filter(d => {
+      const dateStr = format(d, 'yyyy-MM-dd');
+      return plannedOutfits.some(p => p.date === dateStr && p.outfit_id);
+    }).length;
+  }, [plannedOutfits, weekDays]);
 
   // Date label
   let dateLabel = format(selectedDate, 'EEEE d MMMM', { locale: getDateFnsLocale(locale) });
@@ -329,6 +317,14 @@ export default function PlanPage() {
           className="py-3"
         />
 
+        {/* Progress bar */}
+        <div className="flex items-center gap-2 mt-2">
+          <div style={{ flex: 1, height: 3, background: 'rgba(28,25,23,0.1)', borderRadius: 999, overflow: 'hidden' }}>
+            <div style={{ background: '#1C1917', borderRadius: 999, width: `${(weekPlannedCount / 7) * 100}%`, height: '100%' }} />
+          </div>
+          <span style={{ fontSize: 11, fontFamily: 'DM Sans, sans-serif', color: '#8C7B6B' }}>{weekPlannedCount}/7 days</span>
+        </div>
+
         {/* Day content */}
         <motion.div
           key={selectedDateStr}
@@ -374,18 +370,6 @@ export default function PlanPage() {
                   <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
                 </motion.button>
               </CoachMark>
-              <motion.button
-                whileTap={prefersReduced ? undefined : { scale: 0.97 }}
-                onClick={() => navigate('/plan/travel-capsule')}
-                className="w-full h-[72px] rounded-2xl bg-card border border-border/20 flex items-center px-4 gap-3 text-left"
-              >
-                <Luggage className="w-5 h-5 text-foreground/50 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[15px] font-medium text-foreground">Pack for a trip</p>
-                  <p className="text-[12px] text-muted-foreground">Capsule wardrobe for any destination</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
-              </motion.button>
             </div>
           )}
 
@@ -407,27 +391,130 @@ export default function PlanPage() {
             <PlanPageSkeleton />
           ) : !hasGarments ? (
             <PlanOnboardingEmpty />
+          ) : weekPlannedCount === 0 ? (
+            /* STEP 3: No outfits planned for the week */
+            <div style={{ textAlign: 'center', paddingTop: 32, paddingBottom: 32 }}>
+              <div style={{
+                width: 56, height: 56, background: 'rgba(28,25,23,0.05)', borderRadius: 999,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
+              }}>
+                <span style={{ fontSize: 24 }}>▦</span>
+              </div>
+              <h3 style={{
+                fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+                fontSize: 20, color: '#1C1917', margin: '0 0 8px',
+              }}>
+                Nothing planned yet
+              </h3>
+              <p style={{
+                fontFamily: 'DM Sans, sans-serif', fontSize: 14, color: '#8C7B6B',
+                margin: '0 0 24px', lineHeight: 1.5,
+              }}>
+                Let the AI fill your week based on your calendar, weather, and what you haven't worn lately.
+              </p>
+              <button
+                onClick={() => setQuickPlanSheetOpen(true)}
+                style={{
+                  width: '100%', background: '#1C1917', color: '#F5F0E8', border: 'none',
+                  borderRadius: 12, padding: '12px 0', fontSize: 14, fontWeight: 500,
+                  cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', marginBottom: 8,
+                  display: 'block',
+                }}
+              >
+                ✦ Plan the week
+              </button>
+              <button
+                onClick={() => setQuickGenerateSheetOpen(true)}
+                style={{
+                  width: '100%', background: 'none', border: '1px solid rgba(28,25,23,0.1)',
+                  borderRadius: 12, padding: '12px 0', fontSize: 14, color: '#1C1917',
+                  cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', display: 'block',
+                }}
+              >
+                Plan today only
+              </button>
+            </div>
           ) : hasOutfits ? (
             <div className="space-y-4">
               {dayPlannedOutfits.map((planned) => {
                 const outfit = planned.outfit;
                 if (!outfit) return null;
-                const isWorn = planned.status === 'worn';
 
-                // REDESIGN 3 — occasion + style as single text line
                 const occasionText = getOccasionLabel(outfit.occasion || '', t).toUpperCase();
                 const styleText = outfit.style_vibe ? humanize(outfit.style_vibe).toUpperCase() : '';
                 const tagLine = [occasionText, styleText].filter(Boolean).join(' · ');
 
+                if (isToday(selectedDate)) {
+                  /* STEP 4: Today's dark outfit card */
+                  return (
+                    <div key={planned.id} style={{ background: '#1C1917', borderRadius: 16, overflow: 'hidden' }}>
+                      <div style={{ padding: '16px 16px 12px' }}>
+                        {tagLine && (
+                          <p style={{
+                            fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em',
+                            color: 'rgba(245,240,232,0.45)', marginBottom: 8,
+                            fontFamily: 'DM Sans, sans-serif', fontWeight: 500,
+                          }}>
+                            {tagLine}
+                          </p>
+                        )}
+                        {/* Garment thumbnails — flex row, up to 4 */}
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                          {outfit.outfit_items.slice(0, 4).map((item) => (
+                            <div
+                              key={item.id}
+                              style={{ flex: 1, aspectRatio: '1', background: '#2C2824', overflow: 'hidden', borderRadius: 4 }}
+                            >
+                              <LazyImageSimple
+                                imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
+                                alt={item.garment?.title || item.slot}
+                                className="w-full h-full"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        {outfit.explanation && (
+                          <p style={{
+                            fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+                            fontSize: 14, color: 'rgba(245,240,232,0.75)', lineHeight: 1.6, marginBottom: 16,
+                          }}>
+                            {outfit.explanation}
+                          </p>
+                        )}
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button
+                            onClick={() => handleMarkWorn(planned)}
+                            style={{
+                              flex: 1, background: '#F5F0E8', color: '#1C1917', border: 'none',
+                              borderRadius: 8, padding: '12px 0', fontSize: 14, fontWeight: 600,
+                              cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                            }}
+                          >
+                            Wear today
+                          </button>
+                          <button
+                            onClick={() => { setCurrentOutfitId(outfit.id); setCurrentPlannedId(planned.id); setSwapSheetOpen(true); }}
+                            style={{
+                              flex: 1, background: 'rgba(245,240,232,0.1)', color: 'rgba(245,240,232,0.7)',
+                              border: 'none', borderRadius: 8, padding: '12px 0', fontSize: 14,
+                              cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                            }}
+                          >
+                            Restyle
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                /* STEP 5: Other planned day cards */
                 return (
-                  <div key={planned.id} style={{ background: '#1C1917', marginBottom: 8 }}>
-                    {/* Image strip */}
-                    <div
-                      style={{ display: 'flex', height: 90, cursor: 'pointer' }}
-                      onClick={() => navigate(`/outfits/${outfit.id}`)}
-                    >
-                      {outfit.outfit_items.slice(0, 3).map((item) => (
-                        <div key={item.id} style={{ flex: 1, background: '#2C2824', overflow: 'hidden' }}>
+                  <div key={planned.id} style={{ background: 'white', border: '1px solid rgba(28,25,23,0.1)', borderRadius: 16, overflow: 'hidden' }}>
+                    {/* Thumbnails */}
+                    <div style={{ display: 'flex', height: 80 }}>
+                      {outfit.outfit_items.slice(0, 4).map((item) => (
+                        <div key={item.id} style={{ flex: 1, background: '#F5F0E8', overflow: 'hidden' }}>
                           <LazyImageSimple
                             imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
                             alt={item.garment?.title || item.slot}
@@ -436,76 +523,48 @@ export default function PlanPage() {
                         </div>
                       ))}
                     </div>
-
-                    {/* Info block */}
-                    <div style={{ padding: '14px 16px' }}>
-                      {/* Occasion */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    {/* Info */}
+                    <div style={{ padding: '12px 16px' }}>
+                      {tagLine && (
                         <p style={{
-                          fontFamily: 'DM Sans, sans-serif', fontSize: 8, fontWeight: 500,
-                          textTransform: 'uppercase', letterSpacing: '0.12em',
-                          color: 'rgba(245,240,232,0.45)',
+                          fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em',
+                          color: 'rgba(28,25,23,0.4)', marginBottom: 6, fontFamily: 'DM Sans, sans-serif',
                         }}>
                           {tagLine}
                         </p>
-                        {isWorn && (
-                          <span style={{
-                            fontFamily: 'DM Sans, sans-serif', fontSize: 8, fontWeight: 500,
-                            textTransform: 'uppercase', letterSpacing: '0.08em',
-                            color: 'rgba(245,240,232,0.5)',
-                          }}>
-                            · WORN
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Explanation */}
+                      )}
                       {outfit.explanation && (
                         <p style={{
                           fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-                          fontSize: 12, color: '#F5F0E8', lineHeight: 1.5, marginBottom: 14,
+                          fontSize: 13, color: 'rgba(28,25,23,0.6)', lineHeight: 1.5,
                         }}>
                           {outfit.explanation}
                         </p>
                       )}
-
-                      {/* Actions */}
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        {!isWorn && (
-                          <button
-                            onClick={() => handleMarkWorn(planned)}
-                            style={{
-                              flex: 1, height: 36, background: 'rgba(245,240,232,0.09)',
-                              border: 'none', color: '#F5F0E8',
-                              fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 500,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {t('plan.mark_worn')}
-                          </button>
-                        )}
-                        <button
-                          onClick={() => { setCurrentOutfitId(outfit.id); setCurrentPlannedId(planned.id); setSwapSheetOpen(true); }}
-                          style={{
-                            flex: 1, height: 36, background: 'rgba(245,240,232,0.09)',
-                            border: 'none', color: '#F5F0E8',
-                            fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 500,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {t('plan.swap')}
-                        </button>
-                        <button
-                          onClick={() => handleRemove(planned.id)}
-                          style={{
-                            height: 36, width: 36, background: 'transparent',
-                            border: 'none', color: 'rgba(245,240,232,0.3)',
-                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}
-                        >
-                          <Trash2 style={{ width: 14, height: 14 }} />
-                        </button>
-                      </div>
+                    </div>
+                    {/* Footer */}
+                    <div style={{
+                      display: 'flex', justifyContent: 'space-between',
+                      padding: '8px 16px', borderTop: '1px solid rgba(28,25,23,0.06)',
+                    }}>
+                      <button
+                        onClick={() => { setCurrentOutfitId(outfit.id); setCurrentPlannedId(planned.id); setSwapSheetOpen(true); }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#8C7B6B', fontFamily: 'DM Sans, sans-serif' }}
+                      >
+                        ↻ Swap
+                      </button>
+                      <button
+                        onClick={() => navigate(`/outfits/${outfit.id}`)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#8C7B6B', fontFamily: 'DM Sans, sans-serif' }}
+                      >
+                        ✎ Edit
+                      </button>
+                      <button
+                        onClick={() => handleRemove(planned.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#8C7B6B', fontFamily: 'DM Sans, sans-serif' }}
+                      >
+                        ✕ Clear
+                      </button>
                     </div>
                   </div>
                 );
@@ -528,28 +587,28 @@ export default function PlanPage() {
               )}
             </div>
           ) : (
-            /* Empty day state */
-            <div
-              style={{
-                background: '#EDE8DF', padding: '16px 20px',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              }}
-            >
-              <p style={{
-                fontFamily: 'DM Sans, sans-serif', fontSize: 13,
-                color: 'rgba(28,25,23,0.4)',
-              }}>
-                {t('plan.no_outfit') || 'Nothing planned'}
-              </p>
+            /* STEP 6: Day with no outfit planned */
+            <div style={{
+              border: '2px dashed rgba(28,25,23,0.1)', borderRadius: 16, padding: 16,
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <div>
+                <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 700, color: '#1C1917', marginBottom: 2 }}>
+                  {dateLabel}
+                </p>
+                <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 11, color: '#8C7B6B' }}>
+                  No outfit planned
+                </p>
+              </div>
               <button
                 onClick={() => setQuickGenerateSheetOpen(true)}
                 style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 500,
-                  color: '#1C1917', padding: 0,
+                  background: 'rgba(28,25,23,0.05)', border: '1px solid rgba(28,25,23,0.1)',
+                  borderRadius: 8, padding: '8px 12px', fontSize: 12, fontWeight: 500,
+                  color: '#1C1917', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
                 }}
               >
-                {t('plan.plan_this_day') || 'Plan this day'} →
+                + Plan
               </button>
             </div>
           )}
