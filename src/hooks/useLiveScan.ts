@@ -16,12 +16,19 @@ export interface ScanResult {
   confidence?: number;
 }
 
+export interface AcceptedGarmentInfo {
+  garmentId: string;
+  imagePath: string;
+  analysis: GarmentAnalysis;
+}
+
 export function useLiveScan() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [scanCount, setScanCount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastResult, setLastResult] = useState<ScanResult | null>(null);
+  const [lastAccepted, setLastAccepted] = useState<AcceptedGarmentInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const savingRef = useRef<Promise<void>[]>([]);
@@ -121,11 +128,17 @@ export function useLiveScan() {
   const accept = useCallback(() => {
     if (!lastResult || !user) return;
     const result = lastResult;
+    const garmentId = crypto.randomUUID();
+    const isPng = result.blob.type === 'image/png';
+    const ext = isPng ? 'png' : 'jpg';
+    const imagePath = `${user.id}/${garmentId}.${ext}`;
+
     setLastResult(null);
     setScanCount((c) => c + 1);
     hapticSuccess();
+    setLastAccepted({ garmentId, imagePath, analysis: result.analysis });
 
-    const savePromise = saveGarmentInBackground(result, user.id);
+    const savePromise = saveGarmentInBackground(result, user.id, garmentId);
     savingRef.current.push(savePromise);
   }, [lastResult, user]);
 
@@ -151,10 +164,14 @@ export function useLiveScan() {
     queryClient.invalidateQueries({ queryKey: ['subscription'] });
   }, [queryClient]);
 
+  const clearLastAccepted = useCallback(() => setLastAccepted(null), []);
+
   return {
     scanCount,
     isProcessing,
     lastResult,
+    lastAccepted,
+    clearLastAccepted,
     error,
     capture,
     captureFromFile,

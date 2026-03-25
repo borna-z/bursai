@@ -524,6 +524,40 @@ export default function SettingsStyle() {
           </div>
         </div>
 
+        {/* Studio render prompt */}
+        <div className="bg-card rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <div className="min-w-0">
+              <span className="text-sm font-semibold text-foreground block">Offer studio renders</span>
+              <span className="text-[11px] text-muted-foreground block mt-0.5">Show the Studio Look prompt after adding a garment</span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={prefs.showRenderPrompt !== false}
+              onClick={async () => {
+                const next = prefs.showRenderPrompt === false;
+                try {
+                  await updateProfile.mutateAsync({
+                    preferences: { ...prefs, showRenderPrompt: next } as Json,
+                  });
+                } catch { toast.error(t('settings.pref_error')); }
+              }}
+              className={cn(
+                'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                prefs.showRenderPrompt !== false ? 'bg-accent' : 'bg-muted',
+              )}
+            >
+              <span
+                className={cn(
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow-lg ring-0 transition duration-200 ease-in-out',
+                  prefs.showRenderPrompt !== false ? 'translate-x-5' : 'translate-x-0',
+                )}
+              />
+            </button>
+          </div>
+        </div>
+
       </div>
     </AppLayout>
   );
