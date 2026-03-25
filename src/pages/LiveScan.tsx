@@ -16,6 +16,9 @@ import { EASE_CURVE } from '@/lib/motion';
 import { categoryLabel, colorLabel, materialLabel } from '@/lib/humanize';
 import { CoachMark } from '@/components/coach/CoachMark';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
+import { GarmentConfirmSheet } from '@/components/garment/GarmentConfirmSheet';
+import { useProfile } from '@/hooks/useProfile';
+import { asPreferences } from '@/types/preferences';
 
 /* ─── Accepted overlay — fast checkmark fade ─── */
 function AcceptedOverlay({ onDone, label }: { onDone: () => void; label: string }) {
@@ -321,8 +324,10 @@ export default function LiveScan() {
   const useFileInputMode = isMedian || !navigator.mediaDevices?.getUserMedia;
 
   const coach = useFirstRunCoach();
-  const { scanCount, isProcessing, lastResult, error, capture, captureFromFile, accept, retake, finish } = useLiveScan();
+  const { scanCount, isProcessing, lastResult, lastAccepted, clearLastAccepted, error, capture, captureFromFile, accept, retake, finish } = useLiveScan();
   const { subscription, isPremium, isLoading: isSubLoading } = useSubscription();
+  const { data: profile } = useProfile();
+  const [showConfirmSheet, setShowConfirmSheet] = useState(false);
 
   // Guard: don't allow scanning until subscription data is loaded (prevents race condition)
   const remainingSlots = isPremium ? Infinity : isSubLoading ? 0 : PLAN_LIMITS.free.maxGarments - (subscription?.garments_count || 0) - scanCount;
@@ -433,7 +438,13 @@ export default function LiveScan() {
     setShowAccepted(true);
   }, [accept, lastResult]);
 
-  const handleAcceptedDone = useCallback(() => { setShowAccepted(false); }, []);
+  const handleAcceptedDone = useCallback(() => {
+    setShowAccepted(false);
+    const prefs = asPreferences(profile?.preferences);
+    if (prefs.showRenderPrompt !== false && lastAccepted) {
+      setShowConfirmSheet(true);
+    }
+  }, [profile, lastAccepted]);
 
   const handleDone = useCallback(async () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -695,6 +706,26 @@ export default function LiveScan() {
       )}
 
       <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="garments" />
+
+      {lastAccepted && (
+        <GarmentConfirmSheet
+          open={showConfirmSheet}
+          garmentId={lastAccepted.garmentId}
+          garmentImagePath={lastAccepted.imagePath}
+          detectedTitle={lastAccepted.analysis.title}
+          detectedCategory={lastAccepted.analysis.category}
+          detectedColor={lastAccepted.analysis.color_primary}
+          detectedMaterial={lastAccepted.analysis.material || null}
+          detectedFit={lastAccepted.analysis.fit || null}
+          formalityScore={lastAccepted.analysis.formality ?? null}
+          onClose={() => {
+            setShowConfirmSheet(false);
+            clearLastAccepted();
+            streamRef.current?.getTracks().forEach((t) => t.stop());
+            finish();
+          }}
+        />
+      )}
     </div>
     </PageErrorBoundary>
   );

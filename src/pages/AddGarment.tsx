@@ -32,6 +32,9 @@ import { GarmentAnalysisState } from '@/components/ui/GarmentAnalysisState';
 import { getGarmentProcessingMessage } from '@/lib/garmentImage';
 import { getBulkAddSelectionLimit } from '@/lib/bulkAddLimits';
 import { buildGarmentIntelligenceFields, standardizeGarmentAiRaw, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
+import { GarmentConfirmSheet } from '@/components/garment/GarmentConfirmSheet';
+import { useProfile } from '@/hooks/useProfile';
+import { asPreferences } from '@/types/preferences';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
 const PATTERN_IDS = ['solid', 'striped', 'checked', 'dotted', 'floral', 'patterned', 'camo'] as const;
@@ -175,6 +178,8 @@ export default function AddGarmentPage() {
   const { user } = useAuth();
   const { canAddGarment, remainingGarments, isPremium, refresh: refreshSubscription } = useSubscription();
   const { checkDuplicates, duplicates, clearDuplicates } = useDuplicateDetection();
+  const { data: profile } = useProfile();
+  const [showConfirmSheet, setShowConfirmSheet] = useState(false);
 
   const { takePhoto, pickFromGallery } = useMedianCamera({
     fileInputRef,
@@ -402,7 +407,12 @@ export default function AddGarmentPage() {
         });
       }
 
-      navigate('/wardrobe');
+      const prefs = asPreferences(profile?.preferences);
+      if (prefs.showRenderPrompt !== false && garmentId) {
+        setShowConfirmSheet(true);
+      } else {
+        navigate('/wardrobe');
+      }
     } catch (error) {
       console.error('Error saving garment:', error);
       toast.error(t('common.something_wrong'));
@@ -927,6 +937,23 @@ export default function AddGarmentPage() {
           resetForm();
         }}
       />
+
+      {garmentId && storagePath && (
+        <GarmentConfirmSheet
+          open={showConfirmSheet}
+          garmentId={garmentId}
+          garmentImagePath={storagePath}
+          detectedTitle={title}
+          detectedCategory={category}
+          detectedColor={colorPrimary}
+          detectedMaterial={material || null}
+          detectedFit={fit || null}
+          formalityScore={formality[0] ?? null}
+          onClose={() => {
+            setShowConfirmSheet(false);
+          }}
+        />
+      )}
     </div>
   );
 }

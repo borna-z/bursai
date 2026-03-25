@@ -16,13 +16,14 @@ export interface SaveableResult {
  */
 export async function saveGarmentInBackground(
   result: SaveableResult,
-  userId: string
+  userId: string,
+  externalGarmentId?: string,
 ): Promise<void> {
   let garmentId = '';
   let storagePath = '';
 
   try {
-    garmentId = crypto.randomUUID();
+    garmentId = externalGarmentId || crypto.randomUUID();
     const isPng = result.blob.type === 'image/png';
     const ext = isPng ? 'png' : 'jpg';
     storagePath = `${userId}/${garmentId}.${ext}`;

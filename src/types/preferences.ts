@@ -34,6 +34,8 @@ export interface ProfilePreferences {
   style_profile?: StyleProfile;
   styleProfile?: StyleProfile;
   notifications?: NotificationPreferences;
+  showRenderPrompt?: boolean;
+  show_mannequin?: boolean;
   [key: string]: unknown;
 }
 
