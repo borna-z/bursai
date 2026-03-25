@@ -417,6 +417,7 @@ export type Database = {
           in_laundry: boolean | null
           last_worn_at: string | null
           material: string | null
+          occasion_tags: string[] | null
           original_image_path: string | null
           pattern: string | null
           processed_image_path: string | null
@@ -429,11 +430,16 @@ export type Database = {
           purchase_currency: string | null
           purchase_price: number | null
           season_tags: string[] | null
+          silhouette: string | null
           source_url: string | null
+          style_archetype: string | null
           subcategory: string | null
+          texture_intensity: number | null
           title: string
           updated_at: string | null
           user_id: string
+          versatility_score: number | null
+          visual_weight: number | null
           wear_count: number | null
         }
         Insert: {
@@ -461,6 +467,7 @@ export type Database = {
           in_laundry?: boolean | null
           last_worn_at?: string | null
           material?: string | null
+          occasion_tags?: string[] | null
           original_image_path?: string | null
           pattern?: string | null
           processed_image_path?: string | null
@@ -473,11 +480,16 @@ export type Database = {
           purchase_currency?: string | null
           purchase_price?: number | null
           season_tags?: string[] | null
+          silhouette?: string | null
           source_url?: string | null
+          style_archetype?: string | null
           subcategory?: string | null
+          texture_intensity?: number | null
           title: string
           updated_at?: string | null
           user_id: string
+          versatility_score?: number | null
+          visual_weight?: number | null
           wear_count?: number | null
         }
         Update: {
@@ -505,6 +517,7 @@ export type Database = {
           in_laundry?: boolean | null
           last_worn_at?: string | null
           material?: string | null
+          occasion_tags?: string[] | null
           original_image_path?: string | null
           pattern?: string | null
           processed_image_path?: string | null
@@ -517,11 +530,16 @@ export type Database = {
           purchase_currency?: string | null
           purchase_price?: number | null
           season_tags?: string[] | null
+          silhouette?: string | null
           source_url?: string | null
+          style_archetype?: string | null
           subcategory?: string | null
+          texture_intensity?: number | null
           title?: string
           updated_at?: string | null
           user_id?: string
+          versatility_score?: number | null
+          visual_weight?: number | null
           wear_count?: number | null
         }
         Relationships: [
