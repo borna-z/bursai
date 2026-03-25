@@ -34,6 +34,12 @@ type Message = {
   content: MessageContent;
 };
 
+interface PlanActionPayload {
+  mode: string;
+  calendar_days: Array<{ date: string; [key: string]: unknown }>;
+  can_plan: boolean;
+}
+
 const STYLE_CHAT_URL = getSupabaseFunctionUrl('style_chat');
 
 async function loadMessages(userId: string): Promise<Message[]> {
@@ -127,6 +133,7 @@ export default function AIChat() {
   const [pendingImage, setPendingImage] = useState<{ url: string; path: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [anchoredGarmentId, setAnchoredGarmentId] = useState<string | null>(null);
+  const [planActionPayload, setPlanActionPayload] = useState<PlanActionPayload | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const activeStreamControllerRef = useRef<AbortController | null>(null);
   const activeRequestIdRef = useRef(0);
@@ -213,6 +220,7 @@ export default function AIChat() {
     const userMsg: Message = { role: 'user', content: userContent };
     setInput('');
     setPendingImage(null);
+    setPlanActionPayload(null);
     setIsStreaming(true);
 
     const welcomeText = t('chat.welcome');
@@ -282,6 +290,9 @@ export default function AIChat() {
 
           try {
             const parsed = JSON.parse(jsonStr);
+            if (parsed.type === 'plan_action' && parsed.payload?.can_plan) {
+              setPlanActionPayload(parsed.payload as PlanActionPayload);
+            }
             const delta = parsed.choices?.[0]?.delta?.content;
             if (delta != null) resetStreamTimeout();
             const nextAssistantContent = mergeAssistantContent(assistantContent, delta);
@@ -361,6 +372,10 @@ export default function AIChat() {
       toast.error(t('outfit.create_error') || 'Could not create outfit');
     }
   }, [garmentMap, createOutfit, navigate, t]);
+
+  const handleAddToPlan = useCallback((payload: PlanActionPayload) => {
+    navigate('/plan', { state: { planningMode: true, calendar_days: payload.calendar_days } });
+  }, [navigate]);
 
   return (
     <PageErrorBoundary fallback={<AIChatFallback />}>
@@ -469,6 +484,41 @@ export default function AIChat() {
                 </motion.div>
               );
             })}
+            {/* Plan action banner */}
+            {planActionPayload && !isStreaming && (
+              <div style={{
+                background: '#1C1917', borderRadius: 12, padding: 16, marginTop: 12,
+              }}>
+                <p style={{
+                  fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+                  fontSize: 14, color: 'rgba(245,240,232,0.75)', marginBottom: 12,
+                }}>
+                  Your week is planned. Add these looks to the planner?
+                </p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => { handleAddToPlan(planActionPayload); setPlanActionPayload(null); }}
+                    style={{
+                      flex: 1, background: '#F5F0E8', color: '#1C1917', border: 'none',
+                      borderRadius: 8, padding: '8px 0', fontSize: 14, fontWeight: 500,
+                      cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                    }}
+                  >
+                    Add to plan
+                  </button>
+                  <button
+                    onClick={() => setPlanActionPayload(null)}
+                    style={{
+                      flex: 1, background: 'transparent', color: 'rgba(245,240,232,0.5)',
+                      border: 'none', borderRadius: 8, padding: '8px 0', fontSize: 14,
+                      cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                    }}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
         )}
