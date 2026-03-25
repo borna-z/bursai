@@ -2821,7 +2821,7 @@ function getQualityViolations(combo: ScoredCombo, weather: WeatherInput): Qualit
     slotCounts.set(s, (slotCounts.get(s) || 0) + 1);
   }
   for (const [slot, count] of slotCounts) {
-    if (['bottom', 'shoes', 'dress'].includes(slot) && count > 1) {
+    if (['bottom', 'shoes', 'dress', 'outerwear'].includes(slot) && count > 1) {
       violations.push({ rule: 'duplicate_core_role', detail: `${count}x ${slot}` });
     }
   }
@@ -4488,7 +4488,7 @@ serve(async (req) => {
     const suggestions = (aiResult.data.suggestions || []).flatMap((s: any) => {
       const idx = Math.min(s.combo_index || 0, combos.length - 1);
       const combo = combos[idx];
-      const { complete } = isCompleteOutfit(combo.items, weather);
+      const { complete } = isCompleteOutfit(combo.items, weather, 'guaranteed_base');
       if (!complete) return [];
       const dc = combo as DeduplicatedCombo;
       const sConf = computeConfidence(combo, candidateCount, slotCandidates, weather, occasion);
@@ -4508,6 +4508,33 @@ serve(async (req) => {
     });
 
     if (!suggestions.length) {
+      // Fallback: return top 3 combos directly rather than 422
+      const fallbackSuggestions = combos.slice(0, 3).map((c, i) => {
+        const dc = c as DeduplicatedCombo;
+        const sConf = computeConfidence(c, candidateCount, slotCandidates, weather, occasion);
+        return {
+          title: `Outfit ${i + 1}`,
+          garment_ids: c.items.map(item => item.garment.id),
+          garments: c.items.map(item => item.garment),
+          explanation: "",
+          occasion,
+          family_label: dc.family_label || 'classic',
+          variation_reason: dc.variation_reason || '',
+          confidence_score: sConf.confidence_score,
+          confidence_level: sConf.confidence_level,
+          limitation_note: null,
+        };
+      });
+      if (fallbackSuggestions.length > 0) {
+        return new Response(JSON.stringify({
+          suggestions: fallbackSuggestions,
+          confidence_score: confidence.confidence_score,
+          confidence_level: confidence.confidence_level,
+          limitation_note: limitationNote,
+          wardrobe_insights: wardrobeInsights.length > 0 ? wardrobeInsights : undefined,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      // Only 422 if we truly have no combos at all
       return new Response(JSON.stringify(buildIncompleteOutfitFailure(weather, occasion, slotCandidates)), {
         status: 422,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
