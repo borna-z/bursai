@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,7 +9,7 @@ import { enUS, nb, sv, da, fi, de, fr, es, it, pt, nl, pl, ar } from 'date-fns/l
 
 import { useProfile } from '@/hooks/useProfile';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { useGarmentCount } from '@/hooks/useGarments';
+import { useGarmentCount, useFlatGarments } from '@/hooks/useGarments';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { WeatherPill } from '@/components/weather/WeatherPill';
@@ -18,6 +18,8 @@ import { usePlannedOutfitsForDate } from '@/hooks/usePlannedOutfits';
 import { useInsights } from '@/hooks/useInsights';
 import { useWeather } from '@/hooks/useWeather';
 import { useLocation } from '@/contexts/LocationContext';
+import { useCalendarEventsRange } from '@/hooks/useCalendarSync';
+import { buildTodaySuggestions } from '@/lib/buildTodaySuggestions';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { hapticLight } from '@/lib/haptics';
 import { useMotionPreset } from '@/lib/motion';
@@ -58,11 +60,14 @@ export default function HomePage() {
   const reveal = useMotionPreset('REVEAL');
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const tomorrowStr = format(new Date(Date.now() + 86400000), 'yyyy-MM-dd');
   const { data: todayOutfits, isLoading: isOutfitsLoading } = usePlannedOutfitsForDate(todayStr);
   const { data: insightsData } = useInsights();
   const { effectiveCity } = useLocation();
   const { weather } = useWeather({ city: effectiveCity });
   const { data: dna } = useStyleDNA();
+  const { data: calendarEvents } = useCalendarEventsRange(todayStr, tomorrowStr);
+  const { data: flatGarments } = useFlatGarments();
 
   const homeState = deriveHomeState(garmentCount, todayOutfits, weather ?? undefined, isCountLoading || isOutfitsLoading);
 
@@ -95,6 +100,19 @@ export default function HomePage() {
   fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
   const sleepingBeauties = (insightsData?.unusedGarments ?? []).filter(
     g => (g.wear_count ?? 0) === 0 && g.created_at != null && new Date(g.created_at) < fourteenDaysAgo,
+  );
+
+  const todayCalEvents = useMemo(
+    () => (calendarEvents ?? []).filter(e => e.date === todayStr),
+    [calendarEvents, todayStr],
+  );
+  const tomorrowCalEvents = useMemo(
+    () => (calendarEvents ?? []).filter(e => e.date === tomorrowStr),
+    [calendarEvents, tomorrowStr],
+  );
+  const stylistSuggestions = useMemo(
+    () => buildTodaySuggestions(weather ?? undefined, todayCalEvents, tomorrowCalEvents, flatGarments ?? []),
+    [weather, todayCalEvents, tomorrowCalEvents, flatGarments],
   );
 
   return (
@@ -281,6 +299,39 @@ export default function HomePage() {
           >
             {getStylistTip({ weather: weather ?? undefined, garmentCount: garmentCount ?? undefined, archetype: dna?.archetype, topColor: dna?.signatureColors?.[0]?.color, topCombo: dna?.uniformCombos?.[0]?.combo, formalityCenter: dna?.formalityCenter })}
           </motion.p>
+
+          {/* ── Zone 2b: Stylist suggestion chips ── */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              marginTop: 16,
+            }}
+          >
+            {stylistSuggestions.map(chip => (
+              <button
+                key={chip}
+                onClick={() => {
+                  hapticLight();
+                  navigate('/ai/chat', { state: { prefillMessage: chip } });
+                }}
+                style={{
+                  background: '#EDE8DF',
+                  border: 'none',
+                  padding: '10px 16px',
+                  textAlign: 'left',
+                  fontFamily: 'DM Sans, sans-serif',
+                  fontSize: 13,
+                  color: '#1C1917',
+                  cursor: 'pointer',
+                  lineHeight: 1.45,
+                }}
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
 
           {/* ── Zone 3: StyleDNA + quick buttons + Sleeping Beauties ── */}
           <div className="space-y-3 mt-6">
