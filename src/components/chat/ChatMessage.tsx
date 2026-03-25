@@ -130,6 +130,23 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
                     isCreating={isCreatingOutfit}
                   />
                 ))}
+                {rejectionLine && (
+                  <div style={{
+                    borderLeft: '2px solid rgba(28,25,23,0.20)',
+                    paddingLeft: 10,
+                    marginTop: 6,
+                  }}>
+                    <span style={{
+                      fontFamily: 'DM Sans, sans-serif',
+                      fontSize: 12,
+                      color: 'rgba(28,25,23,0.60)',
+                      fontStyle: 'italic',
+                      lineHeight: 1.5,
+                    }}>
+                      {rejectionLine}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
             {/* Prose text — secondary style when outfit is present */}
@@ -161,7 +178,7 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
                 ))}
               </div>
             )}
-            {showStyleCards && outfitCards.length > 0 && (
+            {showStyleCards && outfitCards.length > 0 && !hasOutfit && (
               <div className="space-y-2 pt-2">
                 {outfitCards.map((oc, i) => (
                   <OutfitSuggestionCard
@@ -172,23 +189,6 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
                     isCreating={isCreatingOutfit}
                   />
                 ))}
-                {rejectionLine && (
-                  <div style={{
-                    borderLeft: '2px solid rgba(28,25,23,0.20)',
-                    paddingLeft: 10,
-                    marginTop: 6,
-                  }}>
-                    <span style={{
-                      fontFamily: 'DM Sans, sans-serif',
-                      fontSize: 12,
-                      color: 'rgba(28,25,23,0.60)',
-                      fontStyle: 'italic',
-                      lineHeight: 1.5,
-                    }}>
-                      {rejectionLine}
-                    </span>
-                  </div>
-                )}
               </div>
             )}
           </>
