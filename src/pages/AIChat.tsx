@@ -134,6 +134,7 @@ export default function AIChat() {
   const [isUploading, setIsUploading] = useState(false);
   const [anchoredGarmentId, setAnchoredGarmentId] = useState<string | null>(null);
   const [planActionPayload, setPlanActionPayload] = useState<PlanActionPayload | null>(null);
+  const [suggestionChips, setSuggestionChips] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const activeStreamControllerRef = useRef<AbortController | null>(null);
   const activeRequestIdRef = useRef(0);
@@ -221,6 +222,7 @@ export default function AIChat() {
     setInput('');
     setPendingImage(null);
     setPlanActionPayload(null);
+    setSuggestionChips([]);
     setIsStreaming(true);
 
     const welcomeText = t('chat.welcome');
@@ -292,6 +294,9 @@ export default function AIChat() {
             const parsed = JSON.parse(jsonStr);
             if (parsed.type === 'plan_action' && parsed.payload?.can_plan) {
               setPlanActionPayload(parsed.payload as PlanActionPayload);
+            }
+            if (parsed.type === 'suggestions' && Array.isArray(parsed.chips)) {
+              setSuggestionChips(parsed.chips as string[]);
             }
             const delta = parsed.choices?.[0]?.delta?.content;
             if (delta != null) resetStreamTimeout();
@@ -517,6 +522,42 @@ export default function AIChat() {
                     Dismiss
                   </button>
                 </div>
+              </div>
+            )}
+            {/* Suggestion chips */}
+            {!isStreaming && suggestionChips.length > 0 && input === '' && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  gap: 8,
+                  overflowX: 'auto',
+                  WebkitOverflowScrolling: 'touch',
+                  scrollbarWidth: 'none',
+                  paddingBottom: 2,
+                  flexWrap: 'nowrap',
+                }}
+              >
+                {suggestionChips.map((chip) => (
+                  <button
+                    key={chip}
+                    onClick={() => { setSuggestionChips([]); sendMessage(chip); }}
+                    style={{
+                      flexShrink: 0,
+                      background: '#F5F0E8',
+                      color: '#1C1917',
+                      border: '1px solid rgba(28,25,23,0.2)',
+                      borderRadius: 8,
+                      padding: '8px 14px',
+                      fontSize: 14,
+                      fontFamily: 'DM Sans, sans-serif',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {chip}
+                  </button>
+                ))}
               </div>
             )}
             <div ref={messagesEndRef} />
