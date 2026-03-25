@@ -64,7 +64,7 @@ export function getGarmentProcessingMessage(
   }
 
   if (renderStatus === 'skipped') {
-    return { label: 'Using uploaded product photo', tone: 'success' };
+    return null;
   }
 
   switch (status) {

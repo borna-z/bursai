@@ -87,11 +87,8 @@ describe('garmentImage', () => {
     });
   });
 
-  it('shows success copy when render is intentionally skipped', () => {
-    expect(getGarmentProcessingMessage('ready', 'skipped')).toEqual({
-      label: 'Using uploaded product photo',
-      tone: 'success',
-    });
+  it('returns null when render is intentionally skipped', () => {
+    expect(getGarmentProcessingMessage('ready', 'skipped')).toBeNull();
   });
 
   it('falls through to processing message when render is none', () => {

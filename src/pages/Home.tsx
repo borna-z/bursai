@@ -91,6 +91,12 @@ export default function HomePage() {
 
   const todayOutfit = todayOutfits?.[0]?.outfit;
 
+  const fourteenDaysAgo = new Date();
+  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+  const sleepingBeauties = (insightsData?.unusedGarments ?? []).filter(
+    g => (g.wear_count ?? 0) === 0 && g.created_at != null && new Date(g.created_at) < fourteenDaysAgo,
+  );
+
   return (
     <AppLayout>
       <PullToRefresh onRefresh={handleRefresh}>
@@ -305,7 +311,7 @@ export default function HomePage() {
             </div>
 
             {/* Sleeping Beauties */}
-            {(insightsData?.unusedGarments?.length ?? 0) >= 3 && (
+            {sleepingBeauties.length >= 3 && (
               <div
                 role="button"
                 onClick={() => navigate('/outfits/unused')}
@@ -321,7 +327,7 @@ export default function HomePage() {
                   fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
                   fontSize: 16, color: '#1C1917', marginBottom: 4,
                 }}>
-                  {insightsData!.unusedGarments!.length} garments unworn
+                  {sleepingBeauties.length} garments unworn this month
                 </p>
                 <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: 'rgba(28,25,23,0.5)' }}>
                   See what's being ignored →

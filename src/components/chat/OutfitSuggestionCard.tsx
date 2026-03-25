@@ -102,7 +102,6 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-2 space-y-1.5" side="bottom" align="center">
-                <p className="text-[10px] font-medium text-muted-foreground px-1">{t('outfit.swap_title') || 'Byt ut'}</p>
                 {loadingAlts ? (
                   <div className="flex items-center justify-center py-3 px-4">
                     <RefreshCw className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
