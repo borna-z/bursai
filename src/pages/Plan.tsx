@@ -391,7 +391,7 @@ export default function PlanPage() {
             <PlanPageSkeleton />
           ) : !hasGarments ? (
             <PlanOnboardingEmpty />
-          ) : weekPlannedCount === 0 ? (
+          ) : weekPlannedCount === 0 && !hasOutfits ? (
             /* STEP 3: No outfits planned for the week */
             <div style={{ textAlign: 'center', paddingTop: 32, paddingBottom: 32 }}>
               <div style={{
