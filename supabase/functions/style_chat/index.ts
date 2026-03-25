@@ -59,6 +59,13 @@ interface GarmentRecord {
   ai_raw: Record<string, any> | null;
 }
 
+interface RawSignal {
+  signal_type: string;
+  value: string | null;
+  metadata: Record<string, any> | null;
+  created_at: string | null;
+}
+
 interface AnchorSelection {
   anchor: GarmentRecord | null;
   explicitIds: string[];
@@ -1099,7 +1106,7 @@ async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>
   return { text: `\nRecent outfits:\n${lines.join("\n")}`, occasions };
 }
 
-async function getRejectionsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
+async function getRejectionsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<{ text: string; raw: RawSignal[] }> {
   const { data: signals } = await supabase
     .from("feedback_signals")
     .select("signal_type, value, metadata, created_at")
@@ -1107,7 +1114,7 @@ async function getRejectionsContext(supabase: ReturnType<typeof createClient>, u
     .in("signal_type", ["swap", "reject", "dislike", "thumbs_down"])
     .order("created_at", { ascending: false })
     .limit(8);
-  if (!signals?.length) return "";
+  if (!signals?.length) return { text: "", raw: [] };
 
   const lines = signals.map((s: any) => {
     const meta = s.metadata || {};
@@ -1120,7 +1127,63 @@ async function getRejectionsContext(supabase: ReturnType<typeof createClient>, u
     return `- ${parts.join(' | ')} (${s.created_at?.slice(0, 10) || ''})`;
   });
 
-  return `\nRECENT REJECTIONS/SWAPS (avoid repeating these patterns):\n${lines.join("\n")}`;
+  return {
+    text: `\nRECENT REJECTIONS/SWAPS (avoid repeating these patterns):\n${lines.join("\n")}`,
+    raw: signals as RawSignal[],
+  };
+}
+
+function buildTasteMemoryBlock(
+  rawSignals: RawSignal[],
+  garments: GarmentRecord[],
+  dna: { archetype: string | null; formalityCenter: number | null },
+): string {
+  const insights: string[] = [];
+
+  // 1. Slot swap/reject frequency — slot appearing 2+ times
+  const slotCounts: Record<string, number> = {};
+  for (const s of rawSignals) {
+    const slot = s.metadata?.slot as string | undefined;
+    if (slot) slotCounts[slot] = (slotCounts[slot] ?? 0) + 1;
+  }
+  const repeatedSlot = Object.entries(slotCounts)
+    .sort((a, b) => b[1] - a[1])
+    .find(([, count]) => count >= 2);
+  if (repeatedSlot) {
+    insights.push(
+      `User repeatedly swaps out ${repeatedSlot[0]} — avoid leading with low-formality ${repeatedSlot[0]} options`,
+    );
+  }
+
+  // 2. Color avoidance — 3+ unworn garments share the same color_primary
+  const colorCounts: Record<string, number> = {};
+  for (const g of garments) {
+    if ((g.wear_count ?? 0) === 0 && g.color_primary) {
+      colorCounts[g.color_primary] = (colorCounts[g.color_primary] ?? 0) + 1;
+    }
+  }
+  const avoidedColor = Object.entries(colorCounts)
+    .sort((a, b) => b[1] - a[1])
+    .find(([, count]) => count >= 3);
+  if (avoidedColor) {
+    insights.push(
+      `User rejects ${avoidedColor[0]} items — avoid unless anchored by a strong request`,
+    );
+  }
+
+  // 3. Signature archetype from DNA
+  if (dna.archetype) {
+    insights.push(`Signature move: ${dna.archetype} — lean into this pattern`);
+  }
+
+  // 4. Formality centre — casual lean if average worn-garment formality < 2.5
+  if (dna.formalityCenter !== null && dna.formalityCenter < 2.5) {
+    insights.push(
+      `User consistently dresses casual — structured suggestions need strong justification`,
+    );
+  }
+
+  return insights.slice(0, 4).join("\n");
 }
 
 function chooseChatComplexity(messages: MessageInput[], anchor: GarmentRecord | null): "standard" | "complex" {
@@ -1179,6 +1242,20 @@ serve(async (req) => {
       getRejectionsContext(supabase, user.id),
       getWardrobeContext(supabase, user.id, messages as MessageInput[], selectedGarmentIds),
     ]);
+
+    // --- Taste memory ---
+    const wornCount = wardrobeCtx.rankedGarments.filter(g => (g.wear_count ?? 0) > 0).length;
+    const formalityValues = wardrobeCtx.rankedGarments
+      .filter(g => g.formality != null && (g.wear_count ?? 0) > 0)
+      .map(g => g.formality as number);
+    const formalityCenter = formalityValues.length >= 3
+      ? formalityValues.reduce((a, b) => a + b, 0) / formalityValues.length
+      : null;
+    const dna = { archetype: wardrobeCtx.dominantArchetype, formalityCenter };
+    const hasEnoughData = rejectionsCtx.raw.length >= 2 || wornCount >= 5 || dna.archetype !== null;
+    const tasteMemoryBlock = hasEnoughData
+      ? buildTasteMemoryBlock(rejectionsCtx.raw, wardrobeCtx.rankedGarments, dna)
+      : "";
 
     const profile = profileRes.data;
 
@@ -1306,7 +1383,8 @@ ${styleLines ? `\nSTYLE PROFILE:\n${styleLines}` : ""}
 ${threadBrief ? `${threadBrief}\n\n` : ""}${wardrobeCtx.text}
 ${candidateOutfits ? `\n\n${candidateOutfits}` : ""}
 ${recentOutfitsCtx.text}
-${rejectionsCtx}
+${rejectionsCtx.text}
+${tasteMemoryBlock ? `\nTASTE MEMORY (learned from behavior — reference this naturally in replies):\n${tasteMemoryBlock}` : ""}
 ${calendarCtx}
 ${weatherCtx}
 

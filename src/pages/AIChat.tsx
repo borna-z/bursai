@@ -130,6 +130,7 @@ export default function AIChat() {
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [pendingPrefill, setPendingPrefill] = useState<string | null>(null);
   const [pendingImage, setPendingImage] = useState<{ url: string; path: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [anchoredGarmentId, setAnchoredGarmentId] = useState<string | null>(null);
@@ -138,16 +139,17 @@ export default function AIChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const activeStreamControllerRef = useRef<AbortController | null>(null);
   const activeRequestIdRef = useRef(0);
+  const sendMessageRef = useRef<(text?: string) => Promise<void>>(async () => {});
 
   const isWelcomeState = messages.length === 1 && messages[0].role === 'assistant' && !isStreaming;
 
   useEffect(() => {
-    const state = location.state as { selectedGarmentId?: string } | null;
+    const state = location.state as { selectedGarmentId?: string; prefillMessage?: string } | null;
     const garmentId = state?.selectedGarmentId ?? null;
-    if (garmentId) {
-      setAnchoredGarmentId(garmentId);
-      navigate(location.pathname, { replace: true, state: null });
-    }
+    const prefill = state?.prefillMessage ?? null;
+    if (garmentId) setAnchoredGarmentId(garmentId);
+    if (prefill) setPendingPrefill(prefill);
+    if (garmentId || prefill) navigate(location.pathname, { replace: true, state: null });
   }, [location.pathname, location.state, navigate]);
 
   useEffect(() => () => {
@@ -344,6 +346,17 @@ export default function AIChat() {
       }
     }
   };
+
+  // Keep ref in sync so the auto-send effect can call the latest sendMessage
+  sendMessageRef.current = sendMessage;
+
+  // Auto-send a message pre-filled from navigation state (e.g. Today screen suggestion chips)
+  useEffect(() => {
+    if (!pendingPrefill || isLoading) return;
+    const msg = pendingPrefill;
+    setPendingPrefill(null);
+    sendMessageRef.current(msg);
+  }, [pendingPrefill, isLoading]);
 
   const clearHistory = async () => {
     if (!user) return;

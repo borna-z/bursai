@@ -109,6 +109,8 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
   }
 
   // Assistant message — clean left-aligned, no avatar
+  const hasOutfit = showStyleCards && outfitCards.length > 0;
+
   return (
     <div className="animate-fade-in">
       <div className="space-y-2 max-w-[92%]">
@@ -116,8 +118,29 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
           <span className="inline-block w-0.5 h-5 bg-accent/60 animate-pulse rounded-full" />
         ) : (
           <>
+            {/* Outfit card — hero position when present */}
+            {hasOutfit && (
+              <div className="space-y-2">
+                {outfitCards.map((oc, i) => (
+                  <OutfitSuggestionCard
+                    key={`outfit-${i}`}
+                    garments={oc.garments}
+                    explanation={oc.explanation}
+                    onTryOutfit={onTryOutfit || (() => {})}
+                    isCreating={isCreatingOutfit}
+                  />
+                ))}
+              </div>
+            )}
+            {/* Prose text — secondary style when outfit is present */}
             {textParts && (
-              <div className="text-[15px] leading-[1.7] whitespace-pre-wrap text-foreground">
+              <div
+                className={
+                  hasOutfit
+                    ? 'text-[14px] leading-relaxed text-foreground/70 whitespace-pre-wrap'
+                    : 'text-[15px] leading-[1.7] whitespace-pre-wrap text-foreground'
+                }
+              >
                 {textParts}
                 {isStreaming && (
                   <span className="inline-block w-[1.5px] h-[18px] bg-accent/60 animate-pulse ml-0.5 align-text-bottom rounded-full" />
