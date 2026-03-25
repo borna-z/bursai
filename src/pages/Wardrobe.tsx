@@ -36,6 +36,10 @@ import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
 import { RenderPendingOverlay } from '@/components/wardrobe/RenderPendingOverlay';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
+import { asPreferences } from '@/types/preferences';
+import type { Json } from '@/integrations/supabase/types';
 
 // ── Category Section Header ──
 
@@ -534,6 +538,8 @@ export default function WardrobePage() {
 
   const updateGarment = useUpdateGarment();
   const deleteGarment = useDeleteGarment();
+  const { data: profile } = useProfile();
+  const updateProfile = useUpdateProfile();
 
   const queryResult = useGarments({
     search: debouncedSearch,
@@ -550,6 +556,33 @@ export default function WardrobePage() {
   const allGarments = useMemo(() => {
     return infiniteData?.pages.flatMap(p => p.items) ?? [];
   }, [infiniteData]);
+
+  // Silent background DNA recompute
+  useEffect(() => {
+    if (isLoading || allGarments.length === 0) return;
+    const prefs = asPreferences(profile?.preferences);
+    const computedAt = prefs.wardrobeDnaComputedAt as string | undefined;
+    const lastKnownCount = Number(localStorage.getItem('burs_dna_garment_count') ?? '0');
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const shouldRecompute =
+      !computedAt ||
+      computedAt < sevenDaysAgo ||
+      Math.abs(allGarments.length - lastKnownCount) >= 3;
+    if (!shouldRecompute) return;
+    (async () => {
+      try {
+        const { error } = await invokeEdgeFunction('compute_wardrobe_dna', {});
+        if (error) throw error;
+        localStorage.setItem('burs_dna_garment_count', String(allGarments.length));
+        const currentPrefs = asPreferences(profile?.preferences);
+        await updateProfile.mutateAsync({
+          preferences: { ...currentPrefs, wardrobeDnaComputedAt: new Date().toISOString() } as unknown as Json,
+        });
+      } catch (err) {
+        console.error('[Wardrobe] compute_wardrobe_dna failed:', err);
+      }
+    })();
+  }, [allGarments.length, profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Apply smart filter on top of query results
   const displayGarments = useMemo(() => {
