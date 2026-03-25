@@ -1,0 +1,174 @@
+import { useState } from 'react';
+import type { Json } from '@/integrations/supabase/types';
+import { useNavigate, Navigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
+import { EASE_CURVE } from '@/lib/motion';
+import { Loader2 } from 'lucide-react';
+import { useUpdateProfile, useProfile } from '@/hooks/useProfile';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { LanguageStep } from '@/components/onboarding/LanguageStep';
+import { QuickStyleQuiz } from '@/components/onboarding/QuickStyleQuiz';
+import { QuickUploadStep } from '@/components/onboarding/QuickUploadStep';
+import { GetStartedStep } from '@/components/onboarding/GetStartedStep';
+import type { StyleProfileV3 } from '@/components/onboarding/StyleQuizV3';
+import { asPreferences } from '@/types/preferences';
+import { mannequinPresentationFromStyleProfileGender } from '@/lib/mannequinPresentation';
+import { toast } from 'sonner';
+
+// Streamlined: lang (admin only) → quiz → upload → get started
+// Accent color moved to settings (lower priority for first-run)
+const STEPS = ['lang', 'quiz', 'upload', 'getstarted'] as const;
+type StepKey = typeof STEPS[number];
+
+function StepProgress({ current }: { current: StepKey }) {
+  const idx = STEPS.indexOf(current);
+  return (
+    <div className="fixed top-0 left-0 right-0 z-50 px-6 pt-3 pb-2">
+      <div className="flex gap-1.5">
+        {STEPS.map((step, i) => (
+          <div
+            key={step}
+            style={{ height: 3, flex: 1, overflow: 'hidden', background: 'rgba(28,25,23,0.08)' }}
+          >
+            <motion.div
+              style={{ height: '100%', background: '#1C1917' }}
+              initial={{ width: '0%' }}
+              animate={{ width: i <= idx ? '100%' : '0%' }}
+              transition={{ duration: 0.4, ease: EASE_CURVE }}
+            />
+          </div>
+        ))}
+      </div>
+      <p style={{
+        fontFamily: 'DM Sans, sans-serif', fontSize: 9,
+        color: 'rgba(28,25,23,0.38)', textAlign: 'center',
+        marginTop: 6, letterSpacing: '0.04em',
+      }}>
+        {String(idx + 1).padStart(2, '0')} · {String(STEPS.length).padStart(2, '0')}
+      </p>
+    </div>
+  );
+}
+
+export default function OnboardingPage() {
+  const navigate = useNavigate();
+  const { t } = useLanguage();
+  const updateProfile = useUpdateProfile();
+  const { data: profile, isLoading: profileLoading } = useProfile();
+
+  const { data: isAdmin, isLoading: adminLoading } = useIsAdmin();
+  const [languageStepDone, setLanguageStepDone] = useState(false);
+  const [quizDone, setQuizDone] = useState(false);
+  const [uploadDone, setUploadDone] = useState(false);
+  const [isSavingQuiz, setIsSavingQuiz] = useState(false);
+
+  const completeOnboarding = async () => {
+    const currentPrefs = asPreferences(profile?.preferences);
+    await updateProfile.mutateAsync({
+      preferences: {
+        ...currentPrefs,
+        onboarding: { completed: true },
+      } as unknown as Json,
+    });
+  };
+
+  const handleQuizComplete = async (sp: StyleProfileV3) => {
+    setIsSavingQuiz(true);
+    try {
+      const currentPrefs = asPreferences(profile?.preferences);
+      const updates: Record<string, unknown> = {
+        mannequin_presentation: mannequinPresentationFromStyleProfileGender(sp.gender),
+        preferences: {
+          ...currentPrefs,
+          styleProfile: { ...sp },
+          favoriteColors: sp.favoriteColors,
+          dislikedColors: sp.dislikedColors,
+          fitPreference: sp.fit,
+          styleVibe: sp.styleWords[0] || 'smart-casual',
+          genderNeutral: sp.genderNeutral === 'yes',
+        },
+      };
+      if (sp.height && !isNaN(Number(sp.height))) {
+        updates.height_cm = Number(sp.height);
+      }
+      await updateProfile.mutateAsync(updates);
+      setQuizDone(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      const code = (err as { code?: string })?.code;
+      if (msg.includes('Profile not found') || msg.includes('foreign key') || code === '23503') {
+        toast.error(t('onboarding.sessionExpired') || 'Session expired. Please log out and sign in again.');
+      } else {
+        toast.error(t('onboarding.error'));
+      }
+    } finally {
+      setIsSavingQuiz(false);
+    }
+  };
+
+  const handleGetStartedAction = async (path: string) => {
+    try {
+      await completeOnboarding();
+    } catch { /* ignore */ }
+    navigate(path);
+  };
+
+  // Redirect if already completed
+  const prefs = asPreferences(profile?.preferences);
+  const onboardingCompleted = prefs?.onboarding?.completed === true;
+
+  if (profileLoading || adminLoading) {
+    return (
+      <div className="dark-landing min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-white/40" />
+      </div>
+    );
+  }
+
+  if (onboardingCompleted) {
+    return <Navigate to="/" replace />;
+  }
+
+  // Skip language step for non-admin users
+  const effectiveLanguageDone = isAdmin ? languageStepDone : true;
+
+  const stepKey: StepKey = !effectiveLanguageDone
+    ? 'lang'
+    : !quizDone
+      ? 'quiz'
+      : !uploadDone
+        ? 'upload'
+        : 'getstarted';
+
+  return (
+    <>
+      <StepProgress current={stepKey} />
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={stepKey}
+          initial={{ opacity: 0, x: 40 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -40 }}
+          transition={{ duration: 0.3, ease: EASE_CURVE }}
+        >
+          {stepKey === 'lang' && <LanguageStep onComplete={() => setLanguageStepDone(true)} />}
+          {stepKey === 'quiz' && (
+            <QuickStyleQuiz
+              onComplete={handleQuizComplete}
+              onSkip={async () => setQuizDone(true)}
+              isSaving={isSavingQuiz}
+            />
+          )}
+          {stepKey === 'upload' && (
+            <QuickUploadStep
+              onComplete={() => setUploadDone(true)}
+              onSkip={() => setUploadDone(true)}
+            />
+          )}
+          {stepKey === 'getstarted' && <GetStartedStep onAction={handleGetStartedAction} />}
+        </motion.div>
+      </AnimatePresence>
+    </>
+  );
+}
