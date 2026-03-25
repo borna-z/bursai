@@ -4,6 +4,20 @@ import { OutfitSuggestionCard } from '@/components/chat/OutfitSuggestionCard';
 import type { GarmentBasic } from '@/hooks/useGarmentsByIds';
 import { parseGarmentTextSegments, parseOutfitTags, stripUnknownGarmentMarkup } from '@/lib/garmentTokens';
 
+const REJECTION_RE = /\b(over the|instead of|rather than|kept the)\b|(\bchose\b.*\bnot\b)/i;
+
+function extractRejectionSentence(text: string): { rejection: string; remainder: string } | null {
+  const sentences = text.match(/[^.!?]+[.!?]*/g) ?? [];
+  const idx = sentences.findIndex(s => REJECTION_RE.test(s));
+  if (idx === -1) return null;
+  const rejection = sentences[idx].trim();
+  const remainder = [...sentences.slice(0, idx), ...sentences.slice(idx + 1)]
+    .join('')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return { rejection, remainder };
+}
+
 type MultimodalPart =
   | { type: 'text'; text: string }
   | { type: 'image_url'; image_url: { url: string } };
@@ -33,8 +47,8 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
   const text = isUser ? getTextContent(message.content) : stripUnknownGarmentMarkup(getTextContent(message.content));
   const images = getImageUrls(message.content);
 
-  const { textParts, garmentCards, outfitCards } = useMemo(() => {
-    if (!text) return { textParts: null, garmentCards: [], outfitCards: [] };
+  const { textParts, garmentCards, outfitCards, rejectionLine } = useMemo(() => {
+    if (!text) return { textParts: null, garmentCards: [], outfitCards: [], rejectionLine: null };
     const parts: React.ReactNode[] = [];
     const cards: GarmentBasic[] = [];
     const outfits: { garments: GarmentBasic[]; explanation: string }[] = [];
@@ -46,6 +60,15 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
       const gs = om.ids.map(id => garmentMap.get(id)).filter(Boolean) as GarmentBasic[];
       if (gs.length > 0) outfits.push({ garments: gs, explanation: om.explanation });
       cleanText = cleanText.replace(om.fullMatch, '');
+    }
+
+    let rejectionLine: string | null = null;
+    if (outfits.length > 0) {
+      const extracted = extractRejectionSentence(cleanText);
+      if (extracted) {
+        rejectionLine = extracted.rejection;
+        cleanText = extracted.remainder;
+      }
     }
 
     parseGarmentTextSegments(cleanText).forEach((segment, index) => {
@@ -61,7 +84,7 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
         parts.push(<span key={`g-${index}`}>{segment.label} </span>);
       }
     });
-    return { textParts: parts.length > 0 ? parts : null, garmentCards: cards, outfitCards: outfits };
+    return { textParts: parts.length > 0 ? parts : null, garmentCards: cards, outfitCards: outfits, rejectionLine };
   }, [text, garmentMap]);
 
   if (isUser) {
@@ -126,6 +149,23 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
                     isCreating={isCreatingOutfit}
                   />
                 ))}
+                {rejectionLine && (
+                  <div style={{
+                    borderLeft: '2px solid rgba(28,25,23,0.20)',
+                    paddingLeft: 10,
+                    marginTop: 6,
+                  }}>
+                    <span style={{
+                      fontFamily: 'DM Sans, sans-serif',
+                      fontSize: 12,
+                      color: 'rgba(28,25,23,0.60)',
+                      fontStyle: 'italic',
+                      lineHeight: 1.5,
+                    }}>
+                      {rejectionLine}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </>
