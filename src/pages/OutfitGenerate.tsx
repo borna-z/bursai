@@ -263,7 +263,7 @@ export default function OutfitGeneratePage() {
     };
 
     const handleRefineInChat = () => {
-      navigate(`/ai?outfit=${primary.id}`);
+      navigate('/ai/chat', { state: { outfitId: primary.id } });
     };
 
     return (

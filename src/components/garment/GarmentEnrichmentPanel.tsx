@@ -67,12 +67,9 @@ export function extractEnrichment(aiRaw: unknown): EnrichmentData | null {
 /* ─── Specs row ─── */
 export function SpecRow({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '8px 0',
-    }}>
-      <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 11, color: 'rgba(28,25,23,0.45)' }}>{label}</span>
-      <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 11, color: '#1C1917', textTransform: 'capitalize' }}>{value}</span>
+    <div className="flex items-center justify-between py-2">
+      <span className="font-['DM_Sans'] text-[11px] text-muted-foreground">{label}</span>
+      <span className="font-['DM_Sans'] text-[11px] text-foreground capitalize">{value}</span>
     </div>
   );
 }
@@ -98,10 +95,10 @@ export function GarmentEnrichmentPanel({
     <>
       {/* Enrichment pending */}
       {isEnrichmentPending && !enrichment && (
-        <div style={{ padding: 16, background: '#EDE8DF' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <div className="p-4 bg-card">
+          <div className="flex items-center gap-2 mb-2">
             <Sparkles className="w-4 h-4 text-foreground/60 animate-pulse" />
-            <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: 'rgba(28,25,23,0.7)', fontWeight: 500, margin: 0 }}>Deep analysis in progress</p>
+            <p className="font-['DM_Sans'] text-xs text-foreground/70 font-medium m-0">Deep analysis in progress</p>
           </div>
           <div className="space-y-2">
             <Skeleton className="h-3 w-3/4" />
@@ -112,8 +109,8 @@ export function GarmentEnrichmentPanel({
 
       {/* Enrichment failed */}
       {enrichmentStatus === 'failed' && !enrichment && (
-        <div style={{ padding: 16, background: '#EDE8DF', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: 'rgba(28,25,23,0.7)', margin: 0 }}>Analysis incomplete</p>
+        <div className="p-4 bg-card flex items-center justify-between">
+          <p className="font-['DM_Sans'] text-xs text-foreground/70 m-0">Analysis incomplete</p>
           <Button variant="outline" size="sm" className="text-xs h-7 gap-1.5" onClick={onRetryEnrichment} disabled={isRetrying}>
             {isRetrying ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
             Retry
@@ -123,8 +120,8 @@ export function GarmentEnrichmentPanel({
 
       {/* Garment intelligence — enrichment details */}
       {enrichment && (enrichment.silhouette || enrichment.visual_weight || enrichment.texture_intensity || enrichment.drape) && (
-        <div style={{ borderTop: '1px solid rgba(28,25,23,0.06)' }}>
-          <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(28,25,23,0.38)', padding: '10px 0 4px' }}>
+        <div className="border-t border-foreground/[0.06]">
+          <p className="font-['DM_Sans'] text-[9px] uppercase tracking-[0.08em] text-foreground/[0.38] py-[10px] pb-1">
             Garment intelligence
           </p>
           {enrichment.silhouette && <SpecRow label="Silhouette" value={enrichment.silhouette} />}
@@ -138,8 +135,8 @@ export function GarmentEnrichmentPanel({
 
       {/* Construction specs */}
       {enrichment && (enrichment.neckline || enrichment.sleeve_length || enrichment.garment_length || enrichment.closure || enrichment.fabric_weight || enrichment.layering_role || enrichment.rise || enrichment.leg_shape) && (
-        <div style={{ borderTop: '1px solid rgba(28,25,23,0.06)' }}>
-          <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(28,25,23,0.38)', padding: '10px 0 4px' }}>
+        <div className="border-t border-foreground/[0.06]">
+          <p className="font-['DM_Sans'] text-[9px] uppercase tracking-[0.08em] text-foreground/[0.38] py-[10px] pb-1">
             Construction
           </p>
           {enrichment.neckline && <SpecRow label="Neckline" value={enrichment.neckline} />}
@@ -156,17 +153,17 @@ export function GarmentEnrichmentPanel({
       {/* Style archetype + tags */}
       {(enrichment?.style_archetype || (enrichment?.style_tags && enrichment.style_tags.length > 0)) && (
         <div>
-          <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(28,25,23,0.38)', marginBottom: 6 }}>
+          <p className="font-['DM_Sans'] text-[9px] uppercase tracking-[0.08em] text-foreground/[0.38] mb-1.5">
             Style
           </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <div className="flex flex-wrap gap-1.5">
             {enrichment?.style_archetype && (
-              <span style={{ background: '#1C1917', color: '#F5F0E8', padding: '3px 8px', fontFamily: 'DM Sans, sans-serif', fontSize: 10, textTransform: 'capitalize' }}>
+              <span className="bg-foreground text-background px-2 py-[3px] font-['DM_Sans'] text-[10px] capitalize">
                 {enrichment.style_archetype}
               </span>
             )}
             {enrichment?.style_tags?.map((tag) => (
-              <span key={tag} style={{ background: '#EDE8DF', color: '#1C1917', padding: '3px 8px', fontFamily: 'DM Sans, sans-serif', fontSize: 10, textTransform: 'capitalize' }}>
+              <span key={tag} className="bg-card text-foreground px-2 py-[3px] font-['DM_Sans'] text-[10px] capitalize">
                 {tag}
               </span>
             ))}
@@ -177,12 +174,12 @@ export function GarmentEnrichmentPanel({
       {/* Occasion tags */}
       {enrichment?.occasion_tags && enrichment.occasion_tags.length > 0 && (
         <div>
-          <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(28,25,23,0.38)', marginBottom: 6 }}>
+          <p className="font-['DM_Sans'] text-[9px] uppercase tracking-[0.08em] text-foreground/[0.38] mb-1.5">
             Occasions
           </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <div className="flex flex-wrap gap-1.5">
             {enrichment.occasion_tags.map((tag) => (
-              <span key={tag} style={{ background: '#EDE8DF', color: 'rgba(28,25,23,0.7)', padding: '3px 8px', fontFamily: 'DM Sans, sans-serif', fontSize: 10, textTransform: 'capitalize' }}>
+              <span key={tag} className="bg-card text-foreground/70 px-2 py-[3px] font-['DM_Sans'] text-[10px] capitalize">
                 {tag}
               </span>
             ))}
@@ -192,13 +189,13 @@ export function GarmentEnrichmentPanel({
 
       {/* Versatility */}
       {enrichment?.versatility_score != null && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Layers style={{ width: 14, height: 14, color: 'rgba(28,25,23,0.4)' }} />
-          <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 11, color: '#1C1917' }}>
+        <div className="flex items-center gap-2">
+          <Layers className="w-3.5 h-3.5 text-foreground/40" />
+          <span className="font-['DM_Sans'] text-[11px] text-foreground">
             Versatility: {enrichment.versatility_score}/10
           </span>
           {enrichment.color_harmony_notes && (
-            <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, color: 'rgba(28,25,23,0.5)' }}>
+            <span className="font-['DM_Sans'] text-[10px] text-foreground/50">
               — {enrichment.color_harmony_notes}
             </span>
           )}
@@ -207,12 +204,14 @@ export function GarmentEnrichmentPanel({
 
       {/* Confidence */}
       {enrichment?.confidence != null && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{
-            width: 6, height: 6, borderRadius: '50%',
-            background: enrichment.confidence >= 0.85 ? '#10b981' : enrichment.confidence >= 0.6 ? '#f59e0b' : 'rgba(28,25,23,0.3)',
-          }} />
-          <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, color: 'rgba(28,25,23,0.5)' }}>
+        <div className="flex items-center gap-1.5">
+          <div
+            className="w-1.5 h-1.5 rounded-full"
+            style={{
+              background: enrichment.confidence >= 0.85 ? '#10b981' : enrichment.confidence >= 0.6 ? '#f59e0b' : 'rgba(28,25,23,0.3)',
+            }}
+          />
+          <span className="font-['DM_Sans'] text-[10px] text-foreground/50">
             {confidenceLabel(enrichment.confidence).label} · {Math.round(enrichment.confidence * 100)}%
           </span>
         </div>
@@ -221,12 +220,12 @@ export function GarmentEnrichmentPanel({
       {/* Care instructions */}
       {enrichment?.care_instructions && enrichment.care_instructions.length > 0 && (
         <div>
-          <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(28,25,23,0.38)', marginBottom: 6 }}>
+          <p className="font-['DM_Sans'] text-[9px] uppercase tracking-[0.08em] text-foreground/[0.38] mb-1.5">
             Care
           </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <div className="flex flex-wrap gap-1.5">
             {enrichment.care_instructions.map((item) => (
-              <span key={item} style={{ background: '#EDE8DF', color: 'rgba(28,25,23,0.7)', padding: '3px 8px', fontFamily: 'DM Sans, sans-serif', fontSize: 10, textTransform: 'capitalize' }}>
+              <span key={item} className="bg-card text-foreground/70 px-2 py-[3px] font-['DM_Sans'] text-[10px] capitalize">
                 {item}
               </span>
             ))}

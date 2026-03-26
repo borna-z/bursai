@@ -194,45 +194,35 @@ export default function GarmentDetailPage() {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F5F0E8', paddingBottom: 80 }}>
+    <div className="min-h-screen bg-background pb-20">
 
       {/* ── Zone 1: Hero image (55vh) ── */}
-      <div style={{ position: 'relative', height: '55vh', background: '#EDE8DF', overflow: 'hidden' }}>
+      <div className="relative h-[55vh] bg-card overflow-hidden">
         <LazyImage imagePath={displayImagePath} alt={garment.title} aspectRatio="auto" className="w-full h-full !rounded-none object-cover" />
         <RenderPendingOverlay renderStatus={garment.render_status} variant="overlay" />
 
         {/* Back arrow — top-left */}
         <button
           onClick={() => navigate(-1)}
-          style={{
-            position: 'absolute', top: 16, left: 16, zIndex: 10,
-            width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(245,240,232,0.85)', border: 'none', cursor: 'pointer',
-          }}
+          className="absolute top-4 left-4 z-10 w-9 h-9 flex items-center justify-center bg-background/85 border-none cursor-pointer"
         >
-          <ArrowLeft style={{ width: 18, height: 18, color: '#1C1917' }} />
+          <ArrowLeft className="w-[18px] h-[18px] text-foreground" />
         </button>
 
         {/* Edit + Delete — top-right */}
-        <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10, display: 'flex', gap: 6 }}>
+        <div className="absolute top-4 right-4 z-10 flex gap-1.5">
           <button
             onClick={() => navigate(`/wardrobe/${garment.id}/edit`)}
-            style={{
-              width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'rgba(245,240,232,0.85)', border: 'none', cursor: 'pointer',
-            }}
+            className="w-9 h-9 flex items-center justify-center bg-background/85 border-none cursor-pointer"
           >
-            <Edit style={{ width: 16, height: 16, color: '#1C1917' }} />
+            <Edit className="w-4 h-4 text-foreground" />
           </button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <button
-                style={{
-                  width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: 'rgba(245,240,232,0.85)', border: 'none', cursor: 'pointer',
-                }}
+                className="w-9 h-9 flex items-center justify-center bg-background/85 border-none cursor-pointer"
               >
-                <Trash2 style={{ width: 16, height: 16, color: '#dc2626' }} />
+                <Trash2 className="w-4 h-4 text-red-600" />
               </button>
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -249,25 +239,17 @@ export default function GarmentDetailPage() {
         </div>
 
         {/* Wear count badge — bottom-left */}
-        <div style={{
-          position: 'absolute', bottom: 12, left: 16, zIndex: 10,
-          background: '#1C1917', padding: '4px 10px',
-          display: 'flex', alignItems: 'center', gap: 4,
-        }}>
-          <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, fontWeight: 500, color: '#F5F0E8' }}>
+        <div className="absolute bottom-3 left-4 z-10 bg-foreground px-2.5 py-1 flex items-center gap-1">
+          <span className="text-[10px] font-medium text-background">
             {garment.wear_count || 0}× worn
           </span>
         </div>
 
         {/* Laundry badge */}
         {garment.in_laundry && (
-          <div style={{
-            position: 'absolute', bottom: 12, right: 16, zIndex: 10,
-            background: '#1C1917', padding: '4px 10px',
-            display: 'flex', alignItems: 'center', gap: 4,
-          }}>
-            <WashingMachine style={{ width: 12, height: 12, color: 'rgba(245,240,232,0.6)' }} />
-            <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, fontWeight: 500, color: '#F5F0E8' }}>
+          <div className="absolute bottom-3 right-4 z-10 bg-foreground px-2.5 py-1 flex items-center gap-1">
+            <WashingMachine className="w-3 h-3 text-background/60" />
+            <span className="text-[10px] font-medium text-background">
               In laundry
             </span>
           </div>
@@ -275,7 +257,7 @@ export default function GarmentDetailPage() {
 
         {/* Processing badge */}
         {processingMessage && (
-          <div style={{ position: 'absolute', bottom: 12, left: garment.in_laundry ? 16 : 'auto', right: garment.in_laundry ? 'auto' : 16, zIndex: 10 }}>
+          <div className="absolute bottom-3 z-10" style={{ left: garment.in_laundry ? 16 : 'auto', right: garment.in_laundry ? 'auto' : 16 }}>
             <GarmentProcessingBadge
               status={garment.image_processing_status}
               renderStatus={garment.render_status}
@@ -297,44 +279,25 @@ export default function GarmentDetailPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: EASE_CURVE }}
-        style={{
-          background: '#F5F0E8', padding: '12px 16px',
-          marginTop: -8,
-          position: 'relative', zIndex: 5,
-        }}
+        className="bg-background px-4 py-3 -mt-2 relative z-[5]"
       >
         {/* Title */}
-        <h1 style={{
-          fontFamily: 'DM Sans, sans-serif', fontSize: 14, fontWeight: 500,
-          color: '#1C1917', margin: 0,
-        }}>
+        <h1 className="text-sm font-medium text-foreground m-0">
           {garment.title}
         </h1>
 
         {/* Category + color chips */}
-        <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-          <span style={{
-            background: '#EDE8DF', padding: '3px 8px',
-            fontFamily: 'DM Sans, sans-serif', fontSize: 8, fontWeight: 500,
-            textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(28,25,23,0.5)',
-          }}>
+        <div className="flex gap-1.5 mt-2 flex-wrap">
+          <span className="bg-card px-2 py-[3px] text-[8px] font-medium uppercase tracking-[0.08em] text-foreground/50">
             {categoryLabel(t, garment.category)}{garment.subcategory ? ` · ${humanize(garment.subcategory)}` : ''}
           </span>
           {garment.color_primary && (
-            <span style={{
-              background: '#EDE8DF', padding: '3px 8px',
-              fontFamily: 'DM Sans, sans-serif', fontSize: 8, fontWeight: 500,
-              textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(28,25,23,0.5)',
-            }}>
+            <span className="bg-card px-2 py-[3px] text-[8px] font-medium uppercase tracking-[0.08em] text-foreground/50">
               {colorLabel(t, garment.color_primary)}
             </span>
           )}
           {garment.material && (
-            <span style={{
-              background: '#EDE8DF', padding: '3px 8px',
-              fontFamily: 'DM Sans, sans-serif', fontSize: 8, fontWeight: 500,
-              textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(28,25,23,0.5)',
-            }}>
+            <span className="bg-card px-2 py-[3px] text-[8px] font-medium uppercase tracking-[0.08em] text-foreground/50">
               {materialLabel(t, garment.material)}
             </span>
           )}
@@ -342,19 +305,16 @@ export default function GarmentDetailPage() {
 
         {/* Formality indicator */}
         {garment.formality && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
-            <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.38)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          <div className="flex items-center gap-1.5 mt-2.5">
+            <span className="text-[9px] text-foreground/[0.38] uppercase tracking-[0.08em]">
               Formality
             </span>
-            <div style={{ display: 'flex', gap: 2 }}>
+            <div className="flex gap-0.5">
               {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} style={{
-                  width: 16, height: 3,
-                  background: i <= garment.formality! ? '#1C1917' : 'rgba(28,25,23,0.1)',
-                }} />
+                <div key={i} className={`w-4 h-[3px] ${i <= garment.formality! ? 'bg-foreground' : 'bg-foreground/10'}`} />
               ))}
             </div>
-            <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.38)' }}>
+            <span className="text-[9px] text-foreground/[0.38]">
               {garment.formality}/5
             </span>
           </div>
@@ -362,23 +322,16 @@ export default function GarmentDetailPage() {
       </motion.div>
 
       {/* ── 3-tab row ── */}
-      <div style={{
-        display: 'flex', background: '#EDE8DF',
-        marginTop: 0,
-      }}>
+      <div className="flex bg-card">
         {tabs.map(tab => (
           <button
             key={tab.key}
             onClick={() => { hapticLight(); setActiveTab(tab.key); }}
-            style={{
-              flex: 1, padding: '10px 0',
-              fontFamily: 'DM Sans, sans-serif', fontSize: 9, fontWeight: activeTab === tab.key ? 600 : 400,
-              textTransform: 'uppercase', letterSpacing: '0.08em',
-              color: activeTab === tab.key ? '#1C1917' : 'rgba(28,25,23,0.4)',
-              background: 'transparent', border: 'none',
-              borderBottom: activeTab === tab.key ? '1.5px solid #1C1917' : '1.5px solid transparent',
-              cursor: 'pointer',
-            }}
+            className={`flex-1 py-2.5 text-[9px] uppercase tracking-[0.08em] bg-transparent border-none cursor-pointer border-b-[1.5px] ${
+              activeTab === tab.key
+                ? 'font-semibold text-foreground border-b-foreground'
+                : 'font-normal text-foreground/40 border-b-transparent'
+            }`}
           >
             {tab.label}
           </button>
@@ -386,7 +339,7 @@ export default function GarmentDetailPage() {
       </div>
 
       {/* ── Tab content ── */}
-      <div style={{ padding: '16px 20px', maxWidth: 512, margin: '0 auto' }}>
+      <div className="px-5 py-4 max-w-[512px] mx-auto">
 
         {/* ── INFO TAB ── */}
         {activeTab === 'info' && (
@@ -394,39 +347,27 @@ export default function GarmentDetailPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.25 }}
-            style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
+            className="flex flex-col gap-5"
           >
             {/* Stylist note */}
             {enrichment?.stylist_note && (
-              <p style={{
-                fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-                fontSize: 11, color: 'rgba(28,25,23,0.7)', lineHeight: 1.6,
-                margin: 0,
-              }}>
+              <p className="font-['Playfair_Display'] italic text-[11px] text-foreground/70 leading-[1.6] m-0">
                 {enrichment.stylist_note}
               </p>
             )}
 
             {/* Cost per wear — large number */}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-              <span style={{
-                fontFamily: '"Playfair Display", serif', fontSize: 20, color: '#1C1917',
-              }}>
+            <div className="flex items-baseline gap-2">
+              <span className="font-['Playfair_Display'] text-[20px] text-foreground">
                 {costPerWear !== null ? `${costPerWear.toFixed(0)}` : '—'}
               </span>
-              <span style={{
-                fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.4)',
-                textTransform: 'uppercase', letterSpacing: '0.08em',
-              }}>
+              <span className="text-[9px] text-foreground/40 uppercase tracking-[0.08em]">
                 {garment.purchase_currency || 'SEK'} / wear
               </span>
               {!garment.purchase_price && (
                 <button
                   onClick={() => { setPriceInput(''); setEditingPrice(true); }}
-                  style={{
-                    fontFamily: 'DM Sans, sans-serif', fontSize: 10, color: 'rgba(28,25,23,0.4)',
-                    textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer',
-                  }}
+                  className="text-[10px] text-foreground/40 underline bg-none border-none cursor-pointer"
                 >
                   Add price
                 </button>
@@ -435,7 +376,7 @@ export default function GarmentDetailPage() {
 
             {/* Price editing inline */}
             {editingPrice && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="flex items-center gap-2">
                 <Input
                   type="number"
                   value={priceInput}
@@ -461,7 +402,7 @@ export default function GarmentDetailPage() {
             )}
 
             {/* Material / Fit / Season rows */}
-            <div style={{ borderTop: '1px solid rgba(28,25,23,0.06)' }}>
+            <div className="border-t border-foreground/[0.06]">
               {garment.material && <SpecRow label="Material" value={materialLabel(t, garment.material)} />}
               {garment.fit && <SpecRow label="Fit" value={fitLabel(t, garment.fit)} />}
               {garment.pattern && garment.pattern !== 'solid' && <SpecRow label="Pattern" value={patternLabel(t, garment.pattern)} />}
@@ -479,12 +420,12 @@ export default function GarmentDetailPage() {
             />
 
             {/* Actions: Laundry, Condition, Price */}
-            <div style={{ borderTop: '1px solid rgba(28,25,23,0.06)', paddingTop: 12 }}>
+            <div className="border-t border-foreground/[0.06] pt-3">
               {/* Laundry toggle */}
               <div className="flex items-center justify-between py-3">
                 <div className="flex items-center gap-3">
-                  <WashingMachine className="w-4 h-4" style={{ color: 'rgba(28,25,23,0.4)' }} />
-                  <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: '#1C1917' }}>{t('garment.in_laundry')}</span>
+                  <WashingMachine className="w-4 h-4 text-foreground/40" />
+                  <span className="text-xs text-foreground">{t('garment.in_laundry')}</span>
                 </div>
                 <Switch checked={garment.in_laundry || false} onCheckedChange={handleToggleLaundry} disabled={updateGarment.isPending} />
               </div>
@@ -492,11 +433,11 @@ export default function GarmentDetailPage() {
               {/* Condition */}
               <div className="flex items-center justify-between py-3">
                 <div className="flex items-center gap-3">
-                  <Shield className="w-4 h-4" style={{ color: 'rgba(28,25,23,0.4)' }} />
+                  <Shield className="w-4 h-4 text-foreground/40" />
                   <div>
-                    <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: '#1C1917' }}>{t('insights.condition')}</span>
+                    <span className="text-xs text-foreground">{t('insights.condition')}</span>
                     {garment.condition_score && (
-                      <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, color: 'rgba(28,25,23,0.5)', margin: 0 }}>
+                      <p className="text-[10px] text-foreground/50 m-0">
                         {Number(garment.condition_score).toFixed(1)}/10 — {garment.condition_notes}
                       </p>
                     )}
@@ -517,16 +458,16 @@ export default function GarmentDetailPage() {
                 href={garment.source_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'DM Sans, sans-serif', fontSize: 11, color: 'rgba(28,25,23,0.45)', textDecoration: 'none' }}
+                className="flex items-center gap-1.5 text-[11px] text-muted-foreground no-underline"
               >
-                <ExternalLink style={{ width: 12, height: 12 }} />
+                <ExternalLink className="w-3 h-3" />
                 <span>{t('garment.imported')}</span>
               </a>
             )}
 
             {/* Analyzed date */}
             {garment.ai_analyzed_at && (
-              <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, color: 'rgba(28,25,23,0.3)', textAlign: 'center', margin: 0 }}>
+              <p className="text-[10px] text-foreground/30 text-center m-0">
                 Analyzed {new Date(garment.ai_analyzed_at).toLocaleDateString(getBCP47(locale))}
               </p>
             )}
@@ -545,23 +486,15 @@ export default function GarmentDetailPage() {
       </div>
 
       {/* ── Fixed CTA: "Style around this" ── */}
-      <div style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 30,
-        background: '#F5F0E8', borderTop: '1px solid rgba(28,25,23,0.06)',
-        padding: '12px 20px', paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
-      }}>
-        <div style={{ maxWidth: 512, margin: '0 auto' }}>
-          <button
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-background border-t border-foreground/[0.06] px-5 py-3" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+        <div className="max-w-[512px] mx-auto">
+          <Button
             onClick={() => navigate('/ai', { state: { selectedGarmentId: garment.id } })}
-            style={{
-              width: '100%', height: 48, background: '#1C1917', color: '#F5F0E8',
-              border: 'none', fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 500,
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            }}
+            className="bg-foreground text-background w-full h-12 text-[13px] font-medium flex items-center justify-center gap-2"
           >
-            <Sparkles style={{ width: 14, height: 14 }} />
+            <Sparkles className="w-3.5 h-3.5" />
             Style around this
-          </button>
+          </Button>
         </div>
       </div>
     </div>

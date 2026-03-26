@@ -1,5 +1,5 @@
 import { lazy, Suspense, useRef } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -119,7 +119,7 @@ export function AnimatedRoutes() {
             <Route path="/wardrobe/scan" element={<ProtectedRoute><LiveScan /></ProtectedRoute>} />
             <Route path="/wardrobe/:id" element={<ProtectedRoute><GarmentDetail /></ProtectedRoute>} />
             <Route path="/wardrobe/:id/edit" element={<ProtectedRoute><EditGarment /></ProtectedRoute>} />
-            <Route path="/outfits" element={<Navigate to="/wardrobe" replace />} />
+            <Route path="/outfits" element={<ProtectedRoute><Outfits /></ProtectedRoute>} />
             <Route path="/outfits/generate" element={<ProtectedRoute><OutfitGenerate /></ProtectedRoute>} />
             <Route path="/outfits/:id" element={<ProtectedRoute><OutfitDetail /></ProtectedRoute>} />
             <Route path="/plan" element={<ProtectedRoute><Plan /></ProtectedRoute>} />

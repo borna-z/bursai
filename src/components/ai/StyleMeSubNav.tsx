@@ -13,7 +13,7 @@ export function StyleMeSubNav() {
   const current = location.pathname;
 
   return (
-    <div style={{ display: 'flex', width: '100%', flexShrink: 0 }}>
+    <div className="flex w-full shrink-0">
       {TABS.map((tab) => {
         const isActive =
           current === tab.path ||
@@ -22,19 +22,11 @@ export function StyleMeSubNav() {
           <button
             key={tab.path}
             onClick={() => navigate(tab.path)}
-            style={{
-              flex: 1,
-              height: 44,
-              borderRadius: 0,
-              border: 'none',
-              background: isActive ? '#1C1917' : '#EDE8DF',
-              color: isActive ? '#F5F0E8' : 'rgba(28,25,23,0.55)',
-              fontFamily: 'DM Sans, ui-sans-serif, sans-serif',
-              fontSize: 12,
-              fontWeight: 500,
-              cursor: 'pointer',
-              padding: 0,
-            }}
+            className={`flex-1 h-11 rounded-none border-none font-['DM_Sans'] text-xs font-medium cursor-pointer p-0 ${
+              isActive
+                ? 'bg-foreground text-background'
+                : 'bg-card text-foreground/[0.55]'
+            }`}
           >
             {tab.label}
           </button>

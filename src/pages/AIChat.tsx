@@ -151,12 +151,32 @@ export default function AIChat() {
   const isWelcomeState = messages.length === 1 && messages[0].role === 'assistant' && !isStreaming;
 
   useEffect(() => {
-    const state = location.state as { selectedGarmentId?: string; prefillMessage?: string } | null;
+    const state = location.state as { selectedGarmentId?: string; prefillMessage?: string; outfitId?: string } | null;
     const garmentId = state?.selectedGarmentId ?? null;
     const prefill = state?.prefillMessage ?? null;
+    const outfitId = state?.outfitId ?? null;
     if (garmentId) setAnchoredGarmentId(garmentId);
     if (prefill) setPendingPrefill(prefill);
-    if (garmentId || prefill) navigate(location.pathname, { replace: true, state: null });
+    if (outfitId) {
+      // Fetch outfit data and build a refine message
+      supabase
+        .from('outfits')
+        .select('*, outfit_items(*, garment:garments(*))')
+        .eq('id', outfitId)
+        .single()
+        .then(({ data: outfit }) => {
+          if (outfit) {
+            const garmentTitles = (outfit.outfit_items ?? [])
+              .map((item: { garment?: { title?: string } | null }) => item.garment?.title)
+              .filter(Boolean)
+              .join(', ');
+            const occasion = outfit.occasion ?? 'everyday';
+            const msg = `I'd like to refine my ${occasion} outfit. It currently includes: ${garmentTitles}.`;
+            setPendingPrefill(msg);
+          }
+        });
+    }
+    if (garmentId || prefill || outfitId) navigate(location.pathname, { replace: true, state: null });
   }, [location.pathname, location.state, navigate]);
 
   useEffect(() => () => {
@@ -521,33 +541,20 @@ export default function AIChat() {
             })}
             {/* Plan action banner */}
             {planActionPayload && !isStreaming && (
-              <div style={{
-                background: '#1C1917', borderRadius: 12, padding: 16, marginTop: 12,
-              }}>
-                <p style={{
-                  fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-                  fontSize: 14, color: 'rgba(245,240,232,0.75)', marginBottom: 12,
-                }}>
+              <div className="bg-foreground rounded-xl p-4 mt-3">
+                <p className="font-serif italic text-sm text-background/75 mb-3">
                   Your week is planned. Add these looks to the planner?
                 </p>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div className="flex gap-2">
                   <button
                     onClick={() => { handleAddToPlan(planActionPayload); setPlanActionPayload(null); }}
-                    style={{
-                      flex: 1, background: '#F5F0E8', color: '#1C1917', border: 'none',
-                      borderRadius: 8, padding: '8px 0', fontSize: 14, fontWeight: 500,
-                      cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
-                    }}
+                    className="flex-1 bg-background text-foreground border-none rounded-lg py-2 text-sm font-medium cursor-pointer"
                   >
                     Add to plan
                   </button>
                   <button
                     onClick={() => setPlanActionPayload(null)}
-                    style={{
-                      flex: 1, background: 'transparent', color: 'rgba(245,240,232,0.5)',
-                      border: 'none', borderRadius: 8, padding: '8px 0', fontSize: 14,
-                      cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
-                    }}
+                    className="flex-1 bg-transparent text-background/50 border-none rounded-lg py-2 text-sm cursor-pointer"
                   >
                     Dismiss
                   </button>
@@ -555,18 +562,9 @@ export default function AIChat() {
               </div>
             )}
             {/* Suggestion chips — always-present 44px container to prevent layout jump */}
-            <div style={{ height: 44, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+            <div className="h-11 flex items-center overflow-hidden">
               {suggestionChips.length > 0 && !isStreaming && input === '' && (
-                <div style={{
-                  display: 'flex',
-                  gap: 8,
-                  overflowX: 'auto',
-                  whiteSpace: 'nowrap',
-                  paddingLeft: 16,
-                  paddingRight: 16,
-                  scrollbarWidth: 'none',
-                  msOverflowStyle: 'none',
-                }}>
+                <div className="flex gap-2 overflow-x-auto whitespace-nowrap px-4 scrollbar-hide">
                   {suggestionChips.map((chip, i) => (
                     <button
                       key={i}
@@ -574,18 +572,7 @@ export default function AIChat() {
                         setSuggestionChips([]);
                         sendMessage(chip);
                       }}
-                      style={{
-                        background: '#F5F0E8',
-                        color: '#1C1917',
-                        border: '1px solid rgba(28,25,23,0.20)',
-                        borderRadius: 8,
-                        padding: '8px 14px',
-                        fontFamily: 'DM Sans, sans-serif',
-                        fontSize: 13,
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0,
-                      }}
+                      className="bg-background text-foreground border border-foreground/20 rounded-lg px-3.5 py-2 text-[13px] cursor-pointer whitespace-nowrap shrink-0"
                     >
                       {chip}
                     </button>

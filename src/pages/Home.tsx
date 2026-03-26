@@ -10,6 +10,7 @@ import { enUS, nb, sv, da, fi, de, fr, es, it, pt, nl, pl, ar } from 'date-fns/l
 import { useProfile } from '@/hooks/useProfile';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { useGarmentCount, useFlatGarments } from '@/hooks/useGarments';
+import { useOutfits } from '@/hooks/useOutfits';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { WeatherPill } from '@/components/weather/WeatherPill';
@@ -67,6 +68,7 @@ export default function HomePage() {
   const { data: dna } = useStyleDNA();
   const { data: calendarEvents } = useCalendarEventsRange(todayStr, tomorrowStr);
   const { data: flatGarments } = useFlatGarments();
+  const { data: allOutfits } = useOutfits();
 
   const homeState = deriveHomeState(garmentCount, todayOutfits, weather ?? undefined, isCountLoading || isOutfitsLoading);
 
@@ -248,6 +250,7 @@ export default function HomePage() {
                 <TodayOutfitHero
                   weather={weather ?? undefined}
                   garmentCount={garmentCount ?? undefined}
+                  recentOutfits={allOutfits?.slice(0, 3)}
                 />
               </div>
             )}
@@ -295,7 +298,10 @@ export default function HomePage() {
             >
               Full insights →
             </p>
+          </div>
 
+          {/* ── Quick buttons + Sleeping Beauties ── */}
+          <div className="space-y-3 mt-4">
             {/* Two equal surface buttons */}
             <div className="flex gap-2">
               <button

@@ -401,7 +401,7 @@ function AddFAB({ onPhoto, onScan, isOverLimit }: { onPhoto: () => void; onScan:
     setOpen(false);
     if (action === 'photo') onPhoto();
     else if (action === 'scan') onScan();
-    else navigate('/add-garment', { state: { mode: 'link' } });
+    else navigate('/wardrobe/add', { state: { mode: 'link' } });
   };
 
   return (
