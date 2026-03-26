@@ -1,15 +1,23 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 import { allowedOrigin } from "../_shared/cors.ts";
+import { checkIdempotency, storeIdempotencyResult } from "../_shared/idempotency.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-idempotency-key",
 };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Return cached response for duplicate idempotent requests
+  const cachedResponse = checkIdempotency(req);
+  if (cachedResponse) {
+    console.log("[DELETE-USER] Returning cached idempotent response");
+    return cachedResponse;
   }
 
   try {
@@ -175,13 +183,15 @@ Deno.serve(async (req) => {
     }
     console.log("Deleted auth user");
 
-    return new Response(
+    const response = new Response(
       JSON.stringify({ success: true, message: "Account deleted successfully" }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
+    await storeIdempotencyResult(req, response);
+    return response;
   } catch (error) {
     console.error("Account deletion error:", error);
     return new Response(

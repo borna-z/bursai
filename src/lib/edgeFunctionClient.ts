@@ -11,6 +11,12 @@ interface InvokeOptions {
   retries?: number;
   /** Request body */
   body?: Record<string, unknown>;
+  /**
+   * When true, generates a UUID idempotency key for this logical request.
+   * The same key is reused across retries to prevent duplicate server-side
+   * mutations. Sent as the `X-Idempotency-Key` header.
+   */
+  idempotent?: boolean;
 }
 
 export class EdgeFunctionTimeoutError extends Error {
@@ -27,7 +33,11 @@ export async function invokeEdgeFunction<T = unknown>(
   functionName: string,
   opts: InvokeOptions = {}
 ): Promise<{ data: T | null; error: Error | null }> {
-  const { timeout = EDGE_FUNCTION_DEFAULT_TIMEOUT_MS, retries = 2, body } = opts;
+  const { timeout = EDGE_FUNCTION_DEFAULT_TIMEOUT_MS, retries = 2, body, idempotent } = opts;
+
+  // Generate a single idempotency key for the entire logical request (shared
+  // across retries) so the server can de-duplicate mutations.
+  const idempotencyKey = idempotent ? crypto.randomUUID() : undefined;
 
   let lastError: Error | null = null;
 
@@ -40,8 +50,14 @@ export async function invokeEdgeFunction<T = unknown>(
     const timer = setTimeout(() => controller.abort(), timeout);
 
     try {
+      const headers: Record<string, string> = {};
+      if (idempotencyKey) {
+        headers['X-Idempotency-Key'] = idempotencyKey;
+      }
+
       const { data, error } = await supabase.functions.invoke(functionName, {
         body: body ?? undefined,
+        headers,
         signal: controller.signal,
       });
 

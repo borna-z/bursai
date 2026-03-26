@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { type Locale, SUPPORTED_LOCALES } from '@/i18n/types';
+import { loadLocale } from '@/i18n/translations';
 import { asPreferences } from '@/types/preferences';
 
 const RTL_LOCALES = new Set<Locale>(['ar', 'fa']);
@@ -19,20 +20,14 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 /** Cache loaded locale dictionaries so we never re-import */
 const dictCache = new Map<string, Record<string, string>>();
-let translationsPromise: Promise<Record<Locale, Record<string, string>>> | null = null;
 
-function loadAllTranslations(): Promise<Record<Locale, Record<string, string>>> {
-  if (!translationsPromise) {
-    translationsPromise = import('@/i18n/translations').then(mod => {
-      const t = mod.translations;
-      // Pre-populate cache
-      for (const [loc, dict] of Object.entries(t)) {
-        dictCache.set(loc, dict as Record<string, string>);
-      }
-      return t;
-    });
-  }
-  return translationsPromise;
+/** Load a single locale dict, with caching */
+async function loadCachedLocale(locale: Locale): Promise<Record<string, string>> {
+  const cached = dictCache.get(locale);
+  if (cached) return cached;
+  const dict = await loadLocale(locale);
+  dictCache.set(locale, dict);
+  return dict;
 }
 
 function getInitialLocale(): Locale {
@@ -50,9 +45,13 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   // Load translation dicts on mount and when locale changes
   useEffect(() => {
-    loadAllTranslations().then(translations => {
-      setDict(translations[locale] || {});
-      setEnDict(translations['en'] || {});
+    // Always load English as fallback + the active locale
+    Promise.all([
+      loadCachedLocale(locale),
+      loadCachedLocale('en'),
+    ]).then(([localeDict, englishDict]) => {
+      setDict(localeDict);
+      setEnDict(englishDict);
     });
   }, [locale]);
 
