@@ -47,28 +47,11 @@ const CATEGORY_ORDER = ['dress', 'top', 'bottom', 'outerwear', 'shoes', 'accesso
 
 function CategorySection({ category, count, t }: { category: string; count: number; t: (key: string) => string }) {
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingTop: 16,
-      paddingBottom: 6,
-    }}>
-      <span style={{
-        fontFamily: 'DM Sans, ui-sans-serif, sans-serif',
-        fontSize: 9,
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
-        color: 'rgba(28,25,23,0.4)',
-      }}>
+    <div className="flex justify-between items-center pt-4 pb-1.5">
+      <span className="font-['DM_Sans'] text-[9px] tracking-[0.1em] uppercase text-foreground/40">
         {categoryLabel(t, category)}
       </span>
-      <span style={{
-        fontFamily: 'DM Sans, ui-sans-serif, sans-serif',
-        fontSize: 9,
-        letterSpacing: '0.1em',
-        color: 'rgba(28,25,23,0.4)',
-      }}>
+      <span className="font-['DM_Sans'] text-[9px] tracking-[0.1em] text-foreground/40">
         {count}
       </span>
     </div>
@@ -205,49 +188,20 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
           </div>
         )}
         {/* Usage badge */}
-        <span style={{
-          position: 'absolute',
-          top: 6,
-          right: 6,
-          background: (garment.wear_count || 0) === 0 ? '#EDE8DF' : '#1C1917',
-          color: (garment.wear_count || 0) === 0 ? 'rgba(28,25,23,0.45)' : '#F5F0E8',
-          fontFamily: 'DM Sans, ui-sans-serif, sans-serif',
-          fontSize: 9,
-          fontWeight: 500,
-          padding: '2px 6px',
-          borderRadius: 0,
-          lineHeight: 1.4,
-          letterSpacing: '0.02em',
-        }}>
+        <span className={cn(
+          'absolute top-1.5 right-1.5 font-[\'DM_Sans\'] text-[9px] font-medium px-1.5 py-0.5 rounded-none leading-[1.4] tracking-[0.02em]',
+          (garment.wear_count || 0) === 0
+            ? 'bg-card text-foreground/45'
+            : 'bg-foreground text-background'
+        )}>
           {(garment.wear_count || 0) > 0 ? `${garment.wear_count}×` : '0×'}
         </span>
         {/* Name overlay */}
-        <div style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          background: 'rgba(28,25,23,0.38)',
-          padding: '5px 7px',
-          zIndex: 2,
-        }}>
-          <div style={{
-            fontFamily: 'DM Sans, ui-sans-serif, sans-serif',
-            fontSize: 10,
-            fontWeight: 500,
-            color: '#F5F0E8',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}>
+        <div className="absolute bottom-0 left-0 right-0 bg-foreground/[0.38] px-[7px] py-[5px] z-[2]">
+          <div className="font-['DM_Sans'] text-[10px] font-medium text-background truncate">
             {garment.title}
           </div>
-          <div style={{
-            fontFamily: 'DM Sans, ui-sans-serif, sans-serif',
-            fontSize: 8,
-            color: 'rgba(245,240,232,0.55)',
-            marginTop: 1,
-          }}>
+          <div className="font-['DM_Sans'] text-[8px] text-background/55 mt-px">
             {categoryLabel(t, garment.category)}
           </div>
         </div>

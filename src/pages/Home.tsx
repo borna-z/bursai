@@ -184,51 +184,36 @@ export default function HomePage() {
             fallback={<HomePageSkeleton />}
           >
             {homeState === 'empty_wardrobe' ? (
-              <div style={{
-                background: '#1C1917',
-                marginLeft: '-1.25rem', marginRight: '-1.25rem',
-                padding: '28px 20px', textAlign: 'center',
-              }}>
-                <div style={{
-                  width: 48, height: 48, background: 'rgba(245,240,232,0.08)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  margin: '0 auto 16px',
-                }}>
-                  <Shirt style={{ width: 22, height: 22, color: 'rgba(245,240,232,0.5)' }} />
+              <div
+                className="bg-foreground text-center"
+                style={{ marginLeft: '-1.25rem', marginRight: '-1.25rem', padding: '28px 20px' }}
+              >
+                <div className="w-12 h-12 bg-background/[0.08] flex items-center justify-center mx-auto mb-4">
+                  <Shirt className="w-[22px] h-[22px] text-background/50" />
                 </div>
-                <p style={{
-                  fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-                  fontSize: 18, color: '#F5F0E8', marginBottom: 6,
-                }}>
+                <p className="font-['Playfair_Display'] italic text-[18px] text-background mb-1.5">
                   {t('home.min_garments')}
                 </p>
-                <p style={{
-                  fontFamily: 'DM Sans, sans-serif', fontSize: 12,
-                  color: 'rgba(245,240,232,0.5)', marginBottom: 20, lineHeight: 1.6,
-                }}>
+                <p className="font-['DM_Sans'] text-[12px] text-background/50 mb-5 leading-relaxed">
                   Add a top, a bottom, and shoes — that's all you need for your first AI-styled outfit.
                 </p>
-                <div style={{ maxWidth: 180, margin: '0 auto 20px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontFamily: 'DM Sans', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(245,240,232,0.4)' }}>Garments</span>
-                    <span style={{ fontFamily: 'DM Sans', fontSize: 10, color: 'rgba(245,240,232,0.5)' }}>{garmentCount ?? 0}/3</span>
+                <div className="max-w-[180px] mx-auto mb-5">
+                  <div className="flex justify-between mb-1.5">
+                    <span className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.08em] text-background/40">Garments</span>
+                    <span className="font-['DM_Sans'] text-[10px] text-background/50">{garmentCount ?? 0}/3</span>
                   </div>
-                  <div style={{ height: 3, background: 'rgba(245,240,232,0.12)', overflow: 'hidden' }}>
+                  <div className="h-[3px] bg-background/[0.12] overflow-hidden">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${Math.min(((garmentCount ?? 0) / 3) * 100, 100)}%` }}
                       transition={{ delay: 0.3, duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
-                      style={{ height: '100%', background: '#F5F0E8' }}
+                      className="h-full bg-background"
                     />
                   </div>
                 </div>
                 <button
                   onClick={() => { hapticLight(); navigate('/wardrobe'); }}
-                  style={{
-                    height: 44, padding: '0 24px', background: '#F5F0E8', color: '#1C1917',
-                    border: 'none', fontFamily: 'DM Sans, sans-serif', fontSize: 13,
-                    fontWeight: 500, cursor: 'pointer',
-                  }}
+                  className="h-11 px-6 bg-background text-foreground border-none font-['DM_Sans'] text-[13px] font-medium cursor-pointer"
                 >
                   {t('wardrobe.add')}
                 </button>
@@ -240,22 +225,16 @@ export default function HomePage() {
                 animate="animate"
                 transition={reveal.transition}
                 onClick={() => { hapticLight(); navigate(`/outfits/${todayOutfit.id}`); }}
-                style={{
-                  background: '#1C1917',
-                  marginLeft: '-1.25rem', marginRight: '-1.25rem',
-                  width: 'calc(100% + 2.5rem)', padding: '20px',
-                  display: 'block', border: 'none', textAlign: 'left', cursor: 'pointer',
-                }}
+                className="bg-foreground block border-none text-left cursor-pointer p-5"
+                style={{ marginLeft: '-1.25rem', marginRight: '-1.25rem', width: 'calc(100% + 2.5rem)' }}
               >
                 {/* 2×2 outfit composition */}
-                <div
-                  style={{ width: 120, aspectRatio: '1', display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '0.5px', background: '#F5F0E8', marginBottom: 14 }}
-                >
+                <div className="w-[120px] aspect-square grid grid-cols-2 grid-rows-2 bg-background mb-3.5" style={{ gap: '0.5px' }}>
                   {Array.from({ length: 4 }, (_, i) => {
                     const item = todayOutfit.outfit_items[i];
                     if (item?.garment) {
                       return (
-                        <div key={item.id} style={{ aspectRatio: '1', overflow: 'hidden', background: '#F5F0E8' }}>
+                        <div key={item.id} className="aspect-square overflow-hidden bg-background">
                           <LazyImageSimple
                             imagePath={getPreferredGarmentImagePath(item.garment)}
                             alt={item.garment.title || item.slot}
@@ -265,36 +244,29 @@ export default function HomePage() {
                       );
                     }
                     return (
-                      <div key={`empty-${i}`} style={{ aspectRatio: '1', background: '#F5F0E8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div key={`empty-${i}`} className="aspect-square bg-background flex items-center justify-center">
                         <BursMonogram size={10} className="opacity-10" />
                       </div>
                     );
                   })}
                 </div>
                 {/* Occasion chip */}
-                <p style={{
-                  fontFamily: 'DM Sans, sans-serif', fontSize: 8, fontWeight: 500,
-                  textTransform: 'uppercase', letterSpacing: '0.12em',
-                  color: 'rgba(245,240,232,0.5)', marginBottom: 8,
-                }}>
+                <p className="font-['DM_Sans'] text-[8px] font-medium uppercase tracking-[0.12em] text-background/50 mb-2">
                   {getOccasionLabel(todayOutfit.occasion || '', t)}
                 </p>
                 {/* Explanation */}
                 {todayOutfit.explanation && (
-                  <p style={{
-                    fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-                    fontSize: 13, color: '#F5F0E8', marginBottom: 12, lineHeight: 1.55,
-                  }}>
+                  <p className="font-['Playfair_Display'] italic text-[13px] text-background mb-3 leading-[1.55]">
                     {todayOutfit.explanation}
                   </p>
                 )}
-                <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: 'rgba(245,240,232,0.45)' }}>
+                <p className="font-['DM_Sans'] text-[12px] text-background/45">
                   View full look →
                 </p>
               </motion.button>
             ) : (
               /* no_outfit */
-              <div style={{ background: '#1C1917', marginLeft: '-1.25rem', marginRight: '-1.25rem' }}>
+              <div className="bg-foreground" style={{ marginLeft: '-1.25rem', marginRight: '-1.25rem' }}>
                 <TodayOutfitHero
                   weather={weather ?? undefined}
                   garmentCount={garmentCount ?? undefined}
@@ -314,14 +286,7 @@ export default function HomePage() {
           </motion.p>
 
           {/* ── Zone 2b: Stylist suggestion chips ── */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-              marginTop: 16,
-            }}
-          >
+          <div className="flex flex-col gap-2 mt-4">
             {stylistSuggestions.map(chip => (
               <button
                 key={chip}
@@ -329,17 +294,7 @@ export default function HomePage() {
                   hapticLight();
                   navigate('/ai/chat', { state: { prefillMessage: chip } });
                 }}
-                style={{
-                  background: '#EDE8DF',
-                  border: 'none',
-                  padding: '10px 16px',
-                  textAlign: 'left',
-                  fontFamily: 'DM Sans, sans-serif',
-                  fontSize: 13,
-                  color: '#1C1917',
-                  cursor: 'pointer',
-                  lineHeight: 1.45,
-                }}
+                className="bg-card border-none py-2.5 px-4 text-left font-['DM_Sans'] text-[13px] text-foreground cursor-pointer leading-[1.45]"
               >
                 {chip}
               </button>
@@ -351,24 +306,16 @@ export default function HomePage() {
             <StyleDNACard />
 
             {/* Two equal surface buttons */}
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className="flex gap-2">
               <button
                 onClick={() => navigate('/plan')}
-                style={{
-                  flex: 1, height: 48, background: '#EDE8DF', border: 'none', borderRadius: 0,
-                  fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 500,
-                  color: '#1C1917', cursor: 'pointer',
-                }}
+                className="flex-1 h-12 bg-card border-none rounded-none font-['DM_Sans'] text-[13px] font-medium text-foreground cursor-pointer"
               >
                 Plan week
               </button>
               <button
                 onClick={() => navigate('/ai/mood')}
-                style={{
-                  flex: 1, height: 48, background: '#EDE8DF', border: 'none', borderRadius: 0,
-                  fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 500,
-                  color: '#1C1917', cursor: 'pointer',
-                }}
+                className="flex-1 h-12 bg-card border-none rounded-none font-['DM_Sans'] text-[13px] font-medium text-foreground cursor-pointer"
               >
                 Mood outfit
               </button>
@@ -379,21 +326,15 @@ export default function HomePage() {
               <div
                 role="button"
                 onClick={() => navigate('/outfits/unused')}
-                style={{ background: '#EDE8DF', padding: '16px 20px', cursor: 'pointer' }}
+                className="bg-card px-5 py-4 cursor-pointer"
               >
-                <p style={{
-                  fontFamily: 'DM Sans, sans-serif', fontSize: 10, textTransform: 'uppercase',
-                  letterSpacing: '0.1em', color: 'rgba(28,25,23,0.4)', marginBottom: 6,
-                }}>
+                <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/40 mb-1.5">
                   SLEEPING BEAUTIES
                 </p>
-                <p style={{
-                  fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-                  fontSize: 16, color: '#1C1917', marginBottom: 4,
-                }}>
+                <p className="font-['Playfair_Display'] italic text-[16px] text-foreground mb-1">
                   {sleepingBeauties.length} garments unworn this month
                 </p>
-                <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: 'rgba(28,25,23,0.5)' }}>
+                <p className="font-['DM_Sans'] text-[12px] text-foreground/50">
                   See what's being ignored →
                 </p>
               </div>
