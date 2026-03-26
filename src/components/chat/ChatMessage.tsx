@@ -41,9 +41,10 @@ interface ChatMessageProps {
   onTryOutfit?: (garmentIds: string[]) => void;
   isCreatingOutfit?: boolean;
   showStyleCards?: boolean;
+  onGarmentClick?: (garmentId: string) => void;
 }
 
-export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isCreatingOutfit, showStyleCards = true }: ChatMessageProps) {
+export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isCreatingOutfit, showStyleCards = true, onGarmentClick }: ChatMessageProps) {
   const navigate = useNavigate();
   const isUser = message.role === 'user';
   const text = isUser ? getTextContent(message.content) : stripUnknownGarmentMarkup(getTextContent(message.content));
@@ -182,7 +183,7 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
                   <GarmentInlineCard
                     key={g.id}
                     garment={g}
-                    onClick={() => navigate(`/wardrobe/${g.id}`)}
+                    onClick={() => onGarmentClick ? onGarmentClick(g.id) : navigate(`/wardrobe/${g.id}`)}
                   />
                 ))}
               </div>
