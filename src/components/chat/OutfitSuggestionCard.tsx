@@ -177,24 +177,51 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
 
       {/* Action */}
       <div className="px-3 pb-3">
-        <Button
-          size="sm"
-          className="w-full rounded-xl text-xs h-9 gap-1.5"
-          onClick={() => onTryOutfit(garments.map(g => g.id))}
-          disabled={isCreating}
-        >
-          {isCreating ? (
-            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <>
-              <ArrowRight className="w-3.5 h-3.5" />
-              {missingShoes
-                ? (t('outfit.save_without_shoes') || 'Save outfit (without shoes)')
-                : (t('outfit.try_this') || 'Testa denna outfit')
-              }
-            </>
-          )}
-        </Button>
+        {missingShoes ? (
+          <div className="space-y-1.5">
+            <Button
+              size="sm"
+              className="w-full rounded-xl text-xs h-9 gap-1.5"
+              onClick={() => navigate('/wardrobe?scan=shoes')}
+              disabled={isCreating}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {t('outfit.add_shoes') || 'Add shoes'}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="w-full rounded-xl text-xs h-8 gap-1.5 text-muted-foreground"
+              onClick={() => onTryOutfit(garments.map(g => g.id))}
+              disabled={isCreating}
+            >
+              {isCreating ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                  {t('outfit.save_without_shoes') || 'Save without shoes'}
+                </>
+              )}
+            </Button>
+          </div>
+        ) : (
+          <Button
+            size="sm"
+            className="w-full rounded-xl text-xs h-9 gap-1.5"
+            onClick={() => onTryOutfit(garments.map(g => g.id))}
+            disabled={isCreating}
+          >
+            {isCreating ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <>
+                <ArrowRight className="w-3.5 h-3.5" />
+                {t('outfit.try_this') || 'Testa denna outfit'}
+              </>
+            )}
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -880,6 +880,15 @@ function buildCandidateOutfits(rankedGarments: GarmentRecord[], anchor: GarmentR
   const accessoryCandidates = (slots.get("accessory") || []).slice(0, 2);
 
   const candidates: string[] = [];
+  const hasDressMinimum = (items: GarmentRecord[]) => {
+    const slotSet = new Set(items.map((item) => getSlotKey(item.category)));
+    return slotSet.has("dress") && slotSet.has("shoes");
+  };
+  const hasSeparatesMinimum = (items: GarmentRecord[]) => {
+    const slotSet = new Set(items.map((item) => getSlotKey(item.category)));
+    return slotSet.has("top") && slotSet.has("bottom") && slotSet.has("shoes");
+  };
+  const hasValidCompleteMinimum = (items: GarmentRecord[]) => hasDressMinimum(items) || hasSeparatesMinimum(items);
 
   // ── Dress-led candidates ─────────────────────────────────────────────────
   for (const dress of dressCandidates) {
@@ -887,7 +896,7 @@ function buildCandidateOutfits(rankedGarments: GarmentRecord[], anchor: GarmentR
     const outerwear = outerwearCandidates.find((item) => item.id !== dress.id && item.id !== shoes?.id);
     const accessory = accessoryCandidates.find((item) => ![dress.id, shoes?.id, outerwear?.id].includes(item.id));
     const items = [dress, shoes, outerwear, accessory].filter(Boolean) as GarmentRecord[];
-    if (items.length >= 2) {
+    if (hasDressMinimum(items)) {
       candidates.push(`- Candidate ${candidates.length + 1}: ${items.map((item) => `${item.title} [ID:${item.id}]`).join(" + ")} — rationale: dress-led silhouette with enough support pieces to finish the look.`);
     }
     if (candidates.length >= 3) return `PREBUILT OUTFIT CANDIDATES:\n${candidates.join("\n")}`;
@@ -903,7 +912,7 @@ function buildCandidateOutfits(rankedGarments: GarmentRecord[], anchor: GarmentR
     const items = [top, bottom, shoes, outerwear, accessory].filter(Boolean) as GarmentRecord[];
     // Verify no duplicate slots in this candidate
     const usedSlots = new Set(items.map((item) => getSlotKey(item.category)));
-    if (usedSlots.size === items.length && items.length >= 3) {
+    if (usedSlots.size === items.length && hasSeparatesMinimum(items)) {
       candidates.push(`- Candidate ${candidates.length + 1}: ${items.map((item) => `${item.title} [ID:${item.id}]`).join(" + ")} — rationale: balanced separates with clear proportions and a finished focal point.`);
     }
     if (candidates.length >= 3) break;
@@ -922,7 +931,7 @@ function buildCandidateOutfits(rankedGarments: GarmentRecord[], anchor: GarmentR
       })
       .slice(0, 4);
     const items = [anchor, ...support];
-    if (items.length >= 2) {
+    if (hasValidCompleteMinimum(items)) {
       candidates.push(`- Candidate 1: ${items.map((item) => `${item.title} [ID:${item.id}]`).join(" + ")} — rationale: best available support pieces around the hero garment.`);
     }
   }
@@ -1435,6 +1444,9 @@ STYLIST OPERATING CONTRACT:
 - Primary operating mode for this user turn: ${stylistMode}
 - Act like a premium stylist, not a general assistant.
 - Ground every recommendation in the ranked wardrobe subset first; only mention missing pieces when the wardrobe truly lacks them.
+- In OUTFIT_GENERATION and ACTIVE_LOOK_REFINEMENT, default to complete looks whenever the wardrobe allows it (separates need top + bottom + shoes; dress-led needs dress + shoes).
+- Do not normalize incomplete outfits as the ideal outcome.
+- If shoes are truly missing from the wardrobe, label the look as incomplete and recommend adding shoes; otherwise include shoes in the look.
 - If there is an anchor garment, build around it explicitly before offering alternatives.
 - Think silently in 2-3 outfit candidates first, then answer with the strongest option and at most one backup.
 - Make clear tradeoffs. Say what stays, what changes, and what effect that creates.
