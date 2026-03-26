@@ -332,6 +332,21 @@ async function enrichGarmentInBackground(garmentId: string, storagePath: string)
       updates.title = data.enrichment.refined_title.substring(0, 50);
     }
 
+    // Extract enrichment fields into dedicated garment columns
+    const e = data.enrichment;
+    if (typeof e.silhouette === 'string') updates.silhouette = e.silhouette;
+    if (typeof e.visual_weight === 'string') {
+      const vwMap: Record<string, number> = { light: 1, medium: 2, heavy: 3 };
+      updates.visual_weight = vwMap[e.visual_weight] ?? 2;
+    }
+    if (typeof e.texture_intensity === 'string') {
+      const tiMap: Record<string, number> = { smooth: 1, subtle: 2, moderate: 3, pronounced: 4, bold: 5 };
+      updates.texture_intensity = tiMap[e.texture_intensity] ?? 3;
+    }
+    if (typeof e.style_archetype === 'string') updates.style_archetype = e.style_archetype;
+    if (Array.isArray(e.occasion_tags)) updates.occasion_tags = e.occasion_tags.filter((t: unknown) => typeof t === 'string');
+    if (typeof e.versatility_score === 'number') updates.versatility_score = Math.max(1, Math.min(10, Math.round(e.versatility_score)));
+
     await supabase.from('garments').update(updates).eq('id', garmentId);
     return true;
   };
