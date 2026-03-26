@@ -10,6 +10,13 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import type { GarmentBasic } from '@/hooks/useGarmentsByIds';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
+function renderBoldMarkdown(text: string): React.ReactNode {
+  const parts = text.split(/\*\*(.+?)\*\*/g);
+  return parts.map((part, i) =>
+    i % 2 === 1 ? <strong key={i}>{part}</strong> : part
+  );
+}
+
 // Simplified swap scoring inline (avoid importing full hook)
 const NEUTRAL = ['black', 'white', 'grey', 'beige', 'navy', 'svart', 'vit', 'grå', 'marinblå', 'marin'];
 
@@ -137,7 +144,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
 
       {/* Explanation */}
       <div className="px-3 pb-2">
-        <p className="text-xs text-muted-foreground leading-relaxed">{explanation}</p>
+        <p className="text-xs text-muted-foreground leading-relaxed">{renderBoldMarkdown(explanation)}</p>
       </div>
 
       {/* Action */}
