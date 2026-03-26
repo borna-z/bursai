@@ -1,4 +1,5 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -43,36 +44,34 @@ export function useSubscription() {
         .maybeSingle();
 
       if (error) throw error;
-      
-      // If no subscription exists (for existing users), create one
-      if (!data) {
-        const { data: newSub, error: insertError } = await supabase
-          .from('user_subscriptions')
-          .insert({ user_id: user.id, plan: 'free' })
-          .select()
-          .single();
-        
-        if (insertError) {
-          // Might fail due to RLS, return default values
-          return {
-            id: '',
-            user_id: user.id,
-            plan: 'free' as SubscriptionPlan,
-            garments_count: 0,
-            outfits_used_month: 0,
-            period_start: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-        }
-        
-        return newSub as unknown as Subscription;
-      }
-
-      return data as unknown as Subscription;
+      return (data as unknown as Subscription) ?? null;
     },
     enabled: !!user,
+    staleTime: 5 * 60 * 1000,
   });
+
+  // Bootstrap a free subscription row for users that don't have one yet
+  const bootstrap = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('Not authenticated');
+      const { data, error } = await supabase
+        .from('user_subscriptions')
+        .insert({ user_id: user.id, plan: 'free' })
+        .select()
+        .single();
+      if (error) throw error;
+      return data as unknown as Subscription;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscription', user?.id] });
+    },
+  });
+
+  useEffect(() => {
+    if (query.data === null && !query.isLoading && !bootstrap.isPending) {
+      bootstrap.mutate();
+    }
+  }, [query.data, query.isLoading, bootstrap.isPending]);
 
   const subscription = query.data;
   const plan = subscription?.plan || 'free';

@@ -160,8 +160,8 @@ export function useLiveScan() {
     await Promise.allSettled(savingRef.current);
     savingRef.current = [];
 
-    invalidateWardrobeQueries(queryClient);
-    queryClient.invalidateQueries({ queryKey: ['subscription'] });
+    invalidateWardrobeQueries(queryClient, user?.id);
+    queryClient.invalidateQueries({ queryKey: ['subscription', user?.id] });
   }, [queryClient]);
 
   const clearLastAccepted = useCallback(() => setLastAccepted(null), []);

@@ -35,8 +35,10 @@ interface MockChain {
   select: ReturnType<typeof vi.fn>;
   eq: ReturnType<typeof vi.fn>;
   contains: ReturnType<typeof vi.fn>;
+  or: ReturnType<typeof vi.fn>;
   order: ReturnType<typeof vi.fn>;
   range: ReturnType<typeof vi.fn>;
+  limit: ReturnType<typeof vi.fn>;
   insert: ReturnType<typeof vi.fn>;
   delete: ReturnType<typeof vi.fn>;
   update: ReturnType<typeof vi.fn>;
@@ -49,8 +51,10 @@ function mockChain(data: unknown[] = [], error: unknown = null): MockChain {
   chain.select = vi.fn().mockReturnValue(chain);
   chain.eq = vi.fn().mockReturnValue(chain);
   chain.contains = vi.fn().mockReturnValue(chain);
+  chain.or = vi.fn().mockReturnValue(chain);
   chain.order = vi.fn().mockReturnValue(chain);
   chain.range = vi.fn().mockResolvedValue({ data, error });
+  chain.limit = vi.fn().mockResolvedValue({ data, error });
   chain.insert = vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single: vi.fn().mockResolvedValue({ data: (data as Record<string, unknown>[])[0] || {}, error }) }) });
   chain.delete = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error }) });
   chain.update = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error }) });
@@ -96,19 +100,18 @@ describe('useGarments', () => {
     await waitFor(() => expect(chain.eq).toHaveBeenCalledWith('category', 'top'));
   });
 
-  it('applies client-side search filter', async () => {
+  it('useGarmentSearch queries server-side with ilike', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
     const garments = [
       { id: 'g1', title: 'Blue Shirt', category: 'top', color_primary: 'blue' },
-      { id: 'g2', title: 'Red Pants', category: 'bottom', color_primary: 'red' },
     ];
     mockFrom.mockReturnValue(mockChain(garments));
 
-    const { useFlatGarments } = await import('../useGarments');
+    const { useGarmentSearch } = await import('../useGarments');
     const { wrapper } = createWrapper();
-    const { result } = renderHook(() => useFlatGarments({ search: 'blue' }), { wrapper });
-    await waitFor(() => expect(result.current.data.length).toBe(1));
-    expect(result.current.data[0].title).toBe('Blue Shirt');
+    const { result } = renderHook(() => useGarmentSearch('blue'), { wrapper });
+    await waitFor(() => expect(result.current.data?.length).toBe(1));
+    expect(result.current.data?.[0].title).toBe('Blue Shirt');
   });
 
   it('useGarmentCount returns count', async () => {
@@ -137,8 +140,8 @@ describe('useGarments', () => {
       await result.current.mutateAsync({ title: 'Shirt', category: 'top', color_primary: 'blue' } as never);
     });
 
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments'] });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments-count'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments', 'user-1'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments-count', 'user-1'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ai-suggestions'] });
   });
 
@@ -155,8 +158,8 @@ describe('useGarments', () => {
       await result.current.mutateAsync('g1');
     });
 
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments'] });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments-count'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments', 'user-1'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments-count', 'user-1'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ai-suggestions'] });
   });
 });

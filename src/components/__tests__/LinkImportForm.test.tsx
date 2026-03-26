@@ -82,9 +82,9 @@ describe('LinkImportForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'import.import_links' }));
 
     await waitFor(() => expect(invokeMock).toHaveBeenCalled());
-    expect(invalidateQueriesMock).toHaveBeenCalledWith({ queryKey: ['garments'] });
-    expect(invalidateQueriesMock).toHaveBeenCalledWith({ queryKey: ['garments-count'] });
+    expect(invalidateQueriesMock).toHaveBeenCalledWith({ queryKey: ['garments', 'user-1'] });
+    expect(invalidateQueriesMock).toHaveBeenCalledWith({ queryKey: ['garments-count', 'user-1'] });
     expect(invalidateQueriesMock).toHaveBeenCalledWith({ queryKey: ['ai-suggestions'] });
-    expect(invalidateQueriesMock).toHaveBeenCalledWith({ queryKey: ['subscription'] });
+    expect(invalidateQueriesMock).toHaveBeenCalledWith({ queryKey: ['subscription', 'user-1'] });
   });
 });

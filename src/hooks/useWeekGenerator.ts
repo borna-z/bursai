@@ -136,7 +136,7 @@ export function useWeekGenerator() {
       setProgress(100);
 
       // Invalidate queries
-      queryClient.invalidateQueries({ queryKey: ['outfits'] });
+      queryClient.invalidateQueries({ queryKey: ['outfits', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['planned-outfits'] });
       queryClient.invalidateQueries({ queryKey: ['planned-outfits-day'] });
 

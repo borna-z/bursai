@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function useGenerateFlatlay() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -25,7 +27,7 @@ export function useGenerateFlatlay() {
     },
     onSuccess: (_data, outfitId) => {
       queryClient.invalidateQueries({ queryKey: ['outfit', outfitId] });
-      queryClient.invalidateQueries({ queryKey: ['outfits'] });
+      queryClient.invalidateQueries({ queryKey: ['outfits', user?.id] });
     },
   });
 

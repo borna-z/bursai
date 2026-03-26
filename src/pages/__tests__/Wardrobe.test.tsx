@@ -28,6 +28,10 @@ vi.mock('@/hooks/useGarments', () => ({
     hasNextPage: false,
     isFetchingNextPage: false,
   })),
+  useGarmentSearch: vi.fn(() => ({
+    data: [],
+    isLoading: false,
+  })),
   useGarmentCount: vi.fn(() => ({ data: 0 })),
   useUpdateGarment: vi.fn(() => ({ mutate: vi.fn() })),
   useDeleteGarment: vi.fn(() => ({ mutateAsync: vi.fn() })),
