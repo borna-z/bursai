@@ -1,25 +1,61 @@
 import "@testing-library/jest-dom";
+import { beforeEach, vi } from "vitest";
 
-// Fix localStorage/sessionStorage in Node 21+ where the built-in storage API
-// conflicts with jsdom's implementation. Provide a simple in-memory fallback.
-function createStorageMock(): Storage {
+function createStorageMock() {
   let store: Record<string, string> = {};
-  return {
-    getItem: (key: string) => store[key] ?? null,
-    setItem: (key: string, value: string) => { store[key] = String(value); },
-    removeItem: (key: string) => { delete store[key]; },
-    clear: () => { store = {}; },
-    get length() { return Object.keys(store).length; },
-    key: (index: number) => Object.keys(store)[index] ?? null,
+  const getItem = vi.fn((key: string) => store[key] ?? null);
+  const setItem = vi.fn((key: string, value: string) => {
+    store[key] = String(value);
+  });
+  const removeItem = vi.fn((key: string) => {
+    delete store[key];
+  });
+  const clear = vi.fn(() => {
+    store = {};
+  });
+  const key = vi.fn((index: number) => Object.keys(store)[index] ?? null);
+
+  const storage: Storage = {
+    getItem,
+    setItem,
+    removeItem,
+    clear,
+    key,
+    get length() {
+      return Object.keys(store).length;
+    },
   };
+
+  const reset = () => {
+    store = {};
+    getItem.mockClear();
+    setItem.mockClear();
+    removeItem.mockClear();
+    clear.mockClear();
+    key.mockClear();
+  };
+
+  return { storage, reset };
 }
 
-if (typeof globalThis.localStorage === 'undefined' || typeof globalThis.localStorage.clear !== 'function') {
-  Object.defineProperty(globalThis, 'localStorage', { value: createStorageMock(), writable: true });
-}
-if (typeof globalThis.sessionStorage === 'undefined' || typeof globalThis.sessionStorage.clear !== 'function') {
-  Object.defineProperty(globalThis, 'sessionStorage', { value: createStorageMock(), writable: true });
-}
+const localStorageMock = createStorageMock();
+const sessionStorageMock = createStorageMock();
+
+Object.defineProperty(globalThis, "localStorage", {
+  value: localStorageMock.storage,
+  configurable: true,
+  writable: true,
+});
+Object.defineProperty(globalThis, "sessionStorage", {
+  value: sessionStorageMock.storage,
+  configurable: true,
+  writable: true,
+});
+
+beforeEach(() => {
+  localStorageMock.reset();
+  sessionStorageMock.reset();
+});
 
 Object.defineProperty(window, "matchMedia", {
   writable: true,
