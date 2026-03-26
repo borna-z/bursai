@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { GarmentInlineCard } from '@/components/chat/GarmentInlineCard';
 import { OutfitSuggestionCard } from '@/components/chat/OutfitSuggestionCard';
 import type { GarmentBasic } from '@/hooks/useGarmentsByIds';
@@ -43,6 +44,7 @@ interface ChatMessageProps {
 }
 
 export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isCreatingOutfit, showStyleCards = true }: ChatMessageProps) {
+  const navigate = useNavigate();
   const isUser = message.role === 'user';
   const text = isUser ? getTextContent(message.content) : stripUnknownGarmentMarkup(getTextContent(message.content));
   const images = getImageUrls(message.content);
@@ -119,39 +121,42 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
         ) : (
           <>
             {/* Outfit card — hero position when present */}
-            {hasOutfit && (
-              <div className="space-y-2">
-                {outfitCards.map((oc, i) => (
-                  <OutfitSuggestionCard
-                    key={`outfit-${i}`}
-                    garments={oc.garments}
-                    explanation={oc.explanation}
-                    onTryOutfit={onTryOutfit || (() => {})}
-                    isCreating={isCreatingOutfit}
-                  />
-                ))}
-                {rejectionLine && (
-                  <div style={{
-                    borderLeft: '2px solid rgba(28,25,23,0.20)',
-                    paddingLeft: 10,
-                    marginTop: 6,
-                  }}>
-                    <span style={{
-                      fontFamily: 'DM Sans, sans-serif',
-                      fontSize: 12,
-                      color: 'rgba(28,25,23,0.60)',
-                      fontStyle: 'italic',
-                      lineHeight: 1.5,
+            <div style={{ minHeight: isStreaming && hasOutfit ? 120 : undefined }}>
+              {hasOutfit && (
+                <div className="space-y-2">
+                  {outfitCards.map((oc, i) => (
+                    <OutfitSuggestionCard
+                      key={`outfit-${i}`}
+                      garments={oc.garments}
+                      explanation={oc.explanation}
+                      onTryOutfit={onTryOutfit || (() => {})}
+                      isCreating={isCreatingOutfit}
+                    />
+                  ))}
+                  {rejectionLine && (
+                    <div style={{
+                      borderLeft: '2px solid rgba(28,25,23,0.20)',
+                      paddingLeft: 10,
+                      marginTop: 6,
                     }}>
-                      {rejectionLine}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
+                      <span style={{
+                        fontFamily: 'DM Sans, sans-serif',
+                        fontSize: 12,
+                        color: 'rgba(28,25,23,0.60)',
+                        fontStyle: 'italic',
+                        lineHeight: 1.5,
+                      }}>
+                        {rejectionLine}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             {/* Prose text — secondary style when outfit is present */}
             {textParts && (
               <div
+                style={{ minHeight: 48 }}
                 className={
                   hasOutfit
                     ? 'text-[14px] leading-relaxed text-foreground/70 whitespace-pre-wrap'
@@ -174,7 +179,11 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
             {showStyleCards && garmentCards.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {garmentCards.map(g => (
-                  <GarmentInlineCard key={g.id} garment={g} />
+                  <GarmentInlineCard
+                    key={g.id}
+                    garment={g}
+                    onClick={() => navigate(`/wardrobe/${g.id}`)}
+                  />
                 ))}
               </div>
             )}
