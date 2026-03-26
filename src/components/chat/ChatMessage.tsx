@@ -5,6 +5,26 @@ import { OutfitSuggestionCard } from '@/components/chat/OutfitSuggestionCard';
 import type { GarmentBasic } from '@/hooks/useGarmentsByIds';
 import { parseGarmentTextSegments, parseOutfitTags, stripUnknownGarmentMarkup } from '@/lib/garmentTokens';
 
+const BOLD_RE = /\*\*(.+?)\*\*/g;
+
+function renderBoldText(text: string, keyPrefix: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  const re = new RegExp(BOLD_RE.source, 'g');
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+    nodes.push(<strong key={`${keyPrefix}-b${match.index}`}>{match[1]}</strong>);
+    lastIndex = re.lastIndex;
+  }
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+  return nodes.length > 0 ? nodes : [text];
+}
+
 const REJECTION_RE = /\b(over the|instead of|rather than|kept the)\b|(\bchose\b.*\bnot\b)/i;
 
 function extractRejectionSentence(text: string): { rejection: string; remainder: string } | null {
@@ -76,7 +96,7 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
 
     parseGarmentTextSegments(cleanText).forEach((segment, index) => {
       if (segment.type === 'text') {
-        parts.push(<span key={`t-${index}`}>{segment.value} </span>);
+        parts.push(<span key={`t-${index}`}>{renderBoldText(segment.value, `t-${index}`)}{' '}</span>);
         return;
       }
 

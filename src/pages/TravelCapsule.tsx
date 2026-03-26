@@ -8,7 +8,7 @@ import {
   ArrowLeft, Globe, CalendarIcon, Shirt,
   LightbulbIcon, Sun, CloudRain, Cloud,
   CalendarPlus, Package, SlidersHorizontal, Pencil,
-  Check, Share2, Snowflake, RefreshCw,
+  Check, Share2, Snowflake, X,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
@@ -21,7 +21,6 @@ import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
 import { LocationAutocomplete } from '@/components/ui/LocationAutocomplete';
 import { Label } from '@/components/ui/label';
-import { Chip } from '@/components/ui/chip';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
@@ -42,15 +41,6 @@ import type { DateRange } from 'react-day-picker';
 import { AILoadingCard } from '@/components/ui/AILoadingCard';
 
 /* ─── Types ─── */
-interface PastCapsule {
-  id: string;
-  destination: string;
-  trip_type: string;
-  duration_days: number;
-  created_at: string;
-  result?: CapsuleResult;
-}
-
 interface CapsuleOutfit {
   day: number;
   occasion: string;
@@ -66,21 +56,46 @@ interface CapsuleResult {
   reasoning: string;
 }
 
-/* ─── Constants ─── */
-const OCCASIONS = [
-  { id: 'casual', labelKey: 'home.occasion.casual' },
-  { id: 'work', labelKey: 'home.occasion.work' },
-  { id: 'party', labelKey: 'home.occasion.party' },
-  { id: 'date', labelKey: 'home.occasion.date' },
-  { id: 'workout', labelKey: 'home.occasion.workout' },
-  { id: 'beach', labelKey: 'capsule.occasion_beach' },
-  { id: 'hiking', labelKey: 'capsule.occasion_hiking' },
-  { id: 'formal', labelKey: 'capsule.occasion_formal' },
-];
+interface SavedCapsule {
+  id: string;
+  destination: string;
+  vibe: string;
+  dateLabel: string;
+  itemCount: number;
+  outfitCount: number;
+  result: CapsuleResult;
+  created_at: string;
+}
 
-const TRIP_TYPES = ['business', 'casual', 'beach', 'winter', 'mixed'] as const;
+/* ─── Trip Vibe config ─── */
+const VIBES = [
+  { id: 'business', label: 'Business' },
+  { id: 'weekend', label: 'Weekend' },
+  { id: 'beach', label: 'Beach' },
+  { id: 'winter', label: 'Winter' },
+  { id: 'adventure', label: 'Adventure' },
+  { id: 'mixed', label: 'Mixed' },
+] as const;
 
-const OCCASION_OPTIONS = ['Casual', 'Work', 'Dinner', 'Active', 'Beach', 'Formal'];
+type VibeId = typeof VIBES[number]['id'];
+
+const VIBE_TO_TRIP_TYPE: Record<VibeId, string> = {
+  business: 'business',
+  weekend: 'casual',
+  beach: 'beach',
+  winter: 'winter',
+  adventure: 'casual',
+  mixed: 'mixed',
+};
+
+const VIBE_TO_OCCASIONS: Record<VibeId, string[]> = {
+  business: ['work', 'dinner'],
+  weekend: ['casual', 'dinner'],
+  beach: ['casual', 'active', 'beach'],
+  winter: ['casual', 'work'],
+  adventure: ['casual', 'active'],
+  mixed: ['casual', 'work', 'dinner'],
+};
 
 const LOADING_STEPS = (dest: string) => [
   `Packing for ${dest || 'your trip'}...`,
@@ -89,6 +104,19 @@ const LOADING_STEPS = (dest: string) => [
   'Building your outfits...',
   'Finalising packing list...',
 ];
+
+const STORAGE_KEY = 'burs_travel_capsules';
+
+function loadSavedCapsules(): SavedCapsule[] {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveCapsules(capsules: SavedCapsule[]) {
+  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(capsules));
+}
 
 /* ─── Helpers ─── */
 const WeatherMiniIcon = ({ condition, className }: { condition?: string; className?: string }) => {
@@ -111,22 +139,16 @@ export default function TravelCapsule() {
   // ── Form state ──
   const [destination, setDestination] = useState('');
   const [destCoords, setDestCoords] = useState<{ lat: number; lon: number } | null>(null);
-  const [hasManualOccasions, setHasManualOccasions] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [selectedOccasions, setSelectedOccasions] = useState<string[]>(['vardag']);
-  const [minimizeItems, setMinimizeItems] = useState(true);
-  const [includeTravelDays, setIncludeTravelDays] = useState(false);
+  const [vibe, setVibe] = useState<VibeId>('mixed');
+  const [durationDays, setDurationDays] = useState(5);
   const [outfitsPerDay, setOutfitsPerDay] = useState(1);
   const [mustHaveItems, setMustHaveItems] = useState<string[]>([]);
+  const [minimizeItems, setMinimizeItems] = useState(true);
+  const [includeTravelDays, setIncludeTravelDays] = useState(false);
 
-  // ── New trip type / duration / occasions state ──
-  const [tripType, setTripType] = useState<string>('mixed');
-  const [durationDays, setDurationDays] = useState(5);
-  const [newOccasions, setNewOccasions] = useState<string[]>([]);
-
-  // ── Past capsules state ──
-  const [pastCapsules, setPastCapsules] = useState<PastCapsule[]>([]);
-  const [pastOpen, setPastOpen] = useState(false);
+  // ── Past capsules (sessionStorage) ──
+  const [savedCapsules, setSavedCapsules] = useState<SavedCapsule[]>(() => loadSavedCapsules());
 
   // ── Loading step state ──
   const [loadingStep, setLoadingStep] = useState(0);
@@ -138,11 +160,9 @@ export default function TravelCapsule() {
     destination?: string;
     destCoords?: { lat: number; lon: number } | null;
     dateRange?: { from: string; to: string } | null;
-    selectedOccasions?: string[];
     minimizeItems?: boolean;
     includeTravelDays?: boolean;
     outfitsPerDay?: number;
-    hasManualOccasions?: boolean;
   } | null;
 
   const [addedToCalendar, setAddedToCalendar] = useState(false);
@@ -162,30 +182,25 @@ export default function TravelCapsule() {
         to: new Date(locationState.dateRange.to),
       });
     }
-    if (locationState.selectedOccasions) setSelectedOccasions(locationState.selectedOccasions);
     if (locationState.minimizeItems !== undefined) setMinimizeItems(locationState.minimizeItems);
     if (locationState.includeTravelDays !== undefined) setIncludeTravelDays(locationState.includeTravelDays);
     if (locationState.outfitsPerDay !== undefined) setOutfitsPerDay(locationState.outfitsPerDay);
-    if (locationState.hasManualOccasions !== undefined) setHasManualOccasions(locationState.hasManualOccasions);
-    // Re-trigger weather if coords were restored
     if (locationState.destCoords && locationState.dateRange?.from && locationState.dateRange?.to) {
       setTimeout(() => lookupWeatherWithCoords(locationState.destCoords!), 100);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Generation state ──
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<CapsuleResult | null>(null);
-  useState<string | null>(null); // loadingPhase - kept for future use
 
-  // ── Derived values (moved before travelCardPhases) ──
+  // ── Derived values ──
   const tripNights = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to) return 0;
     return differenceInCalendarDays(dateRange.to, dateRange.from);
   }, [dateRange]);
 
-  // Context-aware travel loading phases (~60s total, last phase holds)
   const travelCardPhases = useMemo(() => [
     { icon: Shirt, label: `Scanning your ${allGarments?.length ? `${allGarments.length} ` : ''}garments`, duration: 15000 },
     { icon: Globe, label: `Finding combinations for ${destination || 'your destination'}`, duration: 15000 },
@@ -211,14 +226,10 @@ export default function TravelCapsule() {
     [capsuleGarments]
   );
 
-  // Fallback map so thumbnails render immediately from the pre-loaded wardrobe
-  // before capsuleGarments finishes its async fetch
   const allGarmentsMap = useMemo(
     () => new Map((allGarments || []).map(g => [g.id, g])),
     [allGarments]
   );
-
-  // ── Derived values (tripNights moved above travelCardPhases) ──
 
   const tripDays = tripNights + (includeTravelDays ? 2 : 0);
 
@@ -234,8 +245,6 @@ export default function TravelCapsule() {
     if (!tripNights) return null;
     return `${tripNights} ${t('capsule.nights')} • ${result?.outfits.length || tripDays} ${t('capsule.outfits_count')}`;
   }, [tripNights, tripDays, result, t]);
-
-  const isFormValid = destination.length >= 2 && dateRange?.from && dateRange?.to && selectedOccasions.length > 0;
 
   // ── Load packing progress from localStorage ──
   useEffect(() => {
@@ -255,47 +264,35 @@ export default function TravelCapsule() {
     });
   };
 
-  // ── New occasions toggle (max 3) ──
-  const toggleNewOccasion = (o: string) => {
-    setNewOccasions(prev =>
-      prev.includes(o) ? prev.filter(x => x !== o) : prev.length < 3 ? [...prev, o] : prev
-    );
+  // ── Remove a saved capsule ──
+  const removeSavedCapsule = (capsuleId: string) => {
+    setSavedCapsules(prev => {
+      const next = prev.filter(c => c.id !== capsuleId);
+      saveCapsules(next);
+      return next;
+    });
   };
 
-  // ── Load a past capsule ──
-  const loadCapsule = (capsule: PastCapsule) => {
-    setResult(capsule.result ?? null);
-    if (capsule.destination) setDestination(capsule.destination);
-    if (capsule.trip_type) setTripType(capsule.trip_type);
-    if (capsule.duration_days) setDurationDays(capsule.duration_days);
+  // ── Load a saved capsule ──
+  const loadSavedCapsule = (capsule: SavedCapsule) => {
+    setResult(capsule.result);
+    setDestination(capsule.destination);
+    setVibe((capsule.vibe as VibeId) || 'mixed');
   };
-
-  // ── Fetch past capsules on mount ──
-  useEffect(() => {
-    const fetchPast = async () => {
-      try {
-        const { data, error } = await invokeEdgeFunction<{ capsules: PastCapsule[] }>('travel_capsule', {
-          body: { method: 'GET' },
-        });
-        if (!error && data?.capsules) setPastCapsules(data.capsules);
-      } catch { /* best-effort fetch */ }
-    };
-    fetchPast();
-  }, []);
 
   // ── Group capsule items by category ──
   const groupedItems = useMemo(() => {
     if (!result) return {};
     const groups: Record<string, Array<{ id: string; title: string; image_path: string; category: string }>> = {};
     for (const id of result.capsule_items) {
-      const g = garmentMap.get(id);
+      const g = garmentMap.get(id) ?? allGarmentsMap.get(id);
       if (!g) continue;
       const cat = g.category || 'other';
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(g);
     }
     return groups;
-  }, [result, garmentMap]);
+  }, [result, garmentMap, allGarmentsMap]);
 
   // ── Count which outfits use each item ──
   const itemOutfitCount = useMemo(() => {
@@ -320,38 +317,24 @@ export default function TravelCapsule() {
     return results;
   }, [dateRange, forecastDays, tripNights]);
 
-  // ── Toggles ──
-  const toggleOccasion = (id: string) => {
-    setHasManualOccasions(true);
-    setSelectedOccasions(prev =>
-      prev.includes(id) ? prev.filter(o => o !== id) : [...prev, id]
-    );
-  };
-
-  // ── Weather lookup — supports up to 1 year via historical data ──
+  // ── Weather lookup ──
   const lookupWeatherWithCoords = useCallback(async (coords: { lat: number; lon: number }) => {
     setIsFetchingWeather(true);
     setWeatherError(null);
     try {
-      // Fetch live 16-day forecast
       const liveDays = await fetchForecast(coords.lat, coords.lon);
       const lastLiveDate = liveDays[liveDays.length - 1]?.date;
-
       let allDays = liveDays;
 
-      // If trip dates extend beyond 16-day window, fetch historical weather
       if (dateRange?.from && dateRange?.to) {
         const startStr = format(dateRange.from, 'yyyy-MM-dd');
         const endStr = format(dateRange.to, 'yyyy-MM-dd');
-
         if (lastLiveDate && endStr > lastLiveDate) {
           const histStart = startStr > lastLiveDate
             ? startStr
             : format(addDays(new Date(lastLiveDate), 1), 'yyyy-MM-dd');
           try {
-            const historicalDays = await fetchHistoricalWeather(
-              coords.lat, coords.lon, histStart, endStr
-            );
+            const historicalDays = await fetchHistoricalWeather(coords.lat, coords.lon, histStart, endStr);
             const liveSet = new Set(liveDays.map(d => d.date));
             allDays = [...liveDays, ...historicalDays.filter(h => !liveSet.has(h.date))];
           } catch {
@@ -382,25 +365,13 @@ export default function TravelCapsule() {
           isHistorical: hasHistorical,
         };
         setWeatherForecast(forecast);
-
-        // Smart occasion auto-select (only on first weather load)
-        if (!hasManualOccasions) {
-          const auto: string[] = ['casual'];
-          if (avgMax > 28) auto.push('beach');
-          if (avgPrecip > 60) { /* keep casual, skip outdoor */ }
-          else if (avgMax > 20 && avgMax <= 28) auto.push('hiking');
-          setSelectedOccasions(prev => {
-            const merged = new Set([...auto, ...prev]);
-            return [...merged];
-          });
-        }
       }
     } catch {
       setWeatherError(t('qgen.weather_error'));
     } finally {
       setIsFetchingWeather(false);
     }
-  }, [dateRange, t, hasManualOccasions]);
+  }, [dateRange, t]);
 
   const lookupWeather = useCallback(async () => {
     if (destCoords) {
@@ -451,8 +422,8 @@ export default function TravelCapsule() {
         body: {
           duration_days: durationDays || tripDays || tripNights,
           destination,
-          trip_type: tripType,
-          occasions: newOccasions.length > 0 ? newOccasions : selectedOccasions,
+          trip_type: VIBE_TO_TRIP_TYPE[vibe],
+          occasions: VIBE_TO_OCCASIONS[vibe],
           start_date: dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
           end_date: dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
           weather: weatherForecast ? {
@@ -469,10 +440,26 @@ export default function TravelCapsule() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      setResult(data as CapsuleResult);
+      const capsuleResult = data as CapsuleResult;
+      setResult(capsuleResult);
       setActiveTab('packing');
       hapticSuccess();
       toast.success(t('capsule.created'));
+
+      // Save to sessionStorage
+      const saved: SavedCapsule = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        destination,
+        vibe,
+        dateLabel: dateLabel || '',
+        itemCount: capsuleResult.capsule_items.length,
+        outfitCount: capsuleResult.outfits.length,
+        result: capsuleResult,
+        created_at: new Date().toISOString(),
+      };
+      const updated = [saved, ...savedCapsules.filter(c => c.id !== saved.id)].slice(0, 10);
+      setSavedCapsules(updated);
+      saveCapsules(updated);
     } catch (err) {
       toast.error(t('capsule.create_error'));
       console.error('Travel capsule error:', err);
@@ -490,7 +477,6 @@ export default function TravelCapsule() {
       if (!currentUser) throw new Error('User session expired. Please log in again.');
       const userId = currentUser.id;
 
-      // Fetch garments directly to avoid stale/empty garmentMap from async hook
       const { data: freshGarments } = await supabase
         .from('garments')
         .select('id, category')
@@ -498,8 +484,6 @@ export default function TravelCapsule() {
         .eq('user_id', userId);
 
       const freshMap = new Map((freshGarments || []).map(g => [g.id, g]));
-
-      // Deduplicate outfits by day + sorted item fingerprint
       const createdOutfitKeys = new Set<string>();
 
       for (const capsuleOutfit of result.outfits) {
@@ -509,12 +493,9 @@ export default function TravelCapsule() {
         createdOutfitKeys.add(dedupeKey);
 
         const outfitDate = format(addDays(dateRange.from!, capsuleOutfit.day - 1), 'yyyy-MM-dd');
-
-        // Resolve valid garment IDs for this outfit
         const validItems = capsuleOutfit.items.filter(id => freshMap.has(id));
         if (validItems.length === 0) continue;
 
-        // 1. Create an outfit record
         const { data: outfitRow, error: outfitErr } = await supabase
           .from('outfits')
           .insert({
@@ -532,7 +513,6 @@ export default function TravelCapsule() {
           continue;
         }
 
-        // 2. Create outfit_items with slot derived from garment category
         const slotMap: Record<string, string> = {
           top: 'top', bottom: 'bottom', shoes: 'shoes', outerwear: 'outerwear',
           accessory: 'accessory', accessories: 'accessory', dress: 'dress',
@@ -551,7 +531,6 @@ export default function TravelCapsule() {
 
         if (itemsErr) console.error('Failed to create outfit items:', itemsErr);
 
-        // 3. Create planned_outfit linked to the real outfit
         const { error: planErr } = await supabase
           .from('planned_outfits')
           .insert({
@@ -628,6 +607,43 @@ export default function TravelCapsule() {
             </div>
           </div>
 
+          {/* Saved capsules */}
+          {savedCapsules.length > 0 && !showForm && (
+            <div className="space-y-2">
+              {savedCapsules.map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => loadSavedCapsule(c)}
+                  className="w-full text-left p-4 rounded-xl bg-card/60 border border-border/10 hover:bg-card/80 transition-colors relative group"
+                >
+                  <button
+                    onClick={(e) => { e.stopPropagation(); removeSavedCapsule(c.id); }}
+                    className="absolute top-3 right-3 w-6 h-6 rounded-full bg-muted/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3 h-3 text-muted-foreground" />
+                  </button>
+                  <p style={{ fontFamily: '"Playfair Display", serif', fontStyle: 'italic', fontSize: 16, color: '#1C1917', margin: 0 }}>
+                    {c.destination}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span style={{
+                      fontFamily: 'DM Sans, sans-serif', fontSize: 10, background: '#EDE8DF',
+                      color: '#1C1917', padding: '2px 8px', textTransform: 'capitalize',
+                    }}>
+                      {c.vibe}
+                    </span>
+                    {c.dateLabel && (
+                      <span className="text-[11px] text-muted-foreground/60">{c.dateLabel}</span>
+                    )}
+                    <span className="text-[11px] text-muted-foreground/60">
+                      {c.itemCount} items · {c.outfitCount} outfits
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Editorial empty state */}
           {!showForm && (
             <div
@@ -676,7 +692,7 @@ export default function TravelCapsule() {
           )}
 
           {showForm && <div className="space-y-6">
-            {/* Step 1: Where */}
+            {/* a. DESTINATION */}
             <div className="space-y-2">
               <Label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
                 {t('capsule.destination')}
@@ -713,7 +729,7 @@ export default function TravelCapsule() {
               )}
             </div>
 
-            {/* Step 2: When */}
+            {/* b. TRAVEL DATES */}
             <div className="space-y-2">
               <Label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
                 {t('capsule.travel_dates')}
@@ -745,36 +761,55 @@ export default function TravelCapsule() {
               </Popover>
             </div>
 
-            {/* Step 3: Activities */}
+            {/* c. TRIP VIBE — single select */}
             <div className="space-y-2">
               <Label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
-                {t('capsule.occasions')}
+                Trip vibe
               </Label>
-              <p className="text-[11px] text-muted-foreground/50">{t('capsule.occasions_hint')}</p>
               <div className="flex flex-wrap gap-2">
-                {OCCASIONS.map(o => {
-                  const isSelected = selectedOccasions.includes(o.id);
-                  return (
-                    <Chip
-                      key={o.id}
-                      selected={isSelected}
-                      onClick={() => { hapticLight(); toggleOccasion(o.id); }}
-                      size="lg"
-                      className={cn(
-                        'rounded-xl',
-                        isSelected
-                          ? 'bg-foreground text-background border-transparent'
-                          : 'bg-card border-border/20 text-foreground'
-                      )}
-                    >
-                      {t(o.labelKey)}
-                    </Chip>
-                  );
-                })}
+                {VIBES.map(v => (
+                  <button
+                    key={v.id}
+                    onClick={() => { hapticLight(); setVibe(v.id); }}
+                    className={cn(
+                      'px-4 py-1.5 rounded-full text-[13px] font-medium transition-all border',
+                      vibe === v.id
+                        ? 'bg-foreground text-background border-transparent'
+                        : 'bg-card/60 border-border/20 text-foreground hover:bg-card/80'
+                    )}
+                    style={{ fontFamily: 'DM Sans, sans-serif' }}
+                  >
+                    {v.label}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Step 3b: Outfits per day */}
+            {/* d. DURATION — stepper */}
+            <div className="space-y-2">
+              <Label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
+                Duration
+              </Label>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => { hapticLight(); setDurationDays(d => Math.max(1, d - 1)); }}
+                  disabled={durationDays <= 1}
+                  className="w-10 h-10 rounded-xl bg-card/60 border border-border/15 flex items-center justify-center disabled:opacity-30 transition-opacity"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span className="text-2xl font-semibold w-16 text-center tabular-nums">{durationDays} days</span>
+                <button
+                  onClick={() => { hapticLight(); setDurationDays(d => Math.min(21, d + 1)); }}
+                  disabled={durationDays >= 21}
+                  className="w-10 h-10 rounded-xl bg-card/60 border border-border/15 flex items-center justify-center disabled:opacity-30 transition-opacity"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* e. OUTFITS PER DAY — stepper */}
             <div className="space-y-2">
               <Label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
                 {t('capsule.outfits_per_day')}
@@ -799,7 +834,7 @@ export default function TravelCapsule() {
               </div>
             </div>
 
-            {/* Step 3c: Must-haves */}
+            {/* f. MUST-HAVES */}
             {(allGarments?.length ?? 0) > 0 && (
               <div className="space-y-2">
                 <Label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
@@ -807,11 +842,10 @@ export default function TravelCapsule() {
                 </Label>
                 <p className="text-[11px] text-muted-foreground/50">{t('capsule.must_haves_desc')}</p>
 
-                {/* Selected thumbnails preview */}
                 {mustHaveItems.length > 0 && (
                   <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                     {mustHaveItems.slice(0, 6).map(id => {
-                      const g = allGarments?.find(g => g.id === id);
+                      const g = allGarments?.find(gar => gar.id === id);
                       if (!g) return null;
                       return (
                         <div key={id} className="relative flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border border-primary/30 bg-muted/20">
@@ -820,7 +854,7 @@ export default function TravelCapsule() {
                             onClick={() => { hapticLight(); setMustHaveItems(prev => prev.filter(i => i !== id)); }}
                             className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-destructive flex items-center justify-center"
                           >
-                            <span className="text-[8px] text-destructive-foreground font-bold">✕</span>
+                            <span className="text-[8px] text-destructive-foreground font-bold">x</span>
                           </button>
                         </div>
                       );
@@ -846,11 +880,9 @@ export default function TravelCapsule() {
                         dateRange: dateRange?.from && dateRange?.to
                           ? { from: dateRange.from.toISOString(), to: dateRange.to.toISOString() }
                           : null,
-                        selectedOccasions,
                         minimizeItems,
                         includeTravelDays,
                         outfitsPerDay,
-                        hasManualOccasions,
                       },
                     });
                   }}
@@ -865,7 +897,7 @@ export default function TravelCapsule() {
               </div>
             )}
 
-            {/* Step 4: Preferences */}
+            {/* g. PACKING PREFERENCES */}
             <div className="space-y-3">
               <Label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase flex items-center gap-1.5">
                 <SlidersHorizontal className="w-3 h-3" />
@@ -889,88 +921,7 @@ export default function TravelCapsule() {
               </div>
             </div>
 
-            {/* Trip Summary */}
-            {destination && dateRange?.from && dateRange?.to && weatherForecast && !isGenerating && (
-              <div className="flex items-center gap-2 p-3 rounded-xl bg-card/60 border border-border/10 text-sm">
-                <WeatherMiniIcon condition={weatherForecast.condition} />
-                <span className="font-medium truncate">{destination}</span>
-                <span className="text-muted-foreground">·</span>
-                <span className="text-muted-foreground">{dateLabel}</span>
-                <span className="text-muted-foreground">·</span>
-                <span className="text-muted-foreground">{tripNights} {t('capsule.nights')}</span>
-                <span className="text-muted-foreground">·</span>
-                <span className="text-muted-foreground">{weatherForecast.temperature_min}–{weatherForecast.temperature_max}°C</span>
-              </div>
-            )}
-
-            {/* Trip Type */}
-            <div className="space-y-2">
-              <Label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
-                Trip Type
-              </Label>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-                {TRIP_TYPES.map(t_ => (
-                  <button
-                    key={t_}
-                    onClick={() => setTripType(t_)}
-                    style={{
-                      padding: '6px 16px',
-                      borderRadius: 20,
-                      border: '1px solid rgba(28,25,23,0.20)',
-                      background: tripType === t_ ? '#1C1917' : '#F5F0E8',
-                      color: tripType === t_ ? '#F5F0E8' : '#1C1917',
-                      fontFamily: 'DM Sans, sans-serif',
-                      fontSize: 13,
-                      cursor: 'pointer',
-                      textTransform: 'capitalize',
-                    }}
-                  >
-                    {t_}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Duration Stepper */}
-            <div className="space-y-2">
-              <Label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
-                Duration
-              </Label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-                <button onClick={() => setDurationDays(d => Math.max(1, d - 1))} style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid rgba(28,25,23,0.20)', background: 'transparent', cursor: 'pointer', fontSize: 18 }}>−</button>
-                <span style={{ fontFamily: 'DM Sans', fontSize: 15, minWidth: 60, textAlign: 'center' }}>{durationDays} days</span>
-                <button onClick={() => setDurationDays(d => Math.min(21, d + 1))} style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid rgba(28,25,23,0.20)', background: 'transparent', cursor: 'pointer', fontSize: 18 }}>+</button>
-              </div>
-            </div>
-
-            {/* Occasions Multi-select (max 3) */}
-            <div className="space-y-2">
-              <Label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
-                Occasions <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(up to 3)</span>
-              </Label>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-                {OCCASION_OPTIONS.map(o => (
-                  <button
-                    key={o}
-                    onClick={() => toggleNewOccasion(o)}
-                    style={{
-                      padding: '6px 14px',
-                      borderRadius: 20,
-                      border: '1px solid rgba(28,25,23,0.20)',
-                      background: newOccasions.includes(o) ? '#1C1917' : 'transparent',
-                      color: newOccasions.includes(o) ? '#F5F0E8' : '#1C1917',
-                      fontFamily: 'DM Sans, sans-serif',
-                      fontSize: 13,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {o}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Generate */}
+            {/* h. Generate */}
             <div className="space-y-1">
               {isGenerating ? (
                 <motion.div
@@ -979,6 +930,7 @@ export default function TravelCapsule() {
                   transition={{ duration: 0.3, ease: EASE_CURVE }}
                   className="space-y-3"
                 >
+                  <AILoadingCard phases={travelCardPhases} />
                   <p style={{ fontFamily: 'Playfair Display', fontStyle: 'italic', fontSize: 16, color: '#1C1917', textAlign: 'center', margin: '12px 0' }}>
                     {LOADING_STEPS(destination)[loadingStep]}
                   </p>
@@ -989,31 +941,6 @@ export default function TravelCapsule() {
                 </Button>
               )}
             </div>
-
-            {/* Past Trips */}
-            {pastCapsules.length > 0 && (
-              <div style={{ marginTop: 24 }}>
-                <button onClick={() => setPastOpen(p => !p)} style={{ fontFamily: 'DM Sans', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', color: '#1C1917' }}>
-                  Past Trips ({pastCapsules.length}) {pastOpen ? '▲' : '▼'}
-                </button>
-                {pastOpen && (
-                  <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {pastCapsules.map((c) => (
-                      <div key={c.id} style={{ background: '#EDE8DF', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                          <p style={{ fontFamily: 'DM Sans', fontSize: 14, fontWeight: 500, margin: 0 }}>{c.destination}</p>
-                          <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(28,25,23,0.50)', margin: 0 }}>{c.trip_type} · {c.duration_days} days · {new Date(c.created_at).toLocaleDateString()}</p>
-                        </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button onClick={() => loadCapsule(c)} style={{ fontFamily: 'DM Sans', fontSize: 12, background: '#1C1917', color: '#F5F0E8', border: 'none', padding: '6px 12px', cursor: 'pointer' }}>Load</button>
-                          <button onClick={() => setPastCapsules(prev => prev.filter(x => x.id !== c.id))} style={{ fontFamily: 'DM Sans', fontSize: 12, background: 'transparent', border: '1px solid rgba(28,25,23,0.20)', padding: '6px 12px', cursor: 'pointer' }}>×</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>}
         </AnimatedPage>
       </AppLayout>
@@ -1055,12 +982,51 @@ export default function TravelCapsule() {
           </div>
         </motion.div>
 
+        {/* ── Hero Card ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1, duration: 0.4, ease: EASE_CURVE }}
+          className="mx-5 mt-4 p-5 rounded-xl bg-[#F5F0E8] border border-border/10"
+        >
+          <h2 style={{
+            fontFamily: '"Playfair Display", serif',
+            fontStyle: 'italic',
+            fontSize: 22,
+            color: '#1C1917',
+            margin: 0,
+            marginBottom: 6,
+          }}>
+            {destination}
+          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            {dateLabel && <span className="text-[12px] text-muted-foreground">{dateLabel}</span>}
+            <span style={{
+              fontFamily: 'DM Sans, sans-serif', fontSize: 10, background: '#1C1917',
+              color: '#F5F0E8', padding: '2px 8px', textTransform: 'capitalize',
+            }}>
+              {vibe}
+            </span>
+            <span className="text-[12px] text-muted-foreground">
+              {totalItems} items · {result.outfits.length} outfits
+            </span>
+          </div>
+          {weatherForecast && (
+            <div className="flex items-center gap-1.5 mt-2">
+              <WeatherMiniIcon condition={weatherForecast.condition} className="w-3 h-3" />
+              <span className="text-[11px] text-muted-foreground">
+                {weatherForecast.temperature_min}–{weatherForecast.temperature_max}°C · {weatherForecast.condition}
+              </span>
+            </div>
+          )}
+        </motion.div>
+
         {/* ── Weather Strip ── */}
         {tripDayForecasts.length > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.1, duration: 0.4 }}
+            transition={{ delay: 0.15, duration: 0.4 }}
             className="px-5 py-2.5 border-b border-border/5"
           >
             <div className="flex gap-1 overflow-x-auto scrollbar-none -mx-1 px-1">
@@ -1128,7 +1094,7 @@ export default function TravelCapsule() {
                     />
                   </div>
                   <span className="text-[11px] text-muted-foreground/60 tabular-nums shrink-0">
-                    {packedCount}/{totalItems}
+                    {packedCount} of {totalItems} packed
                   </span>
                 </div>
 
@@ -1150,7 +1116,7 @@ export default function TravelCapsule() {
                           {category} ({(items || []).length})
                         </span>
                         <span className="text-[10px] text-muted-foreground/50">
-                          → {t('capsule.used_in')} {catOutfitUses} {t('capsule.outfits_label')}
+                          {t('capsule.used_in')} {catOutfitUses} {t('capsule.outfits_label')}
                         </span>
                       </div>
 
@@ -1166,7 +1132,6 @@ export default function TravelCapsule() {
                                 : 'bg-card/40 hover:bg-card/60'
                             )}
                           >
-                            {/* Checkbox */}
                             <div className={cn(
                               'w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-all',
                               checkedItems.has(g.id)
@@ -1178,12 +1143,10 @@ export default function TravelCapsule() {
                               )}
                             </div>
 
-                            {/* Thumbnail */}
                             <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted/30 shrink-0">
                               <LazyImageSimple imagePath={getPreferredGarmentImagePath(g)} alt={g.title} className="w-full h-full" />
                             </div>
 
-                            {/* Info */}
                             <div className="flex-1 min-w-0 text-left">
                               <span className={cn(
                                 'text-[13px] font-medium block truncate',
@@ -1212,11 +1175,6 @@ export default function TravelCapsule() {
                   </span>
                 </div>
 
-                {/* Progress indicator */}
-                <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(28,25,23,0.50)', marginBottom: 12 }}>
-                  {checkedItems.size} of {totalItems} items packed
-                </p>
-
                 {/* Copy packing list */}
                 <button
                   onClick={() => {
@@ -1228,7 +1186,8 @@ export default function TravelCapsule() {
                     navigator.clipboard.writeText(garmentTitles);
                     toast.success('Packing list copied');
                   }}
-                  style={{ fontFamily: 'DM Sans', fontSize: 13, background: '#EDE8DF', border: 'none', padding: '8px 16px', cursor: 'pointer', borderRadius: 4 }}
+                  className="w-full py-2.5 rounded-xl bg-[#EDE8DF] text-[13px] font-medium text-foreground hover:bg-[#E5DED4] transition-colors"
+                  style={{ fontFamily: 'DM Sans, sans-serif' }}
                 >
                   Copy packing list
                 </button>
@@ -1273,12 +1232,12 @@ export default function TravelCapsule() {
                       transition={{ delay: idx * STAGGER_DELAY, duration: 0.35 }}
                     >
                       <p style={{ fontFamily: 'DM Sans', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(28,25,23,0.45)', marginBottom: 8 }}>
-                        Day {Math.floor(idx / 2) + 1}
+                        Day {outfit.day}
                       </p>
                       <OutfitSuggestionCard
                         garments={outfitGarments}
-                        explanation={outfit.note ?? outfit.explanation ?? ''}
-                        onTryOutfit={() => {}}
+                        explanation={outfit.note ?? ''}
+                        onTryOutfit={() => {/* no-op in capsule context */}}
                         isCreating={false}
                       />
                     </motion.div>
@@ -1320,13 +1279,22 @@ export default function TravelCapsule() {
               {t('capsule.view_in_planner') || 'View in Planner'}
             </Button>
           ) : (
-            <Button
-              onClick={handleAddToCalendar}
-              className="flex-1 h-11 rounded-xl"
-            >
-              <CalendarPlus className="w-4 h-4 mr-2" />
-              {t('capsule.add_to_plan')}
-            </Button>
+            <>
+              <Button
+                onClick={handleAddToCalendar}
+                className="flex-1 h-11 rounded-xl"
+              >
+                <CalendarPlus className="w-4 h-4 mr-2" />
+                {t('capsule.add_to_plan')}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => { setResult(null); setAddedToCalendar(false); }}
+                className="h-11 rounded-xl px-4"
+              >
+                Start over
+              </Button>
+            </>
           )}
           <Button
             variant="outline"
