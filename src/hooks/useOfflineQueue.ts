@@ -11,6 +11,22 @@ export function useOfflineQueue() {
   const [queueCount, setQueueCount] = useState(getQueueLength);
   const [isReplaying, setIsReplaying] = useState(false);
 
+  const handleReplay = useCallback(async () => {
+    const pending = getQueueLength();
+    if (pending === 0) return;
+
+    setIsReplaying(true);
+    try {
+      const synced = await replayQueue();
+      if (synced > 0) {
+        toast.success(`Synced ${synced} offline change${synced > 1 ? 's' : ''}`);
+      }
+      setQueueCount(getQueueLength());
+    } finally {
+      setIsReplaying(false);
+    }
+  }, []);
+
   // Track online/offline
   useEffect(() => {
     const goOffline = () => setIsOffline(true);
@@ -35,22 +51,6 @@ export function useOfflineQueue() {
     };
     window.addEventListener('offline-queue-change', handler);
     return () => window.removeEventListener('offline-queue-change', handler);
-  }, []);
-
-  const handleReplay = useCallback(async () => {
-    const pending = getQueueLength();
-    if (pending === 0) return;
-
-    setIsReplaying(true);
-    try {
-      const synced = await replayQueue();
-      if (synced > 0) {
-        toast.success(`Synced ${synced} offline change${synced > 1 ? 's' : ''}`);
-      }
-      setQueueCount(getQueueLength());
-    } finally {
-      setIsReplaying(false);
-    }
   }, []);
 
   return { isOffline, queueCount, isReplaying };
