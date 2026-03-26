@@ -1475,11 +1475,35 @@ ${refinementContract}`;
         ...preparedMessages,
       ],
       complexity: chatComplexity,
-      max_tokens: chatComplexity === "complex" ? 1200 : 1000,
+      max_tokens: chatComplexity === "complex" ? 1400 : 1100,
       functionName: "style_chat",
     });
 
     let rawAssistantText = typeof aiResponse.data === "string" ? aiResponse.data : String(aiResponse.data ?? "");
+
+    // ── Empty response guard ─────────────────────────────────────
+    if (!rawAssistantText.trim()) {
+      console.warn("style_chat: AI returned empty response, using fallback");
+      const isSwedish = locale === "sv";
+      rawAssistantText = isSwedish
+        ? "Jag kunde inte sätta ihop ett svar just nu. Försök igen eller omformulera din fråga."
+        : "I couldn't put together a response right now. Try again or rephrase your question.";
+    }
+
+    // ── Truncation detection ─────────────────────────────────────
+    if (aiResponse.finish_reason === "length") {
+      console.warn("style_chat: response truncated by output token limit (finish_reason=length)");
+      // Clean up partial sentence at the end if the model was cut off mid-thought
+      const lastPunctuation = Math.max(
+        rawAssistantText.lastIndexOf("."),
+        rawAssistantText.lastIndexOf("!"),
+        rawAssistantText.lastIndexOf("?"),
+        rawAssistantText.lastIndexOf("…"),
+      );
+      if (lastPunctuation > rawAssistantText.length * 0.6) {
+        rawAssistantText = rawAssistantText.slice(0, lastPunctuation + 1).trim();
+      }
+    }
 
     // ── Post-processing validation ──────────────────────────────
     // a. Check for garment name reference
@@ -1498,12 +1522,14 @@ ${refinementContract}`;
       }
     }
 
-    // c. Trim overly long non-outfit replies (generous limit to avoid mid-sentence cuts)
+    // c. Trim overly long non-outfit replies — language-safe sentence splitting
     const hasOutfitTag = rawAssistantText.includes("[[outfit:");
-    if (rawAssistantText.length > 800 && !hasOutfitTag) {
-      const sentences = rawAssistantText.match(/[^.!?]+[.!?]+/g) ?? [];
-      if (sentences.length > 5) {
-        rawAssistantText = sentences.slice(0, 5).join(" ").trim();
+    if (rawAssistantText.length > 900 && !hasOutfitTag) {
+      // Split on sentence-ending punctuation followed by a space or end-of-string.
+      // This preserves trailing text that lacks final punctuation (common in Swedish, etc.)
+      const sentences = rawAssistantText.split(/(?<=[.!?…])\s+/).filter(Boolean);
+      if (sentences.length > 6) {
+        rawAssistantText = sentences.slice(0, 6).join(" ").trim();
       }
     }
 

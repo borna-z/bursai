@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowRight, RefreshCw, Shirt } from 'lucide-react';
+import { useState, useCallback, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight, RefreshCw, Shirt, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -9,6 +9,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { GarmentBasic } from '@/hooks/useGarmentsByIds';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+
+const SHOE_CATEGORIES = new Set([
+  'shoes', 'sneakers', 'boots', 'loafers', 'sandals', 'heels',
+  'skor', 'stövlar', 'footwear', 'trainers', 'oxfords', 'mules',
+]);
 
 function renderBoldMarkdown(text: string): React.ReactNode {
   const parts = text.split(/\*\*(.+?)\*\*/g);
@@ -38,10 +43,16 @@ interface OutfitSuggestionCardProps {
 export function OutfitSuggestionCard({ garments: initialGarments, explanation, onTryOutfit, isCreating }: OutfitSuggestionCardProps) {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const [garments, setGarments] = useState(initialGarments);
   const [swapOpen, setSwapOpen] = useState<number | null>(null);
   const [alternatives, setAlternatives] = useState<GarmentBasic[]>([]);
   const [loadingAlts, setLoadingAlts] = useState(false);
+
+  const missingShoes = useMemo(
+    () => garments.length >= 2 && !garments.some(g => SHOE_CATEGORIES.has(g.category?.toLowerCase() ?? '')),
+    [garments],
+  );
 
   const fetchAlternatives = useCallback(async (index: number) => {
     if (!user) return;
@@ -147,6 +158,23 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
         <p className="text-xs text-muted-foreground leading-relaxed">{renderBoldMarkdown(explanation)}</p>
       </div>
 
+      {/* Missing shoes notice */}
+      {missingShoes && (
+        <div className="mx-3 mb-2 flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2">
+          <Shirt className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+          <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-snug">
+            {t('outfit.missing_shoes') || 'No shoes in your wardrobe yet — add a pair to complete this look.'}
+          </p>
+          <button
+            onClick={() => navigate('/wardrobe?scan=shoes')}
+            className="shrink-0 flex items-center gap-1 text-[11px] font-medium text-amber-700 dark:text-amber-400 hover:underline"
+          >
+            <Plus className="w-3 h-3" />
+            {t('outfit.add_shoes') || 'Add'}
+          </button>
+        </div>
+      )}
+
       {/* Action */}
       <div className="px-3 pb-3">
         <Button
@@ -160,7 +188,10 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
           ) : (
             <>
               <ArrowRight className="w-3.5 h-3.5" />
-              {t('outfit.try_this') || 'Testa denna outfit'}
+              {missingShoes
+                ? (t('outfit.save_without_shoes') || 'Save outfit (without shoes)')
+                : (t('outfit.try_this') || 'Testa denna outfit')
+              }
             </>
           )}
         </Button>
