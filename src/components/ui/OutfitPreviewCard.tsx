@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import type { OutfitWithItems } from '@/hooks/useOutfits';
 import { cn } from '@/lib/utils';
 import { OutfitComposition } from './OutfitComposition';
@@ -12,7 +12,7 @@ interface OutfitPreviewCardProps {
   compositionClassName?: string;
 }
 
-export function OutfitPreviewCard({
+export const OutfitPreviewCard = memo(function OutfitPreviewCard({
   items,
   meta,
   excerpt,
@@ -36,4 +36,4 @@ export function OutfitPreviewCard({
       )}
     </div>
   );
-}
+});

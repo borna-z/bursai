@@ -65,6 +65,8 @@ export default function AuthPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [tab, setTab] = useState<'login' | 'signup'>('login');
+  const [emailNotConfirmed, setEmailNotConfirmed] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
   const { t } = useLanguage();
 
   if (loading) {
@@ -83,10 +85,26 @@ export default function AuthPage() {
     e.preventDefault();
     if (!email || !password) { toast.error(t('auth.fill_all')); return; }
     setIsLoading(true);
+    setEmailNotConfirmed(false);
     const { error } = await signIn(email, password);
     setIsLoading(false);
     if (error) {
+      if (error.message.toLowerCase().includes('email not confirmed')) {
+        setEmailNotConfirmed(true);
+      }
       toast.error(getLoginErrorMessage(error, t));
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email) { toast.error(t('auth.enter_email_first')); return; }
+    setResendingEmail(true);
+    const { error } = await supabase.auth.resend({ type: 'signup', email });
+    setResendingEmail(false);
+    if (error) {
+      toast.error(error.message || t('auth.something_wrong'));
+    } else {
+      toast.success('Confirmation email sent!');
     }
   };
 
@@ -307,6 +325,24 @@ export default function AuthPage() {
                 </button>
               )}
             </div>
+
+            {/* Resend confirmation */}
+            {isLogin && emailNotConfirmed && (
+              <div className="flex items-center justify-between bg-muted/40 border border-border px-3 py-2.5">
+                <span className="text-[11px] text-foreground font-['DM_Sans']">
+                  Email not confirmed.
+                </span>
+                <button
+                  type="button"
+                  onClick={handleResendConfirmation}
+                  disabled={resendingEmail}
+                  className="text-[11px] text-foreground font-medium font-['DM_Sans'] underline underline-offset-2 hover:text-foreground/70 transition-colors disabled:opacity-40 flex items-center gap-1.5"
+                >
+                  {resendingEmail && <Loader2 className="w-3 h-3 animate-spin" />}
+                  Resend confirmation email
+                </button>
+              </div>
+            )}
 
             {/* Submit */}
             <button

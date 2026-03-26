@@ -31,6 +31,7 @@ import { useOutfitFeedback, useSubmitPhotoFeedback } from '@/hooks/usePhotoFeedb
 import { useFeedbackSignals } from '@/hooks/useFeedbackSignals';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { RenderPendingOverlay } from '@/components/wardrobe/RenderPendingOverlay';
+import { PageBreadcrumb } from '@/components/ui/PageBreadcrumb';
 
 /* ── Swap Sheet ─────────────────────────────────────── */
 
@@ -581,6 +582,14 @@ export default function OutfitDetailPage() {
             <Share2 className="w-5 h-5" />
           </button>
         </div>
+      </div>
+
+      {/* ── Breadcrumb ── */}
+      <div style={{ paddingTop: 56 }}>
+        <PageBreadcrumb items={[
+          { label: 'Outfits', href: '/outfits' },
+          { label: displayOccasion || 'Outfit' },
+        ]} />
       </div>
 
       {/* ── Full-bleed image strip ── */}
