@@ -35,17 +35,13 @@ export function GarmentCardSkeleton({ grid = true }: { grid?: boolean }) {
   return (
     <div className="rounded-xl overflow-hidden">
       <Skeleton className="aspect-square w-full" />
-      <div className="p-3 space-y-2">
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-3 w-1/2" />
-      </div>
     </div>
   );
 }
 
 export function GarmentGridSkeleton({ count = 6, grid = true }: { count?: number; grid?: boolean }) {
   return (
-    <div className={cn(grid ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2')}>
+    <div className={cn(grid ? 'grid grid-cols-3 gap-[5px]' : 'flex flex-col gap-2')}>
       {Array.from({ length: count }).map((_, i) => (
         <StaggerIn key={i} index={i}>
           <GarmentCardSkeleton grid={grid} />
@@ -111,33 +107,35 @@ export function StatGridSkeleton() {
   );
 }
 
-/* ─── Home page skeleton — mirrors hero + shortcuts layout ─── */
+/* ─── Home page skeleton — mirrors dark hero + tip + quick-buttons layout ─── */
 export function HomePageSkeleton() {
   return (
     <div className="space-y-5">
-      {/* Hero card */}
+      {/* Dark hero block — matches full-bleed bg-foreground hero */}
       <StaggerIn index={0}>
-        <div className="rounded-2xl border border-border/10 overflow-hidden">
-          <div className="grid grid-cols-4 gap-0.5 p-1">
-            {[1, 2, 3, 4].map(i => (
-              <Skeleton key={i} className="aspect-square rounded-lg" />
-            ))}
-          </div>
-          <div className="px-5 py-4 space-y-3">
-            <div className="flex gap-2">
-              <Skeleton className="h-5 w-16 rounded-full" />
-              <Skeleton className="h-5 w-20 rounded-full" />
-            </div>
-            <Skeleton className="h-3 w-4/5" />
-            <Skeleton className="h-11 w-full rounded-xl" />
-          </div>
+        <div className="-mx-5 bg-foreground px-5 py-7">
+          <Skeleton className="w-12 h-12 mx-auto mb-4 bg-background/[0.08]" />
+          <Skeleton className="h-5 w-3/5 mx-auto mb-2 bg-background/[0.10]" />
+          <Skeleton className="h-3 w-4/5 mx-auto mb-5 bg-background/[0.06]" />
+          <Skeleton className="h-11 w-36 mx-auto bg-background/[0.10]" />
         </div>
       </StaggerIn>
-      {/* Quick actions */}
+      {/* Stylist tip placeholder */}
       <StaggerIn index={1}>
-        <div className="flex gap-2.5">
-          <Skeleton className="flex-1 h-11 rounded-xl" />
-          <Skeleton className="flex-1 h-11 rounded-xl" />
+        <Skeleton className="h-3 w-4/5 mt-1" />
+      </StaggerIn>
+      {/* Suggestion chips placeholder */}
+      <StaggerIn index={2}>
+        <div className="space-y-2">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-3/4" />
+        </div>
+      </StaggerIn>
+      {/* Quick action buttons placeholder */}
+      <StaggerIn index={3}>
+        <div className="flex gap-2">
+          <Skeleton className="flex-1 h-12" />
+          <Skeleton className="flex-1 h-12" />
         </div>
       </StaggerIn>
     </div>
