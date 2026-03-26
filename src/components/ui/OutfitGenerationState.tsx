@@ -50,7 +50,7 @@ export function OutfitGenerationState({
     if (prefersReduced) return;
     const timer = setInterval(() => {
       setPhaseIndex(p => (p + 1) % phaseLabels.length);
-    }, 1800);
+    }, 800);
     return () => clearInterval(timer);
   }, [prefersReduced, phaseLabels.length]);
 

@@ -108,6 +108,7 @@ export default function OutfitGeneratePage() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [generatedResults, setGeneratedResults] = useState<GeneratedOutfit[]>([]);
   const [primaryIndex, setPrimaryIndex] = useState(0);
+  const [excludeIds, setExcludeIds] = useState<string[]>([]);
   const updateOutfit = useUpdateOutfit();
   const markWorn = useMarkOutfitWorn();
 
@@ -168,6 +169,7 @@ export default function OutfitGeneratePage() {
         locale,
         eventTitle: calendarEvents?.[0]?.title ?? null,
         mode: generationMode,
+        exclude_garment_ids: excludeIds,
         weather: {
           temperature: weather?.temperature,
           precipitation: weather?.precipitation ?? 'none',
@@ -180,6 +182,7 @@ export default function OutfitGeneratePage() {
       const results = Array.isArray(result) ? result : [result];
       setGeneratedResults(results);
       setPrimaryIndex(0);
+      setExcludeIds(prev => [...new Set([...prev, ...(results.flatMap(r => r.items?.map(i => i.garment.id) ?? []))])]);
       setPhase('done');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
@@ -237,6 +240,13 @@ export default function OutfitGeneratePage() {
           : primary.explanation
         : '');
 
+    const presentSlots = new Set(primary.items.map(i => i.slot));
+    const expectedSlots = ['top', 'bottom', 'shoes'];
+    const missingSlots = expectedSlots.filter(s => !presentSlots.has(s) && !presentSlots.has('dress'));
+    const effectiveMissing = presentSlots.has('dress')
+      ? expectedSlots.filter(s => s === 'shoes' && !presentSlots.has('shoes'))
+      : missingSlots;
+
     const handleWearToday = async () => {
       try {
         const garmentIds = primary.items.map((item) => item.garment.id);
@@ -277,7 +287,8 @@ export default function OutfitGeneratePage() {
                         initial={prefersReduced ? false : { opacity: 0, scale: 1.02 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: i * 0.08, duration: 0.45 }}
-                        className="relative overflow-hidden bg-[#F5F0E8]"
+                        onClick={() => navigate(`/wardrobe/${item.garment.id}`)}
+                        style={{ cursor: 'pointer', position: 'relative', overflow: 'hidden', background: '#F5F0E8' }}
                       >
                         <LazyImageSimple
                           imagePath={getPreferredGarmentImagePath(item.garment)}
@@ -292,8 +303,29 @@ export default function OutfitGeneratePage() {
                         </div>
                       </motion.div>
                     ))}
-                    {Array.from({ length: Math.max(0, 4 - primary.items.length) }).map((_, i) => (
-                      <div key={`empty-${i}`} className="bg-[#F5F0E8] aspect-square" />
+                    {effectiveMissing.slice(0, Math.max(0, 4 - primary.items.length)).map((slot, i) => (
+                      <div key={`placeholder-${i}`} style={{
+                        background: '#F5F0E8',
+                        aspectRatio: '1',
+                        border: '1.5px dashed rgba(28,25,23,0.15)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: 8,
+                      }}>
+                        <span style={{
+                          fontFamily: 'DM Sans, sans-serif',
+                          fontSize: 11,
+                          color: 'rgba(28,25,23,0.40)',
+                          textAlign: 'center',
+                          lineHeight: 1.4,
+                        }}>
+                          Add {slot}<br/>to complete
+                        </span>
+                      </div>
+                    ))}
+                    {Array.from({ length: Math.max(0, 4 - primary.items.length - effectiveMissing.length) }).map((_, i) => (
+                      <div key={`empty-extra-${i}`} style={{ background: '#F5F0E8', aspectRatio: '1' }} />
                     ))}
                   </div>
 
@@ -302,9 +334,34 @@ export default function OutfitGeneratePage() {
                     <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-[#1C1917]/50">
                       {OCCASIONS.find(o => o.key === selectedOccasion)?.label ?? selectedOccasion}
                     </p>
+                    {calendarEvents?.[0]?.title && (
+                      <span style={{
+                        display: 'inline-block',
+                        fontFamily: 'DM Sans, sans-serif',
+                        fontSize: 10,
+                        background: 'rgba(28,25,23,0.07)',
+                        color: '#1C1917',
+                        padding: '3px 8px',
+                        marginTop: 4,
+                      }}>
+                        {calendarEvents[0].title}
+                      </span>
+                    )}
                     {reasoningText && (
                       <p className="font-['Playfair_Display'] italic text-[13px] text-[#1C1917]/70 leading-snug line-clamp-2">
                         {reasoningText}
+                      </p>
+                    )}
+                    {weather && (
+                      <p style={{
+                        fontFamily: 'DM Sans, sans-serif',
+                        fontSize: 10,
+                        color: 'rgba(28,25,23,0.45)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        marginTop: 4,
+                      }}>
+                        Styled for {weather.temperature}°C{weather.precipitation && weather.precipitation !== 'none' ? ` · ${weather.precipitation}` : ''}
                       </p>
                     )}
                   </div>
@@ -348,6 +405,27 @@ export default function OutfitGeneratePage() {
                     Plan
                   </button>
                 </div>
+
+                {/* Try another look */}
+                <button
+                  onClick={handleGenerate}
+                  disabled={isGenerating}
+                  style={{
+                    width: '100%',
+                    height: 44,
+                    background: '#EDE8DF',
+                    border: 'none',
+                    fontFamily: 'DM Sans, sans-serif',
+                    fontSize: 13,
+                    fontWeight: 500,
+                    color: '#1C1917',
+                    cursor: isGenerating ? 'not-allowed' : 'pointer',
+                    opacity: isGenerating ? 0.5 : 1,
+                    marginTop: 8,
+                  }}
+                >
+                  Try another look
+                </button>
               </motion.div>
 
               {/* ── Alternate builder options ── */}

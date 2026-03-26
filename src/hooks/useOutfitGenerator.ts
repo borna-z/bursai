@@ -12,6 +12,7 @@ export interface OutfitRequest {
   locale?: string;
   eventTitle?: string | null;
   mode?: 'standard' | 'stylist';
+  exclude_garment_ids?: string[];
   weather: {
     temperature?: number;
     precipitation: string;
@@ -238,6 +239,7 @@ async function generateOutfitViaEngine(
       weather: normalizedWeather,
       locale: request.locale || 'en',
       event_title: request.eventTitle || null,
+      exclude_garment_ids: request.exclude_garment_ids ?? [],
     },
   });
 
