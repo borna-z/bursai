@@ -63,4 +63,5 @@ const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
 );
 Chip.displayName = 'Chip';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export { Chip, chipVariants };

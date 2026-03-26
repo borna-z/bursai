@@ -15,9 +15,11 @@ export function ProtectedRoute({ children, skipOnboardingCheck = false }: Protec
   const { data: profile, isLoading: profileLoading } = useProfile();
   const location = useLocation();
 
+  // eslint-disable-next-line no-console
   console.log('[ProtectedRoute]', location.pathname, { loading, user: !!user, profileLoading, hasProfile: !!profile });
 
   if (loading || (user && profileLoading)) {
+    // eslint-disable-next-line no-console
     console.log('[ProtectedRoute] Showing spinner for', location.pathname);
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
@@ -27,6 +29,7 @@ export function ProtectedRoute({ children, skipOnboardingCheck = false }: Protec
   }
 
   if (!user) {
+    // eslint-disable-next-line no-console
     console.log('[ProtectedRoute] No user, redirecting to /auth from', location.pathname);
     return <Navigate to="/auth" replace />;
   }
@@ -36,6 +39,7 @@ export function ProtectedRoute({ children, skipOnboardingCheck = false }: Protec
     const prefs = asPreferences(profile.preferences);
     const onboardingCompleted = prefs?.onboarding?.completed === true;
     if (!onboardingCompleted && location.pathname !== '/onboarding') {
+      // eslint-disable-next-line no-console
       console.log('[ProtectedRoute] Redirecting to onboarding from', location.pathname);
       return <Navigate to="/onboarding" replace />;
     }

@@ -37,6 +37,7 @@
  
    useEffect(() => {
      checkAdminAccess();
+   // eslint-disable-next-line react-hooks/exhaustive-deps
    }, [user]);
  
    const checkAdminAccess = async () => {

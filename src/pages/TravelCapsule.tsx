@@ -42,6 +42,15 @@ import type { DateRange } from 'react-day-picker';
 import { AILoadingCard } from '@/components/ui/AILoadingCard';
 
 /* ─── Types ─── */
+interface PastCapsule {
+  id: string;
+  destination: string;
+  trip_type: string;
+  duration_days: number;
+  created_at: string;
+  result?: CapsuleResult;
+}
+
 interface CapsuleOutfit {
   day: number;
   occasion: string;
@@ -116,7 +125,7 @@ export default function TravelCapsule() {
   const [newOccasions, setNewOccasions] = useState<string[]>([]);
 
   // ── Past capsules state ──
-  const [pastCapsules, setPastCapsules] = useState<any[]>([]);
+  const [pastCapsules, setPastCapsules] = useState<PastCapsule[]>([]);
   const [pastOpen, setPastOpen] = useState(false);
 
   // ── Loading step state ──
@@ -162,6 +171,7 @@ export default function TravelCapsule() {
     if (locationState.destCoords && locationState.dateRange?.from && locationState.dateRange?.to) {
       setTimeout(() => lookupWeatherWithCoords(locationState.destCoords!), 100);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Generation state ──
@@ -253,7 +263,7 @@ export default function TravelCapsule() {
   };
 
   // ── Load a past capsule ──
-  const loadCapsule = (capsule: any) => {
+  const loadCapsule = (capsule: PastCapsule) => {
     setResult(capsule.result ?? null);
     if (capsule.destination) setDestination(capsule.destination);
     if (capsule.trip_type) setTripType(capsule.trip_type);
@@ -264,11 +274,11 @@ export default function TravelCapsule() {
   useEffect(() => {
     const fetchPast = async () => {
       try {
-        const { data, error } = await invokeEdgeFunction<{ capsules: any[] }>('travel_capsule', {
+        const { data, error } = await invokeEdgeFunction<{ capsules: PastCapsule[] }>('travel_capsule', {
           body: { method: 'GET' },
         });
         if (!error && data?.capsules) setPastCapsules(data.capsules);
-      } catch {}
+      } catch { /* best-effort fetch */ }
     };
     fetchPast();
   }, []);
@@ -404,11 +414,14 @@ export default function TravelCapsule() {
   }, [destination, destCoords, lookupWeatherWithCoords, t]);
 
   // Auto-fetch weather when dates change and destination is set
+  const fromTime = dateRange?.from?.getTime();
+  const toTime = dateRange?.to?.getTime();
   useEffect(() => {
     if (destCoords && dateRange?.from && dateRange?.to) {
       lookupWeatherWithCoords(destCoords);
     }
-  }, [dateRange?.from?.getTime(), dateRange?.to?.getTime()]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromTime, toTime]);
 
   // ── Loading step cycle ──
   useEffect(() => {
@@ -985,7 +998,7 @@ export default function TravelCapsule() {
                 </button>
                 {pastOpen && (
                   <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {pastCapsules.map((c: any) => (
+                    {pastCapsules.map((c) => (
                       <div key={c.id} style={{ background: '#EDE8DF', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                           <p style={{ fontFamily: 'DM Sans', fontSize: 14, fontWeight: 500, margin: 0 }}>{c.destination}</p>
@@ -1210,7 +1223,7 @@ export default function TravelCapsule() {
                     const garmentTitles = result.capsule_items
                       .map(id => garmentMap.get(id) ?? allGarmentsMap.get(id))
                       .filter(Boolean)
-                      .map((g: any) => `- ${g.title}`)
+                      .map((g) => `- ${g!.title}`)
                       .join('\n');
                     navigator.clipboard.writeText(garmentTitles);
                     toast.success('Packing list copied');
@@ -1250,7 +1263,7 @@ export default function TravelCapsule() {
                 {result.outfits.map((outfit, idx) => {
                   const outfitGarments = outfit.items
                     .map((id: string) => garmentMap.get(id) ?? allGarmentsMap.get(id))
-                    .filter(Boolean) as any[];
+                    .filter(Boolean) as Array<{ id: string; title: string; image_path: string; category: string }>;
 
                   return (
                     <motion.div

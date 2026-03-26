@@ -126,6 +126,7 @@ export function PlannedOutfitsList({ outfits, onDelete }: PlannedOutfitsListProp
     });
     
     return groups;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outfits, t]);
 
   if (outfits.length === 0) {

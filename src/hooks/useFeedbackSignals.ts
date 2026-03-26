@@ -62,6 +62,7 @@ export function useFeedbackSignals() {
       if (!user) return;
       mutation.mutate(input);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [user, mutation.mutate]
   );
 

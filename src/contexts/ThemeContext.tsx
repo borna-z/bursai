@@ -13,6 +13,7 @@ export interface AccentColor {
   hex: string;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const ACCENT_COLORS: AccentColor[] = [
   { id: 'indigo',     name: 'accent.indigo',      hsl: '234 51% 37%', hslDark: '234 60% 62%', hex: '#2F3A8F' },
   { id: 'petrol',     name: 'accent.petrol',      hsl: '174 72% 22%', hslDark: '174 55% 45%', hex: '#0D5C63' },
@@ -195,6 +196,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTheme() {
   const context = useContext(ThemeContext);
   if (context === undefined) {

@@ -60,6 +60,7 @@ function hasLightClothing(items: OutfitItem[]): boolean {
 }
 
 // Analyze outfit against weather and generate warnings
+// eslint-disable-next-line react-refresh/only-export-components
 export function analyzeOutfitWeather(
   items: OutfitItem[],
   currentWeather?: WeatherInfo | null,

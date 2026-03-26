@@ -15,6 +15,7 @@ interface LocationContextValue {
 
 const LocationContext = createContext<LocationContextValue | null>(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useLocation() {
   const ctx = useContext(LocationContext);
   if (!ctx) throw new Error('useLocation must be used inside LocationProvider');
@@ -39,6 +40,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       setLocalCity(null);
       setSource('auto');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.home_city]);
 
   const setManualCity = useCallback((city: string) => {
