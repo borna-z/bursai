@@ -303,7 +303,20 @@ export default function HomePage() {
 
           {/* ── Zone 3: StyleDNA + quick buttons + Sleeping Beauties ── */}
           <div className="space-y-3 mt-6">
-            <StyleDNACard />
+            <div
+              role="button"
+              onClick={() => { hapticLight(); navigate('/insights'); }}
+              style={{ cursor: 'pointer' }}
+            >
+              <StyleDNACard />
+            </div>
+            <p
+              role="button"
+              onClick={() => { hapticLight(); navigate('/insights'); }}
+              className="font-['DM_Sans'] text-[12px] text-muted-foreground cursor-pointer -mt-1 px-0.5"
+            >
+              Full insights →
+            </p>
 
             {/* Two equal surface buttons */}
             <div className="flex gap-2">
