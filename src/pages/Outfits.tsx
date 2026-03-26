@@ -10,39 +10,36 @@ import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { BursMonogram } from '@/components/ui/BursMonogram';
 import { TAP_TRANSITION } from '@/lib/motion';
 
-/* ── Staggered image stack (up to 3 garment thumbnails) ── */
-function ImageStack({ items }: { items: OutfitWithItems['outfit_items'] }) {
-  const images = items.slice(0, 3);
+/* ── 2×2 outfit composition grid ── */
+function OutfitGrid({ items, compact = false }: { items: OutfitWithItems['outfit_items']; compact?: boolean }) {
+  const slots = items.slice(0, 4);
 
-  if (images.length === 0) {
-    return (
-      <div className="relative w-full aspect-square bg-[#F5F0E8] flex items-center justify-center">
-        <BursMonogram size={32} className="opacity-15" />
-      </div>
-    );
-  }
-
-  const positions = [
-    'top-2 left-2',
-    'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
-    'bottom-2 right-2',
-  ];
-
-  return (
-    <div className="relative w-full aspect-square bg-[#F5F0E8] overflow-hidden">
-      {images.map((item, i) => (
-        <div
-          key={item.id}
-          className={`absolute ${positions[i]} w-14 h-14 overflow-hidden bg-[#F5F0E8]`}
-          style={{ zIndex: i }}
-        >
+  const cells = Array.from({ length: 4 }, (_, i) => {
+    const item = slots[i];
+    if (item?.garment) {
+      return (
+        <div key={item.id} className="aspect-square overflow-hidden bg-[#F5F0E8]">
           <LazyImageSimple
-            imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
-            alt={item.garment?.title || item.slot}
-            className="w-14 h-14 object-cover"
+            imagePath={getPreferredGarmentImagePath(item.garment)}
+            alt={item.garment.title || item.slot}
+            className="w-full h-full object-cover"
           />
         </div>
-      ))}
+      );
+    }
+    return (
+      <div key={`empty-${i}`} className="aspect-square bg-[#F5F0E8] flex items-center justify-center">
+        <BursMonogram size={compact ? 12 : 18} className="opacity-10" />
+      </div>
+    );
+  });
+
+  return (
+    <div
+      className="aspect-square grid grid-cols-2 grid-rows-2 bg-[#F5F0E8]"
+      style={{ gap: '0.5px' }}
+    >
+      {cells}
     </div>
   );
 }
@@ -66,8 +63,8 @@ function OutfitCard({ outfit }: { outfit: OutfitWithItems }) {
       onClick={() => navigate(`/outfits/${outfit.id}`)}
       className="cursor-pointer select-none will-change-transform"
     >
-      <div className="bg-[#EDE8DF] overflow-hidden">
-        <ImageStack items={outfit.outfit_items} />
+      <div className="bg-[hsl(var(--card))] overflow-hidden">
+        <OutfitGrid items={outfit.outfit_items} />
         <div className="px-3 pt-2.5 pb-3 space-y-1">
           {occasionLabel && (
             <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-[#1C1917]/50">
