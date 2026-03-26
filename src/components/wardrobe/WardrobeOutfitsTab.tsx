@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Sparkles, Star, Clock, Calendar, Bookmark } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -12,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useOutfits, useDeleteOutfit, type OutfitWithItems } from '@/hooks/useOutfits';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
+import { BursMonogram } from '@/components/ui/BursMonogram';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
@@ -22,23 +22,29 @@ import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 type FilterTab = 'all' | 'saved' | 'planned';
 
-function OutfitMosaic({ items }: { items: OutfitWithItems['outfit_items'] }) {
+function OutfitGrid({ items }: { items: OutfitWithItems['outfit_items'] }) {
   const slots = items.slice(0, 4);
   return (
-    <div className="aspect-square rounded-xl overflow-hidden grid grid-cols-2 grid-rows-2 bg-muted/30">
-      {slots.map((item, i) => (
-        <div key={item.id} className={cn('overflow-hidden', i === 0 && 'rounded-tl-xl', i === 1 && 'rounded-tr-xl', i === 2 && 'rounded-bl-xl', i === 3 && 'rounded-br-xl')}>
-          <LazyImageSimple
-            imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
-            alt={item.garment?.title || item.slot}
-            className="w-full h-full"
-          />
-        </div>
-      ))}
-      {/* Fill empty slots */}
-      {Array.from({ length: Math.max(0, 4 - slots.length) }).map((_, i) => (
-        <div key={`empty-${i}`} className="bg-muted/20" />
-      ))}
+    <div className="aspect-square grid grid-cols-2 grid-rows-2 bg-background" style={{ gap: '0.5px' }}>
+      {Array.from({ length: 4 }, (_, i) => {
+        const item = slots[i];
+        if (item?.garment) {
+          return (
+            <div key={item.id} className="aspect-square overflow-hidden bg-background">
+              <LazyImageSimple
+                imagePath={getPreferredGarmentImagePath(item.garment)}
+                alt={item.garment.title || item.slot}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          );
+        }
+        return (
+          <div key={`empty-${i}`} className="aspect-square bg-background flex items-center justify-center">
+            <BursMonogram size={18} className="opacity-10" />
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -84,6 +90,13 @@ function OutfitCard({
       ? format(new Date(outfit.generated_at), 'd MMM', { locale: getDateFnsLocale(locale as AppLocale) })
       : null;
 
+  const occasionLabel = t(`occasion.${outfit.occasion}`) || outfit.occasion || '';
+  const excerpt = outfit.explanation
+    ? outfit.explanation.length > 60
+      ? `${outfit.explanation.slice(0, 60)}…`
+      : outfit.explanation
+    : '';
+
   return (
     <motion.div
       whileTap={{ scale: 0.97 }}
@@ -93,28 +106,41 @@ function OutfitCard({
       onPointerLeave={handlePointerLeave}
       className="w-full cursor-pointer select-none will-change-transform"
     >
-      <OutfitMosaic items={outfit.outfit_items} />
-      <div className="mt-2 px-0.5 flex items-center gap-1.5 min-w-0">
-        <Badge variant="secondary" className="capitalize text-[10px] px-1.5 py-0 truncate max-w-[7rem]">{t(`occasion.${outfit.occasion}`)}</Badge>
-        {outfit.saved && (
-          <Bookmark className="w-3 h-3 fill-primary text-primary flex-shrink-0" />
-        )}
-        {outfit.rating && (
-          <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground shrink-0">
-            <Star className="w-2.5 h-2.5 fill-primary text-primary" />{outfit.rating}
+      <div className="bg-[hsl(var(--card))] overflow-hidden">
+        <OutfitGrid items={outfit.outfit_items} />
+        <div className="px-3 pt-2.5 pb-3 space-y-1">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {occasionLabel && (
+              <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/50 truncate">
+                {occasionLabel}
+              </p>
+            )}
+            {outfit.saved && (
+              <Bookmark className="w-3 h-3 fill-primary text-primary flex-shrink-0" />
+            )}
+            {outfit.rating && (
+              <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground shrink-0">
+                <Star className="w-2.5 h-2.5 fill-primary text-primary" />{outfit.rating}
+              </div>
+            )}
           </div>
-        )}
-      </div>
-      {dateStr && (
-        <div className="flex items-center gap-1 mt-0.5 px-0.5">
-          {plannedFor ? (
-            <Calendar className="w-2.5 h-2.5 text-muted-foreground/60" />
-          ) : (
-            <Clock className="w-2.5 h-2.5 text-muted-foreground/60" />
+          {excerpt && (
+            <p className="font-['Playfair_Display'] italic text-[13px] text-foreground/70 leading-snug line-clamp-1">
+              {excerpt}
+            </p>
           )}
-          <span className="text-[10px] text-muted-foreground/60">{dateStr}</span>
+          {dateStr && (
+            <div className="flex items-center gap-1">
+              {plannedFor ? (
+                <Calendar className="w-2.5 h-2.5 text-muted-foreground/60" />
+              ) : (
+                <Clock className="w-2.5 h-2.5 text-muted-foreground/60" />
+              )}
+              <span className="text-[10px] text-muted-foreground/60">{dateStr}</span>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </motion.div>
   );
 }
