@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChatPageSkeleton } from '@/components/ui/skeletons';
+import { AppLayout } from '@/components/layout/AppLayout';
 
 export default function StyleMe() {
   const navigate = useNavigate();
@@ -8,5 +10,9 @@ export default function StyleMe() {
     navigate('/ai/generate', { replace: true });
   }, [navigate]);
 
-  return null;
+  return (
+    <AppLayout>
+      <ChatPageSkeleton />
+    </AppLayout>
+  );
 }

@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { PRESETS } from '@/lib/motion';
 import { format, addDays, isToday, isTomorrow } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
-import { Wand2, CalendarDays, Plus, ChevronRight } from 'lucide-react';
+import { Wand2, CalendarDays, Plus, ChevronRight, LayoutGrid } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PlanPageSkeleton } from '@/components/ui/skeletons';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -401,7 +401,7 @@ export default function PlanPage() {
                 width: 56, height: 56, background: 'rgba(28,25,23,0.05)', borderRadius: 999,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
               }}>
-                <span style={{ fontSize: 24 }}>▦</span>
+                <LayoutGrid style={{ width: 24, height: 24, color: 'rgba(28,25,23,0.35)' }} />
               </div>
               <h3 style={{
                 fontFamily: '"Playfair Display", serif', fontStyle: 'italic',

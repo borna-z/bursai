@@ -46,6 +46,14 @@ vi.mock('@/hooks/useWeather', () => ({
   useWeather: vi.fn(() => ({ weather: null, isLoading: false, error: null })),
 }));
 
+vi.mock('@/hooks/usePlannedOutfits', () => ({
+  usePlannedOutfitsForDate: vi.fn(() => ({ data: [], isLoading: false })),
+  usePlannedOutfits: vi.fn(() => ({ data: [], isLoading: false })),
+  useUpsertPlannedOutfit: vi.fn(() => ({ mutateAsync: vi.fn() })),
+  useDeletePlannedOutfit: vi.fn(() => ({ mutateAsync: vi.fn() })),
+  useUpdatePlannedOutfitStatus: vi.fn(() => ({ mutateAsync: vi.fn() })),
+}));
+
 vi.mock('@/contexts/LocationContext', () => ({
   useLocation: vi.fn(() => ({ effectiveCity: null })),
 }));

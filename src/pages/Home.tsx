@@ -268,87 +268,92 @@ export default function HomePage() {
             )}
           </FadeReplace>
 
-          {/* ── Zone 2: Stylist tip ── */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3, duration: 0.6 }}
-            className="text-[12px] text-muted-foreground/40 italic leading-relaxed px-0.5 mt-5"
-          >
-            {getStylistTip({ weather: weather ?? undefined, garmentCount: garmentCount ?? undefined, archetype: dna?.archetype, topColor: dna?.signatureColors?.[0]?.color, topCombo: dna?.uniformCombos?.[0]?.combo, formalityCenter: dna?.formalityCenter })}
-          </motion.p>
-
-          {/* ── Zone 2b: Stylist suggestion chips ── */}
-          <div className="flex flex-col gap-2 mt-4">
-            {stylistSuggestions.map(chip => (
-              <button
-                key={chip}
-                onClick={() => {
-                  hapticLight();
-                  navigate('/ai/chat', { state: { prefillMessage: chip } });
-                }}
-                className="bg-card border-none py-2.5 px-4 text-left font-['DM_Sans'] text-[13px] text-foreground cursor-pointer leading-[1.45]"
+          {/* ── Zones 2–3: Only render once data is ready to avoid empty flash ── */}
+          {homeState !== 'loading' && (
+            <>
+              {/* ── Zone 2: Stylist tip ── */}
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3, duration: 0.6 }}
+                className="text-[12px] text-muted-foreground/40 italic leading-relaxed px-0.5 mt-5"
               >
-                {chip}
-              </button>
-            ))}
-          </div>
+                {getStylistTip({ weather: weather ?? undefined, garmentCount: garmentCount ?? undefined, archetype: dna?.archetype, topColor: dna?.signatureColors?.[0]?.color, topCombo: dna?.uniformCombos?.[0]?.combo, formalityCenter: dna?.formalityCenter })}
+              </motion.p>
 
-          {/* ── Zone 3: StyleDNA + quick buttons + Sleeping Beauties ── */}
-          <div className="space-y-3 mt-6">
-            <div
-              role="button"
-              onClick={() => { hapticLight(); navigate('/insights'); }}
-              className="cursor-pointer"
-            >
-              <StyleDNACard />
-            </div>
-            <p
-              role="button"
-              onClick={() => { hapticLight(); navigate('/insights'); }}
-              className="font-['DM_Sans'] text-[12px] text-muted-foreground cursor-pointer -mt-1 px-0.5"
-            >
-              Full insights →
-            </p>
-          </div>
+              {/* ── Zone 2b: Stylist suggestion chips ── */}
+              <div className="flex flex-col gap-2 mt-4">
+                {stylistSuggestions.map(chip => (
+                  <button
+                    key={chip}
+                    onClick={() => {
+                      hapticLight();
+                      navigate('/ai/chat', { state: { prefillMessage: chip } });
+                    }}
+                    className="bg-card border-none py-2.5 px-4 text-left font-['DM_Sans'] text-[13px] text-foreground cursor-pointer leading-[1.45]"
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
 
-          {/* ── Quick buttons + Sleeping Beauties ── */}
-          <div className="space-y-3 mt-4">
-            {/* Two equal surface buttons */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => navigate('/plan')}
-                className="flex-1 h-12 bg-card border-none rounded-none font-['DM_Sans'] text-[13px] font-medium text-foreground cursor-pointer"
-              >
-                Plan week
-              </button>
-              <button
-                onClick={() => navigate('/ai/mood')}
-                className="flex-1 h-12 bg-card border-none rounded-none font-['DM_Sans'] text-[13px] font-medium text-foreground cursor-pointer"
-              >
-                Mood outfit
-              </button>
-            </div>
-
-            {/* Sleeping Beauties */}
-            {sleepingBeauties.length >= 3 && (
-              <div
-                role="button"
-                onClick={() => navigate('/outfits/unused')}
-                className="bg-card px-5 py-4 cursor-pointer"
-              >
-                <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/40 mb-1.5">
-                  SLEEPING BEAUTIES
-                </p>
-                <p className="font-['Playfair_Display'] italic text-[16px] text-foreground mb-1">
-                  {sleepingBeauties.length} garments unworn this month
-                </p>
-                <p className="font-['DM_Sans'] text-[12px] text-foreground/50">
-                  See what's being ignored →
+              {/* ── Zone 3: StyleDNA + quick buttons + Sleeping Beauties ── */}
+              <div className="space-y-3 mt-6">
+                <div
+                  role="button"
+                  onClick={() => { hapticLight(); navigate('/insights'); }}
+                  className="cursor-pointer"
+                >
+                  <StyleDNACard />
+                </div>
+                <p
+                  role="button"
+                  onClick={() => { hapticLight(); navigate('/insights'); }}
+                  className="font-['DM_Sans'] text-[12px] text-muted-foreground cursor-pointer -mt-1 px-0.5"
+                >
+                  Full insights →
                 </p>
               </div>
-            )}
-          </div>
+
+              {/* ── Quick buttons + Sleeping Beauties ── */}
+              <div className="space-y-3 mt-4">
+                {/* Two equal surface buttons */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => navigate('/plan')}
+                    className="flex-1 h-12 bg-card border-none rounded-none font-['DM_Sans'] text-[13px] font-medium text-foreground cursor-pointer"
+                  >
+                    Plan week
+                  </button>
+                  <button
+                    onClick={() => navigate('/ai/mood')}
+                    className="flex-1 h-12 bg-card border-none rounded-none font-['DM_Sans'] text-[13px] font-medium text-foreground cursor-pointer"
+                  >
+                    Mood outfit
+                  </button>
+                </div>
+
+                {/* Sleeping Beauties */}
+                {sleepingBeauties.length >= 3 && (
+                  <div
+                    role="button"
+                    onClick={() => navigate('/outfits/unused')}
+                    className="bg-card px-5 py-4 cursor-pointer"
+                  >
+                    <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/40 mb-1.5">
+                      SLEEPING BEAUTIES
+                    </p>
+                    <p className="font-['Playfair_Display'] italic text-[16px] text-foreground mb-1">
+                      {sleepingBeauties.length} garments unworn this month
+                    </p>
+                    <p className="font-['DM_Sans'] text-[12px] text-foreground/50">
+                      See what's being ignored →
+                    </p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
         </AnimatedPage>
       </PullToRefresh>

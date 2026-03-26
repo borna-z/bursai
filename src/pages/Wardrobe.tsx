@@ -815,10 +815,11 @@ export default function WardrobePage() {
                   )
                 ) : hasActiveFilters || search ? (
                   <EmptyState
-                    icon={Shirt}
+                    icon={Search}
                     title={t('wardrobe.no_results')}
                     description={t('wardrobe.try_other')}
                     action={hasActiveFilters ? { label: 'Clear filters', onClick: clearFilters } : undefined}
+                    compact
                   />
                 ) : (
                   <WardrobeOnboardingEmpty />
