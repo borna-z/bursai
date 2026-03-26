@@ -18,7 +18,7 @@ function OutfitGrid({ items, compact = false }: { items: OutfitWithItems['outfit
     const item = slots[i];
     if (item?.garment) {
       return (
-        <div key={item.id} className="aspect-square overflow-hidden bg-[#F5F0E8]">
+        <div key={item.id} className="aspect-square overflow-hidden bg-background">
           <LazyImageSimple
             imagePath={getPreferredGarmentImagePath(item.garment)}
             alt={item.garment.title || item.slot}
@@ -28,7 +28,7 @@ function OutfitGrid({ items, compact = false }: { items: OutfitWithItems['outfit
       );
     }
     return (
-      <div key={`empty-${i}`} className="aspect-square bg-[#F5F0E8] flex items-center justify-center">
+      <div key={`empty-${i}`} className="aspect-square bg-background flex items-center justify-center">
         <BursMonogram size={compact ? 12 : 18} className="opacity-10" />
       </div>
     );
@@ -36,7 +36,7 @@ function OutfitGrid({ items, compact = false }: { items: OutfitWithItems['outfit
 
   return (
     <div
-      className="aspect-square grid grid-cols-2 grid-rows-2 bg-[#F5F0E8]"
+      className="aspect-square grid grid-cols-2 grid-rows-2 bg-background"
       style={{ gap: '0.5px' }}
     >
       {cells}
@@ -67,12 +67,12 @@ function OutfitCard({ outfit }: { outfit: OutfitWithItems }) {
         <OutfitGrid items={outfit.outfit_items} />
         <div className="px-3 pt-2.5 pb-3 space-y-1">
           {occasionLabel && (
-            <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-[#1C1917]/50">
+            <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/50">
               {occasionLabel}
             </p>
           )}
           {excerpt && (
-            <p className="font-['Playfair_Display'] italic text-[13px] text-[#1C1917]/70 leading-snug line-clamp-1">
+            <p className="font-['Playfair_Display'] italic text-[13px] text-foreground/70 leading-snug line-clamp-1">
               {excerpt}
             </p>
           )}
@@ -96,7 +96,7 @@ export default function OutfitsPage() {
       <div className="page-container pb-28 animate-fade-in">
         {/* Header */}
         <header className="pt-8 pb-6">
-          <h1 className="font-['Playfair_Display'] text-[24px] text-[#1C1917]">
+          <h1 className="font-['Playfair_Display'] text-[24px] text-foreground">
             Your Looks
           </h1>
         </header>
