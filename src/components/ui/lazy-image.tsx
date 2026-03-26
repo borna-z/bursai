@@ -72,8 +72,9 @@ export function LazyImage({
       
       {/* Error fallback */}
       {(hasError || (!imagePath && !isLoading)) && (
-        <div className="absolute inset-0 flex items-center justify-center bg-muted">
-          {fallbackIcon || <Shirt className="w-1/4 h-1/4 text-muted-foreground/30" />}
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted gap-1">
+          {fallbackIcon || <ImageOff className="w-1/5 h-1/5 text-muted-foreground/30" />}
+          {hasError && <span className="text-[10px] text-muted-foreground/40">Image unavailable</span>}
         </div>
       )}
     </div>

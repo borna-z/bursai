@@ -32,6 +32,7 @@ export function BottomNav() {
             const navLink = (
               <NavLink
                 to={tab.path}
+                aria-label={t(tab.labelKey)}
                 onClick={() => hapticLight()}
                 onPointerEnter={() => prefetchRoute(tab.path)}
                 onFocus={() => prefetchRoute(tab.path)}

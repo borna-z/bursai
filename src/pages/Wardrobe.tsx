@@ -88,10 +88,10 @@ function GarmentCard({ garment, isGridView, isSelecting, isSelected, onSelect, i
   const displayImagePath = getPreferredGarmentImagePath(garment);
 
   const categoryColorMap: Record<string, string> = {
-    top: '#C4A882', bottom: '#7B8FA0', shoes: '#8A8070',
-    outerwear: '#6B7B6B', accessory: '#A07878', dress: '#9B8BA0',
+    top: 'hsl(var(--accent) / 0.6)', bottom: 'hsl(var(--muted-foreground) / 0.5)', shoes: 'hsl(var(--accent) / 0.45)',
+    outerwear: 'hsl(var(--muted-foreground) / 0.4)', accessory: 'hsl(var(--accent) / 0.5)', dress: 'hsl(var(--muted-foreground) / 0.45)',
   };
-  const categoryStripColor = categoryColorMap[garment.category] || 'rgba(28,25,23,0.12)';
+  const categoryStripColor = categoryColorMap[garment.category] || 'hsl(var(--foreground) / 0.12)';
 
   if (!isGridView) {
     return (

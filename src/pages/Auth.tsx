@@ -22,11 +22,11 @@ function PasswordRequirements({ password, t }: { password: string; t: (k: string
       {rules.map(r => (
         <div key={r.key} className="flex items-center gap-1.5 transition-colors duration-200">
           {r.met ? (
-            <Check className="w-3 h-3 text-[#1C1917] shrink-0" />
+            <Check className="w-3 h-3 text-foreground shrink-0" />
           ) : (
-            <div className="w-3 h-3 rounded-full border border-[#DDD8CF] shrink-0" />
+            <div className="w-3 h-3 rounded-full border border-border shrink-0" />
           )}
-          <span className={`text-[11px] font-['DM_Sans'] transition-colors duration-200 ${r.met ? 'text-[#1C1917]' : 'text-[#6B6560]/50'}`}>
+          <span className={`text-[11px] font-['DM_Sans'] transition-colors duration-200 ${r.met ? 'text-foreground' : 'text-muted-foreground/50'}`}>
             {t(r.key)}
           </span>
         </div>
@@ -69,8 +69,8 @@ export default function AuthPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#F5F0E8]">
-        <Loader2 className="w-8 h-8 animate-spin text-[#1C1917]/40" />
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-foreground/40" />
       </div>
     );
   }
@@ -147,10 +147,10 @@ export default function AuthPage() {
 
   const isLogin = tab === 'login';
 
-  const inputClass = "w-full h-12 border border-[#DDD8CF] bg-white/60 px-4 text-[15px] font-['DM_Sans'] text-[#1C1917] placeholder:text-[#6B6560]/40 focus:outline-none focus:ring-1 focus:ring-[#1C1917]/20 focus:border-[#1C1917]/30 transition-colors disabled:opacity-40";
+  const inputClass = "w-full h-12 border border-border bg-white/60 dark:bg-white/5 px-4 text-[15px] font-['DM_Sans'] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-foreground/20 focus:border-foreground/30 transition-colors disabled:opacity-40";
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-5 bg-[#F5F0E8] font-['DM_Sans']">
+    <div className="min-h-screen flex flex-col items-center justify-center p-5 bg-background font-['DM_Sans']">
       <div className="w-full max-w-sm space-y-10">
         {/* Logo */}
         <motion.div
@@ -160,14 +160,14 @@ export default function AuthPage() {
           transition={{ duration: 0.6, ease: EASE_CURVE }}
         >
           <img src={bursLogo} alt="BURS" width={48} height={48} className="h-12 w-auto" />
-          <p className="text-[#6B6560] text-[11px] uppercase tracking-[0.2em]">
+          <p className="text-muted-foreground text-[11px] uppercase tracking-[0.2em]">
             {t('auth.tagline')}
           </p>
         </motion.div>
 
         {/* Card */}
         <motion.div
-          className="border border-[#DDD8CF] bg-[#EDE8DF] overflow-hidden"
+          className="border border-border bg-card overflow-hidden"
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.15, ease: EASE_CURVE }}
@@ -176,7 +176,7 @@ export default function AuthPage() {
           <div className="p-6 pb-4 space-y-2.5">
             <button
               type="button"
-              className="w-full h-12 border border-[#1C1917] text-[#1C1917] text-[11px] font-medium uppercase tracking-[0.15em] flex items-center justify-center gap-3 hover:bg-[#1C1917] hover:text-[#F5F0E8] transition-colors disabled:opacity-40"
+              className="w-full h-12 border border-foreground text-foreground text-[11px] font-medium uppercase tracking-[0.15em] flex items-center justify-center gap-3 hover:bg-foreground hover:text-background transition-colors disabled:opacity-40"
               disabled={isLoading}
               onClick={() => handleOAuth('google')}
             >
@@ -194,24 +194,24 @@ export default function AuthPage() {
           <div className="px-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-[#DDD8CF]" />
+                <div className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center">
-                <span className="bg-[#EDE8DF] px-3 text-[10px] uppercase tracking-[0.15em] text-[#6B6560]/60">{t('auth.or')}</span>
+                <span className="bg-card px-3 text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60">{t('auth.or')}</span>
               </div>
             </div>
           </div>
 
           {/* Tabs — underline style */}
           <div className="px-6 pt-5">
-            <div className="flex border-b border-[#DDD8CF]">
+            <div className="flex border-b border-border">
               <button
                 type="button"
                 onClick={() => setTab('login')}
                 className={`flex-1 text-[11px] uppercase tracking-[0.15em] font-medium pb-3 transition-all duration-200 border-b-2 -mb-px ${
                   isLogin
-                    ? 'border-[#1C1917] text-[#1C1917]'
-                    : 'border-transparent text-[#6B6560]/50 hover:text-[#6B6560]'
+                    ? 'border-foreground text-foreground'
+                    : 'border-transparent text-muted-foreground/50 hover:text-muted-foreground'
                 }`}
               >
                 {t('auth.login')}
@@ -221,8 +221,8 @@ export default function AuthPage() {
                 onClick={() => setTab('signup')}
                 className={`flex-1 text-[11px] uppercase tracking-[0.15em] font-medium pb-3 transition-all duration-200 border-b-2 -mb-px ${
                   !isLogin
-                    ? 'border-[#1C1917] text-[#1C1917]'
-                    : 'border-transparent text-[#6B6560]/50 hover:text-[#6B6560]'
+                    ? 'border-foreground text-foreground'
+                    : 'border-transparent text-muted-foreground/50 hover:text-muted-foreground'
                 }`}
               >
                 {t('auth.signup')}
@@ -241,7 +241,7 @@ export default function AuthPage() {
           >
             {/* Email */}
             <div className="space-y-1.5">
-              <label className="text-[10px] uppercase tracking-[0.15em] font-medium text-[#6B6560] pl-0.5">{t('auth.email')}</label>
+              <label className="text-[10px] uppercase tracking-[0.15em] font-medium text-muted-foreground pl-0.5">{t('auth.email')}</label>
               <input
                 type="email"
                 placeholder="you@email.com"
@@ -255,7 +255,7 @@ export default function AuthPage() {
 
             {/* Password */}
             <div className="space-y-1.5">
-              <label className="text-[10px] uppercase tracking-[0.15em] font-medium text-[#6B6560] pl-0.5">{t('auth.password')}</label>
+              <label className="text-[10px] uppercase tracking-[0.15em] font-medium text-muted-foreground pl-0.5">{t('auth.password')}</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -269,7 +269,7 @@ export default function AuthPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#6B6560]/40 hover:text-[#1C1917] transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-foreground transition-colors"
                   aria-label={showPassword ? t('auth.hide_password') : t('auth.show_password')}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -287,13 +287,13 @@ export default function AuthPage() {
                   onClick={() => setRememberMe(!rememberMe)}
                   className={`w-4 h-4 border flex items-center justify-center transition-all duration-200 ${
                     rememberMe
-                      ? 'bg-[#1C1917] border-[#1C1917]'
-                      : 'border-[#DDD8CF] bg-transparent hover:border-[#6B6560]'
+                      ? 'bg-foreground border-foreground'
+                      : 'border-border bg-transparent hover:border-muted-foreground'
                   }`}
                 >
-                  {rememberMe && <Check className="w-3 h-3 text-[#F5F0E8]" />}
+                  {rememberMe && <Check className="w-3 h-3 text-background" />}
                 </div>
-                <span className="text-[11px] text-[#6B6560] group-hover:text-[#1C1917] transition-colors select-none">
+                <span className="text-[11px] text-muted-foreground group-hover:text-foreground transition-colors select-none">
                   {t('auth.remember_me')}
                 </span>
               </label>
@@ -301,7 +301,7 @@ export default function AuthPage() {
                 <button
                   type="button"
                   onClick={handleForgotPassword}
-                  className="text-[11px] text-[#6B6560]/60 hover:text-[#1C1917] transition-colors underline-offset-2 hover:underline"
+                  className="text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors underline-offset-2 hover:underline"
                 >
                   {t('auth.forgot_password')}
                 </button>
@@ -312,7 +312,7 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-[52px] bg-[#1C1917] text-[#F5F0E8] text-[11px] uppercase tracking-[0.15em] font-semibold hover:bg-[#1C1917]/90 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2 mt-2"
+              className="w-full h-[52px] bg-foreground text-background text-[11px] uppercase tracking-[0.15em] font-semibold hover:bg-foreground/90 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2 mt-2"
             >
               {isLoading ? (
                 <>

@@ -36,16 +36,14 @@ export async function invokeEdgeFunction<T = unknown>(
       await new Promise((r) => setTimeout(r, Math.min(1000 * 2 ** (attempt - 1), EDGE_FUNCTION_MAX_BACKOFF_MS)));
     }
 
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+
     try {
-      const invokePromise = supabase.functions.invoke(functionName, {
+      const { data, error } = await supabase.functions.invoke(functionName, {
         body: body ?? undefined,
+        signal: controller.signal,
       });
-
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new EdgeFunctionTimeoutError(functionName)), timeout);
-      });
-
-      const { data, error } = await Promise.race([invokePromise, timeoutPromise]);
 
       if (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -54,13 +52,15 @@ export async function invokeEdgeFunction<T = unknown>(
 
       return { data: data as T, error: null };
     } catch (err) {
-      if (err instanceof EdgeFunctionTimeoutError) {
-        lastError = err;
-        // Don't retry on timeout — the function is genuinely slow
-        if (attempt >= 1) break;
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        lastError = new EdgeFunctionTimeoutError(functionName);
+        // Allow one retry on timeout, then give up
+        if (attempt >= retries) break;
       } else {
         lastError = err instanceof Error ? err : new Error(String(err));
       }
+    } finally {
+      clearTimeout(timer);
     }
   }
 

@@ -45,8 +45,25 @@ function load(): OfflineQueue {
   }
 }
 
+const MAX_QUEUE_SIZE = 50;
+
 function save(queue: OfflineQueue) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+      console.error('[offline-queue] localStorage quota exceeded — clearing oldest items');
+      // Drop oldest items to make room
+      queue.mutations = queue.mutations.slice(-Math.ceil(queue.mutations.length / 2));
+      queue.uploads = queue.uploads.slice(-Math.ceil(queue.uploads.length / 2));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
+      } catch {
+        // Last resort: clear the queue entirely
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    }
+  }
 }
 
 function emitChange(queue: OfflineQueue) {
@@ -57,6 +74,10 @@ function emitChange(queue: OfflineQueue) {
 /** Add a mutation to the offline queue */
 export function enqueue(mutation: Omit<QueuedMutation, 'id' | 'createdAt'>) {
   const queue = load();
+  if (queue.mutations.length >= MAX_QUEUE_SIZE) {
+    console.warn(`[offline-queue] Queue is large (${queue.mutations.length} mutations). Dropping oldest.`);
+    queue.mutations = queue.mutations.slice(-MAX_QUEUE_SIZE + 1);
+  }
   queue.mutations.push({
     ...mutation,
     id: crypto.randomUUID(),
