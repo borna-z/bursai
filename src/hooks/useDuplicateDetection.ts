@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
+import { logger } from '@/lib/logger';
 
 export interface DuplicateMatch {
   garment_id: string;
@@ -34,7 +35,7 @@ export function useDuplicateDetection() {
       });
 
       if (error) {
-        console.error('Duplicate detection error:', error);
+        logger.error('Duplicate detection error:', error);
         return [];
       }
 
@@ -42,7 +43,7 @@ export function useDuplicateDetection() {
       setDuplicates(matches);
       return matches;
     } catch (err) {
-      console.error('Duplicate detection error:', err);
+      logger.error('Duplicate detection error:', err);
       return [];
     } finally {
       setIsChecking(false);

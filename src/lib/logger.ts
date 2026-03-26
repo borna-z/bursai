@@ -18,9 +18,7 @@ export const logger = {
 
   /** Logged in dev and production — use for recoverable non-fatal issues. */
   warn: (...args: unknown[]): void => {
-    if (isDev) {
-      console.warn(...args);
-    }
+    console.warn(...args);
   },
 
   /** Dev-only verbose tracing. Stripped in production builds. */

@@ -2,12 +2,7 @@ import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI } from "../_shared/burs-ai.ts";
 
-import { allowedOrigin } from "../_shared/cors.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': allowedOrigin,
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 interface DuplicateRequest {
   image_path?: string;
@@ -30,7 +25,7 @@ interface DuplicateMatch {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   try {
@@ -38,7 +33,7 @@ serve(async (req) => {
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -55,7 +50,7 @@ serve(async (req) => {
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
     const userId = user.id;
@@ -81,14 +76,14 @@ serve(async (req) => {
       console.error('Fetch garments error:', fetchError);
       return new Response(
         JSON.stringify({ duplicates: [] }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
 
     if (!existingGarments || existingGarments.length === 0) {
       return new Response(
         JSON.stringify({ duplicates: [] }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -258,14 +253,14 @@ Consider: same garment photographed differently = 0.8+, very similar style/color
 
     return new Response(
       JSON.stringify({ duplicates: duplicates.slice(0, 3) }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Unexpected error:', error);
     return new Response(
       JSON.stringify({ duplicates: [] }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
     );
   }
 });

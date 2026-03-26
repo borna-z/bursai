@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCallback } from 'react';
 import { toast } from 'sonner';
+import { logger } from '@/lib/logger';
 
 export type SignalType =
   | 'save'
@@ -44,7 +45,7 @@ export function useFeedbackSignals() {
           value: input.value || null,
           metadata: (input.metadata || {}) as Record<string, string>,
         }]);
-      if (error) console.warn('Feedback signal failed:', error.message);
+      if (error) logger.warn('Feedback signal failed:', error.message);
     },
     onSuccess: (_data, input) => {
       if (input.signal_type === 'wear_confirm') {

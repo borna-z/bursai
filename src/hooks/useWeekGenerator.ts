@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { logger } from '@/lib/logger';
 import { normalizeWeather } from '@/lib/outfitContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -128,7 +129,7 @@ export function useWeekGenerator() {
 
           savedDays.push({ ...dayResult, items: dayResult.items });
         } catch (err) {
-          console.error(`Failed to save outfit for ${dayResult.date}:`, err);
+          logger.error(`Failed to save outfit for ${dayResult.date}:`, err);
           savedDays.push({ ...dayResult, error: 'Failed to save' });
         }
       }
@@ -142,7 +143,7 @@ export function useWeekGenerator() {
 
       return { ...data, days: savedDays };
     } catch (err) {
-      console.error('Week generation error:', err);
+      logger.error('Week generation error:', err);
       throw err;
     } finally {
       setIsGenerating(false);

@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useIsDark } from '@/hooks/useIsDark';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { standardizeGarmentAiRaw } from '@/lib/garmentIntelligence';
+import { logger } from '@/lib/logger';
 
 interface QuickUploadStepProps {
   onComplete: () => void;
@@ -80,7 +81,7 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
 
         const { data: analysis, error: analysisError } = await analyzeGarment(path);
         if (analysisError) {
-          console.error('Quick upload analysis error:', analysisError);
+          logger.error('Quick upload analysis error:', analysisError);
         }
 
         const fallbackTitle = item.file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') || 'New garment';
@@ -123,7 +124,7 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
               exclude_garment_id: garmentId,
             },
           }).catch((err) => {
-            console.error('Quick upload duplicate detection error (non-blocking):', err);
+            logger.error('Quick upload duplicate detection error (non-blocking):', err);
           });
         }
 

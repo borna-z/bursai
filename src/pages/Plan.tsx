@@ -1,6 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { PRESETS } from '@/lib/motion';
@@ -48,19 +47,21 @@ import { useMarkOutfitWorn, useUndoMarkWorn } from '@/hooks/useOutfits';
 import { useFlatGarments } from '@/hooks/useGarments';
 import { useForecast } from '@/hooks/useForecast';
 import { useLocation as useLocationCtx } from '@/contexts/LocationContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useBackgroundSyncNotification, useCalendarEvents } from '@/hooks/useCalendarSync';
 import { CalendarEventsList } from '@/components/plan/CalendarEventBadge';
 import { CoachMark } from '@/components/coach/CoachMark';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
+import { logger } from '@/lib/logger';
 
 const MAX_OUTFITS_PER_DAY = 4;
 
 export default function PlanPage() {
   useBackgroundSyncNotification();
-  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { t, locale } = useLanguage();
   const coach = useFirstRunCoach();
   const initialDate = (location.state as { initialDate?: string })?.initialDate;
@@ -252,7 +253,7 @@ export default function PlanPage() {
         }
       }
     } catch (error) {
-      console.error('Week generation failed:', error);
+      logger.error('Week generation failed:', error);
       toast.error(t('plan.create_error'));
     } finally {
       setIsAutoGenerating(false);
@@ -321,10 +322,10 @@ export default function PlanPage() {
 
         {/* Progress bar */}
         <div className="flex items-center gap-2 mt-2">
-          <div className="flex-1 h-[3px] bg-foreground/10 rounded-full overflow-hidden">
-            <div className="bg-foreground rounded-full h-full" style={{ width: `${(weekPlannedCount / 7) * 100}%` }} />
+          <div style={{ flex: 1, height: 3, background: 'rgba(28,25,23,0.1)', borderRadius: 999, overflow: 'hidden' }}>
+            <div style={{ background: '#1C1917', borderRadius: 999, width: `${(weekPlannedCount / 7) * 100}%`, height: '100%' }} />
           </div>
-          <span className="text-[11px] font-['DM_Sans'] text-[#8C7B6B]">{weekPlannedCount}/7 days</span>
+          <span style={{ fontSize: 11, fontFamily: 'DM Sans, sans-serif', color: '#8C7B6B' }}>{weekPlannedCount}/7 days</span>
         </div>
 
         {/* Day content */}
@@ -395,29 +396,46 @@ export default function PlanPage() {
             <PlanOnboardingEmpty />
           ) : weekPlannedCount === 0 && !hasOutfits ? (
             /* STEP 3: No outfits planned for the week */
-            <div className="text-center pt-8 pb-8">
-              <div className="w-14 h-14 bg-foreground/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">▦</span>
+            <div style={{ textAlign: 'center', paddingTop: 32, paddingBottom: 32 }}>
+              <div style={{
+                width: 56, height: 56, background: 'rgba(28,25,23,0.05)', borderRadius: 999,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
+              }}>
+                <span style={{ fontSize: 24 }}>▦</span>
               </div>
-              <h3 className="font-['Playfair_Display'] italic text-xl text-foreground mb-2">
+              <h3 style={{
+                fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+                fontSize: 20, color: '#1C1917', margin: '0 0 8px',
+              }}>
                 Nothing planned yet
               </h3>
-              <p className="font-['DM_Sans'] text-sm text-[#8C7B6B] mb-6 leading-relaxed">
+              <p style={{
+                fontFamily: 'DM Sans, sans-serif', fontSize: 14, color: '#8C7B6B',
+                margin: '0 0 24px', lineHeight: 1.5,
+              }}>
                 Let the AI fill your week based on your calendar, weather, and what you haven't worn lately.
               </p>
-              <Button
+              <button
                 onClick={() => setQuickPlanSheetOpen(true)}
-                className="w-full bg-foreground text-background rounded-xl py-3 text-sm font-medium font-['DM_Sans'] mb-2"
+                style={{
+                  width: '100%', background: '#1C1917', color: '#F5F0E8', border: 'none',
+                  borderRadius: 12, padding: '12px 0', fontSize: 14, fontWeight: 500,
+                  cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', marginBottom: 8,
+                  display: 'block',
+                }}
               >
                 ✦ Plan the week
-              </Button>
-              <Button
-                variant="outline"
+              </button>
+              <button
                 onClick={() => setQuickGenerateSheetOpen(true)}
-                className="w-full bg-transparent border border-foreground/10 rounded-xl py-3 text-sm text-foreground font-['DM_Sans']"
+                style={{
+                  width: '100%', background: 'none', border: '1px solid rgba(28,25,23,0.1)',
+                  borderRadius: 12, padding: '12px 0', fontSize: 14, color: '#1C1917',
+                  cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', display: 'block',
+                }}
               >
                 Plan today only
-              </Button>
+              </button>
             </div>
           ) : hasOutfits ? (
             <div className="space-y-4">
@@ -432,19 +450,23 @@ export default function PlanPage() {
                 if (isToday(selectedDate)) {
                   /* STEP 4: Today's dark outfit card */
                   return (
-                    <div key={planned.id} className="bg-foreground rounded-2xl overflow-hidden">
-                      <div className="px-4 pt-4 pb-3">
+                    <div key={planned.id} style={{ background: '#1C1917', borderRadius: 16, overflow: 'hidden' }}>
+                      <div style={{ padding: '16px 16px 12px' }}>
                         {tagLine && (
-                          <p className="text-[9px] uppercase tracking-[0.12em] text-background/45 mb-2 font-['DM_Sans'] font-medium">
+                          <p style={{
+                            fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em',
+                            color: 'rgba(245,240,232,0.45)', marginBottom: 8,
+                            fontFamily: 'DM Sans, sans-serif', fontWeight: 500,
+                          }}>
                             {tagLine}
                           </p>
                         )}
                         {/* Garment thumbnails — flex row, up to 4 */}
-                        <div className="flex gap-2 mb-3">
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                           {outfit.outfit_items.slice(0, 4).map((item) => (
                             <div
                               key={item.id}
-                              className="flex-1 aspect-square bg-foreground overflow-hidden rounded"
+                              style={{ flex: 1, aspectRatio: '1', background: '#2C2824', overflow: 'hidden', borderRadius: 4 }}
                             >
                               <LazyImageSimple
                                 imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
@@ -455,24 +477,34 @@ export default function PlanPage() {
                           ))}
                         </div>
                         {outfit.explanation && (
-                          <p className="font-['Playfair_Display'] italic text-sm text-background/75 leading-relaxed mb-4">
+                          <p style={{
+                            fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+                            fontSize: 14, color: 'rgba(245,240,232,0.75)', lineHeight: 1.6, marginBottom: 16,
+                          }}>
                             {outfit.explanation}
                           </p>
                         )}
-                        <div className="flex gap-2">
-                          <Button
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button
                             onClick={() => handleMarkWorn(planned)}
-                            className="flex-1 bg-background text-foreground rounded-lg py-3 text-sm font-semibold font-['DM_Sans']"
+                            style={{
+                              flex: 1, background: '#F5F0E8', color: '#1C1917', border: 'none',
+                              borderRadius: 8, padding: '12px 0', fontSize: 14, fontWeight: 600,
+                              cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                            }}
                           >
                             Wear today
-                          </Button>
-                          <Button
-                            variant="ghost"
+                          </button>
+                          <button
                             onClick={() => { setCurrentOutfitId(outfit.id); setCurrentPlannedId(planned.id); setSwapSheetOpen(true); }}
-                            className="flex-1 bg-background/10 text-background/70 rounded-lg py-3 text-sm font-['DM_Sans']"
+                            style={{
+                              flex: 1, background: 'rgba(245,240,232,0.1)', color: 'rgba(245,240,232,0.7)',
+                              border: 'none', borderRadius: 8, padding: '12px 0', fontSize: 14,
+                              cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                            }}
                           >
                             Restyle
-                          </Button>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -481,11 +513,11 @@ export default function PlanPage() {
 
                 /* STEP 5: Other planned day cards */
                 return (
-                  <div key={planned.id} className="bg-background border border-foreground/10 rounded-2xl overflow-hidden">
+                  <div key={planned.id} style={{ background: 'white', border: '1px solid rgba(28,25,23,0.1)', borderRadius: 16, overflow: 'hidden' }}>
                     {/* Thumbnails */}
-                    <div className="flex h-20">
+                    <div style={{ display: 'flex', height: 80 }}>
                       {outfit.outfit_items.slice(0, 4).map((item) => (
-                        <div key={item.id} className="flex-1 bg-background overflow-hidden">
+                        <div key={item.id} style={{ flex: 1, background: '#F5F0E8', overflow: 'hidden' }}>
                           <LazyImageSimple
                             imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
                             alt={item.garment?.title || item.slot}
@@ -495,35 +527,44 @@ export default function PlanPage() {
                       ))}
                     </div>
                     {/* Info */}
-                    <div className="py-3 px-4">
+                    <div style={{ padding: '12px 16px' }}>
                       {tagLine && (
-                        <p className="text-[9px] uppercase tracking-[0.1em] text-foreground/40 mb-1.5 font-['DM_Sans']">
+                        <p style={{
+                          fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em',
+                          color: 'rgba(28,25,23,0.4)', marginBottom: 6, fontFamily: 'DM Sans, sans-serif',
+                        }}>
                           {tagLine}
                         </p>
                       )}
                       {outfit.explanation && (
-                        <p className="font-['Playfair_Display'] italic text-[13px] text-foreground/60 leading-normal">
+                        <p style={{
+                          fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+                          fontSize: 13, color: 'rgba(28,25,23,0.6)', lineHeight: 1.5,
+                        }}>
                           {outfit.explanation}
                         </p>
                       )}
                     </div>
                     {/* Footer */}
-                    <div className="flex justify-between px-4 py-2 border-t border-foreground/[0.06]">
+                    <div style={{
+                      display: 'flex', justifyContent: 'space-between',
+                      padding: '8px 16px', borderTop: '1px solid rgba(28,25,23,0.06)',
+                    }}>
                       <button
                         onClick={() => { setCurrentOutfitId(outfit.id); setCurrentPlannedId(planned.id); setSwapSheetOpen(true); }}
-                        className="bg-transparent border-none cursor-pointer text-[11px] text-[#8C7B6B] font-['DM_Sans']"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#8C7B6B', fontFamily: 'DM Sans, sans-serif' }}
                       >
                         ↻ Swap
                       </button>
                       <button
                         onClick={() => navigate(`/outfits/${outfit.id}`)}
-                        className="bg-transparent border-none cursor-pointer text-[11px] text-[#8C7B6B] font-['DM_Sans']"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#8C7B6B', fontFamily: 'DM Sans, sans-serif' }}
                       >
                         ✎ Edit
                       </button>
                       <button
                         onClick={() => handleRemove(planned.id)}
-                        className="bg-transparent border-none cursor-pointer text-[11px] text-[#8C7B6B] font-['DM_Sans']"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#8C7B6B', fontFamily: 'DM Sans, sans-serif' }}
                       >
                         ✕ Clear
                       </button>
@@ -550,22 +591,28 @@ export default function PlanPage() {
             </div>
           ) : (
             /* STEP 6: Day with no outfit planned */
-            <div className="border-2 border-dashed border-foreground/10 rounded-2xl p-4 flex justify-between items-center">
+            <div style={{
+              border: '2px dashed rgba(28,25,23,0.1)', borderRadius: 16, padding: 16,
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
               <div>
-                <p className="font-['DM_Sans'] text-xs font-bold text-foreground mb-0.5">
+                <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 700, color: '#1C1917', marginBottom: 2 }}>
                   {dateLabel}
                 </p>
-                <p className="font-['DM_Sans'] text-[11px] text-[#8C7B6B]">
+                <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 11, color: '#8C7B6B' }}>
                   No outfit planned
                 </p>
               </div>
-              <Button
-                variant="outline"
+              <button
                 onClick={() => setQuickGenerateSheetOpen(true)}
-                className="bg-foreground/5 border border-foreground/10 rounded-lg px-3 py-2 text-xs font-medium text-foreground font-['DM_Sans']"
+                style={{
+                  background: 'rgba(28,25,23,0.05)', border: '1px solid rgba(28,25,23,0.1)',
+                  borderRadius: 8, padding: '8px 12px', fontSize: 12, fontWeight: 500,
+                  color: '#1C1917', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                }}
               >
                 + Plan
-              </Button>
+              </button>
             </div>
           )}
         </motion.div>

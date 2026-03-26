@@ -3,6 +3,7 @@
  * Step 16: Data Validation Layer
  */
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 // ── Preferences ──────────────────────────────────────────────
 
@@ -149,7 +150,7 @@ export type WeatherData = z.infer<typeof weatherDataSchema>;
 export function safeParse<T>(schema: z.ZodType<T>, data: unknown, label?: string): T {
   const result = schema.safeParse(data);
   if (!result.success) {
-    console.warn(`[Schema] Validation failed${label ? ` for ${label}` : ''}:`, result.error.issues);
+    logger.warn(`[Schema] Validation failed${label ? ` for ${label}` : ''}:`, result.error.issues);
     return data as T;
   }
   return result.data;

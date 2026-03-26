@@ -5,6 +5,7 @@ import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { asPreferences } from '@/types/preferences';
 import { useProfile } from '@/hooks/useProfile';
 import { useLocation } from '@/contexts/LocationContext';
+import { logger } from '@/lib/logger';
 
 export interface DayPriority {
   title: string;
@@ -75,12 +76,12 @@ export function useDaySummary(date: string) {
       });
 
       if (error) {
-        console.error('summarize_day error:', error);
+        logger.error('summarize_day error:', error);
         throw error;
       }
 
       if (data?.error) {
-        console.error('summarize_day returned error:', data.error);
+        logger.error('summarize_day returned error:', data.error);
         throw new Error(data.error);
       }
 

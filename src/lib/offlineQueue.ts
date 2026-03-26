@@ -5,6 +5,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { logger } from '@/lib/logger';
 
 export interface QueuedMutation {
   id: string;
@@ -52,7 +53,7 @@ function save(queue: OfflineQueue) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
   } catch (e) {
     if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-      console.error('[offline-queue] localStorage quota exceeded — clearing oldest items');
+      logger.error('[offline-queue] localStorage quota exceeded — clearing oldest items');
       // Drop oldest items to make room
       queue.mutations = queue.mutations.slice(-Math.ceil(queue.mutations.length / 2));
       queue.uploads = queue.uploads.slice(-Math.ceil(queue.uploads.length / 2));
@@ -75,7 +76,7 @@ function emitChange(queue: OfflineQueue) {
 export function enqueue(mutation: Omit<QueuedMutation, 'id' | 'createdAt'>) {
   const queue = load();
   if (queue.mutations.length >= MAX_QUEUE_SIZE) {
-    console.warn(`[offline-queue] Queue is large (${queue.mutations.length} mutations). Dropping oldest.`);
+    logger.warn(`[offline-queue] Queue is large (${queue.mutations.length} mutations). Dropping oldest.`);
     queue.mutations = queue.mutations.slice(-MAX_QUEUE_SIZE + 1);
   }
   queue.mutations.push({
@@ -141,13 +142,13 @@ export async function replayQueue(
         .upload(upload.path, bytes, { contentType: upload.contentType, upsert: true });
 
       if (error) {
-        console.warn('[offline-queue] Upload replay failed:', error.message);
+        logger.warn('[offline-queue] Upload replay failed:', error.message);
         failedUploads.push(upload);
       } else {
         success++;
       }
     } catch (err) {
-      console.warn('[offline-queue] Upload error:', err);
+      logger.warn('[offline-queue] Upload error:', err);
       failedUploads.push(upload);
     }
     completed++;
@@ -171,13 +172,13 @@ export async function replayQueue(
       }
 
       if (result.error) {
-        console.warn('[offline-queue] Replay failed:', result.error.message);
+        logger.warn('[offline-queue] Replay failed:', result.error.message);
         failedMutations.push(mutation);
       } else {
         success++;
       }
     } catch (err) {
-      console.warn('[offline-queue] Replay error:', err);
+      logger.warn('[offline-queue] Replay error:', err);
       failedMutations.push(mutation);
     }
     completed++;

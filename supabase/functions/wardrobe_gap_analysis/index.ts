@@ -3,16 +3,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
 import { VOICE_GAP_ANALYSIS } from "../_shared/burs-voice.ts";
 
-import { allowedOrigin } from "../_shared/cors.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -43,7 +37,7 @@ serve(async (req) => {
 
     if (!garments || garments.length < 5) {
       return new Response(JSON.stringify({ gaps: [], message: "Need more garments for analysis" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
@@ -169,10 +163,10 @@ CRITICAL RULES:
     }
 
     return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("wardrobe_gap_analysis error:", e);
-    return bursAIErrorResponse(e, corsHeaders);
+    return bursAIErrorResponse(e, CORS_HEADERS);
   }
 });

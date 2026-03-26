@@ -2,17 +2,11 @@ import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 
-import { allowedOrigin } from "../_shared/cors.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   try {
@@ -44,7 +38,7 @@ serve(async (req) => {
     if (fetchErr) throw fetchErr;
     if (!garments || garments.length === 0) {
       return new Response(JSON.stringify({ results: [], error: "No garments found" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
@@ -118,10 +112,10 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ results }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("generate_garment_images error:", e);
-    return bursAIErrorResponse(e, corsHeaders);
+    return bursAIErrorResponse(e, CORS_HEADERS);
   }
 });

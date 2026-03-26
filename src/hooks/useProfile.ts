@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { safeParse, profileSchema } from '@/lib/schemas';
+import { logger } from '@/lib/logger';
 import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
 import { normalizeMannequinPresentation } from '@/lib/mannequinPresentation';
 
@@ -39,10 +40,10 @@ export function useProfile() {
           .single();
         
         if (insertError) {
-          console.error('Failed to auto-create profile:', insertError);
+          logger.error('Failed to auto-create profile:', insertError);
           // FK violation means user doesn't exist in auth.users — ghost session
           if ((insertError as { code?: string }).code === '23503') {
-            console.error('Ghost session detected — signing out');
+            logger.error('Ghost session detected — signing out');
             await supabase.auth.signOut();
             return null;
           }

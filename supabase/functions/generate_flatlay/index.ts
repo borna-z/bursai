@@ -2,17 +2,11 @@ import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 
-import { allowedOrigin } from "../_shared/cors.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   try {
@@ -154,10 +148,10 @@ Generate a single flat-lay image arranging these exact garments together.`;
 
     return new Response(
       JSON.stringify({ success: true, flatlay_image_path: filePath }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
     );
   } catch (e) {
     console.error("generate_flatlay error:", e);
-    return bursAIErrorResponse(e, corsHeaders);
+    return bursAIErrorResponse(e, CORS_HEADERS);
   }
 });

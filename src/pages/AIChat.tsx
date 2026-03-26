@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useGarmentsByIds, type GarmentBasic } from '@/hooks/useGarmentsByIds';
 import { useGarmentCount } from '@/hooks/useGarments';
+import { logger } from '@/lib/logger';
 import { useStyleDNA } from '@/hooks/useStyleDNA';
 import { useCreateOutfit } from '@/hooks/useOutfits';
 import { ChatMessage } from '@/components/chat/ChatMessage';
@@ -97,7 +98,7 @@ function findLatestActiveLookMessageIndex(messages: Message[]): number {
     const message = messages[index];
     if (message.role !== 'assistant') continue;
     const text = getTextContent(message.content);
-    if (parseOutfitTags(text).length > 0) return index;
+    return parseOutfitTags(text).length > 0 ? index : -1;
   }
 
   return -1;
@@ -151,32 +152,12 @@ export default function AIChat() {
   const isWelcomeState = messages.length === 1 && messages[0].role === 'assistant' && !isStreaming;
 
   useEffect(() => {
-    const state = location.state as { selectedGarmentId?: string; prefillMessage?: string; outfitId?: string } | null;
+    const state = location.state as { selectedGarmentId?: string; prefillMessage?: string } | null;
     const garmentId = state?.selectedGarmentId ?? null;
     const prefill = state?.prefillMessage ?? null;
-    const outfitId = state?.outfitId ?? null;
     if (garmentId) setAnchoredGarmentId(garmentId);
     if (prefill) setPendingPrefill(prefill);
-    if (outfitId) {
-      // Fetch outfit data and build a refine message
-      supabase
-        .from('outfits')
-        .select('*, outfit_items(*, garment:garments(*))')
-        .eq('id', outfitId)
-        .single()
-        .then(({ data: outfit }) => {
-          if (outfit) {
-            const garmentTitles = (outfit.outfit_items ?? [])
-              .map((item: { garment?: { title?: string } | null }) => item.garment?.title)
-              .filter(Boolean)
-              .join(', ');
-            const occasion = outfit.occasion ?? 'everyday';
-            const msg = `I'd like to refine my ${occasion} outfit. It currently includes: ${garmentTitles}.`;
-            setPendingPrefill(msg);
-          }
-        });
-    }
-    if (garmentId || prefill || outfitId) navigate(location.pathname, { replace: true, state: null });
+    if (garmentId || prefill) navigate(location.pathname, { replace: true, state: null });
   }, [location.pathname, location.state, navigate]);
 
   useEffect(() => () => {
@@ -229,7 +210,7 @@ export default function AIChat() {
       setPendingImage({ url: signedData.signedUrl, path: storagePath });
     } catch (err) {
       toast.error(t('chat.upload_error'));
-      console.error(err);
+      logger.error(err);
     } finally { setIsUploading(false); }
   };
 
@@ -533,7 +514,7 @@ export default function AIChat() {
                       garmentMap={garmentMap}
                       onTryOutfit={handleTryOutfit}
                       isCreatingOutfit={createOutfit.isPending}
-                      showStyleCards={msg.role !== 'assistant' || idx === latestActiveLookMessageIndex || isStreamingMsg || idx === messages.length - 1}
+                      showStyleCards={msg.role !== 'assistant' || idx === latestActiveLookMessageIndex || isStreamingMsg}
                     />
                   )}
                 </motion.div>
@@ -541,20 +522,33 @@ export default function AIChat() {
             })}
             {/* Plan action banner */}
             {planActionPayload && !isStreaming && (
-              <div className="bg-foreground rounded-xl p-4 mt-3">
-                <p className="font-serif italic text-sm text-background/75 mb-3">
+              <div style={{
+                background: '#1C1917', borderRadius: 12, padding: 16, marginTop: 12,
+              }}>
+                <p style={{
+                  fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
+                  fontSize: 14, color: 'rgba(245,240,232,0.75)', marginBottom: 12,
+                }}>
                   Your week is planned. Add these looks to the planner?
                 </p>
-                <div className="flex gap-2">
+                <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     onClick={() => { handleAddToPlan(planActionPayload); setPlanActionPayload(null); }}
-                    className="flex-1 bg-background text-foreground border-none rounded-lg py-2 text-sm font-medium cursor-pointer"
+                    style={{
+                      flex: 1, background: '#F5F0E8', color: '#1C1917', border: 'none',
+                      borderRadius: 8, padding: '8px 0', fontSize: 14, fontWeight: 500,
+                      cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                    }}
                   >
                     Add to plan
                   </button>
                   <button
                     onClick={() => setPlanActionPayload(null)}
-                    className="flex-1 bg-transparent text-background/50 border-none rounded-lg py-2 text-sm cursor-pointer"
+                    style={{
+                      flex: 1, background: 'transparent', color: 'rgba(245,240,232,0.5)',
+                      border: 'none', borderRadius: 8, padding: '8px 0', fontSize: 14,
+                      cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                    }}
                   >
                     Dismiss
                   </button>
@@ -562,9 +556,18 @@ export default function AIChat() {
               </div>
             )}
             {/* Suggestion chips — always-present 44px container to prevent layout jump */}
-            <div className="h-11 flex items-center overflow-hidden">
+            <div style={{ height: 44, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
               {suggestionChips.length > 0 && !isStreaming && input === '' && (
-                <div className="flex gap-2 overflow-x-auto whitespace-nowrap px-4 scrollbar-hide">
+                <div style={{
+                  display: 'flex',
+                  gap: 8,
+                  overflowX: 'auto',
+                  whiteSpace: 'nowrap',
+                  paddingLeft: 16,
+                  paddingRight: 16,
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
+                }}>
                   {suggestionChips.map((chip, i) => (
                     <button
                       key={i}
@@ -572,7 +575,18 @@ export default function AIChat() {
                         setSuggestionChips([]);
                         sendMessage(chip);
                       }}
-                      className="bg-background text-foreground border border-foreground/20 rounded-lg px-3.5 py-2 text-[13px] cursor-pointer whitespace-nowrap shrink-0"
+                      style={{
+                        background: '#F5F0E8',
+                        color: '#1C1917',
+                        border: '1px solid rgba(28,25,23,0.20)',
+                        borderRadius: 8,
+                        padding: '8px 14px',
+                        fontFamily: 'DM Sans, sans-serif',
+                        fontSize: 13,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                      }}
                     >
                       {chip}
                     </button>

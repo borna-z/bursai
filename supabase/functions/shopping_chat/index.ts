@@ -3,13 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { streamBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 import { VOICE_SHOPPING } from "../_shared/burs-voice.ts";
 
-import { allowedOrigin } from "../_shared/cors.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 // ---------- i18n ----------
 
@@ -91,14 +85,14 @@ async function getWardrobeContext(supabase: ReturnType<typeof createClient>, use
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
@@ -112,7 +106,7 @@ serve(async (req) => {
     const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
     if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
     const user = { id: claimsData.claims.sub as string };
@@ -120,7 +114,7 @@ serve(async (req) => {
     const { messages, locale: rawLocale } = await req.json();
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "Invalid messages" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
@@ -216,13 +210,13 @@ Rules:
 
     return new Response(response.body, {
       headers: {
-        ...corsHeaders,
+        ...CORS_HEADERS,
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
       },
     });
   } catch (e) {
     console.error("shopping_chat error:", e);
-    return bursAIErrorResponse(e, corsHeaders);
+    return bursAIErrorResponse(e, CORS_HEADERS);
   }
 });

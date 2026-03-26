@@ -1,15 +1,9 @@
 import { serve } from 'https://deno.land/std@0.220.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { bursAIErrorResponse } from '../_shared/burs-ai.ts';
-import { allowedOrigin } from '../_shared/cors.ts';
+import { CORS_HEADERS } from '../_shared/cors.ts';
 import { assessRenderEligibilityWithGemini, PRODUCT_READY_RENDER_GATE_PROVIDER, validateRenderedGarmentOutputWithGemini } from '../_shared/render-eligibility.ts';
 import { mannequinPresentationInstruction, normalizeMannequinPresentation } from '../_shared/mannequin-presentation.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': allowedOrigin,
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
 
 const GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image';
 const GEMINI_IMAGE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent`;
@@ -471,7 +465,7 @@ serve(async (req) => {
   let garmentIdForFailure: string | null = null;
 
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   try {
@@ -480,7 +474,7 @@ serve(async (req) => {
     if (!enabled) {
       return new Response(
         JSON.stringify({ ok: true, skipped: true, reason: 'Render pipeline disabled' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -489,7 +483,7 @@ serve(async (req) => {
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
     }
 
@@ -509,7 +503,7 @@ serve(async (req) => {
     if (userError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
     }
 
@@ -522,7 +516,7 @@ serve(async (req) => {
     if (!garmentId || typeof garmentId !== 'string') {
       return new Response(JSON.stringify({ error: 'garmentId is required' }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
     }
 
@@ -540,7 +534,7 @@ serve(async (req) => {
     if (garmentError || !garment) {
       return new Response(JSON.stringify({ error: 'Garment not found' }), {
         status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
     }
 
@@ -548,7 +542,7 @@ serve(async (req) => {
     if (garment.render_status === 'ready' || garment.render_status === 'rendering' || garment.render_status === 'skipped') {
       return new Response(
         JSON.stringify({ ok: true, skipped: true, reason: `Already ${garment.render_status}` }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -566,7 +560,7 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ ok: false, error: 'No source image' }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -609,7 +603,7 @@ serve(async (req) => {
           skipped: true,
           reason: `Already ${latestGarment?.render_status ?? 'claimed'}`,
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -674,7 +668,7 @@ serve(async (req) => {
           reason: eligibilityAssessment.reason,
           eligibility: eligibilityAssessment,
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -731,7 +725,7 @@ serve(async (req) => {
 
         return new Response(
           JSON.stringify({ ok: true, rendered: false, error: errorMessage }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
         );
       }
 
@@ -758,7 +752,7 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ ok: true, rendered: false, error: 'Output too small' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -769,7 +763,7 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ ok: true, rendered: false, error: 'Output too large' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -800,7 +794,7 @@ serve(async (req) => {
           error: 'Rendered output still showed visible mannequin anatomy',
           validation: validationAssessment,
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -833,7 +827,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ ok: true, rendered: true, renderedImagePath: renderedPath }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
     );
   } catch (error) {
     const errorMessage = getErrorMessage(error);
@@ -851,6 +845,6 @@ serve(async (req) => {
       }, 'top_level_catch');
     }
 
-    return bursAIErrorResponse(error, corsHeaders);
+    return bursAIErrorResponse(error, CORS_HEADERS);
   }
 });

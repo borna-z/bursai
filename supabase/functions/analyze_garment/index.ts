@@ -2,12 +2,7 @@ import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, BursAIError } from "../_shared/burs-ai.ts";
 
-import { allowedOrigin } from "../_shared/cors.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': allowedOrigin,
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 interface AnalyzeRequest {
   storagePath?: string;
@@ -228,7 +223,7 @@ function cleanJsonResponse(raw: string): string {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   try {
@@ -236,7 +231,7 @@ serve(async (req) => {
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -253,7 +248,7 @@ serve(async (req) => {
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
     const userId = user.id;
@@ -264,21 +259,21 @@ serve(async (req) => {
     if (!storagePath && !base64Image) {
       return new Response(
         JSON.stringify({ error: "storagePath or base64Image is required" }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
 
     if (storagePath && !storagePath.startsWith(`${userId}/`)) {
       return new Response(
         JSON.stringify({ error: "Access denied" }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 403, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
 
     if (base64Image && base64Image.length > 5 * 1024 * 1024) {
       return new Response(
         JSON.stringify({ error: "Image is too large" }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -295,7 +290,7 @@ serve(async (req) => {
       if (signedError || !signedData?.signedUrl) {
         return new Response(
           JSON.stringify({ error: "Could not fetch image" }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
         );
       }
       resolvedImageUrl = signedData.signedUrl;
@@ -329,13 +324,13 @@ serve(async (req) => {
 
         return new Response(
           JSON.stringify({ enrichment, ai_provider: 'burs_ai' }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
         );
       } catch (err) {
         console.error('Enrichment error after retry:', err);
         return new Response(
           JSON.stringify({ enrichment: null, error: "parse_failed", ai_provider: 'burs_ai' }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
         );
       }
     }
@@ -363,33 +358,33 @@ serve(async (req) => {
         if (aiErr.status === 429) {
           return new Response(
             JSON.stringify({ error: "Too many requests, try again later" }),
-            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            { status: 429, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
           );
         }
         if (aiErr.status === 402) {
           return new Response(
             JSON.stringify({ error: "AI credits exhausted, contact support" }),
-            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            { status: 402, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
           );
         }
       }
       if (aiErr instanceof Error && aiErr.message.includes('timed out')) {
         return new Response(
           JSON.stringify({ error: "AI analysis timed out" }),
-          { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 504, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
         );
       }
       console.error('AI analysis error:', aiErr);
       return new Response(
         JSON.stringify({ error: "AI analysis failed" }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
 
     if (!content) {
       return new Response(
         JSON.stringify({ error: "No response from AI" }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -407,7 +402,7 @@ serve(async (req) => {
       console.error('Failed to parse AI response:', parseError, content);
       return new Response(
         JSON.stringify({ error: "Could not parse AI response" }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -455,13 +450,13 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ ...analysis, ai_provider: 'burs_ai', ai_raw: rawAnalysis }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Unexpected error:', error);
     return new Response(
       JSON.stringify({ error: "An unexpected error occurred" }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
     );
   }
 });

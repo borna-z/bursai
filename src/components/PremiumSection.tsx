@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { prepareExternalNavigation } from '@/lib/externalNavigation';
 import { getLocalizedPricing } from '@/lib/localizedPricing';
+import { logger } from '@/lib/logger';
 
 interface PremiumSectionProps {
   isPremium: boolean;
@@ -61,9 +62,9 @@ export function PremiumSection({ isPremium, subscription, limits }: PremiumSecti
     setIsLoadingCheckout(plan);
     try {
       const { data, error } = await supabase.functions.invoke('create_checkout_session', { body: { plan, locale: navigator.language || document.documentElement.lang || 'sv' } });
-      if (error) { console.error('Checkout error:', error); nav.closePopup(); toast.error(t('premium.checkout_error')); return; }
+      if (error) { logger.error('Checkout error:', error); nav.closePopup(); toast.error(t('premium.checkout_error')); return; }
       if (data?.url) { nav.go(data.url); } else { nav.closePopup(); toast.error(t('premium.no_link')); }
-    } catch (err) { console.error('Checkout error:', err); nav.closePopup(); toast.error(t('premium.error')); }
+    } catch (err) { logger.error('Checkout error:', err); nav.closePopup(); toast.error(t('premium.error')); }
     finally { setIsLoadingCheckout(null); }
   };
 
@@ -72,9 +73,9 @@ export function PremiumSection({ isPremium, subscription, limits }: PremiumSecti
     setIsLoadingPortal(true);
     try {
       const { data, error } = await supabase.functions.invoke('create_portal_session');
-      if (error) { console.error('Portal error:', error); nav.closePopup(); toast.error(t('premium.portal_error')); return; }
+      if (error) { logger.error('Portal error:', error); nav.closePopup(); toast.error(t('premium.portal_error')); return; }
       if (data?.url) { nav.go(data.url); } else { nav.closePopup(); toast.error(t('premium.no_link')); }
-    } catch (err) { console.error('Portal error:', err); nav.closePopup(); toast.error(t('premium.error')); }
+    } catch (err) { logger.error('Portal error:', err); nav.closePopup(); toast.error(t('premium.error')); }
     finally { setIsLoadingPortal(false); }
   };
 
@@ -82,10 +83,10 @@ export function PremiumSection({ isPremium, subscription, limits }: PremiumSecti
     setIsRestoring(true);
     try {
       const { data, error } = await supabase.functions.invoke('restore_subscription');
-      if (error) { console.error('Restore error:', error); toast.error(t('premium.restore_error')); return; }
+      if (error) { logger.error('Restore error:', error); toast.error(t('premium.restore_error')); return; }
       if (data?.success) { toast.success(data.message); queryClient.invalidateQueries({ queryKey: ['subscription', user?.id] }); }
       else { toast.error(data?.error || t('premium.error')); }
-    } catch (err) { console.error('Restore error:', err); toast.error(t('premium.error')); }
+    } catch (err) { logger.error('Restore error:', err); toast.error(t('premium.error')); }
     finally { setIsRestoring(false); }
   };
 

@@ -1,11 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import { allowedOrigin } from "../_shared/cors.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': allowedOrigin,
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 // ============ TYPES ============
 interface ImportRequest {
@@ -249,7 +244,7 @@ async function downloadImage(url: string): Promise<{ data: Uint8Array; contentTy
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   try {
@@ -258,7 +253,7 @@ Deno.serve(async (req) => {
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -282,7 +277,7 @@ Deno.serve(async (req) => {
       console.error('Auth error:', claimsError);
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
     const user = { id: claimsData.claims.sub as string };
@@ -295,21 +290,21 @@ Deno.serve(async (req) => {
     if (!urls || !Array.isArray(urls)) {
       return new Response(
         JSON.stringify({ error: 'urls must be an array' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
 
     if (urls.length === 0) {
       return new Response(
         JSON.stringify({ error: 'No URLs provided' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
 
     if (urls.length > 30) {
       return new Response(
         JSON.stringify({ error: 'Max 30 URLs per request' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -520,7 +515,7 @@ Deno.serve(async (req) => {
       }),
       { 
         status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } 
       }
     );
 
@@ -528,7 +523,7 @@ Deno.serve(async (req) => {
     console.error('Import error:', error);
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
     );
   }
 });

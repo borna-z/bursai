@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { searchCities, type CitySuggestion } from '@/hooks/useForecast';
+import { logger } from '@/lib/logger';
 
 interface UseLocationSuggestionsResult {
   suggestions: CitySuggestion[];
@@ -55,7 +56,7 @@ export function useLocationSuggestions(query: string): UseLocationSuggestionsRes
         setSuggestions(results);
         setError(null);
       } catch (err) {
-        console.error('[useLocationSuggestions] search failed:', err);
+        logger.error('[useLocationSuggestions] search failed:', err);
         setSuggestions([]);
         setError('Could not search cities. Check your connection.');
       } finally {

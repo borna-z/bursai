@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { logger } from '@/lib/logger';
 
 interface AuthContextType {
   user: User | null;
@@ -22,8 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        // eslint-disable-next-line no-console
-        console.log('[AuthContext] onAuthStateChange', event, { hasSession: !!session, userId: session?.user?.id?.slice(0, 8) });
+        logger.debug('[AuthContext] onAuthStateChange', event, { hasSession: !!session, userId: session?.user?.id?.slice(0, 8) });
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -32,13 +32,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      // eslint-disable-next-line no-console
-      console.log('[AuthContext] getSession resolved', { hasSession: !!session, userId: session?.user?.id?.slice(0, 8) });
+      logger.debug('[AuthContext] getSession resolved', { hasSession: !!session, userId: session?.user?.id?.slice(0, 8) });
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     }).catch((error) => {
-      console.error('[AuthContext] getSession failed', error);
+      logger.error('[AuthContext] getSession failed', error);
       setSession(null);
       setUser(null);
       setLoading(false);
@@ -75,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signOut();
     // Always clear local state even if the server session was already invalid
     if (error) {
-      console.warn('Sign out server error (clearing local state):', error.message);
+      logger.warn('Sign out server error (clearing local state):', error.message);
       setSession(null);
       setUser(null);
     }

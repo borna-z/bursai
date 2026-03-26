@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { logger } from '@/lib/logger';
 
 export interface ForecastDay {
   date: string; // YYYY-MM-DD
@@ -274,7 +275,7 @@ export function useForecast(options: UseForecastOptions = {}): UseForecastResult
 
         return merged;
       } catch (err) {
-        console.error('[useForecast] Failed to fetch forecast:', err);
+        logger.error('[useForecast] Failed to fetch forecast:', err);
         throw err;
       }
     },

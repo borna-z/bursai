@@ -2,13 +2,7 @@ import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, compressPrompt, compactGarment, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
 
-import { allowedOrigin } from "../_shared/cors.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 /**
  * Prefetch daily outfit suggestions for active users.
@@ -16,23 +10,24 @@ const corsHeaders = {
  * Stores results in ai_response_cache for instant Home page loads.
  */
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Find active users (logged in within last 7 days, have 5+ garments)
+    // Find active users (genuinely active within last 7 days, have 5+ garments)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const { data: activeUsers } = await supabase
       .from("profiles")
       .select("id")
-      .gte("updated_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+      .gte("last_active_at", sevenDaysAgo)
       .limit(50);
 
     if (!activeUsers || activeUsers.length === 0) {
       return new Response(JSON.stringify({ prefetched: 0, message: "No active users" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
@@ -113,10 +108,10 @@ ${garmentList}`);
       total_users: activeUsers.length,
       errors: errors.length > 0 ? errors.slice(0, 5) : undefined,
     }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("prefetch_suggestions error:", e);
-    return bursAIErrorResponse(e, corsHeaders);
+    return bursAIErrorResponse(e, CORS_HEADERS);
   }
 });

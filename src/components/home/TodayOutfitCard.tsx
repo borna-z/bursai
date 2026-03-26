@@ -13,6 +13,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { hapticSuccess, hapticLight } from '@/lib/haptics';
 import { EASE_CURVE, TAP_TRANSITION } from '@/lib/motion';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { logger } from '@/lib/logger';
 
 interface TodayOutfitCardProps {
   weather?: OutfitRequest['weather'];
@@ -45,7 +46,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
       setOutfit(result);
       setOutfitKey((k) => k + 1);
     } catch (err) {
-      console.error('Outfit generation failed:', err);
+      logger.error('Outfit generation failed:', err);
     }
   }, [occasion, style, locale, weather, generateOutfit]);
 

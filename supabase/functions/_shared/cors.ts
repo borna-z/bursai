@@ -39,3 +39,20 @@ export function resolveAppOrigin(requestOrigin: string | null): string {
 }
 
 export const allowedOrigin = "*";
+
+/**
+ * Shared CORS headers for all edge functions.
+ *
+ * The Allow-Headers list is a superset of every header any edge function needs
+ * (Supabase client headers, Stripe signature, idempotency keys, etc.).
+ * Listing extra allowed headers is harmless — the browser only sends headers
+ * the client actually sets.
+ */
+export const CORS_HEADERS: Record<string, string> = {
+  "Access-Control-Allow-Origin": allowedOrigin,
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, " +
+    "x-idempotency-key, stripe-signature, " +
+    "x-supabase-client-platform, x-supabase-client-platform-version, " +
+    "x-supabase-client-runtime, x-supabase-client-runtime-version",
+};

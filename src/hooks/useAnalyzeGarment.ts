@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { logger } from '@/lib/logger';
 
 export interface GarmentAnalysis {
   title: string;
@@ -71,7 +72,7 @@ export function useAnalyzeGarment() {
       setAnalysisProgress(100);
 
       if (error) {
-        console.error('Edge function error:', error);
+        logger.error('Edge function error:', error);
         return { data: null, error: error.message || t('analyze.failed') };
       }
 
@@ -82,7 +83,7 @@ export function useAnalyzeGarment() {
       return { data: data as GarmentAnalysis, error: null };
     } catch (err) {
       clearInterval(progressInterval);
-      console.error('Analyze garment error:', err);
+      logger.error('Analyze garment error:', err);
       return { data: null, error: t('analyze.unexpected') };
     } finally {
       setIsAnalyzing(false);

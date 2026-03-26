@@ -3,13 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
 import { VOICE_MOOD_OUTFIT } from "../_shared/burs-voice.ts";
 
-import { allowedOrigin } from "../_shared/cors.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 const MOOD_MAP: Record<string, { formality: string; colors: string; materials: string; vibe: string }> = {
   cozy: { formality: "casual, low", colors: "warm earth tones, cream, beige, soft browns", materials: "knit, fleece, cashmere, cotton", vibe: "soft, comfortable, enveloping" },
@@ -121,13 +115,13 @@ function buildMoodLimitationNote(
 
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
@@ -141,7 +135,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
     const userId = user.id;
@@ -159,7 +153,7 @@ serve(async (req) => {
     if (gErr) throw gErr;
     if (!garments || garments.length === 0) {
       return new Response(JSON.stringify({ error: "Need garments in your wardrobe" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
@@ -233,7 +227,7 @@ WARDROBE:\n${garmentList}` },
         error: `Not enough garments to build a mood outfit base. Missing: ${baseValidation.missing.join(', ')}`,
         missing_slots: baseValidation.missing,
       }), {
-        status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 422, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
@@ -244,10 +238,10 @@ WARDROBE:\n${garmentList}` },
       items: normalizedItems,
       limitation_note: limitationNote,
     }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("mood_outfit error:", e);
-    return bursAIErrorResponse(e, corsHeaders);
+    return bursAIErrorResponse(e, CORS_HEADERS);
   }
 });

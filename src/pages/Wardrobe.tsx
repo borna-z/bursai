@@ -1,5 +1,6 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useQueryClient } from '@tanstack/react-query';
+import { logger } from '@/lib/logger';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TAP_TRANSITION, EASE_CURVE, STAGGER_DELAY, DISTANCE, DURATION_MEDIUM, PRESETS } from '@/lib/motion';
 import { useState, useMemo, useEffect, useRef, useCallback, Fragment, type MouseEvent } from 'react';
@@ -543,7 +544,7 @@ export default function WardrobePage() {
           preferences: { ...currentPrefs, wardrobeDnaComputedAt: new Date().toISOString() } as unknown as Json,
         });
       } catch (err) {
-        console.error('[Wardrobe] compute_wardrobe_dna failed:', err);
+        logger.error('[Wardrobe] compute_wardrobe_dna failed:', err);
       }
     })();
   }, [allGarments.length, profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps

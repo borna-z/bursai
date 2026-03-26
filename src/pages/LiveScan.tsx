@@ -19,6 +19,7 @@ import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { GarmentConfirmSheet } from '@/components/garment/GarmentConfirmSheet';
 import { useProfile } from '@/hooks/useProfile';
 import { asPreferences } from '@/types/preferences';
+import { logger } from '@/lib/logger';
 
 /* ─── Accepted overlay — fast checkmark fade ─── */
 function AcceptedOverlay({ onDone, label }: { onDone: () => void; label: string }) {
@@ -390,13 +391,13 @@ export default function LiveScan() {
           await videoRef.current.play();
           setCameraReady(true);
         } catch (playErr) {
-          console.warn('[LiveScan] play() failed:', playErr);
+          logger.warn('[LiveScan] play() failed:', playErr);
           // Still mark ready — some Android versions autoplay without explicit play()
           setCameraReady(true);
         }
       }
     } catch (err: unknown) {
-      console.error('Camera error:', err);
+      logger.error('Camera error:', err);
       const errObj = err instanceof Error ? err : null;
       if (errObj?.name === 'NotAllowedError' || errObj?.name === 'PermissionDeniedError') {
         setCameraError(

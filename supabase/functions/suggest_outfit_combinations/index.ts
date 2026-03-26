@@ -2,12 +2,7 @@ import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
 
-import { allowedOrigin } from "../_shared/cors.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 const LOCALE_NAMES: Record<string, string> = {
   sv: "Swedish", en: "English", de: "German", fr: "French",
@@ -18,7 +13,7 @@ const LOCALE_NAMES: Record<string, string> = {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   try {
@@ -32,7 +27,7 @@ serve(async (req) => {
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing authorization" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
@@ -46,7 +41,7 @@ serve(async (req) => {
     const { data: userData, error: userError } = await supabase.auth.getUser(token);
     if (userError || !userData?.user) {
       return new Response(JSON.stringify({ error: "Invalid token" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
     const user = { id: userData.user.id };
@@ -76,7 +71,7 @@ serve(async (req) => {
 
     if (garments.length < 3) {
       return new Response(JSON.stringify({ suggestions: [], message: "Not enough garments." }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
@@ -161,10 +156,10 @@ WARDROBE:\n${garmentList}` },
       .filter((s: any) => s.garment_ids.length >= 3);
 
     return new Response(JSON.stringify({ suggestions: enrichedSuggestions }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (error) {
     console.error("Error in suggest_outfit_combinations:", error);
-    return bursAIErrorResponse(error, corsHeaders);
+    return bursAIErrorResponse(error, CORS_HEADERS);
   }
 });

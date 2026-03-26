@@ -4,6 +4,8 @@
  * Gracefully degrades — returns the original image on any failure.
  */
 
+import { logger } from '@/lib/logger';
+
 let removeModule: typeof import('@imgly/background-removal') | null = null;
 
 async function getModule() {
@@ -39,7 +41,7 @@ export async function removeBackground(input: Blob): Promise<Blob> {
     });
     return result;
   } catch (err) {
-    console.warn('Background removal unavailable, using original image', err);
+    logger.warn('Background removal unavailable, using original image', err);
     return input;
   }
 }
@@ -67,7 +69,7 @@ export async function removeBackgroundFromDataUrl(
 
     return { blob: processedBlob, base64: processedBase64 };
   } catch (err) {
-    console.warn('Background removal unavailable, using original image', err);
+    logger.warn('Background removal unavailable, using original image', err);
     // Return original — convert data URL to blob without fetch
     const blob = dataUrlToBlob(base64);
     return { blob, base64 };

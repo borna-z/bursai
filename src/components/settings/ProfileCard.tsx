@@ -9,6 +9,7 @@ import { Camera, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { hapticSuccess } from '@/lib/haptics';
+import { logger } from '@/lib/logger';
 
 export function ProfileCard() {
   const { user } = useAuth();
@@ -61,7 +62,7 @@ export function ProfileCard() {
       hapticSuccess();
       toast.success(t('settings.avatar_updated') || 'Photo updated');
     } catch (err: unknown) {
-      console.error('Avatar upload error:', err);
+      logger.error('Avatar upload error:', err);
       toast.error(t('settings.avatar_error') || 'Failed to upload photo');
     } finally {
       setUploading(false);
