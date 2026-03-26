@@ -636,6 +636,7 @@ interface GarmentPenalty {
   formalityPenalty: number;
   fitPenalty: number;
   positiveBoost: number;
+  rejected?: boolean;
 }
 
 function buildFeedbackPenalties(feedbackHistory: FeedbackSignal[]): Map<string, GarmentPenalty> {
@@ -654,6 +655,7 @@ function buildFeedbackPenalties(feedbackHistory: FeedbackSignal[]): Map<string, 
     const weight = decayWeight(signal.generatedAt);
     const isNegative = (signal.rating && signal.rating <= 2) || false;
     const isPositive = (signal.rating && signal.rating >= 4) || false;
+    const isDirectRejection = signal.rating === 1;
     const feedbackTags = signal.feedback || [];
 
     for (const gId of signal.garmentIds) {
@@ -661,6 +663,7 @@ function buildFeedbackPenalties(feedbackHistory: FeedbackSignal[]): Map<string, 
 
       if (isNegative) p.total += 2 * weight;
       if (isPositive) p.positiveBoost += 1.5 * weight;
+      if (isDirectRejection) p.rejected = true;
 
       for (const tag of feedbackTags) {
         const ctx = CONTEXTUAL_TAGS[tag];
@@ -1560,7 +1563,7 @@ function hasSuitableShoesAvailable(shoes: ScoredGarment[], weather: WeatherInput
   return shoes.some((shoe) => isSuitableShoeCandidate(shoe, weather));
 }
 
-type OutfitCompletenessMode = 'strict_visible' | 'guaranteed_base';
+type OutfitCompletenessMode = 'strict_visible' | 'guaranteed_base' | 'no_shoes' | 'dress_only' | 'any_two';
 
 interface OutfitCompletenessResult {
   complete: boolean;
@@ -1607,6 +1610,20 @@ function isCompleteOutfit(
   if (!hasBasePath) {
     if (!hasDress && !hasTop) missing.push('top');
     if (!hasDress && !hasBottom) missing.push('bottom');
+  }
+
+  if (mode === 'no_shoes') {
+    // complete if (top+bottom) or dress exists, no shoes required
+    return { complete: hasBasePath, missing: hasBasePath ? [] : [...missing], required_slots: getRequiredSlotsForContext(items, weather, mode), present_slots: presentSlots };
+  }
+
+  if (mode === 'dress_only') {
+    return { complete: hasDress, missing: hasDress ? [] : ['dress'], required_slots: ['dress'], present_slots: presentSlots };
+  }
+
+  if (mode === 'any_two') {
+    const slots = new Set(items.map(i => i.slot));
+    return { complete: items.length >= 2 && slots.size >= 2, missing: [], required_slots: [], present_slots: presentSlots };
   }
 
   if (mode === 'strict_visible') {
@@ -2700,6 +2717,82 @@ function buildCombos(
   return pickRepresentativeOutfits(exactDeduped, maxCombos, 0.8);
 }
 
+function buildFallbackCombos(
+  slotCandidates: Record<string, ScoredGarment[]>,
+  recentOutfitSets: Set<string>[],
+  occasion: string,
+  style: string | null,
+  weather: WeatherInput,
+  prefs: Record<string, any> | null,
+  maxCombos: number = 3,
+  body: BodyProfile | null = null,
+  pairMemory: PairMemoryMap | null = null
+): { combos: ScoredCombo[]; fallbackLevel: number } {
+
+  // Level 2: no shoes required — build top+bottom combos directly
+  const tops = slotCandidates['top'] || [];
+  const bottoms = slotCandidates['bottom'] || [];
+  const dresses = slotCandidates['dress'] || [];
+  const outerwear = slotCandidates['outerwear'] || [];
+
+  const combos: ScoredCombo[] = [];
+
+  // Level 2: top + bottom (no shoes)
+  if (tops.length > 0 && bottoms.length > 0) {
+    for (const t of tops.slice(0, 4)) {
+      for (const b of bottoms.slice(0, 4)) {
+        const ow = outerwear[0] ? [{ slot: 'outerwear', garment: outerwear[0].garment, baseScore: outerwear[0].score, baseBreakdown: outerwear[0].breakdown }] : [];
+        const items: ComboItem[] = [
+          { slot: 'top', garment: t.garment, baseScore: t.score, baseBreakdown: t.breakdown },
+          { slot: 'bottom', garment: b.garment, baseScore: b.score, baseBreakdown: b.breakdown },
+          ...ow,
+        ];
+        const scored = scoreCombo(items, recentOutfitSets, occasion, weather, style, prefs, body, pairMemory);
+        combos.push(scored);
+      }
+    }
+    if (combos.length > 0) {
+      return { combos: combos.sort((a, b) => b.totalScore - a.totalScore).slice(0, maxCombos), fallbackLevel: 2 };
+    }
+  }
+
+  // Level 3: dress + shoes (already in main loop; this handles dress without shoes)
+  // Level 4: dress only
+  if (dresses.length > 0) {
+    for (const d of dresses.slice(0, 4)) {
+      const ow = outerwear[0] ? [{ slot: 'outerwear', garment: outerwear[0].garment, baseScore: outerwear[0].score, baseBreakdown: outerwear[0].breakdown }] : [];
+      const items: ComboItem[] = [
+        { slot: 'dress', garment: d.garment, baseScore: d.score, baseBreakdown: d.breakdown },
+        ...ow,
+      ];
+      const scored = scoreCombo(items, recentOutfitSets, occasion, weather, style, prefs, body, pairMemory);
+      combos.push(scored);
+    }
+    if (combos.length > 0) {
+      return { combos: combos.sort((a, b) => b.totalScore - a.totalScore).slice(0, maxCombos), fallbackLevel: 4 };
+    }
+  }
+
+  // Level 5: any 2 garments from different categories
+  const allGarments = Object.entries(slotCandidates)
+    .flatMap(([slot, gs]) => gs.map(g => ({ slot, garment: g.garment, baseScore: g.score, baseBreakdown: g.breakdown })));
+
+  for (let i = 0; i < Math.min(allGarments.length, 6); i++) {
+    for (let j = i + 1; j < Math.min(allGarments.length, 6); j++) {
+      if (allGarments[i].slot !== allGarments[j].slot) {
+        const items: ComboItem[] = [allGarments[i], allGarments[j]];
+        const scored = scoreCombo(items, recentOutfitSets, occasion, weather, style, prefs, body, pairMemory);
+        combos.push(scored);
+      }
+    }
+  }
+  if (combos.length > 0) {
+    return { combos: combos.sort((a, b) => b.totalScore - a.totalScore).slice(0, maxCombos), fallbackLevel: 5 };
+  }
+
+  return { combos: [], fallbackLevel: -1 };
+}
+
 function scoreCombo(
   items: ComboItem[],
   recentSets: Set<string>[],
@@ -3780,7 +3873,16 @@ function scoreSwapCandidates(
       if (colorHarmony < 4.5) totalScore -= 1.2;
       if (swapMode === 'safe' && dnaPreservation < 4.5) totalScore -= 2;
 
-      const finalScore = Math.max(0, totalScore);
+      // Explicit wear_recency bonus
+      const daysSinceWorn = garment.last_worn_at
+        ? (Date.now() - new Date(garment.last_worn_at).getTime()) / (1000 * 60 * 60 * 24)
+        : 999;
+      const wearRecencyBonus = daysSinceWorn >= 14 ? 5 : 0;
+
+      // Explicit rejection penalty
+      const rejectionPenalty = penalties.get(garment.id)?.rejected === true ? 20 : 0;
+
+      const finalScore = Math.max(0, totalScore + wearRecencyBonus - rejectionPenalty);
 
       // Generate swap reason
       const swap_reason = buildSwapReason(garment, currentGarment, {
@@ -3805,6 +3907,8 @@ function scoreSwapCandidates(
           pair_memory_boost: pairMem.boost,
           pair_memory_penalty: pairMem.penalty,
           swap_mode: swapMode === 'safe' ? 1 : swapMode === 'bold' ? 2 : 3,
+          wear_recency: wearRecencyBonus,
+          rejection_penalty: -rejectionPenalty,
         },
         swap_reason,
       } as ScoredGarment & { swap_reason?: string };
@@ -4362,7 +4466,17 @@ serve(async (req) => {
     // Build combos
     const combos = buildCombos(slotCandidates, recentOutfitSets, occasion, style, weather, preferences, 10, bodyProfile, pairMemory);
 
-    if (combos.length === 0) {
+    let activeCombos = combos;
+    let fallbackLevel = 1;
+
+    if (activeCombos.length === 0) {
+      const fallback = buildFallbackCombos(slotCandidates, recentOutfitSets, occasion, style, weather, preferences, 5, bodyProfile, pairMemory);
+      activeCombos = fallback.combos;
+      fallbackLevel = fallback.fallbackLevel;
+    }
+
+    if (activeCombos.length === 0) {
+      // Truly nothing — only reaches here if user has < 2 garments
       const gaps = detectWardrobeGapForRequest(slotCandidates, weather, occasion);
       const failure = buildIncompleteOutfitFailure(weather, occasion, slotCandidates);
       const note = [failure.limitation_note, ...gaps.slice(0, 2)].filter(Boolean).join('; ') || null;
@@ -4378,8 +4492,8 @@ serve(async (req) => {
     }
 
     // Confidence scoring + wardrobe gap detection
-    const bestCombo = combos[0];
-    const candidateCount = combos.length;
+    const bestCombo = activeCombos[0];
+    const candidateCount = activeCombos.length;
     const gaps = detectWardrobeGapForRequest(slotCandidates, weather, occasion);
 
     // Layering validation on best combo
@@ -4402,7 +4516,7 @@ serve(async (req) => {
     const isStylistMode = generatorMode === "stylist" || mode === "stylist";
     const aiMode = mode === "suggest" ? "suggest" : "generate";
     const aiResult = await aiRefine(
-      combos, aiMode, occasion, style, weather, styleContext, locale, isStylistMode,
+      activeCombos, aiMode, occasion, style, weather, styleContext, locale, isStylistMode,
       occasionSubmode, { needs_base_layer: bestLayering.needs_base_layer }
     );
 
@@ -4419,9 +4533,9 @@ serve(async (req) => {
       }
       // Fallback: use best scoring combo without AI explanation
       console.warn("AI refinement failed, using deterministic fallback");
-      const best = combos[0];
+      const best = activeCombos[0];
       if (aiMode === "suggest") {
-        const suggestions = combos.slice(0, 3).map((c, i) => {
+        const suggestions = activeCombos.slice(0, 3).map((c, i) => {
           const dc = c as DeduplicatedCombo;
           return {
             title: `Outfit ${i + 1}`,
@@ -4451,16 +4565,16 @@ serve(async (req) => {
     // ── FORMAT RESPONSE ──
 
     if (aiMode === "generate") {
-      let chosenIdx = Math.min(aiResult.data.chosen_index || 0, combos.length - 1);
+      let chosenIdx = Math.min(aiResult.data.chosen_index || 0, activeCombos.length - 1);
       // Validate chosen combo is complete; fall back to first complete one
-      let chosen = combos[chosenIdx];
+      let chosen = activeCombos[chosenIdx];
       {
         const { complete } = isCompleteOutfit(chosen.items, weather, 'guaranteed_base');
         if (!complete) {
-          const fallbackIdx = combos.findIndex(c => isCompleteOutfit(c.items, weather, 'guaranteed_base').complete);
+          const fallbackIdx = activeCombos.findIndex(c => isCompleteOutfit(c.items, weather, 'guaranteed_base').complete);
           if (fallbackIdx >= 0) {
             chosenIdx = fallbackIdx;
-            chosen = combos[chosenIdx];
+            chosen = activeCombos[chosenIdx];
           }
         }
       }
@@ -4486,8 +4600,8 @@ serve(async (req) => {
 
     // Suggest mode
     const suggestions = (aiResult.data.suggestions || []).flatMap((s: any) => {
-      const idx = Math.min(s.combo_index || 0, combos.length - 1);
-      const combo = combos[idx];
+      const idx = Math.min(s.combo_index || 0, activeCombos.length - 1);
+      const combo = activeCombos[idx];
       const { complete } = isCompleteOutfit(combo.items, weather, 'guaranteed_base');
       if (!complete) return [];
       const dc = combo as DeduplicatedCombo;
@@ -4509,7 +4623,7 @@ serve(async (req) => {
 
     if (!suggestions.length) {
       // Fallback: return top 3 combos directly rather than 422
-      const fallbackSuggestions = combos.slice(0, 3).map((c, i) => {
+      const fallbackSuggestions = activeCombos.slice(0, 3).map((c, i) => {
         const dc = c as DeduplicatedCombo;
         const sConf = computeConfidence(c, candidateCount, slotCandidates, weather, occasion);
         return {
