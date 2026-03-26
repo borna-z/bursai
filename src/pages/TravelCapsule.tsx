@@ -48,8 +48,16 @@ interface CapsuleOutfit {
   note: string;
 }
 
+interface CapsuleItemObj {
+  id: string;
+  title: string;
+  category: string;
+  color_primary?: string;
+  image_path?: string;
+}
+
 interface CapsuleResult {
-  capsule_items: string[];
+  capsule_items: (string | CapsuleItemObj)[];
   outfits: CapsuleOutfit[];
   packing_tips: string[];
   total_combinations: number;
@@ -220,10 +228,34 @@ export default function TravelCapsule() {
   const [isAddingToCalendar, setIsAddingToCalendar] = useState(false);
 
   // ── Garment data ──
-  const { data: capsuleGarments } = useGarmentsByIds(result?.capsule_items || []);
+  // Backend may return capsule_items as objects { id, title, ... } or string IDs
+  const capsuleItemIds = useMemo(
+    () => (result?.capsule_items || []).map(item =>
+      typeof item === 'string' ? item : item.id
+    ),
+    [result]
+  );
+  const inlineGarmentMap = useMemo(() => {
+    const m = new Map<string, { id: string; title: string; image_path: string; category: string; color_primary?: string }>();
+    for (const item of (result?.capsule_items || [])) {
+      if (typeof item !== 'string' && item.id) {
+        m.set(item.id, { id: item.id, title: item.title, image_path: item.image_path || '', category: item.category, color_primary: item.color_primary });
+      }
+    }
+    return m;
+  }, [result]);
+
+  const { data: capsuleGarments } = useGarmentsByIds(capsuleItemIds);
   const garmentMap = useMemo(
-    () => new Map((capsuleGarments || []).map(g => [g.id, g])),
-    [capsuleGarments]
+    () => {
+      const m = new Map((capsuleGarments || []).map(g => [g.id, g]));
+      // Merge inline objects for any items not fetched from DB
+      for (const [id, g] of inlineGarmentMap) {
+        if (!m.has(id)) m.set(id, g as never);
+      }
+      return m;
+    },
+    [capsuleGarments, inlineGarmentMap]
   );
 
   const allGarmentsMap = useMemo(
@@ -282,9 +314,9 @@ export default function TravelCapsule() {
 
   // ── Group capsule items by category ──
   const groupedItems = useMemo(() => {
-    if (!result) return {};
+    if (capsuleItemIds.length === 0) return {};
     const groups: Record<string, Array<{ id: string; title: string; image_path: string; category: string }>> = {};
-    for (const id of result.capsule_items) {
+    for (const id of capsuleItemIds) {
       const g = garmentMap.get(id) ?? allGarmentsMap.get(id);
       if (!g) continue;
       const cat = g.category || 'other';
@@ -292,7 +324,7 @@ export default function TravelCapsule() {
       groups[cat].push(g);
     }
     return groups;
-  }, [result, garmentMap, allGarmentsMap]);
+  }, [capsuleItemIds, garmentMap, allGarmentsMap]);
 
   // ── Count which outfits use each item ──
   const itemOutfitCount = useMemo(() => {
@@ -480,7 +512,7 @@ export default function TravelCapsule() {
       const { data: freshGarments } = await supabase
         .from('garments')
         .select('id, category')
-        .in('id', result.capsule_items)
+        .in('id', capsuleItemIds)
         .eq('user_id', userId);
 
       const freshMap = new Map((freshGarments || []).map(g => [g.id, g]));
@@ -949,7 +981,7 @@ export default function TravelCapsule() {
 
   // ─────────────── RESULTS SCREEN ───────────────
   const packedCount = Object.values(groupedItems).flat().filter(g => checkedItems.has(g.id)).length;
-  const totalItems = result.capsule_items.length;
+  const totalItems = capsuleItemIds.length;
 
   return (
     <AppLayout hideNav>
@@ -1178,7 +1210,7 @@ export default function TravelCapsule() {
                 {/* Copy packing list */}
                 <button
                   onClick={() => {
-                    const garmentTitles = result.capsule_items
+                    const garmentTitles = capsuleItemIds
                       .map(id => garmentMap.get(id) ?? allGarmentsMap.get(id))
                       .filter(Boolean)
                       .map((g) => `- ${g!.title}`)
@@ -1219,30 +1251,44 @@ export default function TravelCapsule() {
                 transition={{ duration: 0.25, ease: EASE_CURVE }}
                 className="space-y-3 pt-3"
               >
-                {result.outfits.map((outfit, idx) => {
-                  const outfitGarments = outfit.items
-                    .map((id: string) => garmentMap.get(id) ?? allGarmentsMap.get(id))
-                    .filter(Boolean) as Array<{ id: string; title: string; image_path: string; category: string }>;
-
-                  return (
-                    <motion.div
-                      key={idx}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * STAGGER_DELAY, duration: 0.35 }}
-                    >
-                      <p style={{ fontFamily: 'DM Sans', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(28,25,23,0.45)', marginBottom: 8 }}>
-                        Day {outfit.day}
+                {(() => {
+                  // Group outfits by day to avoid duplicate day headers
+                  const byDay = new Map<number, CapsuleOutfit[]>();
+                  for (const outfit of result.outfits) {
+                    const list = byDay.get(outfit.day) || [];
+                    list.push(outfit);
+                    byDay.set(outfit.day, list);
+                  }
+                  let animIdx = 0;
+                  return [...byDay.entries()].sort((a, b) => a[0] - b[0]).map(([day, outfits]) => (
+                    <div key={`day-${day}`} className="space-y-2">
+                      <p style={{ fontFamily: 'DM Sans', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(28,25,23,0.45)', marginBottom: 4 }}>
+                        Day {day}
                       </p>
-                      <OutfitSuggestionCard
-                        garments={outfitGarments}
-                        explanation={outfit.note ?? ''}
-                        onTryOutfit={() => {/* no-op in capsule context */}}
-                        isCreating={false}
-                      />
-                    </motion.div>
-                  );
-                })}
+                      {outfits.map((outfit) => {
+                        const idx = animIdx++;
+                        const outfitGarments = outfit.items
+                          .map((id: string) => garmentMap.get(id) ?? allGarmentsMap.get(id))
+                          .filter(Boolean) as Array<{ id: string; title: string; image_path: string; category: string }>;
+                        return (
+                          <motion.div
+                            key={idx}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: idx * STAGGER_DELAY, duration: 0.35 }}
+                          >
+                            <OutfitSuggestionCard
+                              garments={outfitGarments}
+                              explanation={outfit.note ?? ''}
+                              onTryOutfit={() => {/* no-op in capsule context */}}
+                              isCreating={false}
+                            />
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  ));
+                })()}
               </motion.div>
             )}
           </AnimatePresence>

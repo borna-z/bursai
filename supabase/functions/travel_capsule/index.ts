@@ -702,13 +702,14 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
         } else if (!hasShoesInWardrobe && patchedSlots.has('dress')) {
           validatedOutfits.push({ ...outfit, items: patched });
           if (wasPatched) patchCount++;
-        // Level 5: any 2 garments from different categories
+        // Level 5: any 2 garments from different categories, but must have a wearable base
         } else if (patched.length >= 2) {
           const diffCats = new Set(patched.map(id => {
             const g = garmentById.get(id) ?? capsule_items.find((c: any) => c.id === id);
             return g ? classifyCoreSlot(g.category, g.subcategory) : 'other';
           }));
-          if (diffCats.size >= 2) {
+          const hasBase = (diffCats.has('top') && diffCats.has('bottom')) || diffCats.has('dress');
+          if (diffCats.size >= 2 && hasBase) {
             validatedOutfits.push({ ...outfit, items: patched });
             if (wasPatched) patchCount++;
           } else {
