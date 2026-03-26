@@ -1252,8 +1252,12 @@ serve(async (req) => {
       ? formalityValues.reduce((a, b) => a + b, 0) / formalityValues.length
       : null;
     const dna = { archetype: wardrobeCtx.dominantArchetype, formalityCenter };
-    const hasEnoughData = rejectionsCtx.raw.length >= 2 || wornCount >= 5 || dna.archetype !== null;
-    const tasteMemoryBlock = hasEnoughData
+    const rawSignals = rejectionsCtx.raw;
+    const shouldIncludeTasteMemory =
+      (rawSignals.filter((s: any) => s.signal_type === 'reject').length >= 1) ||
+      (rawSignals.filter((s: any) => s.signal_type === 'wear').length >= 3) ||
+      !!(dna?.archetype || (dna as any)?.signatureColors?.length);
+    const tasteMemoryBlock = shouldIncludeTasteMemory
       ? buildTasteMemoryBlock(rejectionsCtx.raw, wardrobeCtx.rankedGarments, dna)
       : "";
 
@@ -1425,6 +1429,7 @@ ${refinementContract}`;
       return m;
     });
 
+    console.log(`style_chat: ${messages.length} messages in thread`);
     const aiResponse = await callBursAI({
       messages: [
         { role: "system", content: systemPrompt },
@@ -1435,7 +1440,34 @@ ${refinementContract}`;
       functionName: "style_chat",
     });
 
-    const rawAssistantText = typeof aiResponse.data === "string" ? aiResponse.data : String(aiResponse.data ?? "");
+    let rawAssistantText = typeof aiResponse.data === "string" ? aiResponse.data : String(aiResponse.data ?? "");
+
+    // ── Post-processing validation ──────────────────────────────
+    // a. Check for garment name reference
+    const garmentNames = wardrobeCtx.rankedGarments.map((g: any) => g.title?.toLowerCase()).filter(Boolean);
+    const replyLower = rawAssistantText.toLowerCase();
+    const mentionsGarment = garmentNames.some((name: string) => replyLower.includes(name));
+    if (!mentionsGarment && garmentNames.length > 0) {
+      console.warn("style_chat: reply missing garment reference");
+    }
+
+    // b. Check for banned phrases
+    const BANNED = ["great choice", "nice pick", "goes well with", "versatile piece", "i recommend", "i suggest"];
+    for (const phrase of BANNED) {
+      if (replyLower.includes(phrase)) {
+        console.warn("style_chat: banned phrase detected:", phrase);
+      }
+    }
+
+    // c. Trim overly long non-outfit replies
+    const hasOutfitTag = rawAssistantText.includes("[[outfit:");
+    if (rawAssistantText.length > 400 && !hasOutfitTag) {
+      const sentences = rawAssistantText.match(/[^.!?]+[.!?]+/g) ?? [];
+      if (sentences.length > 3) {
+        rawAssistantText = sentences.slice(0, 3).join(" ").trim();
+      }
+    }
+
     const normalizedReply = normalizeAssistantReply({
       rawText: rawAssistantText,
       validGarmentIds: new Set(wardrobeCtx.rankedGarments.map((garment) => garment.id)),

@@ -6,12 +6,14 @@ import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 interface Props {
   garment: GarmentBasic;
+  onClick?: () => void;
 }
 
-export function GarmentInlineCard({ garment }: Props) {
+export function GarmentInlineCard({ garment, onClick }: Props) {
   return (
     <Link
       to={`/wardrobe/${garment.id}`}
+      onClick={onClick}
       className="inline-flex items-center gap-1.5 rounded-full border border-border/30 bg-muted/30 pl-1 pr-3 py-1 hover:bg-muted/60 transition-colors"
     >
       <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 bg-muted">

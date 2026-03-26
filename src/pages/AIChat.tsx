@@ -126,7 +126,14 @@ export default function AIChat() {
 
   const welcomeMessage: Message = { role: 'assistant', content: t('chat.welcome') };
 
-  const [messages, setMessages] = useState<Message[]>([welcomeMessage]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try {
+      const saved = sessionStorage.getItem('burs_chat_history');
+      return saved ? JSON.parse(saved) : [welcomeMessage];
+    } catch {
+      return [welcomeMessage];
+    }
+  });
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -177,6 +184,15 @@ export default function AIChat() {
 
   const scrollToBottom = useCallback(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, []);
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+    try {
+      sessionStorage.setItem('burs_chat_history', JSON.stringify(messages));
+    } catch {
+      // ignore quota errors
+    }
+  }, [messages]);
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -364,6 +380,7 @@ export default function AIChat() {
     if (!session) return;
     try {
       await deleteHistory(user.id, session.access_token);
+      sessionStorage.removeItem('burs_chat_history');
       setMessages([welcomeMessage]);
       toast.success(t('chat.history_cleared'));
     } catch { toast.error(t('chat.history_error')); }
@@ -537,42 +554,45 @@ export default function AIChat() {
                 </div>
               </div>
             )}
-            {/* Suggestion chips */}
-            {!isStreaming && suggestionChips.length > 0 && input === '' && (
-              <div
-                style={{
+            {/* Suggestion chips — always-present 44px container to prevent layout jump */}
+            <div style={{ height: 44, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+              {suggestionChips.length > 0 && !isStreaming && input === '' && (
+                <div style={{
                   display: 'flex',
-                  flexDirection: 'row',
                   gap: 8,
                   overflowX: 'auto',
-                  WebkitOverflowScrolling: 'touch',
+                  whiteSpace: 'nowrap',
+                  paddingLeft: 16,
+                  paddingRight: 16,
                   scrollbarWidth: 'none',
-                  paddingBottom: 2,
-                  flexWrap: 'nowrap',
-                }}
-              >
-                {suggestionChips.map((chip) => (
-                  <button
-                    key={chip}
-                    onClick={() => { setSuggestionChips([]); sendMessage(chip); }}
-                    style={{
-                      flexShrink: 0,
-                      background: '#F5F0E8',
-                      color: '#1C1917',
-                      border: '1px solid rgba(28,25,23,0.2)',
-                      borderRadius: 8,
-                      padding: '8px 14px',
-                      fontSize: 14,
-                      fontFamily: 'DM Sans, sans-serif',
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {chip}
-                  </button>
-                ))}
-              </div>
-            )}
+                  msOverflowStyle: 'none',
+                }}>
+                  {suggestionChips.map((chip, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setSuggestionChips([]);
+                        sendMessage(chip);
+                      }}
+                      style={{
+                        background: '#F5F0E8',
+                        color: '#1C1917',
+                        border: '1px solid rgba(28,25,23,0.20)',
+                        borderRadius: 8,
+                        padding: '8px 14px',
+                        fontFamily: 'DM Sans, sans-serif',
+                        fontSize: 13,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div ref={messagesEndRef} />
           </div>
         )}

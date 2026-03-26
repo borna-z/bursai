@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('@/contexts/LanguageContext', () => ({
   useLanguage: vi.fn(() => ({ t: (k: string) => k, locale: 'en' })),
@@ -27,7 +28,7 @@ function renderMessage(overrides: Partial<Parameters<typeof ChatMessage>[0]> = {
     garmentMap,
     ...overrides,
   };
-  return render(<ChatMessage {...defaults} />);
+  return render(<MemoryRouter><ChatMessage {...defaults} /></MemoryRouter>);
 }
 
 describe('ChatMessage', () => {
