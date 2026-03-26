@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { hapticLight, hapticSuccess, hapticHeavy } from '@/lib/haptics';
 import { format, isToday, isTomorrow } from 'date-fns';
@@ -42,7 +43,7 @@ const OCCASION_I18N: Record<string, string> = {
   date: 'occasion.date', dejt: 'occasion.dejt',
 };
 
-export function DayCard({
+export const DayCard = memo(function DayCard({
   date,
   plannedOutfit,
   onPlan,
@@ -173,4 +174,4 @@ export function DayCard({
       </CardContent>
     </Card>
   );
-}
+});
