@@ -4,6 +4,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { StyleMeSubNav } from '@/components/ai/StyleMeSubNav';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { Button } from '@/components/ui/button';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSubscription } from '@/hooks/useSubscription';
@@ -112,27 +113,16 @@ export default function MoodOutfitPage() {
           /* ── Result screen ── */
           <div className="space-y-2">
             {/* Outfit card */}
-            <div style={{ backgroundColor: '#EDE8DF', borderRadius: 0, padding: '16px 20px' }}>
-              <p style={{
-                fontFamily: 'DM Sans, sans-serif', fontSize: 10,
-                textTransform: 'uppercase', letterSpacing: '0.1em',
-                color: 'rgba(28,25,23,0.4)',
-              }}>
+            <div className="bg-card rounded-none px-5 py-4">
+              <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/40">
                 MOOD OUTFIT
               </p>
-              <p style={{
-                fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-                fontSize: 20, color: '#1C1917', marginTop: 6,
-              }}>
+              <p className="font-['Playfair_Display'] italic text-xl text-foreground mt-1.5">
                 {t(`ai.mood_${generatedOutfit.mood}`)}
               </p>
               <button
                 onClick={() => navigate(`/outfits/${generatedOutfit.id}`)}
-                style={{
-                  marginTop: 8, fontSize: 12, fontFamily: 'DM Sans, sans-serif',
-                  color: 'rgba(28,25,23,0.5)', background: 'none', border: 'none',
-                  cursor: 'pointer', padding: 0,
-                }}
+                className="mt-2 text-xs font-['DM_Sans'] text-foreground/50 bg-transparent border-none cursor-pointer p-0"
               >
                 View full outfit →
               </button>
@@ -140,47 +130,29 @@ export default function MoodOutfitPage() {
 
             {/* AI explanation card */}
             {generatedOutfit.explanation && (
-              <div style={{ backgroundColor: '#EDE8DF', borderRadius: 0, padding: '16px 20px' }}>
-                <p style={{
-                  fontFamily: 'DM Sans, sans-serif', fontSize: 10,
-                  textTransform: 'uppercase', letterSpacing: '0.1em',
-                  color: 'rgba(28,25,23,0.4)', marginBottom: 8,
-                }}>
+              <div className="bg-card rounded-none px-5 py-4">
+                <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/40 mb-2">
                   WHY THIS MATCHES {generatedOutfit.mood.toUpperCase()}
                 </p>
-                <p style={{
-                  fontFamily: 'DM Sans, sans-serif', fontSize: 14,
-                  color: 'rgba(28,25,23,0.7)', lineHeight: 1.6,
-                }}>
+                <p className="font-['DM_Sans'] text-sm text-foreground/70 leading-relaxed">
                   {generatedOutfit.explanation}
                 </p>
               </div>
             )}
 
             {/* Refine in chat button */}
-            <button
-              onClick={() => navigate(`/chat?outfitId=${generatedOutfit.id}`)}
-              style={{
-                display: 'block', width: '100%', height: 48,
-                background: 'transparent', border: '1px solid rgba(28,25,23,0.3)',
-                borderRadius: 0, fontFamily: 'DM Sans, sans-serif',
-                fontSize: 14, color: '#1C1917', cursor: 'pointer',
-                marginTop: 8,
-              }}
+            <Button
+              variant="outline"
+              onClick={() => navigate('/ai/chat', { state: { outfitId: generatedOutfit.id } })}
+              className="block w-full h-12 bg-transparent border border-foreground/30 rounded-none font-['DM_Sans'] text-sm text-foreground mt-2"
             >
               Refine in chat
-            </button>
+            </Button>
 
             {/* Re-mood */}
             <button
               onClick={handleReMood}
-              style={{
-                display: 'block', width: '100%', marginTop: 12,
-                textAlign: 'center', fontFamily: 'DM Sans, sans-serif',
-                fontSize: 12, color: 'rgba(28,25,23,0.5)',
-                background: 'none', border: 'none', cursor: 'pointer',
-                padding: '4px 0',
-              }}
+              className="block w-full mt-3 text-center font-['DM_Sans'] text-xs text-foreground/50 bg-transparent border-none cursor-pointer py-1"
             >
               Try a different mood →
             </button>
@@ -189,10 +161,7 @@ export default function MoodOutfitPage() {
           /* ── Mood grid ── */
           <>
             <div className="text-center space-y-2 mb-8">
-              <h2 style={{
-                fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-                fontSize: 22, color: '#1C1917',
-              }}>
+              <h2 className="font-['Playfair_Display'] italic text-[22px] text-foreground">
                 {t('ai.mood_heading')}
               </h2>
               <p className="text-sm text-muted-foreground">{t('ai.mood_desc')}</p>
@@ -209,17 +178,9 @@ export default function MoodOutfitPage() {
                     transition={{ delay: i * 0.06 }}
                   >
                     <div
-                      style={{
-                        backgroundColor: isSelected ? '#1C1917' : '#EDE8DF',
-                        borderRadius: 0,
-                        minHeight: 80,
-                        padding: '16px',
-                        cursor: isGenerating ? 'default' : 'pointer',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'center',
-                        gap: 8,
-                      }}
+                      className={`rounded-none min-h-[80px] p-4 flex flex-col justify-center gap-2 ${
+                        isSelected ? 'bg-foreground' : 'bg-card'
+                      } ${isGenerating ? 'cursor-default' : 'cursor-pointer'}`}
                       onClick={() => !isGenerating && generate(mood.key)}
                     >
                       {isSelected ? (
@@ -231,16 +192,11 @@ export default function MoodOutfitPage() {
                         />
                       ) : (
                         <>
-                          <div style={{
-                            width: 16, height: 16,
-                            backgroundColor: mood.swatchColor,
-                            borderRadius: 0, flexShrink: 0,
-                          }} />
-                          <p style={{
-                            fontFamily: '"Playfair Display", serif',
-                            fontStyle: 'italic', fontSize: 16,
-                            color: '#1C1917', margin: 0,
-                          }}>
+                          <div
+                            className="w-4 h-4 rounded-none shrink-0"
+                            style={{ backgroundColor: mood.swatchColor }}
+                          />
+                          <p className="font-['Playfair_Display'] italic text-base text-foreground m-0">
                             {t(`ai.mood_${mood.key}`)}
                           </p>
                         </>

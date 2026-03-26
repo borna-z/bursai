@@ -181,7 +181,7 @@ function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, rende
   return (
     <div className="flex items-center gap-4 py-4 border-b border-border/8 last:border-b-0 group">
       {/* Left-side category label */}
-      <p className="font-['DM_Sans'] text-[9px] uppercase tracking-widest text-[#1C1917]/30 w-12 shrink-0 text-right leading-tight">
+      <p className="font-['DM_Sans'] text-[9px] uppercase tracking-widest text-foreground/30 w-12 shrink-0 text-right leading-tight">
         {categorySlotLabel}
       </p>
       <div
@@ -585,7 +585,7 @@ export default function OutfitDetailPage() {
       </div>
 
       {/* ── Breadcrumb ── */}
-      <div style={{ paddingTop: 56 }}>
+      <div className="pt-14">
         <PageBreadcrumb items={[
           { label: 'Outfits', href: '/outfits' },
           { label: displayOccasion || 'Outfit' },
@@ -593,56 +593,48 @@ export default function OutfitDetailPage() {
       </div>
 
       {/* ── Full-bleed image strip ── */}
-      <div ref={outfitRef} style={{ display: 'flex', width: '100%' }}>
+      <div ref={outfitRef} className="flex w-full">
         {outfitItems.slice(0, 5).map((item) => (
-          <div key={item.id} style={{ flex: 1, aspectRatio: '1/1', background: '#EDE8DF', overflow: 'hidden' }}>
+          <div key={item.id} className="flex-1 aspect-square bg-card overflow-hidden">
             <LazyImageSimple
               imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
               alt={item.garment?.title || item.slot}
               className="w-full h-full"
-              fallbackIcon={<Shirt style={{ width: 24, height: 24, color: 'rgba(28,25,23,0.2)' }} />}
+              fallbackIcon={<Shirt className="w-6 h-6 text-foreground/20" />}
             />
           </div>
         ))}
       </div>
 
       {/* ── Dark info block ── */}
-      <div style={{ background: '#1C1917', padding: '20px' }}>
-        <p style={{
-          fontFamily: 'DM Sans, sans-serif', fontSize: 8, fontWeight: 500,
-          textTransform: 'uppercase', letterSpacing: '0.12em',
-          color: 'rgba(245,240,232,0.45)', marginBottom: 10,
-        }}>
+      <div className="bg-foreground p-5">
+        <p className="font-['DM_Sans'] text-[8px] font-medium uppercase tracking-[0.12em] text-background/[0.45] mb-2.5">
           {genOccasionSubmode || displayOccasion}
         </p>
         {outfit.explanation && (
-          <p style={{
-            fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-            fontSize: 14, color: '#F5F0E8', lineHeight: 1.55, marginBottom: 10,
-          }}>
+          <p className="font-['Playfair_Display'] italic text-[14px] text-background leading-[1.55] mb-2.5">
             {outfit.explanation}
           </p>
         )}
         {genWardrobeInsights && genWardrobeInsights.length > 0 && (
-          <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: 'rgba(245,240,232,0.5)', lineHeight: 1.5 }}>
+          <p className="font-['DM_Sans'] text-[12px] text-background/50 leading-[1.5]">
             {genWardrobeInsights.join(' · ')}
           </p>
         )}
       </div>
 
       {/* ── 3-Tab row ── */}
-      <div style={{ display: 'flex', background: '#EDE8DF' }}>
+      <div className="flex bg-card">
         {(['wear', 'swap', 'why'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            style={{
-              flex: 1, height: 44, border: 'none', background: 'transparent',
-              borderBottom: activeTab === tab ? '2px solid #1C1917' : '2px solid transparent',
-              fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 500,
-              color: activeTab === tab ? '#1C1917' : 'rgba(28,25,23,0.4)',
-              cursor: 'pointer',
-            }}
+            className={cn(
+              "flex-1 h-11 border-none bg-transparent border-b-2 font-['DM_Sans'] text-[12px] font-medium cursor-pointer",
+              activeTab === tab
+                ? "border-foreground text-foreground"
+                : "border-transparent text-foreground/40"
+            )}
           >
             {tab === 'wear' ? 'Wear' : tab === 'swap' ? 'Swap' : 'Why'}
           </button>
@@ -650,76 +642,58 @@ export default function OutfitDetailPage() {
       </div>
 
       {/* ── Tab content ── */}
-      <div style={{ padding: '20px', paddingBottom: 80 }}>
+      <div className="p-5 pb-20">
         {activeTab === 'wear' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="flex flex-col gap-2.5">
             {/* Wear today */}
-            <button
+            <Button
               onClick={handleMarkWorn}
               disabled={markWorn.isPending || !!outfit.worn_at}
-              style={{
-                width: '100%', height: 48, background: '#1C1917', border: 'none',
-                color: '#F5F0E8', fontFamily: 'DM Sans, sans-serif', fontSize: 14,
-                fontWeight: 500, cursor: outfit.worn_at ? 'default' : 'pointer',
-                opacity: outfit.worn_at ? 0.5 : 1,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              }}
+              className={cn(
+                "w-full h-12 bg-foreground text-background font-['DM_Sans'] text-[14px] font-medium flex items-center justify-center gap-2",
+                outfit.worn_at && "opacity-50 cursor-default"
+              )}
             >
-              {markWorn.isPending && <Loader2 style={{ width: 16, height: 16 }} className="animate-spin" />}
+              {markWorn.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
               {outfit.worn_at ? t('outfit.worn') : t('outfit.mark_worn')}
-            </button>
+            </Button>
             {/* Plan */}
-            <button
+            <Button
+              variant="outline"
               onClick={() => navigate('/plan', { state: { preselectedOutfitId: outfit.id } })}
-              style={{
-                width: '100%', height: 48, background: 'transparent',
-                border: '1px solid rgba(28,25,23,0.2)', color: '#1C1917',
-                fontFamily: 'DM Sans, sans-serif', fontSize: 14, fontWeight: 500, cursor: 'pointer',
-              }}
+              className="w-full h-12 bg-transparent border border-foreground/20 text-foreground font-['DM_Sans'] text-[14px] font-medium"
             >
               {t('outfit.plan') || 'Plan'}
-            </button>
+            </Button>
             {/* Save to outfits */}
-            <button
+            <Button
+              variant="outline"
               onClick={handleToggleSave}
-              style={{
-                width: '100%', height: 48, background: 'transparent',
-                border: '1px solid rgba(28,25,23,0.2)', color: '#1C1917',
-                fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              }}
+              className="w-full h-12 bg-transparent border border-foreground/20 text-foreground font-['DM_Sans'] text-[13px] font-medium flex items-center justify-center gap-2"
             >
               {outfit.saved
-                ? <><BookmarkCheck style={{ width: 16, height: 16 }} />{t('outfit.saved')}</>
-                : <><Bookmark style={{ width: 16, height: 16 }} />{t('outfit.save') || 'Save to outfits'}</>
+                ? <><BookmarkCheck className="w-4 h-4" />{t('outfit.saved')}</>
+                : <><Bookmark className="w-4 h-4" />{t('outfit.save') || 'Save to outfits'}</>
               }
-            </button>
+            </Button>
             {/* Actions row */}
-            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-              <button
+            <div className="flex gap-2 mt-1">
+              <Button
+                variant="ghost"
                 onClick={() => setShareSheetOpen(true)}
-                style={{
-                  flex: 1, height: 44, background: '#EDE8DF', border: 'none',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', gap: 6,
-                  fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: '#1C1917',
-                }}
+                className="flex-1 h-11 bg-card text-foreground font-['DM_Sans'] text-[12px] flex items-center justify-center gap-1.5"
               >
-                <Share2 style={{ width: 14, height: 14 }} />
+                <Share2 className="w-3.5 h-3.5" />
                 Share
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
                 onClick={handleCreateSimilar}
-                style={{
-                  flex: 1, height: 44, background: '#EDE8DF', border: 'none',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', gap: 6,
-                  fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: '#1C1917',
-                }}
+                className="flex-1 h-11 bg-card text-foreground font-['DM_Sans'] text-[12px] flex items-center justify-center gap-1.5"
               >
-                <RefreshCw style={{ width: 14, height: 14 }} />
+                <RefreshCw className="w-3.5 h-3.5" />
                 Remake
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -744,44 +718,41 @@ export default function OutfitDetailPage() {
         )}
 
         {activeTab === 'why' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="flex flex-col gap-4">
             {outfit.explanation && (
-              <p style={{
-                fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-                fontSize: 16, color: '#1C1917', lineHeight: 1.6,
-              }}>
+              <p className="font-['Playfair_Display'] italic text-[16px] text-foreground leading-[1.6]">
                 {outfit.explanation}
               </p>
             )}
             {genWardrobeInsights && genWardrobeInsights.length > 0 && (
-              <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, color: 'rgba(28,25,23,0.55)', lineHeight: 1.6 }}>
+              <p className="font-['DM_Sans'] text-[13px] text-foreground/[0.55] leading-[1.6]">
                 {genWardrobeInsights.join(' · ')}
               </p>
             )}
             {genOutfitReasoning && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div className="flex flex-col gap-3">
                 {genOutfitReasoning.occasion_fit && (
                   <div>
-                    <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(28,25,23,0.35)', marginBottom: 4 }}>OCCASION</p>
-                    <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, color: 'rgba(28,25,23,0.6)' }}>{genOutfitReasoning.occasion_fit}</p>
+                    <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/[0.35] mb-1">OCCASION</p>
+                    <p className="font-['DM_Sans'] text-[13px] text-foreground/60">{genOutfitReasoning.occasion_fit}</p>
                   </div>
                 )}
                 {genOutfitReasoning.weather_logic && (
                   <div>
-                    <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(28,25,23,0.35)', marginBottom: 4 }}>WEATHER</p>
-                    <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, color: 'rgba(28,25,23,0.6)' }}>{genOutfitReasoning.weather_logic}</p>
+                    <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/[0.35] mb-1">WEATHER</p>
+                    <p className="font-['DM_Sans'] text-[13px] text-foreground/60">{genOutfitReasoning.weather_logic}</p>
                   </div>
                 )}
                 {genOutfitReasoning.color_note && (
                   <div>
-                    <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(28,25,23,0.35)', marginBottom: 4 }}>COLOUR</p>
-                    <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, color: 'rgba(28,25,23,0.6)' }}>{genOutfitReasoning.color_note}</p>
+                    <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/[0.35] mb-1">COLOUR</p>
+                    <p className="font-['DM_Sans'] text-[13px] text-foreground/60">{genOutfitReasoning.color_note}</p>
                   </div>
                 )}
               </div>
             )}
             {genLimitationNote && (
-              <p style={{ fontFamily: 'DM Sans, sans-serif', fontStyle: 'italic', fontSize: 12, color: 'rgba(28,25,23,0.4)' }}>
+              <p className="font-['DM_Sans'] italic text-[12px] text-foreground/40">
                 Your stylist suggests: {genLimitationNote}
               </p>
             )}

@@ -40,7 +40,7 @@ describe('TodayOutfitHero', () => {
 
   it('renders without crashing', () => {
     renderHero();
-    expect(document.querySelector('.rounded-2xl')).toBeInTheDocument();
+    expect(document.querySelector('.bg-foreground')).toBeInTheDocument();
   });
 
   it('has a headline present in the output', () => {
