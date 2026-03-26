@@ -10,7 +10,6 @@ import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase
 export type Garment = Tables<'garments'>;
 
 export interface GarmentFilters {
-  search?: string;
   category?: string;
   color?: string;
   season?: string;
@@ -64,22 +63,11 @@ export function useGarments(filters?: GarmentFilters) {
       query = query.range(from, to);
       
       const { data, error } = await query;
-      
+
       if (error) throw error;
-      
-      // Client-side search filter
-      let results = data as Garment[];
-      if (filters?.search) {
-        const searchLower = filters.search.toLowerCase();
-        results = results.filter(g => 
-          g.title.toLowerCase().includes(searchLower) ||
-          g.category.toLowerCase().includes(searchLower) ||
-          g.color_primary.toLowerCase().includes(searchLower)
-        );
-      }
-      
+
       return {
-        items: results,
+        items: data as Garment[],
         nextPage: data.length === PAGE_SIZE ? pageParam + 1 : undefined,
       };
     },
@@ -131,6 +119,30 @@ export function useFlatGarments(filters?: GarmentFilters) {
   return { ...query, data: garments };
 }
 
+/** Server-side search across all garments (no pagination). */
+export function useGarmentSearch(searchTerm: string) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['garments-search', user?.id, searchTerm],
+    queryFn: async () => {
+      if (!user || !searchTerm.trim()) return [] as Garment[];
+      const term = `%${searchTerm.trim()}%`;
+      const { data, error } = await supabase
+        .from('garments')
+        .select('*')
+        .eq('user_id', user.id)
+        .or(`title.ilike.${term},category.ilike.${term},color_primary.ilike.${term}`)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return data as Garment[];
+    },
+    enabled: !!user && searchTerm.trim().length > 0,
+    staleTime: 30_000,
+  });
+}
+
 export function useGarment(id: string | undefined, options?: { refetchInterval?: number | false }) {
   const { user } = useAuth();
   
@@ -154,16 +166,19 @@ export function useGarment(id: string | undefined, options?: { refetchInterval?:
   });
 }
 
-export function invalidateWardrobeQueries(queryClient: ReturnType<typeof useQueryClient>) {
-  queryClient.invalidateQueries({ queryKey: ['garments'] });
-  queryClient.invalidateQueries({ queryKey: ['garments-count'] });
+export function invalidateWardrobeQueries(queryClient: ReturnType<typeof useQueryClient>, userId?: string) {
+  queryClient.invalidateQueries({ queryKey: userId ? ['garments', userId] : ['garments'] });
+  queryClient.invalidateQueries({ queryKey: userId ? ['garments-count', userId] : ['garments-count'] });
   queryClient.invalidateQueries({ queryKey: ['garment'] });
   queryClient.invalidateQueries({ queryKey: ['ai-suggestions'] });
   queryClient.invalidateQueries({ queryKey: ['insights'] });
-  queryClient.invalidateQueries({ queryKey: ['outfits'] });
+  queryClient.invalidateQueries({ queryKey: userId ? ['outfits', userId] : ['outfits'] });
   queryClient.invalidateQueries({ queryKey: ['planned-outfits'] });
   queryClient.invalidateQueries({ queryKey: ['planned-outfits-day'] });
   queryClient.invalidateQueries({ queryKey: ['garments-by-ids'] });
+  if (userId) {
+    queryClient.invalidateQueries({ queryKey: ['garments-search', userId] });
+  }
 }
 
 export function useCreateGarment() {
@@ -197,12 +212,13 @@ export function useCreateGarment() {
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     onSuccess: () => {
       hapticSuccess();
-      invalidateWardrobeQueries(queryClient);
+      invalidateWardrobeQueries(queryClient, user?.id);
     },
   });
 }
 
 export function useUpdateGarment() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   
   return useMutation({
@@ -246,13 +262,14 @@ export function useUpdateGarment() {
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     onSuccess: (data) => {
       hapticSuccess();
-      invalidateWardrobeQueries(queryClient);
+      invalidateWardrobeQueries(queryClient, user?.id);
       queryClient.invalidateQueries({ queryKey: ['garment', data.id] });
     },
   });
 }
 
 export function useDeleteGarment() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   
   return useMutation({
@@ -268,7 +285,7 @@ export function useDeleteGarment() {
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     onSuccess: () => {
       hapticHeavy();
-      invalidateWardrobeQueries(queryClient);
+      invalidateWardrobeQueries(queryClient, user?.id);
     },
   });
 }
@@ -313,7 +330,7 @@ export function useMarkGarmentWorn() {
       if (logError) throw logError;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['garments'] });
+      queryClient.invalidateQueries({ queryKey: ['garments', user?.id] });
     },
   });
 }

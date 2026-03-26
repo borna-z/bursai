@@ -182,7 +182,7 @@ export function useSwapGarment() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['outfit'] });
-      queryClient.invalidateQueries({ queryKey: ['outfits'] });
+      queryClient.invalidateQueries({ queryKey: ['outfits', user?.id] });
       setCandidates([]);
     },
   });

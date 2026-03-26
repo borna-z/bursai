@@ -399,7 +399,7 @@ function normalizeAssistantReply(params: {
   };
 }
 
-function createSseTextResponse(text: string, priorityChunk?: string | null): Response {
+function createSseTextResponse(text: string, priorityChunk?: string | null, suggestionChips?: string[]): Response {
   const encoder = new TextEncoder();
   const chunks: string[] = [];
   const normalizedPriorityChunk = priorityChunk?.trim();
@@ -414,6 +414,9 @@ function createSseTextResponse(text: string, priorityChunk?: string | null): Res
     start(controller) {
       for (const chunk of chunks) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: chunk } }] })}\n\n`));
+      }
+      if (suggestionChips?.length) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "suggestions", chips: suggestionChips })}\n\n`));
       }
       controller.enqueue(encoder.encode("data: [DONE]\n\n"));
       controller.close();
@@ -1186,6 +1189,48 @@ function buildTasteMemoryBlock(
   return insights.slice(0, 4).join("\n");
 }
 
+function buildSuggestionChips(
+  stylistMode: StylistChatMode,
+  hasOutfitTag: boolean,
+  locale: string,
+): string[] {
+  const lang = getLang(locale);
+  const isSwedish = locale === "sv";
+  const isEnglish = locale === "en" || !LANG_CONFIG[locale];
+
+  // Refinement chips when an outfit is shown
+  if (hasOutfitTag) {
+    if (isSwedish) return ["Gör det mer avslappnat", "Byt skor", "Varmare variant", "Ny look"];
+    return ["Make it more casual", "Swap the shoes", "Warmer version", "New look"];
+  }
+
+  // Mode-specific chips
+  switch (stylistMode) {
+    case "OUTFIT_GENERATION":
+    case "GARMENT_FIRST_STYLING":
+      if (isSwedish) return ["Mer formellt", "Helgvariant", "Varför fungerar detta?"];
+      return ["More formal", "Weekend version", "Why does this work?"];
+    case "WARDROBE_GAP_ANALYSIS":
+      if (isSwedish) return ["Vad ska jag köpa först?", "Visa mig en outfit"];
+      return ["What should I buy first?", "Show me an outfit"];
+    case "PURCHASE_PRIORITIZATION":
+      if (isSwedish) return ["Visa mig en outfit", "Analysera min stil"];
+      return ["Show me an outfit", "Analyze my style"];
+    case "STYLE_IDENTITY_ANALYSIS":
+      if (isSwedish) return ["Klä mig idag", "Vad saknas i garderoben?"];
+      return ["Style me today", "What's missing in my wardrobe?"];
+    case "LOOK_EXPLANATION":
+      if (isSwedish) return ["Gör det mer avslappnat", "Middagsversion"];
+      return ["Make it more casual", "Dinner version"];
+    case "PLANNING":
+      if (isSwedish) return ["Lägg till i planen", "Visa alternativ"];
+      return ["Add to plan", "Show alternatives"];
+    default:
+      if (isSwedish) return ["Klä mig idag", "Analysera min stil", "Vad saknas?"];
+      return ["Style me today", "Analyze my style", "What's missing?"];
+  }
+}
+
 function chooseChatComplexity(messages: MessageInput[], anchor: GarmentRecord | null): "standard" | "complex" {
   const latestUserTurn = getMessageText(messages.filter((m) => m.role === "user").slice(-1)[0]?.content || "");
   const hardAsk = /(capsule|wedding|interview|client dinner|date night|trip|travel|pack|formal|black tie|presentation|multiple looks|three looks|5 looks|why|explain|compare|elevate|style around|build around|anchor)/i.test(latestUserTurn);
@@ -1459,12 +1504,12 @@ ${refinementContract}`;
       }
     }
 
-    // c. Trim overly long non-outfit replies
+    // c. Trim overly long non-outfit replies (generous limit to avoid mid-sentence cuts)
     const hasOutfitTag = rawAssistantText.includes("[[outfit:");
-    if (rawAssistantText.length > 400 && !hasOutfitTag) {
+    if (rawAssistantText.length > 800 && !hasOutfitTag) {
       const sentences = rawAssistantText.match(/[^.!?]+[.!?]+/g) ?? [];
-      if (sentences.length > 3) {
-        rawAssistantText = sentences.slice(0, 3).join(" ").trim();
+      if (sentences.length > 5) {
+        rawAssistantText = sentences.slice(0, 5).join(" ").trim();
       }
     }
 
@@ -1478,9 +1523,16 @@ ${refinementContract}`;
       includeOutfitTag: shouldForceOutfitTags,
     });
 
+    const chips = buildSuggestionChips(
+      stylistMode,
+      !!normalizedReply.outfitTag,
+      locale,
+    );
+
     return createSseTextResponse(
       normalizedReply.text,
       refinementTurn ? normalizedReply.outfitTag : null,
+      chips,
     );
   } catch (e) {
     console.error("style_chat error:", e);

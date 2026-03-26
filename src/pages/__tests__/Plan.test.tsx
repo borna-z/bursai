@@ -21,6 +21,7 @@ vi.mock('@/lib/dateLocale', () => ({ getDateFnsLocale: vi.fn(() => undefined) })
 vi.mock('@/lib/occasionLabel', () => ({ getOccasionLabel: vi.fn(() => 'Work') }));
 vi.mock('@/lib/humanize', () => ({ humanize: vi.fn((value: string) => value) }));
 vi.mock('@/contexts/LanguageContext', () => ({ useLanguage: vi.fn(() => ({ t: (k: string) => k, locale: 'en' })) }));
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: vi.fn(() => ({ user: { id: 'u1' }, loading: false })) }));
 vi.mock('@/contexts/LocationContext', () => ({ useLocation: vi.fn(() => ({ effectiveCity: null })) }));
 vi.mock('@/hooks/useForecast', () => ({ useForecast: vi.fn(() => ({ getForecastForDate: vi.fn(() => null) })) }));
 vi.mock('@/hooks/useCalendarSync', () => ({

@@ -128,7 +128,7 @@ export default function UnusedOutfits() {
       setError(t('common.error'));
     }
     setGenerating(false);
-    queryClient.invalidateQueries({ queryKey: ['outfits'] });
+    queryClient.invalidateQueries({ queryKey: ['outfits', user?.id] });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, unusedIds.length, weather, locale, t, queryClient]);
 

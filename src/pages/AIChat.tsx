@@ -97,7 +97,7 @@ function findLatestActiveLookMessageIndex(messages: Message[]): number {
     const message = messages[index];
     if (message.role !== 'assistant') continue;
     const text = getTextContent(message.content);
-    return parseOutfitTags(text).length > 0 ? index : -1;
+    if (parseOutfitTags(text).length > 0) return index;
   }
 
   return -1;
@@ -533,7 +533,7 @@ export default function AIChat() {
                       garmentMap={garmentMap}
                       onTryOutfit={handleTryOutfit}
                       isCreatingOutfit={createOutfit.isPending}
-                      showStyleCards={msg.role !== 'assistant' || idx === latestActiveLookMessageIndex || isStreamingMsg}
+                      showStyleCards={msg.role !== 'assistant' || idx === latestActiveLookMessageIndex || isStreamingMsg || idx === messages.length - 1}
                     />
                   )}
                 </motion.div>

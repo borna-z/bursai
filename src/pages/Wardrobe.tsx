@@ -16,8 +16,9 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GarmentGridSkeleton } from '@/components/ui/skeletons';
-import { useGarments, useUpdateGarment, useDeleteGarment, useGarmentCount, type Garment } from '@/hooks/useGarments';
+import { useGarments, useGarmentSearch, useUpdateGarment, useDeleteGarment, useGarmentCount, type Garment } from '@/hooks/useGarments';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useAuth } from '@/contexts/AuthContext';
 import { PaywallModal } from '@/components/PaywallModal';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
@@ -466,6 +467,7 @@ function AddFAB({ onPhoto, onScan, isOverLimit }: { onPhoto: () => void; onScan:
 
 export default function WardrobePage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const location = useLocation();
   const { t } = useLanguage();
   const queryClient = useQueryClient();
@@ -495,21 +497,29 @@ export default function WardrobePage() {
   const { data: profile } = useProfile();
   const updateProfile = useUpdateProfile();
 
+  const isSearching = debouncedSearch.trim().length > 0;
+
   const queryResult = useGarments({
-    search: debouncedSearch,
     category: selectedCategory === 'all' ? undefined : selectedCategory,
     color: selectedColor || undefined,
     season: selectedSeason || undefined,
     sortBy,
     inLaundry: showLaundry ? true : undefined,
   });
-  const { data: infiniteData, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = queryResult;
+  const { data: infiniteData, isLoading: isInfiniteLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = queryResult;
+
+  const searchResult = useGarmentSearch(debouncedSearch);
+  const { data: searchData, isLoading: isSearchLoading } = searchResult;
+
+  const isLoading = isSearching ? isSearchLoading : isInfiniteLoading;
+
   useSubscription();
   const { data: totalCount } = useGarmentCount();
 
   const allGarments = useMemo(() => {
+    if (isSearching) return searchData ?? [];
     return infiniteData?.pages.flatMap(p => p.items) ?? [];
-  }, [infiniteData]);
+  }, [isSearching, searchData, infiniteData]);
 
   // Silent background DNA recompute
   useEffect(() => {
@@ -637,8 +647,8 @@ export default function WardrobePage() {
   const coach = useFirstRunCoach();
 
   const handleRefresh = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ['garments'] });
-    await queryClient.invalidateQueries({ queryKey: ['garments-count'] });
+    await queryClient.invalidateQueries({ queryKey: ['garments', user?.id] });
+    await queryClient.invalidateQueries({ queryKey: ['garments-count', user?.id] });
   }, [queryClient]);
 
   return (

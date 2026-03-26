@@ -7,6 +7,7 @@ import { TodayOutfitHero } from '@/components/home/TodayOutfitHero';
 import { format } from 'date-fns';
 import { enUS, nb, sv, da, fi, de, fr, es, it, pt, nl, pl, ar } from 'date-fns/locale';
 
+import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { useGarmentCount, useFlatGarments } from '@/hooks/useGarments';
@@ -32,6 +33,8 @@ import { StyleDNACard } from '@/components/insights/StyleDNACard';
 import { useStyleDNA } from '@/hooks/useStyleDNA';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 
+const DATE_FNS_LOCALE_MAP: Record<string, typeof enUS> = { sv, no: nb, da, fi, de, fr, es, it, pt, nl, pl, ar };
+
 type HomeState = 'loading' | 'empty_wardrobe' | 'outfit_planned' | 'weather_alert' | 'no_outfit';
 
 function deriveHomeState(
@@ -49,6 +52,7 @@ function deriveHomeState(
 
 export default function HomePage() {
   const { t, locale } = useLanguage();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { data: garmentCount, isLoading: isCountLoading } = useGarmentCount();
   const { data: profile } = useProfile();
@@ -77,7 +81,7 @@ export default function HomePage() {
       queryClient.invalidateQueries({ queryKey: ['garments-count'] }),
       queryClient.invalidateQueries({ queryKey: ['insights'] }),
       queryClient.invalidateQueries({ queryKey: ['weather'] }),
-      queryClient.invalidateQueries({ queryKey: ['outfits'] }),
+      queryClient.invalidateQueries({ queryKey: ['outfits', user?.id] }),
       queryClient.invalidateQueries({ queryKey: ['planned-outfits-day'] }),
     ]);
   }, [queryClient]);
@@ -91,14 +95,22 @@ export default function HomePage() {
     return t('home.greeting_evening') + suffix;
   }
 
-  const dateFnsLocaleMap: Record<string, typeof enUS> = { sv, no: nb, da, fi, de, fr, es, it, pt, nl, pl, ar };
-  const dateLocale = dateFnsLocaleMap[locale as string] || enUS;
-  const formattedDate = format(new Date(), 'EEEE, d MMMM', { locale: dateLocale });
+  const dateLocale = useMemo(
+    () => DATE_FNS_LOCALE_MAP[locale as string] ?? enUS,
+    [locale],
+  );
+  const formattedDate = useMemo(
+    () => format(new Date(), 'EEEE, d MMMM', { locale: dateLocale }),
+    [dateLocale],
+  );
 
   const todayOutfit = todayOutfits?.[0]?.outfit;
 
-  const fourteenDaysAgo = new Date();
-  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+  const fourteenDaysAgo = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 14);
+    return d;
+  }, []);
   const sleepingBeauties = (insightsData?.unusedGarments ?? []).filter(
     g => (g.wear_count ?? 0) === 0 && g.created_at != null && new Date(g.created_at) < fourteenDaysAgo,
   );

@@ -382,7 +382,7 @@ export function useOutfitGenerator() {
   const queryClient = useQueryClient();
 
   const invalidateOutfits = () => {
-    queryClient.invalidateQueries({ queryKey: ['outfits'] });
+    queryClient.invalidateQueries({ queryKey: ['outfits', user?.id] });
   };
 
   const singleMutation = useMutation({

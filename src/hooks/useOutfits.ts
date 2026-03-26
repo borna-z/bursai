@@ -151,7 +151,7 @@ export function useCreateOutfit() {
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     onSuccess: () => {
       hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ['outfits'] });
+      queryClient.invalidateQueries({ queryKey: ['outfits', user?.id] });
     },
   });
 }
@@ -189,7 +189,7 @@ export function useUpdateOutfit() {
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['outfits'] });
+      queryClient.invalidateQueries({ queryKey: ['outfits', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['outfit', data.id] });
     },
   });
@@ -213,7 +213,7 @@ export function useDeleteOutfit() {
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     onSuccess: () => {
       hapticHeavy();
-      queryClient.invalidateQueries({ queryKey: ['outfits'] });
+      queryClient.invalidateQueries({ queryKey: ['outfits', user?.id] });
     },
   });
 }
@@ -306,16 +306,17 @@ export function useMarkOutfitWorn() {
     },
     onSuccess: () => {
       hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ['outfits'] });
-      queryClient.invalidateQueries({ queryKey: ['garments'] });
+      queryClient.invalidateQueries({ queryKey: ['outfits', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['garments', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['insights'] });
     },
   });
 }
 
 export function useUndoMarkWorn() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (wornResult: WornResult) => {
       // Delete the wear logs we created
@@ -348,8 +349,8 @@ export function useUndoMarkWorn() {
       if (outfitError) throw outfitError;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['outfits'] });
-      queryClient.invalidateQueries({ queryKey: ['garments'] });
+      queryClient.invalidateQueries({ queryKey: ['outfits', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['garments', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['insights'] });
     },
   });

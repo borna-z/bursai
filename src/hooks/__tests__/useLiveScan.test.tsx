@@ -424,32 +424,33 @@ describe('useLiveScan', () => {
       .filter((queryKey): queryKey is string[] => Array.isArray(queryKey));
 
     expect(invalidatedKeys).toEqual(expect.arrayContaining([
-      ['garments'],
-      ['garments-count'],
+      ['garments', 'user-1'],
+      ['garments-count', 'user-1'],
       ['ai-suggestions'],
-      ['subscription'],
+      ['subscription', 'user-1'],
     ]));
 
     expect(invalidatedKeys).toEqual(expect.arrayContaining([
       ['garment'],
       ['insights'],
-      ['outfits'],
+      ['outfits', 'user-1'],
       ['planned-outfits'],
       ['planned-outfits-day'],
       ['garments-by-ids'],
     ]));
 
     expect(new Set(invalidatedKeys.map((queryKey) => queryKey.join('|')))).toEqual(new Set([
-      'garments',
-      'garments-count',
+      'garments|user-1',
+      'garments-count|user-1',
       'garment',
       'ai-suggestions',
       'insights',
-      'outfits',
+      'outfits|user-1',
       'planned-outfits',
       'planned-outfits-day',
       'garments-by-ids',
-      'subscription',
+      'subscription|user-1',
+      'garments-search|user-1',
     ]));
   });
 });

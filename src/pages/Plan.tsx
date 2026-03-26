@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { PRESETS } from '@/lib/motion';
@@ -56,6 +57,7 @@ const MAX_OUTFITS_PER_DAY = 4;
 
 export default function PlanPage() {
   useBackgroundSyncNotification();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -265,7 +267,7 @@ export default function PlanPage() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['planned-outfits'] }),
       queryClient.invalidateQueries({ queryKey: ['planned-outfits-day'] }),
-      queryClient.invalidateQueries({ queryKey: ['garments'] }),
+      queryClient.invalidateQueries({ queryKey: ['garments', user?.id] }),
       queryClient.invalidateQueries({ queryKey: ['day-summary'] }),
     ]);
   }, [queryClient]);

@@ -128,8 +128,8 @@ export function LinkImportForm() {
 
     setIsImporting(false);
 
-    invalidateWardrobeQueries(queryClient);
-    queryClient.invalidateQueries({ queryKey: ['subscription'] });
+    invalidateWardrobeQueries(queryClient, user?.id);
+    queryClient.invalidateQueries({ queryKey: ['subscription', user?.id] });
 
     if (successCount > 0) {
       toast.success(t('import.success').replace('{count}', String(successCount)), {
