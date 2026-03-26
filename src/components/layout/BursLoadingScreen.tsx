@@ -20,7 +20,7 @@ export function BursLoadingScreen() {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#F5F0E8]">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
       {/* Monogram with slow pulse */}
       <motion.div
         animate={{ opacity: [1, 0.4, 1] }}
@@ -30,9 +30,9 @@ export function BursLoadingScreen() {
       </motion.div>
 
       {/* Progress line */}
-      <div className="mt-6 w-[180px] h-px bg-[#1C1917]/10 overflow-hidden">
+      <div className="mt-6 w-[180px] h-px bg-foreground/10 overflow-hidden">
         <motion.div
-          className="h-full bg-[#1C1917]"
+          className="h-full bg-foreground"
           animate={{ width: ['0%', '100%'] }}
           transition={{ duration: 1.8, repeat: Infinity, ease: 'linear' }}
         />
@@ -47,7 +47,7 @@ export function BursLoadingScreen() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.2 }}
-            className="text-[11px] font-['DM_Sans'] tracking-[0.15em] text-[#1C1917]/40"
+            className="text-[11px] font-['DM_Sans'] tracking-[0.15em] text-foreground/40"
           >
             {MESSAGES[msgIndex]}
           </motion.p>
