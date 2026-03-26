@@ -78,9 +78,14 @@ describe('AuthContext', () => {
   });
 
   it('throws when useAuth is used outside provider', () => {
-    expect(() => {
-      renderHook(() => useAuth());
-    }).toThrow('useAuth must be used within an AuthProvider');
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      expect(() => {
+        renderHook(() => useAuth());
+      }).toThrow('useAuth must be used within an AuthProvider');
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it('signIn calls supabase signInWithPassword', async () => {

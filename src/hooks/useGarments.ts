@@ -20,6 +20,13 @@ export interface GarmentFilters {
 
 const PAGE_SIZE = 30;
 
+function sanitizeIlikeSearchTerm(value: string) {
+  return value
+    .trim()
+    .replace(/\\/g, '\\\\')
+    .replace(/[%_,()]/g, '\\$&');
+}
+
 export function useGarments(filters?: GarmentFilters) {
   const { user } = useAuth();
 
@@ -127,7 +134,7 @@ export function useGarmentSearch(searchTerm: string) {
     queryKey: ['garments-search', user?.id, searchTerm],
     queryFn: async () => {
       if (!user || !searchTerm.trim()) return [] as Garment[];
-      const term = `%${searchTerm.trim()}%`;
+      const term = `%${sanitizeIlikeSearchTerm(searchTerm)}%`;
       const { data, error } = await supabase
         .from('garments')
         .select('*')
@@ -245,7 +252,7 @@ export function useUpdateGarment() {
       return data;
     },
     onMutate: async ({ id, updates }) => {
-      await queryClient.cancelQueries({ queryKey: ['garments'] });
+      await queryClient.cancelQueries({ queryKey: user?.id ? ['garments', user.id] : ['garments'] });
       await queryClient.cancelQueries({ queryKey: ['garment', id] });
       const prevGarment = queryClient.getQueryData(['garment', id]);
       queryClient.setQueryData(['garment', id], (old: Garment | undefined) =>
