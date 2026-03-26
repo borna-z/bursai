@@ -27,6 +27,7 @@ import { getOccasionLabel } from '@/lib/occasionLabel';
 import { FadeReplace } from '@/components/ui/fade-replace';
 import { HomePageSkeleton } from '@/components/ui/skeletons';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { BursMonogram } from '@/components/ui/BursMonogram';
 import { getStylistTip } from '@/lib/stylistCopy';
 import { StyleDNACard } from '@/components/insights/StyleDNACard';
 import { useStyleDNA } from '@/hooks/useStyleDNA';
@@ -246,17 +247,29 @@ export default function HomePage() {
                   display: 'block', border: 'none', textAlign: 'left', cursor: 'pointer',
                 }}
               >
-                {/* Thumbnail strip */}
-                <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-                  {todayOutfit.outfit_items.slice(0, 4).map((item) => (
-                    <div key={item.id} style={{ width: 52, height: 68, overflow: 'hidden', background: '#2C2824', flexShrink: 0 }}>
-                      <LazyImageSimple
-                        imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
-                        alt={item.garment?.title || item.slot}
-                        className="w-full h-full"
-                      />
-                    </div>
-                  ))}
+                {/* 2×2 outfit composition */}
+                <div
+                  style={{ width: 120, aspectRatio: '1', display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '0.5px', background: '#F5F0E8', marginBottom: 14 }}
+                >
+                  {Array.from({ length: 4 }, (_, i) => {
+                    const item = todayOutfit.outfit_items[i];
+                    if (item?.garment) {
+                      return (
+                        <div key={item.id} style={{ aspectRatio: '1', overflow: 'hidden', background: '#F5F0E8' }}>
+                          <LazyImageSimple
+                            imagePath={getPreferredGarmentImagePath(item.garment)}
+                            alt={item.garment.title || item.slot}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={`empty-${i}`} style={{ aspectRatio: '1', background: '#F5F0E8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <BursMonogram size={10} className="opacity-10" />
+                      </div>
+                    );
+                  })}
                 </div>
                 {/* Occasion chip */}
                 <p style={{
