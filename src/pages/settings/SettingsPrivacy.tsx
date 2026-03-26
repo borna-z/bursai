@@ -80,7 +80,7 @@ export default function SettingsPrivacy() {
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
-      const { data, error } = await invokeEdgeFunction<{ success: boolean; error?: string }>('delete_user_account', { retries: 0, timeout: 30000 });
+      const { data, error } = await invokeEdgeFunction<{ success: boolean; error?: string }>('delete_user_account', { retries: 0, timeout: 30000, idempotent: true });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Unknown error');
       toast.success(t('settings.delete_success'));

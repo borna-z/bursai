@@ -3,11 +3,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 
 import { allowedOrigin } from "../_shared/cors.ts";
+import { checkIdempotency, storeIdempotencyResult } from "../_shared/idempotency.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": allowedOrigin,
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-idempotency-key, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 interface GarmentDef {
@@ -27,6 +28,13 @@ interface GarmentDef {
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Return cached response for duplicate idempotent requests
+  const cachedResponse = checkIdempotency(req);
+  if (cachedResponse) {
+    console.log("[SEED-WARDROBE] Returning cached idempotent response");
+    return cachedResponse;
   }
 
   try {
@@ -163,9 +171,11 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ results }), {
+    const response = new Response(JSON.stringify({ results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+    await storeIdempotencyResult(req, response);
+    return response;
   } catch (e) {
     console.error("seed_wardrobe error:", e);
     return bursAIErrorResponse(e, corsHeaders);

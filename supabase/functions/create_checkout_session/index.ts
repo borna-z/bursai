@@ -3,10 +3,11 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 import { allowedOrigin, resolveAppOrigin } from "../_shared/cors.ts";
+import { checkIdempotency, storeIdempotencyResult } from "../_shared/idempotency.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-idempotency-key, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const logStep = (step: string, details?: unknown) => {
@@ -44,6 +45,13 @@ interface CheckoutRequest {
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Return cached response for duplicate idempotent requests
+  const cachedResponse = checkIdempotency(req);
+  if (cachedResponse) {
+    logStep("Returning cached idempotent response");
+    return cachedResponse;
   }
 
   try {
@@ -177,10 +185,12 @@ serve(async (req) => {
 
     logStep("Checkout session created", { sessionId: session.id, url: session.url });
 
-    return new Response(JSON.stringify({ url: session.url, mode: stripeConfig.mode }), {
+    const response = new Response(JSON.stringify({ url: session.url, mode: stripeConfig.mode }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
+    await storeIdempotencyResult(req, response);
+    return response;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
