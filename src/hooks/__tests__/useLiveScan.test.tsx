@@ -96,7 +96,6 @@ function setupCanvasMock() {
   };
 
   const originalCreate = document.createElement.bind(document);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- DOM createElement overload mismatch
   vi.spyOn(document, 'createElement').mockImplementation((tag: string, ...args: any[]) => {
     if (tag === 'canvas') return mockCanvas as unknown as HTMLCanvasElement;
     return originalCreate(tag, ...args);

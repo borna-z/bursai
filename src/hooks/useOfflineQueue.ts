@@ -25,6 +25,7 @@ export function useOfflineQueue() {
       window.removeEventListener('offline', goOffline);
       window.removeEventListener('online', goOnline);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Track queue count changes

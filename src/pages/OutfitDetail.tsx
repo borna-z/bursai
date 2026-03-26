@@ -366,6 +366,7 @@ export default function OutfitDetailPage() {
       ctx.weather,
       swapMode
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [swapMode]);
 
   const handleSwap = async (newGarmentId: string) => {

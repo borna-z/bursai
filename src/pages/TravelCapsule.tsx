@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { OutfitSuggestionCard } from '@/components/chat/OutfitSuggestionCard';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { format, differenceInCalendarDays, addDays } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -41,6 +42,15 @@ import type { DateRange } from 'react-day-picker';
 import { AILoadingCard } from '@/components/ui/AILoadingCard';
 
 /* ─── Types ─── */
+interface PastCapsule {
+  id: string;
+  destination: string;
+  trip_type: string;
+  duration_days: number;
+  created_at: string;
+  result?: CapsuleResult;
+}
+
 interface CapsuleOutfit {
   day: number;
   occasion: string;
@@ -66,6 +76,18 @@ const OCCASIONS = [
   { id: 'beach', labelKey: 'capsule.occasion_beach' },
   { id: 'hiking', labelKey: 'capsule.occasion_hiking' },
   { id: 'formal', labelKey: 'capsule.occasion_formal' },
+];
+
+const TRIP_TYPES = ['business', 'casual', 'beach', 'winter', 'mixed'] as const;
+
+const OCCASION_OPTIONS = ['Casual', 'Work', 'Dinner', 'Active', 'Beach', 'Formal'];
+
+const LOADING_STEPS = (dest: string) => [
+  `Packing for ${dest || 'your trip'}...`,
+  'Scanning your wardrobe...',
+  'Selecting capsule pieces...',
+  'Building your outfits...',
+  'Finalising packing list...',
 ];
 
 /* ─── Helpers ─── */
@@ -96,6 +118,18 @@ export default function TravelCapsule() {
   const [includeTravelDays, setIncludeTravelDays] = useState(false);
   const [outfitsPerDay, setOutfitsPerDay] = useState(1);
   const [mustHaveItems, setMustHaveItems] = useState<string[]>([]);
+
+  // ── New trip type / duration / occasions state ──
+  const [tripType, setTripType] = useState<string>('mixed');
+  const [durationDays, setDurationDays] = useState(5);
+  const [newOccasions, setNewOccasions] = useState<string[]>([]);
+
+  // ── Past capsules state ──
+  const [pastCapsules, setPastCapsules] = useState<PastCapsule[]>([]);
+  const [pastOpen, setPastOpen] = useState(false);
+
+  // ── Loading step state ──
+  const [loadingStep, setLoadingStep] = useState(0);
 
   // Restore form state from picker page (round-trip)
   const location = useLocation();
@@ -137,6 +171,7 @@ export default function TravelCapsule() {
     if (locationState.destCoords && locationState.dateRange?.from && locationState.dateRange?.to) {
       setTimeout(() => lookupWeatherWithCoords(locationState.destCoords!), 100);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Generation state ──
@@ -219,6 +254,34 @@ export default function TravelCapsule() {
       return next;
     });
   };
+
+  // ── New occasions toggle (max 3) ──
+  const toggleNewOccasion = (o: string) => {
+    setNewOccasions(prev =>
+      prev.includes(o) ? prev.filter(x => x !== o) : prev.length < 3 ? [...prev, o] : prev
+    );
+  };
+
+  // ── Load a past capsule ──
+  const loadCapsule = (capsule: PastCapsule) => {
+    setResult(capsule.result ?? null);
+    if (capsule.destination) setDestination(capsule.destination);
+    if (capsule.trip_type) setTripType(capsule.trip_type);
+    if (capsule.duration_days) setDurationDays(capsule.duration_days);
+  };
+
+  // ── Fetch past capsules on mount ──
+  useEffect(() => {
+    const fetchPast = async () => {
+      try {
+        const { data, error } = await invokeEdgeFunction<{ capsules: PastCapsule[] }>('travel_capsule', {
+          body: { method: 'GET' },
+        });
+        if (!error && data?.capsules) setPastCapsules(data.capsules);
+      } catch { /* best-effort fetch */ }
+    };
+    fetchPast();
+  }, []);
 
   // ── Group capsule items by category ──
   const groupedItems = useMemo(() => {
@@ -351,11 +414,23 @@ export default function TravelCapsule() {
   }, [destination, destCoords, lookupWeatherWithCoords, t]);
 
   // Auto-fetch weather when dates change and destination is set
+  const fromTime = dateRange?.from?.getTime();
+  const toTime = dateRange?.to?.getTime();
   useEffect(() => {
     if (destCoords && dateRange?.from && dateRange?.to) {
       lookupWeatherWithCoords(destCoords);
     }
-  }, [dateRange?.from?.getTime(), dateRange?.to?.getTime()]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromTime, toTime]);
+
+  // ── Loading step cycle ──
+  useEffect(() => {
+    if (!isGenerating) { setLoadingStep(0); return; }
+    const interval = setInterval(() => {
+      setLoadingStep(s => Math.min(s + 1, LOADING_STEPS(destination).length - 1));
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [isGenerating, destination]);
 
   // Handle location autocomplete selection
   const handleLocationSelect = useCallback((_city: string, coords: { lat: number; lon: number }) => {
@@ -374,16 +449,17 @@ export default function TravelCapsule() {
       const { data, error } = await invokeEdgeFunction<CapsuleResult & { error?: string }>('travel_capsule', {
         timeout: 45000,
         body: {
-          duration_days: tripDays || tripNights,
+          duration_days: durationDays || tripDays || tripNights,
           destination,
-          start_date: format(dateRange.from, 'yyyy-MM-dd'),
-          end_date: format(dateRange.to, 'yyyy-MM-dd'),
+          trip_type: tripType,
+          occasions: newOccasions.length > 0 ? newOccasions : selectedOccasions,
+          start_date: dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
+          end_date: dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
           weather: weatherForecast ? {
             temperature_min: weatherForecast.temperature_min,
             temperature_max: weatherForecast.temperature_max,
             condition: weatherForecast.condition,
           } : null,
-          occasions: selectedOccasions,
           outfits_per_day: outfitsPerDay,
           must_have_items: mustHaveItems.length > 0 ? mustHaveItems : undefined,
           minimize_items: minimizeItems,
@@ -827,6 +903,73 @@ export default function TravelCapsule() {
               </div>
             )}
 
+            {/* Trip Type */}
+            <div className="space-y-2">
+              <Label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
+                Trip Type
+              </Label>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                {TRIP_TYPES.map(t_ => (
+                  <button
+                    key={t_}
+                    onClick={() => setTripType(t_)}
+                    style={{
+                      padding: '6px 16px',
+                      borderRadius: 20,
+                      border: '1px solid rgba(28,25,23,0.20)',
+                      background: tripType === t_ ? '#1C1917' : '#F5F0E8',
+                      color: tripType === t_ ? '#F5F0E8' : '#1C1917',
+                      fontFamily: 'DM Sans, sans-serif',
+                      fontSize: 13,
+                      cursor: 'pointer',
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {t_}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Duration Stepper */}
+            <div className="space-y-2">
+              <Label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
+                Duration
+              </Label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+                <button onClick={() => setDurationDays(d => Math.max(1, d - 1))} style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid rgba(28,25,23,0.20)', background: 'transparent', cursor: 'pointer', fontSize: 18 }}>−</button>
+                <span style={{ fontFamily: 'DM Sans', fontSize: 15, minWidth: 60, textAlign: 'center' }}>{durationDays} days</span>
+                <button onClick={() => setDurationDays(d => Math.min(21, d + 1))} style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid rgba(28,25,23,0.20)', background: 'transparent', cursor: 'pointer', fontSize: 18 }}>+</button>
+              </div>
+            </div>
+
+            {/* Occasions Multi-select (max 3) */}
+            <div className="space-y-2">
+              <Label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
+                Occasions <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(up to 3)</span>
+              </Label>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                {OCCASION_OPTIONS.map(o => (
+                  <button
+                    key={o}
+                    onClick={() => toggleNewOccasion(o)}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: 20,
+                      border: '1px solid rgba(28,25,23,0.20)',
+                      background: newOccasions.includes(o) ? '#1C1917' : 'transparent',
+                      color: newOccasions.includes(o) ? '#F5F0E8' : '#1C1917',
+                      fontFamily: 'DM Sans, sans-serif',
+                      fontSize: 13,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {o}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Generate */}
             <div className="space-y-1">
               {isGenerating ? (
@@ -836,24 +979,41 @@ export default function TravelCapsule() {
                   transition={{ duration: 0.3, ease: EASE_CURVE }}
                   className="space-y-3"
                 >
-                  <div className="text-center space-y-1">
-                    <p className="text-[22px] font-display text-foreground leading-tight">
-                      {destination}
-                    </p>
-                    {tripNights > 0 && (
-                      <p className="text-[13px] font-body text-muted-foreground">
-                        · {tripNights} {t('capsule.nights')}
-                      </p>
-                    )}
-                  </div>
-                  <AILoadingCard phases={travelCardPhases} />
+                  <p style={{ fontFamily: 'Playfair Display', fontStyle: 'italic', fontSize: 16, color: '#1C1917', textAlign: 'center', margin: '12px 0' }}>
+                    {LOADING_STEPS(destination)[loadingStep]}
+                  </p>
                 </motion.div>
               ) : (
-                <Button onClick={handleGenerate} disabled={!isFormValid} className="w-full h-12 rounded-xl" size="lg">
+                <Button onClick={handleGenerate} disabled={!destination || destination.length < 2} className="w-full h-12 rounded-xl" size="lg">
                   <Package className="w-4 h-4 mr-2" />{t('capsule.generate_new')}
                 </Button>
               )}
             </div>
+
+            {/* Past Trips */}
+            {pastCapsules.length > 0 && (
+              <div style={{ marginTop: 24 }}>
+                <button onClick={() => setPastOpen(p => !p)} style={{ fontFamily: 'DM Sans', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', color: '#1C1917' }}>
+                  Past Trips ({pastCapsules.length}) {pastOpen ? '▲' : '▼'}
+                </button>
+                {pastOpen && (
+                  <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {pastCapsules.map((c) => (
+                      <div key={c.id} style={{ background: '#EDE8DF', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <p style={{ fontFamily: 'DM Sans', fontSize: 14, fontWeight: 500, margin: 0 }}>{c.destination}</p>
+                          <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'rgba(28,25,23,0.50)', margin: 0 }}>{c.trip_type} · {c.duration_days} days · {new Date(c.created_at).toLocaleDateString()}</p>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button onClick={() => loadCapsule(c)} style={{ fontFamily: 'DM Sans', fontSize: 12, background: '#1C1917', color: '#F5F0E8', border: 'none', padding: '6px 12px', cursor: 'pointer' }}>Load</button>
+                          <button onClick={() => setPastCapsules(prev => prev.filter(x => x.id !== c.id))} style={{ fontFamily: 'DM Sans', fontSize: 12, background: 'transparent', border: '1px solid rgba(28,25,23,0.20)', padding: '6px 12px', cursor: 'pointer' }}>×</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>}
         </AnimatedPage>
       </AppLayout>
@@ -1052,6 +1212,27 @@ export default function TravelCapsule() {
                   </span>
                 </div>
 
+                {/* Progress indicator */}
+                <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(28,25,23,0.50)', marginBottom: 12 }}>
+                  {checkedItems.size} of {totalItems} items packed
+                </p>
+
+                {/* Copy packing list */}
+                <button
+                  onClick={() => {
+                    const garmentTitles = result.capsule_items
+                      .map(id => garmentMap.get(id) ?? allGarmentsMap.get(id))
+                      .filter(Boolean)
+                      .map((g) => `- ${g!.title}`)
+                      .join('\n');
+                    navigator.clipboard.writeText(garmentTitles);
+                    toast.success('Packing list copied');
+                  }}
+                  style={{ fontFamily: 'DM Sans', fontSize: 13, background: '#EDE8DF', border: 'none', padding: '8px 16px', cursor: 'pointer', borderRadius: 4 }}
+                >
+                  Copy packing list
+                </button>
+
                 {/* Tips */}
                 {result.packing_tips.length > 0 && (
                   <div className="space-y-2">
@@ -1080,8 +1261,9 @@ export default function TravelCapsule() {
                 className="space-y-3 pt-3"
               >
                 {result.outfits.map((outfit, idx) => {
-                  const dayDate = dateRange?.from ? addDays(dateRange.from, outfit.day - 1) : null;
-                  const forecast = tripDayForecasts[outfit.day - 1] || null;
+                  const outfitGarments = outfit.items
+                    .map((id: string) => garmentMap.get(id) ?? allGarmentsMap.get(id))
+                    .filter(Boolean) as Array<{ id: string; title: string; image_path: string; category: string }>;
 
                   return (
                     <motion.div
@@ -1089,61 +1271,16 @@ export default function TravelCapsule() {
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: idx * STAGGER_DELAY, duration: 0.35 }}
-                      className="rounded-xl border border-border/10 bg-card/40 overflow-hidden"
                     >
-                      {/* Day header */}
-                      <div className="px-4 pt-3.5 pb-2 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-foreground uppercase">
-                              {dayDate ? format(dayDate, 'EEE MMM d', { locale: dateLocale }) : `${t('capsule.day_label')} ${outfit.day}`}
-                            </span>
-                            <Badge variant="secondary" className="text-[10px] capitalize">
-                              {outfit.occasion}
-                            </Badge>
-                          </div>
-                          {forecast && (
-                            <div className="flex items-center gap-1">
-                              <WeatherMiniIcon condition={forecast.condition} className="w-3 h-3" />
-                              <span className="text-[11px] text-muted-foreground">{forecast.temperature_max}°C</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Outfit thumbnails */}
-                      <div className="px-4 pb-3 flex gap-2 overflow-x-auto scrollbar-none">
-                        {outfit.items.map(itemId => {
-                          const g = garmentMap.get(itemId) ?? allGarmentsMap.get(itemId);
-                          if (!g) return null;
-                          return (
-                            <div key={itemId} className="w-[72px] shrink-0">
-                              <div className="aspect-square rounded-lg overflow-hidden bg-muted/30">
-                                <LazyImageSimple imagePath={getPreferredGarmentImagePath(g)} alt={g.title} className="w-full h-full" />
-                              </div>
-                              <p className="text-[9px] text-muted-foreground/60 truncate text-center mt-1">{g.title}</p>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Note / activity — skip the generic edge-function fallback string */}
-                      {outfit.note && outfit.note !== 'A flexible core look for travel day.' && (
-                        <div className="px-4 pb-3">
-                          <p className="text-[11px] text-muted-foreground/60">{outfit.note}</p>
-                        </div>
-                      )}
-
-                      {/* Swap */}
-                      <div className="px-4 pb-3">
-                        <button
-                          onClick={() => { hapticLight(); toast(t('capsule.swap_coming_soon')); }}
-                          className="text-[11px] font-medium text-accent flex items-center gap-1"
-                        >
-                          <RefreshCw className="w-3 h-3" />
-                          {t('capsule.swap_outfit')}
-                        </button>
-                      </div>
+                      <p style={{ fontFamily: 'DM Sans', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(28,25,23,0.45)', marginBottom: 8 }}>
+                        Day {Math.floor(idx / 2) + 1}
+                      </p>
+                      <OutfitSuggestionCard
+                        garments={outfitGarments}
+                        explanation={outfit.note ?? outfit.explanation ?? ''}
+                        onTryOutfit={() => {}}
+                        isCreating={false}
+                      />
                     </motion.div>
                   );
                 })}

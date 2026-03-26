@@ -38,6 +38,7 @@ interface SeedContextValue {
 
 const SeedContext = createContext<SeedContextValue | null>(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSeed() {
   const ctx = useContext(SeedContext);
   if (!ctx) throw new Error('useSeed must be used within SeedProvider');
@@ -45,6 +46,7 @@ export function useSeed() {
 }
 
 /** Safe version that returns null outside SeedProvider — used by global UI like SeedProgressPill */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSeedMaybe() {
   return useContext(SeedContext);
 }

@@ -129,12 +129,14 @@ export default function UnusedOutfits() {
     }
     setGenerating(false);
     queryClient.invalidateQueries({ queryKey: ['outfits'] });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, unusedIds.length, weather, locale, t, queryClient]);
 
   useEffect(() => {
     if (startedRef.current || !insights || unusedIds.length === 0) return;
     startedRef.current = true;
     generate();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [insights, unusedIds.length]);
 
   return (

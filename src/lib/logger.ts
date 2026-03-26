@@ -26,6 +26,7 @@ export const logger = {
   /** Dev-only verbose tracing. Stripped in production builds. */
   debug: (...args: unknown[]): void => {
     if (isDev) {
+      // eslint-disable-next-line no-console
       console.log(...args);
     }
   },
@@ -33,6 +34,7 @@ export const logger = {
   /** Informational messages — dev only. */
   info: (...args: unknown[]): void => {
     if (isDev) {
+      // eslint-disable-next-line no-console
       console.info(...args);
     }
   },
