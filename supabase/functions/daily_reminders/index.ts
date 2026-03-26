@@ -1,16 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import { allowedOrigin } from "../_shared/cors.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   try {
@@ -25,7 +19,7 @@ Deno.serve(async (req) => {
     if (!vapidPublicKey || !vapidPrivateKey) {
       return new Response(
         JSON.stringify({ error: "VAPID keys not configured" }),
-        { status: 500, headers: corsHeaders }
+        { status: 500, headers: CORS_HEADERS }
       );
     }
 
@@ -37,7 +31,7 @@ Deno.serve(async (req) => {
     if (error || !subs?.length) {
       return new Response(
         JSON.stringify({ sent: 0, message: "No subscriptions" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
       );
     }
 
@@ -133,13 +127,13 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ sent: totalSent }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("daily_reminders error:", e);
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
-      headers: corsHeaders,
+      headers: CORS_HEADERS,
     });
   }
 });

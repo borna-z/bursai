@@ -2,13 +2,8 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
-import { allowedOrigin, resolveAppOrigin } from "../_shared/cors.ts";
+import { CORS_HEADERS, resolveAppOrigin } from "../_shared/cors.ts";
 import { checkIdempotency, storeIdempotencyResult } from "../_shared/idempotency.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-idempotency-key, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
 
 const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -44,7 +39,7 @@ interface CheckoutRequest {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   // Return cached response for duplicate idempotent requests
@@ -105,7 +100,7 @@ serve(async (req) => {
       logStep("Rate limit exceeded", { userId: user.id, attempts: count });
       return new Response(
         JSON.stringify({ error: "Too many attempts. Please wait a moment before trying again." }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 429 }
+        { headers: { ...CORS_HEADERS, "Content-Type": "application/json" }, status: 429 }
       );
     }
 
@@ -186,7 +181,7 @@ serve(async (req) => {
     logStep("Checkout session created", { sessionId: session.id, url: session.url });
 
     const response = new Response(JSON.stringify({ url: session.url, mode: stripeConfig.mode }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       status: 200,
     });
     await storeIdempotencyResult(req, response);
@@ -195,7 +190,7 @@ serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
     return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       status: 500,
     });
   }

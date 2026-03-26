@@ -1,4 +1,5 @@
 import { Component, ReactNode } from 'react';
+import { logger } from '@/lib/logger';
 
 interface Props {
   children: ReactNode;
@@ -20,7 +21,7 @@ export class PageErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: { componentStack?: string }) {
-    console.error('[PageErrorBoundary]', error.message, info.componentStack);
+    logger.error('[PageErrorBoundary]', error.message, info.componentStack);
   }
 
   render() {

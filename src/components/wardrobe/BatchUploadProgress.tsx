@@ -11,6 +11,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { logger } from '@/lib/logger';
 import type { Json } from '@/integrations/supabase/types';
 import { buildGarmentIntelligenceFields, getGarmentReviewDecision, standardizeGarmentAiRaw, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
 
@@ -126,7 +127,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
         exclude_garment_id: item.garmentId,
       },
     }).catch((err) =>
-      console.error('Batch duplicate detection error (non-blocking):', err)
+      logger.error('Batch duplicate detection error (non-blocking):', err)
     );
   }, [createGarment]);
 

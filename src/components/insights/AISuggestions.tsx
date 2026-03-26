@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
+import { logger } from '@/lib/logger';
 import { StaleIndicator } from '@/components/ui/StaleIndicator';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useAISuggestions, type AISuggestion, type AISuggestionsEmptyState } from '@/hooks/useAISuggestions';
@@ -248,7 +249,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
       toast.success(t('insights.outfit_created'));
       navigate(`/outfits/${outfit.id}`);
     } catch (err) {
-      console.error('Failed to create outfit:', err);
+      logger.error('Failed to create outfit:', err);
       toast.error(t('insights.create_error'));
     } finally {
       setCreatingOutfitId(null);

@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
+import { logger } from '@/lib/logger';
 import { useQueryClient } from '@tanstack/react-query';
 import { hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { compressImage } from '@/lib/imageCompression';
@@ -73,7 +74,7 @@ export function useLiveScan() {
       setLastResult({ analysis: data as GarmentAnalysis, thumbnailUrl, blob, confidence });
       hapticMedium();
     } catch (err) {
-      console.error('Capture error:', err);
+      logger.error('Capture error:', err);
       setError('Could not capture image');
     } finally {
       setIsProcessing(false);
@@ -115,7 +116,7 @@ export function useLiveScan() {
       setLastResult({ analysis: data as GarmentAnalysis, thumbnailUrl, blob, confidence });
       hapticMedium();
     } catch (err) {
-      console.error('File capture error:', err);
+      logger.error('File capture error:', err);
       setError('Could not process image');
     } finally {
       setIsProcessing(false);

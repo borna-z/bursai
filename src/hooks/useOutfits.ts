@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { hapticSuccess, hapticHeavy } from '@/lib/haptics';
+import { logger } from '@/lib/logger';
 import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { validateBaseOutfit, validateCompleteOutfit } from '@/lib/outfitValidation';
 
@@ -297,7 +298,7 @@ export function useMarkOutfitWorn() {
         .select('id');
       
       if (wearLogError) {
-        console.error('Wear log error:', wearLogError);
+        logger.error('Wear log error:', wearLogError);
       } else if (wearLogs) {
         wearLogIds.push(...wearLogs.map(l => l.id));
       }

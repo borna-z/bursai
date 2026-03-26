@@ -3,13 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
 import { VOICE_OUTFIT_GENERATION } from "../_shared/burs-voice.ts";
 
-import { allowedOrigin } from "../_shared/cors.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 interface GarmentRow {
   id: string;
@@ -189,7 +183,7 @@ const TOOL_DEF = {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   try {
@@ -197,7 +191,7 @@ serve(async (req) => {
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
@@ -212,7 +206,7 @@ serve(async (req) => {
     if (userError || !userData?.user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
     const userId = userData.user.id;
@@ -248,7 +242,7 @@ serve(async (req) => {
     if (!garments || garments.length < 3) {
       return new Response(
         JSON.stringify({ error: "You need at least 3 garments (top, bottom, shoes) to generate an outfit" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
       );
     }
 
@@ -401,12 +395,12 @@ ${garmentList}`;
     if (result.error) {
       if (result.status === 429) {
         return new Response(JSON.stringify({ error: "Too many requests, please try again shortly." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
         });
       }
       if (result.status === 402) {
         return new Response(JSON.stringify({ error: "AI credits exhausted. Contact support." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 402, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
         });
       }
       throw new Error("AI service error");
@@ -517,13 +511,13 @@ ${garmentList}`;
 
     return new Response(
       JSON.stringify(responseBody),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
     );
   } catch (e) {
     console.error("generate_outfit error:", e);
     return new Response(
       JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
     );
   }
 });

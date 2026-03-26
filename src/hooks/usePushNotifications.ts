@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { isMedianApp } from '@/lib/median';
+import { logger } from '@/lib/logger';
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -92,7 +93,7 @@ export function usePushNotifications() {
       const { data: configData } = await invokeEdgeFunction<{ publicKey?: string }>('get_vapid_public_key');
       const vapidKey = configData?.publicKey;
       if (!vapidKey) {
-        console.error('VAPID public key not available');
+        logger.error('VAPID public key not available');
         setLoading(false);
         return false;
       }
@@ -122,7 +123,7 @@ export function usePushNotifications() {
       setLoading(false);
       return true;
     } catch (err) {
-      console.error('Push subscription failed:', err);
+      logger.error('Push subscription failed:', err);
       setLoading(false);
       return false;
     }
@@ -153,7 +154,7 @@ export function usePushNotifications() {
       }
       setIsSubscribed(false);
     } catch (err) {
-      console.error('Push unsubscribe failed:', err);
+      logger.error('Push unsubscribe failed:', err);
     } finally {
       setLoading(false);
     }

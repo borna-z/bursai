@@ -1,6 +1,7 @@
 import { Component, ReactNode } from 'react';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { logger } from '@/lib/logger';
 import { type Locale, SUPPORTED_LOCALES } from '@/i18n/types';
 
 /** Hardcoded error strings so ErrorBoundary never depends on async translations */
@@ -49,7 +50,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: { componentStack?: string }) {
-    console.error('[ErrorBoundary]', error.message, info.componentStack);
+    logger.error('[ErrorBoundary]', error.message, info.componentStack);
     reportToSentry(error, info.componentStack ?? undefined);
   }
 

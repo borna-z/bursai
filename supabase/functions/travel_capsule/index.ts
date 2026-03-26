@@ -3,13 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
 import { VOICE_TRAVEL_CAPSULE } from "../_shared/burs-voice.ts";
 
-import { allowedOrigin } from "../_shared/cors.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 interface GarmentRow {
   id: string;
@@ -167,7 +161,7 @@ const TRIP_TYPE_CONTEXT: Record<string, string> = {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   try {
@@ -196,8 +190,8 @@ serve(async (req) => {
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(10);
-      if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
-      return new Response(JSON.stringify({ capsules: data ?? [] }), { status: 200, headers: corsHeaders });
+      if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: CORS_HEADERS });
+      return new Response(JSON.stringify({ capsules: data ?? [] }), { status: 200, headers: CORS_HEADERS });
     }
 
     // ─────────────────────────────────────────────
@@ -794,10 +788,10 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       total_combinations: total_combinations || validatedOutfits.length,
       reasoning: reasoning || "",
     }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("travel_capsule error:", e);
-    return bursAIErrorResponse(e, corsHeaders);
+    return bursAIErrorResponse(e, CORS_HEADERS);
   }
 });

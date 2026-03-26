@@ -2,14 +2,8 @@ import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 
-import { allowedOrigin } from "../_shared/cors.ts";
+import { CORS_HEADERS } from "../_shared/cors.ts";
 import { checkIdempotency, storeIdempotencyResult } from "../_shared/idempotency.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-idempotency-key, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
 
 interface GarmentDef {
   title: string;
@@ -27,7 +21,7 @@ interface GarmentDef {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   // Return cached response for duplicate idempotent requests
@@ -76,7 +70,7 @@ serve(async (req) => {
       await supabase.from("user_subscriptions").update({ garments_count: 0 }).eq("user_id", user.id);
 
       return new Response(JSON.stringify({ success: true, deleted: existing?.length || 0 }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
@@ -172,12 +166,12 @@ serve(async (req) => {
     }
 
     const response = new Response(JSON.stringify({ results }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
     await storeIdempotencyResult(req, response);
     return response;
   } catch (e) {
     console.error("seed_wardrobe error:", e);
-    return bursAIErrorResponse(e, corsHeaders);
+    return bursAIErrorResponse(e, CORS_HEADERS);
   }
 });

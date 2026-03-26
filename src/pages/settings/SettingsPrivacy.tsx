@@ -13,6 +13,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { logger } from '@/lib/logger';
 import { asPreferences } from '@/types/preferences';
 import type { Json } from '@/integrations/supabase/types';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -80,13 +81,13 @@ export default function SettingsPrivacy() {
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
-      const { data, error } = await invokeEdgeFunction<{ success: boolean; error?: string }>('delete_user_account', { retries: 0, timeout: 30000, idempotent: true });
+      const { data, error } = await invokeEdgeFunction<{ success: boolean; error?: string }>('delete_user_account', { retries: 0, timeout: 30000 });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Unknown error');
       toast.success(t('settings.delete_success'));
       await signOut();
       navigate('/auth');
-    } catch (err) { console.error('Delete account failed:', err); toast.error(t('settings.delete_error')); }
+    } catch (err) { logger.error('Delete account failed:', err); toast.error(t('settings.delete_error')); }
     finally { setIsDeleting(false); }
   };
 

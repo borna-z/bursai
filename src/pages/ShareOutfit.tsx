@@ -11,6 +11,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { OutfitReactions } from '@/components/social/OutfitReactions';
 import { getOccasionLabel } from '@/lib/occasionLabel';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { logger } from '@/lib/logger';
 
 interface OutfitItem {
   id: string;
@@ -40,7 +41,7 @@ interface SharedOutfit {
 async function trackEvent(eventType: string, metadata: object = {}) {
   try {
     await supabase.from('analytics_events').insert([{ event_type: eventType, metadata: metadata as Record<string, string> }]);
-  } catch (err) { console.error('Analytics error:', err); }
+  } catch (err) { logger.error('Analytics error:', err); }
 }
 
 export default function ShareOutfitPage() {
@@ -103,7 +104,7 @@ export default function ShareOutfitPage() {
       link.download = `outfit-${outfit.occasion}.png`;
       link.href = dataUrl; link.click();
       toast.success(t('share.downloaded'));
-    } catch (error) { console.error('Download error:', error); toast.error(t('share.download_error')); }
+    } catch (error) { logger.error('Download error:', error); toast.error(t('share.download_error')); }
     finally { setIsDownloading(false); }
   };
 

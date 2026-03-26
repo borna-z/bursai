@@ -2,13 +2,7 @@ import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, estimateMaxTokens } from "../_shared/burs-ai.ts";
 
-import { allowedOrigin } from "../_shared/cors.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 // ─────────────────────────────────────────────
 // TYPES
@@ -3965,14 +3959,14 @@ function buildSwapReason(
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
@@ -3986,7 +3980,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
     const userId = user.id;
@@ -4007,7 +4001,7 @@ serve(async (req) => {
         await recordPairOutcome(svc, userId, garmentIds, positive);
       }
       return new Response(JSON.stringify({ ok: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
@@ -4108,7 +4102,7 @@ serve(async (req) => {
     if (garments.length < 3) {
       return new Response(
         JSON.stringify({ error: "You need at least 3 garments to generate an outfit" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
       );
     }
 
@@ -4299,7 +4293,7 @@ serve(async (req) => {
         confidence_score: swapConf.confidence_score,
         confidence_level: swapConf.confidence_level,
         limitation_note: swapConf.limitation_note,
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }), { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
     }
 
     // ── PLAN_WEEK MODE ──
@@ -4307,7 +4301,7 @@ serve(async (req) => {
       const days: { occasion: string; weather: WeatherInput; date: string; event_title?: string }[] = body.days || [];
       if (days.length === 0) {
         return new Response(JSON.stringify({ error: "No days provided" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
         });
       }
 
@@ -4439,7 +4433,7 @@ serve(async (req) => {
           items: laundryItems.slice(0, 5).map(i => ({ id: i.id, title: i.title, category: i.category })),
           warning: laundryCount >= 5 ? "Several items are in the laundry — this may limit variety across the week." : null,
         } : undefined,
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }), { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
     }
 
     // ── GENERATE / SUGGEST MODE ──
@@ -4487,7 +4481,7 @@ serve(async (req) => {
           missing_slots: failure.missing_slots,
           available_slots: failure.available_slots,
         }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
       );
     }
 
@@ -4523,12 +4517,12 @@ serve(async (req) => {
     if (aiResult.error) {
       if (aiResult.status === 429) {
         return new Response(JSON.stringify({ error: "Too many requests, please try again." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
         });
       }
       if (aiResult.status === 402) {
         return new Response(JSON.stringify({ error: "AI-krediter slut." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 402, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
         });
       }
       // Fallback: use best scoring combo without AI explanation
@@ -4548,7 +4542,7 @@ serve(async (req) => {
           };
         });
         return new Response(JSON.stringify({ suggestions }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
         });
       }
       const fallbackLayering = validateLayeringCompleteness(best.items);
@@ -4559,7 +4553,7 @@ serve(async (req) => {
         layer_order: fallbackLayering.layer_order,
         needs_base_layer: fallbackLayering.needs_base_layer,
         occasion_submode: occasionSubmode,
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }), { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
     }
 
     // ── FORMAT RESPONSE ──
@@ -4595,7 +4589,7 @@ serve(async (req) => {
         occasion_submode: occasionSubmode,
         laundry: laundryCount > 0 ? { count: laundryCount, items: laundryItems.slice(0, 5).map(i => ({ id: i.id, title: i.title, category: i.category })) } : undefined,
         wardrobe_insights: wardrobeInsights.length > 0 ? wardrobeInsights : undefined,
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }), { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
     }
 
     // Suggest mode
@@ -4646,12 +4640,12 @@ serve(async (req) => {
           confidence_level: confidence.confidence_level,
           limitation_note: limitationNote,
           wardrobe_insights: wardrobeInsights.length > 0 ? wardrobeInsights : undefined,
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }), { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
       }
       // Only 422 if we truly have no combos at all
       return new Response(JSON.stringify(buildIncompleteOutfitFailure(weather, occasion, slotCandidates)), {
         status: 422,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
@@ -4662,13 +4656,13 @@ serve(async (req) => {
       limitation_note: limitationNote,
       wardrobe_insights: wardrobeInsights.length > 0 ? wardrobeInsights : undefined,
     }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
 
   } catch (error) {
     console.error("BURS Style Engine error:", error);
     return new Response(JSON.stringify({
       error: error instanceof Error ? error.message : "Unknown error",
-    }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }), { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
   }
 });

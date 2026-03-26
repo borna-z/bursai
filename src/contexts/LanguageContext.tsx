@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { type Locale, SUPPORTED_LOCALES } from '@/i18n/types';
-import { loadLocale } from '@/i18n/translations';
 import { asPreferences } from '@/types/preferences';
+import { logger } from '@/lib/logger';
 
 const RTL_LOCALES = new Set<Locale>(['ar', 'fa']);
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
@@ -20,14 +20,20 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 /** Cache loaded locale dictionaries so we never re-import */
 const dictCache = new Map<string, Record<string, string>>();
+let translationsPromise: Promise<Record<Locale, Record<string, string>>> | null = null;
 
-/** Load a single locale dict, with caching */
-async function loadCachedLocale(locale: Locale): Promise<Record<string, string>> {
-  const cached = dictCache.get(locale);
-  if (cached) return cached;
-  const dict = await loadLocale(locale);
-  dictCache.set(locale, dict);
-  return dict;
+function loadAllTranslations(): Promise<Record<Locale, Record<string, string>>> {
+  if (!translationsPromise) {
+    translationsPromise = import('@/i18n/translations').then(mod => {
+      const t = mod.translations;
+      // Pre-populate cache
+      for (const [loc, dict] of Object.entries(t)) {
+        dictCache.set(loc, dict as Record<string, string>);
+      }
+      return t;
+    });
+  }
+  return translationsPromise;
 }
 
 function getInitialLocale(): Locale {
@@ -45,13 +51,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   // Load translation dicts on mount and when locale changes
   useEffect(() => {
-    // Always load English as fallback + the active locale
-    Promise.all([
-      loadCachedLocale(locale),
-      loadCachedLocale('en'),
-    ]).then(([localeDict, englishDict]) => {
-      setDict(localeDict);
-      setEnDict(englishDict);
+    loadAllTranslations().then(translations => {
+      setDict(translations[locale] || {});
+      setEnDict(translations['en'] || {});
     });
   }, [locale]);
 
@@ -91,7 +93,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     const value = dict[key] ?? enDict[key];
     if (value != null) return value;
     if (import.meta.env.DEV) {
-      console.warn(`[i18n] Missing translation key: "${key}"`);
+      logger.warn(`[i18n] Missing translation key: "${key}"`);
     }
     // Safety net: humanize the key instead of showing raw dotted/underscored strings
     const segment = key.includes('.') ? key.slice(key.lastIndexOf('.') + 1) : key;

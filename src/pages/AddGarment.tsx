@@ -33,6 +33,7 @@ import { getGarmentProcessingMessage } from '@/lib/garmentImage';
 import { getBulkAddSelectionLimit } from '@/lib/bulkAddLimits';
 import { buildGarmentIntelligenceFields, standardizeGarmentAiRaw, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
 import { GarmentConfirmSheet } from '@/components/garment/GarmentConfirmSheet';
+import { logger } from '@/lib/logger';
 import { useProfile } from '@/hooks/useProfile';
 import { asPreferences } from '@/types/preferences';
 
@@ -339,7 +340,7 @@ export default function AddGarmentPage() {
       // Run AI analysis
       await runAnalysis(path);
     } catch (err) {
-      console.error('Upload/analysis error:', err);
+      logger.error('Upload/analysis error:', err);
       toast.error(t('addgarment.upload_error'));
       setStep('upload');
     }
@@ -414,7 +415,7 @@ export default function AddGarmentPage() {
         navigate('/wardrobe');
       }
     } catch (error) {
-      console.error('Error saving garment:', error);
+      logger.error('Error saving garment:', error);
       toast.error(t('common.something_wrong'));
     } finally {
       setIsLoading(false);

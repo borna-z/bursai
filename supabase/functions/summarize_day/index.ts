@@ -3,17 +3,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
 import { VOICE_DAY_SUMMARY } from "../_shared/burs-voice.ts";
 
-import { allowedOrigin } from "../_shared/cors.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   try {
@@ -22,7 +16,7 @@ serve(async (req) => {
     if (!events || events.length === 0) {
       return new Response(
         JSON.stringify({ summary: null, priorities: [], outfit_hints: [], transitions: null }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
       );
     }
 
@@ -131,17 +125,17 @@ serve(async (req) => {
       if (!result.transitions) result.transitions = null;
 
       return new Response(JSON.stringify(result), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     } catch (aiErr) {
       console.error("AI failed for summarize_day:", aiErr);
       return new Response(
         JSON.stringify({ summary: null, priorities: [], outfit_hints: [], transitions: null }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
       );
     }
   } catch (e) {
     console.error("summarize_day error:", e);
-    return bursAIErrorResponse(e, corsHeaders);
+    return bursAIErrorResponse(e, CORS_HEADERS);
   }
 });

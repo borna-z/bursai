@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { logger } from '@/lib/logger';
 import type { GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
 import type { Json } from '@/integrations/supabase/types';
 import { buildGarmentIntelligenceFields, GARMENT_IMAGE_PROCESSING_VERSION, standardizeGarmentAiRaw, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
@@ -37,7 +38,7 @@ export async function saveGarmentInBackground(
       });
 
     if (uploadError) {
-      console.error('Upload error:', uploadError);
+      logger.error('Upload error:', uploadError);
       return;
     }
 
@@ -68,7 +69,7 @@ export async function saveGarmentInBackground(
     });
 
     if (insertError) {
-      console.error('Insert error:', insertError);
+      logger.error('Insert error:', insertError);
       return;
     }
 
@@ -84,10 +85,10 @@ export async function saveGarmentInBackground(
 
     // Duplicate detection in background (never blocks)
     detectDuplicates(result.analysis, garmentId, storagePath).catch((err) => {
-      console.error('Duplicate detection error (non-blocking):', err);
+      logger.error('Duplicate detection error (non-blocking):', err);
     });
   } catch (err) {
-    console.error('Background save error:', err);
+    logger.error('Background save error:', err);
   } finally {
     URL.revokeObjectURL(result.thumbnailUrl);
   }

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { logger } from '@/lib/logger';
 
 type CallbackStatus = 'loading' | 'success' | 'empty' | 'error';
 
@@ -75,7 +76,7 @@ export default function GoogleCalendarCallback() {
         setMessage(t('gcal.redirecting'));
         setTimeout(() => navigate('/settings', { replace: true }), 1500);
       } catch (err) {
-        console.error('Google calendar callback error:', err);
+        logger.error('Google calendar callback error:', err);
         setStatus('error');
         setMessage(err instanceof Error ? err.message : t('gcal.error'));
       }

@@ -11,18 +11,13 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import { allowedOrigin } from "../_shared/cors.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 const GOOGLE_SCOPES = "https://www.googleapis.com/auth/calendar.events.readonly";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   try {
@@ -31,7 +26,7 @@ Deno.serve(async (req) => {
     if (!clientId || !clientSecret) {
       return new Response(JSON.stringify({ error: "Google Calendar not configured" }), {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
@@ -46,7 +41,7 @@ Deno.serve(async (req) => {
       if (!authHeader) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
         });
       }
 
@@ -58,7 +53,7 @@ Deno.serve(async (req) => {
       if (userError || !userData.user) {
         return new Response(JSON.stringify({ error: "Invalid auth" }), {
           status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
         });
       }
       const user = userData.user;
@@ -75,7 +70,7 @@ Deno.serve(async (req) => {
 
       const url = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
       return new Response(JSON.stringify({ url }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
@@ -85,7 +80,7 @@ Deno.serve(async (req) => {
       if (!authHeader) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
         });
       }
 
@@ -96,7 +91,7 @@ Deno.serve(async (req) => {
       if (userError || !userData.user) {
         return new Response(JSON.stringify({ error: "Invalid auth" }), {
           status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
         });
       }
       const user = userData.user;
@@ -119,7 +114,7 @@ Deno.serve(async (req) => {
         console.error("Token exchange failed:", tokenData);
         return new Response(JSON.stringify({ error: "Failed to exchange code" }), {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
         });
       }
 
@@ -146,12 +141,12 @@ Deno.serve(async (req) => {
         console.error("Insert connection error:", insertError);
         return new Response(JSON.stringify({ error: "Failed to save connection" }), {
           status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
         });
       }
 
       return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
@@ -161,7 +156,7 @@ Deno.serve(async (req) => {
       if (!authHeader) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
         });
       }
 
@@ -172,7 +167,7 @@ Deno.serve(async (req) => {
       if (userError || !userData.user) {
         return new Response(JSON.stringify({ error: "Invalid auth" }), {
           status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
         });
       }
       const user = userData.user;
@@ -190,19 +185,19 @@ Deno.serve(async (req) => {
       await adminClient.from("profiles").update({ last_calendar_sync: null }).eq("id", user.id);
 
       return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
     return new Response(JSON.stringify({ error: "Invalid action" }), {
       status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (error) {
     console.error("Google calendar auth error:", error);
     return new Response(JSON.stringify({ error: "An unexpected error occurred" }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   }
 });
