@@ -88,6 +88,7 @@ export interface BursAIResponse {
   data: any;
   model_used: string;
   from_cache: boolean;
+  finish_reason?: string;
 }
 
 export class BursAIError extends Error {
@@ -423,6 +424,8 @@ export async function callBursAI(
         const result = parseResult(aiData);
         if (result?.__parseError) { lastError = new Error("Failed to parse AI tool call response"); break; }
 
+        const finishReason = aiData.choices?.[0]?.finish_reason as string | undefined;
+
         if (cacheTtlSeconds > 0 && cacheKey) {
           if (supabaseServiceClient) storeCache(supabaseServiceClient, cacheKey, result, model, cacheTtlSeconds);
         }
@@ -430,7 +433,7 @@ export async function callBursAI(
           functionName: options.functionName, model_used: model,
           latency_ms: Date.now() - startTime, from_cache: false, status: "ok",
         });
-        return { data: result, model_used: model, from_cache: false };
+        return { data: result, model_used: model, from_cache: false, finish_reason: finishReason };
       }
     }
 

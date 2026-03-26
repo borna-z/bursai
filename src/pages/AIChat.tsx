@@ -94,11 +94,14 @@ function buildRequestMessages(messages: Message[]): Message[] {
 
 
 function findLatestActiveLookMessageIndex(messages: Message[]): number {
+  // Find the most recent assistant message that contains outfit tags.
+  // Unlike before, keep searching past non-outfit assistant messages so
+  // follow-up turns don't collapse the outfit card from a prior turn.
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
     if (message.role !== 'assistant') continue;
     const text = getTextContent(message.content);
-    return parseOutfitTags(text).length > 0 ? index : -1;
+    if (parseOutfitTags(text).length > 0) return index;
   }
 
   return -1;
@@ -348,13 +351,18 @@ export default function AIChat() {
       }
     } catch (err) {
       const isAbort = err instanceof DOMException && err.name === 'AbortError';
-      const msg = isAbort
-        ? 'Stylist response timed out. Please try again.'
-        : err instanceof Error
-          ? err.message
-          : t('chat.unknown_error');
-      toast.error(`${t('chat.error')} ${msg}`);
-      setMessages(prev => prev.filter((m, i) => !(i === prev.length - 1 && m.role === 'assistant' && getTextContent(m.content) === '')));
+      // Show a graceful in-chat fallback instead of just a toast + blank space
+      const fallbackText = isAbort
+        ? (t('chat.stylist_timeout') || 'I lost my train of thought — could you try that again?')
+        : (t('chat.stylist_fallback') || 'Something went wrong on my end. Try asking again or rephrase your request.');
+      setMessages(prev => {
+        const updated = [...prev];
+        const lastIdx = updated.length - 1;
+        if (updated[lastIdx]?.role === 'assistant') {
+          updated[lastIdx] = { role: 'assistant', content: fallbackText };
+        }
+        return updated;
+      });
     } finally {
       if (streamTimeoutId) clearTimeout(streamTimeoutId);
       if (activeRequestIdRef.current === requestId) {
