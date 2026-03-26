@@ -10,44 +10,15 @@ import {
 import { cn } from '@/lib/utils';
 import { useOutfits, useDeleteOutfit, type OutfitWithItems } from '@/hooks/useOutfits';
 import { EmptyState } from '@/components/layout/EmptyState';
-import { LazyImageSimple } from '@/components/ui/lazy-image';
-import { BursMonogram } from '@/components/ui/BursMonogram';
+import { OutfitPreviewCard } from '@/components/ui/OutfitPreviewCard';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
 import type { Locale as AppLocale } from '@/i18n/types';
 import { toast } from 'sonner';
 import { TAP_TRANSITION } from '@/lib/motion';
-import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 type FilterTab = 'all' | 'saved' | 'planned';
-
-function OutfitGrid({ items }: { items: OutfitWithItems['outfit_items'] }) {
-  const slots = items.slice(0, 4);
-  return (
-    <div className="aspect-square grid grid-cols-2 grid-rows-2 bg-background" style={{ gap: '0.5px' }}>
-      {Array.from({ length: 4 }, (_, i) => {
-        const item = slots[i];
-        if (item?.garment) {
-          return (
-            <div key={item.id} className="aspect-square overflow-hidden bg-background">
-              <LazyImageSimple
-                imagePath={getPreferredGarmentImagePath(item.garment)}
-                alt={item.garment.title || item.slot}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          );
-        }
-        return (
-          <div key={`empty-${i}`} className="aspect-square bg-background flex items-center justify-center">
-            <BursMonogram size={18} className="opacity-10" />
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 function OutfitCard({
   outfit,
@@ -72,15 +43,22 @@ function OutfitCard({
     }, 500);
   };
 
+  const clearLongPressTimer = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
   const handlePointerUp = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
+    clearLongPressTimer();
     if (!didLongPress.current) {
       navigate(`/outfits/${outfit.id}`);
     }
   };
 
   const handlePointerLeave = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
+    clearLongPressTimer();
   };
 
   const plannedFor = outfit.planned_for;
@@ -93,7 +71,7 @@ function OutfitCard({
   const occasionLabel = t(`occasion.${outfit.occasion}`) || outfit.occasion || '';
   const excerpt = outfit.explanation
     ? outfit.explanation.length > 60
-      ? `${outfit.explanation.slice(0, 60)}…`
+      ? `${outfit.explanation.slice(0, 60)}...`
       : outfit.explanation
     : '';
 
@@ -106,41 +84,38 @@ function OutfitCard({
       onPointerLeave={handlePointerLeave}
       className="w-full cursor-pointer select-none will-change-transform"
     >
-      <div className="bg-[hsl(var(--card))] overflow-hidden">
-        <OutfitGrid items={outfit.outfit_items} />
-        <div className="px-3 pt-2.5 pb-3 space-y-1">
-          <div className="flex items-center gap-1.5 min-w-0">
+      <OutfitPreviewCard
+        items={outfit.outfit_items}
+        meta={(
+          <div className="flex min-w-0 items-center gap-1.5">
             {occasionLabel && (
-              <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/50 truncate">
+              <p className="truncate font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/50">
                 {occasionLabel}
               </p>
             )}
             {outfit.saved && (
-              <Bookmark className="w-3 h-3 fill-primary text-primary flex-shrink-0" />
+              <Bookmark className="h-3 w-3 flex-shrink-0 fill-primary text-primary" />
             )}
             {outfit.rating && (
-              <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground shrink-0">
-                <Star className="w-2.5 h-2.5 fill-primary text-primary" />{outfit.rating}
+              <div className="flex shrink-0 items-center gap-0.5 text-[10px] text-muted-foreground">
+                <Star className="h-2.5 w-2.5 fill-primary text-primary" />
+                {outfit.rating}
               </div>
             )}
           </div>
-          {excerpt && (
-            <p className="font-['Playfair_Display'] italic text-[13px] text-foreground/70 leading-snug line-clamp-1">
-              {excerpt}
-            </p>
-          )}
-          {dateStr && (
-            <div className="flex items-center gap-1">
-              {plannedFor ? (
-                <Calendar className="w-2.5 h-2.5 text-muted-foreground/60" />
-              ) : (
-                <Clock className="w-2.5 h-2.5 text-muted-foreground/60" />
-              )}
-              <span className="text-[10px] text-muted-foreground/60">{dateStr}</span>
-            </div>
-          )}
-        </div>
-      </div>
+        )}
+        excerpt={excerpt}
+        footer={dateStr ? (
+          <div className="flex items-center gap-1">
+            {plannedFor ? (
+              <Calendar className="h-2.5 w-2.5 text-muted-foreground/60" />
+            ) : (
+              <Clock className="h-2.5 w-2.5 text-muted-foreground/60" />
+            )}
+            <span className="text-[10px] text-muted-foreground/60">{dateStr}</span>
+          </div>
+        ) : undefined}
+      />
     </motion.div>
   );
 }
@@ -191,7 +166,7 @@ export function WardrobeOutfitsTab() {
         icon={Sparkles}
         title="No outfits yet"
         description="Generate your first outfit and it will appear here. Every look is saved for easy access."
-        action={{ label: t('outfits.create'), onClick: () => navigate('/'), icon: Sparkles }}
+        action={{ label: t('outfits.create'), onClick: () => navigate('/ai/generate'), icon: Sparkles }}
         variant="editorial"
       />
     );
@@ -205,14 +180,13 @@ export function WardrobeOutfitsTab() {
 
   return (
     <>
-      {/* Segmented filter pills */}
-      <div className="flex gap-2 mb-4">
+      <div className="mb-4 flex gap-2">
         {filters.map((f) => (
           <button
             key={f.key}
             onClick={() => setFilter(f.key)}
             className={cn(
-              'px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all duration-200',
+              'rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-all duration-200',
               filter === f.key
                 ? 'bg-foreground text-background'
                 : 'bg-muted/30 text-muted-foreground hover:bg-muted/50'
@@ -223,7 +197,6 @@ export function WardrobeOutfitsTab() {
         ))}
       </div>
 
-      {/* Outfit grid */}
       {filtered.length > 0 ? (
         <div className="grid grid-cols-2 gap-3">
           {filtered.map((outfit, index) => (
@@ -251,7 +224,6 @@ export function WardrobeOutfitsTab() {
         />
       )}
 
-      {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>

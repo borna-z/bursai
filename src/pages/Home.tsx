@@ -20,14 +20,12 @@ import { useWeather } from '@/hooks/useWeather';
 import { useLocation } from '@/contexts/LocationContext';
 import { useCalendarEventsRange } from '@/hooks/useCalendarSync';
 import { buildTodaySuggestions } from '@/lib/buildTodaySuggestions';
-import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { hapticLight } from '@/lib/haptics';
 import { useMotionPreset } from '@/lib/motion';
 import { getOccasionLabel } from '@/lib/occasionLabel';
 import { FadeReplace } from '@/components/ui/fade-replace';
 import { HomePageSkeleton } from '@/components/ui/skeletons';
-import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
-import { BursMonogram } from '@/components/ui/BursMonogram';
+import { OutfitComposition } from '@/components/ui/OutfitComposition';
 import { getStylistTip } from '@/lib/stylistCopy';
 import { StyleDNACard } from '@/components/insights/StyleDNACard';
 import { useStyleDNA } from '@/hooks/useStyleDNA';
@@ -184,10 +182,7 @@ export default function HomePage() {
             fallback={<HomePageSkeleton />}
           >
             {homeState === 'empty_wardrobe' ? (
-              <div
-                className="bg-foreground text-center"
-                style={{ marginLeft: '-1.25rem', marginRight: '-1.25rem', padding: '28px 20px' }}
-              >
+              <div className="-mx-5 bg-foreground px-5 py-7 text-center">
                 <div className="w-12 h-12 bg-background/[0.08] flex items-center justify-center mx-auto mb-4">
                   <Shirt className="w-[22px] h-[22px] text-background/50" />
                 </div>
@@ -225,31 +220,14 @@ export default function HomePage() {
                 animate="animate"
                 transition={reveal.transition}
                 onClick={() => { hapticLight(); navigate(`/outfits/${todayOutfit.id}`); }}
-                className="bg-foreground block border-none text-left cursor-pointer p-5"
-                style={{ marginLeft: '-1.25rem', marginRight: '-1.25rem', width: 'calc(100% + 2.5rem)' }}
+                className="-mx-5 block border-none bg-foreground p-5 text-left cursor-pointer"
               >
                 {/* 2×2 outfit composition */}
-                <div className="w-[120px] aspect-square grid grid-cols-2 grid-rows-2 bg-background mb-3.5" style={{ gap: '0.5px' }}>
-                  {Array.from({ length: 4 }, (_, i) => {
-                    const item = todayOutfit.outfit_items[i];
-                    if (item?.garment) {
-                      return (
-                        <div key={item.id} className="aspect-square overflow-hidden bg-background">
-                          <LazyImageSimple
-                            imagePath={getPreferredGarmentImagePath(item.garment)}
-                            alt={item.garment.title || item.slot}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      );
-                    }
-                    return (
-                      <div key={`empty-${i}`} className="aspect-square bg-background flex items-center justify-center">
-                        <BursMonogram size={10} className="opacity-10" />
-                      </div>
-                    );
-                  })}
-                </div>
+                <OutfitComposition
+                  items={todayOutfit.outfit_items}
+                  compact
+                  className="mb-3.5 w-[120px]"
+                />
                 {/* Occasion chip */}
                 <p className="font-['DM_Sans'] text-[8px] font-medium uppercase tracking-[0.12em] text-background/50 mb-2">
                   {getOccasionLabel(todayOutfit.occasion || '', t)}
@@ -266,7 +244,7 @@ export default function HomePage() {
               </motion.button>
             ) : (
               /* no_outfit */
-              <div className="bg-foreground" style={{ marginLeft: '-1.25rem', marginRight: '-1.25rem' }}>
+              <div className="-mx-5 bg-foreground">
                 <TodayOutfitHero
                   weather={weather ?? undefined}
                   garmentCount={garmentCount ?? undefined}
@@ -306,7 +284,7 @@ export default function HomePage() {
             <div
               role="button"
               onClick={() => { hapticLight(); navigate('/insights'); }}
-              style={{ cursor: 'pointer' }}
+              className="cursor-pointer"
             >
               <StyleDNACard />
             </div>
