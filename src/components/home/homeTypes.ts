@@ -13,8 +13,7 @@ export interface HomeQuickAction {
   title: string;
   description: string;
   icon: LucideIcon;
-  accentClass: string;
-  featured?: boolean;
+  toneClass: string;
   onClick: () => void;
 }
 
@@ -25,7 +24,7 @@ export interface HomeCommandContext {
   recentOutfits: OutfitWithItems[];
   weatherSummary?: string | null;
   scheduleSummary?: string | null;
-  stylistLine: string;
+  coachNudge?: boolean;
 }
 
 export interface HomeGapResultSummary {

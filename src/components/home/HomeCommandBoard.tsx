@@ -1,6 +1,12 @@
 import { motion } from 'framer-motion';
-import { ArrowRight, CalendarRange, CloudSun, Layers3, Sparkles, Wind } from 'lucide-react';
-import bursLogoWhite from '@/assets/burs-logo-white.png';
+import {
+  ArrowRight,
+  CalendarRange,
+  CloudSun,
+  Layers3,
+  Shirt,
+  Sparkles,
+} from 'lucide-react';
 import type { HomeCommandContext } from '@/components/home/homeTypes';
 import { Button } from '@/components/ui/button';
 import { OutfitComposition } from '@/components/ui/OutfitComposition';
@@ -12,42 +18,50 @@ interface HomeCommandBoardProps extends HomeCommandContext {
   onSecondaryAction: () => void;
 }
 
-function getBoardHeadline(state: HomeCommandContext['state']) {
+const REQUIRED_SLOTS = ['Top', 'Bottom', 'Shoes'] as const;
+
+function truncate(text: string, max: number) {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+function getStatusLabel(state: HomeCommandContext['state']) {
   switch (state) {
     case 'empty_wardrobe':
-      return 'Blueprint your wardrobe';
+      return 'Start';
     case 'outfit_planned':
-      return 'Today is already mapped out';
+      return 'Ready';
     case 'weather_alert':
-      return 'Weather just changed the brief';
+      return 'Weather';
     default:
-      return 'Build today from the full birdview';
+      return 'Open';
   }
 }
 
-function getBoardSummary(state: HomeCommandContext['state'], stylistLine: string) {
+function getWorkspaceTitle(state: HomeCommandContext['state'], coachNudge?: boolean) {
   switch (state) {
     case 'empty_wardrobe':
-      return 'You only need a top, a bottom, and shoes to unlock your first AI-styled outfit.';
+      return coachNudge ? 'Start with three anchors' : 'Build your first styling set';
     case 'outfit_planned':
-      return 'Your plan is set. Review the look, then branch into styling, planning, or discovery from here.';
+      return "Today's look is already set";
     case 'weather_alert':
-      return 'The forecast shifted. Rebuild around the new weather before the day gets moving.';
+      return 'Weather changed the brief';
     default:
-      return stylistLine;
+      return 'No look is saved yet';
   }
 }
 
-function getStateLabel(state: HomeCommandContext['state']) {
+function getWorkspaceSummary(state: HomeCommandContext['state'], coachNudge?: boolean) {
   switch (state) {
     case 'empty_wardrobe':
-      return 'Build Mode';
+      return coachNudge
+        ? 'Top, bottom, and shoes unlock the first complete outfit.'
+        : 'Three core pieces are enough to turn styling on.';
     case 'outfit_planned':
-      return 'Plan Ready';
+      return 'Review the saved look or spin up another option.';
     case 'weather_alert':
-      return 'Weather Alert';
+      return 'Refresh the outfit once against the live forecast.';
     default:
-      return 'Open Brief';
+      return 'Use recent looks, today’s context, or one tap styling to get moving.';
   }
 }
 
@@ -56,8 +70,6 @@ function getProgressWidth(garmentCount?: number) {
   return Math.min((garmentCount / 3) * 100, 100);
 }
 
-const slotLabels = ['Top', 'Bottom', 'Shoes'] as const;
-
 export function HomeCommandBoard({
   state,
   garmentCount,
@@ -65,228 +77,207 @@ export function HomeCommandBoard({
   recentOutfits,
   weatherSummary,
   scheduleSummary,
-  stylistLine,
+  coachNudge = false,
   secondaryLabel,
   onPrimaryAction,
   onSecondaryAction,
 }: HomeCommandBoardProps) {
-  const boardHeadline = getBoardHeadline(state);
-  const boardSummary = getBoardSummary(state, stylistLine);
   const progressWidth = getProgressWidth(garmentCount);
+  const title = getWorkspaceTitle(state, coachNudge);
+  const summary = getWorkspaceSummary(state, coachNudge);
+  const recentLookCount = recentOutfits.slice(0, 3).length;
 
   return (
     <motion.section
-      initial={{ opacity: 0, y: 18 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
       data-testid={`home-command-board-${state}`}
-      className="relative overflow-hidden rounded-[2rem] border border-[#111111]/10 bg-[#171412] text-[#f6f0e8] shadow-[0_24px_60px_rgba(20,17,14,0.18)]"
-      style={{
-        backgroundImage: `
-          linear-gradient(rgba(98,116,190,0.12) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(98,116,190,0.12) 1px, transparent 1px),
-          radial-gradient(circle at top left, rgba(109,128,214,0.2), transparent 38%),
-          linear-gradient(160deg, rgba(255,255,255,0.03), rgba(255,255,255,0))
-        `,
-        backgroundSize: '34px 34px, 34px 34px, auto, auto',
-      }}
+      className="relative overflow-hidden rounded-[1.9rem] border border-foreground/[0.08] bg-card/95 shadow-[0_18px_40px_rgba(22,18,15,0.06)]"
     >
-      <div className="pointer-events-none absolute inset-0 rounded-[2rem] border border-white/5" />
-      <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[minmax(0,1.3fr)_290px] lg:gap-8">
-        <div className="relative space-y-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <p className="text-[0.68rem] font-medium uppercase tracking-[0.32em] text-[#c3c8e8]/72">
-                  BURS Command Center
-                </p>
-                <h2 className="max-w-[15ch] text-[1.95rem] font-semibold leading-[0.96] tracking-[-0.045em] text-[#f6f0e8] sm:text-[2.35rem]">
-                  {boardHeadline}
-                </h2>
-              </div>
-              <p className="max-w-[42ch] text-[0.96rem] leading-7 text-[#efe7dd]/74">
-                {boardSummary}
-              </p>
-            </div>
-            <img
-              src={bursLogoWhite}
-              alt="BURS"
-              className="mt-0.5 hidden h-10 w-auto object-contain opacity-90 sm:block"
-            />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_top_right,rgba(82,99,179,0.16),transparent_46%),linear-gradient(180deg,rgba(255,255,255,0.32),transparent)]"
+      />
+
+      <div className="relative space-y-5 p-5 sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-2">
+            <p className="label-editorial text-muted-foreground/60">Today</p>
+            <h2 className="max-w-[16ch] text-[1.55rem] font-semibold tracking-[-0.045em] text-foreground sm:text-[1.75rem]">
+              {title}
+            </h2>
+            <p className="max-w-[40ch] text-[0.93rem] leading-6 text-muted-foreground">
+              {summary}
+            </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-[0.72rem] uppercase tracking-[0.18em] text-[#f2ecdf]/68">
-              <Layers3 className="size-3.5" />
-              {getStateLabel(state)}
-            </div>
-            {weatherSummary ? (
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#8b98d1]/18 bg-[#8b98d1]/8 px-3 py-1.5 text-[0.8rem] text-[#ebe5d9]/80">
-                <CloudSun className="size-3.5" />
-                {weatherSummary}
-              </div>
-            ) : null}
-            {scheduleSummary ? (
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-[0.8rem] text-[#ebe5d9]/78">
-                <CalendarRange className="size-3.5" />
-                {scheduleSummary}
-              </div>
-            ) : null}
+          <div className="inline-flex items-center gap-2 self-start rounded-full border border-foreground/[0.08] bg-background/65 px-3 py-1.5 text-[0.7rem] font-medium uppercase tracking-[0.22em] text-muted-foreground/75">
+            <Layers3 className="size-3.5" />
+            {getStatusLabel(state)}
           </div>
+        </div>
 
-          {state === 'outfit_planned' && todayOutfit ? (
-            <div
-              data-testid="home-command-board-visual-planned"
-              className="grid gap-4 rounded-[1.5rem] border border-white/10 bg-white/5 p-4 sm:grid-cols-[140px_minmax(0,1fr)]"
-            >
-              <OutfitComposition
-                items={todayOutfit.outfit_items}
-                compact
-                className="w-[132px] rounded-[1.2rem] overflow-hidden border border-white/10 bg-[#f7f2ea]"
-              />
-              <div className="space-y-3">
-                <div>
-                  <p className="text-[0.72rem] uppercase tracking-[0.24em] text-[#c3c8e8]/72">
-                    Saved for today
-                  </p>
-                  <p className="mt-2 text-[0.98rem] leading-7 text-[#f1ebde]/80">
-                    {todayOutfit.explanation || 'This outfit is locked in and ready to wear.'}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2 text-[0.8rem] text-[#d2d7ef]/70">
-                  <span className="inline-flex items-center gap-2 rounded-full bg-[#8b98d1]/10 px-3 py-1.5">
-                    <Sparkles className="size-3.5" />
-                    Review fit and notes
-                  </span>
-                </div>
-              </div>
+        <div className="flex flex-wrap gap-2">
+          <div className="inline-flex items-center gap-2 rounded-full border border-foreground/[0.08] bg-background/70 px-3 py-1.5 text-[0.82rem] text-foreground/80">
+            <Shirt className="size-3.5 text-muted-foreground/70" />
+            {(garmentCount ?? 0)} pieces
+          </div>
+          {weatherSummary ? (
+            <div className="inline-flex items-center gap-2 rounded-full border border-foreground/[0.08] bg-background/70 px-3 py-1.5 text-[0.82rem] text-foreground/80">
+              <CloudSun className="size-3.5 text-muted-foreground/70" />
+              {weatherSummary}
             </div>
           ) : null}
-
-          {state === 'empty_wardrobe' ? (
-            <div
-              data-testid="home-command-board-visual-empty"
-              className="rounded-[1.5rem] border border-dashed border-[#8b98d1]/28 bg-white/4 p-4 sm:p-5"
-            >
-              <div className="grid gap-3 sm:grid-cols-3">
-                {slotLabels.map((slot) => (
-                  <div
-                    key={slot}
-                    className="rounded-[1.1rem] border border-white/10 bg-[#f7f2ea]/5 px-4 py-5 text-left"
-                  >
-                    <p className="text-[0.68rem] uppercase tracking-[0.22em] text-[#bfc6eb]/60">
-                      Required
-                    </p>
-                    <p className="mt-3 text-[1rem] font-medium text-[#f7f1e6]">{slot}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-5 space-y-2">
-                <div className="flex items-center justify-between text-[0.78rem] uppercase tracking-[0.18em] text-[#d9deef]/62">
-                  <span>Starter set</span>
-                  <span>{Math.min(garmentCount ?? 0, 3)}/3</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className="h-full rounded-full bg-[#d6defc]"
-                    style={{ width: `${progressWidth}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {state !== 'empty_wardrobe' && state !== 'outfit_planned' ? (
-            <div
-              data-testid="home-command-board-visual-recent"
-              className="grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-4 sm:grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.2fr)]"
-            >
-              {Array.from({ length: 3 }, (_, index) => {
-                const outfit = recentOutfits[index];
-
-                return (
-                  <div
-                    key={outfit?.id ?? `recent-placeholder-${index}`}
-                    className={cn(
-                      'rounded-[1.15rem] border border-white/10 bg-[#f7f2ea]/5 p-2.5',
-                      !outfit && 'flex min-h-[120px] items-center justify-center'
-                    )}
-                  >
-                    {outfit ? (
-                      <OutfitComposition
-                        items={outfit.outfit_items}
-                        compact
-                        className="overflow-hidden rounded-[0.95rem] border border-white/10 bg-[#f7f2ea]"
-                      />
-                    ) : (
-                      <span className="text-[0.72rem] uppercase tracking-[0.2em] text-[#d9deef]/48">
-                        Open slot
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-              <div className="flex flex-col justify-between rounded-[1.15rem] border border-dashed border-[#8b98d1]/22 bg-white/3 px-4 py-4">
-                <div>
-                  <p className="text-[0.72rem] uppercase tracking-[0.22em] text-[#bbc2e5]/62">
-                    Rotation note
-                  </p>
-                  <p className="mt-2 text-[1rem] leading-7 text-[#efe7dc]/80">
-                    Keep the day sharp by pulling from recent winners, then adjust for weather, mood, and plan.
-                  </p>
-                </div>
-                <div className="mt-4 inline-flex items-center gap-2 text-[0.82rem] text-[#e9e3d8]/70">
-                  <Wind className="size-3.5" />
-                  Live styling context stays on
-                </div>
-              </div>
+          {scheduleSummary ? (
+            <div className="inline-flex items-center gap-2 rounded-full border border-foreground/[0.08] bg-background/70 px-3 py-1.5 text-[0.82rem] text-foreground/80">
+              <CalendarRange className="size-3.5 text-muted-foreground/70" />
+              {scheduleSummary}
             </div>
           ) : null}
         </div>
 
-        <div className="flex flex-col gap-4 rounded-[1.6rem] border border-white/10 bg-white/6 p-4 sm:p-5">
-          <div className="space-y-2">
-            <p className="text-[0.72rem] uppercase tracking-[0.24em] text-[#bcc4e7]/65">
-              Primary action
-            </p>
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_228px]">
+          <div className="rounded-[1.45rem] border border-foreground/[0.07] bg-secondary/55 p-4">
+            {state === 'outfit_planned' && todayOutfit ? (
+              <div
+                data-testid="home-command-board-visual-planned"
+                className="grid items-start gap-4 sm:grid-cols-[120px_minmax(0,1fr)]"
+              >
+                <OutfitComposition
+                  items={todayOutfit.outfit_items}
+                  compact
+                  className="w-[116px] overflow-hidden rounded-[1.1rem] border border-foreground/[0.08] bg-background"
+                />
+
+                <div className="space-y-2">
+                  <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">
+                    Saved outfit
+                  </p>
+                  <p className="text-[1rem] font-medium tracking-[-0.02em] text-foreground">
+                    Complete, saved, and ready to wear.
+                  </p>
+                  <p className="text-[0.9rem] leading-6 text-muted-foreground">
+                    {truncate(todayOutfit.explanation || 'Open the look for details, notes, and any final swap.', 104)}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {state === 'empty_wardrobe' ? (
+              <div data-testid="home-command-board-visual-empty" className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {REQUIRED_SLOTS.map((slot) => (
+                    <div
+                      key={slot}
+                      className="rounded-[1.1rem] border border-dashed border-foreground/[0.12] bg-background/45 px-4 py-4"
+                    >
+                      <p className="text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground/70">
+                        Required
+                      </p>
+                      <p className="mt-2 text-[0.98rem] font-medium text-foreground">{slot}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">
+                    <span>Starter set</span>
+                    <span>{Math.min(garmentCount ?? 0, 3)}/3</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-foreground/[0.08]">
+                    <div
+                      className="h-full rounded-full bg-accent/65"
+                      style={{ width: `${progressWidth}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {state !== 'outfit_planned' && state !== 'empty_wardrobe' ? (
+              <div
+                data-testid="home-command-board-visual-recent"
+                className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_180px]"
+              >
+                <div className="grid grid-cols-3 gap-3">
+                  {Array.from({ length: 3 }, (_, index) => {
+                    const outfit = recentOutfits[index];
+
+                    return (
+                      <div
+                        key={outfit?.id ?? `recent-look-${index}`}
+                        className={cn(
+                          'overflow-hidden rounded-[1rem] border border-foreground/[0.08] bg-background/65',
+                          !outfit && 'flex min-h-[108px] items-center justify-center'
+                        )}
+                      >
+                        {outfit ? (
+                          <OutfitComposition
+                            items={outfit.outfit_items}
+                            compact
+                            className="overflow-hidden bg-background"
+                          />
+                        ) : (
+                          <span className="px-3 text-center text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground/60">
+                            Open slot
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-col justify-between rounded-[1rem] border border-foreground/[0.08] bg-background/55 p-4">
+                  <div>
+                    <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">
+                      {state === 'weather_alert' ? 'Forecast' : 'Rotation'}
+                    </p>
+                    <p className="mt-2 text-[0.98rem] font-medium tracking-[-0.02em] text-foreground">
+                      {state === 'weather_alert' ? 'Rebuild with live weather.' : 'Start from recent winners.'}
+                    </p>
+                  </div>
+                  <p className="mt-3 text-[0.88rem] leading-6 text-muted-foreground">
+                    {recentLookCount > 0
+                      ? 'Use a recent base and refine once.'
+                      : 'No saved looks yet. Generate a clean first option.'}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-2.5">
             <Button
               onClick={onPrimaryAction}
-              className="h-12 w-full justify-between rounded-full bg-[#f7f1e7] px-5 text-[0.96rem] font-medium text-[#171412] hover:bg-[#f3eadc]"
+              className="h-12 justify-between rounded-full px-5 text-[0.96rem] font-medium"
             >
               Style Me
               <Sparkles className="size-4" />
             </Button>
+
             <Button
               variant="outline"
               onClick={onSecondaryAction}
-              className="h-11 w-full justify-between rounded-full border-white/10 bg-white/4 px-4 text-[#f6f0e8] hover:bg-white/10 hover:text-[#f6f0e8]"
+              className="h-11 justify-between rounded-full px-4"
             >
               {secondaryLabel}
               <ArrowRight className="size-4" />
             </Button>
-          </div>
 
-          <div className="rounded-[1.2rem] border border-white/10 bg-[#f7f2ea]/6 p-4">
-            <p className="text-[0.72rem] uppercase tracking-[0.22em] text-[#bcc4e7]/65">
-              Wardrobe status
-            </p>
-            <p className="mt-3 text-[1.95rem] font-semibold tracking-[-0.04em] text-[#f6f0e8]">
-              {garmentCount ?? 0}
-            </p>
-            <p className="mt-1 text-[0.92rem] leading-6 text-[#ede4d8]/70">
-              {state === 'empty_wardrobe'
-                ? 'pieces catalogued so far. Add a few anchors to unlock AI styling.'
-                : 'pieces ready to work across styling, planning, and discovery.'}
-            </p>
-          </div>
-
-          <div className="mt-auto rounded-[1.2rem] border border-dashed border-[#8b98d1]/25 bg-[#8b98d1]/7 p-4">
-            <p className="text-[0.72rem] uppercase tracking-[0.22em] text-[#bcc4e7]/68">
-              Stylist cue
-            </p>
-            <p className="mt-2 text-[0.92rem] leading-7 text-[#f0e8dc]/76">
-              {stylistLine}
-            </p>
+            <div className="rounded-[1.2rem] border border-foreground/[0.08] bg-background/72 p-4">
+              <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">
+                Workspace
+              </p>
+              <p className="mt-2 text-[1.55rem] font-semibold tracking-[-0.04em] text-foreground">
+                {(garmentCount ?? 0)}
+              </p>
+              <p className="mt-1 text-[0.88rem] leading-6 text-muted-foreground">
+                {state === 'empty_wardrobe'
+                  ? 'Three pieces unlock full styling.'
+                  : 'Ready across styling, planning, and discover.'}
+              </p>
+            </div>
           </div>
         </div>
       </div>

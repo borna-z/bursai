@@ -210,21 +210,21 @@ describe('Home page command center', () => {
     expect(heading).toBeInTheDocument();
     expect(heading.textContent).toContain('Test');
     expect(screen.getByText('Style Me')).toBeInTheDocument();
-    expect(screen.getByText('Discover')).toBeInTheDocument();
-    expect(screen.getByText('Travel capsule')).toBeInTheDocument();
-    expect(screen.getByText('Style DNA')).toBeInTheDocument();
-    expect(screen.getByText('Wardrobe leverage')).toBeInTheDocument();
+    expect(screen.getAllByText('Discover').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /Travel/i })).toBeInTheDocument();
+    expect(screen.getAllByText('Style DNA').length).toBeGreaterThan(0);
+    expect(screen.getByText('Wardrobe gaps')).toBeInTheDocument();
   });
 
   it('navigates to the promoted actions from home', () => {
     renderHome();
 
     fireEvent.click(screen.getByText('Style Me'));
-    fireEvent.click(screen.getByText('Discover'));
-    fireEvent.click(screen.getByText('Travel capsule'));
-    fireEvent.click(screen.getByText('Mood outfit'));
-    fireEvent.click(screen.getByText('Plan week'));
-    fireEvent.click(screen.getByText('Review unworn pieces'));
+    fireEvent.click(screen.getAllByRole('button', { name: /Discover/i })[0]);
+    fireEvent.click(screen.getByText('Travel'));
+    fireEvent.click(screen.getByText('Mood'));
+    fireEvent.click(screen.getByText('Plan'));
+    fireEvent.click(screen.getByText('See all unworn'));
 
     expect(navigateMock).toHaveBeenCalledWith('/ai/generate');
     expect(navigateMock).toHaveBeenCalledWith('/discover');
@@ -234,7 +234,7 @@ describe('Home page command center', () => {
     expect(navigateMock).toHaveBeenCalledWith('/outfits/unused');
   });
 
-  it('shows add item when the wardrobe is still small', () => {
+  it('keeps wardrobe as a visible secondary entry point when the wardrobe is still small', () => {
     useGarmentCountMock.mockReturnValue({ data: 2, isLoading: false });
     useWardrobeUnlocksMock.mockReturnValue({
       isUnlocked: () => false,
@@ -244,7 +244,7 @@ describe('Home page command center', () => {
 
     renderHome();
 
-    fireEvent.click(screen.getByText('Add item'));
-    expect(navigateMock).toHaveBeenCalledWith('/wardrobe/add');
+    fireEvent.click(screen.getByText('Wardrobe'));
+    expect(navigateMock).toHaveBeenCalledWith('/wardrobe');
   });
 });

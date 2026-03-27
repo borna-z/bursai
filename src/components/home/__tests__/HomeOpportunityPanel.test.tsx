@@ -48,7 +48,7 @@ describe('HomeOpportunityPanel', () => {
     render(<HomeOpportunityPanel />);
 
     expect(screen.getByTestId('home-opportunity-locked')).toBeInTheDocument();
-    expect(screen.getByText(/Unlocks at 10 garments/)).toBeInTheDocument();
+    expect(screen.getByText(/3 to unlock/)).toBeInTheDocument();
     fireEvent.click(screen.getByText('Add garments'));
     expect(navigateMock).toHaveBeenCalledWith('/wardrobe/add');
   });
@@ -68,7 +68,7 @@ describe('HomeOpportunityPanel', () => {
     render(<HomeOpportunityPanel />);
 
     expect(screen.getByTestId('home-opportunity-ready')).toBeInTheDocument();
-    expect(screen.getByText('Scan opportunities')).toBeInTheDocument();
+    expect(screen.getByText('Run scan')).toBeInTheDocument();
   });
 
   it('renders populated result summary after a successful scan', async () => {
@@ -97,13 +97,13 @@ describe('HomeOpportunityPanel', () => {
     });
 
     render(<HomeOpportunityPanel />);
-    fireEvent.click(screen.getByText('Scan opportunities'));
+    fireEvent.click(screen.getByText('Run scan'));
 
     await waitFor(() => {
       expect(screen.getByTestId('home-opportunity-results')).toBeInTheDocument();
     });
 
     expect(screen.getByText('Structured overshirt')).toBeInTheDocument();
-    expect(screen.getByText(/\+6 new looks/)).toBeInTheDocument();
+    expect(screen.getByText(/\+6 looks/)).toBeInTheDocument();
   });
 });

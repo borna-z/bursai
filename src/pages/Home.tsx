@@ -1,14 +1,13 @@
 import { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  Compass,
-  Plus,
-  Settings,
-  Sparkles,
   CalendarRange,
+  Compass,
   Plane,
+  Settings,
+  Shirt,
   SmilePlus,
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -32,7 +31,6 @@ import { buildTodaySuggestions, type TodaySuggestion } from '@/lib/buildTodaySug
 import { buildStyleFlowSearch } from '@/lib/styleFlowState';
 import { hapticLight } from '@/lib/haptics';
 import { HomePageSkeleton } from '@/components/ui/skeletons';
-import { getStylistTip } from '@/lib/stylistCopy';
 import { useStyleDNA } from '@/hooks/useStyleDNA';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { HomeCommandBoard } from '@/components/home/HomeCommandBoard';
@@ -150,21 +148,8 @@ export default function HomePage() {
     [flatGarments, todayCalEvents, tomorrowCalEvents, weather],
   );
 
-  const stylistLine = useMemo(
-    () =>
-      getStylistTip({
-        weather: weather ?? undefined,
-        garmentCount: garmentCount ?? undefined,
-        archetype: dna?.archetype,
-        topColor: dna?.signatureColors?.[0]?.color,
-        topCombo: dna?.uniformCombos?.[0]?.combo,
-        formalityCenter: dna?.formalityCenter,
-      }),
-    [dna?.archetype, dna?.formalityCenter, dna?.signatureColors, dna?.uniformCombos, garmentCount, weather],
-  );
-
   const weatherSummary = weather
-    ? `${Math.round(weather.temperature)}°C · ${t(weather.condition)}`
+    ? `${Math.round(weather.temperature)}° ${t(weather.condition)}`
     : null;
 
   const scheduleSummary = useMemo(() => {
@@ -195,14 +180,14 @@ export default function HomePage() {
   const secondaryAction = useMemo(() => {
     if (homeState === 'empty_wardrobe') {
       return {
-        label: 'Add garments',
-        onClick: () => navigate('/wardrobe/add'),
+        label: 'Open wardrobe',
+        onClick: () => navigate('/wardrobe'),
       };
     }
 
     if (homeState === 'outfit_planned' && todayOutfit) {
       return {
-        label: "Open today's look",
+        label: 'Open look',
         onClick: () => navigate(`/outfits/${todayOutfit.id}`),
       };
     }
@@ -213,56 +198,48 @@ export default function HomePage() {
     };
   }, [homeState, navigate, todayOutfit]);
 
-  const quickActions = useMemo<HomeQuickAction[]>(() => {
-    const actions: HomeQuickAction[] = [
-      {
-        id: 'discover',
-        title: 'Discover',
-        description: 'Open wardrobe opportunities, gaps, and unlock paths from one deeper intelligence view.',
-        icon: Compass,
-        accentClass: 'from-[#d8dff7] via-[#e8ecfb] to-[#f5f1e8]',
-        featured: true,
-        onClick: () => navigate('/discover'),
-      },
-      {
-        id: 'travel',
-        title: 'Travel capsule',
-        description: 'Build a tighter, smarter travel pack around dates, weather, and reuse.',
-        icon: Plane,
-        accentClass: 'from-[#e5edd5] via-[#eef4e6] to-[#f5f1e8]',
-        onClick: () => navigate('/ai/travel'),
-      },
-      {
-        id: 'mood',
-        title: 'Mood outfit',
-        description: 'Let the vibe lead and generate a look from how you want to feel today.',
-        icon: SmilePlus,
-        accentClass: 'from-[#f6dfd7] via-[#f7ebe6] to-[#f5f1e8]',
-        onClick: () => navigate('/ai/mood'),
-      },
-      {
-        id: 'plan',
-        title: 'Plan week',
-        description: 'Spread strong looks across the week and keep your calendar styling-ready.',
-        icon: CalendarRange,
-        accentClass: 'from-[#eadfcf] via-[#f2ebe1] to-[#f5f1e8]',
-        onClick: () => navigate('/plan'),
-      },
-    ];
-
-    if ((garmentCount ?? 0) < 10 || homeState === 'empty_wardrobe') {
-      actions.push({
-        id: 'add',
-        title: 'Add item',
-        description: 'Keep cataloguing the wardrobe so more styling and insight systems unlock.',
-        icon: Plus,
-        accentClass: 'from-[#dddaf7] via-[#ece9fb] to-[#f5f1e8]',
-        onClick: () => navigate('/wardrobe/add'),
-      });
-    }
-
-    return actions;
-  }, [garmentCount, homeState, navigate]);
+  const quickActions = useMemo<HomeQuickAction[]>(() => [
+    {
+      id: 'discover',
+      title: 'Discover',
+      description: 'Gaps and unlocks',
+      icon: Compass,
+      toneClass: 'bg-[#e7ebfb]',
+      onClick: () => navigate('/discover'),
+    },
+    {
+      id: 'travel',
+      title: 'Travel',
+      description: 'Capsule packs',
+      icon: Plane,
+      toneClass: 'bg-[#eaf2e2]',
+      onClick: () => navigate('/ai/travel'),
+    },
+    {
+      id: 'plan',
+      title: 'Plan',
+      description: 'Week ahead',
+      icon: CalendarRange,
+      toneClass: 'bg-[#f2e8dc]',
+      onClick: () => navigate('/plan'),
+    },
+    {
+      id: 'mood',
+      title: 'Mood',
+      description: 'Style by vibe',
+      icon: SmilePlus,
+      toneClass: 'bg-[#f6e7e0]',
+      onClick: () => navigate('/ai/mood'),
+    },
+    {
+      id: 'wardrobe',
+      title: 'Wardrobe',
+      description: 'Add and edit pieces',
+      icon: Shirt,
+      toneClass: 'bg-[#ece7df]',
+      onClick: () => navigate('/wardrobe'),
+    },
+  ], [navigate]);
 
   if (homeState === 'loading') {
     return (
@@ -279,7 +256,7 @@ export default function HomePage() {
   return (
     <AppLayout>
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="page-container space-y-6 pb-28">
+        <AnimatedPage className="page-container space-y-5 pb-28">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -287,10 +264,10 @@ export default function HomePage() {
             className="flex items-center justify-between gap-4 overflow-visible"
           >
             <div>
-              <h1 className="text-[1.75rem] font-bold tracking-[-0.04em] leading-tight">
+              <h1 className="text-[1.5rem] font-bold tracking-[-0.04em] leading-tight sm:text-[1.68rem]">
                 {getGreeting()}
               </h1>
-              <p className="label-editorial mt-1.5 text-muted-foreground/60 capitalize">
+              <p className="mt-1 text-[0.8rem] uppercase tracking-[0.16em] text-muted-foreground/55 capitalize">
                 {formattedDate}
               </p>
             </div>
@@ -306,35 +283,6 @@ export default function HomePage() {
             </div>
           </motion.div>
 
-          <AnimatePresence>
-            {coach.isActive && !coach.hasEnoughGarments && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.3 }}
-                className="rounded-[1.55rem] bg-foreground px-5 py-4 text-background"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="font-['Playfair_Display'] text-[1rem] text-background">
-                      Add garments to get started
-                    </p>
-                    <p className="mt-1 text-[0.82rem] text-background/70">
-                      You need a top, bottom, and shoes for your first complete AI-styled outfit.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => navigate('/wardrobe/add')}
-                    className="h-10 shrink-0 rounded-full bg-background px-4 text-[0.85rem] font-medium text-foreground"
-                  >
-                    Add now
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           <HomeCommandBoard
             state={homeState}
             garmentCount={garmentCount ?? 0}
@@ -342,7 +290,7 @@ export default function HomePage() {
             recentOutfits={recentOutfits}
             weatherSummary={weatherSummary}
             scheduleSummary={scheduleSummary}
-            stylistLine={stylistLine}
+            coachNudge={coach.isActive && !coach.hasEnoughGarments}
             secondaryLabel={secondaryAction.label}
             onPrimaryAction={() => {
               hapticLight();
@@ -355,7 +303,7 @@ export default function HomePage() {
           />
 
           <HomeAskBursRail
-            suggestions={stylistSuggestions}
+            suggestions={stylistSuggestions.slice(0, 3)}
             onSelectSuggestion={handleSuggestion}
           />
 
@@ -377,22 +325,6 @@ export default function HomePage() {
             onOpenUnused={() => navigate('/outfits/unused')}
             onStyleAroundGem={(garmentId) => navigate(`/ai/generate${buildStyleFlowSearch([garmentId])}`)}
           />
-
-          <motion.button
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, delay: 0.08 }}
-            onClick={() => navigate('/insights')}
-            className="flex w-full items-center justify-between rounded-[1.35rem] border border-foreground/[0.08] bg-card px-5 py-4 text-left shadow-[0_12px_26px_rgba(22,18,15,0.04)]"
-          >
-            <div>
-              <p className="label-editorial text-muted-foreground/60">Birdview</p>
-              <p className="mt-1 text-[1rem] font-medium text-foreground">
-                Open the full insights report
-              </p>
-            </div>
-            <Sparkles className="size-4 text-muted-foreground/60" />
-          </motion.button>
         </AnimatedPage>
       </PullToRefresh>
     </AppLayout>

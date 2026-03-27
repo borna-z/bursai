@@ -107,35 +107,52 @@ export function StatGridSkeleton() {
   );
 }
 
-/* ─── Home page skeleton — mirrors dark hero + tip + quick-buttons layout ─── */
+/* ─── Home page skeleton — mirrors status strip + workspace + compact modules ─── */
 export function HomePageSkeleton() {
   return (
     <div className="space-y-5">
-      {/* Dark hero block — matches full-bleed bg-foreground hero */}
       <StaggerIn index={0}>
-        <div className="-mx-5 bg-foreground px-5 py-7">
-          <Skeleton className="w-12 h-12 mx-auto mb-4 bg-background/[0.08]" />
-          <Skeleton className="h-5 w-3/5 mx-auto mb-2 bg-background/[0.10]" />
-          <Skeleton className="h-3 w-4/5 mx-auto mb-5 bg-background/[0.06]" />
-          <Skeleton className="h-11 w-36 mx-auto bg-background/[0.10]" />
+        <div className="space-y-3">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-3 w-28" />
         </div>
       </StaggerIn>
-      {/* Stylist tip placeholder */}
+
       <StaggerIn index={1}>
-        <Skeleton className="h-3 w-4/5 mt-1" />
-      </StaggerIn>
-      {/* Suggestion chips placeholder */}
-      <StaggerIn index={2}>
-        <div className="space-y-2">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-3/4" />
+        <div className="rounded-[1.75rem] border border-border/20 p-5 space-y-4">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-8 w-3/5" />
+          <Skeleton className="h-4 w-4/5" />
+          <div className="flex gap-2">
+            <Skeleton className="h-8 w-24 rounded-full" />
+            <Skeleton className="h-8 w-28 rounded-full" />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
+            <Skeleton className="h-36 rounded-[1.2rem]" />
+            <div className="space-y-2">
+              <Skeleton className="h-11 rounded-full" />
+              <Skeleton className="h-11 rounded-full" />
+              <Skeleton className="h-24 rounded-[1.2rem]" />
+            </div>
+          </div>
         </div>
       </StaggerIn>
-      {/* Quick action buttons placeholder */}
-      <StaggerIn index={3}>
+
+      <StaggerIn index={2}>
         <div className="flex gap-2">
-          <Skeleton className="flex-1 h-12" />
-          <Skeleton className="flex-1 h-12" />
+          <Skeleton className="h-10 w-40 rounded-full" />
+          <Skeleton className="h-10 w-36 rounded-full" />
+          <Skeleton className="h-10 w-32 rounded-full" />
+        </div>
+      </StaggerIn>
+
+      <StaggerIn index={3}>
+        <div className="rounded-[1.6rem] border border-border/20 overflow-hidden">
+          <div className="grid grid-cols-2">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-24 rounded-none border-0" />
+            ))}
+          </div>
         </div>
       </StaggerIn>
     </div>

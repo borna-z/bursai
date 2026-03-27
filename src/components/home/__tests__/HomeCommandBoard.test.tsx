@@ -9,7 +9,6 @@ vi.mock('@/components/ui/OutfitComposition', () => ({
 const baseProps = {
   garmentCount: 8,
   recentOutfits: [],
-  stylistLine: 'Lead with clean structure and keep the shoes grounded.',
   secondaryLabel: 'Open plan',
   onPrimaryAction: vi.fn(),
   onSecondaryAction: vi.fn(),
@@ -22,14 +21,16 @@ describe('HomeCommandBoard', () => {
         {...baseProps}
         state="empty_wardrobe"
         garmentCount={2}
-        secondaryLabel="Add garments"
+        secondaryLabel="Open wardrobe"
+        coachNudge
       />,
     );
 
     expect(screen.getByTestId('home-command-board-empty_wardrobe')).toBeInTheDocument();
     expect(screen.getByTestId('home-command-board-visual-empty')).toBeInTheDocument();
     expect(screen.getByText('Top')).toBeInTheDocument();
-    expect(screen.getByText('Add garments')).toBeInTheDocument();
+    expect(screen.getByText('Start with three anchors')).toBeInTheDocument();
+    expect(screen.getByText('Open wardrobe')).toBeInTheDocument();
   });
 
   it('renders the planned outfit composition state', () => {
@@ -48,7 +49,7 @@ describe('HomeCommandBoard', () => {
     expect(screen.getByTestId('home-command-board-outfit_planned')).toBeInTheDocument();
     expect(screen.getByTestId('home-command-board-visual-planned')).toBeInTheDocument();
     expect(screen.getByTestId('outfit-composition')).toBeInTheDocument();
-    expect(screen.getByText('Saved for today')).toBeInTheDocument();
+    expect(screen.getByText('Saved outfit')).toBeInTheDocument();
   });
 
   it('renders recent-look mode when there is no planned outfit', () => {
@@ -61,7 +62,21 @@ describe('HomeCommandBoard', () => {
 
     expect(screen.getByTestId('home-command-board-no_outfit')).toBeInTheDocument();
     expect(screen.getByTestId('home-command-board-visual-recent')).toBeInTheDocument();
-    expect(screen.getByText('Rotation note')).toBeInTheDocument();
+    expect(screen.getByText('Rotation')).toBeInTheDocument();
     expect(screen.getByText('Style Me')).toBeInTheDocument();
+  });
+
+  it('renders weather alert copy in weather state', () => {
+    render(
+      <HomeCommandBoard
+        {...baseProps}
+        state="weather_alert"
+        weatherSummary="7° Rain"
+      />,
+    );
+
+    expect(screen.getByTestId('home-command-board-weather_alert')).toBeInTheDocument();
+    expect(screen.getByText('Weather changed the brief')).toBeInTheDocument();
+    expect(screen.getByText('Forecast')).toBeInTheDocument();
   });
 });
