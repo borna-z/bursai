@@ -22,55 +22,67 @@ export function HomeWearNextPanel({
   }
 
   const spotlight = unusedGarments[0];
-  const title = sleepingBeautiesCount >= 3 ? 'Sleeping beauties' : 'Wear next';
+  const companion = unusedGarments[1] ?? null;
 
   return (
     <section
       data-testid="home-wear-next"
-      className="rounded-[1.75rem] border border-foreground/[0.08] bg-card p-5 shadow-[0_14px_30px_rgba(22,18,15,0.05)]"
+      className="rounded-[1.6rem] border border-foreground/[0.08] bg-card p-5 shadow-[0_14px_28px_rgba(22,18,15,0.04)]"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="label-editorial text-muted-foreground/60">{title}</p>
-          <h2 className="mt-1 text-[1.3rem] font-semibold tracking-[-0.03em] text-foreground">
-            Bring dormant pieces back into play
+          <p className="label-editorial text-muted-foreground/60">
+            {sleepingBeautiesCount >= 3 ? 'Sleeping beauties' : 'Wear next'}
+          </p>
+          <h2 className="mt-1 text-[1.25rem] font-semibold tracking-[-0.03em] text-foreground">
+            Bring a dormant piece back
           </h2>
         </div>
-        <p className="text-right text-[0.82rem] uppercase tracking-[0.18em] text-muted-foreground/70">
+        <p className="text-[0.74rem] uppercase tracking-[0.18em] text-muted-foreground/60">
           {unusedGarments.length} waiting
         </p>
       </div>
 
-      <div className="mt-5 grid gap-4 rounded-[1.35rem] bg-secondary/45 p-4 sm:grid-cols-[112px_minmax(0,1fr)]">
-        <LazyImageSimple
-          imagePath={getPreferredGarmentImagePath(spotlight)}
-          alt={spotlight.title || spotlight.category || 'Garment'}
-          className="aspect-[4/5] rounded-[1rem] bg-background"
-        />
+      <div className="mt-4 grid gap-4 rounded-[1.2rem] bg-secondary/45 p-4 sm:grid-cols-[136px_minmax(0,1fr)]">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-1">
+          <LazyImageSimple
+            imagePath={getPreferredGarmentImagePath(spotlight)}
+            alt={spotlight.title || spotlight.category || 'Garment'}
+            className="aspect-[4/5] rounded-[1rem] bg-background"
+          />
+          {companion ? (
+            <LazyImageSimple
+              imagePath={getPreferredGarmentImagePath(companion)}
+              alt={companion.title || companion.category || 'Garment'}
+              className="aspect-[4/5] rounded-[1rem] bg-background opacity-80"
+            />
+          ) : null}
+        </div>
+
         <div className="flex flex-col justify-between gap-4">
           <div>
             <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">
-              Spotlight piece
+              Spotlight
             </p>
-            <h3 className="mt-2 text-[1.08rem] font-semibold tracking-[-0.025em] text-foreground">
+            <h3 className="mt-2 text-[1.05rem] font-semibold tracking-[-0.025em] text-foreground">
               {spotlight.title || `${spotlight.color_primary || ''} ${spotlight.category || 'Garment'}`.trim()}
             </h3>
-            <p className="mt-2 text-[0.96rem] leading-7 text-foreground">
-              BURS flagged this as a strong piece to revive. Style around it directly, or review the full unworn rotation and rescue more overlooked items.
+            <p className="mt-2 text-[0.94rem] leading-6 text-foreground">
+              Style around one neglected favorite, or open the full unworn rotation and rescue more.
             </p>
           </div>
+
           <div className="flex flex-wrap gap-2">
-            <Button onClick={onOpenUnused} className="rounded-full px-4">
-              Review unworn pieces
-              <ArrowRight className="size-4" />
-            </Button>
             <Button
               onClick={() => onStyleAroundGem(spotlight.id)}
-              variant="outline"
               className="rounded-full px-4"
             >
               <Sparkles className="size-4" />
-              Style around this
+              Style this
+            </Button>
+            <Button onClick={onOpenUnused} variant="outline" className="rounded-full px-4">
+              See all unworn
+              <ArrowRight className="size-4" />
             </Button>
           </div>
         </div>

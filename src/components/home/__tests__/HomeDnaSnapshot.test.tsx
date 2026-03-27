@@ -16,8 +16,8 @@ describe('HomeDnaSnapshot', () => {
   it('renders empty state when dna is unavailable', () => {
     render(<HomeDnaSnapshot {...baseProps} dna={null} />);
     expect(screen.getByTestId('home-dna-empty')).toBeInTheDocument();
-    expect(screen.getByText('Style DNA is taking shape')).toBeInTheDocument();
-    expect(screen.getByText('Build a look')).toBeInTheDocument();
+    expect(screen.getByText('Your signature is still forming')).toBeInTheDocument();
+    expect(screen.getByText('Style Me')).toBeInTheDocument();
   });
 
   it('renders populated dna summary', () => {
@@ -45,5 +45,6 @@ describe('HomeDnaSnapshot', () => {
     expect(screen.getByText('Palette')).toBeInTheDocument();
     expect(screen.getByText('Formula')).toBeInTheDocument();
     expect(screen.getByText('Bias')).toBeInTheDocument();
+    expect(screen.getByText('12 looks analyzed')).toBeInTheDocument();
   });
 });
