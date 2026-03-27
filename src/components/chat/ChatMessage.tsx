@@ -4,6 +4,7 @@ import { GarmentInlineCard } from '@/components/chat/GarmentInlineCard';
 import { OutfitSuggestionCard } from '@/components/chat/OutfitSuggestionCard';
 import type { GarmentBasic } from '@/hooks/useGarmentsByIds';
 import { parseGarmentTextSegments, parseOutfitTags, stripUnknownGarmentMarkup } from '@/lib/garmentTokens';
+import { isCompleteStyleChatOutfitIds } from '@/lib/styleChatNormalizer';
 
 function renderBoldMarkdown(text: string): React.ReactNode {
   const parts = text.split(/\*\*(.+?)\*\*/g);
@@ -68,7 +69,9 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
 
     for (const om of outfitMatches) {
       const gs = om.ids.map(id => garmentMap.get(id)).filter(Boolean) as GarmentBasic[];
-      if (gs.length > 0) outfits.push({ garments: gs, explanation: om.explanation });
+      if (isCompleteStyleChatOutfitIds(gs.map((garment) => garment.id), gs)) {
+        outfits.push({ garments: gs, explanation: om.explanation });
+      }
       cleanText = cleanText.replace(om.fullMatch, '');
     }
 

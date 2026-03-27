@@ -16,10 +16,24 @@ vi.mock('@/components/chat/OutfitSuggestionCard', () => ({
 
 import { ChatMessage } from '../ChatMessage';
 
-const garmentMap = new Map([[
-  '11111111-1111-1111-1111-111111111111',
-  { id: '11111111-1111-1111-1111-111111111111', title: 'Navy blazer', image_path: null, category: 'outerwear' },
-]]);
+const garmentMap = new Map([
+  [
+    '11111111-1111-1111-1111-111111111111',
+    { id: '11111111-1111-1111-1111-111111111111', title: 'White tee', image_path: null, category: 'top' },
+  ],
+  [
+    '22222222-2222-2222-2222-222222222222',
+    { id: '22222222-2222-2222-2222-222222222222', title: 'Black trousers', image_path: null, category: 'bottom' },
+  ],
+  [
+    '33333333-3333-3333-3333-333333333333',
+    { id: '33333333-3333-3333-3333-333333333333', title: 'Loafers', image_path: null, category: 'shoes' },
+  ],
+  [
+    '44444444-4444-4444-4444-444444444444',
+    { id: '44444444-4444-4444-4444-444444444444', title: 'Navy blazer', image_path: null, category: 'outerwear' },
+  ],
+]);
 
 function renderMessage(overrides: Partial<Parameters<typeof ChatMessage>[0]> = {}) {
   const defaults: Parameters<typeof ChatMessage>[0] = {
@@ -117,13 +131,25 @@ describe('ChatMessage', () => {
         role: 'assistant',
         content: [
           { type: 'image_url', image_url: { url: 'https://example.com/look-2.jpg' } },
-          { type: 'text', text: '[[outfit:11111111-1111-1111-1111-111111111111|Clean tonal layering]]' },
+          { type: 'text', text: '[[outfit:11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222,33333333-3333-3333-3333-333333333333|Clean tonal layering]]' },
         ],
       },
     });
 
     expect(screen.getByRole('img', { name: 'Stylist reference' })).toHaveAttribute('src', 'https://example.com/look-2.jpg');
     expect(screen.getByTestId('outfit-suggestion-card')).toBeInTheDocument();
+  });
+
+  it('does not render outfit cards for incomplete outfit tags', () => {
+    renderMessage({
+      message: {
+        role: 'assistant',
+        content: 'Try this [[outfit:11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222|Missing shoes]].',
+      },
+    });
+
+    expect(screen.getByText(/Try this/)).toBeInTheDocument();
+    expect(screen.queryByTestId('outfit-suggestion-card')).not.toBeInTheDocument();
   });
 
   it('falls back to the garment label when the garment is not loaded', () => {
@@ -144,7 +170,7 @@ describe('ChatMessage', () => {
     renderMessage({
       message: {
         role: 'assistant',
-        content: 'Updated look [[outfit:11111111-1111-1111-1111-111111111111|Clean tonal layering]] with [[garment:11111111-1111-1111-1111-111111111111|Navy blazer]].',
+        content: 'Updated look [[outfit:11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222,33333333-3333-3333-3333-333333333333|Clean tonal layering]] with [[garment:44444444-4444-4444-4444-444444444444|Navy blazer]].',
       },
       showStyleCards: false,
     });
