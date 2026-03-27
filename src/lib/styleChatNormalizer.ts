@@ -396,7 +396,7 @@ export function normalizeStyleChatAssistantReply<TGarment extends StyleChatGarme
     ? deduplicatedIds
     : [];
   const explanation = (candidate?.explanation || buildOutfitExplanation(params.rawText, outfitIds))
-    .replace(/[\[\]\n\r|]+/g, " ")
+    .replace(/[[\]\n\r|]+/g, " ")
     .trim();
   const prose = stripRawIdReferences(stripUnknownTagMarkup(params.rawText.replace(VALID_OUTFIT_TAG_RE, "")));
   const shouldIncludeOutfitTag = params.includeOutfitTag ?? true;
