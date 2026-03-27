@@ -15,6 +15,7 @@ import { WardrobeOnboardingEmpty } from '@/components/onboarding/OnboardingEmpty
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { categoryLabel, colorLabel } from '@/lib/humanize';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { buildStyleFlowSearch } from '@/lib/styleFlowState';
 import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
 import { RenderPendingOverlay } from '@/components/wardrobe/RenderPendingOverlay';
 
@@ -65,7 +66,7 @@ function GarmentCard({ garment, t, isGridView, isSelecting, isSelected, onSelect
 
   const handleStyleAround = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
-    navigate('/ai/chat', { state: { selectedGarmentId: garment.id } });
+    navigate(`/ai/generate${buildStyleFlowSearch([garment.id])}`);
   };
 
   const displayImagePath = getPreferredGarmentImagePath(garment);

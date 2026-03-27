@@ -4,10 +4,8 @@ import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 import { VOICE_STYLIST_CHAT } from "../_shared/burs-voice.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import {
-  isCompleteStyleChatOutfitIds,
-  normalizeStyleChatAssistantReply,
-} from "../../../src/lib/styleChatNormalizer.ts";
+import { normalizeStyleChatAssistantReply } from "../../../src/lib/styleChatNormalizer.ts";
+import { resolveCompleteOutfitIds } from "../../../src/lib/completeOutfitIds.ts";
 
 // ---------- i18n ----------
 
@@ -218,24 +216,34 @@ function stripUnknownTagMarkup(text: string): string {
     .trim();
 }
 
-function pickOutfitIdsFromText(text: string, validGarmentIds: Set<string>): { ids: string[]; explanation: string } | null {
+function pickOutfitIdsFromText(
+  text: string,
+  garmentById: Map<string, GarmentRecord>,
+): { ids: string[]; explanation: string } | null {
   let outfitMatch: RegExpExecArray | null;
   VALID_OUTFIT_TAG_RE.lastIndex = 0;
   let lastValidOutfit: { ids: string[]; explanation: string } | null = null;
   while ((outfitMatch = VALID_OUTFIT_TAG_RE.exec(text)) !== null) {
-    const ids = outfitMatch[1].split(",").map((id) => id.trim()).filter((id) => validGarmentIds.has(id));
-    if (ids.length >= 2) lastValidOutfit = { ids: Array.from(new Set(ids)), explanation: outfitMatch[2].trim() };
+    const ids = resolveCompleteOutfitIds(
+      outfitMatch[1].split(",").map((id) => id.trim()),
+      garmentById,
+    );
+    if (ids.length > 0) lastValidOutfit = { ids, explanation: outfitMatch[2].trim() };
   }
   if (lastValidOutfit) return lastValidOutfit;
 
-  const garmentIds = Array.from(new Set(parseTaggedGarmentIds(text).filter((id) => validGarmentIds.has(id))));
-  if (garmentIds.length >= 2) return { ids: garmentIds.slice(0, 5), explanation: "" };
+  const garmentIds = resolveCompleteOutfitIds(
+    parseTaggedGarmentIds(text).filter((id) => garmentById.has(id)),
+    garmentById,
+  );
+  if (garmentIds.length > 0) return { ids: garmentIds.slice(0, 5), explanation: "" };
 
   return null;
 }
 
 function buildFallbackOutfitIds(rankedGarments: GarmentRecord[], anchor: GarmentRecord | null, activeLook: ActiveLookContext): string[] {
-  if (activeLook.garmentIds.length >= 2) return activeLook.garmentIds.slice(0, 5);
+  const garmentById = new Map(rankedGarments.map((garment) => [garment.id, garment]));
+  if (activeLook.garmentIds.length > 0) return activeLook.garmentIds.slice(0, 5);
 
   // Group by canonical slot key so "jeans"/"pants"/"trousers" all map to "bottom" etc.
   const slots = new Map<string, GarmentRecord[]>();
@@ -263,14 +271,10 @@ function buildFallbackOutfitIds(rankedGarments: GarmentRecord[], anchor: Garment
   pushUnique((slots.get("shoes") || [])[0]);
   pushUnique((slots.get("outerwear") || [])[0]);
 
-  if (chosen.length < 2) {
-    for (const garment of rankedGarments) {
-      pushUnique(garment);
-      if (chosen.length >= 3) break;
-    }
-  }
-
-  return chosen.map((item) => item.id).slice(0, 5);
+  return resolveCompleteOutfitIds(
+    chosen.map((item) => item.id).slice(0, 5),
+    garmentById,
+  );
 }
 
 // ── Slot deduplication ──────────────────────────────────────────────────────
@@ -372,7 +376,12 @@ function normalizeAssistantReply(params: {
   placeOutfitTagFirst?: boolean;
   includeOutfitTag?: boolean;
 }): NormalizedAssistantReply {
-  const candidate = pickOutfitIdsFromText(params.rawText, params.validGarmentIds);
+  const garmentById = new Map(
+    params.rankedGarments
+      .filter((garment) => params.validGarmentIds.has(garment.id))
+      .map((garment) => [garment.id, garment] as const),
+  );
+  const candidate = pickOutfitIdsFromText(params.rawText, garmentById);
   const fallbackIds = buildFallbackOutfitIds(params.rankedGarments, params.anchor, params.activeLook);
   const rawIds = (candidate?.ids?.length ? candidate.ids : fallbackIds).slice(0, 6);
   // Deduplicate by slot — never emit two bottoms, two jackets, etc.
@@ -672,11 +681,11 @@ function detectStylistChatMode(params: {
   if (/(what should i wear this week|build me \d+ .*looks|plan my week|weekly looks|week of outfits|capsule for this week)/i.test(latestUser)) {
     return "PLANNING";
   }
-  if (/(style around|build around|based on this|with these chinos|with this blazer|around this|anchor on)/i.test(latestUser) || hasAnchor) {
-    return "GARMENT_FIRST_STYLING";
-  }
   if (params.refinementIntent.mode !== "new_look" && hasActiveLook) {
     return "ACTIVE_LOOK_REFINEMENT";
+  }
+  if (/(style around|build around|based on this|with these chinos|with this blazer|around this|anchor on)/i.test(latestUser) || (hasAnchor && !hasActiveLook)) {
+    return "GARMENT_FIRST_STYLING";
   }
   return "OUTFIT_GENERATION";
 }
@@ -746,23 +755,36 @@ function buildModeContract(mode: StylistChatMode, lang: { name: string }): strin
   ].join("\n");
 }
 
-function buildActiveLookContext(messages: MessageInput[], garments: GarmentRecord[]): ActiveLookContext {
+function buildActiveLookContext(messages: MessageInput[], garments: GarmentRecord[], explicitGarmentIds: string[] = []): ActiveLookContext {
   const garmentById = new Map(garments.map((g) => [g.id, g]));
+  const explicitLookIds = resolveCompleteOutfitIds(explicitGarmentIds, garmentById);
+  if (explicitLookIds.length > 0) {
+    const garmentsInLook = explicitLookIds
+      .map((id) => garmentById.get(id))
+      .filter(Boolean) as GarmentRecord[];
+    return {
+      summary: garmentsInLook.map((item) => `${item.title} [ID:${item.id}]`).join(" + "),
+      garmentIds: garmentsInLook.map((item) => item.id),
+      source: "selected_garment_ids",
+      garmentLines: garmentsInLook.map(formatGarmentLine),
+    };
+  }
+
   const assistantMessages = messages.filter((m) => m.role === "assistant").slice(-4).reverse();
 
   for (const message of assistantMessages) {
     const text = getMessageText(message.content);
-    const taggedOutfitIds = Array.from(new Set(parseTaggedOutfitIds(text).filter((id) => garmentById.has(id)))).slice(0, 5);
-    const taggedGarmentIds = Array.from(new Set(parseTaggedGarmentIds(text).filter((id) => garmentById.has(id)))).slice(0, 5);
-    const usedOutfitTag = isCompleteStyleChatOutfitIds(taggedOutfitIds, garments);
-    const ids = usedOutfitTag
-      ? taggedOutfitIds
-      : isCompleteStyleChatOutfitIds(taggedGarmentIds, garments)
-        ? taggedGarmentIds
-        : [];
+    const taggedOutfitIds = resolveCompleteOutfitIds(
+      Array.from(new Set(parseTaggedOutfitIds(text).filter((id) => garmentById.has(id)))).slice(0, 5),
+      garmentById,
+    );
+    const taggedGarmentIds = resolveCompleteOutfitIds(
+      Array.from(new Set(parseTaggedGarmentIds(text).filter((id) => garmentById.has(id)))).slice(0, 5),
+      garmentById,
+    );
+    const ids = taggedOutfitIds.length > 0 ? taggedOutfitIds : taggedGarmentIds;
     if (!ids.length) continue;
     const garmentsInLook = ids.map((id) => garmentById.get(id)).filter(Boolean) as GarmentRecord[];
-
     const summary = garmentsInLook
       .map((item) => `${item.title} [ID:${item.id}]`)
       .join(" + ");
@@ -770,7 +792,7 @@ function buildActiveLookContext(messages: MessageInput[], garments: GarmentRecor
     return {
       summary,
       garmentIds: garmentsInLook.map((item) => item.id),
-      source: usedOutfitTag ? "assistant_outfit_tag" : "assistant_garment_tags",
+      source: taggedOutfitIds.length > 0 ? "assistant_outfit_tag" : "assistant_garment_tags",
       garmentLines: garmentsInLook.map(formatGarmentLine),
     };
   }
@@ -1394,7 +1416,7 @@ serve(async (req) => {
     const identityBlock = identityParts.join("\n");
 
     const threadBrief = buildThreadBrief(messages as MessageInput[], wardrobeCtx.anchor);
-    const activeLook = buildActiveLookContext(messages as MessageInput[], wardrobeCtx.rankedGarments);
+    const activeLook = buildActiveLookContext(messages as MessageInput[], wardrobeCtx.rankedGarments, selectedGarmentIds);
     const refinementIntent = detectRefinementIntent(messages as MessageInput[]);
     const stylistMode = detectStylistChatMode({
       messages: messages as MessageInput[],

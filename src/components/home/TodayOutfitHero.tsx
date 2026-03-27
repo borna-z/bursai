@@ -146,7 +146,7 @@ export function TodayOutfitHero({ weather, garmentCount, recentOutfits, classNam
         <Button
           onClick={() => {
             hapticLight();
-            navigate('/outfits/generate');
+            navigate('/ai/generate');
           }}
           className="bg-background text-foreground h-10 rounded-full px-6 text-[13px] font-medium font-['DM_Sans'] shrink-0 ml-auto hover:bg-background/90"
         >

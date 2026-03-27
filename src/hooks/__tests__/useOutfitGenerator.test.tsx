@@ -1099,4 +1099,202 @@ describe('useOutfitGenerator', () => {
     }));
   });
 
+  it('forwards prefer_garment_ids to burs_style_engine', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+
+    const validationData = [
+      { category: 'top', subcategory: null },
+      { category: 'bottom', subcategory: null },
+      { category: 'shoes', subcategory: null },
+    ];
+    const garments = [
+      { id: 'preferred-top', category: 'top' },
+      { id: 'g2', category: 'bottom' },
+      { id: 'g3', category: 'shoes' },
+    ];
+
+    let fromCallCount = 0;
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'garments') {
+        fromCallCount++;
+        if (fromCallCount === 1) {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ data: validationData, error: null }),
+            }),
+          };
+        }
+        return {
+          select: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({ data: garments, error: null }),
+          }),
+        };
+      }
+      if (table === 'outfits') {
+        return {
+          insert: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: { id: 'preferred-outfit', occasion: 'casual', style_vibe: null }, error: null }),
+            }),
+          }),
+        };
+      }
+      return { insert: vi.fn().mockResolvedValue({ error: null }) };
+    });
+
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: {
+        items: [
+          { slot: 'top', garment_id: 'preferred-top' },
+          { slot: 'bottom', garment_id: 'g2' },
+          { slot: 'shoes', garment_id: 'g3' },
+        ],
+        explanation: 'Anchored complete outfit',
+        style_score: null,
+      },
+      error: null,
+    });
+
+    const { useOutfitGenerator } = await import('../useOutfitGenerator');
+    const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
+
+    await act(async () => {
+      await result.current.generateOutfit({ ...baseRequest, prefer_garment_ids: ['preferred-top'] });
+    });
+
+    expect(invokeEdgeFunction).toHaveBeenCalledWith('burs_style_engine', expect.objectContaining({
+      body: expect.objectContaining({
+        prefer_garment_ids: ['preferred-top'],
+      }),
+    }));
+  });
+
+  it('does not fall back to generate_outfit when an anchored engine result ignores the preferred garment', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+
+    const validationData = [
+      { category: 'top', subcategory: 'shirt' },
+      { category: 'bottom', subcategory: 'jeans' },
+      { category: 'shoes', subcategory: 'sneakers' },
+    ];
+    const garments = [
+      { id: 'other-top', category: 'top', subcategory: 'shirt' },
+      { id: 'g2', category: 'bottom', subcategory: 'jeans' },
+      { id: 'g3', category: 'shoes', subcategory: 'sneakers' },
+    ];
+
+    let fromCallCount = 0;
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'garments') {
+        fromCallCount++;
+        if (fromCallCount === 1) {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ data: validationData, error: null }),
+            }),
+          };
+        }
+        return {
+          select: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({ data: garments, error: null }),
+          }),
+        };
+      }
+      return {
+        insert: vi.fn(() => {
+          throw new Error('persist should not be called');
+        }),
+      };
+    });
+
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: {
+        items: [
+          { slot: 'top', garment_id: 'other-top' },
+          { slot: 'bottom', garment_id: 'g2' },
+          { slot: 'shoes', garment_id: 'g3' },
+        ],
+        explanation: 'Complete but unanchored outfit',
+        style_score: null,
+      },
+      error: null,
+    });
+
+    const { useOutfitGenerator } = await import('../useOutfitGenerator');
+    const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
+
+    await act(async () => {
+      await expect(result.current.generateOutfit({
+        ...baseRequest,
+        prefer_garment_ids: ['preferred-top'],
+      })).rejects.toThrow(/selected garment/i);
+    });
+
+    expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(invokeEdgeFunction).mock.calls[0]?.[0]).toBe('burs_style_engine');
+  });
+
+  it('does not fall back to generate_outfit when an anchored engine result is incomplete', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+
+    const validationData = [
+      { category: 'top', subcategory: 'shirt' },
+      { category: 'bottom', subcategory: 'jeans' },
+      { category: 'shoes', subcategory: 'sneakers' },
+    ];
+    const garments = [
+      { id: 'preferred-top', category: 'top', subcategory: 'shirt' },
+      { id: 'g2', category: 'bottom', subcategory: 'jeans' },
+    ];
+
+    let fromCallCount = 0;
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'garments') {
+        fromCallCount++;
+        if (fromCallCount === 1) {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ data: validationData, error: null }),
+            }),
+          };
+        }
+        return {
+          select: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({ data: garments, error: null }),
+          }),
+        };
+      }
+      return {
+        insert: vi.fn(() => {
+          throw new Error('persist should not be called');
+        }),
+      };
+    });
+
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: {
+        items: [
+          { slot: 'top', garment_id: 'preferred-top' },
+          { slot: 'bottom', garment_id: 'g2' },
+        ],
+        explanation: 'Incomplete anchored outfit',
+        style_score: null,
+      },
+      error: null,
+    });
+
+    const { useOutfitGenerator } = await import('../useOutfitGenerator');
+    const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
+
+    await act(async () => {
+      await expect(result.current.generateOutfit({
+        ...baseRequest,
+        prefer_garment_ids: ['preferred-top'],
+      })).rejects.toThrow(/selected garment/i);
+    });
+
+    expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(invokeEdgeFunction).mock.calls[0]?.[0]).toBe('burs_style_engine');
+  });
+
 });

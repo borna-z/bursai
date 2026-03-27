@@ -4,7 +4,7 @@ import { GarmentInlineCard } from '@/components/chat/GarmentInlineCard';
 import { OutfitSuggestionCard } from '@/components/chat/OutfitSuggestionCard';
 import type { GarmentBasic } from '@/hooks/useGarmentsByIds';
 import { parseGarmentTextSegments, parseOutfitTags, stripUnknownGarmentMarkup } from '@/lib/garmentTokens';
-import { isCompleteStyleChatOutfitIds } from '@/lib/styleChatNormalizer';
+import { resolveCompleteOutfitIds } from '@/lib/completeOutfitIds';
 
 function renderBoldMarkdown(text: string): React.ReactNode {
   const parts = text.split(/\*\*(.+?)\*\*/g);
@@ -68,10 +68,14 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
     const outfitMatches = parseOutfitTags(text);
 
     for (const om of outfitMatches) {
-      const gs = om.ids.map(id => garmentMap.get(id)).filter(Boolean) as GarmentBasic[];
-      if (isCompleteStyleChatOutfitIds(gs.map((garment) => garment.id), gs)) {
-        outfits.push({ garments: gs, explanation: om.explanation });
-      }
+      const garmentById = new Map(
+        om.ids
+          .map((id) => [id, garmentMap.get(id)] as const)
+          .filter((entry): entry is readonly [string, GarmentBasic] => Boolean(entry[1])),
+      );
+      const completeIds = resolveCompleteOutfitIds(om.ids, garmentById);
+      const gs = completeIds.map((id) => garmentById.get(id)).filter(Boolean) as GarmentBasic[];
+      if (gs.length > 0) outfits.push({ garments: gs, explanation: om.explanation });
       cleanText = cleanText.replace(om.fullMatch, '');
     }
 

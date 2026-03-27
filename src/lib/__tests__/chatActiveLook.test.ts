@@ -1,0 +1,25 @@
+import { describe, expect, it } from 'vitest';
+import { findLatestActiveLookMessageIndex } from '../chatActiveLook';
+
+describe('chatActiveLook', () => {
+  it('keeps searching past later assistant prose to find the latest outfit card', () => {
+    const messages = [
+      { role: 'assistant' as const, content: 'Welcome' },
+      {
+        role: 'assistant' as const,
+        content: '[[outfit:11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222,33333333-3333-3333-3333-333333333333|Current look]]',
+      },
+      { role: 'user' as const, content: 'Make it sharper' },
+      { role: 'assistant' as const, content: 'I would swap the shoes.' },
+    ];
+
+    expect(findLatestActiveLookMessageIndex(messages)).toBe(1);
+  });
+
+  it('returns -1 when no assistant outfit tag exists', () => {
+    expect(findLatestActiveLookMessageIndex([
+      { role: 'assistant' as const, content: 'Hello there' },
+      { role: 'user' as const, content: 'Need help' },
+    ])).toBe(-1);
+  });
+});

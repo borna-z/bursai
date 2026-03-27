@@ -3,6 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { normalizeWeather } from '@/lib/outfitContext';
+import {
+  COMPLETE_OUTFIT_RECOVERY_MESSAGE,
+  PREFERRED_GARMENT_RECOVERY_MESSAGE,
+  humanizeOutfitGenerationError,
+} from '@/lib/outfitGenerationErrors';
+import { hasPreferredGarmentMatch, normalizePreferredGarmentIds } from '@/lib/outfitAnchoring';
 import { inferOutfitSlotFromGarment, validateCompleteOutfit } from '@/lib/outfitValidation';
 import type { Garment } from './useGarments';
 
@@ -13,6 +19,7 @@ export interface OutfitRequest {
   eventTitle?: string | null;
   mode?: 'standard' | 'stylist';
   exclude_garment_ids?: string[];
+  prefer_garment_ids?: string[];
   weather: {
     temperature?: number;
     precipitation: string;
@@ -48,8 +55,6 @@ export interface GeneratedOutfit {
 
 const INSUFFICIENT_GARMENTS_MESSAGE =
   'Add more garments before generating an outfit. You need either 1 top + 1 bottom + shoes, or a dress + shoes.';
-const COMPLETE_OUTFIT_RECOVERY_MESSAGE =
-  'Could not create a complete outfit with your wardrobe. Add shoes or another core piece and try again.';
 
 interface EngineSuggestion {
   title?: string;
@@ -190,10 +195,23 @@ function normalizeGenerationFailureMessage(message?: string | null) {
   if (isInsufficientGarmentsError(message)) {
     return INSUFFICIENT_GARMENTS_MESSAGE;
   }
-  if (isIncompleteOutfitError(message)) {
-    return COMPLETE_OUTFIT_RECOVERY_MESSAGE;
+  return humanizeOutfitGenerationError(message);
+}
+
+function hasPreferredGarments(request: OutfitRequest): boolean {
+  return normalizePreferredGarmentIds(request.prefer_garment_ids ?? []).length > 0;
+}
+
+function assertPreferredGarmentIncluded(
+  request: OutfitRequest,
+  items: { slot: string; garment: Garment }[],
+): void {
+  const preferredGarmentIds = normalizePreferredGarmentIds(request.prefer_garment_ids ?? []);
+  if (!preferredGarmentIds.length) return;
+
+  if (!hasPreferredGarmentMatch(items.map((item) => item.garment.id), preferredGarmentIds)) {
+    throw new Error(PREFERRED_GARMENT_RECOVERY_MESSAGE);
   }
-  return message || 'Could not generate outfit';
 }
 
 async function hydrateSelectedItems(
@@ -221,6 +239,7 @@ async function generateOutfitViaLegacy(
       style: request.style,
       weather: normalizedWeather,
       locale: request.locale || 'en',
+      prefer_garment_ids: request.prefer_garment_ids ?? [],
     },
   });
 
@@ -238,6 +257,7 @@ async function generateOutfitViaLegacy(
   }
 
   const selectedItems = await hydrateSelectedItems(aiItems);
+  assertPreferredGarmentIncluded(request, selectedItems);
 
   try {
     assertCompleteGeneratedOutfit(selectedItems, ' from fallback');
@@ -293,6 +313,7 @@ async function generateOutfitViaEngine(
   resultMode: 'single' | 'multi' = 'single',
 ): Promise<GeneratedOutfit | GeneratedOutfit[]> {
   await validateWardrobeForGeneration(userId);
+  const requiresPreferredGarment = hasPreferredGarments(request);
 
   const normalizedWeather = normalizeWeather(request.weather as Record<string, unknown>);
   const { data, error: fnError } = await invokeEdgeFunction<EngineGenerateResponse>('burs_style_engine', {
@@ -306,12 +327,16 @@ async function generateOutfitViaEngine(
       locale: request.locale || 'en',
       event_title: request.eventTitle || null,
       exclude_garment_ids: request.exclude_garment_ids ?? [],
+      prefer_garment_ids: request.prefer_garment_ids ?? [],
     },
   });
 
   if (fnError) {
     if (resultMode === 'multi' && shouldFallbackToLegacyGenerator(fnError.message)) {
       return [await generateOutfitViaEngine(userId, request, 'single') as GeneratedOutfit];
+    }
+    if (requiresPreferredGarment && shouldFallbackToLegacyGenerator(fnError.message)) {
+      throw new Error(PREFERRED_GARMENT_RECOVERY_MESSAGE);
     }
     if (shouldFallbackToLegacyGenerator(fnError.message)) {
       return await generateOutfitViaLegacy(userId, request);
@@ -322,6 +347,9 @@ async function generateOutfitViaEngine(
   if (data?.error) {
     if (resultMode === 'multi' && shouldFallbackToLegacyGenerator(data.error)) {
       return [await generateOutfitViaEngine(userId, request, 'single') as GeneratedOutfit];
+    }
+    if (requiresPreferredGarment && shouldFallbackToLegacyGenerator(data.error)) {
+      throw new Error(PREFERRED_GARMENT_RECOVERY_MESSAGE);
     }
     if (shouldFallbackToLegacyGenerator(data.error)) {
       return await generateOutfitViaLegacy(userId, request);
@@ -356,6 +384,7 @@ async function generateOutfitViaEngine(
 
       try {
         assertCompleteGeneratedOutfit(selectedItems, ` for option ${index + 1}`);
+        assertPreferredGarmentIncluded(request, selectedItems);
 
         const persisted = await persistGeneratedOutfit(
           userId,
@@ -380,7 +409,7 @@ async function generateOutfitViaEngine(
           family_label: suggestion.family_label,
         } satisfies GeneratedOutfit);
       } catch (error) {
-        if (!(error instanceof Error) || !isIncompleteOutfitError(error.message)) {
+        if (!(error instanceof Error) || (!isIncompleteOutfitError(error.message) && error.message !== PREFERRED_GARMENT_RECOVERY_MESSAGE)) {
           throw error;
         }
       }
@@ -407,6 +436,9 @@ async function generateOutfitViaEngine(
   const outfitReasoning = data?.outfit_reasoning;
 
   if (!aiItems.length) {
+    if (requiresPreferredGarment) {
+      throw new Error(PREFERRED_GARMENT_RECOVERY_MESSAGE);
+    }
     return await generateOutfitViaLegacy(userId, request);
   }
 
@@ -414,8 +446,15 @@ async function generateOutfitViaEngine(
 
   try {
     assertCompleteGeneratedOutfit(selectedItems, '');
+    assertPreferredGarmentIncluded(request, selectedItems);
   } catch (error) {
+    if (error instanceof Error && error.message === PREFERRED_GARMENT_RECOVERY_MESSAGE) {
+      throw error;
+    }
     if (error instanceof Error && isIncompleteOutfitError(error.message)) {
+      if (requiresPreferredGarment) {
+        throw new Error(PREFERRED_GARMENT_RECOVERY_MESSAGE);
+      }
       return await generateOutfitViaLegacy(userId, request);
     }
     throw error;

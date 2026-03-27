@@ -1,9 +1,9 @@
-import { useState, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Sparkles, AlertCircle, Crown, Zap,
-  Check, Thermometer, Bookmark, CalendarDays, Shirt,
-  Coffee, Briefcase, Wine, Heart, Dumbbell, Plane,
+  Check, Bookmark, CalendarDays, Shirt,
+  Coffee, Briefcase, Wine, Heart, Dumbbell, Plane, X,
 } from 'lucide-react';
 import { motion, LayoutGroup, useReducedMotion, type Transition } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { StyleMeSubNav } from '@/components/ai/StyleMeSubNav';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useOutfitGenerator, type GeneratedOutfit } from '@/hooks/useOutfitGenerator';
+import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
 import { useUpdateOutfit, useMarkOutfitWorn } from '@/hooks/useOutfits';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
@@ -27,7 +28,19 @@ import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
 import { CoachMark } from '@/components/coach/CoachMark';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
+import {
+  COMPLETE_OUTFIT_RECOVERY_MESSAGE,
+  PREFERRED_GARMENT_RECOVERY_MESSAGE,
+  humanizeOutfitGenerationError,
+} from '@/lib/outfitGenerationErrors';
 import { validateCompleteOutfit } from '@/lib/outfitValidation';
+import {
+  buildStyleFlowSearch,
+  extractStyleFlowGarmentIds,
+  extractStyleFlowOccasion,
+  extractStyleFlowStyles,
+  resolveStyleFlowGarmentIds,
+} from '@/lib/styleFlowState';
 
 /* ── Occasions ── */
 const OCCASION_ICONS: Record<string, React.ElementType> = {
@@ -65,14 +78,6 @@ function isGeneratedOutfitComplete(outfit: GeneratedOutfit): boolean {
   ).isValid;
 }
 
-function humanizeGenerationError(message: string): string {
-  const normalized = message.toLowerCase();
-  if (normalized.includes('incomplete outfit') || normalized.includes('could not create a complete outfit')) {
-    return 'Could not create a complete outfit with your wardrobe. Add shoes or another core piece and try again.';
-  }
-  return message;
-}
-
 /* ── Weather styling advice ── */
 function getWeatherAdvice(temp?: number, precipitation?: string): string {
   if (temp === undefined) return '';
@@ -104,6 +109,7 @@ function OutfitGenerateFallback() {
 }
 
 export default function OutfitGeneratePage() {
+  const location = useLocation();
   const navigate = useNavigate();
   const { t, locale } = useLanguage();
   const { generateOutfit, generateOutfitCandidates, isGenerating } = useOutfitGenerator();
@@ -115,8 +121,14 @@ export default function OutfitGeneratePage() {
   const coach = useFirstRunCoach();
 
   const [phase, setPhase] = useState<Phase>('picking');
-  const [selectedOccasion, setSelectedOccasion] = useState<string>('casual');
-  const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
+  const [selectedOccasion, setSelectedOccasion] = useState<string>(() => {
+    const prefilledOccasion = extractStyleFlowOccasion(location.state);
+    return OCCASIONS.some((occasion) => occasion.key === prefilledOccasion) ? prefilledOccasion : 'casual';
+  });
+  const [selectedStyles, setSelectedStyles] = useState<string[]>(() => {
+    const prefilledStyles = extractStyleFlowStyles(location.state);
+    return prefilledStyles.filter((style): style is string => STYLES.includes(style as typeof STYLES[number])).slice(0, 2);
+  });
   const prefersReduced = useReducedMotion();
   const [generationMode, setGenerationMode] = useState<GenerationMode>(isPremium ? 'stylist' : 'standard');
   const [lastError, setLastError] = useState<string | null>(null);
@@ -126,35 +138,120 @@ export default function OutfitGeneratePage() {
   const [excludeIds, setExcludeIds] = useState<string[]>([]);
   const updateOutfit = useUpdateOutfit();
   const markWorn = useMarkOutfitWorn();
+  const preferredGarmentIds = useMemo(
+    () => resolveStyleFlowGarmentIds(location.search, location.state),
+    [location.search, location.state],
+  );
+  const { data: preferredGarments } = useGarmentsByIds(preferredGarmentIds);
+
+  useEffect(() => {
+    if (!location.state) return;
+    const stateGarmentIds = extractStyleFlowGarmentIds(location.state);
+    const nextSearch = location.search || buildStyleFlowSearch(stateGarmentIds);
+    navigate(`${location.pathname}${nextSearch}`, { replace: true, state: null });
+  }, [location.pathname, location.search, location.state, navigate]);
+
+  const preferredGarmentIdSet = useMemo(() => new Set(preferredGarmentIds), [preferredGarmentIds]);
+  const preferredGarmentSummary = useMemo(() => {
+    if (!preferredGarmentIds.length) return null;
+    const firstGarment = preferredGarments?.[0];
+    if (preferredGarmentIds.length === 1) {
+      return firstGarment?.title || 'Selected garment';
+    }
+    return firstGarment?.title
+      ? `${firstGarment.title} + ${preferredGarmentIds.length - 1} more`
+      : `${preferredGarmentIds.length} selected pieces`;
+  }, [preferredGarmentIds, preferredGarments]);
+  const preferredGarmentKey = useMemo(() => preferredGarmentIds.join('|'), [preferredGarmentIds]);
+  const selectedStyleKey = useMemo(() => selectedStyles.slice().sort().join('|'), [selectedStyles]);
 
   const contextSubtitle = useMemo(() => {
     const parts: string[] = [];
+    if (preferredGarmentIds.length === 1) parts.push('Styled around your selected piece');
+    if (preferredGarmentIds.length > 1) parts.push(`Built from ${preferredGarmentIds.length} selected pieces`);
     const occ = OCCASIONS.find(o => o.key === selectedOccasion);
     if (occ) parts.push(occ.label);
     if (selectedStyles.length > 0) parts.push(selectedStyles.join(', '));
+    const weatherHint = getWeatherAdvice(weather?.temperature, weather?.precipitation);
+    if (weatherHint) parts.push(weatherHint);
     if (weather?.temperature !== undefined) parts.push(`${weather.temperature}°C`);
     return parts.join(' · ');
-  }, [selectedOccasion, selectedStyles, weather?.temperature]);
-
+  }, [preferredGarmentIds.length, selectedOccasion, selectedStyles, weather?.precipitation, weather?.temperature]);
   const weatherAdvice = getWeatherAdvice(weather?.temperature, weather?.precipitation);
+  const clearPreferredGarments = useCallback(() => {
+    navigate(location.pathname, { replace: true });
+  }, [location.pathname, navigate]);
 
-  const navigateToDetail = useCallback((outfit: GeneratedOutfit) => {
-    navigate(`/outfits/${outfit.id}`, {
-      replace: true,
-      state: {
-        justGenerated: true,
-        confidence_score: outfit.confidence_score,
-        confidence_level: outfit.confidence_level,
-        limitation_note: outfit.limitation_note,
-        family_label: outfit.family_label,
-        wardrobe_insights: outfit.wardrobe_insights,
-        layer_order: outfit.layer_order,
-        needs_base_layer: outfit.needs_base_layer,
-        occasion_submode: outfit.occasion_submode,
-        outfit_reasoning: outfit.outfit_reasoning,
-      },
-    });
-  }, [navigate]);
+  useEffect(() => {
+    setExcludeIds([]);
+  }, [generationMode, preferredGarmentKey, selectedOccasion, selectedStyleKey]);
+
+  const handleGenerate = useCallback(async () => {
+    if (!canCreateOutfit()) {
+      setShowPaywall(true);
+      return;
+    }
+    setPhase('generating');
+    setLastError(null);
+    try {
+      const request = {
+        occasion: selectedOccasion,
+        style: selectedStyles.length > 0 ? selectedStyles.join(', ') : null,
+        locale,
+        eventTitle: calendarEvents?.[0]?.title ?? null,
+        mode: generationMode,
+        exclude_garment_ids: excludeIds.filter((garmentId) => !preferredGarmentIdSet.has(garmentId)),
+        prefer_garment_ids: preferredGarmentIds,
+        weather: {
+          temperature: weather?.temperature,
+          precipitation: weather?.precipitation ?? 'none',
+          wind: weather?.wind ?? 'low',
+        },
+      };
+      const result = generationMode === 'stylist'
+        ? await generateOutfitCandidates(request)
+        : await generateOutfit(request);
+      const results = (Array.isArray(result) ? result : [result]).filter(isGeneratedOutfitComplete);
+      if (results.length === 0) {
+        throw new Error(preferredGarmentIds.length > 0
+          ? PREFERRED_GARMENT_RECOVERY_MESSAGE
+          : COMPLETE_OUTFIT_RECOVERY_MESSAGE);
+      }
+      setGeneratedResults(results);
+      setPrimaryIndex(0);
+      setExcludeIds((prev) => [
+        ...new Set([
+          ...prev,
+          ...results
+            .flatMap((resultItem) => resultItem.items?.map((item) => item.garment.id) ?? [])
+            .filter((garmentId) => !preferredGarmentIdSet.has(garmentId)),
+        ]),
+      ]);
+      setPhase('done');
+    } catch (err) {
+      const message = humanizeOutfitGenerationError(
+        err instanceof Error ? err.message : 'Something went wrong. Please try again.',
+      );
+      setLastError(message);
+      setPhase('error');
+      toast.error('Generation failed', { description: message });
+    }
+  }, [
+    calendarEvents,
+    canCreateOutfit,
+    excludeIds,
+    generateOutfit,
+    generateOutfitCandidates,
+    generationMode,
+    locale,
+    preferredGarmentIdSet,
+    preferredGarmentIds,
+    selectedOccasion,
+    selectedStyles,
+    weather?.precipitation,
+    weather?.temperature,
+    weather?.wind,
+  ]);
 
   // Gate: require enough garments
   if (!isUnlocked('outfit_gen')) {
@@ -169,48 +266,6 @@ export default function OutfitGeneratePage() {
       </PageErrorBoundary>
     );
   }
-
-  const handleGenerate = async () => {
-    if (!canCreateOutfit()) {
-      setShowPaywall(true);
-      return;
-    }
-    setPhase('generating');
-    setLastError(null);
-    try {
-      const request = {
-        occasion: selectedOccasion,
-        style: selectedStyles.length > 0 ? selectedStyles.join(', ') : null,
-        locale,
-        eventTitle: calendarEvents?.[0]?.title ?? null,
-        mode: generationMode,
-        exclude_garment_ids: excludeIds,
-        weather: {
-          temperature: weather?.temperature,
-          precipitation: weather?.precipitation ?? 'none',
-          wind: weather?.wind ?? 'low',
-        },
-      };
-      const result = generationMode === 'stylist'
-        ? await generateOutfitCandidates(request)
-        : await generateOutfit(request);
-      const results = (Array.isArray(result) ? result : [result]).filter(isGeneratedOutfitComplete);
-      if (results.length === 0) {
-        throw new Error('Could not create a complete outfit with your wardrobe. Add shoes or another core piece and try again.');
-      }
-      setGeneratedResults(results);
-      setPrimaryIndex(0);
-      setExcludeIds(prev => [...new Set([...prev, ...(results.flatMap(r => r.items?.map(i => i.garment.id) ?? []))])]);
-      setPhase('done');
-    } catch (err) {
-      const message = humanizeGenerationError(
-        err instanceof Error ? err.message : 'Something went wrong. Please try again.',
-      );
-      setLastError(message);
-      setPhase('error');
-      toast.error('Generation failed', { description: message });
-    }
-  };
 
   const handleSaveOutfit = async (outfit: GeneratedOutfit) => {
     if (!isGeneratedOutfitComplete(outfit)) {
@@ -295,7 +350,14 @@ export default function OutfitGeneratePage() {
     };
 
     const handleRefineInChat = () => {
-      navigate('/ai/chat', { state: { outfitId: primary.id } });
+      const garmentIds = primary.items.map((item) => item.garment.id);
+      navigate(`/ai/chat${buildStyleFlowSearch(garmentIds)}`, {
+        state: {
+          outfitId: primary.id,
+          prefillMessage: 'Refine this outfit for me.',
+          seedOutfitIds: garmentIds,
+        },
+      });
     };
 
     return (
@@ -583,6 +645,32 @@ export default function OutfitGeneratePage() {
               <span className="inline-flex items-center gap-1.5 font-['DM_Sans'] text-[11px] bg-[#EDE8DF] text-[#1C1917]/50 px-3 py-1.5 rounded-full">
                 {weather.temperature}°C · {weather.condition || weather.location}
               </span>
+              {weatherAdvice && (
+                <p className="pt-2 text-[11px] text-muted-foreground/55">
+                  {weatherAdvice}
+                </p>
+              )}
+            </div>
+          )}
+          {preferredGarmentSummary && (
+            <div className="pt-2">
+              <div className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-primary/15 bg-primary/5 px-3 py-2 text-left shadow-sm">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-background text-primary">
+                  <Shirt className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-primary/70">Style anchor</p>
+                  <p className="truncate text-sm font-medium text-foreground">{preferredGarmentSummary}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={clearPreferredGarments}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-background"
+                  aria-label="Clear style anchor"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           )}
         </section>

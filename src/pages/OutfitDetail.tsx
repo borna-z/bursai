@@ -457,7 +457,12 @@ export default function OutfitDetailPage() {
   };
 
   const handleCreateSimilar = () => {
-    navigate('/', { state: { prefillOccasion: outfit?.occasion, prefillStyle: outfit?.style_vibe } });
+    navigate('/ai/generate', {
+      state: {
+        prefillOccasion: outfit?.occasion,
+        prefillStyle: outfit?.style_vibe,
+      },
+    });
   };
 
   const handleToggleShareEnabled = async () => {
