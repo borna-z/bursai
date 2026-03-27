@@ -4,6 +4,10 @@ import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 import { VOICE_STYLIST_CHAT } from "../_shared/burs-voice.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import {
+  isCompleteStyleChatOutfitIds,
+  normalizeStyleChatAssistantReply,
+} from "../../../src/lib/styleChatNormalizer.ts";
 
 // ---------- i18n ----------
 
@@ -748,13 +752,16 @@ function buildActiveLookContext(messages: MessageInput[], garments: GarmentRecor
 
   for (const message of assistantMessages) {
     const text = getMessageText(message.content);
-    const outfitIds = parseTaggedOutfitIds(text).filter((id) => garmentById.has(id));
-    const garmentIds = parseTaggedGarmentIds(text).filter((id) => garmentById.has(id));
-    const ids = Array.from(new Set([...(outfitIds.length ? outfitIds : []), ...garmentIds])).slice(0, 5);
+    const taggedOutfitIds = Array.from(new Set(parseTaggedOutfitIds(text).filter((id) => garmentById.has(id)))).slice(0, 5);
+    const taggedGarmentIds = Array.from(new Set(parseTaggedGarmentIds(text).filter((id) => garmentById.has(id)))).slice(0, 5);
+    const usedOutfitTag = isCompleteStyleChatOutfitIds(taggedOutfitIds, garments);
+    const ids = usedOutfitTag
+      ? taggedOutfitIds
+      : isCompleteStyleChatOutfitIds(taggedGarmentIds, garments)
+        ? taggedGarmentIds
+        : [];
     if (!ids.length) continue;
     const garmentsInLook = ids.map((id) => garmentById.get(id)).filter(Boolean) as GarmentRecord[];
-    const categories = new Set(garmentsInLook.map((item) => normalizeTerm(item.category)));
-    if (garmentsInLook.length < 2 && !categories.has("outerwear")) continue;
 
     const summary = garmentsInLook
       .map((item) => `${item.title} [ID:${item.id}]`)
@@ -763,7 +770,7 @@ function buildActiveLookContext(messages: MessageInput[], garments: GarmentRecor
     return {
       summary,
       garmentIds: garmentsInLook.map((item) => item.id),
-      source: outfitIds.length ? "assistant_outfit_tag" : "assistant_garment_tags",
+      source: usedOutfitTag ? "assistant_outfit_tag" : "assistant_garment_tags",
       garmentLines: garmentsInLook.map(formatGarmentLine),
     };
   }
@@ -1545,7 +1552,7 @@ ${refinementContract}`;
       }
     }
 
-    const normalizedReply = normalizeAssistantReply({
+    const normalizedReply = normalizeStyleChatAssistantReply({
       rawText: rawAssistantText,
       validGarmentIds: new Set(wardrobeCtx.rankedGarments.map((garment) => garment.id)),
       rankedGarments: wardrobeCtx.rankedGarments,
