@@ -22,6 +22,7 @@ import { useWeather } from '@/hooks/useWeather';
 import { useLocation } from '@/contexts/LocationContext';
 import { useCalendarEventsRange } from '@/hooks/useCalendarSync';
 import { buildTodaySuggestions } from '@/lib/buildTodaySuggestions';
+import { buildStyleFlowSearch } from '@/lib/styleFlowState';
 import { hapticLight } from '@/lib/haptics';
 import { useMotionPreset } from '@/lib/motion';
 import { getOccasionLabel } from '@/lib/occasionLabel';
@@ -285,14 +286,19 @@ export default function HomePage() {
               <div className="flex flex-col gap-2 mt-4">
                 {stylistSuggestions.map(chip => (
                   <button
-                    key={chip}
+                    key={chip.id}
                     onClick={() => {
                       hapticLight();
-                      navigate('/ai/chat', { state: { prefillMessage: chip } });
+                      if (chip.route === 'generate' && chip.garmentIds && chip.garmentIds.length > 0) {
+                        navigate(`/ai/generate${buildStyleFlowSearch(chip.garmentIds)}`);
+                        return;
+                      }
+
+                      navigate('/ai/chat', { state: { prefillMessage: chip.prefillMessage ?? chip.text } });
                     }}
                     className="bg-card border-none py-2.5 px-4 text-left font-['DM_Sans'] text-[13px] text-foreground cursor-pointer leading-[1.45]"
                   >
-                    {chip}
+                    {chip.text}
                   </button>
                 ))}
               </div>

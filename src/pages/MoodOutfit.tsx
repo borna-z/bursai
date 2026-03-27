@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { PaywallModal } from '@/components/PaywallModal';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { buildStyleFlowSearch } from '@/lib/styleFlowState';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 
@@ -38,6 +39,7 @@ export default function MoodOutfitPage() {
     id: string;
     explanation: string | null;
     mood: string;
+    garmentIds: string[];
   } | null>(null);
 
   const generate = async (mood: string) => {
@@ -89,7 +91,12 @@ export default function MoodOutfitPage() {
 
       await supabase.from('outfit_items').insert(items);
 
-      setGeneratedOutfit({ id: outfit.id, explanation: data.explanation || null, mood });
+      setGeneratedOutfit({
+        id: outfit.id,
+        explanation: data.explanation || null,
+        mood,
+        garmentIds: data.items.map((item) => item.garment_id),
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('common.something_wrong'));
     } finally {
@@ -143,7 +150,13 @@ export default function MoodOutfitPage() {
             {/* Refine in chat button */}
             <Button
               variant="outline"
-              onClick={() => navigate('/ai/chat', { state: { outfitId: generatedOutfit.id } })}
+              onClick={() => navigate(`/ai/chat${buildStyleFlowSearch(generatedOutfit.garmentIds)}`, {
+                state: {
+                  outfitId: generatedOutfit.id,
+                  prefillMessage: 'Refine this outfit for me.',
+                  seedOutfitIds: generatedOutfit.garmentIds,
+                },
+              })}
               className="block w-full h-12 bg-transparent border border-foreground/30 rounded-none font-['DM_Sans'] text-sm text-foreground mt-2"
             >
               Refine in chat

@@ -8,7 +8,7 @@ const COACH_STEP_ROUTES: Record<number, (pathname: string) => boolean> = {
   0: (pathname: string) => !pathname.startsWith('/wardrobe'),
   1: (pathname: string) => pathname.startsWith('/wardrobe') && !pathname.startsWith('/wardrobe/scan'),
   2: (pathname: string) => pathname.startsWith('/wardrobe/scan'),
-  3: (pathname: string) => pathname.startsWith('/outfits/generate'),
+  3: (pathname: string) => pathname.startsWith('/outfits/generate') || pathname.startsWith('/ai/generate'),
   4: (pathname: string) => pathname.startsWith('/plan'),
 };
 

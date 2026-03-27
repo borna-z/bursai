@@ -81,6 +81,9 @@ describe('useFirstRunCoach', () => {
     const { result: generateResult } = renderHook(() => useFirstRunCoach(), { wrapper: createWrapper('/outfits/generate') });
     expect(generateResult.current.isStepActive(3)).toBe(true);
     expect(generateResult.current.isStepActive(0)).toBe(false);
+
+    const { result: aiGenerateResult } = renderHook(() => useFirstRunCoach(), { wrapper: createWrapper('/ai/generate') });
+    expect(aiGenerateResult.current.isStepActive(3)).toBe(true);
   });
 
 

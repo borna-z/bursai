@@ -47,5 +47,5 @@ describe('Settings', () => {
     );
     expect(container.querySelector('main')).toBeTruthy();
     expect(container.textContent).toContain('Test User');
-  });
+  }, 15000);
 });

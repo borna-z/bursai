@@ -259,7 +259,7 @@ export function OutfitsOnboardingEmpty() {
         transition={{ delay: 0.4 }}
       >
         <Button
-          onClick={() => navigate(hasEnoughGarments ? '/outfits/generate' : '/wardrobe/add')}
+          onClick={() => navigate(hasEnoughGarments ? '/ai/generate' : '/wardrobe/add')}
           size="lg"
         >
           {hasEnoughGarments ? (
@@ -300,14 +300,14 @@ export function PlanOnboardingEmpty() {
       description: 'Let AI style what you own into a look',
       icon: Sparkles,
       done: hasOutfits,
-      action: hasEnoughGarments && !hasOutfits ? () => navigate('/outfits/generate') : undefined,
+      action: hasEnoughGarments && !hasOutfits ? () => navigate('/ai/generate') : undefined,
     },
     {
       label: 'Plan your week',
       description: 'Assign looks to days and never repeat',
       icon: CalendarDays,
       done: false,
-      action: hasOutfits ? () => navigate('/outfits/generate') : undefined,
+      action: hasOutfits ? () => navigate('/plan') : undefined,
     },
   ];
 
@@ -403,7 +403,7 @@ export function InsightsOnboardingEmpty() {
         transition={{ delay: 0.4 }}
       >
         <Button
-          onClick={() => navigate(hasEnoughGarments ? '/outfits/generate' : '/wardrobe/add')}
+          onClick={() => navigate(hasEnoughGarments ? '/ai/generate' : '/wardrobe/add')}
           size="lg"
         >
           {hasEnoughGarments ? (
