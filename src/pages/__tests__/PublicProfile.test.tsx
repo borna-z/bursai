@@ -49,32 +49,68 @@ function createProfileQueryResult() {
   };
 }
 
-function createOutfitsQueryResult() {
+function createOutfitsQueryResult(outfits = [{
+  id: 'outfit-1',
+  occasion: 'Dinner',
+  style_vibe: null,
+  explanation: null,
+  generated_at: '2026-03-22T00:00:00Z',
+  outfit_items: [
+    {
+      id: 'item-1',
+      slot: 'top',
+      garment: {
+        id: 'garment-1',
+        title: 'Silk top',
+        category: 'top',
+        subcategory: 'blouse',
+        image_path: 'raw.jpg',
+        original_image_path: 'raw.jpg',
+        processed_image_path: 'processed.png',
+        image_processing_status: 'ready',
+        rendered_image_path: 'rendered.png',
+        render_status: 'ready',
+      },
+    },
+    {
+      id: 'item-2',
+      slot: 'bottom',
+      garment: {
+        id: 'garment-2',
+        title: 'Tailored trousers',
+        category: 'bottom',
+        subcategory: 'trousers',
+        image_path: 'bottom.jpg',
+        original_image_path: 'bottom.jpg',
+        processed_image_path: null,
+        image_processing_status: 'ready',
+        rendered_image_path: null,
+        render_status: 'none',
+      },
+    },
+    {
+      id: 'item-3',
+      slot: 'shoes',
+      garment: {
+        id: 'garment-3',
+        title: 'Heeled boots',
+        category: 'shoes',
+        subcategory: 'boots',
+        image_path: 'boots.jpg',
+        original_image_path: 'boots.jpg',
+        processed_image_path: null,
+        image_processing_status: 'ready',
+        rendered_image_path: null,
+        render_status: 'none',
+      },
+    },
+  ],
+}]) {
   return {
     eq: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
     limit: vi.fn().mockResolvedValue({
-      data: [{
-        id: 'outfit-1',
-        occasion: 'Dinner',
-        style_vibe: null,
-        explanation: null,
-        generated_at: '2026-03-22T00:00:00Z',
-        outfit_items: [{
-          id: 'item-1',
-          slot: 'top',
-          garment: {
-            id: 'garment-1',
-            title: 'Silk top',
-            image_path: 'raw.jpg',
-            original_image_path: 'raw.jpg',
-            processed_image_path: 'processed.png',
-            image_processing_status: 'ready',
-            rendered_image_path: 'rendered.png',
-            render_status: 'ready',
-          },
-        }],
-      }],
+      data: outfits,
       error: null,
     }),
   };
@@ -126,5 +162,50 @@ describe('PublicProfile', () => {
 
     expect(createSignedUrl).not.toHaveBeenCalledWith('raw.jpg', 3600);
     expect(await screen.findByAltText('Dinner')).toHaveAttribute('src', 'https://signed.example/rendered.png');
+  });
+
+  it('filters incomplete shared outfits from the public profile grid', async () => {
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'public_profiles') {
+        return {
+          select: vi.fn(() => createProfileQueryResult()),
+        };
+      }
+
+      if (table === 'outfits') {
+        return {
+          select: vi.fn(() => createOutfitsQueryResult([{
+            id: 'outfit-2',
+            occasion: 'Dinner',
+            style_vibe: null,
+            explanation: null,
+            generated_at: '2026-03-22T00:00:00Z',
+            outfit_items: [{
+              id: 'item-1',
+              slot: 'top',
+              garment: {
+                id: 'garment-1',
+                title: 'Silk top',
+                category: 'top',
+                subcategory: 'blouse',
+                image_path: 'raw.jpg',
+                original_image_path: 'raw.jpg',
+                processed_image_path: 'processed.png',
+                image_processing_status: 'ready',
+                rendered_image_path: 'rendered.png',
+                render_status: 'ready',
+              },
+            }],
+          }])),
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    renderPage();
+
+    expect(await screen.findByText('profile.no_outfits')).toBeInTheDocument();
+    expect(screen.queryByAltText('Dinner')).not.toBeInTheDocument();
   });
 });

@@ -9,6 +9,7 @@ import {
   SWAP_FRESH_FRESHNESS, SWAP_FRESH_COLOR, SWAP_FRESH_EXPRESSIVE,
 } from '@/config/constants';
 import { logger } from '@/lib/logger';
+import { inferOutfitSlotFromGarment, validateCompleteOutfit } from '@/lib/outfitValidation';
 import type { Garment } from './useGarments';
 
 export interface SwapCandidate {
@@ -171,9 +172,55 @@ export function useSwapGarment() {
 
   const swapMutation = useMutation({
     mutationFn: async ({ outfitItemId, newGarmentId }: { outfitItemId: string; newGarmentId: string }) => {
+      if (!user) throw new Error('Not authenticated');
+
+      const { data: targetItem, error: targetError } = await supabase
+        .from('outfit_items')
+        .select('id, outfit_id')
+        .eq('id', outfitItemId)
+        .single();
+
+      if (targetError || !targetItem) throw targetError || new Error('Swap target not found');
+
+      const { data: newGarment, error: newGarmentError } = await supabase
+        .from('garments')
+        .select('id, category, subcategory')
+        .eq('user_id', user.id)
+        .eq('id', newGarmentId)
+        .single();
+
+      if (newGarmentError || !newGarment) throw newGarmentError || new Error('Replacement garment not found');
+
+      const inferredSlot = inferOutfitSlotFromGarment(newGarment);
+
+      const { data: outfitItems, error: outfitItemsError } = await supabase
+        .from('outfit_items')
+        .select(`
+          id,
+          slot,
+          garment:garments (
+            id,
+            category,
+            subcategory
+          )
+        `)
+        .eq('outfit_id', targetItem.outfit_id);
+
+      if (outfitItemsError) throw outfitItemsError;
+
+      const prospectiveItems = (outfitItems || []).map((item) => ({
+        slot: item.id === outfitItemId ? inferredSlot : item.slot,
+        garment: item.id === outfitItemId ? newGarment : item.garment,
+      }));
+
+      const validation = validateCompleteOutfit(prospectiveItems);
+      if (!validation.isValid) {
+        throw new Error(`Swap would create an invalid outfit. Missing: ${validation.missing.join(', ')}`);
+      }
+
       const { data, error } = await supabase
         .from('outfit_items')
-        .update({ garment_id: newGarmentId })
+        .update({ garment_id: newGarmentId, slot: inferredSlot })
         .eq('id', outfitItemId)
         .select('id');
 

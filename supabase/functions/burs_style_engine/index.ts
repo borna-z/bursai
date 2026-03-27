@@ -3,6 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, estimateMaxTokens } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { validateCompleteOutfit } from "../../../src/lib/outfitValidation.ts";
+import { collectOccasionSignals, collectStyleSignals, hasOccasionSignal, hasStyleSignal, normalizeSignalText } from "../../../src/lib/styleSignals.ts";
 
 // ─────────────────────────────────────────────
 // TYPES
@@ -553,7 +555,19 @@ const OCCASION_FORMALITY: Record<string, { range: [number, number]; styleHints: 
 };
 
 function getFormalityRange(occasion: string): [number, number] {
-  const occ = occasion.toLowerCase();
+  const signals = collectOccasionSignals(occasion);
+  if (hasOccasionSignal(signals, 'formal')) return [4, 5];
+  if (hasOccasionSignal(signals, 'meeting')) return [3, 5];
+  if (hasOccasionSignal(signals, 'work')) return [2, 4];
+  if (hasOccasionSignal(signals, 'party') || hasOccasionSignal(signals, 'date') || hasOccasionSignal(signals, 'dinner')) {
+    return [3, 5];
+  }
+  if (hasOccasionSignal(signals, 'brunch')) return [2, 3];
+  if (hasOccasionSignal(signals, 'travel') || hasOccasionSignal(signals, 'school')) return [1, 3];
+  if (hasOccasionSignal(signals, 'workout')) return [1, 1];
+  if (hasOccasionSignal(signals, 'casual')) return [1, 3];
+
+  const occ = normalizeSignalText(occasion);
   for (const [key, entry] of Object.entries(OCCASION_FORMALITY)) {
     if (occ.includes(key)) return entry.range;
   }
@@ -561,11 +575,56 @@ function getFormalityRange(occasion: string): [number, number] {
 }
 
 function getOccasionStyleHints(occasion: string): string[] {
-  const occ = occasion.toLowerCase();
-  for (const [key, entry] of Object.entries(OCCASION_FORMALITY)) {
-    if (occ.includes(key)) return entry.styleHints;
+  const signals = collectOccasionSignals(occasion);
+  const hints = new Set<string>();
+
+  if (hasOccasionSignal(signals, 'casual')) {
+    hints.add('relaxed');
+    hints.add('comfortable');
   }
-  return [];
+  if (hasOccasionSignal(signals, 'work')) {
+    hints.add('polished');
+    hints.add('professional');
+  }
+  if (hasOccasionSignal(signals, 'meeting')) {
+    hints.add('sharp');
+    hints.add('confident');
+  }
+  if (hasOccasionSignal(signals, 'date')) {
+    hints.add('intentional');
+    hints.add('attractive');
+  }
+  if (hasOccasionSignal(signals, 'party')) {
+    hints.add('expressive');
+    hints.add('statement');
+  }
+  if (hasOccasionSignal(signals, 'formal')) {
+    hints.add('formal');
+    hints.add('elegant');
+  }
+  if (hasOccasionSignal(signals, 'travel')) {
+    hints.add('versatile');
+    hints.add('comfortable');
+  }
+  if (hasOccasionSignal(signals, 'workout')) {
+    hints.add('athletic');
+    hints.add('performance');
+  }
+  if (hasOccasionSignal(signals, 'brunch')) {
+    hints.add('smart casual');
+    hints.add('relaxed');
+  }
+  if (hasOccasionSignal(signals, 'dinner')) {
+    hints.add('elegant');
+  }
+
+  const occ = normalizeSignalText(occasion);
+  for (const [key, entry] of Object.entries(OCCASION_FORMALITY)) {
+    if (occ.includes(key)) {
+      entry.styleHints.forEach((hint) => hints.add(hint));
+    }
+  }
+  return Array.from(hints);
 }
 
 function formalityScore(garment: GarmentRow, occasion: string): number {
@@ -831,7 +890,7 @@ function styleAlignmentScore(garment: GarmentRow, prefs: Record<string, any> | n
 
   const favColors = (sp.favoriteColors || []) as string[];
   const dislikedColors = (sp.dislikedColors || []) as string[];
-  const styleWords = ((sp.styleWords || []) as string[]).map((v) => String(v).toLowerCase());
+  const styleSignals = collectStyleSignals((sp.styleWords || []) as string[]);
   const paletteVibe = String(sp.paletteVibe || '').toLowerCase();
   const comfortVsStyle =
     typeof sp.comfortVsStyle === 'number' ? sp.comfortVsStyle : 50;
@@ -849,28 +908,70 @@ function styleAlignmentScore(garment: GarmentRow, prefs: Record<string, any> | n
     score += 1;
   }
 
-  if (styleWords.includes('minimal')) {
+  if (hasStyleSignal(styleSignals, 'minimal')) {
     if (!garment.pattern || ['solid', 'none'].includes(garment.pattern.toLowerCase())) score += 0.8;
-    if ((garment.formality || 0) >= 4) score += 0.5;
+    if ((garment.formality || 0) >= 3) score += 0.5;
   }
 
-  if (styleWords.includes('classic')) {
-    if ((garment.formality || 0) >= 6) score += 0.8;
+  if (hasStyleSignal(styleSignals, 'classic')) {
+    if ((garment.formality || 0) >= 4) score += 0.8;
     if (['shirt', 'blazer', 'coat', 'trousers', 'loafer'].some((x) => `${category} ${subcategory}`.includes(x))) {
       score += 0.8;
     }
   }
 
-  if (styleWords.includes('street')) {
+  if (hasStyleSignal(styleSignals, 'smart_casual')) {
+    if ((garment.formality || 0) >= 3 && (garment.formality || 0) <= 4) score += 0.9;
+    if (['shirt', 'polo', 'chino', 'trouser', 'loafer', 'blazer', 'knit'].some((x) => `${category} ${subcategory}`.includes(x))) {
+      score += 0.7;
+    }
+  }
+
+  if (hasStyleSignal(styleSignals, 'street')) {
     if (['hoodie', 'sneaker', 'cargo', 'oversized', 'relaxed'].some((x) => `${category} ${subcategory} ${fit}`.includes(x))) {
       score += 0.9;
     }
   }
 
-  if (styleWords.includes('sporty')) {
+  if (hasStyleSignal(styleSignals, 'sporty')) {
     if (['sneaker', 'hoodie', 'track', 'running', 'trainer'].some((x) => `${category} ${subcategory}`.includes(x))) {
       score += 0.9;
     }
+  }
+
+  if (hasStyleSignal(styleSignals, 'scandinavian')) {
+    if (!garment.pattern || ['solid', 'none'].includes(garment.pattern.toLowerCase())) score += 0.7;
+    if (['shirt', 'coat', 'trouser', 'knit', 'loafer', 'boot'].some((x) => `${category} ${subcategory}`.includes(x))) {
+      score += 0.6;
+    }
+    const hsl = getHSL(garment.color_primary);
+    if (hsl && (isNeutral(hsl) || ['blue', 'navy', 'grey', 'gray', 'white', 'black', 'beige', 'cream'].some((x) => gc.includes(x)))) {
+      score += 0.5;
+    }
+  }
+
+  if (hasStyleSignal(styleSignals, 'edgy')) {
+    if (['leather', 'biker', 'boot', 'combat', 'graphic', 'black'].some((x) => `${gc} ${material} ${category} ${subcategory}`.includes(x))) {
+      score += 0.9;
+    }
+  }
+
+  if (hasStyleSignal(styleSignals, 'bohemian')) {
+    if (['linen', 'suede', 'crochet', 'flow', 'floral', 'paisley', 'earth'].some((x) => `${material} ${subcategory} ${gc}`.includes(x))) {
+      score += 0.8;
+    }
+    if (['relaxed', 'regular', 'oversized'].includes(fit)) score += 0.4;
+  }
+
+  if (hasStyleSignal(styleSignals, 'preppy')) {
+    if (['oxford', 'shirt', 'polo', 'cardigan', 'blazer', 'chino', 'loafer'].some((x) => `${category} ${subcategory}`.includes(x))) {
+      score += 0.9;
+    }
+  }
+
+  if (hasStyleSignal(styleSignals, 'relaxed')) {
+    if (['relaxed', 'regular', 'oversized'].includes(fit)) score += 0.7;
+    if (['cotton', 'jersey', 'knit', 'linen', 'fleece'].some((x) => material.includes(x))) score += 0.4;
   }
 
   if (paletteVibe.includes('neutral') || paletteVibe.includes('tonal')) {
@@ -882,7 +983,7 @@ function styleAlignmentScore(garment: GarmentRow, prefs: Record<string, any> | n
     if (['relaxed', 'regular', 'oversized'].includes(fit)) score += 0.8;
     if (['jersey', 'cotton', 'knit', 'merino'].some((x) => material.includes(x))) score += 0.4;
   } else if (comfortVsStyle <= 35) {
-    if ((garment.formality || 0) >= 6) score += 0.8;
+    if ((garment.formality || 0) >= 4) score += 0.8;
     if (['wool', 'leather', 'tailored'].some((x) => material.includes(x) || subcategory.includes(x))) score += 0.4;
   }
 
@@ -922,8 +1023,7 @@ function styleIntentScore(
   prefs: Record<string, any> | null
 ): number {
   const sp = getStylePrefs(prefs);
-  const styleWords = ((sp.styleWords || []) as string[]).map((v) => String(v).toLowerCase());
-  const target = [String(requestedStyle || '').toLowerCase(), ...styleWords].join(' ');
+  const styleSignals = collectStyleSignals(requestedStyle, (sp.styleWords || []) as string[]);
 
   const colors = items
     .map((item) => getHSL(item.garment.color_primary))
@@ -944,7 +1044,7 @@ function styleIntentScore(
 
   const structuredCount = items.filter((item) => {
     const txt = garmentText(item.garment);
-    return (item.garment.formality || 0) >= 6 || ['blazer', 'coat', 'shirt', 'loafer', 'trouser'].some((x) => txt.includes(x));
+    return (item.garment.formality || 0) >= 4 || ['blazer', 'coat', 'shirt', 'loafer', 'trouser', 'oxford', 'chino'].some((x) => txt.includes(x));
   }).length;
 
   const sportyCount = items.filter((item) => {
@@ -957,6 +1057,21 @@ function styleIntentScore(
     return ['dress', 'skirt', 'silk', 'satin', 'soft'].some((x) => txt.includes(x));
   }).length;
 
+  const edgyCount = items.filter((item) => {
+    const txt = garmentText(item.garment);
+    return ['leather', 'biker', 'combat', 'boot', 'graphic', 'black'].some((x) => txt.includes(x));
+  }).length;
+
+  const bohemianCount = items.filter((item) => {
+    const txt = garmentText(item.garment);
+    return ['linen', 'suede', 'paisley', 'floral', 'crochet', 'flow', 'earth', 'relaxed'].some((x) => txt.includes(x));
+  }).length;
+
+  const preppyCount = items.filter((item) => {
+    const txt = garmentText(item.garment);
+    return ['oxford', 'polo', 'cardigan', 'blazer', 'chino', 'loafer', 'pleat'].some((x) => txt.includes(x));
+  }).length;
+
   const formalities = items
     .map((item) => item.garment.formality)
     .filter((v): v is number => typeof v === 'number');
@@ -967,33 +1082,61 @@ function styleIntentScore(
 
   let score = 7;
 
-  if (target.includes('minimal')) {
+  if (hasStyleSignal(styleSignals, 'minimal')) {
     score += neutralRatio * 2.5;
     score -= patternCount * 1.1;
   }
 
-  if (target.includes('classic')) {
+  if (hasStyleSignal(styleSignals, 'classic')) {
     score += structuredCount * 0.8;
     score += neutralRatio * 1.2;
   }
 
-  if (target.includes('smart') || target.includes('smart-casual')) {
-    if (avgFormality >= 4.5 && avgFormality <= 7.5) score += 1.5;
+  if (hasStyleSignal(styleSignals, 'smart_casual')) {
+    if (avgFormality >= 2.8 && avgFormality <= 4.2) score += 1.5;
     else score -= 1.2;
-    score += structuredCount * 0.4;
+    score += structuredCount * 0.6;
   }
 
-  if (target.includes('street')) {
+  if (hasStyleSignal(styleSignals, 'street')) {
     score += relaxedCount * 0.6;
     score += sportyCount * 0.8;
   }
 
-  if (target.includes('sporty') || target.includes('athletic')) {
+  if (hasStyleSignal(styleSignals, 'sporty')) {
     score += sportyCount * 1.2;
   }
 
-  if (target.includes('romantic')) {
+  if (hasStyleSignal(styleSignals, 'romantic')) {
     score += romanticCount * 1.0;
+  }
+
+  if (hasStyleSignal(styleSignals, 'scandinavian')) {
+    score += neutralRatio * 2.2;
+    score += structuredCount * 0.4;
+    score -= patternCount * 0.8;
+  }
+
+  if (hasStyleSignal(styleSignals, 'edgy')) {
+    score += edgyCount * 1.1;
+    if (colors.some((hsl) => hsl[2] < 20)) score += 0.6;
+  }
+
+  if (hasStyleSignal(styleSignals, 'bohemian')) {
+    score += bohemianCount * 1.0;
+    score += relaxedCount * 0.4;
+    score += patternCount * 0.4;
+  }
+
+  if (hasStyleSignal(styleSignals, 'preppy')) {
+    score += preppyCount * 1.0;
+    score += structuredCount * 0.3;
+  }
+
+  if (hasStyleSignal(styleSignals, 'relaxed')) {
+    score += relaxedCount * 0.8;
+    if (avgFormality <= 3.3) score += 0.8;
+    else score -= 0.6;
   }
 
   const paletteVibe = String(sp.paletteVibe || '').toLowerCase();
@@ -1009,7 +1152,7 @@ function occasionTemplateScore(
   occasion: string,
   weather: WeatherInput
 ): number {
-  const occ = String(occasion || '').toLowerCase();
+  const occasionSignals = collectOccasionSignals(occasion);
   const hasOuterwear = hasComboSlot(items, 'outerwear');
   const hasAccessory = hasComboSlot(items, 'accessory');
 
@@ -1031,24 +1174,31 @@ function occasionTemplateScore(
 
   let score = 7;
 
-  if (['work', 'jobb'].includes(occ)) {
-    if (avgFormality >= 4.5 && avgFormality <= 7.5) score += 2;
+  if (hasOccasionSignal(occasionSignals, 'meeting')) {
+    if (avgFormality >= 3.2 && avgFormality <= 5) score += 2;
     else score -= 1.5;
     if (shoeText.includes('sandals')) score -= 2;
-  } else if (['casual', 'vardag'].includes(occ)) {
-    if (avgFormality >= 2.5 && avgFormality <= 5.5) score += 1.5;
-  } else if (['date', 'dejt'].includes(occ)) {
-    if (avgFormality >= 4 && avgFormality <= 7.5) score += 1.5;
+  } else if (hasOccasionSignal(occasionSignals, 'work')) {
+    if (avgFormality >= 2.5 && avgFormality <= 4.5) score += 2;
+    else score -= 1.5;
+    if (shoeText.includes('sandals')) score -= 2;
+  } else if (hasOccasionSignal(occasionSignals, 'casual') || hasOccasionSignal(occasionSignals, 'school')) {
+    if (avgFormality >= 1.5 && avgFormality <= 3.5) score += 1.5;
+  } else if (hasOccasionSignal(occasionSignals, 'date')) {
+    if (avgFormality >= 2.5 && avgFormality <= 4.5) score += 1.5;
     if (hasAccessory) score += 0.5;
-  } else if (['party', 'fest'].includes(occ)) {
-    if (avgFormality >= 4.5 && avgFormality <= 8.5) score += 1.2;
+  } else if (hasOccasionSignal(occasionSignals, 'party') || hasOccasionSignal(occasionSignals, 'dinner')) {
+    if (avgFormality >= 3 && avgFormality <= 5) score += 1.2;
     if (hasAccessory) score += 0.8;
-  } else if (['travel', 'resa'].includes(occ)) {
+  } else if (hasOccasionSignal(occasionSignals, 'travel')) {
     if (hasOuterwear && (weather.temperature ?? 18) < 18) score += 1;
     if (shoeText.includes('sneaker') || shoeText.includes('boot')) score += 1;
-  } else if (['formal'].includes(occ)) {
-    if (avgFormality >= 7) score += 2;
+  } else if (hasOccasionSignal(occasionSignals, 'formal')) {
+    if (avgFormality >= 4) score += 2;
     else score -= 2;
+  } else if (hasOccasionSignal(occasionSignals, 'workout')) {
+    if (shoeText.includes('sneaker') || shoeText.includes('trainer')) score += 1.5;
+    if (avgFormality <= 2.5) score += 1;
   }
 
   return clampScore(score);
@@ -1330,8 +1480,8 @@ function resolveOccasionSubmode(
   prefs: Record<string, any> | null,
   styleVector: StyleVector | null
 ): string | null {
-  const occ = occasion.toLowerCase();
-  const isWork = ['work', 'jobb', 'office', 'kontor'].includes(occ);
+  const occasionSignals = collectOccasionSignals(occasion);
+  const isWork = hasOccasionSignal(occasionSignals, 'work') || hasOccasionSignal(occasionSignals, 'meeting');
   if (!isWork) return null;
 
   // Determine formality target from user's style vector or preferences
@@ -1339,19 +1489,22 @@ function resolveOccasionSubmode(
   const userFormalityCenter = styleVector?.formalityCenter ?? null;
   const primaryGoal = String(sp.primaryGoal || '').toLowerCase();
 
-  let formalityTarget = 5; // default business casual
+  const [formalityMin, formalityMax] = getFormalityRange(occasion);
+  let formalityTarget = (formalityMin + formalityMax) / 2;
   if (userFormalityCenter !== null) {
     formalityTarget = userFormalityCenter;
   }
   if (primaryGoal.includes('formal') || primaryGoal.includes('professional')) {
-    formalityTarget = Math.max(formalityTarget, 7);
+    formalityTarget = Math.max(formalityTarget, 4.5);
   }
   if (primaryGoal.includes('comfort') || primaryGoal.includes('relaxed') || primaryGoal.includes('creative')) {
-    formalityTarget = Math.min(formalityTarget, 4);
+    formalityTarget = Math.min(formalityTarget, 2.8);
   }
 
-  if (formalityTarget >= 7) return 'Formal Office';
-  if (formalityTarget >= 5) return 'Business Casual';
+  if (hasOccasionSignal(occasionSignals, 'formal') || hasOccasionSignal(occasionSignals, 'meeting') || formalityTarget >= 4.4) {
+    return 'Formal Office';
+  }
+  if (formalityTarget >= 3) return 'Business Casual';
   return 'Relaxed Office';
 }
 
@@ -1362,23 +1515,17 @@ function resolveOccasionSubmode(
 /** Score occasion suitability using enrichment occasion_tags. */
 function occasionTagScore(garment: GarmentRow, occasion: string): number {
   if (garment.occasion_tags.length === 0) return 7; // unenriched → neutral
-  const occ = occasion.toLowerCase();
-  // Direct match
-  if (garment.occasion_tags.includes(occ)) return 10;
-  // Partial match (e.g., occasion "jobb" matches tag "work")
-  const OCCASION_ALIASES: Record<string, string[]> = {
-    work: ['jobb', 'kontor', 'office', 'möte', 'meeting'],
-    casual: ['vardag', 'everyday', 'weekend', 'helg'],
-    date: ['dejt', 'romantic'],
-    party: ['fest', 'celebration'],
-    formal: ['bröllop', 'wedding', 'gala', 'ceremoni'],
-    sport: ['träning', 'gym', 'yoga'],
-    travel: ['resa', 'flygresa', 'flight'],
-  };
-  for (const [canonical, aliases] of Object.entries(OCCASION_ALIASES)) {
-    const allNames = [canonical, ...aliases];
-    if (allNames.includes(occ) && garment.occasion_tags.some(t => allNames.includes(t))) return 9;
+  const normalizedOccasion = normalizeSignalText(occasion);
+  if (garment.occasion_tags.some((tag) => normalizeSignalText(tag) === normalizedOccasion)) return 10;
+
+  const targetSignals = collectOccasionSignals(occasion);
+  const garmentSignals = new Set<string>();
+  for (const tag of garment.occasion_tags) {
+    garmentSignals.add(normalizeSignalText(tag));
+    collectOccasionSignals(tag).forEach((signal) => garmentSignals.add(signal));
   }
+
+  if (Array.from(targetSignals).some((signal) => garmentSignals.has(signal))) return 9;
   // No match at all
   return 5;
 }
@@ -1569,16 +1716,15 @@ interface OutfitCompletenessResult {
 /** Compute the required slots for the given items and weather context. */
 function getRequiredSlotsForContext(
   items: { slot: string }[],
-  weather: WeatherInput,
+  _weather: WeatherInput,
   mode: OutfitCompletenessMode = 'strict_visible'
 ): string[] {
   const slots = new Set(items.map(i => i.slot));
   const hasDress = slots.has('dress');
-  const required = hasDress ? ['dress'] : ['top', 'bottom'];
-  if (mode === 'strict_visible') {
-    required.push('shoes');
-    if (requiresOuterwear(weather)) required.push('outerwear');
-  }
+  const required = hasDress ? ['dress', 'shoes'] : ['top', 'bottom', 'shoes'];
+  if (mode === 'dress_only') return ['dress', 'shoes'];
+  if (mode === 'no_shoes') return hasDress ? ['dress'] : ['top', 'bottom'];
+  if (mode === 'any_two') return [];
   return required;
 }
 
@@ -1588,31 +1734,31 @@ function isCompleteOutfit(
   mode: OutfitCompletenessMode = 'strict_visible'
 ): OutfitCompletenessResult {
   const presentSlots = [...new Set(items.map(i => i.slot))];
-  const slots = new Set(presentSlots);
-  const missing: string[] = [];
-
-  const hasTop = slots.has('top');
-  const hasBottom = slots.has('bottom');
-  const hasDress = slots.has('dress');
-  const hasShoes = slots.has('shoes');
-  const hasOuterwear = slots.has('outerwear');
-
-  const hasStandardBase = hasTop && hasBottom;
-  const hasDressBase = hasDress;
-  const hasBasePath = hasStandardBase || hasDressBase;
-
-  if (!hasBasePath) {
-    if (!hasDress && !hasTop) missing.push('top');
-    if (!hasDress && !hasBottom) missing.push('bottom');
-  }
+  const normalizedItems = items.map((item) => ({
+    slot: item.slot,
+    garment: item.garment,
+  }));
+  const completeValidation = validateCompleteOutfit(normalizedItems);
+  const baseMissing = completeValidation.missing.filter((slot) => slot !== 'shoes' && slot !== 'outerwear');
+  const missing = [...baseMissing];
+  const hasDress = completeValidation.isDressBased;
 
   if (mode === 'no_shoes') {
-    // complete if (top+bottom) or dress exists, no shoes required
-    return { complete: hasBasePath, missing: hasBasePath ? [] : [...missing], required_slots: getRequiredSlotsForContext(items, weather, mode), present_slots: presentSlots };
+    return {
+      complete: completeValidation.isStandard || completeValidation.isDressBased,
+      missing,
+      required_slots: getRequiredSlotsForContext(items, weather, mode),
+      present_slots: presentSlots,
+    };
   }
 
   if (mode === 'dress_only') {
-    return { complete: hasDress, missing: hasDress ? [] : ['dress'], required_slots: ['dress'], present_slots: presentSlots };
+    return {
+      complete: hasDress && !completeValidation.missing.includes('shoes'),
+      missing: hasDress ? completeValidation.missing.filter((slot) => slot === 'shoes') : ['dress', 'shoes'],
+      required_slots: ['dress', 'shoes'],
+      present_slots: presentSlots,
+    };
   }
 
   if (mode === 'any_two') {
@@ -1620,25 +1766,17 @@ function isCompleteOutfit(
     return { complete: items.length >= 2 && slots.size >= 2, missing: [], required_slots: [], present_slots: presentSlots };
   }
 
-  if (mode === 'strict_visible') {
-    const strictStandardPath = hasStandardBase && hasShoes;
-    const strictDressPath = hasDressBase && hasShoes;
-    if (!strictStandardPath && !strictDressPath && !hasShoes) {
-      missing.push('shoes');
-    }
-
-    const needsOuter = requiresOuterwear(weather);
-    if (needsOuter && !hasOuterwear) {
-      missing.push('outerwear');
-    }
+  if (completeValidation.missing.includes('shoes')) {
+    missing.push('shoes');
   }
 
-  const layering = hasDress ? { valid: true } : validateLayeringCompleteness(items);
-  const complete = hasBasePath && layering.valid;
-
   const requiredSlots = getRequiredSlotsForContext(items, weather, mode);
-
-  return { complete, missing, required_slots: requiredSlots, present_slots: presentSlots };
+  return {
+    complete: completeValidation.isValid,
+    missing: Array.from(new Set(missing)),
+    required_slots: requiredSlots,
+    present_slots: presentSlots,
+  };
 }
 
 function explainMissingRequiredSlots(missing: string[]): string {
@@ -2529,15 +2667,7 @@ function buildCombos(
     return role === 'base' || role === 'standalone';
   });
   const midLayers = tops.filter(t => (t.garment.layering_role || 'standalone') === 'mid');
-  const primaryTopSeeds = baseTops.length > 0
-    ? baseTops
-    : midLayers.map((top) => ({
-        ...top,
-        garment: {
-          ...top.garment,
-          layering_role: 'standalone',
-        },
-      }));
+  const primaryTopSeeds = baseTops;
 
   const wet = isWetWeather(weather);
   const needsOuterwear =
@@ -2562,13 +2692,15 @@ function buildCombos(
 
   const shoeOptions: Array<ScoredGarment | null> = suitableShoes.length > 0
     ? suitableShoes.slice(0, 5)
-    : [null];
+    : shoes.slice(0, 3);
 
   const combos: ScoredCombo[] = [];
 
   const pushCombo = (items: ComboItem[]) => {
-    const { complete } = isCompleteOutfit(items, weather, 'guaranteed_base');
+    const { complete } = isCompleteOutfit(items, weather, 'strict_visible');
     if (!complete) return; // Reject incomplete outfits before scoring
+    const layering = validateLayeringCompleteness(items);
+    if (!layering.valid) return;
     combos.push(
       scoreCombo(items, recentOutfitSets, occasion, weather, style, prefs, body, pairMemory)
     );
@@ -2702,11 +2834,10 @@ function buildCombos(
 
   // Hard quality gate — reject weak outfits before ranking
   const qualityFiltered = Array.from(unique.values()).filter(c => qualityGate(c, weather));
+  if (qualityFiltered.length === 0) return [];
 
   // Exact-id dedup first, then family-level dedup
-  const exactDeduped = qualityFiltered.length > 0
-    ? qualityFiltered.sort((a, b) => b.totalScore - a.totalScore)
-    : Array.from(unique.values()).sort((a, b) => b.totalScore - a.totalScore).slice(0, 3); // fallback: top 3 even if weak
+  const exactDeduped = qualityFiltered.sort((a, b) => b.totalScore - a.totalScore);
 
   return pickRepresentativeOutfits(exactDeduped, maxCombos, 0.8);
 }
@@ -2722,27 +2853,44 @@ function buildFallbackCombos(
   body: BodyProfile | null = null,
   pairMemory: PairMemoryMap | null = null
 ): { combos: ScoredCombo[]; fallbackLevel: number } {
-
-  // Level 2: no shoes required — build top+bottom combos directly
   const tops = slotCandidates['top'] || [];
   const bottoms = slotCandidates['bottom'] || [];
+  const shoes = slotCandidates['shoes'] || [];
   const dresses = slotCandidates['dress'] || [];
   const outerwear = slotCandidates['outerwear'] || [];
-
+  const suitableShoes = shoes.filter((shoe) => isSuitableShoeCandidate(shoe, weather));
+  const baseTops = tops.filter((top) => {
+    const role = top.garment.layering_role || 'standalone';
+    return role === 'base' || role === 'standalone';
+  });
+  const outerwearOptions: Array<ScoredGarment | null> = requiresOuterwear(weather)
+    ? (outerwear.length > 0 ? [outerwear[0]] : [null])
+    : [null, ...(outerwear.length > 0 ? [outerwear[0]] : [])];
   const combos: ScoredCombo[] = [];
 
-  // Level 2: top + bottom (no shoes)
-  if (tops.length > 0 && bottoms.length > 0) {
-    for (const t of tops.slice(0, 4)) {
+  const pushFallbackCombo = (items: ComboItem[]) => {
+    const { complete } = isCompleteOutfit(items, weather, 'strict_visible');
+    if (!complete) return;
+    const layering = validateLayeringCompleteness(items);
+    if (!layering.valid) return;
+    const scored = scoreCombo(items, recentOutfitSets, occasion, weather, style, prefs, body, pairMemory);
+    if (!qualityGate(scored, weather)) return;
+    combos.push(scored);
+  };
+
+  if (baseTops.length > 0 && bottoms.length > 0 && suitableShoes.length > 0) {
+    for (const t of baseTops.slice(0, 4)) {
       for (const b of bottoms.slice(0, 4)) {
-        const ow = outerwear[0] ? [{ slot: 'outerwear', garment: outerwear[0].garment, baseScore: outerwear[0].score, baseBreakdown: outerwear[0].breakdown }] : [];
-        const items: ComboItem[] = [
-          { slot: 'top', garment: t.garment, baseScore: t.score, baseBreakdown: t.breakdown },
-          { slot: 'bottom', garment: b.garment, baseScore: b.score, baseBreakdown: b.breakdown },
-          ...ow,
-        ];
-        const scored = scoreCombo(items, recentOutfitSets, occasion, weather, style, prefs, body, pairMemory);
-        combos.push(scored);
+        for (const s of suitableShoes.slice(0, 3)) {
+          for (const ow of outerwearOptions) {
+            pushFallbackCombo([
+              { slot: 'top', garment: t.garment, baseScore: t.score, baseBreakdown: t.breakdown },
+              { slot: 'bottom', garment: b.garment, baseScore: b.score, baseBreakdown: b.breakdown },
+              { slot: 'shoes', garment: s.garment, baseScore: s.score, baseBreakdown: s.breakdown },
+              ...(ow ? [{ slot: 'outerwear', garment: ow.garment, baseScore: ow.score, baseBreakdown: ow.breakdown }] : []),
+            ]);
+          }
+        }
       }
     }
     if (combos.length > 0) {
@@ -2750,38 +2898,21 @@ function buildFallbackCombos(
     }
   }
 
-  // Level 3: dress + shoes (already in main loop; this handles dress without shoes)
-  // Level 4: dress only
-  if (dresses.length > 0) {
+  if (dresses.length > 0 && suitableShoes.length > 0) {
     for (const d of dresses.slice(0, 4)) {
-      const ow = outerwear[0] ? [{ slot: 'outerwear', garment: outerwear[0].garment, baseScore: outerwear[0].score, baseBreakdown: outerwear[0].breakdown }] : [];
-      const items: ComboItem[] = [
-        { slot: 'dress', garment: d.garment, baseScore: d.score, baseBreakdown: d.breakdown },
-        ...ow,
-      ];
-      const scored = scoreCombo(items, recentOutfitSets, occasion, weather, style, prefs, body, pairMemory);
-      combos.push(scored);
-    }
-    if (combos.length > 0) {
-      return { combos: combos.sort((a, b) => b.totalScore - a.totalScore).slice(0, maxCombos), fallbackLevel: 4 };
-    }
-  }
-
-  // Level 5: any 2 garments from different categories
-  const allGarments = Object.entries(slotCandidates)
-    .flatMap(([slot, gs]) => gs.map(g => ({ slot, garment: g.garment, baseScore: g.score, baseBreakdown: g.breakdown })));
-
-  for (let i = 0; i < Math.min(allGarments.length, 6); i++) {
-    for (let j = i + 1; j < Math.min(allGarments.length, 6); j++) {
-      if (allGarments[i].slot !== allGarments[j].slot) {
-        const items: ComboItem[] = [allGarments[i], allGarments[j]];
-        const scored = scoreCombo(items, recentOutfitSets, occasion, weather, style, prefs, body, pairMemory);
-        combos.push(scored);
+      for (const s of suitableShoes.slice(0, 3)) {
+        for (const ow of outerwearOptions) {
+          pushFallbackCombo([
+            { slot: 'dress', garment: d.garment, baseScore: d.score, baseBreakdown: d.breakdown },
+            { slot: 'shoes', garment: s.garment, baseScore: s.score, baseBreakdown: s.breakdown },
+            ...(ow ? [{ slot: 'outerwear', garment: ow.garment, baseScore: ow.score, baseBreakdown: ow.breakdown }] : []),
+          ]);
+        }
       }
     }
-  }
-  if (combos.length > 0) {
-    return { combos: combos.sort((a, b) => b.totalScore - a.totalScore).slice(0, maxCombos), fallbackLevel: 5 };
+    if (combos.length > 0) {
+      return { combos: combos.sort((a, b) => b.totalScore - a.totalScore).slice(0, maxCombos), fallbackLevel: 3 };
+    }
   }
 
   return { combos: [], fallbackLevel: -1 };
@@ -3072,6 +3203,7 @@ function detectWardrobeGapForRequest(
   occasion: string
 ): string[] {
   const gaps: string[] = [];
+  const occasionSignals = collectOccasionSignals(occasion);
 
   const temp = weather.temperature;
   const precip = (weather.precipitation || '').toLowerCase();
@@ -3115,13 +3247,22 @@ function detectWardrobeGapForRequest(
   }
 
   // Formality gaps
-  const occasionKey = occasion.toLowerCase();
-  const formalOccasions = ['work', 'jobb', 'interview', 'intervju', 'formal', 'formell', 'business'];
-  if (formalOccasions.includes(occasionKey)) {
-    const formalTops = (slotCandidates['top'] || []).filter(g => (g.garment.formality ?? 5) >= 6);
-    const formalBottoms = (slotCandidates['bottom'] || []).filter(g => (g.garment.formality ?? 5) >= 6);
-    if (formalTops.length === 0) gaps.push('weak formal top options for this occasion');
-    if (formalBottoms.length === 0) gaps.push('weak formal bottom options for this occasion');
+  const needsRefinedCore =
+    hasOccasionSignal(occasionSignals, 'work') ||
+    hasOccasionSignal(occasionSignals, 'meeting') ||
+    hasOccasionSignal(occasionSignals, 'formal');
+  if (needsRefinedCore) {
+    const [, maxFormality] = getFormalityRange(occasion);
+    const refinedThreshold = Math.max(4, maxFormality - 1);
+    const formalTops = (slotCandidates['top'] || []).filter(g => (g.garment.formality ?? 0) >= refinedThreshold);
+    const formalBottoms = (slotCandidates['bottom'] || []).filter(g => (g.garment.formality ?? 0) >= refinedThreshold);
+    const formalDresses = (slotCandidates['dress'] || []).filter(g => (g.garment.formality ?? 0) >= refinedThreshold);
+    const hasFormalSeparates = formalTops.length > 0 && formalBottoms.length > 0;
+
+    if (!hasFormalSeparates && formalDresses.length === 0) {
+      if (formalTops.length === 0) gaps.push('weak formal top options for this occasion');
+      if (formalBottoms.length === 0) gaps.push('weak formal bottom options for this occasion');
+    }
   }
 
   // Thin wardrobe in general
@@ -3510,14 +3651,16 @@ EXPLANATION RULES:
 OCCASION: ${occasion}${submodeStr}${style ? `\nSTYLE: ${style}` : ""}${hintsStr}${seasonStr}${layeringStr}
 WEATHER: ${weather.temperature !== undefined ? weather.temperature + "°C" : "unknown"}${weather.precipitation ? ", " + weather.precipitation : ""}${weather.wind ? ", wind: " + weather.wind : ""}
 ${styleContext ? `\nUSER PROFILE: ${styleContext}` : ""}${stylistEnhancement}${explanationGuidance}
+OUTFIT VALIDITY: Every chosen look must remain a complete outfit. Valid structures are top + bottom + shoes, or dress + shoes. Never strip a core piece just to make the explanation read better.
 
 Write the explanation in ${localeName}.
 
 CANDIDATES:
 ${comboDescriptions}`
-    : `You are a world-class stylist. Select the 2-3 BEST and most DIVERSE outfits from the candidates below. Each should suit a different occasion or vibe. Prioritize variety.
+    : `You are a world-class stylist. Select the 2-3 BEST and most DIVERSE outfits from the candidates below. Each must still fit the requested occasion. Vary the styling angle, silhouette, or mood within that occasion. Never return or imply a partial look.
 
 ${styleContext ? `USER PROFILE: ${styleContext}` : ""}${explanationGuidance}
+OUTFIT VALIDITY: Every suggestion must remain a complete outfit. Valid structures are top + bottom + shoes, or dress + shoes.
 
 Write all text in ${localeName}.
 
@@ -4563,9 +4706,9 @@ serve(async (req) => {
       // Validate chosen combo is complete; fall back to first complete one
       let chosen = activeCombos[chosenIdx];
       {
-        const { complete } = isCompleteOutfit(chosen.items, weather, 'guaranteed_base');
+        const { complete } = isCompleteOutfit(chosen.items, weather, 'strict_visible');
         if (!complete) {
-          const fallbackIdx = activeCombos.findIndex(c => isCompleteOutfit(c.items, weather, 'guaranteed_base').complete);
+          const fallbackIdx = activeCombos.findIndex(c => isCompleteOutfit(c.items, weather, 'strict_visible').complete);
           if (fallbackIdx >= 0) {
             chosenIdx = fallbackIdx;
             chosen = activeCombos[chosenIdx];
@@ -4596,7 +4739,7 @@ serve(async (req) => {
     const suggestions = (aiResult.data.suggestions || []).flatMap((s: any) => {
       const idx = Math.min(s.combo_index || 0, activeCombos.length - 1);
       const combo = activeCombos[idx];
-      const { complete } = isCompleteOutfit(combo.items, weather, 'guaranteed_base');
+      const { complete } = isCompleteOutfit(combo.items, weather, 'strict_visible');
       if (!complete) return [];
       const dc = combo as DeduplicatedCombo;
       const sConf = computeConfidence(combo, candidateCount, slotCandidates, weather, occasion);

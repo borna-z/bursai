@@ -144,4 +144,77 @@ describe('useSwapGarment swap mode integration', () => {
     expect(mockInvoke.mock.calls[0][1].body.swap_mode).toBe('safe');
     expect(mockInvoke.mock.calls[1][1].body.swap_mode).toBe('bold');
   });
+
+  it('refuses swaps that would leave the outfit incomplete', async () => {
+    const updateMock = vi.fn(() => ({
+      eq: vi.fn().mockReturnValue({
+        select: vi.fn().mockResolvedValue({ data: [{ id: 'item-1' }], error: null }),
+      }),
+    }));
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'outfit_items') {
+        return {
+          select: vi.fn((query: string) => {
+            if (query.includes('id, outfit_id')) {
+              return {
+                eq: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({
+                    data: { id: 'item-1', outfit_id: 'outfit-1' },
+                    error: null,
+                  }),
+                }),
+              };
+            }
+
+            return {
+              eq: vi.fn().mockResolvedValue({
+                data: [
+                  {
+                    id: 'item-1',
+                    slot: 'top',
+                    garment: { id: 'garment-1', category: 'top', subcategory: 'shirt' },
+                  },
+                  {
+                    id: 'item-2',
+                    slot: 'bottom',
+                    garment: { id: 'garment-2', category: 'bottom', subcategory: 'trousers' },
+                  },
+                ],
+                error: null,
+              }),
+            };
+          }),
+          update: updateMock,
+        };
+      }
+
+      if (table === 'garments') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: 'replacement-top', category: 'top', subcategory: 'shirt' },
+                  error: null,
+                }),
+              }),
+            }),
+          })),
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const { useSwapGarment } = await importHook();
+    const { result } = renderHook(() => useSwapGarment(), { wrapper: createWrapper() });
+
+    await expect(result.current.swapGarment({
+      outfitItemId: 'item-1',
+      newGarmentId: 'replacement-top',
+    })).rejects.toThrow(/invalid outfit/i);
+
+    expect(updateMock).not.toHaveBeenCalled();
+  });
 });
