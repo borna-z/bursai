@@ -5,7 +5,7 @@ import {
   type OutfitRuleGarmentLike,
   type OutfitRuleItem,
   validateOutfitItems,
-} from './outfitRules';
+} from './outfitRules.ts';
 
 export type BasicGarmentLike = OutfitRuleGarmentLike & {
   id?: string;
