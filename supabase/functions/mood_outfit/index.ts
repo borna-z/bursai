@@ -4,6 +4,7 @@ import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/b
 import { VOICE_MOOD_OUTFIT } from "../_shared/burs-voice.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { canBuildCompleteOutfitPath, validateCompleteOutfit } from "../../../src/lib/outfitValidation.ts";
 
 const MOOD_MAP: Record<string, { formality: string; colors: string; materials: string; vibe: string }> = {
   cozy: { formality: "casual, low", colors: "warm earth tones, cream, beige, soft browns", materials: "knit, fleece, cashmere, cotton", vibe: "soft, comfortable, enveloping" },
@@ -42,26 +43,41 @@ function requiresOuterwear(weather?: { temperature?: number; precipitation?: str
   return coldEnough || wet || snowy;
 }
 
-function validateMoodOutfitBase(items: { slot: string }[]): { valid: boolean; missing: string[] } {
-  const slots = new Set(items.map((item) => item.slot));
-  const hasDress = slots.has("dress");
-  const hasStandardBase = slots.has("top") && slots.has("bottom");
-  const valid = hasDress || hasStandardBase;
-  const missing: string[] = [];
+function isWeatherSuitableOptionalGarment(
+  slot: "shoes" | "outerwear",
+  garment: { category?: string | null; subcategory?: string | null },
+  weather?: { temperature?: number; precipitation?: string | null },
+): boolean {
+  const temp = weather?.temperature;
+  const precipitation = normalizeValue(weather?.precipitation);
+  const text = `${normalizeValue(garment.category)} ${normalizeValue(garment.subcategory)}`.trim();
+  const isWet = precipitation.includes("rain") || precipitation.includes("snow") || precipitation.includes("regn") || precipitation.includes("sno");
+  const isCold = temp !== undefined && temp < 10;
+  const isHot = temp !== undefined && temp > 24;
 
-  if (!valid) {
-    if (!hasDress && !slots.has("top")) missing.push("top");
-    if (!hasDress && !slots.has("bottom")) missing.push("bottom");
-    if (!hasDress && missing.length === 0) missing.push("dress");
+  if (slot === "shoes") {
+    if (isWet || isCold) return !text.includes("sandal");
+    if (isHot && text.includes("boot")) return false;
   }
 
-  return { valid, missing };
+  if (slot === "outerwear") {
+    if (!requiresOuterwear(weather)) return true;
+    if (isWet) return ["rain", "trench", "coat", "jacket", "jacka", "kappa"].some((token) => text.includes(token));
+    if (isCold) return ["coat", "jacket", "parka", "jacka", "kappa"].some((token) => text.includes(token));
+  }
+
+  return true;
 }
 
-
-function chooseBestOptionalGarment<T extends { wear_count?: number | null }>(garments: T[]): T | null {
+function chooseBestOptionalGarment<T extends { wear_count?: number | null; category?: string | null; subcategory?: string | null }>(
+  garments: T[],
+  slot: "shoes" | "outerwear",
+  weather?: { temperature?: number; precipitation?: string | null },
+): T | null {
   if (garments.length === 0) return null;
-  return [...garments].sort((a, b) => {
+  const weatherReady = garments.filter((garment) => isWeatherSuitableOptionalGarment(slot, garment, weather));
+  const pool = weatherReady.length > 0 ? weatherReady : garments;
+  return [...pool].sort((a, b) => {
     const aWear = a.wear_count ?? 0;
     const bWear = b.wear_count ?? 0;
     return aWear - bWear;
@@ -80,6 +96,8 @@ function enrichMoodOutfitItems(
   if (!slots.has("shoes")) {
     const shoe = chooseBestOptionalGarment(
       garments.filter((garment) => !garmentIds.has(garment.id) && inferSlotFromGarment(garment) === "shoes"),
+      "shoes",
+      weather,
     );
     if (shoe) {
       enriched.push({ slot: "shoes", garment_id: shoe.id });
@@ -91,6 +109,8 @@ function enrichMoodOutfitItems(
   if (requiresOuterwear(weather) && !slots.has("outerwear")) {
     const outerwear = chooseBestOptionalGarment(
       garments.filter((garment) => !garmentIds.has(garment.id) && inferSlotFromGarment(garment) === "outerwear"),
+      "outerwear",
+      weather,
     );
     if (outerwear) {
       enriched.push({ slot: "outerwear", garment_id: outerwear.id });
@@ -106,9 +126,8 @@ function buildMoodLimitationNote(
 ): string | null {
   const slots = new Set(items.map((item) => item.slot));
   const notes: string[] = [];
-  if (!slots.has("shoes")) notes.push("missing shoes, so this is a base outfit only");
   if (requiresOuterwear(weather) && !slots.has("outerwear")) {
-    notes.push("missing weather-appropriate outerwear, so this is a base outfit only");
+    notes.push("No weather-appropriate outerwear was available, so add a jacket or keep this look indoors");
   }
   return notes.length ? notes.join('; ') : null;
 }
@@ -156,6 +175,13 @@ serve(async (req) => {
         status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
+    if (!canBuildCompleteOutfitPath(garments)) {
+      return new Response(JSON.stringify({
+        error: "You need either top + bottom + shoes, or dress + shoes, to create a mood outfit",
+      }), {
+        status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
+    }
 
     const garmentList = garments.map(g => `${g.id}|${g.title}|${g.category}|${g.color_primary}|${g.material || "?"}|f${g.formality || 3}`).join("\n");
     const langName = locale === "sv" ? "svenska" : "English";
@@ -171,7 +197,7 @@ serve(async (req) => {
 
 Mood:"${mood}" — Direction: ${moodParams.formality} | Colors: ${moodParams.colors} | Vibe: ${moodParams.vibe}
 ${weather?.temperature !== undefined ? `Weather: ${weather.temperature}°C` : ""}
-Rules: prefer the fullest wearable look available. If suitable shoes exist, include shoes. If weather-appropriate outerwear exists and the weather calls for it, include outerwear. If those pieces are unavailable, still return the best usable base outfit. Standard base outfit = top+bottom. Dress is also allowed when it suits the mood. Only IDs from list. Prioritize less-worn. Respond in ${langName}.
+Rules: return a complete, wearable outfit only. Valid cores are top+bottom+shoes or dress+shoes. If weather-appropriate outerwear exists and the weather calls for it, include outerwear. Never return a base outfit without shoes. Only IDs from list. Prioritize less-worn. Respond in ${langName}.
 WARDROBE:\n${garmentList}` },
         { role: "user", content: `Feeling ${mood}. Create outfit.` },
       ],
@@ -221,11 +247,16 @@ WARDROBE:\n${garmentList}` },
       weather,
     );
 
-    const baseValidation = validateMoodOutfitBase(normalizedItems);
-    if (!baseValidation.valid) {
+    const completeValidation = validateCompleteOutfit(
+      normalizedItems.map((item) => ({
+        slot: item.slot,
+        garment: garmentsById.get(item.garment_id) || null,
+      })),
+    );
+    if (!completeValidation.isValid) {
       return new Response(JSON.stringify({
-        error: `Not enough garments to build a mood outfit base. Missing: ${baseValidation.missing.join(', ')}`,
-        missing_slots: baseValidation.missing,
+        error: `Not enough garments to build a complete mood outfit. Missing: ${completeValidation.missing.join(', ')}`,
+        missing_slots: completeValidation.missing,
       }), {
         status: 422, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });

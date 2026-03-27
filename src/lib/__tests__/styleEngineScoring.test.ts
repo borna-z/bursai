@@ -99,6 +99,51 @@ function weatherPracticalityScore(
   return Math.max(0, Math.min(10, score));
 }
 
+function collectOccasionSignalsForTest(occasion: string): Set<string> {
+  const normalized = occasion.toLowerCase();
+  const signals = new Set<string>();
+  if (normalized.includes('meeting')) signals.add('meeting');
+  if (normalized.includes('formal')) signals.add('formal');
+  if (normalized.includes('work')) signals.add('work');
+  return signals;
+}
+
+function getFormalityRangeForTest(occasion: string): [number, number] {
+  const signals = collectOccasionSignalsForTest(occasion);
+  if (signals.has('formal')) return [4, 5];
+  if (signals.has('meeting')) return [3, 5];
+  if (signals.has('work')) return [2, 4];
+  return [1, 4];
+}
+
+function resolveOccasionSubmodeForTest(
+  occasion: string,
+  primaryGoal?: string | null,
+  userFormalityCenter?: number | null,
+): string | null {
+  const signals = collectOccasionSignalsForTest(occasion);
+  const isWork = signals.has('work') || signals.has('meeting');
+  if (!isWork) return null;
+
+  const [minFormality, maxFormality] = getFormalityRangeForTest(occasion);
+  let formalityTarget = (minFormality + maxFormality) / 2;
+  if (typeof userFormalityCenter === 'number') {
+    formalityTarget = userFormalityCenter;
+  }
+
+  const goal = String(primaryGoal || '').toLowerCase();
+  if (goal.includes('formal') || goal.includes('professional')) {
+    formalityTarget = Math.max(formalityTarget, 4.5);
+  }
+  if (goal.includes('comfort') || goal.includes('relaxed') || goal.includes('creative')) {
+    formalityTarget = Math.min(formalityTarget, 2.8);
+  }
+
+  if (signals.has('formal') || signals.has('meeting') || formalityTarget >= 4.4) return 'Formal Office';
+  if (formalityTarget >= 3) return 'Business Casual';
+  return 'Relaxed Office';
+}
+
 // ── Tests ──
 
 describe('Combo scoring uses actual garment scores', () => {
@@ -187,5 +232,15 @@ describe('style_score breakdown shape', () => {
     expect(breakdown).toHaveProperty('practicality');
     expect(breakdown).toHaveProperty('fitProportion');
     expect(breakdown).toHaveProperty('repetitionPenalty');
+  });
+});
+
+describe('occasion submode defaults', () => {
+  it('generic work defaults to business casual instead of formal office', () => {
+    expect(resolveOccasionSubmodeForTest('work')).toBe('Business Casual');
+  });
+
+  it('meeting requests still resolve to formal office', () => {
+    expect(resolveOccasionSubmodeForTest('client meeting')).toBe('Formal Office');
   });
 });

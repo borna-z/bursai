@@ -4,6 +4,7 @@ import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/b
 import { VOICE_OUTFIT_GENERATION } from "../_shared/burs-voice.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { canBuildCompleteOutfitPath, validateCompleteOutfit } from "../../../src/lib/outfitValidation.ts";
 
 interface GarmentRow {
   id: string;
@@ -77,6 +78,76 @@ function categorizeSlot(category: string, subcategory: string | null): string | 
   if (BOTTOM_CATEGORIES.some(b => both.includes(b))) return "bottom";
   if (SHOES_CATEGORIES.some(s => both.includes(s))) return "shoes";
   return null;
+}
+
+function repairCandidateScore(
+  slot: string,
+  garment: GarmentRow,
+  selectedItems: { slot: string; garment_id: string }[],
+  garmentById: Map<string, GarmentRow>,
+  weather: { temperature?: number; precipitation?: string; wind?: string },
+): number {
+  let score = 5;
+  const text = `${garment.title} ${garment.category} ${garment.subcategory || ""} ${garment.material || ""}`.toLowerCase();
+  const usedFormalities = selectedItems
+    .map((item) => garmentById.get(item.garment_id)?.formality)
+    .filter((value): value is number => typeof value === "number");
+  const garmentFormality = garment.formality ?? null;
+
+  if (usedFormalities.length > 0 && garmentFormality !== null) {
+    const averageFormality = usedFormalities.reduce((sum, value) => sum + value, 0) / usedFormalities.length;
+    score += Math.max(-2, 2 - Math.abs(garmentFormality - averageFormality) * 1.2);
+  }
+
+  score += Math.max(0, 2 - ((garment.wear_count ?? 0) * 0.15));
+
+  const temp = weather.temperature;
+  const precipitation = (weather.precipitation || "").toLowerCase();
+  const isWet = precipitation.includes("rain") || precipitation.includes("snow") || precipitation.includes("regn") || precipitation.includes("sno");
+  const isCold = temp !== undefined && temp < 10;
+  const isHot = temp !== undefined && temp > 24;
+
+  if (slot === "top") {
+    if (isMidLayer(garment)) score -= 2.5;
+    if (isBaseLayer(garment)) score += 1.2;
+  }
+
+  if (slot === "shoes") {
+    if (isWet && (text.includes("boot") || text.includes("stovel") || text.includes("gore-tex") || text.includes("waterproof"))) {
+      score += 2.5;
+    }
+    if (isWet && (text.includes("sandal") || text.includes("heel"))) score -= 2.5;
+    if (isCold && (text.includes("boot") || text.includes("stovel"))) score += 1.5;
+    if (isCold && text.includes("sandal")) score -= 2.5;
+    if (isHot && text.includes("boot")) score -= 1.5;
+  }
+
+  if (slot === "outerwear") {
+    if (isWet && (text.includes("gore-tex") || text.includes("rain") || text.includes("regn") || text.includes("waterproof"))) score += 2;
+    if (isCold && (text.includes("wool") || text.includes("down") || text.includes("fleece"))) score += 1.5;
+    if (isHot && (text.includes("coat") || text.includes("wool") || text.includes("parka"))) score -= 2;
+  }
+
+  return score;
+}
+
+function pickBestRepairGarment(
+  slot: string,
+  candidates: GarmentRow[],
+  usedIds: Set<string>,
+  selectedItems: { slot: string; garment_id: string }[],
+  garmentById: Map<string, GarmentRow>,
+  weather: { temperature?: number; precipitation?: string; wind?: string },
+): GarmentRow | null {
+  const viable = candidates
+    .filter((candidate) => !usedIds.has(candidate.id))
+    .map((candidate) => ({
+      garment: candidate,
+      score: repairCandidateScore(slot, candidate, selectedItems, garmentById, weather),
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  return viable[0]?.garment || null;
 }
 
 function buildStyleContext(preferences: Record<string, any> | null, profile: any): string {
@@ -239,9 +310,9 @@ serve(async (req) => {
     if (garmentsRes.error) throw garmentsRes.error;
     const garments = garmentsRes.data as GarmentRow[];
 
-    if (!garments || garments.length < 3) {
+    if (!garments || !canBuildCompleteOutfitPath(garments)) {
       return new Response(
-        JSON.stringify({ error: "You need at least 3 garments (top, bottom, shoes) to generate an outfit" }),
+        JSON.stringify({ error: "You need either top + bottom + shoes, or dress + shoes, to generate an outfit" }),
         { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
       );
     }
@@ -315,8 +386,8 @@ A physically unwearable outfit is always wrong regardless of style or occasion.
 Create ONE complete, wearable outfit.
 
 MANDATORY RULES — FOLLOW STRICTLY:
-1. Every outfit MUST include ALL of these slots: "top" + "bottom" + "shoes" (minimum 3 items)
-2. ${needsOuterwear ? 'OUTERWEAR IS REQUIRED for this weather. You MUST include an "outerwear" slot (4 items minimum).' : 'Outerwear is optional for this weather.'}
+1. Every outfit MUST be complete. Valid core outfits are either: "top" + "bottom" + "shoes", or "dress" + "shoes".
+2. ${needsOuterwear ? 'If the wardrobe has weather-appropriate outerwear, include it.' : 'Outerwear is optional for this weather.'}
 3. EXCEPTION: If choosing a dress/jumpsuit, use slot "dress" which replaces top+bottom. Still MUST include shoes.
 4. ONLY use garment IDs from the WARDROBE list below. Never invent IDs.
 5. Prioritize garments not recently worn (low wear_count, old last_worn date)
@@ -406,14 +477,28 @@ ${garmentList}`;
       throw new Error("AI service error");
     }
 
+    const garmentById = new Map(garments.map(g => [g.id, g]));
     const garmentIdSet = new Set(garments.map((g) => g.id));
-    let validItems = result.data!.items.filter((item) => garmentIdSet.has(item.garment_id));
+    const seenGarmentIds = new Set<string>();
+    let validItems = result.data!.items
+      .filter((item) => garmentIdSet.has(item.garment_id))
+      .map((item) => {
+        const garment = garmentById.get(item.garment_id);
+        return {
+          slot: garment ? (categorizeSlot(garment.category, garment.subcategory) || item.slot) : item.slot,
+          garment_id: item.garment_id,
+        };
+      })
+      .filter((item) => {
+        if (seenGarmentIds.has(item.garment_id)) return false;
+        seenGarmentIds.add(item.garment_id);
+        return true;
+      });
     let explanation = result.data!.explanation;
     const outfitReasoning = result.data!.outfit_reasoning || null;
 
     // Validate layering — ensure mid-layer tops have a base layer underneath
     const topItems = validItems.filter(i => i.slot === "top");
-    const garmentById = new Map(garments.map(g => [g.id, g]));
     const usedIdsForLayering = new Set(validItems.map(i => i.garment_id));
     const hasMidLayerTop = topItems.some(i => {
       const g = garmentById.get(i.garment_id);
@@ -472,7 +557,14 @@ ${garmentList}`;
       console.log("Filling missing slots locally:", missingSlots.join(", "));
       const usedIds = new Set(validItems.map(i => i.garment_id));
       for (const slot of missingSlots) {
-        const candidate = (availableBySlot[slot] || []).find(g => !usedIds.has(g.id));
+        const candidate = pickBestRepairGarment(
+          slot,
+          availableBySlot[slot] || [],
+          usedIds,
+          validItems,
+          garmentById,
+          weather || {},
+        );
         if (candidate) {
           validItems.push({ slot, garment_id: candidate.id });
           usedIds.add(candidate.id);
@@ -480,22 +572,16 @@ ${garmentList}`;
       }
     }
 
-    if (validItems.length < 3) {
-      // Last resort: if we have garments for each slot, manually fill
-      const finalSlots = new Set(validItems.map(i => i.slot));
-      if (!finalSlots.has("top") && !finalSlots.has("dress") && availableBySlot.top.length > 0) {
-        validItems.push({ slot: "top", garment_id: availableBySlot.top[0].id });
-      }
-      if (!finalSlots.has("bottom") && !finalSlots.has("dress") && availableBySlot.bottom.length > 0) {
-        validItems.push({ slot: "bottom", garment_id: availableBySlot.bottom[0].id });
-      }
-      if (!finalSlots.has("shoes") && availableBySlot.shoes.length > 0) {
-        validItems.push({ slot: "shoes", garment_id: availableBySlot.shoes[0].id });
-      }
-    }
+    const validation = validateCompleteOutfit(
+      validItems
+        .map((item) => ({
+          slot: item.slot,
+          garment: garmentById.get(item.garment_id) || null,
+        })),
+    );
 
-    if (validItems.length < 2) {
-      throw new Error("Could not create a complete outfit with your wardrobe");
+    if (!validation.isValid) {
+      throw new Error(`Could not create a complete outfit with your wardrobe. Missing: ${validation.missing.join(", ")}`);
     }
 
     const responseBody: Record<string, unknown> = {

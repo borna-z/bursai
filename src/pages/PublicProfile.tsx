@@ -10,6 +10,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { OutfitReactions } from '@/components/social/OutfitReactions';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { validateCompleteOutfit } from '@/lib/outfitValidation';
 
 interface PublicProfile {
   id: string;
@@ -27,6 +28,8 @@ interface PublicOutfit {
   outfit_items: { id: string; slot: string; garment: {
     id: string;
     title: string;
+    category: string;
+    subcategory: string | null;
     image_path: string | null;
     original_image_path?: string | null;
     processed_image_path?: string | null;
@@ -70,7 +73,7 @@ export default function PublicProfile() {
       // Shared outfits
       const { data: outfitData } = await supabase
         .from('outfits')
-        .select('id, occasion, style_vibe, explanation, generated_at, outfit_items(id, slot, garment:garments(id, title, image_path, original_image_path, processed_image_path, image_processing_status, rendered_image_path, render_status))')
+        .select('id, occasion, style_vibe, explanation, generated_at, outfit_items(id, slot, garment:garments(id, title, category, subcategory, image_path, original_image_path, processed_image_path, image_processing_status, rendered_image_path, render_status))')
         .eq('user_id', profileData.id)
         .eq('share_enabled', true)
         .order('generated_at', { ascending: false })
@@ -85,7 +88,9 @@ export default function PublicProfile() {
       const transformed: PublicOutfit[] = ((outfitData || []) as RawOutfit[]).map((o) => ({
         ...o,
         outfit_items: (o.outfit_items || []).map((i) => ({ id: i.id, slot: i.slot, garment: i.garment })),
-      }));
+      })).filter((outfit) => validateCompleteOutfit(
+        outfit.outfit_items.map((item) => ({ slot: item.slot, garment: item.garment })),
+      ).isValid);
       setOutfits(transformed);
 
       // Load first garment image per outfit

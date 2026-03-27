@@ -76,22 +76,37 @@ function enrichMoodOutfitItems(
   return enriched;
 }
 
+function isWeatherSuitableOptionalGarment(
+  slot: 'shoes' | 'outerwear',
+  garment: GarmentLike,
+  weather?: { temperature?: number; precipitation?: string | null },
+): boolean {
+  const temp = weather?.temperature;
+  const precipitation = normalizeValue(weather?.precipitation);
+  const text = `${normalizeValue(garment.category)} ${normalizeValue(garment.subcategory)}`.trim();
+  const isWet = precipitation.includes('rain') || precipitation.includes('snow') || precipitation.includes('regn') || precipitation.includes('sno');
+  const isCold = temp !== undefined && temp < 10;
+  const isHot = temp !== undefined && temp > 24;
+
+  if (slot === 'shoes') {
+    if (isWet || isCold) return !text.includes('sandal');
+    if (isHot && text.includes('boot')) return false;
+  }
+
+  if (slot === 'outerwear') {
+    if (!requiresOuterwear(weather)) return true;
+    if (isWet) return ['rain', 'trench', 'coat', 'jacket', 'jacka', 'kappa'].some((token) => text.includes(token));
+    if (isCold) return ['coat', 'jacket', 'parka', 'jacka', 'kappa'].some((token) => text.includes(token));
+  }
+
+  return true;
+}
+
 function buildPrimaryTopSeeds(tops: ScoredGarmentLike[]): ScoredGarmentLike[] {
-  const baseTops = tops.filter((top) => {
+  return tops.filter((top) => {
     const role = top.garment.layering_role || 'standalone';
     return role === 'base' || role === 'standalone';
   });
-  const midLayers = tops.filter((top) => (top.garment.layering_role || 'standalone') === 'mid');
-
-  return baseTops.length > 0
-    ? baseTops
-    : midLayers.map((top) => ({
-        ...top,
-        garment: {
-          ...top.garment,
-          layering_role: 'standalone',
-        },
-      }));
 }
 
 describe('generator resilience mirrors', () => {
@@ -113,13 +128,26 @@ describe('generator resilience mirrors', () => {
     expect(enriched.find((item) => item.slot === 'shoes')?.garment_id).toBe('shoe-2');
   });
 
-  it('style engine primary-top fallback recovers when all tops are tagged mid-layer', () => {
+  it('weather-aware optional shoes reject sandals for rainy mood outfits', () => {
+    expect(isWeatherSuitableOptionalGarment(
+      'shoes',
+      { id: 'shoe-1', category: 'sandals' },
+      { temperature: 11, precipitation: 'rain' },
+    )).toBe(false);
+
+    expect(isWeatherSuitableOptionalGarment(
+      'shoes',
+      { id: 'shoe-2', category: 'boots' },
+      { temperature: 11, precipitation: 'rain' },
+    )).toBe(true);
+  });
+
+  it('style engine does not promote mid-layers to standalone tops', () => {
     const topSeeds = buildPrimaryTopSeeds([
       { garment: { id: 'top-1', category: 'top', layering_role: 'mid' } },
       { garment: { id: 'top-2', category: 'shirt', layering_role: 'mid' } },
     ]);
 
-    expect(topSeeds).toHaveLength(2);
-    expect(topSeeds.every((top) => top.garment.layering_role === 'standalone')).toBe(true);
+    expect(topSeeds).toHaveLength(0);
   });
 });
