@@ -28,7 +28,8 @@ import { useInsights } from '@/hooks/useInsights';
 import { useWeather } from '@/hooks/useWeather';
 import { useLocation } from '@/contexts/LocationContext';
 import { useCalendarEventsRange } from '@/hooks/useCalendarSync';
-import { buildTodaySuggestions } from '@/lib/buildTodaySuggestions';
+import { buildTodaySuggestions, type TodaySuggestion } from '@/lib/buildTodaySuggestions';
+import { buildStyleFlowSearch } from '@/lib/styleFlowState';
 import { hapticLight } from '@/lib/haptics';
 import { HomePageSkeleton } from '@/components/ui/skeletons';
 import { getStylistTip } from '@/lib/stylistCopy';
@@ -178,9 +179,15 @@ export default function HomePage() {
   }, [todayCalEvents]);
 
   const handleSuggestion = useCallback(
-    (suggestion: string) => {
+    (suggestion: TodaySuggestion) => {
       hapticLight();
-      navigate('/ai/chat', { state: { prefillMessage: suggestion } });
+
+      if (suggestion.route === 'generate' && suggestion.garmentIds && suggestion.garmentIds.length > 0) {
+        navigate(`/ai/generate${buildStyleFlowSearch(suggestion.garmentIds)}`);
+        return;
+      }
+
+      navigate('/ai/chat', { state: { prefillMessage: suggestion.prefillMessage ?? suggestion.text } });
     },
     [navigate],
   );
@@ -368,13 +375,7 @@ export default function HomePage() {
             unusedGarments={sleepingBeauties}
             sleepingBeautiesCount={sleepingBeauties.length}
             onOpenUnused={() => navigate('/outfits/unused')}
-            onStyleAroundGem={(garmentId) =>
-              navigate('/ai/chat', {
-                state: {
-                  selectedGarmentId: garmentId,
-                  prefillMessage: 'Build a look around this piece.',
-                },
-              })}
+            onStyleAroundGem={(garmentId) => navigate(`/ai/generate${buildStyleFlowSearch([garmentId])}`)}
           />
 
           <motion.button

@@ -15,7 +15,7 @@ import { useGarmentsByIds, type GarmentBasic } from '@/hooks/useGarmentsByIds';
 import { useGarmentCount } from '@/hooks/useGarments';
 import { logger } from '@/lib/logger';
 import { useStyleDNA } from '@/hooks/useStyleDNA';
-import { useCreateOutfit } from '@/hooks/useOutfits';
+import { useCreateOutfit, useOutfit } from '@/hooks/useOutfits';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ChatWelcome } from '@/components/chat/ChatWelcome';
 import { ChatInput } from '@/components/chat/ChatInput';
@@ -27,8 +27,19 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
-import { extractGarmentIdsFromText, parseOutfitTags } from '@/lib/garmentTokens';
+import { extractGarmentIdsFromText } from '@/lib/garmentTokens';
 import { getTextContent, mergeAssistantContent, type MessageContent, type MultimodalPart } from '@/lib/chatStream';
+import {
+  buildStyleFlowSearch,
+  extractStyleFlowGarmentIds,
+  extractStyleFlowSeedOutfitIds,
+  extractStyleFlowOutfitId,
+  extractStyleFlowPrefillMessage,
+  resolveStyleFlowGarmentIds,
+} from '@/lib/styleFlowState';
+import { findLatestActiveLookMessageIndex } from '@/lib/chatActiveLook';
+import { resolveCompleteOutfitIds } from '@/lib/completeOutfitIds';
+import { inferOutfitSlotFromGarment, validateCompleteOutfit } from '@/lib/outfitValidation';
 
 type Message = {
   role: 'user' | 'assistant';
@@ -92,19 +103,20 @@ function buildRequestMessages(messages: Message[]): Message[] {
   return filtered.slice(-16);
 }
 
+function hasSameIds(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((id, index) => id === right[index]);
+}
 
-function findLatestActiveLookMessageIndex(messages: Message[]): number {
-  // Find the most recent assistant message that contains outfit tags.
-  // Unlike before, keep searching past non-outfit assistant messages so
-  // follow-up turns don't collapse the outfit card from a prior turn.
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message.role !== 'assistant') continue;
-    const text = getTextContent(message.content);
-    if (parseOutfitTags(text).length > 0) return index;
-  }
+function buildSeedOutfitMessage(garmentIds: string[]): Message {
+  return {
+    role: 'assistant',
+    content: `Current look to refine: [[outfit:${garmentIds.join(',')}|Current look]]`,
+  };
+}
 
-  return -1;
+function hasSeedOutfitMessage(messages: Message[], garmentIds: string[]): boolean {
+  const seedPrefix = `[[outfit:${garmentIds.join(',')}|`;
+  return messages.some((message) => message.role === 'assistant' && getTextContent(message.content).includes(seedPrefix));
 }
 
 function AIChatFallback() {
@@ -142,26 +154,37 @@ export default function AIChat() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [pendingPrefill, setPendingPrefill] = useState<string | null>(null);
+  const [pendingSeedOutfitIds, setPendingSeedOutfitIds] = useState<string[] | null>(null);
   const [pendingImage, setPendingImage] = useState<{ url: string; path: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [anchoredGarmentId, setAnchoredGarmentId] = useState<string | null>(null);
+  const [selectedGarmentIds, setSelectedGarmentIds] = useState<string[]>([]);
+  const [selectedOutfitId, setSelectedOutfitId] = useState<string | null>(null);
   const [planActionPayload, setPlanActionPayload] = useState<PlanActionPayload | null>(null);
   const [suggestionChips, setSuggestionChips] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const activeStreamControllerRef = useRef<AbortController | null>(null);
   const activeRequestIdRef = useRef(0);
   const sendMessageRef = useRef<(text?: string) => Promise<void>>(async () => {});
+  const anchoredGarmentId = selectedGarmentIds[0] ?? null;
 
   const isWelcomeState = messages.length === 1 && messages[0].role === 'assistant' && !isStreaming;
 
   useEffect(() => {
-    const state = location.state as { selectedGarmentId?: string; prefillMessage?: string } | null;
-    const garmentId = state?.selectedGarmentId ?? null;
-    const prefill = state?.prefillMessage ?? null;
-    if (garmentId) setAnchoredGarmentId(garmentId);
+    const stateGarmentIds = extractStyleFlowGarmentIds(location.state);
+    const garmentIds = resolveStyleFlowGarmentIds(location.search, location.state);
+    const outfitId = extractStyleFlowOutfitId(location.state);
+    const prefill = extractStyleFlowPrefillMessage(location.state);
+    const seedOutfitIds = extractStyleFlowSeedOutfitIds(location.state);
+
+    setSelectedGarmentIds((prev) => hasSameIds(prev, garmentIds) ? prev : garmentIds);
+    setSelectedOutfitId(outfitId);
     if (prefill) setPendingPrefill(prefill);
-    if (garmentId || prefill) navigate(location.pathname, { replace: true, state: null });
-  }, [location.pathname, location.state, navigate]);
+    setPendingSeedOutfitIds(seedOutfitIds.length >= 2 ? seedOutfitIds : null);
+    if (location.state) {
+      const nextSearch = location.search || buildStyleFlowSearch(stateGarmentIds);
+      navigate(`${location.pathname}${nextSearch}`, { replace: true, state: null });
+    }
+  }, [location.pathname, location.search, location.state, navigate]);
 
   useEffect(() => () => {
     activeStreamControllerRef.current?.abort();
@@ -175,7 +198,44 @@ export default function AIChat() {
     }).catch(() => setIsLoading(false));
   }, [user]);
 
-  const garmentIds = useMemo(() => anchoredGarmentId ? Array.from(new Set([anchoredGarmentId, ...extractGarmentIds(messages)])) : extractGarmentIds(messages), [anchoredGarmentId, messages]);
+  const { data: selectedOutfit } = useOutfit(selectedOutfitId || undefined, 'allow_generated_base');
+
+  useEffect(() => {
+    if (!selectedOutfit) return;
+    const outfitGarmentIds = selectedOutfit.outfit_items
+      .map((item) => item.garment_id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+    if (outfitGarmentIds.length > 0) {
+      setSelectedGarmentIds((prev) => hasSameIds(prev, outfitGarmentIds) ? prev : outfitGarmentIds);
+      setPendingSeedOutfitIds((prev) => prev && hasSameIds(prev, outfitGarmentIds) ? prev : outfitGarmentIds);
+      const nextSearch = buildStyleFlowSearch(outfitGarmentIds);
+      if (nextSearch && nextSearch !== location.search) {
+        navigate(`${location.pathname}${nextSearch}`, { replace: true });
+      }
+    }
+  }, [location.pathname, location.search, navigate, selectedOutfit]);
+
+  useEffect(() => {
+    if (!pendingSeedOutfitIds || pendingSeedOutfitIds.length < 2 || isLoading) return;
+    if (!pendingSeedOutfitIds.every((id) => garmentMap.has(id))) return;
+
+    const completeSeedOutfitIds = resolveCompleteOutfitIds(pendingSeedOutfitIds, garmentMap);
+    if (completeSeedOutfitIds.length === 0) {
+      setPendingSeedOutfitIds(null);
+      return;
+    }
+
+    setMessages((prev) => {
+      if (hasSeedOutfitMessage(prev, completeSeedOutfitIds)) return prev;
+      return [...prev, buildSeedOutfitMessage(completeSeedOutfitIds)];
+    });
+    setPendingSeedOutfitIds(null);
+  }, [garmentMap, isLoading, pendingSeedOutfitIds]);
+
+  const garmentIds = useMemo(
+    () => Array.from(new Set([...selectedGarmentIds, ...extractGarmentIds(messages)])),
+    [messages, selectedGarmentIds],
+  );
   const { data: garmentsList } = useGarmentsByIds(garmentIds);
   const garmentMap = useMemo(() => {
     const map = new Map<string, GarmentBasic>();
@@ -274,7 +334,7 @@ export default function AIChat() {
           locale,
           garmentCount: garmentCount ?? 0,
           archetype: styleDNA?.archetype ?? null,
-          selected_garment_ids: anchoredGarmentId ? [anchoredGarmentId] : undefined,
+          selected_garment_ids: selectedGarmentIds.length > 0 ? selectedGarmentIds : undefined,
         }),
         signal: controller.signal,
       });
@@ -377,11 +437,11 @@ export default function AIChat() {
 
   // Auto-send a message pre-filled from navigation state (e.g. Today screen suggestion chips)
   useEffect(() => {
-    if (!pendingPrefill || isLoading) return;
+    if (!pendingPrefill || isLoading || pendingSeedOutfitIds !== null) return;
     const msg = pendingPrefill;
     setPendingPrefill(null);
     sendMessageRef.current(msg);
-  }, [pendingPrefill, isLoading]);
+  }, [pendingPrefill, isLoading, pendingSeedOutfitIds]);
 
   const clearHistory = async () => {
     if (!user) return;
@@ -398,17 +458,31 @@ export default function AIChat() {
   const handleTryOutfit = useCallback(async (garmentIds: string[]) => {
     if (!garmentIds.length) return;
     try {
-      const SLOT_ORDER = ['top', 'bottom', 'shoes', 'outerwear', 'accessory'];
-      const items = garmentIds.map((id, i) => {
+      const items = garmentIds.map((id) => {
         const garment = garmentMap.get(id);
-        const slot = garment?.category && SLOT_ORDER.includes(garment.category)
-          ? garment.category
-          : SLOT_ORDER[i] || 'top';
-        return { garment_id: id, slot };
-      });
+        return garment
+          ? { garment_id: id, slot: inferOutfitSlotFromGarment(garment), garment }
+          : null;
+      }).filter(Boolean) as Array<{ garment_id: string; slot: string; garment: GarmentBasic }>;
+
+      if (items.length !== garmentIds.length) {
+        toast.error(t('outfit.create_error') || 'Could not create outfit');
+        return;
+      }
+
+      const validation = validateCompleteOutfit(items.map((item) => ({
+        slot: item.slot,
+        garment: item.garment,
+      })));
+      if (!validation.isValid) {
+        toast.error(t('outfit.create_error') || 'Could not create outfit', {
+          description: validation.missing.length > 0 ? `Missing: ${validation.missing.join(', ')}` : undefined,
+        });
+        return;
+      }
       const result = await createOutfit.mutateAsync({
         outfit: { occasion: 'vardag', explanation: t('chat.outfit_from_stylist') },
-        items,
+        items: items.map(({ garment_id, slot }) => ({ garment_id, slot })),
       });
       navigate(`/outfits/${result.id}`);
       toast.success(t('outfit.created') || 'Outfit created!');
@@ -457,7 +531,7 @@ export default function AIChat() {
           </div>
         )}
 
-        {anchoredGarment && (
+        {(anchoredGarment || selectedGarmentIds.length > 0) && (
           <div className="px-4 pb-2">
             <div className="mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl border border-primary/15 bg-primary/5 px-3 py-2 text-left shadow-sm">
               <div className="flex min-w-0 items-center gap-3">
@@ -465,8 +539,13 @@ export default function AIChat() {
                   <Shirt className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary/70">Style anchor</p>
-                  <p className="truncate text-sm font-medium text-foreground">{anchoredGarment.title}</p>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary/70">
+                    {selectedGarmentIds.length > 1 ? 'Current look' : 'Style anchor'}
+                  </p>
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {anchoredGarment?.title || 'Selected wardrobe pieces'}
+                    {selectedGarmentIds.length > 1 ? ` +${selectedGarmentIds.length - 1} more` : ''}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -474,15 +553,26 @@ export default function AIChat() {
                   variant="ghost"
                   size="sm"
                   className="h-8 rounded-xl px-2.5 text-xs text-muted-foreground"
-                  onClick={() => navigate(`/wardrobe/${anchoredGarment.id}`)}
+                  onClick={() => {
+                    if (selectedOutfitId) {
+                      navigate(`/outfits/${selectedOutfitId}`);
+                      return;
+                    }
+                    if (anchoredGarment) navigate(`/wardrobe/${anchoredGarment.id}`);
+                  }}
                 >
-                  Change
+                  {selectedOutfitId ? 'View' : 'Change'}
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 rounded-xl text-muted-foreground"
-                  onClick={() => setAnchoredGarmentId(null)}
+                  onClick={() => {
+                    setSelectedGarmentIds([]);
+                    setSelectedOutfitId(null);
+                    setPendingSeedOutfitIds(null);
+                    navigate(location.pathname, { replace: true });
+                  }}
                   aria-label="Clear garment anchor"
                 >
                   <X className="h-4 w-4" />

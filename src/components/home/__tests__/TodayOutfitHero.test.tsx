@@ -61,7 +61,7 @@ describe('TodayOutfitHero', () => {
     const button = screen.getByRole('button');
     expect(button).toBeInTheDocument();
     fireEvent.click(button);
-    expect(mockNavigate).toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith('/ai/generate');
   });
 
   it('contains morning greeting when hour < 10', () => {

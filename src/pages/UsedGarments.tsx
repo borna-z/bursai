@@ -11,6 +11,7 @@ import { useInsights } from '@/hooks/useInsights';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { hapticLight } from '@/lib/haptics';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { buildStyleFlowSearch } from '@/lib/styleFlowState';
 
 export default function UsedGarments() {
   const navigate = useNavigate();
@@ -72,9 +73,7 @@ export default function UsedGarments() {
               size="lg"
               onClick={() => {
                 hapticLight();
-                navigate('/outfits/generate', {
-                  state: { garmentIds: usedGarments.map(g => g.id) },
-                });
+                navigate(`/ai/generate${buildStyleFlowSearch(usedGarments.map((garment) => garment.id))}`);
               }}
             >
               <Sparkles className="w-4 h-4 mr-2" />

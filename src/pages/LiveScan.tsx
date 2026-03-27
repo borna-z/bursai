@@ -673,7 +673,7 @@ export default function LiveScan() {
             ctaLabel="Generate a look"
             onCta={() => {
               coach.advanceStep();
-              navigate('/outfits/generate');
+              navigate('/ai/generate');
             }}
             onSkip={() => coach.completeTour()}
             position="bottom"

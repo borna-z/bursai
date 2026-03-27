@@ -19,19 +19,19 @@ import { ChatMessage } from '../ChatMessage';
 const garmentMap = new Map([
   [
     '11111111-1111-1111-1111-111111111111',
-    { id: '11111111-1111-1111-1111-111111111111', title: 'White tee', image_path: null, category: 'top' },
+    { id: '11111111-1111-1111-1111-111111111111', title: 'White tee', image_path: null, category: 'top', subcategory: 't-shirt' },
   ],
   [
     '22222222-2222-2222-2222-222222222222',
-    { id: '22222222-2222-2222-2222-222222222222', title: 'Black trousers', image_path: null, category: 'bottom' },
+    { id: '22222222-2222-2222-2222-222222222222', title: 'Blue jeans', image_path: null, category: 'bottom', subcategory: 'jeans' },
   ],
   [
     '33333333-3333-3333-3333-333333333333',
-    { id: '33333333-3333-3333-3333-333333333333', title: 'Loafers', image_path: null, category: 'shoes' },
+    { id: '33333333-3333-3333-3333-333333333333', title: 'White sneakers', image_path: null, category: 'shoes', subcategory: 'sneakers' },
   ],
   [
     '44444444-4444-4444-4444-444444444444',
-    { id: '44444444-4444-4444-4444-444444444444', title: 'Navy blazer', image_path: null, category: 'outerwear' },
+    { id: '44444444-4444-4444-4444-444444444444', title: 'Black dress', image_path: null, category: 'dress', subcategory: 'slip dress' },
   ],
 ]);
 
@@ -140,7 +140,7 @@ describe('ChatMessage', () => {
     expect(screen.getByTestId('outfit-suggestion-card')).toBeInTheDocument();
   });
 
-  it('does not render outfit cards for incomplete outfit tags', () => {
+  it('does not render incomplete outfit suggestion cards', () => {
     renderMessage({
       message: {
         role: 'assistant',
@@ -148,8 +148,19 @@ describe('ChatMessage', () => {
       },
     });
 
-    expect(screen.getByText(/Try this/)).toBeInTheDocument();
     expect(screen.queryByTestId('outfit-suggestion-card')).not.toBeInTheDocument();
+    expect(screen.getByText(/Try this/)).toBeInTheDocument();
+  });
+
+  it('renders complete dress-led outfit suggestion cards', () => {
+    renderMessage({
+      message: {
+        role: 'assistant',
+        content: 'Event look [[outfit:44444444-4444-4444-4444-444444444444,33333333-3333-3333-3333-333333333333|Clean evening dress look]].',
+      },
+    });
+
+    expect(screen.getByTestId('outfit-suggestion-card')).toBeInTheDocument();
   });
 
   it('falls back to the garment label when the garment is not loaded', () => {

@@ -2595,6 +2595,19 @@ interface DeduplicatedCombo extends ScoredCombo {
   variation_reason: string;
 }
 
+function comboHasPreferredGarment(combo: ScoredCombo, preferGarmentIds: Set<string>): boolean {
+  if (preferGarmentIds.size === 0) return true;
+  return combo.items.some((item) => preferGarmentIds.has(item.garment.id));
+}
+
+function filterCombosByPreferredGarment<TCombo extends ScoredCombo>(
+  combos: TCombo[],
+  preferGarmentIds: Set<string>,
+): TCombo[] {
+  if (preferGarmentIds.size === 0) return combos;
+  return combos.filter((combo) => comboHasPreferredGarment(combo, preferGarmentIds));
+}
+
 function pickRepresentativeOutfits(
   combos: ScoredCombo[],
   maxResults: number = 10,
@@ -4612,7 +4625,31 @@ serve(async (req) => {
       fallbackLevel = fallback.fallbackLevel;
     }
 
+    if (preferGarmentIds.size > 0) {
+      let preferredCombos = filterCombosByPreferredGarment(activeCombos, preferGarmentIds);
+
+      if (preferredCombos.length === 0) {
+        const preferredFallback = buildFallbackCombos(slotCandidates, recentOutfitSets, occasion, style, weather, preferences, 5, bodyProfile, pairMemory);
+        preferredCombos = filterCombosByPreferredGarment(preferredFallback.combos, preferGarmentIds);
+        if (preferredCombos.length > 0) {
+          fallbackLevel = preferredFallback.fallbackLevel;
+        }
+      }
+
+      activeCombos = preferredCombos;
+    }
+
     if (activeCombos.length === 0) {
+      if (preferGarmentIds.size > 0) {
+        const preferredGarmentFailure = "Could not create a complete outfit around the selected garment. Try another piece or adjust the occasion.";
+        return new Response(
+          JSON.stringify({
+            error: preferredGarmentFailure,
+            limitation_note: preferredGarmentFailure,
+          }),
+          { status: 422, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+        );
+      }
       // Truly nothing — only reaches here if user has < 2 garments
       const gaps = detectWardrobeGapForRequest(slotCandidates, weather, occasion);
       const failure = buildIncompleteOutfitFailure(weather, occasion, slotCandidates);
