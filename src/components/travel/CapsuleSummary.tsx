@@ -154,6 +154,22 @@ export function CapsuleSummary({
       </button>
 
       {/* Tips */}
+      {(result.coverage_gaps?.length || 0) > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
+            Coverage gaps
+          </h3>
+          <ul className="space-y-1.5">
+            {result.coverage_gaps?.map((gap) => (
+              <li key={`${gap.code}-${gap.message}`} className="text-xs text-muted-foreground/70 flex gap-2">
+                <span className="text-primary shrink-0">•</span>
+                {gap.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {result.packing_tips.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase flex items-center gap-1.5">

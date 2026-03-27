@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { OutfitSuggestionCard } from '@/components/chat/OutfitSuggestionCard';
 import { STAGGER_DELAY } from '@/lib/motion';
+import { isCompleteTravelCapsuleOutfitIds } from '@/lib/travelCapsulePlanner';
 import type { CapsuleOutfit } from './types';
 
 interface CapsuleOutfitCardProps {
@@ -19,6 +20,10 @@ export function CapsuleOutfitCard({
   const outfitGarments = outfit.items
     .map((id: string) => garmentMap.get(id) ?? allGarmentsMap.get(id))
     .filter(Boolean) as Array<{ id: string; title: string; image_path: string; category: string }>;
+
+  if (!isCompleteTravelCapsuleOutfitIds(outfit.items, new Map(outfitGarments.map((garment) => [garment.id, garment])))) {
+    return null;
+  }
 
   return (
     <motion.div
