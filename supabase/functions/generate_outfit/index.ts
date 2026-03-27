@@ -581,7 +581,20 @@ ${garmentList}`;
     );
 
     if (!validation.isValid) {
-      throw new Error(`Could not create a complete outfit with your wardrobe. Missing: ${validation.missing.join(", ")}`);
+      const missingSlots = validation.missing;
+      return new Response(
+        JSON.stringify({
+          error: "Could not create a complete outfit with your wardrobe",
+          limitation_note: missingSlots.length > 0
+            ? `Missing: ${missingSlots.join(", ")}`
+            : "Could not create a complete outfit with your wardrobe",
+          missing_slots: missingSlots,
+        }),
+        {
+          status: 422,
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        }
+      );
     }
 
     const responseBody: Record<string, unknown> = {

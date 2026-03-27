@@ -27,6 +27,7 @@ import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
 import { CoachMark } from '@/components/coach/CoachMark';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
+import { validateCompleteOutfit } from '@/lib/outfitValidation';
 
 /* ── Occasions ── */
 const OCCASION_ICONS: Record<string, React.ElementType> = {
@@ -57,6 +58,20 @@ type Phase = 'picking' | 'generating' | 'done' | 'error';
 type GenerationMode = 'standard' | 'stylist';
 
 const SPRING_LAYOUT: Transition = { type: 'spring', stiffness: 350, damping: 30 };
+
+function isGeneratedOutfitComplete(outfit: GeneratedOutfit): boolean {
+  return validateCompleteOutfit(
+    outfit.items.map((item) => ({ slot: item.slot, garment: item.garment })),
+  ).isValid;
+}
+
+function humanizeGenerationError(message: string): string {
+  const normalized = message.toLowerCase();
+  if (normalized.includes('incomplete outfit') || normalized.includes('could not create a complete outfit')) {
+    return 'Could not create a complete outfit with your wardrobe. Add shoes or another core piece and try again.';
+  }
+  return message;
+}
 
 /* ── Weather styling advice ── */
 function getWeatherAdvice(temp?: number, precipitation?: string): string {
@@ -179,13 +194,18 @@ export default function OutfitGeneratePage() {
       const result = generationMode === 'stylist'
         ? await generateOutfitCandidates(request)
         : await generateOutfit(request);
-      const results = Array.isArray(result) ? result : [result];
+      const results = (Array.isArray(result) ? result : [result]).filter(isGeneratedOutfitComplete);
+      if (results.length === 0) {
+        throw new Error('Could not create a complete outfit with your wardrobe. Add shoes or another core piece and try again.');
+      }
       setGeneratedResults(results);
       setPrimaryIndex(0);
       setExcludeIds(prev => [...new Set([...prev, ...(results.flatMap(r => r.items?.map(i => i.garment.id) ?? []))])]);
       setPhase('done');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+      const message = humanizeGenerationError(
+        err instanceof Error ? err.message : 'Something went wrong. Please try again.',
+      );
       setLastError(message);
       setPhase('error');
       toast.error('Generation failed', { description: message });
@@ -193,6 +213,10 @@ export default function OutfitGeneratePage() {
   };
 
   const handleSaveOutfit = async (outfit: GeneratedOutfit) => {
+    if (!isGeneratedOutfitComplete(outfit)) {
+      toast.error('Could not save incomplete outfit');
+      return;
+    }
     try {
       await updateOutfit.mutateAsync({ id: outfit.id, updates: { saved: true } });
       toast.success('Outfit saved');
@@ -202,6 +226,10 @@ export default function OutfitGeneratePage() {
   };
 
   const handlePlanOutfit = (outfit: GeneratedOutfit) => {
+    if (!isGeneratedOutfitComplete(outfit)) {
+      toast.error('Could not plan incomplete outfit');
+      return;
+    }
     navigate(`/outfits/${outfit.id}`, {
       state: { openPlanner: true },
     });
@@ -248,6 +276,10 @@ export default function OutfitGeneratePage() {
       : missingSlots;
 
     const handleWearToday = async () => {
+      if (!isGeneratedOutfitComplete(primary)) {
+        toast.error('Could not wear incomplete outfit');
+        return;
+      }
       try {
         const garmentIds = primary.items.map((item) => item.garment.id);
         await markWorn.mutateAsync({
