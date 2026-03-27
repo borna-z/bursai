@@ -39,8 +39,6 @@ interface TravelFormViewProps {
   setDateRange: (v: DateRange | undefined) => void;
   vibe: VibeId;
   setVibe: (v: VibeId) => void;
-  durationDays: number;
-  setDurationDays: React.Dispatch<React.SetStateAction<number>>;
   outfitsPerDay: number;
   setOutfitsPerDay: (v: number) => void;
   mustHaveItems: string[];
@@ -63,6 +61,8 @@ interface TravelFormViewProps {
   savedCapsules: SavedCapsule[];
   dateLabel: string | null;
   tripNights: number;
+  tripDays: number;
+  planningLookCount: number;
   dateLocale: Locale;
 
   /* Handlers */
@@ -85,8 +85,6 @@ export function TravelFormView({
   setDateRange,
   vibe,
   setVibe,
-  durationDays,
-  setDurationDays,
   outfitsPerDay,
   setOutfitsPerDay,
   mustHaveItems,
@@ -105,6 +103,8 @@ export function TravelFormView({
   savedCapsules,
   dateLabel,
   tripNights,
+  tripDays,
+  planningLookCount,
   dateLocale,
   handleLocationSelect,
   handleGenerate,
@@ -233,27 +233,23 @@ export function TravelFormView({
           {/* c. TRIP VIBE */}
           <TripVibeSelector vibe={vibe} onVibeChange={setVibe} label="Trip vibe" />
 
-          {/* d. DURATION */}
+          {/* d. TRIP SUMMARY */}
           <div className="space-y-2">
             <Label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
-              Duration
+              Trip summary
             </Label>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => { hapticLight(); setDurationDays(d => Math.max(1, d - 1)); }}
-                disabled={durationDays <= 1}
-                className="w-10 h-10 rounded-xl bg-card/60 border border-border/15 flex items-center justify-center disabled:opacity-30 transition-opacity"
-              >
-                <Minus className="w-4 h-4" />
-              </button>
-              <span className="text-2xl font-semibold w-16 text-center tabular-nums">{durationDays} days</span>
-              <button
-                onClick={() => { hapticLight(); setDurationDays(d => Math.min(21, d + 1)); }}
-                disabled={durationDays >= 21}
-                className="w-10 h-10 rounded-xl bg-card/60 border border-border/15 flex items-center justify-center disabled:opacity-30 transition-opacity"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
+            <div className="rounded-xl border border-border/10 bg-card/60 px-4 py-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Trip days</span>
+                <span className="font-medium tabular-nums">{tripDays || 0}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Planned looks</span>
+                <span className="font-medium tabular-nums">{planningLookCount || 0}</span>
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground/60">
+                Selected dates drive the capsule length. Travel days add extra looks, not extra trip dates.
+              </p>
             </div>
           </div>
 
@@ -325,6 +321,7 @@ export function TravelFormView({
                       mustHaveItems,
                       destination,
                       destCoords,
+                      vibe,
                       dateRange: dateRange?.from && dateRange?.to
                         ? { from: dateRange.from.toISOString(), to: dateRange.to.toISOString() }
                         : null,

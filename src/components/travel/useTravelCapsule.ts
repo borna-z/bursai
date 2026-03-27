@@ -14,8 +14,9 @@ import { getDateFnsLocale } from '@/lib/dateLocale';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { logger } from '@/lib/logger';
+import { buildTravelCapsulePlanSummary, isCompleteTravelCapsuleOutfitIds } from '@/lib/travelCapsulePlanner';
 import type { DateRange } from 'react-day-picker';
-import type { CapsuleResult, SavedCapsule, VibeId } from './types';
+import type { CapsuleResult, SavedCapsule, TravelCapsuleInputSnapshot, VibeId } from './types';
 
 /* ─── Trip Vibe config ─── */
 const VIBE_TO_TRIP_TYPE: Record<VibeId, string> = {
@@ -68,7 +69,6 @@ export function useTravelCapsule() {
   const [destCoords, setDestCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [vibe, setVibe] = useState<VibeId>('mixed');
-  const [durationDays, setDurationDays] = useState(5);
   const [outfitsPerDay, setOutfitsPerDay] = useState(1);
   const [mustHaveItems, setMustHaveItems] = useState<string[]>([]);
   const [minimizeItems, setMinimizeItems] = useState(true);
@@ -87,6 +87,7 @@ export function useTravelCapsule() {
     destination?: string;
     destCoords?: { lat: number; lon: number } | null;
     dateRange?: { from: string; to: string } | null;
+    vibe?: VibeId;
     minimizeItems?: boolean;
     includeTravelDays?: boolean;
     outfitsPerDay?: number;
@@ -98,7 +99,7 @@ export function useTravelCapsule() {
 
   // ── Generation state ──
   const [isGenerating, setIsGenerating] = useState(false);
-  const [result, setResult] = useState<CapsuleResult | null>(null);
+  const [rawResult, setRawResult] = useState<CapsuleResult | null>(null);
 
   // ── Weather state ──
   const [weatherForecast, setWeatherForecast] = useState<ForecastDay | null>(null);
@@ -116,30 +117,58 @@ export function useTravelCapsule() {
     if (!dateRange?.from || !dateRange?.to) return 0;
     return differenceInCalendarDays(dateRange.to, dateRange.from);
   }, [dateRange]);
+  const tripDays = tripNights > 0 ? tripNights + 1 : dateRange?.from && dateRange?.to ? 1 : 0;
+  const planningLookCount = useMemo(() => {
+    if (!dateRange?.from || !dateRange?.to) return 0;
+    return buildTravelCapsulePlanSummary(
+      format(dateRange.from, 'yyyy-MM-dd'),
+      format(dateRange.to, 'yyyy-MM-dd'),
+      outfitsPerDay,
+      includeTravelDays,
+    ).requiredOutfits;
+  }, [dateRange, outfitsPerDay, includeTravelDays]);
 
   const travelCardPhases = useMemo(() => [
     { icon: Shirt, label: `Scanning your ${allGarments?.length ? `${allGarments.length} ` : ''}garments`, duration: 15000 },
     { icon: Globe, label: `Finding combinations for ${destination || 'your destination'}`, duration: 15000 },
     { icon: Package, label: 'Building your capsule', duration: 15000 },
-    { icon: SlidersHorizontal, label: `Optimizing for ${tripNights || 0} nights`, duration: 0 },
-  ], [allGarments?.length, destination, tripNights]);
+    { icon: SlidersHorizontal, label: `Optimizing ${planningLookCount || 0} looks`, duration: 0 },
+  ], [allGarments?.length, destination, planningLookCount]);
 
   // ── Garment data ──
+  const activeResult = useMemo(() => {
+    if (!rawResult) return null;
+    const inlineLookup = new Map(
+      (rawResult.capsule_items || [])
+        .filter((item): item is { id: string; category: string; subcategory?: string | null } => typeof item !== 'string' && Boolean(item.id))
+        .map((item) => [item.id, item]),
+    );
+    const garmentLookup = new Map<string, { id: string; category?: string | null; subcategory?: string | null }>();
+    for (const [id, item] of inlineLookup) garmentLookup.set(id, item);
+    for (const garment of allGarments || []) garmentLookup.set(garment.id, garment);
+    return {
+      ...rawResult,
+      outfits: rawResult.outfits.filter((outfit) => isCompleteTravelCapsuleOutfitIds(outfit.items, garmentLookup)),
+    };
+  }, [rawResult, allGarments]);
+  const result = activeResult;
+  const setResult = setRawResult;
+
   const capsuleItemIds = useMemo(
-    () => (result?.capsule_items || []).map(item =>
+    () => (activeResult?.capsule_items || []).map(item =>
       typeof item === 'string' ? item : item.id
     ),
-    [result]
+    [activeResult]
   );
   const inlineGarmentMap = useMemo(() => {
     const m = new Map<string, { id: string; title: string; image_path: string; category: string; color_primary?: string }>();
-    for (const item of (result?.capsule_items || [])) {
+    for (const item of (activeResult?.capsule_items || [])) {
       if (typeof item !== 'string' && item.id) {
         m.set(item.id, { id: item.id, title: item.title, image_path: item.image_path || '', category: item.category, color_primary: item.color_primary });
       }
     }
     return m;
-  }, [result]);
+  }, [activeResult]);
 
   const { data: capsuleGarments } = useGarmentsByIds(capsuleItemIds);
   const garmentMap = useMemo(
@@ -158,8 +187,6 @@ export function useTravelCapsule() {
     [allGarments]
   );
 
-  const tripDays = tripNights + (includeTravelDays ? 2 : 0);
-
   const dateLabel = useMemo(() => {
     if (!dateRange?.from) return null;
     const from = format(dateRange.from, 'MMM d', { locale: dateLocale });
@@ -169,9 +196,9 @@ export function useTravelCapsule() {
   }, [dateRange, dateLocale]);
 
   const dateSublabel = useMemo(() => {
-    if (!tripNights) return null;
-    return `${tripNights} ${t('capsule.nights')} • ${result?.outfits.length || tripDays} ${t('capsule.outfits_count')}`;
-  }, [tripNights, tripDays, result, t]);
+    if (!dateRange?.from || !dateRange?.to) return null;
+    return `${tripNights} ${t('capsule.nights')} • ${result?.outfits.length || planningLookCount} ${t('capsule.outfits_count')}`;
+  }, [dateRange, tripNights, planningLookCount, result, t]);
 
   // ── Group capsule items by category ──
   const groupedItems = useMemo(() => {
@@ -309,6 +336,17 @@ export function useTravelCapsule() {
     setResult(capsule.result);
     setDestination(capsule.destination);
     setVibe((capsule.vibe as VibeId) || 'mixed');
+    if (capsule.input?.destCoords) setDestCoords(capsule.input.destCoords);
+    if (capsule.input?.dateRange?.from && capsule.input.dateRange?.to) {
+      setDateRange({
+        from: new Date(capsule.input.dateRange.from),
+        to: new Date(capsule.input.dateRange.to),
+      });
+    }
+    if (capsule.input?.outfitsPerDay) setOutfitsPerDay(capsule.input.outfitsPerDay);
+    if (capsule.input?.minimizeItems !== undefined) setMinimizeItems(capsule.input.minimizeItems);
+    if (capsule.input?.includeTravelDays !== undefined) setIncludeTravelDays(capsule.input.includeTravelDays);
+    if (capsule.input?.mustHaveItems) setMustHaveItems(capsule.input.mustHaveItems);
   };
 
   // Restore form state from picker page
@@ -319,6 +357,7 @@ export function useTravelCapsule() {
     if (locationState.mustHaveItems) setMustHaveItems(locationState.mustHaveItems);
     if (locationState.destination) setDestination(locationState.destination);
     if (locationState.destCoords) setDestCoords(locationState.destCoords);
+    if (locationState.vibe) setVibe(locationState.vibe);
     if (locationState.dateRange?.from && locationState.dateRange?.to) {
       setDateRange({
         from: new Date(locationState.dateRange.from),
@@ -370,7 +409,7 @@ export function useTravelCapsule() {
       const { data, error } = await invokeEdgeFunction<CapsuleResult & { error?: string }>('travel_capsule', {
         timeout: 45000,
         body: {
-          duration_days: durationDays || tripDays || tripNights,
+          duration_days: tripDays,
           destination,
           trip_type: VIBE_TO_TRIP_TYPE[vibe],
           occasions: VIBE_TO_OCCASIONS[vibe],
@@ -396,6 +435,19 @@ export function useTravelCapsule() {
       hapticSuccess();
       toast.success(t('capsule.created'));
 
+      const input: TravelCapsuleInputSnapshot = {
+        destination,
+        destCoords,
+        dateRange: dateRange.from && dateRange.to
+          ? { from: dateRange.from.toISOString(), to: dateRange.to.toISOString() }
+          : null,
+        vibe,
+        outfitsPerDay,
+        minimizeItems,
+        includeTravelDays,
+        mustHaveItems,
+      };
+
       // Save to sessionStorage
       const saved: SavedCapsule = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -405,6 +457,7 @@ export function useTravelCapsule() {
         itemCount: capsuleResult.capsule_items.length,
         outfitCount: capsuleResult.outfits.length,
         result: capsuleResult,
+        input,
         created_at: new Date().toISOString(),
       };
       setSavedCapsules(prev => {
@@ -418,7 +471,7 @@ export function useTravelCapsule() {
     } finally {
       setIsGenerating(false);
     }
-  }, [destination, dateRange, weatherForecast, lookupWeather, profile, locale, durationDays, tripDays, tripNights, vibe, outfitsPerDay, mustHaveItems, minimizeItems, includeTravelDays, dateLabel, t]);
+  }, [destination, dateRange, weatherForecast, lookupWeather, profile, locale, tripDays, vibe, outfitsPerDay, mustHaveItems, minimizeItems, includeTravelDays, dateLabel, t, destCoords, setResult]);
 
   // ── Add to plan ──
   const handleAddToCalendar = useCallback(async () => {
@@ -440,13 +493,13 @@ export function useTravelCapsule() {
 
       for (const capsuleOutfit of result.outfits) {
         const sortedItems = [...capsuleOutfit.items].sort();
-        const dedupeKey = `${capsuleOutfit.day}-${sortedItems.join(',')}`;
+        const dedupeKey = `${capsuleOutfit.date || capsuleOutfit.day}-${capsuleOutfit.kind || 'trip_day'}-${sortedItems.join(',')}`;
         if (createdOutfitKeys.has(dedupeKey)) continue;
         createdOutfitKeys.add(dedupeKey);
 
-        const outfitDate = format(addDays(dateRange.from!, capsuleOutfit.day - 1), 'yyyy-MM-dd');
+        const outfitDate = capsuleOutfit.date || format(addDays(dateRange.from!, capsuleOutfit.day - 1), 'yyyy-MM-dd');
         const validItems = capsuleOutfit.items.filter(id => freshMap.has(id));
-        if (validItems.length === 0) continue;
+        if (!isCompleteTravelCapsuleOutfitIds(validItems, freshMap)) continue;
 
         const { data: outfitRow, error: outfitErr } = await supabase
           .from('outfits')
@@ -512,7 +565,6 @@ export function useTravelCapsule() {
     destCoords,
     dateRange, setDateRange,
     vibe, setVibe,
-    durationDays, setDurationDays,
     outfitsPerDay, setOutfitsPerDay,
     mustHaveItems, setMustHaveItems,
     minimizeItems, setMinimizeItems,
@@ -552,6 +604,7 @@ export function useTravelCapsule() {
     // Derived
     tripNights,
     tripDays,
+    planningLookCount,
     dateLabel,
     dateSublabel,
     dateLocale,

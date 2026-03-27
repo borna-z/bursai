@@ -2,6 +2,16 @@ import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
 import { VOICE_TRAVEL_CAPSULE } from "../_shared/burs-voice.ts";
+import {
+  buildTravelCapsulePlanSummary,
+  classifyTravelCapsuleSlot,
+  isCompleteTravelCapsuleOutfitGarments,
+  validateTravelCapsuleOutfitGarments,
+  type TravelCapsuleCoverageGap,
+  type TravelCapsuleGarmentLike,
+  type TravelCapsuleOutfitKind,
+  type TravelCapsulePlanSlot,
+} from "../../../src/lib/travelCapsulePlanner.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 
@@ -47,26 +57,6 @@ function inferLayeringRole(category: string, subcategory: string | null): string
   return 'standalone';
 }
 
-
-function normalizeCategoryToken(value: string | null | undefined): string {
-  return String(value || '').trim().toLowerCase();
-}
-
-function classifyCoreSlot(category: string, subcategory: string | null): 'dress' | 'top' | 'bottom' | 'shoes' | 'outerwear' | 'accessory' | 'other' {
-  const both = `${normalizeCategoryToken(category)} ${normalizeCategoryToken(subcategory)}`.trim();
-  if (['dress', 'jumpsuit', 'overall', 'fullbody', 'full body', 'romper', 'klänning'].some(c => both.includes(c))) return 'dress';
-  if (['shoes', 'shoe', 'sneakers', 'boots', 'heels', 'sandals', 'loafers', 'footwear', 'skor', 'stövlar'].some(c => both.includes(c))) return 'shoes';
-  if (['outerwear', 'coat', 'jacket', 'blazer', 'trench', 'parka', 'jacka', 'kappa'].some(c => both.includes(c))) return 'outerwear';
-  if (['accessory', 'accessories', 'bag', 'hat', 'belt', 'scarf', 'smycke', 'väska'].some(c => both.includes(c))) return 'accessory';
-  if (['bottom', 'pants', 'jeans', 'trousers', 'shorts', 'skirt', 'chinos', 'leggings', 'byxor', 'kjol'].some(c => both.includes(c))) return 'bottom';
-  if (['top', 'shirt', 'blouse', 'sweater', 't-shirt', 'tee', 'polo', 'tank', 'hoodie', 'cardigan', 'skjorta', 'tröja'].some(c => both.includes(c))) return 'top';
-  return 'other';
-}
-
-function isCompleteCoreOutfit(slotNames: Iterable<string>): boolean {
-  const slots = new Set(slotNames);
-  return (slots.has('dress') && slots.has('shoes')) || (slots.has('top') && slots.has('bottom') && slots.has('shoes'));
-}
 
 // ─────────────────────────────────────────────
 // PACK-WORTHINESS SCORING (Phase 2)
@@ -159,6 +149,178 @@ const TRIP_TYPE_CONTEXT: Record<string, string> = {
   mixed: "Balance occasion coverage: at least 1 smart, 1 casual, 1 evening look.",
 };
 
+interface ScoredGarment {
+  garment: GarmentRow;
+  packScore: number;
+}
+
+interface PlannedCapsuleOutfit {
+  day: number;
+  date: string;
+  kind: TravelCapsuleOutfitKind;
+  occasion: string;
+  items: string[];
+  note: string;
+  slotIndex?: number;
+}
+
+interface CandidateOutfit {
+  items: string[];
+  score: number;
+}
+
+function normalizeOutfitKind(value: unknown, fallback: TravelCapsuleOutfitKind = "trip_day"): TravelCapsuleOutfitKind {
+  if (value === "travel_outbound" || value === "travel_return" || value === "trip_day") return value;
+  return fallback;
+}
+
+function selectGarmentsForAI(
+  scoredGarments: ScoredGarment[],
+  mustHaveIds: string[],
+  minimizeItems: boolean,
+  weatherMin: number,
+): GarmentRow[] {
+  const bySlot = new Map<string, GarmentRow[]>();
+  for (const scored of scoredGarments) {
+    const slot = classifyTravelCapsuleSlot(scored.garment.category, scored.garment.subcategory);
+    const existing = bySlot.get(slot) || [];
+    existing.push(scored.garment);
+    bySlot.set(slot, existing);
+  }
+
+  const selected = new Map<string, GarmentRow>();
+  const reserveSlot = (slot: string, count: number) => {
+    for (const garment of (bySlot.get(slot) || []).slice(0, count)) {
+      selected.set(garment.id, garment);
+    }
+  };
+
+  reserveSlot("shoes", minimizeItems ? 2 : 4);
+  reserveSlot("dress", minimizeItems ? 2 : 3);
+  reserveSlot("top", minimizeItems ? 5 : 8);
+  reserveSlot("bottom", minimizeItems ? 3 : 5);
+  reserveSlot("outerwear", weatherMin <= 12 ? (minimizeItems ? 1 : 2) : 1);
+  reserveSlot("accessory", minimizeItems ? 1 : 2);
+
+  for (const mustHaveId of mustHaveIds) {
+    const match = scoredGarments.find((entry) => entry.garment.id === mustHaveId);
+    if (match) selected.set(match.garment.id, match.garment);
+  }
+
+  const maxAiInput = minimizeItems ? 30 : 40;
+  for (const scored of scoredGarments) {
+    if (selected.size >= maxAiInput) break;
+    selected.set(scored.garment.id, scored.garment);
+  }
+
+  return Array.from(selected.values());
+}
+
+function buildCoverageGaps(
+  garments: GarmentRow[],
+  uncoveredOutfits: number,
+): TravelCapsuleCoverageGap[] {
+  const counts = new Map<string, number>();
+  for (const garment of garments) {
+    const slot = classifyTravelCapsuleSlot(garment.category, garment.subcategory);
+    counts.set(slot, (counts.get(slot) || 0) + 1);
+  }
+
+  const gaps: TravelCapsuleCoverageGap[] = [];
+  if ((counts.get("shoes") || 0) === 0) {
+    gaps.push({
+      code: "missing_shoes",
+      message: "You need at least one pair of shoes to build complete travel outfits.",
+      missing_slots: ["shoes"],
+    });
+  }
+  if ((counts.get("top") || 0) === 0 && (counts.get("dress") || 0) === 0) {
+    gaps.push({
+      code: "missing_top",
+      message: "You need a top or a dress to build complete travel outfits.",
+      missing_slots: ["top", "dress"],
+    });
+  }
+  if ((counts.get("bottom") || 0) === 0 && (counts.get("dress") || 0) === 0) {
+    gaps.push({
+      code: "missing_bottom",
+      message: "You need a bottom or a dress to build complete travel outfits.",
+      missing_slots: ["bottom", "dress"],
+    });
+  }
+  if ((counts.get("dress") || 0) === 0 && ((counts.get("top") || 0) === 0 || (counts.get("bottom") || 0) === 0)) {
+    gaps.push({
+      code: "missing_dress_or_separates",
+      message: "This wardrobe does not have enough dresses or separates to cover every planned look.",
+      missing_slots: ["dress", "top", "bottom"],
+    });
+  }
+  if (uncoveredOutfits > 0) {
+    gaps.push({
+      code: "insufficient_complete_outfits",
+      message: `I could not build ${uncoveredOutfits} of your requested looks as complete outfits with this wardrobe.`,
+      uncovered_outfits: uncoveredOutfits,
+    });
+  }
+  return gaps;
+}
+
+function buildOutfitNote(outfit: PlannedCapsuleOutfit, garmentById: Map<string, GarmentRow>): string {
+  const items = outfit.items
+    .map((id) => garmentById.get(id))
+    .filter((garment): garment is GarmentRow => Boolean(garment));
+  const core = items.slice(0, 2).map((item) => `${item.color_primary ?? ""} ${item.title}`.trim()).filter(Boolean);
+  const baseText = core.length >= 2 ? `${core[0]} with ${core[1]}` : "A complete travel look";
+  if (outfit.kind === "travel_outbound") return `${baseText} for your outbound travel day.`;
+  if (outfit.kind === "travel_return") return `${baseText} for your return travel day.`;
+  return `${baseText} for ${outfit.occasion || "the day"}.`;
+}
+
+function buildOutfitCandidates(
+  garments: GarmentRow[],
+  scoreById: Map<string, number>,
+  weatherMin: number,
+): CandidateOutfit[] {
+  const tops = garments.filter((garment) => classifyTravelCapsuleSlot(garment.category, garment.subcategory) === "top").slice(0, 8);
+  const bottoms = garments.filter((garment) => classifyTravelCapsuleSlot(garment.category, garment.subcategory) === "bottom").slice(0, 6);
+  const dresses = garments.filter((garment) => classifyTravelCapsuleSlot(garment.category, garment.subcategory) === "dress").slice(0, 5);
+  const shoes = garments.filter((garment) => classifyTravelCapsuleSlot(garment.category, garment.subcategory) === "shoes").slice(0, 4);
+  const outerwear = garments.filter((garment) => classifyTravelCapsuleSlot(garment.category, garment.subcategory) === "outerwear").slice(0, 3);
+  const includeOuterwear = weatherMin <= 12 && outerwear.length > 0;
+  const candidates: CandidateOutfit[] = [];
+
+  for (const dress of dresses) {
+    for (const shoe of shoes) {
+      const items = includeOuterwear ? [dress.id, shoe.id, outerwear[0].id] : [dress.id, shoe.id];
+      const candidateGarments = items.map((id) => garments.find((garment) => garment.id === id)).filter((garment): garment is GarmentRow => Boolean(garment));
+      if (!isCompleteTravelCapsuleOutfitGarments(candidateGarments)) continue;
+      candidates.push({
+        items,
+        score: items.reduce((sum, id) => sum + (scoreById.get(id) || 0), 0),
+      });
+    }
+  }
+
+  for (const top of tops) {
+    for (const bottom of bottoms) {
+      for (const shoe of shoes) {
+        const items = includeOuterwear ? [top.id, bottom.id, shoe.id, outerwear[0].id] : [top.id, bottom.id, shoe.id];
+        const candidateGarments = items.map((id) => garments.find((garment) => garment.id === id)).filter((garment): garment is GarmentRow => Boolean(garment));
+        if (!isCompleteTravelCapsuleOutfitGarments(candidateGarments)) continue;
+        candidates.push({
+          items,
+          score: items.reduce((sum, id) => sum + (scoreById.get(id) || 0), 0),
+        });
+      }
+    }
+  }
+
+  return candidates
+    .map((candidate) => ({ ...candidate, items: Array.from(new Set(candidate.items)) }))
+    .filter((candidate) => candidate.items.length >= 2)
+    .sort((a, b) => b.score - a.score);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
@@ -198,19 +360,36 @@ serve(async (req) => {
     // FIX 3 — Accept new request fields
     // ─────────────────────────────────────────────
     const {
-      duration_days: rawDurationDays,
       destination,
       weather,
-      occasions,
+      occasions = [],
       locale = "en",
       outfits_per_day = 1,
       must_have_items = [],
       trip_type = "mixed",
+      start_date,
+      end_date,
+      minimize_items = true,
+      include_travel_days = false,
       transition_looks = false,
     } = await req.json();
 
-    // FIX 3 — duration_days now accepts 1-30, derive targetOutfits by trip length
-    const duration_days: number = rawDurationDays;
+    const outfitsPerDay = Math.max(1, Math.min(4, outfits_per_day || 1));
+
+    // Derive trip length from dates and build the exact planning slots up front.
+    if (!start_date || !end_date) {
+      throw new Error("start_date and end_date are required");
+    }
+
+    const planningSummary = buildTravelCapsulePlanSummary(
+      start_date,
+      end_date,
+      outfitsPerDay,
+      include_travel_days,
+    );
+    const duration_days = planningSummary.tripDays;
+    const requiredOutfits = planningSummary.requiredOutfits;
+    const planningSlots = planningSummary.slots;
 
     if (!duration_days || duration_days < 1 || duration_days > 30) {
       throw new Error("duration_days must be 1-30");
@@ -245,7 +424,7 @@ serve(async (req) => {
     // Phase 2: Score pack-worthiness and pre-filter
     const weatherMin = weather?.temperature_min ?? 10;
     const weatherMax = weather?.temperature_max ?? 22;
-    const scoredGarments = allGarments.map(g => ({
+    const scoredGarments: ScoredGarment[] = allGarments.map(g => ({
       garment: g,
       packScore: scorePackWorthiness(g, weatherMin, weatherMax, occasions || [], allGarments),
     })).sort((a, b) => b.packScore - a.packScore);
@@ -255,23 +434,11 @@ serve(async (req) => {
     const mustHaveIds: string[] = (must_have_items || []).filter((id: string) => preValidIds.has(id));
 
     // Send top 40 most packable garments to AI (reduces input size, improves quality)
-    const MAX_AI_INPUT = 40;
-    const garments = scoredGarments.length > MAX_AI_INPUT
-      ? [
-          // Always include must-have items
-          ...scoredGarments.filter(s => mustHaveIds.includes(s.garment.id)),
-          // Fill rest with top-scoring
-          ...scoredGarments.filter(s => !mustHaveIds.includes(s.garment.id)),
-        ].slice(0, MAX_AI_INPUT).map(s => s.garment)
-      : scoredGarments.map(s => s.garment);
+    const garments = selectGarmentsForAI(scoredGarments, mustHaveIds, Boolean(minimize_items), weatherMin);
+    const allGarmentById = new Map(allGarments.map((garment) => [garment.id, garment]));
+    const scoreById = new Map(scoredGarments.map((entry) => [entry.garment.id, entry.packScore]));
 
     console.log(`travel_capsule pack-worthiness: ${allGarments.length} total → ${garments.length} sent to AI (top scores: ${scoredGarments.slice(0, 3).map(s => s.packScore.toFixed(1)).join(', ')})`);
-
-    const byCategory: Record<string, GarmentRow[]> = {};
-    for (const g of garments) {
-      if (!byCategory[g.category]) byCategory[g.category] = [];
-      byCategory[g.category].push(g);
-    }
 
     // Compact wardrobe format: one line per garment, reduce input tokens
     const wardrobeLines = garments.map(g => {
@@ -288,65 +455,75 @@ serve(async (req) => {
       : "unknown";
 
     const occasionsList = occasions?.length > 0 ? occasions.join(", ") : "mixed casual/semi-formal";
-    const outfitsPerDay = Math.max(1, Math.min(4, outfits_per_day || 1));
 
-    // ─────────────────────────────────────────────
-    // FIX 3 — targetOutfits by duration bracket
-    // ─────────────────────────────────────────────
-    let targetOutfits: number;
-    if (duration_days >= 15) {
-      targetOutfits = 15;
-    } else if (duration_days >= 8) {
-      targetOutfits = Math.ceil(duration_days * 2);
-    } else if (duration_days >= 4) {
-      targetOutfits = Math.ceil(duration_days * 1.5);
-    } else {
-      targetOutfits = Math.ceil(duration_days * 1);
-    }
-
-    // FIX 3 — transition looks bonus
-    if (transition_looks && duration_days >= 3) {
-      targetOutfits += Math.floor(duration_days / 3);
-    }
-
-    targetOutfits = Math.min(targetOutfits, 35);
-
-    const maxItems = Math.min(Math.ceil(duration_days * 2.5), 30);
+    const maxItems = Boolean(minimize_items)
+      ? Math.min(Math.max(8, Math.ceil(requiredOutfits * 1.5)), 18)
+      : Math.min(Math.max(10, Math.ceil(requiredOutfits * 2.2)), 28);
 
     // FIX 3 — trip type context string
     const tripTypeContext = TRIP_TYPE_CONTEXT[trip_type] ?? TRIP_TYPE_CONTEXT.mixed;
 
     // Build valid ID set and lookup structures early
-    const validIds = new Set(garments.map(g => g.id));
-    const titleIndex = new Map(garments.map(g => [g.title.toLowerCase().trim(), g.id]));
+    const validIds = new Set(allGarments.map(g => g.id));
+    const titleIndex = new Map(allGarments.map(g => [g.title.toLowerCase().trim(), g.id]));
 
     // (mustHaveIds declared earlier for pre-filter use)
 
     // Scale max_tokens generously — each outfit with 4 UUIDs ≈ 100 tokens, capsule_items ≈ 20 tokens/item
-    const maxTokens = estimateMaxTokens({ outputItems: targetOutfits + maxItems, perItemTokens: 120, baseTokens: 1000, cap: 8192 });
+    const maxTokens = estimateMaxTokens({ outputItems: requiredOutfits + maxItems, perItemTokens: 120, baseTokens: 1000, cap: 8192 });
     // Use stronger model only for long/complex trips (>7 days or 3+ outfits/day)
     const complexity: "trivial" | "standard" | "complex" = (duration_days > 7 || outfitsPerDay > 2) ? "complex" : "standard";
 
     const mustHaveNote = mustHaveIds.length > 0
       ? `\nMUST-HAVE items (MUST appear in capsule_items): ${mustHaveIds.join(", ")}`
       : "";
+    const planningRequirements = planningSlots.reduce((lines, slot) => {
+      const last = lines.at(-1);
+      const label = slot.kind === "travel_outbound"
+        ? "plus one outbound travel look"
+        : slot.kind === "travel_return"
+          ? "plus one return travel look"
+          : null;
+
+      if (!last || last.day !== slot.day) {
+        lines.push({
+          day: slot.day,
+          date: slot.date,
+          looks: 1,
+          labels: label ? [label] : [],
+        });
+        return lines;
+      }
+
+      last.looks += 1;
+      if (label) last.labels.push(label);
+      return lines;
+    }, [] as Array<{ day: number; date: string; looks: number; labels: string[] }>);
+    const planningRequirementsText = planningRequirements
+      .map((entry) => `- Day ${entry.day} (${entry.date}): ${entry.looks} look(s)${entry.labels.length > 0 ? `, ${entry.labels.join(" and ")}` : ""}`)
+      .join("\n");
+    const packingDirective = Boolean(minimize_items)
+      ? "Choose the smallest complete capsule that can cover the trip."
+      : "Choose a balanced capsule with a little redundancy for comfort and variation.";
 
     // System prompt: English for reliability, locale instruction for content language only.
     // No JSON schema here — tool_choice handles structure.
     const systemPrompt = `${VOICE_TRAVEL_CAPSULE}
 
-Your task: select the MINIMUM garments from the user's wardrobe that create the MOST outfit combinations for a trip.
+Your task: build a smart travel capsule from the user's wardrobe.
 
 TRIP DETAILS:
-- Duration: ${duration_days} days to ${destination || "unknown destination"}
-- Trip type: ${trip_type} — ${tripTypeContext}
+- Dates: ${start_date} to ${end_date} (${duration_days} trip day(s), ${planningSummary.tripNights} night(s))
+- Destination: ${destination || "unknown destination"}
+- Trip type: ${trip_type} - ${tripTypeContext}
 - Weather: ${weatherDesc}
 - Occasions needed: ${occasionsList}
-- Outfits per day: ${outfitsPerDay}
-- Target: generate exactly ${targetOutfits} outfits across all ${duration_days} days (${outfitsPerDay} per day)
+- Base outfits per day: ${outfitsPerDay}
+- Required complete looks: ${requiredOutfits}
+- Packing mode: ${Boolean(minimize_items) ? "minimal" : "balanced"} - ${packingDirective}
 - Max packing items: ${maxItems}
-- Each outfit MUST have 2-5 items from different categories${mustHaveNote}
-${transition_looks && duration_days >= 3 ? `- Include office→dinner transition looks: 1 per every 3-day block` : ''}
+- Day plan:
+${planningRequirementsText}${mustHaveNote}
 
 WARDROBE FORMAT: Each line is id|category|title|color|[subcategory]|[material]|[formality]|[seasons]
 
@@ -355,9 +532,14 @@ CRITICAL RULES:
 2. Never invent or modify IDs — only use IDs from the wardrobe list
 3. capsule_items = the packing list (unique garment IDs you'd pack)
 4. Each outfit.items = subset of capsule_items worn together that day
-5. Distribute outfits evenly: ${outfitsPerDay} outfit(s) for each of the ${duration_days} days
-6. Vary items across outfits — maximize reuse of capsule items in different combinations
-7. Consider weather and occasion when pairing items
+5. A valid outfit MUST be either:
+   - top + bottom + shoes
+   - dress + shoes
+   Outerwear and one accessory are optional
+6. Never output partial looks, missing-shoes looks, or duplicate core slots
+7. Cover the exact day plan above and return one outfit object per required look
+8. Vary items across outfits while keeping the capsule coherent
+9. Consider weather and occasion when pairing items
 
 Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "English"}.`;
 
@@ -381,11 +563,13 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
                 type: "object",
                 properties: {
                   day: { type: "number" },
+                  date: { type: "string" },
+                  kind: { type: "string", description: "trip_day, travel_outbound, or travel_return" },
                   occasion: { type: "string" },
                   items: { type: "array", items: { type: "string" }, description: "Garment UUIDs for this outfit" },
                   note: { type: "string" }
                 },
-                required: ["day", "occasion", "items", "note"]
+                required: ["day", "date", "kind", "occasion", "items", "note"]
               }
             },
             packing_tips: { type: "array", items: { type: "string" } },
@@ -400,80 +584,106 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
     let result: any = null;
     let lastError: Error | null = null;
 
-    const buildDeterministicFallback = () => {
-      const garmentLookup = new Map(garments.map(g => [g.id, g]));
-      const tops = garments.filter(g => classifyCoreSlot(g.category, g.subcategory) === 'top').slice(0, 6);
-      const bottoms = garments.filter(g => classifyCoreSlot(g.category, g.subcategory) === 'bottom').slice(0, 4);
-      const dresses = garments.filter(g => classifyCoreSlot(g.category, g.subcategory) === 'dress').slice(0, 3);
-      const shoes = garments.filter(g => classifyCoreSlot(g.category, g.subcategory) === 'shoes').slice(0, 3);
-      const outerwear = garments.filter(g => classifyCoreSlot(g.category, g.subcategory) === 'outerwear').slice(0, 2);
-      const accessories = garments.filter(g => classifyCoreSlot(g.category, g.subcategory) === 'accessory').slice(0, 2);
+    const buildDeterministicFallback = (seedCapsuleIds: string[] = []) => {
+      const seedGarments = [
+        ...seedCapsuleIds.map((id) => allGarmentById.get(id)),
+        ...mustHaveIds.map((id) => allGarmentById.get(id)),
+        ...garments,
+        ...allGarments,
+      ].filter((garment): garment is GarmentRow => Boolean(garment));
+      const pool = Array.from(new Map(seedGarments.map((garment) => [garment.id, garment])).values());
+      const candidates = buildOutfitCandidates(pool, scoreById, weatherMin);
+      const capsuleMap = new Map<string, GarmentRow>();
+      const usageCount = new Map<string, number>();
+      const usedComboKeys = new Set<string>();
+      const outfits: PlannedCapsuleOutfit[] = [];
 
-      const capsuleItems = Array.from(new Set([
-        ...mustHaveIds,
-        ...tops.map(g => g.id),
-        ...bottoms.map(g => g.id),
-        ...shoes.map(g => g.id),
-        ...outerwear.map(g => g.id),
-        ...accessories.map(g => g.id),
-      ])).slice(0, maxItems);
+      for (const seedId of [...mustHaveIds, ...seedCapsuleIds]) {
+        const garment = allGarmentById.get(seedId);
+        if (garment) capsuleMap.set(garment.id, garment);
+      }
 
-      const totalOutfits = Math.min(targetOutfits, duration_days * outfitsPerDay);
-      const outfits: any[] = [];
-      for (let day = 1; day <= duration_days && outfits.length < totalOutfits; day++) {
-        for (let slot = 0; slot < outfitsPerDay && outfits.length < totalOutfits; slot++) {
-          const idx = outfits.length;
-          const baseItems = dresses.length > 0 && (idx % Math.max(dresses.length + tops.length, 1)) < dresses.length
-            ? [
-                dresses[idx % Math.max(dresses.length, 1)]?.id,
-                shoes[idx % Math.max(shoes.length, 1)]?.id,
-              ]
-            : [
-                tops[idx % Math.max(tops.length, 1)]?.id,
-                bottoms[idx % Math.max(bottoms.length, 1)]?.id,
-                shoes[idx % Math.max(shoes.length, 1)]?.id,
-              ];
+      const chooseCandidate = (respectCap: boolean): CandidateOutfit | null => {
+        let bestCandidate: CandidateOutfit | null = null;
+        let bestScore = Number.NEGATIVE_INFINITY;
 
-          const items = baseItems.filter(Boolean) as string[];
+        for (const candidate of candidates) {
+          const comboKey = candidate.items.slice().sort().join(",");
+          const newItems = candidate.items.filter((id) => !capsuleMap.has(id));
+          if (respectCap && capsuleMap.size + newItems.length > maxItems) continue;
 
-          if ((weather?.temperature_min ?? 15) <= 12 && outerwear.length > 0) {
-            items.push(outerwear[idx % outerwear.length].id);
+          const reuseCount = candidate.items.reduce((sum, id) => sum + (usageCount.get(id) || 0), 0);
+          const adjustedScore = candidate.score
+            - (Boolean(minimize_items) ? newItems.length * 7 : newItems.length * 3)
+            - (!Boolean(minimize_items) ? reuseCount * 0.6 : 0)
+            - (usedComboKeys.has(comboKey) ? 4 : 0);
+
+          if (adjustedScore > bestScore) {
+            bestCandidate = candidate;
+            bestScore = adjustedScore;
           }
-
-          if (items.length < 2) {
-            items.push(...capsuleItems.slice(0, Math.max(0, 2 - items.length)));
-          }
-
-          const uniqueItems = Array.from(new Set(items)).slice(0, 4);
-          const uniqueSlots = uniqueItems
-            .map((itemId) => garmentLookup.get(itemId))
-            .filter((garment): garment is GarmentRow => Boolean(garment))
-            .map((garment) => classifyCoreSlot(garment.category, garment.subcategory));
-          if (!isCompleteCoreOutfit(uniqueSlots)) continue;
-
-          outfits.push({
-            day,
-            occasion: occasions?.[slot % Math.max(occasions?.length || 0, 1)] || "casual",
-            items: uniqueItems,
-            note: "A flexible core look for travel day.",
-          });
         }
+
+        return bestCandidate;
+      };
+
+      for (const slot of planningSlots) {
+        let candidate = chooseCandidate(true);
+        if (!candidate) candidate = chooseCandidate(false);
+        if (!candidate) continue;
+
+        const candidateGarments = candidate.items
+          .map((id) => allGarmentById.get(id))
+          .filter((garment): garment is GarmentRow => Boolean(garment));
+        if (!isCompleteTravelCapsuleOutfitGarments(candidateGarments)) continue;
+
+        const comboKey = candidate.items.slice().sort().join(",");
+        for (const garment of candidateGarments) {
+          capsuleMap.set(garment.id, garment);
+          usageCount.set(garment.id, (usageCount.get(garment.id) || 0) + 1);
+        }
+        usedComboKeys.add(comboKey);
+
+        outfits.push({
+          day: slot.day,
+          date: slot.date,
+          kind: slot.kind,
+          occasion: slot.kind === "trip_day"
+            ? (occasions?.[(slot.day + slot.slotIndex) % Math.max(occasions.length || 0, 1)] || "casual")
+            : "travel",
+          items: candidate.items,
+          note: "",
+          slotIndex: slot.slotIndex,
+        });
       }
 
       return {
-        capsule_items: capsuleItems,
+        capsule_items: Array.from(capsuleMap.values()),
         outfits,
         packing_tips: [
-              "Choose pieces that layer well.",
-              "Keep a cohesive color palette for more combinations.",
-              "Pack one backup pair of shoes for comfort and variation.",
-            ],
+          "Choose pieces that layer well.",
+          "Keep a cohesive color palette for more combinations.",
+          "Pack one reliable pair of shoes for every complete look.",
+        ],
         total_combinations: outfits.length,
-        reasoning: "Automatic fallback was used to guarantee a complete capsule from your wardrobe.",
+        reasoning: "Automatic fallback planned complete travel outfits from your wardrobe.",
       };
     };
 
-    console.log("travel_capsule v4 start", { duration_days, outfitsPerDay, garment_count: garments.length, targetOutfits, maxItems, maxTokens, complexity, trip_type, transition_looks });
+    console.log("travel_capsule v5 start", {
+      duration_days,
+      trip_nights: planningSummary.tripNights,
+      outfitsPerDay,
+      requiredOutfits,
+      garment_count: garments.length,
+      maxItems,
+      maxTokens,
+      complexity,
+      trip_type,
+      transition_looks,
+      include_travel_days,
+      minimize_items,
+    });
 
     // Single attempt — fall back to deterministic on failure
     try {
@@ -530,7 +740,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       if (validIds.has(trimmed)) return trimmed;
       // Prefix match (8+ chars)
       if (trimmed.length >= 8) {
-        const match = garments.find(g => g.id.startsWith(trimmed) || g.id.includes(trimmed));
+        const match = allGarments.find(g => g.id.startsWith(trimmed) || g.id.includes(trimmed));
         if (match) return match.id;
       }
       // Title-based fallback
@@ -542,14 +752,18 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
 
     let resolvedItems = (result.capsule_items || []).map(resolveId).filter((id: string) => validIds.has(id));
     let resolvedOutfits = (result.outfits || []).map((o: any) => ({
-      ...o,
+      day: Math.max(1, Math.min(duration_days, Number(o.day) || 1)),
+      date: typeof o.date === "string" ? o.date : start_date,
+      kind: normalizeOutfitKind(o.kind),
+      occasion: typeof o.occasion === "string" ? o.occasion : "casual",
       items: (o.items || []).map(resolveId).filter((id: string) => validIds.has(id)),
+      note: typeof o.note === "string" ? o.note : "",
     })).filter((o: any) => o.items.length >= 2);
 
     if (resolvedItems.length === 0 || resolvedOutfits.length === 0) {
       console.warn("Resolved capsule is empty, applying deterministic fallback mapping");
       const fallback = buildDeterministicFallback();
-      resolvedItems = fallback.capsule_items.filter((id: string) => validIds.has(id));
+      resolvedItems = fallback.capsule_items.map((garment: GarmentRow) => garment.id).filter((id: string) => validIds.has(id));
       resolvedOutfits = fallback.outfits
         .map((o: any) => ({ ...o, items: (o.items || []).filter((id: string) => validIds.has(id)) }))
         .filter((o: any) => o.items.length >= 2);
@@ -563,7 +777,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
     // ─────────────────────────────────────────────
 
     // Use mutable arrays so reconciliation can extend them
-    let capsule_items: any[] = resolvedItems.map((id: string) => garments.find(g => g.id === id)).filter(Boolean);
+    let capsule_items: any[] = resolvedItems.map((id: string) => allGarmentById.get(id)).filter(Boolean);
     let outfits: any[] = resolvedOutfits;
     const { packing_tips, total_combinations, reasoning } = result;
 
@@ -572,7 +786,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       for (const itemId of (outfit.items ?? [])) {
         const id = typeof itemId === 'string' ? itemId : itemId?.id;
         if (id && !capsuleIds.has(id)) {
-          const g = garments.find((g: any) => g.id === id);
+          const g = allGarmentById.get(id);
           if (g) {
             capsule_items.push(g);
             capsuleIds.add(id);
@@ -591,12 +805,12 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
     // IB-2c: MATRIX COVERAGE VALIDATION
     // ─────────────────────────────────────────────
 
-    const garmentById = new Map(garments.map(g => [g.id, g]));
+    const garmentById = allGarmentById;
 
     // Build lookup for capsule garments by coverage slot
     const capsuleBySlot: Record<string, string[]> = {};
     for (const g of capsule_items) {
-      const slot = classifyCoreSlot(g.category, g.subcategory);
+      const slot = classifyTravelCapsuleSlot(g.category, g.subcategory);
       if (!capsuleBySlot[slot]) capsuleBySlot[slot] = [];
       capsuleBySlot[slot].push(g.id);
     }
@@ -605,7 +819,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
     // FIX 2 — INCOMPLETE OUTFIT FALLBACK (5-level)
     // ─────────────────────────────────────────────
 
-    const hasShoesInWardrobe = garments.some(g => classifyCoreSlot(g.category, g.subcategory) === 'shoes');
+    const hasShoesInWardrobe = allGarments.some(g => classifyTravelCapsuleSlot(g.category, g.subcategory) === 'shoes');
 
     // Helper: try to find a garment of a given slot, first from capsule then from all garments
     const pickSlot = (slot: string, exclude: Set<string>): string | null => {
@@ -613,7 +827,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       const fromCapsule = (capsuleBySlot[slot] || []).find(id => !exclude.has(id));
       if (fromCapsule) return fromCapsule;
       // Extend to full wardrobe
-      const fromWardrobe = garments.find(g => classifyCoreSlot(g.category, g.subcategory) === slot && !exclude.has(g.id));
+      const fromWardrobe = allGarments.find(g => classifyTravelCapsuleSlot(g.category, g.subcategory) === slot && !exclude.has(g.id));
       if (fromWardrobe) {
         // Auto-add to capsule
         if (!capsuleIds.has(fromWardrobe.id)) {
@@ -634,23 +848,22 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
     const validatedOutfits: typeof resolvedOutfits = [];
 
     for (const outfit of outfits) {
-      const slots = new Set<string>();
-      for (const id of outfit.items) {
-        const g = garmentById.get(id);
-        if (g) slots.add(classifyCoreSlot(g.category, g.subcategory));
-      }
-
-      const isComplete = isCompleteCoreOutfit(slots);
+      const outfitGarments = outfit.items
+        .map((id: string) => garmentById.get(id))
+        .filter((garment): garment is GarmentRow => Boolean(garment));
+      let validation = validateTravelCapsuleOutfitGarments(outfitGarments as TravelCapsuleGarmentLike[]);
+      const isComplete = validation.isComplete;
 
       if (isComplete) {
         validatedOutfits.push(outfit);
         continue;
       }
 
-      const hasDress = slots.has('dress');
-      const hasTop = slots.has('top');
-      const hasBottom = slots.has('bottom');
-      const hasShoes = slots.has('shoes');
+      const presentSlots = new Set(validation.presentSlots);
+      const hasDress = presentSlots.has('dress');
+      const hasTop = presentSlots.has('top');
+      const hasBottom = presentSlots.has('bottom');
+      const hasShoes = presentSlots.has('shoes');
 
       const usedInOutfit = new Set(outfit.items);
       const patched = [...outfit.items];
@@ -677,55 +890,77 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       if (!hasShoes && hasDress && hasShoesInWardrobe) tryAdd('shoes');
 
       // Re-check
-      const patchedSlots = new Set<string>();
-      for (const id of patched) {
-        const g = garmentById.get(id) ?? capsule_items.find((c: any) => c.id === id);
-        if (g) patchedSlots.add(classifyCoreSlot(g.category, g.subcategory));
-      }
-      const patchedComplete = isCompleteCoreOutfit(patchedSlots);
+      const patchedGarments = patched
+        .map((id) => garmentById.get(id) ?? capsule_items.find((c: any) => c.id === id))
+        .filter((garment): garment is GarmentRow => Boolean(garment));
+      validation = validateTravelCapsuleOutfitGarments(patchedGarments as TravelCapsuleGarmentLike[]);
+      const patchedComplete = validation.isComplete;
 
       if (patchedComplete) {
         validatedOutfits.push({ ...outfit, items: patched });
         if (wasPatched) patchCount++;
       } else {
-        // Level 2: top + bottom (no shoes in wardrobe)
-        if (!hasShoesInWardrobe && patchedSlots.has('top') && patchedSlots.has('bottom')) {
-          validatedOutfits.push({ ...outfit, items: patched });
-          if (wasPatched) patchCount++;
-        // Level 4: dress only (no shoes)
-        } else if (!hasShoesInWardrobe && patchedSlots.has('dress')) {
-          validatedOutfits.push({ ...outfit, items: patched });
-          if (wasPatched) patchCount++;
-        // Level 5: any 2 garments from different categories, but must have a wearable base
-        } else if (patched.length >= 2) {
-          const diffCats = new Set(patched.map(id => {
-            const g = garmentById.get(id) ?? capsule_items.find((c: any) => c.id === id);
-            return g ? classifyCoreSlot(g.category, g.subcategory) : 'other';
-          }));
-          const hasBase = (diffCats.has('top') && diffCats.has('bottom')) || diffCats.has('dress');
-          if (diffCats.size >= 2 && hasBase) {
-            validatedOutfits.push({ ...outfit, items: patched });
-            if (wasPatched) patchCount++;
-          } else {
-            dropCount++;
-            console.warn(`Dropped incomplete outfit for day ${outfit.day}: slots=${[...patchedSlots].join(',')}`);
-          }
-        } else {
-          dropCount++;
-          console.warn(`Dropped incomplete outfit for day ${outfit.day}: slots=${[...patchedSlots].join(',')}`);
-        }
+        dropCount++;
+        console.warn(`Dropped incomplete outfit for day ${outfit.day}: slots=${validation.presentSlots.join(',')}`);
       }
     }
 
     // Prune capsule items not used in any validated outfit
+    const planningSlotKey = (slot: { day: number; kind: TravelCapsuleOutfitKind; slotIndex?: number }) =>
+      `${slot.day}:${slot.kind}:${slot.slotIndex ?? 0}`;
+    const remainingPlanningSlots = [...planningSlots];
+    const scheduledOutfits: PlannedCapsuleOutfit[] = [];
+
+    for (const outfit of validatedOutfits) {
+      const exactIndex = remainingPlanningSlots.findIndex((slot) =>
+        slot.day === outfit.day && normalizeOutfitKind(outfit.kind, "trip_day") === slot.kind,
+      );
+      const claimedSlot = exactIndex >= 0
+        ? remainingPlanningSlots.splice(exactIndex, 1)[0]
+        : remainingPlanningSlots.find((slot) => slot.day === outfit.day);
+
+      if (!claimedSlot) continue;
+      if (exactIndex < 0) {
+        remainingPlanningSlots.splice(remainingPlanningSlots.indexOf(claimedSlot), 1);
+      }
+
+      scheduledOutfits.push({
+        ...outfit,
+        day: claimedSlot.day,
+        date: claimedSlot.date,
+        kind: claimedSlot.kind,
+        occasion: claimedSlot.kind === "trip_day" ? outfit.occasion : "travel",
+        slotIndex: claimedSlot.slotIndex,
+      });
+    }
+
+    const fallback = buildDeterministicFallback([
+      ...resolvedItems,
+      ...scheduledOutfits.flatMap((outfit) => outfit.items),
+    ]);
+    const fallbackOutfitByKey = new Map(
+      fallback.outfits.map((outfit: PlannedCapsuleOutfit) => [planningSlotKey(outfit), outfit]),
+    );
+
+    for (const slot of remainingPlanningSlots) {
+      const fallbackOutfit = fallbackOutfitByKey.get(planningSlotKey(slot));
+      if (fallbackOutfit) scheduledOutfits.push(fallbackOutfit);
+    }
+
+    scheduledOutfits.sort((a, b) => a.day - b.day || (a.slotIndex ?? 0) - (b.slotIndex ?? 0));
+
     const usedInAnyOutfit = new Set<string>();
-    for (const o of validatedOutfits) {
+    for (const o of scheduledOutfits) {
       for (const id of o.items) usedInAnyOutfit.add(id);
     }
-    // Keep must-haves even if unused
-    const prunedCapsule = capsule_items.filter((g: any) => usedInAnyOutfit.has(g.id) || mustHaveIds.includes(g.id));
+    const prunedCapsule = Array.from(new Map(
+      [...capsule_items, ...fallback.capsule_items]
+        .filter((g: any) => usedInAnyOutfit.has(g.id) || mustHaveIds.includes(g.id))
+        .map((g: any) => [g.id, g]),
+    ).values());
+    const coverage_gaps = buildCoverageGaps(allGarments, Math.max(0, requiredOutfits - scheduledOutfits.length));
 
-    console.log(`IB-2c matrix validation: ${outfits.length} outfits → ${validatedOutfits.length} valid (${patchCount} patched, ${dropCount} dropped), capsule ${capsule_items.length} → ${prunedCapsule.length} items`);
+    console.log(`IB-2c matrix validation: ${outfits.length} outfits -> ${scheduledOutfits.length} scheduled (${patchCount} patched, ${dropCount} dropped), capsule ${capsule_items.length} -> ${prunedCapsule.length} items`);
 
     // ─────────────────────────────────────────────
     // FIX 5 — OUTFIT NOTE QUALITY
@@ -737,7 +972,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       /a considered \[?\w+\]? look/i,
     ];
 
-    for (const outfit of validatedOutfits) {
+    for (const outfit of scheduledOutfits) {
       const hasBanned = BANNED_NOTE_PATTERNS.some(p => p.test(outfit.note ?? ''));
       if (hasBanned || !outfit.note) {
         const items = (outfit.items ?? [])
@@ -745,7 +980,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
           .filter(Boolean);
         if (items.length >= 2) {
           const [a, b] = items;
-          outfit.note = `${a.color_primary ?? ''} ${a.title} with ${b.color_primary ?? ''} ${b.title} — ${outfit.occasion ?? 'day'} look.`.trim();
+          outfit.note = `${a.color_primary ?? ''} ${a.title} with ${b.color_primary ?? ''} ${b.title} - ${outfit.occasion ?? 'day'} look.`.trim();
         }
       }
     }
@@ -769,24 +1004,25 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
         destination: destination ?? null,
         trip_type: trip_type ?? 'mixed',
         duration_days: duration_days ?? 5,
-        weather_min: weather?.min ?? null,
-        weather_max: weather?.max ?? null,
+        weather_min: weather?.temperature_min ?? null,
+        weather_max: weather?.temperature_max ?? null,
         occasions: occasions ?? [],
         capsule_items: prunedCapsule,
-        outfits: validatedOutfits,
+        outfits: scheduledOutfits,
         packing_list: packingList,
         packing_tips: packing_tips ?? null,
-        total_combinations: total_combinations ?? null,
-        reasoning: reasoning ?? null,
+        total_combinations: total_combinations ?? scheduledOutfits.length,
+        reasoning: [reasoning, ...coverage_gaps.map((gap) => gap.message)].filter(Boolean).join(' ') || null,
       });
     if (saveError) console.warn('travel_capsule: failed to save capsule:', saveError.message);
 
     return new Response(JSON.stringify({
       capsule_items: prunedCapsule,
-      outfits: validatedOutfits,
+      outfits: scheduledOutfits,
       packing_tips: packing_tips || [],
-      total_combinations: total_combinations || validatedOutfits.length,
-      reasoning: reasoning || "",
+      coverage_gaps,
+      total_combinations: total_combinations || scheduledOutfits.length,
+      reasoning: [reasoning, ...coverage_gaps.map((gap) => gap.message)].filter(Boolean).join(' ') || "",
     }), {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });

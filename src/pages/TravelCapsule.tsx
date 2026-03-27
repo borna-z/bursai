@@ -44,8 +44,6 @@ export default function TravelCapsule() {
         setDateRange={capsule.setDateRange}
         vibe={capsule.vibe}
         setVibe={capsule.setVibe}
-        durationDays={capsule.durationDays}
-        setDurationDays={capsule.setDurationDays}
         outfitsPerDay={capsule.outfitsPerDay}
         setOutfitsPerDay={capsule.setOutfitsPerDay}
         mustHaveItems={capsule.mustHaveItems}
@@ -64,6 +62,8 @@ export default function TravelCapsule() {
         savedCapsules={capsule.savedCapsules}
         dateLabel={capsule.dateLabel}
         tripNights={capsule.tripNights}
+        tripDays={capsule.tripDays}
+        planningLookCount={capsule.planningLookCount}
         dateLocale={capsule.dateLocale}
         handleLocationSelect={capsule.handleLocationSelect}
         handleGenerate={capsule.handleGenerate}

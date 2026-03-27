@@ -1,5 +1,7 @@
 export interface CapsuleOutfit {
   day: number;
+  date?: string;
+  kind?: 'trip_day' | 'travel_outbound' | 'travel_return';
   occasion: string;
   items: string[];
   note: string;
@@ -13,12 +15,31 @@ export interface CapsuleItemObj {
   image_path?: string;
 }
 
+export interface CapsuleCoverageGap {
+  code: string;
+  message: string;
+  missing_slots?: string[];
+  uncovered_outfits?: number;
+}
+
 export interface CapsuleResult {
   capsule_items: (string | CapsuleItemObj)[];
   outfits: CapsuleOutfit[];
   packing_tips: string[];
+  coverage_gaps?: CapsuleCoverageGap[];
   total_combinations: number;
   reasoning: string;
+}
+
+export interface TravelCapsuleInputSnapshot {
+  destination: string;
+  destCoords: { lat: number; lon: number } | null;
+  dateRange: { from: string; to: string } | null;
+  vibe: VibeId;
+  outfitsPerDay: number;
+  minimizeItems: boolean;
+  includeTravelDays: boolean;
+  mustHaveItems: string[];
 }
 
 export interface SavedCapsule {
@@ -29,6 +50,7 @@ export interface SavedCapsule {
   itemCount: number;
   outfitCount: number;
   result: CapsuleResult;
+  input?: TravelCapsuleInputSnapshot;
   created_at: string;
 }
 

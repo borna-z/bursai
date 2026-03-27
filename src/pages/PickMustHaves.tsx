@@ -14,7 +14,14 @@ import { hapticLight, hapticSuccess } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
-const CATEGORIES = ['tops', 'bottoms', 'outerwear', 'shoes', 'dresses', 'accessories'];
+const CATEGORIES = [
+  { id: 'top', labelKey: 'filter.tops' },
+  { id: 'bottom', labelKey: 'filter.bottoms' },
+  { id: 'outerwear', labelKey: 'filter.outerwear' },
+  { id: 'shoes', labelKey: 'filter.shoes' },
+  { id: 'dress', labelKey: 'filter.dresses' },
+  { id: 'accessory', labelKey: 'filter.accessories' },
+];
 
 export default function PickMustHaves() {
   const navigate = useNavigate();
@@ -126,12 +133,12 @@ export default function PickMustHaves() {
           </Chip>
           {CATEGORIES.map(c => (
             <Chip
-              key={c}
-              selected={category === c}
-              onClick={() => { hapticLight(); setCategory(category === c ? null : c); }}
+              key={c.id}
+              selected={category === c.id}
+              onClick={() => { hapticLight(); setCategory(category === c.id ? null : c.id); }}
               size="sm"
             >
-              {t(`filter.${c}`)}
+              {t(c.labelKey)}
             </Chip>
           ))}
         </div>
