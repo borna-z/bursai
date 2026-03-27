@@ -215,6 +215,17 @@ export default function AIChat() {
     }
   }, [location.pathname, location.search, navigate, selectedOutfit]);
 
+  const garmentIds = useMemo(
+    () => Array.from(new Set([...selectedGarmentIds, ...extractGarmentIds(messages)])),
+    [messages, selectedGarmentIds],
+  );
+  const { data: garmentsList } = useGarmentsByIds(garmentIds);
+  const garmentMap = useMemo(() => {
+    const map = new Map<string, GarmentBasic>();
+    garmentsList?.forEach(g => map.set(g.id, g));
+    return map;
+  }, [garmentsList]);
+
   useEffect(() => {
     if (!pendingSeedOutfitIds || pendingSeedOutfitIds.length < 2 || isLoading) return;
     if (!pendingSeedOutfitIds.every((id) => garmentMap.has(id))) return;
@@ -231,17 +242,6 @@ export default function AIChat() {
     });
     setPendingSeedOutfitIds(null);
   }, [garmentMap, isLoading, pendingSeedOutfitIds]);
-
-  const garmentIds = useMemo(
-    () => Array.from(new Set([...selectedGarmentIds, ...extractGarmentIds(messages)])),
-    [messages, selectedGarmentIds],
-  );
-  const { data: garmentsList } = useGarmentsByIds(garmentIds);
-  const garmentMap = useMemo(() => {
-    const map = new Map<string, GarmentBasic>();
-    garmentsList?.forEach(g => map.set(g.id, g));
-    return map;
-  }, [garmentsList]);
 
   const anchoredGarment = useMemo(() => anchoredGarmentId ? garmentMap.get(anchoredGarmentId) ?? null : null, [anchoredGarmentId, garmentMap]);
   const latestActiveLookMessageIndex = useMemo(() => findLatestActiveLookMessageIndex(messages), [messages]);
