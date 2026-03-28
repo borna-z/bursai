@@ -1,11 +1,12 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ImagePlus, Loader2, CheckCircle, AlertCircle, RotateCcw } from 'lucide-react';
+import { ImagePlus, Loader2, CheckCircle, AlertCircle, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFlatGarments } from '@/hooks/useGarments';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -132,12 +133,7 @@ export default function GenerateImages() {
     <AppLayout hideNav>
       <AnimatedPage className="px-6 pb-8 pt-12 max-w-lg mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/settings')} className="p-2 -ml-2 rounded-xl hover:bg-muted">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-xl font-semibold">{t('genimg.title')}</h1>
-        </div>
+        <PageHeader title={t('genimg.title')} eyebrow="Admin" showBack />
 
         <p className="text-sm text-muted-foreground">
           {t('genimg.desc')}

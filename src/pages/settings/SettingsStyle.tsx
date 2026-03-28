@@ -135,7 +135,7 @@ export default function SettingsStyle() {
     <div className="space-y-1">
       <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{label}</Label>
       <Select value={value || ''} onValueChange={onChange}>
-        <SelectTrigger className="h-9 text-sm border-border/50 bg-muted/30"><SelectValue placeholder="—" /></SelectTrigger>
+        <SelectTrigger className="h-11 text-[13px] border-border/50 bg-muted/30"><SelectValue placeholder="—" /></SelectTrigger>
         <SelectContent>
           {options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
         </SelectContent>
@@ -414,7 +414,7 @@ export default function SettingsStyle() {
             <div className="px-4 pb-4 space-y-4">
               <div className="space-y-1.5">
                 <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('q3.q27') || 'Style icons'}</Label>
-                <Input value={sp.styleIcons || ''} onChange={e => updateStyleField('styleIcons', e.target.value)} placeholder={t('q3.q27_hint') || 'e.g. Scandinavian minimalism'} className="h-9 text-sm" />
+                <Input value={sp.styleIcons || ''} onChange={e => updateStyleField('styleIcons', e.target.value)} placeholder={t('q3.q27_hint') || 'e.g. Scandinavian minimalism'} className="h-11 text-[13px]" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('q3.q28') || 'Hardest occasions'}</Label>
@@ -422,11 +422,11 @@ export default function SettingsStyle() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('q3.q29') || 'Favorite fabrics'}</Label>
-                <Input value={sp.fabricFeel || ''} onChange={e => updateStyleField('fabricFeel', e.target.value)} placeholder={t('q3.q29_hint') || 'e.g. linen, cashmere'} className="h-9 text-sm" />
+                <Input value={sp.fabricFeel || ''} onChange={e => updateStyleField('fabricFeel', e.target.value)} placeholder={t('q3.q29_hint') || 'e.g. linen, cashmere'} className="h-11 text-[13px]" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('q3.q30') || 'Signature pieces'}</Label>
-                <Input value={sp.signaturePieces || ''} onChange={e => updateStyleField('signaturePieces', e.target.value)} placeholder={t('q3.q30_hint') || 'e.g. oversized blazer, white sneakers'} className="h-9 text-sm" />
+                <Input value={sp.signaturePieces || ''} onChange={e => updateStyleField('signaturePieces', e.target.value)} placeholder={t('q3.q30_hint') || 'e.g. oversized blazer, white sneakers'} className="h-11 text-[13px]" />
               </div>
             </div>
           </CollapsibleContent>
@@ -452,7 +452,7 @@ export default function SettingsStyle() {
               ]} />
               <div className="space-y-1.5">
                 <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('q3.q33') || 'Anything else?'}</Label>
-                <Input value={sp.freeNote || ''} onChange={e => updateStyleField('freeNote', e.target.value)} placeholder={t('q3.q33_hint') || 'Any personal style notes...'} className="h-9 text-sm" />
+                <Input value={sp.freeNote || ''} onChange={e => updateStyleField('freeNote', e.target.value)} placeholder={t('q3.q33_hint') || 'Any personal style notes...'} className="h-11 text-[13px]" />
               </div>
             </div>
           </CollapsibleContent>

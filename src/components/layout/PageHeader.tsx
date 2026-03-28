@@ -45,7 +45,7 @@ export function PageHeader({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -5 }}
                 transition={{ duration: 0.18 }}
-                className="truncate font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground"
+                className="truncate font-['Playfair_Display'] italic text-[1.3rem] font-medium leading-tight text-foreground"
               >
                 {title}
               </motion.h1>
