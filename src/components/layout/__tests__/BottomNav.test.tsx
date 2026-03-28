@@ -94,12 +94,13 @@ describe('BottomNav smoke', () => {
     expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument();
   });
 
-  it('keeps safe-area spacing separate from the centered nav row', () => {
-    const { container } = renderNav();
+  it('keeps safe-area spacing inside the nav wrapper', () => {
+    renderNav();
     const nav = screen.getByRole('navigation', { name: 'Main navigation' });
 
     expect(nav.className).not.toContain('safe-bottom');
-    expect(container.querySelector('[aria-hidden="true"].safe-bottom')).toBeInTheDocument();
+    const inner = nav.querySelector('.pointer-events-auto');
+    expect(inner?.className).toContain('pb-[env(safe-area-inset-bottom,0px)]');
   });
 
   it('marks active tab with accent color class', () => {
