@@ -1,4 +1,4 @@
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import type { Garment } from '@/hooks/useGarments';
 import { Button } from '@/components/ui/button';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
@@ -27,7 +27,7 @@ export function HomeWearNextPanel({
   return (
     <section
       data-testid="home-wear-next"
-      className="rounded-[1.6rem] border border-foreground/[0.08] bg-card p-5 shadow-[0_14px_28px_rgba(22,18,15,0.04)]"
+      className="rounded-[1.5rem] border border-foreground/[0.08] bg-card p-5 shadow-[0_14px_28px_rgba(22,18,15,0.04)]"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -43,7 +43,7 @@ export function HomeWearNextPanel({
         </p>
       </div>
 
-      <div className="mt-4 grid gap-4 rounded-[1.2rem] bg-secondary/45 p-4 sm:grid-cols-[136px_minmax(0,1fr)]">
+      <div className="mt-4 grid gap-4 rounded-[1.2rem] bg-secondary/45 p-4 sm:grid-cols-[128px_minmax(0,1fr)]">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-1">
           <LazyImageSimple
             imagePath={getPreferredGarmentImagePath(spotlight)}
@@ -67,12 +67,12 @@ export function HomeWearNextPanel({
             <h3 className="mt-2 text-[1.05rem] font-semibold tracking-[-0.025em] text-foreground">
               {spotlight.title || `${spotlight.color_primary || ''} ${spotlight.category || 'Garment'}`.trim()}
             </h3>
-            <p className="mt-2 text-[0.94rem] leading-6 text-foreground">
-              Style around one neglected favorite, or open the full unworn rotation and rescue more.
+            <p className="mt-2 text-[0.92rem] leading-6 text-foreground">
+              Rescue one neglected favorite first, then open the full unworn rotation only if you need more options.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-3">
             <Button
               onClick={() => onStyleAroundGem(spotlight.id)}
               className="rounded-full px-4"
@@ -80,10 +80,13 @@ export function HomeWearNextPanel({
               <Sparkles className="size-4" />
               Style this
             </Button>
-            <Button onClick={onOpenUnused} variant="outline" className="rounded-full px-4">
-              See all unworn
-              <ArrowRight className="size-4" />
-            </Button>
+            <button
+              type="button"
+              onClick={onOpenUnused}
+              className="text-[0.82rem] font-medium text-muted-foreground underline underline-offset-4"
+            >
+              Open unworn rotation
+            </button>
           </div>
         </div>
       </div>

@@ -27,12 +27,12 @@ export function GarmentSimilarItems({ similarGarments }: GarmentSimilarItemsProp
       transition={{ duration: 0.25 }}
     >
       {similarGarments && similarGarments.length > 0 ? (
-        <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide">
+        <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
           {similarGarments.map((g) => (
             <button
               key={g.id}
               onClick={() => navigate(`/wardrobe/${g.id}`)}
-              className="shrink-0 w-[100px] flex flex-col gap-1.5 bg-transparent border-none cursor-pointer text-left"
+              className="flex min-w-0 flex-col gap-1.5 border-none bg-transparent text-left"
             >
               <div className="aspect-[3/4] overflow-hidden bg-card">
                 <LazyImageSimple
@@ -41,7 +41,7 @@ export function GarmentSimilarItems({ similarGarments }: GarmentSimilarItemsProp
                   className="w-full h-full"
                 />
               </div>
-              <p className="font-['DM_Sans'] text-[10px] text-foreground/60 overflow-hidden text-ellipsis whitespace-nowrap m-0">
+              <p className="m-0 line-clamp-2 font-['DM_Sans'] text-[10px] text-foreground/60">
                 {g.title}
               </p>
             </button>

@@ -28,7 +28,11 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
         Skip to main content
       </a>
       <OfflineBanner />
-      <main id="main-content" className={`relative z-[1] flex-1 overflow-y-auto scrollbar-hide ${hideNav ? '' : 'pb-[calc(96px+env(safe-area-inset-bottom,0px))]'}`}>
+      <main
+        id="main-content"
+        className="relative z-[1] flex-1 overflow-x-clip overflow-y-auto scrollbar-hide"
+        style={hideNav ? undefined : { paddingBottom: 'calc(var(--app-dock-height, 7.5rem) + env(safe-area-inset-bottom, 0px))' }}
+      >
         {children}
       </main>
       {!hideNav && <BottomNav />}

@@ -79,7 +79,7 @@ function GroupRow({
   return (
     <div className="space-y-2">
       <SectionHeader title={title} />
-      <div className="flex gap-2.5 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
+      <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
         {garments.map((g) => (
           <motion.button
             key={g.id}
@@ -87,7 +87,7 @@ function GroupRow({
             transition={TAP_TRANSITION}
             onClick={() => onTap(g.id)}
             className={cn(
-              'flex-shrink-0 w-[120px] rounded-xl overflow-hidden will-change-transform',
+              'w-full rounded-xl overflow-hidden will-change-transform',
               g.in_laundry && 'opacity-50'
             )}
           >

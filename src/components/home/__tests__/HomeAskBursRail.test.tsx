@@ -10,7 +10,7 @@ const suggestions = [
 ];
 
 describe('HomeAskBursRail', () => {
-  it('shows at most three visible suggestions', () => {
+  it('shows at most two visible suggestions', () => {
     render(
       <HomeAskBursRail
         suggestions={suggestions}
@@ -20,7 +20,7 @@ describe('HomeAskBursRail', () => {
 
     expect(screen.getByText('Prompt one')).toBeInTheDocument();
     expect(screen.getByText('Prompt two')).toBeInTheDocument();
-    expect(screen.getByText('Prompt three')).toBeInTheDocument();
+    expect(screen.queryByText('Prompt three')).not.toBeInTheDocument();
     expect(screen.queryByText('Prompt four')).not.toBeInTheDocument();
   });
 

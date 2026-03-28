@@ -560,9 +560,9 @@ export default function AIChat() {
                 </div>
               </div>
             )}
-            <div className="flex h-11 items-center overflow-hidden">
-              {suggestionChips.length > 0 && !isStreaming && input === '' && (
-                <div className="scrollbar-hide flex gap-2 overflow-x-auto px-4 whitespace-nowrap">
+            {suggestionChips.length > 0 && !isStreaming && input === '' ? (
+              <div className="pt-1">
+                <div className="app-chip-row justify-center px-1">
                   {suggestionChips.map((chip, i) => (
                     <button
                       key={i}
@@ -570,14 +570,14 @@ export default function AIChat() {
                         setSuggestionChips([]);
                         sendMessage(chip);
                       }}
-                      className="shrink-0 rounded-full border border-border/45 bg-background px-3.5 py-2 text-[13px] text-foreground transition-transform active:scale-[0.98]"
+                      className="rounded-full border border-border/45 bg-background px-3.5 py-2 text-[13px] text-foreground transition-transform active:scale-[0.98]"
                     >
                       {chip}
                     </button>
                   ))}
                 </div>
-              )}
-            </div>
+              </div>
+            ) : null}
             <div ref={messagesEndRef} />
           </div>
         )}

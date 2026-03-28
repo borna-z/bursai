@@ -1,14 +1,14 @@
-import { useMemo, useRef, useEffect } from 'react';
-import { format, addDays, isToday, isSameDay } from 'date-fns';
+import { useMemo } from 'react';
+import { addDays, format, isSameDay, isToday } from 'date-fns';
 import { motion, useReducedMotion } from 'framer-motion';
-import { RefreshCw } from 'lucide-react';
-import { cn } from '@/lib/utils';
+
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
+import type { PlannedOutfit } from '@/hooks/usePlannedOutfits';
+import { hapticLight } from '@/lib/haptics';
 import { getDateFnsLocale } from '@/lib/dateLocale';
 import { EASE_CURVE, STAGGER_DELAY } from '@/lib/motion';
-import { hapticLight } from '@/lib/haptics';
-import type { PlannedOutfit } from '@/hooks/usePlannedOutfits';
+import { cn } from '@/lib/utils';
 
 interface WeekOverviewProps {
   selectedDate: Date;
@@ -17,163 +17,89 @@ interface WeekOverviewProps {
   className?: string;
 }
 
-/**
- * Detects garments repeated across different days in the week.
- * Returns a Map<garmentId, dayCount>.
- */
-function detectRepetitions(plannedOutfits: PlannedOutfit[], days: Date[]): Map<string, number> {
-  const garmentDays = new Map<string, Set<string>>();
-
-  for (const day of days) {
-    const dateStr = format(day, 'yyyy-MM-dd');
-    const dayOutfits = plannedOutfits.filter(p => p.date === dateStr && p.outfit);
-
-    for (const po of dayOutfits) {
-      for (const item of po.outfit?.outfit_items || []) {
-        if (!garmentDays.has(item.garment_id)) {
-          garmentDays.set(item.garment_id, new Set());
-        }
-        garmentDays.get(item.garment_id)!.add(dateStr);
-      }
-    }
-  }
-
-  const repeated = new Map<string, number>();
-  for (const [id, dates] of garmentDays) {
-    if (dates.size > 1) repeated.set(id, dates.size);
-  }
-  return repeated;
-}
-
 export function WeekOverview({ selectedDate, onSelectDate, plannedOutfits, className }: WeekOverviewProps) {
   const { t, locale } = useLanguage();
-  const dfLocale = getDateFnsLocale(locale);
   const prefersReduced = useReducedMotion();
-  const todayRef = useRef<HTMLButtonElement>(null);
+  const dateLocale = getDateFnsLocale(locale);
 
   const days = useMemo(() => {
     const today = new Date();
     return Array.from({ length: 7 }, (_, i) => addDays(today, i));
   }, []);
 
-  const repeatedGarments = useMemo(
-    () => detectRepetitions(plannedOutfits, days),
-    [plannedOutfits, days],
-  );
-
   const plannedCount = useMemo(() => {
-    return days.filter(d => {
-      const dateStr = format(d, 'yyyy-MM-dd');
-      return plannedOutfits.some(p => p.date === dateStr && p.outfit_id);
+    return days.filter((date) => {
+      const dateStr = format(date, 'yyyy-MM-dd');
+      return plannedOutfits.some((planned) => planned.date === dateStr && planned.outfit_id);
     }).length;
-  }, [plannedOutfits, days]);
-
-  // Scroll today into view on mount
-  useEffect(() => {
-    todayRef.current?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
-  }, []);
+  }, [days, plannedOutfits]);
 
   return (
-    <div className={cn('space-y-4', className)}>
-      {/* Header with coverage stat */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground/60">
-          {t('plan.week_overview') || 'Your week'}
-        </h3>
-        <Badge variant="secondary" className="text-[10px] font-medium">
+    <section className={cn('space-y-3', className)}>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/60">
+            {t('plan.week_overview') || 'This week'}
+          </p>
+          <p className="mt-1 text-[0.86rem] text-muted-foreground">
+            Seven days, one calm overview.
+          </p>
+        </div>
+        <Badge variant="secondary" className="rounded-full px-3 py-1 text-[0.7rem] uppercase tracking-[0.14em]">
           {plannedCount}/7 {t('plan.days_planned') || 'planned'}
         </Badge>
       </div>
 
-      {/* Repetition warning — REDESIGN 2 */}
-      {repeatedGarments.size > 0 && (
-        <motion.div
-          initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 4 }}
-          animate={prefersReduced ? { opacity: 1 } : { opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, ease: EASE_CURVE }}
-          className="flex items-center gap-3 bg-card border border-border/15 rounded-2xl px-4 py-3"
-        >
-          <RefreshCw className="w-4 h-4 text-foreground/40 shrink-0" />
-          <p className="flex-1 text-[13px] font-['DM_Sans',sans-serif] text-foreground/70">
-            Some garments repeat this week
-          </p>
-          <span className="text-[12px] font-['DM_Sans',sans-serif] text-muted-foreground/50 underline cursor-pointer">
-            {t('plan.review') || 'Review'}
-          </span>
-        </motion.div>
-      )}
-
-      {/* Week strip */}
-      <div style={{ display: 'flex', width: '100%' }}>
+      <div className="grid grid-cols-7 gap-2">
         {days.map((date, idx) => {
           const dateStr = format(date, 'yyyy-MM-dd');
           const isSelected = isSameDay(date, selectedDate);
           const isTodayDate = isToday(date);
-          const dayOutfits = plannedOutfits.filter(p => p.date === dateStr && p.outfit_id);
-          const hasOutfit = dayOutfits.length > 0;
-
-          const bg = isTodayDate ? '#1C1917' : '#EDE8DF';
-          const textColor = isTodayDate ? '#F5F0E8' : '#1C1917';
-          const textMuted = isTodayDate ? 'rgba(245,240,232,0.5)' : 'rgba(28,25,23,0.45)';
-          const dotColor = isTodayDate ? 'rgba(245,240,232,0.5)' : 'rgba(28,25,23,0.3)';
+          const hasOutfit = plannedOutfits.some((planned) => planned.date === dateStr && planned.outfit_id);
 
           return (
             <motion.button
               key={dateStr}
-              ref={isTodayDate ? todayRef : undefined}
-              onClick={() => { hapticLight(); onSelectDate(date); }}
+              type="button"
+              onClick={() => {
+                hapticLight();
+                onSelectDate(date);
+              }}
               initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 8 }}
               animate={prefersReduced ? { opacity: 1 } : { opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: idx * STAGGER_DELAY, ease: EASE_CURVE }}
+              transition={{ duration: 0.26, delay: idx * STAGGER_DELAY, ease: EASE_CURVE }}
               className={cn(
-                isTodayDate && 'bg-foreground',
-                isSelected && !isTodayDate && 'border',
+                'flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-[1.15rem] border px-1.5 transition-colors',
+                isSelected
+                  ? 'border-foreground bg-foreground text-background'
+                  : isTodayDate
+                    ? 'border-border/60 bg-card text-foreground'
+                    : 'border-border/50 bg-background/72 text-foreground',
               )}
-              style={{
-                flex: 1,
-                height: 64,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 3,
-                background: bg,
-                border: 'none',
-                borderBottom: isSelected && !isTodayDate ? '2px solid #1C1917' : '2px solid transparent',
-                cursor: 'pointer',
-                padding: 0,
-              }}
             >
-              {/* Day letter */}
-              <span style={{
-                fontFamily: 'DM Sans, sans-serif',
-                fontSize: 8,
-                fontWeight: 500,
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                color: textMuted,
-              }}>
-                {format(date, 'EEE', { locale: dfLocale }).slice(0, 1)}
+              <span className={cn(
+                'text-[0.62rem] font-medium uppercase tracking-[0.16em]',
+                isSelected ? 'text-background/70' : 'text-muted-foreground/70',
+              )}>
+                {format(date, 'EEE', { locale: dateLocale }).slice(0, 1)}
               </span>
-
-              {/* Date number */}
-              <span style={{
-                fontFamily: 'DM Sans, sans-serif',
-                fontSize: 9,
-                fontWeight: 500,
-                color: textColor,
-              }}>
+              <span className="text-[0.95rem] font-semibold tracking-[-0.03em]">
                 {format(date, 'd')}
               </span>
-
-              {/* Dot */}
-              {hasOutfit && (
-                <div className="rounded-full" style={{ width: 4, height: 4, background: dotColor }} />
-              )}
+              <span
+                className={cn(
+                  'h-1.5 w-1.5 rounded-full',
+                  hasOutfit
+                    ? isSelected
+                      ? 'bg-background/75'
+                      : 'bg-foreground/55'
+                    : 'bg-transparent',
+                )}
+              />
             </motion.button>
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }

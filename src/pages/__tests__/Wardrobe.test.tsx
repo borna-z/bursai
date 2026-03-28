@@ -24,10 +24,6 @@ vi.mock('@/components/wardrobe/GarmentGrid', () => ({
   GarmentGrid: () => <div data-testid="garment-grid">grid</div>,
 }));
 
-vi.mock('@/components/wardrobe/WardrobeOutfitsTab', () => ({
-  WardrobeOutfitsTab: () => <div data-testid="wardrobe-outfits-tab">outfits</div>,
-}));
-
 vi.mock('@/hooks/useGarments', () => ({
   useGarments: vi.fn(() => ({
     data: {
@@ -88,19 +84,20 @@ function renderWardrobe() {
 describe('Wardrobe page', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders the command top with garments and outfits tabs', () => {
+  it('renders the calmer garments-only command top', () => {
     renderWardrobe();
 
     expect(screen.getByText('wardrobe.title')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'wardrobe.tab_garments' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'wardrobe.tab_outfits' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open outfits' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'wardrobe.tab_garments' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'wardrobe.tab_outfits' })).not.toBeInTheDocument();
   });
 
-  it('keeps add and scan in the command top instead of the old sticky footer', () => {
+  it('keeps add garment in the header and removes the old page rail actions', () => {
     renderWardrobe();
 
-    expect(screen.getByRole('button', { name: 'wardrobe.live_scan' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'wardrobe.add' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'wardrobe.live_scan' })).not.toBeInTheDocument();
     expect(screen.queryByText('+ Add')).not.toBeInTheDocument();
     expect(screen.queryByText('Scan')).not.toBeInTheDocument();
   });

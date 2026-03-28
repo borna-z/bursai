@@ -13,8 +13,6 @@ const useInsightsMock = vi.fn();
 const useStyleDnaMock = vi.fn();
 const useWeatherMock = vi.fn();
 const useCalendarEventsRangeMock = vi.fn();
-const useWardrobeUnlocksMock = vi.fn();
-const useWardrobeGapAnalysisMock = vi.fn();
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -85,14 +83,6 @@ vi.mock('@/hooks/useWeather', () => ({
 
 vi.mock('@/hooks/useCalendarSync', () => ({
   useCalendarEventsRange: () => useCalendarEventsRangeMock(),
-}));
-
-vi.mock('@/hooks/useWardrobeUnlocks', () => ({
-  useWardrobeUnlocks: () => useWardrobeUnlocksMock(),
-}));
-
-vi.mock('@/hooks/useAdvancedFeatures', () => ({
-  useWardrobeGapAnalysis: () => useWardrobeGapAnalysisMock(),
 }));
 
 vi.mock('@/hooks/useFirstRunCoach', () => ({
@@ -191,60 +181,48 @@ describe('Home page command center', () => {
     useCalendarEventsRangeMock.mockReturnValue({
       data: [{ id: 'event-1', title: 'Client review', date: new Date().toISOString().slice(0, 10), start_time: '09:00:00' }],
     });
-    useWardrobeUnlocksMock.mockReturnValue({
-      isUnlocked: () => true,
-      garmentsNeeded: 0,
-      currentCount: 12,
-    });
-    useWardrobeGapAnalysisMock.mockReturnValue({
-      isPending: false,
-      isError: false,
-      mutateAsync: vi.fn(),
-    });
   });
 
-  it('surfaces style me, discover, travel, dna, and opportunity entry points', () => {
+  it('surfaces the focused today flow, utility cards, and insights preview', () => {
     renderHome();
 
     const heading = screen.getByRole('heading', { level: 1 });
     expect(heading).toBeInTheDocument();
     expect(heading.textContent).toContain('Test');
-    expect(screen.getByText('Style Me')).toBeInTheDocument();
-    expect(screen.getAllByText('Discover').length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: /Travel/i })).toBeInTheDocument();
-    expect(screen.getAllByText('Style DNA').length).toBeGreaterThan(0);
-    expect(screen.getByText('Wardrobe gaps')).toBeInTheDocument();
+    expect(screen.getByText('Style outfit')).toBeInTheDocument();
+    expect(screen.getAllByText('Ask BURS').length).toBeGreaterThan(0);
+    expect(screen.getByText('Travel capsule')).toBeInTheDocument();
+    expect(screen.getAllByText('Open insights').length).toBeGreaterThan(0);
+    expect(screen.getByText('Open unworn rotation')).toBeInTheDocument();
   });
 
   it('navigates to the promoted actions from home', () => {
     renderHome();
 
-    fireEvent.click(screen.getByText('Style Me'));
-    fireEvent.click(screen.getAllByRole('button', { name: /Discover/i })[0]);
-    fireEvent.click(screen.getByText('Travel'));
-    fireEvent.click(screen.getByText('Mood'));
-    fireEvent.click(screen.getByText('Plan'));
-    fireEvent.click(screen.getByText('See all unworn'));
+    fireEvent.click(screen.getByText('Style outfit'));
+    fireEvent.click(screen.getByRole('button', { name: /Ask BURS/i }));
+    fireEvent.click(screen.getByText('Travel capsule'));
+    fireEvent.click(screen.getAllByText('Open insights')[0]);
+    fireEvent.click(screen.getByText('Open unworn rotation'));
 
     expect(navigateMock).toHaveBeenCalledWith('/ai/generate');
-    expect(navigateMock).toHaveBeenCalledWith('/discover');
+    expect(
+      navigateMock.mock.calls.some(([path]) =>
+        path === '/ai/chat' || (typeof path === 'string' && path.startsWith('/ai/generate')),
+      ),
+    ).toBe(true);
     expect(navigateMock).toHaveBeenCalledWith('/ai/travel');
-    expect(navigateMock).toHaveBeenCalledWith('/ai/mood');
-    expect(navigateMock).toHaveBeenCalledWith('/plan');
+    expect(navigateMock).toHaveBeenCalledWith('/insights');
     expect(navigateMock).toHaveBeenCalledWith('/outfits/unused');
   });
 
-  it('keeps wardrobe as a visible secondary entry point when the wardrobe is still small', () => {
+  it('keeps wardrobe as the secondary path while the wardrobe is still small', () => {
     useGarmentCountMock.mockReturnValue({ data: 2, isLoading: false });
-    useWardrobeUnlocksMock.mockReturnValue({
-      isUnlocked: () => false,
-      garmentsNeeded: 8,
-      currentCount: 2,
-    });
 
     renderHome();
 
-    fireEvent.click(screen.getByText('Wardrobe'));
+    expect(screen.getByText('Add garment')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Open wardrobe'));
     expect(navigateMock).toHaveBeenCalledWith('/wardrobe');
   });
 });

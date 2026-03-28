@@ -20,7 +20,7 @@ export function StyleMeSubNav() {
 
   return (
     <div className="w-full shrink-0 border-b border-border/55 px-4 pb-3 pt-4">
-      <div className="mx-auto flex max-w-xl gap-2 overflow-x-auto scrollbar-hide">
+      <div className="mx-auto grid max-w-md grid-cols-2 gap-2 sm:grid-cols-4">
         {TABS.map((tab) => {
           const isActive =
             current === tab.path ||
@@ -28,13 +28,14 @@ export function StyleMeSubNav() {
           return (
             <button
               key={tab.path}
+              type="button"
               onClick={() => navigate(
                 tab.path === '/ai/generate' || tab.path === '/ai/chat'
                   ? `${tab.path}${preservedSearch}`
                   : tab.path,
               )}
               className={cn(
-                'press min-w-fit rounded-full border px-4 py-2.5 text-[0.72rem] font-medium uppercase tracking-[0.18em] transition-colors',
+                'press rounded-[1rem] border px-4 py-3 text-[0.72rem] font-medium uppercase tracking-[0.16em] transition-colors',
                 isActive
                   ? 'border-foreground bg-foreground text-background shadow-[0_10px_24px_rgba(28,25,23,0.12)]'
                   : 'border-border/70 bg-background/85 text-muted-foreground hover:text-foreground',

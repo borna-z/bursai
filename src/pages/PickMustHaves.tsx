@@ -121,7 +121,7 @@ export default function PickMustHaves() {
             ) : null}
           </div>
 
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+          <div className="app-chip-row">
             <Chip selected={!category} onClick={() => { hapticLight(); setCategory(null); }} size="sm">
               {t('filter.all')}
             </Chip>
@@ -185,7 +185,7 @@ export default function PickMustHaves() {
 
       {selected.size > 0 ? (
         <div className="fixed inset-x-4 bottom-4 z-20" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
-          <div className="mx-auto max-w-xl">
+          <div className="mx-auto max-w-md">
             <div className="action-bar-floating rounded-[1.6rem] p-3">
               <Button onClick={handleDone} size="lg" className="w-full">
                 {t('capsule.done')} ({selected.size})

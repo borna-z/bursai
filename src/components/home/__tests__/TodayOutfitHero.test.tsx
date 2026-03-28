@@ -58,7 +58,7 @@ describe('TodayOutfitHero', () => {
 
   it('renders a clickable CTA button', () => {
     renderHero();
-    const button = screen.getByRole('button');
+    const button = screen.getByRole('button', { name: 'Style outfit' });
     expect(button).toBeInTheDocument();
     fireEvent.click(button);
     expect(mockNavigate).toHaveBeenCalledWith('/ai/generate');

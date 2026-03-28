@@ -41,6 +41,7 @@
     --ring: 24 13% 10%;
 
     --radius: 1.125rem;
+    --app-dock-height: 7.5rem;
 
     /* Extended tokens */
     --success: 146 22% 36%;
@@ -153,13 +154,6 @@
 
 /* ── Light-mode editorial overrides (Steps 6-10) ── */
 /* Typography: Playfair Display headings + DM Sans body in light mode */
-:root:not(.dark) h1,
-:root:not(.dark) h2,
-:root:not(.dark) h3,
-:root:not(.dark) h4 {
-  font-family: 'Playfair Display', serif;
-}
-
 :root:not(.dark) body {
   font-family: 'DM Sans', sans-serif;
 }
@@ -243,22 +237,22 @@
   /* Typography – Sora headings, Inter body */
   h1 {
     @apply text-[1.625rem] font-bold tracking-[-0.025em] leading-[1.15];
-    font-family: 'Sora', sans-serif;
+    font-family: 'DM Sans', sans-serif;
   }
 
   h2 {
     @apply text-xl font-semibold tracking-[-0.02em] leading-[1.2];
-    font-family: 'Sora', sans-serif;
+    font-family: 'DM Sans', sans-serif;
   }
 
   h3 {
     @apply text-[1.0625rem] font-semibold leading-[1.3] tracking-[-0.01em];
-    font-family: 'Sora', sans-serif;
+    font-family: 'DM Sans', sans-serif;
   }
 
   h4 {
     @apply text-[0.9375rem] font-semibold leading-[1.35];
-    font-family: 'Sora', sans-serif;
+    font-family: 'DM Sans', sans-serif;
   }
 
   .caption {
@@ -310,14 +304,15 @@
 
   /* Page container — standard padding for all app pages */
   .page-container {
-    @apply max-w-lg mx-auto pb-12;
+    @apply mx-auto w-full max-w-md;
     padding-left: 1.25rem;
     padding-right: 1.25rem;
-    padding-top: 1.5rem;
+    padding-top: 1.25rem;
+    padding-bottom: calc(var(--app-dock-height, 7.5rem) + env(safe-area-inset-bottom, 0px));
   }
 
   .page-shell {
-    @apply max-w-xl mx-auto px-4 pb-28 pt-5;
+    @apply page-container;
   }
 
   .page-cluster {
@@ -325,11 +320,12 @@
   }
 
   .page-intro-block {
-    @apply rounded-[2rem] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.82),rgba(248,244,238,0.92))] px-5 py-5 shadow-[0_12px_32px_rgba(28,25,23,0.05)];
+    @apply rounded-[1.75rem] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.84),rgba(248,244,238,0.94))] px-5 py-5 shadow-[0_10px_28px_rgba(28,25,23,0.04)];
   }
 
   .page-intro-title {
-    @apply text-[1.8rem] font-semibold tracking-[-0.055em] text-foreground;
+    @apply text-[1.55rem] font-semibold tracking-[-0.045em] text-foreground;
+    font-family: 'DM Sans', sans-serif;
   }
 
   .page-intro-copy {
@@ -358,7 +354,7 @@
   /* Primary surface – hero cards, today's outfit, AI suggestions */
   .surface-hero {
     @apply bg-card border border-border/70;
-    box-shadow: 0 16px 40px rgba(28, 25, 23, 0.06);
+    box-shadow: 0 14px 34px rgba(28, 25, 23, 0.05);
   }
 
   /* Secondary surface – supporting cards, stat modules */
@@ -385,7 +381,7 @@
   }
 
   .surface-editorial {
-    @apply border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(241,234,224,0.88))] shadow-[0_18px_44px_rgba(28,25,23,0.05)];
+    @apply border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(241,234,224,0.9))] shadow-[0_14px_34px_rgba(28,25,23,0.04)];
   }
 
   .surface-utility {
@@ -393,15 +389,47 @@
   }
 
   .surface-media {
-    @apply overflow-hidden rounded-[1.5rem] border border-border/60 bg-background/90;
+    @apply overflow-hidden rounded-[1.35rem] border border-border/60 bg-background/90;
   }
 
   .topbar-frost {
-    @apply sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur-2xl;
+    @apply sticky top-0 z-20 border-b border-border/50 bg-background/90 backdrop-blur-xl;
   }
 
   .action-bar-floating {
     @apply border border-border/60 bg-background/90 shadow-[0_20px_40px_rgba(28,25,23,0.08)] backdrop-blur-2xl;
+  }
+
+  .app-dock {
+    @apply mx-auto w-full max-w-md rounded-[1.9rem] border border-border/55 bg-background/95 px-2 py-2 shadow-[0_22px_52px_rgba(28,25,23,0.14)] backdrop-blur-2xl;
+  }
+
+  .app-dock-slot {
+    @apply flex min-h-[64px] flex-1 items-center justify-center;
+  }
+
+  .app-dock-tab {
+    @apply relative flex min-h-[52px] w-full flex-col items-center justify-center gap-1 rounded-[1.25rem] px-1.5 py-2 text-center text-[0.62rem] font-medium uppercase tracking-[0.12em] text-muted-foreground transition-colors;
+  }
+
+  .app-dock-tab-active {
+    @apply text-foreground;
+  }
+
+  .app-chip-row {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .app-card-grid {
+    @apply grid gap-3 sm:grid-cols-2;
+  }
+
+  .app-notice-stack {
+    @apply flex flex-col gap-2;
+  }
+
+  .app-sheet-card {
+    @apply rounded-[1.6rem] border border-border/65 bg-card/95 px-4 py-4 shadow-[0_16px_36px_rgba(28,25,23,0.08)];
   }
 
   /* Ultra-light section divider */

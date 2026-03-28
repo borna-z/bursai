@@ -2,6 +2,7 @@ const sv: Record<string, string> = {
     // Navigation
     'nav.today': 'Idag',
     'nav.wardrobe': 'Garderob',
+    'nav.add': 'Lägg till',
     'nav.plan': 'Plan',
     'nav.stylist': 'Stylisten',
     'nav.settings': 'Inställningar',
@@ -294,7 +295,7 @@ const sv: Record<string, string> = {
     'home.what_to_wear': 'Vad ska jag ha på mig?',
     'home.no_outfit_title': 'Ingen outfit än',
     'home.no_outfit_desc': 'Låt din AI-stylist skapa en look från dina plagg',
-    'home.generate_now': 'Styla mig',
+    'home.generate_now': 'Styla outfit',
     'home.weather_alert_rain': 'Regn väntas — planera en väderanpassad outfit',
     'home.add_first_items_desc': 'Lägg till dina kläder så börjar din stylist skapa outfits',
     'home.view_outfit': 'Visa outfit',
@@ -1022,7 +1023,7 @@ const sv: Record<string, string> = {
     // Generate
     'generate.title': 'Vad ska du ha på dig',
     'generate.subtitle': 'Välj en stil och vi klär dig',
-    'generate.button': 'Styla mig',
+    'generate.button': 'Styla outfit',
     'generate.occasion': 'Tillfälle',
     'generate.style': 'Stil',
     'generate.style_optional': 'Valfritt \u2014 lämna tomt för en balanserad look',
