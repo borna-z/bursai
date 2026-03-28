@@ -443,7 +443,7 @@ export default function AIChat() {
             <span className="font-['Playfair_Display'] italic text-[1.1rem] text-foreground leading-tight">
               {t('chat.mode_stylist')}
             </span>
-            <span className="caption-upper" style={{fontSize:'8px'}}>AI Stylist</span>
+            <span className="caption-upper text-[11px]">AI Stylist</span>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
