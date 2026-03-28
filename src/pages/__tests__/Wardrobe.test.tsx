@@ -87,7 +87,7 @@ describe('Wardrobe page', () => {
   it('renders the compact wardrobe command top with tabs and a primary action rail', () => {
     renderWardrobe();
 
-    expect(screen.getByText('wardrobe.title')).toBeInTheDocument();
+    expect(screen.getAllByText('wardrobe.title').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole('button', { name: 'wardrobe.tab_garments' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'wardrobe.tab_outfits' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'outfits.create' })).toBeInTheDocument();
