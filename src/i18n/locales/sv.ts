@@ -2250,6 +2250,145 @@ const sv: Record<string, string> = {
     'ai.assembling_outfits': 'Sätter ihop outfits',
     'ai.scanning_wardrobe': 'Skannar garderoben',
     'ai.creating_combinations': 'Skapar kombinationer',
+
+    // Outfit / Chat card keys
+    'outfit.generate_title': 'Ny Look',
+    'outfit.try_this': 'Prova denna outfit',
+    'outfit.missing_shoes': 'Inga skor i garderoben ännu — lägg till ett par för att komplettera looken.',
+    'outfit.add_shoes': 'Lägg till skor',
+    'outfit.save_without_shoes': 'Spara utan skor',
+    'outfit.create_error': 'Kunde inte skapa outfit',
+    'outfit.created': 'Outfit skapad!',
+    'outfit.save': 'Spara outfit',
+
+    // Chat keys
+    'chat.stylist_fallback': 'Något gick fel. Försök igen eller skriv om din fråga.',
+    'chat.stylist_timeout': 'Jag tappade tråden — kan du försöka igen?',
+    'chat.please_login': 'Please log in again.',
+
+    // Swap keys
+    'swap.best_match': 'Bästa matchning',
+    'swap.mode_safe_desc': 'Similar style, safe swap',
+    'swap.mode_fresh_desc': 'Different take, same occasion',
+    'swap.mode_bold_desc': 'Contrast-led, statement swap',
+
+    // Plan keys
+    'plan.week_overview': 'Veckans översikt',
+    'plan.days_planned': '{count}/7 dagar planerade',
+
+    // Insights keys
+    'insights.unused_title': 'Sovande skatter',
+    'insights.analyzing_wardrobe': 'Analysing your wardrobe...',
+    'insights.computing_scores': 'Computing scores...',
+    'insights.writing_report': 'Writing your style report...',
+
+    // Settings keys
+    'settings.change_photo': 'Change photo',
+    'settings.avatar_updated': 'Photo updated',
+    'settings.avatar_error': 'Could not update photo',
+    'settings.avatar_invalid': 'Invalid image format',
+    'settings.avatar_too_large': 'Image too large (max 5MB)',
+    'settings.no_profile_title': 'No style profile yet',
+    'settings.no_profile_desc': 'Complete the style quiz during onboarding to personalize your experience.',
+    'settings.row.view_coach': 'View coach',
+    'settings.row.view_coach_sub': 'Replay the guided walkthrough any time',
+
+    // Home keys
+    'home.restyling': 'Ombyter stil...',
+    'home.shuffling': 'Blandar...',
+
+    // Wardrobe / Garment keys
+    'common.actions': 'Actions',
+    'common.garment': 'Garment',
+    'common.please_login': 'Please log in again.',
+    'garment.edit': 'Redigera plagg',
+    'scan.slots_left': 'slots left',
+    'filter.all': 'All',
+    'wardrobe.empty': 'Your wardrobe is empty',
+
+    // Navigation (AI pages)
+    'nav.generate': 'Generera',
+    'nav.chat': 'Chatt',
+
+    // PickMustHaves
+    'pickmust.title': 'Måste-ha',
+
+    // Travel
+    'travel.title': 'Resekapsyl',
+    'capsule.looking_up': 'Looking up destination...',
+    'capsule.planning_days': 'Planning your days...',
+    'capsule.saving_outfits': 'Saving outfits...',
+    'capsule.syncing': 'Syncing with planner...',
+    'capsule.view_in_planner': 'View in planner',
+
+    // Discover
+    'discover.progress_heading': 'Your style journey',
+
+    // Pricing
+    'pricing.compare_title': 'Free vs Premium',
+    'pricing.feature': 'Feature',
+    'pricing.feature_garments': 'Unlimited garments',
+    'pricing.feature_outfits': 'Unlimited outfits',
+    'pricing.feature_ai': 'AI styling & recommendations',
+    'pricing.feature_planner': 'Weekly planner',
+    'pricing.feature_insights': 'Advanced insights',
+    'pricing.feature_priority': 'Priority support',
+
+    // Onboarding quiz
+    'onboarding.quiz.formality_q': 'What occasions do you dress for most?',
+    'onboarding.quiz.colors_q': 'What colours do you gravitate toward?',
+    'onboarding.quiz.colors_sub': 'Pick your palette',
+    'onboarding.quiz.climate_sub': 'Your typical climate',
+    'onboarding.quiz.goal_sub': 'What matters most to you',
+    'onboarding.quiz.selected': '{count} selected',
+
+    // q3 settings style keys
+    'q3.formality.casual': 'Casual everyday',
+    'q3.formality.business': 'Business / smart',
+    'q3.goal.save_time': 'Save time getting dressed',
+    'q3.goal.better_style': 'Look and feel better',
+    'q3.goal.plan_outfits': 'Plan outfits in advance',
+    'q3.goal.reduce_waste': 'Buy less, wear more',
+    'q3.goal.wardrobe_org': 'Organise my wardrobe',
+    'q3.palette.neutral': 'Neutrals (black, white, grey, beige)',
+    'q3.palette.muted': 'Muted earth tones',
+    'q3.palette.monochrome': 'Monochrome',
+    'q3.adv.balanced': 'Balanced',
+    'q3.adv.adventurous': 'Adventurous',
+    'q3.climate.cold': 'Cold / Nordic',
+    'q3.climate.mixed': 'Four seasons',
+    'q3.climate.tropical': 'Warm / tropical',
+    'q3.top.relaxed': 'Relaxed fit',
+    'q3.bottom.any': 'Any fit',
+    'q3.bottom.cropped': 'Cropped',
+    'q3.fit.oversized': 'Oversized',
+    'q3.layer.minimal': 'Minimal layering',
+    'q3.layer.moderate': 'Moderate',
+    'q3.layer.loves': 'Loves layers',
+    'q3.pattern.solids_only': 'Solids only',
+    'q3.pattern.subtle': 'Subtle patterns',
+    'q3.pattern.mixed': 'Mixed',
+    'q3.pattern.bold_patterns': 'Bold patterns',
+    'q3.morning.5min': '5 minutes',
+    'q3.morning.10min': '10 minutes',
+    'q3.morning.15min': '15+ minutes',
+    'q3.shop.minimal': 'Rarely',
+    'q3.shop.regular': 'Regularly',
+    'q3.shop.enthusiast': 'Often',
+    'q3.sus.not_priority': 'Not a priority',
+    'q3.sus.somewhat': 'Somewhat important',
+    'q3.sus.important': 'Very important',
+    'q3.trend.selective': 'Selective',
+    'q3.trend.trend_forward': 'Trend-forward',
+    'q3.weekday.creative': 'Creative / expressive',
+    'q3.weekend.active': 'Active / sporty',
+    'q3.weekend.mixed': 'Mixed',
+    'q3.capsule.yes': 'Yes, I want a capsule',
+    'q3.q27_hint': 'e.g. Scandinavian minimalism',
+    'q3.q29_hint': 'e.g. tailored but relaxed',
+    'q3.q30_hint': 'e.g. Loro Piana, COS, Uniqlo',
+    'q3.q33': 'Anything else about your style?',
+    'q3.q33_hint': 'Optional — any notes for the AI',
 };
 
 export default sv;

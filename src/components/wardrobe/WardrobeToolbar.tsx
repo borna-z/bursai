@@ -72,7 +72,7 @@ export function WardrobeToolbar({
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="eyebrow-chip bg-background/80 text-muted-foreground/72">
-            {activeTab === 'garments' ? 'Wardrobe' : 'Looks'}
+            {activeTab === 'garments' ? t('nav.wardrobe') : t('nav.outfits')}
           </span>
           {commandState.resultsLabel ? (
             <span className="eyebrow-chip border-transparent bg-secondary/75 text-foreground/58">

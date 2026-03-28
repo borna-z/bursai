@@ -41,7 +41,9 @@
     --ring: 24 13% 10%;
 
     --radius: 1.125rem;
-    --app-dock-height: 7.5rem;
+    --app-dock-height: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+    --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-inset-top: env(safe-area-inset-top, 0px);
 
     /* Extended tokens */
     --success: 146 22% 36%;
@@ -217,6 +219,10 @@
     -moz-osx-font-smoothing: grayscale;
     padding-top: env(safe-area-inset-top, 0);
     overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: contain;
     background-image:
       radial-gradient(circle at top left, rgba(157, 126, 86, 0.07), transparent 36%),
       radial-gradient(circle at bottom right, rgba(175, 140, 95, 0.05), transparent 30%);
@@ -429,8 +435,8 @@
   }
 
   .app-dock {
-    @apply mx-auto w-full max-w-md rounded-[1.9rem] border border-border/50 px-2 py-2 shadow-[0_16px_34px_rgba(28,25,23,0.1)] backdrop-blur-xl;
-    background-color: hsl(var(--background) / 0.92);
+    @apply w-full border-t border-border/30 px-4 py-2 backdrop-blur-xl;
+    background-color: hsl(var(--background) / 0.96);
   }
 
   .app-dock-slot {
