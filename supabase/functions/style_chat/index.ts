@@ -406,7 +406,7 @@ function normalizeAssistantReply(params: {
   };
 }
 
-function createSseTextResponse(text: string, priorityChunk?: string | null, suggestionChips?: string[]): Response {
+function createSseTextResponse(text: string, priorityChunk?: string | null, suggestionChips?: string[], truncated?: boolean): Response {
   const encoder = new TextEncoder();
   const chunks: string[] = [];
   const normalizedPriorityChunk = priorityChunk?.trim();
@@ -424,6 +424,9 @@ function createSseTextResponse(text: string, priorityChunk?: string | null, sugg
       }
       if (suggestionChips?.length) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "suggestions", chips: suggestionChips })}\n\n`));
+      }
+      if (truncated) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "metadata", truncated: true })}\n\n`));
       }
       controller.enqueue(encoder.encode("data: [DONE]\n\n"));
       controller.close();
@@ -1532,8 +1535,10 @@ ${refinementContract}`;
     }
 
     // ── Truncation detection ─────────────────────────────────────
+    let truncatedByTokenLimit = false;
     if (aiResponse.finish_reason === "length") {
       console.warn("style_chat: response truncated by output token limit (finish_reason=length)");
+      truncatedByTokenLimit = true;
       // Clean up partial sentence at the end if the model was cut off mid-thought
       const lastPunctuation = Math.max(
         rawAssistantText.lastIndexOf("."),
@@ -1565,12 +1570,15 @@ ${refinementContract}`;
 
     // c. Trim overly long non-outfit replies — language-safe sentence splitting
     const hasOutfitTag = rawAssistantText.includes("[[outfit:");
-    if (rawAssistantText.length > 900 && !hasOutfitTag) {
+    if (rawAssistantText.length > 1400 && !hasOutfitTag) {
       // Split on sentence-ending punctuation followed by a space or end-of-string.
       // This preserves trailing text that lacks final punctuation (common in Swedish, etc.)
       const sentences = rawAssistantText.split(/(?<=[.!?…])\s+/).filter(Boolean);
-      if (sentences.length > 6) {
-        rawAssistantText = sentences.slice(0, 6).join(" ").trim();
+      if (sentences.length > 9) {
+        rawAssistantText = sentences.slice(0, 9).join(" ").trim();
+        if (truncatedByTokenLimit) {
+          rawAssistantText += " …";
+        }
       }
     }
 
@@ -1594,6 +1602,7 @@ ${refinementContract}`;
       normalizedReply.text,
       refinementTurn ? normalizedReply.outfitTag : null,
       chips,
+      truncatedByTokenLimit,
     );
   } catch (e) {
     console.error("style_chat error:", e);

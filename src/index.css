@@ -542,6 +542,14 @@
     opacity: 1;
     transform: translateY(0);
   }
+
+  /* Accessibility-safe muted text — passes 4.5:1 on Editorial Cream */
+  .text-a11y-muted {
+    color: hsl(var(--foreground) / 0.52);
+  }
+  .text-a11y-eyebrow {
+    color: hsl(var(--foreground) / 0.50);
+  }
 }
 
 /* Custom scrollbar for webkit browsers */

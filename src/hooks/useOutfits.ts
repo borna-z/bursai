@@ -307,6 +307,7 @@ export function useMarkOutfitWorn() {
     },
     onSuccess: () => {
       hapticSuccess();
+      localStorage.setItem('burs_first_wear_logged', 'true');
       queryClient.invalidateQueries({ queryKey: ['outfits', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['garments', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['insights'] });

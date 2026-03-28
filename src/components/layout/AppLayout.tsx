@@ -6,6 +6,7 @@ import { useKeyboardAdjust } from '@/hooks/useKeyboardAdjust';
 import { useMedianStatusBar } from '@/hooks/useMedianStatusBar';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUnlockCelebration } from '@/hooks/useWardrobeUnlocks';
+import { MilestoneCelebration } from './MilestoneCelebration';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -37,6 +38,7 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
       </main>
       {!hideNav && <BottomNav />}
       <SeedProgressPill />
+      <MilestoneCelebration />
     </div>
   );
 }

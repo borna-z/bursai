@@ -54,7 +54,7 @@ export function StylistReplyPlaceholder({ className }: StylistReplyPlaceholderPr
         initial={prefersReduced ? undefined : { opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.4, duration: 0.3 }}
-        className="text-[11px] text-muted-foreground/40"
+        className="text-[11px] text-muted-foreground/50"
       >
         {t('ai.preparing_note')}
       </motion.p>

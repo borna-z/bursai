@@ -59,7 +59,7 @@ export function HomeQuickActions({ actions }: HomeQuickActionsProps) {
                     <p className="text-[0.9rem] font-medium tracking-[-0.02em] text-foreground">
                       {action.title}
                     </p>
-                    <ArrowUpRight className="size-4 shrink-0 text-muted-foreground/45 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                    <ArrowUpRight className="size-4 shrink-0 text-muted-foreground/50 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                   </div>
                   <p className="text-[0.78rem] leading-5 text-muted-foreground">
                     {action.description}

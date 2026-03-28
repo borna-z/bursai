@@ -6,7 +6,7 @@ type CardPillSize = 'sm' | 'md';
 
 const TONE_STYLES: Record<CardPillTone, string> = {
   default: 'border-[#1C1917]/10 bg-white/72 text-[#1C1917]/68',
-  muted: 'border-border/12 bg-background/72 text-foreground/56',
+  muted: 'border-border/12 bg-background/72 text-foreground/55',
   accent: 'border-primary/16 bg-primary/[0.08] text-primary',
   strong: 'border-transparent bg-[#1C1917]/88 text-[#F6F0E6]',
   warning: 'border-amber-200/65 bg-amber-100/92 text-amber-900',
@@ -26,7 +26,7 @@ export function CardEyebrow({
   className?: string;
 }) {
   return (
-    <p className={cn("font-['DM_Sans'] text-[10px] uppercase tracking-[0.18em] text-foreground/38", className)}>
+    <p className={cn("font-['DM_Sans'] text-[10px] uppercase tracking-[0.18em] text-foreground/50", className)}>
       {children}
     </p>
   );

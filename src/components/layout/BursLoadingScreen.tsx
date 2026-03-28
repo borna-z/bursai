@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { BursMonogram } from '@/components/ui/BursMonogram';
 
 const MESSAGES = [
@@ -10,6 +10,7 @@ const MESSAGES = [
 ] as const;
 
 export function BursLoadingScreen() {
+  const prefersReduced = useReducedMotion();
   const [msgIndex, setMsgIndex] = useState(0);
 
   useEffect(() => {
@@ -43,10 +44,10 @@ export function BursLoadingScreen() {
         <AnimatePresence mode="wait">
           <motion.p
             key={msgIndex}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.2 }}
+            initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 6 }}
+            animate={prefersReduced ? { opacity: 1 } : { opacity: 1, y: 0 }}
+            exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -6 }}
+            transition={prefersReduced ? { duration: 0.1 } : { duration: 0.2 }}
             className="text-[11px] font-['DM_Sans'] tracking-[0.15em] text-foreground/40"
           >
             {MESSAGES[msgIndex]}
