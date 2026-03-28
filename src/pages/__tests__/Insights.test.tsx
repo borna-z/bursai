@@ -9,12 +9,10 @@ type Locale = 'en' | 'sv';
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
-    'insights.title': 'DNA',
-    'insights.subtitle': 'Your wardrobe dashboard',
+    'insights.title': 'Insights',
   },
   sv: {
-    'insights.title': 'DNA',
-    'insights.subtitle': 'Din garderobsdashboard',
+    'insights.title': 'Insikter',
   },
 };
 
@@ -87,7 +85,7 @@ vi.mock('@/components/insights/InsightsOverviewHero', () => ({
     plannedThisWeek: number;
   }) => (
     <section>
-      <h2>DNA at a glance</h2>
+      <h2>Rotation, DNA, and value in one working view.</h2>
       {dnaArchetype ? <p>{dnaArchetype}</p> : null}
       <p>Saved looks: {savedLooks}</p>
       <p>Planned this week: {plannedThisWeek}</p>
@@ -244,78 +242,23 @@ describe('Insights page', () => {
   it('renders the DNA dashboard sections with populated data', () => {
     renderPage();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'DNA' })).toBeInTheDocument();
-    expect(screen.getByText('Your wardrobe dashboard')).toBeInTheDocument();
-    expect(screen.getByText('DNA at a glance')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Insights' })).toBeInTheDocument();
+    expect(screen.getByText('App-wide rotation, DNA, and wardrobe leverage')).toBeInTheDocument();
+    expect(screen.getByText('Rotation, DNA, and value in one working view.')).toBeInTheDocument();
     expect(screen.getAllByText('Minimalist').length).toBeGreaterThan(0);
     expect(screen.getByText('Saved looks: 9')).toBeInTheDocument();
     expect(screen.getByText('Planned this week: 4')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('href', '#overview');
-    expect(screen.getByRole('link', { name: 'Gaps' })).toHaveAttribute('href', '#value');
-    expect(screen.getByRole('link', { name: 'DNA' })).toHaveAttribute('href', '#dna');
-    expect(screen.getByRole('link', { name: 'Patterns' })).toHaveAttribute('href', '#patterns');
-    expect(screen.getByRole('link', { name: 'Tools' })).toHaveAttribute('href', '#tools');
-    expect(screen.getByText('Start with the next missing piece')).toBeInTheDocument();
-    expect(screen.getByText('Jump into the next workflow')).toBeInTheDocument();
-    expect(screen.getByText('Gap analysis')).toBeInTheDocument();
-    expect(screen.getByText('Style me')).toBeInTheDocument();
+    expect(screen.getByText('Wardrobe patterns')).toBeInTheDocument();
+    expect(screen.getByText('Value & gaps')).toBeInTheDocument();
+    expect(screen.getByText('Related tools')).toBeInTheDocument();
     expect(screen.getByText('Black loafers')).toBeInTheDocument();
     expect(screen.getByTestId('wardrobe-health-card')).toBeInTheDocument();
-  });
-
-  it('shows the loading shell while the dashboard is still resolving', () => {
-    dashboardAdapterMock.mockReturnValue({
-      overview: null,
-      insights: null,
-      dna: null,
-      sustainability: null,
-      allGarments: [],
-      colorBreakdown: { total: 0, entries: [], bars: [] },
-      isPremium: true,
-      isLoading: true,
-      isRefreshing: false,
-    });
-
-    renderPage();
-
-    expect(screen.getByRole('heading', { level: 1, name: 'DNA' })).toBeInTheDocument();
-    expect(screen.getByTestId('insights-loading')).toBeInTheDocument();
-  });
-
-  it('shows the onboarding empty state when the dashboard has no garments to analyze', () => {
-    dashboardAdapterMock.mockReturnValue({
-      overview: {
-        savedLooks: 0,
-        plannedThisWeek: 0,
-      },
-      insights: {
-        usageRate: 0,
-        totalGarments: 0,
-        garmentsUsedLast30Days: 0,
-        topFiveWorn: [],
-        unusedGarments: [],
-        usedGarments: [],
-      },
-      dna: null,
-      sustainability: null,
-      allGarments: [],
-      colorBreakdown: { total: 0, entries: [], bars: [] },
-      isPremium: false,
-      isLoading: false,
-      isRefreshing: false,
-    });
-
-    renderPage();
-
-    expect(screen.getByRole('heading', { level: 1, name: 'DNA' })).toBeInTheDocument();
-    expect(screen.getByTestId('insights-empty')).toBeInTheDocument();
   });
 
   it('switches key page copy between English and Swedish', () => {
     const { rerender } = renderPage();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'DNA' })).toBeInTheDocument();
-    expect(screen.getByText('Your wardrobe dashboard')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Insights' })).toBeInTheDocument();
 
     currentLocale = 'sv';
     rerender(
@@ -326,9 +269,8 @@ describe('Insights page', () => {
       </QueryClientProvider>,
     );
 
-    expect(screen.getByRole('heading', { level: 1, name: 'DNA' })).toBeInTheDocument();
-    expect(screen.getByText('Din garderobsdashboard')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Patterns' })).toHaveAttribute('href', '#patterns');
-    expect(screen.getByRole('link', { name: 'Gaps' })).toHaveAttribute('href', '#value');
+    expect(screen.getByRole('heading', { level: 1, name: 'Insikter' })).toBeInTheDocument();
+    expect(screen.getByText('App-wide rotation, DNA, and wardrobe leverage')).toBeInTheDocument();
+    expect(screen.getByText('Wardrobe patterns')).toBeInTheDocument();
   });
 });

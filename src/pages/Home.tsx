@@ -4,8 +4,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   CalendarRange,
+  Compass,
   Plane,
-  Radar,
   Settings,
   Shirt,
   SmilePlus,
@@ -181,32 +181,32 @@ export default function HomePage() {
   const secondaryAction = useMemo(() => {
     if (homeState === 'empty_wardrobe') {
       return {
-        label: 'Wardrobe',
+        label: 'Open wardrobe',
         onClick: () => navigate('/wardrobe'),
       };
     }
 
     if (homeState === 'outfit_planned' && todayOutfit) {
       return {
-        label: 'Today\'s look',
+        label: 'Open look',
         onClick: () => navigate(`/outfits/${todayOutfit.id}`),
       };
     }
 
     return {
-      label: 'Plan',
+      label: 'Open plan',
       onClick: () => navigate('/plan'),
     };
   }, [homeState, navigate, todayOutfit]);
 
   const quickActions = useMemo<HomeQuickAction[]>(() => [
     {
-      id: 'gaps',
-      title: 'Garment gaps',
-      description: 'Find the next buy',
-      icon: Radar,
+      id: 'discover',
+      title: 'Discover',
+      description: 'Gaps and unlocks',
+      icon: Compass,
       toneClass: 'bg-[#e7ebfb]',
-      onClick: () => navigate('/gaps'),
+      onClick: () => navigate('/discover'),
     },
     {
       id: 'travel',

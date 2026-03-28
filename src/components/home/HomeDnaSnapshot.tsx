@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion';
 import { ArrowUpRight, Dna } from 'lucide-react';
-
 import type { StyleDNA } from '@/hooks/useStyleDNA';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,19 +18,19 @@ const COLOR_MAP: Record<string, string> = {
   vit: '#F5F1E8',
   grey: '#8D8D8A',
   gray: '#8D8D8A',
-  'gr\u00E5': '#8D8D8A',
+  'gr\u00e5': '#8D8D8A',
   beige: '#D8C6A5',
   cream: '#EFE4CC',
   navy: '#273B70',
-  'marinbl\u00E5': '#273B70',
+  'marinbl\u00e5': '#273B70',
   blue: '#4D6EB3',
-  'bl\u00E5': '#4D6EB3',
+  'bl\u00e5': '#4D6EB3',
   green: '#6D845D',
-  'gr\u00F6n': '#6D845D',
+  'gr\u00f6n': '#6D845D',
   brown: '#7A5539',
   brun: '#7A5539',
   red: '#A44336',
-  'r\u00F6d': '#A44336',
+  'r\u00f6d': '#A44336',
   pink: '#D58EAF',
   rosa: '#D58EAF',
   yellow: '#D7A73C',
@@ -59,11 +58,11 @@ export function HomeDnaSnapshot({
     return (
       <section
         data-testid="home-dna-loading"
-        className="rounded-[1.55rem] border border-foreground/[0.08] bg-card p-4 shadow-[0_14px_28px_rgba(22,18,15,0.04)]"
+        className="rounded-[1.6rem] border border-foreground/[0.08] bg-card p-5 shadow-[0_14px_28px_rgba(22,18,15,0.04)]"
       >
         <div className="space-y-3">
-          <Skeleton className="h-4 w-16" />
-          <Skeleton className="h-8 w-28" />
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-9 w-36" />
           <Skeleton className="h-20 rounded-[1rem]" />
         </div>
       </section>
@@ -74,28 +73,25 @@ export function HomeDnaSnapshot({
     return (
       <section
         data-testid="home-dna-empty"
-        className="rounded-[1.55rem] border border-foreground/[0.08] bg-card p-4 shadow-[0_14px_28px_rgba(22,18,15,0.04)]"
+        className="rounded-[1.6rem] border border-foreground/[0.08] bg-card p-5 shadow-[0_14px_28px_rgba(22,18,15,0.04)]"
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/65">
-              Style DNA
-            </p>
-            <h2 className="mt-1 text-[1.05rem] font-semibold tracking-[-0.03em] text-foreground">
-              DNA is still forming
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="label-editorial text-muted-foreground/60">Style DNA</p>
+            <h2 className="mt-1 text-[1.2rem] font-semibold tracking-[-0.03em] text-foreground">
+              Your signature is still forming
             </h2>
-            <p className="mt-1.5 text-[0.82rem] leading-5 text-muted-foreground">
-              Save a few more complete looks and BURS will surface your repeat formulas.
+            <p className="mt-2 text-[0.92rem] leading-6 text-muted-foreground">
+              Save a few more looks and BURS will start surfacing your archetype and repeat patterns.
             </p>
           </div>
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-[0.95rem] bg-secondary/70 text-foreground/70">
-            <Dna className="size-4.5" />
+          <div className="flex size-11 items-center justify-center rounded-[1rem] bg-secondary/65 text-foreground/70">
+            <Dna className="size-5" />
           </div>
         </div>
 
-        <Button onClick={onGenerateLook} variant="outline" className="mt-4 h-11 w-full justify-between rounded-full px-4">
+        <Button onClick={onGenerateLook} variant="outline" className="mt-4 rounded-full px-4">
           Style Me
-          <ArrowUpRight className="size-4" />
         </Button>
       </section>
     );
@@ -110,17 +106,15 @@ export function HomeDnaSnapshot({
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-      className="rounded-[1.55rem] border border-foreground/[0.08] bg-card p-4 shadow-[0_14px_28px_rgba(22,18,15,0.04)]"
+      className="rounded-[1.6rem] border border-foreground/[0.08] bg-card p-5 shadow-[0_14px_28px_rgba(22,18,15,0.04)]"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/65">
-            Style DNA
-          </p>
-          <h2 className="mt-1 text-[1.08rem] font-semibold tracking-[-0.035em] text-foreground">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="label-editorial text-muted-foreground/60">Style DNA</p>
+          <h2 className="mt-1 text-[1.35rem] font-semibold tracking-[-0.04em] text-foreground">
             {dna.archetype}
           </h2>
-          <p className="mt-1 text-[0.8rem] text-muted-foreground">
+          <p className="mt-1 text-[0.86rem] text-muted-foreground">
             {dna.outfitsAnalyzed} looks analyzed
           </p>
         </div>
@@ -128,36 +122,27 @@ export function HomeDnaSnapshot({
           variant="ghost"
           size="sm"
           onClick={onOpenInsights}
-          aria-label="Open DNA"
           className="rounded-full px-3 text-foreground/70"
         >
-          Open DNA
+          Insights
           <ArrowUpRight className="size-4" />
         </Button>
       </div>
 
-      <div className="mt-3 grid gap-2">
-        <div className="rounded-[1.05rem] bg-secondary/40 p-3.5">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[0.72rem] uppercase tracking-[0.16em] text-muted-foreground/70">
-              Formula
-            </p>
-            <p className="text-[0.76rem] uppercase tracking-[0.16em] text-muted-foreground/60">
-              {getBiasLabel(dna)}
-            </p>
+      <div className="mt-4 space-y-3 rounded-[1.2rem] bg-secondary/45 p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">Formula</p>
+            <p className="mt-1 text-[0.94rem] leading-6 text-foreground">{topFormula}</p>
           </div>
-          <p className="mt-2 text-[0.9rem] leading-5 text-foreground">{topFormula}</p>
+          <div className="text-right">
+            <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">Bias</p>
+            <p className="mt-1 text-[0.94rem] text-foreground">{getBiasLabel(dna)}</p>
+          </div>
         </div>
 
-        <div className="flex items-center justify-between rounded-[1.05rem] border border-foreground/[0.07] bg-background/72 p-3.5">
-          <div>
-            <p className="text-[0.72rem] uppercase tracking-[0.16em] text-muted-foreground/70">
-              Palette
-            </p>
-            <p className="mt-1 text-[0.8rem] text-muted-foreground">
-              Signature colors
-            </p>
-          </div>
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">Palette</p>
           <div className="flex items-center gap-2">
             {topColors.length > 0 ? topColors.map((color) => (
               <span
@@ -168,7 +153,7 @@ export function HomeDnaSnapshot({
                 title={color.color}
               />
             )) : (
-              <span className="text-[0.8rem] text-muted-foreground">Building</span>
+              <span className="text-[0.86rem] text-muted-foreground">Building</span>
             )}
           </div>
         </div>

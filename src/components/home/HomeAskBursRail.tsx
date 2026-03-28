@@ -34,7 +34,7 @@ export function HomeAskBursRail({ suggestions, onSelectSuggestion }: HomeAskBurs
             },
           },
         }}
-        className="flex flex-wrap gap-2"
+        className="scrollbar-hide flex gap-2 overflow-x-auto pb-1"
       >
         {visibleSuggestions.map((suggestion) => (
           <motion.button
@@ -45,7 +45,7 @@ export function HomeAskBursRail({ suggestions, onSelectSuggestion }: HomeAskBurs
             }}
             transition={{ duration: 0.24 }}
             onClick={() => onSelectSuggestion(suggestion)}
-              className="rounded-full border border-foreground/[0.08] bg-background/90 px-4 py-2.5 text-left text-[0.84rem] leading-5 text-foreground shadow-[0_10px_18px_rgba(22,18,15,0.03)] transition-colors hover:bg-secondary/75"
+            className="shrink-0 rounded-full border border-foreground/[0.08] bg-background/90 px-4 py-2.5 text-left text-[0.84rem] leading-5 text-foreground shadow-[0_10px_18px_rgba(22,18,15,0.03)] transition-colors hover:bg-secondary/75"
           >
             {suggestion.text}
           </motion.button>

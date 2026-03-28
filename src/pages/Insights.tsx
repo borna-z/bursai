@@ -46,6 +46,8 @@ const SECTION_LINKS = [
   { id: 'tools', label: 'Tools' },
 ] as const;
 
+const PAGE_SUBTITLE = 'App-wide rotation, DNA, and wardrobe leverage';
+
 function SustainabilityPanel({
   score,
   utilizationRate,
@@ -140,7 +142,6 @@ export default function InsightsPage() {
     colorBreakdown,
   } = useInsightsDashboardAdapter();
   const pageTitle = t('insights.title');
-  const pageSubtitle = t('insights.subtitle');
 
   const handleRefresh = useCallback(async () => {
     await Promise.all([
@@ -155,7 +156,7 @@ export default function InsightsPage() {
   if (isLoading) {
     return (
       <AppLayout>
-        <PageHeader title={pageTitle} subtitle={pageSubtitle} />
+        <PageHeader title={pageTitle} subtitle={PAGE_SUBTITLE} />
         <InsightsPageSkeleton />
       </AppLayout>
     );
@@ -164,7 +165,7 @@ export default function InsightsPage() {
   if (!insights || insights.totalGarments === 0) {
     return (
       <AppLayout>
-        <PageHeader title={pageTitle} subtitle={pageSubtitle} />
+        <PageHeader title={pageTitle} subtitle={PAGE_SUBTITLE} />
         <InsightsOnboardingEmpty />
       </AppLayout>
     );
@@ -174,7 +175,7 @@ export default function InsightsPage() {
     <AppLayout>
       <PageHeader
         title={pageTitle}
-        subtitle={pageSubtitle}
+        subtitle={PAGE_SUBTITLE}
       />
       <PullToRefresh onRefresh={handleRefresh}>
         <AnimatedPage className="page-container space-y-6 pb-28">
@@ -277,7 +278,7 @@ export default function InsightsPage() {
           <InsightsSection
             id="patterns"
             eyebrow="Wardrobe Patterns"
-            title="What repeats, what fades, what needs attention"
+            title="Wardrobe patterns"
             description="Track the staples carrying rotation, the pieces going quiet, and how saved outfits behave."
           >
             <div className="grid gap-4">
@@ -316,7 +317,7 @@ export default function InsightsPage() {
           <InsightsSection
             id="value"
             eyebrow="Gaps & Value"
-            title="Start with the next missing piece"
+            title="Value & gaps"
             description="Run or review the gaps workflow first, then use value signals to judge what is worth adding."
           >
             <div className="grid gap-4">
@@ -337,7 +338,7 @@ export default function InsightsPage() {
           <InsightsSection
             id="tools"
             eyebrow="Related Tools"
-            title="Jump into the next workflow"
+            title="Related tools"
             description="Use DNA as the operating layer, then move into generation, planning, or gaps."
           >
             <InsightsRelatedTools

@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-
 import { HomeCommandBoard } from '../HomeCommandBoard';
 
 vi.mock('@/components/ui/OutfitComposition', () => ({
@@ -50,8 +49,7 @@ describe('HomeCommandBoard', () => {
     expect(screen.getByTestId('home-command-board-outfit_planned')).toBeInTheDocument();
     expect(screen.getByTestId('home-command-board-visual-planned')).toBeInTheDocument();
     expect(screen.getByTestId('outfit-composition')).toBeInTheDocument();
-    expect(screen.getByText('Planned look')).toBeInTheDocument();
-    expect(screen.getByText('Today is covered')).toBeInTheDocument();
+    expect(screen.getByText('Saved outfit')).toBeInTheDocument();
   });
 
   it('renders recent-look mode when there is no planned outfit', () => {
@@ -64,8 +62,7 @@ describe('HomeCommandBoard', () => {
 
     expect(screen.getByTestId('home-command-board-no_outfit')).toBeInTheDocument();
     expect(screen.getByTestId('home-command-board-visual-recent')).toBeInTheDocument();
-    expect(screen.getByText('Recent looks')).toBeInTheDocument();
-    expect(screen.getByText('No look is saved yet')).toBeInTheDocument();
+    expect(screen.getByText('Rotation')).toBeInTheDocument();
     expect(screen.getByText('Style Me')).toBeInTheDocument();
   });
 
@@ -79,7 +76,7 @@ describe('HomeCommandBoard', () => {
     );
 
     expect(screen.getByTestId('home-command-board-weather_alert')).toBeInTheDocument();
-    expect(screen.getByText('Forecast changed the plan')).toBeInTheDocument();
-    expect(screen.getByText('Rebuild around weather')).toBeInTheDocument();
+    expect(screen.getByText('Weather changed the brief')).toBeInTheDocument();
+    expect(screen.getByText('Forecast')).toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
-import { WardrobeProgress } from '@/components/wardrobe/WardrobeProgress';
+import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { AnimatedPage } from '@/components/ui/animated-page';

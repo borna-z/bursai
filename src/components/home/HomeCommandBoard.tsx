@@ -3,7 +3,7 @@ import {
   ArrowRight,
   CalendarRange,
   CloudSun,
-  Dot,
+  Layers3,
   Shirt,
   Sparkles,
 } from 'lucide-react';
@@ -28,11 +28,11 @@ function truncate(text: string, max: number) {
 function getStatusLabel(state: HomeCommandContext['state']) {
   switch (state) {
     case 'empty_wardrobe':
-      return 'Set up';
+      return 'Start';
     case 'outfit_planned':
       return 'Ready';
     case 'weather_alert':
-      return 'Forecast';
+      return 'Weather';
     default:
       return 'Open';
   }
@@ -41,11 +41,11 @@ function getStatusLabel(state: HomeCommandContext['state']) {
 function getWorkspaceTitle(state: HomeCommandContext['state'], coachNudge?: boolean) {
   switch (state) {
     case 'empty_wardrobe':
-      return coachNudge ? 'Start with three anchors' : 'Build the first complete look';
+      return coachNudge ? 'Start with three anchors' : 'Build your first styling set';
     case 'outfit_planned':
-      return 'Today is covered';
+      return "Today's look is already set";
     case 'weather_alert':
-      return 'Forecast changed the plan';
+      return 'Weather changed the brief';
     default:
       return 'No look is saved yet';
   }
@@ -58,11 +58,11 @@ function getWorkspaceSummary(state: HomeCommandContext['state'], coachNudge?: bo
         ? 'Top, bottom, and shoes unlock the first complete outfit.'
         : 'Three core pieces are enough to turn styling on.';
     case 'outfit_planned':
-      return 'Open the saved look or make a second option.';
+      return 'Review the saved look or spin up another option.';
     case 'weather_alert':
-      return 'Rerun styling against the live forecast.';
+      return 'Refresh the outfit once against the live forecast.';
     default:
-      return 'Use recent looks or one tap styling to get moving.';
+      return 'Use recent looks, today’s context, or one tap styling to get moving.';
   }
 }
 
@@ -116,7 +116,7 @@ export function HomeCommandBoard({
           </div>
 
           <div className="eyebrow-chip self-start bg-background/80 text-muted-foreground/75">
-            <Dot className="size-4" />
+            <Layers3 className="size-4" />
             {getStatusLabel(state)}
           </div>
         </div>
@@ -176,10 +176,10 @@ export function HomeCommandBoard({
 
                   <div className="space-y-2">
                     <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">
-                      Planned look
+                      Saved outfit
                     </p>
                     <p className="text-[0.96rem] font-medium tracking-[-0.02em] text-foreground">
-                      Complete and ready.
+                      Complete, saved, and ready to wear.
                     </p>
                     <p className="text-[0.82rem] leading-5 text-muted-foreground">
                       {truncate(todayOutfit.explanation || 'Open the outfit for notes and final adjustments.', 92)}
@@ -227,7 +227,10 @@ export function HomeCommandBoard({
               <div data-testid="home-command-board-visual-recent" className="space-y-3">
                 <div className="surface-media p-3">
                   <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">
-                    {state === 'weather_alert' ? 'Rebuild around weather' : 'Recent looks'}
+                    {state === 'weather_alert' ? 'Forecast' : 'Rotation'}
+                  </p>
+                  <p className="mt-1 text-[0.9rem] font-medium tracking-[-0.02em] text-foreground">
+                    {state === 'weather_alert' ? 'Rebuild with live weather.' : 'Start from recent winners.'}
                   </p>
                   <p className="mt-1 text-[0.82rem] leading-5 text-muted-foreground">
                     {state === 'weather_alert'
