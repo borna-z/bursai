@@ -154,13 +154,13 @@ export function ChatWelcome({ onSuggestion, displayName }: ChatWelcomeProps) {
       </motion.p>
 
       {/* Suggestion chips — single column for clean alignment */}
-      <motion.div variants={itemVariants} className="w-full mt-8 flex flex-col items-center gap-2 max-w-xs mx-auto">
+      <motion.div variants={itemVariants} className="w-full mt-8 flex flex-col items-stretch gap-2 max-w-xs mx-auto">
         {suggestions.flat().map((chip) => (
           <motion.button
             key={chip}
             variants={itemVariants}
             onClick={() => onSuggestion(chip)}
-            className="px-5 py-2.5 text-[13px] leading-snug border border-border/20 bg-secondary/20 hover:bg-secondary/50 text-foreground/70 hover:text-foreground transition-colors whitespace-nowrap active:scale-[0.97]"
+            className="w-full px-5 py-2.5 text-[13px] leading-snug border border-border/20 bg-secondary/20 hover:bg-secondary/50 text-foreground/70 hover:text-foreground transition-colors whitespace-normal text-left active:scale-[0.97]"
             whileTap={{ scale: 0.97 }}
           >
             {chip}
