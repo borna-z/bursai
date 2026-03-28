@@ -93,13 +93,13 @@ describe('Wardrobe page', () => {
     expect(screen.getByRole('button', { name: 'outfits.create' })).toBeInTheDocument();
   }, 10000);
 
-  it('keeps add garment and live scan in the compact action rail', () => {
+  it('does not show redundant add/scan buttons in the action rail', () => {
     renderWardrobe();
 
-    expect(screen.getByRole('button', { name: 'wardrobe.add' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'wardrobe.live_scan' })).toBeInTheDocument();
-    expect(screen.queryByText('+ Add')).not.toBeInTheDocument();
-    expect(screen.queryByText('Scan')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'wardrobe.add' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'wardrobe.live_scan' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'outfits.create' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'plan.plan' })).toBeInTheDocument();
   }, 10000);
 
   it('shows smart access when garments are available', () => {
