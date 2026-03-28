@@ -83,25 +83,25 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({
     <button
       type="button"
       onClick={handleEnhance}
-      className="inline-flex h-10 items-center justify-center rounded-full border border-[#1C1917]/12 bg-white/62 px-3.5 text-[11px] font-semibold text-[#1C1917]/72 transition-colors hover:bg-white/80"
+      className="inline-flex h-10 items-center justify-center rounded-[16px] border border-border/45 bg-background/82 px-3.5 text-[11px] font-semibold text-foreground/68 transition-all duration-200 hover:-translate-y-0.5 hover:bg-background"
     >
-      Enhance
+      Refine
     </button>
   ) : showEnhancingAction ? (
-    <span className="inline-flex h-10 items-center justify-center rounded-full border border-[#1C1917]/12 bg-white/40 px-3.5 text-[11px] font-semibold text-[#1C1917]/45">
-      Enhancing...
+    <span className="inline-flex h-10 items-center justify-center rounded-[16px] border border-border/45 bg-background/68 px-3.5 text-[11px] font-semibold text-foreground/45">
+      Refining...
     </span>
   ) : null;
 
   return (
-    <div className="relative overflow-hidden rounded-[26px]">
+    <div className="relative overflow-hidden rounded-[28px]">
       <motion.div
-        className="absolute inset-y-0 right-0 flex items-stretch"
+        className="absolute inset-y-0 right-0 flex items-stretch gap-1.5 rounded-[28px] bg-card/86 p-1.5"
         style={{ opacity: actionsOpacity, width: TOTAL_WIDTH }}
       >
         <button
           onClick={() => handleAction(onEdit)}
-          className="flex flex-1 flex-col items-center justify-center gap-1 bg-accent text-accent-foreground"
+          className="flex flex-1 flex-col items-center justify-center gap-1 rounded-[20px] border border-border/35 bg-background/88 text-foreground/72 transition-colors hover:bg-background"
           aria-label={t('common.edit')}
         >
           <Pencil className="h-4 w-4" />
@@ -109,7 +109,7 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({
         </button>
         <button
           onClick={() => handleAction(onLaundry)}
-          className="flex flex-1 flex-col items-center justify-center gap-1 bg-warning text-warning-foreground"
+          className="flex flex-1 flex-col items-center justify-center gap-1 rounded-[20px] border border-border/35 bg-secondary/80 text-foreground/72 transition-colors hover:bg-secondary"
           aria-label={t('wardrobe.laundry')}
         >
           <WashingMachine className="h-4 w-4" />
@@ -117,7 +117,7 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({
         </button>
         <button
           onClick={() => handleAction(onDelete)}
-          className="flex flex-1 flex-col items-center justify-center gap-1 bg-destructive text-destructive-foreground"
+          className="flex flex-1 flex-col items-center justify-center gap-1 rounded-[20px] border border-destructive/15 bg-destructive/10 text-destructive transition-colors hover:bg-destructive/15"
           aria-label={t('wardrobe.remove')}
         >
           <Trash2 className="h-4 w-4" />

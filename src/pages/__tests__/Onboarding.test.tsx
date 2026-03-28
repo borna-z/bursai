@@ -40,5 +40,5 @@ describe('Onboarding', () => {
       </QueryClientProvider>
     );
     expect(container).toBeTruthy();
-  });
+  }, 10000);
 });

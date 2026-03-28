@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { WardrobeGarmentGridLayout, WardrobeGarmentListLayout } from '../GarmentCardSystem';
 import type { Garment } from '@/hooks/useGarments';
 
@@ -22,45 +22,95 @@ const garment = {
   render_status: null,
 } as unknown as Garment;
 
+const laundryGarment = {
+  ...garment,
+  in_laundry: true,
+  wear_count: 0,
+} as Garment;
+
+function t(key: string) {
+  return {
+    'wardrobe.laundry': 'Laundry',
+    'wardrobe.new_badge': 'New',
+    'wardrobe.wears_count': '{count} wears',
+    'garment.never_worn': 'Never worn',
+  }[key] ?? key;
+}
+
 describe('GarmentCardSystem', () => {
-  it('shares the core content model between grid and list layouts', () => {
+  it('shares the core content model and style action between grid and list layouts', () => {
+    const onStyleAround = vi.fn();
     const { rerender } = render(
       <WardrobeGarmentGridLayout
         garment={garment}
-        t={(key) => key}
-        onStyleAround={vi.fn()}
+        t={t}
+        onStyleAround={onStyleAround}
       />,
     );
 
     expect(screen.getByText('Stone trench coat')).toBeInTheDocument();
-    expect(screen.getByText('Outerwear / Beige')).toBeInTheDocument();
+    expect(screen.getByText('Outerwear')).toBeInTheDocument();
+    expect(screen.getByText('Beige')).toBeInTheDocument();
     expect(screen.getByText('2 wears')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Style around this/i })).toBeInTheDocument();
+    expect(screen.getByText('Work')).toBeInTheDocument();
+    expect(screen.getByText('Travel')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Style this/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Style this/i }));
+    expect(onStyleAround).toHaveBeenCalledTimes(1);
 
     rerender(
       <WardrobeGarmentListLayout
         garment={garment}
-        t={(key) => key}
-        onStyleAround={vi.fn()}
+        t={t}
+        onStyleAround={onStyleAround}
       />,
     );
 
     expect(screen.getByText('Stone trench coat')).toBeInTheDocument();
-    expect(screen.getByText('Outerwear / Beige')).toBeInTheDocument();
+    expect(screen.getByText('Outerwear')).toBeInTheDocument();
+    expect(screen.getByText('Beige')).toBeInTheDocument();
     expect(screen.getByText('2 wears')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Style around this/i })).toBeInTheDocument();
+    expect(screen.getByText('Work')).toBeInTheDocument();
+    expect(screen.getByText('Travel')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Style this/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Style this/i }));
+    expect(onStyleAround).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps laundry state language consistent across grid and list layouts', () => {
+    const { rerender } = render(
+      <WardrobeGarmentGridLayout
+        garment={laundryGarment}
+        t={t}
+        onStyleAround={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Laundry')).toBeInTheDocument();
+    expect(screen.getByText('Never worn')).toBeInTheDocument();
+
+    rerender(
+      <WardrobeGarmentListLayout
+        garment={laundryGarment}
+        t={t}
+        onStyleAround={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Laundry')).toBeInTheDocument();
+    expect(screen.getByText('Never worn')).toBeInTheDocument();
   });
 
   it('suppresses the style action while selecting', () => {
     render(
       <WardrobeGarmentGridLayout
         garment={garment}
-        t={(key) => key}
+        t={t}
         isSelecting
         isSelected={false}
       />,
     );
 
-    expect(screen.queryByRole('button', { name: /Style around this/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Style this/i })).not.toBeInTheDocument();
   });
 });

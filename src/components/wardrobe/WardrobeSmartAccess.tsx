@@ -20,19 +20,19 @@ export function WardrobeSmartAccess({ tiles, onSelect }: WardrobeSmartAccessProp
   if (tiles.length === 0) return null;
 
   return (
-    <section className="space-y-2.5" aria-label="Smart access">
+    <section className="space-y-2" aria-label="Smart access">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-foreground/40">
             Smart access
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Jump into the parts of your wardrobe that matter right now.
+            Open the groups that matter now.
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {tiles.map((tile, index) => {
           const Icon = TILE_ICONS[tile.key];
 
@@ -45,7 +45,7 @@ export function WardrobeSmartAccess({ tiles, onSelect }: WardrobeSmartAccessProp
               whileTap={{ scale: 0.98 }}
               onClick={() => onSelect(tile.active ? null : tile.key)}
               className={cn(
-                'rounded-[24px] border px-4 py-4 text-left transition-colors',
+                'rounded-[22px] border px-3.5 py-3.5 text-left transition-colors',
                 tile.active
                   ? 'border-foreground bg-foreground text-background'
                   : 'border-border/15 bg-card/75 text-foreground hover:bg-card',
@@ -55,14 +55,14 @@ export function WardrobeSmartAccess({ tiles, onSelect }: WardrobeSmartAccessProp
                 <div className="flex min-w-0 items-center gap-3">
                   <div
                     className={cn(
-                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl',
+                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-[18px]',
                       tile.active ? 'bg-background/12 text-background' : 'bg-foreground/[0.04] text-foreground/70',
                     )}
                   >
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="min-w-0">
-                    <p className={cn('truncate text-sm font-medium', tile.active && 'text-background')}>{tile.label}</p>
+                    <p className={cn('truncate text-[13px] font-medium', tile.active && 'text-background')}>{tile.label}</p>
                     <p className={cn('text-xs', tile.active ? 'text-background/70' : 'text-muted-foreground')}>
                       {tile.count} pieces
                     </p>

@@ -10,9 +10,11 @@ type Locale = 'en' | 'sv';
 const translations: Record<Locale, Record<string, string>> = {
   en: {
     'insights.title': 'Insights',
+    'insights.subtitle': 'Rotation, DNA, gaps, and value at a glance.',
   },
   sv: {
     'insights.title': 'Insikter',
+    'insights.subtitle': 'Rotation, DNA, luckor och värde i en vy.',
   },
 };
 
@@ -22,6 +24,7 @@ const dashboardAdapterMock = vi.fn();
 
 vi.mock('framer-motion', () => ({
   motion: {
+    circle: (props: Record<string, unknown>) => <circle {...props} />,
     div: ({ children, ...props }: PropsWithChildren<Record<string, unknown>>) => (
       <div {...props}>{children}</div>
     ),
@@ -73,6 +76,25 @@ vi.mock('@/components/insights/useInsightsDashboardAdapter', () => ({
   useInsightsDashboardAdapter: () => dashboardAdapterMock(),
 }));
 
+vi.mock('@/components/insights/InsightsOverviewHero', () => ({
+  InsightsOverviewHero: ({
+    dnaArchetype,
+    savedLooks,
+    plannedThisWeek,
+  }: {
+    dnaArchetype: string | null;
+    savedLooks: number;
+    plannedThisWeek: number;
+  }) => (
+    <section>
+      <h2>See what is active, what is missing, and what is worth repeating.</h2>
+      {dnaArchetype ? <p>{dnaArchetype}</p> : null}
+      <p>Saved looks: {savedLooks}</p>
+      <p>Planned this week: {plannedThisWeek}</p>
+    </section>
+  ),
+}));
+
 vi.mock('@/components/insights/InsightsGapPreview', () => ({
   InsightsGapPreview: () => <section>Black loafers</section>,
 }));
@@ -94,6 +116,18 @@ vi.mock('@/components/insights/InsightsGarmentRail', () => ({
 
 vi.mock('@/components/insights/InsightsPalettePanel', () => ({
   InsightsPalettePanel: () => <section>Palette panel</section>,
+}));
+
+vi.mock('@/components/insights/InsightsRelatedTools', () => ({
+  InsightsRelatedTools: ({
+    tools,
+  }: {
+    tools: Array<{ title: string }>;
+  }) => (
+    <section>
+      {tools.map((tool) => <p key={tool.title}>{tool.title}</p>)}
+    </section>
+  ),
 }));
 
 vi.mock('@/components/insights/InsightsSection', () => ({
@@ -120,6 +154,18 @@ vi.mock('@/components/insights/StyleDNACard', () => ({
 
 vi.mock('@/components/insights/StyleReportCard', () => ({
   StyleReportCard: () => <section>Style report</section>,
+}));
+
+vi.mock('@/components/insights/CategoryRadar', () => ({
+  CategoryRadar: () => <section>Category radar</section>,
+}));
+
+vi.mock('@/components/insights/OutfitRepeatTracker', () => ({
+  OutfitRepeatTracker: () => <section>Repeat tracker</section>,
+}));
+
+vi.mock('@/components/insights/WearHeatmap', () => ({
+  WearHeatmap: () => <section>Wear heatmap</section>,
 }));
 
 vi.mock('@/components/insights/SpendingDashboard', () => ({
@@ -155,7 +201,6 @@ describe('Insights page', () => {
         topFiveWorn: [{ id: 'top-1', title: 'Black Tee', color_primary: 'black', wearCountLast30: 6 }],
         unusedGarments: [{ id: 'unused-1', title: 'Blue Shirt', color_primary: 'blue' }],
         usedGarments: [{ id: 'used-1', title: 'Grey Trousers', color_primary: 'black', wearCountLast30: 4 }],
-        colorTemperature: 'neutral',
       },
       dna: {
         archetype: 'Minimalist',
@@ -196,25 +241,81 @@ describe('Insights page', () => {
     });
   });
 
-  it('renders the compact dashboard sections with populated data', () => {
+  it('renders the insights dashboard sections with populated data', () => {
     renderPage();
 
     expect(screen.getByRole('heading', { level: 1, name: 'Insights' })).toBeInTheDocument();
     expect(screen.getByText('Rotation, DNA, gaps, and value at a glance.')).toBeInTheDocument();
     expect(screen.getByText('See what is active, what is missing, and what is worth repeating.')).toBeInTheDocument();
     expect(screen.getAllByText('Minimalist').length).toBeGreaterThan(0);
-    expect(screen.getByText('What is doing the real work')).toBeInTheDocument();
-    expect(screen.getByText('The formulas BURS can trust')).toBeInTheDocument();
+    expect(screen.getByText('Saved looks: 9')).toBeInTheDocument();
+    expect(screen.getByText('Planned this week: 4')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('href', '#overview');
+    expect(screen.getByRole('link', { name: 'Gaps' })).toHaveAttribute('href', '#value');
+    expect(screen.getByRole('link', { name: 'DNA' })).toHaveAttribute('href', '#dna');
+    expect(screen.getByRole('link', { name: 'Patterns' })).toHaveAttribute('href', '#patterns');
+    expect(screen.getByRole('link', { name: 'Tools' })).toHaveAttribute('href', '#tools');
     expect(screen.getByText('What would unlock more outfits')).toBeInTheDocument();
-    expect(screen.getByText('Value, palette, and future spend')).toBeInTheDocument();
+    expect(screen.getByText('Move into the next workflow')).toBeInTheDocument();
+    expect(screen.getByText('Gap analysis')).toBeInTheDocument();
+    expect(screen.getByText('Style me')).toBeInTheDocument();
     expect(screen.getByText('Black loafers')).toBeInTheDocument();
     expect(screen.getByTestId('wardrobe-health-card')).toBeInTheDocument();
-  });
+  }, 10000);
+
+  it('shows the loading shell while the dashboard is still resolving', () => {
+    dashboardAdapterMock.mockReturnValue({
+      overview: null,
+      insights: null,
+      dna: null,
+      sustainability: null,
+      allGarments: [],
+      colorBreakdown: { total: 0, entries: [], bars: [] },
+      isPremium: true,
+      isLoading: true,
+      isRefreshing: false,
+    });
+
+    renderPage();
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Insights' })).toBeInTheDocument();
+    expect(screen.getByTestId('insights-loading')).toBeInTheDocument();
+  }, 10000);
+
+  it('shows the onboarding empty state when the dashboard has no garments to analyze', () => {
+    dashboardAdapterMock.mockReturnValue({
+      overview: {
+        savedLooks: 0,
+        plannedThisWeek: 0,
+      },
+      insights: {
+        usageRate: 0,
+        totalGarments: 0,
+        garmentsUsedLast30Days: 0,
+        topFiveWorn: [],
+        unusedGarments: [],
+        usedGarments: [],
+      },
+      dna: null,
+      sustainability: null,
+      allGarments: [],
+      colorBreakdown: { total: 0, entries: [], bars: [] },
+      isPremium: false,
+      isLoading: false,
+      isRefreshing: false,
+    });
+
+    renderPage();
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Insights' })).toBeInTheDocument();
+    expect(screen.getByTestId('insights-empty')).toBeInTheDocument();
+  }, 10000);
 
   it('switches key page copy between English and Swedish', () => {
     const { rerender } = renderPage();
 
     expect(screen.getByRole('heading', { level: 1, name: 'Insights' })).toBeInTheDocument();
+    expect(screen.getByText('Rotation, DNA, gaps, and value at a glance.')).toBeInTheDocument();
 
     currentLocale = 'sv';
     rerender(
@@ -226,7 +327,8 @@ describe('Insights page', () => {
     );
 
     expect(screen.getByRole('heading', { level: 1, name: 'Insikter' })).toBeInTheDocument();
-    expect(screen.getByText('Rotation, DNA, gaps, and value at a glance.')).toBeInTheDocument();
-    expect(screen.getByText('What is doing the real work')).toBeInTheDocument();
-  });
+    expect(screen.getByText('Rotation, DNA, luckor och värde i en vy.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Patterns' })).toHaveAttribute('href', '#patterns');
+    expect(screen.getByRole('link', { name: 'Gaps' })).toHaveAttribute('href', '#value');
+  }, 10000);
 });

@@ -127,6 +127,16 @@ export default function GarmentDetailPage() {
     : '';
   const heroDescription = enrichment?.stylist_note
     || [categorySummary, garment?.material ? materialLabel(t, garment.material) : null].filter(Boolean).join(' • ');
+  void heroDescription;
+  const detailMeta = [
+    garment?.color_primary ? colorLabel(t, garment.color_primary) : null,
+    garment?.material ? materialLabel(t, garment.material) : null,
+  ].filter(Boolean).join(' / ');
+  const displayCategorySummary = garment
+    ? `${categoryLabel(t, garment.category)}${garment.subcategory ? ` / ${humanize(garment.subcategory)}` : ''}`
+    : '';
+  const cleanHeroDescription = enrichment?.stylist_note
+    || [displayCategorySummary, garment?.material ? materialLabel(t, garment.material) : null].filter(Boolean).join(' / ');
   const costCurrency = garment?.purchase_currency || 'SEK';
   const costPerWearDisplay = costPerWear !== null ? `${Math.round(costPerWear)} ${costCurrency}` : 'Add price';
   const lastWornDisplay = usageInsights?.daysSinceLastWorn != null
@@ -246,7 +256,7 @@ export default function GarmentDetailPage() {
     <AppLayout hideNav>
       <PageHeader
         title={garment.title}
-        subtitle={categorySummary}
+        subtitle={displayCategorySummary}
         showBack
         actions={(
           <>
@@ -282,7 +292,7 @@ export default function GarmentDetailPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: EASE_CURVE }}
         >
-          <Card surface="editorial" className="overflow-hidden p-2">
+          <Card surface="utility" className="overflow-hidden p-2">
             <div className="relative overflow-hidden rounded-[1.8rem]">
               <LazyImage
                 imagePath={displayImagePath}
@@ -294,11 +304,11 @@ export default function GarmentDetailPage() {
 
               <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
                 <div className="flex flex-wrap gap-2">
-                  <span className="rounded-full bg-background/88 px-3 py-1 text-[0.62rem] font-medium uppercase tracking-[0.18em] text-foreground shadow-[0_8px_18px_rgba(28,25,23,0.08)]">
+                  <span className="rounded-full bg-background/88 px-3 py-1 text-[0.62rem] font-medium uppercase tracking-[0.18em] text-foreground">
                     {garment.wear_count || 0} worn
                   </span>
                   {garment.in_laundry ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-background/88 px-3 py-1 text-[0.62rem] font-medium uppercase tracking-[0.18em] text-foreground shadow-[0_8px_18px_rgba(28,25,23,0.08)]">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-background/88 px-3 py-1 text-[0.62rem] font-medium uppercase tracking-[0.18em] text-foreground">
                       <WashingMachine className="h-3 w-3" />
                       In laundry
                     </span>
@@ -316,35 +326,32 @@ export default function GarmentDetailPage() {
               </div>
             </div>
 
-            <div className="space-y-5 px-3 pb-4 pt-5">
+            <div className="space-y-4 px-3 pb-4 pt-5">
               <PageIntro
                 eyebrow={(
                   <>
-                    <span className="eyebrow-chip">{categorySummary}</span>
-                    {garment.color_primary ? (
-                      <span className="eyebrow-chip !bg-secondary/70">{colorLabel(t, garment.color_primary)}</span>
-                    ) : null}
-                    {garment.material ? (
-                      <span className="eyebrow-chip !bg-secondary/70">{materialLabel(t, garment.material)}</span>
+                    <span className="eyebrow-chip">{displayCategorySummary}</span>
+                    {detailMeta ? (
+                      <span className="eyebrow-chip !bg-secondary/70">{detailMeta}</span>
                     ) : null}
                   </>
                 )}
                 title={garment.title}
-                description={heroDescription}
+                description={cleanHeroDescription}
               />
 
               <div className="grid gap-3 sm:grid-cols-3">
-                <div className="surface-inset rounded-[1.35rem] border p-4">
+                <div className="surface-utility rounded-[1.2rem] border p-3.5">
                   <p className="label-editorial">Cost per wear</p>
-                  <p className="mt-2 text-[1.45rem] font-semibold tracking-[-0.05em] text-foreground">{costPerWearDisplay}</p>
+                  <p className="mt-1.5 text-[1.25rem] font-semibold tracking-[-0.05em] text-foreground">{costPerWearDisplay}</p>
                 </div>
-                <div className="surface-inset rounded-[1.35rem] border p-4">
+                <div className="surface-utility rounded-[1.2rem] border p-3.5">
                   <p className="label-editorial">Last worn</p>
-                  <p className="mt-2 text-[1.45rem] font-semibold tracking-[-0.05em] text-foreground">{lastWornDisplay}</p>
+                  <p className="mt-1.5 text-[1.25rem] font-semibold tracking-[-0.05em] text-foreground">{lastWornDisplay}</p>
                 </div>
-                <div className="surface-inset rounded-[1.35rem] border p-4">
+                <div className="surface-utility rounded-[1.2rem] border p-3.5">
                   <p className="label-editorial">Monthly rhythm</p>
-                  <p className="mt-2 text-[1.45rem] font-semibold tracking-[-0.05em] text-foreground">{usageInsights?.wearFrequency || '0'}</p>
+                  <p className="mt-1.5 text-[1.25rem] font-semibold tracking-[-0.05em] text-foreground">{usageInsights?.wearFrequency || '0'}</p>
                 </div>
               </div>
             </div>
@@ -520,17 +527,17 @@ export default function GarmentDetailPage() {
       </div>
 
       <div className="fixed inset-x-4 bottom-4 z-20" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
-        <div className="mx-auto max-w-md">
-          <div className="action-bar-floating flex gap-2 rounded-[1.6rem] p-3">
-            <Button variant="outline" onClick={handleMarkWorn} className="flex-1">
+        <div className="mx-auto max-w-xl">
+          <div className="action-bar-floating flex gap-2 rounded-[1.4rem] p-2.5">
+            <Button variant="outline" onClick={handleMarkWorn} className="h-11 flex-1 rounded-full border-border/35 bg-background/72">
               Mark worn
             </Button>
             <Button
               onClick={() => navigate(`/ai/chat${buildStyleFlowSearch(garment.id)}`, { state: buildStyleAroundState(garment.id) })}
-              className="flex-1"
+              className="h-11 flex-1 rounded-full"
             >
               <Sparkles className="mr-2 h-4 w-4" />
-              Style around this
+              Style this
             </Button>
           </div>
         </div>

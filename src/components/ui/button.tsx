@@ -9,14 +9,14 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-[0_12px_30px_rgba(28,25,23,0.14)] hover:bg-primary/92",
+        default: "bg-primary text-primary-foreground shadow-[0_10px_22px_rgba(28,25,23,0.12)] hover:bg-primary/94",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline: "border border-border/70 bg-background/88 text-foreground shadow-[0_8px_18px_rgba(28,25,23,0.04)] hover:bg-background",
-      secondary: "bg-secondary/80 text-secondary-foreground hover:bg-secondary/90",
-        ghost: "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground",
+        outline: "border border-border/55 bg-background/82 text-foreground shadow-none hover:bg-background",
+        secondary: "bg-secondary/70 text-secondary-foreground shadow-none hover:bg-secondary/82",
+        ghost: "text-muted-foreground hover:bg-foreground/[0.035] hover:text-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        editorial: "border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(241,234,224,0.9))] text-foreground shadow-[0_12px_30px_rgba(28,25,23,0.05)] hover:border-border",
-        quiet: "bg-transparent text-muted-foreground hover:text-foreground",
+        editorial: "border border-border/55 bg-card/84 text-foreground shadow-[0_10px_22px_rgba(28,25,23,0.035)] hover:bg-card",
+        quiet: "bg-transparent text-muted-foreground hover:bg-foreground/[0.03] hover:text-foreground",
       },
       size: {
         default: "h-11 px-4 py-2",

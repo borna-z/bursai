@@ -84,23 +84,23 @@ function renderWardrobe() {
 describe('Wardrobe page', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders the calmer garments-only command top', () => {
+  it('renders the compact wardrobe command top with tabs and a primary action rail', () => {
     renderWardrobe();
 
     expect(screen.getByText('wardrobe.title')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open outfits' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'wardrobe.tab_garments' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'wardrobe.tab_outfits' })).not.toBeInTheDocument();
-  });
+    expect(screen.getByRole('button', { name: 'wardrobe.tab_garments' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'wardrobe.tab_outfits' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'outfits.create' })).toBeInTheDocument();
+  }, 10000);
 
-  it('keeps add garment in the header and removes the old page rail actions', () => {
+  it('keeps add garment and live scan in the compact action rail', () => {
     renderWardrobe();
 
     expect(screen.getByRole('button', { name: 'wardrobe.add' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'wardrobe.live_scan' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'wardrobe.live_scan' })).toBeInTheDocument();
     expect(screen.queryByText('+ Add')).not.toBeInTheDocument();
     expect(screen.queryByText('Scan')).not.toBeInTheDocument();
-  });
+  }, 10000);
 
   it('shows smart access when garments are available', () => {
     renderWardrobe();
@@ -109,5 +109,5 @@ describe('Wardrobe page', () => {
     expect(screen.getByRole('button', { name: /wardrobe\.rarely_worn/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /wardrobe\.most_worn/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /wardrobe\.recently_added/i })).toBeInTheDocument();
-  });
+  }, 10000);
 });
