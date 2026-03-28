@@ -80,7 +80,7 @@ export function ProfileCard() {
         className="relative group"
         aria-label={t('settings.change_photo') || 'Change photo'}
       >
-        <Avatar className="w-16 h-16">
+        <Avatar className="h-14 w-14">
           {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
           <AvatarFallback className="bg-primary/8 text-primary font-semibold text-lg">
             {initials}
@@ -104,7 +104,7 @@ export function ProfileCard() {
       </button>
 
       <div className="flex-1 min-w-0">
-        <p className="text-lg font-semibold truncate">{displayName}</p>
+        <p className="text-[17px] font-medium truncate">{displayName}</p>
         {/* Plan tier badge */}
         <div className={`mt-1 mb-0.5 inline-flex items-center px-2 py-0.5 ${isPremium ? 'bg-foreground' : 'bg-secondary'}`}>
           <span className={`font-['DM_Sans'] text-[11px] ${isPremium ? 'text-background' : 'text-foreground/50'}`}>

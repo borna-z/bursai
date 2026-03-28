@@ -337,6 +337,7 @@ export default function GarmentDetailPage() {
                   </>
                 )}
                 title={garment.title}
+                titleClassName="text-[1.3rem] font-medium"
                 description={cleanHeroDescription}
               />
 
@@ -367,7 +368,7 @@ export default function GarmentDetailPage() {
                 hapticLight();
                 setActiveTab(tab.key);
               }}
-              className={`flex-1 rounded-full px-4 py-2.5 text-[0.74rem] font-medium uppercase tracking-[0.16em] transition-all ${
+              className={`h-11 flex-1 rounded-full px-4 py-2.5 text-[0.74rem] font-medium uppercase tracking-[0.16em] transition-all ${
                 activeTab === tab.key
                   ? 'bg-foreground text-background shadow-[0_10px_24px_rgba(28,25,23,0.12)]'
                   : 'text-muted-foreground hover:text-foreground'
@@ -529,12 +530,12 @@ export default function GarmentDetailPage() {
       <div className="fixed inset-x-4 bottom-4 z-20" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
         <div className="mx-auto max-w-xl">
           <div className="action-bar-floating flex gap-2 rounded-[1.25rem] p-2.5">
-            <Button variant="outline" onClick={handleMarkWorn} className="h-11 flex-1 rounded-full border-border/35 bg-background/72">
+            <Button variant="outline" onClick={handleMarkWorn} className="h-12 flex-1 rounded-full border-border/35 bg-background/72">
               Mark worn
             </Button>
             <Button
               onClick={() => navigate(`/ai/chat${buildStyleFlowSearch(garment.id)}`, { state: buildStyleAroundState(garment.id) })}
-              className="h-11 flex-1 rounded-full"
+              className="h-12 flex-1 rounded-full"
             >
               <Sparkles className="mr-2 h-4 w-4" />
               Style this

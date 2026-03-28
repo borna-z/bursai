@@ -67,7 +67,7 @@ export function extractEnrichment(aiRaw: unknown): EnrichmentData | null {
 /* ─── Specs row ─── */
 export function SpecRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between py-2">
+    <div className="flex items-center justify-between py-2 min-h-[48px]">
       <span className="font-['DM_Sans'] text-[11px] text-muted-foreground">{label}</span>
       <span className="font-['DM_Sans'] text-[11px] text-foreground capitalize">{value}</span>
     </div>

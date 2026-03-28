@@ -141,14 +141,14 @@ export function ChatWelcome({ onSuggestion, displayName }: ChatWelcomeProps) {
       
       <motion.h2
         variants={itemVariants}
-        className="font-['Playfair_Display'] italic text-[1.2rem] text-foreground mb-0.5 leading-tight"
+        className="font-['Playfair_Display'] italic text-[1.4rem] text-foreground mb-0.5 leading-tight"
       >
         {t('chat.welcome_title') || 'Your personal stylist'}
       </motion.h2>
       
       <motion.p
         variants={itemVariants}
-        className="text-[13px] text-muted-foreground/50 max-w-[220px] leading-relaxed"
+        className="text-[14px] text-muted-foreground/50 max-w-[220px] leading-relaxed"
       >
         {t('chat.welcome_subtitle') || 'Ask me anything about your wardrobe, outfits, or style'}
       </motion.p>
@@ -160,7 +160,7 @@ export function ChatWelcome({ onSuggestion, displayName }: ChatWelcomeProps) {
             key={chip}
             variants={itemVariants}
             onClick={() => onSuggestion(chip)}
-            className="w-full rounded-[1.25rem] px-5 py-2.5 text-[13px] leading-snug border border-border/20 bg-secondary/20 hover:bg-secondary/50 text-foreground/70 hover:text-foreground transition-colors whitespace-normal text-left active:scale-[0.97]"
+            className="w-full rounded-[1.25rem] px-5 py-2.5 text-[13px] leading-snug border border-border/20 surface-editorial hover:bg-secondary/50 text-foreground/70 hover:text-foreground transition-colors whitespace-normal text-left active:scale-[0.97] min-h-[52px]"
             whileTap={{ scale: 0.97 }}
           >
             {chip}

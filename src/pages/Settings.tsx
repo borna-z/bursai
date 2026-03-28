@@ -10,7 +10,7 @@ import { SettingsRow } from '@/components/settings/SettingsRow';
 import { SettingsGroup } from '@/components/settings/SettingsGroup';
 import { ProfileCard } from '@/components/settings/ProfileCard';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { PageIntro } from '@/components/ui/page-intro';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 
@@ -37,13 +37,14 @@ export default function SettingsPage() {
 
   return (
     <AppLayout>
+      <PageHeader
+        title="Settings"
+        eyebrow="Preferences"
+        actions={
+          <span className="eyebrow-chip border-transparent bg-secondary/85 text-foreground/62 text-[10px]">v{APP_VERSION}</span>
+        }
+      />
       <AnimatedPage className="page-shell space-y-8">
-        <PageIntro
-          eyebrow="Preferences"
-          meta={<span className="eyebrow-chip border-transparent bg-secondary/85 text-foreground/62">BURS v{APP_VERSION}</span>}
-          title="Settings"
-          description="Tune the experience, revisit guidance, and shape how BURS works around your wardrobe."
-        />
 
         {/* Profile */}
         <ProfileCard />
