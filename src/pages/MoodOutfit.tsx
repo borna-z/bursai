@@ -9,7 +9,7 @@ import { AnimatedPage } from '@/components/ui/animated-page';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { PageIntro } from '@/components/ui/page-intro';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSubscription } from '@/hooks/useSubscription';
@@ -127,31 +127,24 @@ export default function MoodOutfitPage() {
       <AnimatedPage className="page-shell !px-5 !pt-6 page-cluster">
         {generatedOutfit ? (
           <>
-            <PageIntro
-              eyebrow="Mood outfit"
-              meta={<span className="eyebrow-chip !bg-secondary/70 capitalize">{t(`ai.mood_${generatedOutfit.mood}`)}</span>}
-              title={t(`ai.mood_${generatedOutfit.mood}`)}
-              description={generatedOutfit.explanation || 'A styled direction pulled from your wardrobe and shaped around the mood you picked.'}
-              actions={(
-                <>
-                  <Button onClick={() => navigate(`/outfits/${generatedOutfit.id}`)}>
-                    Open outfit
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => navigate(`/ai/chat${buildStyleFlowSearch(generatedOutfit.garmentIds)}`, {
-                      state: {
-                        outfitId: generatedOutfit.id,
-                        prefillMessage: 'Refine this outfit for me.',
-                        seedOutfitIds: generatedOutfit.garmentIds,
-                      },
-                    })}
-                  >
-                    Refine in chat
-                  </Button>
-                </>
-              )}
-            />
+            <PageHeader title={t('ai.mood_title') || 'Mood Outfit'} eyebrow="AI Stylist" showBack />
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => navigate(`/outfits/${generatedOutfit.id}`)}>
+                Open outfit
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate(`/ai/chat${buildStyleFlowSearch(generatedOutfit.garmentIds)}`, {
+                  state: {
+                    outfitId: generatedOutfit.id,
+                    prefillMessage: 'Refine this outfit for me.',
+                    seedOutfitIds: generatedOutfit.garmentIds,
+                  },
+                })}
+              >
+                Refine in chat
+              </Button>
+            </div>
 
             {generatedOutfit.explanation ? (
               <Card surface="utility" className="space-y-3 p-5">
@@ -177,12 +170,7 @@ export default function MoodOutfitPage() {
           </>
         ) : (
           <>
-            <PageIntro
-              eyebrow="Mood styling"
-              meta={weatherMeta ? <span className="eyebrow-chip !bg-secondary/70">{weatherMeta}</span> : undefined}
-              title={t('ai.mood_heading')}
-              description={t('ai.mood_desc')}
-            />
+            <PageHeader title={t('ai.mood_title') || 'Mood Outfit'} eyebrow="AI Stylist" showBack />
 
             <section className="grid gap-3 sm:grid-cols-2">
               {MOODS.map((mood, index) => {
@@ -200,9 +188,9 @@ export default function MoodOutfitPage() {
                     className="text-left"
                   >
                     <Card
-                      surface={isSelected ? 'editorial' : 'utility'}
+                      surface="editorial"
                       className={cn(
-                        'h-full min-h-[180px] overflow-hidden p-5 transition-transform duration-200',
+                        'h-full min-h-[64px] overflow-hidden rounded-[1.25rem] p-4 transition-transform duration-200',
                         isSelected && 'bg-foreground text-background',
                         isGenerating && !isSelected ? 'opacity-55' : 'hover:-translate-y-0.5',
                       )}

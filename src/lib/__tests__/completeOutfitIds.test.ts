@@ -26,8 +26,14 @@ describe('resolveCompleteOutfitIds', () => {
     ]);
   });
 
-  it('rejects incomplete outfits', () => {
-    expect(resolveCompleteOutfitIds(['top-1', 'bottom-1'], garments)).toEqual([]);
+  it('accepts separates without shoes (base outfit)', () => {
+    expect(resolveCompleteOutfitIds(['top-1', 'bottom-1'], garments)).toEqual([
+      'top-1',
+      'bottom-1',
+    ]);
+  });
+
+  it('rejects single-garment outfits', () => {
     expect(resolveCompleteOutfitIds(['dress-1'], garments)).toEqual([]);
   });
 

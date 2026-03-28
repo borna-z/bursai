@@ -73,7 +73,7 @@ function PlannedOutfitCard({ outfit, onDelete }: PlannedOutfitCardProps) {
 
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive flex-shrink-0" onClick={handleDelete}>
+              <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground hover:text-destructive flex-shrink-0" onClick={handleDelete}>
                 <Trash2 className="w-4 h-4" />
               </Button>
             </AlertDialogTrigger>

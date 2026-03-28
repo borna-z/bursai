@@ -77,7 +77,7 @@ export function ChatInput({
               onClick={onSend}
               disabled={(!input.trim() && !pendingImage) || isStreaming}
               size="icon"
-              className="h-11 w-11 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all hover:scale-105 active:scale-95 disabled:opacity-30"
+              className={`h-11 w-11 shrink-0 rounded-full transition-all hover:scale-105 active:scale-95 disabled:opacity-30 ${input.trim() || pendingImage ? 'bg-foreground text-background hover:bg-foreground/90' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}
             >
               {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>

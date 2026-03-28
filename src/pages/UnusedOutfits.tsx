@@ -18,7 +18,6 @@ import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
-import { PageIntro } from '@/components/ui/page-intro';
 import { Skeleton } from '@/components/ui/skeleton';
 import { hapticLight } from '@/lib/haptics';
 import { getOccasionLabel } from '@/lib/occasionLabel';
@@ -152,8 +151,8 @@ export default function UnusedOutfits() {
   return (
     <AppLayout hideNav>
       <PageHeader
-        title="Sleeping Beauties"
-        subtitle={`${unusedIds.length} garments waiting to be styled`}
+        title={t('insights.unused_title') || 'Sleeping Beauties'}
+        eyebrow="Insights"
         showBack
         actions={!generating && outfits.length > 0 ? (
           <Button
@@ -172,12 +171,7 @@ export default function UnusedOutfits() {
       />
 
       <AnimatedPage className="page-shell !px-5 !pt-6 page-cluster">
-        <PageIntro
-          eyebrow="Unused edit"
-          meta={<span className="eyebrow-chip !bg-secondary/70">{unusedIds.length} waiting</span>}
-          title="Wake up the pieces you forgot."
-          description="BURS is building outfits around the garments your wardrobe has not used yet, so the quiet pieces get another chance."
-        />
+        <PageHeader title={t('insights.unused_title') || 'Sleeping Beauties'} eyebrow="Insights" showBack />
 
         {generating && outfits.length === 0 ? (
           <Card surface="editorial" className="space-y-4 p-5">

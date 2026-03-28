@@ -29,7 +29,7 @@ import { Button } from '@/components/ui/button';
 import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
 import { extractGarmentIdsFromText, parseOutfitTags } from '@/lib/garmentTokens';
 import { getTextContent, mergeAssistantContent, type MessageContent, type MultimodalPart } from '@/lib/chatStream';
-import { inferOutfitSlotFromGarment, validateCompleteOutfit } from '@/lib/outfitValidation';
+import { inferOutfitSlotFromGarment, validateBaseOutfit } from '@/lib/outfitValidation';
 import { resolveStyleFlowLocationState } from '@/lib/styleFlowState';
 
 type Message = {
@@ -408,7 +408,7 @@ export default function AIChat() {
           : null;
       }).filter(Boolean) as Array<{ garment_id: string; slot: string; garment: GarmentBasic }>;
 
-      const validation = validateCompleteOutfit(
+      const validation = validateBaseOutfit(
         items.map((item) => ({ slot: item.slot, garment: item.garment })),
       );
       if (!validation.isValid) {

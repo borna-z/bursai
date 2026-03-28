@@ -109,7 +109,7 @@ export const DayCard = memo(function DayCard({
                 return (
                   <div
                     key={index}
-                    className="w-16 h-16 overflow-hidden rounded-[1.1rem] bg-muted shrink-0"
+                    className="w-16 min-h-[80px] overflow-hidden rounded-[1.1rem] bg-muted shrink-0"
                   >
                     {item?.garment && (
                       <LazyImageSimple
@@ -143,11 +143,11 @@ export const DayCard = memo(function DayCard({
 
             <div className="flex items-center gap-3 mt-2 pt-2 border-t">
               {!isWorn && (
-                <button onClick={() => { hapticSuccess(); onMarkWorn(); }} className="min-h-[44px] text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
+                <button onClick={() => { hapticSuccess(); onMarkWorn(); }} className="h-11 w-11 min-h-[44px] text-xs text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 transition-colors">
                   <Check className="w-3 h-3" />{t('plan.mark_worn')}
                 </button>
               )}
-              <button onClick={() => { hapticHeavy(); onRemove(); }} className="min-h-[44px] text-xs text-muted-foreground hover:text-destructive flex items-center gap-1 transition-colors ml-auto">
+              <button onClick={() => { hapticHeavy(); onRemove(); }} className="h-11 w-11 min-h-[44px] text-xs text-muted-foreground hover:text-destructive flex items-center justify-center gap-1 transition-colors ml-auto">
                 <Trash2 className="w-3 h-3" />{t('plan.remove')}
               </button>
             </div>

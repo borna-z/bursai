@@ -150,7 +150,7 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
                   ))}
                   {rejectionLine && (
                     <div className="border-l-2 border-foreground/20 pl-2.5 mt-1.5">
-                      <span className="font-['DM_Sans'] text-xs text-foreground/60 italic leading-relaxed">
+                      <span className="font-['DM_Sans'] text-[12px] text-foreground/60 italic leading-relaxed">
                         {renderBoldMarkdown(rejectionLine)}
                       </span>
                     </div>

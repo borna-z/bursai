@@ -393,11 +393,9 @@ function normalizeAssistantReply(params: {
   const outfitTag = shouldIncludeOutfitTag && outfitIds.length >= 2
     ? `[[outfit:${outfitIds.join(",")}|${explanation || "Current active look"}]]`
     : null;
-  const finalText = outfitTag
-    ? params.placeOutfitTagFirst
-      ? `${outfitTag}\n\n${prose}`.trim()
-      : `${prose}\n\n${outfitTag}`.trim()
-    : prose;
+  // Outfit tag is sent as priorityChunk by createSseTextResponse.
+  // Never embed it in prose — prevents double-rendering on the frontend.
+  const finalText = prose;
 
   return {
     text: finalText,
@@ -1600,7 +1598,7 @@ ${refinementContract}`;
 
     return createSseTextResponse(
       normalizedReply.text,
-      refinementTurn ? normalizedReply.outfitTag : null,
+      normalizedReply.outfitTag ?? null,
       chips,
       truncatedByTokenLimit,
     );

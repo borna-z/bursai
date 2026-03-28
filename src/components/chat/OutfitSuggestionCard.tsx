@@ -108,14 +108,14 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
                 />
               </div>
             </Link>
-            <p className="mx-auto mt-1 max-w-[72px] truncate text-center text-[10px] text-muted-foreground">{g.title}</p>
+            <p className="mx-auto mt-1 max-w-[72px] truncate text-center text-[11px] text-muted-foreground">{g.title}</p>
             {/* Swap trigger */}
             <Popover open={swapOpen === i} onOpenChange={(open) => {
               if (open) fetchAlternatives(i);
               else setSwapOpen(null);
             }}>
               <PopoverTrigger asChild>
-                <button className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-background border border-border/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted">
+                <button className="absolute -top-1.5 -right-1.5 h-7 w-7 rounded-full bg-background border border-border/50 shadow-sm flex items-center justify-center hover:bg-muted active:scale-95 transition-transform">
                   <RefreshCw className="w-2.5 h-2.5 text-muted-foreground" />
                 </button>
               </PopoverTrigger>
@@ -155,7 +155,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
 
       {/* Explanation */}
       <div className="px-3 pb-2">
-        <p className="text-xs text-muted-foreground leading-relaxed">{renderBoldMarkdown(explanation)}</p>
+        <p className="text-[13px] text-muted-foreground leading-relaxed">{renderBoldMarkdown(explanation)}</p>
       </div>
 
       {/* Missing shoes notice */}
@@ -181,7 +181,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
           <div className="space-y-1.5">
             <Button
               size="sm"
-              className="w-full rounded-full text-xs h-9 gap-1.5"
+              className="w-full rounded-full text-[13px] h-11 gap-1.5"
               onClick={() => navigate('/wardrobe?scan=shoes')}
               disabled={isCreating}
             >
@@ -191,7 +191,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
             <Button
               size="sm"
               variant="ghost"
-              className="w-full rounded-full text-xs h-8 gap-1.5 text-muted-foreground"
+              className="w-full rounded-full text-[13px] h-10 gap-1.5 text-muted-foreground"
               onClick={() => onTryOutfit(garments.map(g => g.id))}
               disabled={isCreating}
             >
@@ -208,7 +208,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
         ) : (
           <Button
             size="sm"
-            className="w-full rounded-full text-xs h-9 gap-1.5"
+            className="w-full rounded-full text-[13px] h-11 gap-1.5"
             onClick={() => onTryOutfit(garments.map(g => g.id))}
             disabled={isCreating}
           >

@@ -35,7 +35,7 @@ export function StyleMeSubNav() {
                   : tab.path,
               )}
               className={cn(
-                'press rounded-[1rem] border px-4 py-3 text-[0.72rem] font-medium uppercase tracking-[0.16em] transition-colors',
+                'press rounded-[1rem] border px-4 py-3 text-[11px] font-medium uppercase tracking-[0.16em] transition-colors min-h-[44px]',
                 isActive
                   ? 'border-foreground bg-foreground text-background shadow-[0_10px_24px_rgba(28,25,23,0.12)]'
                   : 'border-border/70 bg-background/85 text-muted-foreground hover:text-foreground',

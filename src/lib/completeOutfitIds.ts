@@ -1,6 +1,6 @@
 import {
   inferOutfitSlotFromGarment,
-  validateCompleteOutfit,
+  validateBaseOutfit,
   type BasicGarmentLike,
 } from './outfitValidation.ts';
 
@@ -20,15 +20,16 @@ export function resolveCompleteOutfitIds<TGarment extends OutfitIdGarment>(
   const seenSlots = new Set<string>();
   for (const id of filteredIds) {
     const garment = garmentById.get(id);
-    if (!garment) return [];
-
+    if (!garment) continue;
     const slot = inferOutfitSlotFromGarment(garment);
-    if (!slot) return [];
+    if (!slot) continue;
     if (seenSlots.has(slot)) return [];
     seenSlots.add(slot);
   }
 
-  const validation = validateCompleteOutfit(
+  // Use validateBaseOutfit (requireShoes: false) — outfits without shoes still
+  // render a card. The card itself shows a "missing shoes" warning if needed.
+  const validation = validateBaseOutfit(
     filteredIds.map((id) => ({
       garment: garmentById.get(id) || null,
     })),

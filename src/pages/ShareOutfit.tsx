@@ -140,7 +140,7 @@ export default function ShareOutfitPage() {
     <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b">
         <div className="max-w-lg mx-auto p-4 flex items-center justify-between">
-          <h1 className="font-semibold">{t('share.title')}</h1>
+          <h1 className="font-['Playfair_Display'] italic">{t('share.title')}</h1>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleCopyLink}>
               {copied ? <Check className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
@@ -245,7 +245,7 @@ export default function ShareOutfitPage() {
           <Card surface="editorial" className="border-primary/20">
             <CardContent className="p-4 text-center space-y-3">
               <Sparkles className="w-8 h-8 mx-auto text-primary" />
-              <h3 className="font-['Playfair_Display'] italic font-semibold text-lg">{t('share.cta_free_title')}</h3>
+              <h3 className="font-['Playfair_Display'] italic text-lg">{t('share.cta_free_title')}</h3>
               <p className="text-sm text-muted-foreground">{t('share.cta_free_desc')}</p>
               <Link to="/auth"><Button className="w-full">{t('share.cta_free_button')}<ArrowRight className="w-4 h-4 ml-2" /></Button></Link>
             </CardContent>
@@ -253,7 +253,7 @@ export default function ShareOutfitPage() {
           <Card surface="editorial" className="border-accent/30">
             <CardContent className="p-4 text-center space-y-3">
               <Crown className="w-8 h-8 mx-auto text-accent" />
-              <h3 className="font-['Playfair_Display'] italic font-semibold text-lg">{t('share.cta_premium_title')}</h3>
+              <h3 className="font-['Playfair_Display'] italic text-lg">{t('share.cta_premium_title')}</h3>
               <ul className="text-sm text-muted-foreground space-y-1">
                 <li>✓ {t('share.cta_premium_wardrobe')}</li>
                 <li>✓ {t('share.cta_premium_outfits')}</li>

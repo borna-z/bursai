@@ -4,7 +4,7 @@ import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { PageIntro } from '@/components/ui/page-intro';
+
 import { useLanguage } from '@/contexts/LanguageContext';
 import { TravelFormView } from '@/components/travel/TravelFormView';
 import { TravelResultsView } from '@/components/travel/TravelResultsView';
@@ -26,11 +26,7 @@ export default function TravelCapsule() {
           showBack
         />
         <AnimatedPage className="page-shell !px-5 !pt-6 page-cluster">
-          <PageIntro
-            eyebrow="Planner"
-            title={t('capsule.title')}
-            description={t('unlock.travel_capsule_message')}
-          />
+          <PageHeader title={t('travel.title') || 'Travel Capsule'} eyebrow="AI Packing" showBack />
           <WardrobeProgress message={t('unlock.travel_capsule_message')} />
         </AnimatedPage>
       </AppLayout>

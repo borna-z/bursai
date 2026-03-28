@@ -218,11 +218,11 @@ export function WardrobeToolbar({
             {selectedIdsCount} {t('wardrobe.selected')}
           </span>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={onBulkLaundry} className="h-9 rounded-full border-border/20 bg-background px-3.5 text-xs">
+            <Button size="sm" variant="outline" onClick={onBulkLaundry} className="h-11 rounded-full border-border/20 bg-background px-3.5 text-[13px]">
               <WashingMachine className="mr-1.5 h-3.5 w-3.5" />
               {t('wardrobe.laundry')}
             </Button>
-            <Button size="sm" variant="destructive" onClick={onBulkDelete} className="h-9 rounded-full px-3.5 text-xs">
+            <Button size="sm" variant="destructive" onClick={onBulkDelete} className="h-11 rounded-full px-3.5 text-[13px]">
               <Trash2 className="mr-1.5 h-3.5 w-3.5" />
               {t('wardrobe.remove')}
             </Button>
