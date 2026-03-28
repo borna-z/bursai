@@ -86,17 +86,17 @@ export default function PricingPage() {
 
         {/* Billing toggle */}
         <div className="flex items-center justify-center gap-2 p-1 bg-muted">
-          <button className={cn('flex-1 py-2 px-4 text-sm font-medium transition-all', billingCycle === 'monthly' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')} onClick={() => setBillingCycle('monthly')}>
+          <button className={cn('flex-1 min-h-[44px] py-2 px-4 text-sm font-medium transition-all', billingCycle === 'monthly' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')} onClick={() => setBillingCycle('monthly')}>
             {t('pricing.monthly_label')}
           </button>
-          <button className={cn('flex-1 py-2 px-4 text-sm font-medium transition-all relative', billingCycle === 'yearly' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')} onClick={() => setBillingCycle('yearly')}>
+          <button className={cn('flex-1 min-h-[44px] py-2 px-4 text-sm font-medium transition-all relative', billingCycle === 'yearly' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')} onClick={() => setBillingCycle('yearly')}>
             {t('pricing.yearly_label')}
             <Badge className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs px-1.5">-{pricing.savingsPercent}%</Badge>
           </button>
         </div>
 
         {/* Pricing card */}
-        <div className="border border-border bg-card p-6 space-y-4">
+        <div className="surface-editorial rounded-[1.25rem] p-5 space-y-4">
           <h3 className="text-center font-semibold flex items-center justify-center gap-2">
             <Crown className="w-5 h-5" /> Premium
           </h3>
@@ -109,13 +109,13 @@ export default function PricingPage() {
             )}
           </div>
           <div className="space-y-3 pt-2">
-            <div className="flex items-center gap-3"><InfinityIcon className="w-4 h-4 text-foreground" /><span className="text-sm">{t('pricing.unlimited_wardrobe')}</span></div>
-            <div className="flex items-center gap-3"><Sparkles className="w-4 h-4 text-foreground" /><span className="text-sm">{t('pricing.unlimited_outfits')}</span></div>
-            <div className="flex items-center gap-3"><Crown className="w-4 h-4 text-foreground" /><span className="text-sm">{t('pricing.smarter_ai')}</span></div>
+            <div className="flex items-center gap-3"><Check className="w-4 h-4 text-foreground" /><span className="text-sm">{t('pricing.unlimited_wardrobe')}</span></div>
+            <div className="flex items-center gap-3"><Check className="w-4 h-4 text-foreground" /><span className="text-sm">{t('pricing.unlimited_outfits')}</span></div>
+            <div className="flex items-center gap-3"><Check className="w-4 h-4 text-foreground" /><span className="text-sm">{t('pricing.smarter_ai')}</span></div>
           </div>
           <p className="text-center text-sm font-medium text-muted-foreground">{t('trial.first_free')}</p>
           <p className="text-center text-xs text-muted-foreground">{t('trial.then_prefix')} {pricing.monthly}{t('pricing.per_month')} {t('common.or')} {pricing.yearly}{t('pricing.per_year')}</p>
-          <Button className="w-full h-12 text-base" onClick={handleCheckout} disabled={isLoading}>
+          <Button className="w-full h-14 text-[16px]" onClick={handleCheckout} disabled={isLoading}>
             {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Crown className="w-5 h-5 mr-2" />}
             {t('trial.start_button')}
           </Button>
@@ -135,7 +135,7 @@ export default function PricingPage() {
           <h3 className="font-semibold text-lg mb-4">{t('pricing.faq_title')}</h3>
           {faqs.map((faq, index) => (
             <div key={index} className="border-b border-border">
-              <button className="w-full py-4 text-left flex items-center justify-between" onClick={() => setOpenFaq(openFaq === index ? null : index)}>
+              <button className="w-full min-h-[44px] py-4 text-left flex items-center justify-between" onClick={() => setOpenFaq(openFaq === index ? null : index)}>
                 <span className="font-medium text-sm">{faq.question}</span>
                 {openFaq === index ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
               </button>

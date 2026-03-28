@@ -164,8 +164,8 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
                 style={{ minHeight: 48 }}
                 className={
                   hasOutfit
-                    ? 'text-[14px] leading-relaxed text-foreground/70 whitespace-pre-wrap'
-                    : 'text-[15px] leading-[1.7] whitespace-pre-wrap text-foreground'
+                    ? 'text-[15px] leading-relaxed text-foreground/70 whitespace-pre-wrap'
+                    : 'text-[15px] leading-relaxed whitespace-pre-wrap text-foreground'
                 }
               >
                 {textParts}

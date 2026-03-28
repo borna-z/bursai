@@ -259,6 +259,11 @@
     @apply text-[0.6875rem] text-muted-foreground/70 leading-relaxed tracking-wide;
   }
 
+  /* Caption uppercase — small uppercase labels for eyebrows */
+  .caption-upper {
+    @apply text-[0.6875rem] font-medium uppercase tracking-[0.1em];
+  }
+
   /* Editorial label — uppercase tracked, used for section overlines */
   .label-editorial {
     @apply text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-muted-foreground/60;
@@ -433,7 +438,7 @@
   }
 
   .app-dock-tab {
-    @apply relative flex min-h-[52px] w-full flex-col items-center justify-center gap-1 rounded-[1.25rem] px-1.5 py-2 text-center text-[0.62rem] font-medium uppercase tracking-[0.12em] text-muted-foreground transition-colors;
+    @apply relative flex min-h-[56px] w-full flex-col items-center justify-center gap-1 rounded-[1.25rem] px-1.5 py-2 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground transition-colors;
   }
 
   .app-dock-tab-active {

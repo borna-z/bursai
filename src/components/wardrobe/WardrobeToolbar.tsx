@@ -69,24 +69,16 @@ export function WardrobeToolbar({
 
   return (
     <section className="space-y-3.5" aria-label="Wardrobe command top">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="eyebrow-chip bg-background/80 text-muted-foreground/72">
-              {activeTab === 'garments' ? 'Wardrobe' : 'Looks'}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="eyebrow-chip bg-background/80 text-muted-foreground/72">
+            {activeTab === 'garments' ? 'Wardrobe' : 'Looks'}
+          </span>
+          {commandState.resultsLabel ? (
+            <span className="eyebrow-chip border-transparent bg-secondary/75 text-foreground/58">
+              {commandState.resultsLabel}
             </span>
-            {commandState.resultsLabel ? (
-              <span className="eyebrow-chip border-transparent bg-secondary/75 text-foreground/58">
-                {commandState.resultsLabel}
-              </span>
-            ) : null}
-          </div>
-          <h1 className="font-['Playfair_Display'] italic text-[1.95rem] tracking-[-0.05em] text-foreground">
-            {commandState.title}
-          </h1>
-          <p className="max-w-[30ch] text-sm leading-relaxed text-muted-foreground">
-            {commandState.caption}
-          </p>
+          ) : null}
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
@@ -94,7 +86,7 @@ export function WardrobeToolbar({
             <>
               <button
                 onClick={onToggleView}
-                className="flex h-10 w-10 items-center justify-center rounded-[1.1rem] border border-border/45 bg-background/80 text-muted-foreground transition-colors hover:bg-background"
+                className="flex h-11 w-11 items-center justify-center rounded-[1.1rem] border border-border/45 bg-background/80 text-muted-foreground transition-colors hover:bg-background"
                 aria-label={isGridView ? 'List view' : 'Grid view'}
               >
                 {isGridView ? <List className="h-[18px] w-[18px]" /> : <Grid3X3 className="h-[18px] w-[18px]" />}
@@ -187,7 +179,7 @@ export function WardrobeToolbar({
               key={action.key}
               onClick={() => onAction(action.key)}
               className={cn(
-                'flex h-10 shrink-0 items-center gap-2 rounded-full px-3.5 text-[13px] font-medium transition-colors',
+                'flex h-11 shrink-0 items-center gap-2 rounded-full px-3.5 text-[13px] font-medium transition-colors',
                 action.tone === 'primary' && 'bg-foreground text-background',
                 action.tone === 'secondary' && 'border border-border/45 bg-background/80 text-foreground',
                 action.tone === 'muted' && 'border border-border/35 bg-card/65 text-muted-foreground',

@@ -203,6 +203,7 @@ export default function MoodOutfitPage() {
                       surface={isSelected ? 'editorial' : 'utility'}
                       className={cn(
                         'h-full min-h-[180px] overflow-hidden p-5 transition-transform duration-200',
+                        isSelected && 'bg-foreground text-background',
                         isGenerating && !isSelected ? 'opacity-55' : 'hover:-translate-y-0.5',
                       )}
                     >

@@ -402,7 +402,7 @@ export default function OutfitGeneratePage() {
                     ))}
                     {effectiveMissing.slice(0, Math.max(0, 4 - primary.items.length)).map((slot, i) => (
                       <div key={`placeholder-${i}`} className="flex aspect-square items-center justify-center border border-dashed border-foreground/15 bg-secondary/70 p-2">
-                        <span className="text-center text-[11px] leading-[1.4] text-foreground/42">
+                        <span className="text-center text-[13px] leading-[1.4] text-foreground/42">
                           Add {slot}<br/>to complete
                         </span>
                       </div>

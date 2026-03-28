@@ -42,13 +42,21 @@ function RouteTab({
           {isActive ? (
             <motion.div
               layoutId={prefersReduced ? undefined : 'dock-active-pill'}
-              className="absolute inset-0 rounded-[1.25rem] bg-secondary/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]"
+              className="absolute inset-0 rounded-[1.25rem] bg-card border border-foreground/[0.07] shadow-[0_2px_8px_rgba(28,25,23,0.08),inset_0_1px_0_rgba(255,255,255,0.8)]"
               transition={{ type: 'spring', stiffness: 360, damping: 30, mass: 0.8 }}
             />
           ) : null}
-          <div className="relative z-10 flex flex-col items-center justify-center gap-1">
-            <Icon className={cn('h-[1.15rem] w-[1.15rem]', isActive && 'scale-[1.04]')} strokeWidth={isActive ? 2.4 : 2.1} />
-            <span>{t(labelKey)}</span>
+          <div className="relative z-10 flex flex-col items-center justify-center gap-[3px]">
+            <Icon
+              className={cn('h-5 w-5 transition-transform', isActive && 'scale-[1.05]')}
+              strokeWidth={isActive ? 2.3 : 2.0}
+            />
+            <span className={cn(
+              'text-[11px] tracking-[0.06em] transition-colors',
+              isActive ? 'font-medium text-foreground' : 'text-muted-foreground/60'
+            )}>
+              {t(labelKey)}
+            </span>
           </div>
         </>
       )}

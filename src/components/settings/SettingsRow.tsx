@@ -18,13 +18,13 @@ export function SettingsRow({ icon, label, sublabel, children, last, onClick, cl
     <>
       <div className="flex items-center gap-3.5 min-w-0 flex-1">
         {icon && (
-          <span className="settings-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem] bg-secondary/85 text-foreground/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] [&>svg]:h-[16px] [&>svg]:w-[16px]">
+          <span className="settings-icon flex h-11 w-11 shrink-0 items-center justify-center rounded-[1.1rem] bg-secondary/85 text-foreground/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] [&>svg]:h-[16px] [&>svg]:w-[16px]">
             {icon}
           </span>
         )}
         <div className="min-w-0">
           <span className="text-[15px] font-medium text-foreground">{label}</span>
-          {sublabel && <p className="mt-0.5 text-[12px] leading-tight text-muted-foreground/65">{sublabel}</p>}
+          {sublabel && <p className="mt-0.5 text-[13px] leading-tight text-muted-foreground/65">{sublabel}</p>}
         </div>
       </div>
       {children && <div className="flex-shrink-0">{children}</div>}
@@ -32,7 +32,7 @@ export function SettingsRow({ icon, label, sublabel, children, last, onClick, cl
   );
 
   const baseClass = cn(
-    'flex w-full items-center justify-between gap-3 px-4 py-4 text-left',
+    'flex w-full items-center justify-between gap-3 px-5 py-4 min-h-[60px] text-left',
     !last && 'border-b border-border/35',
     onClick && 'transition-colors hover:bg-background/50 active:bg-background/70',
     className,

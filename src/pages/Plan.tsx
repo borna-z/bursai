@@ -437,7 +437,7 @@ export default function PlanPage() {
         <div className="mx-auto flex max-w-md items-start justify-between gap-3">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
-              <button type="button" className="flex items-center gap-2.5 transition-opacity hover:opacity-75">
+              <button type="button" className="flex h-11 min-h-[44px] items-center gap-2.5 transition-opacity hover:opacity-75">
                 <div>
                   <p className="caption-upper mb-0.5">Weekly overview</p>
                   <h1 className="font-['Playfair_Display'] italic text-[1.55rem] leading-tight text-foreground">
@@ -462,7 +462,7 @@ export default function PlanPage() {
             </PopoverContent>
           </Popover>
           {isAutoGenerating ? (
-            <Badge variant="secondary" className="text-[10px] uppercase tracking-[0.14em]">
+            <Badge variant="secondary" className="h-11 min-h-[44px] text-[10px] uppercase tracking-[0.14em]">
               <Wand2 className="mr-1 h-3 w-3" />
               {generatingDayIndex}/7
             </Badge>
@@ -506,7 +506,7 @@ export default function PlanPage() {
               size="sm"
               onClick={() => setQuickGenerateSheetOpen(true)}
               disabled={isGenerating || upsertPlanned.isPending}
-              className="h-10 rounded-full"
+              className="h-11 rounded-full"
             >
               <Plus className="mr-2 h-4 w-4" />
               {t('plan.add_outfit')}

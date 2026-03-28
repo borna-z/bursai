@@ -437,17 +437,17 @@ export default function AIChat() {
     <AppLayout>
       <div className="absolute inset-0 flex flex-col overflow-hidden pb-24">
         <StyleMeSubNav />
-        <div className="topbar-frost sticky top-0 z-10 flex shrink-0 items-center justify-between px-4 py-3">
+        <div className="topbar-frost sticky top-0 z-10 flex shrink-0 items-center justify-between px-4 py-3 min-h-[64px]">
           <div className="w-10" />
           <div className="flex flex-col items-center gap-0.5">
             <span className="font-['Playfair_Display'] italic text-[1.1rem] text-foreground leading-tight">
               {t('chat.mode_stylist')}
             </span>
-            <span className="caption-upper" style={{fontSize:'8px'}}>AI Stylist</span>
+            <span className="caption-upper text-[11px]">AI Stylist</span>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="quiet" size="icon" className="h-10 w-10 text-muted-foreground">
+              <Button variant="quiet" size="icon" className="h-11 w-11 text-muted-foreground">
                 <MoreVertical className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -463,7 +463,7 @@ export default function AIChat() {
         {/* Wardrobe context badge */}
         {garmentCount != null && garmentCount > 0 && (
           <div className="px-4 pb-1">
-            <p className="text-[11px] text-muted-foreground/40 text-center">
+            <p className="text-[13px] text-muted-foreground/40 text-center">
               {t('chat.based_on')} {garmentCount} {t('chat.garments_label')}
             </p>
           </div>
@@ -471,9 +471,9 @@ export default function AIChat() {
 
         {anchoredGarment && (
           <div className="px-4 pb-2">
-            <div className="surface-utility mx-auto flex max-w-md items-center justify-between gap-3 rounded-[1.25rem] px-3 py-2 text-left">
+            <div className="surface-utility mx-auto flex max-w-md items-center justify-between gap-3 rounded-[1.25rem] px-3 py-2 text-left min-h-[52px]">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[1.25rem] bg-background text-primary">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1.25rem] bg-background text-primary">
                   <Shirt className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
@@ -485,7 +485,7 @@ export default function AIChat() {
                 <Button
                   variant="quiet"
                   size="sm"
-                  className="h-8 rounded-full px-2.5 text-xs text-muted-foreground"
+                  className="h-11 rounded-full px-2.5 text-xs text-muted-foreground"
                   onClick={() => navigate(`/wardrobe/${anchoredGarment.id}`)}
                 >
                   Change
@@ -493,7 +493,7 @@ export default function AIChat() {
                 <Button
                   variant="quiet"
                   size="icon"
-                  className="h-8 w-8 rounded-full text-muted-foreground"
+                  className="h-11 w-11 rounded-full text-muted-foreground"
                   onClick={() => setAnchoredGarmentId(null)}
                   aria-label="Clear garment anchor"
                 >
@@ -573,8 +573,7 @@ export default function AIChat() {
                     <Button
                       key={i}
                       variant="outline"
-                      size="sm"
-                      className="rounded-full"
+                      className="min-h-[40px] rounded-full px-4"
                       onClick={() => {
                         setSuggestionChips([]);
                         sendMessage(chip);

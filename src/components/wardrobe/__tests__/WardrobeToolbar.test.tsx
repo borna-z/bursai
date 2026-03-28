@@ -63,7 +63,7 @@ describe('WardrobeToolbar', () => {
   it('renders the default garments state', () => {
     renderToolbar();
 
-    expect(screen.getByRole('heading', { name: 'Wardrobe' })).toBeInTheDocument();
+    expect(screen.getByText('Wardrobe')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Search garments...')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Plan' })).toBeInTheDocument();
@@ -146,7 +146,7 @@ describe('WardrobeToolbar', () => {
     });
 
     expect(screen.queryByPlaceholderText('Search garments...')).not.toBeInTheDocument();
-    expect(screen.getByText('Saved and planned looks stay together.')).toBeInTheDocument();
+    expect(screen.getByText('Looks')).toBeInTheDocument();
     expect(screen.getByText('Look archive')).toBeInTheDocument();
   });
 });

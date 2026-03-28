@@ -135,7 +135,7 @@ export function HomeCommandBoard({
         <div className="grid gap-2 sm:grid-cols-2">
           <Button
             onClick={onPrimaryAction}
-            className="h-11 justify-between px-5 text-[0.94rem]"
+            className="h-12 justify-between px-5 text-[0.94rem]"
           >
             {primaryLabel ?? 'Style me'}
             <Sparkles className="size-4" />
@@ -213,7 +213,7 @@ export function HomeCommandBoard({
         ) : null}
 
         {state !== 'outfit_planned' && state !== 'empty_wardrobe' ? (
-          <div data-testid="home-command-board-visual-recent" className="space-y-2.5">
+          <div data-testid="home-command-board-visual-recent" className="space-y-2.5 border-t border-border/20 pt-3 mt-1">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/68">
                 {state === 'weather_alert' ? 'Rebuild around weather' : 'Recent looks'}
@@ -233,7 +233,7 @@ export function HomeCommandBoard({
                   <div
                     key={outfit?.id ?? `recent-look-${index}`}
                     className={cn(
-                      'min-w-[104px] overflow-hidden rounded-[1.1rem] border border-foreground/[0.08] bg-background/76',
+                      'min-w-[112px] overflow-hidden rounded-[1.1rem] border border-foreground/[0.08] bg-background/76',
                       !outfit && 'flex min-h-[116px] items-center justify-center px-3',
                     )}
                   >
