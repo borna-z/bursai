@@ -237,10 +237,10 @@ export default function HomePage() {
             <div className="space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/55">
-                    Today
+                  <p className="caption-upper mb-0.5 text-muted-foreground/50">
+                    {formattedDate}
                   </p>
-                  <h1 className="text-[1.68rem] font-semibold leading-tight tracking-[-0.045em]">
+                  <h1 className="font-['Playfair_Display'] italic text-[1.55rem] leading-tight tracking-[-0.01em] text-foreground">
                     {getGreeting()}
                   </h1>
                 </div>
@@ -256,21 +256,21 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="app-chip-row">
-                <span className="rounded-full border border-border/45 bg-background/80 px-3 py-1.5 text-[0.78rem] uppercase tracking-[0.16em] text-muted-foreground/70 capitalize">
-                  {formattedDate}
-                </span>
-                {scheduleSummary ? (
-                  <span className="rounded-full border border-border/45 bg-background/80 px-3 py-1.5 text-[0.82rem] text-muted-foreground">
-                    {scheduleSummary}
-                  </span>
-                ) : null}
-                {weatherSummary ? (
-                  <span className="rounded-full border border-border/45 bg-background/80 px-3 py-1.5 text-[0.82rem] text-muted-foreground">
-                    {weatherSummary}
-                  </span>
-                ) : null}
-              </div>
+              {(scheduleSummary || weatherSummary) && (
+                <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+                  {scheduleSummary && (
+                    <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border/35 bg-background/70 px-2.5 py-1 text-[0.74rem] text-muted-foreground/70">
+                      <span className="h-1.5 w-1.5 rounded-full bg-accent/70 shrink-0" />
+                      {scheduleSummary}
+                    </span>
+                  )}
+                  {weatherSummary && (
+                    <span className="shrink-0 rounded-full border border-border/35 bg-background/70 px-2.5 py-1 text-[0.74rem] text-muted-foreground/70">
+                      {weatherSummary}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </motion.header>
 

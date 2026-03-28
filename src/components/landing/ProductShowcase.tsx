@@ -75,7 +75,7 @@ export function ProductShowcase() {
               className="reveal-up"
               style={{ '--reveal-delay': `${i * 100 + 500}ms` } as React.CSSProperties}
             >
-              <div className="inline-flex flex-col items-center gap-1 sm:gap-1.5 px-2 sm:px-5 py-2 sm:py-3 rounded-xl sm:rounded-2xl bg-white/[0.04] border border-white/[0.06]">
+              <div className="inline-flex flex-col items-center gap-1 sm:gap-1.5 px-2 sm:px-5 py-2 sm:py-3 rounded-xl sm:rounded-[1.25rem] bg-white/[0.04] border border-white/[0.06]">
                 <span className="text-[11px] sm:text-[13px] font-semibold text-white tracking-wide">
                   {t(screen.titleKey)}
                 </span>

@@ -507,7 +507,7 @@ export function StyleQuizV3({ onComplete, onSkip, isSaving }: Props) {
             transition={{ duration: DURATION_DEFAULT, ease: EASE_CURVE }}
             className="bg-gradient-to-br from-accent/10 via-accent/5 to-background pt-14 pb-6 px-6 flex flex-col items-center text-center"
           >
-            <div className="w-14 h-14 rounded-2xl bg-accent/15 flex items-center justify-center mb-3">
+            <div className="w-14 h-14 rounded-[1.25rem] bg-accent/15 flex items-center justify-center mb-3">
               <SectionIcon className="w-7 h-7 text-accent" />
             </div>
             <h2 className="text-lg font-bold tracking-tight">{t(currentSection.titleKey)}</h2>

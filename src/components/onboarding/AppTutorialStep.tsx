@@ -106,7 +106,7 @@ export function AppTutorialStep({ onComplete }: AppTutorialStepProps) {
                       transition={slideTransition}
                       className="flex flex-col items-center"
                     >
-                      <div className="w-20 h-20 rounded-2xl bg-accent/10 flex items-center justify-center mb-6">
+                      <div className="w-20 h-20 rounded-[1.25rem] bg-accent/10 flex items-center justify-center mb-6">
                         <Icon className="w-10 h-10 text-accent" />
                       </div>
                       <h2 className="text-xl font-semibold mb-4">{t(slide.titleKey)}</h2>

@@ -273,7 +273,7 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
   /* ── Premium gate ── */
   if (!isPremium) {
     return (
-      <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary/[0.04] to-transparent">
+      <div className="relative rounded-[1.25rem] overflow-hidden bg-gradient-to-br from-primary/[0.04] to-transparent">
         <div className="py-10 px-6 blur-sm select-none pointer-events-none">
           <div className="space-y-5">
             <div className="text-center space-y-1.5">

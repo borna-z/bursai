@@ -41,26 +41,26 @@ export default function Terms() {
           <div className="space-y-10 text-[15px] leading-relaxed" style={{ color: muted }}>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>1. Acceptance of Terms</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>1. Acceptance of Terms</h2>
               <p>These Terms of Use ("Terms") govern your use of BURS (the "Service"), including burs.me and any related web app, mobile web app, or features.</p>
               <p className="mt-3">By accessing or using BURS, you agree to these Terms. If you do not agree, do not use the Service.</p>
               <p className="mt-3">If you use BURS on behalf of a company or organization, you confirm that you are authorized to accept these Terms on its behalf.</p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>2. Who We Are</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>2. Who We Are</h2>
               <p>BURS is provided by:</p>
               <p className="mt-2">Burs<br />Email: <a href="mailto:hello@burs.me" className="hover:underline" style={{ color: ink }}>hello@burs.me</a></p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>3. Eligibility</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>3. Eligibility</h2>
               <p>You must be at least 18 years old (or the age of legal majority in your country) to create an account and use paid features.</p>
               <p className="mt-3">If you are under 18, you may only use BURS with permission from a parent or legal guardian, and only where permitted by applicable law.</p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>4. Description of the Service</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>4. Description of the Service</h2>
               <p>BURS is an AI-assisted digital wardrobe and styling service that may include:</p>
               <ul className="list-disc pl-6 mt-2 space-y-1">
                 <li>wardrobe digitization (photo upload and tagging)</li>
@@ -74,7 +74,7 @@ export default function Terms() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>5. Accounts and Security</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>5. Accounts and Security</h2>
               <p>To use certain features, you must create an account.</p>
               <p className="mt-3">You agree to:</p>
               <ul className="list-disc pl-6 mt-1 space-y-1">
@@ -87,7 +87,7 @@ export default function Terms() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>6. Subscription Plans, Billing, and Renewal</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>6. Subscription Plans, Billing, and Renewal</h2>
               <p>BURS may offer free and paid subscription plans.</p>
 
               <h3 className="font-medium mt-4 mb-1" style={{ color: ink }}>Free plan</h3>
@@ -115,7 +115,7 @@ export default function Terms() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>7. EU Consumer Rights (if applicable)</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>7. EU Consumer Rights (if applicable)</h2>
               <p>If you are a consumer in the EU/EEA, you may have mandatory rights under consumer law that cannot be limited by these Terms.</p>
               <p className="mt-3">For digital services, your right of withdrawal may be affected if:</p>
               <ul className="list-disc pl-6 mt-1 space-y-1">
@@ -126,7 +126,7 @@ export default function Terms() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>8. Third-Party Services and Google Calendar Integration</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>8. Third-Party Services and Google Calendar Integration</h2>
               <p>BURS may integrate with third-party services such as Google Calendar and weather providers.</p>
 
               <h3 className="font-medium mt-4 mb-1" style={{ color: ink }}>Google Calendar</h3>
@@ -143,7 +143,7 @@ export default function Terms() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>9. Acceptable Use</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>9. Acceptable Use</h2>
               <p>You agree not to:</p>
               <ul className="list-disc pl-6 mt-2 space-y-1">
                 <li>use BURS for unlawful purposes</li>
@@ -159,7 +159,7 @@ export default function Terms() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>10. Your Content</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>10. Your Content</h2>
 
               <h3 className="font-medium mt-3 mb-1" style={{ color: ink }}>Ownership</h3>
               <p>You retain ownership of the content you upload to BURS, including clothing photos and wardrobe metadata ("User Content").</p>
@@ -172,14 +172,14 @@ export default function Terms() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>11. Intellectual Property</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>11. Intellectual Property</h2>
               <p>BURS and its underlying software, design, AI systems, branding, and content (excluding your User Content) are owned by or licensed to us and protected by intellectual property laws.</p>
               <p className="mt-3">These Terms do not transfer any ownership rights to you.</p>
               <p className="mt-3">You may not copy, sell, sublicense, or commercially exploit BURS except as expressly permitted by us in writing.</p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>12. AI Features and Output Disclaimer</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>12. AI Features and Output Disclaimer</h2>
               <p>BURS uses AI and machine learning to generate recommendations and insights.</p>
               <p className="mt-3">By using BURS, you understand and agree that:</p>
               <ul className="list-disc pl-6 mt-1 space-y-1">
@@ -191,19 +191,19 @@ export default function Terms() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>13. Privacy</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>13. Privacy</h2>
               <p>Your use of BURS is also governed by our <Link to="/privacy" className="hover:underline" style={{ color: ink }}>Privacy Policy</Link>.</p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>14. Service Availability and Changes</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>14. Service Availability and Changes</h2>
               <p>We aim to provide a reliable service, but we do not guarantee uninterrupted availability.</p>
               <p className="mt-3">We may modify features, release updates, perform maintenance, or suspend access temporarily for security or technical reasons.</p>
               <p className="mt-3">We may discontinue parts of the Service with reasonable notice where practical.</p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>15. Termination</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>15. Termination</h2>
 
               <h3 className="font-medium mt-3 mb-1" style={{ color: ink }}>By you</h3>
               <p>You may stop using BURS at any time and may delete your account subject to our Privacy Policy and legal retention obligations.</p>
@@ -214,14 +214,14 @@ export default function Terms() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>16. Disclaimer of Warranties</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>16. Disclaimer of Warranties</h2>
               <p>To the maximum extent permitted by law, BURS is provided on an "as is" and "as available" basis.</p>
               <p className="mt-3">We do not guarantee that the Service will always be uninterrupted or error-free, AI outputs will always be accurate or suitable, or third-party integrations will always be available.</p>
               <p className="mt-3">Nothing in these Terms limits warranties or rights that cannot be excluded under applicable law.</p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>17. Limitation of Liability</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>17. Limitation of Liability</h2>
               <p>To the maximum extent permitted by law, BURS and its affiliates, officers, employees, and contractors are not liable for indirect, incidental, special, consequential, or punitive damages, including loss of profits, loss of data, or business interruption.</p>
               <p className="mt-3">Our total liability for claims arising out of or related to the Service is limited to the total amount you paid to BURS in the 12 months before the event giving rise to the claim.</p>
 
@@ -230,21 +230,21 @@ export default function Terms() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>18. Changes to These Terms</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>18. Changes to These Terms</h2>
               <p>We may update these Terms from time to time.</p>
               <p className="mt-3">If we make material changes, we will provide notice (for example, in-app or by email). Continued use of BURS after the updated Terms take effect means you accept the updated Terms.</p>
               <p className="mt-3">If you do not agree, you must stop using the Service.</p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>19. Governing Law and Disputes</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>19. Governing Law and Disputes</h2>
               <p>These Terms are governed by the laws of Sweden, without regard to conflict-of-law rules.</p>
               <p className="mt-3">If you are a consumer in the EU/EEA, you may also benefit from mandatory protections in the country where you live.</p>
               <p className="mt-3">Any dispute that cannot be resolved informally will be handled by the competent courts of Sweden, unless mandatory consumer law provides otherwise.</p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>20. Contact</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>20. Contact</h2>
               <p>Burs<br />Email: <a href="mailto:hello@burs.me" className="hover:underline" style={{ color: ink }}>hello@burs.me</a></p>
             </section>
 

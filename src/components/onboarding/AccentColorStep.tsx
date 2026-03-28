@@ -44,7 +44,7 @@ export function AccentColorStep({ onComplete }: AccentColorStepProps) {
         <motion.div variants={fadeUp} initial="hidden" animate="show" custom={2}
           className={cn(
             'w-full max-w-sm p-5 space-y-4 transition-all duration-300 border',
-            dark ? 'rounded-2xl border-white/[0.06] bg-white/[0.03]' : 'border-border bg-card'
+            dark ? 'rounded-[1.25rem] border-white/[0.06] bg-white/[0.03]' : 'border-border bg-card'
           )}
         >
           <div className="flex items-center gap-2 flex-wrap">

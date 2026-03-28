@@ -32,7 +32,7 @@ export function ExitIntentModal() {
     <div className="fixed inset-0 z-[70] flex items-center justify-center px-4" onClick={dismiss}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
-        className="relative glass-panel rounded-2xl p-8 md:p-10 max-w-md w-full text-center space-y-5 animate-scale-in"
+        className="relative glass-panel rounded-[1.25rem] p-8 md:p-10 max-w-md w-full text-center space-y-5 animate-scale-in"
         onClick={e => e.stopPropagation()}
       >
         <button onClick={dismiss} className="absolute top-4 right-4 text-gray-500 hover:text-white" aria-label="Close">
