@@ -182,7 +182,7 @@ export function QuickEditPanel({ garments, onClose }: QuickEditPanelProps) {
             <Sparkles className="w-5 h-5 text-primary" />
             {t('quickedit.title')} ({remainingGarments.length})
           </CardTitle>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-11 w-11">
             <X className="w-4 h-4" />
           </Button>
         </div>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useNavigate } from 'react-router-dom';
-import { Crown, Check, Sparkles, Infinity as InfinityIcon, Shield, Lock, ArrowLeft, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+
+import { Crown, Check, Shield, Lock, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,11 +9,11 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { prepareExternalNavigation } from '@/lib/externalNavigation';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { getLocalizedPricing } from '@/lib/localizedPricing';
 import { logger } from '@/lib/logger';
 
 export default function PricingPage() {
-  const navigate = useNavigate();
   const { t } = useLanguage();
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [isLoading, setIsLoading] = useState(false);
@@ -62,25 +62,20 @@ export default function PricingPage() {
       </Helmet>
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-background border-b border-border">
-        <div className="p-4 flex items-center gap-4 max-w-lg mx-auto">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="w-5 h-5" /></Button>
-          <h1 className="text-lg font-semibold">{t('pricing.title')}</h1>
-        </div>
-      </header>
+      <PageHeader title={t('pricing.title') || 'Premium'} eyebrow="Upgrade" showBack />
 
       <div className="p-4 space-y-8 pb-24 max-w-lg mx-auto">
         {/* Trial banner */}
-        <div className="border border-border bg-card p-6 text-center space-y-3">
+        <div className="surface-editorial rounded-[1.25rem] p-5 text-center space-y-3">
           <Badge className="bg-primary text-primary-foreground">{t('trial.badge')}</Badge>
-          <h2 className="text-xl font-bold">{t('trial.banner_title')}</h2>
+          <h2 className="font-['Playfair_Display'] italic text-[1.4rem]">{t('trial.banner_title')}</h2>
           <p className="text-sm text-muted-foreground">{t('trial.banner_desc')}</p>
         </div>
 
         {/* Hero */}
         <div className="text-center space-y-4 pt-4">
           <Crown className="w-10 h-10 mx-auto text-foreground" />
-          <h2 className="text-2xl font-bold">{t('pricing.hero')}</h2>
+          <h2 className="font-['Playfair_Display'] italic text-[1.6rem]">{t('pricing.hero')}</h2>
           <p className="text-muted-foreground">{t('pricing.hero_desc')}</p>
         </div>
 
@@ -115,7 +110,7 @@ export default function PricingPage() {
           </div>
           <p className="text-center text-sm font-medium text-muted-foreground">{t('trial.first_free')}</p>
           <p className="text-center text-xs text-muted-foreground">{t('trial.then_prefix')} {pricing.monthly}{t('pricing.per_month')} {t('common.or')} {pricing.yearly}{t('pricing.per_year')}</p>
-          <Button className="w-full h-14 text-[16px]" onClick={handleCheckout} disabled={isLoading}>
+          <Button className="h-14 w-full rounded-full text-[15px] font-medium" onClick={handleCheckout} disabled={isLoading}>
             {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Crown className="w-5 h-5 mr-2" />}
             {t('trial.start_button')}
           </Button>
@@ -132,7 +127,7 @@ export default function PricingPage() {
 
         {/* FAQ */}
         <div className="space-y-0">
-          <h3 className="font-semibold text-lg mb-4">{t('pricing.faq_title')}</h3>
+          <h3 className="font-['Playfair_Display'] italic text-lg mb-4">{t('pricing.faq_title')}</h3>
           {faqs.map((faq, index) => (
             <div key={index} className="border-b border-border">
               <button className="w-full min-h-[44px] py-4 text-left flex items-center justify-between" onClick={() => setOpenFaq(openFaq === index ? null : index)}>
@@ -146,7 +141,7 @@ export default function PricingPage() {
 
         {/* Feature comparison */}
         <div className="space-y-3">
-          <h3 className="font-semibold text-lg">{t('pricing.compare_title') || 'Free vs Premium'}</h3>
+          <h3 className="font-['Playfair_Display'] italic text-lg">{t('pricing.compare_title') || 'Free vs Premium'}</h3>
           <div className="border border-border overflow-hidden">
             <table className="w-full text-sm">
               <thead>

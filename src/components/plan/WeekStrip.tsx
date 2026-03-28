@@ -44,23 +44,22 @@ export function WeekStrip({ selectedDate, onSelectDate, plannedOutfits }: WeekSt
             animate={isSelected ? { scale: 1.08 } : { scale: 1 }}
             transition={SPRING_SUBTLE}
             className={cn(
-              'flex flex-col items-center flex-1 min-h-[64px] py-3 px-1.5 rounded-[1.25rem] transition-all duration-200',
-              'active:scale-95',
+              'flex flex-col items-center justify-center flex-1 min-h-[64px] py-3 px-1 rounded-[1.25rem] transition-all duration-200 active:scale-[0.96]',
               isSelected
                 ? 'bg-foreground text-background shadow-[0_4px_12px_rgba(28,25,23,0.18)]'
-                : 'hover:bg-muted/60',
+                : 'hover:bg-muted/50',
               isTodayDate && !isSelected && 'ring-1 ring-foreground/20'
             )}
           >
             <span className={cn(
-              'text-[10px] uppercase font-medium tracking-wide',
-              isSelected ? 'text-background/70' : 'text-muted-foreground'
+              'text-[10px] uppercase font-medium tracking-[0.08em]',
+              isSelected ? 'text-background/70' : 'text-muted-foreground/60'
             )}>
               {format(date, 'EEE', { locale: dfLocale }).slice(0, 2)}
             </span>
             <span className={cn(
               'text-[1rem] font-semibold tabular-nums leading-tight mt-0.5',
-              isSelected ? 'text-background' : hasWorn ? 'text-success' : count > 0 ? 'text-accent' : 'text-foreground'
+              isSelected ? 'text-background' : 'text-foreground'
             )}>
               {format(date, 'd')}
             </span>

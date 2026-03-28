@@ -35,7 +35,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { LazyImage } from '@/components/ui/lazy-image';
-import { PageIntro } from '@/components/ui/page-intro';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -327,19 +326,7 @@ export default function GarmentDetailPage() {
             </div>
 
             <div className="space-y-4 px-3 pb-4 pt-5">
-              <PageIntro
-                eyebrow={(
-                  <>
-                    <span className="eyebrow-chip">{displayCategorySummary}</span>
-                    {detailMeta ? (
-                      <span className="eyebrow-chip !bg-secondary/70">{detailMeta}</span>
-                    ) : null}
-                  </>
-                )}
-                title={garment.title}
-                titleClassName="text-[1.3rem] font-medium"
-                description={cleanHeroDescription}
-              />
+              <PageHeader title={garment?.title || t('common.garment')} showBack />
 
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="surface-utility rounded-[1.25rem] border p-3.5">

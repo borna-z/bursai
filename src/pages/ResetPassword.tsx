@@ -108,7 +108,7 @@ export default function ResetPassword() {
         transition={{ duration: 0.5, delay: 0.15, ease: EASE_CURVE }}
       >
         <div className="p-6 pb-2">
-          <h2 className="font-['Playfair_Display'] italic text-lg font-semibold">{t('auth.set_new_password')}</h2>
+          <h2 className="font-['Playfair_Display'] italic text-lg">{t('auth.set_new_password')}</h2>
           <p className="text-sm text-muted-foreground mt-1">{t('auth.set_new_password_desc')}</p>
         </div>
         <div className="p-6 pt-4 space-y-4">

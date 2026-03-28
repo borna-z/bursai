@@ -55,7 +55,7 @@ export function FilterSheet({
                   key={cat.id}
                   onClick={() => onCategoryChange(cat.id)}
                   className={cn(
-                    'px-3.5 py-3 min-h-[44px] rounded-full text-xs font-medium transition-colors border',
+                    'px-3.5 py-3 min-h-[52px] rounded-full text-xs font-medium transition-colors border',
                     category === cat.id
                       ? 'bg-accent text-accent-foreground border-accent/30'
                       : 'surface-inset text-muted-foreground'
@@ -82,7 +82,7 @@ export function FilterSheet({
                   key={s.key}
                   onClick={() => onSortChange(s.key)}
                   className={cn(
-                    'px-3.5 py-3 min-h-[44px] rounded-full text-xs font-medium transition-colors border',
+                    'px-3.5 py-3 min-h-[52px] rounded-full text-xs font-medium transition-colors border',
                     sortBy === s.key
                       ? 'bg-accent/10 text-accent border-accent/20'
                       : 'surface-inset text-muted-foreground'
@@ -105,7 +105,7 @@ export function FilterSheet({
                   key={c}
                   onClick={() => onColorChange(color === c ? null : c)}
                   className={cn(
-                    'px-3.5 py-2.5 min-h-[40px] rounded-full text-xs transition-colors border',
+                    'px-3.5 py-3 min-h-[52px] rounded-full text-xs transition-colors border',
                     color === c
                       ? 'bg-accent/10 text-accent font-medium border-accent/20'
                       : 'surface-inset text-muted-foreground'
@@ -128,7 +128,7 @@ export function FilterSheet({
                   key={s}
                   onClick={() => onSeasonChange(season === s ? null : s)}
                   className={cn(
-                    'flex-1 py-3 min-h-[44px] rounded-full text-xs transition-colors capitalize border',
+                    'flex-1 py-3 min-h-[52px] rounded-full text-xs transition-colors capitalize border',
                     season === s
                       ? 'bg-accent/10 text-accent font-medium border-accent/20'
                       : 'surface-inset text-muted-foreground'

@@ -11,7 +11,6 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LazyImage } from '@/components/ui/lazy-image';
-import { PageIntro } from '@/components/ui/page-intro';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Slider } from '@/components/ui/slider';
@@ -227,18 +226,7 @@ export default function EditGarmentPage() {
               <RenderPendingOverlay renderStatus={garment.render_status} />
             </div>
 
-            <PageIntro
-              eyebrow={(
-                <>
-                  <span className="eyebrow-chip">{t(CATEGORY_I18N[category] || category || 'garment.category.top')}</span>
-                  {colorPrimary ? (
-                    <span className="eyebrow-chip !bg-secondary/70">{t(COLOR_I18N[colorPrimary] || colorPrimary)}</span>
-                  ) : null}
-                </>
-              )}
-              title={title || garment.title}
-              description="Tighten the metadata, color story, and wear context so future suggestions feel sharper and more intentional."
-            />
+            <PageHeader title={t('garment.edit') || 'Edit Garment'} showBack />
           </div>
         </Card>
 

@@ -11,7 +11,7 @@ import { Card } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
 import { Input } from '@/components/ui/input';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
-import { PageIntro } from '@/components/ui/page-intro';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -98,12 +98,7 @@ export default function PickMustHaves() {
       />
 
       <AnimatedPage className="page-shell !px-5 !pb-36 !pt-6 page-cluster">
-        <PageIntro
-          eyebrow="Travel capsule"
-          meta={<span className="eyebrow-chip !bg-secondary/70">{selected.size} selected</span>}
-          title="Pick the pieces the trip should start from."
-          description="Lock in the garments you already know belong in the suitcase, then let BURS build the rest of the capsule around them."
-        />
+        <PageHeader title={t('pickmust.title') || 'Must-Haves'} eyebrow="Wardrobe" showBack />
 
         <Card surface="utility" className="space-y-4 p-4">
           <div className="relative">

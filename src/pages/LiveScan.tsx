@@ -5,7 +5,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { PageIntro } from '@/components/ui/page-intro';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { cn } from '@/lib/utils';
 import { useLiveScan } from '@/hooks/useLiveScan';
 import { useAutoDetect, type FramingHint } from '@/hooks/useAutoDetect';
@@ -300,6 +300,7 @@ async function tryGetCamera(): Promise<MediaStream> {
 
 function LiveScanFallback() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   return (
     <div className="min-h-screen bg-background px-6 py-24 text-foreground">
       <div className="mx-auto max-w-sm">
@@ -307,12 +308,7 @@ function LiveScanFallback() {
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.1rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
             <Camera className="h-7 w-7 text-foreground/70" />
           </div>
-          <PageIntro
-            center
-            eyebrow="Live scan"
-            title="Something went wrong with the scanner."
-            description="The capture flow hit an unexpected issue, but your wardrobe is still available."
-          />
+          <PageHeader title={t('scan.title') || 'Live Scan'} showBack />
           <Button onClick={() => navigate('/wardrobe')} className="w-full">
             Go to Wardrobe
           </Button>
@@ -530,12 +526,7 @@ export default function LiveScan() {
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
                 <ImagePlus className="h-8 w-8 text-foreground/70" />
               </div>
-              <PageIntro
-                center
-                eyebrow="Live scan"
-                title={t('scan.title')}
-                description={t('scan.tap_to_capture')}
-              />
+              <PageHeader title={t('scan.title') || 'Live Scan'} showBack />
               <Button onClick={handleFileCapture} disabled={isProcessing} size="lg" className="w-full">
                 <Camera className="w-4 h-4" />
                 {t('scan.take_photo')}
@@ -549,12 +540,7 @@ export default function LiveScan() {
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
                 <Camera className="h-8 w-8 text-foreground/70" />
               </div>
-              <PageIntro
-                center
-                eyebrow="Live scan"
-                title="Start the camera."
-                description={t('scan.tap_to_start')}
-              />
+              <PageHeader title={t('scan.title') || 'Live Scan'} showBack />
               <Button onClick={startCamera} size="lg" className="w-full">
                 <Camera className="w-4 h-4" />
                 {t('scan.start_camera')}
@@ -567,12 +553,7 @@ export default function LiveScan() {
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
                 <Camera className="h-8 w-8 text-foreground/70" />
               </div>
-              <PageIntro
-                center
-                eyebrow="Live scan"
-                title="Camera unavailable."
-                description={cameraError}
-              />
+              <PageHeader title={t('scan.title') || 'Live Scan'} showBack />
               <div className="flex flex-col gap-2.5">
                 <Button onClick={() => fileInputRef.current?.click()} size="lg" className="w-full">
                   <ImagePlus className="w-4 h-4" />

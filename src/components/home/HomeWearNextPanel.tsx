@@ -43,7 +43,11 @@ export function HomeWearNextPanel({
         </p>
       </div>
 
-      <div className="mt-4 grid gap-4 rounded-[1.1rem] bg-secondary/45 p-4 sm:grid-cols-[128px_minmax(0,1fr)]">
+      <button
+        type="button"
+        onClick={() => onStyleAroundGem(spotlight.id)}
+        className="mt-4 grid w-full gap-4 rounded-[1.1rem] bg-secondary/45 p-4 text-left sm:grid-cols-[128px_minmax(0,1fr)]"
+      >
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-1">
           <LazyImageSimple
             imagePath={getPreferredGarmentImagePath(spotlight)}
@@ -74,22 +78,22 @@ export function HomeWearNextPanel({
 
           <div className="flex flex-wrap items-center gap-3">
             <Button
-              onClick={() => onStyleAroundGem(spotlight.id)}
-              className="rounded-full px-4"
+              onClick={(e) => { e.stopPropagation(); onStyleAroundGem(spotlight.id); }}
+              className="h-11 rounded-full px-4"
             >
               <Sparkles className="size-4" />
               Style this
             </Button>
             <Button
               variant="ghost"
-              onClick={onOpenUnused}
-              className="text-[0.82rem] font-medium text-muted-foreground underline underline-offset-4"
+              onClick={(e) => { e.stopPropagation(); onOpenUnused(); }}
+              className="h-11 text-[0.82rem] font-medium text-muted-foreground underline underline-offset-4"
             >
               Open unworn rotation
             </Button>
           </div>
         </div>
-      </div>
+      </button>
     </section>
   );
 }

@@ -88,7 +88,7 @@ export function HomeDnaSnapshot({
           </div>
         </div>
 
-        <Button onClick={onOpenInsights} variant="outline" className="mt-4 rounded-full px-4">
+        <Button onClick={onOpenInsights} variant="outline" className="mt-4 h-11 rounded-full px-4">
           Open insights
         </Button>
       </section>
@@ -119,7 +119,7 @@ export function HomeDnaSnapshot({
         <Button
           variant="ghost"
           onClick={onOpenInsights}
-          className="rounded-full px-3 text-foreground/70"
+          className="h-11 rounded-full px-3 text-foreground/70"
         >
           Open insights
           <ArrowUpRight className="size-4" />

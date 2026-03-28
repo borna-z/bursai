@@ -24,13 +24,13 @@ export default function SettingsAppearance() {
         <SettingsGroup title={t('settings.appearance')}>
           <div className="px-4 py-3 border-b border-border/50">
             <div className="flex gap-1.5">
-              <Button variant={theme === 'light' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('light')} className={`flex-1 h-9 text-xs ${theme === 'light' ? 'bg-accent text-accent-foreground' : ''}`}>
+              <Button variant={theme === 'light' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('light')} className={`flex-1 h-11 text-xs ${theme === 'light' ? 'bg-accent text-accent-foreground' : ''}`}>
                 <Sun className="w-3.5 h-3.5 mr-1.5" />{t('settings.theme.light')}
               </Button>
-              <Button variant={theme === 'dark' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('dark')} className={`flex-1 h-9 text-xs ${theme === 'dark' ? 'bg-accent text-accent-foreground' : ''}`}>
+              <Button variant={theme === 'dark' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('dark')} className={`flex-1 h-11 text-xs ${theme === 'dark' ? 'bg-accent text-accent-foreground' : ''}`}>
                 <Moon className="w-3.5 h-3.5 mr-1.5" />{t('settings.theme.dark')}
               </Button>
-              <Button variant={theme === 'system' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('system')} className={`flex-1 h-9 text-xs ${theme === 'system' ? 'bg-accent text-accent-foreground' : ''}`}>
+              <Button variant={theme === 'system' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('system')} className={`flex-1 h-11 text-xs ${theme === 'system' ? 'bg-accent text-accent-foreground' : ''}`}>
                 <Monitor className="w-3.5 h-3.5 mr-1.5" />{t('settings.theme.auto')}
               </Button>
             </div>
@@ -44,7 +44,7 @@ export default function SettingsAppearance() {
           <SettingsGroup title={t('settings.language')}>
             <SettingsRow icon={<Globe />} label={t('settings.language')} last>
               <Select value={locale} onValueChange={(v) => setLocale(v as Locale)}>
-                <SelectTrigger className="w-[130px] h-8 text-xs border-0 bg-muted/50">
+                <SelectTrigger className="w-[130px] h-11 text-xs border-0 bg-muted/50">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

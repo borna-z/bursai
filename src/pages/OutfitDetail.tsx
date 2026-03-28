@@ -667,14 +667,14 @@ export default function OutfitDetailPage() {
               <Button
                 variant="outline"
                 onClick={() => navigate('/plan', { state: { preselectedOutfitId: outfit.id } })}
-                className="h-11 rounded-full border border-foreground/20 bg-transparent text-foreground font-['DM_Sans'] text-[13px] font-medium"
+                className="h-11 min-h-[44px] rounded-full border border-foreground/20 bg-transparent text-foreground font-['DM_Sans'] text-[13px] font-medium"
               >
                 {t('outfit.plan') || 'Plan'}
               </Button>
               <Button
                 variant="outline"
                 onClick={handleToggleSave}
-                className="h-11 rounded-full border border-foreground/20 bg-transparent text-foreground font-['DM_Sans'] text-[13px] font-medium flex items-center justify-center gap-2"
+                className="h-11 min-h-[44px] rounded-full border border-foreground/20 bg-transparent text-foreground font-['DM_Sans'] text-[13px] font-medium flex items-center justify-center gap-2"
               >
                 {outfit.saved
                   ? <><BookmarkCheck className="w-4 h-4" />{t('outfit.saved')}</>
@@ -686,7 +686,7 @@ export default function OutfitDetailPage() {
               <Button
                 variant="ghost"
                 onClick={() => setShareSheetOpen(true)}
-                className="h-11 rounded-full bg-card text-foreground font-['DM_Sans'] text-[13px] flex items-center justify-center gap-1.5"
+                className="h-11 min-h-[44px] rounded-full bg-card text-foreground font-['DM_Sans'] text-[13px] flex items-center justify-center gap-1.5"
               >
                 <Share2 className="w-3.5 h-3.5" />
                 Share
@@ -694,7 +694,7 @@ export default function OutfitDetailPage() {
               <Button
                 variant="ghost"
                 onClick={handleCreateSimilar}
-                className="h-11 rounded-full bg-card text-foreground font-['DM_Sans'] text-[13px] flex items-center justify-center gap-1.5"
+                className="h-11 min-h-[44px] rounded-full bg-card text-foreground font-['DM_Sans'] text-[13px] flex items-center justify-center gap-1.5"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 Remake

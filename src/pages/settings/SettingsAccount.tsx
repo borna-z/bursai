@@ -68,7 +68,7 @@ export default function SettingsAccount() {
             <Label className="text-xs font-medium">{t('settings.display_name')}</Label>
             <div className="flex gap-2">
               <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={t('settings.your_name')} className="h-9 text-sm" />
-              <Button onClick={handleSaveDisplayName} disabled={updateProfile.isPending} size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 h-9 text-xs px-4">
+              <Button onClick={handleSaveDisplayName} disabled={updateProfile.isPending} size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 h-11 text-xs px-4">
                 {t('settings.save')}
               </Button>
             </div>

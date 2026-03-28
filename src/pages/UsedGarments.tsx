@@ -8,7 +8,7 @@ import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
-import { PageIntro } from '@/components/ui/page-intro';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useInsights } from '@/hooks/useInsights';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
@@ -25,11 +25,10 @@ export default function UsedGarments() {
   return (
     <AppLayout>
       <AnimatedPage className="page-shell !px-5 !pt-6 page-cluster">
-        <PageIntro
-          eyebrow="Insights"
-          meta={<span className="eyebrow-chip !bg-secondary/70">{usedGarments.length} pieces</span>}
+        <PageHeader
           title={t('insights.used_garments_title')}
-          description="These are the pieces that already carry your wardrobe. Use them as anchors when you want another look to feel easy."
+          eyebrow="Insights"
+          showBack
           actions={usedGarments.length > 0 ? (
             <Button
               onClick={() => {

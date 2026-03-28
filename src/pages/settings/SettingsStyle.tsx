@@ -193,7 +193,7 @@ export default function SettingsStyle() {
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="px-4 pb-4 space-y-3">
               <div className="space-y-1.5">
-                <Label className="flex items-center gap-1.5 text-xs font-medium">
+                <Label className="flex items-center gap-1.5 text-[13px] font-medium">
                   <Ruler className="w-3.5 h-3.5 text-accent" />{t('settings.height')}
                 </Label>
                 <div className="relative">
@@ -208,7 +208,7 @@ export default function SettingsStyle() {
                 {heightError && <p className="text-xs text-destructive">{heightError}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label className="flex items-center gap-1.5 text-xs font-medium">
+                <Label className="flex items-center gap-1.5 text-[13px] font-medium">
                   <Weight className="w-3.5 h-3.5 text-accent" />{t('settings.weight')}
                   <span className="text-muted-foreground font-normal">{t('settings.optional')}</span>
                 </Label>
@@ -221,7 +221,7 @@ export default function SettingsStyle() {
                 <Lock className="w-3 h-3 flex-shrink-0 mt-0.5" />
                 <p className="text-[11px] leading-relaxed">{t('settings.body_privacy')}</p>
               </div>
-              <Button onClick={handleSaveBodyData} disabled={updateProfile.isPending} size="sm" className="w-full bg-accent text-accent-foreground hover:bg-accent/90 h-9 text-xs">
+              <Button onClick={handleSaveBodyData} disabled={updateProfile.isPending} size="sm" className="w-full bg-accent text-accent-foreground hover:bg-accent/90 h-11 text-xs">
                 {updateProfile.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : bodySaved ? <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> : null}
                 {bodySaved ? t('settings.saved') : t('settings.save_measurements')}
               </Button>
