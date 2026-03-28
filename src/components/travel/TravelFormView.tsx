@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { CalendarIcon, Cloud, Globe, Minus, Package, Shirt, SlidersHorizontal, Plus } from 'lucide-react';
 
 import { AppLayout } from '@/components/layout/AppLayout';
-import { StyleMeSubNav } from '@/components/ai/StyleMeSubNav';
 import { AILoadingCard } from '@/components/ui/AILoadingCard';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Badge } from '@/components/ui/badge';
@@ -120,8 +119,6 @@ export function TravelFormView({
 
   return (
     <AppLayout hideNav>
-      <StyleMeSubNav />
-
       <AnimatedPage className="page-shell !px-5 !pt-6 page-cluster">
         <PageIntro
           eyebrow="Travel capsule"

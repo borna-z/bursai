@@ -81,10 +81,10 @@ export function BottomNav() {
   return (
     <>
       <nav
-        className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[calc(10px+env(safe-area-inset-bottom,0px))] pointer-events-none"
+        className="fixed inset-x-0 bottom-0 z-50 pointer-events-none"
         aria-label="Main navigation"
       >
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto pb-[env(safe-area-inset-bottom,0px)]">
           <div className="app-dock flex items-center gap-1">
             <div className="app-dock-slot">
               <RouteTab {...ROUTE_TABS[0]} />
@@ -140,7 +140,6 @@ export function BottomNav() {
             </div>
           </div>
         </div>
-        <div className="safe-bottom pointer-events-none" aria-hidden="true" />
       </nav>
 
       <BottomNavAddSheet open={addSheetOpen} onOpenChange={setAddSheetOpen} />

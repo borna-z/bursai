@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
 import { AppLayout } from '@/components/layout/AppLayout';
-import { StyleMeSubNav } from '@/components/ai/StyleMeSubNav';
 import { PaywallModal } from '@/components/PaywallModal';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
@@ -122,8 +121,6 @@ export default function MoodOutfitPage() {
 
   return (
     <AppLayout>
-      <StyleMeSubNav />
-
       <AnimatedPage className="page-shell !px-5 !pt-6 page-cluster">
         {generatedOutfit ? (
           <>

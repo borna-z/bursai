@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { MessageCircle, Plane, Settings } from 'lucide-react';
+import { MessageCircle, Plane, Settings, Sparkles, Smile } from 'lucide-react';
 import { format } from 'date-fns';
 import { enUS, nb, sv, da, fi, de, fr, es, it, pt, nl, pl, ar } from 'date-fns/locale';
 
@@ -273,6 +273,28 @@ export default function HomePage() {
               )}
             </div>
           </motion.header>
+
+          {/* AI Quick Access Strip */}
+          <div className="grid grid-cols-4 gap-2 pb-1">
+            {[
+              { label: t('nav.generate') || 'Generate', icon: Sparkles, path: '/ai/generate' },
+              { label: t('nav.chat') || 'Chat', icon: MessageCircle, path: '/ai/chat' },
+              { label: t('ai.mood_title') || 'Mood', icon: Smile, path: '/ai/mood' },
+              { label: t('travel.title') || 'Travel', icon: Plane, path: '/ai/travel' },
+            ].map(({ label, icon: Icon, path }) => (
+              <button
+                key={path}
+                type="button"
+                onClick={() => { hapticLight(); navigate(path); }}
+                className="flex flex-col items-center gap-1.5 rounded-[1.25rem] border border-border/35 bg-background/70 py-3 px-2 active:scale-95 transition-transform"
+              >
+                <Icon className="h-5 w-5 text-foreground/70" />
+                <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground/70 leading-none">
+                  {label}
+                </span>
+              </button>
+            ))}
+          </div>
 
           <HomeCommandBoard
             state={homeState}

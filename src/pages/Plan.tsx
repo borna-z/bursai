@@ -80,7 +80,7 @@ export default function PlanPage() {
   const [preselectSheetOpen, setPreselectSheetOpen] = useState(!!preselectedOutfitId);
 
   const { data: plannedOutfits = [], isLoading } = usePlannedOutfits();
-  const { data: garments = [] } = useFlatGarments();
+  const { data: garments = [], isLoading: isGarmentsLoading } = useFlatGarments();
   const { effectiveCity } = useLocationCtx();
   const { getForecastForDate } = useForecast({ city: effectiveCity });
 
@@ -239,7 +239,7 @@ export default function PlanPage() {
     }
   };
 
-  const hasGarments = garments.length > 0;
+  const hasGarments = garments.length > 0 || isGarmentsLoading;
   const primaryPlanned = dayPlannedOutfits[0] ?? null;
   const additionalPlanned = dayPlannedOutfits.slice(1);
 
@@ -489,7 +489,7 @@ export default function PlanPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.22 }}
           >
-            {isLoading || isDayLoading ? (
+            {isLoading || isDayLoading || isGarmentsLoading ? (
               <PlanPageSkeleton />
             ) : !hasGarments ? (
               <PlanOnboardingEmpty />

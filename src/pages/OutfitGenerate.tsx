@@ -9,7 +9,6 @@ import { motion, LayoutGroup, useReducedMotion, type Transition } from 'framer-m
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { StyleMeSubNav } from '@/components/ai/StyleMeSubNav';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -596,7 +595,6 @@ export default function OutfitGeneratePage() {
   return (
     <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
     <AppLayout>
-      <StyleMeSubNav />
       <div className="page-shell pb-36 animate-fade-in">
 
         {/* ── Header + Weather ── */}
@@ -608,7 +606,7 @@ export default function OutfitGeneratePage() {
           {weather && (
             <div className="pt-1.5">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-border/45 bg-background/80 px-3 py-1.5 text-[11px] text-foreground/62">
-                {weather.temperature}°C · {weather.condition || weather.location}
+                {weather.temperature}°C · {t(weather.condition) || weather.location}
               </span>
               {weatherAdvice && (
                 <p className="pt-2 text-[11px] text-muted-foreground/55">
