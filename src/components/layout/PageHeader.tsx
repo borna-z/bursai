@@ -33,10 +33,10 @@ export function PageHeader({
       )}
     >
       <div className={cn(
-        'mx-auto flex max-w-xl items-center justify-between gap-3 px-4',
+        'mx-auto flex w-full max-w-md items-center justify-between gap-3 px-4',
         subtitle ? 'min-h-[76px] py-3' : 'h-[68px]'
       )}>
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           {showBack && (
             <Button 
               variant="quiet" 
@@ -47,7 +47,7 @@ export function PageHeader({
               <ArrowLeft className="w-5 h-5" />
             </Button>
           )}
-          <div className="space-y-1">
+          <div className="min-w-0 space-y-1">
             <AnimatePresence mode="wait">
               <motion.h1
                 key={title}

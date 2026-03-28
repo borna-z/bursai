@@ -44,7 +44,7 @@ export function TodayOutfitHero({ weather, garmentCount, recentOutfits, classNam
   else if (weather?.temperature != null && weather.temperature > 28)
     subtitle = 'Hot day ahead — light fabrics and breathable fits.';
 
-  const ctaLabel = 'Style me';
+  const ctaLabel = 'Style outfit';
   const hasRecentOutfits = recentOutfits && recentOutfits.length > 0;
 
   return (

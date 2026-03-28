@@ -22,7 +22,6 @@ const dashboardAdapterMock = vi.fn();
 
 vi.mock('framer-motion', () => ({
   motion: {
-    circle: (props: Record<string, unknown>) => <circle {...props} />,
     div: ({ children, ...props }: PropsWithChildren<Record<string, unknown>>) => (
       <div {...props}>{children}</div>
     ),
@@ -74,25 +73,6 @@ vi.mock('@/components/insights/useInsightsDashboardAdapter', () => ({
   useInsightsDashboardAdapter: () => dashboardAdapterMock(),
 }));
 
-vi.mock('@/components/insights/InsightsOverviewHero', () => ({
-  InsightsOverviewHero: ({
-    dnaArchetype,
-    savedLooks,
-    plannedThisWeek,
-  }: {
-    dnaArchetype: string | null;
-    savedLooks: number;
-    plannedThisWeek: number;
-  }) => (
-    <section>
-      <h2>Rotation, DNA, and value in one working view.</h2>
-      {dnaArchetype ? <p>{dnaArchetype}</p> : null}
-      <p>Saved looks: {savedLooks}</p>
-      <p>Planned this week: {plannedThisWeek}</p>
-    </section>
-  ),
-}));
-
 vi.mock('@/components/insights/InsightsGapPreview', () => ({
   InsightsGapPreview: () => <section>Black loafers</section>,
 }));
@@ -114,18 +94,6 @@ vi.mock('@/components/insights/InsightsGarmentRail', () => ({
 
 vi.mock('@/components/insights/InsightsPalettePanel', () => ({
   InsightsPalettePanel: () => <section>Palette panel</section>,
-}));
-
-vi.mock('@/components/insights/InsightsRelatedTools', () => ({
-  InsightsRelatedTools: ({
-    tools,
-  }: {
-    tools: Array<{ title: string }>;
-  }) => (
-    <section>
-      {tools.map((tool) => <p key={tool.title}>{tool.title}</p>)}
-    </section>
-  ),
 }));
 
 vi.mock('@/components/insights/InsightsSection', () => ({
@@ -152,18 +120,6 @@ vi.mock('@/components/insights/StyleDNACard', () => ({
 
 vi.mock('@/components/insights/StyleReportCard', () => ({
   StyleReportCard: () => <section>Style report</section>,
-}));
-
-vi.mock('@/components/insights/CategoryRadar', () => ({
-  CategoryRadar: () => <section>Category radar</section>,
-}));
-
-vi.mock('@/components/insights/OutfitRepeatTracker', () => ({
-  OutfitRepeatTracker: () => <section>Repeat tracker</section>,
-}));
-
-vi.mock('@/components/insights/WearHeatmap', () => ({
-  WearHeatmap: () => <section>Wear heatmap</section>,
 }));
 
 vi.mock('@/components/insights/SpendingDashboard', () => ({
@@ -199,6 +155,7 @@ describe('Insights page', () => {
         topFiveWorn: [{ id: 'top-1', title: 'Black Tee', color_primary: 'black', wearCountLast30: 6 }],
         unusedGarments: [{ id: 'unused-1', title: 'Blue Shirt', color_primary: 'blue' }],
         usedGarments: [{ id: 'used-1', title: 'Grey Trousers', color_primary: 'black', wearCountLast30: 4 }],
+        colorTemperature: 'neutral',
       },
       dna: {
         archetype: 'Minimalist',
@@ -239,18 +196,17 @@ describe('Insights page', () => {
     });
   });
 
-  it('renders the DNA dashboard sections with populated data', () => {
+  it('renders the compact dashboard sections with populated data', () => {
     renderPage();
 
     expect(screen.getByRole('heading', { level: 1, name: 'Insights' })).toBeInTheDocument();
-    expect(screen.getByText('App-wide rotation, DNA, and wardrobe leverage')).toBeInTheDocument();
-    expect(screen.getByText('Rotation, DNA, and value in one working view.')).toBeInTheDocument();
+    expect(screen.getByText('Rotation, DNA, gaps, and value at a glance.')).toBeInTheDocument();
+    expect(screen.getByText('See what is active, what is missing, and what is worth repeating.')).toBeInTheDocument();
     expect(screen.getAllByText('Minimalist').length).toBeGreaterThan(0);
-    expect(screen.getByText('Saved looks: 9')).toBeInTheDocument();
-    expect(screen.getByText('Planned this week: 4')).toBeInTheDocument();
-    expect(screen.getByText('Wardrobe patterns')).toBeInTheDocument();
-    expect(screen.getByText('Value & gaps')).toBeInTheDocument();
-    expect(screen.getByText('Related tools')).toBeInTheDocument();
+    expect(screen.getByText('What is doing the real work')).toBeInTheDocument();
+    expect(screen.getByText('The formulas BURS can trust')).toBeInTheDocument();
+    expect(screen.getByText('What would unlock more outfits')).toBeInTheDocument();
+    expect(screen.getByText('Value, palette, and future spend')).toBeInTheDocument();
     expect(screen.getByText('Black loafers')).toBeInTheDocument();
     expect(screen.getByTestId('wardrobe-health-card')).toBeInTheDocument();
   });
@@ -270,7 +226,7 @@ describe('Insights page', () => {
     );
 
     expect(screen.getByRole('heading', { level: 1, name: 'Insikter' })).toBeInTheDocument();
-    expect(screen.getByText('App-wide rotation, DNA, and wardrobe leverage')).toBeInTheDocument();
-    expect(screen.getByText('Wardrobe patterns')).toBeInTheDocument();
+    expect(screen.getByText('Rotation, DNA, gaps, and value at a glance.')).toBeInTheDocument();
+    expect(screen.getByText('What is doing the real work')).toBeInTheDocument();
   });
 });

@@ -275,8 +275,8 @@ export function WardrobeOutfitsTab() {
     ? 'Bookmark looks you want to keep close and they will collect here with their quick details.'
     : 'Planned looks from your calendar and weekly planner will show up here with their dates.';
   const filterEmptyAction = filter === 'saved'
-    ? { label: 'Style me', onClick: () => navigate('/ai/generate'), icon: Sparkles }
-    : { label: 'Open planner', onClick: () => navigate('/plan'), icon: CalendarDays };
+    ? { label: 'Style outfit', onClick: () => navigate('/ai/generate'), icon: Sparkles }
+    : { label: 'Open plan', onClick: () => navigate('/plan'), icon: CalendarDays };
 
   return (
     <>
@@ -319,7 +319,7 @@ export function WardrobeOutfitsTab() {
                 className="h-11 rounded-full bg-foreground px-5 text-background sm:flex-1"
               >
                 <Sparkles className="mr-2 h-4 w-4" />
-                Style me
+                Style outfit
               </Button>
               <Button
                 variant="outline"
@@ -327,7 +327,7 @@ export function WardrobeOutfitsTab() {
                 className="h-11 rounded-full border-border/20 bg-background/70 px-5 sm:flex-1"
               >
                 <CalendarDays className="mr-2 h-4 w-4" />
-                Open planner
+                Open plan
               </Button>
             </div>
 
@@ -372,7 +372,7 @@ export function WardrobeOutfitsTab() {
           description="Generate your first outfit and it will start building a calmer archive of looks, plans, and saves here."
           hint="Saved looks and planned dates will appear as quick status details on each card."
           action={{ label: t('outfits.create'), onClick: () => navigate('/ai/generate'), icon: Sparkles }}
-          secondaryAction={{ label: 'Open planner', onClick: () => navigate('/plan') }}
+          secondaryAction={{ label: 'Open plan', onClick: () => navigate('/plan') }}
           variant="editorial"
           titleClassName="font-['Playfair_Display'] text-[22px] font-medium tracking-[-0.03em]"
           className="border-border/15 bg-card/35"
@@ -399,7 +399,7 @@ export function WardrobeOutfitsTab() {
           icon={filter === 'saved' ? Bookmark : CalendarDays}
           title={filterEmptyTitle}
           description={filterEmptyDescription}
-          hint={filter === 'saved' ? 'Saved looks are easiest to build from Style Me and any outfit detail view.' : 'Planning a look adds its date and keeps it visible alongside the rest of your wardrobe outfits.'}
+          hint={filter === 'saved' ? 'Saved looks are easiest to build from Style outfit and any outfit detail view.' : 'Planning a look adds its date and keeps it visible alongside the rest of your wardrobe outfits.'}
           action={filterEmptyAction}
           secondaryAction={{ label: 'Show all looks', onClick: () => setFilter('all') }}
           compact

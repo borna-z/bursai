@@ -287,13 +287,13 @@ export function TravelFormView({
                 </div>
 
                 {mustHaveItems.length > 0 ? (
-                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                    {mustHaveItems.slice(0, 6).map((id) => {
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                    {mustHaveItems.slice(0, 8).map((id) => {
                       const garment = allGarments?.find((item) => item.id === id);
                       if (!garment) return null;
 
                       return (
-                        <div key={id} className="relative h-14 w-14 shrink-0 overflow-hidden rounded-[1rem] border border-border/70 bg-muted/20">
+                        <div key={id} className="relative aspect-square overflow-hidden rounded-[1rem] border border-border/70 bg-muted/20">
                           <LazyImageSimple
                             imagePath={getPreferredGarmentImagePath(garment)}
                             alt={garment.title}
@@ -312,9 +312,9 @@ export function TravelFormView({
                         </div>
                       );
                     })}
-                    {mustHaveItems.length > 6 ? (
-                      <div className="surface-inset flex h-14 w-14 shrink-0 items-center justify-center rounded-[1rem] border">
-                        <span className="text-xs font-medium text-muted-foreground">+{mustHaveItems.length - 6}</span>
+                    {mustHaveItems.length > 8 ? (
+                      <div className="surface-inset flex aspect-square items-center justify-center rounded-[1rem] border">
+                        <span className="text-xs font-medium text-muted-foreground">+{mustHaveItems.length - 8}</span>
                       </div>
                     ) : null}
                   </div>

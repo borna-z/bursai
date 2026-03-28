@@ -520,7 +520,7 @@ export default function GarmentDetailPage() {
       </div>
 
       <div className="fixed inset-x-4 bottom-4 z-20" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
-        <div className="mx-auto max-w-xl">
+        <div className="mx-auto max-w-md">
           <div className="action-bar-floating flex gap-2 rounded-[1.6rem] p-3">
             <Button variant="outline" onClick={handleMarkWorn} className="flex-1">
               Mark worn

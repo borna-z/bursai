@@ -1,26 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+
 import { WardrobeToolbar } from '../WardrobeToolbar';
 import type { WardrobeCommandTopState, WardrobeInventoryState } from '../wardrobeTypes';
 
 const baseCommandState: WardrobeCommandTopState = {
   title: 'Wardrobe',
-  caption: 'Search, filter, and style what you already own.',
-  activeTab: 'garments',
+  caption: 'Search, filter, and open garments directly from one calm workspace.',
   resultsLabel: '12 garments',
-  searchPlaceholder: 'Search garments…',
-  actions: [
-    { key: 'style', label: 'Create', tone: 'primary' },
-    { key: 'plan', label: 'Plan', tone: 'secondary' },
-    { key: 'add', label: 'Add', tone: 'muted' },
-    { key: 'scan', label: 'Live Scan', tone: 'muted' },
-  ],
+  searchPlaceholder: 'Search garments...',
 };
 
 const baseInventoryState: WardrobeInventoryState = {
   kind: 'results',
   title: '12 pieces ready',
-  description: 'Tap a piece to open it, or style around it directly.',
+  description: 'Tap a garment to open it, edit it, or style around it.',
 };
 
 function renderToolbar({
@@ -30,20 +24,17 @@ function renderToolbar({
   selectedIdsCount = 0,
   hasActiveFilters = false,
   search = '',
-  activeTab = 'garments' as const,
 } = {}) {
   return render(
     <WardrobeToolbar
       t={(key) => key}
-      commandState={{ ...commandState, activeTab }}
+      commandState={commandState}
       inventoryState={inventoryState}
       isGridView
       onToggleView={vi.fn()}
       isSelecting={isSelecting}
       onStartSelecting={vi.fn()}
       onCancelSelecting={vi.fn()}
-      activeTab={activeTab}
-      onTabChange={vi.fn()}
       search={search}
       onSearchChange={vi.fn()}
       onClearSearch={vi.fn()}
@@ -53,20 +44,21 @@ function renderToolbar({
       selectedIdsCount={selectedIdsCount}
       onBulkLaundry={vi.fn()}
       onBulkDelete={vi.fn()}
-      onAction={vi.fn()}
       onClearFilters={vi.fn()}
+      onAddGarment={vi.fn()}
+      onOpenOutfits={vi.fn()}
     />,
   );
 }
 
 describe('WardrobeToolbar', () => {
-  it('renders the default garments state', () => {
+  it('renders the calmer garments-only header state', () => {
     renderToolbar();
 
     expect(screen.getByRole('heading', { name: 'Wardrobe' })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Search garments…')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Plan' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search garments...')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'wardrobe.add' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open outfits' })).toBeInTheDocument();
   });
 
   it('renders selecting state with bulk actions', () => {
@@ -80,7 +72,7 @@ describe('WardrobeToolbar', () => {
       inventoryState: {
         kind: 'selecting',
         title: '3 selected',
-        description: 'Batch actions stay available at the top.',
+        description: 'Batch actions stay visible only while selection mode is on.',
       },
     });
 
@@ -98,18 +90,12 @@ describe('WardrobeToolbar', () => {
       <WardrobeToolbar
         t={(key) => key}
         commandState={baseCommandState}
-        inventoryState={{
-          kind: 'results',
-          title: '2 pieces ready',
-          description: 'Tap a piece to open it, or style around it directly.',
-        }}
+        inventoryState={baseInventoryState}
         isGridView
         onToggleView={vi.fn()}
         isSelecting={false}
         onStartSelecting={vi.fn()}
         onCancelSelecting={vi.fn()}
-        activeTab="garments"
-        onTabChange={vi.fn()}
         search="blue"
         onSearchChange={vi.fn()}
         onClearSearch={onClearSearch}
@@ -119,8 +105,9 @@ describe('WardrobeToolbar', () => {
         selectedIdsCount={0}
         onBulkLaundry={vi.fn()}
         onBulkDelete={vi.fn()}
-        onAction={vi.fn()}
         onClearFilters={onClearFilters}
+        onAddGarment={vi.fn()}
+        onOpenOutfits={vi.fn()}
       />,
     );
 
@@ -129,22 +116,11 @@ describe('WardrobeToolbar', () => {
     expect(onClearFilters).toHaveBeenCalled();
   });
 
-  it('renders a calmer outfits state without garment search controls', () => {
-    renderToolbar({
-      activeTab: 'outfits',
-      commandState: {
-        ...baseCommandState,
-        activeTab: 'outfits',
-        caption: 'Saved and planned looks stay in one place.',
-      },
-      inventoryState: {
-        kind: 'results',
-        title: 'Your saved and planned looks',
-        description: 'Generate new outfits, then keep the best ones close.',
-      },
-    });
+  it('keeps the outfits archive as a secondary route instead of a page tab', () => {
+    renderToolbar();
 
-    expect(screen.queryByPlaceholderText('Search garments…')).not.toBeInTheDocument();
-    expect(screen.getByText('Saved and planned looks stay in one place.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'wardrobe.tab_garments' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'wardrobe.tab_outfits' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open outfits' })).toBeInTheDocument();
   });
 });

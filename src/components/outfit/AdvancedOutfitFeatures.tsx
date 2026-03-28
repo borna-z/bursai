@@ -55,14 +55,14 @@ export function OutfitDNASection({ outfitId }: { outfitId: string }) {
         <div key={i} className="rounded-2xl bg-muted/20 border border-border/20 p-4 space-y-2">
           <p className="text-sm font-semibold">{v.name}</p>
           <p className="text-xs text-muted-foreground">{v.explanation}</p>
-          <div className="flex gap-1 overflow-x-auto scrollbar-hide">
+          <div className="grid grid-cols-4 gap-1.5">
             {v.garment_ids.slice(0, 4).map((gid) => (
               <div
                 key={gid}
-                className="w-14 h-16 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer bg-muted/30"
+                className="aspect-[7/8] w-full cursor-pointer overflow-hidden rounded-lg bg-muted/30"
                 onClick={() => navigate(`/wardrobe/${gid}`)}
               >
-                <LazyImageSimple imagePath={undefined} alt="" className="w-14 h-16 object-cover" fallbackIcon={<Shirt className="w-4 h-4 text-muted-foreground/30" />} />
+                <LazyImageSimple imagePath={undefined} alt="" className="h-full w-full object-cover" fallbackIcon={<Shirt className="w-4 h-4 text-muted-foreground/30" />} />
               </div>
             ))}
           </div>

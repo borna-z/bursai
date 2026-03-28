@@ -9,6 +9,7 @@ vi.mock('@/components/ui/OutfitComposition', () => ({
 const baseProps = {
   garmentCount: 8,
   recentOutfits: [],
+  primaryLabel: 'Style outfit',
   secondaryLabel: 'Open plan',
   onPrimaryAction: vi.fn(),
   onSecondaryAction: vi.fn(),
@@ -21,6 +22,7 @@ describe('HomeCommandBoard', () => {
         {...baseProps}
         state="empty_wardrobe"
         garmentCount={2}
+        primaryLabel="Add garment"
         secondaryLabel="Open wardrobe"
         coachNudge
       />,
@@ -49,7 +51,7 @@ describe('HomeCommandBoard', () => {
     expect(screen.getByTestId('home-command-board-outfit_planned')).toBeInTheDocument();
     expect(screen.getByTestId('home-command-board-visual-planned')).toBeInTheDocument();
     expect(screen.getByTestId('outfit-composition')).toBeInTheDocument();
-    expect(screen.getByText('Saved outfit')).toBeInTheDocument();
+    expect(screen.getByText('Planned today')).toBeInTheDocument();
   });
 
   it('renders recent-look mode when there is no planned outfit', () => {
@@ -63,7 +65,7 @@ describe('HomeCommandBoard', () => {
     expect(screen.getByTestId('home-command-board-no_outfit')).toBeInTheDocument();
     expect(screen.getByTestId('home-command-board-visual-recent')).toBeInTheDocument();
     expect(screen.getByText('Rotation')).toBeInTheDocument();
-    expect(screen.getByText('Style Me')).toBeInTheDocument();
+    expect(screen.getByText('Style outfit')).toBeInTheDocument();
   });
 
   it('renders weather alert copy in weather state', () => {
@@ -76,7 +78,7 @@ describe('HomeCommandBoard', () => {
     );
 
     expect(screen.getByTestId('home-command-board-weather_alert')).toBeInTheDocument();
-    expect(screen.getByText('Weather changed the brief')).toBeInTheDocument();
+    expect(screen.getByText('Weather changed the plan')).toBeInTheDocument();
     expect(screen.getByText('Forecast')).toBeInTheDocument();
   });
 });

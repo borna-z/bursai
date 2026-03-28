@@ -126,8 +126,8 @@ describe('WardrobeOutfitsTab', () => {
     render(<WardrobeOutfitsTab />);
 
     expect(screen.getByText('Styled outfits, kept close')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Style me' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open planner' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Style outfit' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open plan' })).toBeInTheDocument();
     expect(screen.getAllByText('All looks').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Saved').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Planned').length).toBeGreaterThan(0);
@@ -153,7 +153,7 @@ describe('WardrobeOutfitsTab', () => {
     fireEvent.click(screen.getByRole('button', { name: /planned/i }));
 
     expect(screen.getByText('Nothing planned yet')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Open planner' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Open plan' }).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole('button', { name: 'Show all looks' }));
 
@@ -170,6 +170,6 @@ describe('WardrobeOutfitsTab', () => {
 
     expect(screen.getByText('No wardrobe looks yet')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create outfit' })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Open planner' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Open plan' }).length).toBeGreaterThan(0);
   });
 });

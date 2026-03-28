@@ -8,7 +8,6 @@ interface HomeDnaSnapshotProps {
   dna: StyleDNA | null | undefined;
   isLoading?: boolean;
   onOpenInsights: () => void;
-  onGenerateLook: () => void;
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -52,7 +51,6 @@ export function HomeDnaSnapshot({
   dna,
   isLoading = false,
   onOpenInsights,
-  onGenerateLook,
 }: HomeDnaSnapshotProps) {
   if (isLoading) {
     return (
@@ -82,7 +80,7 @@ export function HomeDnaSnapshot({
               Your signature is still forming
             </h2>
             <p className="mt-2 text-[0.92rem] leading-6 text-muted-foreground">
-              Save a few more looks and BURS will start surfacing your archetype and repeat patterns.
+              Save a few more looks and BURS will start surfacing the patterns that belong in Insights.
             </p>
           </div>
           <div className="flex size-11 items-center justify-center rounded-[1rem] bg-secondary/65 text-foreground/70">
@@ -90,8 +88,8 @@ export function HomeDnaSnapshot({
           </div>
         </div>
 
-        <Button onClick={onGenerateLook} variant="outline" className="mt-4 rounded-full px-4">
-          Style Me
+        <Button onClick={onOpenInsights} variant="outline" className="mt-4 rounded-full px-4">
+          Open insights
         </Button>
       </section>
     );
@@ -124,7 +122,7 @@ export function HomeDnaSnapshot({
           onClick={onOpenInsights}
           className="rounded-full px-3 text-foreground/70"
         >
-          Insights
+          Open insights
           <ArrowUpRight className="size-4" />
         </Button>
       </div>

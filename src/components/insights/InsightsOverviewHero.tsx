@@ -210,7 +210,7 @@ export function InsightsOverviewHero({
             />
             <OverviewMetric
               label={sustainabilityScore != null ? 'Sustainability' : 'Next move'}
-              value={sustainabilityScore != null ? `${sustainabilityScore}/100` : 'Style me'}
+              value={sustainabilityScore != null ? `${sustainabilityScore}/100` : 'Generate look'}
               hint={sustainabilityScore != null ? 'Wardrobe efficiency score' : 'Generate a look from what you own'}
               icon={sustainabilityScore != null ? Leaf : Sparkles}
               onClick={onGenerateLook}

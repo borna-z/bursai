@@ -1,11 +1,11 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { motion, useReducedMotion } from 'framer-motion';
-import { PRESETS } from '@/lib/motion';
+import { motion } from 'framer-motion';
 import { format, addDays, isToday, isTomorrow } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/dateLocale';
-import { Wand2, CalendarDays, Plus, ChevronRight, LayoutGrid } from 'lucide-react';
+import { CalendarDays, Plus, Sparkles, Wand2 } from 'lucide-react';
+
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PlanPageSkeleton } from '@/components/ui/skeletons';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -21,24 +21,22 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { PlanOnboardingEmpty } from '@/components/onboarding/OnboardingEmptyState';
 import { WeekOverview } from '@/components/plan/WeekOverview';
-
 import { QuickGenerateSheet } from '@/components/plan/QuickGenerateSheet';
 import { SwapSheet } from '@/components/plan/SwapSheet';
 import { QuickPlanSheet } from '@/components/plan/QuickPlanSheet';
 import { PreselectDateSheet } from '@/components/plan/PreselectDateSheet';
 import { CalendarConnectBanner } from '@/components/plan/CalendarConnectBanner';
-import { DaySummaryCard } from '@/components/plan/DaySummaryCard';
 import { LaundryAlertBanner } from '@/components/plan/LaundryAlertBanner';
 import { WeatherForecastBadge } from '@/components/outfit/WeatherForecastBadge';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useDaySummary } from '@/hooks/useDaySummary';
-import { 
-  usePlannedOutfits, 
+import {
+  usePlannedOutfits,
   usePlannedOutfitsForDate,
-  useUpsertPlannedOutfit, 
+  useUpsertPlannedOutfit,
   useDeletePlannedOutfit,
   useUpdatePlannedOutfitStatus,
-  type PlannedOutfit 
+  type PlannedOutfit,
 } from '@/hooks/usePlannedOutfits';
 import { useOutfitGenerator } from '@/hooks/useOutfitGenerator';
 import { useWeekGenerator } from '@/hooks/useWeekGenerator';
@@ -49,12 +47,14 @@ import { useForecast } from '@/hooks/useForecast';
 import { useLocation as useLocationCtx } from '@/contexts/LocationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBackgroundSyncNotification, useCalendarEvents } from '@/hooks/useCalendarSync';
-import { CalendarEventsList } from '@/components/plan/CalendarEventBadge';
-import { CoachMark } from '@/components/coach/CoachMark';
-import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { logger } from '@/lib/logger';
 
 const MAX_OUTFITS_PER_DAY = 4;
+
+function formatEventLine(eventCount: number) {
+  if (eventCount === 0) return null;
+  return eventCount === 1 ? '1 calendar event' : `${eventCount} calendar events`;
+}
 
 export default function PlanPage() {
   useBackgroundSyncNotification();
@@ -63,41 +63,32 @@ export default function PlanPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { t, locale } = useLanguage();
-  const coach = useFirstRunCoach();
   const initialDate = (location.state as { initialDate?: string })?.initialDate;
   const [selectedDate, setSelectedDate] = useState(() =>
-    initialDate ? new Date(initialDate) : new Date()
+    initialDate ? new Date(initialDate) : new Date(),
   );
   const [calendarOpen, setCalendarOpen] = useState(false);
-  
+
   const preselectedOutfitId = (location.state as { preselectedOutfitId?: string })?.preselectedOutfitId;
-  
-  // Sheets state
-  
+
   const [quickGenerateSheetOpen, setQuickGenerateSheetOpen] = useState(false);
   const [swapSheetOpen, setSwapSheetOpen] = useState(false);
   const [quickPlanSheetOpen, setQuickPlanSheetOpen] = useState(false);
   const [currentOutfitId, setCurrentOutfitId] = useState<string | null>(null);
-  const [, setCurrentPlannedId] = useState<string | null>(null);
-  
   const [isAutoGenerating, setIsAutoGenerating] = useState(false);
   const [generatingDayIndex, setGeneratingDayIndex] = useState(0);
-  
   const [preselectSheetOpen, setPreselectSheetOpen] = useState(!!preselectedOutfitId);
-  
-  // Data hooks
+
   const { data: plannedOutfits = [], isLoading } = usePlannedOutfits();
   const { data: garments = [] } = useFlatGarments();
   const { effectiveCity } = useLocationCtx();
   const { getForecastForDate } = useForecast({ city: effectiveCity });
-  
-  // Selected day data
+
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
   const { data: dayPlannedOutfits = [], isLoading: isDayLoading } = usePlannedOutfitsForDate(selectedDateStr);
-  const { data: daySummary, isLoading: isSummaryLoading } = useDaySummary(selectedDateStr);
+  const { data: daySummary } = useDaySummary(selectedDateStr);
   const { data: calendarEvents = [] } = useCalendarEvents(selectedDateStr);
-  
-  // Mutation hooks
+
   const upsertPlanned = useUpsertPlannedOutfit();
   const deletePlanned = useDeletePlannedOutfit();
   const updateStatus = useUpdatePlannedOutfitStatus();
@@ -108,7 +99,7 @@ export default function PlanPage() {
 
   const getPlannedForDate = useCallback((date: Date): PlannedOutfit | null => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    return plannedOutfits.find(p => p.date === dateStr) || null;
+    return plannedOutfits.find((planned) => planned.date === dateStr) || null;
   }, [plannedOutfits]);
 
   const hasOutfits = dayPlannedOutfits.length > 0;
@@ -120,18 +111,16 @@ export default function PlanPage() {
   }, []);
 
   const weekPlannedCount = useMemo(() => {
-    return weekDays.filter(d => {
-      const dateStr = format(d, 'yyyy-MM-dd');
-      return plannedOutfits.some(p => p.date === dateStr && p.outfit_id);
+    return weekDays.filter((date) => {
+      const dateStr = format(date, 'yyyy-MM-dd');
+      return plannedOutfits.some((planned) => planned.date === dateStr && planned.outfit_id);
     }).length;
   }, [plannedOutfits, weekDays]);
 
-  // Date label
   let dateLabel = format(selectedDate, 'EEEE d MMMM', { locale: getDateFnsLocale(locale) });
   if (isToday(selectedDate)) dateLabel = t('plan.today');
   else if (isTomorrow(selectedDate)) dateLabel = t('plan.tomorrow');
 
-  // ── Handlers ──
   const handleGenerateForDate = async (request: {
     occasion: string;
     style: string | null;
@@ -140,14 +129,14 @@ export default function PlanPage() {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     const topEventTitle = daySummary?.priorities?.[0]?.title || null;
     try {
-      const o = await generateOutfit({
+      const outfit = await generateOutfit({
         occasion: request.occasion,
         style: request.style,
         locale,
         eventTitle: topEventTitle,
         weather: { temperature: request.temperature, precipitation: 'none', wind: 'low' },
       });
-      await upsertPlanned.mutateAsync({ date: dateStr, outfitId: o.id });
+      await upsertPlanned.mutateAsync({ date: dateStr, outfitId: outfit.id });
       setQuickGenerateSheetOpen(false);
       toast.success(t('plan.outfit_created'));
     } catch {
@@ -157,7 +146,7 @@ export default function PlanPage() {
 
   const handleMarkWorn = async (planned: PlannedOutfit) => {
     if (!planned.outfit) return;
-    const garmentIds = planned.outfit.outfit_items.map(item => item.garment_id);
+    const garmentIds = planned.outfit.outfit_items.map((item) => item.garment_id);
     const topEventTitle = daySummary?.priorities?.[0]?.title || undefined;
     try {
       const result = await markWorn.mutateAsync({
@@ -185,18 +174,7 @@ export default function PlanPage() {
   const handleRemove = async (plannedId: string) => {
     try {
       await deletePlanned.mutateAsync(plannedId);
-      toast.success(t('plan.removed'), {
-        action: {
-          label: t('plan.undo'),
-          onClick: () => {
-            // Re-query to refresh — outfit was already deleted, undo not possible server-side
-            // This is a soft undo UX pattern; the data is gone but we give reassurance
-            queryClient.invalidateQueries({ queryKey: ['planned-outfits'] });
-            queryClient.invalidateQueries({ queryKey: ['planned-outfits-day'] });
-          },
-        },
-        duration: 5000,
-      });
+      toast.success(t('plan.removed'));
     } catch {
       toast.error(t('plan.remove_error'));
     }
@@ -207,22 +185,22 @@ export default function PlanPage() {
   const handleAutoGenerateWeek = async (days: number) => {
     setIsAutoGenerating(true);
     setGeneratingDayIndex(1);
-    
+
     const occasions = ['casual', 'work', 'casual', 'work', 'casual', 'party', 'casual'];
-    const weekDays: { date: string; occasion: string; weather: { temperature?: number; precipitation?: string; wind?: string }; event_title?: string }[] = [];
-    
+    const requestDays: { date: string; occasion: string; weather: { temperature?: number; precipitation?: string; wind?: string }; event_title?: string }[] = [];
+
     for (let i = 0; i < days; i++) {
       const date = addDays(new Date(), i);
       const dateStr = format(date, 'yyyy-MM-dd');
       const existing = getPlannedForDate(date);
-      if (existing?.outfit_id) continue; // Skip days that already have outfits
+      if (existing?.outfit_id) continue;
       if (!canCreateOutfit()) {
         toast.error(t('paywall.outfit_limit') || 'Outfit limit reached');
         break;
       }
       const forecast = getForecastForDate(dateStr);
       const temp = forecast ? Math.round((forecast.temperature_max + forecast.temperature_min) / 2) : 15;
-      weekDays.push({
+      requestDays.push({
         date: dateStr,
         occasion: occasions[i % occasions.length],
         weather: {
@@ -232,19 +210,19 @@ export default function PlanPage() {
         },
       });
     }
-    
-    if (weekDays.length === 0) {
+
+    if (requestDays.length === 0) {
       setIsAutoGenerating(false);
       setGeneratingDayIndex(0);
       return;
     }
 
     try {
-      const result = await generateWeek(weekDays, { locale });
+      const result = await generateWeek(requestDays, { locale });
       if (result) {
-        const successCount = result.days.filter(d => d.items && !d.error).length;
+        const successCount = result.days.filter((day) => day.items && !day.error).length;
         const laundryWarning = result.laundry?.warning;
-        
+
         if (successCount > 0) {
           toast.success(`${successCount} outfit${successCount > 1 ? 's' : ''} planned for the week`);
         }
@@ -261,8 +239,9 @@ export default function PlanPage() {
     }
   };
 
-  const prefersReduced = useReducedMotion();
   const hasGarments = garments.length > 0;
+  const primaryPlanned = dayPlannedOutfits[0] ?? null;
+  const additionalPlanned = dayPlannedOutfits.slice(1);
 
   const handleRefresh = useCallback(async () => {
     await Promise.all([
@@ -271,306 +250,271 @@ export default function PlanPage() {
       queryClient.invalidateQueries({ queryKey: ['garments', user?.id] }),
       queryClient.invalidateQueries({ queryKey: ['day-summary'] }),
     ]);
-  }, [queryClient]);
+  }, [queryClient, user?.id]);
+
+  const renderPlannedPanel = () => {
+    if (!primaryPlanned?.outfit) return null;
+
+    const outfit = primaryPlanned.outfit;
+    const occasionText = getOccasionLabel(outfit.occasion || '', t).toUpperCase();
+    const styleText = outfit.style_vibe ? humanize(outfit.style_vibe).toUpperCase() : '';
+    const tagLine = [occasionText, styleText].filter(Boolean).join(' · ');
+
+    return (
+      <section className="surface-editorial rounded-[1.75rem] p-5">
+        <div className="space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="eyebrow-chip">Planned day</span>
+                {tagLine ? (
+                  <span className="eyebrow-chip border-transparent bg-secondary/85 text-foreground/58">
+                    {tagLine}
+                  </span>
+                ) : null}
+              </div>
+              <h2 className="text-[1.35rem] font-semibold tracking-[-0.04em] text-foreground">
+                {isToday(selectedDate) ? 'Today is already styled' : `${dateLabel} is planned`}
+              </h2>
+              {daySummary?.summary ? (
+                <p className="max-w-[34ch] text-[0.92rem] leading-6 text-muted-foreground">
+                  {daySummary.summary}
+                </p>
+              ) : null}
+            </div>
+
+            <WeatherForecastBadge date={selectedDateStr} compact={false} />
+          </div>
+
+          {calendarEvents.length > 0 ? (
+            <div className="rounded-[1.1rem] border border-border/55 bg-background/72 px-4 py-3 text-[0.84rem] text-muted-foreground">
+              {formatEventLine(calendarEvents.length)}
+            </div>
+          ) : null}
+
+          <div className="surface-media space-y-4 p-4">
+            <div className="grid grid-cols-4 gap-2">
+              {outfit.outfit_items.slice(0, 4).map((item) => (
+                <div key={item.id} className="aspect-square overflow-hidden rounded-[0.95rem] bg-background/75">
+                  <LazyImageSimple
+                    imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
+                    alt={item.garment?.title || item.slot}
+                    className="h-full w-full"
+                  />
+                </div>
+              ))}
+            </div>
+
+            {outfit.explanation ? (
+              <p className="text-[0.92rem] leading-6 text-foreground/80">
+                {outfit.explanation}
+              </p>
+            ) : null}
+          </div>
+
+          {additionalPlanned.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/65">
+                Also planned
+              </p>
+              <div className="app-chip-row">
+                {additionalPlanned.map((planned) => (
+                  <button
+                    key={planned.id}
+                    type="button"
+                    onClick={() => planned.outfit && navigate(`/outfits/${planned.outfit.id}`)}
+                    className="rounded-full border border-border/55 bg-background/82 px-3 py-2 text-[0.78rem] text-foreground"
+                  >
+                    {planned.outfit?.occasion ? getOccasionLabel(planned.outfit.occasion, t) : 'Open outfit'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="space-y-3">
+            <Button
+              className="h-12 w-full rounded-full"
+              onClick={() => {
+                if (isToday(selectedDate)) {
+                  void handleMarkWorn(primaryPlanned);
+                  return;
+                }
+                navigate(`/outfits/${outfit.id}`);
+              }}
+            >
+              {isToday(selectedDate) ? 'Wear today' : 'Open outfit'}
+            </Button>
+
+            <div className="flex flex-wrap items-center gap-4 text-[0.82rem] font-medium text-muted-foreground">
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrentOutfitId(outfit.id);
+                  setSwapSheetOpen(true);
+                }}
+                className="underline underline-offset-4"
+              >
+                Restyle
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleRemove(primaryPlanned.id)}
+                className="underline underline-offset-4"
+              >
+                Clear
+              </button>
+              {canAddMore ? (
+                <button
+                  type="button"
+                  onClick={() => setQuickGenerateSheetOpen(true)}
+                  className="underline underline-offset-4"
+                >
+                  Add another
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  };
+
+  const renderEmptyDayPanel = () => {
+    const emptyWeek = weekPlannedCount === 0;
+
+    return (
+      <section className="surface-editorial rounded-[1.75rem] p-5">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="eyebrow-chip">{emptyWeek ? 'Week reset' : 'Open day'}</span>
+              <WeatherForecastBadge date={selectedDateStr} compact={false} />
+            </div>
+            <h2 className="text-[1.35rem] font-semibold tracking-[-0.04em] text-foreground">
+              {emptyWeek ? 'Nothing planned yet' : `Nothing planned for ${dateLabel}`}
+            </h2>
+            <p className="max-w-[34ch] text-[0.92rem] leading-6 text-muted-foreground">
+              {daySummary?.summary
+                ?? (emptyWeek
+                  ? 'Let BURS plan the week once, then adjust only the days that need extra attention.'
+                  : 'Create one clear outfit for this day, or let the week planner fill the rest around it.')}
+            </p>
+          </div>
+
+          {calendarEvents.length > 0 ? (
+            <div className="rounded-[1.1rem] border border-border/55 bg-background/72 px-4 py-3 text-[0.84rem] text-muted-foreground">
+              {formatEventLine(calendarEvents.length)}
+            </div>
+          ) : null}
+
+          <div className="space-y-3">
+            <Button
+              className="h-12 w-full rounded-full"
+              onClick={() => emptyWeek ? setQuickPlanSheetOpen(true) : setQuickGenerateSheetOpen(true)}
+            >
+              {emptyWeek ? 'Plan the week' : 'Plan this day'}
+            </Button>
+
+            <div className="flex flex-wrap items-center gap-4 text-[0.82rem] font-medium text-muted-foreground">
+              <button
+                type="button"
+                onClick={() => emptyWeek ? setQuickGenerateSheetOpen(true) : setQuickPlanSheetOpen(true)}
+                className="underline underline-offset-4"
+              >
+                {emptyWeek ? 'Plan today only' : 'Auto-plan week'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  };
 
   return (
     <AppLayout>
-      {/* ─── Sticky header ─── */}
       <header className="topbar-frost sticky top-0 z-20">
-        <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
+        <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-5 py-3">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
-              <button className="flex items-center gap-2.5 hover:opacity-70 transition-opacity press">
-                <h1 className="text-lg font-semibold tracking-[-0.02em] capitalize">{dateLabel}</h1>
-                <CalendarDays className="w-4 h-4 text-primary/50" />
+              <button type="button" className="flex items-center gap-2.5 transition-opacity hover:opacity-75">
+                <div>
+                  <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/60">
+                    Planner
+                  </p>
+                  <h1 className="capitalize text-[1.15rem] font-semibold tracking-[-0.03em]">{dateLabel}</h1>
+                </div>
+                <CalendarDays className="h-4 w-4 text-primary/50" />
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar
                 mode="single"
                 selected={selectedDate}
-                onSelect={(d) => { if (d) { setSelectedDate(d); setCalendarOpen(false); } }}
-                className="p-3 pointer-events-auto"
+                onSelect={(date) => {
+                  if (date) {
+                    setSelectedDate(date);
+                    setCalendarOpen(false);
+                  }
+                }}
+                className="pointer-events-auto p-3"
               />
             </PopoverContent>
           </Popover>
-          {isAutoGenerating && (
-            <Badge variant="secondary" className="text-[10px] animate-pulse">
-              <Wand2 className="w-3 h-3 mr-1" />
-              {t('plan.generating_day') || 'Generating'} {generatingDayIndex}/7
+          {isAutoGenerating ? (
+            <Badge variant="secondary" className="text-[10px] uppercase tracking-[0.14em]">
+              <Wand2 className="mr-1 h-3 w-3" />
+              {generatingDayIndex}/7
             </Badge>
-          )}
+          ) : null}
         </div>
       </header>
 
-      {/* ─── Content ─── */}
       <PullToRefresh onRefresh={handleRefresh}>
-      <AnimatedPage className="page-shell !max-w-lg !px-5 !pt-5 !pb-10">
-        {/* Calendar connect nudge */}
-        <CalendarConnectBanner />
-
-        {/* Laundry alert */}
-        <LaundryAlertBanner />
-
-        {/* Week overview with thumbnails + repetition detection */}
-        <WeekOverview
-          selectedDate={selectedDate}
-          onSelectDate={setSelectedDate}
-          plannedOutfits={plannedOutfits}
-          className="py-3"
-        />
-
-        {/* Progress bar */}
-        <div className="mt-2 flex items-center gap-2">
-          <div className="h-[3px] flex-1 overflow-hidden rounded-full bg-foreground/[0.10]">
-            <div className="h-full rounded-full bg-foreground" style={{ width: `${(weekPlannedCount / 7) * 100}%` }} />
-          </div>
-          <span className="text-[11px] text-muted-foreground/65">{weekPlannedCount}/7 days</span>
-        </div>
-
-        {/* Day content */}
-        <motion.div
-          key={selectedDateStr}
-          initial={PRESETS.TAB.variants.initial}
-          animate={PRESETS.TAB.variants.animate}
-          transition={PRESETS.TAB.transition}
-          className="pt-8 space-y-8"
-        >
-          {/* Weather + status line */}
-          <div className="flex items-center justify-between">
-            <WeatherForecastBadge date={selectedDateStr} compact={false} />
-            {dayPlannedOutfits.length > 0 && (
-              <Badge variant="secondary" className="text-[10px] uppercase tracking-wider font-medium">
-                {dayPlannedOutfits.length}/{MAX_OUTFITS_PER_DAY}
-              </Badge>
-            )}
-          </div>
-
-          {/* Action cards */}
-          {hasGarments && (
-            <div className="flex flex-col gap-2">
-              <CoachMark
-                step={4}
-                currentStep={coach.currentStep}
-                isCoachActive={coach.isStepActive(4)}
-                title="Plan ahead"
-                body="Use planning to line up looks for the week, or save a generated outfit to a specific day."
-                ctaLabel="Finish coach"
-                onCta={() => coach.completeTour()}
-                onSkip={() => coach.completeTour()}
-                position="bottom"
-              >
-                <motion.button
-                  whileTap={prefersReduced ? undefined : { scale: 0.97 }}
-                  onClick={() => setQuickPlanSheetOpen(true)}
-                  className="surface-editorial flex h-[76px] w-full items-center gap-3 px-4 text-left"
-                >
-                  <CalendarDays className="w-5 h-5 text-foreground/50 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[15px] font-medium text-foreground">Plan the week</p>
-                    <p className="text-[12px] text-muted-foreground">AI fills all 7 days</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
-                </motion.button>
-              </CoachMark>
-            </div>
-          )}
-
-          {/* AI Day Summary */}
-          <DaySummaryCard
-            summary={daySummary}
-            isLoading={isSummaryLoading}
-            onGenerateFromHint={() => setQuickGenerateSheetOpen(true)}
-            eventCount={calendarEvents.length}
+        <AnimatedPage className="page-shell space-y-5">
+          <WeekOverview
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            plannedOutfits={plannedOutfits}
           />
 
-          {/* Fallback: show raw events only when no AI summary available */}
-          {calendarEvents.length > 0 && !daySummary && !isSummaryLoading && (
-            <CalendarEventsList events={calendarEvents} maxDisplay={4} />
-          )}
+          <div className="app-notice-stack">
+            <CalendarConnectBanner />
+            <LaundryAlertBanner />
+          </div>
 
-          {/* ─── Outfit section ─── */}
-          {isLoading || isDayLoading ? (
-            <PlanPageSkeleton />
-          ) : !hasGarments ? (
-            <PlanOnboardingEmpty />
-          ) : weekPlannedCount === 0 && !hasOutfits ? (
-            /* STEP 3: No outfits planned for the week */
-            <div className="surface-editorial flex flex-col items-center px-5 py-8 text-center">
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-secondary/90">
-                <LayoutGrid className="h-6 w-6 text-muted-foreground/45" />
-              </div>
-              <h3 className="mb-2 font-['Playfair_Display'] text-[1.28rem] italic text-foreground">
-                Nothing planned yet
-              </h3>
-              <p className="mb-6 max-w-[30ch] text-sm leading-6 text-muted-foreground">
-                Let the AI fill your week based on your calendar, weather, and what you haven't worn lately.
-              </p>
-              <Button
-                onClick={() => setQuickPlanSheetOpen(true)}
-                className="mb-2 w-full"
-                variant="editorial"
-              >
-                ✦ Plan the week
-              </Button>
-              <Button
-                onClick={() => setQuickGenerateSheetOpen(true)}
-                className="w-full"
-                variant="quiet"
-              >
-                Plan today only
-              </Button>
-            </div>
-          ) : hasOutfits ? (
-            <div className="space-y-4">
-              {dayPlannedOutfits.map((planned) => {
-                const outfit = planned.outfit;
-                if (!outfit) return null;
+          <motion.div
+            key={selectedDateStr}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.22 }}
+          >
+            {isLoading || isDayLoading ? (
+              <PlanPageSkeleton />
+            ) : !hasGarments ? (
+              <PlanOnboardingEmpty />
+            ) : hasOutfits ? (
+              renderPlannedPanel()
+            ) : (
+              renderEmptyDayPanel()
+            )}
+          </motion.div>
 
-                const occasionText = getOccasionLabel(outfit.occasion || '', t).toUpperCase();
-                const styleText = outfit.style_vibe ? humanize(outfit.style_vibe).toUpperCase() : '';
-                const tagLine = [occasionText, styleText].filter(Boolean).join(' · ');
-
-                if (isToday(selectedDate)) {
-                  /* STEP 4: Today's dark outfit card */
-                  return (
-                    <div key={planned.id} className="overflow-hidden rounded-[1.5rem] bg-foreground text-background shadow-[0_18px_40px_rgba(22,18,15,0.18)]">
-                      <div className="px-4 pb-3 pt-4">
-                        {tagLine && (
-                          <p className="mb-2 text-[9px] font-medium uppercase tracking-[0.12em] text-background/50">
-                            {tagLine}
-                          </p>
-                        )}
-                        {/* Garment thumbnails — flex row, up to 4 */}
-                        <div className="mb-3 flex gap-2">
-                          {outfit.outfit_items.slice(0, 4).map((item) => (
-                            <div
-                              key={item.id}
-                              className="aspect-square flex-1 overflow-hidden rounded-[0.65rem] bg-background/10"
-                            >
-                              <LazyImageSimple
-                                imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
-                                alt={item.garment?.title || item.slot}
-                                className="w-full h-full"
-                              />
-                            </div>
-                          ))}
-                        </div>
-                        {outfit.explanation && (
-                          <p className="mb-4 font-['Playfair_Display'] text-[0.95rem] italic leading-6 text-background/76">
-                            {outfit.explanation}
-                          </p>
-                        )}
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleMarkWorn(planned)}
-                            className="flex-1 rounded-xl bg-background px-3 py-3 text-sm font-semibold text-foreground transition-transform active:scale-[0.98]"
-                          >
-                            Wear today
-                          </button>
-                          <button
-                            onClick={() => { setCurrentOutfitId(outfit.id); setCurrentPlannedId(planned.id); setSwapSheetOpen(true); }}
-                            className="flex-1 rounded-xl border border-background/12 bg-background/8 px-3 py-3 text-sm text-background/70 transition-colors hover:bg-background/12"
-                          >
-                            Restyle
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                /* STEP 5: Other planned day cards */
-                return (
-                  <div key={planned.id} className="surface-editorial overflow-hidden">
-                    <div className="flex h-20">
-                      {outfit.outfit_items.slice(0, 4).map((item) => (
-                        <div key={item.id} className="flex-1 overflow-hidden bg-secondary/65">
-                          <LazyImageSimple
-                            imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
-                            alt={item.garment?.title || item.slot}
-                            className="w-full h-full"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    {/* Info */}
-                    <div className="px-4 py-3">
-                      {tagLine && (
-                        <p className="mb-1.5 text-[9px] uppercase tracking-[0.1em] text-muted-foreground/52">
-                          {tagLine}
-                        </p>
-                      )}
-                      {outfit.explanation && (
-                        <p className="font-['Playfair_Display'] text-[0.9rem] italic leading-6 text-foreground/68">
-                          {outfit.explanation}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex justify-between border-t border-border/35 px-4 py-2">
-                      <button
-                        onClick={() => { setCurrentOutfitId(outfit.id); setCurrentPlannedId(planned.id); setSwapSheetOpen(true); }}
-                        className="bg-transparent text-[11px] text-muted-foreground/70 transition-opacity active:opacity-70"
-                      >
-                        ↻ Swap
-                      </button>
-                      <button
-                        onClick={() => navigate(`/outfits/${outfit.id}`)}
-                        className="bg-transparent text-[11px] text-muted-foreground/70 transition-opacity active:opacity-70"
-                      >
-                        ✎ Edit
-                      </button>
-                      <button
-                        onClick={() => handleRemove(planned.id)}
-                        className="bg-transparent text-[11px] text-muted-foreground/70 transition-opacity active:opacity-70"
-                      >
-                        ✕ Clear
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* Add another outfit button */}
-              {canAddMore && (
-                <div className="flex flex-col items-center gap-2 pt-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setQuickGenerateSheetOpen(true)}
-                    disabled={isGenerating || upsertPlanned.isPending}
-                    className="rounded-xl h-10 press min-h-[44px]"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    {t('plan.add_outfit')}
-                  </Button>
-                </div>
-              )}
-            </div>
-          ) : (
-            /* STEP 6: Day with no outfit planned */
-            <div className="flex items-center justify-between rounded-[1.5rem] border-2 border-dashed border-border/45 px-4 py-4">
-              <div>
-                <p className="mb-0.5 text-xs font-bold text-foreground">
-                  {dateLabel}
-                </p>
-                <p className="text-[11px] text-muted-foreground/65">
-                  No outfit planned
-                </p>
-              </div>
-              <button
-                onClick={() => setQuickGenerateSheetOpen(true)}
-                className="rounded-xl border border-border/45 bg-background/80 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-background"
-              >
-                + Plan
-              </button>
-            </div>
-          )}
-        </motion.div>
-      </AnimatedPage>
+          {hasGarments && !hasOutfits && canAddMore ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setQuickGenerateSheetOpen(true)}
+              disabled={isGenerating || upsertPlanned.isPending}
+              className="h-10 rounded-full"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              {t('plan.add_outfit')}
+            </Button>
+          ) : null}
+        </AnimatedPage>
       </PullToRefresh>
 
-      {/* ─── Sheets ─── */}
       <QuickGenerateSheet
         open={quickGenerateSheetOpen}
         onOpenChange={setQuickGenerateSheetOpen}

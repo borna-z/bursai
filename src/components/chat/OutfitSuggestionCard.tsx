@@ -95,11 +95,11 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
   return (
     <div className="rounded-2xl border border-border/80 bg-card overflow-hidden animate-scale-in shadow-sm">
       {/* Garment row */}
-      <div className="flex gap-1 p-3 overflow-x-auto scrollbar-hide">
+      <div className="grid grid-cols-4 gap-2 p-3">
         {garments.map((g, i) => (
-          <div key={g.id} className="relative shrink-0 group">
+          <div key={g.id} className="group relative min-w-0">
             <Link to={`/wardrobe/${g.id}`} className="block">
-              <div className="w-[72px] h-[72px] rounded-xl overflow-hidden bg-muted border border-border/40">
+              <div className="mx-auto aspect-square w-full max-w-[72px] overflow-hidden rounded-xl border border-border/40 bg-muted">
                 <LazyImageSimple
                   imagePath={getPreferredGarmentImagePath(g)}
                   alt={g.title}
@@ -108,7 +108,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
                 />
               </div>
             </Link>
-            <p className="text-[10px] text-muted-foreground truncate w-[72px] mt-1 text-center">{g.title}</p>
+            <p className="mx-auto mt-1 max-w-[72px] truncate text-center text-[10px] text-muted-foreground">{g.title}</p>
             {/* Swap trigger */}
             <Popover open={swapOpen === i} onOpenChange={(open) => {
               if (open) fetchAlternatives(i);

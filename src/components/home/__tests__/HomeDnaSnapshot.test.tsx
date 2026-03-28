@@ -4,7 +4,6 @@ import { HomeDnaSnapshot } from '../HomeDnaSnapshot';
 
 const baseProps = {
   onOpenInsights: vi.fn(),
-  onGenerateLook: vi.fn(),
 };
 
 describe('HomeDnaSnapshot', () => {
@@ -17,7 +16,7 @@ describe('HomeDnaSnapshot', () => {
     render(<HomeDnaSnapshot {...baseProps} dna={null} />);
     expect(screen.getByTestId('home-dna-empty')).toBeInTheDocument();
     expect(screen.getByText('Your signature is still forming')).toBeInTheDocument();
-    expect(screen.getByText('Style Me')).toBeInTheDocument();
+    expect(screen.getByText('Open insights')).toBeInTheDocument();
   });
 
   it('renders populated dna summary', () => {

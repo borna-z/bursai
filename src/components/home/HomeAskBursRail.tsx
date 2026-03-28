@@ -8,7 +8,7 @@ interface HomeAskBursRailProps {
 }
 
 export function HomeAskBursRail({ suggestions, onSelectSuggestion }: HomeAskBursRailProps) {
-  const visibleSuggestions = suggestions.slice(0, 3);
+  const visibleSuggestions = suggestions.slice(0, 2);
 
   if (visibleSuggestions.length === 0) return null;
 
@@ -34,7 +34,7 @@ export function HomeAskBursRail({ suggestions, onSelectSuggestion }: HomeAskBurs
             },
           },
         }}
-        className="scrollbar-hide flex gap-2 overflow-x-auto pb-1"
+        className="grid gap-2 sm:grid-cols-2"
       >
         {visibleSuggestions.map((suggestion) => (
           <motion.button
@@ -45,7 +45,7 @@ export function HomeAskBursRail({ suggestions, onSelectSuggestion }: HomeAskBurs
             }}
             transition={{ duration: 0.24 }}
             onClick={() => onSelectSuggestion(suggestion)}
-            className="shrink-0 rounded-full border border-foreground/[0.08] bg-background/90 px-4 py-2.5 text-left text-[0.84rem] leading-5 text-foreground shadow-[0_10px_18px_rgba(22,18,15,0.03)] transition-colors hover:bg-secondary/75"
+            className="rounded-[1.15rem] border border-foreground/[0.08] bg-background/90 px-4 py-3 text-left text-[0.84rem] leading-5 text-foreground shadow-[0_10px_18px_rgba(22,18,15,0.03)] transition-colors hover:bg-secondary/75"
           >
             {suggestion.text}
           </motion.button>

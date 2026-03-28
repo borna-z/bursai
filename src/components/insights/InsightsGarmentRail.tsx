@@ -53,36 +53,34 @@ export function InsightsGarmentRail<TGarment extends GarmentRailItem>({
         ) : null}
       </div>
 
-      <div className="scrollbar-hide -mx-5 overflow-x-auto px-5">
-        <div className="flex gap-3 pb-1">
-          {garments.map((garment) => {
-            const meta = renderMeta?.(garment) || garment.category || garment.color_primary || null;
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {garments.map((garment) => {
+          const meta = renderMeta?.(garment) || garment.category || garment.color_primary || null;
 
-            return (
-              <button
-                key={garment.id}
-                type="button"
-                onClick={() => onSelectGarment(garment.id)}
-                className="press surface-interactive flex w-[116px] shrink-0 flex-col gap-3 p-3 text-left"
-              >
-                <LazyImageSimple
-                  imagePath={getPreferredGarmentImagePath(garment)}
-                  alt={garment.title}
-                  className="h-32 w-full rounded-[1rem]"
-                  fallbackIcon={<Shirt className="size-5 text-muted-foreground/45" />}
-                />
-                <div className="space-y-1">
-                  <p className="line-clamp-2 text-[0.88rem] font-medium leading-5 text-foreground">
-                    {garment.title}
-                  </p>
-                  {meta ? (
-                    <p className="text-[0.76rem] leading-5 text-muted-foreground">{meta}</p>
-                  ) : null}
-                </div>
-              </button>
-            );
-          })}
-        </div>
+          return (
+            <button
+              key={garment.id}
+              type="button"
+              onClick={() => onSelectGarment(garment.id)}
+              className="press surface-interactive flex min-w-0 flex-col gap-3 p-3 text-left"
+            >
+              <LazyImageSimple
+                imagePath={getPreferredGarmentImagePath(garment)}
+                alt={garment.title}
+                className="aspect-[4/5] w-full rounded-[1rem]"
+                fallbackIcon={<Shirt className="size-5 text-muted-foreground/45" />}
+              />
+              <div className="space-y-1">
+                <p className="line-clamp-2 text-[0.88rem] font-medium leading-5 text-foreground">
+                  {garment.title}
+                </p>
+                {meta ? (
+                  <p className="text-[0.76rem] leading-5 text-muted-foreground">{meta}</p>
+                ) : null}
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
