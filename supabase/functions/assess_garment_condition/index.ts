@@ -18,9 +18,8 @@ serve(async (req) => {
     const authClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) throw new Error("Unauthorized");
-    const user = { id: claimsData.claims.sub as string };
+    const { data: { user }, error: userError } = await authClient.auth.getUser(token);
+    if (userError || !user) throw new Error("Unauthorized");
 
     const { garment_id } = await req.json();
     if (!garment_id) throw new Error("Missing garment_id");
