@@ -667,6 +667,7 @@ const en: Record<string, string> = {
     'scan.multiple_objects': 'Focus on one garment',
     'scan.enriching': 'Enriching details…',
     'insights.title': 'Insights',
+    'insights.subtitle': 'Your wardrobe at a glance',
     'insights.total': 'Total garments',
     'insights.used_30d': 'Used (30d)',
     'insights.usage': 'Usage',

@@ -693,6 +693,7 @@ const sv: Record<string, string> = {
 
     // Insights
     'insights.title': 'Insikter',
+    'insights.subtitle': 'Din garderob i överblick',
     'insights.total': 'Plagg totalt',
     'insights.used_30d': 'Använda (30d)',
     'insights.usage': 'Utnyttjande',
