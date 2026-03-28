@@ -14,7 +14,7 @@ const BAR_COLORS = [
   'bg-amber-500',
 ];
 
-export function CategoryRadar({ isPremium }: { isPremium: boolean }) {
+export function CategoryRadar({ isPremium, className }: { isPremium: boolean; className?: string }) {
   const { t } = useLanguage();
   const { data } = useCategoryBalance();
 
@@ -23,7 +23,7 @@ export function CategoryRadar({ isPremium }: { isPremium: boolean }) {
   const maxPct = data.categories[0]?.percentage || 1;
 
   return (
-    <div className="space-y-4">
+    <div className={cn('surface-secondary space-y-4 p-4', className)}>
       <div className="flex items-center gap-2">
         <PieChart className="w-4 h-4 text-muted-foreground/50" />
         <span className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wider">

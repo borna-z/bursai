@@ -1,131 +1,159 @@
-import { useMemo, useCallback } from 'react';
+import { useCallback } from 'react';
+
 import { useQueryClient } from '@tanstack/react-query';
+import {
+  BarChart3,
+  CalendarDays,
+  Compass,
+  Dna,
+  Palette,
+  Search,
+  Shirt,
+  Sparkles,
+  Wand2,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Shirt, Sparkles, Lock, Palette, Trophy, Leaf } from 'lucide-react';
 
-import { SmartInsightCard } from '@/components/home/SmartInsightCard';
-import { hapticLight } from '@/lib/haptics';
-import { InsightsPageSkeleton } from '@/components/ui/skeletons';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useInsights } from '@/hooks/useInsights';
-import { useSubscription } from '@/hooks/useSubscription';
-import { useSustainabilityScore } from '@/hooks/useAdvancedFeatures';
-import { StyleDNACard } from '@/components/insights/StyleDNACard';
-import { WardrobeHealthCard } from '@/components/insights/WardrobeHealthCard';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { EmptyState } from '@/components/layout/EmptyState';
+import { PullToRefresh } from '@/components/layout/PullToRefresh';
+import { InsightsGapPreview } from '@/components/insights/InsightsGapPreview';
+import { InsightsOverviewHero } from '@/components/insights/InsightsOverviewHero';
+import { InsightsGarmentRail } from '@/components/insights/InsightsGarmentRail';
+import { InsightsPalettePanel } from '@/components/insights/InsightsPalettePanel';
+import { InsightsRelatedTools } from '@/components/insights/InsightsRelatedTools';
+import { InsightsSection } from '@/components/insights/InsightsSection';
+import { CategoryRadar } from '@/components/insights/CategoryRadar';
+import { OutfitRepeatTracker } from '@/components/insights/OutfitRepeatTracker';
+import { SpendingDashboard } from '@/components/insights/SpendingDashboard';
+import { StyleDNACard } from '@/components/insights/StyleDNACard';
+import { StyleReportCard } from '@/components/insights/StyleReportCard';
+import { WardrobeHealthCard } from '@/components/insights/WardrobeHealthCard';
+import { WearHeatmap } from '@/components/insights/WearHeatmap';
+import { useInsightsDashboardAdapter } from '@/components/insights/useInsightsDashboardAdapter';
 import { InsightsOnboardingEmpty } from '@/components/onboarding/OnboardingEmptyState';
-import { ColorBar } from '@/components/insights/MiniBar';
-import { LazyImageSimple } from '@/components/ui/lazy-image';
-import { cn } from '@/lib/utils';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { motion } from 'framer-motion';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { Button } from '@/components/ui/button';
+import { InsightsPageSkeleton } from '@/components/ui/skeletons';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { cn } from '@/lib/utils';
 
-/* ─── Animated ring ─── */
-function UsageRing({ value, size = 140 }: { value: number; size?: number }) {
-  const stroke = 6;
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (value / 100) * circumference;
-  const color = value >= 50 ? 'hsl(var(--success))' : value >= 25 ? 'hsl(var(--primary))' : 'hsl(var(--warning))';
+const SECTION_LINKS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'dna', label: 'DNA' },
+  { id: 'patterns', label: 'Wardrobe patterns' },
+  { id: 'value', label: 'Value & gaps' },
+  { id: 'tools', label: 'Related tools' },
+] as const;
+
+function SustainabilityPanel({
+  score,
+  utilizationRate,
+  avgWearCount,
+  underusedCount,
+  isPremium,
+}: {
+  score?: number | null;
+  utilizationRate?: number;
+  avgWearCount?: number;
+  underusedCount?: number;
+  isPremium: boolean;
+}) {
+  if (score == null || utilizationRate == null || avgWearCount == null || underusedCount == null) {
+    return null;
+  }
 
   return (
-    <svg width={size} height={size} className="transform -rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="hsl(var(--muted))" strokeWidth={stroke} />
-      <motion.circle
-        cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color}
-        strokeWidth={stroke} strokeLinecap="round" strokeDasharray={circumference}
-        initial={{ strokeDashoffset: circumference }}
-        animate={{ strokeDashoffset: offset }}
-        transition={{ duration: 1.2, ease: [0.25, 0.1, 0.25, 1], delay: 0.3 }}
-      />
-    </svg>
-  );
-}
+    <div className={cn('surface-secondary relative space-y-4 p-4', !isPremium && 'overflow-hidden')}>
+      <div className={cn('space-y-4', !isPremium && 'blur-sm select-none')}>
+        <div className="space-y-1">
+          <h3 className="text-[1.05rem] font-semibold tracking-[-0.03em] text-foreground">
+            Sustainability
+          </h3>
+          <p className="text-[0.84rem] leading-5 text-muted-foreground">
+            Utilization, repeat wear, and dormant volume across the wardrobe.
+          </p>
+        </div>
 
-/* ─── Stat pill ─── */
-function StatPill({ value, label, onClick }: { value: number | string; label: string; onClick?: () => void }) {
-  return (
-    <button
-      onClick={() => { if (onClick) { hapticLight(); onClick(); } }}
-      className={cn(
-        "flex flex-col items-center gap-1 flex-1 py-3 rounded-xl transition-colors",
-        onClick && "cursor-pointer active:scale-95 hover:bg-foreground/[0.04]"
-      )}
-    >
-      <span className="text-2xl font-bold tracking-tight tabular-nums">{value}</span>
-      <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider mt-0.5">{label}</span>
-    </button>
-  );
-}
+        <div className="flex items-end justify-between gap-4 rounded-[1rem] bg-background/55 px-4 py-4">
+          <div>
+            <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/65">
+              Score
+            </p>
+            <p className="mt-1 text-[2.3rem] font-semibold tracking-[-0.06em] text-foreground">
+              {score}
+              <span className="ml-1 text-[1rem] text-muted-foreground/60">/100</span>
+            </p>
+          </div>
+          <p className="max-w-[12rem] text-right text-[0.82rem] leading-5 text-muted-foreground">
+            Higher scores mean more of the wardrobe is getting real wear.
+          </p>
+        </div>
 
-/* ─── Section label ─── */
-function SectionLabel({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <Icon className="w-4 h-4 text-muted-foreground/50" />
-      <span className="label-editorial">{label}</span>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-[1rem] bg-background/55 p-3">
+            <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/65">
+              Utilization
+            </p>
+            <p className="mt-1 text-[1.2rem] font-semibold tracking-[-0.04em] text-foreground">
+              {utilizationRate}%
+            </p>
+          </div>
+          <div className="rounded-[1rem] bg-background/55 p-3">
+            <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/65">
+              Avg wears
+            </p>
+            <p className="mt-1 text-[1.2rem] font-semibold tracking-[-0.04em] text-foreground">
+              {avgWearCount}x
+            </p>
+          </div>
+          <div className="rounded-[1rem] bg-background/55 p-3">
+            <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/65">
+              Underused
+            </p>
+            <p className="mt-1 text-[1.2rem] font-semibold tracking-[-0.04em] text-foreground">
+              {underusedCount}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {!isPremium ? (
+        <div className="absolute inset-0 bg-background/15" />
+      ) : null}
     </div>
   );
 }
 
-/* ─── Color map ─── */
-const COLOR_MAP: Record<string, string> = {
-  black: 'bg-gray-900', white: 'bg-gray-100', grey: 'bg-gray-400', navy: 'bg-blue-900',
-  blue: 'bg-blue-500', red: 'bg-red-500', green: 'bg-green-600', beige: 'bg-amber-100',
-  brown: 'bg-amber-800', pink: 'bg-pink-400', purple: 'bg-purple-500', yellow: 'bg-yellow-400', orange: 'bg-orange-500',
-  // Legacy Swedish keys for backward compat with existing DB data
-  svart: 'bg-gray-900', vit: 'bg-gray-100', grå: 'bg-gray-400', marinblå: 'bg-blue-900',
-  blå: 'bg-blue-500', röd: 'bg-red-500', grön: 'bg-green-600',
-  brun: 'bg-amber-800', rosa: 'bg-pink-400', lila: 'bg-purple-500', gul: 'bg-yellow-400',
-};
-
-const COLOR_I18N: Record<string, string> = {
-  black: 'color.black', white: 'color.white', grey: 'color.grey', navy: 'color.navy',
-  blue: 'color.blue', red: 'color.red', green: 'color.green', beige: 'color.beige',
-  brown: 'color.brown', pink: 'color.pink', yellow: 'color.yellow', orange: 'color.orange', purple: 'color.purple',
-  // Legacy Swedish keys
-  svart: 'color.black', vit: 'color.white', grå: 'color.grey', marinblå: 'color.navy',
-  blå: 'color.blue', röd: 'color.red', grön: 'color.green',
-  brun: 'color.brown', rosa: 'color.pink', gul: 'color.yellow', lila: 'color.purple',
-};
-
-/* ─── Main page ─── */
 export default function InsightsPage() {
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { t } = useLanguage();
-  const { data: insights, isLoading } = useInsights();
-  const { isPremium, isLoading: subLoading } = useSubscription();
-  const { data: sustainability } = useSustainabilityScore();
+  const {
+    overview,
+    insights,
+    dna,
+    sustainability,
+    isPremium,
+    isLoading,
+    allGarments,
+    colorBreakdown,
+  } = useInsightsDashboardAdapter();
 
   const handleRefresh = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ['insights'] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['insights-dashboard'] }),
+      queryClient.invalidateQueries({ queryKey: ['category-balance'] }),
+      queryClient.invalidateQueries({ queryKey: ['outfit-repeats'] }),
+      queryClient.invalidateQueries({ queryKey: ['wear-heatmap'] }),
+      queryClient.invalidateQueries({ queryKey: ['spending'] }),
+    ]);
   }, [queryClient]);
 
-  /* ── Color data ── */
-  const colorData = useMemo(() => {
-    if (!insights) return { bars: [], entries: [], total: 0 };
-    const allGarments = [...insights.topFiveWorn, ...insights.unusedGarments];
-    const counts: Record<string, number> = {};
-    allGarments.forEach(g => { const c = g.color_primary?.toLowerCase() || 'unknown'; counts[c] = (counts[c] || 0) + 1; });
-    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6);
-    return {
-      bars: sorted.map(([color, count]) => ({ color, count, colorClass: COLOR_MAP[color] || 'bg-muted' })),
-      entries: sorted,
-      total: allGarments.length,
-    };
-  }, [insights]);
-
-  if (isLoading || subLoading) {
+  if (isLoading) {
     return (
       <AppLayout>
-        <PageHeader title={t('insights.title')} />
+        <PageHeader title={t('insights.title')} subtitle="DNA dashboard" />
         <InsightsPageSkeleton />
       </AppLayout>
     );
@@ -134,196 +162,251 @@ export default function InsightsPage() {
   if (!insights || insights.totalGarments === 0) {
     return (
       <AppLayout>
-        <PageHeader title={t('insights.title')} />
+        <PageHeader title={t('insights.title')} subtitle="DNA dashboard" />
         <InsightsOnboardingEmpty />
       </AppLayout>
     );
   }
 
-  const sustainScore = sustainability?.score;
-  const sustainColor = sustainScore != null
-    ? (sustainScore >= 70 ? 'text-green-500' : sustainScore >= 40 ? 'text-primary' : 'text-orange-500')
-    : '';
-
   return (
     <AppLayout>
-      <PageHeader title={t('insights.title')} />
+      <PageHeader
+        title={t('insights.title')}
+        subtitle="App-wide rotation, DNA, and wardrobe leverage"
+      />
       <PullToRefresh onRefresh={handleRefresh}>
         <AnimatedPage className="page-container space-y-10 pb-28">
-
-          {/* ─── 1. Usage Ring + Stats ─── */}
-          <div className="flex flex-col items-center pt-2">
-            <div className="relative">
-              <UsageRing value={insights.usageRate} size={130} />
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-4xl font-bold tracking-tight tabular-nums">{insights.usageRate}</span>
-                <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">%</span>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground/50 mt-3">{t('insights.last_30d')}</p>
-
-            <div className="flex items-center w-full mt-8 rounded-2xl bg-secondary/20 p-1">
-              <StatPill value={insights.totalGarments} label={t('insights.total')} onClick={() => navigate('/wardrobe')} />
-              <div className="w-px h-8 bg-border/10" />
-              <StatPill value={insights.garmentsUsedLast30Days} label={t('insights.used_30d')} onClick={() => navigate('/wardrobe/used')} />
-              <div className="w-px h-8 bg-border/10" />
-              <StatPill value={insights.unusedGarments.length} label={t('insights.unused')} onClick={() => navigate('/outfits/unused')} />
-            </div>
-          </div>
-
-          {/* ─── Style DNA ─── */}
-          <StyleDNACard />
-
-          {/* ─── 2. Top 5 Garments ─── */}
-          {insights.topFiveWorn.length > 0 && (
-            <div className="space-y-3">
-              <SectionLabel icon={Trophy} label={t('insights.top_garments')} />
-              <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-1">
-                {insights.topFiveWorn.map((garment, idx) => (
-                  <div
-                    key={garment.id}
-                    className="flex-shrink-0 w-[72px] cursor-pointer group"
-                    onClick={() => navigate(`/wardrobe/${garment.id}`)}
-                  >
-                    <div className="relative">
-                      <LazyImageSimple
-                        imagePath={getPreferredGarmentImagePath(garment)}
-                        alt={garment.title}
-                        className="w-[72px] h-24 rounded-xl group-active:scale-95 transition-transform"
-                        fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/50" />}
-                      />
-                      <Badge
-                        variant="secondary"
-                        className={cn(
-                          "absolute -top-1.5 -right-1.5 text-[10px] font-bold tabular-nums px-1.5 py-0 min-w-0 h-5",
-                          idx === 0 && "bg-primary text-primary-foreground"
-                        )}
-                      >
-                        {garment.wearCountLast30}×
-                      </Badge>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground truncate mt-1.5 text-center">{garment.title}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ─── 3. Unused garments preview ─── */}
-          {insights.unusedGarments.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <SectionLabel icon={Shirt} label={t('insights.forgotten') || 'Forgotten gems'} />
-                <button
-                  onClick={() => navigate('/outfits/unused')}
-                  className="text-[11px] text-primary/70 hover:text-primary transition-colors"
-                >
-                  {t('common.view_all') || 'View all'} →
-                </button>
-              </div>
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-1">
-                {insights.unusedGarments.slice(0, 6).map((garment) => (
-                  <div
-                    key={garment.id}
-                    className="flex-shrink-0 w-16 cursor-pointer"
-                    onClick={() => navigate(`/wardrobe/${garment.id}`)}
-                  >
-                    <LazyImageSimple
-                      imagePath={getPreferredGarmentImagePath(garment)}
-                      alt={garment.title}
-                      className="w-16 h-20 rounded-lg opacity-70 hover:opacity-100 transition-opacity"
-                      fallbackIcon={<Shirt className="w-4 h-4 text-muted-foreground/30" />}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ─── 4. Color Breakdown ─── */}
-          <div className="space-y-3">
-            <SectionLabel icon={Palette} label={t('insights.colors')} />
-            <div className={cn(!isPremium && "relative")}>
-              <div className={cn(!isPremium && "blur-sm select-none")}>
-                <ColorBar colors={colorData.bars} total={colorData.total} />
-                <div className="mt-3 grid grid-cols-3 gap-x-4 gap-y-1.5">
-                  {colorData.entries.map(([color, count]) => (
-                    <div key={color} className="flex items-center justify-between">
-                      <span className="text-[11px] capitalize text-muted-foreground truncate">{t(COLOR_I18N[color] || color)}</span>
-                      <span className="text-[11px] tabular-nums font-medium ml-1">{Math.round((count / colorData.total) * 100)}%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {!isPremium && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Lock className="w-5 h-5 text-muted-foreground/40" />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ─── 5. Sustainability Score ─── */}
-          {sustainability && (
-          <div className="space-y-3">
-              <SectionLabel icon={Leaf} label={t('insights.sustainability')} />
-              <div className={cn(!isPremium && "relative")}>
-                <div className={cn(!isPremium && "blur-sm select-none")}>
-                  <div className="text-center py-3">
-                    <span className={cn("text-5xl font-bold tabular-nums", sustainColor)}>
-                      {sustainability.score}
-                    </span>
-                    <span className="text-lg text-muted-foreground/50">/100</span>
-                    <p className="text-xs text-muted-foreground/50 mt-1.5">{t('insights.sustainability_desc')}</p>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 mt-4">
-                     <div className="rounded-xl bg-secondary/30 p-3.5 text-center">
-                      <span className="text-lg font-bold tabular-nums">{sustainability.utilizationRate}%</span>
-                      <p className="text-[10px] text-muted-foreground/50 mt-0.5">{t('insights.utilization')}</p>
-                    </div>
-                     <div className="rounded-xl bg-secondary/30 p-3.5 text-center">
-                      <span className="text-lg font-bold tabular-nums">{sustainability.avgWearCount}×</span>
-                      <p className="text-[10px] text-muted-foreground/50 mt-0.5">{t('insights.avg_wears')}</p>
-                    </div>
-                    <div className="rounded-xl bg-secondary/30 p-3.5 text-center">
-                      <span className="text-lg font-bold tabular-nums">{sustainability.underusedCount}</span>
-                      <p className="text-[10px] text-muted-foreground/50 mt-0.5">{t('insights.underused')}</p>
-                    </div>
-                  </div>
-                </div>
-                {!isPremium && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Lock className="w-5 h-5 text-muted-foreground/40" />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ─── Wardrobe Health Insights ─── */}
-          <WardrobeHealthCard
-            garments={[...insights.topFiveWorn, ...insights.unusedGarments]}
-            usedGarments={insights.usedGarments}
-            unusedGarments={insights.unusedGarments}
+          <InsightsOverviewHero
+            usageRate={insights.usageRate}
+            totalGarments={insights.totalGarments}
+            activeCount={insights.garmentsUsedLast30Days}
+            dormantCount={insights.unusedGarments.length}
+            savedLooks={overview?.savedLooks ?? 0}
+            plannedThisWeek={overview?.plannedThisWeek ?? 0}
+            sustainabilityScore={sustainability?.score}
+            dnaArchetype={dna?.archetype ?? null}
+            onOpenWardrobe={() => navigate('/wardrobe')}
+            onGenerateLook={() => navigate('/ai/generate')}
+            onOpenUsed={() => navigate('/wardrobe/used')}
+            onOpenUnused={() => navigate('/outfits/unused')}
+            onOpenPlan={() => navigate('/plan')}
+            onOpenOutfits={() => navigate('/outfits')}
           />
 
-          {/* ─── Smart Insight ─── */}
-          <SmartInsightCard />
+          <nav
+            aria-label="Insights sections"
+            className="scrollbar-hide -mx-5 overflow-x-auto px-5"
+          >
+            <div className="flex gap-2 pb-1">
+              {SECTION_LINKS.map((section) => (
+                <Button
+                  key={section.id}
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full border-border/40 bg-background/75 whitespace-nowrap"
+                >
+                  <a href={`#${section.id}`}>{section.label}</a>
+                </Button>
+              ))}
+            </div>
+          </nav>
 
-          {/* ─── Premium link ─── */}
-          {!isPremium && (
-            <p className="text-center text-xs text-muted-foreground/40">
-              <button onClick={() => navigate('/pricing')} className="underline underline-offset-2 hover:text-foreground transition-colors">
-                {t('insights.unlock')} {t('common.premium')}
-              </button>
-            </p>
-          )}
+          <InsightsSection
+            id="overview"
+            eyebrow="Overview"
+            title="Rotation and wardrobe health"
+            description="A quick read on what is active, what is stalling, and how the overall palette is behaving."
+          >
+            <div className="grid gap-4">
+              {allGarments.length >= 5 ? (
+                <WardrobeHealthCard
+                  garments={allGarments}
+                  usedGarments={insights.usedGarments}
+                  unusedGarments={insights.unusedGarments}
+                />
+              ) : null}
 
-          {/* ─── CTA ─── */}
-          <Button className="w-full rounded-2xl h-12" size="lg" onClick={() => navigate('/')}>
-            <Sparkles className="w-4 h-4 mr-2" />{t('insights.get_outfits')}
-          </Button>
+              <InsightsPalettePanel
+                bars={colorBreakdown.bars}
+                entries={colorBreakdown.entries}
+                total={colorBreakdown.total}
+                colorTemperature={insights.colorTemperature}
+                isPremium={isPremium}
+              />
+            </div>
+          </InsightsSection>
 
+          <InsightsSection
+            id="dna"
+            eyebrow="DNA"
+            title="Personal signals and repeat formulas"
+            description="Use the wardrobe history to see the archetype, palette bias, and formulas that actually recur."
+          >
+            <div className="grid gap-4">
+              <StyleDNACard
+                dna={dna}
+                className="bg-card/75"
+                emptyState={
+                  <div className="space-y-3">
+                    <p className="label-editorial text-muted-foreground/60">Style DNA</p>
+                    <div className="space-y-2">
+                      <h3 className="text-[1.2rem] font-semibold tracking-[-0.04em] text-foreground">
+                        Your signature is still forming.
+                      </h3>
+                      <p className="text-[0.92rem] leading-6 text-muted-foreground">
+                        Save and wear a few more complete looks, then the DNA layer will lock onto your archetype and repeat patterns.
+                      </p>
+                    </div>
+                    <Button onClick={() => navigate('/ai/generate')} className="rounded-full px-4">
+                      <Sparkles className="mr-2 size-4" />
+                      Style me
+                    </Button>
+                  </div>
+                }
+              />
+
+              <StyleReportCard isPremium={isPremium} />
+            </div>
+          </InsightsSection>
+
+          <InsightsSection
+            id="patterns"
+            eyebrow="Wardrobe Patterns"
+            title="What repeats, what fades, what still needs attention"
+            description="Track the staples that carry daily wear, the pieces that have gone quiet, and the behavior of saved outfits over time."
+          >
+            <div className="grid gap-4">
+              <div className="surface-secondary p-4">
+                <InsightsGarmentRail
+                  title="Most-worn garments"
+                  subtitle="The pieces doing the most work over the last 30 days."
+                  garments={insights.topFiveWorn}
+                  actionLabel="Open worn pieces"
+                  onAction={() => navigate('/wardrobe/used')}
+                  onSelectGarment={(garmentId) => navigate(`/wardrobe/${garmentId}`)}
+                  renderMeta={(garment) => `${garment.wearCountLast30}x in 30 days`}
+                />
+              </div>
+
+              <div className="surface-secondary p-4">
+                <InsightsGarmentRail
+                  title="Forgotten garments"
+                  subtitle="Pieces that can unlock variety if they come back into rotation."
+                  garments={insights.unusedGarments.slice(0, 8)}
+                  actionLabel="See dormant outfits"
+                  onAction={() => navigate('/outfits/unused')}
+                  onSelectGarment={(garmentId) => navigate(`/wardrobe/${garmentId}`)}
+                  renderMeta={(garment) => garment.category || garment.color_primary || null}
+                />
+              </div>
+
+              <CategoryRadar isPremium={isPremium} />
+
+              <OutfitRepeatTracker isPremium={isPremium} />
+
+              <WearHeatmap isPremium={isPremium} />
+            </div>
+          </InsightsSection>
+
+          <InsightsSection
+            id="value"
+            eyebrow="Value & Gaps"
+            title="Cost, sustainability, and missing leverage"
+            description="See what the wardrobe is worth, which pieces are paying off, and where one smart addition would create more complete outfits."
+          >
+            <div className="grid gap-4">
+              <SustainabilityPanel
+                score={sustainability?.score}
+                utilizationRate={sustainability?.utilizationRate}
+                avgWearCount={sustainability?.avgWearCount}
+                underusedCount={sustainability?.underusedCount}
+                isPremium={isPremium}
+              />
+
+              <SpendingDashboard isPremium={isPremium} />
+
+              <InsightsGapPreview />
+            </div>
+          </InsightsSection>
+
+          <InsightsSection
+            id="tools"
+            eyebrow="Related Tools"
+            title="Jump into the adjacent workflows"
+            description="Use the dashboard as the operating layer, then move directly into generation, planning, or gap-filling work."
+          >
+            <InsightsRelatedTools
+              tools={[
+                {
+                  title: 'Style me',
+                  description: 'Generate a complete look from your wardrobe with the latest style logic.',
+                  to: '/ai/generate',
+                  icon: Wand2,
+                  accentClassName: 'bg-accent/12 text-accent',
+                },
+                {
+                  title: 'AI chat',
+                  description: 'Refine a look, anchor around a garment, or ask for a sharper occasion fit.',
+                  to: '/ai/chat',
+                  icon: Sparkles,
+                  accentClassName: 'bg-primary/8 text-foreground',
+                },
+                {
+                  title: 'Plan outfits',
+                  description: 'Move complete looks into the calendar and build repeatable outfit coverage.',
+                  to: '/plan',
+                  icon: CalendarDays,
+                  accentClassName: 'bg-success/10 text-success',
+                },
+                {
+                  title: 'Gap analysis',
+                  description: 'Scan for the one addition that would unlock more valid combinations.',
+                  to: '/gaps',
+                  icon: Search,
+                  accentClassName: 'bg-warning/12 text-warning',
+                },
+                {
+                  title: 'Used pieces',
+                  description: 'Inspect the garments carrying your rotation and spot over-reliance early.',
+                  to: '/wardrobe/used',
+                  icon: Shirt,
+                  accentClassName: 'bg-background/80 text-foreground/75',
+                },
+                {
+                  title: 'Unused outfits',
+                  description: 'Turn dormant pieces into working outfits instead of letting them sit.',
+                  to: '/outfits/unused',
+                  icon: Compass,
+                  accentClassName: 'bg-primary/8 text-foreground',
+                },
+              ]}
+            />
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <a href="#overview" className="surface-secondary flex items-center gap-3 p-4">
+                <BarChart3 className="size-4 text-muted-foreground/55" />
+                <div>
+                  <p className="text-[0.82rem] font-medium text-foreground">Rotation summary</p>
+                  <p className="text-[0.76rem] text-muted-foreground">Start with overview</p>
+                </div>
+              </a>
+              <a href="#dna" className="surface-secondary flex items-center gap-3 p-4">
+                <Dna className="size-4 text-muted-foreground/55" />
+                <div>
+                  <p className="text-[0.82rem] font-medium text-foreground">DNA evidence</p>
+                  <p className="text-[0.76rem] text-muted-foreground">Archetype and formulas</p>
+                </div>
+              </a>
+              <a href="#value" className="surface-secondary flex items-center gap-3 p-4">
+                <Palette className="size-4 text-muted-foreground/55" />
+                <div>
+                  <p className="text-[0.82rem] font-medium text-foreground">Value layer</p>
+                  <p className="text-[0.76rem] text-muted-foreground">Spend and gaps</p>
+                </div>
+              </a>
+            </div>
+          </InsightsSection>
         </AnimatedPage>
       </PullToRefresh>
     </AppLayout>

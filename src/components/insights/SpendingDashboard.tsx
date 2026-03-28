@@ -3,10 +3,11 @@ import { DollarSign, TrendingDown, TrendingUp, Lock } from 'lucide-react';
 import { useSpendingData } from '@/hooks/useAdvancedInsights';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
-export function SpendingDashboard({ isPremium }: { isPremium: boolean }) {
+export function SpendingDashboard({ isPremium, className }: { isPremium: boolean; className?: string }) {
   const { t, locale } = useLanguage();
   const navigate = useNavigate();
   const { data } = useSpendingData(locale);
@@ -16,7 +17,7 @@ export function SpendingDashboard({ isPremium }: { isPremium: boolean }) {
   const maxCatTotal = data.categoryBreakdown[0]?.total || 1;
 
   return (
-    <div className="space-y-4">
+    <div className={cn('surface-secondary space-y-4 p-4', className)}>
       <div className="flex items-center gap-2">
         <DollarSign className="w-4 h-4 text-muted-foreground/50" />
         <span className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wider">
