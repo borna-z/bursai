@@ -53,8 +53,9 @@ export function EmptyState({
       className={cn(
         'flex flex-col items-center justify-center px-6 text-center',
         compact ? 'py-14' : 'py-28',
-        isEditorial && 'rounded-2xl bg-gradient-to-b from-primary/[0.04] to-transparent border border-border/10',
-        isEditorial && (compact ? 'py-10' : 'py-20'),
+        isEditorial && 'surface-editorial',
+        isEditorial && 'px-5',
+        isEditorial && (compact ? 'py-10' : 'py-16'),
         className,
       )}
     >
@@ -66,23 +67,23 @@ export function EmptyState({
           'flex items-center justify-center relative',
           compact ? 'w-14 h-14 mb-6' : 'w-20 h-20 mb-10',
           isEditorial
-            ? 'rounded-2xl bg-primary/[0.08]'
+            ? 'rounded-[1.35rem] bg-background/76 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]'
             : 'rounded-[var(--radius,1.5rem)] bg-muted/30',
         )}
       >
         <Icon className={cn(
           compact ? 'w-6 h-6' : 'w-8 h-8',
-          isEditorial ? 'text-primary/60' : 'text-muted-foreground',
+          isEditorial ? 'text-foreground/55' : 'text-muted-foreground',
         )} />
         {isEditorial && !compact && (
-          <div className="absolute -inset-3 rounded-3xl bg-primary/5 blur-xl pointer-events-none" />
+          <div className="absolute -inset-3 rounded-3xl bg-accent-indigo/8 blur-xl pointer-events-none" />
         )}
       </motion.div>
       <motion.h3
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className={cn('font-bold tracking-[-0.02em] mb-2.5', compact ? 'text-base' : 'text-lg', titleClassName)}
+        className={cn('mb-2.5 font-semibold tracking-[-0.04em]', compact ? 'text-base' : 'text-lg', titleClassName)}
       >
         {title}
       </motion.h3>
@@ -136,7 +137,7 @@ export function EmptyState({
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <Button onClick={action.onClick} size={compact ? 'default' : 'lg'}>
+          <Button onClick={action.onClick} size={compact ? 'default' : 'lg'} variant={isEditorial ? 'editorial' : 'default'}>
             {action.icon && <action.icon className="w-4 h-4 mr-2" />}
             {action.label}
           </Button>

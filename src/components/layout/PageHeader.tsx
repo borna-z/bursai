@@ -27,27 +27,27 @@ export function PageHeader({
   return (
     <header 
       className={cn(
-        'bg-background/70 backdrop-blur-2xl border-b border-border/15 z-20',
+        'topbar-frost z-20',
         sticky && 'sticky top-0',
         className
       )}
     >
       <div className={cn(
-        'flex items-center justify-between px-4 max-w-lg mx-auto',
-        subtitle ? 'h-[72px] py-2' : 'h-16'
+        'mx-auto flex max-w-xl items-center justify-between gap-3 px-4',
+        subtitle ? 'min-h-[76px] py-3' : 'h-[68px]'
       )}>
         <div className="flex items-center gap-3">
           {showBack && (
             <Button 
-              variant="ghost" 
+              variant="quiet" 
               size="icon" 
               onClick={() => navigate(-1)}
-              className="shrink-0 -ml-2 rtl:-ml-0 rtl:-mr-2 rtl:rotate-180"
+              className="shrink-0 rtl:rotate-180"
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
           )}
-          <div>
+          <div className="space-y-1">
             <AnimatePresence mode="wait">
               <motion.h1
                 key={title}
@@ -55,13 +55,13 @@ export function PageHeader({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.2 }}
-                className="text-[1.0625rem] font-bold tracking-[-0.02em] truncate"
+                className="truncate text-[1.05rem] font-semibold tracking-[-0.04em]"
               >
                 {title}
               </motion.h1>
             </AnimatePresence>
             {subtitle && (
-              <p className="text-[0.75rem] text-muted-foreground/70 leading-relaxed tracking-wide">{subtitle}</p>
+              <p className="max-w-[32ch] text-[0.76rem] leading-relaxed text-muted-foreground/72">{subtitle}</p>
             )}
           </div>
         </div>

@@ -246,7 +246,7 @@ export default function HomePage() {
     return (
       <AppLayout>
         <PullToRefresh onRefresh={handleRefresh}>
-          <AnimatedPage className="mx-auto w-full max-w-xl px-4 pb-28 pt-4">
+          <AnimatedPage className="page-shell !pt-4">
             <HomePageSkeleton />
           </AnimatedPage>
         </PullToRefresh>
@@ -257,20 +257,20 @@ export default function HomePage() {
   return (
     <AppLayout>
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 pb-28 pt-4">
+        <AnimatedPage className="page-shell !pt-4 flex flex-col gap-5">
           <motion.header
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35 }}
-            className="sticky top-0 z-10 -mx-4 border-b border-foreground/[0.06] bg-background/88 px-4 pb-3 pt-2 backdrop-blur supports-[backdrop-filter]:bg-background/72"
+            className="topbar-frost sticky top-0 z-10 -mx-4 px-4 pb-4 pt-3"
           >
             <div className="space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[0.74rem] uppercase tracking-[0.2em] text-muted-foreground/55">
+                  <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/55">
                     Today
                   </p>
-                  <h1 className="text-[1.55rem] font-semibold leading-tight tracking-[-0.05em]">
+                  <h1 className="text-[1.68rem] font-semibold leading-tight tracking-[-0.055em]">
                     {getGreeting()}
                   </h1>
                 </div>
@@ -278,7 +278,7 @@ export default function HomePage() {
                   <WeatherPill />
                   <button
                     onClick={() => navigate('/settings')}
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-foreground/[0.08] bg-card/90 transition-colors hover:bg-foreground/[0.04] active:scale-95"
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-border/45 bg-background/90 transition-colors hover:bg-background active:scale-95"
                     aria-label="Settings"
                   >
                     <Settings className="size-4 text-muted-foreground/70" />
@@ -287,16 +287,16 @@ export default function HomePage() {
               </div>
 
               <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <span className="rounded-full border border-foreground/[0.08] bg-card px-3 py-1.5 text-[0.78rem] uppercase tracking-[0.16em] text-muted-foreground/70 capitalize">
+                <span className="rounded-full border border-border/45 bg-background/80 px-3 py-1.5 text-[0.78rem] uppercase tracking-[0.16em] text-muted-foreground/70 capitalize">
                   {formattedDate}
                 </span>
                 {scheduleSummary ? (
-                  <span className="rounded-full border border-foreground/[0.08] bg-card px-3 py-1.5 text-[0.82rem] text-muted-foreground">
+                  <span className="rounded-full border border-border/45 bg-background/80 px-3 py-1.5 text-[0.82rem] text-muted-foreground">
                     {scheduleSummary}
                   </span>
                 ) : null}
                 {weatherSummary ? (
-                  <span className="rounded-full border border-foreground/[0.08] bg-card px-3 py-1.5 text-[0.82rem] text-muted-foreground">
+                  <span className="rounded-full border border-border/45 bg-background/80 px-3 py-1.5 text-[0.82rem] text-muted-foreground">
                     {weatherSummary}
                   </span>
                 ) : null}

@@ -1,17 +1,13 @@
 import { Check } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { EASE_CURVE } from '@/lib/motion';
-import { cn } from '@/lib/utils';
+
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { PageIntro } from '@/components/ui/page-intro';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { SUPPORTED_LOCALES } from '@/i18n/types';
-import bursLogoWhite from '@/assets/burs-logo-256-2.png';
-import bursLogoDark from '@/assets/burs-logo-256-2.png';
-import { useIsDark } from '@/hooks/useIsDark';
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  show: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.05, duration: 0.4, ease: EASE_CURVE } }),
-};
+import { EASE_CURVE } from '@/lib/motion';
+import { cn } from '@/lib/utils';
 
 interface LanguageStepProps {
   onComplete: () => void;
@@ -19,86 +15,60 @@ interface LanguageStepProps {
 
 export function LanguageStep({ onComplete }: LanguageStepProps) {
   const { locale, setLocale, t } = useLanguage();
-  const dark = useIsDark();
 
   return (
-    <div className={cn('min-h-screen flex flex-col relative overflow-hidden', dark ? 'dark-landing' : 'bg-background text-foreground')}>
-      {dark && (
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] rounded-full bg-[radial-gradient(ellipse,rgba(99,102,241,0.08)_0%,transparent_70%)] blur-3xl" />
-        </div>
-      )}
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="page-shell !max-w-lg !px-6 !pb-16 !pt-24 page-cluster">
+        <Card surface="editorial" className="p-6">
+          <PageIntro
+            center
+            eyebrow="Onboarding"
+            title="Choose your language."
+            description={t('onboarding.language.subtitle')}
+          />
+        </Card>
 
-      <div className="relative z-10 flex flex-col items-center pt-16 pb-8 px-6">
-        <motion.img
-          src={dark ? bursLogoWhite : bursLogoDark}
-          alt="BURS"
-          className="h-9 w-auto opacity-90 mb-8"
-          variants={fadeUp} initial="hidden" animate="show" custom={0}
-        />
-        <motion.h1
-          variants={fadeUp} initial="hidden" animate="show" custom={1}
-          style={{
-            fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-            fontSize: 20, textAlign: 'center', maxWidth: 240, marginBottom: 8,
-          }}
-          className={cn(dark ? 'text-white' : 'text-foreground')}
-        >
-          Choose your language.
-        </motion.h1>
-        <motion.p
-          variants={fadeUp} initial="hidden" animate="show" custom={2}
-          className={cn('text-sm', dark ? 'text-white/35' : 'text-muted-foreground')}
-        >
-          {t('onboarding.language.subtitle')}
-        </motion.p>
-      </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {SUPPORTED_LOCALES.map((supportedLocale, index) => {
+            const isSelected = locale === supportedLocale.code;
 
-      <div className="relative z-10 flex-1 px-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
-        <div className="grid grid-cols-2 gap-2.5 max-w-sm mx-auto">
-          {SUPPORTED_LOCALES.map((loc, i) => {
-            const isSelected = locale === loc.code;
             return (
               <motion.button
-                key={loc.code}
-                variants={fadeUp}
-                initial="hidden"
-                animate="show"
-                custom={3 + i}
-                onClick={() => setLocale(loc.code)}
-                className={cn(
-                  'flex items-center gap-3 px-4 py-3.5 border transition-all text-left',
-                  dark
-                    ? cn('rounded-xl', isSelected ? 'border-white/20 bg-white/[0.08]' : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10')
-                    : cn(isSelected ? 'border-foreground bg-muted' : 'border-border bg-card hover:bg-muted')
-                )}
+                key={supportedLocale.code}
+                type="button"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.04, duration: 0.28, ease: EASE_CURVE }}
+                onClick={() => setLocale(supportedLocale.code)}
+                className="text-left"
               >
-                <span className="text-xl">{loc.flag}</span>
-                <span className={cn(
-                  'flex-1 text-sm font-medium truncate',
-                  dark
-                    ? (isSelected ? 'text-white' : 'text-white/60')
-                    : (isSelected ? 'text-foreground' : 'text-muted-foreground')
-                )}>{loc.name}</span>
-                {isSelected && (
-                  <Check className={cn('w-4 h-4 flex-shrink-0', dark ? 'text-white/70' : 'text-foreground')} />
-                )}
+                <Card
+                  surface={isSelected ? 'editorial' : 'utility'}
+                  className={cn(
+                    'flex items-center gap-4 p-4 transition-transform duration-200',
+                    isSelected ? 'border-foreground/20' : 'hover:-translate-y-0.5',
+                  )}
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-[1rem] bg-background/82 text-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+                    {supportedLocale.flag}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[0.95rem] font-medium text-foreground">{supportedLocale.name}</p>
+                    <p className="mt-1 text-[0.75rem] uppercase tracking-[0.16em] text-muted-foreground">
+                      {supportedLocale.code}
+                    </p>
+                  </div>
+                  {isSelected ? <Check className="h-4 w-4 text-foreground" /> : null}
+                </Card>
               </motion.button>
             );
           })}
         </div>
 
-        <div className="mt-8 max-w-sm mx-auto">
-          <button
-            onClick={onComplete}
-            style={{
-              width: '100%', height: 52, background: '#1C1917', color: '#F5F0E8',
-              border: 'none', fontFamily: 'DM Sans, sans-serif', fontSize: 13,
-              fontWeight: 500, cursor: 'pointer', borderRadius: 0,
-            }}
-          >
+        <div className="action-bar-floating rounded-[1.6rem] p-3">
+          <Button onClick={onComplete} size="lg" className="w-full">
             {t('onboarding.body.continue')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

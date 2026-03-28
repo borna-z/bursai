@@ -1,41 +1,59 @@
-import { useEffect, useState, useMemo } from 'react';
-import { hapticMedium, hapticHeavy, hapticSuccess, hapticLight } from '@/lib/haptics';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Edit, Trash2, WashingMachine, Check, Loader2, ExternalLink,
-  Sparkles, Shield,
+  Check,
+  Edit,
+  ExternalLink,
+  Loader2,
+  Shield,
+  Sparkles,
+  Trash2,
+  WashingMachine,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Input } from '@/components/ui/input';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { useGarment, useUpdateGarment, useDeleteGarment, useMarkGarmentWorn } from '@/hooks/useGarments';
-import { useSimilarGarments } from '@/hooks/useSimilarGarments';
-import { useAssessCondition, useCostPerWear } from '@/hooks/useAdvancedFeatures';
-import { useGarmentOutfitHistory } from '@/hooks/useGarmentOutfitHistory';
-import { LazyImage } from '@/components/ui/lazy-image';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { getBCP47 } from '@/lib/dateLocale';
-import { humanize, categoryLabel, colorLabel, materialLabel, patternLabel, fitLabel, seasonLabel } from '@/lib/humanize';
-import { EASE_CURVE } from '@/lib/motion';
-import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
-import { supabase } from '@/integrations/supabase/client';
-import type { Json } from '@/integrations/supabase/types';
-import { getPreferredGarmentImagePath, getPreferredGarmentImageSource, getGarmentProcessingMessage } from '@/lib/garmentImage';
-import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
-import { RenderPendingOverlay } from '@/components/wardrobe/RenderPendingOverlay';
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { EmptyState } from '@/components/layout/EmptyState';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { GarmentEnrichmentPanel, SpecRow, extractEnrichment, type EnrichmentStatus } from '@/components/garment/GarmentEnrichmentPanel';
 import { GarmentOutfitHistory } from '@/components/garment/GarmentOutfitHistory';
 import { GarmentSimilarItems } from '@/components/garment/GarmentSimilarItems';
-import { PageBreadcrumb } from '@/components/ui/PageBreadcrumb';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { LazyImage } from '@/components/ui/lazy-image';
+import { PageIntro } from '@/components/ui/page-intro';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useAssessCondition, useCostPerWear } from '@/hooks/useAdvancedFeatures';
+import { useGarmentOutfitHistory } from '@/hooks/useGarmentOutfitHistory';
+import { useDeleteGarment, useGarment, useMarkGarmentWorn, useUpdateGarment } from '@/hooks/useGarments';
+import { useSimilarGarments } from '@/hooks/useSimilarGarments';
+import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
+import { getBCP47 } from '@/lib/dateLocale';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { getGarmentProcessingMessage, getPreferredGarmentImagePath, getPreferredGarmentImageSource } from '@/lib/garmentImage';
+import { hapticHeavy, hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
+import { categoryLabel, colorLabel, fitLabel, humanize, materialLabel, patternLabel, seasonLabel } from '@/lib/humanize';
+import { EASE_CURVE } from '@/lib/motion';
 import { buildStyleAroundState, buildStyleFlowSearch } from '@/lib/styleFlowState';
+import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
+import { RenderPendingOverlay } from '@/components/wardrobe/RenderPendingOverlay';
 
 export default function GarmentDetailPage() {
   const navigate = useNavigate();
@@ -45,6 +63,9 @@ export default function GarmentDetailPage() {
 
   const [isEnrichmentPending, setIsEnrichmentPending] = useState(false);
   const [activeTab, setActiveTab] = useState<'info' | 'outfits' | 'similar'>('info');
+  const [editingPrice, setEditingPrice] = useState(false);
+  const [priceInput, setPriceInput] = useState('');
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const { data: garment, isLoading } = useGarment(id, {
     refetchInterval: isEnrichmentPending ? 5000 : false,
@@ -69,17 +90,12 @@ export default function GarmentDetailPage() {
   const deleteGarment = useDeleteGarment();
   const markWorn = useMarkGarmentWorn();
   const assessCondition = useAssessCondition();
-  const costPerWear = useCostPerWear(
-    garment?.purchase_price ?? null,
-    garment?.wear_count ?? null
-  );
-  const [editingPrice, setEditingPrice] = useState(false);
-  const [priceInput, setPriceInput] = useState('');
-  const [isRetrying, setIsRetrying] = useState(false);
-  const enrichment = useMemo(() => garment ? extractEnrichment(garment.ai_raw) : null, [garment]);
+  const costPerWear = useCostPerWear(garment?.purchase_price ?? null, garment?.wear_count ?? null);
+  const enrichment = useMemo(() => (garment ? extractEnrichment(garment.ai_raw) : null), [garment]);
 
   const usageInsights = useMemo(() => {
     if (!garment) return null;
+
     const wearCount = garment.wear_count || 0;
     const lastWorn = garment.last_worn_at ? new Date(garment.last_worn_at) : null;
     const created = garment.created_at ? new Date(garment.created_at) : new Date();
@@ -94,79 +110,94 @@ export default function GarmentDetailPage() {
     return { wearCount, daysSinceLastWorn, wearFrequency, daysOwned, status };
   }, [garment]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background pb-32">
-        <Skeleton className="aspect-[3/4] w-full" />
-        <div className="px-6 pt-8 space-y-6">
-          <div>
-            <Skeleton className="h-7 w-2/3 mb-2" />
-            <Skeleton className="h-4 w-1/3" />
-          </div>
-          <Skeleton className="h-4 w-3/4" />
-          <div className="flex gap-8">
-            <Skeleton className="h-12 w-20" />
-            <Skeleton className="h-12 w-20" />
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const seasonParts = useMemo(() => {
+    const values: string[] = [];
+    garment?.season_tags?.forEach((season) => values.push(seasonLabel(t, season)));
+    return values;
+  }, [garment?.season_tags, t]);
 
-  if (!garment) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4">
-        <p className="text-lg font-medium mb-4">{t('garment.not_found')}</p>
-        <Button variant="outline" onClick={() => navigate('/wardrobe')}>{t('common.back')}</Button>
-      </div>
-    );
-  }
+  const displayImagePath = garment ? getPreferredGarmentImagePath(garment) : undefined;
+  const displayImageSource = garment ? getPreferredGarmentImageSource(garment) : undefined;
+  const processingMessage = garment
+    ? getGarmentProcessingMessage(garment.image_processing_status, garment.render_status, displayImageSource)
+    : null;
+
+  const categorySummary = garment
+    ? `${categoryLabel(t, garment.category)}${garment.subcategory ? ` • ${humanize(garment.subcategory)}` : ''}`
+    : '';
+  const heroDescription = enrichment?.stylist_note
+    || [categorySummary, garment?.material ? materialLabel(t, garment.material) : null].filter(Boolean).join(' • ');
+  const costCurrency = garment?.purchase_currency || 'SEK';
+  const costPerWearDisplay = costPerWear !== null ? `${Math.round(costPerWear)} ${costCurrency}` : 'Add price';
+  const lastWornDisplay = usageInsights?.daysSinceLastWorn != null
+    ? `${usageInsights.daysSinceLastWorn} days ago`
+    : 'Not worn yet';
+
+  const tabs = [
+    { key: 'info' as const, label: 'Info' },
+    { key: 'outfits' as const, label: 'Outfits' },
+    { key: 'similar' as const, label: 'Similar' },
+  ];
 
   const handleToggleLaundry = async () => {
+    if (!garment) return;
     try {
       hapticMedium();
       await updateGarment.mutateAsync({ id: garment.id, updates: { in_laundry: !garment.in_laundry } });
       toast.success(garment.in_laundry ? t('garment.available') : t('garment.in_laundry'));
-    } catch { toast.error(t('common.something_wrong')); }
+    } catch {
+      toast.error(t('common.something_wrong'));
+    }
   };
 
   const handleMarkWorn = async () => {
+    if (!garment) return;
     try {
       hapticSuccess();
       await markWorn.mutateAsync(garment.id);
       toast.success(t('garment.marked'));
-    } catch { toast.error(t('common.something_wrong')); }
+    } catch {
+      toast.error(t('common.something_wrong'));
+    }
   };
 
   const handleDelete = async () => {
+    if (!garment) return;
     try {
       hapticHeavy();
       await deleteGarment.mutateAsync(garment.id);
       toast.success(t('garment.deleted'));
       navigate('/wardrobe');
-    } catch { toast.error(t('common.something_wrong')); }
+    } catch {
+      toast.error(t('common.something_wrong'));
+    }
   };
 
   const handleRetryEnrichment = async () => {
     if (!garment || isRetrying) return;
+
     setIsRetrying(true);
     try {
       await supabase.from('garments').update({ enrichment_status: 'in_progress' } as Record<string, unknown>).eq('id', garment.id);
       const { data, error } = await invokeEdgeFunction<{ enrichment?: Record<string, unknown>; error?: string }>('analyze_garment', {
         body: { storagePath: garment.image_path, mode: 'enrich' },
       });
+
       if (error || !data?.enrichment) {
         await supabase.from('garments').update({ enrichment_status: 'failed' } as Record<string, unknown>).eq('id', garment.id);
         queryClient.invalidateQueries({ queryKey: ['garment', garment.id] });
-        toast.error('Deep analysis failed — try again later');
+        toast.error('Deep analysis failed. Try again later.');
         return;
       }
+
       const currentRaw = (garment.ai_raw as Record<string, unknown>) || {};
       const mergedRaw = { ...currentRaw, enrichment: data.enrichment };
       const updates: Record<string, unknown> = { ai_raw: mergedRaw as Json, enrichment_status: 'complete' };
+
       if (data.enrichment.refined_title && typeof data.enrichment.refined_title === 'string') {
         updates.title = (data.enrichment.refined_title as string).substring(0, 50);
       }
+
       await supabase.from('garments').update(updates).eq('id', garment.id);
       queryClient.invalidateQueries({ queryKey: ['garment', garment.id] });
       toast.success('Deep analysis complete');
@@ -179,239 +210,252 @@ export default function GarmentDetailPage() {
     }
   };
 
-  const seasonParts: string[] = [];
-  garment.season_tags?.forEach((season) => {
-    seasonParts.push(seasonLabel(t, season));
-  });
+  if (isLoading) {
+    return (
+      <AppLayout hideNav>
+        <PageHeader title="Garment" showBack />
+        <div className="page-shell !px-5 !pt-6 page-cluster">
+          <Skeleton className="aspect-[4/5] rounded-[2rem]" />
+          <Skeleton className="h-32 rounded-[2rem]" />
+          <Skeleton className="h-12 rounded-full" />
+          <Skeleton className="h-56 rounded-[2rem]" />
+        </div>
+      </AppLayout>
+    );
+  }
 
-  const displayImagePath = getPreferredGarmentImagePath(garment);
-  const displayImageSource = getPreferredGarmentImageSource(garment);
-  const processingMessage = getGarmentProcessingMessage(garment.image_processing_status, garment.render_status, displayImageSource);
-
-  const tabs = [
-    { key: 'info' as const, label: 'Info' },
-    { key: 'outfits' as const, label: 'Outfits' },
-    { key: 'similar' as const, label: 'Similar' },
-  ];
+  if (!garment) {
+    return (
+      <AppLayout hideNav>
+        <PageHeader title="Garment" showBack />
+        <div className="page-shell !px-5 !pt-6">
+          <EmptyState
+            icon={Sparkles}
+            title={t('garment.not_found')}
+            description="This garment is no longer available in your wardrobe."
+            variant="editorial"
+            compact
+            action={{ label: t('common.back'), onClick: () => navigate('/wardrobe') }}
+          />
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-
-      {/* ── Zone 1: Hero image (55vh) ── */}
-      <div className="relative h-[55vh] bg-card overflow-hidden">
-        <LazyImage imagePath={displayImagePath} alt={garment.title} aspectRatio="auto" className="w-full h-full !rounded-none object-cover" />
-        <RenderPendingOverlay renderStatus={garment.render_status} variant="overlay" />
-
-        {/* Back arrow — top-left */}
-        <button
-          onClick={() => navigate(-1)}
-          className="absolute top-4 left-4 z-10 w-9 h-9 flex items-center justify-center bg-background/85 border-none cursor-pointer"
-        >
-          <ArrowLeft className="w-[18px] h-[18px] text-foreground" />
-        </button>
-
-        {/* Edit + Delete — top-right */}
-        <div className="absolute top-4 right-4 z-10 flex gap-1.5">
-          <button
-            onClick={() => navigate(`/wardrobe/${garment.id}/edit`)}
-            className="w-9 h-9 flex items-center justify-center bg-background/85 border-none cursor-pointer"
-          >
-            <Edit className="w-4 h-4 text-foreground" />
-          </button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <button
-                className="w-9 h-9 flex items-center justify-center bg-background/85 border-none cursor-pointer"
-              >
-                <Trash2 className="w-4 h-4 text-red-600" />
-              </button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>{t('garment.delete_confirm')}</AlertDialogTitle>
-                <AlertDialogDescription>"{garment.title}" {t('garment.delete_desc')}</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">{t('common.delete')}</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-
-        {/* Wear count badge — bottom-left */}
-        <div className="absolute bottom-3 left-4 z-10 bg-foreground px-2.5 py-1 flex items-center gap-1">
-          <span className="text-[10px] font-medium text-background">
-            {garment.wear_count || 0}× worn
-          </span>
-        </div>
-
-        {/* Laundry badge */}
-        {garment.in_laundry && (
-          <div className="absolute bottom-3 right-4 z-10 bg-foreground px-2.5 py-1 flex items-center gap-1">
-            <WashingMachine className="w-3 h-3 text-background/60" />
-            <span className="text-[10px] font-medium text-background">
-              In laundry
-            </span>
-          </div>
-        )}
-
-        {/* Processing badge */}
-        {processingMessage && (
-          <div className="absolute bottom-3 z-10" style={{ left: garment.in_laundry ? 16 : 'auto', right: garment.in_laundry ? 'auto' : 16 }}>
-            <GarmentProcessingBadge
-              status={garment.image_processing_status}
-              renderStatus={garment.render_status}
-              className="bg-background/85"
-              displaySource={displayImageSource}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* ── Breadcrumb ── */}
-      <PageBreadcrumb items={[
-        { label: 'Wardrobe', href: '/wardrobe' },
-        { label: garment.title },
-      ]} />
-
-      {/* ── Zone 2: Pull-up info card ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: EASE_CURVE }}
-        className="bg-background px-4 py-3 -mt-2 relative z-[5]"
-      >
-        {/* Title */}
-        <h1 className="text-sm font-medium text-foreground m-0">
-          {garment.title}
-        </h1>
-
-        {/* Category + color chips */}
-        <div className="flex gap-1.5 mt-2 flex-wrap">
-          <span className="bg-card px-2 py-[3px] text-[8px] font-medium uppercase tracking-[0.08em] text-foreground/50">
-            {categoryLabel(t, garment.category)}{garment.subcategory ? ` · ${humanize(garment.subcategory)}` : ''}
-          </span>
-          {garment.color_primary && (
-            <span className="bg-card px-2 py-[3px] text-[8px] font-medium uppercase tracking-[0.08em] text-foreground/50">
-              {colorLabel(t, garment.color_primary)}
-            </span>
-          )}
-          {garment.material && (
-            <span className="bg-card px-2 py-[3px] text-[8px] font-medium uppercase tracking-[0.08em] text-foreground/50">
-              {materialLabel(t, garment.material)}
-            </span>
-          )}
-        </div>
-
-        {/* Formality indicator */}
-        {garment.formality && (
-          <div className="flex items-center gap-1.5 mt-2.5">
-            <span className="text-[9px] text-foreground/[0.38] uppercase tracking-[0.08em]">
-              Formality
-            </span>
-            <div className="flex gap-0.5">
-              {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} className={`w-4 h-[3px] ${i <= garment.formality! ? 'bg-foreground' : 'bg-foreground/10'}`} />
-              ))}
-            </div>
-            <span className="text-[9px] text-foreground/[0.38]">
-              {garment.formality}/5
-            </span>
-          </div>
-        )}
-      </motion.div>
-
-      {/* ── 3-tab row ── */}
-      <div className="flex bg-card">
-        {tabs.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => { hapticLight(); setActiveTab(tab.key); }}
-            className={`flex-1 py-2.5 text-[9px] uppercase tracking-[0.08em] bg-transparent border-none cursor-pointer border-b-[1.5px] ${
-              activeTab === tab.key
-                ? 'font-semibold text-foreground border-b-foreground'
-                : 'font-normal text-foreground/40 border-b-transparent'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Tab content ── */}
-      <div className="px-5 py-4 max-w-[512px] mx-auto">
-
-        {/* ── INFO TAB ── */}
-        {activeTab === 'info' && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.25 }}
-            className="flex flex-col gap-5"
-          >
-            {/* Stylist note */}
-            {enrichment?.stylist_note && (
-              <p className="font-['Playfair_Display'] italic text-[11px] text-foreground/70 leading-[1.6] m-0">
-                {enrichment.stylist_note}
-              </p>
-            )}
-
-            {/* Cost per wear — large number */}
-            <div className="flex items-baseline gap-2">
-              <span className="font-['Playfair_Display'] text-[20px] text-foreground">
-                {costPerWear !== null ? `${costPerWear.toFixed(0)}` : '—'}
-              </span>
-              <span className="text-[9px] text-foreground/40 uppercase tracking-[0.08em]">
-                {garment.purchase_currency || 'SEK'} / wear
-              </span>
-              {!garment.purchase_price && (
-                <button
-                  onClick={() => { setPriceInput(''); setEditingPrice(true); }}
-                  className="text-[10px] text-foreground/40 underline bg-none border-none cursor-pointer"
-                >
-                  Add price
-                </button>
-              )}
-            </div>
-
-            {/* Price editing inline */}
-            {editingPrice && (
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  value={priceInput}
-                  onChange={(e) => setPriceInput(e.target.value)}
-                  placeholder="0"
-                  className="w-24 h-8 text-xs"
-                />
-                <Button
-                  size="sm"
-                  className="h-8 text-xs"
-                  onClick={async () => {
-                    const price = parseFloat(priceInput);
-                    if (isNaN(price) || price < 0) return;
-                    try {
-                      await updateGarment.mutateAsync({ id: garment.id, updates: { purchase_price: price } });
-                      setEditingPrice(false);
-                    } catch { toast.error(t('common.something_wrong')); }
-                  }}
-                >
-                  <Check className="w-3 h-3" />
+    <AppLayout hideNav>
+      <PageHeader
+        title={garment.title}
+        subtitle={categorySummary}
+        showBack
+        actions={(
+          <>
+            <Button variant="quiet" size="icon" onClick={() => navigate(`/wardrobe/${garment.id}/edit`)} aria-label="Edit garment">
+              <Edit className="h-4 w-4" />
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="quiet" size="icon" aria-label="Delete garment">
+                  <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
-              </div>
-            )}
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t('garment.delete_confirm')}</AlertDialogTitle>
+                  <AlertDialogDescription>"{garment.title}" {t('garment.delete_desc')}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+                    {t('common.delete')}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
+        )}
+      />
 
-            {/* Material / Fit / Season rows */}
-            <div className="border-t border-foreground/[0.06]">
-              {garment.material && <SpecRow label="Material" value={materialLabel(t, garment.material)} />}
-              {garment.fit && <SpecRow label="Fit" value={fitLabel(t, garment.fit)} />}
-              {garment.pattern && garment.pattern !== 'solid' && <SpecRow label="Pattern" value={patternLabel(t, garment.pattern)} />}
-              {seasonParts.length > 0 && <SpecRow label="Season" value={seasonParts.join(', ')} />}
-              {garment.color_secondary && <SpecRow label="Secondary color" value={colorLabel(t, garment.color_secondary)} />}
+      <div className="page-shell !px-5 !pb-36 !pt-6 page-cluster">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: EASE_CURVE }}
+        >
+          <Card surface="editorial" className="overflow-hidden p-2">
+            <div className="relative overflow-hidden rounded-[1.8rem]">
+              <LazyImage
+                imagePath={displayImagePath}
+                alt={garment.title}
+                aspectRatio="auto"
+                className="aspect-[4/5] w-full !rounded-none object-cover"
+              />
+              <RenderPendingOverlay renderStatus={garment.render_status} variant="overlay" />
+
+              <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full bg-background/88 px-3 py-1 text-[0.62rem] font-medium uppercase tracking-[0.18em] text-foreground shadow-[0_8px_18px_rgba(28,25,23,0.08)]">
+                    {garment.wear_count || 0} worn
+                  </span>
+                  {garment.in_laundry ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-background/88 px-3 py-1 text-[0.62rem] font-medium uppercase tracking-[0.18em] text-foreground shadow-[0_8px_18px_rgba(28,25,23,0.08)]">
+                      <WashingMachine className="h-3 w-3" />
+                      In laundry
+                    </span>
+                  ) : null}
+                </div>
+
+                {processingMessage ? (
+                  <GarmentProcessingBadge
+                    status={garment.image_processing_status}
+                    renderStatus={garment.render_status}
+                    className="bg-background/88"
+                    displaySource={displayImageSource}
+                  />
+                ) : null}
+              </div>
             </div>
 
-            {/* Enrichment panel */}
+            <div className="space-y-5 px-3 pb-4 pt-5">
+              <PageIntro
+                eyebrow={(
+                  <>
+                    <span className="eyebrow-chip">{categorySummary}</span>
+                    {garment.color_primary ? (
+                      <span className="eyebrow-chip !bg-secondary/70">{colorLabel(t, garment.color_primary)}</span>
+                    ) : null}
+                    {garment.material ? (
+                      <span className="eyebrow-chip !bg-secondary/70">{materialLabel(t, garment.material)}</span>
+                    ) : null}
+                  </>
+                )}
+                title={garment.title}
+                description={heroDescription}
+              />
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="surface-inset rounded-[1.35rem] border p-4">
+                  <p className="label-editorial">Cost per wear</p>
+                  <p className="mt-2 text-[1.45rem] font-semibold tracking-[-0.05em] text-foreground">{costPerWearDisplay}</p>
+                </div>
+                <div className="surface-inset rounded-[1.35rem] border p-4">
+                  <p className="label-editorial">Last worn</p>
+                  <p className="mt-2 text-[1.45rem] font-semibold tracking-[-0.05em] text-foreground">{lastWornDisplay}</p>
+                </div>
+                <div className="surface-inset rounded-[1.35rem] border p-4">
+                  <p className="label-editorial">Monthly rhythm</p>
+                  <p className="mt-2 text-[1.45rem] font-semibold tracking-[-0.05em] text-foreground">{usageInsights?.wearFrequency || '0'}</p>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+
+        <div className="surface-inset flex rounded-full border p-1.5">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => {
+                hapticLight();
+                setActiveTab(tab.key);
+              }}
+              className={`flex-1 rounded-full px-4 py-2.5 text-[0.74rem] font-medium uppercase tracking-[0.16em] transition-all ${
+                activeTab === tab.key
+                  ? 'bg-foreground text-background shadow-[0_10px_24px_rgba(28,25,23,0.12)]'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'info' ? (
+          <>
+            <Card surface="utility" className="space-y-4 p-5">
+              <div className="space-y-2">
+                <p className="label-editorial">Details</p>
+                {garment.material ? <SpecRow label="Material" value={materialLabel(t, garment.material)} /> : null}
+                {garment.fit ? <SpecRow label="Fit" value={fitLabel(t, garment.fit)} /> : null}
+                {garment.pattern && garment.pattern !== 'solid' ? <SpecRow label="Pattern" value={patternLabel(t, garment.pattern)} /> : null}
+                {seasonParts.length > 0 ? <SpecRow label="Season" value={seasonParts.join(', ')} /> : null}
+                {garment.color_secondary ? <SpecRow label="Secondary color" value={colorLabel(t, garment.color_secondary)} /> : null}
+              </div>
+
+              <div className="space-y-3 border-t border-border/55 pt-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Purchase price</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Add a price to make cost-per-wear and value tracking more useful.
+                    </p>
+                  </div>
+                  {!editingPrice ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setPriceInput(garment.purchase_price ? String(garment.purchase_price) : '');
+                        setEditingPrice(true);
+                      }}
+                    >
+                      {garment.purchase_price ? 'Edit' : 'Add price'}
+                    </Button>
+                  ) : null}
+                </div>
+
+                {editingPrice ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      value={priceInput}
+                      onChange={(event) => setPriceInput(event.target.value)}
+                      placeholder="0"
+                      className="max-w-[140px]"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        const price = parseFloat(priceInput);
+                        if (Number.isNaN(price) || price < 0) return;
+
+                        try {
+                          await updateGarment.mutateAsync({ id: garment.id, updates: { purchase_price: price } });
+                          setEditingPrice(false);
+                        } catch {
+                          toast.error(t('common.something_wrong'));
+                        }
+                      }}
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="quiet" size="sm" onClick={() => setEditingPrice(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+
+              {garment.source_url ? (
+                <a
+                  href={garment.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span>{t('garment.imported')}</span>
+                </a>
+              ) : null}
+
+              {garment.ai_analyzed_at ? (
+                <p className="text-xs text-muted-foreground">
+                  Analyzed {new Date(garment.ai_analyzed_at).toLocaleDateString(getBCP47(locale))}
+                </p>
+              ) : null}
+            </Card>
+
             <GarmentEnrichmentPanel
               enrichment={enrichment}
               enrichmentStatus={enrichmentStatus}
@@ -420,84 +464,77 @@ export default function GarmentDetailPage() {
               onRetryEnrichment={handleRetryEnrichment}
             />
 
-            {/* Actions: Laundry, Condition, Price */}
-            <div className="border-t border-foreground/[0.06] pt-3">
-              {/* Laundry toggle */}
-              <div className="flex items-center justify-between py-3">
-                <div className="flex items-center gap-3">
-                  <WashingMachine className="w-4 h-4 text-foreground/40" />
-                  <span className="text-xs text-foreground">{t('garment.in_laundry')}</span>
+            <Card surface="utility" className="space-y-4 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
+                    <WashingMachine className="h-4 w-4 text-muted-foreground" />
+                    {t('garment.in_laundry')}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Keep this piece out of outfit generation until it is ready again.</p>
                 </div>
                 <Switch checked={garment.in_laundry || false} onCheckedChange={handleToggleLaundry} disabled={updateGarment.isPending} />
               </div>
 
-              {/* Condition */}
-              <div className="flex items-center justify-between py-3">
-                <div className="flex items-center gap-3">
-                  <Shield className="w-4 h-4 text-foreground/40" />
-                  <div>
-                    <span className="text-xs text-foreground">{t('insights.condition')}</span>
-                    {garment.condition_score && (
-                      <p className="text-[10px] text-foreground/50 m-0">
-                        {Number(garment.condition_score).toFixed(1)}/10 — {garment.condition_notes}
-                      </p>
-                    )}
+              <div className="flex items-center justify-between gap-3 border-t border-border/55 pt-4">
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
+                    <Shield className="h-4 w-4 text-muted-foreground" />
+                    {t('insights.condition')}
                   </div>
+                  {garment.condition_score ? (
+                    <p className="text-xs text-muted-foreground">
+                      {Number(garment.condition_score).toFixed(1)}/10 • {garment.condition_notes}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Run a quick check to estimate wear and condition.</p>
+                  )}
                 </div>
-                <Button variant="outline" size="sm" className="text-xs h-7 gap-1.5" onClick={async () => {
-                  try { await assessCondition.mutateAsync(garment.id); toast.success(t('insights.condition')); }
-                  catch { toast.error(t('insights.condition_error')); }
-                }} disabled={assessCondition.isPending}>
-                  {assessCondition.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : t('insights.condition_check')}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      await assessCondition.mutateAsync(garment.id);
+                      toast.success(t('insights.condition'));
+                    } catch {
+                      toast.error(t('insights.condition_error'));
+                    }
+                  }}
+                  disabled={assessCondition.isPending}
+                >
+                  {assessCondition.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t('insights.condition_check')}
                 </Button>
               </div>
-            </div>
+            </Card>
+          </>
+        ) : null}
 
-            {/* Source URL */}
-            {garment.source_url && (
-              <a
-                href={garment.source_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-[11px] text-muted-foreground no-underline"
-              >
-                <ExternalLink className="w-3 h-3" />
-                <span>{t('garment.imported')}</span>
-              </a>
-            )}
-
-            {/* Analyzed date */}
-            {garment.ai_analyzed_at && (
-              <p className="text-[10px] text-foreground/30 text-center m-0">
-                Analyzed {new Date(garment.ai_analyzed_at).toLocaleDateString(getBCP47(locale))}
-              </p>
-            )}
-          </motion.div>
-        )}
-
-        {/* ── OUTFITS TAB ── */}
-        {activeTab === 'outfits' && (
+        {activeTab === 'outfits' ? (
           <GarmentOutfitHistory outfitHistory={outfitHistory} usageInsights={usageInsights} />
-        )}
+        ) : null}
 
-        {/* ── SIMILAR TAB ── */}
-        {activeTab === 'similar' && (
+        {activeTab === 'similar' ? (
           <GarmentSimilarItems similarGarments={similarGarments} />
-        )}
+        ) : null}
       </div>
 
-      {/* ── Fixed CTA: "Style around this" ── */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-background border-t border-foreground/[0.06] px-5 py-3" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
-        <div className="max-w-[512px] mx-auto">
-          <Button
-            onClick={() => navigate(`/ai/chat${buildStyleFlowSearch(garment.id)}`, { state: buildStyleAroundState(garment.id) })}
-            className="bg-foreground text-background w-full h-12 text-[13px] font-medium flex items-center justify-center gap-2"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            Style around this
-          </Button>
+      <div className="fixed inset-x-4 bottom-4 z-20" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+        <div className="mx-auto max-w-xl">
+          <div className="action-bar-floating flex gap-2 rounded-[1.6rem] p-3">
+            <Button variant="outline" onClick={handleMarkWorn} className="flex-1">
+              Mark worn
+            </Button>
+            <Button
+              onClick={() => navigate(`/ai/chat${buildStyleFlowSearch(garment.id)}`, { state: buildStyleAroundState(garment.id) })}
+              className="flex-1"
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              Style around this
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
+    </AppLayout>
   );
 }

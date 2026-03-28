@@ -200,7 +200,7 @@ export default function InsightsPage() {
               aria-label="Insights sections"
               className="scrollbar-hide overflow-x-auto"
             >
-              <div className="flex w-max min-w-full snap-x snap-mandatory gap-2 rounded-full border border-border/35 bg-background/82 p-1.5 shadow-[0_10px_24px_rgba(18,18,18,0.06)] backdrop-blur-xl">
+              <div className="flex w-max min-w-full snap-x snap-mandatory gap-2 rounded-full border border-border/35 bg-background/80 p-1.5 shadow-[0_10px_24px_rgba(18,18,18,0.06)] backdrop-blur-xl">
                 {SECTION_LINKS.map((section) => (
                   <Button
                     key={section.id}

@@ -94,20 +94,20 @@ export function HomeCommandBoard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
       data-testid={`home-command-board-${state}`}
-      className="relative overflow-hidden rounded-[1.85rem] border border-foreground/[0.08] bg-card/95 shadow-[0_18px_40px_rgba(22,18,15,0.06)]"
+      className="surface-editorial relative overflow-hidden"
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_top_right,rgba(82,99,179,0.14),transparent_48%),linear-gradient(180deg,rgba(255,255,255,0.34),transparent)]"
+        className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_top_right,rgba(82,99,179,0.12),transparent_48%),linear-gradient(180deg,rgba(255,255,255,0.32),transparent)]"
       />
 
       <div className="relative space-y-4 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-2">
-            <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/65">
+            <p className="text-[0.7rem] uppercase tracking-[0.22em] text-muted-foreground/58">
               Next move
             </p>
-            <h2 className="max-w-[15ch] text-[1.34rem] font-semibold tracking-[-0.045em] text-foreground">
+            <h2 className="max-w-[15ch] text-[1.38rem] font-semibold tracking-[-0.05em] text-foreground">
               {title}
             </h2>
             <p className="max-w-[34ch] text-[0.84rem] leading-5 text-muted-foreground">
@@ -115,13 +115,13 @@ export function HomeCommandBoard({
             </p>
           </div>
 
-          <div className="inline-flex items-center gap-1.5 self-start rounded-full border border-foreground/[0.08] bg-background/75 px-3 py-1.5 text-[0.68rem] font-medium uppercase tracking-[0.2em] text-muted-foreground/75">
+          <div className="eyebrow-chip self-start bg-background/80 text-muted-foreground/75">
             <Dot className="size-4" />
             {getStatusLabel(state)}
           </div>
         </div>
 
-        <div className="rounded-[1.4rem] border border-foreground/[0.07] bg-secondary/55 p-3.5">
+        <div className="surface-utility p-3.5">
           <div className="flex flex-wrap gap-2">
             <div className="inline-flex min-w-fit items-center gap-2 rounded-full border border-foreground/[0.08] bg-background/72 px-3 py-1.5 text-[0.8rem] text-foreground/80">
               <Shirt className="size-3.5 text-muted-foreground/70" />
@@ -144,16 +144,17 @@ export function HomeCommandBoard({
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             <Button
               onClick={onPrimaryAction}
-              className="h-12 justify-between rounded-full px-5 text-[0.96rem] font-medium"
+              variant="editorial"
+              className="h-12 justify-between px-5 text-[0.96rem]"
             >
               Style Me
               <Sparkles className="size-4" />
             </Button>
 
             <Button
-              variant="outline"
+              variant="quiet"
               onClick={onSecondaryAction}
-              className="h-12 justify-between rounded-full px-4"
+              className="h-12 justify-between px-4"
             >
               {secondaryLabel}
               <ArrowRight className="size-4" />
@@ -164,7 +165,7 @@ export function HomeCommandBoard({
             {state === 'outfit_planned' && todayOutfit ? (
               <div
                 data-testid="home-command-board-visual-planned"
-                className="rounded-[1.15rem] border border-foreground/[0.07] bg-background/76 p-3"
+                className="surface-media p-3"
               >
                 <div className="grid items-start gap-3 sm:grid-cols-[112px_minmax(0,1fr)]">
                   <OutfitComposition
@@ -191,7 +192,7 @@ export function HomeCommandBoard({
             {state === 'empty_wardrobe' ? (
               <div
                 data-testid="home-command-board-visual-empty"
-                className="space-y-3 rounded-[1.15rem] border border-foreground/[0.07] bg-background/76 p-3"
+                className="surface-media space-y-3 p-3"
               >
                 <div className="grid grid-cols-3 gap-2">
                   {REQUIRED_SLOTS.map((slot) => (
@@ -224,7 +225,7 @@ export function HomeCommandBoard({
 
             {state !== 'outfit_planned' && state !== 'empty_wardrobe' ? (
               <div data-testid="home-command-board-visual-recent" className="space-y-3">
-                <div className="rounded-[1.15rem] border border-foreground/[0.07] bg-background/76 p-3">
+                <div className="surface-media p-3">
                   <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">
                     {state === 'weather_alert' ? 'Rebuild around weather' : 'Recent looks'}
                   </p>
@@ -266,7 +267,7 @@ export function HomeCommandBoard({
             ) : null}
           </div>
 
-          <div className="mt-3 rounded-[1.15rem] border border-foreground/[0.07] bg-background/72 px-3.5 py-3">
+          <div className="surface-media mt-3 px-3.5 py-3">
             <div className="flex items-end justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">

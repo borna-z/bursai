@@ -1,16 +1,18 @@
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Shirt, Sparkles } from 'lucide-react';
+
 import { AppLayout } from '@/components/layout/AppLayout';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { EmptyState } from '@/components/layout/EmptyState';
-import { LazyImageSimple } from '@/components/ui/lazy-image';
-import { Badge } from '@/components/ui/badge';
+import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
-import { useInsights } from '@/hooks/useInsights';
+import { Card } from '@/components/ui/card';
+import { LazyImageSimple } from '@/components/ui/lazy-image';
+import { PageIntro } from '@/components/ui/page-intro';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { hapticLight } from '@/lib/haptics';
+import { useInsights } from '@/hooks/useInsights';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { hapticLight } from '@/lib/haptics';
 import { buildStyleFlowSearch } from '@/lib/styleFlowState';
 
 export default function UsedGarments() {
@@ -22,12 +24,29 @@ export default function UsedGarments() {
 
   return (
     <AppLayout>
-      <PageHeader title={t('insights.used_garments_title')} showBack />
-      <AnimatedPage className="max-w-lg mx-auto px-4 pb-8 pt-6">
+      <AnimatedPage className="page-shell !px-5 !pt-6 page-cluster">
+        <PageIntro
+          eyebrow="Insights"
+          meta={<span className="eyebrow-chip !bg-secondary/70">{usedGarments.length} pieces</span>}
+          title={t('insights.used_garments_title')}
+          description="These are the pieces that already carry your wardrobe. Use them as anchors when you want another look to feel easy."
+          actions={usedGarments.length > 0 ? (
+            <Button
+              onClick={() => {
+                hapticLight();
+                navigate(`/ai/generate${buildStyleFlowSearch(usedGarments.map((garment) => garment.id))}`);
+              }}
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              {t('insights.generate_from_used')}
+            </Button>
+          ) : undefined}
+        />
+
         {isLoading ? (
-          <div className="grid grid-cols-3 gap-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="aspect-[3/4] rounded-xl bg-muted animate-pulse" />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="aspect-[3/4] rounded-[1.6rem] bg-muted/50 skeleton-shimmer" />
             ))}
           </div>
         ) : usedGarments.length === 0 ? (
@@ -35,51 +54,46 @@ export default function UsedGarments() {
             icon={Shirt}
             title={t('insights.no_used_garments')}
             description={t('insights.no_used_garments_desc')}
+            variant="editorial"
+            compact
           />
         ) : (
-          <div className="space-y-6">
-            <p className="text-sm text-muted-foreground">
-              {usedGarments.length} {t('insights.used_garments_count')}
-            </p>
-
-            <div className="grid grid-cols-3 gap-3">
-              {usedGarments.map((garment) => (
-                <button
-                  key={garment.id}
-                  onClick={() => { hapticLight(); navigate(`/wardrobe/${garment.id}`); }}
-                  className="text-left group"
-                >
-                  <div className="relative">
+          <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {usedGarments.map((garment, index) => (
+              <motion.button
+                key={garment.id}
+                type="button"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.03 }}
+                onClick={() => {
+                  hapticLight();
+                  navigate(`/wardrobe/${garment.id}`);
+                }}
+                className="text-left"
+              >
+                <Card surface="utility" className="h-full overflow-hidden p-2">
+                  <div className="relative overflow-hidden rounded-[1.35rem]">
                     <LazyImageSimple
                       imagePath={getPreferredGarmentImagePath(garment)}
                       alt={garment.title}
-                      className="aspect-[3/4] rounded-xl"
-                      fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/50" />}
+                      className="aspect-[3/4] w-full"
+                      fallbackIcon={<Shirt className="h-5 w-5 text-muted-foreground/50" />}
                     />
-                    <Badge
-                      variant="secondary"
-                      className="absolute -top-1.5 -right-1.5 text-[10px] font-bold tabular-nums px-1.5 py-0 min-w-0 h-5"
-                    >
-                      {garment.wearCountLast30}×
-                    </Badge>
+                    <span className="absolute left-2 top-2 inline-flex items-center rounded-full bg-foreground px-2.5 py-1 text-[0.62rem] font-medium uppercase tracking-[0.18em] text-background">
+                      {garment.wearCountLast30}x
+                    </span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground truncate mt-1.5">{garment.title}</p>
-                </button>
-              ))}
-            </div>
-
-            <Button
-              className="w-full rounded-xl"
-              size="lg"
-              onClick={() => {
-                hapticLight();
-                navigate(`/ai/generate${buildStyleFlowSearch(usedGarments.map((garment) => garment.id))}`);
-              }}
-            >
-              <Sparkles className="w-4 h-4 mr-2" />
-              {t('insights.generate_from_used')}
-            </Button>
-          </div>
+                  <div className="px-1 pb-1 pt-3">
+                    <p className="text-[0.84rem] font-medium leading-5 text-foreground">{garment.title}</p>
+                    <p className="mt-1 text-[0.72rem] leading-5 text-muted-foreground">
+                      Worn recently enough to lead another outfit.
+                    </p>
+                  </div>
+                </Card>
+              </motion.button>
+            ))}
+          </section>
         )}
       </AnimatedPage>
     </AppLayout>

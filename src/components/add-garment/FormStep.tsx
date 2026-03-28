@@ -1,8 +1,13 @@
-import { ArrowLeft, Loader2, RefreshCw, Sparkles, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Loader2, RefreshCw, Sparkles, X } from 'lucide-react';
+
+import { AppLayout } from '@/components/layout/AppLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PageIntro } from '@/components/ui/page-intro';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
@@ -96,65 +101,264 @@ export function FormStep(props: FormStepProps) {
   } = props;
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="sticky top-0 z-10 bg-background border-b">
-        <div className="p-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={onReset}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <h1 className="text-lg font-semibold">{t('addgarment.review')}</h1>
-          </div>
-          {storagePath && (
-            <Button variant="outline" size="sm" onClick={onReanalyze} disabled={isAnalyzing} className="gap-2">
-              <RefreshCw className={cn('w-4 h-4', isAnalyzing && 'animate-spin')} />
-              {t('addgarment.reanalyze')}
-            </Button>
-          )}
-        </div>
-      </div>
+    <AppLayout hideNav>
+      <PageHeader
+        title={t('addgarment.review')}
+        subtitle="Refine the details before the piece joins your wardrobe."
+        showBack
+        actions={storagePath ? (
+          <Button variant="outline" size="sm" onClick={onReanalyze} disabled={isAnalyzing} className="gap-2">
+            <RefreshCw className={cn('h-4 w-4', isAnalyzing && 'animate-spin')} />
+            {t('addgarment.reanalyze')}
+          </Button>
+        ) : undefined}
+      />
 
-      <div className="p-4 space-y-6">
-        {imagePreview && (
-          <div className="relative aspect-square max-w-xs mx-auto overflow-hidden bg-[hsl(36_33%_93%)]">
-            <img src={imagePreview} alt="Preview" className="w-full h-full object-contain" />
-            <Button variant="secondary" size="icon" className="absolute top-2 right-2" onClick={onReset}>
-              <X className="w-4 h-4" />
-            </Button>
-            {aiAnalysis && (
-              <div className="absolute bottom-2 left-2">
-                <Badge variant="secondary" className="gap-1">
-                  <Sparkles className="w-3 h-3" />
-                  {t('addgarment.ai_analyzed')}
-                </Badge>
+      <div className="page-shell !px-5 !pb-36 !pt-6 page-cluster">
+        {imagePreview ? (
+          <Card surface="editorial" className="overflow-hidden p-2">
+            <div className="grid gap-5 p-3 sm:grid-cols-[180px,1fr] sm:items-center">
+              <div className="relative overflow-hidden rounded-[1.6rem] bg-[hsl(36_33%_93%)]">
+                <img src={imagePreview} alt="Preview" className="aspect-square w-full object-contain" />
+                <Button variant="secondary" size="icon" className="absolute right-2 top-2" onClick={onReset}>
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-            )}
+
+              <PageIntro
+                eyebrow={aiAnalysis ? (
+                  <span className="eyebrow-chip !bg-secondary/70 inline-flex items-center gap-2">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {t('addgarment.ai_analyzed')}
+                  </span>
+                ) : 'Review'}
+                title={title || t('addgarment.review')}
+                description="Confirm the metadata, tweak the palette, and decide how BURS should use this piece in future outfit generation."
+              />
+            </div>
+          </Card>
+        ) : null}
+
+        <Card surface="utility" className="space-y-5 p-5">
+          <div className="space-y-2">
+            <p className="label-editorial">Identity</p>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>{t('addgarment.form.title')} *</Label>
+                <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t('addgarment.form.title_placeholder')} />
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t('addgarment.form.category')} *</Label>
+                <Select value={category} onValueChange={(value) => { setCategory(value); setSubcategory(''); }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('addgarment.form.select_category')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {t(CATEGORY_I18N[item.id] || item.id)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {category && subcategories[category] ? (
+                <div className="space-y-2">
+                  <Label>{t('addgarment.form.subcategory')}</Label>
+                  <Select value={subcategory} onValueChange={setSubcategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={t('addgarment.form.select_subcategory')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subcategories[category].map((item) => (
+                        <SelectItem key={item} value={item.toLowerCase()}>
+                          {t(SUBCATEGORY_I18N[item.toLowerCase()] || item)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
+            </div>
           </div>
-        )}
+        </Card>
 
-        <div className="space-y-4">
-          <div className="space-y-2"><Label>{t('addgarment.form.title')} *</Label><Input placeholder={t('addgarment.form.title_placeholder')} value={title} onChange={(e) => setTitle(e.target.value)} /></div>
-          <div className="space-y-2"><Label>{t('addgarment.form.category')} *</Label><Select value={category} onValueChange={(v) => { setCategory(v); setSubcategory(''); }}><SelectTrigger><SelectValue placeholder={t('addgarment.form.select_category')} /></SelectTrigger><SelectContent>{categories.map((cat) => <SelectItem key={cat.id} value={cat.id}>{t(CATEGORY_I18N[cat.id] || cat.id)}</SelectItem>)}</SelectContent></Select></div>
-          {category && subcategories[category] && <div className="space-y-2"><Label>{t('addgarment.form.subcategory')}</Label><Select value={subcategory} onValueChange={setSubcategory}><SelectTrigger><SelectValue placeholder={t('addgarment.form.select_subcategory')} /></SelectTrigger><SelectContent>{subcategories[category].map((sub) => <SelectItem key={sub} value={sub.toLowerCase()}>{t(SUBCATEGORY_I18N[sub.toLowerCase()] || sub)}</SelectItem>)}</SelectContent></Select></div>}
+        <Card surface="utility" className="space-y-5 p-5">
+          <div className="space-y-2">
+            <p className="label-editorial">Color story</p>
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <Label>{t('addgarment.form.primary_color')} *</Label>
+                <div className="flex flex-wrap gap-2.5">
+                  {colors.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setColorPrimary(item.id)}
+                      className={cn(
+                        'h-11 w-11 rounded-full border-2 transition-all',
+                        colorPrimary === item.id
+                          ? 'border-foreground ring-2 ring-foreground/20 ring-offset-2 ring-offset-background'
+                          : 'border-border hover:scale-105',
+                      )}
+                      style={{ backgroundColor: item.color }}
+                      title={t(COLOR_I18N[item.id] || item.id)}
+                    />
+                  ))}
+                </div>
+              </div>
 
-          <div className="space-y-2"><Label>{t('addgarment.form.primary_color')} *</Label><div className="flex flex-wrap gap-2">{colors.map((c) => <button key={c.id} type="button" onClick={() => setColorPrimary(c.id)} className={cn('w-10 h-10 rounded-full border-2 transition-all', colorPrimary === c.id ? 'ring-2 ring-primary ring-offset-2 border-primary' : 'border-border hover:scale-110')} style={{ backgroundColor: c.color }} title={t(COLOR_I18N[c.id] || c.id)} />)}</div></div>
-          <div className="space-y-2"><Label>{t('addgarment.form.secondary_color')}</Label><div className="flex flex-wrap gap-2"><button type="button" onClick={() => setColorSecondary('')} className={cn('w-10 h-10 rounded-full border-2 transition-all flex items-center justify-center', !colorSecondary ? 'ring-2 ring-primary ring-offset-2' : 'border-border')}><X className="w-4 h-4 text-muted-foreground" /></button>{colors.map((c) => <button key={c.id} type="button" onClick={() => setColorSecondary(c.id)} className={cn('w-10 h-10 rounded-full border-2 transition-all', colorSecondary === c.id ? 'ring-2 ring-primary ring-offset-2 border-primary' : 'border-border hover:scale-110')} style={{ backgroundColor: c.color }} title={t(COLOR_I18N[c.id] || c.id)} />)}</div></div>
-          <div className="space-y-2"><Label>{t('addgarment.form.pattern')}</Label><Select value={pattern} onValueChange={setPattern}><SelectTrigger><SelectValue placeholder={t('addgarment.form.select_pattern')} /></SelectTrigger><SelectContent>{patterns.map((p) => <SelectItem key={p} value={p.toLowerCase()}>{t(PATTERN_I18N[p.toLowerCase()] || p)}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-2"><Label>{t('addgarment.form.material')}</Label><Select value={material} onValueChange={setMaterial}><SelectTrigger><SelectValue placeholder={t('addgarment.form.select_material')} /></SelectTrigger><SelectContent>{materials.map((m) => <SelectItem key={m} value={m.toLowerCase()}>{t(MATERIAL_I18N[m.toLowerCase()] || m)}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-2"><Label>{t('addgarment.form.fit')}</Label><Select value={fit} onValueChange={setFit}><SelectTrigger><SelectValue placeholder={t('addgarment.form.select_fit')} /></SelectTrigger><SelectContent>{fits.map((f) => <SelectItem key={f} value={f.toLowerCase()}>{t(FIT_I18N[f.toLowerCase()] || f)}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-3">
+                <Label>{t('addgarment.form.secondary_color')}</Label>
+                <div className="flex flex-wrap gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setColorSecondary('')}
+                    className={cn(
+                      'flex h-11 w-11 items-center justify-center rounded-full border-2 transition-all',
+                      !colorSecondary
+                        ? 'border-foreground ring-2 ring-foreground/20 ring-offset-2 ring-offset-background'
+                        : 'border-border',
+                    )}
+                  >
+                    <X className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                  {colors.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setColorSecondary(item.id)}
+                      className={cn(
+                        'h-11 w-11 rounded-full border-2 transition-all',
+                        colorSecondary === item.id
+                          ? 'border-foreground ring-2 ring-foreground/20 ring-offset-2 ring-offset-background'
+                          : 'border-border hover:scale-105',
+                      )}
+                      style={{ backgroundColor: item.color }}
+                      title={t(COLOR_I18N[item.id] || item.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
 
-          <div className="space-y-2"><Label>{t('addgarment.form.season')}</Label><div className="flex flex-wrap gap-2">{seasons.map((season) => <Badge key={season} variant={selectedSeasons.includes(season.toLowerCase()) ? 'default' : 'outline'} className="cursor-pointer px-4 py-2" onClick={() => toggleSeason(season.toLowerCase())}>{t(SEASON_I18N[season.toLowerCase()] || season)}</Badge>)}</div></div>
-          <div className="space-y-3"><div className="flex items-center justify-between"><Label>{t('addgarment.form.formality')}</Label><span className="text-sm text-muted-foreground">{formality[0]} / 5</span></div><Slider value={formality} onValueChange={setFormality} max={5} min={1} step={1} /><div className="flex justify-between text-xs text-muted-foreground"><span>{t('addgarment.form.casual')}</span><span>{t('addgarment.form.formal')}</span></div></div>
-          <div className="flex items-center justify-between p-4 bg-secondary"><Label>{t('addgarment.form.in_laundry')}</Label><Switch checked={inLaundry} onCheckedChange={setInLaundry} /></div>
+        <Card surface="utility" className="space-y-5 p-5">
+          <div className="space-y-2">
+            <p className="label-editorial">Construction</p>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label>{t('addgarment.form.pattern')}</Label>
+                <Select value={pattern} onValueChange={setPattern}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('addgarment.form.select_pattern')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {patterns.map((item) => (
+                      <SelectItem key={item} value={item.toLowerCase()}>
+                        {t(PATTERN_I18N[item.toLowerCase()] || item)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t('addgarment.form.material')}</Label>
+                <Select value={material} onValueChange={setMaterial}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('addgarment.form.select_material')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {materials.map((item) => (
+                      <SelectItem key={item} value={item.toLowerCase()}>
+                        {t(MATERIAL_I18N[item.toLowerCase()] || item)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t('addgarment.form.fit')}</Label>
+                <Select value={fit} onValueChange={setFit}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('addgarment.form.select_fit')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {fits.map((item) => (
+                      <SelectItem key={item} value={item.toLowerCase()}>
+                        {t(FIT_I18N[item.toLowerCase()] || item)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card surface="utility" className="space-y-5 p-5">
+          <div className="space-y-3">
+            <Label>{t('addgarment.form.season')}</Label>
+            <div className="flex flex-wrap gap-2">
+              {seasons.map((season) => (
+                <Badge
+                  key={season}
+                  variant={selectedSeasons.includes(season.toLowerCase()) ? 'default' : 'outline'}
+                  className="cursor-pointer px-4 py-2"
+                  onClick={() => toggleSeason(season.toLowerCase())}
+                >
+                  {t(SEASON_I18N[season.toLowerCase()] || season)}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label>{t('addgarment.form.formality')}</Label>
+              <span className="text-sm text-muted-foreground">{formality[0]} / 5</span>
+            </div>
+            <Slider value={formality} onValueChange={setFormality} max={5} min={1} step={1} />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{t('addgarment.form.casual')}</span>
+              <span>{t('addgarment.form.formal')}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between rounded-[1.35rem] border border-border/60 bg-background/80 px-4 py-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">{t('addgarment.form.in_laundry')}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Keep this item out of outfit generation until it is ready again.</p>
+            </div>
+            <Switch checked={inLaundry} onCheckedChange={setInLaundry} />
+          </div>
+        </Card>
+      </div>
+
+      <div className="fixed inset-x-4 bottom-4 z-20" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+        <div className="mx-auto max-w-xl">
+          <div className="action-bar-floating flex gap-2 rounded-[1.6rem] p-3">
+            <Button variant="outline" className="flex-1" onClick={onCancel} disabled={isLoading}>
+              {t('common.cancel')}
+            </Button>
+            <Button className="flex-1" onClick={onSave} disabled={isLoading || !title || !category || !colorPrimary}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t('addgarment.saving')}
+                </>
+              ) : (
+                t('addgarment.save')
+              )}
+            </Button>
+          </div>
         </div>
       </div>
-
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t flex gap-3 max-w-lg mx-auto">
-        <Button variant="outline" className="flex-1" onClick={onCancel} disabled={isLoading}>{t('common.cancel')}</Button>
-        <Button className="flex-1" onClick={onSave} disabled={isLoading || !title || !category || !colorPrimary}>
-          {isLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('addgarment.saving')}</> : t('addgarment.save')}
-        </Button>
-      </div>
-    </div>
+    </AppLayout>
   );
 }

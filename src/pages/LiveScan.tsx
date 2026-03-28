@@ -4,6 +4,8 @@ import { X, Check, RotateCcw, Camera, Zap, ZapOff, ImagePlus, Shirt } from 'luci
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { PageIntro } from '@/components/ui/page-intro';
 import { cn } from '@/lib/utils';
 import { useLiveScan } from '@/hooks/useLiveScan';
 import { useAutoDetect, type FramingHint } from '@/hooks/useAutoDetect';
@@ -37,7 +39,7 @@ function AcceptedOverlay({ onDone, label }: { onDone: () => void; label: string 
         transition={{ duration: 0.2 }}
         className="flex flex-col items-center gap-3"
       >
-        <div className="w-20 h-20 bg-accent/20 flex items-center justify-center">
+        <div className="flex h-20 w-20 items-center justify-center rounded-[1.5rem] border border-accent/20 bg-background/90 shadow-[0_18px_40px_rgba(28,25,23,0.12)]">
           <Check className="w-10 h-10 text-accent" strokeWidth={3} />
         </div>
         <p className="text-foreground text-sm font-medium">{label}</p>
@@ -222,7 +224,7 @@ function ScanHistoryStrip({ thumbnails }: { thumbnails: string[] }) {
           initial={{ scale: 0.7, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: i * 0.05, duration: 0.2 }}
-          className="w-11 h-11 overflow-hidden border border-border/20 bg-secondary/40 flex-shrink-0 shadow-sm"
+          className="h-11 w-11 flex-shrink-0 overflow-hidden rounded-[1rem] border border-border/55 bg-background/82 shadow-[0_10px_22px_rgba(28,25,23,0.08)]"
         >
           <img src={url} alt="" className="w-full h-full object-cover" />
         </motion.div>
@@ -237,10 +239,10 @@ function SlotsPill({ remaining, isPremium }: { remaining: number; isPremium: boo
   if (isPremium) return null;
   return (
     <div className={cn(
-      'flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium backdrop-blur-sm border',
+      'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium backdrop-blur-sm',
       remaining <= 2
         ? 'bg-destructive/10 text-destructive border-destructive/20'
-        : 'bg-foreground/5 text-muted-foreground border-border/10'
+        : 'bg-background/85 text-muted-foreground border-border/55'
     )}>
       <Shirt className="w-3 h-3" />
       <span>{remaining} {t('scan.slots_left') || 'left'}</span>
@@ -298,10 +300,22 @@ async function tryGetCamera(): Promise<MediaStream> {
 function LiveScanFallback() {
   const navigate = useNavigate();
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <div className="max-w-sm w-full text-center space-y-6">
-        <h1 className="text-xl font-semibold text-foreground">Something went wrong with the scanner</h1>
-        <Button onClick={() => navigate('/wardrobe')}>Go to Wardrobe</Button>
+    <div className="min-h-screen bg-background px-6 py-24 text-foreground">
+      <div className="mx-auto max-w-sm">
+        <Card surface="editorial" className="space-y-6 p-6 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.35rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+            <Camera className="h-7 w-7 text-foreground/70" />
+          </div>
+          <PageIntro
+            center
+            eyebrow="Live scan"
+            title="Something went wrong with the scanner."
+            description="The capture flow hit an unexpected issue, but your wardrobe is still available."
+          />
+          <Button onClick={() => navigate('/wardrobe')} className="w-full">
+            Go to Wardrobe
+          </Button>
+        </Card>
       </div>
     </div>
   );
@@ -463,7 +477,11 @@ export default function LiveScan() {
 
   return (
     <PageErrorBoundary fallback={<LiveScanFallback />}>
-    <div className="fixed inset-0 bg-background z-50 flex flex-col">
+    <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_top_left,rgba(157,126,86,0.16),transparent_36%),radial-gradient(circle_at_top_right,rgba(88,99,148,0.09),transparent_34%)]"
+      />
       {/* Hidden file input for Median / fallback mode */}
       <input
         ref={fileInputRef}
@@ -475,70 +493,95 @@ export default function LiveScan() {
       />
 
       {/* Top bar — glass */}
-      <div className="relative z-10 flex items-center justify-between px-4 py-3 bg-background/70 backdrop-blur-xl border-b border-border/10">
-        <Button variant="ghost" size="icon" className="text-foreground hover:bg-foreground/[0.06]" onClick={handleClose}>
-          <X className="w-5 h-5" />
-        </Button>
-        <div className="flex items-center gap-2">
-          <SlotsPill remaining={remainingSlots === Infinity ? 999 : remainingSlots} isPremium={isPremium} />
-          {cameraReady && !useFileInputMode && (
-            <button
-              onClick={() => setAutoMode((v) => !v)}
-              className={cn(
-                'w-9 h-9 flex items-center justify-center transition-all',
-                autoMode ? 'bg-accent/20 text-accent' : 'bg-foreground/10 text-muted-foreground'
-              )}
-            >
-              {autoMode ? <Zap className="w-4 h-4" /> : <ZapOff className="w-4 h-4" />}
-            </button>
-          )}
+      <div className="relative z-10 border-b border-border/50 bg-background/80 backdrop-blur-2xl">
+        <div className="mx-auto flex w-full max-w-xl items-center justify-between gap-3 px-4 py-3">
+          <Button variant="quiet" size="icon" onClick={handleClose}>
+            <X className="w-5 h-5" />
+          </Button>
+          <div className="flex items-center gap-2">
+            <SlotsPill remaining={remainingSlots === Infinity ? 999 : remainingSlots} isPremium={isPremium} />
+            {cameraReady && !useFileInputMode ? (
+              <Button
+                type="button"
+                variant={autoMode ? 'editorial' : 'outline'}
+                size="icon"
+                onClick={() => setAutoMode((value) => !value)}
+                className={cn(autoMode ? 'text-accent' : 'text-muted-foreground')}
+              >
+                {autoMode ? <Zap className="w-4 h-4" /> : <ZapOff className="w-4 h-4" />}
+              </Button>
+            ) : null}
+          </div>
+          {scanCount > 0 ? (
+            <Button variant="quiet" size="sm" className="text-sm font-medium" onClick={handleDone}>
+              {t('scan.done')}
+            </Button>
+          ) : <div className="w-12" />}
         </div>
-        {scanCount > 0 ? (
-          <Button variant="ghost" size="sm" className="text-foreground hover:bg-foreground/[0.06] font-medium text-sm" onClick={handleDone}>{t('scan.done')}</Button>
-        ) : <div className="w-12" />}
       </div>
 
       {/* Camera view */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="relative flex-1 overflow-hidden">
         {useFileInputMode ? (
           /* File-input mode (Median or no getUserMedia) */
           <div className="absolute inset-0 flex items-center justify-center p-8 text-center">
-            <div className="space-y-6">
-            <div className="w-20 h-20 bg-accent/10 flex items-center justify-center mx-auto">
-              <ImagePlus className="w-10 h-10 text-accent" />
-            </div>
-              <div className="space-y-2">
-                <p className="text-foreground text-base font-medium">{t('scan.title')}</p>
-                <p className="text-muted-foreground text-sm">{t('scan.tap_to_capture')}</p>
+            <Card surface="editorial" className="w-full max-w-sm space-y-6 p-6">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.4rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+                <ImagePlus className="h-8 w-8 text-foreground/70" />
               </div>
-              <Button onClick={handleFileCapture} disabled={isProcessing} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                <Camera className="w-4 h-4 mr-2" />{t('scan.take_photo')}
+              <PageIntro
+                center
+                eyebrow="Live scan"
+                title={t('scan.title')}
+                description={t('scan.tap_to_capture')}
+              />
+              <Button onClick={handleFileCapture} disabled={isProcessing} size="lg" className="w-full">
+                <Camera className="w-4 h-4" />
+                {t('scan.take_photo')}
               </Button>
-            </div>
+            </Card>
           </div>
         ) : !cameraStarted ? (
           /* Start Camera button — required for user-gesture */
           <div className="absolute inset-0 flex items-center justify-center p-8 text-center">
-            <div className="space-y-4">
-              <Camera className="w-16 h-16 text-muted-foreground/50 mx-auto" />
-              <p className="text-muted-foreground text-sm">{t('scan.tap_to_start')}</p>
-              <Button onClick={startCamera} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                <Camera className="w-4 h-4 mr-2" />{t('scan.start_camera')}
+            <Card surface="editorial" className="w-full max-w-sm space-y-6 p-6">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.4rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+                <Camera className="h-8 w-8 text-foreground/70" />
+              </div>
+              <PageIntro
+                center
+                eyebrow="Live scan"
+                title="Start the camera."
+                description={t('scan.tap_to_start')}
+              />
+              <Button onClick={startCamera} size="lg" className="w-full">
+                <Camera className="w-4 h-4" />
+                {t('scan.start_camera')}
               </Button>
-            </div>
+            </Card>
           </div>
         ) : cameraError ? (
           <div className="absolute inset-0 flex items-center justify-center p-8 text-center">
-            <div className="space-y-4">
-              <Camera className="w-16 h-16 text-muted-foreground/50 mx-auto" />
-              <p className="text-muted-foreground text-sm">{cameraError}</p>
-              <div className="flex flex-col gap-2">
-                <Button onClick={() => fileInputRef.current?.click()} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                  <ImagePlus className="w-4 h-4 mr-2" />Upload a photo instead
-                </Button>
-                <Button variant="outline" onClick={handleClose}>{t('common.back')}</Button>
+            <Card surface="editorial" className="w-full max-w-sm space-y-6 p-6">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.4rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+                <Camera className="h-8 w-8 text-foreground/70" />
               </div>
-            </div>
+              <PageIntro
+                center
+                eyebrow="Live scan"
+                title="Camera unavailable."
+                description={cameraError}
+              />
+              <div className="flex flex-col gap-2.5">
+                <Button onClick={() => fileInputRef.current?.click()} size="lg" className="w-full">
+                  <ImagePlus className="w-4 h-4" />
+                  Upload a photo instead
+                </Button>
+                <Button variant="outline" onClick={handleClose} className="w-full">
+                  {t('common.back')}
+                </Button>
+              </div>
+            </Card>
           </div>
         ) : (
           <video
@@ -578,8 +621,8 @@ export default function LiveScan() {
 
         {error && !isProcessing && (
           <div className="absolute bottom-32 left-4 right-4 z-20">
-            <div className="bg-destructive/80 backdrop-blur-md p-3 text-center">
-              <p className="text-destructive-foreground text-sm">{error}</p>
+            <div className="mx-auto max-w-sm rounded-[1.2rem] border border-destructive/20 bg-background/88 p-3 text-center shadow-[0_16px_30px_rgba(28,25,23,0.12)] backdrop-blur-xl">
+              <p className="text-sm text-destructive">{error}</p>
             </div>
           </div>
         )}
@@ -653,7 +696,7 @@ export default function LiveScan() {
         {/* Scan counter pill — bottom right (if no history strip or as supplement) */}
         {scanCount > 0 && !lastResult && scanThumbnails.length === 0 && (
           <div className="absolute bottom-4 left-4 z-10">
-            <div className="flex items-center gap-1.5 bg-background/60 backdrop-blur-sm px-3 py-1.5 border border-border/10">
+            <div className="flex items-center gap-1.5 rounded-full border border-border/55 bg-background/84 px-3 py-1.5 shadow-[0_10px_22px_rgba(28,25,23,0.08)] backdrop-blur-xl">
               <Check className="w-3.5 h-3.5 text-accent" />
               <span className="text-foreground text-xs font-medium">{scanCount}</span>
             </div>
@@ -663,48 +706,71 @@ export default function LiveScan() {
 
       {/* Shutter button — only in camera stream mode */}
       {!useFileInputMode && cameraReady && (
-        <div className="relative z-10 flex items-center justify-center py-6 bg-background/70 backdrop-blur-xl border-t border-border/10">
-          <CoachMark
-            step={2}
-            currentStep={coach.currentStep}
-            isCoachActive={coach.isStepActive(2)}
-            title="Scan anything"
-            body="Point at a garment and hold still. BURS detects category, colour and material."
-            ctaLabel="Generate a look"
-            onCta={() => {
-              coach.advanceStep();
-              navigate('/ai/generate');
-            }}
-            onSkip={() => coach.completeTour()}
-            position="bottom"
-          >
-            <div className="relative w-16 h-16">
-              {autoMode && autoProgress > 0 && <AutoProgressRing progress={autoProgress} />}
-              <button
-                disabled={!canCapture}
-                onClick={handleCapture}
-                className={cn(
-                  'w-16 h-16 rounded-full border-[3px] border-foreground flex items-center justify-center transition-all active:scale-90',
-                  !canCapture ? 'opacity-30' : 'opacity-100'
-                )}
-                aria-label="Scan"
-              >
-                <div className={cn(
-                  'w-12 h-12 rounded-full transition-colors',
-                  autoMode && autoProgress > 0.5 ? 'bg-accent/80' : 'bg-foreground/90'
-                )} />
-              </button>
-            </div>
-          </CoachMark>
+        <div className="relative z-10 border-t border-border/50 bg-background/80 backdrop-blur-2xl">
+          <div className="mx-auto flex w-full max-w-xl items-center justify-center px-4 py-4">
+            <Card surface="utility" className="w-full max-w-sm p-4">
+              <div className="mb-4 text-center">
+                <p className="text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground">Live scan</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Hold still for a clean read, or tap the shutter manually whenever you are ready.
+                </p>
+              </div>
+              <div className="flex items-center justify-center">
+                <CoachMark
+                  step={2}
+                  currentStep={coach.currentStep}
+                  isCoachActive={coach.isStepActive(2)}
+                  title="Scan anything"
+                  body="Point at a garment and hold still. BURS detects category, colour and material."
+                  ctaLabel="Generate a look"
+                  onCta={() => {
+                    coach.advanceStep();
+                    navigate('/ai/generate');
+                  }}
+                  onSkip={() => coach.completeTour()}
+                  position="bottom"
+                >
+                  <div className="relative h-16 w-16">
+                    {autoMode && autoProgress > 0 && <AutoProgressRing progress={autoProgress} />}
+                    <button
+                      disabled={!canCapture}
+                      onClick={handleCapture}
+                      className={cn(
+                        'flex h-16 w-16 items-center justify-center rounded-full border-[3px] border-foreground transition-all active:scale-90',
+                        !canCapture ? 'opacity-30' : 'opacity-100'
+                      )}
+                      aria-label="Scan"
+                    >
+                      <div className={cn(
+                        'h-12 w-12 rounded-full transition-colors',
+                        autoMode && autoProgress > 0.5 ? 'bg-accent/80' : 'bg-foreground/90'
+                      )} />
+                    </button>
+                  </div>
+                </CoachMark>
+              </div>
+            </Card>
+          </div>
         </div>
       )}
 
       {/* Bottom bar for file-input mode — take another photo */}
       {useFileInputMode && !lastResult && !isProcessing && !showAccepted && scanCount > 0 && (
-        <div className="relative z-10 flex items-center justify-center py-6 bg-background/70 backdrop-blur-xl border-t border-border/10">
-          <Button onClick={handleFileCapture} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-            <Camera className="w-4 h-4 mr-2" />{t('scan.take_photo')}
-          </Button>
+        <div className="relative z-10 border-t border-border/50 bg-background/80 backdrop-blur-2xl">
+          <div className="mx-auto flex w-full max-w-xl items-center justify-center px-4 py-4">
+            <Card surface="utility" className="w-full max-w-sm p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground">Continue scanning</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Add another garment to keep building your wardrobe.</p>
+                </div>
+                <Button onClick={handleFileCapture}>
+                  <Camera className="w-4 h-4" />
+                  {t('scan.take_photo')}
+                </Button>
+              </div>
+            </Card>
+          </div>
         </div>
       )}
 

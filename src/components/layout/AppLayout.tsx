@@ -19,12 +19,16 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
   useUnlockCelebration();
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-background flex flex-col">
+    <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-64 bg-[radial-gradient(circle_at_top_right,rgba(154,137,113,0.14),transparent_48%),radial-gradient(circle_at_top_left,rgba(47,56,68,0.07),transparent_44%)]"
+      />
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-foreground focus:text-background focus:rounded-md">
         Skip to main content
       </a>
       <OfflineBanner />
-      <main id="main-content" className={`relative flex-1 overflow-y-auto scrollbar-hide ${hideNav ? '' : 'pb-[calc(80px+env(safe-area-inset-bottom,0px))]'}`}>
+      <main id="main-content" className={`relative z-[1] flex-1 overflow-y-auto scrollbar-hide ${hideNav ? '' : 'pb-[calc(96px+env(safe-area-inset-bottom,0px))]'}`}>
         {children}
       </main>
       {!hideNav && <BottomNav />}
