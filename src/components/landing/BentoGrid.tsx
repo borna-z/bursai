@@ -29,7 +29,7 @@ export function BentoGrid() {
             return (
               <div
                 key={feat.key}
-                className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-7 hover:bg-white/[0.04] hover:-translate-y-1 transition-all duration-300 reveal-up"
+                className="rounded-[1.25rem] border border-white/[0.06] bg-white/[0.02] p-7 hover:bg-white/[0.04] hover:-translate-y-1 transition-all duration-300 reveal-up"
                 style={{ '--reveal-delay': `${i * 80}ms` } as React.CSSProperties}
               >
                 <Icon size={20} strokeWidth={1.5} className="text-indigo-400 mb-4" />

@@ -386,7 +386,7 @@ export function StyleQuizStep({ onComplete, onSkip, isSaving }: Props) {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <div className="bg-gradient-to-br from-accent/10 via-accent/5 to-background pt-14 pb-6 px-6 flex flex-col items-center text-center">
-        <div className="w-16 h-16 rounded-2xl bg-accent/15 flex items-center justify-center mb-4">
+        <div className="w-16 h-16 rounded-[1.25rem] bg-accent/15 flex items-center justify-center mb-4">
           <Icon className="w-8 h-8 text-accent" />
         </div>
         <h1 className="text-xl font-bold mb-1.5 tracking-tight">{t(meta.titleKey)}</h1>

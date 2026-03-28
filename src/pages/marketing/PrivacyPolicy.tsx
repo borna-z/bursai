@@ -42,7 +42,7 @@ export default function PrivacyPolicy() {
           <div className="space-y-10 text-[15px] leading-relaxed" style={{ color: muted }}>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>1. Who We Are</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>1. Who We Are</h2>
               <p>BURS ("BURS", "we", "us", "our") is a digital wardrobe and AI styling platform available via web and/or progressive web app at burs.me (the "Service").</p>
               <p className="mt-3">This Privacy Policy explains how we collect, use, store, share, and protect personal data when you use BURS, including when you connect your Google Calendar for contextual outfit recommendations.</p>
               <p className="mt-3 font-medium" style={{ color: ink }}>Data Controller (GDPR):</p>
@@ -51,7 +51,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>2. Scope of This Privacy Policy</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>2. Scope of This Privacy Policy</h2>
               <p>This Privacy Policy applies to:</p>
               <ul className="list-disc pl-6 mt-2 space-y-1">
                 <li>visitors to burs.me</li>
@@ -65,7 +65,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>3. What Data We Collect</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>3. What Data We Collect</h2>
               <p>We collect only the data needed to provide and improve BURS.</p>
 
               <h3 className="font-medium mt-4 mb-1" style={{ color: ink }}>A. Account and Identity Data</h3>
@@ -122,7 +122,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>4. How We Use Your Data</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>4. How We Use Your Data</h2>
               <p>We use personal data to operate BURS and provide the features you expect.</p>
               <p className="mt-3">We use your data to:</p>
 
@@ -169,7 +169,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>5. Legal Bases for Processing (GDPR)</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>5. Legal Bases for Processing (GDPR)</h2>
               <p>Under the GDPR, we process personal data only when we have a legal basis.</p>
 
               <h3 className="font-medium mt-4 mb-1" style={{ color: ink }}>A. Contract (Article 6(1)(b))</h3>
@@ -205,7 +205,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>6. Google API Services User Data (Important)</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>6. Google API Services User Data (Important)</h2>
               <p>If you connect Google Calendar, BURS accesses Google user data only to provide the calendar-aware styling functionality you explicitly enable.</p>
 
               <h3 className="font-medium mt-4 mb-1" style={{ color: ink }}>Google User Data — What We Access</h3>
@@ -246,7 +246,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>7. AI and Automated Recommendations</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>7. AI and Automated Recommendations</h2>
               <p>BURS uses AI/ML systems to generate wardrobe insights and outfit suggestions.</p>
 
               <h3 className="font-medium mt-4 mb-1" style={{ color: ink }}>Transparency Notice</h3>
@@ -269,7 +269,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>8. Sharing of Data</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>8. Sharing of Data</h2>
               <p>We do not sell your personal data.</p>
               <p className="mt-2">We share personal data only when necessary to operate BURS, and only with appropriate safeguards.</p>
 
@@ -286,7 +286,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>9. International Data Transfers</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>9. International Data Transfers</h2>
               <p>We aim to process data in the European Economic Area (EEA) where possible.</p>
               <p className="mt-2">If personal data is transferred outside the EEA/UK, we use appropriate safeguards such as:</p>
               <ul className="list-disc pl-6 space-y-1 mt-1">
@@ -298,7 +298,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>10. Data Security</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>10. Data Security</h2>
               <p>We use technical and organizational measures designed to protect your personal data, including:</p>
               <ul className="list-disc pl-6 space-y-1 mt-2">
                 <li>encryption in transit (TLS)</li>
@@ -311,7 +311,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>11. Your Rights (GDPR)</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>11. Your Rights (GDPR)</h2>
               <p>If you are in the EU/EEA (and in many cases elsewhere), you have rights regarding your personal data.</p>
               <p className="mt-2">You may have the right to:</p>
               <ul className="list-disc pl-6 space-y-1 mt-1">
@@ -333,7 +333,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>12. Data Retention</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>12. Data Retention</h2>
               <p>We keep personal data only as long as necessary for the purposes described in this Privacy Policy.</p>
 
               <h3 className="font-medium mt-4 mb-1" style={{ color: ink }}>Typical retention approach</h3>
@@ -350,20 +350,20 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>13. Cookies and Similar Technologies</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>13. Cookies and Similar Technologies</h2>
               <p>BURS may use cookies and similar technologies for login/session management, security, preferences, and analytics (if enabled).</p>
               <p className="mt-2">Where required by law, we will ask for your consent before using non-essential cookies or tracking technologies.</p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>14. Children's Privacy</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>14. Children's Privacy</h2>
               <p>BURS is not intended for children under 13.</p>
               <p className="mt-2">If we learn that we collected personal data from a child under 13 without valid parental consent, we will delete it.</p>
               <p className="mt-2">If you believe a child has provided personal data to BURS, contact us at <a href="mailto:hello@burs.me" className="hover:underline" style={{ color: ink }}>hello@burs.me</a>.</p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>15. Changes to This Privacy Policy</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>15. Changes to This Privacy Policy</h2>
               <p>We may update this Privacy Policy from time to time.</p>
               <p className="mt-2">If we make material changes, we will:</p>
               <ul className="list-disc pl-6 space-y-1 mt-1">
@@ -374,7 +374,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3" style={{ color: ink }}>16. Contact</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground mb-3" style={{ color: ink }}>16. Contact</h2>
               <p>Burs<br />Email: <a href="mailto:hello@burs.me" className="hover:underline" style={{ color: ink }}>hello@burs.me</a></p>
             </section>
 

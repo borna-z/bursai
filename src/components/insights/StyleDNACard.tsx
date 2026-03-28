@@ -67,7 +67,7 @@ export function StyleDNACard({
 }: StyleDNACardProps) {
   if (isLoading) {
     return (
-      <div className={cn('rounded-2xl border border-border/10 bg-card/60 p-5 space-y-4', className)}>
+      <div className={cn('rounded-[1.25rem] border border-border/10 bg-card/60 p-5 space-y-4', className)}>
         <Skeleton className="h-5 w-32" />
         <Skeleton className="h-20 w-full" />
         <Skeleton className="h-16 w-full" />
@@ -79,7 +79,7 @@ export function StyleDNACard({
     if (!emptyState) return null;
 
     return (
-      <div className={cn('rounded-2xl border border-border/10 bg-card/60 p-5', className)}>
+      <div className={cn('rounded-[1.25rem] border border-border/10 bg-card/60 p-5', className)}>
         {emptyState}
       </div>
     );
@@ -90,7 +90,7 @@ export function StyleDNACard({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
-      className={cn('overflow-hidden rounded-2xl border border-border/10 bg-card/60 backdrop-blur-sm', className)}
+      className={cn('overflow-hidden rounded-[1.25rem] border border-border/10 bg-card/60 backdrop-blur-sm', className)}
     >
       <div className="space-y-3 px-5 pb-4 pt-5">
         <div className="flex items-center justify-between">

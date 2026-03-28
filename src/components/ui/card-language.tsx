@@ -5,12 +5,12 @@ type CardPillTone = 'default' | 'muted' | 'accent' | 'strong' | 'warning' | 'war
 type CardPillSize = 'sm' | 'md';
 
 const TONE_STYLES: Record<CardPillTone, string> = {
-  default: 'border-[#1C1917]/10 bg-white/72 text-[#1C1917]/68',
+  default: 'border-foreground/10 bg-background/80 text-foreground/60',
   muted: 'border-border/12 bg-background/72 text-foreground/55',
   accent: 'border-primary/16 bg-primary/[0.08] text-primary',
-  strong: 'border-transparent bg-[#1C1917]/88 text-[#F6F0E6]',
+  strong: 'border-transparent bg-foreground/88 text-background',
   warning: 'border-amber-200/65 bg-amber-100/92 text-amber-900',
-  warm: 'border-[#1C1917]/10 bg-[#F8F1E8] text-[#1C1917]/68',
+  warm: 'border-foreground/10 bg-card text-foreground/60',
 };
 
 const SIZE_STYLES: Record<CardPillSize, string> = {

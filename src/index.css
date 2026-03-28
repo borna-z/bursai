@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* BURS – Premium Scandinavian Design System */
-/* 8pt Grid | Inter + Sora | Charcoal + Off-white + Indigo accent */
+/* 8pt Grid | Playfair Display + DM Sans | Editorial Cream + Deep Charcoal + Warm Gold accent */
 
 @layer base {
   :root {
@@ -29,8 +29,8 @@
     --muted: 34 20% 91%;
     --muted-foreground: 24 8% 38%;
 
-    /* Cool editorial support accent */
-    --accent: 229 27% 53%;
+    /* Warm gold editorial accent */
+    --accent: 37 47% 46%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
@@ -92,7 +92,7 @@
     --muted: 24 7% 16%;
     --muted-foreground: 29 10% 69%;
 
-    --accent: 228 32% 68%;
+    --accent: 37 55% 62%;
     --accent-foreground: 24 11% 7%;
 
     --destructive: 0 62% 50%;
@@ -144,7 +144,7 @@
   --secondary-foreground: 24 13% 10%;
   --muted: 34 20% 91%;
   --muted-foreground: 24 8% 38%;
-  --accent: 229 27% 53%;
+  --accent: 37 47% 46%;
   --accent-foreground: 0 0% 100%;
   --border: 31 29% 84%;
   --input: 31 29% 84%;
@@ -218,8 +218,8 @@
     padding-top: env(safe-area-inset-top, 0);
     overscroll-behavior: none;
     background-image:
-      radial-gradient(circle at top left, rgba(157, 126, 86, 0.08), transparent 34%),
-      radial-gradient(circle at top right, rgba(102, 113, 166, 0.08), transparent 28%);
+      radial-gradient(circle at top left, rgba(157, 126, 86, 0.07), transparent 36%),
+      radial-gradient(circle at bottom right, rgba(175, 140, 95, 0.05), transparent 30%);
     background-attachment: fixed;
   }
 
@@ -320,7 +320,7 @@
   }
 
   .page-intro-block {
-    @apply rounded-[1.75rem] border px-5 py-5 shadow-[0_10px_24px_rgba(28,25,23,0.035)];
+    @apply rounded-[1.25rem] border px-5 py-5 shadow-[0_10px_24px_rgba(28,25,23,0.035)];
     border-color: hsl(var(--border) / 0.55);
     background-color: hsl(var(--card) / 0.84);
   }

@@ -102,7 +102,7 @@ function OutfitGenerateFallback() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="max-w-sm w-full text-center space-y-6">
-        <h1 className="text-xl font-semibold text-foreground">Outfit generation is unavailable right now</h1>
+        <h1 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground text-foreground">Outfit generation is unavailable right now</h1>
         <Button onClick={() => window.location.reload()}>Reload</Button>
       </div>
     </div>
@@ -261,7 +261,7 @@ export default function OutfitGeneratePage() {
       <AppLayout>
         <div className="page-shell !max-w-md !pt-16">
           <div className="surface-editorial space-y-6 p-5">
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">{t('unlock.outfit_gen')}</h2>
+            <h2 className="font-['Playfair_Display'] italic text-[1.2rem] leading-tight text-foreground tracking-tight text-foreground">{t('unlock.outfit_gen')}</h2>
             <WardrobeProgress message={t('unlock.outfit_gen_message')} />
           </div>
         </div>
@@ -573,7 +573,7 @@ export default function OutfitGeneratePage() {
           <Card surface="editorial" density="airy" className="max-w-sm w-full">
             <CardContent className="p-6 text-center">
               <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-              <h2 className="text-lg font-semibold mb-2">Something went wrong</h2>
+              <h2 className="font-['Playfair_Display'] italic text-[1.2rem] leading-tight text-foreground mb-2">Something went wrong</h2>
               <p className="text-muted-foreground mb-4 text-sm">{lastError || 'Please try again.'}</p>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setPhase('picking')} className="flex-1">

@@ -544,7 +544,7 @@ export default function OutfitDetailPage() {
             <Shirt className="w-7 h-7 text-muted-foreground" />
           </div>
           <div className="space-y-1.5">
-            <p className="text-lg font-semibold text-foreground">{t('outfit.not_found')}</p>
+            <p className="font-['Playfair_Display'] italic text-[1.2rem] leading-tight text-foreground text-foreground">{t('outfit.not_found')}</p>
             <p className="text-sm text-muted-foreground">{t('common.something_wrong')}</p>
           </div>
           <Button variant="outline" onClick={() => navigate('/outfits')} className="w-full">

@@ -76,7 +76,7 @@ export function EmptyState({
           isEditorial ? 'text-foreground/55' : 'text-muted-foreground',
         )} />
         {isEditorial && !compact && (
-          <div className="absolute -inset-3 rounded-3xl bg-accent-indigo/8 blur-xl pointer-events-none" />
+          <div className="absolute -inset-3 rounded-[1.25rem] bg-accent-indigo/8 blur-xl pointer-events-none" />
         )}
       </motion.div>
       <motion.h3

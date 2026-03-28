@@ -23,7 +23,7 @@ export function CookieConsent() {
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-[60] p-4 sm:p-6 animate-fade-in" style={{ animationDuration: '400ms' }}>
-      <div className="max-w-xl mx-auto glass-panel border border-white/10 rounded-2xl px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 text-sm text-gray-300">
+      <div className="max-w-xl mx-auto glass-panel border border-white/10 rounded-[1.25rem] px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 text-sm text-gray-300">
         <p className="flex-1 leading-relaxed">
           We use cookies to improve your experience.{' '}
           <Link to="/privacy" className="underline underline-offset-2 text-white hover:opacity-80 transition-opacity">

@@ -69,7 +69,7 @@ export function PricingSection() {
 
         {/* Premium Card */}
         <div
-          className="relative rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-sm overflow-hidden reveal-scale"
+          className="relative rounded-[1.25rem] border border-white/[0.08] bg-white/[0.03] backdrop-blur-sm overflow-hidden reveal-scale"
           style={{
             '--reveal-delay': '200ms',
             boxShadow: '0 0 80px -20px hsl(var(--primary) / 0.12), inset 0 1px 0 0 rgba(255,255,255,0.04)',
