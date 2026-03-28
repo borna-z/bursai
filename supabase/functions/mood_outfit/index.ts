@@ -4,7 +4,23 @@ import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/b
 import { VOICE_MOOD_OUTFIT } from "../_shared/burs-voice.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import { canBuildCompleteOutfitPath, validateCompleteOutfit } from "../../../src/lib/outfitValidation.ts";
+function hasCompleteOutfit(items: Array<{ slot: string }>): boolean {
+  const slots = new Set(items.map(i => i.slot.toLowerCase()));
+  return slots.has('shoes') && (slots.has('dress') || (slots.has('top') && slots.has('bottom')));
+}
+
+function validateCompleteOutfitInline(items: Array<{ slot: string }>): { isValid: boolean; missing: string[] } {
+  const slots = new Set(items.map(i => i.slot.toLowerCase()));
+  const missing: string[] = [];
+  if (!slots.has('shoes')) missing.push('shoes');
+  const hasDress = slots.has('dress');
+  const hasTopBottom = slots.has('top') && slots.has('bottom');
+  if (!hasDress && !hasTopBottom) {
+    if (!slots.has('top')) missing.push('top');
+    if (!slots.has('bottom')) missing.push('bottom');
+  }
+  return { isValid: missing.length === 0, missing };
+}
 
 const MOOD_MAP: Record<string, { formality: string; colors: string; materials: string; vibe: string }> = {
   cozy: { formality: "casual, low", colors: "warm earth tones, cream, beige, soft browns", materials: "knit, fleece, cashmere, cotton", vibe: "soft, comfortable, enveloping" },
@@ -175,7 +191,7 @@ serve(async (req) => {
         status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
-    if (!canBuildCompleteOutfitPath(garments)) {
+    if (!hasCompleteOutfit(garments.map(g => ({ slot: inferSlotFromGarment(g) })))) {
       return new Response(JSON.stringify({
         error: "You need either top + bottom + shoes, or dress + shoes, to create a mood outfit",
       }), {
@@ -247,12 +263,7 @@ WARDROBE:\n${garmentList}` },
       weather,
     );
 
-    const completeValidation = validateCompleteOutfit(
-      normalizedItems.map((item) => ({
-        slot: item.slot,
-        garment: garmentsById.get(item.garment_id) || null,
-      })),
-    );
+    const completeValidation = validateCompleteOutfitInline(normalizedItems);
     if (!completeValidation.isValid) {
       return new Response(JSON.stringify({
         error: `Not enough garments to build a complete mood outfit. Missing: ${completeValidation.missing.join(', ')}`,
