@@ -37,6 +37,21 @@ describe('InsightsGapPreview', () => {
     loadGapSnapshotMock.mockReturnValue(null);
   });
 
+  it('shows the locked preview state and still routes to /gaps', () => {
+    useGarmentCountMock.mockReturnValue({ data: 7 });
+    useWardrobeUnlocksMock.mockReturnValue({ isUnlocked: () => false });
+
+    render(
+      <MemoryRouter>
+        <InsightsGapPreview />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Add a little more wardrobe depth first')).toBeInTheDocument();
+    expect(screen.getByText('7 pieces')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Open gaps/i })).toHaveAttribute('href', '/gaps');
+  });
+
   it('links to the dedicated gaps route when no snapshot exists', () => {
     render(
       <MemoryRouter>
@@ -44,8 +59,8 @@ describe('InsightsGapPreview', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('link', { name: /Run gap scan/i })).toHaveAttribute('href', '/gaps?autorun=1');
-    expect(screen.getByRole('link', { name: /Open gaps tool/i })).toHaveAttribute('href', '/gaps');
+    expect(screen.getByRole('link', { name: /Run scan/i })).toHaveAttribute('href', '/gaps?autorun=1');
+    expect(screen.getByRole('link', { name: /Open gaps/i })).toHaveAttribute('href', '/gaps');
   });
 
   it('shows the latest featured gap and uses only the gaps route when a snapshot exists', () => {
@@ -72,7 +87,7 @@ describe('InsightsGapPreview', () => {
 
     expect(screen.getByText(/Best next addition: Black loafers/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Open full scan/i })).toHaveAttribute('href', '/gaps');
-    expect(screen.getByRole('link', { name: /Refresh gap scan/i })).toHaveAttribute('href', '/gaps?autorun=1');
+    expect(screen.getByRole('link', { name: /Refresh/i })).toHaveAttribute('href', '/gaps?autorun=1');
     expect(screen.getByRole('link', { name: /Open full scan/i }).getAttribute('href')).not.toContain('/discover');
   });
 });

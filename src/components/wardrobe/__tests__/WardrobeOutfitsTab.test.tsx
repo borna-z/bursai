@@ -125,16 +125,32 @@ describe('WardrobeOutfitsTab', () => {
 
     render(<WardrobeOutfitsTab />);
 
-    expect(screen.getByText('Styled outfits, kept close')).toBeInTheDocument();
+    expect(screen.getByText('Your outfit archive')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Style me' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open planner' })).toBeInTheDocument();
     expect(screen.getAllByText('All looks').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Saved').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Planned').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Wardrobe look').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Outfit').length).toBeGreaterThan(0);
     expect(screen.getByText('Work')).toBeInTheDocument();
     expect(screen.getByText('4/5')).toBeInTheDocument();
+    expect(screen.getAllByText('Date').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Status').length).toBeGreaterThan(0);
     expect(screen.getByText('Saved + planned')).toBeInTheDocument();
+  });
+
+  it('opens the selected outfit from the redesigned preview card', () => {
+    useOutfitsMock.mockReturnValue({
+      data: [baseOutfit],
+      isLoading: false,
+    });
+
+    render(<WardrobeOutfitsTab />);
+
+    fireEvent.pointerDown(screen.getByText('Work'));
+    fireEvent.pointerUp(screen.getByText('Work'));
+
+    expect(navigateMock).toHaveBeenCalledWith('/outfits/outfit-1');
   });
 
   it('shows the planned filter empty state and lets the user recover to all looks', () => {

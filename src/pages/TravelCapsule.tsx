@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
-import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
+import { WardrobeProgress } from '@/components/wardrobe/WardrobeProgress';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { useLanguage } from '@/contexts/LanguageContext';

@@ -4,8 +4,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   CalendarRange,
-  Compass,
   Plane,
+  Radar,
   Settings,
   Shirt,
   SmilePlus,
@@ -88,6 +88,7 @@ export default function HomePage() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['garments-count'] }),
       queryClient.invalidateQueries({ queryKey: ['insights'] }),
+      queryClient.invalidateQueries({ queryKey: ['insights-dashboard'] }),
       queryClient.invalidateQueries({ queryKey: ['weather'] }),
       queryClient.invalidateQueries({ queryKey: ['outfits', user?.id] }),
       queryClient.invalidateQueries({ queryKey: ['planned-outfits-day'] }),
@@ -149,16 +150,16 @@ export default function HomePage() {
   );
 
   const weatherSummary = weather
-    ? `${Math.round(weather.temperature)}° ${t(weather.condition)}`
+    ? `${Math.round(weather.temperature)}\u00B0 ${t(weather.condition)}`
     : null;
 
   const scheduleSummary = useMemo(() => {
     const firstEvent = todayCalEvents[0];
     if (firstEvent?.title) {
-      return todayCalEvents.length > 1 ? `${firstEvent.title} + ${todayCalEvents.length - 1} more` : firstEvent.title;
+      return todayCalEvents.length > 1 ? `${firstEvent.title} + ${todayCalEvents.length - 1}` : firstEvent.title;
     }
     if (todayCalEvents.length > 0) {
-      return `${todayCalEvents.length} events today`;
+      return `${todayCalEvents.length} today`;
     }
     return null;
   }, [todayCalEvents]);
@@ -180,37 +181,37 @@ export default function HomePage() {
   const secondaryAction = useMemo(() => {
     if (homeState === 'empty_wardrobe') {
       return {
-        label: 'Open wardrobe',
+        label: 'Wardrobe',
         onClick: () => navigate('/wardrobe'),
       };
     }
 
     if (homeState === 'outfit_planned' && todayOutfit) {
       return {
-        label: 'Open look',
+        label: 'Today\'s look',
         onClick: () => navigate(`/outfits/${todayOutfit.id}`),
       };
     }
 
     return {
-      label: 'Open plan',
+      label: 'Plan',
       onClick: () => navigate('/plan'),
     };
   }, [homeState, navigate, todayOutfit]);
 
   const quickActions = useMemo<HomeQuickAction[]>(() => [
     {
-      id: 'discover',
-      title: 'Discover',
-      description: 'Gaps and unlocks',
-      icon: Compass,
+      id: 'gaps',
+      title: 'Garment gaps',
+      description: 'Find the next buy',
+      icon: Radar,
       toneClass: 'bg-[#e7ebfb]',
-      onClick: () => navigate('/discover'),
+      onClick: () => navigate('/gaps'),
     },
     {
       id: 'travel',
       title: 'Travel',
-      description: 'Capsule packs',
+      description: 'Pack smarter',
       icon: Plane,
       toneClass: 'bg-[#eaf2e2]',
       onClick: () => navigate('/ai/travel'),
@@ -226,7 +227,7 @@ export default function HomePage() {
     {
       id: 'mood',
       title: 'Mood',
-      description: 'Style by vibe',
+      description: 'Dress the vibe',
       icon: SmilePlus,
       toneClass: 'bg-[#f6e7e0]',
       onClick: () => navigate('/ai/mood'),
@@ -234,7 +235,7 @@ export default function HomePage() {
     {
       id: 'wardrobe',
       title: 'Wardrobe',
-      description: 'Add and edit pieces',
+      description: 'Add and edit',
       icon: Shirt,
       toneClass: 'bg-[#ece7df]',
       onClick: () => navigate('/wardrobe'),
@@ -245,7 +246,7 @@ export default function HomePage() {
     return (
       <AppLayout>
         <PullToRefresh onRefresh={handleRefresh}>
-          <AnimatedPage className="page-container pb-28">
+          <AnimatedPage className="mx-auto w-full max-w-xl px-4 pb-28 pt-4">
             <HomePageSkeleton />
           </AnimatedPage>
         </PullToRefresh>
@@ -256,32 +257,52 @@ export default function HomePage() {
   return (
     <AppLayout>
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="page-container space-y-5 pb-28">
-          <motion.div
+        <AnimatedPage className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 pb-28 pt-4">
+          <motion.header
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35 }}
-            className="flex items-center justify-between gap-4 overflow-visible"
+            className="sticky top-0 z-10 -mx-4 border-b border-foreground/[0.06] bg-background/88 px-4 pb-3 pt-2 backdrop-blur supports-[backdrop-filter]:bg-background/72"
           >
-            <div>
-              <h1 className="text-[1.5rem] font-bold tracking-[-0.04em] leading-tight sm:text-[1.68rem]">
-                {getGreeting()}
-              </h1>
-              <p className="mt-1 text-[0.8rem] uppercase tracking-[0.16em] text-muted-foreground/55 capitalize">
-                {formattedDate}
-              </p>
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[0.74rem] uppercase tracking-[0.2em] text-muted-foreground/55">
+                    Today
+                  </p>
+                  <h1 className="text-[1.55rem] font-semibold leading-tight tracking-[-0.05em]">
+                    {getGreeting()}
+                  </h1>
+                </div>
+                <div className="flex items-center gap-2">
+                  <WeatherPill />
+                  <button
+                    onClick={() => navigate('/settings')}
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-foreground/[0.08] bg-card/90 transition-colors hover:bg-foreground/[0.04] active:scale-95"
+                    aria-label="Settings"
+                  >
+                    <Settings className="size-4 text-muted-foreground/70" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <span className="rounded-full border border-foreground/[0.08] bg-card px-3 py-1.5 text-[0.78rem] uppercase tracking-[0.16em] text-muted-foreground/70 capitalize">
+                  {formattedDate}
+                </span>
+                {scheduleSummary ? (
+                  <span className="rounded-full border border-foreground/[0.08] bg-card px-3 py-1.5 text-[0.82rem] text-muted-foreground">
+                    {scheduleSummary}
+                  </span>
+                ) : null}
+                {weatherSummary ? (
+                  <span className="rounded-full border border-foreground/[0.08] bg-card px-3 py-1.5 text-[0.82rem] text-muted-foreground">
+                    {weatherSummary}
+                  </span>
+                ) : null}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <WeatherPill />
-              <button
-                onClick={() => navigate('/settings')}
-                className="flex h-10 w-10 items-center justify-center rounded-full surface-inset transition-colors hover:bg-foreground/[0.06] active:scale-95"
-                aria-label="Settings"
-              >
-                <Settings className="size-4 text-muted-foreground/70" />
-              </button>
-            </div>
-          </motion.div>
+          </motion.header>
 
           <HomeCommandBoard
             state={homeState}
@@ -302,14 +323,21 @@ export default function HomePage() {
             }}
           />
 
+          <HomeQuickActions actions={quickActions} />
+
           <HomeAskBursRail
             suggestions={stylistSuggestions.slice(0, 3)}
             onSelectSuggestion={handleSuggestion}
           />
 
-          <HomeQuickActions actions={quickActions} />
+          <section className="space-y-3">
+            <div className="flex items-center justify-between px-0.5">
+              <p className="label-editorial text-muted-foreground/60">Signals</p>
+              <p className="text-[0.74rem] uppercase tracking-[0.18em] text-muted-foreground/55">
+                DNA, gaps, wear next
+              </p>
+            </div>
 
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.02fr)_minmax(0,0.98fr)]">
             <HomeDnaSnapshot
               dna={dna}
               isLoading={isDnaLoading}
@@ -317,14 +345,13 @@ export default function HomePage() {
               onGenerateLook={() => navigate('/ai/generate')}
             />
             <HomeOpportunityPanel />
-          </div>
-
-          <HomeWearNextPanel
-            unusedGarments={sleepingBeauties}
-            sleepingBeautiesCount={sleepingBeauties.length}
-            onOpenUnused={() => navigate('/outfits/unused')}
-            onStyleAroundGem={(garmentId) => navigate(`/ai/generate${buildStyleFlowSearch([garmentId])}`)}
-          />
+            <HomeWearNextPanel
+              unusedGarments={sleepingBeauties}
+              sleepingBeautiesCount={sleepingBeauties.length}
+              onOpenUnused={() => navigate('/outfits/unused')}
+              onStyleAroundGem={(garmentId) => navigate(`/ai/generate${buildStyleFlowSearch([garmentId])}`)}
+            />
+          </section>
         </AnimatedPage>
       </PullToRefresh>
     </AppLayout>
