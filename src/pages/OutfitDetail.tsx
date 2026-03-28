@@ -121,7 +121,7 @@ function SwapSheet({
                   <LazyImageSimple
                     imagePath={getPreferredGarmentImagePath(candidate.garment)}
                     alt={candidate.garment.title}
-                    className="w-14 h-14 rounded-lg flex-shrink-0"
+                    className="w-[60px] h-[60px] min-w-[60px] min-h-[60px] rounded-lg flex-shrink-0"
                   />
                   <div className="flex-1 text-left min-w-0">
                     <p className="font-medium text-sm truncate">{stripBrands(candidate.garment.title)}</p>
@@ -181,7 +181,7 @@ function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, rende
   return (
     <div className="flex items-center gap-4 py-4 border-b border-border/8 last:border-b-0 group">
       {/* Left-side category label */}
-      <p className="font-['DM_Sans'] text-[9px] uppercase tracking-widest text-foreground/30 w-12 shrink-0 text-right leading-tight">
+      <p className="font-['DM_Sans'] text-[11px] uppercase tracking-widest text-foreground/30 w-12 shrink-0 text-right leading-tight">
         {categorySlotLabel}
       </p>
       <div
@@ -569,20 +569,20 @@ export default function OutfitDetailPage() {
       <div className="fixed top-0 left-0 right-0 z-20 p-4 flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
-          className="h-10 w-10 rounded-full border border-border/30 bg-background/80 flex items-center justify-center active:scale-95 transition-transform"
+          className="h-11 w-11 rounded-full border border-border/30 bg-background/80 flex items-center justify-center active:scale-95 transition-transform"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex gap-2">
           <button
             onClick={handleToggleSave}
-            className="h-10 w-10 rounded-full border border-border/30 bg-background/80 flex items-center justify-center active:scale-95 transition-transform"
+            className="h-11 w-11 rounded-full border border-border/30 bg-background/80 flex items-center justify-center active:scale-95 transition-transform"
           >
             {outfit.saved ? <BookmarkCheck className="w-5 h-5 text-primary" /> : <Bookmark className="w-5 h-5" />}
           </button>
           <button
             onClick={() => setShareSheetOpen(true)}
-            className="h-10 w-10 rounded-full border border-border/30 bg-background/80 flex items-center justify-center active:scale-95 transition-transform"
+            className="h-11 w-11 rounded-full border border-border/30 bg-background/80 flex items-center justify-center active:scale-95 transition-transform"
           >
             <Share2 className="w-5 h-5" />
           </button>
@@ -612,8 +612,8 @@ export default function OutfitDetailPage() {
       </div>
 
       {/* ── Dark info block ── */}
-      <div className="bg-foreground/[0.96] px-5 py-4">
-        <p className="font-['DM_Sans'] text-[9px] font-medium uppercase tracking-[0.12em] text-background/[0.45] mb-2.5">
+      <div className="bg-foreground/[0.96] px-5 py-5">
+        <p className="font-['DM_Sans'] text-[11px] font-medium uppercase tracking-[0.12em] text-background/[0.45] mb-2.5">
           {genOccasionSubmode || displayOccasion}
         </p>
         {outfit.explanation && (
@@ -636,7 +636,7 @@ export default function OutfitDetailPage() {
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={cn(
-                "flex-1 rounded-full px-3 py-2.5 font-['DM_Sans'] text-[12px] font-medium transition-colors",
+                "h-12 flex-1 rounded-full px-3 py-2.5 font-['DM_Sans'] text-[12px] font-medium transition-colors",
                 activeTab === tab
                   ? "bg-foreground text-background"
                   : "text-foreground/45"
@@ -656,7 +656,7 @@ export default function OutfitDetailPage() {
               onClick={handleMarkWorn}
               disabled={markWorn.isPending || !!outfit.worn_at}
               className={cn(
-                "w-full h-12 rounded-full bg-foreground text-background font-['DM_Sans'] text-[14px] font-medium flex items-center justify-center gap-2",
+                "w-full h-14 rounded-full bg-foreground text-background font-['DM_Sans'] text-[15px] font-medium flex items-center justify-center gap-2",
                 outfit.worn_at && "opacity-50 cursor-default"
               )}
             >
