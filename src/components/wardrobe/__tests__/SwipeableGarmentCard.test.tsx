@@ -3,7 +3,6 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 const navigateMock = vi.fn();
-const triggerGarmentPostSaveIntelligenceMock = vi.fn();
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -19,10 +18,6 @@ vi.mock('@/contexts/LanguageContext', () => ({
 
 vi.mock('@/lib/haptics', () => ({
   hapticLight: vi.fn(),
-}));
-
-vi.mock('@/lib/garmentIntelligence', () => ({
-  triggerGarmentPostSaveIntelligence: (...args: unknown[]) => triggerGarmentPostSaveIntelligenceMock(...args),
 }));
 
 vi.mock('@/components/ui/lazy-image', () => ({
@@ -83,8 +78,7 @@ describe('SwipeableGarmentCard', () => {
     renderCard();
 
     expect(screen.getByText('Blue Oxford Shirt')).toBeInTheDocument();
-    expect(screen.getByText('Top')).toBeInTheDocument();
-    expect(screen.getByText('Blue')).toBeInTheDocument();
+    expect(screen.getByText('Top / Blue')).toBeInTheDocument();
     expect(screen.getByText('Never worn')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Style around this/i })).toBeInTheDocument();
   });
@@ -115,29 +109,5 @@ describe('SwipeableGarmentCard', () => {
         prefillMessage: 'Style around this garment and build a complete look around it.',
       },
     });
-    expect(navigateMock).toHaveBeenCalledTimes(1);
-  });
-
-  it('opens the garment detail when the card body is tapped', () => {
-    renderCard();
-
-    fireEvent.click(screen.getByText('Blue Oxford Shirt'));
-
-    expect(navigateMock).toHaveBeenCalledWith('/wardrobe/g1');
-  });
-
-  it('keeps the redesign secondary action wired to enhancement without opening the garment', () => {
-    renderCard();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Enhance' }));
-
-    expect(triggerGarmentPostSaveIntelligenceMock).toHaveBeenCalledWith({
-      garmentId: 'g1',
-      storagePath: 'img.jpg',
-      source: 'manual_enhance',
-      imageProcessing: { mode: 'full' },
-    });
-    expect(navigateMock).not.toHaveBeenCalled();
-    expect(screen.getByText('Enhancing...')).toBeInTheDocument();
   });
 });

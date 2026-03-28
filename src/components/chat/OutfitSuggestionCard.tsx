@@ -92,11 +92,6 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
     setSwapOpen(null);
   };
 
-  const translateOrFallback = (key: string, fallback: string) => {
-    const translated = t(key);
-    return translated && translated !== key ? translated : fallback;
-  };
-
   return (
     <div className="rounded-2xl border border-border/80 bg-card overflow-hidden animate-scale-in shadow-sm">
       {/* Garment row */}
@@ -175,7 +170,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
             className="shrink-0 flex items-center gap-1 text-[11px] font-medium text-amber-700 dark:text-amber-400 hover:underline"
           >
             <Plus className="w-3 h-3" />
-            {translateOrFallback('outfit.add_shoes_inline', 'Add')}
+            {t('outfit.add_shoes') || 'Add'}
           </button>
         </div>
       )}
@@ -191,7 +186,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
               disabled={isCreating}
             >
               <Plus className="w-3.5 h-3.5" />
-              {translateOrFallback('outfit.add_shoes', 'Add shoes')}
+              {t('outfit.add_shoes') || 'Add shoes'}
             </Button>
             <Button
               size="sm"
@@ -205,7 +200,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
               ) : (
                 <>
                   <ArrowRight className="w-3.5 h-3.5" />
-                  {translateOrFallback('outfit.save_without_shoes', 'Save without shoes')}
+                  {t('outfit.save_without_shoes') || 'Save without shoes'}
                 </>
               )}
             </Button>
@@ -222,7 +217,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
             ) : (
               <>
                 <ArrowRight className="w-3.5 h-3.5" />
-                {translateOrFallback('outfit.try_this', 'Try this outfit')}
+                {t('outfit.try_this') || 'Testa denna outfit'}
               </>
             )}
           </Button>

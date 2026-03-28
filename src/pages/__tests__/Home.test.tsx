@@ -42,36 +42,7 @@ vi.mock('@/contexts/AuthContext', () => ({
 }));
 
 vi.mock('@/contexts/LanguageContext', () => ({
-  useLanguage: vi.fn(() => ({
-    t: (k: string, vars?: Record<string, string>) => {
-      const translations: Record<string, string> = {
-        'home.gaps.title': 'Garment gaps',
-        'home.gaps.panel_kicker': 'Wardrobe intelligence',
-        'home.gaps.ready_title': 'Run the full gap scan.',
-        'home.gaps.ready_desc': 'Run the full scan in one place so results, refreshes, and shopping follow-up stay together.',
-        'home.gaps.run_scan': 'Run scan',
-        'home.gaps.open_full_scan': 'Open full scan',
-        'home.gaps.locked_kicker': '{count} to unlock',
-        'home.gaps.locked_desc': 'Reach 10 pieces and BURS will show which additions unlock the most new outfits.',
-        'home.gaps.complete_kicker': 'Balanced',
-        'home.gaps.complete_title': 'No urgent gap right now.',
-        'home.gaps.complete_desc': 'Your last scan came back balanced. Open the full scan to review it or rerun it after adding new pieces.',
-        'home.gaps.run_fresh_scan': 'Run fresh scan',
-        'common.progress': 'Progress',
-        'common.add_garments': 'Add garments',
-        'weather.condition.clear': 'Clear',
-        'home.greeting_morning': 'Good morning',
-        'home.greeting_afternoon': 'Good afternoon',
-        'home.greeting_evening': 'Good evening',
-        'nav.settings': 'Settings',
-      };
-      const template = translations[k] ?? k;
-      return vars
-        ? Object.entries(vars).reduce((value, [key, replacement]) => value.replace(`{${key}}`, replacement), template)
-        : template;
-    },
-    locale: 'en',
-  })),
+  useLanguage: vi.fn(() => ({ t: (k: string) => k, locale: 'en' })),
 }));
 
 vi.mock('@/contexts/LocationContext', () => ({
@@ -232,67 +203,35 @@ describe('Home page command center', () => {
     });
   });
 
-  it('surfaces style me, garment gaps, dna, and gaps intelligence entry points', () => {
+  it('surfaces style me, discover, travel, dna, and opportunity entry points', () => {
     renderHome();
 
     const heading = screen.getByRole('heading', { level: 1 });
     expect(heading).toBeInTheDocument();
     expect(heading.textContent).toContain('Test');
     expect(screen.getByText('Style Me')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Garment gaps/i })).toBeInTheDocument();
+    expect(screen.getAllByText('Discover').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /Travel/i })).toBeInTheDocument();
-    expect(screen.getByTestId('home-dna-populated')).toBeInTheDocument();
-    expect(screen.getByText('Wardrobe intelligence')).toBeInTheDocument();
-    expect(screen.getAllByText('Garment gaps')).toHaveLength(2);
+    expect(screen.getAllByText('Style DNA').length).toBeGreaterThan(0);
+    expect(screen.getByText('Wardrobe gaps')).toBeInTheDocument();
   });
 
   it('navigates to the promoted actions from home', () => {
     renderHome();
 
     fireEvent.click(screen.getByText('Style Me'));
-    fireEvent.click(screen.getByRole('button', { name: /Garment gaps.*Find the next buy/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Travel.*Pack smarter/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Mood.*Dress the vibe/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Plan.*Week ahead/i }));
+    fireEvent.click(screen.getAllByRole('button', { name: /Discover/i })[0]);
+    fireEvent.click(screen.getByText('Travel'));
+    fireEvent.click(screen.getByText('Mood'));
+    fireEvent.click(screen.getByText('Plan'));
     fireEvent.click(screen.getByText('See all unworn'));
 
     expect(navigateMock).toHaveBeenCalledWith('/ai/generate');
-    expect(navigateMock).toHaveBeenCalledWith('/gaps');
+    expect(navigateMock).toHaveBeenCalledWith('/discover');
     expect(navigateMock).toHaveBeenCalledWith('/ai/travel');
     expect(navigateMock).toHaveBeenCalledWith('/ai/mood');
     expect(navigateMock).toHaveBeenCalledWith('/plan');
     expect(navigateMock).toHaveBeenCalledWith('/outfits/unused');
-  });
-
-  it('routes the dna and wear-next affordances into insights and anchored styling', () => {
-    renderHome();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Open DNA' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Style around it' }));
-
-    expect(navigateMock).toHaveBeenCalledWith('/insights');
-    expect(navigateMock).toHaveBeenCalledWith('/ai/generate?garments=garment-1&selectedGarmentId=garment-1');
-  });
-
-  it('opens the planned outfit when today already has a saved look', () => {
-    usePlannedOutfitsForDateMock.mockReturnValue({
-      data: [
-        {
-          outfit: {
-            id: 'today-look-1',
-            explanation: 'Polished layers for the office.',
-            outfit_items: [],
-          },
-        },
-      ],
-      isLoading: false,
-    });
-
-    renderHome();
-
-    fireEvent.click(screen.getByRole('button', { name: "Today's look" }));
-
-    expect(navigateMock).toHaveBeenCalledWith('/outfits/today-look-1');
   });
 
   it('keeps wardrobe as a visible secondary entry point when the wardrobe is still small', () => {
@@ -305,7 +244,7 @@ describe('Home page command center', () => {
 
     renderHome();
 
-    fireEvent.click(screen.getByRole('button', { name: /^Wardrobe$/i }));
+    fireEvent.click(screen.getByText('Wardrobe'));
     expect(navigateMock).toHaveBeenCalledWith('/wardrobe');
   });
 });

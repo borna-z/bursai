@@ -127,9 +127,9 @@ export function StyleDNACard({
         <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground/30">
           Signature palette
         </p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex items-center gap-1.5">
           {dna.signatureColors.map(({ color, percentage }) => (
-            <div key={color} className="flex min-w-[52px] flex-col items-center gap-1">
+            <div key={color} className="flex flex-col items-center gap-1">
               <div
                 className={cn('rounded-full', COLOR_MAP[color.toLowerCase()] || 'bg-muted')}
                 style={{
@@ -151,7 +151,7 @@ export function StyleDNACard({
           </p>
           <div className="space-y-1.5">
             {dna.uniformCombos.map(({ combo, count }, index) => (
-              <div key={index} className="flex flex-col gap-1 py-1.5 sm:flex-row sm:items-center sm:justify-between">
+              <div key={index} className="flex items-center justify-between py-1.5">
                 <span className="text-[12px] capitalize text-foreground/70">
                   {combo.join(' + ')}
                 </span>

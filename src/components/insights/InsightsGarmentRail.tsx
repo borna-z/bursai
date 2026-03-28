@@ -34,7 +34,7 @@ export function InsightsGarmentRail<TGarment extends GarmentRailItem>({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+      <div className="flex items-end justify-between gap-4">
         <div className="space-y-1">
           <h3 className="text-[1.05rem] font-semibold tracking-[-0.03em] text-foreground">
             {title}
@@ -53,8 +53,8 @@ export function InsightsGarmentRail<TGarment extends GarmentRailItem>({
         ) : null}
       </div>
 
-      <div className="scrollbar-hide -mx-4 overflow-x-auto px-4">
-        <div className="flex snap-x snap-mandatory gap-3 pb-1 pr-1">
+      <div className="scrollbar-hide -mx-5 overflow-x-auto px-5">
+        <div className="flex gap-3 pb-1">
           {garments.map((garment) => {
             const meta = renderMeta?.(garment) || garment.category || garment.color_primary || null;
 
@@ -63,12 +63,12 @@ export function InsightsGarmentRail<TGarment extends GarmentRailItem>({
                 key={garment.id}
                 type="button"
                 onClick={() => onSelectGarment(garment.id)}
-                className="press surface-interactive flex w-[144px] shrink-0 snap-start flex-col gap-2.5 p-2.5 text-left sm:w-[116px] sm:gap-3 sm:p-3"
+                className="press surface-interactive flex w-[116px] shrink-0 flex-col gap-3 p-3 text-left"
               >
                 <LazyImageSimple
                   imagePath={getPreferredGarmentImagePath(garment)}
                   alt={garment.title}
-                  className="h-36 w-full rounded-[1rem] sm:h-32"
+                  className="h-32 w-full rounded-[1rem]"
                   fallbackIcon={<Shirt className="size-5 text-muted-foreground/45" />}
                 />
                 <div className="space-y-1">

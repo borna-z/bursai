@@ -85,7 +85,7 @@ describe('BottomNav smoke', () => {
     expect(screen.getByText('nav.today')).toBeInTheDocument();
     expect(screen.getByText('nav.wardrobe')).toBeInTheDocument();
     expect(screen.getByText('nav.plan')).toBeInTheDocument();
-    expect(screen.getByText('nav.style_me')).toBeInTheDocument();
+    expect(screen.getByText('Style Me')).toBeInTheDocument();
   });
 
   it('renders navigation landmark', () => {

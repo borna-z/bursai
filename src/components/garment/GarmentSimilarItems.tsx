@@ -53,7 +53,7 @@ export function GarmentSimilarItems({ similarGarments }: GarmentSimilarItemsProp
             No similar items found
           </p>
           <p className="font-['DM_Sans'] text-[11px] text-foreground/[0.35] mt-1">
-            Add more garments to find stronger matches.
+            Add more garments to discover matches.
           </p>
         </div>
       )}
