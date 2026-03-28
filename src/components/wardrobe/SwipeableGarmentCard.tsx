@@ -1,9 +1,16 @@
 import { useState, memo, type MouseEvent, type TouchEvent } from 'react';
 import { motion, useMotionValue, useTransform, animate, type PanInfo } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Pencil, WashingMachine, Trash2 } from 'lucide-react';
+import { Pencil, WashingMachine, Trash2, MoreHorizontal } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { hapticLight } from '@/lib/haptics';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import type { Garment } from '@/hooks/useGarments';
 import { triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
 import { buildStyleAroundState, buildStyleFlowSearch } from '@/lib/styleFlowState';
@@ -54,6 +61,18 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({
     setIsOpen(false);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowLeft' && !isOpen) {
+      hapticLight();
+      animate(x, -TOTAL_WIDTH, { type: 'spring', stiffness: 400, damping: 35 });
+      setIsOpen(true);
+    } else if (e.key === 'Escape' || e.key === 'ArrowRight') {
+      close();
+    } else if (e.key === 'Enter' && !isOpen) {
+      navigate(`/wardrobe/${garment.id}`);
+    }
+  };
+
   const handleAction = (action: () => void) => {
     close();
     setTimeout(action, 150);
@@ -94,7 +113,13 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({
   ) : null;
 
   return (
-    <div className="relative overflow-hidden rounded-[28px]">
+    <div
+      role="listitem"
+      tabIndex={0}
+      aria-label={garment.title || 'Garment'}
+      onKeyDown={handleKeyDown}
+      className="group relative overflow-hidden rounded-[28px]"
+    >
       <motion.div
         className="absolute inset-y-0 right-0 flex items-stretch gap-1.5 rounded-[28px] bg-card/86 p-1.5"
         style={{ opacity: actionsOpacity, width: TOTAL_WIDTH }}
@@ -140,6 +165,7 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({
 
           navigate(`/wardrobe/${garment.id}`);
         }}
+        aria-hidden="true"
         className="relative cursor-grab active:cursor-grabbing will-change-transform"
       >
         <WardrobeGarmentListLayout
@@ -148,6 +174,40 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({
           onStyleAround={handleStyleAround}
           secondaryAction={secondaryAction}
         />
+
+        {/* Overflow menu for keyboard/focus users */}
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 transition-opacity focus-within:opacity-100 group-focus-within:opacity-100">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-full"
+                aria-label={t('common.actions') || 'Actions'}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => { hapticLight(); handleAction(onEdit); }}>
+                <Pencil className="mr-2 h-4 w-4" />
+                {t('common.edit')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { hapticLight(); handleAction(onLaundry); }}>
+                <WashingMachine className="mr-2 h-4 w-4" />
+                {t('wardrobe.laundry')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => { hapticLight(); handleAction(onDelete); }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {t('wardrobe.remove')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </motion.div>
     </div>
   );

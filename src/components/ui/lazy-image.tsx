@@ -74,7 +74,7 @@ export function LazyImage({
       {(hasError || (!imagePath && !isLoading)) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted gap-1">
           {fallbackIcon || <ImageOff className="w-1/5 h-1/5 text-muted-foreground/30" />}
-          {hasError && <span className="text-[10px] text-muted-foreground/40">Image unavailable</span>}
+          {hasError && <span className="text-[10px] text-muted-foreground/50">Image unavailable</span>}
         </div>
       )}
     </div>
