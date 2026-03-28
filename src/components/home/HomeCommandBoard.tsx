@@ -214,7 +214,7 @@ export function HomeCommandBoard({
 
         {state !== 'outfit_planned' && state !== 'empty_wardrobe' ? (
           <>
-          <div className="border-t border-border/15 mt-3 pt-3" />
+          <div className="border-t border-border/15 mt-3 pt-1" />
           <div data-testid="home-command-board-visual-recent" className="space-y-2.5">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/68">

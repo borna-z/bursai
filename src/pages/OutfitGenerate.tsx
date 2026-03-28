@@ -12,7 +12,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { StyleMeSubNav } from '@/components/ai/StyleMeSubNav';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
-import { PageIntro } from '@/components/ui/page-intro';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { useOutfitGenerator, type GeneratedOutfit } from '@/hooks/useOutfitGenerator';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
 import { useUpdateOutfit, useMarkOutfitWorn } from '@/hooks/useOutfits';
@@ -600,11 +600,9 @@ export default function OutfitGeneratePage() {
       <div className="page-shell pb-36 animate-fade-in">
 
         {/* ── Header + Weather ── */}
-        <PageIntro
-          eyebrow="Style outfit"
-          title={getGreeting()}
-          description="Pick an occasion, add up to two style directions, then let BURS build one clear look."
-          className="pt-8 pb-6"
+        <PageHeader
+          title={t('outfit.generate_title') || 'New Look'}
+          showBack
         />
         <section className="space-y-2 pb-6">
           {weather && (

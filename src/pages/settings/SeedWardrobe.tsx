@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Trash2, Loader2, CheckCircle, AlertCircle, RotateCcw, Clock } from 'lucide-react';
+import { Trash2, Loader2, CheckCircle, AlertCircle, RotateCcw, Clock } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -18,12 +19,7 @@ function SeedWardrobeInner() {
   return (
     <AppLayout hideNav>
       <AnimatedPage className="px-6 pb-8 pt-12 max-w-lg mx-auto space-y-6">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/settings')} className="p-2 -ml-2 rounded-xl hover:bg-muted">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-xl font-semibold">Seed Wardrobe</h1>
-        </div>
+        <PageHeader title="Seed Wardrobe" eyebrow="Admin" showBack />
 
         <p className="text-sm text-muted-foreground">
           This will <strong>delete all existing garments</strong> and create {SEED_GARMENTS.length} clothing items

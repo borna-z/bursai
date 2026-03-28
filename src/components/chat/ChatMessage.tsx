@@ -116,7 +116,7 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
             </div>
           )}
           {text && (
-            <div className="bg-primary/10 text-foreground rounded-[1.25rem] rounded-br-md px-4 py-3 text-[15px] leading-[1.7] whitespace-pre-wrap">
+            <div className="bg-primary/10 text-foreground rounded-[1.25rem] rounded-br-md px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap">
               {text}
             </div>
           )}
