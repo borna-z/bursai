@@ -12,8 +12,6 @@ const baseCommandState: WardrobeCommandTopState = {
   actions: [
     { key: 'style', label: 'Create', tone: 'primary' },
     { key: 'plan', label: 'Plan', tone: 'secondary' },
-    { key: 'add', label: 'Add', tone: 'muted' },
-    { key: 'scan', label: 'Live Scan', tone: 'muted' },
   ],
 };
 

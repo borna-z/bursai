@@ -73,26 +73,10 @@ export function buildWardrobeCommandTopState({
     caption = 'Add a top, bottom, and shoes to unlock styling.';
   }
 
-  const actions: WardrobeCommandActionModel[] = activeTab === 'outfits'
-    ? [
-        { key: 'style', label: t('outfits.create'), tone: 'primary' as const },
-        { key: 'plan', label: t('plan.plan'), tone: 'secondary' as const },
-        { key: 'add', label: t('wardrobe.add'), tone: 'muted' as const },
-        { key: 'scan', label: t('wardrobe.live_scan'), tone: 'muted' as const },
-      ]
-    : isLowWardrobe
-      ? [
-          { key: 'add', label: t('wardrobe.add'), tone: 'primary' as const },
-          { key: 'scan', label: t('wardrobe.live_scan'), tone: 'secondary' as const },
-          { key: 'style', label: t('outfits.create'), tone: 'muted' as const },
-          { key: 'plan', label: t('plan.plan'), tone: 'muted' as const },
-        ]
-      : [
-          { key: 'style', label: t('outfits.create'), tone: 'primary' as const },
-          { key: 'plan', label: t('plan.plan'), tone: 'secondary' as const },
-          { key: 'add', label: t('wardrobe.add'), tone: 'muted' as const },
-          { key: 'scan', label: t('wardrobe.live_scan'), tone: 'muted' as const },
-        ];
+  const actions: WardrobeCommandActionModel[] = [
+    { key: 'style', label: t('outfits.create'), tone: 'primary' as const },
+    { key: 'plan', label: t('plan.plan'), tone: 'secondary' as const },
+  ];
 
   return {
     title: t('wardrobe.title'),
