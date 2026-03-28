@@ -211,14 +211,15 @@ function ConfidenceBadge({ confidence }: { confidence?: number }) {
 /* ─── Scan history thumbnail strip ─── */
 function ScanHistoryStrip({ thumbnails }: { thumbnails: string[] }) {
   if (thumbnails.length === 0) return null;
+  const visibleThumbnails = thumbnails.slice(-3);
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: EASE_CURVE }}
-      className="absolute bottom-4 left-4 right-20 z-10 flex items-center gap-2 overflow-x-auto scrollbar-hide"
+      className="absolute bottom-4 left-4 z-10 flex max-w-[calc(100%-6rem)] items-center gap-2"
     >
-      {thumbnails.map((url, i) => (
+      {visibleThumbnails.map((url, i) => (
         <motion.div
           key={i}
           initial={{ scale: 0.7, opacity: 0 }}
@@ -494,7 +495,7 @@ export default function LiveScan() {
 
       {/* Top bar — glass */}
       <div className="relative z-10 border-b border-border/50 bg-background/80 backdrop-blur-2xl">
-        <div className="mx-auto flex w-full max-w-xl items-center justify-between gap-3 px-4 py-3">
+        <div className="mx-auto flex w-full max-w-md items-center justify-between gap-3 px-4 py-3">
           <Button variant="quiet" size="icon" onClick={handleClose}>
             <X className="w-5 h-5" />
           </Button>
@@ -707,7 +708,7 @@ export default function LiveScan() {
       {/* Shutter button — only in camera stream mode */}
       {!useFileInputMode && cameraReady && (
         <div className="relative z-10 border-t border-border/50 bg-background/80 backdrop-blur-2xl">
-          <div className="mx-auto flex w-full max-w-xl items-center justify-center px-4 py-4">
+          <div className="mx-auto flex w-full max-w-md items-center justify-center px-4 py-4">
             <Card surface="utility" className="w-full max-w-sm p-4">
               <div className="mb-4 text-center">
                 <p className="text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground">Live scan</p>
@@ -757,7 +758,7 @@ export default function LiveScan() {
       {/* Bottom bar for file-input mode — take another photo */}
       {useFileInputMode && !lastResult && !isProcessing && !showAccepted && scanCount > 0 && (
         <div className="relative z-10 border-t border-border/50 bg-background/80 backdrop-blur-2xl">
-          <div className="mx-auto flex w-full max-w-xl items-center justify-center px-4 py-4">
+          <div className="mx-auto flex w-full max-w-md items-center justify-center px-4 py-4">
             <Card surface="utility" className="w-full max-w-sm p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>

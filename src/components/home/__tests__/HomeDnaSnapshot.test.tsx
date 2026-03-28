@@ -4,7 +4,6 @@ import { HomeDnaSnapshot } from '../HomeDnaSnapshot';
 
 const baseProps = {
   onOpenInsights: vi.fn(),
-  onGenerateLook: vi.fn(),
 };
 
 describe('HomeDnaSnapshot', () => {
@@ -16,9 +15,8 @@ describe('HomeDnaSnapshot', () => {
   it('renders empty state when dna is unavailable', () => {
     render(<HomeDnaSnapshot {...baseProps} dna={null} />);
     expect(screen.getByTestId('home-dna-empty')).toBeInTheDocument();
-    expect(screen.getByText('DNA is still forming')).toBeInTheDocument();
-    expect(screen.getByText('Style Me')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Style Me/i })).toBeInTheDocument();
+    expect(screen.getByText('Your signature is still forming')).toBeInTheDocument();
+    expect(screen.getByText('Open insights')).toBeInTheDocument();
   });
 
   it('renders populated dna summary', () => {
@@ -45,10 +43,7 @@ describe('HomeDnaSnapshot', () => {
     expect(screen.getByText('Minimalist')).toBeInTheDocument();
     expect(screen.getByText('Palette')).toBeInTheDocument();
     expect(screen.getByText('Formula')).toBeInTheDocument();
-    expect(screen.getByText('Neutral palette')).toBeInTheDocument();
-    expect(screen.getByText('Signature colors')).toBeInTheDocument();
+    expect(screen.getByText('Bias')).toBeInTheDocument();
     expect(screen.getByText('12 looks analyzed')).toBeInTheDocument();
-    expect(screen.getByText('Open DNA')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Open DNA/i })).toBeInTheDocument();
   });
 });

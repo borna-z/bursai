@@ -178,7 +178,7 @@ export default function MoodOutfitPage() {
         ) : (
           <>
             <PageIntro
-              eyebrow="Style Me"
+              eyebrow="Mood styling"
               meta={weatherMeta ? <span className="eyebrow-chip !bg-secondary/70">{weatherMeta}</span> : undefined}
               title={t('ai.mood_heading')}
               description={t('ai.mood_desc')}

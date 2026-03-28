@@ -92,19 +92,14 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
     setSwapOpen(null);
   };
 
-  const translateOrFallback = (key: string, fallback: string) => {
-    const translated = t(key);
-    return translated && translated !== key ? translated : fallback;
-  };
-
   return (
     <div className="rounded-2xl border border-border/80 bg-card overflow-hidden animate-scale-in shadow-sm">
       {/* Garment row */}
-      <div className="flex gap-1 p-3 overflow-x-auto scrollbar-hide">
+      <div className="grid grid-cols-4 gap-2 p-3">
         {garments.map((g, i) => (
-          <div key={g.id} className="relative shrink-0 group">
+          <div key={g.id} className="group relative min-w-0">
             <Link to={`/wardrobe/${g.id}`} className="block">
-              <div className="w-[72px] h-[72px] rounded-xl overflow-hidden bg-muted border border-border/40">
+              <div className="mx-auto aspect-square w-full max-w-[72px] overflow-hidden rounded-xl border border-border/40 bg-muted">
                 <LazyImageSimple
                   imagePath={getPreferredGarmentImagePath(g)}
                   alt={g.title}
@@ -113,7 +108,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
                 />
               </div>
             </Link>
-            <p className="text-[10px] text-muted-foreground truncate w-[72px] mt-1 text-center">{g.title}</p>
+            <p className="mx-auto mt-1 max-w-[72px] truncate text-center text-[10px] text-muted-foreground">{g.title}</p>
             {/* Swap trigger */}
             <Popover open={swapOpen === i} onOpenChange={(open) => {
               if (open) fetchAlternatives(i);
@@ -175,7 +170,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
             className="shrink-0 flex items-center gap-1 text-[11px] font-medium text-amber-700 dark:text-amber-400 hover:underline"
           >
             <Plus className="w-3 h-3" />
-            {translateOrFallback('outfit.add_shoes_inline', 'Add')}
+            {t('outfit.add_shoes') || 'Add'}
           </button>
         </div>
       )}
@@ -191,7 +186,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
               disabled={isCreating}
             >
               <Plus className="w-3.5 h-3.5" />
-              {translateOrFallback('outfit.add_shoes', 'Add shoes')}
+              {t('outfit.add_shoes') || 'Add shoes'}
             </Button>
             <Button
               size="sm"
@@ -205,7 +200,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
               ) : (
                 <>
                   <ArrowRight className="w-3.5 h-3.5" />
-                  {translateOrFallback('outfit.save_without_shoes', 'Save without shoes')}
+                  {t('outfit.save_without_shoes') || 'Save without shoes'}
                 </>
               )}
             </Button>
@@ -222,7 +217,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
             ) : (
               <>
                 <ArrowRight className="w-3.5 h-3.5" />
-                {translateOrFallback('outfit.try_this', 'Try this outfit')}
+                {t('outfit.try_this') || 'Testa denna outfit'}
               </>
             )}
           </Button>

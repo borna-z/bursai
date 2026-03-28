@@ -179,8 +179,6 @@ export function invalidateWardrobeQueries(queryClient: ReturnType<typeof useQuer
   queryClient.invalidateQueries({ queryKey: ['garment'] });
   queryClient.invalidateQueries({ queryKey: ['ai-suggestions'] });
   queryClient.invalidateQueries({ queryKey: ['insights'] });
-  queryClient.invalidateQueries({ queryKey: ['insights-dashboard'] });
-  queryClient.invalidateQueries({ queryKey: ['style-dna'] });
   queryClient.invalidateQueries({ queryKey: userId ? ['outfits', userId] : ['outfits'] });
   queryClient.invalidateQueries({ queryKey: ['planned-outfits'] });
   queryClient.invalidateQueries({ queryKey: ['planned-outfits-day'] });

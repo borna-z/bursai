@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('@/contexts/LanguageContext', () => ({
@@ -80,13 +80,13 @@ function renderNav(path = '/') {
 }
 
 describe('BottomNav smoke', () => {
-  it('renders all primary destinations including insights', () => {
+  it('renders the 5-slot dock labels', () => {
     renderNav();
-    expect(screen.getByText('Today')).toBeInTheDocument();
-    expect(screen.getByText('Wardrobe')).toBeInTheDocument();
-    expect(screen.getByText('Plan')).toBeInTheDocument();
-    expect(screen.getByLabelText('Style Me')).toBeInTheDocument();
-    expect(screen.getByText('Insights')).toBeInTheDocument();
+    expect(screen.getByText('nav.today')).toBeInTheDocument();
+    expect(screen.getByText('nav.wardrobe')).toBeInTheDocument();
+    expect(screen.getByText('nav.plan')).toBeInTheDocument();
+    expect(screen.getByText('nav.insights')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'nav.add' })).toBeInTheDocument();
   });
 
   it('renders navigation landmark', () => {
@@ -102,10 +102,10 @@ describe('BottomNav smoke', () => {
     expect(container.querySelector('[aria-hidden="true"].safe-bottom')).toBeInTheDocument();
   });
 
-  it('marks active tab with the active foreground treatment', () => {
+  it('marks active tab with accent color class', () => {
     renderNav('/wardrobe');
-    const wardrobeLink = screen.getByText('Wardrobe').closest('a');
-    expect(wardrobeLink?.className).toContain('text-foreground');
+    const wardrobeLink = screen.getByText('nav.wardrobe').closest('a');
+    expect(wardrobeLink?.className).toContain('app-dock-tab-active');
   });
 
   it('does not show the wardrobe coach overlay once the wardrobe route is active', () => {
@@ -134,5 +134,15 @@ describe('BottomNav smoke', () => {
 
     renderNav('/');
     expect(await screen.findByRole('button', { name: /take me there/i })).toBeInTheDocument();
+  });
+
+  it('opens the centered add sheet with the two wardrobe actions', () => {
+    renderNav('/');
+
+    fireEvent.click(screen.getByRole('button', { name: 'nav.add' }));
+
+    expect(screen.getByText('Add to your wardrobe')).toBeInTheDocument();
+    expect(screen.getByText('wardrobe.add')).toBeInTheDocument();
+    expect(screen.getByText('wardrobe.live_scan')).toBeInTheDocument();
   });
 });

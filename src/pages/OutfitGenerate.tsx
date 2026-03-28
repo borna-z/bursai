@@ -22,7 +22,7 @@ import { useWeather } from '@/hooks/useWeather';
 import { useCalendarEvents } from '@/hooks/useCalendarSync';
 import { useSubscription } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
-import { WardrobeProgress } from '@/components/wardrobe/WardrobeProgress';
+import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
@@ -604,9 +604,9 @@ export default function OutfitGeneratePage() {
 
         {/* ── Header + Weather ── */}
         <PageIntro
-          eyebrow="Creation"
+          eyebrow="Style outfit"
           title={getGreeting()}
-          description="Let me style you today."
+          description="Pick an occasion, add up to two style directions, then let BURS build one clear look."
           className="pt-8 pb-6"
         />
         <section className="space-y-2 pb-6">
@@ -727,7 +727,7 @@ export default function OutfitGeneratePage() {
           className="space-y-3 pb-10"
         >
           <p className="label-editorial">What's the occasion?</p>
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
             {OCCASIONS.map(({ key, label }) => {
               const isSelected = selectedOccasion === key;
               const OccIcon = OCCASION_ICONS[key] || Sparkles;
@@ -737,14 +737,14 @@ export default function OutfitGeneratePage() {
                   whileTap={prefersReduced ? undefined : { scale: 0.97 }}
                   onClick={() => setSelectedOccasion(key)}
                   className={cn(
-                    'flex h-[64px] w-[72px] shrink-0 flex-col items-center justify-center gap-1.5 rounded-[1.25rem] transition-all',
+                    'flex min-h-[76px] w-full flex-col items-center justify-center gap-2 rounded-[1.2rem] px-2 py-3 text-center transition-all',
                     isSelected
                       ? 'bg-foreground text-background'
                       : 'surface-utility text-foreground hover:bg-background'
                   )}
                 >
                   <OccIcon className="w-5 h-5" strokeWidth={1.8} />
-                  <span className="font-['DM_Sans'] text-[11px] leading-none">{label}</span>
+                  <span className="font-['DM_Sans'] text-[11px] leading-snug">{label}</span>
                 </motion.button>
               );
             })}
@@ -822,7 +822,7 @@ export default function OutfitGeneratePage() {
                 size="lg"
               >
                 <Sparkles className="w-4 h-4 mr-2" />
-                Style me
+                Style outfit
               </Button>
             </CoachMark>
             {!isPremium && remainingOutfits() < Infinity && (

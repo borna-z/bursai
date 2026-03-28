@@ -1,127 +1,141 @@
+import { useState } from 'react';
 import { BarChart3, CalendarDays, Home, Plus, Shirt } from 'lucide-react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
+
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { hapticLight } from '@/lib/haptics';
 import { prefetchRoute } from '@/lib/routePrefetch';
 import { CoachMark } from '@/components/coach/CoachMark';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
+import { BottomNavAddSheet } from './BottomNavAddSheet';
 
-function translateOrFallback(t: (key: string) => string, key: string, fallback: string) {
-  const translated = t(key);
-  return translated && translated !== key ? translated : fallback;
+const ROUTE_TABS = [
+  { path: '/', labelKey: 'nav.today', icon: Home },
+  { path: '/wardrobe', labelKey: 'nav.wardrobe', icon: Shirt },
+  { path: '/plan', labelKey: 'nav.plan', icon: CalendarDays },
+  { path: '/insights', labelKey: 'nav.insights', icon: BarChart3 },
+] as const;
+
+function RouteTab({
+  path,
+  labelKey,
+  icon: Icon,
+}: (typeof ROUTE_TABS)[number]) {
+  const { t } = useLanguage();
+  const prefersReduced = useReducedMotion();
+
+  return (
+    <NavLink
+      to={path}
+      aria-label={t(labelKey)}
+      onClick={() => hapticLight()}
+      onPointerEnter={() => prefetchRoute(path)}
+      onFocus={() => prefetchRoute(path)}
+      className={({ isActive }) =>
+        cn('app-dock-tab', isActive && 'app-dock-tab-active')
+      }
+    >
+      {({ isActive }) => (
+        <>
+          {isActive ? (
+            <motion.div
+              layoutId={prefersReduced ? undefined : 'dock-active-pill'}
+              className="absolute inset-0 rounded-[1.25rem] bg-secondary/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]"
+              transition={{ type: 'spring', stiffness: 360, damping: 30, mass: 0.8 }}
+            />
+          ) : null}
+          <div className="relative z-10 flex flex-col items-center justify-center gap-1">
+            <Icon className={cn('h-[1.15rem] w-[1.15rem]', isActive && 'scale-[1.04]')} strokeWidth={isActive ? 2.4 : 2.1} />
+            <span>{t(labelKey)}</span>
+          </div>
+        </>
+      )}
+    </NavLink>
+  );
 }
-
-const tabKeys = [
-  { path: '/', labelKey: 'nav.today', fallback: 'Today', icon: Home, emphasis: 'default' as const },
-  { path: '/wardrobe', labelKey: 'nav.wardrobe', fallback: 'Wardrobe', icon: Shirt, emphasis: 'default' as const },
-  { path: '/ai', labelKey: 'nav.style_me', fallback: 'Style Me', icon: Plus, emphasis: 'primary' as const },
-  { path: '/plan', labelKey: 'nav.plan', fallback: 'Plan', icon: CalendarDays, emphasis: 'default' as const },
-  { path: '/insights', labelKey: 'nav.insights', fallback: 'Insights', icon: BarChart3, emphasis: 'default' as const },
-];
 
 export function BottomNav() {
   const { t } = useLanguage();
-  const prefersReduced = useReducedMotion();
+  const location = useLocation();
   const navigate = useNavigate();
   const coach = useFirstRunCoach();
+  const [addSheetOpen, setAddSheetOpen] = useState(false);
+  const showWardrobeCoach = coach.isStepActive(0) && location.pathname !== '/wardrobe';
+
+  const wardrobeTab = (
+    <div className="app-dock-slot">
+      <RouteTab {...ROUTE_TABS[1]} />
+    </div>
+  );
 
   return (
-    <nav
-      className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[calc(10px+env(safe-area-inset-bottom,0px))] pointer-events-none"
-      aria-label="Main navigation"
-    >
-      <div className="pointer-events-auto mx-auto max-w-xl">
-        <div className="mx-auto flex min-h-[72px] w-full items-end justify-evenly rounded-[1.85rem] border border-border/45 bg-background/90 px-1.5 py-1.5 shadow-[0_16px_34px_rgba(28,25,23,0.1)] backdrop-blur-xl backdrop-saturate-[1.35]">
-          {tabKeys.map((tab) => {
-            const label = translateOrFallback(t, tab.labelKey, tab.fallback);
-            const navLink = (
-              <NavLink
-                to={tab.path}
-                end={tab.path === '/'}
-                aria-label={label}
-                onClick={() => hapticLight()}
-                onPointerEnter={() => prefetchRoute(tab.path)}
-                onFocus={() => prefetchRoute(tab.path)}
-                className={({ isActive }) =>
-                  cn(
-                    'relative flex min-h-[58px] items-stretch justify-center px-1.5 py-2 text-[10px] font-medium leading-none transition-colors duration-150',
-                    tab.emphasis === 'primary' ? 'flex-[1.15]' : 'flex-1',
-                    isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-                  )
-                }
-              >
-                {({ isActive }) => (
-                  tab.emphasis === 'primary' ? (
-                    <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 text-center">
-                      <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-foreground text-background shadow-[0_12px_22px_rgba(28,25,23,0.18)]">
-                        {isActive && !prefersReduced ? (
-                          <motion.div
-                            layoutId="nav-primary-ring"
-                            className="absolute inset-[-4px] rounded-full border border-foreground/12"
-                            transition={{ type: 'spring', stiffness: 360, damping: 28, mass: 0.8 }}
-                          />
-                        ) : null}
-                        <tab.icon className="relative z-10 h-6 w-6" strokeWidth={2.6} />
-                      </div>
-                      <span className="sr-only">{label}</span>
-                    </div>
-                  ) : (
-                    <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 text-center">
-                      <div className="relative flex h-10 w-12 items-center justify-center rounded-[1.1rem]">
-                        {isActive && (
-                          <motion.div
-                            layoutId={prefersReduced ? undefined : 'nav-pill'}
-                            className="absolute inset-0 rounded-[1.1rem] bg-secondary/82"
-                            transition={{ type: 'spring', stiffness: 360, damping: 30, mass: 0.8 }}
-                          />
-                        )}
-                        <tab.icon
-                          className={cn(
-                            'relative z-10 h-5 w-5 transition-transform duration-150',
-                            isActive && 'scale-[1.04]'
-                          )}
-                          strokeWidth={isActive ? 2.35 : 2}
-                        />
-                      </div>
-                      <span className="block leading-none tracking-[0.08em]">
-                        {label}
-                      </span>
-                    </div>
-                  )
-                )}
-              </NavLink>
-            );
+    <>
+      <nav
+        className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[calc(10px+env(safe-area-inset-bottom,0px))] pointer-events-none"
+        aria-label="Main navigation"
+      >
+        <div className="pointer-events-auto">
+          <div className="app-dock flex items-center gap-1">
+            <div className="app-dock-slot">
+              <RouteTab {...ROUTE_TABS[0]} />
+            </div>
 
-            return (
-              <div key={tab.path} className="flex flex-1 justify-center">
-                {tab.path === '/wardrobe' ? (
-                  <CoachMark
-                    step={0}
-                    currentStep={coach.currentStep}
-                    isCoachActive={coach.isStepActive(0)}
-                    title="Start here"
-                    body="Add your clothes to BURS. The AI reads each garment automatically."
-                    ctaLabel="Take me there"
-                    onCta={() => {
-                      navigate('/wardrobe');
-                      coach.advanceStep();
-                    }}
-                    onSkip={() => coach.completeTour()}
-                    position="top"
-                  >
-                    {navLink}
-                  </CoachMark>
-                ) : (
-                  navLink
+            {showWardrobeCoach ? (
+              <CoachMark
+                step={0}
+                currentStep={coach.currentStep}
+                isCoachActive
+                title="Start here"
+                body="Add your clothes to BURS. The AI reads each garment automatically."
+                ctaLabel="Take me there"
+                onCta={() => {
+                  navigate('/wardrobe');
+                  coach.advanceStep();
+                }}
+                onSkip={() => coach.completeTour()}
+                position="top"
+              >
+                {wardrobeTab}
+              </CoachMark>
+            ) : (
+              wardrobeTab
+            )}
+
+            <div className="app-dock-slot">
+              <button
+                type="button"
+                aria-label={t('nav.add')}
+                aria-expanded={addSheetOpen}
+                aria-haspopup="dialog"
+                data-testid="bottom-nav-add"
+                onClick={() => {
+                  hapticLight();
+                  setAddSheetOpen(true);
+                }}
+                className={cn(
+                  'flex h-[3.75rem] w-[3.75rem] items-center justify-center rounded-full border border-foreground/10 bg-foreground text-background shadow-[0_18px_34px_rgba(28,25,23,0.22)] transition-transform active:scale-[0.97]',
+                  addSheetOpen && 'scale-[1.02]',
                 )}
-              </div>
-            );
-          })}
+              >
+                <Plus className="h-5 w-5" strokeWidth={2.4} />
+              </button>
+            </div>
+
+            <div className="app-dock-slot">
+              <RouteTab {...ROUTE_TABS[2]} />
+            </div>
+
+            <div className="app-dock-slot">
+              <RouteTab {...ROUTE_TABS[3]} />
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="safe-bottom pointer-events-none" aria-hidden="true" />
-    </nav>
+        <div className="safe-bottom pointer-events-none" aria-hidden="true" />
+      </nav>
+
+      <BottomNavAddSheet open={addSheetOpen} onOpenChange={setAddSheetOpen} />
+    </>
   );
 }

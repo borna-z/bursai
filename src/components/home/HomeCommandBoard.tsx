@@ -11,6 +11,7 @@ import { OutfitComposition } from '@/components/ui/OutfitComposition';
 import { cn } from '@/lib/utils';
 
 interface HomeCommandBoardProps extends HomeCommandContext {
+  primaryLabel?: string;
   secondaryLabel: string;
   onPrimaryAction: () => void;
   onSecondaryAction: () => void;
@@ -80,6 +81,7 @@ export function HomeCommandBoard({
   weatherSummary,
   scheduleSummary,
   coachNudge = false,
+  primaryLabel,
   secondaryLabel,
   onPrimaryAction,
   onSecondaryAction,
@@ -135,7 +137,7 @@ export function HomeCommandBoard({
             onClick={onPrimaryAction}
             className="h-11 justify-between px-5 text-[0.94rem]"
           >
-            Style me
+            {primaryLabel ?? 'Style me'}
             <Sparkles className="size-4" />
           </Button>
 

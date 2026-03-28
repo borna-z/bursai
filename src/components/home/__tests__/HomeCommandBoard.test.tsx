@@ -10,6 +10,7 @@ vi.mock('@/components/ui/OutfitComposition', () => ({
 const baseProps = {
   garmentCount: 8,
   recentOutfits: [],
+  primaryLabel: 'Style me',
   secondaryLabel: 'Open plan',
   onPrimaryAction: vi.fn(),
   onSecondaryAction: vi.fn(),

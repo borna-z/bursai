@@ -310,8 +310,6 @@ export function useMarkOutfitWorn() {
       queryClient.invalidateQueries({ queryKey: ['outfits', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['garments', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['insights'] });
-      queryClient.invalidateQueries({ queryKey: ['insights-dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['style-dna'] });
     },
   });
 }
@@ -355,8 +353,6 @@ export function useUndoMarkWorn() {
       queryClient.invalidateQueries({ queryKey: ['outfits', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['garments', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['insights'] });
-      queryClient.invalidateQueries({ queryKey: ['insights-dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['style-dna'] });
     },
   });
 }

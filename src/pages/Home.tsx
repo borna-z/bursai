@@ -2,14 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import {
-  CalendarRange,
-  Plane,
-  Radar,
-  Settings,
-  Shirt,
-  SmilePlus,
-} from 'lucide-react';
+import { MessageCircle, Plane, Settings } from 'lucide-react';
 import { format } from 'date-fns';
 import { enUS, nb, sv, da, fi, de, fr, es, it, pt, nl, pl, ar } from 'date-fns/locale';
 
@@ -34,12 +27,10 @@ import { HomePageSkeleton } from '@/components/ui/skeletons';
 import { useStyleDNA } from '@/hooks/useStyleDNA';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { HomeCommandBoard } from '@/components/home/HomeCommandBoard';
-import { HomeQuickActions } from '@/components/home/HomeQuickActions';
 import { HomeDnaSnapshot } from '@/components/home/HomeDnaSnapshot';
-import { HomeOpportunityPanel } from '@/components/home/HomeOpportunityPanel';
 import { HomeWearNextPanel } from '@/components/home/HomeWearNextPanel';
 import { HomeAskBursRail } from '@/components/home/HomeAskBursRail';
-import type { HomeQuickAction, HomeState } from '@/components/home/homeTypes';
+import type { HomeState } from '@/components/home/homeTypes';
 
 const DATE_FNS_LOCALE_MAP: Record<string, typeof enUS> = { sv, no: nb, da, fi, de, fr, es, it, pt, nl, pl, ar };
 
@@ -116,7 +107,7 @@ export default function HomePage() {
   );
 
   const todayOutfit = todayOutfits?.[0]?.outfit ?? null;
-  const recentOutfits = useMemo(() => (allOutfits ?? []).slice(0, 3), [allOutfits]);
+  const recentOutfits = useMemo(() => (allOutfits ?? []).slice(0, 2), [allOutfits]);
 
   const fourteenDaysAgo = useMemo(() => {
     const date = new Date();
@@ -149,6 +140,7 @@ export default function HomePage() {
     [flatGarments, todayCalEvents, tomorrowCalEvents, weather],
   );
 
+  const firstSuggestion = stylistSuggestions[0] ?? null;
   const weatherSummary = weather
     ? `${Math.round(weather.temperature)}\u00B0 ${t(weather.condition)}`
     : null;
@@ -178,69 +170,47 @@ export default function HomePage() {
     [navigate],
   );
 
+  const primaryAction = useMemo(() => {
+    if (homeState === 'empty_wardrobe') {
+      return {
+        label: 'Add garment',
+        onClick: () => navigate('/wardrobe/add'),
+      };
+    }
+
+    if (homeState === 'outfit_planned') {
+      return {
+        label: 'Restyle',
+        onClick: () => navigate('/ai/generate'),
+      };
+    }
+
+    return {
+      label: 'Style outfit',
+      onClick: () => navigate('/ai/generate'),
+    };
+  }, [homeState, navigate]);
+
   const secondaryAction = useMemo(() => {
     if (homeState === 'empty_wardrobe') {
       return {
-        label: 'Wardrobe',
+        label: 'Open wardrobe',
         onClick: () => navigate('/wardrobe'),
       };
     }
 
     if (homeState === 'outfit_planned' && todayOutfit) {
       return {
-        label: 'Today\'s look',
+        label: 'Open outfit',
         onClick: () => navigate(`/outfits/${todayOutfit.id}`),
       };
     }
 
     return {
-      label: 'Plan',
+      label: 'Open plan',
       onClick: () => navigate('/plan'),
     };
   }, [homeState, navigate, todayOutfit]);
-
-  const quickActions = useMemo<HomeQuickAction[]>(() => [
-    {
-      id: 'gaps',
-      title: 'Garment gaps',
-      description: 'Find the next buy',
-      icon: Radar,
-      toneClass: 'bg-secondary/70',
-      onClick: () => navigate('/gaps'),
-    },
-    {
-      id: 'travel',
-      title: 'Travel',
-      description: 'Pack smarter',
-      icon: Plane,
-      toneClass: 'bg-secondary/70',
-      onClick: () => navigate('/ai/travel'),
-    },
-    {
-      id: 'plan',
-      title: 'Plan',
-      description: 'Week ahead',
-      icon: CalendarRange,
-      toneClass: 'bg-secondary/70',
-      onClick: () => navigate('/plan'),
-    },
-    {
-      id: 'mood',
-      title: 'Mood',
-      description: 'Dress the vibe',
-      icon: SmilePlus,
-      toneClass: 'bg-secondary/70',
-      onClick: () => navigate('/ai/mood'),
-    },
-    {
-      id: 'wardrobe',
-      title: 'Wardrobe',
-      description: 'Add and edit',
-      icon: Shirt,
-      toneClass: 'bg-secondary/70',
-      onClick: () => navigate('/wardrobe'),
-    },
-  ], [navigate]);
 
   if (homeState === 'loading') {
     return (
@@ -257,12 +227,12 @@ export default function HomePage() {
   return (
     <AppLayout>
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="page-shell !pt-4 flex flex-col gap-5">
+        <AnimatedPage className="page-shell !pt-3 page-cluster">
           <motion.header
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35 }}
-            className="topbar-frost sticky top-0 z-10 -mx-4 px-4 pb-4 pt-3"
+            className="topbar-frost sticky top-0 z-10 -mx-5 px-5 pb-4 pt-3"
           >
             <div className="space-y-3">
               <div className="flex items-start justify-between gap-3">
@@ -270,7 +240,7 @@ export default function HomePage() {
                   <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/55">
                     Today
                   </p>
-                  <h1 className="text-[1.68rem] font-semibold leading-tight tracking-[-0.055em]">
+                  <h1 className="text-[1.68rem] font-semibold leading-tight tracking-[-0.045em]">
                     {getGreeting()}
                   </h1>
                 </div>
@@ -286,13 +256,18 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="app-chip-row">
                 <span className="rounded-full border border-border/45 bg-background/80 px-3 py-1.5 text-[0.78rem] uppercase tracking-[0.16em] text-muted-foreground/70 capitalize">
                   {formattedDate}
                 </span>
                 {scheduleSummary ? (
                   <span className="rounded-full border border-border/45 bg-background/80 px-3 py-1.5 text-[0.82rem] text-muted-foreground">
                     {scheduleSummary}
+                  </span>
+                ) : null}
+                {weatherSummary ? (
+                  <span className="rounded-full border border-border/45 bg-background/80 px-3 py-1.5 text-[0.82rem] text-muted-foreground">
+                    {weatherSummary}
                   </span>
                 ) : null}
               </div>
@@ -307,10 +282,11 @@ export default function HomePage() {
             weatherSummary={weatherSummary}
             scheduleSummary={scheduleSummary}
             coachNudge={coach.isActive && !coach.hasEnoughGarments}
+            primaryLabel={primaryAction.label}
             secondaryLabel={secondaryAction.label}
             onPrimaryAction={() => {
               hapticLight();
-              navigate('/ai/generate');
+              primaryAction.onClick();
             }}
             onSecondaryAction={() => {
               hapticLight();
@@ -318,18 +294,70 @@ export default function HomePage() {
             }}
           />
 
-          <HomeQuickActions actions={quickActions} />
+          <section className="space-y-3">
+            <div className="flex items-center justify-between px-0.5">
+              <p className="label-editorial text-muted-foreground/60">Utilities</p>
+              <p className="text-[0.74rem] uppercase tracking-[0.18em] text-muted-foreground/55">
+                Ask or pack
+              </p>
+            </div>
 
-          <HomeAskBursRail
-            suggestions={stylistSuggestions.slice(0, 3)}
-            onSelectSuggestion={handleSuggestion}
-          />
+            <div className="app-card-grid">
+              <button
+                type="button"
+                onClick={() => {
+                  if (firstSuggestion) {
+                    handleSuggestion(firstSuggestion);
+                    return;
+                  }
+
+                  navigate('/ai/chat', { state: { prefillMessage: 'Help me style today.' } });
+                }}
+                className="surface-secondary flex flex-col items-start gap-4 rounded-[1.5rem] p-4 text-left"
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-[1rem] bg-secondary text-foreground">
+                  <MessageCircle className="size-5" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-[1.05rem] font-semibold tracking-[-0.03em] text-foreground">
+                    Ask BURS
+                  </h2>
+                  <p className="text-[0.86rem] leading-6 text-muted-foreground">
+                    {firstSuggestion?.text ?? 'Open chat for one fast recommendation based on today.'}
+                  </p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate('/ai/travel')}
+                className="surface-secondary flex flex-col items-start gap-4 rounded-[1.5rem] p-4 text-left"
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-[1rem] bg-secondary text-foreground">
+                  <Plane className="size-5" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-[1.05rem] font-semibold tracking-[-0.03em] text-foreground">
+                    Travel capsule
+                  </h2>
+                  <p className="text-[0.86rem] leading-6 text-muted-foreground">
+                    Build one tight packing list instead of browsing extra tools.
+                  </p>
+                </div>
+              </button>
+            </div>
+
+            <HomeAskBursRail
+              suggestions={stylistSuggestions}
+              onSelectSuggestion={handleSuggestion}
+            />
+          </section>
 
           <section className="space-y-3">
             <div className="flex items-center justify-between px-0.5">
-              <p className="label-editorial text-muted-foreground/60">Signals</p>
+              <p className="label-editorial text-muted-foreground/60">Insights preview</p>
               <p className="text-[0.74rem] uppercase tracking-[0.18em] text-muted-foreground/55">
-                DNA, gaps, wear next
+                DNA and rotation
               </p>
             </div>
 
@@ -337,9 +365,8 @@ export default function HomePage() {
               dna={dna}
               isLoading={isDnaLoading}
               onOpenInsights={() => navigate('/insights')}
-              onGenerateLook={() => navigate('/ai/generate')}
             />
-            <HomeOpportunityPanel />
+
             <HomeWearNextPanel
               unusedGarments={sleepingBeauties}
               sleepingBeautiesCount={sleepingBeauties.length}

@@ -74,7 +74,7 @@ export function InsightsPalettePanel({
 
         <ColorBar colors={bars} total={total} />
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-3 gap-2">
           <div className="rounded-[1rem] bg-background/55 p-3">
             <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/65">
               Warm
@@ -91,7 +91,7 @@ export function InsightsPalettePanel({
               {colorTemperature.coolCount}
             </p>
           </div>
-          <div className="col-span-2 rounded-[1rem] bg-background/55 p-3 sm:col-span-1">
+          <div className="rounded-[1rem] bg-background/55 p-3">
             <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/65">
               Neutral
             </p>

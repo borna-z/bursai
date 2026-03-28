@@ -1,32 +1,29 @@
 import { useMemo } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { useAuth } from '@/contexts/AuthContext';
 import { PaywallModal } from '@/components/PaywallModal';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { WardrobeSmartAccess } from '@/components/wardrobe/WardrobeSmartAccess';
-import { WardrobeOutfitsTab } from '@/components/wardrobe/WardrobeOutfitsTab';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { AnimatedTab } from '@/components/ui/animated-tab';
 import { FilterSheet } from '@/components/wardrobe/FilterSheet';
 import { GarmentGrid } from '@/components/wardrobe/GarmentGrid';
 import { WardrobeToolbar } from '@/components/wardrobe/WardrobeToolbar';
-import { buildWardrobeCollectionTiles, buildWardrobeCommandTopState, buildWardrobeInventoryState } from '@/components/wardrobe/wardrobeViewModels';
+import {
+  buildWardrobeCollectionTiles,
+  buildWardrobeCommandTopState,
+  buildWardrobeInventoryState,
+} from '@/components/wardrobe/wardrobeViewModels';
 import { useWardrobeView } from '@/hooks/useWardrobeView';
 
 export default function WardrobePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const location = useLocation();
   const { t } = useLanguage();
 
-  const locationState = location.state as { tab?: string } | null;
-  const initialTab = locationState?.tab === 'outfits' ? 'outfits' : 'garments';
-
   const {
-    activeTab,
-    setActiveTab,
     search,
     setSearch,
     selectedCategory,
@@ -72,7 +69,7 @@ export default function WardrobePage() {
     clearFilters,
     handleRefresh,
   } = useWardrobeView({
-    initialTab,
+    initialTab: 'garments',
     userId: user?.id,
     t,
   });
@@ -84,9 +81,8 @@ export default function WardrobePage() {
     || showLaundry
     || search.trim().length > 0;
 
-  const displayCount = activeTab === 'garments' ? displayGarments.length : 0;
+  const displayCount = displayGarments.length;
   const commandState = useMemo(() => buildWardrobeCommandTopState({
-    activeTab,
     totalCount,
     displayCount,
     isSelecting,
@@ -94,17 +90,16 @@ export default function WardrobePage() {
     hasActiveFilters,
     search,
     t,
-  }), [activeTab, displayCount, hasActiveFilters, isSelecting, search, selectedIds.size, t, totalCount]);
+  }), [displayCount, hasActiveFilters, isSelecting, search, selectedIds.size, t, totalCount]);
 
   const inventoryState = useMemo(() => buildWardrobeInventoryState({
-    activeTab,
     isLoading,
     isSelecting,
     selectedIdsCount: selectedIds.size,
     displayCount,
     hasActiveFilters,
     search,
-  }), [activeTab, displayCount, hasActiveFilters, isLoading, isSelecting, search, selectedIds.size]);
+  }), [displayCount, hasActiveFilters, isLoading, isSelecting, search, selectedIds.size]);
 
   const smartCollectionTiles = useMemo(() => buildWardrobeCollectionTiles({
     smartFilter,
@@ -112,26 +107,10 @@ export default function WardrobePage() {
     t,
   }), [smartFilter, smartFilterCounts, t]);
 
-  const handleCommandAction = (action: 'style' | 'add' | 'scan' | 'plan') => {
-    if (action === 'style') {
-      navigate('/ai/generate');
-      return;
-    }
-    if (action === 'add') {
-      navigate('/wardrobe/add');
-      return;
-    }
-    if (action === 'scan') {
-      navigate('/wardrobe/scan');
-      return;
-    }
-    navigate('/plan');
-  };
-
   return (
     <AppLayout>
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="page-shell !px-5 !pt-6 space-y-5">
+        <AnimatedPage className="page-shell space-y-5">
           <WardrobeToolbar
             t={t}
             commandState={commandState}
@@ -144,8 +123,6 @@ export default function WardrobePage() {
               setIsSelecting(false);
               setSelectedIds(new Set());
             }}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
             search={search}
             onSearchChange={setSearch}
             onClearSearch={() => setSearch('')}
@@ -155,51 +132,44 @@ export default function WardrobePage() {
             selectedIdsCount={selectedIds.size}
             onBulkLaundry={handleBulkLaundry}
             onBulkDelete={handleBulkDelete}
-            onAction={handleCommandAction}
             onClearFilters={clearFilters}
+            onAddGarment={() => navigate('/wardrobe/add')}
+            onOpenOutfits={() => navigate('/outfits')}
           />
 
-          {activeTab === 'garments' && allGarments.length > 0 && !hasHardFilters && (
+          {allGarments.length > 0 && !hasHardFilters ? (
             <WardrobeSmartAccess
               tiles={smartCollectionTiles}
               onSelect={setSmartFilter}
             />
-          )}
+          ) : null}
 
-          <AnimatedTab tabKey={activeTab}>
-            {activeTab === 'garments' ? (
-              <section className="space-y-4" aria-label="Wardrobe inventory">
-                <GarmentGrid
-                  t={t}
-                  isLoading={isLoading}
-                  isGridView={isGridView}
-                  isSelecting={isSelecting}
-                  selectedIds={selectedIds}
-                  displayGarments={displayGarments}
-                  showGrouped={showGrouped}
-                  garmentsByCategory={garmentsByCategory}
-                  hasActiveFilters={hasActiveFilters}
-                  search={search}
-                  onSelect={toggleSelect}
-                  onEdit={(id) => navigate(`/wardrobe/${id}/edit`)}
-                  onLaundry={(garment) => updateGarment.mutate({ id: garment.id, updates: { in_laundry: !garment.in_laundry } })}
-                  onDelete={(id) => deleteGarment.mutate(id)}
-                  onLoadMore={() => {
-                    if (hasNextPage && !isFetchingNextPage) {
-                      fetchNextPage();
-                    }
-                  }}
-                  hasNextPage={!!hasNextPage}
-                  isFetchingNextPage={isFetchingNextPage}
-                  onClearFilters={clearFilters}
-                />
-              </section>
-            ) : (
-              <section aria-label="Wardrobe outfits">
-                <WardrobeOutfitsTab />
-              </section>
-            )}
-          </AnimatedTab>
+          <section className="space-y-4" aria-label="Wardrobe inventory">
+            <GarmentGrid
+              t={t}
+              isLoading={isLoading}
+              isGridView={isGridView}
+              isSelecting={isSelecting}
+              selectedIds={selectedIds}
+              displayGarments={displayGarments}
+              showGrouped={showGrouped}
+              garmentsByCategory={garmentsByCategory}
+              hasActiveFilters={hasActiveFilters}
+              search={search}
+              onSelect={toggleSelect}
+              onEdit={(id) => navigate(`/wardrobe/${id}/edit`)}
+              onLaundry={(garment) => updateGarment.mutate({ id: garment.id, updates: { in_laundry: !garment.in_laundry } })}
+              onDelete={(id) => deleteGarment.mutate(id)}
+              onLoadMore={() => {
+                if (hasNextPage && !isFetchingNextPage) {
+                  fetchNextPage();
+                }
+              }}
+              hasNextPage={!!hasNextPage}
+              isFetchingNextPage={isFetchingNextPage}
+              onClearFilters={clearFilters}
+            />
+          </section>
         </AnimatedPage>
       </PullToRefresh>
 

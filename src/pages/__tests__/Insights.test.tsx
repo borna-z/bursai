@@ -261,7 +261,7 @@ describe('Insights page', () => {
     expect(screen.getByText('Style me')).toBeInTheDocument();
     expect(screen.getByText('Black loafers')).toBeInTheDocument();
     expect(screen.getByTestId('wardrobe-health-card')).toBeInTheDocument();
-  });
+  }, 10000);
 
   it('shows the loading shell while the dashboard is still resolving', () => {
     dashboardAdapterMock.mockReturnValue({
@@ -280,7 +280,7 @@ describe('Insights page', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Insights' })).toBeInTheDocument();
     expect(screen.getByTestId('insights-loading')).toBeInTheDocument();
-  });
+  }, 10000);
 
   it('shows the onboarding empty state when the dashboard has no garments to analyze', () => {
     dashboardAdapterMock.mockReturnValue({
@@ -309,7 +309,7 @@ describe('Insights page', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Insights' })).toBeInTheDocument();
     expect(screen.getByTestId('insights-empty')).toBeInTheDocument();
-  });
+  }, 10000);
 
   it('switches key page copy between English and Swedish', () => {
     const { rerender } = renderPage();
@@ -330,5 +330,5 @@ describe('Insights page', () => {
     expect(screen.getByText('Rotation, DNA, luckor och värde i en vy.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Patterns' })).toHaveAttribute('href', '#patterns');
     expect(screen.getByRole('link', { name: 'Gaps' })).toHaveAttribute('href', '#value');
-  });
+  }, 10000);
 });

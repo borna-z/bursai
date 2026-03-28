@@ -27,7 +27,7 @@ export function InsightsRelatedTools({ tools }: InsightsRelatedToolsProps) {
           <Link
             key={tool.to}
             to={tool.to}
-            className="surface-interactive group flex min-h-[124px] flex-col justify-between p-4 sm:min-h-[140px]"
+            className="surface-interactive group flex min-h-[140px] flex-col justify-between p-4"
           >
             <div className="flex items-start justify-between gap-4">
               <div
@@ -42,10 +42,10 @@ export function InsightsRelatedTools({ tools }: InsightsRelatedToolsProps) {
             </div>
 
             <div className="space-y-1.5">
-              <h3 className="text-[0.96rem] font-semibold tracking-[-0.03em] text-foreground sm:text-[1rem]">
+              <h3 className="text-[1rem] font-semibold tracking-[-0.03em] text-foreground">
                 {tool.title}
               </h3>
-              <p className="text-[0.84rem] leading-5 text-muted-foreground sm:text-[0.86rem] sm:leading-6">
+              <p className="text-[0.86rem] leading-6 text-muted-foreground">
                 {tool.description}
               </p>
             </div>

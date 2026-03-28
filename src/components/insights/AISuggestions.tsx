@@ -75,30 +75,28 @@ function LoadingIndicator() {
 /* ── Horizontal garment row (no overlap) ── */
 function GarmentRow({ garments }: { garments: AISuggestion['garments'] }) {
   return (
-    <div className="overflow-x-auto scrollbar-hide -mx-6 px-6">
-      <div className="flex items-start gap-3 py-1 w-max">
-        {garments.map((garment, i) => (
-          <motion.div
-            key={garment.id}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: i * 0.07, duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
-            className="flex flex-col items-center gap-1.5"
-          >
-            <div className="w-[72px] h-[72px] rounded-full overflow-hidden border border-border/30 bg-muted">
-              <LazyImageSimple
-                imagePath={getPreferredGarmentImagePath(garment)}
-                alt={garment.title}
-                className="w-full h-full object-cover"
-                fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/30" />}
-              />
-            </div>
-            <span className="text-[9px] font-medium text-muted-foreground/70 capitalize truncate max-w-[72px] text-center">
-              {garment.category}
-            </span>
-          </motion.div>
-        ))}
-      </div>
+    <div className="grid grid-cols-4 gap-3 px-1 sm:grid-cols-5">
+      {garments.map((garment, i) => (
+        <motion.div
+          key={garment.id}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: i * 0.07, duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
+          className="flex min-w-0 flex-col items-center gap-1.5"
+        >
+          <div className="aspect-square w-full max-w-[72px] overflow-hidden rounded-full border border-border/30 bg-muted">
+            <LazyImageSimple
+              imagePath={getPreferredGarmentImagePath(garment)}
+              alt={garment.title}
+              className="h-full w-full object-cover"
+              fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/30" />}
+            />
+          </div>
+          <span className="line-clamp-2 text-center text-[9px] font-medium capitalize text-muted-foreground/70">
+            {garment.category}
+          </span>
+        </motion.div>
+      ))}
     </div>
   );
 }

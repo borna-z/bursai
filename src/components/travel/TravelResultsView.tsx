@@ -130,14 +130,14 @@ export function TravelResultsView({
           ) : null}
 
           {tripDayForecasts.length > 0 ? (
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
               {tripDayForecasts.map((forecast, index) => {
                 const dayDate = dateRange?.from ? addDays(dateRange.from, index) : null;
 
                 return (
                   <div
                     key={`forecast-${index}`}
-                    className="surface-inset min-w-[74px] rounded-[1.2rem] border px-3 py-2 text-center"
+                    className="surface-inset min-w-0 rounded-[1.2rem] border px-3 py-2 text-center"
                   >
                     <p className="label-editorial !text-[0.58rem]">
                       {dayDate ? format(dayDate, 'EEE', { locale: dateLocale }) : '—'}
@@ -245,7 +245,7 @@ export function TravelResultsView({
       </AnimatedPage>
 
       <div className="fixed inset-x-4 bottom-4 z-20" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
-        <div className="mx-auto max-w-xl">
+        <div className="mx-auto max-w-md">
           <div className="action-bar-floating flex flex-wrap gap-2 rounded-[1.6rem] p-3">
             {isAddingToCalendar ? (
               <div className="w-full">

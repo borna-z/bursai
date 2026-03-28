@@ -11,7 +11,7 @@ const previewCardVariants = cva(
       surface: {
         default: 'surface-editorial rounded-[2rem]',
         utility: 'surface-utility rounded-[1.5rem]',
-  plain: 'rounded-[1.5rem] border border-border/60 bg-card/80',
+        plain: 'rounded-[1.5rem] border border-border/60 bg-card/80',
       },
       tone: {
         default: '',
@@ -117,10 +117,13 @@ export const OutfitPreviewCard = memo(function OutfitPreviewCard({
             mediaClassName,
           )}
         >
-        <OutfitComposition
-          items={items}
-          className={cn('w-full bg-background/80 transition-transform duration-300 group-hover:scale-[1.01]', compositionClassName)}
-        />
+          <OutfitComposition
+            items={items}
+            className={cn(
+              'w-full bg-background/80 transition-transform duration-300 group-hover:scale-[1.01]',
+              compositionClassName,
+            )}
+          />
         </div>
       </div>
       {(meta || excerpt || footer) && (
