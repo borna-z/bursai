@@ -1,18 +1,23 @@
-import { useState, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Check, Search, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Check, Search, X } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+
+import { AppLayout } from '@/components/layout/AppLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
+import { Input } from '@/components/ui/input';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { PageIntro } from '@/components/ui/page-intro';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { supabase } from '@/integrations/supabase/client';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
-import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 const CATEGORIES = [
   { id: 'top', labelKey: 'filter.tops' },
@@ -28,6 +33,7 @@ export default function PickMustHaves() {
   const location = useLocation();
   const { t } = useLanguage();
   const { user } = useAuth();
+
   const { data: allGarments } = useQuery({
     queryKey: ['all-garments-picker', user?.id],
     queryFn: async () => {
@@ -51,13 +57,13 @@ export default function PickMustHaves() {
 
   const filtered = useMemo(() => {
     let items = allGarments ?? [];
-    if (category) items = items.filter(g => g.category.toLowerCase() === category);
+    if (category) items = items.filter((garment) => garment.category.toLowerCase() === category);
     if (search) {
-      const q = search.toLowerCase();
-      items = items.filter(g =>
-        g.title.toLowerCase().includes(q) ||
-        g.category.toLowerCase().includes(q) ||
-        g.color_primary.toLowerCase().includes(q)
+      const query = search.toLowerCase();
+      items = items.filter((garment) =>
+        garment.title.toLowerCase().includes(query)
+        || garment.category.toLowerCase().includes(query)
+        || garment.color_primary.toLowerCase().includes(query),
       );
     }
     return items;
@@ -65,8 +71,8 @@ export default function PickMustHaves() {
 
   const toggle = (id: string) => {
     hapticLight();
-    setSelected(prev => {
-      const next = new Set(prev);
+    setSelected((current) => {
+      const next = new Set(current);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
@@ -75,7 +81,6 @@ export default function PickMustHaves() {
 
   const handleDone = () => {
     hapticSuccess();
-    // Forward all state back so TravelCapsule can restore form fields
     const { mustHaveItems: _drop, ...rest } = incomingState ?? {};
     navigate('/plan/travel-capsule', {
       state: { ...rest, mustHaveItems: Array.from(selected) },
@@ -84,119 +89,111 @@ export default function PickMustHaves() {
   };
 
   return (
-    <AnimatedPage className="flex flex-col min-h-[100dvh] bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-lg border-b border-border/10">
-        <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
-          <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-xl hover:bg-muted/30 transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="text-center">
-            <h1 className="text-base font-semibold">{t('capsule.pick_must_haves')}</h1>
-            {selected.size > 0 && (
-              <p className="text-xs text-primary font-medium">
-                {t('capsule.n_selected').replace('{n}', String(selected.size))}
-              </p>
-            )}
-          </div>
-          <Button size="sm" onClick={handleDone} className="rounded-xl">
-            {t('capsule.done')}
-          </Button>
-        </div>
+    <AppLayout hideNav>
+      <PageHeader
+        title={t('capsule.pick_must_haves')}
+        subtitle={selected.size > 0 ? t('capsule.n_selected').replace('{n}', String(selected.size)) : 'Choose the pieces this trip should revolve around.'}
+        showBack
+        actions={<Button size="sm" onClick={handleDone}>{t('capsule.done')}</Button>}
+      />
 
-        {/* Search */}
-        <div className="px-4 pb-2 max-w-lg mx-auto">
+      <AnimatedPage className="page-shell !px-5 !pb-36 !pt-6 page-cluster">
+        <PageIntro
+          eyebrow="Travel capsule"
+          meta={<span className="eyebrow-chip !bg-secondary/70">{selected.size} selected</span>}
+          title="Pick the pieces the trip should start from."
+          description="Lock in the garments you already know belong in the suitcase, then let BURS build the rest of the capsule around them."
+        />
+
+        <Card surface="utility" className="space-y-4 p-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/50" />
             <Input
               placeholder={t('wardrobe.search')}
               value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="pl-9 h-10 rounded-xl bg-card/60 border-border/15"
+              onChange={(event) => setSearch(event.target.value)}
+              className="h-11 rounded-[1.2rem] bg-background/85 pl-9"
             />
-            {search && (
-              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-                <X className="w-4 h-4 text-muted-foreground" />
+            {search ? (
+              <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                <X className="h-4 w-4 text-muted-foreground" />
               </button>
-            )}
+            ) : null}
           </div>
-        </div>
 
-        {/* Category chips */}
-        <div className="flex gap-2 overflow-x-auto px-4 pb-3 max-w-lg mx-auto scrollbar-hide">
-          <Chip
-            selected={!category}
-            onClick={() => { hapticLight(); setCategory(null); }}
-            size="sm"
-          >
-            {t('filter.all')}
-          </Chip>
-          {CATEGORIES.map(c => (
-            <Chip
-              key={c.id}
-              selected={category === c.id}
-              onClick={() => { hapticLight(); setCategory(category === c.id ? null : c.id); }}
-              size="sm"
-            >
-              {t(c.labelKey)}
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+            <Chip selected={!category} onClick={() => { hapticLight(); setCategory(null); }} size="sm">
+              {t('filter.all')}
             </Chip>
-          ))}
-        </div>
-      </div>
-
-      {/* Grid */}
-      <div className="flex-1 px-4 pt-3 pb-24 max-w-lg mx-auto w-full">
-        <div className="grid grid-cols-3 gap-1.5">
-          {filtered.map(g => {
-            const isSelected = selected.has(g.id);
-            return (
-              <button
-                key={g.id}
-                onClick={() => toggle(g.id)}
-                className={cn(
-                  'relative rounded-xl overflow-hidden border transition-all',
-                  isSelected
-                    ? 'border-primary ring-2 ring-primary/30'
-                    : 'border-border/10'
-                )}
+            {CATEGORIES.map((item) => (
+              <Chip
+                key={item.id}
+                selected={category === item.id}
+                onClick={() => {
+                  hapticLight();
+                  setCategory(category === item.id ? null : item.id);
+                }}
+                size="sm"
               >
-                <div className="aspect-[3/4] bg-muted/20">
-                  <LazyImageSimple
-                    imagePath={getPreferredGarmentImagePath(g)}
-                    alt={g.title}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                {isSelected && (
-                  <div className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-primary flex items-center justify-center shadow-md">
-                    <Check className="w-3.5 h-3.5 text-primary-foreground" />
+                {t(item.labelKey)}
+              </Chip>
+            ))}
+          </div>
+        </Card>
+
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {filtered.map((garment) => {
+            const isSelected = selected.has(garment.id);
+
+            return (
+              <button key={garment.id} type="button" onClick={() => toggle(garment.id)} className="text-left">
+                <Card
+                  surface="utility"
+                  className={cn(
+                    'overflow-hidden p-2 transition-all',
+                    isSelected ? 'border-foreground/30 shadow-[0_16px_34px_rgba(28,25,23,0.08)]' : '',
+                  )}
+                >
+                  <div className="relative overflow-hidden rounded-[1.25rem]">
+                    <LazyImageSimple
+                      imagePath={getPreferredGarmentImagePath(garment)}
+                      alt={garment.title}
+                      className="aspect-[3/4] w-full object-cover"
+                    />
+                    {isSelected ? (
+                      <div className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-foreground shadow-[0_8px_18px_rgba(28,25,23,0.12)]">
+                        <Check className="h-4 w-4 text-background" />
+                      </div>
+                    ) : null}
                   </div>
-                )}
-                <div className="px-1.5 py-1">
-                  <p className="text-[10px] text-muted-foreground truncate">{g.title}</p>
-                </div>
+                  <div className="space-y-1 px-1 pb-1 pt-3">
+                    <p className="text-[0.82rem] font-medium leading-5 text-foreground">{garment.title}</p>
+                    <p className="text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">{garment.category}</p>
+                  </div>
+                </Card>
               </button>
             );
           })}
-        </div>
+        </section>
 
-        {filtered.length === 0 && (
-          <div className="text-center py-16 text-muted-foreground text-sm">
+        {filtered.length === 0 ? (
+          <Card surface="inset" className="p-8 text-center text-sm text-muted-foreground">
             {t('wardrobe.empty')}
-          </div>
-        )}
-      </div>
+          </Card>
+        ) : null}
+      </AnimatedPage>
 
-      {/* Sticky bottom bar */}
-      {selected.size > 0 && (
-        <div className="fixed bottom-0 inset-x-0 z-30 p-4 bg-background/80 backdrop-blur-lg border-t border-border/10">
-          <div className="max-w-lg mx-auto">
-            <Button onClick={handleDone} className="w-full h-12 rounded-xl">
-              {t('capsule.done')} ({selected.size})
-            </Button>
+      {selected.size > 0 ? (
+        <div className="fixed inset-x-4 bottom-4 z-20" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+          <div className="mx-auto max-w-xl">
+            <div className="action-bar-floating rounded-[1.6rem] p-3">
+              <Button onClick={handleDone} size="lg" className="w-full">
+                {t('capsule.done')} ({selected.size})
+              </Button>
+            </div>
           </div>
         </div>
-      )}
-    </AnimatedPage>
+      ) : null}
+    </AppLayout>
   );
 }

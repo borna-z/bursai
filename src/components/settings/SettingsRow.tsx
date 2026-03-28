@@ -18,13 +18,13 @@ export function SettingsRow({ icon, label, sublabel, children, last, onClick, cl
     <>
       <div className="flex items-center gap-3.5 min-w-0 flex-1">
         {icon && (
-          <span className="settings-icon flex-shrink-0 w-8 h-8 flex items-center justify-center bg-muted/40 [&>svg]:w-[16px] [&>svg]:h-[16px] text-foreground/70">
+          <span className="settings-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem] bg-secondary/85 text-foreground/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] [&>svg]:h-[16px] [&>svg]:w-[16px]">
             {icon}
           </span>
         )}
         <div className="min-w-0">
           <span className="text-[15px] font-medium text-foreground">{label}</span>
-          {sublabel && <p className="text-[12px] text-muted-foreground/50 mt-0.5 leading-tight">{sublabel}</p>}
+          {sublabel && <p className="mt-0.5 text-[12px] leading-tight text-muted-foreground/58">{sublabel}</p>}
         </div>
       </div>
       {children && <div className="flex-shrink-0">{children}</div>}
@@ -32,9 +32,9 @@ export function SettingsRow({ icon, label, sublabel, children, last, onClick, cl
   );
 
   const baseClass = cn(
-    'flex items-center justify-between gap-3 px-4 py-3.5 w-full text-left',
-    !last && 'border-b border-border/5',
-    onClick && 'transition-colors active:bg-muted/30',
+    'flex w-full items-center justify-between gap-3 px-4 py-4 text-left',
+    !last && 'border-b border-border/35',
+    onClick && 'transition-colors hover:bg-background/50 active:bg-background/70',
     className,
   );
 

@@ -1,4 +1,8 @@
-import { X } from 'lucide-react';
+import { MapPin, Trash2 } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+
 import type { SavedCapsule } from './types';
 
 interface SavedCapsulesListProps {
@@ -11,37 +15,48 @@ export function SavedCapsulesList({ capsules, onLoad, onRemove }: SavedCapsulesL
   if (capsules.length === 0) return null;
 
   return (
-    <div className="space-y-2">
-      {capsules.map(c => (
-        <button
-          key={c.id}
-          onClick={() => onLoad(c)}
-          className="w-full text-left p-4 rounded-xl bg-card/60 border border-border/10 hover:bg-card/80 transition-colors relative group"
-        >
-          <button
-            onClick={(e) => { e.stopPropagation(); onRemove(c.id); }}
-            className="absolute top-3 right-3 w-6 h-6 rounded-full bg-muted/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <X className="w-3 h-3 text-muted-foreground" />
-          </button>
-          <p style={{ fontFamily: '"Playfair Display", serif', fontStyle: 'italic', fontSize: 16, color: '#1C1917', margin: 0 }}>
-            {c.destination}
-          </p>
-          <div className="flex items-center gap-2 mt-1">
-            <span style={{
-              fontFamily: 'DM Sans, sans-serif', fontSize: 10, background: '#EDE8DF',
-              color: '#1C1917', padding: '2px 8px', textTransform: 'capitalize',
-            }}>
-              {c.vibe}
-            </span>
-            {c.dateLabel && (
-              <span className="text-[11px] text-muted-foreground/60">{c.dateLabel}</span>
-            )}
-            <span className="text-[11px] text-muted-foreground/60">
-              {c.itemCount} items · {c.outfitCount} outfits
-            </span>
+    <div className="space-y-3">
+      <div className="px-1">
+        <p className="label-editorial">Saved Capsules</p>
+        <p className="mt-1 text-sm text-muted-foreground">Jump back into recent trips and repack in seconds.</p>
+      </div>
+
+      {capsules.map((capsule) => (
+        <Card key={capsule.id} surface="utility" className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <button
+              onClick={() => onLoad(capsule)}
+              className="flex-1 text-left transition-opacity hover:opacity-85"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="eyebrow-chip !bg-secondary/70 capitalize">{capsule.vibe}</span>
+                {capsule.dateLabel ? <span className="meta">{capsule.dateLabel}</span> : null}
+              </div>
+              <div className="mt-3 space-y-1.5">
+                <h3 className="text-[1.18rem] font-semibold tracking-[-0.045em] text-foreground">
+                  {capsule.destination}
+                </h3>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8rem] text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5" />
+                    Ready to reload
+                  </span>
+                  <span>{capsule.itemCount} items</span>
+                  <span>{capsule.outfitCount} outfits</span>
+                </div>
+              </div>
+            </button>
+
+            <Button
+              variant="quiet"
+              size="icon"
+              onClick={() => onRemove(capsule.id)}
+              aria-label={`Remove ${capsule.destination}`}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
-        </button>
+        </Card>
       ))}
     </div>
   );

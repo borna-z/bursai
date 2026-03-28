@@ -131,7 +131,7 @@ export default function WardrobePage() {
   return (
     <AppLayout>
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="px-5 pb-28 pt-6 space-y-5">
+        <AnimatedPage className="page-shell !px-5 !pt-6 space-y-5">
           <WardrobeToolbar
             t={t}
             commandState={commandState}

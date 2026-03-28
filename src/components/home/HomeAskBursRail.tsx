@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+
 import type { TodaySuggestion } from '@/lib/buildTodaySuggestions';
 
 interface HomeAskBursRailProps {
@@ -9,16 +10,16 @@ interface HomeAskBursRailProps {
 export function HomeAskBursRail({ suggestions, onSelectSuggestion }: HomeAskBursRailProps) {
   const visibleSuggestions = suggestions.slice(0, 3);
 
-  if (visibleSuggestions.length === 0) {
-    return null;
-  }
+  if (visibleSuggestions.length === 0) return null;
 
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between px-0.5">
-        <p className="label-editorial text-muted-foreground/60">Ask BURS</p>
-        <p className="text-[0.74rem] uppercase tracking-[0.18em] text-muted-foreground/55">
-          Quick prompts
+        <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/65">
+          Ask BURS
+        </p>
+        <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/50">
+          Tap to start
         </p>
       </div>
 
@@ -33,7 +34,7 @@ export function HomeAskBursRail({ suggestions, onSelectSuggestion }: HomeAskBurs
             },
           },
         }}
-        className="flex gap-2 overflow-x-auto pb-1"
+        className="scrollbar-hide flex gap-2 overflow-x-auto pb-1"
       >
         {visibleSuggestions.map((suggestion) => (
           <motion.button
@@ -44,7 +45,7 @@ export function HomeAskBursRail({ suggestions, onSelectSuggestion }: HomeAskBurs
             }}
             transition={{ duration: 0.24 }}
             onClick={() => onSelectSuggestion(suggestion)}
-            className="shrink-0 rounded-full border border-foreground/[0.08] bg-card px-4 py-2.5 text-left text-[0.88rem] leading-6 text-foreground shadow-[0_10px_22px_rgba(22,18,15,0.04)] transition-colors hover:bg-secondary/75"
+            className="shrink-0 rounded-full border border-foreground/[0.08] bg-background/90 px-4 py-2.5 text-left text-[0.84rem] leading-5 text-foreground shadow-[0_10px_18px_rgba(22,18,15,0.03)] transition-colors hover:bg-secondary/75"
           >
             {suggestion.text}
           </motion.button>

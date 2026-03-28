@@ -12,6 +12,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { StyleMeSubNav } from '@/components/ai/StyleMeSubNav';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
+import { PageIntro } from '@/components/ui/page-intro';
 import { useOutfitGenerator, type GeneratedOutfit } from '@/hooks/useOutfitGenerator';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
 import { useUpdateOutfit, useMarkOutfitWorn } from '@/hooks/useOutfits';
@@ -258,9 +259,11 @@ export default function OutfitGeneratePage() {
     return (
       <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
       <AppLayout>
-        <div className="p-4 max-w-sm mx-auto pt-16 space-y-6">
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">{t('unlock.outfit_gen')}</h2>
-          <WardrobeProgress message={t('unlock.outfit_gen_message')} />
+        <div className="page-shell !max-w-md !pt-16">
+          <div className="surface-editorial space-y-6 p-5">
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">{t('unlock.outfit_gen')}</h2>
+            <WardrobeProgress message={t('unlock.outfit_gen_message')} />
+          </div>
         </div>
       </AppLayout>
       </PageErrorBoundary>
@@ -295,7 +298,7 @@ export default function OutfitGeneratePage() {
     return (
       <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
       <AppLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
+        <div className="page-shell flex min-h-[60vh] flex-col items-center justify-center !pt-10">
           <OutfitGenerationState
             subtitle={contextSubtitle || undefined}
             variant="full"
@@ -363,7 +366,7 @@ export default function OutfitGeneratePage() {
     return (
       <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
         <AppLayout>
-          <div className="page-container pt-6 pb-36">
+          <div className="page-shell !pt-6 pb-36">
             <LayoutGroup>
               {/* ── Primary Card ── */}
               <motion.div
@@ -373,7 +376,7 @@ export default function OutfitGeneratePage() {
                 className="w-full"
               >
                 {/* Outfit card — brand-matched design */}
-                <div className="bg-[#EDE8DF] overflow-hidden">
+                <div className="surface-editorial overflow-hidden">
                   <div className="grid grid-cols-2 gap-[1px]">
                     {primary.items.slice(0, 4).map((item, i) => (
                       <motion.div
@@ -382,7 +385,7 @@ export default function OutfitGeneratePage() {
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: i * 0.08, duration: 0.45 }}
                         onClick={() => navigate(`/wardrobe/${item.garment.id}`)}
-                        style={{ cursor: 'pointer', position: 'relative', overflow: 'hidden', background: '#F5F0E8' }}
+                        className="relative cursor-pointer overflow-hidden bg-secondary/70"
                       >
                         <LazyImageSimple
                           imagePath={getPreferredGarmentImagePath(item.garment)}
@@ -398,28 +401,14 @@ export default function OutfitGeneratePage() {
                       </motion.div>
                     ))}
                     {effectiveMissing.slice(0, Math.max(0, 4 - primary.items.length)).map((slot, i) => (
-                      <div key={`placeholder-${i}`} style={{
-                        background: '#F5F0E8',
-                        aspectRatio: '1',
-                        border: '1.5px dashed rgba(28,25,23,0.15)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: 8,
-                      }}>
-                        <span style={{
-                          fontFamily: 'DM Sans, sans-serif',
-                          fontSize: 11,
-                          color: 'rgba(28,25,23,0.40)',
-                          textAlign: 'center',
-                          lineHeight: 1.4,
-                        }}>
+                      <div key={`placeholder-${i}`} className="flex aspect-square items-center justify-center border border-dashed border-foreground/15 bg-secondary/70 p-2">
+                        <span className="text-center text-[11px] leading-[1.4] text-foreground/42">
                           Add {slot}<br/>to complete
                         </span>
                       </div>
                     ))}
                     {Array.from({ length: Math.max(0, 4 - primary.items.length - effectiveMissing.length) }).map((_, i) => (
-                      <div key={`empty-extra-${i}`} style={{ background: '#F5F0E8', aspectRatio: '1' }} />
+                      <div key={`empty-extra-${i}`} className="aspect-square bg-secondary/70" />
                     ))}
                   </div>
 
@@ -429,15 +418,7 @@ export default function OutfitGeneratePage() {
                       {OCCASIONS.find(o => o.key === selectedOccasion)?.label ?? selectedOccasion}
                     </p>
                     {calendarEvents?.[0]?.title && (
-                      <span style={{
-                        display: 'inline-block',
-                        fontFamily: 'DM Sans, sans-serif',
-                        fontSize: 10,
-                        background: 'rgba(28,25,23,0.07)',
-                        color: '#1C1917',
-                        padding: '3px 8px',
-                        marginTop: 4,
-                      }}>
+                      <span className="mt-1 inline-flex rounded-full bg-foreground/[0.06] px-2 py-1 text-[10px] text-foreground">
                         {calendarEvents[0].title}
                       </span>
                     )}
@@ -466,7 +447,8 @@ export default function OutfitGeneratePage() {
                   <Button
                     onClick={handleWearToday}
                     disabled={markWorn.isPending}
-                    className="bg-foreground text-background h-12 rounded-full w-full text-[15px] font-medium font-['DM_Sans']"
+                    className="h-12 w-full text-[15px] font-medium font-['DM_Sans']"
+                    variant="editorial"
                     size="lg"
                   >
                     {markWorn.isPending ? 'Logging…' : 'Wear today'}
@@ -474,8 +456,8 @@ export default function OutfitGeneratePage() {
 
                   <Button
                     onClick={handleRefineInChat}
-                    variant="outline"
-                    className="h-12 rounded-full w-full text-[15px] font-medium font-['DM_Sans'] border-[#1C1917]/20"
+                    variant="quiet"
+                    className="h-12 w-full text-[15px] font-medium font-['DM_Sans']"
                     size="lg"
                   >
                     Refine in chat
@@ -504,19 +486,7 @@ export default function OutfitGeneratePage() {
                 <button
                   onClick={handleGenerate}
                   disabled={isGenerating}
-                  style={{
-                    width: '100%',
-                    height: 44,
-                    background: '#EDE8DF',
-                    border: 'none',
-                    fontFamily: 'DM Sans, sans-serif',
-                    fontSize: 13,
-                    fontWeight: 500,
-                    color: '#1C1917',
-                    cursor: isGenerating ? 'not-allowed' : 'pointer',
-                    opacity: isGenerating ? 0.5 : 1,
-                    marginTop: 8,
-                  }}
+                  className="mt-2 h-11 w-full rounded-full border border-border/45 bg-background/80 text-[13px] font-medium text-foreground transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Try another look
                 </button>
@@ -602,8 +572,8 @@ export default function OutfitGeneratePage() {
     return (
       <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
       <AppLayout>
-        <div className="p-4 flex flex-col items-center justify-center min-h-[60vh] animate-fade-in">
-          <Card className="max-w-sm w-full">
+        <div className="page-shell flex min-h-[60vh] flex-col items-center justify-center animate-fade-in">
+          <Card surface="editorial" density="airy" className="max-w-sm w-full">
             <CardContent className="p-6 text-center">
               <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
               <h2 className="text-lg font-semibold mb-2">Something went wrong</h2>
@@ -630,19 +600,19 @@ export default function OutfitGeneratePage() {
     <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
     <AppLayout>
       <StyleMeSubNav />
-      <div className="page-container pb-36 animate-fade-in">
+      <div className="page-shell pb-36 animate-fade-in">
 
         {/* ── Header + Weather ── */}
-        <section className="pt-8 pb-6 space-y-2">
-          <h1 className="text-2xl font-bold tracking-[-0.03em] text-foreground">
-            {getGreeting()}
-          </h1>
-          <p className="text-base text-muted-foreground">
-            Let me style you today.
-          </p>
+        <PageIntro
+          eyebrow="Creation"
+          title={getGreeting()}
+          description="Let me style you today."
+          className="pt-8 pb-6"
+        />
+        <section className="space-y-2 pb-6">
           {weather && (
             <div className="pt-1.5">
-              <span className="inline-flex items-center gap-1.5 font-['DM_Sans'] text-[11px] bg-[#EDE8DF] text-[#1C1917]/50 px-3 py-1.5 rounded-full">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border/45 bg-background/80 px-3 py-1.5 text-[11px] text-foreground/62">
                 {weather.temperature}°C · {weather.condition || weather.location}
               </span>
               {weatherAdvice && (
@@ -654,7 +624,7 @@ export default function OutfitGeneratePage() {
           )}
           {preferredGarmentSummary && (
             <div className="pt-2">
-              <div className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-primary/15 bg-primary/5 px-3 py-2 text-left shadow-sm">
+              <div className="surface-utility inline-flex max-w-full items-center gap-2 px-3 py-2 text-left">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-background text-primary">
                   <Shirt className="h-4 w-4" />
                 </div>
@@ -684,10 +654,10 @@ export default function OutfitGeneratePage() {
               whileTap={{ scale: 0.97 }}
               onClick={() => setGenerationMode('standard')}
               className={cn(
-                'relative rounded-xl border p-4 text-left transition-all',
+                'surface-editorial relative p-4 text-left transition-all',
                 generationMode === 'standard'
-                  ? 'border-primary bg-primary/[0.04] ring-1 ring-primary/10'
-                  : 'border-border/30 hover:border-border/50'
+                  ? 'ring-1 ring-primary/12'
+                  : 'hover:border-border/60'
               )}
             >
               <Sparkles className={cn(
@@ -717,10 +687,10 @@ export default function OutfitGeneratePage() {
                 setGenerationMode('stylist');
               }}
               className={cn(
-                'relative rounded-xl border p-4 text-left transition-all',
+                'surface-editorial relative p-4 text-left transition-all',
                 generationMode === 'stylist'
-                  ? 'border-premium/40 bg-premium/[0.04] ring-1 ring-premium/10'
-                  : 'border-border/30 hover:border-border/50'
+                  ? 'ring-1 ring-premium/14'
+                  : 'hover:border-border/60'
               )}
             >
               <Crown className={cn(
@@ -767,10 +737,10 @@ export default function OutfitGeneratePage() {
                   whileTap={prefersReduced ? undefined : { scale: 0.97 }}
                   onClick={() => setSelectedOccasion(key)}
                   className={cn(
-                    'w-[72px] h-[64px] flex flex-col items-center justify-center gap-1.5 shrink-0 transition-all',
+                    'flex h-[64px] w-[72px] shrink-0 flex-col items-center justify-center gap-1.5 rounded-[1.25rem] transition-all',
                     isSelected
-                      ? 'bg-[#1C1917] text-white'
-                      : 'bg-[#EDE8DF] text-[#1C1917] hover:bg-[#E8E3DA]'
+                      ? 'bg-foreground text-background'
+                      : 'surface-utility text-foreground hover:bg-background'
                   )}
                 >
                   <OccIcon className="w-5 h-5" strokeWidth={1.8} />
@@ -806,11 +776,11 @@ export default function OutfitGeneratePage() {
                     }
                   }}
                   className={cn(
-                    "h-[44px] px-4 rounded-xl transition-all",
+                    "h-[44px] rounded-full px-4 transition-all",
                     "text-[14px] font-['DM_Sans']",
                     isSelected
-                      ? 'bg-[#1C1917] text-white border-transparent'
-                      : 'bg-transparent border border-[#1C1917]/25 text-[#1C1917]/60'
+                      ? 'bg-foreground text-background border-transparent'
+                      : 'bg-transparent border border-foreground/20 text-foreground/60'
                   )}
                 >
                   {style}
@@ -822,8 +792,8 @@ export default function OutfitGeneratePage() {
       </div>
 
       {/* ── Sticky CTA ── */}
-      <div className="fixed bottom-20 left-0 right-0 z-20">
-        <div className="bg-background/80 backdrop-blur-2xl border-t border-border/15 px-4 pt-3 pb-4">
+      <div className="action-bar-floating fixed bottom-20 left-0 right-0 z-20">
+        <div className="px-4 pt-3 pb-4">
           <div className="max-w-md mx-auto space-y-2">
             {contextSubtitle && (
               <p className="text-[11px] text-muted-foreground/60 text-center tracking-wide">
@@ -847,7 +817,8 @@ export default function OutfitGeneratePage() {
               <Button
                 onClick={handleGenerate}
                 disabled={isGenerating}
-                className="bg-foreground text-background h-12 rounded-full w-full text-[15px] font-medium font-['DM_Sans']"
+                variant="editorial"
+                className="h-12 w-full text-[15px] font-medium font-['DM_Sans']"
                 size="lg"
               >
                 <Sparkles className="w-4 h-4 mr-2" />

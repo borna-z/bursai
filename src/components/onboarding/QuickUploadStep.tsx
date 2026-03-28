@@ -1,30 +1,24 @@
-import { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Camera, ImagePlus, ArrowRight, Check, X } from 'lucide-react';
-import { EASE_CURVE } from '@/lib/motion';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { useStorage } from '@/hooks/useStorage';
+import { ArrowRight, Camera, Check, ImagePlus, X } from 'lucide-react';
+
+import { Card } from '@/components/ui/card';
+import { PageIntro } from '@/components/ui/page-intro';
+import { Button } from '@/components/ui/button';
 import { useAnalyzeGarment } from '@/hooks/useAnalyzeGarment';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useStorage } from '@/hooks/useStorage';
 import { supabase } from '@/integrations/supabase/client';
-import { cn } from '@/lib/utils';
-import { useIsDark } from '@/hooks/useIsDark';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { standardizeGarmentAiRaw } from '@/lib/garmentIntelligence';
+import { EASE_CURVE } from '@/lib/motion';
 import { logger } from '@/lib/logger';
 
 interface QuickUploadStepProps {
   onComplete: () => void;
   onSkip: () => void;
 }
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  show: (i: number) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.08, duration: 0.4, ease: EASE_CURVE },
-  }),
-};
 
 interface UploadItem {
   id: string;
@@ -38,18 +32,20 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
   const { user } = useAuth();
   const { uploadGarmentImage } = useStorage();
   const { analyzeGarment } = useAnalyzeGarment();
-  const dark = useIsDark();
+
   const [items, setItems] = useState<UploadItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = (files: FileList | null) => {
     if (!files) return;
+
     const newItems: UploadItem[] = [];
     const remaining = 5 - items.length;
-    for (let i = 0; i < Math.min(files.length, remaining); i++) {
-      const file = files[i];
+    for (let index = 0; index < Math.min(files.length, remaining); index += 1) {
+      const file = files[index];
       if (!file.type.startsWith('image/')) continue;
+
       newItems.push({
         id: crypto.randomUUID(),
         file,
@@ -57,14 +53,15 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
         status: 'pending',
       });
     }
-    setItems(prev => [...prev, ...newItems]);
+
+    setItems((current) => [...current, ...newItems]);
   };
 
   const removeItem = (id: string) => {
-    setItems(prev => {
-      const item = prev.find(i => i.id === id);
+    setItems((current) => {
+      const item = current.find((entry) => entry.id === id);
       if (item) URL.revokeObjectURL(item.preview);
-      return prev.filter(i => i.id !== id);
+      return current.filter((entry) => entry.id !== id);
     });
   };
 
@@ -74,10 +71,11 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
 
     for (const item of items) {
       try {
-        setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'uploading' } : i));
+        setItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: 'uploading' } : entry));
         const garmentId = crypto.randomUUID();
         const path = await uploadGarmentImage(item.file, garmentId);
-        setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'analyzing' } : i));
+
+        setItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: 'analyzing' } : entry));
 
         const { data: analysis, error: analysisError } = await analyzeGarment(path);
         if (analysisError) {
@@ -85,6 +83,7 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
         }
 
         const fallbackTitle = item.file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') || 'New garment';
+
         const { error: insertError } = await supabase.from('garments').insert({
           id: garmentId,
           user_id: user.id,
@@ -123,14 +122,14 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
               material: analysis.material,
               exclude_garment_id: garmentId,
             },
-          }).catch((err) => {
-            logger.error('Quick upload duplicate detection error (non-blocking):', err);
+          }).catch((error) => {
+            logger.error('Quick upload duplicate detection error (non-blocking):', error);
           });
         }
 
-        setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'done' } : i));
+        setItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: 'done' } : entry));
       } catch {
-        setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'error' } : i));
+        setItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: 'error' } : entry));
       }
     }
 
@@ -141,148 +140,110 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
   const canAdd = items.length < 5;
 
   return (
-    <div className={cn('min-h-screen flex flex-col items-center relative overflow-hidden', dark ? 'dark-landing' : 'bg-background text-foreground')}>
-      {dark && (
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] rounded-full bg-[radial-gradient(ellipse,rgba(99,102,241,0.08)_0%,transparent_70%)] blur-3xl" />
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="page-shell !max-w-lg !px-6 !pb-16 !pt-24 page-cluster">
+        <Card surface="editorial" className="p-6">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.35rem] bg-background/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
+            <Camera className="h-7 w-7 text-foreground/72" />
+          </div>
+          <div className="mt-5">
+            <PageIntro
+              center
+              eyebrow="Onboarding"
+              title="Add your first piece."
+              description={t('onboarding.quickUpload.subtitle') || 'Snap or pick up to 5 items to kickstart your wardrobe. You can always add more later.'}
+            />
+          </div>
+        </Card>
+
+        <Card surface="utility" className="space-y-4 p-5">
+          <div className="grid grid-cols-3 gap-3">
+            {items.map((item, index) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.04, duration: 0.24, ease: EASE_CURVE }}
+                className="relative aspect-[3/4] overflow-hidden rounded-[1.35rem] border border-border/60 bg-secondary/35"
+              >
+                <img src={item.preview} alt="" className="h-full w-full object-cover" />
+
+                {item.status !== 'pending' ? (
+                  <div
+                    className={`absolute inset-0 flex items-center justify-center ${
+                      item.status === 'done'
+                        ? 'bg-emerald-500/20'
+                        : item.status === 'error'
+                          ? 'bg-red-500/20'
+                          : 'bg-black/40'
+                    }`}
+                  >
+                    {item.status === 'uploading' ? <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/60 border-t-transparent" /> : null}
+                    {item.status === 'analyzing' ? <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent/80 border-t-transparent" /> : null}
+                    {item.status === 'done' ? <Check className="h-6 w-6 text-emerald-400" /> : null}
+                    {item.status === 'error' ? <X className="h-6 w-6 text-red-400" /> : null}
+                  </div>
+                ) : null}
+
+                {!isProcessing ? (
+                  <button
+                    type="button"
+                    onClick={() => removeItem(item.id)}
+                    className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60"
+                  >
+                    <X className="h-3.5 w-3.5 text-white/80" />
+                  </button>
+                ) : null}
+              </motion.div>
+            ))}
+
+            {canAdd && !isProcessing ? (
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                className="flex aspect-[3/4] flex-col items-center justify-center gap-2 rounded-[1.35rem] border-2 border-dashed border-border/70 bg-background/80 transition-colors hover:bg-secondary/45"
+              >
+                <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                <span className="text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">Add</span>
+              </button>
+            ) : null}
+          </div>
+
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(event) => handleFiles(event.target.files)}
+          />
+        </Card>
+
+        <div className="action-bar-floating rounded-[1.6rem] p-3">
+          <div className="flex flex-col gap-2">
+            {items.length > 0 ? (
+              <Button onClick={processAll} disabled={isProcessing} size="lg" className="w-full">
+                {isProcessing ? (
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-foreground/40 border-t-primary-foreground" />
+                ) : (
+                  <>
+                    Add {items.length} garment{items.length > 1 ? 's' : ''}
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button onClick={() => inputRef.current?.click()} size="lg" className="w-full">
+                <Camera className="h-4 w-4" />
+                Choose photos
+              </Button>
+            )}
+
+            <Button variant="quiet" onClick={onSkip} disabled={isProcessing} className="w-full">
+              {t('onboarding.skip') || 'Skip for now'}
+            </Button>
+          </div>
         </div>
-      )}
-
-      <div className="relative z-10 w-full max-w-sm mx-auto px-6 pt-16 pb-12 flex flex-col items-center flex-1">
-        <motion.div
-          variants={fadeUp} initial="hidden" animate="show" custom={0}
-          className={cn('w-14 h-14 flex items-center justify-center mb-5', dark ? 'rounded-2xl bg-accent/15' : 'bg-muted')}
-        >
-          <Camera className={cn('w-7 h-7', dark ? 'text-accent' : 'text-foreground')} />
-        </motion.div>
-
-        <motion.h1
-          variants={fadeUp} initial="hidden" animate="show" custom={1}
-          style={{
-            fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-            fontSize: 20, textAlign: 'center', maxWidth: 240, marginBottom: 8,
-          }}
-          className={cn(dark ? 'text-white' : 'text-foreground')}
-        >
-          Add your first piece.
-        </motion.h1>
-
-        <motion.p
-          variants={fadeUp} initial="hidden" animate="show" custom={2}
-          className={cn('text-sm text-center mb-8 max-w-xs', dark ? 'text-white/40' : 'text-muted-foreground')}
-        >
-          {t('onboarding.quickUpload.subtitle') || 'Snap or pick up to 5 items to kickstart your wardrobe. You can always add more later.'}
-        </motion.p>
-
-        {/* Image grid */}
-        <motion.div
-          variants={fadeUp} initial="hidden" animate="show" custom={3}
-          className="w-full grid grid-cols-3 gap-3 mb-8"
-        >
-          {items.map((item) => (
-            <div key={item.id} className={cn(
-              'relative aspect-[3/4] overflow-hidden border',
-              dark ? 'rounded-xl bg-white/[0.04] border-white/[0.06]' : 'bg-muted border-border'
-            )}>
-              <img src={item.preview} alt="" className="w-full h-full object-cover" />
-              {item.status !== 'pending' && (
-                <div className={cn(
-                  'absolute inset-0 flex items-center justify-center',
-                  item.status === 'done' ? 'bg-emerald-500/20' : item.status === 'error' ? 'bg-red-500/20' : 'bg-black/40'
-                )}>
-                  {item.status === 'uploading' && <div className="w-6 h-6 border-2 border-white/60 border-t-transparent rounded-full animate-spin" />}
-                  {item.status === 'analyzing' && <div className="w-6 h-6 border-2 border-accent/80 border-t-transparent rounded-full animate-spin" />}
-                  {item.status === 'done' && <Check className="w-6 h-6 text-emerald-400" />}
-                  {item.status === 'error' && <X className="w-6 h-6 text-red-400" />}
-                </div>
-              )}
-              {!isProcessing && (
-                <button
-                  onClick={() => removeItem(item.id)}
-                  className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center"
-                >
-                  <X className="w-3.5 h-3.5 text-white/80" />
-                </button>
-              )}
-            </div>
-          ))}
-
-          {canAdd && !isProcessing && (
-            <button
-              onClick={() => inputRef.current?.click()}
-              className={cn(
-                'aspect-[3/4] border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors',
-                dark
-                  ? 'rounded-xl border-white/[0.1] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.15]'
-                  : 'border-border bg-card hover:bg-muted hover:border-foreground/20'
-              )}
-            >
-              <ImagePlus className={cn('w-6 h-6', dark ? 'text-white/30' : 'text-muted-foreground')} />
-              <span className={cn('text-[11px] font-medium', dark ? 'text-white/25' : 'text-muted-foreground')}>Add</span>
-            </button>
-          )}
-        </motion.div>
-
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          className="hidden"
-          onChange={(e) => handleFiles(e.target.files)}
-        />
-
-        {/* Actions */}
-        <motion.div
-          variants={fadeUp} initial="hidden" animate="show" custom={4}
-          className="w-full space-y-3 mt-auto"
-        >
-          {items.length > 0 ? (
-            <button
-              onClick={processAll}
-              disabled={isProcessing}
-              style={{
-                width: '100%', height: 52, background: '#1C1917', color: '#F5F0E8',
-                border: 'none', fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 500,
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                opacity: isProcessing ? 0.6 : 1,
-              }}
-            >
-              {isProcessing ? (
-                <div className="w-5 h-5 border-2 border-[#F5F0E8]/40 border-t-[#F5F0E8] rounded-full animate-spin" />
-              ) : (
-                <>
-                  Add {items.length} garment{items.length > 1 ? 's' : ''}
-                  <ArrowRight style={{ width: 14, height: 14 }} />
-                </>
-              )}
-            </button>
-          ) : (
-            <button
-              onClick={() => inputRef.current?.click()}
-              style={{
-                width: '100%', height: 52, background: '#1C1917', color: '#F5F0E8',
-                border: 'none', fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 500,
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              }}
-            >
-              <Camera style={{ width: 16, height: 16 }} />
-              Choose photos
-            </button>
-          )}
-
-          <button
-            onClick={onSkip}
-            disabled={isProcessing}
-            style={{
-              width: '100%', height: 40, background: 'none', border: 'none',
-              fontFamily: 'DM Sans, sans-serif', fontSize: 11,
-              color: 'rgba(28,25,23,0.32)', cursor: 'pointer',
-            }}
-          >
-            {t('onboarding.skip') || 'Skip for now'}
-          </button>
-        </motion.div>
       </div>
     </div>
   );

@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
 import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { PageIntro } from '@/components/ui/page-intro';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { TravelFormView } from '@/components/travel/TravelFormView';
 import { TravelResultsView } from '@/components/travel/TravelResultsView';
@@ -19,15 +20,17 @@ export default function TravelCapsule() {
   if (!isUnlocked('travel_capsule')) {
     return (
       <AppLayout hideNav>
-        <AnimatedPage className="px-5 pb-8 pt-12 max-w-lg mx-auto space-y-6">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-xl hover:bg-muted/30 transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div>
-              <h1 className="text-xl font-semibold">{t('capsule.title')}</h1>
-            </div>
-          </div>
+        <PageHeader
+          title={t('capsule.title')}
+          subtitle="Unlocks once your wardrobe has enough pieces to build a real packing edit."
+          showBack
+        />
+        <AnimatedPage className="page-shell !px-5 !pt-6 page-cluster">
+          <PageIntro
+            eyebrow="Planner"
+            title={t('capsule.title')}
+            description={t('unlock.travel_capsule_message')}
+          />
           <WardrobeProgress message={t('unlock.travel_capsule_message')} />
         </AnimatedPage>
       </AppLayout>

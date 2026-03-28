@@ -1,5 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { cn } from '@/lib/utils';
+
 const TABS = [
   { label: 'Generate', path: '/ai/generate' },
   { label: 'Chat', path: '/ai/chat' },
@@ -17,29 +19,32 @@ export function StyleMeSubNav() {
     : '';
 
   return (
-    <div className="flex w-full shrink-0">
-      {TABS.map((tab) => {
-        const isActive =
-          current === tab.path ||
-          (tab.path === '/ai/generate' && isGenerateRoute);
-        return (
-          <button
-            key={tab.path}
-            onClick={() => navigate(
-              tab.path === '/ai/generate' || tab.path === '/ai/chat'
-                ? `${tab.path}${preservedSearch}`
-                : tab.path,
-            )}
-            className={`flex-1 h-11 rounded-none border-none font-['DM_Sans'] text-xs font-medium cursor-pointer p-0 ${
-              isActive
-                ? 'bg-foreground text-background'
-                : 'bg-card text-foreground/[0.55]'
-            }`}
-          >
-            {tab.label}
-          </button>
-        );
-      })}
+    <div className="w-full shrink-0 border-b border-border/55 px-4 pb-3 pt-4">
+      <div className="mx-auto flex max-w-xl gap-2 overflow-x-auto scrollbar-hide">
+        {TABS.map((tab) => {
+          const isActive =
+            current === tab.path ||
+            (tab.path === '/ai/generate' && isGenerateRoute);
+          return (
+            <button
+              key={tab.path}
+              onClick={() => navigate(
+                tab.path === '/ai/generate' || tab.path === '/ai/chat'
+                  ? `${tab.path}${preservedSearch}`
+                  : tab.path,
+              )}
+              className={cn(
+                'press min-w-fit rounded-full border px-4 py-2.5 text-[0.72rem] font-medium uppercase tracking-[0.18em] transition-colors',
+                isActive
+                  ? 'border-foreground bg-foreground text-background shadow-[0_10px_24px_rgba(28,25,23,0.12)]'
+                  : 'border-border/70 bg-background/85 text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

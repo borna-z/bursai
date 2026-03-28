@@ -1,21 +1,24 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+
 import { AppLayout } from '@/components/layout/AppLayout';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { StyleMeSubNav } from '@/components/ai/StyleMeSubNav';
+import { PaywallModal } from '@/components/PaywallModal';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { Button } from '@/components/ui/button';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { PageIntro } from '@/components/ui/page-intro';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useWeather } from '@/hooks/useWeather';
-import { useAuth } from '@/contexts/AuthContext';
-import { PaywallModal } from '@/components/PaywallModal';
-import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { supabase } from '@/integrations/supabase/client';
 import { buildStyleFlowSearch } from '@/lib/styleFlowState';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { motion } from 'framer-motion';
 
 const MOODS = [
   { key: 'cozy', swatchColor: '#C4A882' },
@@ -32,6 +35,7 @@ export default function MoodOutfitPage() {
   const { user } = useAuth();
   const { weather } = useWeather();
   const navigate = useNavigate();
+
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
@@ -43,8 +47,12 @@ export default function MoodOutfitPage() {
   } | null>(null);
 
   const generate = async (mood: string) => {
-    if (!isPremium) { setShowPaywall(true); return; }
+    if (!isPremium) {
+      setShowPaywall(true);
+      return;
+    }
     if (!user) return;
+
     setSelectedMood(mood);
     setIsGenerating(true);
 
@@ -83,10 +91,10 @@ export default function MoodOutfitPage() {
 
       if (outfitErr) throw outfitErr;
 
-      const items = data.items.map((i: { garment_id: string; slot: string }) => ({
+      const items = data.items.map((item: { garment_id: string; slot: string }) => ({
         outfit_id: outfit.id,
-        garment_id: i.garment_id,
-        slot: i.slot,
+        garment_id: item.garment_id,
+        slot: item.slot,
       }));
 
       await supabase.from('outfit_items').insert(items);
@@ -97,8 +105,8 @@ export default function MoodOutfitPage() {
         mood,
         garmentIds: data.items.map((item) => item.garment_id),
       });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('common.something_wrong'));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('common.something_wrong'));
     } finally {
       setIsGenerating(false);
     }
@@ -110,91 +118,93 @@ export default function MoodOutfitPage() {
     setIsGenerating(false);
   };
 
+  const weatherMeta = weather ? `${Math.round(weather.temperature)}° ${t(weather.condition)}` : null;
+
   return (
     <AppLayout>
       <StyleMeSubNav />
-      <PageHeader title={t('ai.mood_title')} showBack />
-      <AnimatedPage className="max-w-lg mx-auto px-4 pb-8 pt-4">
 
+      <AnimatedPage className="page-shell !px-5 !pt-6 page-cluster">
         {generatedOutfit ? (
-          /* ── Result screen ── */
-          <div className="space-y-2">
-            {/* Outfit card */}
-            <div className="bg-card rounded-none px-5 py-4">
-              <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/40">
-                MOOD OUTFIT
-              </p>
-              <p className="font-['Playfair_Display'] italic text-xl text-foreground mt-1.5">
-                {t(`ai.mood_${generatedOutfit.mood}`)}
-              </p>
-              <button
-                onClick={() => navigate(`/outfits/${generatedOutfit.id}`)}
-                className="mt-2 text-xs font-['DM_Sans'] text-foreground/50 bg-transparent border-none cursor-pointer p-0"
-              >
-                View full outfit →
-              </button>
-            </div>
+          <>
+            <PageIntro
+              eyebrow="Mood outfit"
+              meta={<span className="eyebrow-chip !bg-secondary/70 capitalize">{t(`ai.mood_${generatedOutfit.mood}`)}</span>}
+              title={t(`ai.mood_${generatedOutfit.mood}`)}
+              description={generatedOutfit.explanation || 'A styled direction pulled from your wardrobe and shaped around the mood you picked.'}
+              actions={(
+                <>
+                  <Button onClick={() => navigate(`/outfits/${generatedOutfit.id}`)}>
+                    Open outfit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate(`/ai/chat${buildStyleFlowSearch(generatedOutfit.garmentIds)}`, {
+                      state: {
+                        outfitId: generatedOutfit.id,
+                        prefillMessage: 'Refine this outfit for me.',
+                        seedOutfitIds: generatedOutfit.garmentIds,
+                      },
+                    })}
+                  >
+                    Refine in chat
+                  </Button>
+                </>
+              )}
+            />
 
-            {/* AI explanation card */}
-            {generatedOutfit.explanation && (
-              <div className="bg-card rounded-none px-5 py-4">
-                <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/40 mb-2">
-                  WHY THIS MATCHES {generatedOutfit.mood.toUpperCase()}
-                </p>
-                <p className="font-['DM_Sans'] text-sm text-foreground/70 leading-relaxed">
-                  {generatedOutfit.explanation}
+            {generatedOutfit.explanation ? (
+              <Card surface="utility" className="space-y-3 p-5">
+                <p className="label-editorial">Why it works</p>
+                <p className="text-sm leading-7 text-muted-foreground">{generatedOutfit.explanation}</p>
+              </Card>
+            ) : null}
+
+            <Card surface="editorial" className="space-y-4 p-5">
+              <div>
+                <p className="label-editorial">Next move</p>
+                <h2 className="mt-2 text-[1.3rem] font-semibold tracking-[-0.04em]">
+                  Keep the energy, adjust the details.
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Jump into chat if you want the look to feel sharper, softer, more formal, or more weather-aware.
                 </p>
               </div>
-            )}
-
-            {/* Refine in chat button */}
-            <Button
-              variant="outline"
-              onClick={() => navigate(`/ai/chat${buildStyleFlowSearch(generatedOutfit.garmentIds)}`, {
-                state: {
-                  outfitId: generatedOutfit.id,
-                  prefillMessage: 'Refine this outfit for me.',
-                  seedOutfitIds: generatedOutfit.garmentIds,
-                },
-              })}
-              className="block w-full h-12 bg-transparent border border-foreground/30 rounded-none font-['DM_Sans'] text-sm text-foreground mt-2"
-            >
-              Refine in chat
-            </Button>
-
-            {/* Re-mood */}
-            <button
-              onClick={handleReMood}
-              className="block w-full mt-3 text-center font-['DM_Sans'] text-xs text-foreground/50 bg-transparent border-none cursor-pointer py-1"
-            >
-              Try a different mood →
-            </button>
-          </div>
+              <Button variant="quiet" onClick={handleReMood} className="w-full justify-center sm:w-auto">
+                Try another mood
+              </Button>
+            </Card>
+          </>
         ) : (
-          /* ── Mood grid ── */
           <>
-            <div className="text-center space-y-2 mb-8">
-              <h2 className="font-['Playfair_Display'] italic text-[22px] text-foreground">
-                {t('ai.mood_heading')}
-              </h2>
-              <p className="text-sm text-muted-foreground">{t('ai.mood_desc')}</p>
-            </div>
+            <PageIntro
+              eyebrow="Style Me"
+              meta={weatherMeta ? <span className="eyebrow-chip !bg-secondary/70">{weatherMeta}</span> : undefined}
+              title={t('ai.mood_heading')}
+              description={t('ai.mood_desc')}
+            />
 
-            <div className="grid grid-cols-2 gap-2">
-              {MOODS.map((mood, i) => {
+            <section className="grid gap-3 sm:grid-cols-2">
+              {MOODS.map((mood, index) => {
                 const isSelected = selectedMood === mood.key && isGenerating;
+
                 return (
-                  <motion.div
+                  <motion.button
                     key={mood.key}
+                    type="button"
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.06 }}
+                    transition={{ delay: index * 0.06 }}
+                    onClick={() => !isGenerating && generate(mood.key)}
+                    disabled={isGenerating && !isSelected}
+                    className="text-left"
                   >
-                    <div
-                      className={`rounded-none min-h-[80px] p-4 flex flex-col justify-center gap-2 ${
-                        isSelected ? 'bg-foreground' : 'bg-card'
-                      } ${isGenerating ? 'cursor-default' : 'cursor-pointer'}`}
-                      onClick={() => !isGenerating && generate(mood.key)}
+                    <Card
+                      surface={isSelected ? 'editorial' : 'utility'}
+                      className={cn(
+                        'h-full min-h-[180px] overflow-hidden p-5 transition-transform duration-200',
+                        isGenerating && !isSelected ? 'opacity-55' : 'hover:-translate-y-0.5',
+                      )}
                     >
                       {isSelected ? (
                         <OutfitGenerationState
@@ -204,24 +214,31 @@ export default function MoodOutfitPage() {
                           className="border-0 bg-transparent p-0"
                         />
                       ) : (
-                        <>
+                        <div className="flex h-full flex-col justify-between gap-6">
                           <div
-                            className="w-4 h-4 rounded-none shrink-0"
+                            className="h-12 w-12 rounded-[1.1rem] border border-background/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]"
                             style={{ backgroundColor: mood.swatchColor }}
                           />
-                          <p className="font-['Playfair_Display'] italic text-base text-foreground m-0">
-                            {t(`ai.mood_${mood.key}`)}
-                          </p>
-                        </>
+                          <div className="space-y-2">
+                            <p className="label-editorial">Mood direction</p>
+                            <h2 className="text-[1.45rem] font-semibold tracking-[-0.05em] text-foreground">
+                              {t(`ai.mood_${mood.key}`)}
+                            </h2>
+                            <p className="text-sm leading-6 text-muted-foreground">
+                              Build a look that feels {t(`ai.mood_${mood.key}`).toLowerCase()} without starting from scratch.
+                            </p>
+                          </div>
+                        </div>
                       )}
-                    </div>
-                  </motion.div>
+                    </Card>
+                  </motion.button>
                 );
               })}
-            </div>
+            </section>
           </>
         )}
       </AnimatedPage>
+
       <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="outfits" />
     </AppLayout>
   );

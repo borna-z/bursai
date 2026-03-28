@@ -1,7 +1,12 @@
 import { motion } from 'framer-motion';
 import { CheckCircle, RefreshCw } from 'lucide-react';
+
+import { AppLayout } from '@/components/layout/AppLayout';
+import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { GarmentAnalysisState } from '@/components/ui/GarmentAnalysisState';
+import { PageIntro } from '@/components/ui/page-intro';
 import { Progress } from '@/components/ui/progress';
 
 interface AnalyzingStepProps {
@@ -28,51 +33,53 @@ export function AnalyzingStep({
   onCancel,
 }: AnalyzingStepProps) {
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8">
-      <div className="flex flex-col items-center gap-6 w-full max-w-xs">
+    <AppLayout hideNav>
+      <AnimatedPage className="page-shell !max-w-lg !px-5 !pt-8 page-cluster">
+        <Card surface="editorial" className="p-6">
+          <PageIntro
+            center
+            eyebrow="Analyzing"
+            title="Reviewing your garment."
+            description={processingLabel}
+            actions={<Button variant="quiet" onClick={onCancel}>{cancelLabel}</Button>}
+          />
+        </Card>
+
         {analysisError ? (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center gap-4 w-full"
-          >
-            {imagePreview && (
-              <div className="aspect-square w-48 overflow-hidden bg-secondary/60">
-                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+          <Card surface="utility" className="space-y-5 p-5 text-center">
+            {imagePreview ? (
+              <div className="mx-auto aspect-square w-52 overflow-hidden rounded-[1.5rem] bg-secondary/60">
+                <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
               </div>
-            )}
-            <p className="text-sm text-destructive text-center">{analysisError}</p>
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={onCancel}>
-                {cancelLabel}
-              </Button>
+            ) : null}
+            <p className="text-sm leading-6 text-destructive">{analysisError}</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button variant="outline" onClick={onCancel}>{cancelLabel}</Button>
               <Button onClick={onRetry}>
-                <RefreshCw className="w-4 h-4 mr-2" />
+                <RefreshCw className="mr-2 h-4 w-4" />
                 {retryLabel}
               </Button>
             </div>
-          </motion.div>
+          </Card>
         ) : analysisSummary ? (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="flex flex-col items-center gap-2 bg-card p-4 w-full shadow-sm"
-          >
-            <CheckCircle className="w-6 h-6 text-accent" />
-            <p className="font-medium text-center">{analysisSummary}</p>
-            <p className="text-xs text-muted-foreground">{reviewText}</p>
-            <p className="text-xs text-muted-foreground">{processingLabel}</p>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <Card surface="utility" className="space-y-3 p-5 text-center">
+              <CheckCircle className="mx-auto h-6 w-6 text-accent" />
+              <p className="text-base font-medium text-foreground">{analysisSummary}</p>
+              <p className="text-sm text-muted-foreground">{reviewText}</p>
+              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{processingLabel}</p>
+            </Card>
           </motion.div>
         ) : (
-          <div className="w-full space-y-4">
+          <Card surface="utility" className="space-y-5 p-5">
             <GarmentAnalysisState imageUrl={imagePreview} />
             <div className="space-y-2">
               <Progress value={undefined} className="h-1.5 animate-pulse" />
-              <p className="text-sm text-muted-foreground text-center">{processingLabel}</p>
+              <p className="text-center text-sm text-muted-foreground">{processingLabel}</p>
             </div>
-          </div>
+          </Card>
         )}
-      </div>
-    </div>
+      </AnimatedPage>
+    </AppLayout>
   );
 }

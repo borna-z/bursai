@@ -23,11 +23,11 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/15 bg-background/60 backdrop-blur-2xl backdrop-saturate-[1.8]"
+      className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[calc(10px+env(safe-area-inset-bottom,0px))] pointer-events-none"
       aria-label="Main navigation"
     >
-      <div className="mx-auto max-w-lg px-2">
-        <div className="flex h-[60px] w-full items-stretch justify-evenly">
+      <div className="pointer-events-auto mx-auto max-w-xl">
+        <div className="mx-auto flex min-h-[68px] w-full items-stretch justify-evenly rounded-[2rem] border border-border/50 bg-background/92 px-1.5 py-1.5 shadow-[0_22px_56px_rgba(28,25,23,0.16)] backdrop-blur-2xl backdrop-saturate-[1.8]">
           {tabKeys.map((tab) => {
             const navLink = (
               <NavLink
@@ -38,7 +38,7 @@ export function BottomNav() {
                 onFocus={() => prefetchRoute(tab.path)}
                 className={({ isActive }) =>
                   cn(
-                    'relative flex min-h-[44px] flex-1 items-stretch justify-center px-2 py-2 text-[10px] font-medium leading-none transition-colors duration-150',
+                    'relative flex min-h-[52px] flex-1 items-stretch justify-center px-2 py-2.5 text-[10px] font-medium leading-none transition-colors duration-150',
                     isActive
                       ? 'text-accent'
                       : 'text-muted-foreground hover:text-foreground'
@@ -47,11 +47,11 @@ export function BottomNav() {
               >
                 {({ isActive }) => (
                   <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-center">
-                    <div className="relative flex h-9 w-10 items-center justify-center rounded-2xl">
+                    <div className="relative flex h-10 w-12 items-center justify-center rounded-[1.2rem]">
                       {isActive && (
                         <motion.div
                           layoutId={prefersReduced ? undefined : 'nav-pill'}
-                          className="absolute inset-0 rounded-2xl bg-accent/10"
+                          className="absolute inset-0 rounded-[1.2rem] bg-secondary/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
                           transition={{ type: 'spring', stiffness: 380, damping: 30, mass: 0.8 }}
                         />
                       )}
@@ -63,7 +63,9 @@ export function BottomNav() {
                         strokeWidth={isActive ? 2.4 : 2}
                       />
                     </div>
-                    <span className="block leading-none">{t(tab.labelKey)}</span>
+                    <span className={cn('block leading-none tracking-[0.08em]', isActive && 'text-[10.5px]')}>
+                      {t(tab.labelKey)}
+                    </span>
                   </div>
                 )}
               </NavLink>
