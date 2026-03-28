@@ -310,9 +310,9 @@ serve(async (req) => {
     if (garmentsRes.error) throw garmentsRes.error;
     const garments = garmentsRes.data as GarmentRow[];
 
-    if (!garments || !canBuildCompleteOutfitPath(garments)) {
+    if (!garments || garments.length < 2) {
       return new Response(
-        JSON.stringify({ error: "You need either top + bottom + shoes, or dress + shoes, to generate an outfit" }),
+        JSON.stringify({ error: "Add at least 2 garments to generate an outfit" }),
         { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
       );
     }

@@ -6,7 +6,7 @@ import { VOICE_MOOD_OUTFIT } from "../_shared/burs-voice.ts";
 import { CORS_HEADERS } from "../_shared/cors.ts";
 function hasCompleteOutfit(items: Array<{ slot: string }>): boolean {
   const slots = new Set(items.map(i => i.slot.toLowerCase()));
-  return slots.has('shoes') && (slots.has('dress') || (slots.has('top') && slots.has('bottom')));
+  return slots.has('dress') || (slots.has('top') && slots.has('bottom'));
 }
 
 function validateCompleteOutfitInline(items: Array<{ slot: string }>): { isValid: boolean; missing: string[] } {
