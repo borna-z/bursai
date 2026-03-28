@@ -10,9 +10,9 @@ export function PageSkeleton() {
       </div>
       {/* Content skeleton */}
       <div className="flex-1 px-6 space-y-4">
-        <Skeleton className="h-32 w-full rounded-xl" />
-        <Skeleton className="h-24 w-full rounded-xl" />
-        <Skeleton className="h-24 w-full rounded-xl" />
+        <Skeleton className="h-32 w-full rounded-[1.25rem]" />
+        <Skeleton className="h-24 w-full rounded-[1.25rem]" />
+        <Skeleton className="h-24 w-full rounded-[1.25rem]" />
       </div>
     </div>
   );

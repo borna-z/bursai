@@ -29,7 +29,7 @@ const occasionIcons: Record<string, React.ElementType> = {
 
 function SummarySkeleton({ compact }: { compact?: boolean }) {
   return (
-    <div className="rounded-xl bg-muted/40 p-4 space-y-3">
+    <div className="surface-utility rounded-[1.25rem] p-4 space-y-3">
       <Skeleton className={cn("w-full", compact ? "h-8" : "h-12")} />
       <div className="flex gap-2">
         <Skeleton className="h-7 w-20 rounded-full" />
@@ -133,7 +133,7 @@ export function DaySummaryCard({
 
   return (
     <div className={cn(
-      'rounded-xl glass-card p-5 space-y-4',
+      'surface-secondary rounded-[1.25rem] p-5 space-y-4',
       className
     )}>
       {/* Event titles list */}

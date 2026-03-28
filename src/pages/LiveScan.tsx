@@ -39,7 +39,7 @@ function AcceptedOverlay({ onDone, label }: { onDone: () => void; label: string 
         transition={{ duration: 0.2 }}
         className="flex flex-col items-center gap-3"
       >
-        <div className="flex h-20 w-20 items-center justify-center rounded-[1.5rem] border border-accent/20 bg-background/90 shadow-[0_18px_40px_rgba(28,25,23,0.12)]">
+        <div className="flex h-20 w-20 items-center justify-center rounded-[1.25rem] border border-accent/20 bg-background/90 shadow-[0_18px_40px_rgba(28,25,23,0.12)]">
           <Check className="w-10 h-10 text-accent" strokeWidth={3} />
         </div>
         <p className="text-foreground text-sm font-medium">{label}</p>
@@ -131,7 +131,7 @@ function FocusFrame({ locked, confidence: _confidence }: { locked: boolean; conf
         {/* Subtle glow on lock */}
         {locked && (
           <div
-            className="absolute inset-0 rounded-2xl"
+            className="absolute inset-0 rounded-[1.25rem]"
             style={{
               boxShadow: `0 0 40px hsl(var(--accent) / ${glowOpacity})`,
               transition: 'box-shadow 300ms ease-out',
@@ -304,7 +304,7 @@ function LiveScanFallback() {
     <div className="min-h-screen bg-background px-6 py-24 text-foreground">
       <div className="mx-auto max-w-sm">
         <Card surface="editorial" className="space-y-6 p-6 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.35rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.1rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
             <Camera className="h-7 w-7 text-foreground/70" />
           </div>
           <PageIntro
@@ -527,7 +527,7 @@ export default function LiveScan() {
           /* File-input mode (Median or no getUserMedia) */
           <div className="absolute inset-0 flex items-center justify-center p-8 text-center">
             <Card surface="editorial" className="w-full max-w-sm space-y-6 p-6">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.4rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
                 <ImagePlus className="h-8 w-8 text-foreground/70" />
               </div>
               <PageIntro
@@ -546,7 +546,7 @@ export default function LiveScan() {
           /* Start Camera button — required for user-gesture */
           <div className="absolute inset-0 flex items-center justify-center p-8 text-center">
             <Card surface="editorial" className="w-full max-w-sm space-y-6 p-6">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.4rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
                 <Camera className="h-8 w-8 text-foreground/70" />
               </div>
               <PageIntro
@@ -564,7 +564,7 @@ export default function LiveScan() {
         ) : cameraError ? (
           <div className="absolute inset-0 flex items-center justify-center p-8 text-center">
             <Card surface="editorial" className="w-full max-w-sm space-y-6 p-6">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.4rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
                 <Camera className="h-8 w-8 text-foreground/70" />
               </div>
               <PageIntro

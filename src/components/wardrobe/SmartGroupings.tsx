@@ -87,11 +87,11 @@ function GroupRow({
             transition={TAP_TRANSITION}
             onClick={() => onTap(g.id)}
             className={cn(
-              'w-full rounded-xl overflow-hidden will-change-transform',
+              'w-full rounded-[1.1rem] overflow-hidden will-change-transform',
               g.in_laundry && 'opacity-50'
             )}
           >
-            <div className="aspect-[3/4] bg-muted relative overflow-hidden rounded-xl">
+            <div className="aspect-[3/4] bg-muted relative overflow-hidden rounded-[1.1rem]">
               <LazyImageSimple
                 imagePath={getPreferredGarmentImagePath(g)}
                 alt={g.title}

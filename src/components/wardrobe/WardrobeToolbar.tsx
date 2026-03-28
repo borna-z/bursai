@@ -81,7 +81,7 @@ export function WardrobeToolbar({
               </span>
             ) : null}
           </div>
-          <h1 className="text-[1.95rem] font-semibold tracking-[-0.05em] text-foreground">
+          <h1 className="font-['Playfair_Display'] italic text-[1.95rem] tracking-[-0.05em] text-foreground">
             {commandState.title}
           </h1>
           <p className="max-w-[30ch] text-sm leading-relaxed text-muted-foreground">
@@ -94,7 +94,7 @@ export function WardrobeToolbar({
             <>
               <button
                 onClick={onToggleView}
-                className="flex h-10 w-10 items-center justify-center rounded-[1rem] border border-border/45 bg-background/80 text-muted-foreground transition-colors hover:bg-background"
+                className="flex h-10 w-10 items-center justify-center rounded-[1.1rem] border border-border/45 bg-background/80 text-muted-foreground transition-colors hover:bg-background"
                 aria-label={isGridView ? 'List view' : 'Grid view'}
               >
                 {isGridView ? <List className="h-[18px] w-[18px]" /> : <Grid3X3 className="h-[18px] w-[18px]" />}

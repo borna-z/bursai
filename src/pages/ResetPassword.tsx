@@ -6,6 +6,7 @@ import { Loader2, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { Button } from '@/components/ui/button';
 import bursLogoWhite from '@/assets/burs-logo-white.png';
 import bursLogoDark from '@/assets/burs-logo-256-2.png';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -41,8 +42,7 @@ export default function ResetPassword() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleReset = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleReset = async () => {
     if (password.length < 8) { toast.error(t('auth.password_too_short')); return; }
     if (password !== confirmPassword) { toast.error(t('auth.passwords_no_match')); return; }
 
@@ -59,14 +59,14 @@ export default function ResetPassword() {
     }
   };
 
-  // Dark mode: noir glass inputs | Light mode: editorial warm inputs
+  // Dark mode: noir glass inputs | Light mode: editorial warm inputs — underline style (border-b only)
   const inputClass = isDark
-    ? "w-full h-12 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 text-[15px] text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-white/15 transition-colors disabled:opacity-40"
-    : "w-full h-12 px-4 text-[15px] text-foreground placeholder:text-muted-foreground bg-card border border-border focus:outline-none focus:ring-1 focus:ring-border transition-colors disabled:opacity-40";
+    ? "w-full h-12 border-b border-white/[0.08] bg-transparent px-4 text-[15px] text-white placeholder:text-white/20 focus:outline-none focus:border-white/30 transition-colors disabled:opacity-40"
+    : "w-full h-12 px-4 text-[15px] text-foreground placeholder:text-muted-foreground bg-transparent border-b border-border focus:outline-none focus:border-foreground transition-colors disabled:opacity-40";
 
   const cardClass = isDark
-    ? "rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl"
-    : "border border-border bg-card";
+    ? "rounded-[1.25rem] border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl"
+    : "rounded-[1.25rem] border border-border bg-card";
 
   const renderContent = () => {
     if (done) {
@@ -93,15 +93,9 @@ export default function ResetPassword() {
           transition={{ duration: 0.4, ease: EASE_CURVE }}
         >
           <p className="text-sm text-muted-foreground">{t('auth.invalid_reset_link')}</p>
-          <button
-            onClick={() => navigate('/auth')}
-            className={isDark
-              ? "w-full h-12 rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/70 text-sm font-medium hover:bg-white/[0.08] transition-colors"
-              : "w-full h-12 border border-border bg-card text-foreground text-sm font-medium hover:bg-muted transition-colors"
-            }
-          >
+          <Button variant="outline" className="w-full" onClick={() => navigate('/auth')}>
             {t('auth.back_to_login')}
-          </button>
+          </Button>
         </motion.div>
       );
     }
@@ -114,10 +108,10 @@ export default function ResetPassword() {
         transition={{ duration: 0.5, delay: 0.15, ease: EASE_CURVE }}
       >
         <div className="p-6 pb-2">
-          <h2 className="text-lg font-semibold">{t('auth.set_new_password')}</h2>
+          <h2 className="font-['Playfair_Display'] italic text-lg font-semibold">{t('auth.set_new_password')}</h2>
           <p className="text-sm text-muted-foreground mt-1">{t('auth.set_new_password_desc')}</p>
         </div>
-        <form onSubmit={handleReset} className="p-6 pt-4 space-y-4">
+        <div className="p-6 pt-4 space-y-4">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground pl-0.5">{t('auth.new_password')}</label>
             <div className="relative">
@@ -149,14 +143,7 @@ export default function ResetPassword() {
               className={inputClass}
             />
           </div>
-          <button
-            type="submit"
-            disabled={isLoading}
-            className={isDark
-              ? "w-full h-[52px] rounded-xl bg-white text-[#030305] text-[15px] font-semibold hover:bg-white/90 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2 mt-2"
-              : "w-full h-[52px] bg-primary text-primary-foreground text-[15px] font-semibold hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2 mt-2"
-            }
-          >
+          <Button className="w-full mt-2" disabled={isLoading} onClick={handleReset}>
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -165,8 +152,8 @@ export default function ResetPassword() {
             ) : (
               t('auth.update_password')
             )}
-          </button>
-        </form>
+          </Button>
+        </div>
       </motion.div>
     );
   };

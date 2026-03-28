@@ -173,7 +173,7 @@ function Callout({ rect, position, step, title, body, ctaLabel, onCta, onSkip, p
           bottom: position === 'top' ? window.innerHeight - rect.top + gap : undefined,
           width: calloutWidth,
         }}
-        className="bg-[#1C1917] rounded-2xl p-4"
+        className="bg-foreground rounded-[1.25rem] p-4"
       >
         <div
           style={{
@@ -220,7 +220,7 @@ function Callout({ rect, position, step, title, body, ctaLabel, onCta, onSkip, p
         </p>
         <button
           onClick={onCta}
-          className="w-full h-10 mt-3 bg-white text-[#1C1917] rounded-xl text-[14px] font-medium"
+          className="w-full h-10 mt-3 bg-background text-foreground rounded-full text-[14px] font-medium"
           style={{ fontFamily: "'DM Sans', sans-serif" }}
         >
           {ctaLabel}

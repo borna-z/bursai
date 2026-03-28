@@ -49,11 +49,11 @@ export function CalendarConnectBanner() {
       <button
         onClick={() => setExpanded(true)}
         className={cn(
-          'w-full flex items-center gap-3 rounded-xl border border-dashed p-3',
-          'bg-muted/30 hover:bg-muted/50 transition-colors text-left press'
+          'w-full flex items-center gap-3 rounded-[1.25rem] border border-dashed p-3',
+          'surface-utility hover:bg-muted/50 transition-colors text-left press'
         )}
       >
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-muted">
+        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted">
           <Calendar className="w-4 h-4 text-muted-foreground" />
         </div>
         <div className="flex-1 min-w-0">

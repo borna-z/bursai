@@ -85,7 +85,7 @@ function SwapSheet({
                 variant={mode === m ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => onModeChange(m)}
-                className="rounded-xl"
+                className="rounded-[1.25rem]"
               >
                 {m === 'safe' ? '🔒' : m === 'bold' ? '⚡' : '🌿'}{' '}
                 {t(`swap.mode_${m}`) || m.charAt(0).toUpperCase() + m.slice(1)}
@@ -113,7 +113,7 @@ function SwapSheet({
                   onClick={() => onSelect(candidate.garment.id)}
                   disabled={isSwapping}
                   className={cn(
-                    "w-full flex items-center gap-3 p-3 rounded-xl transition-all hover:bg-secondary/80 bg-secondary/40 backdrop-blur-sm active:scale-[0.99]",
+                    "w-full flex items-center gap-3 p-3 rounded-[1.25rem] transition-all hover:bg-secondary/80 bg-secondary/40 active:scale-[0.99]",
                     idx === 0 && "ring-1 ring-primary/20 bg-primary/5",
                     isSwapping && "opacity-50"
                   )}
@@ -185,7 +185,7 @@ function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, rende
         {categorySlotLabel}
       </p>
       <div
-        className="relative w-[68px] h-[84px] rounded-2xl overflow-hidden flex-shrink-0 cursor-pointer bg-muted/20 ring-1 ring-border/10"
+        className="relative w-[68px] h-[84px] rounded-[1.1rem] overflow-hidden flex-shrink-0 cursor-pointer bg-muted/20 ring-1 ring-border/10"
         onClick={() => navigate(`/wardrobe/${garmentId}`)}
       >
         <LazyImageSimple
@@ -205,7 +205,7 @@ function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, rende
       </div>
       <button
         onClick={(e) => { e.stopPropagation(); onSwap(); }}
-        className="p-2.5 rounded-xl bg-muted/20 hover:bg-muted/40 transition-all active:scale-95 flex-shrink-0 opacity-60 group-hover:opacity-100"
+        className="p-2.5 rounded-[1.25rem] bg-muted/20 hover:bg-muted/40 transition-all active:scale-95 flex-shrink-0 opacity-60 group-hover:opacity-100"
         aria-label={t('outfit.swap_out')}
       >
         <RefreshCw className="w-4 h-4 text-muted-foreground" />
@@ -521,8 +521,8 @@ export default function OutfitDetailPage() {
           </div>
         </div>
         <div className="grid grid-cols-2 gap-1 px-1">
-          <Skeleton className="aspect-[3/4] rounded-xl" />
-          <Skeleton className="aspect-[3/4] rounded-xl" />
+          <Skeleton className="aspect-[3/4] rounded-[1.1rem]" />
+          <Skeleton className="aspect-[3/4] rounded-[1.1rem]" />
         </div>
         <div className="px-6 pt-8 space-y-4">
           <Skeleton className="h-7 w-48" />
@@ -540,7 +540,7 @@ export default function OutfitDetailPage() {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
         <div className="max-w-xs w-full text-center space-y-4">
-          <div className="mx-auto w-14 h-14 rounded-2xl bg-muted flex items-center justify-center">
+          <div className="mx-auto w-14 h-14 rounded-[1.25rem] bg-muted flex items-center justify-center">
             <Shirt className="w-7 h-7 text-muted-foreground" />
           </div>
           <div className="space-y-1.5">
@@ -569,20 +569,20 @@ export default function OutfitDetailPage() {
       <div className="fixed top-0 left-0 right-0 z-20 p-4 flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
-          className="w-10 h-10 rounded-full bg-background/70 backdrop-blur-xl flex items-center justify-center active:scale-95 transition-transform ring-1 ring-border/10"
+          className="h-10 w-10 rounded-full border border-border/30 bg-background/80 flex items-center justify-center active:scale-95 transition-transform"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex gap-2">
           <button
             onClick={handleToggleSave}
-            className="w-10 h-10 rounded-full bg-background/70 backdrop-blur-xl flex items-center justify-center active:scale-95 transition-transform ring-1 ring-border/10"
+            className="h-10 w-10 rounded-full border border-border/30 bg-background/80 flex items-center justify-center active:scale-95 transition-transform"
           >
             {outfit.saved ? <BookmarkCheck className="w-5 h-5 text-primary" /> : <Bookmark className="w-5 h-5" />}
           </button>
           <button
             onClick={() => setShareSheetOpen(true)}
-            className="w-10 h-10 rounded-full bg-background/70 backdrop-blur-xl flex items-center justify-center active:scale-95 transition-transform ring-1 ring-border/10"
+            className="h-10 w-10 rounded-full border border-border/30 bg-background/80 flex items-center justify-center active:scale-95 transition-transform"
           >
             <Share2 className="w-5 h-5" />
           </button>
@@ -613,7 +613,7 @@ export default function OutfitDetailPage() {
 
       {/* ── Dark info block ── */}
       <div className="bg-foreground/[0.96] px-5 py-4">
-        <p className="font-['DM_Sans'] text-[8px] font-medium uppercase tracking-[0.12em] text-background/[0.45] mb-2.5">
+        <p className="font-['DM_Sans'] text-[9px] font-medium uppercase tracking-[0.12em] text-background/[0.45] mb-2.5">
           {genOccasionSubmode || displayOccasion}
         </p>
         {outfit.explanation && (
@@ -802,17 +802,17 @@ export default function OutfitDetailPage() {
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">{t('outfit.link')}</Label>
                   <div className="flex gap-2">
-                    <div className="flex-1 p-3 bg-secondary rounded-xl text-sm truncate">{shareUrl}</div>
+                    <div className="flex-1 p-3 bg-secondary rounded-[1.1rem] text-sm truncate">{shareUrl}</div>
                     <Button variant="outline" size="icon" onClick={handleCopyShareLink}>
                       {copied ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
                     </Button>
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1 rounded-2xl" onClick={handleCopyShareLink}>
+                  <Button variant="outline" className="flex-1 rounded-[1.25rem]" onClick={handleCopyShareLink}>
                     <Link className="w-4 h-4 mr-2" />{copied ? t('outfit.copied') : t('outfit.copy')}
                   </Button>
-                  <Button variant="outline" className="flex-1 rounded-2xl" onClick={handleDownloadImage} disabled={isDownloading}>
+                  <Button variant="outline" className="flex-1 rounded-[1.25rem]" onClick={handleDownloadImage} disabled={isDownloading}>
                     {isDownloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
                     {t('outfit.download')}
                   </Button>

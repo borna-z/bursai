@@ -44,7 +44,7 @@ export function WeekStrip({ selectedDate, onSelectDate, plannedOutfits }: WeekSt
             animate={isSelected ? { scale: 1.08 } : { scale: 1 }}
             transition={SPRING_SUBTLE}
             className={cn(
-              'flex flex-col items-center flex-1 py-3 px-1.5 rounded-xl transition-all duration-200',
+              'flex flex-col items-center flex-1 py-3 px-1.5 rounded-full transition-all duration-200',
               'active:scale-95',
               isSelected
                 ? 'bg-foreground text-background shadow-sm'

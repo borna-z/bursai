@@ -49,8 +49,8 @@ export function HomeQuickActions({ actions }: HomeQuickActionsProps) {
               onClick={action.onClick}
               className="group"
             >
-              <div className="flex min-h-[112px] w-full flex-col justify-between rounded-[1.2rem] border border-foreground/[0.08] bg-card/86 px-4 py-4 text-left shadow-[0_8px_18px_rgba(22,18,15,0.03)] transition-transform duration-200 group-active:scale-[0.985]">
-                <div className={cn('flex size-10 items-center justify-center rounded-[0.9rem]', action.toneClass)}>
+              <div className="surface-secondary flex min-h-[112px] w-full flex-col justify-between rounded-[1.25rem] px-4 py-4 text-left transition-transform duration-200 group-active:scale-[0.985]">
+                <div className={cn('flex size-10 items-center justify-center rounded-[1.1rem]', action.toneClass)}>
                   <Icon className="size-5 text-foreground/80" />
                 </div>
 

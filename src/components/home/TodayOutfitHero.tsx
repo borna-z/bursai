@@ -110,7 +110,7 @@ export function TodayOutfitHero({ weather, garmentCount, recentOutfits, classNam
                   hapticLight();
                   navigate(`/outfits/${outfit.id}`);
                 }}
-                className="w-16 h-16 rounded-lg overflow-hidden bg-background/5 border border-background/10 cursor-pointer shrink-0"
+                className="w-16 h-16 rounded-[1.1rem] overflow-hidden bg-background/5 border border-background/10 cursor-pointer shrink-0"
               >
                 <OutfitComposition
                   items={outfit.outfit_items}

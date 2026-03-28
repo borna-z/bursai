@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Sparkles, MoreVertical, Trash2, Shirt, X } from 'lucide-react';
+import { MoreVertical, Trash2, Shirt, X } from 'lucide-react';
 import { StylistReplyPlaceholder } from '@/components/ui/StylistReplyPlaceholder';
 import { ChatPageSkeleton } from '@/components/ui/skeletons';
 import { motion } from 'framer-motion';
@@ -114,7 +114,7 @@ function AIChatFallback() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="max-w-sm w-full text-center space-y-6">
-        <h1 className="text-xl font-semibold text-foreground">Your stylist is temporarily unavailable</h1>
+        <h1 className="font-['Playfair_Display'] italic text-[1.3rem] text-foreground leading-tight">Your stylist is temporarily unavailable</h1>
         <Button onClick={() => navigate(-1)}>Go Back</Button>
       </div>
     </div>
@@ -439,9 +439,11 @@ export default function AIChat() {
         <StyleMeSubNav />
         <div className="topbar-frost sticky top-0 z-10 flex shrink-0 items-center justify-between px-4 py-3">
           <div className="w-10" />
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-[15px] font-semibold">{t('chat.mode_stylist')}</span>
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="font-['Playfair_Display'] italic text-[1.1rem] text-foreground leading-tight">
+              {t('chat.mode_stylist')}
+            </span>
+            <span className="caption-upper" style={{fontSize:'8px'}}>AI Stylist</span>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -469,9 +471,9 @@ export default function AIChat() {
 
         {anchoredGarment && (
           <div className="px-4 pb-2">
-            <div className="surface-utility mx-auto flex max-w-md items-center justify-between gap-3 px-3 py-2 text-left">
+            <div className="surface-utility mx-auto flex max-w-md items-center justify-between gap-3 rounded-[1.25rem] px-3 py-2 text-left">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-background text-primary">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[1.25rem] bg-background text-primary">
                   <Shirt className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
@@ -483,7 +485,7 @@ export default function AIChat() {
                 <Button
                   variant="quiet"
                   size="sm"
-                  className="h-8 rounded-xl px-2.5 text-xs text-muted-foreground"
+                  className="h-8 rounded-full px-2.5 text-xs text-muted-foreground"
                   onClick={() => navigate(`/wardrobe/${anchoredGarment.id}`)}
                 >
                   Change
@@ -491,7 +493,7 @@ export default function AIChat() {
                 <Button
                   variant="quiet"
                   size="icon"
-                  className="h-8 w-8 rounded-xl text-muted-foreground"
+                  className="h-8 w-8 rounded-full text-muted-foreground"
                   onClick={() => setAnchoredGarmentId(null)}
                   aria-label="Clear garment anchor"
                 >
@@ -540,23 +542,27 @@ export default function AIChat() {
             })}
             {/* Plan action banner */}
             {planActionPayload && !isStreaming && (
-              <div className="mt-3 rounded-[1.5rem] bg-foreground px-4 py-4 text-background shadow-[0_18px_40px_rgba(22,18,15,0.18)]">
+              <div className="mt-3 rounded-[1.25rem] bg-foreground px-4 py-4 text-background shadow-[0_18px_40px_rgba(22,18,15,0.18)]">
                 <p className="mb-3 font-['Playfair_Display'] text-[0.95rem] italic text-background/75">
                   Your week is planned. Add these looks to the planner?
                 </p>
                 <div className="flex gap-2">
-                  <button
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1"
                     onClick={() => { handleAddToPlan(planActionPayload); setPlanActionPayload(null); }}
-                    className="flex-1 rounded-xl bg-background px-3 py-2 text-sm font-medium text-foreground transition-transform active:scale-[0.98]"
                   >
                     Add to plan
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 border-background/12 bg-transparent text-background/60 hover:bg-background/5"
                     onClick={() => setPlanActionPayload(null)}
-                    className="flex-1 rounded-xl border border-background/12 bg-transparent px-3 py-2 text-sm text-background/60 transition-colors hover:bg-background/5"
                   >
                     Dismiss
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -564,16 +570,18 @@ export default function AIChat() {
               <div className="pt-1">
                 <div className="app-chip-row justify-center px-1">
                   {suggestionChips.map((chip, i) => (
-                    <button
+                    <Button
                       key={i}
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full"
                       onClick={() => {
                         setSuggestionChips([]);
                         sendMessage(chip);
                       }}
-                      className="rounded-full border border-border/45 bg-background px-3.5 py-2 text-[13px] text-foreground transition-transform active:scale-[0.98]"
                     >
                       {chip}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>

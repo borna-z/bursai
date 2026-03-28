@@ -261,7 +261,7 @@ export default function PlanPage() {
     const tagLine = [occasionText, styleText].filter(Boolean).join(' · ');
 
     return (
-      <section className="surface-editorial rounded-[1.75rem] p-5">
+      <section className="surface-editorial rounded-[1.25rem] p-5">
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-2">
@@ -295,7 +295,7 @@ export default function PlanPage() {
           <div className="surface-media space-y-4 p-4">
             <div className="grid grid-cols-4 gap-2">
               {outfit.outfit_items.slice(0, 4).map((item) => (
-                <div key={item.id} className="aspect-square overflow-hidden rounded-[0.95rem] bg-background/75">
+                <div key={item.id} className="aspect-square overflow-hidden rounded-[1.1rem] bg-background/75">
                   <LazyImageSimple
                     imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
                     alt={item.garment?.title || item.slot}
@@ -384,7 +384,7 @@ export default function PlanPage() {
     const emptyWeek = weekPlannedCount === 0;
 
     return (
-      <section className="surface-editorial rounded-[1.75rem] p-5">
+      <section className="surface-editorial rounded-[1.25rem] p-5">
         <div className="space-y-4">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
@@ -433,16 +433,16 @@ export default function PlanPage() {
 
   return (
     <AppLayout>
-      <header className="topbar-frost sticky top-0 z-20">
-        <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-5 py-3">
+      <motion.header className="topbar-frost sticky top-0 z-20 -mx-5 px-5 pb-3 pt-3">
+        <div className="mx-auto flex max-w-md items-start justify-between gap-3">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
               <button type="button" className="flex items-center gap-2.5 transition-opacity hover:opacity-75">
                 <div>
-                  <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/60">
-                    Planner
-                  </p>
-                  <h1 className="capitalize text-[1.15rem] font-semibold tracking-[-0.03em]">{dateLabel}</h1>
+                  <p className="caption-upper mb-0.5">Weekly overview</p>
+                  <h1 className="font-['Playfair_Display'] italic text-[1.55rem] leading-tight text-foreground">
+                    {dateLabel}
+                  </h1>
                 </div>
                 <CalendarDays className="h-4 w-4 text-primary/50" />
               </button>
@@ -468,7 +468,7 @@ export default function PlanPage() {
             </Badge>
           ) : null}
         </div>
-      </header>
+      </motion.header>
 
       <PullToRefresh onRefresh={handleRefresh}>
         <AnimatedPage className="page-shell space-y-5">

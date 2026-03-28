@@ -163,7 +163,7 @@ export default function MoodOutfitPage() {
             <Card surface="editorial" className="space-y-4 p-5">
               <div>
                 <p className="label-editorial">Next move</p>
-                <h2 className="mt-2 text-[1.3rem] font-semibold tracking-[-0.04em]">
+                <h2 className="mt-2 font-['Playfair_Display'] italic text-[1.3rem] text-foreground leading-tight">
                   Keep the energy, adjust the details.
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -221,7 +221,7 @@ export default function MoodOutfitPage() {
                           />
                           <div className="space-y-2">
                             <p className="label-editorial">Mood direction</p>
-                            <h2 className="text-[1.45rem] font-semibold tracking-[-0.05em] text-foreground">
+                            <h2 className="font-['Playfair_Display'] italic text-[1.35rem] text-foreground leading-tight">
                               {t(`ai.mood_${mood.key}`)}
                             </h2>
                             <p className="text-sm leading-6 text-muted-foreground">

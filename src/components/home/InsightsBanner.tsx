@@ -34,14 +34,14 @@ export function InsightsBanner() {
   const { data: insights, isLoading, dataUpdatedAt, refetch } = useInsights();
 
   if (isLoading) {
-    return <Skeleton className="h-[72px] w-full rounded-2xl" />;
+    return <Skeleton className="h-[72px] w-full rounded-[1.25rem]" />;
   }
 
   if (!insights || insights.totalGarments === 0) return null;
 
   return (
     <div
-      className="w-full flex items-center gap-4 rounded-2xl surface-interactive p-4 text-left"
+      className="w-full flex items-center gap-4 rounded-[1.25rem] surface-interactive p-4 text-left"
     >
       <MiniUsageRing percentage={insights.usageRate} />
 

@@ -52,7 +52,7 @@ export function OutfitDNASection({ outfitId }: { outfitId: string }) {
       </div>
 
       {variations && variations.map((v, i) => (
-        <div key={i} className="rounded-2xl bg-muted/20 border border-border/20 p-4 space-y-2">
+        <div key={i} className="rounded-[1.25rem] bg-muted/20 border border-border/20 p-4 space-y-2">
           <p className="text-sm font-semibold">{v.name}</p>
           <p className="text-xs text-muted-foreground">{v.explanation}</p>
           <div className="grid grid-cols-4 gap-1.5">
@@ -70,7 +70,7 @@ export function OutfitDNASection({ outfitId }: { outfitId: string }) {
       ))}
 
       {!variations && !cloneDNA.isPending && (
-        <div className="rounded-2xl border border-dashed border-border/40 bg-muted/10 p-6 flex flex-col items-center justify-center gap-2">
+        <div className="rounded-[1.25rem] border border-dashed border-border/40 bg-muted/10 p-6 flex flex-col items-center justify-center gap-2">
           <RefreshCw className="w-6 h-6 text-muted-foreground/20" />
           <p className="text-xs text-muted-foreground/40">{t('outfit.dna_hint')}</p>
         </div>
@@ -147,7 +147,7 @@ export function AccessoryPairingSection({ outfitId }: { outfitId: string }) {
       })}
 
       {!suggestions && !suggestAccessories.isPending && (
-        <div className="rounded-2xl border border-dashed border-border/40 bg-muted/10 p-6 flex flex-col items-center justify-center gap-2">
+        <div className="rounded-[1.25rem] border border-dashed border-border/40 bg-muted/10 p-6 flex flex-col items-center justify-center gap-2">
           <Gem className="w-6 h-6 text-muted-foreground/20" />
           <p className="text-xs text-muted-foreground/40">{t('outfit.accessory_hint')}</p>
         </div>

@@ -30,10 +30,10 @@ export function DiscoverSecondaryRow() {
           transition={{ delay: 0.15 + i * STAGGER_DELAY, duration: 0.4, ease: EASE_CURVE }}
           whileTap={{ scale: 0.97 }}
           onClick={() => { hapticLight(); navigate(card.path); }}
-          className="relative overflow-hidden rounded-2xl border border-border/20 p-4 text-left"
+          className="relative overflow-hidden rounded-[1.25rem] border border-border/20 p-4 text-left"
           style={{ background: `linear-gradient(160deg, ${card.glowColor}, hsl(var(--card)))` }}
         >
-          <div className={`w-8 h-8 rounded-xl flex items-center justify-center mb-3 bg-foreground/[0.04] ${card.accentClass}`}>
+          <div className={`w-8 h-8 rounded-[1.1rem] flex items-center justify-center mb-3 bg-foreground/[0.04] ${card.accentClass}`}>
             <card.icon className="w-4 h-4" />
           </div>
           <h3 className="text-[13px] font-medium text-foreground leading-tight">

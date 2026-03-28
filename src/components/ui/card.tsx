@@ -8,11 +8,11 @@ const cardVariants = cva(
   {
     variants: {
       surface: {
-        default: "rounded-[1.75rem] border border-border/70 bg-card shadow-[0_12px_30px_rgba(28,25,23,0.05)]",
-        hero: "surface-hero rounded-[2rem]",
-        editorial: "surface-editorial rounded-[2rem]",
-        utility: "surface-utility rounded-[1.5rem]",
-        inset: "surface-inset rounded-[1.35rem]",
+        default: "rounded-[1.25rem] border border-border/70 bg-card shadow-[0_12px_30px_rgba(28,25,23,0.05)]",
+        hero: "surface-hero rounded-[1.25rem]",
+        editorial: "surface-editorial rounded-[1.25rem]",
+        utility: "surface-utility rounded-[1.25rem]",
+        inset: "surface-inset rounded-[1.25rem]",
         plain: "rounded-none border-transparent bg-transparent shadow-none",
       },
       tone: {
@@ -22,9 +22,9 @@ const cardVariants = cva(
         inverse: "border-foreground/5 bg-foreground text-background shadow-[0_16px_34px_rgba(15,13,12,0.18)]",
       },
       density: {
-        compact: "rounded-[1.35rem]",
+        compact: "rounded-[1.25rem]",
         comfortable: "",
-        airy: "rounded-[2rem]",
+        airy: "rounded-[1.25rem]",
       },
     },
     defaultVariants: {

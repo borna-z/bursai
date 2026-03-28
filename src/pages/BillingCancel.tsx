@@ -12,7 +12,7 @@ export default function BillingCancel() {
       <div className="max-w-md w-full border border-border bg-card p-8 space-y-6">
         <div className="text-center space-y-4">
           <XCircle className="w-12 h-12 text-muted-foreground mx-auto" />
-          <h1 className="text-2xl font-bold">{t('billing.cancel_title')}</h1>
+          <h1 className="font-['Playfair_Display'] italic text-2xl font-bold">{t('billing.cancel_title')}</h1>
           <p className="text-sm text-muted-foreground">{t('billing.cancel_desc')}</p>
         </div>
 

@@ -34,7 +34,7 @@ export function DiscoverChallenges({ challenges, participations, garmentCount, t
         <div className="h-4 w-28 rounded bg-muted/30 animate-pulse" />
         <div className="flex gap-3 overflow-hidden">
           {[0, 1, 2].map(i => (
-            <div key={i} className="w-36 h-28 rounded-xl bg-muted/20 animate-pulse shrink-0" />
+            <div key={i} className="w-36 h-28 rounded-[1.25rem] bg-muted/20 animate-pulse shrink-0" />
           ))}
         </div>
       </section>
@@ -68,7 +68,7 @@ export function DiscoverChallenges({ challenges, participations, garmentCount, t
                 else { hapticLight(); }
               }}
               className={cn(
-                'relative w-40 shrink-0 rounded-xl border p-3.5 text-left space-y-2.5 transition-colors',
+                'relative w-40 shrink-0 rounded-[1.25rem] border p-3.5 text-left space-y-2.5 transition-colors',
                 isCompleted && 'border-accent/15 bg-accent/[0.04]',
                 isLocked && 'border-border/10 bg-muted/[0.03] opacity-40',
                 !isCompleted && !isLocked && 'border-border/15 bg-card/60',

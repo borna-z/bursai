@@ -28,9 +28,9 @@ export function LaundryAlertBanner() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -8 }}
         onClick={() => navigate(`/wardrobe/${topAlert.garment.id}`)}
-        className="w-full flex items-center gap-3 rounded-xl bg-warning/10 border border-warning/20 p-3 press text-left"
+        className="w-full flex items-center gap-3 surface-utility rounded-[1.25rem] border-warning/20 p-3 press text-left"
       >
-        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-warning/15 flex items-center justify-center">
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-warning/15 flex items-center justify-center">
           <WashingMachine className="w-4 h-4 text-warning" />
         </div>
         <div className="flex-1 min-w-0">

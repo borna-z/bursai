@@ -117,7 +117,7 @@ export default function ShareOutfitPage() {
   if (notFound || !outfit) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-background">
-        <h1 className="text-2xl font-bold mb-2">{t('share.not_found')}</h1>
+        <h1 className="font-['Playfair_Display'] italic text-2xl font-bold mb-2">{t('share.not_found')}</h1>
         <p className="text-muted-foreground text-center mb-6">{t('share.not_found_desc')}</p>
         <Link to="/auth"><Button>{t('share.create_own')}<ArrowRight className="w-4 h-4 ml-2" /></Button></Link>
       </div>
@@ -242,25 +242,25 @@ export default function ShareOutfitPage() {
         </div>
 
         <div className="mt-8 space-y-4">
-          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+          <Card surface="editorial" className="border-primary/20">
             <CardContent className="p-4 text-center space-y-3">
               <Sparkles className="w-8 h-8 mx-auto text-primary" />
-              <h3 className="font-semibold text-lg">{t('share.cta_free_title')}</h3>
+              <h3 className="font-['Playfair_Display'] italic font-semibold text-lg">{t('share.cta_free_title')}</h3>
               <p className="text-sm text-muted-foreground">{t('share.cta_free_desc')}</p>
               <Link to="/auth"><Button className="w-full">{t('share.cta_free_button')}<ArrowRight className="w-4 h-4 ml-2" /></Button></Link>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border-amber-500/30">
+          <Card surface="editorial" className="border-accent/30">
             <CardContent className="p-4 text-center space-y-3">
-              <Crown className="w-8 h-8 mx-auto text-amber-500" />
-              <h3 className="font-semibold text-lg">{t('share.cta_premium_title')}</h3>
+              <Crown className="w-8 h-8 mx-auto text-accent" />
+              <h3 className="font-['Playfair_Display'] italic font-semibold text-lg">{t('share.cta_premium_title')}</h3>
               <ul className="text-sm text-muted-foreground space-y-1">
                 <li>✓ {t('share.cta_premium_wardrobe')}</li>
                 <li>✓ {t('share.cta_premium_outfits')}</li>
                 <li>✓ {t('share.cta_premium_ai')}</li>
               </ul>
               <Link to="/pricing" onClick={handleUpgradeClick}>
-                <Button className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
+                <Button className="w-full">
                   <Crown className="w-4 h-4 mr-2" />{t('share.cta_premium_button')}
                 </Button>
               </Link>

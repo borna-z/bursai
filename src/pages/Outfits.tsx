@@ -41,9 +41,9 @@ function OutfitCard({
     >
       <OutfitPreviewCard
         items={outfit.outfit_items}
-        surface="editorial"
+        surface="default"
         density={listView ? 'comfortable' : 'comfortable'}
-        mediaLayout={listView ? 'featured' : 'stacked'}
+        mediaLayout={listView ? 'portrait' : 'square'}
         meta={occasionLabel ? (
           <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/50">
             {occasionLabel}
@@ -57,6 +57,7 @@ function OutfitCard({
 
 export default function OutfitsPage() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { data: outfits, isLoading } = useOutfits(true);
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [listView, setListView] = useState(false);
@@ -83,23 +84,14 @@ export default function OutfitsPage() {
   return (
     <AppLayout>
       <div className="page-shell space-y-5">
-        <section className="surface-hero rounded-[1.75rem] px-5 py-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="eyebrow-chip">Outfits</span>
-                <span className="eyebrow-chip border-transparent bg-secondary/85 text-foreground/58">
-                  {(outfits ?? []).length} looks
-                </span>
-              </div>
-              <div className="space-y-1">
-                <h1 className="text-[1.55rem] font-semibold tracking-[-0.045em]">Look archive</h1>
-                <p className="max-w-[32ch] text-[0.92rem] leading-6 text-muted-foreground">
-                  Keep saved formulas close, open planned looks fast, and generate a new one only when you need it.
-                </p>
-              </div>
+        <motion.header className="topbar-frost sticky top-0 z-10 -mx-5 px-5 pb-3 pt-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="caption-upper mb-0.5">Saved looks</p>
+              <h1 className="font-['Playfair_Display'] italic text-[1.55rem] leading-tight">
+                {t('outfits.title') || 'Outfits'}
+              </h1>
             </div>
-
             <div className="flex shrink-0 items-center gap-2">
               <Button variant="quiet" className="rounded-full px-3 text-[0.8rem]" onClick={() => navigate('/plan')}>
                 Open plan
@@ -110,13 +102,13 @@ export default function OutfitsPage() {
               </Button>
             </div>
           </div>
-        </section>
+        </motion.header>
 
         {!outfits || outfits.length === 0 ? (
           <OutfitsOnboardingEmpty />
         ) : (
           <>
-            <section className="surface-utility rounded-[1.5rem] px-4 py-3">
+            <section className="surface-utility rounded-[1.25rem] px-4 py-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="app-chip-row">
                   {([

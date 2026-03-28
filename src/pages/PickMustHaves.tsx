@@ -112,7 +112,7 @@ export default function PickMustHaves() {
               placeholder={t('wardrobe.search')}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="h-11 rounded-[1.2rem] bg-background/85 pl-9"
+              className="h-11 bg-background/85 pl-9"
             />
             {search ? (
               <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -186,7 +186,7 @@ export default function PickMustHaves() {
       {selected.size > 0 ? (
         <div className="fixed inset-x-4 bottom-4 z-20" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
           <div className="mx-auto max-w-md">
-            <div className="action-bar-floating rounded-[1.6rem] p-3">
+            <div className="action-bar-floating rounded-[1.25rem] p-3">
               <Button onClick={handleDone} size="lg" className="w-full">
                 {t('capsule.done')} ({selected.size})
               </Button>

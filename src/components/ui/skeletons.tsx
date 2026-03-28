@@ -119,7 +119,7 @@ export function HomePageSkeleton() {
       </StaggerIn>
 
       <StaggerIn index={1}>
-        <div className="rounded-[1.75rem] border border-border/20 p-5 space-y-4">
+        <div className="rounded-[1.25rem] border border-border/20 p-5 space-y-4">
           <Skeleton className="h-4 w-16" />
           <Skeleton className="h-8 w-3/5" />
           <Skeleton className="h-4 w-4/5" />
@@ -128,11 +128,11 @@ export function HomePageSkeleton() {
             <Skeleton className="h-8 w-28 rounded-full" />
           </div>
           <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
-            <Skeleton className="h-36 rounded-[1.2rem]" />
+            <Skeleton className="h-36 rounded-[1.1rem]" />
             <div className="space-y-2">
               <Skeleton className="h-11 rounded-full" />
               <Skeleton className="h-11 rounded-full" />
-              <Skeleton className="h-24 rounded-[1.2rem]" />
+              <Skeleton className="h-24 rounded-[1.1rem]" />
             </div>
           </div>
         </div>
@@ -228,7 +228,7 @@ export function PlanPageSkeleton() {
         </div>
       </StaggerIn>
       <StaggerIn index={2}>
-        <div className="rounded-2xl overflow-hidden">
+        <div className="rounded-[1.25rem] overflow-hidden">
           <div className="grid grid-cols-2 gap-1 p-1">
             {[1, 2, 3, 4].map(i => (
               <Skeleton key={i} className="aspect-[4/5] rounded-xl" />
@@ -276,7 +276,7 @@ export function SettingsPageSkeleton() {
         </div>
       </StaggerIn>
       <StaggerIn index={1}>
-        <div className="rounded-2xl border border-border/10 overflow-hidden">
+        <div className="rounded-[1.25rem] border border-border/10 overflow-hidden">
           {[1, 2, 3, 4, 5, 6].map(i => (
             <div key={i} className="flex items-center gap-3 px-4 py-4 border-b border-border/5 last:border-0">
               <Skeleton className="w-9 h-9 rounded-xl" />

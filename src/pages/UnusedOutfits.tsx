@@ -227,7 +227,7 @@ export default function UnusedOutfits() {
                 className="text-left"
               >
                 <Card surface="utility" className="h-full overflow-hidden p-2">
-                  <div className="grid aspect-square grid-cols-2 overflow-hidden rounded-[1.35rem]">
+                  <div className="grid aspect-square grid-cols-2 overflow-hidden rounded-[1.1rem]">
                     {outfit.items.slice(0, 4).map((item) => {
                       const isUnused = unusedSet.has(item.garment.id);
 
@@ -271,7 +271,7 @@ export default function UnusedOutfits() {
             {generating
               ? Array.from({ length: Math.max(0, 6 - outfits.length) }).map((_, index) => (
                 <Card key={`skeleton-${index}`} surface="utility" className="overflow-hidden p-2">
-                  <Skeleton className="aspect-square rounded-[1.35rem]" />
+                  <Skeleton className="aspect-square rounded-[1.1rem]" />
                   <div className="space-y-2 px-1 pb-1 pt-4">
                     <Skeleton className="h-5 w-20 rounded-full" />
                     <Skeleton className="h-4 w-full" />

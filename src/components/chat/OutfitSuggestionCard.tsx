@@ -93,13 +93,13 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
   };
 
   return (
-    <div className="rounded-2xl border border-border/80 bg-card overflow-hidden animate-scale-in shadow-sm">
+    <div className="rounded-[1.25rem] border border-border/80 bg-card overflow-hidden animate-scale-in shadow-sm">
       {/* Garment row */}
       <div className="grid grid-cols-4 gap-2 p-3">
         {garments.map((g, i) => (
           <div key={g.id} className="group relative min-w-0">
             <Link to={`/wardrobe/${g.id}`} className="block">
-              <div className="mx-auto aspect-square w-full max-w-[72px] overflow-hidden rounded-xl border border-border/40 bg-muted">
+              <div className="mx-auto aspect-square w-full max-w-[72px] overflow-hidden rounded-[1.1rem] border border-border/40 bg-muted">
                 <LazyImageSimple
                   imagePath={getPreferredGarmentImagePath(g)}
                   alt={g.title}
@@ -160,7 +160,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
 
       {/* Missing shoes notice */}
       {missingShoes && (
-        <div className="mx-3 mb-2 flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2">
+        <div className="mx-3 mb-2 flex items-center gap-2 rounded-[1.25rem] bg-amber-500/10 border border-amber-500/20 px-3 py-2">
           <Shirt className="w-3.5 h-3.5 text-amber-600 shrink-0" />
           <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-snug">
             {t('outfit.missing_shoes') || 'No shoes in your wardrobe yet — add a pair to complete this look.'}
@@ -181,7 +181,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
           <div className="space-y-1.5">
             <Button
               size="sm"
-              className="w-full rounded-xl text-xs h-9 gap-1.5"
+              className="w-full rounded-full text-xs h-9 gap-1.5"
               onClick={() => navigate('/wardrobe?scan=shoes')}
               disabled={isCreating}
             >
@@ -191,7 +191,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
             <Button
               size="sm"
               variant="ghost"
-              className="w-full rounded-xl text-xs h-8 gap-1.5 text-muted-foreground"
+              className="w-full rounded-full text-xs h-8 gap-1.5 text-muted-foreground"
               onClick={() => onTryOutfit(garments.map(g => g.id))}
               disabled={isCreating}
             >
@@ -208,7 +208,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
         ) : (
           <Button
             size="sm"
-            className="w-full rounded-xl text-xs h-9 gap-1.5"
+            className="w-full rounded-full text-xs h-9 gap-1.5"
             onClick={() => onTryOutfit(garments.map(g => g.id))}
             disabled={isCreating}
           >

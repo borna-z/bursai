@@ -40,7 +40,7 @@ export function PaywallModal({ isOpen, onClose, reason }: PaywallModalProps) {
           <div className="mx-auto w-16 h-16 rounded-full gradient-premium flex items-center justify-center mb-4">
             <Crown className="w-8 h-8 text-white" />
           </div>
-          <DialogTitle className="text-2xl">{t('paywall.title')}</DialogTitle>
+          <DialogTitle className="font-['Playfair_Display'] italic text-2xl">{t('paywall.title')}</DialogTitle>
           <DialogDescription className="text-base leading-relaxed">
             {reason === 'garments'
               ? t('paywall.garment_limit')
@@ -54,7 +54,7 @@ export function PaywallModal({ isOpen, onClose, reason }: PaywallModalProps) {
             { icon: InfinityIcon, title: t('premium.unlimited_wardrobe'), desc: 'No limits on garments or outfit generation' },
             { icon: Sparkles, title: t('premium.smarter_ai'), desc: 'Personalized to your style DNA, wardrobe, and habits' },
           ].map(({ icon: Icon, title, desc }) => (
-            <div key={title} className="flex items-start gap-3 p-3 bg-secondary/40 rounded-xl">
+            <div key={title} className="flex items-start gap-3 p-3 bg-secondary/40 rounded-[1.25rem]">
               <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                 <Icon className="w-4.5 h-4.5 text-primary" />
               </div>

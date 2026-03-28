@@ -58,7 +58,7 @@ export function GapResultsPanel({
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: EASE_CURVE }}
-          className="relative overflow-hidden rounded-[1.8rem] border border-foreground/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,244,238,0.92))] p-5 shadow-[0_20px_48px_rgba(23,18,14,0.05)]"
+          className="relative overflow-hidden rounded-[1.25rem] border border-foreground/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,244,238,0.92))] p-5 shadow-[0_20px_48px_rgba(23,18,14,0.05)]"
         >
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-foreground/15 to-transparent" />
           <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
@@ -108,7 +108,7 @@ export function GapResultsPanel({
         </motion.article>
 
         <div className="space-y-3">
-          <div className="rounded-[1.5rem] border border-foreground/[0.08] bg-card/90 p-4">
+          <div className="rounded-[1.25rem] border border-foreground/[0.08] bg-card/90 p-4">
             <div className="flex items-center gap-2 text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
               <Sparkles className="size-3.5" />
               More additions
@@ -124,7 +124,7 @@ export function GapResultsPanel({
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: (index + 1) * STAGGER_DELAY, duration: 0.35, ease: EASE_CURVE }}
-              className="rounded-[1.5rem] border border-foreground/[0.08] bg-card/92 p-4 shadow-[0_12px_30px_rgba(18,18,18,0.04)]"
+              className="rounded-[1.25rem] border border-foreground/[0.08] bg-card/92 p-4 shadow-[0_12px_30px_rgba(18,18,18,0.04)]"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">

@@ -113,7 +113,7 @@ export function HomeCommandBoard({
             <p className="text-[0.7rem] uppercase tracking-[0.22em] text-muted-foreground/58">
               Workspace
             </p>
-            <h2 className="max-w-[15ch] text-[1.32rem] font-semibold tracking-[-0.05em] text-foreground">
+            <h2 className="max-w-[15ch] font-['Playfair_Display'] italic text-[1.32rem] tracking-[-0.05em] text-foreground">
               {title}
             </h2>
             <p className="max-w-[32ch] text-[0.84rem] leading-5 text-muted-foreground">
@@ -160,7 +160,7 @@ export function HomeCommandBoard({
               <OutfitComposition
                 items={todayOutfit.outfit_items}
                 compact
-                className="w-[104px] overflow-hidden rounded-[0.95rem] border border-foreground/[0.08] bg-background"
+                className="w-[104px] overflow-hidden rounded-[1.1rem] border border-foreground/[0.08] bg-background"
               />
 
               <div className="space-y-2">
@@ -187,7 +187,7 @@ export function HomeCommandBoard({
               {REQUIRED_SLOTS.map((slot) => (
                 <div
                   key={slot}
-                  className="rounded-[1rem] border border-dashed border-foreground/[0.12] bg-background/45 px-3 py-3"
+                  className="rounded-[1.1rem] border border-dashed border-foreground/[0.12] bg-background/45 px-3 py-3"
                 >
                   <p className="text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground/68">
                     Core
@@ -233,7 +233,7 @@ export function HomeCommandBoard({
                   <div
                     key={outfit?.id ?? `recent-look-${index}`}
                     className={cn(
-                      'min-w-[104px] overflow-hidden rounded-[1rem] border border-foreground/[0.08] bg-background/76',
+                      'min-w-[104px] overflow-hidden rounded-[1.1rem] border border-foreground/[0.08] bg-background/76',
                       !outfit && 'flex min-h-[116px] items-center justify-center px-3',
                     )}
                   >

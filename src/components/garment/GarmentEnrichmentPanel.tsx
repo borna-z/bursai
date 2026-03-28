@@ -95,7 +95,7 @@ export function GarmentEnrichmentPanel({
     <>
       {/* Enrichment pending */}
       {isEnrichmentPending && !enrichment && (
-        <div className="p-4 bg-card">
+        <div className="p-4 surface-utility">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles className="w-4 h-4 text-foreground/60 animate-pulse" />
             <p className="font-['DM_Sans'] text-xs text-foreground/70 font-medium m-0">Deep analysis in progress</p>
@@ -109,7 +109,7 @@ export function GarmentEnrichmentPanel({
 
       {/* Enrichment failed */}
       {enrichmentStatus === 'failed' && !enrichment && (
-        <div className="p-4 bg-card flex items-center justify-between">
+        <div className="p-4 surface-utility flex items-center justify-between">
           <p className="font-['DM_Sans'] text-xs text-foreground/70 m-0">Analysis incomplete</p>
           <Button variant="outline" size="sm" className="text-xs h-7 gap-1.5" onClick={onRetryEnrichment} disabled={isRetrying}>
             {isRetrying ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
@@ -163,7 +163,7 @@ export function GarmentEnrichmentPanel({
               </span>
             )}
             {enrichment?.style_tags?.map((tag) => (
-              <span key={tag} className="bg-card text-foreground px-2 py-[3px] font-['DM_Sans'] text-[10px] capitalize">
+              <span key={tag} className="bg-secondary/45 text-foreground px-2 py-[3px] font-['DM_Sans'] text-[10px] capitalize">
                 {tag}
               </span>
             ))}
@@ -179,7 +179,7 @@ export function GarmentEnrichmentPanel({
           </p>
           <div className="flex flex-wrap gap-1.5">
             {enrichment.occasion_tags.map((tag) => (
-              <span key={tag} className="bg-card text-foreground/70 px-2 py-[3px] font-['DM_Sans'] text-[10px] capitalize">
+              <span key={tag} className="bg-secondary/45 text-foreground/70 px-2 py-[3px] font-['DM_Sans'] text-[10px] capitalize">
                 {tag}
               </span>
             ))}
@@ -225,7 +225,7 @@ export function GarmentEnrichmentPanel({
           </p>
           <div className="flex flex-wrap gap-1.5">
             {enrichment.care_instructions.map((item) => (
-              <span key={item} className="bg-card text-foreground/70 px-2 py-[3px] font-['DM_Sans'] text-[10px] capitalize">
+              <span key={item} className="bg-secondary/45 text-foreground/70 px-2 py-[3px] font-['DM_Sans'] text-[10px] capitalize">
                 {item}
               </span>
             ))}
