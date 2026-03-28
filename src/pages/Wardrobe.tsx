@@ -13,6 +13,8 @@ import { AnimatedPage } from '@/components/ui/animated-page';
 import { FilterSheet } from '@/components/wardrobe/FilterSheet';
 import { GarmentGrid } from '@/components/wardrobe/GarmentGrid';
 import { WardrobeToolbar } from '@/components/wardrobe/WardrobeToolbar';
+import { WardrobeOutfitsTab } from '@/components/wardrobe/WardrobeOutfitsTab';
+import { hapticLight } from '@/lib/haptics';
 import {
   buildWardrobeCollectionTiles,
   buildWardrobeCommandTopState,
@@ -26,6 +28,8 @@ export default function WardrobePage() {
   const { t } = useLanguage();
 
   const {
+    activeTab,
+    setActiveTab,
     search,
     setSearch,
     selectedCategory,
@@ -85,6 +89,7 @@ export default function WardrobePage() {
 
   const displayCount = displayGarments.length;
   const commandState = useMemo(() => buildWardrobeCommandTopState({
+    activeTab,
     totalCount,
     displayCount,
     isSelecting,
@@ -92,16 +97,17 @@ export default function WardrobePage() {
     hasActiveFilters,
     search,
     t,
-  }), [displayCount, hasActiveFilters, isSelecting, search, selectedIds.size, t, totalCount]);
+  }), [activeTab, displayCount, hasActiveFilters, isSelecting, search, selectedIds.size, t, totalCount]);
 
   const inventoryState = useMemo(() => buildWardrobeInventoryState({
+    activeTab,
     isLoading,
     isSelecting,
     selectedIdsCount: selectedIds.size,
     displayCount,
     hasActiveFilters,
     search,
-  }), [displayCount, hasActiveFilters, isLoading, isSelecting, search, selectedIds.size]);
+  }), [activeTab, displayCount, hasActiveFilters, isLoading, isSelecting, search, selectedIds.size]);
 
   const smartCollectionTiles = useMemo(() => buildWardrobeCollectionTiles({
     smartFilter,
@@ -138,6 +144,15 @@ export default function WardrobePage() {
               setIsSelecting(false);
               setSelectedIds(new Set());
             }}
+            activeTab={activeTab}
+            onTabChange={(tab) => {
+              hapticLight();
+              setActiveTab(tab);
+              if (isSelecting) {
+                setIsSelecting(false);
+                setSelectedIds(new Set());
+              }
+            }}
             search={search}
             onSearchChange={setSearch}
             onClearSearch={() => setSearch('')}
@@ -147,44 +162,53 @@ export default function WardrobePage() {
             selectedIdsCount={selectedIds.size}
             onBulkLaundry={handleBulkLaundry}
             onBulkDelete={handleBulkDelete}
+            onAction={(action) => {
+              hapticLight();
+              if (action === 'style') navigate('/ai/generate');
+              if (action === 'plan') navigate('/plan');
+            }}
             onClearFilters={clearFilters}
-            onAddGarment={() => navigate('/wardrobe/add')}
-            onOpenOutfits={() => navigate('/outfits')}
           />
 
-          {allGarments.length > 0 && !hasHardFilters ? (
-            <WardrobeSmartAccess
-              tiles={smartCollectionTiles}
-              onSelect={setSmartFilter}
-            />
-          ) : null}
+          {activeTab === 'garments' ? (
+            <>
+              {allGarments.length > 0 && !hasHardFilters ? (
+                <WardrobeSmartAccess
+                  tiles={smartCollectionTiles}
+                  onSelect={setSmartFilter}
+                />
+              ) : null}
 
-          <section className="space-y-4" aria-label="Wardrobe inventory">
-            <GarmentGrid
-              t={t}
-              isLoading={isLoading}
-              isGridView={isGridView}
-              isSelecting={isSelecting}
-              selectedIds={selectedIds}
-              displayGarments={displayGarments}
-              showGrouped={showGrouped}
-              garmentsByCategory={garmentsByCategory}
-              hasActiveFilters={hasActiveFilters}
-              search={search}
-              onSelect={toggleSelect}
-              onEdit={(id) => navigate(`/wardrobe/${id}/edit`)}
-              onLaundry={(garment) => updateGarment.mutate({ id: garment.id, updates: { in_laundry: !garment.in_laundry } })}
-              onDelete={(id) => deleteGarment.mutate(id)}
-              onLoadMore={() => {
-                if (hasNextPage && !isFetchingNextPage) {
-                  fetchNextPage();
-                }
-              }}
-              hasNextPage={!!hasNextPage}
-              isFetchingNextPage={isFetchingNextPage}
-              onClearFilters={clearFilters}
-            />
-          </section>
+              <section className="space-y-4" aria-label="Wardrobe inventory">
+                <GarmentGrid
+                  t={t}
+                  isLoading={isLoading}
+                  isGridView={isGridView}
+                  isSelecting={isSelecting}
+                  selectedIds={selectedIds}
+                  displayGarments={displayGarments}
+                  showGrouped={showGrouped}
+                  garmentsByCategory={garmentsByCategory}
+                  hasActiveFilters={hasActiveFilters}
+                  search={search}
+                  onSelect={toggleSelect}
+                  onEdit={(id) => navigate(`/wardrobe/${id}/edit`)}
+                  onLaundry={(garment) => updateGarment.mutate({ id: garment.id, updates: { in_laundry: !garment.in_laundry } })}
+                  onDelete={(id) => deleteGarment.mutate(id)}
+                  onLoadMore={() => {
+                    if (hasNextPage && !isFetchingNextPage) {
+                      fetchNextPage();
+                    }
+                  }}
+                  hasNextPage={!!hasNextPage}
+                  isFetchingNextPage={isFetchingNextPage}
+                  onClearFilters={clearFilters}
+                />
+              </section>
+            </>
+          ) : (
+            <WardrobeOutfitsTab />
+          )}
         </AnimatedPage>
       </PullToRefresh>
 

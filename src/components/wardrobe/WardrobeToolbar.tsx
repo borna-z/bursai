@@ -1,5 +1,5 @@
 import type { ElementType } from 'react';
-import { Camera, CalendarDays, Grid3X3, List, Plus, Search, SlidersHorizontal, Sparkles, Trash2, WashingMachine, X } from 'lucide-react';
+import { CalendarDays, Grid3X3, List, Search, SlidersHorizontal, Sparkles, Trash2, WashingMachine, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -8,8 +8,6 @@ import type { WardrobeTab } from '@/hooks/useWardrobeView';
 
 const ACTION_ICONS = {
   style: Sparkles,
-  add: Plus,
-  scan: Camera,
   plan: CalendarDays,
 } satisfies Record<WardrobeCommandActionKey, ElementType>;
 
