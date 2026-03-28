@@ -9,6 +9,7 @@ import type { HomeCommandContext } from '@/components/home/homeTypes';
 import { Button } from '@/components/ui/button';
 import { OutfitComposition } from '@/components/ui/OutfitComposition';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface HomeCommandBoardProps extends HomeCommandContext {
   primaryLabel?: string;
@@ -23,48 +24,49 @@ function truncate(text: string, max: number) {
   return text.length > max ? `${text.slice(0, max - 3)}...` : text;
 }
 
-function getStatusLabel(state: HomeCommandContext['state']) {
+function getStatusLabel(state: HomeCommandContext['state'], t: (k: string) => string) {
   switch (state) {
     case 'empty_wardrobe':
-      return 'Setup';
+      return t('home.command_status_setup');
     case 'outfit_planned':
-      return 'Ready';
+      return t('home.command_status_ready');
     case 'weather_alert':
-      return 'Forecast';
+      return t('home.command_status_forecast');
     default:
-      return 'Next';
+      return t('home.command_status_next');
   }
 }
 
-function getWorkspaceTitle(state: HomeCommandContext['state'], coachNudge?: boolean) {
+function getWorkspaceTitle(state: HomeCommandContext['state'], t: (k: string) => string, coachNudge?: boolean) {
   switch (state) {
     case 'empty_wardrobe':
-      return coachNudge ? 'Start with three pieces' : 'Build your first look';
+      return coachNudge ? t('home.command_title_coach') : t('home.command_title_empty');
     case 'outfit_planned':
-      return 'Today is ready';
+      return t('home.command_title_planned');
     case 'weather_alert':
-      return 'Forecast changed';
+      return t('home.command_title_weather');
     default:
-      return 'Choose the next look';
+      return t('home.command_title_default');
   }
 }
 
 function getWorkspaceSummary(
   state: HomeCommandContext['state'],
+  t: (k: string) => string,
   coachNudge?: boolean,
   weatherSummary?: string | null,
 ) {
   switch (state) {
     case 'empty_wardrobe':
       return coachNudge
-        ? 'Top, bottom, and shoes unlock styling.'
-        : 'Three core pieces are enough to start.';
+        ? t('home.command_summary_coach')
+        : t('home.command_summary_empty');
     case 'outfit_planned':
-      return 'Open the saved look or make one more option.';
+      return t('home.command_summary_planned');
     case 'weather_alert':
-      return weatherSummary ? `${weatherSummary} needs a lighter reset.` : 'Rerun styling against the live forecast.';
+      return weatherSummary ? t('home.command_summary_weather_specific').replace('{weather}', weatherSummary) : t('home.command_summary_weather_generic');
     default:
-      return 'Use a recent look or build a new one.';
+      return t('home.command_summary_default');
   }
 }
 
@@ -86,12 +88,15 @@ export function HomeCommandBoard({
   onPrimaryAction,
   onSecondaryAction,
 }: HomeCommandBoardProps) {
+  const { t } = useLanguage();
   const progressWidth = getProgressWidth(garmentCount);
-  const title = getWorkspaceTitle(state, coachNudge);
-  const summary = getWorkspaceSummary(state, coachNudge, weatherSummary);
+  const title = getWorkspaceTitle(state, t, coachNudge);
+  const summary = getWorkspaceSummary(state, t, coachNudge, weatherSummary);
   const visibleRecentOutfits = recentOutfits.slice(0, 3);
   const secondaryMeta = garmentCount != null
-    ? `${garmentCount} piece${garmentCount === 1 ? '' : 's'} ready`
+    ? (garmentCount === 1
+        ? t('home.command_pieces_ready').replace('{count}', String(garmentCount))
+        : t('home.command_pieces_ready_plural').replace('{count}', String(garmentCount)))
     : null;
 
   return (
@@ -111,7 +116,7 @@ export function HomeCommandBoard({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-2">
             <p className="text-[0.7rem] uppercase tracking-[0.22em] text-muted-foreground/58">
-              Workspace
+              {t('home.command_workspace')}
             </p>
             <h2 className="max-w-[15ch] font-['Playfair_Display'] italic text-[1.32rem] tracking-[-0.05em] text-foreground">
               {title}
@@ -128,7 +133,7 @@ export function HomeCommandBoard({
 
           <div className="eyebrow-chip self-start bg-background/72 text-muted-foreground/72">
             <Dot className="size-4" />
-            {getStatusLabel(state)}
+            {getStatusLabel(state, t)}
           </div>
         </div>
 
@@ -137,7 +142,7 @@ export function HomeCommandBoard({
             onClick={onPrimaryAction}
             className="h-12 justify-between px-5 text-[0.94rem]"
           >
-            {primaryLabel ?? 'Style me'}
+            {primaryLabel ?? t('home.command_style_me')}
             <Sparkles className="size-4" />
           </Button>
 
@@ -165,13 +170,13 @@ export function HomeCommandBoard({
 
               <div className="space-y-2">
                 <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/68">
-                  Planned look
+                  {t('home.command_planned_look')}
                 </p>
                 <p className="text-[0.94rem] font-medium tracking-[-0.02em] text-foreground">
-                  Open it, wear it, or restyle once.
+                  {t('home.command_planned_cta')}
                 </p>
                 <p className="text-[0.82rem] leading-5 text-muted-foreground">
-                  {truncate(todayOutfit.explanation || 'Open the outfit for notes and final adjustments.', 88)}
+                  {truncate(todayOutfit.explanation || t('home.command_planned_fallback'), 88)}
                 </p>
               </div>
             </div>
@@ -190,7 +195,7 @@ export function HomeCommandBoard({
                   className="rounded-[1.1rem] border border-dashed border-foreground/[0.12] bg-background/45 px-3 py-3"
                 >
                   <p className="text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground/68">
-                    Core
+                    {t('home.command_core')}
                   </p>
                   <p className="mt-2 text-[0.88rem] font-medium text-foreground">{slot}</p>
                 </div>
@@ -199,7 +204,7 @@ export function HomeCommandBoard({
 
             <div className="space-y-2">
               <div className="flex items-center justify-between text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/68">
-                <span>Starter set</span>
+                <span>{t('home.command_starter_set')}</span>
                 <span>{Math.min(garmentCount ?? 0, 3)}/3</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-foreground/[0.08]">
@@ -218,7 +223,7 @@ export function HomeCommandBoard({
           <div data-testid="home-command-board-visual-recent" className="space-y-2.5">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/68">
-                {state === 'weather_alert' ? 'Rebuild around weather' : 'Recent looks'}
+                {state === 'weather_alert' ? t('home.command_rebuild_weather') : t('home.command_recent_looks')}
               </p>
               {scheduleSummary ? (
                 <p className="truncate text-[0.78rem] text-muted-foreground/72">
@@ -247,7 +252,7 @@ export function HomeCommandBoard({
                       />
                     ) : (
                       <span className="text-center text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground/60">
-                        Open slot
+                        {t('home.command_open_slot')}
                       </span>
                     )}
                   </div>

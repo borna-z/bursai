@@ -3,6 +3,7 @@ import type { Garment } from '@/hooks/useGarments';
 import { Button } from '@/components/ui/button';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface HomeWearNextPanelProps {
   unusedGarments: Garment[];
@@ -17,6 +18,8 @@ export function HomeWearNextPanel({
   onOpenUnused,
   onStyleAroundGem,
 }: HomeWearNextPanelProps) {
+  const { t } = useLanguage();
+
   if (unusedGarments.length === 0) {
     return null;
   }
@@ -32,14 +35,14 @@ export function HomeWearNextPanel({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="label-editorial text-muted-foreground/60">
-            {sleepingBeautiesCount >= 3 ? 'Sleeping beauties' : 'Wear next'}
+            {sleepingBeautiesCount >= 3 ? t('home.wear_sleeping_beauties') : t('home.wear_next_label')}
           </p>
           <h2 className="mt-1 font-['Playfair_Display'] italic text-[1.25rem] tracking-[-0.03em] text-foreground">
-            Bring a dormant piece back
+            {t('home.wear_bring_back')}
           </h2>
         </div>
         <p className="text-[0.74rem] uppercase tracking-[0.18em] text-muted-foreground/60">
-          {unusedGarments.length} waiting
+          {t('home.wear_waiting').replace('{count}', String(unusedGarments.length))}
         </p>
       </div>
 
@@ -66,13 +69,13 @@ export function HomeWearNextPanel({
         <div className="flex flex-col justify-between gap-4">
           <div>
             <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">
-              Spotlight
+              {t('home.wear_spotlight')}
             </p>
             <h3 className="mt-2 text-[1.05rem] font-medium tracking-[-0.025em] text-foreground">
               {spotlight.title || `${spotlight.color_primary || ''} ${spotlight.category || 'Garment'}`.trim()}
             </h3>
             <p className="mt-2 text-[0.92rem] leading-6 text-foreground">
-              Rescue one neglected favorite first, then open the full unworn rotation only if you need more options.
+              {t('home.wear_rescue_desc')}
             </p>
           </div>
 
@@ -82,14 +85,14 @@ export function HomeWearNextPanel({
               className="h-11 rounded-full px-4"
             >
               <Sparkles className="size-4" />
-              Style this
+              {t('home.wear_style_this')}
             </Button>
             <Button
               variant="ghost"
               onClick={(e) => { e.stopPropagation(); onOpenUnused(); }}
               className="h-11 text-[0.82rem] font-medium text-muted-foreground underline underline-offset-4"
             >
-              Open unworn rotation
+              {t('home.wear_open_rotation')}
             </Button>
           </div>
         </div>

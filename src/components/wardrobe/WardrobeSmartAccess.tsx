@@ -4,6 +4,7 @@ import { Clock3, Sparkles, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { WardrobeCollectionTileModel } from '@/components/wardrobe/wardrobeTypes';
 import type { WardrobeSmartFilter } from '@/hooks/useWardrobeView';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const TILE_ICONS = {
   rarely_worn: Clock3,
@@ -17,6 +18,7 @@ interface WardrobeSmartAccessProps {
 }
 
 export function WardrobeSmartAccess({ tiles, onSelect }: WardrobeSmartAccessProps) {
+  const { t } = useLanguage();
   if (tiles.length === 0) return null;
 
   return (
@@ -24,10 +26,10 @@ export function WardrobeSmartAccess({ tiles, onSelect }: WardrobeSmartAccessProp
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-foreground/40">
-            Smart access
+            {t('wardrobe.smart_access')}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Open the groups that matter now.
+            {t('wardrobe.smart_access_desc')}
           </p>
         </div>
       </div>
@@ -64,7 +66,7 @@ export function WardrobeSmartAccess({ tiles, onSelect }: WardrobeSmartAccessProp
                   <div className="min-w-0">
                     <p className={cn('truncate text-[13px] font-medium', tile.active && 'text-background')}>{tile.label}</p>
                     <p className={cn('text-xs', tile.active ? 'text-background/70' : 'text-muted-foreground')}>
-                      {tile.count} pieces
+                      {t('wardrobe.pieces_count').replace('{count}', String(tile.count))}
                     </p>
                   </div>
                 </div>

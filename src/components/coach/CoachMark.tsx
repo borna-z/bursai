@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { EASE_CURVE } from '@/lib/motion';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface CoachMarkProps {
   step: number;
@@ -128,6 +129,7 @@ interface CalloutProps {
 }
 
 function Callout({ rect, position, step, title, body, ctaLabel, onCta, onSkip, prefersReduced }: CalloutProps) {
+  const { t } = useLanguage();
   const calloutWidth = Math.min(280, window.innerWidth * 0.9);
   const gap = 12;
 
@@ -204,7 +206,7 @@ function Callout({ rect, position, step, title, body, ctaLabel, onCta, onSkip, p
           className="text-[10px] tracking-wide mb-2"
           style={{ color: 'rgba(255,255,255,0.4)', fontFamily: "'DM Sans', sans-serif" }}
         >
-          Step {step + 1} of {TOTAL_STEPS}
+          {t('coach.step_counter').replace('{step}', String(step + 1)).replace('{total}', String(TOTAL_STEPS))}
         </p>
         <p
           className="text-[15px] text-white font-normal"
@@ -231,7 +233,7 @@ function Callout({ rect, position, step, title, body, ctaLabel, onCta, onSkip, p
             className="w-full mt-2 text-[12px] text-white/65 hover:text-white transition-colors"
             style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
-            Skip coach
+            {t('coach.skip')}
           </button>
         )}
       </motion.div>

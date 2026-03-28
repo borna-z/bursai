@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 
 import type { TodaySuggestion } from '@/lib/buildTodaySuggestions';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface HomeAskBursRailProps {
   suggestions: TodaySuggestion[];
@@ -8,6 +9,7 @@ interface HomeAskBursRailProps {
 }
 
 export function HomeAskBursRail({ suggestions, onSelectSuggestion }: HomeAskBursRailProps) {
+  const { t } = useLanguage();
   const visibleSuggestions = suggestions.slice(0, 2);
 
   if (visibleSuggestions.length === 0) return null;
@@ -16,7 +18,7 @@ export function HomeAskBursRail({ suggestions, onSelectSuggestion }: HomeAskBurs
     <section className="space-y-2">
       <div className="flex items-center justify-between px-0.5">
         <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/65">
-          Ask BURS
+          {t('home.ask_burs_label')}
         </p>
         <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/50">
           Tap to start

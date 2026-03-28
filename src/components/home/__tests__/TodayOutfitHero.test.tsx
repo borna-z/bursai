@@ -58,7 +58,7 @@ describe('TodayOutfitHero', () => {
 
   it('renders a clickable CTA button', () => {
     renderHero();
-    const button = screen.getByRole('button', { name: 'Style outfit' });
+    const button = screen.getByRole('button', { name: 'home.action_style_outfit' });
     expect(button).toBeInTheDocument();
     fireEvent.click(button);
     expect(mockNavigate).toHaveBeenCalledWith('/ai/generate');
@@ -78,7 +78,7 @@ describe('TodayOutfitHero', () => {
     vi.setSystemTime(new Date('2024-01-01T19:00:00'));
     renderHero();
     const heading = screen.getByRole('heading', { level: 2 });
-    expect(heading.textContent?.toLowerCase()).toContain('tomorrow');
+    expect(heading.textContent).toContain('home.hero_headline_evening');
     vi.useRealTimers();
   });
 });

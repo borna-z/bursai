@@ -51,9 +51,9 @@ import { logger } from '@/lib/logger';
 
 const MAX_OUTFITS_PER_DAY = 4;
 
-function formatEventLine(eventCount: number) {
+function formatEventLine(eventCount: number, t: (key: string) => string) {
   if (eventCount === 0) return null;
-  return eventCount === 1 ? '1 calendar event' : `${eventCount} calendar events`;
+  return eventCount === 1 ? t('plan.calendar_event_one') : t('plan.calendar_event_many').replace('{count}', String(eventCount));
 }
 
 export default function PlanPage() {
@@ -195,7 +195,7 @@ export default function PlanPage() {
       const existing = getPlannedForDate(date);
       if (existing?.outfit_id) continue;
       if (!canCreateOutfit()) {
-        toast.error(t('paywall.outfit_limit') || 'Outfit limit reached');
+        toast.error(t('paywall.outfit_limit'));
         break;
       }
       const forecast = getForecastForDate(dateStr);
@@ -224,7 +224,11 @@ export default function PlanPage() {
         const laundryWarning = result.laundry?.warning;
 
         if (successCount > 0) {
-          toast.success(`${successCount} outfit${successCount > 1 ? 's' : ''} planned for the week`);
+          toast.success(
+            successCount === 1
+              ? t('plan.week_success_one')
+              : t('plan.week_success_many').replace('{count}', String(successCount))
+          );
         }
         if (laundryWarning) {
           toast(laundryWarning, { icon: '🧺' });
@@ -266,7 +270,7 @@ export default function PlanPage() {
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="eyebrow-chip">Planned day</span>
+                <span className="eyebrow-chip">{t('plan.planned_day')}</span>
                 {tagLine ? (
                   <span className="eyebrow-chip border-transparent bg-secondary/85 text-foreground/58">
                     {tagLine}
@@ -274,7 +278,7 @@ export default function PlanPage() {
                 ) : null}
               </div>
               <h2 className="text-[1.35rem] font-semibold tracking-[-0.04em] text-foreground">
-                {isToday(selectedDate) ? 'Today is already styled' : `${dateLabel} is planned`}
+                {isToday(selectedDate) ? t('plan.today_styled') : t('plan.date_planned').replace('{date}', dateLabel)}
               </h2>
               {daySummary?.summary ? (
                 <p className="max-w-[34ch] text-[0.92rem] leading-6 text-muted-foreground">
@@ -288,7 +292,7 @@ export default function PlanPage() {
 
           {calendarEvents.length > 0 ? (
             <div className="rounded-[1.1rem] border border-border/55 bg-background/72 px-4 py-3 text-[0.84rem] text-muted-foreground">
-              {formatEventLine(calendarEvents.length)}
+              {formatEventLine(calendarEvents.length, t)}
             </div>
           ) : null}
 
@@ -315,7 +319,7 @@ export default function PlanPage() {
           {additionalPlanned.length > 0 ? (
             <div className="space-y-2">
               <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/65">
-                Also planned
+                {t('plan.also_planned')}
               </p>
               <div className="app-chip-row">
                 {additionalPlanned.map((planned) => (
@@ -325,7 +329,7 @@ export default function PlanPage() {
                     onClick={() => planned.outfit && navigate(`/outfits/${planned.outfit.id}`)}
                     className="rounded-full border border-border/55 bg-background/82 px-3 py-2 text-[0.78rem] text-foreground"
                   >
-                    {planned.outfit?.occasion ? getOccasionLabel(planned.outfit.occasion, t) : 'Open outfit'}
+                    {planned.outfit?.occasion ? getOccasionLabel(planned.outfit.occasion, t) : t('plan.open_outfit')}
                   </button>
                 ))}
               </div>
@@ -343,7 +347,7 @@ export default function PlanPage() {
                 navigate(`/outfits/${outfit.id}`);
               }}
             >
-              {isToday(selectedDate) ? 'Wear today' : 'Open outfit'}
+              {isToday(selectedDate) ? t('plan.wear_today') : t('plan.open_outfit')}
             </Button>
 
             <div className="flex flex-wrap items-center gap-4 text-[0.82rem] font-medium text-muted-foreground">
@@ -355,14 +359,14 @@ export default function PlanPage() {
                 }}
                 className="underline underline-offset-4"
               >
-                Restyle
+                {t('plan.restyle')}
               </button>
               <button
                 type="button"
                 onClick={() => void handleRemove(primaryPlanned.id)}
                 className="underline underline-offset-4"
               >
-                Clear
+                {t('plan.clear')}
               </button>
               {canAddMore ? (
                 <button
@@ -370,7 +374,7 @@ export default function PlanPage() {
                   onClick={() => setQuickGenerateSheetOpen(true)}
                   className="underline underline-offset-4"
                 >
-                  Add another
+                  {t('plan.add_another')}
                 </button>
               ) : null}
             </div>
@@ -388,23 +392,23 @@ export default function PlanPage() {
         <div className="space-y-4">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="eyebrow-chip">{emptyWeek ? 'Week reset' : 'Open day'}</span>
+              <span className="eyebrow-chip">{emptyWeek ? t('plan.week_reset') : t('plan.open_day')}</span>
               <WeatherForecastBadge date={selectedDateStr} compact={false} />
             </div>
             <h2 className="text-[1.35rem] font-semibold tracking-[-0.04em] text-foreground">
-              {emptyWeek ? 'Nothing planned yet' : `Nothing planned for ${dateLabel}`}
+              {emptyWeek ? t('plan.nothing_planned') : t('plan.nothing_planned_for').replace('{date}', dateLabel)}
             </h2>
             <p className="max-w-[34ch] text-[0.92rem] leading-6 text-muted-foreground">
               {daySummary?.summary
                 ?? (emptyWeek
-                  ? 'Let BURS plan the week once, then adjust only the days that need extra attention.'
-                  : 'Create one clear outfit for this day, or let the week planner fill the rest around it.')}
+                  ? t('plan.empty_week_hint')
+                  : t('plan.empty_day_hint'))}
             </p>
           </div>
 
           {calendarEvents.length > 0 ? (
             <div className="rounded-[1.1rem] border border-border/55 bg-background/72 px-4 py-3 text-[0.84rem] text-muted-foreground">
-              {formatEventLine(calendarEvents.length)}
+              {formatEventLine(calendarEvents.length, t)}
             </div>
           ) : null}
 
@@ -413,7 +417,7 @@ export default function PlanPage() {
               className="h-12 w-full rounded-full"
               onClick={() => emptyWeek ? setQuickPlanSheetOpen(true) : setQuickGenerateSheetOpen(true)}
             >
-              {emptyWeek ? 'Plan the week' : 'Plan this day'}
+              {emptyWeek ? t('plan.plan_the_week') : t('plan.plan_this_day')}
             </Button>
 
             <div className="flex flex-wrap items-center gap-4 text-[0.82rem] font-medium text-muted-foreground">
@@ -422,7 +426,7 @@ export default function PlanPage() {
                 onClick={() => emptyWeek ? setQuickGenerateSheetOpen(true) : setQuickPlanSheetOpen(true)}
                 className="underline underline-offset-4"
               >
-                {emptyWeek ? 'Plan today only' : 'Auto-plan week'}
+                {emptyWeek ? t('plan.plan_today_only') : t('plan.auto_plan_week')}
               </button>
             </div>
           </div>
@@ -439,7 +443,7 @@ export default function PlanPage() {
             <PopoverTrigger asChild>
               <button type="button" className="flex h-11 min-h-[44px] items-center gap-2.5 transition-opacity hover:opacity-75">
                 <div>
-                  <p className="caption-upper mb-0.5">Weekly overview</p>
+                  <p className="caption-upper mb-0.5">{t('plan.weekly_overview')}</p>
                   <h1 className="font-['Playfair_Display'] italic text-[1.55rem] leading-tight text-foreground">
                     {dateLabel}
                   </h1>

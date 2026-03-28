@@ -358,8 +358,8 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
           description: t('addgarment.milestone_desc'),
         });
       } else {
-        toast.success('Added to wardrobe', {
-          description: 'Background cleanup will finish automatically.',
+        toast.success(t('addgarment.added'), {
+          description: t('addgarment.added_desc'),
         });
       }
 

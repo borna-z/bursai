@@ -109,7 +109,7 @@ export function useCalendarSync() {
       const syncedCount = data?.synced ?? 0;
       const windowDays = data?.syncWindowDays ?? 30;
       if (syncedCount === 0) {
-        toast.info(`Google Calendar connected, but no events were found in the next ${windowDays} days.`);
+        toast.info(t('calsync.no_events_found').replace('{days}', String(windowDays)));
       } else {
         toast.success(t('calsync.synced_google').replace('{count}', String(syncedCount)));
       }
@@ -117,10 +117,10 @@ export function useCalendarSync() {
     onError: (error: Error & { reconnect?: boolean }) => {
       if (error.reconnect) {
         queryClient.invalidateQueries({ queryKey: ['google-calendar-connection'] });
-        toast.error(t('calsync.reconnect_required') || 'Google Calendar disconnected. Please reconnect.', {
+        toast.error(t('calsync.reconnect_required'), {
           duration: 8000,
           action: {
-            label: t('calsync.reconnect_action') || 'Reconnect',
+            label: t('calsync.reconnect_action'),
             onClick: () => connectGoogle(),
           },
         });

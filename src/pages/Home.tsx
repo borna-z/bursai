@@ -151,7 +151,7 @@ export default function HomePage() {
       return todayCalEvents.length > 1 ? `${firstEvent.title} + ${todayCalEvents.length - 1}` : firstEvent.title;
     }
     if (todayCalEvents.length > 0) {
-      return `${todayCalEvents.length} today`;
+      return t('home.events_today').replace('{count}', String(todayCalEvents.length));
     }
     return null;
   }, [todayCalEvents]);
@@ -173,20 +173,20 @@ export default function HomePage() {
   const primaryAction = useMemo(() => {
     if (homeState === 'empty_wardrobe') {
       return {
-        label: 'Add garment',
+        label: t('home.action_add_garment'),
         onClick: () => navigate('/wardrobe/add'),
       };
     }
 
     if (homeState === 'outfit_planned') {
       return {
-        label: 'Restyle',
+        label: t('home.action_restyle'),
         onClick: () => navigate('/ai/generate'),
       };
     }
 
     return {
-      label: 'Style outfit',
+      label: t('home.action_style_outfit'),
       onClick: () => navigate('/ai/generate'),
     };
   }, [homeState, navigate]);
@@ -194,20 +194,20 @@ export default function HomePage() {
   const secondaryAction = useMemo(() => {
     if (homeState === 'empty_wardrobe') {
       return {
-        label: 'Open wardrobe',
+        label: t('home.action_open_wardrobe'),
         onClick: () => navigate('/wardrobe'),
       };
     }
 
     if (homeState === 'outfit_planned' && todayOutfit) {
       return {
-        label: 'Open outfit',
+        label: t('home.action_open_outfit'),
         onClick: () => navigate(`/outfits/${todayOutfit.id}`),
       };
     }
 
     return {
-      label: 'Open plan',
+      label: t('home.action_open_plan'),
       onClick: () => navigate('/plan'),
     };
   }, [homeState, navigate, todayOutfit]);
@@ -249,7 +249,7 @@ export default function HomePage() {
                   <button
                     onClick={() => navigate('/settings')}
                     className="flex h-11 w-11 items-center justify-center rounded-full border border-border/45 bg-background/90 transition-colors hover:bg-background active:scale-95"
-                    aria-label="Settings"
+                    aria-label={t('home.settings_aria')}
                   >
                     <Settings className="size-4 text-muted-foreground/70" />
                   </button>
@@ -318,9 +318,9 @@ export default function HomePage() {
 
           <section className="space-y-3">
             <div className="flex items-center justify-between px-0.5">
-              <p className="label-editorial text-muted-foreground/60">Utilities</p>
+              <p className="label-editorial text-muted-foreground/60">{t('home.section_utilities')}</p>
               <p className="text-[0.74rem] uppercase tracking-[0.18em] text-muted-foreground/55">
-                Ask or pack
+                {t('home.section_utilities_sub')}
               </p>
             </div>
 
@@ -333,7 +333,7 @@ export default function HomePage() {
                     return;
                   }
 
-                  navigate('/ai/chat', { state: { prefillMessage: 'Help me style today.' } });
+                  navigate('/ai/chat', { state: { prefillMessage: t('home.prefill_help_style') } });
                 }}
                 className="surface-secondary flex flex-col items-start gap-4 rounded-[1.5rem] p-4 text-left"
               >
@@ -342,10 +342,10 @@ export default function HomePage() {
                 </div>
                 <div className="space-y-2">
                   <h2 className="text-[1.05rem] font-semibold tracking-[-0.03em] text-foreground">
-                    Ask BURS
+                    {t('home.ask_burs_title')}
                   </h2>
                   <p className="text-[0.86rem] leading-6 text-muted-foreground">
-                    {firstSuggestion?.text ?? 'Open chat for one fast recommendation based on today.'}
+                    {firstSuggestion?.text ?? t('home.ask_burs_fallback')}
                   </p>
                 </div>
               </button>
@@ -360,10 +360,10 @@ export default function HomePage() {
                 </div>
                 <div className="space-y-2">
                   <h2 className="text-[1.05rem] font-semibold tracking-[-0.03em] text-foreground">
-                    Travel capsule
+                    {t('home.travel_capsule_title')}
                   </h2>
                   <p className="text-[0.86rem] leading-6 text-muted-foreground">
-                    Build one tight packing list instead of browsing extra tools.
+                    {t('home.travel_capsule_desc')}
                   </p>
                 </div>
               </button>
@@ -377,9 +377,9 @@ export default function HomePage() {
 
           <section className="space-y-3">
             <div className="flex items-center justify-between px-0.5">
-              <p className="label-editorial text-muted-foreground/60">Insights preview</p>
+              <p className="label-editorial text-muted-foreground/60">{t('home.section_insights')}</p>
               <p className="text-[0.74rem] uppercase tracking-[0.18em] text-muted-foreground/55">
-                DNA and rotation
+                {t('home.section_insights_sub')}
               </p>
             </div>
 

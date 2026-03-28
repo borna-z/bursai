@@ -30,21 +30,21 @@ export function TodayOutfitHero({ weather, garmentCount, recentOutfits, classNam
   const isRain = weather?.precipitation === 'rain' || weather?.precipitation === 'snow';
 
   // Context-aware headline
-  let headline = 'What are you wearing today?';
-  if (hour < 10) headline = 'Good morning — let me style your day.';
-  else if (hour < 14) headline = 'What should you wear right now?';
-  else if (hour < 18) headline = 'Need an outfit for tonight?';
-  else headline = 'Plan tomorrow\'s look before bed.';
+  let headline = t('home.hero_headline_default');
+  if (hour < 10) headline = t('home.hero_headline_morning');
+  else if (hour < 14) headline = t('home.hero_headline_midday');
+  else if (hour < 18) headline = t('home.hero_headline_afternoon');
+  else headline = t('home.hero_headline_evening');
 
   // Context-aware subtitle
-  let subtitle = 'I\'ll match it to the weather, your schedule, and what you haven\'t worn lately.';
-  if (isRain) subtitle = 'Rain in the forecast — I\'ll pick something weather-appropriate.';
+  let subtitle = t('home.hero_subtitle_default');
+  if (isRain) subtitle = t('home.hero_subtitle_rain');
   else if (weather?.temperature != null && weather.temperature < 5)
-    subtitle = 'It\'s cold out — I\'ll layer you up properly.';
+    subtitle = t('home.hero_subtitle_cold');
   else if (weather?.temperature != null && weather.temperature > 28)
-    subtitle = 'Hot day ahead — light fabrics and breathable fits.';
+    subtitle = t('home.hero_subtitle_hot');
 
-  const ctaLabel = 'Style outfit';
+  const ctaLabel = t('home.action_style_outfit');
   const hasRecentOutfits = recentOutfits && recentOutfits.length > 0;
 
   return (
@@ -120,12 +120,12 @@ export function TodayOutfitHero({ weather, garmentCount, recentOutfits, classNam
               </button>
             ))}
             <p className="font-['DM_Sans'] text-[11px] text-background/30 ml-1 leading-tight">
-              Recent<br />looks
+              {t('home.hero_recent_looks')}
             </p>
           </div>
         ) : (
           <p className="font-['Playfair_Display'] italic text-[13px] text-background/25">
-            Your first AI outfit awaits
+            {t('home.hero_first_outfit')}
           </p>
         )}
       </motion.div>
@@ -139,7 +139,7 @@ export function TodayOutfitHero({ weather, garmentCount, recentOutfits, classNam
       >
         {garmentCount != null && garmentCount > 0 && (
           <p className="font-['DM_Sans'] text-[11px] text-background/30 tracking-wide">
-            {garmentCount} items in your wardrobe
+            {t('home.hero_items_in_wardrobe').replace('{count}', String(garmentCount))}
           </p>
         )}
 

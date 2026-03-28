@@ -123,7 +123,7 @@ describe('WardrobeToolbar', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    fireEvent.click(screen.getByRole('button', { name: 'wardrobe.clear' }));
     expect(onClearSearch).toHaveBeenCalled();
     expect(onClearFilters).toHaveBeenCalled();
   });

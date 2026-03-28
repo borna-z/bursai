@@ -87,18 +87,18 @@ export default function OutfitsPage() {
         <motion.header className="topbar-frost sticky top-0 z-10 -mx-5 px-5 pb-3 pt-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="caption-upper mb-0.5">Saved looks</p>
+              <p className="caption-upper mb-0.5">{t('outfits.saved_looks')}</p>
               <h1 className="font-['Playfair_Display'] italic text-[1.55rem] leading-tight">
-                {t('outfits.title') || 'Outfits'}
+                {t('outfits.title')}
               </h1>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <Button variant="quiet" className="rounded-full px-3 text-[0.8rem]" onClick={() => navigate('/plan')}>
-                Open plan
+                {t('outfits.open_plan')}
               </Button>
               <Button className="rounded-full px-4" onClick={() => navigate('/ai/generate')}>
                 <Sparkles className="size-4" />
-                Generate look
+                {t('outfits.generate_look')}
               </Button>
             </div>
           </div>
@@ -112,10 +112,10 @@ export default function OutfitsPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="app-chip-row">
                   {([
-                    ['all', 'All looks'],
-                    ['recent', 'Recent'],
-                    ['with_notes', 'With notes'],
-                  ] as const).map(([key, label]) => (
+                    ['all', t('outfits.filter_all')],
+                    ['recent', t('outfits.filter_recent')],
+                    ['with_notes', t('outfits.filter_with_notes')],
+                  ] as [FilterMode, string][]).map(([key, label]) => (
                     <button
                       key={key}
                       type="button"
@@ -134,7 +134,7 @@ export default function OutfitsPage() {
                     type="button"
                     onClick={() => setListView(false)}
                     className={listView ? 'flex h-10 w-10 items-center justify-center rounded-full border border-border/55 bg-background/85 text-muted-foreground' : 'flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-background'}
-                    aria-label="Grid view"
+                    aria-label={t('outfits.grid_view')}
                   >
                     <Grid3X3 className="size-4" />
                   </button>
@@ -142,7 +142,7 @@ export default function OutfitsPage() {
                     type="button"
                     onClick={() => setListView(true)}
                     className={listView ? 'flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-background' : 'flex h-10 w-10 items-center justify-center rounded-full border border-border/55 bg-background/85 text-muted-foreground'}
-                    aria-label="List view"
+                    aria-label={t('outfits.list_view')}
                   >
                     <List className="size-4" />
                   </button>

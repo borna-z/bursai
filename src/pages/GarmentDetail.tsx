@@ -137,15 +137,15 @@ export default function GarmentDetailPage() {
   const cleanHeroDescription = enrichment?.stylist_note
     || [displayCategorySummary, garment?.material ? materialLabel(t, garment.material) : null].filter(Boolean).join(' / ');
   const costCurrency = garment?.purchase_currency || 'SEK';
-  const costPerWearDisplay = costPerWear !== null ? `${Math.round(costPerWear)} ${costCurrency}` : 'Add price';
+  const costPerWearDisplay = costPerWear !== null ? `${Math.round(costPerWear)} ${costCurrency}` : t('garment.add_price');
   const lastWornDisplay = usageInsights?.daysSinceLastWorn != null
-    ? `${usageInsights.daysSinceLastWorn} days ago`
-    : 'Not worn yet';
+    ? t('garment.days_ago').replace('{count}', String(usageInsights.daysSinceLastWorn))
+    : t('garment.not_worn_yet');
 
   const tabs = [
-    { key: 'info' as const, label: 'Info' },
-    { key: 'outfits' as const, label: 'Outfits' },
-    { key: 'similar' as const, label: 'Similar' },
+    { key: 'info' as const, label: t('garment.tab_info') },
+    { key: 'outfits' as const, label: t('garment.tab_outfits') },
+    { key: 'similar' as const, label: t('garment.tab_similar') },
   ];
 
   const handleToggleLaundry = async () => {
@@ -195,7 +195,7 @@ export default function GarmentDetailPage() {
       if (error || !data?.enrichment) {
         await supabase.from('garments').update({ enrichment_status: 'failed' } as Record<string, unknown>).eq('id', garment.id);
         queryClient.invalidateQueries({ queryKey: ['garment', garment.id] });
-        toast.error('Deep analysis failed. Try again later.');
+        toast.error(t('garment.deep_analysis_failed'));
         return;
       }
 
@@ -209,11 +209,11 @@ export default function GarmentDetailPage() {
 
       await supabase.from('garments').update(updates).eq('id', garment.id);
       queryClient.invalidateQueries({ queryKey: ['garment', garment.id] });
-      toast.success('Deep analysis complete');
+      toast.success(t('garment.deep_analysis_complete'));
     } catch {
       await supabase.from('garments').update({ enrichment_status: 'failed' } as Record<string, unknown>).eq('id', garment.id);
       queryClient.invalidateQueries({ queryKey: ['garment', garment.id] });
-      toast.error('Something went wrong');
+      toast.error(t('common.something_wrong'));
     } finally {
       setIsRetrying(false);
     }
@@ -222,7 +222,7 @@ export default function GarmentDetailPage() {
   if (isLoading) {
     return (
       <AppLayout hideNav>
-        <PageHeader title="Garment" showBack />
+        <PageHeader title={t('garment.garment_title')} showBack />
         <div className="page-shell !px-5 !pt-6 page-cluster">
           <Skeleton className="aspect-[4/5] rounded-[1.25rem]" />
           <Skeleton className="h-32 rounded-[1.25rem]" />
@@ -236,12 +236,12 @@ export default function GarmentDetailPage() {
   if (!garment) {
     return (
       <AppLayout hideNav>
-        <PageHeader title="Garment" showBack />
+        <PageHeader title={t('garment.garment_title')} showBack />
         <div className="page-shell !px-5 !pt-6">
           <EmptyState
             icon={Sparkles}
             title={t('garment.not_found')}
-            description="This garment is no longer available in your wardrobe."
+            description={t('garment.not_found_desc')}
             variant="editorial"
             compact
             action={{ label: t('common.back'), onClick: () => navigate('/wardrobe') }}
@@ -259,12 +259,12 @@ export default function GarmentDetailPage() {
         showBack
         actions={(
           <>
-            <Button variant="quiet" size="icon" onClick={() => navigate(`/wardrobe/${garment.id}/edit`)} aria-label="Edit garment">
+            <Button variant="quiet" size="icon" onClick={() => navigate(`/wardrobe/${garment.id}/edit`)} aria-label={t('garment.edit_garment_aria')}>
               <Edit className="h-4 w-4" />
             </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="quiet" size="icon" aria-label="Delete garment">
+                <Button variant="quiet" size="icon" aria-label={t('garment.delete_garment_aria')}>
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </AlertDialogTrigger>
@@ -304,12 +304,12 @@ export default function GarmentDetailPage() {
               <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
                 <div className="flex flex-wrap gap-2">
                   <span className="rounded-full bg-background/88 px-3 py-1 text-[13px] font-medium uppercase tracking-[0.18em] text-foreground">
-                    {garment.wear_count || 0} worn
+                    {t('garment.worn_badge').replace('{count}', String(garment.wear_count || 0))}
                   </span>
                   {garment.in_laundry ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-background/88 px-3 py-1 text-[13px] font-medium uppercase tracking-[0.18em] text-foreground">
                       <WashingMachine className="h-3 w-3" />
-                      In laundry
+                      {t('garment.in_laundry_badge')}
                     </span>
                   ) : null}
                 </div>
@@ -330,15 +330,15 @@ export default function GarmentDetailPage() {
 
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="surface-utility rounded-[1.25rem] border p-3.5">
-                  <p className="label-editorial">Cost per wear</p>
+                  <p className="label-editorial">{t('garment.cost_per_wear')}</p>
                   <p className="mt-1.5 text-[1.25rem] font-semibold tracking-[-0.05em] text-foreground">{costPerWearDisplay}</p>
                 </div>
                 <div className="surface-utility rounded-[1.25rem] border p-3.5">
-                  <p className="label-editorial">Last worn</p>
+                  <p className="label-editorial">{t('garment.last_worn_label')}</p>
                   <p className="mt-1.5 text-[1.25rem] font-semibold tracking-[-0.05em] text-foreground">{lastWornDisplay}</p>
                 </div>
                 <div className="surface-utility rounded-[1.25rem] border p-3.5">
-                  <p className="label-editorial">Monthly rhythm</p>
+                  <p className="label-editorial">{t('garment.monthly_rhythm')}</p>
                   <p className="mt-1.5 text-[1.25rem] font-semibold tracking-[-0.05em] text-foreground">{usageInsights?.wearFrequency || '0'}</p>
                 </div>
               </div>
@@ -370,20 +370,20 @@ export default function GarmentDetailPage() {
           <>
             <Card surface="utility" className="space-y-4 p-5">
               <div className="space-y-2">
-                <p className="label-editorial">Details</p>
-                {garment.material ? <SpecRow label="Material" value={materialLabel(t, garment.material)} /> : null}
-                {garment.fit ? <SpecRow label="Fit" value={fitLabel(t, garment.fit)} /> : null}
-                {garment.pattern && garment.pattern !== 'solid' ? <SpecRow label="Pattern" value={patternLabel(t, garment.pattern)} /> : null}
-                {seasonParts.length > 0 ? <SpecRow label="Season" value={seasonParts.join(', ')} /> : null}
-                {garment.color_secondary ? <SpecRow label="Secondary color" value={colorLabel(t, garment.color_secondary)} /> : null}
+                <p className="label-editorial">{t('garment.details')}</p>
+                {garment.material ? <SpecRow label={t('garment.material')} value={materialLabel(t, garment.material)} /> : null}
+                {garment.fit ? <SpecRow label={t('garment.fit')} value={fitLabel(t, garment.fit)} /> : null}
+                {garment.pattern && garment.pattern !== 'solid' ? <SpecRow label={t('garment.pattern')} value={patternLabel(t, garment.pattern)} /> : null}
+                {seasonParts.length > 0 ? <SpecRow label={t('garment.season')} value={seasonParts.join(', ')} /> : null}
+                {garment.color_secondary ? <SpecRow label={t('garment.secondary_color')} value={colorLabel(t, garment.color_secondary)} /> : null}
               </div>
 
               <div className="space-y-3 border-t border-border/55 pt-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-medium text-foreground">Purchase price</p>
+                    <p className="text-sm font-medium text-foreground">{t('garment.purchase_price')}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Add a price to make cost-per-wear and value tracking more useful.
+                      {t('garment.purchase_price_hint')}
                     </p>
                   </div>
                   {!editingPrice ? (
@@ -395,7 +395,7 @@ export default function GarmentDetailPage() {
                         setEditingPrice(true);
                       }}
                     >
-                      {garment.purchase_price ? 'Edit' : 'Add price'}
+                      {garment.purchase_price ? t('garment.edit_button') : t('garment.add_price')}
                     </Button>
                   ) : null}
                 </div>
@@ -426,7 +426,7 @@ export default function GarmentDetailPage() {
                       <Check className="h-3.5 w-3.5" />
                     </Button>
                     <Button variant="quiet" size="sm" onClick={() => setEditingPrice(false)}>
-                      Cancel
+                      {t('garment.cancel')}
                     </Button>
                   </div>
                 ) : null}
@@ -446,7 +446,7 @@ export default function GarmentDetailPage() {
 
               {garment.ai_analyzed_at ? (
                 <p className="text-xs text-muted-foreground">
-                  Analyzed {new Date(garment.ai_analyzed_at).toLocaleDateString(getBCP47(locale))}
+                  {t('garment.analyzed').replace('{date}', new Date(garment.ai_analyzed_at).toLocaleDateString(getBCP47(locale)))}
                 </p>
               ) : null}
             </Card>
@@ -466,7 +466,7 @@ export default function GarmentDetailPage() {
                     <WashingMachine className="h-4 w-4 text-muted-foreground" />
                     {t('garment.in_laundry')}
                   </div>
-                  <p className="text-xs text-muted-foreground">Keep this piece out of outfit generation until it is ready again.</p>
+                  <p className="text-xs text-muted-foreground">{t('garment.laundry_hint')}</p>
                 </div>
                 <Switch checked={garment.in_laundry || false} onCheckedChange={handleToggleLaundry} disabled={updateGarment.isPending} />
               </div>
@@ -482,7 +482,7 @@ export default function GarmentDetailPage() {
                       {Number(garment.condition_score).toFixed(1)}/10 • {garment.condition_notes}
                     </p>
                   ) : (
-                    <p className="text-xs text-muted-foreground">Run a quick check to estimate wear and condition.</p>
+                    <p className="text-xs text-muted-foreground">{t('garment.condition_hint')}</p>
                   )}
                 </div>
                 <Button
@@ -518,14 +518,14 @@ export default function GarmentDetailPage() {
         <div className="mx-auto max-w-xl">
           <div className="action-bar-floating flex gap-2 rounded-[1.25rem] p-2.5">
             <Button variant="outline" onClick={handleMarkWorn} className="h-12 flex-1 rounded-full border-border/35 bg-background/72">
-              Mark worn
+              {t('garment.mark_worn_button')}
             </Button>
             <Button
               onClick={() => navigate(`/ai/chat${buildStyleFlowSearch(garment.id)}`, { state: buildStyleAroundState(garment.id) })}
               className="h-12 flex-1 rounded-full"
             >
               <Sparkles className="mr-2 h-4 w-4" />
-              Style this
+              {t('garment.style_this')}
             </Button>
           </div>
         </div>

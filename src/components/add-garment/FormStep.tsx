@@ -104,7 +104,7 @@ export function FormStep(props: FormStepProps) {
     <AppLayout hideNav>
       <PageHeader
         title={t('addgarment.review')}
-        subtitle="Refine the details before the piece joins your wardrobe."
+        subtitle={t('addgarment.form.subtitle')}
         showBack
         actions={storagePath ? (
           <Button variant="outline" size="sm" onClick={onReanalyze} disabled={isAnalyzing} className="gap-2">
@@ -131,9 +131,9 @@ export function FormStep(props: FormStepProps) {
                     <Sparkles className="h-3.5 w-3.5" />
                     {t('addgarment.ai_analyzed')}
                   </span>
-                ) : 'Review'}
+                ) : t('addgarment.form.review_label')}
                 title={title || t('addgarment.review')}
-                description="Confirm the metadata, tweak the palette, and decide how BURS should use this piece in future outfit generation."
+                description={t('addgarment.form.description')}
               />
             </div>
           </Card>
@@ -141,7 +141,7 @@ export function FormStep(props: FormStepProps) {
 
         <Card surface="utility" className="space-y-5 p-5">
           <div className="space-y-2">
-            <p className="label-editorial">Identity</p>
+            <p className="label-editorial">{t('addgarment.form.identity')}</p>
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>{t('addgarment.form.title')} *</Label>
@@ -187,7 +187,7 @@ export function FormStep(props: FormStepProps) {
 
         <Card surface="utility" className="space-y-5 p-5">
           <div className="space-y-2">
-            <p className="label-editorial">Color story</p>
+            <p className="label-editorial">{t('addgarment.form.color_story')}</p>
             <div className="space-y-4">
               <div className="space-y-3">
                 <Label>{t('addgarment.form.primary_color')} *</Label>
@@ -248,7 +248,7 @@ export function FormStep(props: FormStepProps) {
 
         <Card surface="utility" className="space-y-5 p-5">
           <div className="space-y-2">
-            <p className="label-editorial">Construction</p>
+            <p className="label-editorial">{t('addgarment.form.construction')}</p>
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label>{t('addgarment.form.pattern')}</Label>
@@ -333,7 +333,7 @@ export function FormStep(props: FormStepProps) {
           <div className="flex items-center justify-between rounded-[1.25rem] border border-border/60 bg-background/80 px-4 py-4">
             <div>
               <p className="text-sm font-medium text-foreground">{t('addgarment.form.in_laundry')}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Keep this item out of outfit generation until it is ready again.</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t('addgarment.form.laundry_hint')}</p>
             </div>
             <Switch checked={inLaundry} onCheckedChange={setInLaundry} />
           </div>

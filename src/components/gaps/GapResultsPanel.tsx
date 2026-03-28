@@ -3,6 +3,7 @@ import { ExternalLink, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { StaleIndicator } from '@/components/ui/StaleIndicator';
 import { EASE_CURVE, STAGGER_DELAY } from '@/lib/motion';
+import { useLanguage } from '@/contexts/LanguageContext';
 import type { GapResult } from '@/components/gaps/gapTypes';
 
 function openGoogle(query: string) {
@@ -20,6 +21,7 @@ export function GapResultsPanel({
   onRefresh: () => void;
   results: GapResult[];
 }) {
+  const { t } = useLanguage();
   const [featured, ...rest] = results;
 
   return (
@@ -32,24 +34,24 @@ export function GapResultsPanel({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
-            Results
+            {t('gaps.results_label')}
           </p>
           <h2 className="mt-1 text-[1.3rem] font-semibold tracking-[-0.04em] text-foreground">
-            Highest-impact additions first
+            {t('gaps.results_title')}
           </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <StaleIndicator updatedAt={analyzedAt} />
           <Button onClick={onRefresh} variant="outline" className="rounded-full px-4">
             <RefreshCw className="size-4" />
-            Refresh scan
+            {t('gaps.refresh_scan')}
           </Button>
         </div>
       </div>
 
       {hasRefreshError ? (
         <div className="rounded-[1.2rem] border border-destructive/20 bg-destructive/5 px-4 py-3 text-[0.88rem] text-foreground">
-          The latest refresh did not finish. Showing your last successful gap scan.
+          {t('gaps.refresh_error')}
         </div>
       ) : null}
 
@@ -62,7 +64,7 @@ export function GapResultsPanel({
         >
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-foreground/15 to-transparent" />
           <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
-            Best next buy
+            {t('gaps.best_next_buy')}
           </p>
           <h3 className="mt-3 text-[1.65rem] font-semibold tracking-[-0.055em] text-foreground">
             {featured.item}
@@ -75,7 +77,7 @@ export function GapResultsPanel({
               +{featured.new_outfits}
             </span>
             <span className="pb-1 text-[0.86rem] text-muted-foreground">
-              new outfits unlocked
+              {t('gaps.new_outfits_unlocked')}
             </span>
           </div>
           <p className="mt-5 max-w-[32rem] text-[0.95rem] leading-6 text-foreground/85">
@@ -87,14 +89,14 @@ export function GapResultsPanel({
               {featured.price_range}
             </span>
             <span className="rounded-full border border-foreground/[0.08] bg-background/70 px-3 py-1.5">
-              Highest wardrobe lift
+              {t('gaps.highest_wardrobe_lift')}
             </span>
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2.5">
             <Button onClick={() => openGoogle(featured.search_query)} className="rounded-full px-5">
               <Search className="size-4" />
-              Search this piece
+              {t('gaps.search_this_piece')}
             </Button>
             <Button
               onClick={() => openGoogle(featured.search_query)}
@@ -102,7 +104,7 @@ export function GapResultsPanel({
               className="rounded-full px-5"
             >
               <ExternalLink className="size-4" />
-              Open Google
+              {t('gaps.open_google')}
             </Button>
           </div>
         </motion.article>
@@ -111,10 +113,10 @@ export function GapResultsPanel({
           <div className="rounded-[1.25rem] border border-foreground/[0.08] bg-card/90 p-4">
             <div className="flex items-center gap-2 text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
               <Sparkles className="size-3.5" />
-              More additions
+              {t('gaps.more_additions')}
             </div>
             <p className="mt-2 text-[0.9rem] leading-6 text-muted-foreground">
-              These are the next strongest upgrades once the featured gap is covered.
+              {t('gaps.more_additions_desc')}
             </p>
           </div>
 
@@ -139,7 +141,7 @@ export function GapResultsPanel({
                   <div className="text-[1.2rem] font-semibold tracking-[-0.05em] text-foreground">
                     +{gap.new_outfits}
                   </div>
-                  <div className="text-[0.72rem] text-muted-foreground">looks</div>
+                  <div className="text-[0.72rem] text-muted-foreground">{t('gaps.looks')}</div>
                 </div>
               </div>
 
@@ -156,7 +158,7 @@ export function GapResultsPanel({
                   className="rounded-full px-3.5"
                 >
                   <ExternalLink className="size-3.5" />
-                  Search
+                  {t('gaps.search')}
                 </Button>
               </div>
             </motion.article>

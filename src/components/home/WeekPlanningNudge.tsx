@@ -6,6 +6,7 @@ import { format, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { EASE_CURVE } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
+import { useLanguage } from '@/contexts/LanguageContext';
 import type { PlannedOutfit } from '@/hooks/usePlannedOutfits';
 
 interface WeekPlanningNudgeProps {
@@ -18,6 +19,7 @@ interface WeekPlanningNudgeProps {
  */
 export function WeekPlanningNudge({ plannedOutfits, className }: WeekPlanningNudgeProps) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const { planned } = useMemo(() => {
     const today = new Date();
@@ -35,8 +37,8 @@ export function WeekPlanningNudge({ plannedOutfits, className }: WeekPlanningNud
   if (planned >= 3) return null;
 
   const message = planned === 0
-    ? 'Your week is unplanned — let me fill it with outfits that work.'
-    : `Only ${planned} day${planned > 1 ? 's' : ''} planned this week. Want me to fill the rest?`;
+    ? t('home.week_unplanned')
+    : t('home.week_partial').replace('{count}', String(planned));
 
   return (
     <motion.button

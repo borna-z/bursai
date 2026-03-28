@@ -85,7 +85,7 @@ export function WardrobeToolbar({
               <button
                 onClick={onToggleView}
                 className="flex h-11 w-11 items-center justify-center rounded-[1.1rem] border border-border/45 bg-background/80 text-muted-foreground transition-colors hover:bg-background"
-                aria-label={isGridView ? 'List view' : 'Grid view'}
+                aria-label={isGridView ? t('wardrobe.view_list') : t('wardrobe.view_grid')}
               >
                 {isGridView ? <List className="h-[18px] w-[18px]" /> : <Grid3X3 className="h-[18px] w-[18px]" />}
               </button>
@@ -136,7 +136,7 @@ export function WardrobeToolbar({
               <button
                 onClick={onClearSearch}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 transition-transform active:scale-90"
-                aria-label="Clear search"
+                aria-label={t('wardrobe.clear_search')}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -164,7 +164,7 @@ export function WardrobeToolbar({
       ) : (
         <div className="surface-utility px-4 py-3">
           <p className="text-sm text-muted-foreground">
-            Build, save, and plan looks from one place.
+            {t('wardrobe.outfits_caption')}
           </p>
         </div>
       )}
@@ -204,7 +204,7 @@ export function WardrobeToolbar({
               }}
               className="shrink-0 text-xs font-medium text-muted-foreground underline underline-offset-4"
             >
-              Clear
+              {t('wardrobe.clear')}
             </button>
           )}
         </div>

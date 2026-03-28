@@ -38,8 +38,8 @@ export default function SettingsPage() {
   return (
     <AppLayout>
       <PageHeader
-        title="Settings"
-        eyebrow="Preferences"
+        title={t('settings.page_title')}
+        eyebrow={t('settings.eyebrow')}
         actions={
           <span className="eyebrow-chip border-transparent bg-secondary/85 text-foreground/62 text-[10px]">v{APP_VERSION}</span>
         }
@@ -50,7 +50,7 @@ export default function SettingsPage() {
         <ProfileCard />
 
         {/* How you look */}
-        <SettingsGroup title="How you look">
+        <SettingsGroup title={t('settings.group.how_you_look')}>
           <SettingsRow icon={<Palette />} label={t('settings.row.appearance')} sublabel={t('settings.row.appearance_sub')} onClick={() => navigate('/settings/appearance')}>
             <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
           </SettingsRow>
@@ -60,14 +60,14 @@ export default function SettingsPage() {
         </SettingsGroup>
 
         {/* When we reach you */}
-        <SettingsGroup title="When we reach you">
+        <SettingsGroup title={t('settings.group.when_we_reach_you')}>
           <SettingsRow icon={<Bell />} label={t('settings.row.notifications')} sublabel={t('settings.row.notifications_sub')} onClick={() => navigate('/settings/notifications')} last>
             <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
           </SettingsRow>
         </SettingsGroup>
 
         {/* Your account */}
-        <SettingsGroup title="Your account">
+        <SettingsGroup title={t('settings.group.your_account')}>
           <SettingsRow icon={<User />} label={t('settings.row.account')} sublabel={t('settings.row.account_sub')} onClick={() => navigate('/settings/account')}>
             <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
           </SettingsRow>
@@ -77,7 +77,7 @@ export default function SettingsPage() {
         </SettingsGroup>
 
         {/* App */}
-        <SettingsGroup title="App">
+        <SettingsGroup title={t('settings.group.app')}>
           <SettingsRow icon={<TrendingUp />} label={t('settings.row.insights') || 'Wardrobe Insights'} sublabel={t('settings.row.insights_sub') || 'Usage stats & analytics'} onClick={() => navigate('/insights')}>
             <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
           </SettingsRow>
@@ -85,7 +85,7 @@ export default function SettingsPage() {
             <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
           </SettingsRow>
           {isAdmin && (
-            <SettingsRow icon={<Database />} label="Seed Wardrobe" sublabel="Generate demo garments with AI" onClick={() => navigate('/settings/seed-wardrobe')} last>
+            <SettingsRow icon={<Database />} label={t('settings.seed_wardrobe')} sublabel={t('settings.seed_wardrobe_sub')} onClick={() => navigate('/settings/seed-wardrobe')} last>
               <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
             </SettingsRow>
           )}

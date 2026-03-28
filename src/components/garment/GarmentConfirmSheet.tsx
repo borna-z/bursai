@@ -157,7 +157,7 @@ export function GarmentConfirmSheet({
       <Sheet open={open} onOpenChange={(v) => { if (!v) handleSaveAndGo(); }}>
         <SheetContent side="bottom" className="!p-0 !rounded-none border-t border-border/10" style={{ background: '#F5F0E8' }}>
           {/* Visually hidden title for accessibility */}
-          <SheetTitle className="sr-only">Garment saved</SheetTitle>
+          <SheetTitle className="sr-only">{t('garment.confirm.saved')}</SheetTitle>
 
           <div style={{ padding: '12px 20px 20px', maxWidth: 512, margin: '0 auto' }}>
             {/* Drag handle */}
@@ -174,18 +174,18 @@ export function GarmentConfirmSheet({
                   /* Side-by-side split */
                   <div style={{ display: 'flex', width: '100%', height: '100%' }}>
                     <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-                      <LazyImageSimple imagePath={garmentImagePath ?? undefined} alt="Original" className="w-full h-full" />
+                      <LazyImageSimple imagePath={garmentImagePath ?? undefined} alt={t('garment.confirm.original')} className="w-full h-full" />
                       <span style={{
                         position: 'absolute', bottom: 2, left: 2,
                         fontFamily: 'DM Sans, sans-serif', fontSize: 7.5, color: 'rgba(28,25,23,0.4)',
-                      }}>Original</span>
+                      }}>{t('garment.confirm.original')}</span>
                     </div>
                     <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-                      <LazyImageSimple imagePath={renderedImagePath} alt="Studio" className="w-full h-full" />
+                      <LazyImageSimple imagePath={renderedImagePath} alt={t('garment.confirm.studio')} className="w-full h-full" />
                       <span style={{
                         position: 'absolute', bottom: 2, right: 2,
                         fontFamily: 'DM Sans, sans-serif', fontSize: 7.5, color: 'rgba(28,25,23,0.4)',
-                      }}>Studio</span>
+                      }}>{t('garment.confirm.studio')}</span>
                     </div>
                   </div>
                 ) : (
@@ -242,7 +242,7 @@ export function GarmentConfirmSheet({
                       fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
                       fontSize: 12, color: '#F5F0E8',
                     }}>
-                      Generate Studio Look
+                      {t('garment.confirm.generate_studio')}
                     </span>
                   </button>
 
@@ -256,7 +256,7 @@ export function GarmentConfirmSheet({
                     <span style={{
                       fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: '#1C1917',
                     }}>
-                      Save to wardrobe →
+                      {t('garment.confirm.save_to_wardrobe')}
                     </span>
                   </button>
                 </div>
@@ -270,7 +270,7 @@ export function GarmentConfirmSheet({
                       fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.35)',
                     }}
                   >
-                    Turn off renders
+                    {t('garment.confirm.turn_off_renders')}
                   </button>
                 </div>
               </>
@@ -283,7 +283,7 @@ export function GarmentConfirmSheet({
                   fontFamily: 'DM Sans, sans-serif', fontSize: 9.5,
                   color: 'rgba(28,25,23,0.5)', textAlign: 'center', margin: '0 0 8px',
                 }}>
-                  Generating studio look...
+                  {t('garment.confirm.generating')}
                 </p>
                 <div style={{ textAlign: 'center' }}>
                   <button
@@ -293,7 +293,7 @@ export function GarmentConfirmSheet({
                       fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.4)',
                     }}
                   >
-                    Save original instead →
+                    {t('garment.confirm.save_original_instead')}
                   </button>
                 </div>
               </>
@@ -310,7 +310,7 @@ export function GarmentConfirmSheet({
                     fontWeight: 500, cursor: 'pointer',
                   }}
                 >
-                  Save with Studio Look
+                  {t('garment.confirm.save_with_studio')}
                 </button>
                 <div style={{
                   display: 'flex', justifyContent: 'center', gap: 16, marginTop: 10,
@@ -322,7 +322,7 @@ export function GarmentConfirmSheet({
                       fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.4)',
                     }}
                   >
-                    Use original
+                    {t('garment.confirm.use_original')}
                   </button>
                   <button
                     onClick={handleTurnOffRenders}
@@ -331,7 +331,7 @@ export function GarmentConfirmSheet({
                       fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.35)',
                     }}
                   >
-                    Turn off renders
+                    {t('garment.confirm.turn_off_renders')}
                   </button>
                 </div>
               </>
@@ -345,7 +345,7 @@ export function GarmentConfirmSheet({
                   fontSize: 12, color: 'rgba(28,25,23,0.5)', textAlign: 'center',
                   margin: '0 0 10px',
                 }}>
-                  Studio render unavailable.
+                  {t('garment.confirm.render_unavailable')}
                 </p>
                 <div style={{ textAlign: 'center' }}>
                   <button
@@ -356,7 +356,7 @@ export function GarmentConfirmSheet({
                       borderBottom: '0.5px solid rgba(28,25,23,0.25)', paddingBottom: 1,
                     }}
                   >
-                    Save to wardrobe →
+                    {t('garment.confirm.save_to_wardrobe')}
                   </button>
                 </div>
                 <div style={{ textAlign: 'center', marginTop: 6 }}>
@@ -367,7 +367,7 @@ export function GarmentConfirmSheet({
                       fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.4)',
                     }}
                   >
-                    Try again
+                    {t('garment.confirm.try_again')}
                   </button>
                 </div>
               </>

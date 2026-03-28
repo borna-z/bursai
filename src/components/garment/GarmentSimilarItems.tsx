@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 interface SimilarGarment {
@@ -19,6 +20,7 @@ interface GarmentSimilarItemsProps {
 
 export function GarmentSimilarItems({ similarGarments }: GarmentSimilarItemsProps) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   return (
     <motion.div
@@ -50,10 +52,10 @@ export function GarmentSimilarItems({ similarGarments }: GarmentSimilarItemsProp
       ) : (
         <div className="text-center py-10">
           <p className="font-['Playfair_Display'] italic text-sm text-foreground/50 m-0">
-            No similar items found
+            {t('garment.similar.no_items')}
           </p>
           <p className="font-['DM_Sans'] text-[11px] text-foreground/[0.35] mt-1">
-            Add more garments to discover matches.
+            {t('garment.similar.no_items_hint')}
           </p>
         </div>
       )}

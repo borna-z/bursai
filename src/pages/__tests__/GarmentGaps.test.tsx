@@ -108,9 +108,9 @@ describe('GarmentGapsPage', () => {
   it('renders the ready state when unlocked and no snapshot exists', () => {
     renderPage();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Garment gaps' })).toBeInTheDocument();
-    expect(screen.getByText('Run a focused wardrobe scan')).toBeInTheDocument();
-    expect(screen.getByText('14 pieces in wardrobe')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'gaps.garment_gaps' })).toBeInTheDocument();
+    expect(screen.getByText('gaps.ready_title')).toBeInTheDocument();
+    expect(screen.getByText('gaps.pieces_in_wardrobe')).toBeInTheDocument();
   });
 
   it('hydrates the last saved snapshot for the current user', () => {
@@ -131,7 +131,7 @@ describe('GarmentGapsPage', () => {
 
     renderPage();
 
-    expect(screen.getByText('Highest-impact additions first')).toBeInTheDocument();
+    expect(screen.getByText('gaps.results_title')).toBeInTheDocument();
     expect(screen.getByText('Structured overshirt')).toBeInTheDocument();
   });
 
@@ -179,7 +179,7 @@ describe('GarmentGapsPage', () => {
 
     renderPage();
 
-    expect(screen.getByText('The scan did not finish')).toBeInTheDocument();
-    expect(screen.getByText('Retry scan')).toBeInTheDocument();
+    expect(screen.getByText('gaps.error_title')).toBeInTheDocument();
+    expect(screen.getByText('gaps.retry_scan')).toBeInTheDocument();
   });
 });

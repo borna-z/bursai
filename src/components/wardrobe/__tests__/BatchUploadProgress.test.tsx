@@ -142,10 +142,10 @@ describe('BatchUploadProgress', () => {
 
     render(<BatchUploadProgress files={[file]} onComplete={vi.fn()} onCancel={vi.fn()} />);
 
-    await waitFor(() => expect(screen.getByText('Quick review')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('batch.quick_review')).toBeInTheDocument());
     expect(createGarmentMock).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: /add/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'common.add' }));
 
     await waitFor(() => expect(createGarmentMock).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Dark top',
@@ -171,7 +171,7 @@ describe('BatchUploadProgress', () => {
       title: 'Blue shirt',
       image_path: 'user-1/actual-upload.webp',
     })));
-    expect(screen.queryByText('Quick review')).not.toBeInTheDocument();
+    expect(screen.queryByText('batch.quick_review')).not.toBeInTheDocument();
   });
 
   it('queues multi-garment photos as sequential review items', async () => {
@@ -214,11 +214,11 @@ describe('BatchUploadProgress', () => {
 
     render(<BatchUploadProgress files={[file]} onComplete={vi.fn()} onCancel={vi.fn()} />);
 
-    await waitFor(() => expect(screen.getByText('Quick review')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('batch.quick_review')).toBeInTheDocument());
     expect(screen.getByText('Blue shirt')).toBeInTheDocument();
     expect(screen.getByText('White sneakers')).toBeInTheDocument();
-    expect(screen.getByText('Multiple garments detected — review item 1 of 2.')).toBeInTheDocument();
-    expect(screen.getByText('Multiple garments detected — review item 2 of 2.')).toBeInTheDocument();
+    const reviewItems = screen.getAllByText('batch.multi_review_item');
+    expect(reviewItems).toHaveLength(2);
     expect(createGarmentMock).not.toHaveBeenCalled();
   });
 
@@ -294,17 +294,17 @@ describe('BatchUploadProgress', () => {
 
     render(<BatchUploadProgress files={[file]} onComplete={onComplete} onCancel={vi.fn()} />);
 
-    await waitFor(() => expect(screen.getByText('Quick review')).toBeInTheDocument());
-    await waitFor(() => expect(screen.getByText('Review still needed')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('batch.quick_review')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('batch.review_still_needed')).toBeInTheDocument());
 
     expect(onComplete).not.toHaveBeenCalled();
     expect(toastSuccessMock).not.toHaveBeenCalled();
-    expect(screen.queryByRole('button', { name: /continue/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'common.continue' })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /skip/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'common.skip' }));
 
-    await waitFor(() => expect(screen.getByText('Review complete')).toBeInTheDocument());
-    const continueButton = screen.getByRole('button', { name: /continue/i });
+    await waitFor(() => expect(screen.getByText('batch.review_complete')).toBeInTheDocument());
+    const continueButton = screen.getByRole('button', { name: 'common.continue' });
     expect(onComplete).not.toHaveBeenCalled();
 
     fireEvent.click(continueButton);

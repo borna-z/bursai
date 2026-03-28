@@ -5,6 +5,7 @@ import { SeedProgressPill } from './SeedProgressPill';
 import { useKeyboardAdjust } from '@/hooks/useKeyboardAdjust';
 import { useMedianStatusBar } from '@/hooks/useMedianStatusBar';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useUnlockCelebration } from '@/hooks/useWardrobeUnlocks';
 import { MilestoneCelebration } from './MilestoneCelebration';
 
@@ -15,6 +16,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
   const { resolvedTheme } = useTheme();
+  const { t } = useLanguage();
   useKeyboardAdjust();
   useMedianStatusBar(resolvedTheme);
   useUnlockCelebration();
@@ -26,7 +28,7 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
         className="pointer-events-none absolute inset-x-0 top-0 z-0 h-40 bg-[radial-gradient(circle_at_top_right,rgba(154,137,113,0.09),transparent_48%),linear-gradient(180deg,rgba(255,255,255,0.22),transparent_72%)]"
       />
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-foreground focus:text-background focus:rounded-md">
-        Skip to main content
+        {t('common.skip_to_main')}
       </a>
       <OfflineBanner />
       <main

@@ -67,11 +67,11 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
   const totalProgress = items.length > 0 ? ((doneCount + skippedCount + errorCount) / items.length) * 100 : 0;
   const statusMessage = useMemo(() => {
     if (readyToContinue) {
-      return `All ${items.length} items are resolved. Review is complete.`;
+      return t('batch.all_resolved').replace('{count}', String(items.length));
     }
 
     if (processingComplete && reviewCount > 0) {
-      return `${reviewCount} review item${reviewCount === 1 ? '' : 's'} still need a decision.`;
+      return t('batch.review_pending').replace('{count}', String(reviewCount));
     }
 
     return null;
@@ -143,10 +143,10 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
         garmentId,
         analysis: item.analysis,
         error: item.analysis?.image_contains_multiple_garments
-          ? 'Multiple garments detected — review this photo before adding.'
+          ? t('batch.multi_garment_review')
           : item.analysis?.confidence == null
-            ? 'Needs quick review before adding.'
-            : 'Low-confidence match — review before adding.',
+            ? t('batch.needs_review')
+            : t('batch.low_confidence'),
       });
       return;
     }
@@ -168,7 +168,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
           detected_garments: [detectedGarments[0]],
         },
         reviewSourceIndex: index,
-        error: `Multiple garments detected — review item 1 of ${detectedGarments.length}.`,
+        error: t('batch.multi_review_item').replace('{current}', '1').replace('{total}', String(detectedGarments.length)),
       };
 
       const reviewChildren = detectedGarments.slice(1).map((garment, garmentIndex) => ({
@@ -187,7 +187,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
           image_contains_multiple_garments: true,
           detected_garments: [garment],
         },
-        error: `Multiple garments detected — review item ${garmentIndex + 2} of ${detectedGarments.length}.`,
+        error: t('batch.multi_review_item').replace('{current}', String(garmentIndex + 2)).replace('{total}', String(detectedGarments.length)),
       }));
 
       next.splice(index + 1, 0, ...reviewChildren);
@@ -284,8 +284,8 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
 
     toast.success(`${doneCount}/${items.length} ${t('batch.complete_toast')}`, {
       description: skippedCount > 0
-        ? `${skippedCount} item${skippedCount === 1 ? '' : 's'} were skipped during review.`
-        : 'Added to wardrobe. Background cleanup continues automatically.',
+        ? t('batch.skipped_count').replace('{count}', String(skippedCount))
+        : t('batch.added_cleanup'),
     });
 
     onComplete();
@@ -305,11 +305,11 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">
-              {doneCount}/{items.length} added
+              {doneCount}/{items.length} {t('batch.added_label')}
             </span>
             <div className="flex items-center gap-2">
               {reviewCount > 0 && (
-                <span className="text-amber-600 text-xs">{reviewCount} pending review</span>
+                <span className="text-amber-600 text-xs">{reviewCount} {t('batch.pending_review')}</span>
               )}
               {errorCount > 0 && (
                 <span className="text-destructive text-xs">{errorCount} {t('batch.errors')}</span>
@@ -412,7 +412,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
                   'text-sm font-medium',
                   readyToContinue ? 'text-emerald-950' : 'text-amber-950'
                 )}>
-                  {readyToContinue ? 'Review complete' : 'Review still needed'}
+                  {readyToContinue ? t('batch.review_complete') : t('batch.review_still_needed')}
                 </p>
                 <p className={cn(
                   'text-xs',
@@ -423,7 +423,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
               </div>
               {readyToContinue && (
                 <Button size="sm" onClick={handleContinue}>
-                  Continue
+                  {t('common.continue')}
                   <ArrowRight className="ml-1 h-3.5 w-3.5" />
                 </Button>
               )}
@@ -436,25 +436,25 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
             <div className="flex items-center gap-2">
               <Clock3 className="h-4 w-4 text-amber-700" />
               <div>
-                <p className="text-sm font-medium text-amber-950">Quick review</p>
-                <p className="text-xs text-amber-800">Only uncertain or multi-garment photos need approval. Confident single-garment items were added automatically.</p>
+                <p className="text-sm font-medium text-amber-950">{t('batch.quick_review')}</p>
+                <p className="text-xs text-amber-800">{t('batch.quick_review_desc')}</p>
               </div>
             </div>
             <div className="space-y-3">
               {items.map((item, index) => item.status === 'review' ? (
                 <div key={`review-${index}`} className="flex items-center gap-3 rounded-lg bg-background p-3 shadow-sm">
-                  <img src={item.preview} alt={item.analysis?.title || 'Review garment'} className="h-16 w-16 rounded-md object-cover bg-muted" />
+                  <img src={item.preview} alt={item.analysis?.title || t('batch.review_garment')} className="h-16 w-16 rounded-md object-cover bg-muted" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{item.analysis?.title || 'Untitled garment'}</p>
+                    <p className="truncate text-sm font-medium">{item.analysis?.title || t('batch.untitled_garment')}</p>
                     <p className="text-xs text-muted-foreground">
                       {[item.analysis?.category, item.analysis?.color_primary, item.analysis?.material].filter(Boolean).join(' · ')}
                     </p>
                     <p className="text-xs text-amber-700">{item.error}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => handleSkipReviewItem(index)}>Skip</Button>
+                    <Button variant="outline" size="sm" onClick={() => handleSkipReviewItem(index)}>{t('common.skip')}</Button>
                     <Button size="sm" onClick={() => handleApproveReviewItem(index)}>
-                      Add
+                      {t('common.add')}
                       <ArrowRight className="ml-1 h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -466,7 +466,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
 
         {/* Hint */}
         <p className="text-xs text-muted-foreground text-center">
-          Items appear in your wardrobe as they finish saving. Cleanup and enrichment continue quietly in the background.
+          {t('batch.background_hint')}
         </p>
       </div>
     </div>

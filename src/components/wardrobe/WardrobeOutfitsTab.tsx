@@ -258,7 +258,7 @@ export function WardrobeOutfitsTab() {
             <div className="flex items-start justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
                 <CardPill label={translateOrFallback(t, 'outfits.header_kicker', 'Outfits')} tone="muted" size="md" />
-                <CardPill label={`${summary.all} looks`} tone="default" size="md" />
+                <CardPill label={t('outfits.looks_count').replace('{count}', String(summary.all))} tone="default" size="md" />
               </div>
 
               <Button
