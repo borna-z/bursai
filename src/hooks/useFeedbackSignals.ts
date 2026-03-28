@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
@@ -31,6 +32,7 @@ interface SignalInput {
  */
 export function useFeedbackSignals() {
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   const mutation = useMutation({
     mutationFn: async (input: SignalInput) => {
@@ -49,9 +51,9 @@ export function useFeedbackSignals() {
     },
     onSuccess: (_data, input) => {
       if (input.signal_type === 'wear_confirm') {
-        toast("Noted — I'll remember what worked today.", { duration: 2000 });
+        toast(t('feedback.wear_noted'), { duration: 2000 });
       } else if (input.signal_type === 'swap_choice') {
-        toast('Preference saved. Your stylist is learning.', { duration: 2000 });
+        toast(t('feedback.swap_saved'), { duration: 2000 });
       }
     },
     // Silent — never block UI

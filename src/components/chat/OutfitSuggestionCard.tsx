@@ -125,7 +125,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
                     <RefreshCw className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
                   </div>
                 ) : alternatives.length === 0 ? (
-                  <p className="text-[10px] text-muted-foreground px-1 py-2">{t('outfit.no_alternatives') || 'No alternatives'}</p>
+                  <p className="text-[10px] text-muted-foreground px-1 py-2">{t('outfit.no_alternatives')}</p>
                 ) : (
                   <div className="flex gap-1.5">
                     {alternatives.map(alt => (
@@ -163,14 +163,14 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
         <div className="mx-3 mb-2 flex items-center gap-2 rounded-[1.25rem] bg-amber-500/10 border border-amber-500/20 px-3 py-2">
           <Shirt className="w-3.5 h-3.5 text-amber-600 shrink-0" />
           <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-snug">
-            {t('outfit.missing_shoes') || 'No shoes in your wardrobe yet — add a pair to complete this look.'}
+            {t('outfit.missing_shoes')}
           </p>
           <button
             onClick={() => navigate('/wardrobe?scan=shoes')}
             className="shrink-0 flex items-center gap-1 text-[11px] font-medium text-amber-700 dark:text-amber-400 hover:underline"
           >
             <Plus className="w-3 h-3" />
-            {t('outfit.add_shoes') || 'Add'}
+            {t('outfit.add_shoes')}
           </button>
         </div>
       )}
@@ -186,7 +186,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
               disabled={isCreating}
             >
               <Plus className="w-3.5 h-3.5" />
-              {t('outfit.add_shoes') || 'Add shoes'}
+              {t('outfit.add_shoes')}
             </Button>
             <Button
               size="sm"
@@ -200,7 +200,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
               ) : (
                 <>
                   <ArrowRight className="w-3.5 h-3.5" />
-                  {t('outfit.save_without_shoes') || 'Save without shoes'}
+                  {t('outfit.save_without_shoes')}
                 </>
               )}
             </Button>
@@ -217,7 +217,7 @@ export function OutfitSuggestionCard({ garments: initialGarments, explanation, o
             ) : (
               <>
                 <ArrowRight className="w-3.5 h-3.5" />
-                {t('outfit.try_this') || 'Testa denna outfit'}
+                {t('outfit.try_this')}
               </>
             )}
           </Button>

@@ -107,7 +107,8 @@ export default function WardrobePage() {
     displayCount,
     hasActiveFilters,
     search,
-  }), [activeTab, displayCount, hasActiveFilters, isLoading, isSelecting, search, selectedIds.size]);
+    t,
+  }), [activeTab, displayCount, hasActiveFilters, isLoading, isSelecting, search, selectedIds.size, t]);
 
   const smartCollectionTiles = useMemo(() => buildWardrobeCollectionTiles({
     smartFilter,
@@ -119,12 +120,12 @@ export default function WardrobePage() {
     <AppLayout>
       <PageHeader
         title={t('wardrobe.title') || 'Wardrobe'}
-        eyebrow={allGarments.length > 0 ? `${allGarments.length} pieces` : undefined}
+        eyebrow={allGarments.length > 0 ? t('wardrobe.pieces_count').replace('{count}', String(allGarments.length)) : undefined}
         actions={
           <button
             onClick={() => navigate('/wardrobe/add')}
             className="flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-background active:scale-95 transition-transform"
-            aria-label="Add garment"
+            aria-label={t('wardrobe.add_garment')}
           >
             <Plus className="h-4 w-4" strokeWidth={2.4} />
           </button>
@@ -179,7 +180,7 @@ export default function WardrobePage() {
                 />
               ) : null}
 
-              <section className="space-y-4" aria-label="Wardrobe inventory">
+              <section className="space-y-4" aria-label={t('wardrobe.inventory_label')}>
                 <GarmentGrid
                   t={t}
                   isLoading={isLoading}

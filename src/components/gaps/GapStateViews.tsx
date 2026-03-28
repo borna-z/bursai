@@ -14,6 +14,7 @@ import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 import { Button } from '@/components/ui/button';
 import { EASE_CURVE } from '@/lib/motion';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 function StateSurface({
   children,
@@ -43,6 +44,7 @@ export function GapHero({
   isUnlocked: boolean;
   hasSnapshot: boolean;
 }) {
+  const { t } = useLanguage();
   return (
     <motion.section
       initial={{ opacity: 0, y: 12 }}
@@ -54,14 +56,13 @@ export function GapHero({
       <div className="relative flex items-start justify-between gap-4">
         <div className="max-w-[32rem]">
           <p className="text-[0.72rem] uppercase tracking-[0.24em] text-muted-foreground/65">
-            Wardrobe Intelligence
+            {t('gaps.wardrobe_intelligence')}
           </p>
           <h1 className="mt-3 text-[2rem] font-semibold tracking-[-0.06em] text-foreground sm:text-[2.4rem]">
-            Garment gaps
+            {t('gaps.garment_gaps')}
           </h1>
           <p className="mt-3 max-w-[30rem] text-[0.95rem] leading-6 text-muted-foreground">
-            Scan your wardrobe before you buy. BURS highlights the missing pieces that unlock the
-            most real outfits instead of adding more noise.
+            {t('gaps.hero_description')}
           </p>
         </div>
         <div className="flex size-12 shrink-0 items-center justify-center rounded-[1.1rem] bg-background/70 text-foreground/75 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
@@ -71,14 +72,14 @@ export function GapHero({
 
       <div className="relative mt-6 flex flex-wrap gap-2.5 text-[0.76rem] text-muted-foreground/80">
         <span className="rounded-full border border-foreground/[0.08] bg-background/75 px-3 py-1.5">
-          {currentCount} pieces in wardrobe
+          {t('gaps.pieces_in_wardrobe').replace('{count}', String(currentCount))}
         </span>
         <span className="rounded-full border border-foreground/[0.08] bg-background/75 px-3 py-1.5">
-          {isUnlocked ? 'Gap analysis unlocked' : 'Unlocks at 10 garments'}
+          {isUnlocked ? t('gaps.gap_analysis_unlocked') : t('gaps.unlocks_at_10')}
         </span>
         {hasSnapshot ? (
           <span className="rounded-full border border-foreground/[0.08] bg-background/75 px-3 py-1.5">
-            Previous scan ready to review
+            {t('gaps.previous_scan_ready')}
           </span>
         ) : null}
       </div>
@@ -87,6 +88,7 @@ export function GapHero({
 }
 
 export function GapLockedState() {
+  const { t } = useLanguage();
   return (
     <StateSurface>
       <div className="flex items-start gap-4">
@@ -95,14 +97,13 @@ export function GapLockedState() {
         </div>
         <div className="space-y-2">
           <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
-            Locked
+            {t('gaps.locked_label')}
           </p>
           <h2 className="text-[1.2rem] font-semibold tracking-[-0.035em] text-foreground">
-            Add a little more wardrobe depth first
+            {t('gaps.locked_title')}
           </h2>
           <p className="max-w-[36rem] text-[0.94rem] leading-6 text-muted-foreground">
-            Gap analysis starts making sense once BURS has enough pieces to compare across your
-            closet. Hit the next milestone and this page will map the highest-impact additions.
+            {t('gaps.locked_desc')}
           </p>
         </div>
       </div>
@@ -119,6 +120,7 @@ export function GapReadyState({
 }: {
   onScan: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <StateSurface>
       <div className="flex items-start gap-4">
@@ -127,34 +129,33 @@ export function GapReadyState({
         </div>
         <div className="space-y-2">
           <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
-            Ready
+            {t('gaps.ready_label')}
           </p>
           <h2 className="text-[1.2rem] font-semibold tracking-[-0.035em] text-foreground">
-            Run a focused wardrobe scan
+            {t('gaps.ready_title')}
           </h2>
           <p className="max-w-[36rem] text-[0.94rem] leading-6 text-muted-foreground">
-            The scan looks for the missing categories, colors, and versatile pieces that create the
-            biggest outfit lift across what you already own.
+            {t('gaps.ready_desc')}
           </p>
         </div>
       </div>
 
       <div className="mt-6 grid gap-3 text-[0.88rem] text-muted-foreground sm:grid-cols-3">
         <div className="rounded-[1.2rem] border border-foreground/[0.06] bg-background/70 p-4">
-          High-impact categories
+          {t('gaps.chip_categories')}
         </div>
         <div className="rounded-[1.2rem] border border-foreground/[0.06] bg-background/70 p-4">
-          Color direction that works now
+          {t('gaps.chip_color')}
         </div>
         <div className="rounded-[1.2rem] border border-foreground/[0.06] bg-background/70 p-4">
-          Fast shopping follow-through
+          {t('gaps.chip_shopping')}
         </div>
       </div>
 
       <div className="mt-6 flex flex-wrap gap-2.5">
         <Button onClick={onScan} className="rounded-full px-5">
           <Search className="size-4" />
-          Run scan
+          {t('gaps.run_scan')}
         </Button>
       </div>
     </StateSurface>
@@ -162,6 +163,7 @@ export function GapReadyState({
 }
 
 export function GapAutorunState() {
+  const { t } = useLanguage();
   return (
     <StateSurface>
       <div className="flex items-start gap-4">
@@ -170,14 +172,13 @@ export function GapAutorunState() {
         </div>
         <div className="space-y-2">
           <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
-            Autorun
+            {t('gaps.autorun_label')}
           </p>
           <h2 className="text-[1.2rem] font-semibold tracking-[-0.035em] text-foreground">
-            Starting your gap scan
+            {t('gaps.autorun_title')}
           </h2>
           <p className="max-w-[36rem] text-[0.94rem] leading-6 text-muted-foreground">
-            Opening directly from Home. BURS is kicking off the full scan so this page keeps the
-            results, refresh state, and shopping actions in one place.
+            {t('gaps.autorun_desc')}
           </p>
         </div>
       </div>
@@ -186,18 +187,18 @@ export function GapAutorunState() {
 }
 
 export function GapLoadingState() {
+  const { t } = useLanguage();
   return (
     <StateSurface>
       <div className="mb-5 space-y-2">
         <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
-          Scanning
+          {t('gaps.scanning_label')}
         </p>
         <h2 className="text-[1.2rem] font-semibold tracking-[-0.035em] text-foreground">
-          Reading your wardrobe for the best missing additions
+          {t('gaps.scanning_title')}
         </h2>
         <p className="max-w-[36rem] text-[0.94rem] leading-6 text-muted-foreground">
-          This compares the pieces you already own, the gaps between them, and the additions that
-          would create the most complete new outfits.
+          {t('gaps.scanning_desc')}
         </p>
       </div>
 
@@ -205,11 +206,11 @@ export function GapLoadingState() {
         variant="card"
         tone="warm"
         phases={[
-          { icon: Search, label: 'Reviewing categories', duration: 2200 },
-          { icon: Sparkles, label: 'Scoring missing essentials', duration: 2200 },
-          { icon: ShoppingBag, label: 'Preparing the best additions', duration: 0 },
+          { icon: Search, label: t('gaps.scanning_phase1'), duration: 2200 },
+          { icon: Sparkles, label: t('gaps.scanning_phase2'), duration: 2200 },
+          { icon: ShoppingBag, label: t('gaps.scanning_phase3'), duration: 0 },
         ]}
-        subtitle="This can take a moment on larger wardrobes."
+        subtitle={t('gaps.scanning_subtitle')}
         showSkeletons={3}
         className="border-none bg-background/55 p-0 shadow-none"
       />
@@ -222,6 +223,7 @@ export function GapErrorState({
 }: {
   onRetry: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <StateSurface>
       <div className="flex items-start gap-4">
@@ -230,14 +232,13 @@ export function GapErrorState({
         </div>
         <div className="space-y-2">
           <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
-            Error
+            {t('gaps.error_label')}
           </p>
           <h2 className="text-[1.2rem] font-semibold tracking-[-0.035em] text-foreground">
-            The scan did not finish
+            {t('gaps.error_title')}
           </h2>
           <p className="max-w-[36rem] text-[0.94rem] leading-6 text-muted-foreground">
-            Nothing has been changed. Retry the scan and BURS will rerun the same wardrobe analysis
-            without losing this page context.
+            {t('gaps.error_desc')}
           </p>
         </div>
       </div>
@@ -245,7 +246,7 @@ export function GapErrorState({
       <div className="mt-6 flex flex-wrap gap-2.5">
         <Button onClick={onRetry} className="rounded-full px-5">
           <RefreshCw className="size-4" />
-          Retry scan
+          {t('gaps.retry_scan')}
         </Button>
       </div>
     </StateSurface>
@@ -257,6 +258,7 @@ export function GapNoGapsState({
 }: {
   onRefresh: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <StateSurface>
       <div className="flex items-start gap-4">
@@ -265,14 +267,13 @@ export function GapNoGapsState({
         </div>
         <div className="space-y-2">
           <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
-            Balanced
+            {t('gaps.balanced_label')}
           </p>
           <h2 className="text-[1.2rem] font-semibold tracking-[-0.035em] text-foreground">
-            No urgent gaps right now
+            {t('gaps.no_gaps_title')}
           </h2>
           <p className="max-w-[36rem] text-[0.94rem] leading-6 text-muted-foreground">
-            Your current wardrobe is covering itself well. If you have added pieces recently, run a
-            fresh scan to see whether new gaps or upgrade opportunities appear.
+            {t('gaps.no_gaps_desc')}
           </p>
         </div>
       </div>
@@ -280,7 +281,7 @@ export function GapNoGapsState({
       <div className="mt-6 flex flex-wrap gap-2.5">
         <Button onClick={onRefresh} variant="outline" className="rounded-full px-5">
           <RefreshCw className="size-4" />
-          Run fresh scan
+          {t('gaps.run_fresh_scan')}
         </Button>
       </div>
     </StateSurface>

@@ -63,9 +63,9 @@ function SwapSheet({
   const slotLabel = t(`outfit.slot.${slot}`) || slot;
 
   const modeDescriptions: Record<string, string> = {
-    safe: t('swap.mode_safe_desc') || 'Similar style, minimal risk',
-    bold: t('swap.mode_bold_desc') || 'Push your boundaries',
-    fresh: t('swap.mode_fresh_desc') || 'Least worn items first',
+    safe: t('swap.mode_safe_desc'),
+    bold: t('swap.mode_bold_desc'),
+    fresh: t('swap.mode_fresh_desc'),
   };
 
   return (
@@ -134,7 +134,7 @@ function SwapSheet({
                   </div>
                   {idx === 0 && (
                     <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full flex-shrink-0">
-                      {t('swap.best_match') || 'Best'}
+                      {t('swap.best_match')}
                     </span>
                   )}
                 </button>
@@ -149,12 +149,10 @@ function SwapSheet({
 
 /* ── Garment Slot (editorial card) ─────────────── */
 
-const LAYER_ROLE_LABELS: Record<string, string> = {
-  base: 'Base Layer',
-  mid: 'Mid Layer',
-  outer: 'Outer Layer',
-  standalone: '',
-};
+function getLayerRoleLabel(role: string, t: (key: string) => string): string {
+  if (role === 'standalone') return '';
+  return t(`outfit.layer_role.${role}`) || role;
+}
 
 interface SlotRowProps {
   slot: string;
@@ -172,8 +170,8 @@ function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, rende
   const navigate = useNavigate();
   // Use layering role label for top-area slots when available
   const isLayeredSlot = ['top', 'outerwear'].includes(slot);
-  const roleLabel = isLayeredSlot && layerRole && LAYER_ROLE_LABELS[layerRole]
-    ? LAYER_ROLE_LABELS[layerRole]
+  const roleLabel = isLayeredSlot && layerRole && getLayerRoleLabel(layerRole, t)
+    ? getLayerRoleLabel(layerRole, t)
     : (t(`outfit.slot.${slot}`) || slot);
 
   const categorySlotLabel = t(`outfit.slot.${slot}`) || slot;
@@ -592,8 +590,8 @@ export default function OutfitDetailPage() {
       {/* ── Breadcrumb ── */}
       <div className="pt-14">
         <PageBreadcrumb items={[
-          { label: 'Outfits', href: '/outfits' },
-          { label: displayOccasion || 'Outfit' },
+          { label: t('outfits.title'), href: '/outfits' },
+          { label: displayOccasion || t('outfit.label') },
         ]} />
       </div>
 
@@ -642,7 +640,7 @@ export default function OutfitDetailPage() {
                   : "text-foreground/45"
               )}
             >
-              {tab === 'wear' ? 'Wear' : tab === 'swap' ? 'Swap' : 'Why'}
+              {tab === 'wear' ? t('outfit.tab_wear') : tab === 'swap' ? t('outfit.tab_swap') : t('outfit.tab_why')}
             </button>
           ))}
         </div>

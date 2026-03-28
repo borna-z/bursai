@@ -3,6 +3,7 @@ import { ArrowUpRight, Dna } from 'lucide-react';
 import type { StyleDNA } from '@/hooks/useStyleDNA';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface HomeDnaSnapshotProps {
   dna: StyleDNA | null | undefined;
@@ -40,11 +41,11 @@ function getColorSwatch(color: string) {
   return COLOR_MAP[color.toLowerCase().trim()] || '#B5AFA5';
 }
 
-function getBiasLabel(dna: StyleDNA) {
+function getBiasLabel(dna: StyleDNA, t: (key: string) => string) {
   if (dna.patterns[0]?.label) return dna.patterns[0].label;
-  if (dna.formalityCenter < 2.5) return 'Relaxed';
-  if (dna.formalityCenter > 3.6) return 'Polished';
-  return 'Balanced';
+  if (dna.formalityCenter < 2.5) return t('home.dna_relaxed');
+  if (dna.formalityCenter > 3.6) return t('home.dna_polished');
+  return t('home.dna_balanced');
 }
 
 export function HomeDnaSnapshot({
@@ -52,6 +53,7 @@ export function HomeDnaSnapshot({
   isLoading = false,
   onOpenInsights,
 }: HomeDnaSnapshotProps) {
+  const { t } = useLanguage();
   if (isLoading) {
     return (
       <section
@@ -75,12 +77,12 @@ export function HomeDnaSnapshot({
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="label-editorial text-muted-foreground/60">Style DNA</p>
+            <p className="label-editorial text-muted-foreground/60">{t('home.dna_style_dna')}</p>
             <h2 className="mt-1 font-['Playfair_Display'] italic text-[1.2rem] tracking-[-0.03em] text-foreground">
-              Your signature is still forming
+              {t('home.dna_still_forming')}
             </h2>
             <p className="mt-2 text-[0.92rem] leading-6 text-muted-foreground">
-              Save a few more looks and BURS will start surfacing the patterns that belong in Insights.
+              {t('home.dna_still_forming_desc')}
             </p>
           </div>
           <div className="flex size-11 items-center justify-center rounded-[1.1rem] bg-secondary/65 text-foreground/70">
@@ -89,14 +91,14 @@ export function HomeDnaSnapshot({
         </div>
 
         <Button onClick={onOpenInsights} variant="outline" className="mt-4 h-11 rounded-full px-4">
-          Open insights
+          {t('home.dna_open_insights')}
         </Button>
       </section>
     );
   }
 
   const topColors = dna.signatureColors.slice(0, 3);
-  const topFormula = dna.uniformCombos[0]?.combo?.join(' + ') || 'Still emerging';
+  const topFormula = dna.uniformCombos[0]?.combo?.join(' + ') || t('home.dna_still_emerging');
 
   return (
     <motion.section
@@ -108,12 +110,12 @@ export function HomeDnaSnapshot({
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="label-editorial text-muted-foreground/60">Style DNA</p>
+          <p className="label-editorial text-muted-foreground/60">{t('home.dna_style_dna')}</p>
           <h2 className="mt-1 font-['Playfair_Display'] italic text-[1.35rem] tracking-[-0.04em] text-foreground">
             {dna.archetype}
           </h2>
           <p className="mt-1 text-[0.86rem] text-muted-foreground">
-            {dna.outfitsAnalyzed} looks analyzed
+            {t('home.dna_looks_analyzed').replace('{count}', String(dna.outfitsAnalyzed))}
           </p>
         </div>
         <Button
@@ -121,7 +123,7 @@ export function HomeDnaSnapshot({
           onClick={onOpenInsights}
           className="h-11 rounded-full px-3 text-foreground/70"
         >
-          Open insights
+          {t('home.dna_open_insights')}
           <ArrowUpRight className="size-4" />
         </Button>
       </div>
@@ -129,17 +131,17 @@ export function HomeDnaSnapshot({
       <div className="mt-4 space-y-3 rounded-[1.1rem] bg-secondary/45 p-4">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">Formula</p>
+            <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">{t('home.dna_formula')}</p>
             <p className="mt-1 text-[0.94rem] leading-6 text-foreground">{topFormula}</p>
           </div>
           <div className="text-right">
-            <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">Bias</p>
-            <p className="mt-1 text-[0.94rem] text-foreground">{getBiasLabel(dna)}</p>
+            <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">{t('home.dna_bias')}</p>
+            <p className="mt-1 text-[0.94rem] text-foreground">{getBiasLabel(dna, t)}</p>
           </div>
         </div>
 
         <div className="flex items-center justify-between gap-4">
-          <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">Palette</p>
+          <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">{t('home.dna_palette')}</p>
           <div className="flex items-center gap-2">
             {topColors.length > 0 ? topColors.map((color) => (
               <span
@@ -150,7 +152,7 @@ export function HomeDnaSnapshot({
                 title={color.color}
               />
             )) : (
-              <span className="text-[0.86rem] text-muted-foreground">Building</span>
+              <span className="text-[0.86rem] text-muted-foreground">{t('home.dna_building')}</span>
             )}
           </div>
         </div>

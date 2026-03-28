@@ -189,21 +189,21 @@ describe('Home page command center', () => {
     const heading = screen.getByRole('heading', { level: 1 });
     expect(heading).toBeInTheDocument();
     expect(heading.textContent).toContain('Test');
-    expect(screen.getByText('Style outfit')).toBeInTheDocument();
-    expect(screen.getAllByText('Ask BURS').length).toBeGreaterThan(0);
-    expect(screen.getByText('Travel capsule')).toBeInTheDocument();
-    expect(screen.getAllByText('Open insights').length).toBeGreaterThan(0);
-    expect(screen.getByText('Open unworn rotation')).toBeInTheDocument();
+    expect(screen.getByText('home.action_style_outfit')).toBeInTheDocument();
+    expect(screen.getAllByText('home.ask_burs_title').length).toBeGreaterThan(0);
+    expect(screen.getByText('home.travel_capsule_title')).toBeInTheDocument();
+    expect(screen.getAllByText('home.dna_open_insights').length).toBeGreaterThan(0);
+    expect(screen.getByText('home.wear_open_rotation')).toBeInTheDocument();
   });
 
   it('navigates to the promoted actions from home', () => {
     renderHome();
 
-    fireEvent.click(screen.getByText('Style outfit'));
-    fireEvent.click(screen.getByRole('button', { name: /Ask BURS/i }));
-    fireEvent.click(screen.getByText('Travel capsule'));
-    fireEvent.click(screen.getAllByText('Open insights')[0]);
-    fireEvent.click(screen.getByText('Open unworn rotation'));
+    fireEvent.click(screen.getByText('home.action_style_outfit'));
+    fireEvent.click(screen.getByRole('button', { name: /home\.ask_burs_title/i }));
+    fireEvent.click(screen.getByText('home.travel_capsule_title'));
+    fireEvent.click(screen.getAllByText('home.dna_open_insights')[0]);
+    fireEvent.click(screen.getByText('home.wear_open_rotation'));
 
     expect(navigateMock).toHaveBeenCalledWith('/ai/generate');
     expect(
@@ -221,8 +221,8 @@ describe('Home page command center', () => {
 
     renderHome();
 
-    expect(screen.getByText('Add garment')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Open wardrobe'));
+    expect(screen.getByText('home.action_add_garment')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('home.action_open_wardrobe'));
     expect(navigateMock).toHaveBeenCalledWith('/wardrobe');
   });
 });

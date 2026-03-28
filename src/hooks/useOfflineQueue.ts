@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getQueueLength, replayQueue } from '@/lib/offlineQueue';
 import { toast } from 'sonner';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 /**
  * Hook that tracks online/offline status and the offline mutation queue.
  * Automatically replays queued mutations when coming back online.
  */
 export function useOfflineQueue() {
+  const { t } = useLanguage();
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [queueCount, setQueueCount] = useState(getQueueLength);
   const [isReplaying, setIsReplaying] = useState(false);
@@ -19,13 +21,13 @@ export function useOfflineQueue() {
     try {
       const synced = await replayQueue();
       if (synced > 0) {
-        toast.success(`Synced ${synced} offline change${synced > 1 ? 's' : ''}`);
+        toast.success(t('offline.synced_changes').replace('{count}', String(synced)));
       }
       setQueueCount(getQueueLength());
     } finally {
       setIsReplaying(false);
     }
-  }, []);
+  }, [t]);
 
   // Track online/offline
   useEffect(() => {

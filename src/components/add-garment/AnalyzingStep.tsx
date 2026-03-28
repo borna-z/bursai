@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { GarmentAnalysisState } from '@/components/ui/GarmentAnalysisState';
 import { PageIntro } from '@/components/ui/page-intro';
 import { Progress } from '@/components/ui/progress';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface AnalyzingStepProps {
   analysisError: string | null;
@@ -32,14 +33,15 @@ export function AnalyzingStep({
   onRetry,
   onCancel,
 }: AnalyzingStepProps) {
+  const { t } = useLanguage();
   return (
     <AppLayout hideNav>
       <AnimatedPage className="page-shell !max-w-lg !px-5 !pt-8 page-cluster">
         <Card surface="editorial" className="p-6">
           <PageIntro
             center
-            eyebrow="Analyzing"
-            title="Reviewing your garment."
+            eyebrow={t('addgarment.analyzing_eyebrow')}
+            title={t('addgarment.analyzing_title')}
             description={processingLabel}
             actions={<Button variant="quiet" onClick={onCancel}>{cancelLabel}</Button>}
           />

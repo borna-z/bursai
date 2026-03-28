@@ -58,19 +58,19 @@ export function buildWardrobeCommandTopState({
   const trimmedSearch = search.trim();
 
   let caption = activeTab === 'garments'
-    ? 'Search, filter, and open what you own.'
-    : 'Saved and planned looks stay together.';
+    ? t('wardrobe.search_caption')
+    : t('wardrobe.outfits_caption');
 
   if (isSelecting) {
     caption = selectedIdsCount > 0
       ? `${selectedIdsCount} ${t('wardrobe.selected')}`
       : t('wardrobe.select');
   } else if (activeTab === 'garments' && trimmedSearch) {
-    caption = `${displayCount} result${displayCount === 1 ? '' : 's'}`;
+    caption = t('wardrobe.search_results').replace('{count}', String(displayCount));
   } else if (activeTab === 'garments' && hasActiveFilters) {
-    caption = `${displayCount} filtered piece${displayCount === 1 ? '' : 's'}`;
+    caption = t('wardrobe.filtered_count').replace('{count}', String(displayCount));
   } else if (activeTab === 'garments' && isLowWardrobe) {
-    caption = 'Add a top, bottom, and shoes to unlock styling.';
+    caption = t('wardrobe.low_wardrobe_hint');
   }
 
   const actions: WardrobeCommandActionModel[] = [
@@ -83,7 +83,7 @@ export function buildWardrobeCommandTopState({
     caption,
     activeTab,
     resultsLabel: getResultsLabel({ activeTab, totalCount, displayCount, t }),
-    searchPlaceholder: 'Search garments...',
+    searchPlaceholder: t('wardrobe.search') || 'Search…',
     actions,
   };
 }
@@ -114,6 +114,7 @@ export function buildWardrobeInventoryState({
   displayCount,
   hasActiveFilters,
   search,
+  t,
 }: {
   activeTab: WardrobeTab;
   isLoading: boolean;
@@ -122,50 +123,51 @@ export function buildWardrobeInventoryState({
   displayCount: number;
   hasActiveFilters: boolean;
   search: string;
+  t: (key: string) => string;
 }): WardrobeInventoryState {
   if (isLoading) {
     return {
       kind: 'loading',
-      title: activeTab === 'outfits' ? 'Loading looks' : 'Loading wardrobe',
-      description: activeTab === 'outfits' ? 'Pulling in your saved and planned outfits.' : 'Pulling in your latest pieces.',
+      title: activeTab === 'outfits' ? t('wardrobe.loading_looks') : t('wardrobe.loading_wardrobe'),
+      description: activeTab === 'outfits' ? t('wardrobe.loading_looks_desc') : t('wardrobe.loading_wardrobe_desc'),
     };
   }
 
   if (isSelecting) {
     return {
       kind: 'selecting',
-      title: selectedIdsCount > 0 ? `${selectedIdsCount} selected` : 'Select pieces',
-      description: 'Batch actions stay above the list.',
+      title: selectedIdsCount > 0 ? t('wardrobe.items_selected').replace('{count}', String(selectedIdsCount)) : t('wardrobe.select_pieces'),
+      description: t('wardrobe.batch_hint'),
     };
   }
 
   if (activeTab === 'outfits') {
     return {
       kind: 'results',
-      title: 'Look archive',
-      description: 'Saved and planned looks stay together here.',
+      title: t('wardrobe.look_archive'),
+      description: t('wardrobe.outfits_storage_hint'),
     };
   }
 
   if (displayCount === 0 && (hasActiveFilters || search.trim().length > 0)) {
     return {
       kind: 'filtered-empty',
-      title: 'No matching pieces',
-      description: 'Clear filters or search less specifically.',
+      title: t('wardrobe.no_match_title'),
+      description: t('wardrobe.no_match_desc'),
     };
   }
 
   if (displayCount === 0) {
     return {
       kind: 'empty',
-      title: 'Start with your core pieces',
-      description: 'Add garments first, then style and plan from the same workspace.',
+      title: t('wardrobe.empty_title'),
+      description: t('wardrobe.empty_desc'),
     };
   }
 
   return {
     kind: 'results',
-    title: `${displayCount} piece${displayCount === 1 ? '' : 's'} ready`,
-    description: 'Tap a piece to open it.',
+    title: t('wardrobe.pieces_ready').replace('{count}', String(displayCount)),
+    description: t('wardrobe.tap_hint'),
   };
 }

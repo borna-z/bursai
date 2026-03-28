@@ -3,22 +3,25 @@ import { ArrowUpRight } from 'lucide-react';
 
 import type { HomeQuickAction } from '@/components/home/homeTypes';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface HomeQuickActionsProps {
   actions: HomeQuickAction[];
 }
 
 export function HomeQuickActions({ actions }: HomeQuickActionsProps) {
+  const { t } = useLanguage();
+
   if (actions.length === 0) return null;
 
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between px-0.5">
         <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/65">
-          Quick actions
+          {t('home.quick_actions')}
         </p>
         <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/50">
-          {actions.length} tools
+          {t('home.quick_actions_count').replace('{count}', String(actions.length))}
         </p>
       </div>
 

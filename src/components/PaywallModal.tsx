@@ -44,15 +44,15 @@ export function PaywallModal({ isOpen, onClose, reason }: PaywallModalProps) {
           <DialogDescription className="text-base leading-relaxed">
             {reason === 'garments'
               ? t('paywall.garment_limit')
-              : 'Upgrade to unlock your personal AI stylist — deeper reasoning, unlimited outfits, and editorial-grade recommendations.'}
+              : t('paywall.outfit_limit')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-2.5 my-6">
           {[
-            { icon: Crown, title: 'Stylist Mode', desc: 'Deeper reasoning, editorial explanations, stronger outfit logic' },
-            { icon: InfinityIcon, title: t('premium.unlimited_wardrobe'), desc: 'No limits on garments or outfit generation' },
-            { icon: Sparkles, title: t('premium.smarter_ai'), desc: 'Personalized to your style DNA, wardrobe, and habits' },
+            { icon: Crown, title: t('paywall.stylist_mode'), desc: t('paywall.stylist_mode_desc') },
+            { icon: InfinityIcon, title: t('premium.unlimited_wardrobe'), desc: t('paywall.unlimited_desc') },
+            { icon: Sparkles, title: t('premium.smarter_ai'), desc: t('paywall.smarter_desc') },
           ].map(({ icon: Icon, title, desc }) => (
             <div key={title} className="flex items-start gap-3 p-3 bg-secondary/40 rounded-[1.25rem]">
               <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">

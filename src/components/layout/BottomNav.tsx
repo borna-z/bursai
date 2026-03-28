@@ -82,7 +82,7 @@ export function BottomNav() {
     <>
       <nav
         className="fixed inset-x-0 bottom-0 z-50 pointer-events-none"
-        aria-label="Main navigation"
+        aria-label={t('nav.main_navigation')}
       >
         <div className="pointer-events-auto pb-[env(safe-area-inset-bottom,0px)]">
           <div className="app-dock flex items-center gap-1">
@@ -95,9 +95,9 @@ export function BottomNav() {
                 step={0}
                 currentStep={coach.currentStep}
                 isCoachActive
-                title="Start here"
-                body="Add your clothes to BURS. The AI reads each garment automatically."
-                ctaLabel="Take me there"
+                title={t('coach.start_here_title')}
+                body={t('coach.start_here_body')}
+                ctaLabel={t('coach.start_here_cta')}
                 onCta={() => {
                   navigate('/wardrobe');
                   coach.advanceStep();

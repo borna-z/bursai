@@ -30,10 +30,10 @@ function PasswordRequirements({ password, t }: { password: string; t: (k: string
 
 function getLoginErrorMessage(error: Error, t: (k: string) => string) {
   const msg = error.message.toLowerCase();
-  if (msg.includes('invalid login credentials')) return 'Wrong email or password. If this account was created with Google, use Continue with Google.';
-  if (msg.includes('email not confirmed')) return 'Please confirm your email before logging in.';
-  if (msg.includes('provider') || msg.includes('oauth') || msg.includes('identity')) return 'This account uses Google sign-in. Use Continue with Google or reset your password.';
-  if (msg.includes('fetch') || msg.includes('network')) return 'Connection problem. Please refresh and try again.';
+  if (msg.includes('invalid login credentials')) return t('auth.error_wrong_credentials');
+  if (msg.includes('email not confirmed')) return t('auth.error_email_not_confirmed');
+  if (msg.includes('provider') || msg.includes('oauth') || msg.includes('identity')) return t('auth.error_oauth_account');
+  if (msg.includes('fetch') || msg.includes('network')) return t('auth.error_connection');
   return t('auth.something_wrong');
 }
 
@@ -92,7 +92,7 @@ export default function AuthPage() {
     const { error } = await supabase.auth.resend({ type: 'signup', email });
     setResendingEmail(false);
     if (error) toast.error(error.message || t('auth.something_wrong'));
-    else toast.success('Confirmation email sent!');
+    else toast.success(t('auth.confirmation_sent'));
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -143,8 +143,8 @@ export default function AuthPage() {
     <div className="relative min-h-screen flex flex-col bg-background overflow-hidden font-['DM_Sans']">
       <EditorialGrid />
       <div className="relative z-10 flex items-center justify-between px-6 pt-[max(env(safe-area-inset-top,0px),24px)] pb-4 border-b border-border/20">
-        <p className="text-[9px] uppercase tracking-[0.26em] text-muted-foreground/40">Personal Style Intelligence</p>
-        <p className="text-[9px] uppercase tracking-[0.26em] text-muted-foreground/25">Est. 2024</p>
+        <p className="text-[9px] uppercase tracking-[0.26em] text-muted-foreground/40">{t('auth.header_tagline')}</p>
+        <p className="text-[9px] uppercase tracking-[0.26em] text-muted-foreground/25">{t('auth.header_est')}</p>
       </div>
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-10">
         <div className="w-full max-w-[320px]">
@@ -223,11 +223,11 @@ export default function AuthPage() {
                 </div>
                 {isLogin && emailNotConfirmed && (
                   <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between bg-muted/40 border border-border/40 px-3 py-2.5">
-                    <span className="text-[11px] text-foreground/65">Email not confirmed.</span>
+                    <span className="text-[11px] text-foreground/65">{t('auth.email_not_confirmed_notice')}</span>
                     <button type="button" onClick={handleResendConfirmation} disabled={resendingEmail}
                       className="text-[11px] text-foreground font-medium underline underline-offset-2 hover:opacity-70 transition-opacity disabled:opacity-40 flex items-center gap-1.5">
                       {resendingEmail && <Loader2 className="w-3 h-3 animate-spin" />}
-                      Resend
+                      {t('auth.resend')}
                     </button>
                   </motion.div>
                 )}
@@ -241,7 +241,7 @@ export default function AuthPage() {
         </div>
       </div>
       <div className="relative z-10 flex items-center justify-center px-6 pb-[max(env(safe-area-inset-bottom,0px),20px)] pt-4 border-t border-border/15">
-        <p className="text-[9px] uppercase tracking-[0.22em] text-muted-foreground/25">\u00A9 BURS \u00B7 Secure \u00B7 Private</p>
+        <p className="text-[9px] uppercase tracking-[0.22em] text-muted-foreground/25">{t('auth.footer')}</p>
       </div>
     </div>
   );

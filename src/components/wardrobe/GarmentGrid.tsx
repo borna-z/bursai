@@ -410,7 +410,7 @@ export function GarmentGrid({
         icon={Search}
         title={t('wardrobe.no_results')}
         description={t('wardrobe.try_other')}
-        action={hasActiveFilters ? { label: 'Clear filters', onClick: onClearFilters } : undefined}
+        action={hasActiveFilters ? { label: t('wardrobe.clear_filters'), onClick: onClearFilters } : undefined}
         compact
       />
     );

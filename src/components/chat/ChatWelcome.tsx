@@ -55,35 +55,35 @@ function findMostWorn(garments: Garment[]): Garment | null {
   }, eligible[0]);
 }
 
-function buildWeatherSuggestion(weather: WeatherData | undefined, _locale: string): string {
+function buildWeatherSuggestion(weather: WeatherData | undefined, _locale: string, t: (key: string) => string): string {
   if (!weather) {
-    return 'What should I wear today?';
+    return t('chat.chip_wear_today');
   }
   const temp = Math.round(weather.temperature);
   const condKey = weather.condition;
-  const cond = condKey.includes('rain') || condKey.includes('drizzle') ? 'rainy'
-    : condKey.includes('snow') ? 'snowy'
-    : condKey.includes('cloud') ? 'cloudy'
-    : 'sunny';
-  return `It's ${temp}°C and ${cond} — what works?`;
+  const cond = condKey.includes('rain') || condKey.includes('drizzle') ? t('chat.weather_rainy')
+    : condKey.includes('snow') ? t('chat.weather_snowy')
+    : condKey.includes('cloud') ? t('chat.weather_cloudy')
+    : t('chat.weather_sunny');
+  return t('chat.chip_weather_template').replace('{temp}', String(temp)).replace('{cond}', cond);
 }
 
-function buildCalendarSuggestion(_locale: string): string {
-  return 'I have a meeting today';
+function buildCalendarSuggestion(_locale: string, t: (key: string) => string): string {
+  return t('chat.chip_meeting');
 }
 
 function truncate(str: string, max: number): string {
   return str.length > max ? str.slice(0, max - 1) + '…' : str;
 }
 
-function buildLeastWornSuggestion(garment: Garment | null, _locale: string): string {
-  if (!garment) return 'Style my least worn item';
-  return truncate(`Style my ${garment.title.toLowerCase()}`, 32);
+function buildLeastWornSuggestion(garment: Garment | null, _locale: string, t: (key: string) => string): string {
+  if (!garment) return t('chat.chip_least_worn');
+  return truncate(t('chat.chip_style_item').replace('{item}', garment.title.toLowerCase()), 32);
 }
 
-function buildMostWornSuggestion(garment: Garment | null, _locale: string): string {
-  if (!garment) return 'New ways to wear my favorite';
-  return truncate(`New ways to wear my ${garment.title.toLowerCase()}`, 36);
+function buildMostWornSuggestion(garment: Garment | null, _locale: string, t: (key: string) => string): string {
+  if (!garment) return t('chat.chip_most_worn');
+  return truncate(t('chat.chip_new_ways_item').replace('{item}', garment.title.toLowerCase()), 36);
 }
 
 export function ChatWelcome({ onSuggestion, displayName }: ChatWelcomeProps) {
@@ -98,24 +98,24 @@ export function ChatWelcome({ onSuggestion, displayName }: ChatWelcomeProps) {
     const allGarments = garmentList ?? [];
 
     // Row 1: contextual (weather + calendar)
-    const weatherChip = buildWeatherSuggestion(weather ?? undefined, locale);
-    const calendarChip = buildCalendarSuggestion(locale);
+    const weatherChip = buildWeatherSuggestion(weather ?? undefined, locale, t);
+    const calendarChip = buildCalendarSuggestion(locale, t);
 
     // Row 2: wardrobe-aware
     const leastWorn = findLeastWorn(allGarments);
     const mostWorn = findMostWorn(allGarments);
-    const leastWornChip = buildLeastWornSuggestion(leastWorn, locale);
-    const mostWornChip = buildMostWornSuggestion(mostWorn, locale);
+    const leastWornChip = buildLeastWornSuggestion(leastWorn, locale, t);
+    const mostWornChip = buildMostWornSuggestion(mostWorn, locale, t);
 
     // Row 3: discovery (static)
-    const discoveryChips = ['What\'s missing in my wardrobe?', 'Find me a date night outfit'];
+    const discoveryChips = [t('chat.chip_wardrobe_missing'), t('chat.chip_date_night')];
 
     return [
       [weatherChip, calendarChip],
       [leastWornChip, mostWornChip],
       discoveryChips,
     ];
-  }, [weather, garmentList, locale]);
+  }, [weather, garmentList, locale, t]);
 
   const name = displayName || profile?.display_name || '';
 
@@ -135,7 +135,7 @@ export function ChatWelcome({ onSuggestion, displayName }: ChatWelcomeProps) {
       
       {name && (
         <motion.p variants={itemVariants} className="text-[13px] text-muted-foreground/40 mb-0.5 tracking-wide">
-          {t('chat.greeting_prefix') || 'Hey'}, {name}
+          {t('chat.greeting_prefix')}, {name}
         </motion.p>
       )}
       
@@ -143,14 +143,14 @@ export function ChatWelcome({ onSuggestion, displayName }: ChatWelcomeProps) {
         variants={itemVariants}
         className="font-['Playfair_Display'] italic text-[1.4rem] text-foreground mb-0.5 leading-tight"
       >
-        {t('chat.welcome_title') || 'Your personal stylist'}
+        {t('chat.welcome_title')}
       </motion.h2>
       
       <motion.p
         variants={itemVariants}
         className="text-[14px] text-muted-foreground/50 max-w-[220px] leading-relaxed"
       >
-        {t('chat.welcome_subtitle') || 'Ask me anything about your wardrobe, outfits, or style'}
+        {t('chat.welcome_subtitle')}
       </motion.p>
 
       {/* Suggestion chips — single column for clean alignment */}

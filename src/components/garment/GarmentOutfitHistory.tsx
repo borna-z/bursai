@@ -51,7 +51,7 @@ export function GarmentOutfitHistory({ outfitHistory, usageInsights }: GarmentOu
       {outfitHistory && outfitHistory.length > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(28,25,23,0.38)' }}>
-            Worn in {outfitHistory.length} outfit{outfitHistory.length !== 1 ? 's' : ''}
+            {(outfitHistory.length !== 1 ? t('garment.history.worn_in_outfits_plural') : t('garment.history.worn_in_outfits')).replace('{count}', String(outfitHistory.length))}
           </p>
           <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }} className="scrollbar-hide">
             {outfitHistory.slice(0, 8).map((outfit) => (
@@ -87,18 +87,18 @@ export function GarmentOutfitHistory({ outfitHistory, usageInsights }: GarmentOu
               <div style={{ display: 'flex', gap: 24 }}>
                 <div>
                   <p style={{ fontFamily: '"Playfair Display", serif', fontSize: 18, color: '#1C1917', margin: 0 }}>{usageInsights.wearCount}</p>
-                  <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>Total wears</p>
+                  <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{t('garment.history.total_wears')}</p>
                 </div>
                 <div>
                   <p style={{ fontFamily: '"Playfair Display", serif', fontSize: 18, color: '#1C1917', margin: 0 }}>{usageInsights.wearFrequency}×</p>
-                  <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>Per month</p>
+                  <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{t('garment.history.per_month')}</p>
                 </div>
                 {usageInsights.daysSinceLastWorn != null && (
                   <div>
                     <p style={{ fontFamily: '"Playfair Display", serif', fontSize: 18, color: '#1C1917', margin: 0 }}>
-                      {usageInsights.daysSinceLastWorn === 0 ? 'Today' : `${usageInsights.daysSinceLastWorn}d`}
+                      {usageInsights.daysSinceLastWorn === 0 ? t('garment.history.today') : `${usageInsights.daysSinceLastWorn}d`}
                     </p>
-                    <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>Last worn</p>
+                    <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{t('garment.history.last_worn')}</p>
                   </div>
                 )}
               </div>
@@ -108,10 +108,10 @@ export function GarmentOutfitHistory({ outfitHistory, usageInsights }: GarmentOu
       ) : (
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
           <p style={{ fontFamily: '"Playfair Display", serif', fontStyle: 'italic', fontSize: 14, color: 'rgba(28,25,23,0.5)', margin: 0 }}>
-            No outfits yet
+            {t('garment.history.no_outfits')}
           </p>
           <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 11, color: 'rgba(28,25,23,0.35)', marginTop: 4 }}>
-            Style this piece to create your first look.
+            {t('garment.history.no_outfits_hint')}
           </p>
         </div>
       )}

@@ -91,12 +91,12 @@ describe('BottomNav smoke', () => {
 
   it('renders navigation landmark', () => {
     renderNav();
-    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'nav.main_navigation' })).toBeInTheDocument();
   });
 
   it('keeps safe-area spacing inside the nav wrapper', () => {
     renderNav();
-    const nav = screen.getByRole('navigation', { name: 'Main navigation' });
+    const nav = screen.getByRole('navigation', { name: 'nav.main_navigation' });
 
     expect(nav.className).not.toContain('safe-bottom');
     const inner = nav.querySelector('.pointer-events-auto');
@@ -120,7 +120,7 @@ describe('BottomNav smoke', () => {
     });
 
     renderNav('/wardrobe');
-    expect(screen.queryByRole('button', { name: /take me there/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'coach.start_here_cta' })).not.toBeInTheDocument();
   });
 
   it('shows the wardrobe coach overlay on other routes when step 0 is active', async () => {
@@ -134,7 +134,7 @@ describe('BottomNav smoke', () => {
     });
 
     renderNav('/');
-    expect(await screen.findByRole('button', { name: /take me there/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'coach.start_here_cta' })).toBeInTheDocument();
   });
 
   it('opens the centered add sheet with the two wardrobe actions', () => {

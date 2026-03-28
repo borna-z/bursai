@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+
+vi.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: vi.fn(() => ({ t: (k: string) => k, locale: 'en' })),
+}));
+
 import { HomeDnaSnapshot } from '../HomeDnaSnapshot';
 
 const baseProps = {
@@ -15,8 +20,8 @@ describe('HomeDnaSnapshot', () => {
   it('renders empty state when dna is unavailable', () => {
     render(<HomeDnaSnapshot {...baseProps} dna={null} />);
     expect(screen.getByTestId('home-dna-empty')).toBeInTheDocument();
-    expect(screen.getByText('Your signature is still forming')).toBeInTheDocument();
-    expect(screen.getByText('Open insights')).toBeInTheDocument();
+    expect(screen.getByText('home.dna_still_forming')).toBeInTheDocument();
+    expect(screen.getByText('home.dna_open_insights')).toBeInTheDocument();
   });
 
   it('renders populated dna summary', () => {
@@ -41,9 +46,9 @@ describe('HomeDnaSnapshot', () => {
 
     expect(screen.getByTestId('home-dna-populated')).toBeInTheDocument();
     expect(screen.getByText('Minimalist')).toBeInTheDocument();
-    expect(screen.getByText('Palette')).toBeInTheDocument();
-    expect(screen.getByText('Formula')).toBeInTheDocument();
-    expect(screen.getByText('Bias')).toBeInTheDocument();
-    expect(screen.getByText('12 looks analyzed')).toBeInTheDocument();
+    expect(screen.getByText('home.dna_palette')).toBeInTheDocument();
+    expect(screen.getByText('home.dna_formula')).toBeInTheDocument();
+    expect(screen.getByText('home.dna_bias')).toBeInTheDocument();
+    expect(screen.getByText('home.dna_looks_analyzed')).toBeInTheDocument();
   });
 });

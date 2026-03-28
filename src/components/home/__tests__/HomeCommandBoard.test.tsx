@@ -3,6 +3,10 @@ import { render, screen } from '@testing-library/react';
 
 import { HomeCommandBoard } from '../HomeCommandBoard';
 
+vi.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: vi.fn(() => ({ t: (k: string) => k, locale: 'en' })),
+}));
+
 vi.mock('@/components/ui/OutfitComposition', () => ({
   OutfitComposition: () => <div data-testid="outfit-composition" />,
 }));
@@ -31,7 +35,7 @@ describe('HomeCommandBoard', () => {
     expect(screen.getByTestId('home-command-board-empty_wardrobe')).toBeInTheDocument();
     expect(screen.getByTestId('home-command-board-visual-empty')).toBeInTheDocument();
     expect(screen.getByText('Top')).toBeInTheDocument();
-    expect(screen.getByText('Start with three pieces')).toBeInTheDocument();
+    expect(screen.getByText('home.command_summary_coach')).toBeInTheDocument();
     expect(screen.getByText('Open wardrobe')).toBeInTheDocument();
   });
 
@@ -51,8 +55,8 @@ describe('HomeCommandBoard', () => {
     expect(screen.getByTestId('home-command-board-outfit_planned')).toBeInTheDocument();
     expect(screen.getByTestId('home-command-board-visual-planned')).toBeInTheDocument();
     expect(screen.getByTestId('outfit-composition')).toBeInTheDocument();
-    expect(screen.getByText('Planned look')).toBeInTheDocument();
-    expect(screen.getByText('Today is ready')).toBeInTheDocument();
+    expect(screen.getByText('home.command_planned_look')).toBeInTheDocument();
+    expect(screen.getByText('home.command_title_planned')).toBeInTheDocument();
   });
 
   it('renders recent-look mode when there is no planned outfit', () => {
@@ -65,8 +69,8 @@ describe('HomeCommandBoard', () => {
 
     expect(screen.getByTestId('home-command-board-no_outfit')).toBeInTheDocument();
     expect(screen.getByTestId('home-command-board-visual-recent')).toBeInTheDocument();
-    expect(screen.getByText('Recent looks')).toBeInTheDocument();
-    expect(screen.getByText('Choose the next look')).toBeInTheDocument();
+    expect(screen.getByText('home.command_recent_looks')).toBeInTheDocument();
+    expect(screen.getByText('home.command_title_default')).toBeInTheDocument();
     expect(screen.getByText('Style me')).toBeInTheDocument();
   });
 
@@ -80,7 +84,7 @@ describe('HomeCommandBoard', () => {
     );
 
     expect(screen.getByTestId('home-command-board-weather_alert')).toBeInTheDocument();
-    expect(screen.getByText('Forecast changed')).toBeInTheDocument();
-    expect(screen.getByText('Rebuild around weather')).toBeInTheDocument();
+    expect(screen.getByText('home.command_title_weather')).toBeInTheDocument();
+    expect(screen.getByText('home.command_rebuild_weather')).toBeInTheDocument();
   });
 });

@@ -10,6 +10,10 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: vi.fn(() => ({ t: (k: string) => k, locale: 'en' })),
+}));
+
 import { getQueueLength, replayQueue } from '@/lib/offlineQueue';
 import { toast } from 'sonner';
 
@@ -51,7 +55,7 @@ describe('useOfflineQueue', () => {
     });
 
     expect(replayQueue).toHaveBeenCalled();
-    expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('2'));
+    expect(toast.success).toHaveBeenCalledWith('offline.synced_changes');
   });
 
   it('tracks queue count via custom event', async () => {
