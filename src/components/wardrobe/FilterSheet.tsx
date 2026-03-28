@@ -46,7 +46,7 @@ export function FilterSheet({
         <div className="space-y-6">
           {/* Category */}
           <div className="space-y-2">
-            <span className="text-[11px] text-muted-foreground/70 font-medium uppercase tracking-wider">
+            <span className="label-editorial">
               {t('wardrobe.category')}
             </span>
             <div className="flex gap-2 flex-wrap">
@@ -55,7 +55,7 @@ export function FilterSheet({
                   key={cat.id}
                   onClick={() => onCategoryChange(cat.id)}
                   className={cn(
-                    'px-3.5 py-2 rounded-full text-xs font-medium transition-colors border',
+                    'px-3.5 py-3 rounded-full text-xs font-medium transition-colors border',
                     category === cat.id
                       ? 'bg-accent text-accent-foreground border-accent/30'
                       : 'surface-inset text-muted-foreground'
@@ -69,7 +69,7 @@ export function FilterSheet({
 
           {/* Sort */}
           <div className="space-y-2">
-            <span className="text-[11px] text-muted-foreground/70 font-medium uppercase tracking-wider">
+            <span className="label-editorial">
               {t('wardrobe.sort')}
             </span>
             <div className="flex gap-2 flex-wrap">
@@ -82,7 +82,7 @@ export function FilterSheet({
                   key={s.key}
                   onClick={() => onSortChange(s.key)}
                   className={cn(
-                    'px-3.5 py-2 rounded-full text-xs font-medium transition-colors border',
+                    'px-3.5 py-3 rounded-full text-xs font-medium transition-colors border',
                     sortBy === s.key
                       ? 'bg-accent/10 text-accent border-accent/20'
                       : 'surface-inset text-muted-foreground'
@@ -96,7 +96,7 @@ export function FilterSheet({
 
           {/* Color */}
           <div className="space-y-2">
-            <span className="text-[11px] text-muted-foreground/70 font-medium uppercase tracking-wider">
+            <span className="label-editorial">
               {t('wardrobe.color')}
             </span>
             <div className="flex gap-1.5 flex-wrap">
@@ -105,7 +105,7 @@ export function FilterSheet({
                   key={c}
                   onClick={() => onColorChange(color === c ? null : c)}
                   className={cn(
-                    'px-2.5 py-1.5 rounded-full text-xs transition-colors border',
+                    'px-3.5 py-2.5 rounded-full text-xs transition-colors border',
                     color === c
                       ? 'bg-accent/10 text-accent font-medium border-accent/20'
                       : 'surface-inset text-muted-foreground'
@@ -119,7 +119,7 @@ export function FilterSheet({
 
           {/* Season */}
           <div className="space-y-2">
-            <span className="text-[11px] text-muted-foreground/70 font-medium uppercase tracking-wider">
+            <span className="label-editorial">
               {t('wardrobe.season')}
             </span>
             <div className="flex gap-2">
@@ -128,7 +128,7 @@ export function FilterSheet({
                   key={s}
                   onClick={() => onSeasonChange(season === s ? null : s)}
                   className={cn(
-                    'flex-1 py-2 rounded-full text-xs transition-colors capitalize border',
+                    'flex-1 py-3 rounded-full text-xs transition-colors capitalize border',
                     season === s
                       ? 'bg-accent/10 text-accent font-medium border-accent/20'
                       : 'surface-inset text-muted-foreground'
@@ -158,7 +158,7 @@ export function FilterSheet({
           <Button
             variant="ghost"
             onClick={() => { onClear(); onOpenChange(false); }}
-            className="w-full text-sm text-muted-foreground"
+            className="h-12 w-full text-sm text-muted-foreground"
           >
             {t('wardrobe.clear')}
           </Button>

@@ -109,7 +109,7 @@ export const DayCard = memo(function DayCard({
                 return (
                   <div
                     key={index}
-                    className="w-11 h-11 overflow-hidden rounded-[1.1rem] bg-muted shrink-0"
+                    className="w-16 h-16 overflow-hidden rounded-[1.1rem] bg-muted shrink-0"
                   >
                     {item?.garment && (
                       <LazyImageSimple
@@ -133,21 +133,21 @@ export const DayCard = memo(function DayCard({
             {outfit.explanation && (<p className="text-[0.75rem] text-muted-foreground/70 line-clamp-1 mb-3 leading-relaxed">{outfit.explanation}</p>)}
 
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => { hapticLight(); onSwap(); }} className="flex-1">
+              <Button variant="outline" size="sm" onClick={() => { hapticLight(); onSwap(); }} className="h-11 min-h-[44px] flex-1">
                 <Repeat className="w-3.5 h-3.5 mr-1.5" />{t('plan.swap')}
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => navigate(`/outfits/${outfit.id}`)}>
+              <Button variant="ghost" size="sm" onClick={() => navigate(`/outfits/${outfit.id}`)} className="h-11 min-h-[44px]">
                 <Info className="w-3.5 h-3.5 mr-1.5" />{t('plan.details')}
               </Button>
             </div>
 
             <div className="flex items-center gap-3 mt-2 pt-2 border-t">
               {!isWorn && (
-                <button onClick={() => { hapticSuccess(); onMarkWorn(); }} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
+                <button onClick={() => { hapticSuccess(); onMarkWorn(); }} className="min-h-[44px] text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
                   <Check className="w-3 h-3" />{t('plan.mark_worn')}
                 </button>
               )}
-              <button onClick={() => { hapticHeavy(); onRemove(); }} className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1 transition-colors ml-auto">
+              <button onClick={() => { hapticHeavy(); onRemove(); }} className="min-h-[44px] text-xs text-muted-foreground hover:text-destructive flex items-center gap-1 transition-colors ml-auto">
                 <Trash2 className="w-3 h-3" />{t('plan.remove')}
               </button>
             </div>

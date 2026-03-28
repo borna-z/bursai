@@ -57,7 +57,7 @@ export function ChatInput({
             <Button
               variant="ghost"
               size="icon"
-              className="h-9 w-9 shrink-0 rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-muted/40"
+              className="h-11 w-11 shrink-0 rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-muted/40"
               onClick={() => fileInputRef.current?.click()}
               disabled={isStreaming || isUploading}
             >
@@ -71,13 +71,13 @@ export function ChatInput({
               placeholder={placeholder}
               disabled={isStreaming}
               rows={1}
-              className="flex-1 resize-none bg-transparent text-[15px] leading-relaxed py-2 px-1 outline-none placeholder:text-muted-foreground/40 max-h-32 min-h-[36px]"
+              className="flex-1 resize-none bg-transparent text-[16px] leading-relaxed py-2 px-1 outline-none placeholder:text-muted-foreground/40 max-h-32 min-h-[48px]"
             />
             <Button
               onClick={onSend}
               disabled={(!input.trim() && !pendingImage) || isStreaming}
               size="icon"
-              className="h-9 w-9 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all hover:scale-105 active:scale-95 disabled:opacity-30"
+              className="h-11 w-11 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all hover:scale-105 active:scale-95 disabled:opacity-30"
             >
               {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>

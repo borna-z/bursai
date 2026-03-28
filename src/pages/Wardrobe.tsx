@@ -2,7 +2,9 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
+import { Plus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { PaywallModal } from '@/components/PaywallModal';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -111,6 +113,20 @@ export default function WardrobePage() {
     <AppLayout>
       <PullToRefresh onRefresh={handleRefresh}>
         <AnimatedPage className="page-shell space-y-5">
+          <PageHeader
+            title={t('wardrobe.title') || 'Wardrobe'}
+            eyebrow={totalCount ? `${totalCount} pieces` : undefined}
+            actions={
+              <button
+                onClick={() => navigate('/wardrobe/add')}
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-background active:scale-95 transition-transform"
+                aria-label="Add garment"
+              >
+                <Plus className="h-4 w-4" strokeWidth={2.4} />
+              </button>
+            }
+          />
+
           <WardrobeToolbar
             t={t}
             commandState={commandState}

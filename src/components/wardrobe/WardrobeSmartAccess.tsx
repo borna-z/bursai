@@ -45,7 +45,7 @@ export function WardrobeSmartAccess({ tiles, onSelect }: WardrobeSmartAccessProp
               whileTap={{ scale: 0.98 }}
               onClick={() => onSelect(tile.active ? null : tile.key)}
               className={cn(
-                'rounded-[1.25rem] border px-3.5 py-3.5 text-left transition-colors',
+                'min-h-[40px] rounded-[1.25rem] border px-4 py-3.5 text-left transition-colors',
                 tile.active
                   ? 'border-foreground bg-foreground text-background'
                   : 'surface-secondary text-foreground',

@@ -118,7 +118,6 @@ export function HomeDnaSnapshot({
         </div>
         <Button
           variant="ghost"
-          size="sm"
           onClick={onOpenInsights}
           className="rounded-full px-3 text-foreground/70"
         >

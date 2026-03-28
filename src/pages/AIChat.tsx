@@ -437,7 +437,7 @@ export default function AIChat() {
     <AppLayout>
       <div className="absolute inset-0 flex flex-col overflow-hidden pb-24">
         <StyleMeSubNav />
-        <div className="topbar-frost sticky top-0 z-10 flex shrink-0 items-center justify-between px-4 py-3">
+        <div className="topbar-frost sticky top-0 z-10 flex shrink-0 items-center justify-between px-4 py-3 min-h-[64px]">
           <div className="w-10" />
           <div className="flex flex-col items-center gap-0.5">
             <span className="font-['Playfair_Display'] italic text-[1.1rem] text-foreground leading-tight">
@@ -447,7 +447,7 @@ export default function AIChat() {
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="quiet" size="icon" className="h-10 w-10 text-muted-foreground">
+              <Button variant="quiet" size="icon" className="h-11 w-11 text-muted-foreground">
                 <MoreVertical className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -463,7 +463,7 @@ export default function AIChat() {
         {/* Wardrobe context badge */}
         {garmentCount != null && garmentCount > 0 && (
           <div className="px-4 pb-1">
-            <p className="text-[11px] text-muted-foreground/40 text-center">
+            <p className="text-[13px] text-muted-foreground/40 text-center">
               {t('chat.based_on')} {garmentCount} {t('chat.garments_label')}
             </p>
           </div>
@@ -485,7 +485,7 @@ export default function AIChat() {
                 <Button
                   variant="quiet"
                   size="sm"
-                  className="h-8 rounded-full px-2.5 text-xs text-muted-foreground"
+                  className="h-11 rounded-full px-2.5 text-xs text-muted-foreground"
                   onClick={() => navigate(`/wardrobe/${anchoredGarment.id}`)}
                 >
                   Change
@@ -493,7 +493,7 @@ export default function AIChat() {
                 <Button
                   variant="quiet"
                   size="icon"
-                  className="h-8 w-8 rounded-full text-muted-foreground"
+                  className="h-11 w-11 rounded-full text-muted-foreground"
                   onClick={() => setAnchoredGarmentId(null)}
                   aria-label="Clear garment anchor"
                 >

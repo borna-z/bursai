@@ -44,12 +44,12 @@ export function WeekStrip({ selectedDate, onSelectDate, plannedOutfits }: WeekSt
             animate={isSelected ? { scale: 1.08 } : { scale: 1 }}
             transition={SPRING_SUBTLE}
             className={cn(
-              'flex flex-col items-center flex-1 py-3 px-1.5 rounded-full transition-all duration-200',
+              'flex flex-col items-center flex-1 min-h-[64px] py-3 px-1.5 rounded-[1.25rem] transition-all duration-200',
               'active:scale-95',
               isSelected
-                ? 'bg-foreground text-background shadow-sm'
+                ? 'bg-foreground text-background shadow-[0_4px_12px_rgba(28,25,23,0.18)]'
                 : 'hover:bg-muted/60',
-              isTodayDate && !isSelected && 'ring-1 ring-foreground/15'
+              isTodayDate && !isSelected && 'ring-1 ring-foreground/20'
             )}
           >
             <span className={cn(
@@ -59,23 +59,19 @@ export function WeekStrip({ selectedDate, onSelectDate, plannedOutfits }: WeekSt
               {format(date, 'EEE', { locale: dfLocale }).slice(0, 2)}
             </span>
             <span className={cn(
-              'text-base font-semibold leading-tight mt-0.5',
+              'text-[1rem] font-semibold tabular-nums leading-tight mt-0.5',
               isSelected ? 'text-background' : hasWorn ? 'text-success' : count > 0 ? 'text-accent' : 'text-foreground'
             )}>
               {format(date, 'd')}
             </span>
-            {/* Dot indicators — up to 4 dots */}
-            <div className="h-1.5 mt-1 flex items-center justify-center gap-0.5">
-              {count > 0 && Array.from({ length: Math.min(count, 4) }, (_, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    'w-1 h-1 rounded-full',
-                    isSelected ? 'bg-background/50' : hasWorn ? 'bg-success' : 'bg-accent'
-                  )}
-                />
-              ))}
-            </div>
+            {count > 0 ? (
+              <span className={cn(
+                'mt-1 h-1.5 w-1.5 rounded-full',
+                isSelected ? 'bg-background/60' : 'bg-foreground/40'
+              )} />
+            ) : (
+              <span className="mt-1 h-1.5 w-1.5" />
+            )}
           </motion.button>
         );
       })}

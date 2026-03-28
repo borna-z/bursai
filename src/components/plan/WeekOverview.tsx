@@ -71,9 +71,9 @@ export function WeekOverview({ selectedDate, onSelectDate, plannedOutfits, class
               className={cn(
                 'flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-[1.25rem] border px-1.5 transition-colors',
                 isSelected
-                  ? 'border-foreground bg-foreground text-background'
+                  ? 'border-foreground bg-foreground text-background shadow-[0_4px_12px_rgba(28,25,23,0.18)]'
                   : isTodayDate
-                    ? 'border-border/60 bg-card text-foreground'
+                    ? 'border-border/60 bg-card text-foreground ring-1 ring-foreground/20'
                     : 'border-border/50 bg-background/72 text-foreground',
               )}
             >
