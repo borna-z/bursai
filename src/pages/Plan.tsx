@@ -506,7 +506,7 @@ export default function PlanPage() {
               size="sm"
               onClick={() => setQuickGenerateSheetOpen(true)}
               disabled={isGenerating || upsertPlanned.isPending}
-              className="h-10 rounded-full"
+              className="h-11 rounded-full"
             >
               <Plus className="mr-2 h-4 w-4" />
               {t('plan.add_outfit')}

@@ -304,11 +304,11 @@ export default function GarmentDetailPage() {
 
               <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
                 <div className="flex flex-wrap gap-2">
-                  <span className="rounded-full bg-background/88 px-3 py-1 text-[0.62rem] font-medium uppercase tracking-[0.18em] text-foreground">
+                  <span className="rounded-full bg-background/88 px-3 py-1 text-[13px] font-medium uppercase tracking-[0.18em] text-foreground">
                     {garment.wear_count || 0} worn
                   </span>
                   {garment.in_laundry ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-background/88 px-3 py-1 text-[0.62rem] font-medium uppercase tracking-[0.18em] text-foreground">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-background/88 px-3 py-1 text-[13px] font-medium uppercase tracking-[0.18em] text-foreground">
                       <WashingMachine className="h-3 w-3" />
                       In laundry
                     </span>

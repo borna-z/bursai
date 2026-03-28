@@ -471,9 +471,9 @@ export default function AIChat() {
 
         {anchoredGarment && (
           <div className="px-4 pb-2">
-            <div className="surface-utility mx-auto flex max-w-md items-center justify-between gap-3 rounded-[1.25rem] px-3 py-2 text-left">
+            <div className="surface-utility mx-auto flex max-w-md items-center justify-between gap-3 rounded-[1.25rem] px-3 py-2 text-left min-h-[52px]">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[1.25rem] bg-background text-primary">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1.25rem] bg-background text-primary">
                   <Shirt className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
@@ -573,8 +573,7 @@ export default function AIChat() {
                     <Button
                       key={i}
                       variant="outline"
-                      size="sm"
-                      className="rounded-full"
+                      className="min-h-[40px] rounded-full px-4"
                       onClick={() => {
                         setSuggestionChips([]);
                         sendMessage(chip);

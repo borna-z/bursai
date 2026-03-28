@@ -686,7 +686,7 @@ export default function OutfitDetailPage() {
               <Button
                 variant="ghost"
                 onClick={() => setShareSheetOpen(true)}
-                className="h-10 rounded-full bg-card text-foreground font-['DM_Sans'] text-[12px] flex items-center justify-center gap-1.5"
+                className="h-11 rounded-full bg-card text-foreground font-['DM_Sans'] text-[13px] flex items-center justify-center gap-1.5"
               >
                 <Share2 className="w-3.5 h-3.5" />
                 Share
@@ -694,7 +694,7 @@ export default function OutfitDetailPage() {
               <Button
                 variant="ghost"
                 onClick={handleCreateSimilar}
-                className="h-10 rounded-full bg-card text-foreground font-['DM_Sans'] text-[12px] flex items-center justify-center gap-1.5"
+                className="h-11 rounded-full bg-card text-foreground font-['DM_Sans'] text-[13px] flex items-center justify-center gap-1.5"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 Remake
