@@ -414,7 +414,7 @@ export default function OutfitGeneratePage() {
 
                   {/* Card footer */}
                   <div className="px-3 pt-2.5 pb-3 space-y-1">
-                    <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-[#1C1917]/50">
+                    <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/50">
                       {OCCASIONS.find(o => o.key === selectedOccasion)?.label ?? selectedOccasion}
                     </p>
                     {calendarEvents?.[0]?.title && (
@@ -423,19 +423,12 @@ export default function OutfitGeneratePage() {
                       </span>
                     )}
                     {reasoningText && (
-                      <p className="font-['Playfair_Display'] italic text-[13px] text-[#1C1917]/70 leading-snug line-clamp-2">
+                      <p className="font-['Playfair_Display'] italic text-[13px] text-foreground/70 leading-snug line-clamp-2">
                         {reasoningText}
                       </p>
                     )}
                     {weather && (
-                      <p style={{
-                        fontFamily: 'DM Sans, sans-serif',
-                        fontSize: 10,
-                        color: 'rgba(28,25,23,0.45)',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.08em',
-                        marginTop: 4,
-                      }}>
+                      <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.08em] mt-1 text-foreground/45">
                         Styled for {weather.temperature}°C{weather.precipitation && weather.precipitation !== 'none' ? ` · ${weather.precipitation}` : ''}
                       </p>
                     )}
@@ -466,30 +459,33 @@ export default function OutfitGeneratePage() {
 
                 {/* Secondary action row */}
                 <div className="flex items-center justify-between mt-3 px-4">
-                  <button
+                  <Button
+                    variant="ghost"
                     onClick={() => handleSaveOutfit(primary)}
-                    className="flex items-center gap-1.5 text-[13px] font-['DM_Sans'] text-muted-foreground/60 active:opacity-70 transition-opacity"
+                    className="flex items-center gap-1.5 text-[13px] font-['DM_Sans'] text-muted-foreground/60"
                   >
                     <Bookmark className="w-4 h-4" />
                     Save
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="ghost"
                     onClick={() => handlePlanOutfit(primary)}
-                    className="flex items-center gap-1.5 text-[13px] font-['DM_Sans'] text-muted-foreground/60 active:opacity-70 transition-opacity"
+                    className="flex items-center gap-1.5 text-[13px] font-['DM_Sans'] text-muted-foreground/60"
                   >
                     <CalendarDays className="w-4 h-4" />
                     Plan
-                  </button>
+                  </Button>
                 </div>
 
                 {/* Try another look */}
-                <button
+                <Button
                   onClick={handleGenerate}
                   disabled={isGenerating}
-                  className="mt-2 h-11 w-full rounded-full border border-border/45 bg-background/80 text-[13px] font-medium text-foreground transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
+                  variant="outline"
+                  className="mt-2 h-11 w-full rounded-full border border-border/45 bg-background/80 text-[13px] font-medium text-foreground"
                 >
                   Try another look
-                </button>
+                </Button>
               </motion.div>
 
               {/* ── Alternate builder options ── */}
@@ -515,13 +511,13 @@ export default function OutfitGeneratePage() {
                         <button
                           key={option.id}
                           onClick={() => setPrimaryIndex(optionIndex)}
-                          className="w-full rounded-2xl border border-border/20 bg-card/60 p-3 text-left active:opacity-80 transition-opacity"
+                          className="w-full surface-secondary rounded-[1.25rem] p-3 text-left active:opacity-80 transition-opacity"
                         >
                           <div className="flex gap-2">
                             {option.items.slice(0, 4).map((item) => (
                               <div
                                 key={item.garment.id}
-                                className="w-16 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-muted/20"
+                                className="w-16 h-20 rounded-[1.1rem] overflow-hidden flex-shrink-0 bg-muted/20"
                               >
                                 <LazyImageSimple
                                   imagePath={getPreferredGarmentImagePath(item.garment)}
@@ -554,12 +550,13 @@ export default function OutfitGeneratePage() {
 
             {/* Generate another */}
             <div className="mt-8 text-center">
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => setPhase('picking')}
                 className="text-[13px] font-['DM_Sans'] text-muted-foreground/50 underline underline-offset-2"
               >
                 Generate another
-              </button>
+              </Button>
             </div>
           </div>
         </AppLayout>
@@ -625,7 +622,7 @@ export default function OutfitGeneratePage() {
           {preferredGarmentSummary && (
             <div className="pt-2">
               <div className="surface-utility inline-flex max-w-full items-center gap-2 px-3 py-2 text-left">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-background text-primary">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[1.1rem] bg-background text-primary">
                   <Shirt className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
@@ -635,7 +632,7 @@ export default function OutfitGeneratePage() {
                 <button
                   type="button"
                   onClick={clearPreferredGarments}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-background"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[1.1rem] text-muted-foreground transition-colors hover:bg-background"
                   aria-label="Clear style anchor"
                 >
                   <X className="h-4 w-4" />
@@ -737,7 +734,7 @@ export default function OutfitGeneratePage() {
                   whileTap={prefersReduced ? undefined : { scale: 0.97 }}
                   onClick={() => setSelectedOccasion(key)}
                   className={cn(
-                    'flex min-h-[76px] w-full flex-col items-center justify-center gap-2 rounded-[1.2rem] px-2 py-3 text-center transition-all',
+                    'flex min-h-[76px] w-full flex-col items-center justify-center gap-2 rounded-[1.25rem] px-2 py-3 text-center transition-all',
                     isSelected
                       ? 'bg-foreground text-background'
                       : 'surface-utility text-foreground hover:bg-background'

@@ -9,9 +9,9 @@ const previewCardVariants = cva(
   {
     variants: {
       surface: {
-        default: 'surface-editorial rounded-[2rem]',
-        utility: 'surface-utility rounded-[1.5rem]',
-        plain: 'rounded-[1.5rem] border border-border/60 bg-card/80',
+        default: 'surface-editorial rounded-[1.25rem]',
+        utility: 'surface-utility rounded-[1.25rem]',
+        plain: 'surface-secondary rounded-[1.25rem]',
       },
       tone: {
         default: '',

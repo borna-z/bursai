@@ -38,11 +38,11 @@ export function ChatInput({
   return (
     <div className="px-4 pb-1 pt-2 shrink-0 animate-fade-in">
       <div className="max-w-lg mx-auto">
-        <div className="relative rounded-3xl border border-border/20 bg-secondary/30 backdrop-blur-xl shadow-[0_-2px_20px_hsl(var(--background)/0.5)]">
+        <div className="relative rounded-[1.25rem] border border-border/20 bg-secondary/30 backdrop-blur-xl shadow-[0_-2px_20px_hsl(var(--background)/0.5)]">
           {pendingImage && (
             <div className="px-3 pt-3">
               <div className="relative inline-block">
-                <img src={pendingImage.url} alt="Pending upload preview" className="h-20 w-20 object-cover rounded-xl border border-border/20" />
+                <img src={pendingImage.url} alt="Pending upload preview" className="h-20 w-20 object-cover rounded-[1.1rem] border border-border/20" />
                 <button
                   onClick={onClearImage}
                   className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs font-bold shadow-sm"

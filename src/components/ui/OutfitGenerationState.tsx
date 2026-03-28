@@ -58,7 +58,7 @@ export function OutfitGenerationState({
 
   return (
     <div className={cn(
-      'bg-[#F5F0E8] p-4 space-y-3',
+      'bg-background p-4 space-y-3',
       className,
     )}>
       {/* Phase text — Playfair Display italic */}
@@ -70,7 +70,7 @@ export function OutfitGenerationState({
             animate={{ opacity: 1, y: 0 }}
             exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
             transition={{ duration: 0.2, ease: EASE_CURVE }}
-            className="text-[18px] font-['Playfair_Display'] italic text-[#1C1917] text-center absolute inset-x-0"
+            className="text-[18px] font-['Playfair_Display'] italic text-foreground text-center absolute inset-x-0"
           >
             {phaseLabels[phaseIndex]}
           </motion.p>
@@ -89,18 +89,18 @@ export function OutfitGenerationState({
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: i * 0.12, duration: 0.3, ease: EASE_CURVE }}
             className={cn(
-              'bg-[#EDE8DF] flex items-center justify-center rounded-lg',
+              'bg-secondary flex items-center justify-center rounded-lg',
               isCompact ? 'w-12 h-14' : 'aspect-[3/4]',
             )}
           >
             {prefersReduced ? (
-              <SlotIcon className="w-6 h-6 text-[#1C1917]/20" />
+              <SlotIcon className="w-6 h-6 text-foreground/20" />
             ) : (
               <motion.div
                 animate={{ opacity: [0.15, 0.4, 0.15] }}
                 transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
               >
-                <SlotIcon className="w-6 h-6 text-[#1C1917]" />
+                <SlotIcon className="w-6 h-6 text-foreground" />
               </motion.div>
             )}
           </motion.div>

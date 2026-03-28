@@ -48,7 +48,7 @@ export function AnalyzingStep({
         {analysisError ? (
           <Card surface="utility" className="space-y-5 p-5 text-center">
             {imagePreview ? (
-              <div className="mx-auto aspect-square w-52 overflow-hidden rounded-[1.5rem] bg-secondary/60">
+              <div className="mx-auto aspect-square w-52 overflow-hidden rounded-[1.1rem] bg-secondary/60">
                 <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
               </div>
             ) : null}

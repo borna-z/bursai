@@ -27,7 +27,7 @@ function StateSurface({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: EASE_CURVE }}
-      className={`relative overflow-hidden rounded-[1.8rem] border border-foreground/[0.08] bg-card/95 p-5 shadow-[0_18px_45px_rgba(18,18,18,0.05)] ${className}`}
+      className={`relative overflow-hidden rounded-[1.25rem] border border-foreground/[0.08] bg-card/95 p-5 shadow-[0_18px_45px_rgba(18,18,18,0.05)] ${className}`}
     >
       {children}
     </motion.section>
@@ -48,7 +48,7 @@ export function GapHero({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: EASE_CURVE }}
-      className="relative overflow-hidden rounded-[2rem] border border-foreground/[0.08] bg-[radial-gradient(circle_at_top_right,rgba(205,180,142,0.18),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,244,238,0.92))] px-5 py-6 shadow-[0_24px_60px_rgba(23,18,14,0.06)]"
+      className="relative overflow-hidden rounded-[1.25rem] border border-foreground/[0.08] bg-[radial-gradient(circle_at_top_right,rgba(205,180,142,0.18),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,244,238,0.92))] px-5 py-6 shadow-[0_24px_60px_rgba(23,18,14,0.06)]"
     >
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-foreground/15 to-transparent" />
       <div className="relative flex items-start justify-between gap-4">
@@ -107,7 +107,7 @@ export function GapLockedState() {
         </div>
       </div>
 
-      <div className="mt-6 rounded-[1.4rem] border border-foreground/[0.06] bg-background/70 p-4">
+      <div className="mt-6 rounded-[1.25rem] border border-foreground/[0.06] bg-background/70 p-4">
         <WardrobeProgress compact />
       </div>
     </StateSurface>

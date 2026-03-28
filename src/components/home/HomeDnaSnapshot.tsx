@@ -56,12 +56,12 @@ export function HomeDnaSnapshot({
     return (
       <section
         data-testid="home-dna-loading"
-        className="rounded-[1.6rem] border border-foreground/[0.08] bg-card p-5 shadow-[0_14px_28px_rgba(22,18,15,0.04)]"
+        className="surface-secondary rounded-[1.25rem] p-5"
       >
         <div className="space-y-3">
           <Skeleton className="h-4 w-20" />
           <Skeleton className="h-9 w-36" />
-          <Skeleton className="h-20 rounded-[1rem]" />
+          <Skeleton className="h-20 rounded-[1.1rem]" />
         </div>
       </section>
     );
@@ -71,19 +71,19 @@ export function HomeDnaSnapshot({
     return (
       <section
         data-testid="home-dna-empty"
-        className="rounded-[1.6rem] border border-foreground/[0.08] bg-card p-5 shadow-[0_14px_28px_rgba(22,18,15,0.04)]"
+        className="surface-secondary rounded-[1.25rem] p-5"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="label-editorial text-muted-foreground/60">Style DNA</p>
-            <h2 className="mt-1 text-[1.2rem] font-semibold tracking-[-0.03em] text-foreground">
+            <h2 className="mt-1 font-['Playfair_Display'] italic text-[1.2rem] tracking-[-0.03em] text-foreground">
               Your signature is still forming
             </h2>
             <p className="mt-2 text-[0.92rem] leading-6 text-muted-foreground">
               Save a few more looks and BURS will start surfacing the patterns that belong in Insights.
             </p>
           </div>
-          <div className="flex size-11 items-center justify-center rounded-[1rem] bg-secondary/65 text-foreground/70">
+          <div className="flex size-11 items-center justify-center rounded-[1.1rem] bg-secondary/65 text-foreground/70">
             <Dna className="size-5" />
           </div>
         </div>
@@ -104,12 +104,12 @@ export function HomeDnaSnapshot({
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-      className="rounded-[1.6rem] border border-foreground/[0.08] bg-card p-5 shadow-[0_14px_28px_rgba(22,18,15,0.04)]"
+      className="surface-secondary rounded-[1.25rem] p-5"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="label-editorial text-muted-foreground/60">Style DNA</p>
-          <h2 className="mt-1 text-[1.35rem] font-semibold tracking-[-0.04em] text-foreground">
+          <h2 className="mt-1 font-['Playfair_Display'] italic text-[1.35rem] tracking-[-0.04em] text-foreground">
             {dna.archetype}
           </h2>
           <p className="mt-1 text-[0.86rem] text-muted-foreground">
@@ -127,7 +127,7 @@ export function HomeDnaSnapshot({
         </Button>
       </div>
 
-      <div className="mt-4 space-y-3 rounded-[1.2rem] bg-secondary/45 p-4">
+      <div className="mt-4 space-y-3 rounded-[1.1rem] bg-secondary/45 p-4">
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">Formula</p>

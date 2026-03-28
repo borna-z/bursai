@@ -83,7 +83,7 @@ export default function SettingsAccount() {
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1 mb-1.5">
             {t('settings.gdpr.danger_zone')}
           </p>
-          <div className="bg-card rounded-xl overflow-hidden">
+          <div className="surface-editorial rounded-[1.25rem] overflow-hidden">
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <button type="button" className="w-full">

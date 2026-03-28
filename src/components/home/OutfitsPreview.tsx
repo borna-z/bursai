@@ -47,7 +47,7 @@ function OutfitMiniCard({ outfit, onTap }: { outfit: OutfitWithItems; onTap: () 
       whileTap={{ scale: 0.97 }}
       transition={TAP_TRANSITION}
       onClick={onTap}
-      className="rounded-2xl bg-foreground/[0.02] border border-border/30 overflow-hidden will-change-transform"
+      className="rounded-[1.25rem] bg-foreground/[0.02] border border-border/30 overflow-hidden will-change-transform"
     >
       <div className="grid grid-cols-2 gap-0.5 p-1">
         {items.map((item) => (

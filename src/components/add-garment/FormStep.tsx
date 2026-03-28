@@ -118,7 +118,7 @@ export function FormStep(props: FormStepProps) {
         {imagePreview ? (
           <Card surface="editorial" className="overflow-hidden p-2">
             <div className="grid gap-5 p-3 sm:grid-cols-[180px,1fr] sm:items-center">
-              <div className="relative overflow-hidden rounded-[1.6rem] bg-[hsl(36_33%_93%)]">
+              <div className="relative overflow-hidden rounded-[1.1rem] bg-secondary/60">
                 <img src={imagePreview} alt="Preview" className="aspect-square w-full object-contain" />
                 <Button variant="secondary" size="icon" className="absolute right-2 top-2" onClick={onReset}>
                   <X className="h-4 w-4" />
@@ -330,7 +330,7 @@ export function FormStep(props: FormStepProps) {
             </div>
           </div>
 
-          <div className="flex items-center justify-between rounded-[1.35rem] border border-border/60 bg-background/80 px-4 py-4">
+          <div className="flex items-center justify-between rounded-[1.25rem] border border-border/60 bg-background/80 px-4 py-4">
             <div>
               <p className="text-sm font-medium text-foreground">{t('addgarment.form.in_laundry')}</p>
               <p className="mt-1 text-xs text-muted-foreground">Keep this item out of outfit generation until it is ready again.</p>
@@ -342,7 +342,7 @@ export function FormStep(props: FormStepProps) {
 
       <div className="fixed inset-x-4 bottom-4 z-20" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
         <div className="mx-auto max-w-md">
-          <div className="action-bar-floating flex gap-2 rounded-[1.6rem] p-3">
+          <div className="action-bar-floating flex gap-2 rounded-[1.25rem] p-3">
             <Button variant="outline" className="flex-1" onClick={onCancel} disabled={isLoading}>
               {t('common.cancel')}
             </Button>

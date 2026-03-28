@@ -74,7 +74,7 @@ export const DayCard = memo(function DayCard({
 
   return (
     <Card className={cn(
-      'glass-card transition-all animate-drape-in opacity-0 [animation-fill-mode:both]',
+      'surface-secondary rounded-[1.25rem] transition-all animate-drape-in opacity-0 [animation-fill-mode:both]',
       isWorn && 'opacity-60',
       !hasOutfit && 'border-dashed'
     )}>
@@ -109,13 +109,7 @@ export const DayCard = memo(function DayCard({
                 return (
                   <div
                     key={index}
-                    style={{
-                      width: 44, height: 44,
-                      backgroundColor: '#EDE8DF',
-                      borderRadius: 0,
-                      overflow: 'hidden',
-                      flexShrink: 0,
-                    }}
+                    className="w-11 h-11 overflow-hidden rounded-[1.1rem] bg-muted shrink-0"
                   >
                     {item?.garment && (
                       <LazyImageSimple

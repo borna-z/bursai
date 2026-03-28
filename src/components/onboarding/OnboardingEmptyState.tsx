@@ -93,16 +93,16 @@ export function WardrobeOnboardingEmpty() {
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-          className="w-16 h-16 rounded-2xl bg-primary/[0.08] flex items-center justify-center mx-auto mb-5 relative"
+          className="w-16 h-16 rounded-[1.25rem] bg-primary/[0.08] flex items-center justify-center mx-auto mb-5 relative"
         >
           <Shirt className="w-7 h-7 text-primary/60" />
-          <div className="absolute -inset-3 rounded-3xl bg-primary/5 blur-xl pointer-events-none" />
+          <div className="absolute -inset-3 rounded-[1.25rem] bg-primary/5 blur-xl pointer-events-none" />
         </motion.div>
         <motion.h3
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="font-['Playfair_Display'] text-lg font-bold tracking-[-0.02em] mb-2"
+          className="font-['Playfair_Display'] italic text-lg font-bold tracking-[-0.02em] mb-2"
         >
           Build your wardrobe
         </motion.h3>
@@ -150,9 +150,9 @@ export function WardrobeOnboardingEmpty() {
           transition={{ delay: 0.4, duration: 0.4 }}
           whileTap={{ scale: 0.97 }}
           onClick={() => navigate('/wardrobe/scan')}
-          className="w-full rounded-2xl bg-foreground text-background p-4 flex items-center gap-3.5 text-left"
+          className="w-full rounded-[1.25rem] bg-foreground text-background p-4 flex items-center gap-3.5 text-left"
         >
-          <div className="w-10 h-10 rounded-xl bg-background/15 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-[1.1rem] bg-background/15 flex items-center justify-center shrink-0">
             <Camera className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
@@ -168,9 +168,9 @@ export function WardrobeOnboardingEmpty() {
           transition={{ delay: 0.5, duration: 0.4 }}
           whileTap={{ scale: 0.97 }}
           onClick={() => navigate('/wardrobe/add')}
-          className="w-full rounded-2xl bg-card border border-border/20 p-4 flex items-center gap-3.5 text-left"
+          className="w-full rounded-[1.25rem] bg-card border border-border/20 p-4 flex items-center gap-3.5 text-left"
         >
-          <div className="w-10 h-10 rounded-xl bg-muted/40 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-[1.1rem] bg-muted/40 flex items-center justify-center shrink-0">
             <Upload className="w-5 h-5 text-foreground/60" />
           </div>
           <div className="flex-1 min-w-0">
@@ -195,23 +195,23 @@ export function OutfitsOnboardingEmpty() {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE_CURVE }}
-      className="rounded-2xl bg-gradient-to-b from-primary/[0.04] to-transparent border border-border/10 py-16 px-6 text-center"
+      className="rounded-[1.25rem] bg-gradient-to-b from-primary/[0.04] to-transparent border border-border/10 py-16 px-6 text-center"
     >
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-        className="w-16 h-16 rounded-2xl bg-primary/[0.08] flex items-center justify-center mx-auto mb-5 relative"
+        className="w-16 h-16 rounded-[1.25rem] bg-primary/[0.08] flex items-center justify-center mx-auto mb-5 relative"
       >
         <Sparkles className="w-7 h-7 text-primary/60" />
-        <div className="absolute -inset-3 rounded-3xl bg-primary/5 blur-xl pointer-events-none" />
+        <div className="absolute -inset-3 rounded-[1.25rem] bg-primary/5 blur-xl pointer-events-none" />
       </motion.div>
 
       <motion.h3
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className="font-['Playfair_Display'] text-lg font-bold tracking-[-0.02em] mb-2"
+        className="font-['Playfair_Display'] italic text-lg font-bold tracking-[-0.02em] mb-2"
       >
         {hasEnoughGarments ? 'Ready for your first look' : 'No looks yet'}
       </motion.h3>
@@ -316,14 +316,14 @@ export function PlanOnboardingEmpty() {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE_CURVE }}
-      className="rounded-2xl bg-gradient-to-b from-primary/[0.04] to-transparent border border-border/10 py-10 px-6"
+      className="rounded-[1.25rem] bg-gradient-to-b from-primary/[0.04] to-transparent border border-border/10 py-10 px-6"
     >
       <div className="text-center mb-8">
         <motion.h3
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.15 }}
-          className="font-['Playfair_Display'] text-lg font-bold tracking-[-0.02em] mb-2"
+          className="font-['Playfair_Display'] italic text-lg font-bold tracking-[-0.02em] mb-2"
         >
           Get ready to plan
         </motion.h3>
@@ -363,7 +363,7 @@ export function InsightsOnboardingEmpty() {
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-        className="w-16 h-16 rounded-2xl bg-muted/30 flex items-center justify-center mb-5"
+        className="w-16 h-16 rounded-[1.25rem] bg-muted/30 flex items-center justify-center mb-5"
       >
         <BarChart3 className="w-7 h-7 text-muted-foreground/50" />
       </motion.div>
@@ -372,7 +372,7 @@ export function InsightsOnboardingEmpty() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className="font-['Playfair_Display'] text-lg font-bold tracking-[-0.02em] mb-2"
+        className="font-['Playfair_Display'] italic text-lg font-bold tracking-[-0.02em] mb-2"
       >
         Insights unlock with wear data
       </motion.h3>

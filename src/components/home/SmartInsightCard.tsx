@@ -22,7 +22,7 @@ export function SmartInsightCard() {
     <motion.div
       whileTap={{ scale: 0.98 }}
       transition={TAP_TRANSITION}
-      className="rounded-xl bg-foreground/[0.02] border border-border/30 p-4 flex items-center gap-3 will-change-transform"
+      className="surface-utility rounded-[1.25rem] p-4 flex items-center gap-3 will-change-transform"
     >
       <div className="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
         <Lightbulb className="w-4 h-4 text-accent" />

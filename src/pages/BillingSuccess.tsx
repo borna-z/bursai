@@ -25,7 +25,7 @@ export default function BillingSuccess() {
       <div className="max-w-md w-full border border-border bg-card p-8 space-y-6">
         <div className="text-center space-y-4">
           <CheckCircle className="w-12 h-12 text-foreground mx-auto" />
-          <h1 className="text-2xl font-bold flex items-center justify-center gap-2">
+          <h1 className="font-['Playfair_Display'] italic text-2xl font-bold flex items-center justify-center gap-2">
             <Crown className="w-5 h-5" />
             {t('billing.success_title')}
           </h1>

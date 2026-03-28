@@ -46,7 +46,7 @@ export default function UsedGarments() {
         {isLoading ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className="aspect-[3/4] rounded-[1.6rem] bg-muted/50 skeleton-shimmer" />
+              <div key={index} className="aspect-[3/4] rounded-[1.1rem] bg-muted/50 skeleton-shimmer" />
             ))}
           </div>
         ) : usedGarments.length === 0 ? (
@@ -73,7 +73,7 @@ export default function UsedGarments() {
                 className="text-left"
               >
                 <Card surface="utility" className="h-full overflow-hidden p-2">
-                  <div className="relative overflow-hidden rounded-[1.35rem]">
+                  <div className="relative overflow-hidden rounded-[1.1rem]">
                     <LazyImageSimple
                       imagePath={getPreferredGarmentImagePath(garment)}
                       alt={garment.title}

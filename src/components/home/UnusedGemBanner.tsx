@@ -38,13 +38,13 @@ export function UnusedGemBanner({ unusedGarments, className }: UnusedGemBannerPr
       transition={{ duration: 0.4, ease: EASE_CURVE }}
       onClick={() => { hapticLight(); navigate(`/wardrobe/${gem.id}`); }}
       className={cn(
-        'w-full flex items-center gap-3.5 p-3 rounded-xl',
+        'w-full flex items-center gap-3.5 p-3 rounded-[1.25rem]',
         'surface-interactive text-left',
         'active:scale-[0.98] transition-transform',
         className,
       )}
     >
-      <div className="w-11 h-11 rounded-lg overflow-hidden bg-muted shrink-0">
+      <div className="w-11 h-11 rounded-[1.1rem] overflow-hidden bg-muted shrink-0">
         <LazyImageSimple imagePath={getPreferredGarmentImagePath(gem)} alt={gem.title} className="w-full h-full" />
       </div>
       <div className="flex-1 min-w-0">

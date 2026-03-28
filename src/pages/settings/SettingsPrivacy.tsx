@@ -133,7 +133,7 @@ export default function SettingsPrivacy() {
       <div className="px-4 pb-6 pt-4 space-y-3 max-w-lg mx-auto">
 
         {/* About BURS */}
-        <Collapsible open={openSection === 'about'} className="bg-card rounded-xl overflow-hidden">
+        <Collapsible open={openSection === 'about'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="about" title={t('settings.gdpr.about_title')} icon={Shield} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="px-4 pb-4 space-y-3">
@@ -153,7 +153,7 @@ export default function SettingsPrivacy() {
         </Collapsible>
 
         {/* Your Data */}
-        <Collapsible open={openSection === 'data'} className="bg-card rounded-xl overflow-hidden">
+        <Collapsible open={openSection === 'data'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="data" title={t('settings.gdpr.your_data_title')} icon={Database} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="pb-3">
@@ -168,7 +168,7 @@ export default function SettingsPrivacy() {
         </Collapsible>
 
         {/* Consent */}
-        <Collapsible open={openSection === 'consent'} className="bg-card rounded-xl overflow-hidden">
+        <Collapsible open={openSection === 'consent'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="consent" title={t('settings.gdpr.consent_title')} icon={ToggleLeft} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <ConsentRow
@@ -194,7 +194,7 @@ export default function SettingsPrivacy() {
         </Collapsible>
 
         {/* Your Rights */}
-        <Collapsible open={openSection === 'rights'} className="bg-card rounded-xl overflow-hidden">
+        <Collapsible open={openSection === 'rights'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="rights" title={t('settings.gdpr.rights_title')} icon={Scale} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div>
@@ -219,7 +219,7 @@ export default function SettingsPrivacy() {
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1 mb-1.5">
             {t('settings.gdpr.danger_zone')}
           </p>
-          <div className="bg-card rounded-xl overflow-hidden">
+          <div className="surface-editorial rounded-[1.25rem] overflow-hidden">
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <div>

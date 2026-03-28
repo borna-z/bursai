@@ -64,7 +64,7 @@ export function GarmentProcessingPreview({
             transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
           />
 
-          <div className="relative w-full rounded-2xl border border-white/12 bg-black/20 p-3 shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
+          <div className="relative w-full rounded-[1.25rem] border border-white/12 bg-black/20 p-3 shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/12">
                 <Sparkles className="h-4 w-4 animate-pulse" />
@@ -128,7 +128,7 @@ export function GarmentProcessingPreview({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
           className={cn(
-            'absolute inset-x-3 bottom-3 z-10 rounded-2xl border border-white/14 bg-background/80 p-3 text-left shadow-lg backdrop-blur-xl',
+            'absolute inset-x-3 bottom-3 z-10 rounded-[1.25rem] border border-white/14 bg-background/80 p-3 text-left shadow-lg backdrop-blur-xl',
             variant === 'hero' && 'inset-x-5 bottom-5 sm:inset-x-6 sm:bottom-6',
             className,
           )}

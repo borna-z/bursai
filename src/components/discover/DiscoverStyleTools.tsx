@@ -20,7 +20,7 @@ export function DiscoverStyleTools() {
 
   return (
     <section className="space-y-3">
-      <h3 className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
+      <h3 className="label-editorial">
         {t('discover.style_tools_heading')}
       </h3>
 
@@ -33,7 +33,7 @@ export function DiscoverStyleTools() {
             transition={{ delay: 0.05 + i * STAGGER_DELAY, duration: 0.4, ease: EASE_CURVE }}
             whileTap={{ scale: 0.97 }}
             onClick={() => { hapticLight(); navigate(tool.path); }}
-            className="relative overflow-hidden rounded-xl border border-border/10 bg-card/60 p-4 text-left space-y-2.5 transition-colors"
+            className="relative overflow-hidden rounded-[1.25rem] border border-border/10 bg-card/60 p-4 text-left space-y-2.5 transition-colors"
           >
             <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-foreground/[0.04]">
               <tool.icon className="w-4 h-4 text-muted-foreground/60" />

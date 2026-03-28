@@ -69,7 +69,7 @@ export function WeekOverview({ selectedDate, onSelectDate, plannedOutfits, class
               animate={prefersReduced ? { opacity: 1 } : { opacity: 1, y: 0 }}
               transition={{ duration: 0.26, delay: idx * STAGGER_DELAY, ease: EASE_CURVE }}
               className={cn(
-                'flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-[1.15rem] border px-1.5 transition-colors',
+                'flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-[1.25rem] border px-1.5 transition-colors',
                 isSelected
                   ? 'border-foreground bg-foreground text-background'
                   : isTodayDate

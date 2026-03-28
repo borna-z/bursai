@@ -32,7 +32,7 @@ export function SmartDayBanner({ slots, onGenerate, className }: SmartDayBannerP
 
   return (
     <div className={cn(
-      'rounded-xl bg-muted/40 p-3 space-y-3',
+      'surface-utility rounded-[1.25rem] p-3 space-y-3',
       className
     )}>
       <div className="flex items-center gap-2">
@@ -59,7 +59,7 @@ export function SmartDayBanner({ slots, onGenerate, className }: SmartDayBannerP
               {/* Garment thumbnails */}
               <div className="flex gap-1.5">
                 {slot.garments.map((g) => (
-                  <div key={g.id} className="w-10 h-10 rounded-lg overflow-hidden bg-muted shrink-0">
+                  <div key={g.id} className="w-10 h-10 rounded-[1.1rem] overflow-hidden bg-muted shrink-0">
                     <LazyImageSimple
                       imagePath={getPreferredGarmentImagePath(g)}
                       alt={g.title}

@@ -128,7 +128,7 @@ export function ChatWelcome({ onSuggestion, displayName }: ChatWelcomeProps) {
     >
       <motion.div
         variants={itemVariants}
-        className="w-16 h-16 border border-border/30 flex items-center justify-center mb-5"
+        className="w-16 h-16 rounded-[1.25rem] border border-border/30 flex items-center justify-center mb-5"
       >
         <Sparkles className="w-6 h-6 text-primary/60" />
       </motion.div>
@@ -141,7 +141,7 @@ export function ChatWelcome({ onSuggestion, displayName }: ChatWelcomeProps) {
       
       <motion.h2
         variants={itemVariants}
-        className="text-lg font-semibold tracking-[-0.02em] text-foreground mb-0.5"
+        className="font-['Playfair_Display'] italic text-[1.2rem] text-foreground mb-0.5 leading-tight"
       >
         {t('chat.welcome_title') || 'Your personal stylist'}
       </motion.h2>
@@ -160,7 +160,7 @@ export function ChatWelcome({ onSuggestion, displayName }: ChatWelcomeProps) {
             key={chip}
             variants={itemVariants}
             onClick={() => onSuggestion(chip)}
-            className="w-full px-5 py-2.5 text-[13px] leading-snug border border-border/20 bg-secondary/20 hover:bg-secondary/50 text-foreground/70 hover:text-foreground transition-colors whitespace-normal text-left active:scale-[0.97]"
+            className="w-full rounded-[1.25rem] px-5 py-2.5 text-[13px] leading-snug border border-border/20 bg-secondary/20 hover:bg-secondary/50 text-foreground/70 hover:text-foreground transition-colors whitespace-normal text-left active:scale-[0.97]"
             whileTap={{ scale: 0.97 }}
           >
             {chip}

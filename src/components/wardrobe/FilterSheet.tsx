@@ -38,7 +38,7 @@ export function FilterSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="rounded-t-2xl max-h-[70vh] overflow-y-auto px-5 pb-8">
+      <SheetContent side="bottom" className="rounded-t-[1.5rem] max-h-[70vh] overflow-y-auto px-5 pb-8">
         <SheetHeader className="pb-4">
           <SheetTitle className="text-base">{t('wardrobe.filter')}</SheetTitle>
         </SheetHeader>
@@ -144,7 +144,7 @@ export function FilterSheet({
           <button
             onClick={() => onLaundryChange(!showLaundry)}
             className={cn(
-              'flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors w-full border',
+              'flex items-center gap-2 px-4 py-3 rounded-[1.25rem] text-sm font-medium transition-colors w-full border',
               showLaundry
                 ? 'bg-accent/10 text-accent border-accent/20'
                 : 'surface-inset text-muted-foreground'

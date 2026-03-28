@@ -22,10 +22,10 @@ export default function DiscoverPage() {
           transition={PRESETS.HERO.transition}
           className="space-y-1"
         >
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">
+          <h1 className="font-['Playfair_Display'] italic text-[1.4rem] text-foreground leading-tight">
             {t('discover.title')}
           </h1>
-          <p className="text-[12px] text-muted-foreground/50">{t('discover.subtitle_new')}</p>
+          <p className="text-[13px] text-muted-foreground/60">{t('discover.subtitle_new')}</p>
         </motion.div>
 
         {/* ── Style Tools ── */}
@@ -36,7 +36,7 @@ export default function DiscoverPage() {
 
         {/* ── Wardrobe Progress ── */}
         <section className="space-y-3">
-          <h3 className="text-[11px] font-medium text-muted-foreground/50 uppercase tracking-widest">
+          <h3 className="label-editorial">
             {t('discover.progress_heading') || 'Progress'}
           </h3>
           <WardrobeProgress />

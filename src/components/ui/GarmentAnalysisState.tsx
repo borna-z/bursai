@@ -32,7 +32,7 @@ export function GarmentAnalysisState({ imageUrl, className }: GarmentAnalysisSta
   }, [prefersReduced]);
 
   return (
-    <div className={cn('relative w-full aspect-square bg-[#EDE8DF] overflow-hidden', className)}>
+    <div className={cn('relative w-full aspect-square bg-secondary overflow-hidden', className)}>
       {/* Full-bleed garment image */}
       {imageUrl && (
         <img
@@ -43,7 +43,7 @@ export function GarmentAnalysisState({ imageUrl, className }: GarmentAnalysisSta
       )}
 
       {/* Bottom overlay bar */}
-      <div className="absolute bottom-0 inset-x-0 h-12 bg-[#1C1917]/85 flex items-center justify-center">
+      <div className="absolute bottom-0 inset-x-0 h-12 bg-foreground/85 flex items-center justify-center">
         <AnimatePresence mode="wait">
           <motion.p
             key={msgIndex}

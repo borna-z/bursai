@@ -39,7 +39,7 @@ export function DiscoverHero({ challengeTitle, challengeDescription, challengeId
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.6, ease: EASE_CURVE }}
       whileTap={{ scale: 0.985 }}
-      className="relative overflow-hidden rounded-2xl border border-accent/10"
+      className="relative overflow-hidden rounded-[1.25rem] border border-accent/10"
       style={{
         background: 'linear-gradient(165deg, hsl(var(--accent) / 0.08) 0%, hsl(var(--card)) 50%, hsl(var(--background)) 100%)',
       }}
@@ -80,7 +80,7 @@ export function DiscoverHero({ challengeTitle, challengeDescription, challengeId
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.22, ease: EASE_CURVE }}
-          className="text-xl font-semibold tracking-tight text-foreground leading-tight"
+          className="font-['Playfair_Display'] italic text-[1.3rem] text-foreground leading-tight"
         >
           {title}
         </motion.h2>
@@ -103,7 +103,7 @@ export function DiscoverHero({ challengeTitle, challengeDescription, challengeId
         >
           <Button
             size="sm"
-            className="rounded-xl h-9 px-5 text-xs font-medium mt-1"
+            className="rounded-full h-9 px-5 text-xs font-medium mt-1"
             onClick={() => {
               hapticLight();
               if (challengeId && onJoin) onJoin(challengeId);

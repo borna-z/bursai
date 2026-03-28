@@ -225,10 +225,10 @@ export default function GarmentDetailPage() {
       <AppLayout hideNav>
         <PageHeader title="Garment" showBack />
         <div className="page-shell !px-5 !pt-6 page-cluster">
-          <Skeleton className="aspect-[4/5] rounded-[2rem]" />
-          <Skeleton className="h-32 rounded-[2rem]" />
+          <Skeleton className="aspect-[4/5] rounded-[1.25rem]" />
+          <Skeleton className="h-32 rounded-[1.25rem]" />
           <Skeleton className="h-12 rounded-full" />
-          <Skeleton className="h-56 rounded-[2rem]" />
+          <Skeleton className="h-56 rounded-[1.25rem]" />
         </div>
       </AppLayout>
     );
@@ -293,7 +293,7 @@ export default function GarmentDetailPage() {
           transition={{ duration: 0.35, ease: EASE_CURVE }}
         >
           <Card surface="utility" className="overflow-hidden p-2">
-            <div className="relative overflow-hidden rounded-[1.8rem]">
+            <div className="relative overflow-hidden rounded-[1.25rem]">
               <LazyImage
                 imagePath={displayImagePath}
                 alt={garment.title}
@@ -341,15 +341,15 @@ export default function GarmentDetailPage() {
               />
 
               <div className="grid gap-3 sm:grid-cols-3">
-                <div className="surface-utility rounded-[1.2rem] border p-3.5">
+                <div className="surface-utility rounded-[1.25rem] border p-3.5">
                   <p className="label-editorial">Cost per wear</p>
                   <p className="mt-1.5 text-[1.25rem] font-semibold tracking-[-0.05em] text-foreground">{costPerWearDisplay}</p>
                 </div>
-                <div className="surface-utility rounded-[1.2rem] border p-3.5">
+                <div className="surface-utility rounded-[1.25rem] border p-3.5">
                   <p className="label-editorial">Last worn</p>
                   <p className="mt-1.5 text-[1.25rem] font-semibold tracking-[-0.05em] text-foreground">{lastWornDisplay}</p>
                 </div>
-                <div className="surface-utility rounded-[1.2rem] border p-3.5">
+                <div className="surface-utility rounded-[1.25rem] border p-3.5">
                   <p className="label-editorial">Monthly rhythm</p>
                   <p className="mt-1.5 text-[1.25rem] font-semibold tracking-[-0.05em] text-foreground">{usageInsights?.wearFrequency || '0'}</p>
                 </div>
@@ -528,7 +528,7 @@ export default function GarmentDetailPage() {
 
       <div className="fixed inset-x-4 bottom-4 z-20" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
         <div className="mx-auto max-w-xl">
-          <div className="action-bar-floating flex gap-2 rounded-[1.4rem] p-2.5">
+          <div className="action-bar-floating flex gap-2 rounded-[1.25rem] p-2.5">
             <Button variant="outline" onClick={handleMarkWorn} className="h-11 flex-1 rounded-full border-border/35 bg-background/72">
               Mark worn
             </Button>

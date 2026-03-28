@@ -89,7 +89,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
   const showUpgradeHint = !isPremium && regenCount >= 3;
 
   return (
-    <div className="rounded-2xl surface-hero p-5 space-y-4 relative overflow-hidden">
+    <div className="rounded-[1.25rem] surface-hero p-5 space-y-4 relative overflow-hidden">
         <p className="label-editorial">{t('home.todays_outfit')}</p>
 
       {/* Garment grid — swipe right to wear */}
@@ -120,7 +120,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
                 imagePath={getPreferredGarmentImagePath(item.garment)}
                 alt={item.garment.title}
                 aspectRatio="3/4"
-                className="rounded-xl"
+                className="rounded-[1.1rem]"
               />
             </div>
           ))}
@@ -130,7 +130,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
 
       {/* Regeneration overlay with mini AI loading */}
       {isGenerating && outfit && (
-        <div className="absolute inset-0 rounded-2xl bg-background/60 backdrop-blur-[2px] flex items-center justify-center z-10">
+        <div className="absolute inset-0 rounded-[1.25rem] bg-background/60 backdrop-blur-[2px] flex items-center justify-center z-10">
           <AILoadingOverlay
             variant="inline"
             phases={[
@@ -147,7 +147,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
         <Button
           onClick={handleWearThis}
           disabled={markWorn.isPending}
-          className="flex-1 h-11 text-[0.8125rem] font-semibold bg-accent text-accent-foreground hover:bg-accent/90 rounded-xl tracking-[-0.01em]"
+          className="flex-1 h-11 text-[0.8125rem] font-semibold bg-accent text-accent-foreground hover:bg-accent/90 rounded-full tracking-[-0.01em]"
         >
           <Check className="w-4 h-4 mr-2" />
           {t('home.wear_this')}
@@ -157,7 +157,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
             variant="outline"
             onClick={handleTryAnother}
             disabled={isGenerating || showUpgradeHint}
-            className="w-full h-11 text-[0.8125rem] font-semibold rounded-xl border-border/50 tracking-[-0.01em]"
+            className="w-full h-11 text-[0.8125rem] font-semibold rounded-full border-border/50 tracking-[-0.01em]"
           >
             <Sparkles className="w-4 h-4 mr-2" />
             {t('home.try_another')}
@@ -182,21 +182,22 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
 
       {/* View outfit details link */}
       {outfit && (
-        <button
+        <Button
+          variant="ghost"
           onClick={() => navigate(`/outfits/${outfit.id}`)}
-          className="text-[11px] text-center text-muted-foreground/50 hover:text-foreground transition-colors w-full tracking-wide"
+          className="text-[11px] text-center text-muted-foreground/55 hover:text-foreground transition-colors w-full tracking-wide"
         >
           {t('home.see_details')} →
-        </button>
+        </Button>
       )}
 
       {/* Inline upgrade hint */}
       {showUpgradeHint && (
         <p className="text-xs text-center text-muted-foreground">
           {t('home.unlock_unlimited')}{' '}
-          <button onClick={() => navigate('/pricing')} className="text-accent underline underline-offset-2">
+          <Button variant="link" onClick={() => navigate('/pricing')} className="text-accent underline underline-offset-2 p-0 h-auto">
             →
-          </button>
+          </Button>
         </p>
       )}
     </div>

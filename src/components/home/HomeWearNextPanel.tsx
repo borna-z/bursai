@@ -27,14 +27,14 @@ export function HomeWearNextPanel({
   return (
     <section
       data-testid="home-wear-next"
-      className="rounded-[1.5rem] border border-foreground/[0.08] bg-card p-5 shadow-[0_14px_28px_rgba(22,18,15,0.04)]"
+      className="surface-secondary rounded-[1.25rem] p-5"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="label-editorial text-muted-foreground/60">
             {sleepingBeautiesCount >= 3 ? 'Sleeping beauties' : 'Wear next'}
           </p>
-          <h2 className="mt-1 text-[1.25rem] font-semibold tracking-[-0.03em] text-foreground">
+          <h2 className="mt-1 font-['Playfair_Display'] italic text-[1.25rem] tracking-[-0.03em] text-foreground">
             Bring a dormant piece back
           </h2>
         </div>
@@ -43,18 +43,18 @@ export function HomeWearNextPanel({
         </p>
       </div>
 
-      <div className="mt-4 grid gap-4 rounded-[1.2rem] bg-secondary/45 p-4 sm:grid-cols-[128px_minmax(0,1fr)]">
+      <div className="mt-4 grid gap-4 rounded-[1.1rem] bg-secondary/45 p-4 sm:grid-cols-[128px_minmax(0,1fr)]">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-1">
           <LazyImageSimple
             imagePath={getPreferredGarmentImagePath(spotlight)}
             alt={spotlight.title || spotlight.category || 'Garment'}
-            className="aspect-[4/5] rounded-[1rem] bg-background"
+            className="aspect-[4/5] rounded-[1.1rem] bg-background"
           />
           {companion ? (
             <LazyImageSimple
               imagePath={getPreferredGarmentImagePath(companion)}
               alt={companion.title || companion.category || 'Garment'}
-              className="aspect-[4/5] rounded-[1rem] bg-background opacity-80"
+              className="aspect-[4/5] rounded-[1.1rem] bg-background opacity-80"
             />
           ) : null}
         </div>
@@ -64,7 +64,7 @@ export function HomeWearNextPanel({
             <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/70">
               Spotlight
             </p>
-            <h3 className="mt-2 text-[1.05rem] font-semibold tracking-[-0.025em] text-foreground">
+            <h3 className="mt-2 text-[1.05rem] font-medium tracking-[-0.025em] text-foreground">
               {spotlight.title || `${spotlight.color_primary || ''} ${spotlight.category || 'Garment'}`.trim()}
             </h3>
             <p className="mt-2 text-[0.92rem] leading-6 text-foreground">
@@ -80,13 +80,13 @@ export function HomeWearNextPanel({
               <Sparkles className="size-4" />
               Style this
             </Button>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               onClick={onOpenUnused}
               className="text-[0.82rem] font-medium text-muted-foreground underline underline-offset-4"
             >
               Open unworn rotation
-            </button>
+            </Button>
           </div>
         </div>
       </div>

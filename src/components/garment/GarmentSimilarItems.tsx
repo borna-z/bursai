@@ -34,14 +34,14 @@ export function GarmentSimilarItems({ similarGarments }: GarmentSimilarItemsProp
               onClick={() => navigate(`/wardrobe/${g.id}`)}
               className="flex min-w-0 flex-col gap-1.5 border-none bg-transparent text-left"
             >
-              <div className="aspect-[3/4] overflow-hidden bg-card">
+              <div className="aspect-[3/4] overflow-hidden bg-secondary/45">
                 <LazyImageSimple
                   imagePath={getPreferredGarmentImagePath(g)}
                   alt={g.title}
                   className="w-full h-full"
                 />
               </div>
-              <p className="m-0 line-clamp-2 font-['DM_Sans'] text-[10px] text-foreground/60">
+              <p className="m-0 line-clamp-2 font-['DM_Sans'] text-[11px] text-foreground/60">
                 {g.title}
               </p>
             </button>

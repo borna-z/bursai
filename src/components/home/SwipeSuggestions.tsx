@@ -38,7 +38,7 @@ function SuggestionCard({ outfit, onTap }: { outfit: OutfitWithItems; onTap: () 
       whileTap={{ scale: 0.96 }}
       transition={TAP_TRANSITION}
       onClick={onTap}
-      className="flex-shrink-0 w-[180px] rounded-2xl bg-foreground/[0.02] border border-border/30 overflow-hidden will-change-transform"
+      className="flex-shrink-0 w-[180px] surface-utility rounded-[1.25rem] overflow-hidden will-change-transform"
     >
       <div className="grid grid-cols-2 gap-0.5 p-1">
         {items.map((item) => (
@@ -47,7 +47,7 @@ function SuggestionCard({ outfit, onTap }: { outfit: OutfitWithItems; onTap: () 
             imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
             alt={item.garment?.title || ''}
             aspectRatio="4/5"
-            className="rounded-lg"
+            className="rounded-[1.1rem]"
           />
         ))}
       </div>

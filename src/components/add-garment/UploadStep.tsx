@@ -62,7 +62,7 @@ export function UploadStep({
 
       <AnimatedPage className="page-shell !px-5 !pt-6 page-cluster">
         <Card surface="editorial" className="p-6">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.35rem] bg-background/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.1rem] bg-background/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
             <Upload className="h-7 w-7 text-foreground/72" />
           </div>
           <div className="mt-5">

@@ -196,7 +196,7 @@ export function GarmentConfirmSheet({
                         position: 'absolute', inset: 0, background: 'rgba(28,25,23,0.6)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
-                        <Loader2 className="w-5 h-5 text-[#F5F0E8] animate-spin" />
+                        <Loader2 className="w-5 h-5 text-background animate-spin" />
                       </div>
                     )}
                   </>

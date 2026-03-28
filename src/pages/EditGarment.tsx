@@ -182,9 +182,9 @@ export default function EditGarmentPage() {
       <AppLayout hideNav>
         <PageHeader title={t('garment.edit_title')} showBack />
         <div className="page-shell !px-5 !pt-6 page-cluster">
-          <Skeleton className="h-64 rounded-[2rem]" />
-          <Skeleton className="h-64 rounded-[2rem]" />
-          <Skeleton className="h-56 rounded-[2rem]" />
+          <Skeleton className="h-64 rounded-[1.25rem]" />
+          <Skeleton className="h-64 rounded-[1.25rem]" />
+          <Skeleton className="h-56 rounded-[1.25rem]" />
         </div>
       </AppLayout>
     );
@@ -217,7 +217,7 @@ export default function EditGarmentPage() {
       <div className="page-shell !px-5 !pb-36 !pt-6 page-cluster">
         <Card surface="editorial" className="overflow-hidden p-2">
           <div className="grid gap-5 p-3 sm:grid-cols-[180px,1fr] sm:items-center">
-            <div className="relative overflow-hidden rounded-[1.6rem]">
+            <div className="relative overflow-hidden rounded-[1.1rem]">
               <LazyImage
                 imagePath={getPreferredGarmentImagePath(garment)}
                 alt={garment.title}
@@ -451,7 +451,7 @@ export default function EditGarmentPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between rounded-[1.35rem] border border-border/60 bg-background/80 px-4 py-4">
+          <div className="flex items-center justify-between rounded-[1.25rem] border border-border/60 bg-background/80 px-4 py-4">
             <div>
               <p className="text-sm font-medium text-foreground">{t('addgarment.form.in_laundry')}</p>
               <p className="mt-1 text-xs text-muted-foreground">Hide the piece from outfit creation until it is ready again.</p>
@@ -463,7 +463,7 @@ export default function EditGarmentPage() {
 
       <div className="fixed inset-x-4 bottom-4 z-20" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
         <div className="mx-auto max-w-md">
-          <div className="action-bar-floating flex gap-2 rounded-[1.6rem] p-3">
+          <div className="action-bar-floating flex gap-2 rounded-[1.25rem] p-3">
             <Button variant="outline" className="flex-1" onClick={() => navigate(-1)} disabled={isSaving}>
               {t('common.cancel')}
             </Button>

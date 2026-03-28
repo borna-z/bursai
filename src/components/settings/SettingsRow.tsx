@@ -24,7 +24,7 @@ export function SettingsRow({ icon, label, sublabel, children, last, onClick, cl
         )}
         <div className="min-w-0">
           <span className="text-[15px] font-medium text-foreground">{label}</span>
-          {sublabel && <p className="mt-0.5 text-[12px] leading-tight text-muted-foreground/58">{sublabel}</p>}
+          {sublabel && <p className="mt-0.5 text-[12px] leading-tight text-muted-foreground/65">{sublabel}</p>}
         </div>
       </div>
       {children && <div className="flex-shrink-0">{children}</div>}

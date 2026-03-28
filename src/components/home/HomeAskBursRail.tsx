@@ -45,7 +45,7 @@ export function HomeAskBursRail({ suggestions, onSelectSuggestion }: HomeAskBurs
             }}
             transition={{ duration: 0.24 }}
             onClick={() => onSelectSuggestion(suggestion)}
-            className="rounded-[1.15rem] border border-foreground/[0.08] bg-background/90 px-4 py-3 text-left text-[0.84rem] leading-5 text-foreground shadow-[0_10px_18px_rgba(22,18,15,0.03)] transition-colors hover:bg-secondary/75"
+            className="surface-interactive rounded-[1.25rem] px-4 py-3 text-left text-[0.84rem] leading-5 text-foreground transition-colors hover:bg-secondary/75"
           >
             {suggestion.text}
           </motion.button>

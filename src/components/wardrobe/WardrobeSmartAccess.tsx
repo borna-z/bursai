@@ -45,17 +45,17 @@ export function WardrobeSmartAccess({ tiles, onSelect }: WardrobeSmartAccessProp
               whileTap={{ scale: 0.98 }}
               onClick={() => onSelect(tile.active ? null : tile.key)}
               className={cn(
-                'rounded-[22px] border px-3.5 py-3.5 text-left transition-colors',
+                'rounded-[1.25rem] border px-3.5 py-3.5 text-left transition-colors',
                 tile.active
                   ? 'border-foreground bg-foreground text-background'
-                  : 'border-border/15 bg-card/75 text-foreground hover:bg-card',
+                  : 'surface-secondary text-foreground',
               )}
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <div
                     className={cn(
-                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-[18px]',
+                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-[1.1rem]',
                       tile.active ? 'bg-background/12 text-background' : 'bg-foreground/[0.04] text-foreground/70',
                     )}
                   >

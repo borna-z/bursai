@@ -180,7 +180,7 @@ export default function SettingsStyle() {
       <div className="px-4 pb-6 pt-4 space-y-3 max-w-lg mx-auto">
 
         {!hasProfile && (
-          <div className="bg-accent/8 border border-accent/20 rounded-xl p-4 text-center space-y-2">
+          <div className="bg-accent/8 border border-accent/20 rounded-[1.25rem] p-4 text-center space-y-2">
             <Sparkles className="w-5 h-5 text-accent mx-auto" />
             <p className="text-sm text-foreground font-medium">{t('settings.no_profile_title') || 'No style profile yet'}</p>
             <p className="text-xs text-muted-foreground">{t('settings.no_profile_desc') || 'Complete the style quiz during onboarding to personalize your experience.'}</p>
@@ -188,7 +188,7 @@ export default function SettingsStyle() {
         )}
 
         {/* Body Data */}
-        <Collapsible open={openSection === 'body'} className="bg-card rounded-xl overflow-hidden">
+        <Collapsible open={openSection === 'body'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="body" icon={Ruler} title={t('settings.body_data')} summary={heightCm ? `${heightCm} cm${weightKg ? ` · ${weightKg} kg` : ''}` : undefined} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="px-4 pb-4 space-y-3">
@@ -230,7 +230,7 @@ export default function SettingsStyle() {
         </Collapsible>
 
         {/* Identity */}
-        <Collapsible open={openSection === 'identity'} className="bg-card rounded-xl overflow-hidden">
+        <Collapsible open={openSection === 'identity'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="identity" icon={User} title={t('q3.s1.title') || 'About you'} summary={[sp.gender, sp.ageRange, sp.climate].filter(Boolean).join(' · ')} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="px-4 pb-4 space-y-4">
@@ -255,7 +255,7 @@ export default function SettingsStyle() {
         </Collapsible>
 
         {/* Daily life */}
-        <Collapsible open={openSection === 'daily'} className="bg-card rounded-xl overflow-hidden">
+        <Collapsible open={openSection === 'daily'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="daily" icon={Briefcase} title={t('q3.s2.title') || 'Daily life'} summary={[sp.weekdayLife, sp.workFormality].filter(Boolean).join(' · ')} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="px-4 pb-4 space-y-4">
@@ -284,7 +284,7 @@ export default function SettingsStyle() {
         </Collapsible>
 
         {/* Style direction */}
-        <Collapsible open={openSection === 'style'} className="bg-card rounded-xl overflow-hidden">
+        <Collapsible open={openSection === 'style'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="style" icon={Sparkles} title={t('q3.s3.title') || 'Style direction'} summary={sp.styleWords?.slice(0, 3).join(', ')} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="px-4 pb-4 space-y-4">
@@ -319,7 +319,7 @@ export default function SettingsStyle() {
         </Collapsible>
 
         {/* Fit & silhouette */}
-        <Collapsible open={openSection === 'fit'} className="bg-card rounded-xl overflow-hidden">
+        <Collapsible open={openSection === 'fit'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="fit" icon={Shirt} title={t('q3.s4.title') || 'Fit & silhouette'} summary={[sp.fit, sp.layering].filter(Boolean).join(' · ')} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="px-4 pb-4 space-y-4">
@@ -351,7 +351,7 @@ export default function SettingsStyle() {
         </Collapsible>
 
         {/* Colors & patterns */}
-        <Collapsible open={openSection === 'colors'} className="bg-card rounded-xl overflow-hidden">
+        <Collapsible open={openSection === 'colors'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="colors" icon={Palette} title={t('q3.s5.title') || 'Colors & patterns'} summary={sp.favoriteColors?.slice(0, 4).join(', ')} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="px-4 pb-4 space-y-4">
@@ -380,7 +380,7 @@ export default function SettingsStyle() {
         </Collapsible>
 
         {/* Philosophy */}
-        <Collapsible open={openSection === 'philosophy'} className="bg-card rounded-xl overflow-hidden">
+        <Collapsible open={openSection === 'philosophy'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="philosophy" icon={Target} title={t('q3.s6.title') || 'Philosophy'} summary={[sp.shoppingMindset, sp.sustainability].filter(Boolean).join(' · ')} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="px-4 pb-4 space-y-4">
@@ -408,7 +408,7 @@ export default function SettingsStyle() {
         </Collapsible>
 
         {/* Inspiration */}
-        <Collapsible open={openSection === 'inspiration'} className="bg-card rounded-xl overflow-hidden">
+        <Collapsible open={openSection === 'inspiration'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="inspiration" icon={Compass} title={t('q3.s7.title') || 'Inspiration'} summary={sp.fabricFeel || sp.signaturePieces || undefined} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="px-4 pb-4 space-y-4">
@@ -433,7 +433,7 @@ export default function SettingsStyle() {
         </Collapsible>
 
         {/* Goals */}
-        <Collapsible open={openSection === 'goals'} className="bg-card rounded-xl overflow-hidden">
+        <Collapsible open={openSection === 'goals'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="goals" icon={Heart} title={t('q3.s8.title') || 'Goals'} summary={sp.primaryGoal || undefined} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="px-4 pb-4 space-y-4">
@@ -491,7 +491,7 @@ export default function SettingsStyle() {
         )}
 
         {/* Mannequin preference */}
-        <div className="bg-card rounded-xl overflow-hidden">
+        <div className="surface-editorial rounded-[1.25rem] overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3.5">
             <div className="min-w-0">
               <span className="text-sm font-semibold text-foreground block">Show garments on mannequin</span>
@@ -525,7 +525,7 @@ export default function SettingsStyle() {
         </div>
 
         {/* Studio render prompt */}
-        <div className="bg-card rounded-xl overflow-hidden">
+        <div className="surface-editorial rounded-[1.25rem] overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3.5">
             <div className="min-w-0">
               <span className="text-sm font-semibold text-foreground block">Offer studio renders</span>
