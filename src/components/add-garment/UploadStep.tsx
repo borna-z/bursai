@@ -1,6 +1,11 @@
 import type { ChangeEvent, RefObject } from 'react';
-import { ArrowLeft, Camera, Link2, Upload } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Camera, Link2, Upload } from 'lucide-react';
+
+import { AppLayout } from '@/components/layout/AppLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { AnimatedPage } from '@/components/ui/animated-page';
+import { Card } from '@/components/ui/card';
+import { PageIntro } from '@/components/ui/page-intro';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CameraCapture } from './CameraCapture';
 import { LinkImportTab } from './LinkImportTab';
@@ -20,8 +25,8 @@ interface UploadStepProps {
   batchLabel: string;
   fileInputRef: RefObject<HTMLInputElement | null>;
   batchInputRef: RefObject<HTMLInputElement | null>;
-  onImageSelect: (e: ChangeEvent<HTMLInputElement>) => void;
-  onBatchSelect: (e: ChangeEvent<HTMLInputElement>) => void;
+  onImageSelect: (event: ChangeEvent<HTMLInputElement>) => void;
+  onBatchSelect: (event: ChangeEvent<HTMLInputElement>) => void;
   onTakePhoto: () => void;
   onPickFromGallery: () => void;
 }
@@ -47,54 +52,61 @@ export function UploadStep({
   onPickFromGallery,
 }: UploadStepProps) {
   return (
-    <div className="min-h-screen bg-background">
-      <div className="p-4 flex items-center justify-between">
-        <Button variant="ghost" size="icon" onClick={onBack}>
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        {!isPremium && <span className="text-xs text-muted-foreground">{slotsLeft} {slotsLeftLabel || 'left'}</span>}
-      </div>
+    <AppLayout hideNav>
+      <PageHeader
+        title={title}
+        subtitle={helperText}
+        showBack
+        actions={!isPremium ? <span className="eyebrow-chip">{slotsLeft} {slotsLeftLabel || 'left'}</span> : undefined}
+      />
 
-      <div className="flex flex-col items-center px-6 pt-8 pb-12 space-y-8 max-w-md mx-auto">
-        <div className="space-y-3 text-center">
-          <div className="w-16 h-16 bg-accent/10 flex items-center justify-center mx-auto">
-            <Upload className="w-7 h-7 text-accent" />
+      <AnimatedPage className="page-shell !px-5 !pt-6 page-cluster">
+        <Card surface="editorial" className="p-6">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.35rem] bg-background/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
+            <Upload className="h-7 w-7 text-foreground/72" />
           </div>
-          <h1 className="text-xl font-semibold text-foreground">{title}</h1>
-          <p className="text-sm text-muted-foreground max-w-[260px] mx-auto leading-relaxed">{prompt}</p>
-          <p className="text-xs text-muted-foreground/80 max-w-[260px] mx-auto">{helperText}</p>
-        </div>
-
-        <Tabs defaultValue="photo" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 h-11">
-            <TabsTrigger value="photo" className="flex items-center gap-2 text-sm">
-              <Camera className="w-4 h-4" />
-              {photoLabel}
-            </TabsTrigger>
-            <TabsTrigger value="link" className="flex items-center gap-2 text-sm">
-              <Link2 className="w-4 h-4" />
-              {linkLabel}
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="photo" className="mt-6">
-            <CameraCapture
-              fileInputRef={fileInputRef}
-              batchInputRef={batchInputRef}
-              onImageSelect={onImageSelect}
-              onBatchSelect={onBatchSelect}
-              onTakePhoto={onTakePhoto}
-              onPickFromGallery={onPickFromGallery}
-              onBatchClick={() => batchInputRef.current?.click()}
-              cameraLabel={cameraLabel}
-              galleryLabel={galleryLabel}
-              batchLabel={batchLabel}
+          <div className="mt-5">
+            <PageIntro
+              center
+              eyebrow="Add garment"
+              title={prompt}
+              description="Bring in a single piece, import from a product link, or start a batch and let BURS clean up the metadata afterward."
             />
-          </TabsContent>
+          </div>
+        </Card>
 
-          <LinkImportTab value="link" />
-        </Tabs>
-      </div>
-    </div>
+        <Card surface="utility" className="p-4">
+          <Tabs defaultValue="photo" className="w-full">
+            <TabsList className="grid h-11 w-full grid-cols-2 rounded-full bg-secondary/60 p-1">
+              <TabsTrigger value="photo" className="flex items-center gap-2 rounded-full text-sm">
+                <Camera className="h-4 w-4" />
+                {photoLabel}
+              </TabsTrigger>
+              <TabsTrigger value="link" className="flex items-center gap-2 rounded-full text-sm">
+                <Link2 className="h-4 w-4" />
+                {linkLabel}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="photo" className="mt-6">
+              <CameraCapture
+                fileInputRef={fileInputRef}
+                batchInputRef={batchInputRef}
+                onImageSelect={onImageSelect}
+                onBatchSelect={onBatchSelect}
+                onTakePhoto={onTakePhoto}
+                onPickFromGallery={onPickFromGallery}
+                onBatchClick={() => batchInputRef.current?.click()}
+                cameraLabel={cameraLabel}
+                galleryLabel={galleryLabel}
+                batchLabel={batchLabel}
+              />
+            </TabsContent>
+
+            <LinkImportTab value="link" />
+          </Tabs>
+        </Card>
+      </AnimatedPage>
+    </AppLayout>
   );
 }

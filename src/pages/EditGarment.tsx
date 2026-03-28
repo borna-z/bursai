@@ -1,21 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Loader2, X } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { AppLayout } from '@/components/layout/AppLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Slider } from '@/components/ui/slider';
+import { LazyImage } from '@/components/ui/lazy-image';
+import { PageIntro } from '@/components/ui/page-intro';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
-import { useGarment, useUpdateGarment } from '@/hooks/useGarments';
-import { LazyImage } from '@/components/ui/lazy-image';
-import { PageHeader } from '@/components/layout/PageHeader';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useGarment, useUpdateGarment } from '@/hooks/useGarments';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { cn } from '@/lib/utils';
 import { RenderPendingOverlay } from '@/components/wardrobe/RenderPendingOverlay';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
@@ -48,19 +52,19 @@ const COLOR_I18N: Record<string, string> = {
   brown: 'color.brown', pink: 'color.pink', yellow: 'color.yellow', orange: 'color.orange', purple: 'color.purple',
 };
 const SUBCATEGORY_I18N: Record<string, string> = {
-  't-shirt': 'subcategory.tshirt', 'shirt': 'subcategory.shirt', 'blouse': 'subcategory.blouse',
-  'sweater': 'subcategory.sweater', 'hoodie': 'subcategory.hoodie', 'polo': 'subcategory.polo',
-  'tank': 'subcategory.tank', 'cardigan': 'subcategory.cardigan',
-  'jeans': 'subcategory.jeans', 'chinos': 'subcategory.chinos', 'shorts': 'subcategory.shorts',
-  'skirt': 'subcategory.skirt', 'dress_pants': 'subcategory.dress_pants', 'joggers': 'subcategory.joggers', 'leggings': 'subcategory.leggings',
-  'sneakers': 'subcategory.sneakers', 'loafers': 'subcategory.loafers', 'boots': 'subcategory.boots',
-  'sandals': 'subcategory.sandals', 'heels': 'subcategory.heels', 'trainers': 'subcategory.trainers',
-  'jacket': 'subcategory.jacket', 'coat': 'subcategory.coat', 'blazer': 'subcategory.blazer',
-  'vest': 'subcategory.vest', 'rain_jacket': 'subcategory.rain_jacket', 'down_jacket': 'subcategory.down_jacket',
-  'bag': 'subcategory.bag', 'scarf': 'subcategory.scarf', 'beanie': 'subcategory.beanie',
-  'belt': 'subcategory.belt', 'jewelry': 'subcategory.jewelry', 'sunglasses': 'subcategory.sunglasses',
-  'casual_dress': 'subcategory.casual_dress', 'party_dress': 'subcategory.party_dress',
-  'maxi_dress': 'subcategory.maxi_dress', 'mini_dress': 'subcategory.mini_dress',
+  't-shirt': 'subcategory.tshirt', shirt: 'subcategory.shirt', blouse: 'subcategory.blouse',
+  sweater: 'subcategory.sweater', hoodie: 'subcategory.hoodie', polo: 'subcategory.polo',
+  tank: 'subcategory.tank', cardigan: 'subcategory.cardigan',
+  jeans: 'subcategory.jeans', chinos: 'subcategory.chinos', shorts: 'subcategory.shorts',
+  skirt: 'subcategory.skirt', dress_pants: 'subcategory.dress_pants', joggers: 'subcategory.joggers', leggings: 'subcategory.leggings',
+  sneakers: 'subcategory.sneakers', loafers: 'subcategory.loafers', boots: 'subcategory.boots',
+  sandals: 'subcategory.sandals', heels: 'subcategory.heels', trainers: 'subcategory.trainers',
+  jacket: 'subcategory.jacket', coat: 'subcategory.coat', blazer: 'subcategory.blazer',
+  vest: 'subcategory.vest', rain_jacket: 'subcategory.rain_jacket', down_jacket: 'subcategory.down_jacket',
+  bag: 'subcategory.bag', scarf: 'subcategory.scarf', beanie: 'subcategory.beanie',
+  belt: 'subcategory.belt', jewelry: 'subcategory.jewelry', sunglasses: 'subcategory.sunglasses',
+  casual_dress: 'subcategory.casual_dress', party_dress: 'subcategory.party_dress',
+  maxi_dress: 'subcategory.maxi_dress', mini_dress: 'subcategory.mini_dress',
 };
 
 const subcategories: Record<string, string[]> = {
@@ -88,11 +92,11 @@ const colors = [
   { id: 'purple', color: 'hsl(280 60% 50%)' },
 ];
 
-const categories = CATEGORY_IDS.map(id => ({ id, label: id }));
-const patterns = PATTERN_IDS.map(id => id);
-const materials = MATERIAL_IDS.map(id => id);
-const fits = FIT_IDS.map(id => id);
-const seasons = SEASON_IDS.map(id => id);
+const categories = CATEGORY_IDS.map((id) => ({ id, label: id }));
+const patterns = PATTERN_IDS.map((id) => id);
+const materials = MATERIAL_IDS.map((id) => id);
+const fits = FIT_IDS.map((id) => id);
+const seasons = SEASON_IDS.map((id) => id);
 
 export default function EditGarmentPage() {
   const navigate = useNavigate();
@@ -115,7 +119,6 @@ export default function EditGarmentPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
-  // Pre-fill form when garment loads
   useEffect(() => {
     if (garment && !initialized) {
       setTitle(garment.title);
@@ -134,8 +137,10 @@ export default function EditGarmentPage() {
   }, [garment, initialized]);
 
   const toggleSeason = (season: string) => {
-    setSelectedSeasons((prev) =>
-      prev.includes(season) ? prev.filter((s) => s !== season) : [...prev, season]
+    setSelectedSeasons((current) =>
+      current.includes(season)
+        ? current.filter((item) => item !== season)
+        : [...current, season],
     );
   };
 
@@ -174,140 +179,260 @@ export default function EditGarmentPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background pb-24">
-        <div className="sticky top-0 z-10 bg-background border-b">
-          <div className="p-4 flex items-center gap-4">
-            <Skeleton className="w-10 h-10 rounded-lg" />
-            <Skeleton className="w-32 h-6" />
-          </div>
+      <AppLayout hideNav>
+        <PageHeader title={t('garment.edit_title')} showBack />
+        <div className="page-shell !px-5 !pt-6 page-cluster">
+          <Skeleton className="h-64 rounded-[2rem]" />
+          <Skeleton className="h-64 rounded-[2rem]" />
+          <Skeleton className="h-56 rounded-[2rem]" />
         </div>
-        <div className="p-4 space-y-4 max-w-lg mx-auto">
-          <Skeleton className="aspect-square max-w-xs mx-auto rounded-xl" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      </div>
+      </AppLayout>
     );
   }
 
   if (!garment) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4">
-        <p className="text-lg font-medium mb-4">{t('garment.not_found')}</p>
-        <Button variant="outline" onClick={() => navigate('/wardrobe')}>{t('common.back')}</Button>
-      </div>
+      <AppLayout hideNav>
+        <PageHeader title={t('garment.edit_title')} showBack />
+        <div className="page-shell !px-5 !pt-6">
+          <Card surface="editorial" className="p-6 text-center">
+            <h2 className="text-lg font-semibold">{t('garment.not_found')}</h2>
+            <Button variant="outline" className="mt-4" onClick={() => navigate('/wardrobe')}>
+              {t('common.back')}
+            </Button>
+          </Card>
+        </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <PageHeader title={t('garment.edit_title')} showBack />
+    <AppLayout hideNav>
+      <PageHeader
+        title={t('garment.edit_title')}
+        subtitle="Refine the details so BURS can style this piece more precisely."
+        showBack
+      />
 
-      <div className="p-4 space-y-6 max-w-lg mx-auto">
-        {/* Image (read-only) */}
-        <div className="relative max-w-xs mx-auto rounded-xl overflow-hidden">
-          <LazyImage imagePath={getPreferredGarmentImagePath(garment)} alt={garment.title} aspectRatio="square" className="w-full" />
-          <RenderPendingOverlay renderStatus={garment.render_status} />
-        </div>
+      <div className="page-shell !px-5 !pb-36 !pt-6 page-cluster">
+        <Card surface="editorial" className="overflow-hidden p-2">
+          <div className="grid gap-5 p-3 sm:grid-cols-[180px,1fr] sm:items-center">
+            <div className="relative overflow-hidden rounded-[1.6rem]">
+              <LazyImage
+                imagePath={getPreferredGarmentImagePath(garment)}
+                alt={garment.title}
+                aspectRatio="square"
+                className="w-full"
+              />
+              <RenderPendingOverlay renderStatus={garment.render_status} />
+            </div>
 
-        {/* Form */}
-        <div className="space-y-4">
+            <PageIntro
+              eyebrow={(
+                <>
+                  <span className="eyebrow-chip">{t(CATEGORY_I18N[category] || category || 'garment.category.top')}</span>
+                  {colorPrimary ? (
+                    <span className="eyebrow-chip !bg-secondary/70">{t(COLOR_I18N[colorPrimary] || colorPrimary)}</span>
+                  ) : null}
+                </>
+              )}
+              title={title || garment.title}
+              description="Tighten the metadata, color story, and wear context so future suggestions feel sharper and more intentional."
+            />
+          </div>
+        </Card>
+
+        <Card surface="utility" className="space-y-5 p-5">
           <div className="space-y-2">
-            <Label>{t('addgarment.form.title')} *</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('addgarment.form.title_placeholder')} />
+            <p className="label-editorial">Identity</p>
+            <p className="text-sm leading-6 text-muted-foreground">Name the piece clearly and place it in the right category so it appears in the right outfit logic.</p>
           </div>
 
-          <div className="space-y-2">
-            <Label>{t('addgarment.form.category')} *</Label>
-            <Select value={category} onValueChange={(v) => { setCategory(v); setSubcategory(''); }}>
-              <SelectTrigger><SelectValue placeholder={t('addgarment.form.select_category')} /></SelectTrigger>
-              <SelectContent>
-                {categories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>{t(CATEGORY_I18N[cat.id] || cat.id)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {category && subcategories[category] && (
+          <div className="grid gap-4">
             <div className="space-y-2">
-              <Label>{t('addgarment.form.subcategory')}</Label>
-              <Select value={subcategory} onValueChange={setSubcategory}>
-                <SelectTrigger><SelectValue placeholder={t('addgarment.form.select_subcategory')} /></SelectTrigger>
+              <Label>{t('addgarment.form.title')} *</Label>
+              <Input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder={t('addgarment.form.title_placeholder')}
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>{t('addgarment.form.category')} *</Label>
+                <Select value={category} onValueChange={(value) => { setCategory(value); setSubcategory(''); }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('addgarment.form.select_category')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {t(CATEGORY_I18N[item.id] || item.id)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {category && subcategories[category] ? (
+                <div className="space-y-2">
+                  <Label>{t('addgarment.form.subcategory')}</Label>
+                  <Select value={subcategory} onValueChange={setSubcategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={t('addgarment.form.select_subcategory')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subcategories[category].map((item) => (
+                        <SelectItem key={item} value={item.toLowerCase()}>
+                          {t(SUBCATEGORY_I18N[item.toLowerCase()] || item)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </Card>
+
+        <Card surface="utility" className="space-y-5 p-5">
+          <div className="space-y-2">
+            <p className="label-editorial">Color story</p>
+            <p className="text-sm leading-6 text-muted-foreground">Give BURS the core palette so matching and layering decisions feel more natural.</p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <Label>{t('addgarment.form.primary_color')} *</Label>
+              <div className="flex flex-wrap gap-2.5">
+                {colors.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setColorPrimary(item.id)}
+                    className={cn(
+                      'h-11 w-11 rounded-full border-2 transition-all',
+                      colorPrimary === item.id
+                        ? 'border-foreground ring-2 ring-foreground/20 ring-offset-2 ring-offset-background'
+                        : 'border-border hover:scale-105',
+                    )}
+                    style={{ backgroundColor: item.color }}
+                    title={t(COLOR_I18N[item.id] || item.id)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label>{t('addgarment.form.secondary_color')}</Label>
+              <div className="flex flex-wrap gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setColorSecondary('')}
+                  className={cn(
+                    'flex h-11 w-11 items-center justify-center rounded-full border-2 transition-all',
+                    !colorSecondary
+                      ? 'border-foreground ring-2 ring-foreground/20 ring-offset-2 ring-offset-background'
+                      : 'border-border',
+                  )}
+                >
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
+
+                {colors.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setColorSecondary(item.id)}
+                    className={cn(
+                      'h-11 w-11 rounded-full border-2 transition-all',
+                      colorSecondary === item.id
+                        ? 'border-foreground ring-2 ring-foreground/20 ring-offset-2 ring-offset-background'
+                        : 'border-border hover:scale-105',
+                    )}
+                    style={{ backgroundColor: item.color }}
+                    title={t(COLOR_I18N[item.id] || item.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card surface="utility" className="space-y-5 p-5">
+          <div className="space-y-2">
+            <p className="label-editorial">Construction</p>
+            <p className="text-sm leading-6 text-muted-foreground">Capture fit, fabric, and pattern so the AI reads the piece the same way you do.</p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label>{t('addgarment.form.pattern')}</Label>
+              <Select value={pattern} onValueChange={setPattern}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('addgarment.form.select_pattern')} />
+                </SelectTrigger>
                 <SelectContent>
-                  {subcategories[category].map((sub) => (
-                    <SelectItem key={sub} value={sub.toLowerCase()}>{t(SUBCATEGORY_I18N[sub.toLowerCase()] || sub)}</SelectItem>
+                  {patterns.map((item) => (
+                    <SelectItem key={item} value={item.toLowerCase()}>
+                      {t(PATTERN_I18N[item.toLowerCase()] || item)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          )}
 
-          <div className="space-y-2">
-            <Label>{t('addgarment.form.primary_color')} *</Label>
-            <div className="flex flex-wrap gap-2">
-              {colors.map((c) => (
-                <button
-                  key={c.id} type="button" onClick={() => setColorPrimary(c.id)}
-                  className={cn('w-10 h-10 rounded-full border-2 transition-all', colorPrimary === c.id ? 'ring-2 ring-primary ring-offset-2 border-primary' : 'border-border hover:scale-110')}
-                  style={{ backgroundColor: c.color }} title={t(COLOR_I18N[c.id] || c.id)}
-                />
-              ))}
+            <div className="space-y-2">
+              <Label>{t('addgarment.form.material')}</Label>
+              <Select value={material} onValueChange={setMaterial}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('addgarment.form.select_material')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {materials.map((item) => (
+                    <SelectItem key={item} value={item.toLowerCase()}>
+                      {t(MATERIAL_I18N[item.toLowerCase()] || item)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{t('addgarment.form.fit')}</Label>
+              <Select value={fit} onValueChange={setFit}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('addgarment.form.select_fit')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {fits.map((item) => (
+                    <SelectItem key={item} value={item.toLowerCase()}>
+                      {t(FIT_I18N[item.toLowerCase()] || item)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
+        </Card>
 
+        <Card surface="utility" className="space-y-5 p-5">
           <div className="space-y-2">
-            <Label>{t('addgarment.form.secondary_color')}</Label>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => setColorSecondary('')}
-                className={cn('w-10 h-10 rounded-full border-2 transition-all flex items-center justify-center', !colorSecondary ? 'ring-2 ring-primary ring-offset-2' : 'border-border')}>
-                <X className="w-4 h-4 text-muted-foreground" />
-              </button>
-              {colors.map((c) => (
-                <button key={c.id} type="button" onClick={() => setColorSecondary(c.id)}
-                  className={cn('w-10 h-10 rounded-full border-2 transition-all', colorSecondary === c.id ? 'ring-2 ring-primary ring-offset-2 border-primary' : 'border-border hover:scale-110')}
-                  style={{ backgroundColor: c.color }} title={t(COLOR_I18N[c.id] || c.id)}
-                />
-              ))}
-            </div>
+            <p className="label-editorial">Wear context</p>
+            <p className="text-sm leading-6 text-muted-foreground">Tell the system when this piece works best and whether it is ready to style right now.</p>
           </div>
 
-          <div className="space-y-2">
-            <Label>{t('addgarment.form.pattern')}</Label>
-            <Select value={pattern} onValueChange={setPattern}>
-              <SelectTrigger><SelectValue placeholder={t('addgarment.form.select_pattern')} /></SelectTrigger>
-              <SelectContent>
-                {patterns.map((p) => (<SelectItem key={p} value={p.toLowerCase()}>{t(PATTERN_I18N[p.toLowerCase()] || p)}</SelectItem>))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>{t('addgarment.form.material')}</Label>
-            <Select value={material} onValueChange={setMaterial}>
-              <SelectTrigger><SelectValue placeholder={t('addgarment.form.select_material')} /></SelectTrigger>
-              <SelectContent>
-                {materials.map((m) => (<SelectItem key={m} value={m.toLowerCase()}>{t(MATERIAL_I18N[m.toLowerCase()] || m)}</SelectItem>))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>{t('addgarment.form.fit')}</Label>
-            <Select value={fit} onValueChange={setFit}>
-              <SelectTrigger><SelectValue placeholder={t('addgarment.form.select_fit')} /></SelectTrigger>
-              <SelectContent>
-                {fits.map((f) => (<SelectItem key={f} value={f.toLowerCase()}>{t(FIT_I18N[f.toLowerCase()] || f)}</SelectItem>))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label>{t('addgarment.form.season')}</Label>
             <div className="flex flex-wrap gap-2">
               {seasons.map((season) => (
-                <Badge key={season} variant={selectedSeasons.includes(season.toLowerCase()) ? 'default' : 'outline'}
-                  className="cursor-pointer px-4 py-2" onClick={() => toggleSeason(season.toLowerCase())}>
+                <Badge
+                  key={season}
+                  variant={selectedSeasons.includes(season.toLowerCase()) ? 'default' : 'outline'}
+                  className="cursor-pointer px-4 py-2"
+                  onClick={() => toggleSeason(season.toLowerCase())}
+                >
                   {t(SEASON_I18N[season.toLowerCase()] || season)}
                 </Badge>
               ))}
@@ -315,7 +440,7 @@ export default function EditGarmentPage() {
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <Label>{t('addgarment.form.formality')}</Label>
               <span className="text-sm text-muted-foreground">{formality[0]} / 5</span>
             </div>
@@ -326,26 +451,35 @@ export default function EditGarmentPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-secondary rounded-lg">
-            <Label>{t('addgarment.form.in_laundry')}</Label>
+          <div className="flex items-center justify-between rounded-[1.35rem] border border-border/60 bg-background/80 px-4 py-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">{t('addgarment.form.in_laundry')}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Hide the piece from outfit creation until it is ready again.</p>
+            </div>
             <Switch checked={inLaundry} onCheckedChange={setInLaundry} />
+          </div>
+        </Card>
+      </div>
+
+      <div className="fixed inset-x-4 bottom-4 z-20" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+        <div className="mx-auto max-w-xl">
+          <div className="action-bar-floating flex gap-2 rounded-[1.6rem] p-3">
+            <Button variant="outline" className="flex-1" onClick={() => navigate(-1)} disabled={isSaving}>
+              {t('common.cancel')}
+            </Button>
+            <Button className="flex-1" onClick={handleSave} disabled={isSaving || !title || !category || !colorPrimary}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t('addgarment.saving')}
+                </>
+              ) : (
+                t('garment.edit_save')
+              )}
+            </Button>
           </div>
         </div>
       </div>
-
-      {/* Bottom Actions */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t flex gap-3 max-w-lg mx-auto">
-        <Button variant="outline" className="flex-1" onClick={() => navigate(-1)} disabled={isSaving}>
-          {t('common.cancel')}
-        </Button>
-        <Button className="flex-1" onClick={handleSave} disabled={isSaving || !title || !category || !colorPrimary}>
-          {isSaving ? (
-            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('addgarment.saving')}</>
-          ) : (
-            t('garment.edit_save')
-          )}
-        </Button>
-      </div>
-    </div>
+    </AppLayout>
   );
 }

@@ -10,24 +10,23 @@ interface TripVibeSelectorProps {
 
 export function TripVibeSelector({ vibe, onVibeChange, label }: TripVibeSelectorProps) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {label && (
-        <label className="text-[11px] font-medium text-muted-foreground/70 tracking-wide uppercase">
+        <label className="label-editorial">
           {label}
         </label>
       )}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2.5">
         {VIBES.map(v => (
           <button
             key={v.id}
             onClick={() => { hapticLight(); onVibeChange(v.id); }}
             className={cn(
-              'px-4 py-1.5 rounded-full text-[13px] font-medium transition-all border',
+              'press rounded-full border px-4 py-2.5 text-[0.76rem] font-medium uppercase tracking-[0.14em] transition-all',
               vibe === v.id
-                ? 'bg-foreground text-background border-transparent'
-                : 'bg-card/60 border-border/20 text-foreground hover:bg-card/80'
+                ? 'border-foreground bg-foreground text-background shadow-[0_10px_22px_rgba(28,25,23,0.12)]'
+                : 'border-border/70 bg-background/80 text-muted-foreground hover:border-border hover:text-foreground'
             )}
-            style={{ fontFamily: 'DM Sans, sans-serif' }}
           >
             {v.label}
           </button>

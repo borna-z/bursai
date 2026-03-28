@@ -276,7 +276,7 @@ export default function PlanPage() {
   return (
     <AppLayout>
       {/* ─── Sticky header ─── */}
-      <header className="sticky top-0 bg-background/80 backdrop-blur-xl z-20 border-b border-border/5">
+      <header className="topbar-frost sticky top-0 z-20">
         <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
@@ -305,7 +305,7 @@ export default function PlanPage() {
 
       {/* ─── Content ─── */}
       <PullToRefresh onRefresh={handleRefresh}>
-      <AnimatedPage className="max-w-lg mx-auto px-5 pt-5 pb-8">
+      <AnimatedPage className="page-shell !max-w-lg !px-5 !pt-5 !pb-10">
         {/* Calendar connect nudge */}
         <CalendarConnectBanner />
 
@@ -321,11 +321,11 @@ export default function PlanPage() {
         />
 
         {/* Progress bar */}
-        <div className="flex items-center gap-2 mt-2">
-          <div style={{ flex: 1, height: 3, background: 'rgba(28,25,23,0.1)', borderRadius: 999, overflow: 'hidden' }}>
-            <div style={{ background: '#1C1917', borderRadius: 999, width: `${(weekPlannedCount / 7) * 100}%`, height: '100%' }} />
+        <div className="mt-2 flex items-center gap-2">
+          <div className="h-[3px] flex-1 overflow-hidden rounded-full bg-foreground/[0.10]">
+            <div className="h-full rounded-full bg-foreground" style={{ width: `${(weekPlannedCount / 7) * 100}%` }} />
           </div>
-          <span style={{ fontSize: 11, fontFamily: 'DM Sans, sans-serif', color: '#8C7B6B' }}>{weekPlannedCount}/7 days</span>
+          <span className="text-[11px] text-muted-foreground/65">{weekPlannedCount}/7 days</span>
         </div>
 
         {/* Day content */}
@@ -363,7 +363,7 @@ export default function PlanPage() {
                 <motion.button
                   whileTap={prefersReduced ? undefined : { scale: 0.97 }}
                   onClick={() => setQuickPlanSheetOpen(true)}
-                  className="w-full h-[72px] rounded-2xl bg-card border border-border/20 flex items-center px-4 gap-3 text-left"
+                  className="surface-editorial flex h-[76px] w-full items-center gap-3 px-4 text-left"
                 >
                   <CalendarDays className="w-5 h-5 text-foreground/50 shrink-0" />
                   <div className="flex-1 min-w-0">
@@ -396,46 +396,30 @@ export default function PlanPage() {
             <PlanOnboardingEmpty />
           ) : weekPlannedCount === 0 && !hasOutfits ? (
             /* STEP 3: No outfits planned for the week */
-            <div style={{ textAlign: 'center', paddingTop: 32, paddingBottom: 32 }}>
-              <div style={{
-                width: 56, height: 56, background: 'rgba(28,25,23,0.05)', borderRadius: 999,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
-              }}>
-                <LayoutGrid style={{ width: 24, height: 24, color: 'rgba(28,25,23,0.35)' }} />
+            <div className="surface-editorial flex flex-col items-center px-5 py-8 text-center">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-secondary/90">
+                <LayoutGrid className="h-6 w-6 text-muted-foreground/45" />
               </div>
-              <h3 style={{
-                fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-                fontSize: 20, color: '#1C1917', margin: '0 0 8px',
-              }}>
+              <h3 className="mb-2 font-['Playfair_Display'] text-[1.28rem] italic text-foreground">
                 Nothing planned yet
               </h3>
-              <p style={{
-                fontFamily: 'DM Sans, sans-serif', fontSize: 14, color: '#8C7B6B',
-                margin: '0 0 24px', lineHeight: 1.5,
-              }}>
+              <p className="mb-6 max-w-[30ch] text-sm leading-6 text-muted-foreground">
                 Let the AI fill your week based on your calendar, weather, and what you haven't worn lately.
               </p>
-              <button
+              <Button
                 onClick={() => setQuickPlanSheetOpen(true)}
-                style={{
-                  width: '100%', background: '#1C1917', color: '#F5F0E8', border: 'none',
-                  borderRadius: 12, padding: '12px 0', fontSize: 14, fontWeight: 500,
-                  cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', marginBottom: 8,
-                  display: 'block',
-                }}
+                className="mb-2 w-full"
+                variant="editorial"
               >
                 ✦ Plan the week
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => setQuickGenerateSheetOpen(true)}
-                style={{
-                  width: '100%', background: 'none', border: '1px solid rgba(28,25,23,0.1)',
-                  borderRadius: 12, padding: '12px 0', fontSize: 14, color: '#1C1917',
-                  cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', display: 'block',
-                }}
+                className="w-full"
+                variant="quiet"
               >
                 Plan today only
-              </button>
+              </Button>
             </div>
           ) : hasOutfits ? (
             <div className="space-y-4">
@@ -450,23 +434,19 @@ export default function PlanPage() {
                 if (isToday(selectedDate)) {
                   /* STEP 4: Today's dark outfit card */
                   return (
-                    <div key={planned.id} style={{ background: '#1C1917', borderRadius: 16, overflow: 'hidden' }}>
-                      <div style={{ padding: '16px 16px 12px' }}>
+                    <div key={planned.id} className="overflow-hidden rounded-[1.5rem] bg-foreground text-background shadow-[0_18px_40px_rgba(22,18,15,0.18)]">
+                      <div className="px-4 pb-3 pt-4">
                         {tagLine && (
-                          <p style={{
-                            fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em',
-                            color: 'rgba(245,240,232,0.45)', marginBottom: 8,
-                            fontFamily: 'DM Sans, sans-serif', fontWeight: 500,
-                          }}>
+                          <p className="mb-2 text-[9px] font-medium uppercase tracking-[0.12em] text-background/50">
                             {tagLine}
                           </p>
                         )}
                         {/* Garment thumbnails — flex row, up to 4 */}
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                        <div className="mb-3 flex gap-2">
                           {outfit.outfit_items.slice(0, 4).map((item) => (
                             <div
                               key={item.id}
-                              style={{ flex: 1, aspectRatio: '1', background: '#2C2824', overflow: 'hidden', borderRadius: 4 }}
+                              className="aspect-square flex-1 overflow-hidden rounded-[0.65rem] bg-background/10"
                             >
                               <LazyImageSimple
                                 imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
@@ -477,31 +457,20 @@ export default function PlanPage() {
                           ))}
                         </div>
                         {outfit.explanation && (
-                          <p style={{
-                            fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-                            fontSize: 14, color: 'rgba(245,240,232,0.75)', lineHeight: 1.6, marginBottom: 16,
-                          }}>
+                          <p className="mb-4 font-['Playfair_Display'] text-[0.95rem] italic leading-6 text-background/76">
                             {outfit.explanation}
                           </p>
                         )}
-                        <div style={{ display: 'flex', gap: 8 }}>
+                        <div className="flex gap-2">
                           <button
                             onClick={() => handleMarkWorn(planned)}
-                            style={{
-                              flex: 1, background: '#F5F0E8', color: '#1C1917', border: 'none',
-                              borderRadius: 8, padding: '12px 0', fontSize: 14, fontWeight: 600,
-                              cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
-                            }}
+                            className="flex-1 rounded-xl bg-background px-3 py-3 text-sm font-semibold text-foreground transition-transform active:scale-[0.98]"
                           >
                             Wear today
                           </button>
                           <button
                             onClick={() => { setCurrentOutfitId(outfit.id); setCurrentPlannedId(planned.id); setSwapSheetOpen(true); }}
-                            style={{
-                              flex: 1, background: 'rgba(245,240,232,0.1)', color: 'rgba(245,240,232,0.7)',
-                              border: 'none', borderRadius: 8, padding: '12px 0', fontSize: 14,
-                              cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
-                            }}
+                            className="flex-1 rounded-xl border border-background/12 bg-background/8 px-3 py-3 text-sm text-background/70 transition-colors hover:bg-background/12"
                           >
                             Restyle
                           </button>
@@ -513,11 +482,10 @@ export default function PlanPage() {
 
                 /* STEP 5: Other planned day cards */
                 return (
-                  <div key={planned.id} style={{ background: 'white', border: '1px solid rgba(28,25,23,0.1)', borderRadius: 16, overflow: 'hidden' }}>
-                    {/* Thumbnails */}
-                    <div style={{ display: 'flex', height: 80 }}>
+                  <div key={planned.id} className="surface-editorial overflow-hidden">
+                    <div className="flex h-20">
                       {outfit.outfit_items.slice(0, 4).map((item) => (
-                        <div key={item.id} style={{ flex: 1, background: '#F5F0E8', overflow: 'hidden' }}>
+                        <div key={item.id} className="flex-1 overflow-hidden bg-secondary/65">
                           <LazyImageSimple
                             imagePath={item.garment ? getPreferredGarmentImagePath(item.garment) : undefined}
                             alt={item.garment?.title || item.slot}
@@ -527,44 +495,34 @@ export default function PlanPage() {
                       ))}
                     </div>
                     {/* Info */}
-                    <div style={{ padding: '12px 16px' }}>
+                    <div className="px-4 py-3">
                       {tagLine && (
-                        <p style={{
-                          fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em',
-                          color: 'rgba(28,25,23,0.4)', marginBottom: 6, fontFamily: 'DM Sans, sans-serif',
-                        }}>
+                        <p className="mb-1.5 text-[9px] uppercase tracking-[0.1em] text-muted-foreground/52">
                           {tagLine}
                         </p>
                       )}
                       {outfit.explanation && (
-                        <p style={{
-                          fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-                          fontSize: 13, color: 'rgba(28,25,23,0.6)', lineHeight: 1.5,
-                        }}>
+                        <p className="font-['Playfair_Display'] text-[0.9rem] italic leading-6 text-foreground/68">
                           {outfit.explanation}
                         </p>
                       )}
                     </div>
-                    {/* Footer */}
-                    <div style={{
-                      display: 'flex', justifyContent: 'space-between',
-                      padding: '8px 16px', borderTop: '1px solid rgba(28,25,23,0.06)',
-                    }}>
+                    <div className="flex justify-between border-t border-border/35 px-4 py-2">
                       <button
                         onClick={() => { setCurrentOutfitId(outfit.id); setCurrentPlannedId(planned.id); setSwapSheetOpen(true); }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#8C7B6B', fontFamily: 'DM Sans, sans-serif' }}
+                        className="bg-transparent text-[11px] text-muted-foreground/70 transition-opacity active:opacity-70"
                       >
                         ↻ Swap
                       </button>
                       <button
                         onClick={() => navigate(`/outfits/${outfit.id}`)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#8C7B6B', fontFamily: 'DM Sans, sans-serif' }}
+                        className="bg-transparent text-[11px] text-muted-foreground/70 transition-opacity active:opacity-70"
                       >
                         ✎ Edit
                       </button>
                       <button
                         onClick={() => handleRemove(planned.id)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#8C7B6B', fontFamily: 'DM Sans, sans-serif' }}
+                        className="bg-transparent text-[11px] text-muted-foreground/70 transition-opacity active:opacity-70"
                       >
                         ✕ Clear
                       </button>
@@ -591,25 +549,18 @@ export default function PlanPage() {
             </div>
           ) : (
             /* STEP 6: Day with no outfit planned */
-            <div style={{
-              border: '2px dashed rgba(28,25,23,0.1)', borderRadius: 16, padding: 16,
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            }}>
+            <div className="flex items-center justify-between rounded-[1.5rem] border-2 border-dashed border-border/45 px-4 py-4">
               <div>
-                <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 12, fontWeight: 700, color: '#1C1917', marginBottom: 2 }}>
+                <p className="mb-0.5 text-xs font-bold text-foreground">
                   {dateLabel}
                 </p>
-                <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 11, color: '#8C7B6B' }}>
+                <p className="text-[11px] text-muted-foreground/65">
                   No outfit planned
                 </p>
               </div>
               <button
                 onClick={() => setQuickGenerateSheetOpen(true)}
-                style={{
-                  background: 'rgba(28,25,23,0.05)', border: '1px solid rgba(28,25,23,0.1)',
-                  borderRadius: 8, padding: '8px 12px', fontSize: 12, fontWeight: 500,
-                  color: '#1C1917', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
-                }}
+                className="rounded-xl border border-border/45 bg-background/80 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-background"
               >
                 + Plan
               </button>

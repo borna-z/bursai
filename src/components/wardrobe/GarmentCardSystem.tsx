@@ -217,7 +217,7 @@ function WardrobeGarmentImage({
           <GarmentProcessingBadge
             status={garment.image_processing_status}
             renderStatus={garment.render_status}
-            className="bg-background/84"
+                    className="bg-background/80"
           />
         </div>
       )}

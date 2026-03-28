@@ -7,157 +7,147 @@
 
 @layer base {
   :root {
-    /* Warm editorial background – #F5F0E8 (matches landing) */
-    --background: 36 25% 94%;
-    --foreground: 20 12% 10%;
+    /* BURS-evolution foundation */
+    --background: 34 32% 95%;
+    --foreground: 24 13% 10%;
 
-    /* Warm tinted cards – #EDE8DF (matches landing --surf) */
-    --card: 36 20% 91%;
-    --card-foreground: 20 12% 10%;
+    /* Warm elevated surfaces */
+    --card: 30 32% 98%;
+    --card-foreground: 24 13% 10%;
 
-    --popover: 36 20% 91%;
-    --popover-foreground: 20 12% 10%;
+    --popover: 30 32% 98%;
+    --popover-foreground: 24 13% 10%;
 
-    /* Charcoal primary – #1C1917 */
-    --primary: 20 12% 10%;
-    --primary-foreground: 36 25% 94%;
+    /* Ink primary */
+    --primary: 24 13% 10%;
+    --primary-foreground: 34 32% 95%;
 
-    /* Warm light grey secondary */
-    --secondary: 36 15% 93%;
-    --secondary-foreground: 20 12% 10%;
+    /* Soft utility surfaces */
+    --secondary: 33 27% 92%;
+    --secondary-foreground: 24 13% 10%;
 
-    --muted: 36 12% 90%;
-    --muted-foreground: 20 5% 40%;
+    --muted: 34 20% 91%;
+    --muted-foreground: 24 8% 38%;
 
-    /* Indigo accent – #2F3A8F, very subtle */
-    --accent: 234 51% 37%;
+    /* Cool editorial support accent */
+    --accent: 229 27% 53%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Warm border – #DDD8CF (matches landing) */
-    --border: 36 15% 85%;
-    --input: 36 15% 85%;
-    --ring: 20 12% 10%;
+    --border: 31 29% 84%;
+    --input: 31 29% 84%;
+    --ring: 24 13% 10%;
 
-    --radius: 0.75rem;
+    --radius: 1.125rem;
 
     /* Extended tokens */
-    --success: 152 55% 38%;
+    --success: 146 22% 36%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 88% 50%;
+    --warning: 37 52% 47%;
     --warning-foreground: 0 0% 7%;
-    --premium: 38 88% 52%;
+    --premium: 34 29% 48%;
     --premium-foreground: 0 0% 7%;
 
-    /* Indigo subtle glow for accent use */
-    --accent-indigo: 234 51% 37%;
+    /* Support accent glow */
+    --accent-indigo: 229 27% 53%;
     --accent-indigo-foreground: 0 0% 100%;
-    --accent-indigo-muted: 234 40% 94%;
+    --accent-indigo-muted: 228 43% 94%;
 
     /* Sidebar */
-    --sidebar-background: 36 25% 94%;
+    --sidebar-background: 34 32% 95%;
     --sidebar-foreground: 0 0% 25%;
-    --sidebar-primary: 20 12% 10%;
-    --sidebar-primary-foreground: 36 25% 94%;
-    --sidebar-accent: 36 15% 91%;
-    --sidebar-accent-foreground: 20 12% 10%;
-    --sidebar-border: 36 15% 85%;
-    --sidebar-ring: 20 12% 10%;
+    --sidebar-primary: 24 13% 10%;
+    --sidebar-primary-foreground: 34 32% 95%;
+    --sidebar-accent: 33 27% 92%;
+    --sidebar-accent-foreground: 24 13% 10%;
+    --sidebar-border: 31 29% 84%;
+    --sidebar-ring: 24 13% 10%;
 
-    /* Chart colors */
-    --chart-1: 20 12% 10%;
-    --chart-2: 234 51% 37%;
-    --chart-3: 38 88% 50%;
-    --chart-4: 0 72% 51%;
-    --chart-5: 152 55% 38%;
+    --chart-1: 24 13% 10%;
+    --chart-2: 229 27% 53%;
+    --chart-3: 34 29% 48%;
+    --chart-4: 11 41% 50%;
+    --chart-5: 146 22% 36%;
   }
 
   .dark {
-    /* Deep noir background – near #0A0A0A */
-    --background: 0 0% 5%;
-    --foreground: 36 20% 93%;
+    --background: 24 11% 7%;
+    --foreground: 35 18% 94%;
 
-    /* Slightly lifted card surface – bumped from 9→11% for glass visibility */
-    --card: 0 0% 11%;
-    --card-foreground: 36 20% 93%;
+    --card: 24 10% 11%;
+    --card-foreground: 35 18% 94%;
 
-    --popover: 0 0% 11%;
-    --popover-foreground: 36 20% 93%;
+    --popover: 24 10% 11%;
+    --popover-foreground: 35 18% 94%;
 
-    /* Off-white primary in dark – #F6F4F1 */
-    --primary: 36 20% 93%;
-    --primary-foreground: 0 0% 5%;
+    --primary: 35 18% 94%;
+    --primary-foreground: 24 11% 7%;
 
-    /* Secondary surfaces – bumped from 13→15% */
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 36 20% 93%;
+    --secondary: 24 8% 16%;
+    --secondary-foreground: 35 18% 94%;
 
-    /* Muted – bumped from 13→16% for skeleton shimmer visibility */
-    --muted: 0 0% 16%;
-    /* Muted text – bumped from 55→62% for small-text readability */
-    --muted-foreground: 0 0% 62%;
+    --muted: 24 7% 16%;
+    --muted-foreground: 29 10% 69%;
 
-    /* Lightened indigo accent in dark */
-    --accent: 234 60% 62%;
-    --accent-foreground: 0 0% 5%;
+    --accent: 228 32% 68%;
+    --accent-foreground: 24 11% 7%;
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 36 20% 93%;
 
-    /* Border – bumped from 16→20% for glass card edge visibility */
-    --border: 0 0% 20%;
-    --input: 0 0% 20%;
-    --ring: 36 20% 93%;
+    --border: 24 7% 21%;
+    --input: 24 7% 21%;
+    --ring: 35 18% 94%;
 
-    --success: 152 55% 48%;
+    --success: 146 28% 50%;
     --success-foreground: 0 0% 5%;
-    --warning: 38 88% 55%;
+    --warning: 37 58% 56%;
     --warning-foreground: 0 0% 5%;
-    --premium: 38 88% 58%;
+    --premium: 34 42% 66%;
     --premium-foreground: 0 0% 5%;
 
-    --accent-indigo: 234 60% 62%;
+    --accent-indigo: 228 32% 68%;
     --accent-indigo-foreground: 0 0% 5%;
-    --accent-indigo-muted: 234 30% 18%;
+    --accent-indigo-muted: 229 16% 22%;
 
-    --sidebar-background: 0 0% 5%;
+    --sidebar-background: 24 11% 7%;
     --sidebar-foreground: 0 0% 75%;
-    --sidebar-primary: 36 20% 93%;
-    --sidebar-primary-foreground: 0 0% 5%;
-    --sidebar-accent: 0 0% 13%;
-    --sidebar-accent-foreground: 36 20% 93%;
-    --sidebar-border: 0 0% 18%;
-    --sidebar-ring: 36 20% 93%;
+    --sidebar-primary: 35 18% 94%;
+    --sidebar-primary-foreground: 24 11% 7%;
+    --sidebar-accent: 24 8% 16%;
+    --sidebar-accent-foreground: 35 18% 94%;
+    --sidebar-border: 24 7% 21%;
+    --sidebar-ring: 35 18% 94%;
 
-    --chart-1: 36 20% 93%;
-    --chart-2: 234 60% 62%;
-    --chart-3: 38 88% 55%;
-    --chart-4: 0 62% 50%;
-    --chart-5: 152 55% 48%;
+    --chart-1: 35 18% 94%;
+    --chart-2: 228 32% 68%;
+    --chart-3: 34 42% 66%;
+    --chart-4: 11 45% 60%;
+    --chart-5: 146 28% 50%;
   }
 }
 
 /* Force light theme on specific containers (e.g. landing page) */
 .force-light {
-  --background: 36 25% 94%;
-  --foreground: 20 12% 10%;
-  --card: 36 20% 91%;
-  --card-foreground: 20 12% 10%;
-  --popover: 36 20% 91%;
-  --popover-foreground: 20 12% 10%;
-  --primary: 20 12% 10%;
-  --primary-foreground: 36 25% 94%;
-  --secondary: 36 15% 93%;
-  --secondary-foreground: 20 12% 10%;
-  --muted: 36 12% 90%;
-  --muted-foreground: 20 5% 40%;
-  --accent: 234 51% 37%;
+  --background: 34 32% 95%;
+  --foreground: 24 13% 10%;
+  --card: 30 32% 98%;
+  --card-foreground: 24 13% 10%;
+  --popover: 30 32% 98%;
+  --popover-foreground: 24 13% 10%;
+  --primary: 24 13% 10%;
+  --primary-foreground: 34 32% 95%;
+  --secondary: 33 27% 92%;
+  --secondary-foreground: 24 13% 10%;
+  --muted: 34 20% 91%;
+  --muted-foreground: 24 8% 38%;
+  --accent: 229 27% 53%;
   --accent-foreground: 0 0% 100%;
-  --border: 36 15% 85%;
-  --input: 36 15% 85%;
-  --ring: 20 12% 10%;
+  --border: 31 29% 84%;
+  --input: 31 29% 84%;
+  --ring: 24 13% 10%;
   color-scheme: light;
 }
 
@@ -176,7 +166,7 @@
 
 /* Square edges in light mode */
 :root:not(.dark) {
-  --radius: 0px;
+  --radius: 1.125rem;
 }
 
 /* Remove card shadows in light mode */
@@ -233,6 +223,10 @@
     -moz-osx-font-smoothing: grayscale;
     padding-top: env(safe-area-inset-top, 0);
     overscroll-behavior: none;
+    background-image:
+      radial-gradient(circle at top left, rgba(157, 126, 86, 0.08), transparent 34%),
+      radial-gradient(circle at top right, rgba(102, 113, 166, 0.08), transparent 28%);
+    background-attachment: fixed;
   }
 
   /* Prevent iOS auto-zoom on input focus */
@@ -319,7 +313,31 @@
     @apply max-w-lg mx-auto pb-12;
     padding-left: 1.25rem;
     padding-right: 1.25rem;
-    padding-top: 2rem;
+    padding-top: 1.5rem;
+  }
+
+  .page-shell {
+    @apply max-w-xl mx-auto px-4 pb-28 pt-5;
+  }
+
+  .page-cluster {
+    @apply flex flex-col gap-5;
+  }
+
+  .page-intro-block {
+    @apply rounded-[2rem] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.82),rgba(248,244,238,0.92))] px-5 py-5 shadow-[0_12px_32px_rgba(28,25,23,0.05)];
+  }
+
+  .page-intro-title {
+    @apply text-[1.8rem] font-semibold tracking-[-0.055em] text-foreground;
+  }
+
+  .page-intro-copy {
+    @apply text-[0.92rem] leading-6 text-muted-foreground;
+  }
+
+  .eyebrow-chip {
+    @apply inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-[0.68rem] uppercase tracking-[0.2em] text-muted-foreground/75;
   }
 
   /* Premium gradient */
@@ -334,28 +352,28 @@
 
   /* Clean borderless elevated card */
   .card-clean {
-    @apply bg-card rounded-2xl shadow-[0_1px_2px_0_rgb(0_0_0/0.03),0_1px_6px_0_rgb(0_0_0/0.02)];
+    @apply bg-card rounded-[1.75rem] shadow-[0_12px_36px_rgba(28,25,23,0.04)];
   }
 
   /* Primary surface – hero cards, today's outfit, AI suggestions */
   .surface-hero {
-    @apply bg-card border border-border/30;
-    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 4px 12px -2px rgb(0 0 0 / 0.03);
+    @apply bg-card border border-border/70;
+    box-shadow: 0 16px 40px rgba(28, 25, 23, 0.06);
   }
 
   /* Secondary surface – supporting cards, stat modules */
   .surface-secondary {
-    @apply bg-foreground/[0.02] border border-border/15;
+    @apply bg-card/80 border border-border/60;
   }
 
   /* Inset surface – search bars, segmented controls, input areas */
   .surface-inset {
-    @apply bg-foreground/[0.03] border border-border/10;
+    @apply bg-secondary/55 border border-border/55;
   }
 
   /* Interactive surface – buttons, action cards */
   .surface-interactive {
-    @apply bg-card/60 border border-border/20 transition-colors;
+    @apply bg-card/90 border border-border/60 transition-colors;
   }
 
   .surface-interactive:hover {
@@ -364,6 +382,26 @@
 
   .surface-interactive:active {
     @apply bg-card/50;
+  }
+
+  .surface-editorial {
+    @apply border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(241,234,224,0.88))] shadow-[0_18px_44px_rgba(28,25,23,0.05)];
+  }
+
+  .surface-utility {
+    @apply border border-border/60 bg-background/80;
+  }
+
+  .surface-media {
+    @apply overflow-hidden rounded-[1.5rem] border border-border/60 bg-background/90;
+  }
+
+  .topbar-frost {
+    @apply sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur-2xl;
+  }
+
+  .action-bar-floating {
+    @apply border border-border/60 bg-background/90 shadow-[0_20px_40px_rgba(28,25,23,0.08)] backdrop-blur-2xl;
   }
 
   /* Ultra-light section divider */

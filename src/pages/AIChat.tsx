@@ -435,18 +435,17 @@ export default function AIChat() {
   return (
     <PageErrorBoundary fallback={<AIChatFallback />}>
     <AppLayout>
-      <div className="absolute inset-0 flex flex-col overflow-hidden pb-20">
+      <div className="absolute inset-0 flex flex-col overflow-hidden pb-24">
         <StyleMeSubNav />
-        {/* Header — simple title + menu */}
-        <div className="flex items-center justify-between px-4 py-3 shrink-0 sticky top-0 z-10 bg-background/80 backdrop-blur-xl">
-          <div className="w-9" />
+        <div className="topbar-frost sticky top-0 z-10 flex shrink-0 items-center justify-between px-4 py-3">
+          <div className="w-10" />
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-primary" />
             <span className="text-[15px] font-semibold">{t('chat.mode_stylist')}</span>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground">
+              <Button variant="quiet" size="icon" className="h-10 w-10 text-muted-foreground">
                 <MoreVertical className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -470,7 +469,7 @@ export default function AIChat() {
 
         {anchoredGarment && (
           <div className="px-4 pb-2">
-            <div className="mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl border border-primary/15 bg-primary/5 px-3 py-2 text-left shadow-sm">
+            <div className="surface-utility mx-auto flex max-w-md items-center justify-between gap-3 px-3 py-2 text-left">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-background text-primary">
                   <Shirt className="h-4 w-4" />
@@ -482,7 +481,7 @@ export default function AIChat() {
               </div>
               <div className="flex items-center gap-2">
                 <Button
-                  variant="ghost"
+                  variant="quiet"
                   size="sm"
                   className="h-8 rounded-xl px-2.5 text-xs text-muted-foreground"
                   onClick={() => navigate(`/wardrobe/${anchoredGarment.id}`)}
@@ -490,7 +489,7 @@ export default function AIChat() {
                   Change
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="quiet"
                   size="icon"
                   className="h-8 w-8 rounded-xl text-muted-foreground"
                   onClick={() => setAnchoredGarmentId(null)}
@@ -541,52 +540,29 @@ export default function AIChat() {
             })}
             {/* Plan action banner */}
             {planActionPayload && !isStreaming && (
-              <div style={{
-                background: '#1C1917', borderRadius: 12, padding: 16, marginTop: 12,
-              }}>
-                <p style={{
-                  fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-                  fontSize: 14, color: 'rgba(245,240,232,0.75)', marginBottom: 12,
-                }}>
+              <div className="mt-3 rounded-[1.5rem] bg-foreground px-4 py-4 text-background shadow-[0_18px_40px_rgba(22,18,15,0.18)]">
+                <p className="mb-3 font-['Playfair_Display'] text-[0.95rem] italic text-background/75">
                   Your week is planned. Add these looks to the planner?
                 </p>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div className="flex gap-2">
                   <button
                     onClick={() => { handleAddToPlan(planActionPayload); setPlanActionPayload(null); }}
-                    style={{
-                      flex: 1, background: '#F5F0E8', color: '#1C1917', border: 'none',
-                      borderRadius: 8, padding: '8px 0', fontSize: 14, fontWeight: 500,
-                      cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
-                    }}
+                    className="flex-1 rounded-xl bg-background px-3 py-2 text-sm font-medium text-foreground transition-transform active:scale-[0.98]"
                   >
                     Add to plan
                   </button>
                   <button
                     onClick={() => setPlanActionPayload(null)}
-                    style={{
-                      flex: 1, background: 'transparent', color: 'rgba(245,240,232,0.5)',
-                      border: 'none', borderRadius: 8, padding: '8px 0', fontSize: 14,
-                      cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
-                    }}
+                    className="flex-1 rounded-xl border border-background/12 bg-transparent px-3 py-2 text-sm text-background/60 transition-colors hover:bg-background/5"
                   >
                     Dismiss
                   </button>
                 </div>
               </div>
             )}
-            {/* Suggestion chips — always-present 44px container to prevent layout jump */}
-            <div style={{ height: 44, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+            <div className="flex h-11 items-center overflow-hidden">
               {suggestionChips.length > 0 && !isStreaming && input === '' && (
-                <div style={{
-                  display: 'flex',
-                  gap: 8,
-                  overflowX: 'auto',
-                  whiteSpace: 'nowrap',
-                  paddingLeft: 16,
-                  paddingRight: 16,
-                  scrollbarWidth: 'none',
-                  msOverflowStyle: 'none',
-                }}>
+                <div className="scrollbar-hide flex gap-2 overflow-x-auto px-4 whitespace-nowrap">
                   {suggestionChips.map((chip, i) => (
                     <button
                       key={i}
@@ -594,18 +570,7 @@ export default function AIChat() {
                         setSuggestionChips([]);
                         sendMessage(chip);
                       }}
-                      style={{
-                        background: '#F5F0E8',
-                        color: '#1C1917',
-                        border: '1px solid rgba(28,25,23,0.20)',
-                        borderRadius: 8,
-                        padding: '8px 14px',
-                        fontFamily: 'DM Sans, sans-serif',
-                        fontSize: 13,
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0,
-                      }}
+                      className="shrink-0 rounded-full border border-border/45 bg-background px-3.5 py-2 text-[13px] text-foreground transition-transform active:scale-[0.98]"
                     >
                       {chip}
                     </button>
