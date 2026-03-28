@@ -5,7 +5,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-export function OutfitRepeatTracker({ isPremium }: { isPremium: boolean }) {
+export function OutfitRepeatTracker({ isPremium, className }: { isPremium: boolean; className?: string }) {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { data } = useOutfitRepeats();
@@ -13,7 +13,7 @@ export function OutfitRepeatTracker({ isPremium }: { isPremium: boolean }) {
   if (!data || (data.repeats.length === 0 && data.staleOutfits.length === 0)) return null;
 
   return (
-    <div className="space-y-4">
+    <div className={cn('surface-secondary space-y-4 p-4', className)}>
       <div className="flex items-center gap-2">
         <Repeat className="w-4 h-4 text-muted-foreground/50" />
         <span className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wider">

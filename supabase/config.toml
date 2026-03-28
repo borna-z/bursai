@@ -75,6 +75,8 @@ project_id = "khvkwojtlkcvxjxztduj"
     verify_jwt = false
   [functions.travel_capsule]
     verify_jwt = false
+  [functions.insights_dashboard]
+    verify_jwt = false
 
 # Set ALLOWED_ORIGIN / BURS_APP_URL in your Edge Function environment to control
 # canonical redirect origins for billing and other app-return flows.

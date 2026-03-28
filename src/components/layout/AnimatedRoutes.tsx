@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { BursLoadingScreen } from '@/components/layout/BursLoadingScreen';
+import { LegacyDiscoverRedirect } from '@/components/layout/LegacyDiscoverRedirect';
 
 // Eager-loaded (tiny, critical path only)
 import NotFound from '@/pages/NotFound';
@@ -46,7 +47,7 @@ const Admin = lazy(() => import('@/pages/marketing/Admin'));
 const PublicProfile = lazy(() => import('@/pages/PublicProfile'));
 const MoodOutfit = lazy(() => import('@/pages/MoodOutfit'));
 const StyleMe = lazy(() => import('@/pages/StyleMe'));
-const Discover = lazy(() => import('@/pages/Discover'));
+const GarmentGaps = lazy(() => import('@/pages/GarmentGaps'));
 const PickMustHaves = lazy(() => import('@/pages/PickMustHaves'));
 const UnusedOutfits = lazy(() => import('@/pages/UnusedOutfits'));
 
@@ -145,7 +146,8 @@ export function AnimatedRoutes() {
             <Route path="/share/:id" element={<ShareOutfit />} />
             <Route path="/u/:username" element={<PublicProfile />} />
             <Route path="/ai/mood-outfit" element={<ProtectedRoute><MoodOutfit /></ProtectedRoute>} />
-            <Route path="/discover" element={<ProtectedRoute><Discover /></ProtectedRoute>} />
+            <Route path="/gaps" element={<ProtectedRoute><GarmentGaps /></ProtectedRoute>} />
+            <Route path="/discover" element={<ProtectedRoute><LegacyDiscoverRedirect /></ProtectedRoute>} />
             <Route path="/outfits/unused" element={<ProtectedRoute><UnusedOutfits /></ProtectedRoute>} />
             
             <Route path="/calendar/callback" element={<ProtectedRoute><GoogleCalendarCallback /></ProtectedRoute>} />

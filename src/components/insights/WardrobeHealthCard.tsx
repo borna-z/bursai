@@ -125,7 +125,7 @@ export function WardrobeHealthCard({ garments, usedGarments, unusedGarments, cla
   if (insights.length === 0) return null;
 
   return (
-    <div className={cn('space-y-3', className)}>
+    <div className={cn('surface-secondary space-y-3 p-4', className)}>
       <div className="flex items-center gap-2">
         <BarChart3 className="w-4 h-4 text-muted-foreground/50" />
         <span className="label-editorial">Wardrobe health</span>

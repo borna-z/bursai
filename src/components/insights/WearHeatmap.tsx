@@ -9,7 +9,7 @@ const STATUS_COLORS = {
   none: 'bg-muted/40',
 } as const;
 
-export function WearHeatmap({ isPremium }: { isPremium: boolean }) {
+export function WearHeatmap({ isPremium, className }: { isPremium: boolean; className?: string }) {
   const { t } = useLanguage();
   const { data } = useWearHeatmap();
 
@@ -22,7 +22,7 @@ export function WearHeatmap({ isPremium }: { isPremium: boolean }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className={cn('surface-secondary space-y-4 p-4', className)}>
       <div className="flex items-center gap-2">
         <CalendarDays className="w-4 h-4 text-muted-foreground/50" />
         <span className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wider">

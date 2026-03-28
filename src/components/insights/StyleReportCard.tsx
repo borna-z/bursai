@@ -18,7 +18,7 @@ interface StyleReport {
   summary: string;
 }
 
-export function StyleReportCard({ isPremium }: { isPremium: boolean }) {
+export function StyleReportCard({ isPremium, className }: { isPremium: boolean; className?: string }) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const [report, setReport] = useState<StyleReport | null>(null);
@@ -48,7 +48,7 @@ export function StyleReportCard({ isPremium }: { isPremium: boolean }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className={cn('surface-secondary space-y-4 p-4', className)}>
       <div className="flex items-center gap-2">
         <Award className="w-4 h-4 text-muted-foreground/50" />
         <span className="label-editorial">
