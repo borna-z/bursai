@@ -35,7 +35,7 @@ import { GarmentEnrichmentPanel, SpecRow, extractEnrichment, type EnrichmentStat
 import { GarmentOutfitHistory } from '@/components/garment/GarmentOutfitHistory';
 import { GarmentSimilarItems } from '@/components/garment/GarmentSimilarItems';
 import { PageBreadcrumb } from '@/components/ui/PageBreadcrumb';
-import { buildStyleFlowSearch } from '@/lib/styleFlowState';
+import { buildStyleAroundState, buildStyleFlowSearch } from '@/lib/styleFlowState';
 
 export default function GarmentDetailPage() {
   const navigate = useNavigate();
@@ -490,7 +490,7 @@ export default function GarmentDetailPage() {
       <div className="fixed bottom-0 left-0 right-0 z-30 bg-background border-t border-foreground/[0.06] px-5 py-3" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
         <div className="max-w-[512px] mx-auto">
           <Button
-            onClick={() => navigate(`/ai/generate${buildStyleFlowSearch([garment.id])}`)}
+            onClick={() => navigate(`/ai/chat${buildStyleFlowSearch(garment.id)}`, { state: buildStyleAroundState(garment.id) })}
             className="bg-foreground text-background w-full h-12 text-[13px] font-medium flex items-center justify-center gap-2"
           >
             <Sparkles className="w-3.5 h-3.5" />

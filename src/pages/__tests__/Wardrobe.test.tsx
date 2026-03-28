@@ -20,9 +20,29 @@ vi.mock('@/contexts/LanguageContext', () => ({
   useLanguage: vi.fn(() => ({ t: (k: string) => k, locale: 'en' })),
 }));
 
+vi.mock('@/components/wardrobe/GarmentGrid', () => ({
+  GarmentGrid: () => <div data-testid="garment-grid">grid</div>,
+}));
+
+vi.mock('@/components/wardrobe/WardrobeOutfitsTab', () => ({
+  WardrobeOutfitsTab: () => <div data-testid="wardrobe-outfits-tab">outfits</div>,
+}));
+
 vi.mock('@/hooks/useGarments', () => ({
   useGarments: vi.fn(() => ({
-    data: { pages: [{ items: [], nextPage: undefined }] },
+    data: {
+      pages: [{
+        items: [
+          { id: 'g1', title: 'Blue shirt', category: 'top', wear_count: 0, last_worn_at: null, created_at: '2026-03-27T10:00:00Z' },
+          { id: 'g2', title: 'Grey tee', category: 'top', wear_count: 4, last_worn_at: '2026-03-24', created_at: '2026-03-20T10:00:00Z' },
+          { id: 'g3', title: 'Black trousers', category: 'bottom', wear_count: 1, last_worn_at: '2026-02-10', created_at: '2026-03-19T10:00:00Z' },
+          { id: 'g4', title: 'Derbies', category: 'shoes', wear_count: 5, last_worn_at: '2026-03-20', created_at: '2026-03-18T10:00:00Z' },
+          { id: 'g5', title: 'Coat', category: 'outerwear', wear_count: 0, last_worn_at: null, created_at: '2026-03-17T10:00:00Z' },
+          { id: 'g6', title: 'Scarf', category: 'accessory', wear_count: 0, last_worn_at: null, created_at: '2026-03-16T10:00:00Z' },
+        ],
+        nextPage: undefined,
+      }],
+    },
     isLoading: false,
     fetchNextPage: vi.fn(),
     hasNextPage: false,
@@ -32,9 +52,9 @@ vi.mock('@/hooks/useGarments', () => ({
     data: [],
     isLoading: false,
   })),
-  useGarmentCount: vi.fn(() => ({ data: 0 })),
-  useUpdateGarment: vi.fn(() => ({ mutate: vi.fn() })),
-  useDeleteGarment: vi.fn(() => ({ mutateAsync: vi.fn() })),
+  useGarmentCount: vi.fn(() => ({ data: 6 })),
+  useUpdateGarment: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn() })),
+  useDeleteGarment: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn() })),
 }));
 
 vi.mock('@/hooks/useSubscription', () => ({
@@ -53,11 +73,11 @@ vi.mock('@/contexts/LocationContext', () => ({
 
 import WardrobePage from '../Wardrobe';
 
-const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-
 function renderWardrobe() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
   return render(
-    <QueryClientProvider client={qc}>
+    <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/wardrobe']}>
         <WardrobePage />
       </MemoryRouter>
@@ -65,17 +85,32 @@ function renderWardrobe() {
   );
 }
 
-describe('Wardrobe page smoke', () => {
+describe('Wardrobe page', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders garments and outfits tabs', () => {
+  it('renders the command top with garments and outfits tabs', () => {
     renderWardrobe();
-    expect(screen.getByText('wardrobe.tab_garments')).toBeInTheDocument();
-    expect(screen.getByText('wardrobe.tab_outfits')).toBeInTheDocument();
+
+    expect(screen.getByText('wardrobe.title')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'wardrobe.tab_garments' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'wardrobe.tab_outfits' })).toBeInTheDocument();
   });
 
-  it('renders page title', () => {
+  it('keeps add and scan in the command top instead of the old sticky footer', () => {
     renderWardrobe();
-    expect(screen.getByText('wardrobe.title')).toBeInTheDocument();
+
+    expect(screen.getByRole('button', { name: 'wardrobe.live_scan' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'wardrobe.add' })).toBeInTheDocument();
+    expect(screen.queryByText('+ Add')).not.toBeInTheDocument();
+    expect(screen.queryByText('Scan')).not.toBeInTheDocument();
+  });
+
+  it('shows smart access when garments are available', () => {
+    renderWardrobe();
+
+    expect(screen.getByLabelText('Smart access')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /wardrobe\.rarely_worn/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /wardrobe\.most_worn/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /wardrobe\.recently_added/i })).toBeInTheDocument();
   });
 });

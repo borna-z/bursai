@@ -1,9 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
+const navigateMock = vi.fn();
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => navigateMock,
+  };
+});
+
 vi.mock('@/contexts/LanguageContext', () => ({
-  useLanguage: vi.fn(() => ({ t: (k: string) => k, locale: 'en' })),
+  useLanguage: vi.fn(() => ({ t: (key: string) => key, locale: 'en' })),
 }));
 
 vi.mock('@/lib/haptics', () => ({
@@ -16,13 +26,13 @@ vi.mock('@/components/ui/lazy-image', () => ({
 
 vi.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, ...p }: React.PropsWithChildren<Record<string, unknown>>) => {
-      const { style, drag, dragDirectionLock, dragConstraints, dragElastic, onDragEnd, ...rest } = p;
+    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => {
+      const { style, drag, dragDirectionLock, dragConstraints, dragElastic, onDragEnd, ...rest } = props;
       return <div {...rest}>{children}</div>;
     },
-    p: ({ children, ...p }: React.PropsWithChildren<Record<string, unknown>>) => <p {...p}>{children}</p>,
+    button: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <button {...props}>{children}</button>,
+    p: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <p {...props}>{children}</p>,
   },
-  AnimatePresence: ({ children }: React.PropsWithChildren) => <>{children}</>,
   useMotionValue: () => ({ get: () => 0, set: vi.fn() }),
   useTransform: () => ({ get: () => 1 }),
   animate: vi.fn(),
@@ -41,10 +51,12 @@ const baseGarment: Partial<Garment> = {
   ai_raw: null,
   in_laundry: false,
   created_at: new Date(0).toISOString(),
+  wear_count: 0,
 };
 
 function renderCard(overrides: Partial<Garment> = {}) {
   const garment = { ...baseGarment, ...overrides } as Garment;
+
   return render(
     <MemoryRouter>
       <SwipeableGarmentCard
@@ -58,44 +70,44 @@ function renderCard(overrides: Partial<Garment> = {}) {
 }
 
 describe('SwipeableGarmentCard', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('renders without crashing with minimal props', () => {
-    const { container } = renderCard();
-    expect(container.firstChild).toBeInTheDocument();
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it('renders garment title when provided', () => {
-    renderCard({ title: 'Blue Oxford Shirt' });
+  it('renders the shared wardrobe card language', () => {
+    renderCard();
+
     expect(screen.getByText('Blue Oxford Shirt')).toBeInTheDocument();
+    expect(screen.getByText('Top / Blue')).toBeInTheDocument();
+    expect(screen.getByText('Never worn')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Style around this/i })).toBeInTheDocument();
   });
 
-  it('renders category label', () => {
-    renderCard({ category: 'top', color_primary: 'blue' });
-    expect(screen.getByText(/garment\.category\.top/)).toBeInTheDocument();
-  });
-
-  it('renders formality dots when formality is 3 (3 filled + 2 unfilled)', () => {
+  it('renders formality dots when formality is provided', () => {
     const { container } = renderCard({ formality: 3 });
-    const dots = container.querySelectorAll('.rounded-full.inline-block');
-    expect(dots).toHaveLength(5);
-    const filled = container.querySelectorAll('.bg-foreground\\/70');
-    const unfilled = container.querySelectorAll('.bg-foreground\\/10');
-    expect(filled).toHaveLength(3);
-    expect(unfilled).toHaveLength(2);
+
+    expect(container.querySelectorAll('.bg-foreground\\/65')).toHaveLength(3);
+    expect(container.querySelectorAll('.bg-foreground\\/12')).toHaveLength(2);
   });
 
-  it('renders nothing for intelligence strip when formality is undefined', () => {
-    const { container } = renderCard({ formality: undefined, ai_raw: null });
-    const dots = container.querySelectorAll('.rounded-full.inline-block');
-    expect(dots).toHaveLength(0);
-  });
-
-  it('does not render occasion chips when no occasion data present', () => {
+  it('does not render occasion pills when no occasion data is present', () => {
     renderCard({ ai_raw: null });
-    const chips = screen.queryAllByText(/./);
-    // No Chip components rendered — only title, category, and action labels
-    const chipElements = document.querySelectorAll('[class*="cursor-default"][class*="pointer-events-none"]');
-    expect(chipElements).toHaveLength(0);
+
+    expect(screen.queryByText('Work')).not.toBeInTheDocument();
+    expect(screen.queryByText('Casual')).not.toBeInTheDocument();
+  });
+
+  it('navigates into anchored style flow from the shared CTA', () => {
+    renderCard();
+
+    fireEvent.click(screen.getByRole('button', { name: /Style around this/i }));
+    expect(navigateMock).toHaveBeenCalledWith('/ai/chat?selectedGarmentId=g1&garments=g1', {
+      state: {
+        garmentIds: ['g1'],
+        selectedGarmentId: 'g1',
+        selectedGarmentIds: ['g1'],
+        prefillMessage: 'Style around this garment and build a complete look around it.',
+      },
+    });
   });
 });

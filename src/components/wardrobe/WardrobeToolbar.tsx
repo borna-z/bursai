@@ -1,13 +1,22 @@
-import { Grid3X3, List, Search, SlidersHorizontal, Trash2, WashingMachine, X } from 'lucide-react';
+import type { ElementType } from 'react';
+import { Camera, CalendarDays, Grid3X3, List, Plus, Search, SlidersHorizontal, Sparkles, Trash2, WashingMachine, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Chip } from '@/components/ui/chip';
 import { cn } from '@/lib/utils';
-import type { WardrobeSmartFilter, WardrobeTab } from '@/hooks/useWardrobeView';
+import type { WardrobeCommandActionKey, WardrobeCommandTopState, WardrobeInventoryState } from '@/components/wardrobe/wardrobeTypes';
+import type { WardrobeTab } from '@/hooks/useWardrobeView';
+
+const ACTION_ICONS = {
+  style: Sparkles,
+  add: Plus,
+  scan: Camera,
+  plan: CalendarDays,
+} satisfies Record<WardrobeCommandActionKey, ElementType>;
 
 interface WardrobeToolbarProps {
   t: (key: string) => string;
-  totalCount?: number;
+  commandState: WardrobeCommandTopState;
+  inventoryState: WardrobeInventoryState;
   isGridView: boolean;
   onToggleView: () => void;
   isSelecting: boolean;
@@ -21,18 +30,17 @@ interface WardrobeToolbarProps {
   onOpenFilterSheet: () => void;
   hasActiveFilters: boolean;
   activeFilterCount: number;
-  allGarmentsLength: number;
-  smartFilter: WardrobeSmartFilter;
-  onSmartFilterChange: (filter: WardrobeSmartFilter) => void;
-  smartFilterCounts: Record<'rarely_worn' | 'most_worn' | 'new', number>;
   selectedIdsCount: number;
   onBulkLaundry: () => void;
   onBulkDelete: () => void;
+  onAction: (action: WardrobeCommandActionKey) => void;
+  onClearFilters: () => void;
 }
 
 export function WardrobeToolbar({
   t,
-  totalCount,
+  commandState,
+  inventoryState,
   isGridView,
   onToggleView,
   isSelecting,
@@ -46,49 +54,67 @@ export function WardrobeToolbar({
   onOpenFilterSheet,
   hasActiveFilters,
   activeFilterCount,
-  allGarmentsLength,
-  smartFilter,
-  onSmartFilterChange,
-  smartFilterCounts,
   selectedIdsCount,
   onBulkLaundry,
   onBulkDelete,
+  onAction,
+  onClearFilters,
 }: WardrobeToolbarProps) {
+  const showGarmentControls = activeTab === 'garments';
+
   return (
-    <>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('wardrobe.title')}</h1>
-          {typeof totalCount === 'number' && totalCount > 0 && (
-            <p className="label-editorial mt-0.5 text-muted-foreground/50">{totalCount} {t('wardrobe.garments_count_label').toUpperCase()}</p>
-          )}
+    <section className="space-y-4" aria-label="Wardrobe command top">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h1 className="text-[1.875rem] font-semibold tracking-[-0.04em] text-foreground">
+              {commandState.title}
+            </h1>
+            <span className="rounded-full bg-foreground/[0.05] px-2.5 py-1 text-[11px] font-medium text-foreground/55">
+              {commandState.resultsLabel}
+            </span>
+          </div>
+          <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+            {commandState.caption}
+          </p>
         </div>
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={onToggleView}
-            className="w-10 h-10 rounded-xl surface-inset flex items-center justify-center hover:bg-foreground/[0.05] transition-colors active:scale-95"
-            aria-label={isGridView ? 'List view' : 'Grid view'}
-          >
-            {isGridView ? <List className="w-[18px] h-[18px] text-muted-foreground" /> : <Grid3X3 className="w-[18px] h-[18px] text-muted-foreground" />}
-          </button>
-          {!isSelecting ? (
-            <button onClick={onStartSelecting} className="text-sm font-medium text-muted-foreground px-2.5 py-1.5 rounded-lg hover:bg-muted/40 transition-colors">{t('wardrobe.select')}</button>
-          ) : (
-            <button onClick={onCancelSelecting} className="text-sm font-medium text-primary px-2.5 py-1.5 rounded-lg hover:bg-muted/40 transition-colors">{t('common.cancel')}</button>
+
+        <div className="flex shrink-0 items-center gap-1.5">
+          {showGarmentControls && (
+            <>
+              <button
+                onClick={onToggleView}
+                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-border/15 bg-card/70 text-muted-foreground transition-colors hover:bg-card"
+                aria-label={isGridView ? 'List view' : 'Grid view'}
+              >
+                {isGridView ? <List className="h-[18px] w-[18px]" /> : <Grid3X3 className="h-[18px] w-[18px]" />}
+              </button>
+              <button
+                onClick={isSelecting ? onCancelSelecting : onStartSelecting}
+                className={cn(
+                  'rounded-2xl px-3.5 py-2 text-sm font-medium transition-colors',
+                  isSelecting
+                    ? 'bg-foreground text-background'
+                    : 'border border-border/15 bg-card/70 text-muted-foreground hover:bg-card',
+                )}
+              >
+                {isSelecting ? t('common.cancel') : t('wardrobe.select')}
+              </button>
+            </>
           )}
         </div>
       </div>
 
-      <div className="flex border-b border-border/20">
+      <div className="inline-flex rounded-full border border-border/15 bg-card/65 p-1">
         {(['garments', 'outfits'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => onTabChange(tab)}
             className={cn(
-              "flex-1 py-2.5 font-['DM_Sans'] text-[13px] font-medium transition-colors duration-200",
+              'rounded-full px-4 py-2 text-[13px] font-medium transition-colors',
               activeTab === tab
-                ? 'text-foreground border-b border-foreground'
-                : 'text-muted-foreground'
+                ? 'bg-foreground text-background'
+                : 'text-muted-foreground',
             )}
           >
             {t(`wardrobe.tab_${tab}`)}
@@ -96,77 +122,109 @@ export function WardrobeToolbar({
         ))}
       </div>
 
-      {activeTab === 'garments' && (
-        <div className="space-y-6">
-          <div className="flex gap-2.5">
-            <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-muted-foreground/50 pointer-events-none" />
-              <Input
-                placeholder={`${t('wardrobe.search')} ${totalCount ?? ''} ${t('wardrobe.garments_count_label')}...`}
-                value={search}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="pl-10 surface-inset border-border/10 h-11 rounded-xl text-[14px] placeholder:text-muted-foreground/40 shadow-none focus-within:ring-1 focus-within:ring-border/20"
-              />
-              {search && (
-                <button onClick={onClearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 active:scale-90 transition-transform">
-                  <X className="w-4 h-4 text-muted-foreground/50" />
-                </button>
-              )}
-            </div>
-            <button
-              onClick={onOpenFilterSheet}
-              className={cn(
-                'h-11 w-11 rounded-xl flex-shrink-0 flex items-center justify-center transition-colors relative',
-                hasActiveFilters ? 'bg-primary/10 text-primary border border-primary/20' : 'surface-inset text-muted-foreground/60 hover:bg-foreground/[0.05]'
-              )}
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              {activeFilterCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center px-1">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
+      {showGarmentControls ? (
+        <div className="flex gap-2.5">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground/50" />
+            <Input
+              placeholder={commandState.searchPlaceholder}
+              value={search}
+              onChange={(event) => onSearchChange(event.target.value)}
+              className="h-11 rounded-2xl border-border/15 bg-card/70 pl-10 pr-10 text-[14px] shadow-none placeholder:text-muted-foreground/40"
+            />
+            {search && (
+              <button
+                onClick={onClearSearch}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 transition-transform active:scale-90"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
-          {allGarmentsLength > 5 && (
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-1">
-              {([
-                { key: 'rarely_worn' as const, label: t('wardrobe.rarely_worn') },
-                { key: 'most_worn' as const, label: t('wardrobe.most_worn') },
-                { key: 'new' as const, label: t('wardrobe.recently_added') },
-              ]).map((chip) => (
-                <Chip
-                  key={chip.key}
-                  size="md"
-                  selected={smartFilter === chip.key}
-                  onClick={() => onSmartFilterChange(smartFilter === chip.key ? null : chip.key)}
-                  className="whitespace-nowrap flex-shrink-0"
-                >
-                  {chip.label}
-                  {smartFilterCounts[chip.key] > 0 && (
-                    <span className="text-[10px] font-medium bg-foreground/[0.06] px-1.5 py-px rounded-full">{smartFilterCounts[chip.key]}</span>
-                  )}
-                </Chip>
-              ))}
-            </div>
-          )}
-
-          {isSelecting && selectedIdsCount > 0 && (
-            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-muted/30">
-              <span className="text-[13px] font-medium">{selectedIdsCount} {t('wardrobe.selected')}</span>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={onBulkLaundry} className="rounded-xl h-8 text-xs">
-                  <WashingMachine className="w-3.5 h-3.5 mr-1" />{t('wardrobe.laundry')}
-                </Button>
-                <Button size="sm" variant="destructive" onClick={onBulkDelete} className="rounded-xl h-8 text-xs">
-                  <Trash2 className="w-3.5 h-3.5 mr-1" />{t('wardrobe.remove')}
-                </Button>
-              </div>
-            </div>
-          )}
+          <button
+            onClick={onOpenFilterSheet}
+            className={cn(
+              'relative flex h-11 w-11 items-center justify-center rounded-2xl border transition-colors',
+              hasActiveFilters
+                ? 'border-foreground bg-foreground text-background'
+                : 'border-border/15 bg-card/70 text-muted-foreground hover:bg-card',
+            )}
+            aria-label={t('wardrobe.filter')}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            {activeFilterCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-background px-1 text-[10px] font-bold text-foreground">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+        </div>
+      ) : (
+        <div className="rounded-[24px] border border-border/15 bg-card/55 px-4 py-3">
+          <p className="text-sm text-muted-foreground">
+            Build, save, and plan complete looks from the same wardrobe workspace.
+          </p>
         </div>
       )}
-    </>
+
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        {commandState.actions.map((action) => {
+          const Icon = ACTION_ICONS[action.key];
+          return (
+            <button
+              key={action.key}
+              onClick={() => onAction(action.key)}
+              className={cn(
+                'flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-[13px] font-medium transition-colors',
+                action.tone === 'primary' && 'bg-foreground text-background',
+                action.tone === 'secondary' && 'border border-border/15 bg-card/75 text-foreground',
+                action.tone === 'muted' && 'border border-border/10 bg-card/45 text-muted-foreground',
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {action.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center justify-between gap-3 rounded-[24px] border border-border/10 bg-card/40 px-4 py-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">{inventoryState.title}</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{inventoryState.description}</p>
+        </div>
+        {showGarmentControls && (hasActiveFilters || search) && !isSelecting && (
+          <button
+            onClick={() => {
+              onClearSearch();
+              onClearFilters();
+            }}
+            className="shrink-0 text-xs font-medium text-muted-foreground underline underline-offset-4"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {isSelecting && selectedIdsCount > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-border/15 bg-card/75 px-4 py-3">
+          <span className="text-sm font-medium text-foreground">
+            {selectedIdsCount} {t('wardrobe.selected')}
+          </span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={onBulkLaundry} className="h-9 rounded-full border-border/20 bg-background px-3.5 text-xs">
+              <WashingMachine className="mr-1.5 h-3.5 w-3.5" />
+              {t('wardrobe.laundry')}
+            </Button>
+            <Button size="sm" variant="destructive" onClick={onBulkDelete} className="h-9 rounded-full px-3.5 text-xs">
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+              {t('wardrobe.remove')}
+            </Button>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }

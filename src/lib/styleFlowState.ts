@@ -10,6 +10,7 @@ export interface StyleFlowLocationState {
 }
 
 const GARMENTS_PARAM = 'garments';
+const SELECTED_GARMENT_PARAM = 'selectedGarmentId';
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
@@ -42,13 +43,58 @@ export function resolveStyleFlowGarmentIds(search: string, state: unknown): stri
   return extractStyleFlowGarmentIds(state);
 }
 
-export function buildStyleFlowSearch(garmentIds: Iterable<unknown>): string {
+export function buildStyleFlowSearch(garmentIds?: string | null | Iterable<unknown>): string {
+  if (typeof garmentIds === 'string') {
+    if (!isNonEmptyString(garmentIds)) return '';
+
+    const params = new URLSearchParams();
+    params.set(SELECTED_GARMENT_PARAM, garmentIds);
+    params.set(GARMENTS_PARAM, garmentIds);
+    return `?${params.toString()}`;
+  }
+
+  if (!garmentIds) return '';
+
   const ids = Array.from(new Set(Array.from(garmentIds).filter(isNonEmptyString)));
   if (!ids.length) return '';
 
   const params = new URLSearchParams();
   params.set(GARMENTS_PARAM, ids.join(','));
+  if (ids.length === 1) params.set(SELECTED_GARMENT_PARAM, ids[0]);
   return `?${params.toString()}`;
+}
+
+export function createStyleFlowNavigationState(selectedGarmentId: string): StyleFlowLocationState {
+  return {
+    selectedGarmentId,
+    selectedGarmentIds: [selectedGarmentId],
+    garmentIds: [selectedGarmentId],
+  };
+}
+
+export function buildStyleAroundState(selectedGarmentId: string): StyleFlowLocationState {
+  return {
+    ...createStyleFlowNavigationState(selectedGarmentId),
+    prefillMessage: 'Style around this garment and build a complete look around it.',
+  };
+}
+
+export function resolveStyleFlowLocationState({
+  search,
+  state,
+}: {
+  search: string;
+  state: unknown;
+}): Required<Pick<StyleFlowLocationState, 'prefillMessage'>> & { selectedGarmentId: string | null } {
+  const locationState = (state as StyleFlowLocationState | null) ?? null;
+  const params = new URLSearchParams(search);
+  const stateGarmentId = locationState?.selectedGarmentId ?? extractStyleFlowGarmentIds(locationState)[0] ?? null;
+  const searchGarmentId = params.get(SELECTED_GARMENT_PARAM) ?? extractStyleFlowGarmentIdsFromSearch(search)[0] ?? null;
+
+  return {
+    selectedGarmentId: stateGarmentId ?? searchGarmentId,
+    prefillMessage: locationState?.prefillMessage ?? null,
+  };
 }
 
 export function extractStyleFlowOutfitId(state: unknown): string | null {

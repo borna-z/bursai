@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildStyleFlowSearch,
+  createStyleFlowNavigationState,
   extractStyleFlowGarmentIds,
   extractStyleFlowGarmentIdsFromSearch,
   extractStyleFlowOccasion,
@@ -9,7 +10,8 @@ import {
   extractStyleFlowSeedOutfitIds,
   extractStyleFlowStyles,
   resolveStyleFlowGarmentIds,
-} from '../styleFlowState';
+  resolveStyleFlowLocationState,
+} from '@/lib/styleFlowState';
 
 describe('styleFlowState', () => {
   it('collects and deduplicates garment ids from supported state fields', () => {
@@ -25,11 +27,22 @@ describe('styleFlowState', () => {
     expect(extractStyleFlowGarmentIds('bad')).toEqual([]);
   });
 
-  it('builds and reads garment ids from search params', () => {
+  it('builds and reads garment ids from iterable search params', () => {
     const search = buildStyleFlowSearch(['g-1', 'g-2', 'g-1', '', 'g-3']);
 
     expect(search).toBe('?garments=g-1%2Cg-2%2Cg-3');
     expect(extractStyleFlowGarmentIdsFromSearch(search)).toEqual(['g-1', 'g-2', 'g-3']);
+  });
+
+  it('supports single-garment search params for anchored style flows', () => {
+    expect(buildStyleFlowSearch('g-1')).toBe('?selectedGarmentId=g-1&garments=g-1');
+    expect(resolveStyleFlowLocationState({
+      search: '?selectedGarmentId=from-query&garments=from-query',
+      state: null,
+    })).toEqual({
+      selectedGarmentId: 'from-query',
+      prefillMessage: null,
+    });
   });
 
   it('prefers garment ids from search over transient state', () => {
@@ -37,6 +50,16 @@ describe('styleFlowState', () => {
       selectedGarmentId: 'g-1',
       selectedGarmentIds: ['g-2'],
     })).toEqual(['g-9', 'g-8']);
+  });
+
+  it('resolves the garment from location state before query params', () => {
+    expect(resolveStyleFlowLocationState({
+      search: '?selectedGarmentId=from-query&garments=from-query',
+      state: createStyleFlowNavigationState('from-state'),
+    })).toEqual({
+      selectedGarmentId: 'from-state',
+      prefillMessage: null,
+    });
   });
 
   it('extracts outfit ids and prefill messages only when valid strings', () => {
