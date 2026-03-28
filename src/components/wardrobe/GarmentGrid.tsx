@@ -3,26 +3,25 @@ import { motion } from 'framer-motion';
 import { EASE_CURVE, STAGGER_DELAY, DISTANCE, DURATION_MEDIUM, PRESETS } from '@/lib/motion';
 import { useEffect, useRef, Fragment, type MouseEvent, type RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Shirt, Sparkles } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { SwipeableGarmentCard } from '@/components/wardrobe/SwipeableGarmentCard';
-import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GarmentGridSkeleton } from '@/components/ui/skeletons';
 import { type Garment } from '@/hooks/useGarments';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { WardrobeOnboardingEmpty } from '@/components/onboarding/OnboardingEmptyState';
-import { LazyImageSimple } from '@/components/ui/lazy-image';
-import { categoryLabel, colorLabel } from '@/lib/humanize';
-import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
-import { buildStyleFlowSearch } from '@/lib/styleFlowState';
-import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
-import { RenderPendingOverlay } from '@/components/wardrobe/RenderPendingOverlay';
+import { categoryLabel } from '@/lib/humanize';
+import { buildStyleAroundState, buildStyleFlowSearch } from '@/lib/styleFlowState';
+import {
+  WardrobeGarmentGridLayout,
+  WardrobeGarmentListLayout,
+  WARDROBE_GRID_ROW_HEIGHT,
+  WARDROBE_LIST_ROW_HEIGHT,
+} from '@/components/wardrobe/GarmentCardSystem';
 
 const CATEGORY_ORDER = ['dress', 'top', 'bottom', 'outerwear', 'shoes', 'accessory'];
 const VIRTUALIZE_THRESHOLD = 30;
-const GRID_ROW_HEIGHT = 180;
-const LIST_ROW_HEIGHT = 74;
 const GAP = 6;
 
 const cardReveal = {
@@ -32,11 +31,11 @@ const cardReveal = {
 
 function CategorySection({ category, count, t }: { category: string; count: number; t: (key: string) => string }) {
   return (
-    <div className="flex justify-between items-center pt-4 pb-1.5">
-      <span className="font-['DM_Sans'] text-[9px] tracking-[0.1em] uppercase text-foreground/40">
+    <div className="flex items-center justify-between pb-2 pt-4">
+      <span className="font-['DM_Sans'] text-[9px] uppercase tracking-[0.12em] text-foreground/40">
         {categoryLabel(t, category)}
       </span>
-      <span className="font-['DM_Sans'] text-[9px] tracking-[0.1em] text-foreground/40">
+      <span className="font-['DM_Sans'] text-[9px] tracking-[0.12em] text-foreground/40">
         {count}
       </span>
     </div>
@@ -59,88 +58,16 @@ function GarmentCard({ garment, t, isGridView, isSelecting, isSelected, onSelect
   const handleClick = () => {
     if (isSelecting) {
       onSelect();
-    } else {
-      navigate(`/wardrobe/${garment.id}`);
+      return;
     }
+
+    navigate(`/wardrobe/${garment.id}`);
   };
 
   const handleStyleAround = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
-    navigate(`/ai/generate${buildStyleFlowSearch([garment.id])}`);
+    navigate(`/ai/chat${buildStyleFlowSearch(garment.id)}`, { state: buildStyleAroundState(garment.id) });
   };
-
-  const displayImagePath = getPreferredGarmentImagePath(garment);
-
-  const categoryColorMap: Record<string, string> = {
-    top: 'hsl(var(--accent) / 0.6)',
-    bottom: 'hsl(var(--muted-foreground) / 0.5)',
-    shoes: 'hsl(var(--accent) / 0.45)',
-    outerwear: 'hsl(var(--muted-foreground) / 0.4)',
-    accessory: 'hsl(var(--accent) / 0.5)',
-    dress: 'hsl(var(--muted-foreground) / 0.45)',
-  };
-  const categoryStripColor = categoryColorMap[garment.category] || 'hsl(var(--foreground) / 0.12)';
-
-  if (!isGridView) {
-    return (
-      <motion.div
-        role="button"
-        tabIndex={0}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            handleClick();
-          }
-        }}
-        variants={cardReveal}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: '-20px' }}
-        transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: (index % 6) * STAGGER_DELAY }}
-        whileTap={{ scale: 0.975 }}
-        onClick={handleClick}
-        className={cn(
-          'w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left will-change-transform',
-          garment.in_laundry && 'opacity-60',
-          isSelected && 'ring-2 ring-accent'
-        )}
-      >
-        {isSelecting && <Checkbox checked={isSelected} className="shrink-0" />}
-        <div className="relative w-16 h-16 shrink-0 overflow-hidden">
-          <LazyImageSimple
-            imagePath={displayImagePath}
-            alt={garment.title}
-            className="w-16 h-16 shrink-0"
-            fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/30" />}
-          />
-          <RenderPendingOverlay renderStatus={garment.render_status} variant="overlay" className="[&>span]:hidden" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm truncate">{garment.title}</p>
-          <p className="text-xs text-muted-foreground capitalize">{categoryLabel(t, garment.category)} · {colorLabel(t, garment.color_primary)}</p>
-          {(garment.render_status === 'pending' || garment.render_status === 'rendering') ? (
-            <RenderPendingOverlay renderStatus={garment.render_status} variant="badge" className="mt-1" />
-          ) : (
-            <GarmentProcessingBadge
-              status={garment.image_processing_status}
-              renderStatus={garment.render_status}
-              className="mt-1"
-            />
-          )}
-          {!isSelecting && (
-            <button
-              type="button"
-              onClick={handleStyleAround}
-              className="mt-2 inline-flex h-8 items-center gap-1 rounded-full border border-primary/20 bg-primary/5 px-3 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Style around this
-            </button>
-          )}
-        </div>
-      </motion.div>
-    );
-  }
 
   return (
     <motion.div
@@ -157,50 +84,27 @@ function GarmentCard({ garment, t, isGridView, isSelecting, isSelected, onSelect
       whileInView="visible"
       viewport={{ once: true, margin: '-20px' }}
       transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: (index % 6) * STAGGER_DELAY }}
-      whileTap={PRESETS.PRESS.whileTap}
+      whileTap={isGridView ? PRESETS.PRESS.whileTap : { scale: 0.985 }}
       onClick={handleClick}
-      className={cn(
-        'w-full overflow-hidden transition-colors text-left will-change-transform relative group',
-        garment.in_laundry && 'opacity-60',
-        isSelected && 'ring-2 ring-accent'
-      )}
-      style={{ borderLeft: `2px solid ${categoryStripColor}` }}
+      className="w-full text-left will-change-transform"
     >
-      <div className="aspect-[3/4] bg-muted relative overflow-hidden">
-        <LazyImageSimple
-          imagePath={displayImagePath}
-          alt={garment.title}
-          className="w-full h-full"
-          fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/50" />}
+      {isGridView ? (
+        <WardrobeGarmentGridLayout
+          garment={garment}
+          t={t}
+          isSelecting={isSelecting}
+          isSelected={isSelected}
+          onStyleAround={!isSelecting ? handleStyleAround : undefined}
         />
-        <RenderPendingOverlay renderStatus={garment.render_status} />
-        {!(garment.render_status === 'pending' || garment.render_status === 'rendering') && (
-          <div className="absolute left-2 bottom-2">
-            <GarmentProcessingBadge status={garment.image_processing_status} renderStatus={garment.render_status} />
-          </div>
-        )}
-        {isSelecting && (
-          <div className="absolute top-2 left-2">
-            <Checkbox checked={isSelected} className="bg-background/80" />
-          </div>
-        )}
-        <span className={cn(
-          'absolute top-1.5 right-1.5 font-[\'DM_Sans\'] text-[9px] font-medium px-1.5 py-0.5 rounded-none leading-[1.4] tracking-[0.02em]',
-          (garment.wear_count || 0) === 0
-            ? 'bg-card text-foreground/45'
-            : 'bg-foreground text-background'
-        )}>
-          {(garment.wear_count || 0) > 0 ? `${garment.wear_count}×` : '0×'}
-        </span>
-        <div className="absolute bottom-0 left-0 right-0 bg-foreground/[0.38] px-[7px] py-[5px] z-[2]">
-          <div className="font-['DM_Sans'] text-[10px] font-medium text-background truncate">
-            {garment.title}
-          </div>
-          <div className="font-['DM_Sans'] text-[8px] text-background/55 mt-px">
-            {categoryLabel(t, garment.category)}
-          </div>
-        </div>
-      </div>
+      ) : (
+        <WardrobeGarmentListLayout
+          garment={garment}
+          t={t}
+          isSelecting={isSelecting}
+          isSelected={isSelected}
+          onStyleAround={!isSelecting ? handleStyleAround : undefined}
+        />
+      )}
     </motion.div>
   );
 }
@@ -208,20 +112,14 @@ function GarmentCard({ garment, t, isGridView, isSelecting, isSelected, onSelect
 function LoadingSkeletons({ isGridView }: { isGridView: boolean }) {
   return isGridView ? (
     <div className="grid grid-cols-3 gap-[5px]">
-      {[1, 2].map(i => (
-        <Skeleton key={i} className="aspect-[3/4] w-full rounded-xl" />
+      {[1, 2].map((index) => (
+        <Skeleton key={index} className="aspect-[3/4] w-full rounded-[24px]" />
       ))}
     </div>
   ) : (
     <div className="flex flex-col gap-2">
-      {[1, 2].map(i => (
-        <div key={i} className="flex items-center gap-3 p-3">
-          <Skeleton className="w-16 h-16 rounded-xl shrink-0" />
-          <div className="flex-1 space-y-1.5">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-3 w-1/2" />
-          </div>
-        </div>
+      {[1, 2].map((index) => (
+        <Skeleton key={index} className="h-[158px] w-full rounded-[26px]" />
       ))}
     </div>
   );
@@ -258,7 +156,7 @@ function VirtualGarmentGrid({
   const parentRef = useRef<HTMLDivElement>(null);
   const cols = isGridView ? 3 : 1;
   const rowCount = Math.ceil(garments.length / cols);
-  const estimateSize = isGridView ? GRID_ROW_HEIGHT : LIST_ROW_HEIGHT;
+  const estimateSize = isGridView ? WARDROBE_GRID_ROW_HEIGHT : WARDROBE_LIST_ROW_HEIGHT;
 
   const virtualizer = useVirtualizer({
     count: rowCount,
@@ -269,16 +167,24 @@ function VirtualGarmentGrid({
 
   return (
     <div ref={parentRef} className="w-full overflow-visible">
-      <div style={{ height: virtualizer.getTotalSize(), width: '100%', position: 'relative' }}>
+      <div style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
         {virtualizer.getVirtualItems().map((virtualRow) => {
           const startIdx = virtualRow.index * cols;
           const rowGarments = garments.slice(startIdx, startIdx + cols);
+
           return (
             <div
               key={virtualRow.index}
-              style={{ position: 'absolute', top: virtualRow.start, left: 0, width: '100%', height: virtualRow.size, paddingBottom: GAP }}
+              style={{
+                position: 'absolute',
+                top: virtualRow.start,
+                left: 0,
+                width: '100%',
+                height: virtualRow.size,
+                paddingBottom: GAP,
+              }}
             >
-              <div className={cn(isGridView ? 'grid grid-cols-3 gap-[5px] h-full' : 'flex flex-col gap-1.5')}>
+              <div className={cn(isGridView ? 'grid grid-cols-3 gap-[5px] h-full' : 'flex flex-col gap-2')}>
                 {rowGarments.map((garment, colIdx) => (
                   <Fragment key={garment.id}>
                     {!isGridView && !isSelecting ? (
@@ -306,6 +212,7 @@ function VirtualGarmentGrid({
           );
         })}
       </div>
+
       <div ref={sentinelRef as RefObject<HTMLDivElement>} className="h-1" />
       {isFetchingNextPage && <LoadingSkeletons isGridView={isGridView} />}
     </div>
@@ -329,8 +236,9 @@ function GarmentListContent({
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
+    const element = sentinelRef.current;
+    if (!element) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
@@ -339,7 +247,8 @@ function GarmentListContent({
       },
       { rootMargin: '200px' }
     );
-    observer.observe(el);
+
+    observer.observe(element);
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, onLoadMore]);
 
@@ -365,9 +274,13 @@ function GarmentListContent({
 
   return (
     <>
-      <div className={cn(isGridView ? 'grid grid-cols-3 gap-[5px]' : 'flex flex-col gap-1')}>
+      <div className={cn(isGridView ? 'grid grid-cols-3 gap-[5px]' : 'flex flex-col gap-2')}>
         {garments.map((garment, index) => (
-          <div key={garment.id} className="animate-drape-in" style={{ animationDelay: `${Math.min(index, 12) * 40}ms`, animationFillMode: 'both' }}>
+          <div
+            key={garment.id}
+            className="animate-drape-in"
+            style={{ animationDelay: `${Math.min(index, 12) * 40}ms`, animationFillMode: 'both' }}
+          >
             {!isGridView && !isSelecting ? (
               <SwipeableGarmentCard
                 garment={garment}
@@ -389,6 +302,7 @@ function GarmentListContent({
           </div>
         ))}
       </div>
+
       <div ref={sentinelRef} className="h-1" />
       {isFetchingNextPage && <LoadingSkeletons isGridView={isGridView} />}
     </>
@@ -444,12 +358,16 @@ export function GarmentGrid({
     if (showGrouped) {
       return (
         <div className="space-y-2">
-          {CATEGORY_ORDER.filter(cat => garmentsByCategory[cat]?.length > 0).map(cat => (
-            <div key={cat}>
-              <CategorySection category={cat} count={garmentsByCategory[cat].length} t={t} />
-              <div className={cn(isGridView ? 'grid grid-cols-3 gap-[5px]' : 'flex flex-col gap-1')}>
-                {garmentsByCategory[cat].map((garment, idx) => (
-                  <div key={garment.id} className="animate-drape-in" style={{ animationDelay: `${Math.min(idx, 12) * 40}ms`, animationFillMode: 'both' }}>
+          {CATEGORY_ORDER.filter((category) => garmentsByCategory[category]?.length > 0).map((category) => (
+            <div key={category}>
+              <CategorySection category={category} count={garmentsByCategory[category].length} t={t} />
+              <div className={cn(isGridView ? 'grid grid-cols-3 gap-[5px]' : 'flex flex-col gap-2')}>
+                {garmentsByCategory[category].map((garment, index) => (
+                  <div
+                    key={garment.id}
+                    className="animate-drape-in"
+                    style={{ animationDelay: `${Math.min(index, 12) * 40}ms`, animationFillMode: 'both' }}
+                  >
                     <GarmentCard
                       garment={garment}
                       t={t}
@@ -457,7 +375,7 @@ export function GarmentGrid({
                       isSelecting={isSelecting}
                       isSelected={selectedIds.has(garment.id)}
                       onSelect={() => onSelect(garment.id)}
-                      index={idx}
+                      index={index}
                     />
                   </div>
                 ))}

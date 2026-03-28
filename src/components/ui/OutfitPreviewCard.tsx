@@ -10,6 +10,8 @@ interface OutfitPreviewCardProps {
   footer?: ReactNode;
   className?: string;
   compositionClassName?: string;
+  contentClassName?: string;
+  mediaClassName?: string;
 }
 
 export const OutfitPreviewCard = memo(function OutfitPreviewCard({
@@ -19,15 +21,27 @@ export const OutfitPreviewCard = memo(function OutfitPreviewCard({
   footer,
   className,
   compositionClassName,
+  contentClassName,
+  mediaClassName,
 }: OutfitPreviewCardProps) {
   return (
-    <div className={cn('overflow-hidden bg-card', className)}>
-      <OutfitComposition items={items} className={cn('w-full', compositionClassName)} />
+    <div
+      className={cn(
+        'overflow-hidden rounded-[28px] border border-border/15 bg-card/80 shadow-[0_18px_40px_rgba(28,25,23,0.04)]',
+        className,
+      )}
+    >
+      <div className={cn('overflow-hidden border-b border-border/10 bg-background/80', mediaClassName)}>
+        <OutfitComposition
+          items={items}
+          className={cn('w-full bg-background/80', compositionClassName)}
+        />
+      </div>
       {(meta || excerpt || footer) && (
-        <div className="space-y-1 px-3 pb-3 pt-2.5">
+        <div className={cn('space-y-2.5 px-4 pb-4 pt-3.5', contentClassName)}>
           {meta}
           {excerpt && (
-            <p className="font-['Playfair_Display'] italic text-[13px] leading-snug text-foreground/70 line-clamp-1">
+            <p className="font-['Playfair_Display'] italic text-[13px] leading-snug text-foreground/70 line-clamp-2">
               {excerpt}
             </p>
           )}
