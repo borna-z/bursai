@@ -4,6 +4,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { GapResultsPanel } from '@/components/gaps/GapResultsPanel';
 import {
@@ -54,12 +56,15 @@ export default function GarmentGapsPage() {
   const { data: garmentCount } = useGarmentCount();
   const { isUnlocked } = useWardrobeUnlocks();
   const gapAnalysis = useWardrobeGapAnalysis();
+  const navigationIntent = useMemo(
+    () => readGapNavigationIntent({ search: location.search, state: location.state }),
+    [location.search, location.state],
+  );
   const snapshot = useMemo(() => loadGapSnapshot(user?.id), [user?.id]);
   const [results, setResults] = useState<GapResult[] | null>(snapshot?.results ?? null);
   const [analysisTimestamp, setAnalysisTimestamp] = useState<string | null>(snapshot?.analyzedAt ?? null);
-  const [isAutorunPending, setIsAutorunPending] = useState(() =>
-    readGapNavigationIntent({ search: location.search, state: location.state }).autorun,
-  );
+  const [isAutorunPending, setIsAutorunPending] = useState(navigationIntent.autorun);
+  const [autorunSource, setAutorunSource] = useState(navigationIntent.source);
   const [refreshError, setRefreshError] = useState(false);
   const hasTriggeredAutorun = useRef(false);
 
@@ -80,6 +85,13 @@ export default function GarmentGapsPage() {
     setResults(snapshot.results);
     setAnalysisTimestamp(snapshot.analyzedAt);
   }, [results, snapshot]);
+
+  useEffect(() => {
+    if (!navigationIntent.autorun) return;
+    hasTriggeredAutorun.current = false;
+    setAutorunSource(navigationIntent.source);
+    setIsAutorunPending(true);
+  }, [navigationIntent.autorun, navigationIntent.source]);
 
   const handleScan = useCallback(async () => {
     if (!user || !unlocked || gapAnalysis.isPending) return;
@@ -103,6 +115,14 @@ export default function GarmentGapsPage() {
     }
   }, [gapAnalysis, locale, results, unlocked, user]);
 
+  const handleRefresh = useCallback(async () => {
+    const latestSnapshot = loadGapSnapshot(user?.id);
+    setResults(latestSnapshot?.results ?? null);
+    setAnalysisTimestamp(latestSnapshot?.analyzedAt ?? null);
+    setIsAutorunPending(false);
+    setRefreshError(false);
+  }, [user?.id]);
+
   useEffect(() => {
     if (!isAutorunPending || hasTriggeredAutorun.current || !user || !unlocked) return;
 
@@ -116,29 +136,35 @@ export default function GarmentGapsPage() {
 
   return (
     <AppLayout>
-      <AnimatedPage className="mx-auto flex max-w-5xl flex-col gap-6 px-4 pb-24 pt-6 sm:px-6">
-        <GapHero currentCount={count} isUnlocked={unlocked} hasSnapshot={hasResults} />
+      <PageHeader
+        title="Garment gaps"
+        subtitle="See the next high-impact addition"
+      />
+      <PullToRefresh onRefresh={handleRefresh}>
+        <AnimatedPage className="page-container flex flex-col gap-4 pb-28">
+          <GapHero currentCount={count} isUnlocked={unlocked} hasSnapshot={hasResults} />
 
-        <AnimatePresence initial={false} mode="wait">
-          {viewState === 'locked' ? <GapLockedState key="locked" /> : null}
-          {viewState === 'ready' ? <GapReadyState key="ready" onScan={() => void handleScan()} /> : null}
-          {viewState === 'autorun' ? <GapAutorunState key="autorun" /> : null}
-          {viewState === 'loading' ? <GapLoadingState key="loading" /> : null}
-          {viewState === 'error' ? <GapErrorState key="error" onRetry={() => void handleScan()} /> : null}
-          {viewState === 'results' && results ? (
-            <GapResultsPanel
-              key="results"
-              analyzedAt={analysisTimestamp}
-              hasRefreshError={refreshError}
-              onRefresh={() => void handleScan()}
-              results={results}
-            />
-          ) : null}
-          {viewState === 'no-gaps' ? (
-            <GapNoGapsState key="no-gaps" onRefresh={() => void handleScan()} />
-          ) : null}
-        </AnimatePresence>
-      </AnimatedPage>
+          <AnimatePresence initial={false} mode="wait">
+            {viewState === 'locked' ? <GapLockedState key="locked" /> : null}
+            {viewState === 'ready' ? <GapReadyState key="ready" onScan={() => void handleScan()} /> : null}
+            {viewState === 'autorun' ? <GapAutorunState key="autorun" source={autorunSource} /> : null}
+            {viewState === 'loading' ? <GapLoadingState key="loading" /> : null}
+            {viewState === 'error' ? <GapErrorState key="error" onRetry={() => void handleScan()} /> : null}
+            {viewState === 'results' && results ? (
+              <GapResultsPanel
+                key="results"
+                analyzedAt={analysisTimestamp}
+                hasRefreshError={refreshError}
+                onRefresh={() => void handleScan()}
+                results={results}
+              />
+            ) : null}
+            {viewState === 'no-gaps' ? (
+              <GapNoGapsState key="no-gaps" onRefresh={() => void handleScan()} />
+            ) : null}
+          </AnimatePresence>
+        </AnimatedPage>
+      </PullToRefresh>
     </AppLayout>
   );
 }

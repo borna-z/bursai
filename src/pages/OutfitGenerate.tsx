@@ -21,7 +21,7 @@ import { useWeather } from '@/hooks/useWeather';
 import { useCalendarEvents } from '@/hooks/useCalendarSync';
 import { useSubscription } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
-import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
+import { WardrobeProgress } from '@/components/wardrobe/WardrobeProgress';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';

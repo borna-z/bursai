@@ -11,7 +11,7 @@ import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 const tabKeys = [
   { path: '/', labelKey: 'nav.today', icon: Home },
   { path: '/wardrobe', labelKey: 'nav.wardrobe', icon: Shirt },
-  { path: '/ai', labelKey: 'Style Me', icon: Sparkles },
+  { path: '/ai', labelKey: 'nav.style_me', icon: Sparkles },
   { path: '/plan', labelKey: 'nav.plan', icon: CalendarDays },
 ];
 

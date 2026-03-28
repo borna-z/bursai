@@ -41,13 +41,26 @@ vi.mock('@/components/layout/AppLayout', () => ({
   AppLayout: ({ children }: PropsWithChildren) => <div>{children}</div>,
 }));
 
+vi.mock('@/components/layout/PageHeader', () => ({
+  PageHeader: ({ title, subtitle }: { title: string; subtitle?: string }) => (
+    <div>
+      <h1>{title}</h1>
+      {subtitle ? <p>{subtitle}</p> : null}
+    </div>
+  ),
+}));
+
+vi.mock('@/components/layout/PullToRefresh', () => ({
+  PullToRefresh: ({ children }: PropsWithChildren) => <div>{children}</div>,
+}));
+
 vi.mock('@/components/ui/animated-page', () => ({
   AnimatedPage: ({ children, ...props }: PropsWithChildren<Record<string, unknown>>) => (
     <div {...props}>{children}</div>
   ),
 }));
 
-vi.mock('@/components/discover/WardrobeProgress', () => ({
+vi.mock('@/components/wardrobe/WardrobeProgress', () => ({
   WardrobeProgress: () => <div data-testid="wardrobe-progress">Wardrobe progress</div>,
 }));
 
@@ -109,8 +122,21 @@ describe('GarmentGapsPage', () => {
     renderPage();
 
     expect(screen.getByRole('heading', { level: 1, name: 'Garment gaps' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Scan before you buy' })).toBeInTheDocument();
     expect(screen.getByText('Run a focused wardrobe scan')).toBeInTheDocument();
-    expect(screen.getByText('14 pieces in wardrobe')).toBeInTheDocument();
+    expect(screen.getByText('14 pieces')).toBeInTheDocument();
+  });
+
+  it('renders the locked state when gap analysis is still gated', () => {
+    useWardrobeUnlocksMock.mockReturnValue({
+      isUnlocked: () => false,
+    });
+
+    renderPage();
+
+    expect(screen.getByText('Add a little more wardrobe depth first')).toBeInTheDocument();
+    expect(screen.getByText('Unlocks at 10 pieces')).toBeInTheDocument();
+    expect(screen.getByTestId('wardrobe-progress')).toBeInTheDocument();
   });
 
   it('hydrates the last saved snapshot for the current user', () => {
@@ -133,6 +159,19 @@ describe('GarmentGapsPage', () => {
 
     expect(screen.getByText('Highest-impact additions first')).toBeInTheDocument();
     expect(screen.getByText('Structured overshirt')).toBeInTheDocument();
+  });
+
+  it('shows the balanced state when the saved snapshot has no urgent gaps', () => {
+    window.sessionStorage.setItem('burs:gaps:last-scan:user-1', JSON.stringify({
+      analyzedAt: '2026-03-28T00:00:00.000Z',
+      results: [],
+    }));
+
+    renderPage();
+
+    expect(screen.getByText('No urgent gaps right now')).toBeInTheDocument();
+    expect(screen.getByText('Last scan ready')).toBeInTheDocument();
+    expect(screen.getByText('Run fresh scan')).toBeInTheDocument();
   });
 
   it('kicks off autorun scans and strips the query marker', async () => {
