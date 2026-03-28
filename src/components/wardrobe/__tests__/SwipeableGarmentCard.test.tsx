@@ -86,7 +86,7 @@ describe('SwipeableGarmentCard', () => {
     expect(screen.getByText('Top')).toBeInTheDocument();
     expect(screen.getByText('Blue')).toBeInTheDocument();
     expect(screen.getByText('Never worn')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Style around this/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Style this/i })).toBeInTheDocument();
   });
 
   it('renders formality dots when formality is provided', () => {
@@ -106,7 +106,7 @@ describe('SwipeableGarmentCard', () => {
   it('navigates into anchored style flow from the shared CTA', () => {
     renderCard();
 
-    fireEvent.click(screen.getByRole('button', { name: /Style around this/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Style this/i }));
     expect(navigateMock).toHaveBeenCalledWith('/ai/chat?selectedGarmentId=g1&garments=g1', {
       state: {
         garmentIds: ['g1'],
@@ -129,7 +129,7 @@ describe('SwipeableGarmentCard', () => {
   it('keeps the redesign secondary action wired to enhancement without opening the garment', () => {
     renderCard();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Enhance' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Refine' }));
 
     expect(triggerGarmentPostSaveIntelligenceMock).toHaveBeenCalledWith({
       garmentId: 'g1',
@@ -138,6 +138,6 @@ describe('SwipeableGarmentCard', () => {
       imageProcessing: { mode: 'full' },
     });
     expect(navigateMock).not.toHaveBeenCalled();
-    expect(screen.getByText('Enhancing...')).toBeInTheDocument();
+    expect(screen.getByText('Refining...')).toBeInTheDocument();
   });
 });

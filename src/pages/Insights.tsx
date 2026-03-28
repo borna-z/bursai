@@ -200,7 +200,7 @@ export default function InsightsPage() {
               aria-label="Insights sections"
               className="scrollbar-hide overflow-x-auto"
             >
-              <div className="flex w-max min-w-full snap-x snap-mandatory gap-2 rounded-full border border-border/35 bg-background/80 p-1.5 shadow-[0_10px_24px_rgba(18,18,18,0.06)] backdrop-blur-xl">
+              <div className="flex w-max min-w-full snap-x snap-mandatory gap-2 rounded-full border border-border/30 bg-background/82 p-1.5 shadow-[0_8px_18px_rgba(18,18,18,0.04)] backdrop-blur-xl">
                 {SECTION_LINKS.map((section) => (
                   <Button
                     key={section.id}
@@ -219,8 +219,8 @@ export default function InsightsPage() {
           <InsightsSection
             id="overview"
             eyebrow="Overview"
-            title="Rotation and wardrobe health"
-            description="What is active, what is quiet, and how the wardrobe is behaving."
+            title="What is doing the real work"
+            description="Start here to see what is active, what is quiet, and whether the wardrobe is earning its keep."
           >
             <div className="grid gap-4">
               {allGarments.length >= 5 ? (
@@ -244,8 +244,8 @@ export default function InsightsPage() {
           <InsightsSection
             id="dna"
             eyebrow="DNA"
-            title="Personal signals and repeat formulas"
-            description="See the archetype, palette bias, and formulas that actually recur."
+            title="The formulas BURS can trust"
+            description="Archetype, repeat patterns, and the signals that are strong enough to use."
           >
             <div className="grid gap-4">
               <StyleDNACard
@@ -316,8 +316,8 @@ export default function InsightsPage() {
           <InsightsSection
             id="value"
             eyebrow="Gaps & Value"
-            title="Start with the next missing piece"
-            description="Run or review the gaps workflow first, then use value signals to judge what is worth adding."
+            title="What would unlock more outfits"
+            description="Use gap and value signals to see what is worth adding next."
           >
             <div className="grid gap-4">
               <InsightsGapPreview />
@@ -337,8 +337,8 @@ export default function InsightsPage() {
           <InsightsSection
             id="tools"
             eyebrow="Related Tools"
-            title="Jump into the next workflow"
-            description="Use DNA as the operating layer, then move into generation, planning, or gaps."
+            title="Move into the next workflow"
+            description="Open the next useful action without extra navigation."
           >
             <InsightsRelatedTools
               tools={[

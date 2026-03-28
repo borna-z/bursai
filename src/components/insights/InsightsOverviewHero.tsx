@@ -75,21 +75,21 @@ function OverviewMetric({
       type="button"
       onClick={onClick}
       className={cn(
-        'surface-secondary group flex min-h-[94px] flex-col justify-between p-3.5 text-left',
+        'surface-utility group flex min-h-[84px] flex-col justify-between p-3 text-left',
         onClick ? 'press' : 'cursor-default',
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground/70">
+        <p className="text-[0.66rem] uppercase tracking-[0.16em] text-muted-foreground/70">
           {label}
         </p>
         <Icon className="size-4 text-muted-foreground/45 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
       </div>
       <div className="space-y-1">
-        <p className="text-[1.45rem] font-semibold tracking-[-0.05em] text-foreground">
+        <p className="text-[1.3rem] font-semibold tracking-[-0.05em] text-foreground">
           {value}
         </p>
-        <p className="text-[0.78rem] leading-5 text-muted-foreground">{hint}</p>
+        <p className="text-[0.76rem] leading-5 text-muted-foreground">{hint}</p>
       </div>
     </button>
   );
@@ -129,31 +129,32 @@ export function InsightsOverviewHero({
   onOpenOutfits,
 }: InsightsOverviewHeroProps) {
   const rotationLabel =
-    usageRate >= 60 ? 'Healthy rotation' : usageRate >= 35 ? 'Building rotation' : 'Needs rotation';
+    usageRate >= 60 ? 'Working well' : usageRate >= 35 ? 'Building' : 'Needs attention';
 
   const narrative = dnaArchetype
-    ? `${activeCount} pieces are active and your wardrobe reads ${dnaArchetype.toLowerCase()}.`
-    : `${activeCount} pieces are active right now. Save more worn looks to sharpen your DNA.`;
+    ? `Rotation, DNA, gaps, and value in one working view. ${dnaArchetype} is coming through.`
+    : 'Rotation, DNA, gaps, and value in one working view.';
 
   return (
-    <section className="surface-hero relative overflow-hidden px-4 py-5">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,hsl(var(--accent)/0.14),transparent_42%),linear-gradient(180deg,hsl(var(--background)/0),hsl(var(--background)/0.72))]" />
-
-      <div className="relative space-y-4">
+    <section className="surface-secondary px-4 py-4">
+      <div className="space-y-4">
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="border-border/40 bg-background/55">
-                  Last 30 days
+                <Badge variant="outline" className="border-border/35 bg-background/70">
+                  Insights
                 </Badge>
-                <Badge variant="secondary" className="bg-background/60">
+                <Badge variant="outline" className="border-border/35 bg-background/70">
+                  {totalGarments} pieces
+                </Badge>
+                <Badge variant="secondary" className="bg-background/60 text-foreground/68">
                   {rotationLabel}
                 </Badge>
               </div>
               <div className="space-y-1.5">
                 <h2 className="text-[1.45rem] font-semibold leading-[1.02] tracking-[-0.055em] text-foreground">
-                  DNA dashboard
+                  See what is active, what is missing, and what is worth repeating.
                 </h2>
                 <p className="max-w-[28rem] text-[0.86rem] leading-5 text-muted-foreground">
                   {narrative}
@@ -161,18 +162,18 @@ export function InsightsOverviewHero({
               </div>
             </div>
 
-            <Button variant="ghost" size="sm" className="shrink-0 rounded-full px-3" onClick={onOpenWardrobe}>
+            <Button variant="outline" size="sm" className="shrink-0 rounded-full border-border/20 bg-background/70 px-3" onClick={onOpenWardrobe}>
               Wardrobe
               <ArrowUpRight className="size-4" />
             </Button>
           </div>
 
-          <div className="grid items-center gap-4 sm:grid-cols-[128px_minmax(0,1fr)]">
+          <div className="grid items-center gap-4 sm:grid-cols-[116px_minmax(0,1fr)]">
             <div className="mx-auto">
               <div className="relative">
-                <UsageRing value={usageRate} />
+                <UsageRing value={usageRate} size={112} />
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-[2.1rem] font-semibold tracking-[-0.06em] text-foreground">
+                  <span className="text-[1.8rem] font-semibold tracking-[-0.06em] text-foreground">
                     {usageRate}
                   </span>
                   <span className="text-[0.68rem] uppercase tracking-[0.2em] text-muted-foreground/65">

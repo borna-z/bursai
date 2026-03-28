@@ -92,15 +92,15 @@ function WardrobeImageStateBadge({ label, tone }: { label: string; tone: Garment
       label={label}
       tone={tone === 'laundry' ? 'warning' : 'muted'}
       className={cn(
-        'max-w-[132px] shadow-sm',
-        tone !== 'laundry' && 'bg-background/90',
+        'max-w-[120px] shadow-none',
+        tone !== 'laundry' && 'bg-background/86',
       )}
     />
   );
 }
 
 function WardrobeWearBadge({ label }: { label: string }) {
-  return <CardPill label={label} tone="strong" className="shadow-sm" />;
+  return <CardPill label={label} tone="muted" className="shadow-none bg-background/86 text-foreground/56" />;
 }
 
 export function WardrobeFormalityDots({ formality }: { formality?: number | null }) {
@@ -149,23 +149,19 @@ export function WardrobeStyleAroundButton({
       type="button"
       onClick={onClick}
       className={cn(
-        'inline-flex h-10 items-center justify-center gap-1.5 rounded-[18px] bg-[#1C1917] px-3.5 text-[11px] font-semibold text-[#F6F0E6] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(28,25,23,0.18)] active:translate-y-0 active:scale-[0.99]',
+        'inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-[16px] bg-foreground px-3 text-[11px] font-semibold text-background transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(28,25,23,0.12)] active:translate-y-0 active:scale-[0.99]',
         fullWidth && 'w-full',
         className,
       )}
     >
       <Sparkles className="h-3.5 w-3.5" />
-      {translateOrFallback(t, 'wardrobe.style_around_this', 'Style around this')}
+      {translateOrFallback(t, 'wardrobe.style_around_this', 'Style this')}
     </button>
   );
 }
 
 function WardrobeActionSlot({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={cn('mt-auto rounded-[22px] border border-[#1C1917]/8 bg-white/62 p-1.5', className)}>
-      <div className="flex flex-wrap gap-2">{children}</div>
-    </div>
-  );
+  return <div className={cn('mt-auto flex flex-wrap gap-2', className)}>{children}</div>;
 }
 
 function WardrobeGarmentImage({
@@ -186,7 +182,7 @@ function WardrobeGarmentImage({
   const showRenderOverlay = garment.render_status === 'pending' || garment.render_status === 'rendering';
 
   return (
-    <div className={cn('relative overflow-hidden rounded-[22px] border border-white/70 bg-[#E7DDD0] shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]', className)}>
+    <div className={cn('relative overflow-hidden rounded-[20px] border border-border/35 bg-muted/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.32)]', className)}>
       <LazyImageSimple
         imagePath={getPreferredGarmentImagePath(garment)}
         alt={model.titleText}
@@ -197,7 +193,7 @@ function WardrobeGarmentImage({
 
       <div className="absolute left-2.5 top-2.5 z-[3]">
         {isSelecting ? (
-          <div className="rounded-full bg-background/90 p-1 shadow-sm">
+          <div className="rounded-full bg-background/90 p-1">
             <Checkbox
               checked={isSelected}
               className="border-foreground/20 bg-background/80 data-[state=checked]:border-transparent data-[state=checked]:bg-foreground data-[state=checked]:text-background"
@@ -217,7 +213,7 @@ function WardrobeGarmentImage({
           <GarmentProcessingBadge
             status={garment.image_processing_status}
             renderStatus={garment.render_status}
-                    className="bg-background/80"
+            className="bg-background/78"
           />
         </div>
       )}
@@ -243,7 +239,7 @@ export function WardrobeGarmentGridLayout({
   return (
     <div
       className={cn(
-        'group flex h-full flex-col overflow-hidden rounded-[28px] border border-[#1C1917]/8 bg-[linear-gradient(180deg,rgba(249,244,237,0.98),rgba(242,233,223,0.98))] p-2 shadow-[0_18px_48px_rgba(28,25,23,0.06)] transition-shadow duration-200 hover:shadow-[0_22px_52px_rgba(28,25,23,0.1)]',
+        'group flex h-full flex-col overflow-hidden rounded-[26px] border border-border/35 bg-card/92 p-2 shadow-[0_14px_32px_rgba(28,25,23,0.04)] transition-shadow duration-200 hover:shadow-[0_18px_36px_rgba(28,25,23,0.07)]',
         garment.in_laundry && 'opacity-72',
         isSelected && 'ring-2 ring-foreground/25 ring-offset-2 ring-offset-background',
       )}
@@ -259,18 +255,18 @@ export function WardrobeGarmentGridLayout({
       <div className="flex flex-1 flex-col gap-3 px-2.5 pb-2.5 pt-3">
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
-            <CardEyebrow className="text-[#1C1917]/38">{model.categoryText}</CardEyebrow>
+            <CardEyebrow>{model.categoryText}</CardEyebrow>
             <WardrobeFormalityDots formality={garment.formality} />
           </div>
 
-          <p className="line-clamp-2 text-[14px] font-medium leading-tight tracking-[-0.02em] text-[#1C1917]">
+          <p className="line-clamp-2 text-[14px] font-medium leading-tight tracking-[-0.02em] text-foreground">
             {model.titleText}
           </p>
         </div>
 
         <CardMetaRail>
-          {model.colorText ? <CardPill icon={Palette} label={model.colorText} tone="warm" /> : null}
-          <CardPill icon={Clock3} label={model.wearText} tone="warm" />
+          {model.colorText ? <CardPill icon={Palette} label={model.colorText} tone="default" /> : null}
+          <CardPill icon={Clock3} label={model.wearText} tone="muted" />
         </CardMetaRail>
 
         <WardrobeOccasionPills occasions={model.occasionLabels} />
@@ -305,7 +301,7 @@ export function WardrobeGarmentListLayout({
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-[30px] border border-[#1C1917]/8 bg-[linear-gradient(180deg,rgba(249,244,237,0.98),rgba(242,233,223,0.98))] p-2.5 shadow-[0_18px_48px_rgba(28,25,23,0.06)]',
+        'overflow-hidden rounded-[28px] border border-border/35 bg-card/92 p-2.5 shadow-[0_14px_32px_rgba(28,25,23,0.04)]',
         garment.in_laundry && 'opacity-72',
         isSelected && 'ring-2 ring-foreground/25 ring-offset-2 ring-offset-background',
       )}
@@ -322,17 +318,17 @@ export function WardrobeGarmentListLayout({
         <div className="flex min-w-0 flex-1 flex-col gap-3 py-1">
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
-              <CardEyebrow className="text-[#1C1917]/38">{model.categoryText}</CardEyebrow>
+              <CardEyebrow>{model.categoryText}</CardEyebrow>
               <WardrobeFormalityDots formality={garment.formality} />
             </div>
 
-            <p className="line-clamp-2 text-[16px] font-medium leading-tight tracking-[-0.025em] text-[#1C1917]">
+            <p className="line-clamp-2 text-[16px] font-medium leading-tight tracking-[-0.025em] text-foreground">
               {model.titleText}
             </p>
 
             <CardMetaRail>
-              {model.colorText ? <CardPill icon={Palette} label={model.colorText} tone="warm" /> : null}
-              <CardPill icon={Clock3} label={model.wearText} tone="warm" />
+              {model.colorText ? <CardPill icon={Palette} label={model.colorText} tone="default" /> : null}
+              <CardPill icon={Clock3} label={model.wearText} tone="muted" />
             </CardMetaRail>
           </div>
 
@@ -343,7 +339,7 @@ export function WardrobeGarmentListLayout({
               {onStyleAround && (
                 <WardrobeStyleAroundButton
                   onClick={onStyleAround}
-                  className={secondaryAction ? 'min-w-[152px] flex-1' : 'w-full'}
+                  className={secondaryAction ? 'min-w-[132px] flex-1' : 'w-full'}
                   fullWidth={!secondaryAction}
                   t={t}
                 />

@@ -44,23 +44,6 @@ function formatOutfitDate(dateValue: string | null | undefined, locale: string, 
   return format(new Date(dateValue), pattern, { locale: getDateFnsLocale(locale as AppLocale) });
 }
 
-function SummaryTile({
-  label,
-  value,
-}: {
-  label: string;
-  value: number;
-}) {
-  return (
-    <div className="rounded-[22px] border border-border/10 bg-white/72 px-3 py-3">
-      <CardEyebrow>{label}</CardEyebrow>
-      <p className="mt-1.5 text-[22px] font-medium leading-none tracking-[-0.03em] text-foreground">
-        {value}
-      </p>
-    </div>
-  );
-}
-
 function OutfitCard({
   outfit,
   onLongPress,
@@ -104,8 +87,8 @@ function OutfitCard({
   const dateLabel = plannedDate || generatedDate;
   const occasionLabel = resolveOccasionLabel(outfit, t);
   const excerpt = outfit.explanation
-    ? outfit.explanation.length > 88
-      ? `${outfit.explanation.slice(0, 88)}...`
+    ? outfit.explanation.length > 72
+      ? `${outfit.explanation.slice(0, 72)}...`
       : outfit.explanation
     : '';
   const ratingLabel = typeof outfit.rating === 'number'
@@ -137,13 +120,13 @@ function OutfitCard({
     >
       <OutfitPreviewCard
         items={outfit.outfit_items}
-        contentClassName="space-y-3.5 px-4 pb-4 pt-4"
+        contentClassName="space-y-3 px-4 pb-4 pt-4"
         meta={(
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 space-y-1.5">
-                <CardEyebrow>{translateOrFallback(t, 'outfits.card_kicker', 'Outfit')}</CardEyebrow>
-                <p className="truncate text-[15px] font-medium leading-tight tracking-[-0.02em] text-foreground">
+                <CardEyebrow>{translateOrFallback(t, 'outfits.card_kicker', 'Look')}</CardEyebrow>
+                <p className="truncate text-[14px] font-medium leading-tight tracking-[-0.02em] text-foreground">
                   {occasionLabel}
                 </p>
               </div>
@@ -173,19 +156,13 @@ function OutfitCard({
         )}
         excerpt={excerpt}
         footer={(
-          <div className="grid grid-cols-2 gap-3 border-t border-[#1C1917]/8 pt-3">
-            <div className="space-y-1.5">
-              <CardEyebrow>{translateOrFallback(t, 'outfits.card_date', 'Date')}</CardEyebrow>
-              <p className="text-[12px] leading-relaxed text-foreground/68">
-                {statusDateLabel}
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <CardEyebrow>{translateOrFallback(t, 'outfits.card_status', 'Status')}</CardEyebrow>
-              <p className="text-[12px] leading-relaxed text-foreground/68">
-                {statusLabel}
-              </p>
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border/10 pt-3">
+            <p className="text-[12px] font-medium text-foreground/72">
+              {statusLabel}
+            </p>
+            <p className="text-[12px] text-muted-foreground">
+              {statusDateLabel}
+            </p>
           </div>
         )}
       />
@@ -275,52 +252,40 @@ export function WardrobeOutfitsTab() {
 
   return (
     <>
-      <div className="space-y-5">
-        <section className="overflow-hidden rounded-[32px] border border-border/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(246,240,230,0.96))] px-4 py-4 shadow-[0_18px_44px_rgba(28,25,23,0.05)]">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <CardEyebrow>{translateOrFallback(t, 'outfits.header_kicker', 'Wardrobe looks')}</CardEyebrow>
-              <div className="space-y-1.5">
-                <h2 className="text-[25px] font-medium leading-none tracking-[-0.04em] text-foreground">
-                  {translateOrFallback(t, 'outfits.header_title', 'Your outfit archive')}
-                </h2>
-                <p className="max-w-[34rem] text-[13px] leading-relaxed text-muted-foreground/72">
-                  {translateOrFallback(t, 'outfits.header_desc', 'Saved, planned, and recent looks live here.')}
-                </p>
+      <div className="space-y-4">
+        <section className="overflow-hidden rounded-[28px] border border-border/12 bg-card/92 px-4 py-4 shadow-[0_14px_34px_rgba(28,25,23,0.04)]">
+          <div className="space-y-3.5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <CardPill label={translateOrFallback(t, 'outfits.header_kicker', 'Outfits')} tone="muted" size="md" />
+                <CardPill label={`${summary.all} looks`} tone="default" size="md" />
               </div>
-            </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              {filters.map((item) => (
-                <SummaryTile
-                  key={`summary-${item.key}`}
-                  label={item.label}
-                  value={item.count}
-                />
-              ))}
-            </div>
-
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button
-                onClick={() => navigate('/ai/generate')}
-                className="h-11 rounded-full bg-foreground px-5 text-background sm:flex-1"
-              >
-                <Sparkles className="mr-2 h-4 w-4" />
-                {translateOrFallback(t, 'outfits.style_me_cta', 'Style me')}
-              </Button>
               <Button
                 variant="outline"
                 onClick={() => navigate('/plan')}
-                className="h-11 rounded-full border-border/20 bg-background/72 px-5 sm:flex-1"
+                className="h-9 rounded-full border-border/20 bg-background/72 px-4 text-xs"
               >
-                <CalendarDays className="mr-2 h-4 w-4" />
-                {translateOrFallback(t, 'outfits.open_planner', 'Open planner')}
+                {translateOrFallback(t, 'outfits.open_planner', 'Open plan')}
               </Button>
             </div>
 
-            <p className="text-[11px] leading-relaxed text-muted-foreground/58">
-              {translateOrFallback(t, 'outfits.header_hint', 'Open a look for detail, or press and hold to remove it from your archive.')}
-            </p>
+            <div className="max-w-[28rem] space-y-1.5">
+              <h2 className="text-[25px] font-medium leading-[0.95] tracking-[-0.04em] text-foreground">
+                {translateOrFallback(t, 'outfits.header_title', 'Look archive')}
+              </h2>
+              <p className="text-[13px] leading-relaxed text-muted-foreground/72">
+                {translateOrFallback(t, 'outfits.header_desc', 'Saved and planned looks stay together here.')}
+              </p>
+            </div>
+
+            <Button
+              onClick={() => navigate('/ai/generate')}
+              className="h-10 rounded-full bg-foreground px-4 text-background"
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              {translateOrFallback(t, 'outfits.create', 'Generate look')}
+            </Button>
           </div>
         </section>
 
@@ -333,7 +298,7 @@ export function WardrobeOutfitsTab() {
                 'inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-[12px] font-medium transition-all duration-200',
                 filter === item.key
                   ? 'border-foreground bg-foreground text-background'
-                  : 'border-border/15 bg-background/80 text-foreground/62 hover:border-border/30 hover:bg-muted/20',
+                  : 'border-border/15 bg-secondary/55 text-foreground/62 hover:border-border/25 hover:bg-secondary/75',
               )}
             >
               <span>{item.label}</span>

@@ -22,7 +22,7 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
     <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-64 bg-[radial-gradient(circle_at_top_right,rgba(154,137,113,0.14),transparent_48%),radial-gradient(circle_at_top_left,rgba(47,56,68,0.07),transparent_44%)]"
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-40 bg-[radial-gradient(circle_at_top_right,rgba(154,137,113,0.09),transparent_48%),linear-gradient(180deg,rgba(255,255,255,0.22),transparent_72%)]"
       />
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-foreground focus:text-background focus:rounded-md">
         Skip to main content

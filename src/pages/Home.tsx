@@ -205,7 +205,7 @@ export default function HomePage() {
       title: 'Garment gaps',
       description: 'Find the next buy',
       icon: Radar,
-      toneClass: 'bg-[#e7ebfb]',
+      toneClass: 'bg-secondary/70',
       onClick: () => navigate('/gaps'),
     },
     {
@@ -213,7 +213,7 @@ export default function HomePage() {
       title: 'Travel',
       description: 'Pack smarter',
       icon: Plane,
-      toneClass: 'bg-[#eaf2e2]',
+      toneClass: 'bg-secondary/70',
       onClick: () => navigate('/ai/travel'),
     },
     {
@@ -221,7 +221,7 @@ export default function HomePage() {
       title: 'Plan',
       description: 'Week ahead',
       icon: CalendarRange,
-      toneClass: 'bg-[#f2e8dc]',
+      toneClass: 'bg-secondary/70',
       onClick: () => navigate('/plan'),
     },
     {
@@ -229,7 +229,7 @@ export default function HomePage() {
       title: 'Mood',
       description: 'Dress the vibe',
       icon: SmilePlus,
-      toneClass: 'bg-[#f6e7e0]',
+      toneClass: 'bg-secondary/70',
       onClick: () => navigate('/ai/mood'),
     },
     {
@@ -237,7 +237,7 @@ export default function HomePage() {
       title: 'Wardrobe',
       description: 'Add and edit',
       icon: Shirt,
-      toneClass: 'bg-[#ece7df]',
+      toneClass: 'bg-secondary/70',
       onClick: () => navigate('/wardrobe'),
     },
   ], [navigate]);
@@ -293,11 +293,6 @@ export default function HomePage() {
                 {scheduleSummary ? (
                   <span className="rounded-full border border-border/45 bg-background/80 px-3 py-1.5 text-[0.82rem] text-muted-foreground">
                     {scheduleSummary}
-                  </span>
-                ) : null}
-                {weatherSummary ? (
-                  <span className="rounded-full border border-border/45 bg-background/80 px-3 py-1.5 text-[0.82rem] text-muted-foreground">
-                    {weatherSummary}
                   </span>
                 ) : null}
               </div>

@@ -5,10 +5,10 @@ import type { WardrobeCommandTopState, WardrobeInventoryState } from '../wardrob
 
 const baseCommandState: WardrobeCommandTopState = {
   title: 'Wardrobe',
-  caption: 'Search, filter, and style what you already own.',
+  caption: 'Search, filter, and open what you own.',
   activeTab: 'garments',
   resultsLabel: '12 garments',
-  searchPlaceholder: 'Search garments…',
+  searchPlaceholder: 'Search garments...',
   actions: [
     { key: 'style', label: 'Create', tone: 'primary' },
     { key: 'plan', label: 'Plan', tone: 'secondary' },
@@ -20,7 +20,7 @@ const baseCommandState: WardrobeCommandTopState = {
 const baseInventoryState: WardrobeInventoryState = {
   kind: 'results',
   title: '12 pieces ready',
-  description: 'Tap a piece to open it, or style around it directly.',
+  description: 'Tap a piece to open it.',
 };
 
 function renderToolbar({
@@ -64,9 +64,10 @@ describe('WardrobeToolbar', () => {
     renderToolbar();
 
     expect(screen.getByRole('heading', { name: 'Wardrobe' })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Search garments…')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search garments...')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Plan' })).toBeInTheDocument();
+    expect(screen.queryByText('12 pieces ready')).not.toBeInTheDocument();
   });
 
   it('renders selecting state with bulk actions', () => {
@@ -80,7 +81,7 @@ describe('WardrobeToolbar', () => {
       inventoryState: {
         kind: 'selecting',
         title: '3 selected',
-        description: 'Batch actions stay available at the top.',
+        description: 'Batch actions stay above the list.',
       },
     });
 
@@ -101,7 +102,7 @@ describe('WardrobeToolbar', () => {
         inventoryState={{
           kind: 'results',
           title: '2 pieces ready',
-          description: 'Tap a piece to open it, or style around it directly.',
+          description: 'Tap a piece to open it.',
         }}
         isGridView
         onToggleView={vi.fn()}
@@ -135,16 +136,17 @@ describe('WardrobeToolbar', () => {
       commandState: {
         ...baseCommandState,
         activeTab: 'outfits',
-        caption: 'Saved and planned looks stay in one place.',
+        caption: 'Saved and planned looks stay together.',
       },
       inventoryState: {
         kind: 'results',
-        title: 'Your saved and planned looks',
-        description: 'Generate new outfits, then keep the best ones close.',
+        title: 'Look archive',
+        description: 'Saved and planned looks stay together here.',
       },
     });
 
-    expect(screen.queryByPlaceholderText('Search garments…')).not.toBeInTheDocument();
-    expect(screen.getByText('Saved and planned looks stay in one place.')).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Search garments...')).not.toBeInTheDocument();
+    expect(screen.getByText('Saved and planned looks stay together.')).toBeInTheDocument();
+    expect(screen.getByText('Look archive')).toBeInTheDocument();
   });
 });

@@ -30,7 +30,7 @@ describe('HomeCommandBoard', () => {
     expect(screen.getByTestId('home-command-board-empty_wardrobe')).toBeInTheDocument();
     expect(screen.getByTestId('home-command-board-visual-empty')).toBeInTheDocument();
     expect(screen.getByText('Top')).toBeInTheDocument();
-    expect(screen.getByText('Start with three anchors')).toBeInTheDocument();
+    expect(screen.getByText('Start with three pieces')).toBeInTheDocument();
     expect(screen.getByText('Open wardrobe')).toBeInTheDocument();
   });
 
@@ -51,7 +51,7 @@ describe('HomeCommandBoard', () => {
     expect(screen.getByTestId('home-command-board-visual-planned')).toBeInTheDocument();
     expect(screen.getByTestId('outfit-composition')).toBeInTheDocument();
     expect(screen.getByText('Planned look')).toBeInTheDocument();
-    expect(screen.getByText('Today is covered')).toBeInTheDocument();
+    expect(screen.getByText('Today is ready')).toBeInTheDocument();
   });
 
   it('renders recent-look mode when there is no planned outfit', () => {
@@ -65,8 +65,8 @@ describe('HomeCommandBoard', () => {
     expect(screen.getByTestId('home-command-board-no_outfit')).toBeInTheDocument();
     expect(screen.getByTestId('home-command-board-visual-recent')).toBeInTheDocument();
     expect(screen.getByText('Recent looks')).toBeInTheDocument();
-    expect(screen.getByText('No look is saved yet')).toBeInTheDocument();
-    expect(screen.getByText('Style Me')).toBeInTheDocument();
+    expect(screen.getByText('Choose the next look')).toBeInTheDocument();
+    expect(screen.getByText('Style me')).toBeInTheDocument();
   });
 
   it('renders weather alert copy in weather state', () => {
@@ -79,7 +79,7 @@ describe('HomeCommandBoard', () => {
     );
 
     expect(screen.getByTestId('home-command-board-weather_alert')).toBeInTheDocument();
-    expect(screen.getByText('Forecast changed the plan')).toBeInTheDocument();
+    expect(screen.getByText('Forecast changed')).toBeInTheDocument();
     expect(screen.getByText('Rebuild around weather')).toBeInTheDocument();
   });
 });

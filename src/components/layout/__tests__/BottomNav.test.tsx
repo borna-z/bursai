@@ -80,12 +80,13 @@ function renderNav(path = '/') {
 }
 
 describe('BottomNav smoke', () => {
-  it('renders all 4 tab labels', () => {
+  it('renders all primary destinations including insights', () => {
     renderNav();
-    expect(screen.getByText('nav.today')).toBeInTheDocument();
-    expect(screen.getByText('nav.wardrobe')).toBeInTheDocument();
-    expect(screen.getByText('nav.plan')).toBeInTheDocument();
-    expect(screen.getByText('nav.style_me')).toBeInTheDocument();
+    expect(screen.getByText('Today')).toBeInTheDocument();
+    expect(screen.getByText('Wardrobe')).toBeInTheDocument();
+    expect(screen.getByText('Plan')).toBeInTheDocument();
+    expect(screen.getByLabelText('Style Me')).toBeInTheDocument();
+    expect(screen.getByText('Insights')).toBeInTheDocument();
   });
 
   it('renders navigation landmark', () => {
@@ -101,10 +102,10 @@ describe('BottomNav smoke', () => {
     expect(container.querySelector('[aria-hidden="true"].safe-bottom')).toBeInTheDocument();
   });
 
-  it('marks active tab with accent color class', () => {
+  it('marks active tab with the active foreground treatment', () => {
     renderNav('/wardrobe');
-    const wardrobeLink = screen.getByText('nav.wardrobe').closest('a');
-    expect(wardrobeLink?.className).toContain('text-accent');
+    const wardrobeLink = screen.getByText('Wardrobe').closest('a');
+    expect(wardrobeLink?.className).toContain('text-foreground');
   });
 
   it('does not show the wardrobe coach overlay once the wardrobe route is active', () => {

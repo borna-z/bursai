@@ -9,12 +9,12 @@ type Locale = 'en' | 'sv';
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
-    'insights.title': 'DNA',
-    'insights.subtitle': 'Your wardrobe dashboard',
+    'insights.title': 'Insights',
+    'insights.subtitle': 'Rotation, DNA, gaps, and value at a glance.',
   },
   sv: {
-    'insights.title': 'DNA',
-    'insights.subtitle': 'Din garderobsdashboard',
+    'insights.title': 'Insikter',
+    'insights.subtitle': 'Rotation, DNA, luckor och värde i en vy.',
   },
 };
 
@@ -87,7 +87,7 @@ vi.mock('@/components/insights/InsightsOverviewHero', () => ({
     plannedThisWeek: number;
   }) => (
     <section>
-      <h2>DNA at a glance</h2>
+      <h2>See what is active, what is missing, and what is worth repeating.</h2>
       {dnaArchetype ? <p>{dnaArchetype}</p> : null}
       <p>Saved looks: {savedLooks}</p>
       <p>Planned this week: {plannedThisWeek}</p>
@@ -241,12 +241,12 @@ describe('Insights page', () => {
     });
   });
 
-  it('renders the DNA dashboard sections with populated data', () => {
+  it('renders the insights dashboard sections with populated data', () => {
     renderPage();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'DNA' })).toBeInTheDocument();
-    expect(screen.getByText('Your wardrobe dashboard')).toBeInTheDocument();
-    expect(screen.getByText('DNA at a glance')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Insights' })).toBeInTheDocument();
+    expect(screen.getByText('Rotation, DNA, gaps, and value at a glance.')).toBeInTheDocument();
+    expect(screen.getByText('See what is active, what is missing, and what is worth repeating.')).toBeInTheDocument();
     expect(screen.getAllByText('Minimalist').length).toBeGreaterThan(0);
     expect(screen.getByText('Saved looks: 9')).toBeInTheDocument();
     expect(screen.getByText('Planned this week: 4')).toBeInTheDocument();
@@ -255,8 +255,8 @@ describe('Insights page', () => {
     expect(screen.getByRole('link', { name: 'DNA' })).toHaveAttribute('href', '#dna');
     expect(screen.getByRole('link', { name: 'Patterns' })).toHaveAttribute('href', '#patterns');
     expect(screen.getByRole('link', { name: 'Tools' })).toHaveAttribute('href', '#tools');
-    expect(screen.getByText('Start with the next missing piece')).toBeInTheDocument();
-    expect(screen.getByText('Jump into the next workflow')).toBeInTheDocument();
+    expect(screen.getByText('What would unlock more outfits')).toBeInTheDocument();
+    expect(screen.getByText('Move into the next workflow')).toBeInTheDocument();
     expect(screen.getByText('Gap analysis')).toBeInTheDocument();
     expect(screen.getByText('Style me')).toBeInTheDocument();
     expect(screen.getByText('Black loafers')).toBeInTheDocument();
@@ -278,7 +278,7 @@ describe('Insights page', () => {
 
     renderPage();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'DNA' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Insights' })).toBeInTheDocument();
     expect(screen.getByTestId('insights-loading')).toBeInTheDocument();
   });
 
@@ -307,15 +307,15 @@ describe('Insights page', () => {
 
     renderPage();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'DNA' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Insights' })).toBeInTheDocument();
     expect(screen.getByTestId('insights-empty')).toBeInTheDocument();
   });
 
   it('switches key page copy between English and Swedish', () => {
     const { rerender } = renderPage();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'DNA' })).toBeInTheDocument();
-    expect(screen.getByText('Your wardrobe dashboard')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Insights' })).toBeInTheDocument();
+    expect(screen.getByText('Rotation, DNA, gaps, and value at a glance.')).toBeInTheDocument();
 
     currentLocale = 'sv';
     rerender(
@@ -326,8 +326,8 @@ describe('Insights page', () => {
       </QueryClientProvider>,
     );
 
-    expect(screen.getByRole('heading', { level: 1, name: 'DNA' })).toBeInTheDocument();
-    expect(screen.getByText('Din garderobsdashboard')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Insikter' })).toBeInTheDocument();
+    expect(screen.getByText('Rotation, DNA, luckor och värde i en vy.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Patterns' })).toHaveAttribute('href', '#patterns');
     expect(screen.getByRole('link', { name: 'Gaps' })).toHaveAttribute('href', '#value');
   });

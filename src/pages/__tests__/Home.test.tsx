@@ -238,7 +238,7 @@ describe('Home page command center', () => {
     const heading = screen.getByRole('heading', { level: 1 });
     expect(heading).toBeInTheDocument();
     expect(heading.textContent).toContain('Test');
-    expect(screen.getByText('Style Me')).toBeInTheDocument();
+    expect(screen.getByText('Style me')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Garment gaps/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Travel/i })).toBeInTheDocument();
     expect(screen.getByTestId('home-dna-populated')).toBeInTheDocument();
@@ -249,7 +249,7 @@ describe('Home page command center', () => {
   it('navigates to the promoted actions from home', () => {
     renderHome();
 
-    fireEvent.click(screen.getByText('Style Me'));
+    fireEvent.click(screen.getByText('Style me'));
     fireEvent.click(screen.getByRole('button', { name: /Garment gaps.*Find the next buy/i }));
     fireEvent.click(screen.getByRole('button', { name: /Travel.*Pack smarter/i }));
     fireEvent.click(screen.getByRole('button', { name: /Mood.*Dress the vibe/i }));

@@ -33,7 +33,7 @@ export function HomeQuickActions({ actions }: HomeQuickActionsProps) {
             },
           },
         }}
-        className="grid grid-cols-2 gap-3 sm:grid-cols-3"
+        className="grid grid-cols-2 gap-2.5 sm:grid-cols-3"
       >
         {actions.map((action) => {
           const Icon = action.icon;
@@ -49,19 +49,19 @@ export function HomeQuickActions({ actions }: HomeQuickActionsProps) {
               onClick={action.onClick}
               className="group"
             >
-              <div className="flex min-h-[124px] w-full flex-col justify-between rounded-[1.35rem] border border-foreground/[0.08] bg-card px-4 py-4 text-left shadow-[0_12px_24px_rgba(22,18,15,0.04)] transition-transform duration-200 group-active:scale-[0.985]">
-                <div className={cn('flex size-11 items-center justify-center rounded-[0.95rem]', action.toneClass)}>
+              <div className="flex min-h-[112px] w-full flex-col justify-between rounded-[1.2rem] border border-foreground/[0.08] bg-card/86 px-4 py-4 text-left shadow-[0_8px_18px_rgba(22,18,15,0.03)] transition-transform duration-200 group-active:scale-[0.985]">
+                <div className={cn('flex size-10 items-center justify-center rounded-[0.9rem]', action.toneClass)}>
                   <Icon className="size-5 text-foreground/80" />
                 </div>
 
                 <div className="space-y-1.5">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-[0.94rem] font-medium tracking-[-0.02em] text-foreground">
+                    <p className="text-[0.9rem] font-medium tracking-[-0.02em] text-foreground">
                       {action.title}
                     </p>
                     <ArrowUpRight className="size-4 shrink-0 text-muted-foreground/45 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                   </div>
-                  <p className="text-[0.8rem] leading-5 text-muted-foreground">
+                  <p className="text-[0.78rem] leading-5 text-muted-foreground">
                     {action.description}
                   </p>
                 </div>

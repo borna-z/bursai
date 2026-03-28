@@ -61,23 +61,30 @@ export function WardrobeToolbar({
   onClearFilters,
 }: WardrobeToolbarProps) {
   const showGarmentControls = activeTab === 'garments';
+  const showInventoryMessage = isSelecting
+    || activeTab === 'outfits'
+    || hasActiveFilters
+    || Boolean(search)
+    || inventoryState.kind !== 'results';
 
   return (
-    <section className="space-y-4" aria-label="Wardrobe command top">
+    <section className="space-y-3.5" aria-label="Wardrobe command top">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="eyebrow-chip bg-background/80 text-muted-foreground/72">
               {activeTab === 'garments' ? 'Wardrobe' : 'Looks'}
             </span>
-            <h1 className="text-[1.95rem] font-semibold tracking-[-0.05em] text-foreground">
-              {commandState.title}
-            </h1>
-            <span className="eyebrow-chip border-transparent bg-secondary/85 text-foreground/58">
-              {commandState.resultsLabel}
-            </span>
+            {commandState.resultsLabel ? (
+              <span className="eyebrow-chip border-transparent bg-secondary/75 text-foreground/58">
+                {commandState.resultsLabel}
+              </span>
+            ) : null}
           </div>
-          <p className="mt-2 max-w-[34ch] text-sm leading-relaxed text-muted-foreground">
+          <h1 className="text-[1.95rem] font-semibold tracking-[-0.05em] text-foreground">
+            {commandState.title}
+          </h1>
+          <p className="max-w-[30ch] text-sm leading-relaxed text-muted-foreground">
             {commandState.caption}
           </p>
         </div>
@@ -87,7 +94,7 @@ export function WardrobeToolbar({
             <>
               <button
                 onClick={onToggleView}
-                className="flex h-11 w-11 items-center justify-center rounded-[1.2rem] border border-border/45 bg-background/80 text-muted-foreground transition-colors hover:bg-background"
+                className="flex h-10 w-10 items-center justify-center rounded-[1rem] border border-border/45 bg-background/80 text-muted-foreground transition-colors hover:bg-background"
                 aria-label={isGridView ? 'List view' : 'Grid view'}
               >
                 {isGridView ? <List className="h-[18px] w-[18px]" /> : <Grid3X3 className="h-[18px] w-[18px]" />}
@@ -95,7 +102,7 @@ export function WardrobeToolbar({
               <button
                 onClick={isSelecting ? onCancelSelecting : onStartSelecting}
                 className={cn(
-                  'rounded-full px-4 py-2.5 text-sm font-medium transition-colors',
+                  'rounded-full px-3.5 py-2 text-sm font-medium transition-colors',
                   isSelecting
                     ? 'bg-foreground text-background'
                     : 'border border-border/45 bg-background/80 text-muted-foreground hover:bg-background',
@@ -108,7 +115,7 @@ export function WardrobeToolbar({
         </div>
       </div>
 
-      <div className="inline-flex rounded-full border border-border/45 bg-card/80 p-1 shadow-[0_10px_24px_rgba(22,18,15,0.05)]">
+      <div className="inline-flex rounded-full border border-border/45 bg-card/80 p-1 shadow-[0_8px_20px_rgba(22,18,15,0.04)]">
         {(['garments', 'outfits'] as const).map((tab) => (
           <button
             key={tab}
@@ -133,7 +140,7 @@ export function WardrobeToolbar({
               placeholder={commandState.searchPlaceholder}
               value={search}
               onChange={(event) => onSearchChange(event.target.value)}
-              className="h-12 rounded-[1.3rem] border-border/45 bg-background/80 pl-10 pr-10 text-[14px] shadow-none placeholder:text-muted-foreground/40"
+              className="h-11 rounded-[1.1rem] border-border/45 bg-background/78 pl-10 pr-10 text-[14px] shadow-none placeholder:text-muted-foreground/40"
             />
             {search && (
               <button
@@ -149,7 +156,7 @@ export function WardrobeToolbar({
           <button
             onClick={onOpenFilterSheet}
             className={cn(
-              'relative flex h-12 w-12 items-center justify-center rounded-[1.3rem] border transition-colors',
+              'relative flex h-11 w-11 items-center justify-center rounded-[1.1rem] border transition-colors',
               hasActiveFilters
                 ? 'border-foreground bg-foreground text-background'
                 : 'border-border/45 bg-background/80 text-muted-foreground hover:bg-background',
@@ -167,7 +174,7 @@ export function WardrobeToolbar({
       ) : (
         <div className="surface-utility px-4 py-3">
           <p className="text-sm text-muted-foreground">
-            Build, save, and plan complete looks from the same wardrobe workspace.
+            Build, save, and plan looks from one place.
           </p>
         </div>
       )}
@@ -180,7 +187,7 @@ export function WardrobeToolbar({
               key={action.key}
               onClick={() => onAction(action.key)}
               className={cn(
-                'flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-[13px] font-medium transition-colors',
+                'flex h-10 shrink-0 items-center gap-2 rounded-full px-3.5 text-[13px] font-medium transition-colors',
                 action.tone === 'primary' && 'bg-foreground text-background',
                 action.tone === 'secondary' && 'border border-border/45 bg-background/80 text-foreground',
                 action.tone === 'muted' && 'border border-border/35 bg-card/65 text-muted-foreground',
@@ -193,26 +200,28 @@ export function WardrobeToolbar({
         })}
       </div>
 
-      <div className="surface-utility flex items-center justify-between gap-3 px-4 py-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground">{inventoryState.title}</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{inventoryState.description}</p>
+      {showInventoryMessage ? (
+        <div className="surface-utility flex items-center justify-between gap-3 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">{inventoryState.title}</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{inventoryState.description}</p>
+          </div>
+          {showGarmentControls && (hasActiveFilters || search) && !isSelecting && (
+            <button
+              onClick={() => {
+                onClearSearch();
+                onClearFilters();
+              }}
+              className="shrink-0 text-xs font-medium text-muted-foreground underline underline-offset-4"
+            >
+              Clear
+            </button>
+          )}
         </div>
-        {showGarmentControls && (hasActiveFilters || search) && !isSelecting && (
-          <button
-            onClick={() => {
-              onClearSearch();
-              onClearFilters();
-            }}
-            className="shrink-0 text-xs font-medium text-muted-foreground underline underline-offset-4"
-          >
-            Clear
-          </button>
-        )}
-      </div>
+      ) : null}
 
       {isSelecting && selectedIdsCount > 0 && (
-        <div className="surface-editorial flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <div className="surface-utility flex flex-wrap items-center justify-between gap-3 px-4 py-3">
           <span className="text-sm font-medium text-foreground">
             {selectedIdsCount} {t('wardrobe.selected')}
           </span>

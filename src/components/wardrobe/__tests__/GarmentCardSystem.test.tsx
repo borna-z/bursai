@@ -54,8 +54,8 @@ describe('GarmentCardSystem', () => {
     expect(screen.getByText('2 wears')).toBeInTheDocument();
     expect(screen.getByText('Work')).toBeInTheDocument();
     expect(screen.getByText('Travel')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Style around this/i })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Style around this/i }));
+    expect(screen.getByRole('button', { name: /Style this/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Style this/i }));
     expect(onStyleAround).toHaveBeenCalledTimes(1);
 
     rerender(
@@ -72,8 +72,8 @@ describe('GarmentCardSystem', () => {
     expect(screen.getByText('2 wears')).toBeInTheDocument();
     expect(screen.getByText('Work')).toBeInTheDocument();
     expect(screen.getByText('Travel')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Style around this/i })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Style around this/i }));
+    expect(screen.getByRole('button', { name: /Style this/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Style this/i }));
     expect(onStyleAround).toHaveBeenCalledTimes(2);
   });
 
@@ -111,6 +111,6 @@ describe('GarmentCardSystem', () => {
       />,
     );
 
-    expect(screen.queryByRole('button', { name: /Style around this/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Style this/i })).not.toBeInTheDocument();
   });
 });

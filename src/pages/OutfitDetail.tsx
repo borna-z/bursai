@@ -569,20 +569,20 @@ export default function OutfitDetailPage() {
       <div className="fixed top-0 left-0 right-0 z-20 p-4 flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
-          className="w-10 h-10 rounded-full bg-background/50 backdrop-blur-2xl flex items-center justify-center active:scale-95 transition-transform ring-1 ring-border/10"
+          className="w-10 h-10 rounded-full bg-background/70 backdrop-blur-xl flex items-center justify-center active:scale-95 transition-transform ring-1 ring-border/10"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex gap-2">
           <button
             onClick={handleToggleSave}
-            className="w-10 h-10 rounded-full bg-background/50 backdrop-blur-2xl flex items-center justify-center active:scale-95 transition-transform ring-1 ring-border/10"
+            className="w-10 h-10 rounded-full bg-background/70 backdrop-blur-xl flex items-center justify-center active:scale-95 transition-transform ring-1 ring-border/10"
           >
             {outfit.saved ? <BookmarkCheck className="w-5 h-5 text-primary" /> : <Bookmark className="w-5 h-5" />}
           </button>
           <button
             onClick={() => setShareSheetOpen(true)}
-            className="w-10 h-10 rounded-full bg-background/50 backdrop-blur-2xl flex items-center justify-center active:scale-95 transition-transform ring-1 ring-border/10"
+            className="w-10 h-10 rounded-full bg-background/70 backdrop-blur-xl flex items-center justify-center active:scale-95 transition-transform ring-1 ring-border/10"
           >
             <Share2 className="w-5 h-5" />
           </button>
@@ -612,81 +612,81 @@ export default function OutfitDetailPage() {
       </div>
 
       {/* ── Dark info block ── */}
-      <div className="bg-foreground p-5">
+      <div className="bg-foreground/[0.96] px-5 py-4">
         <p className="font-['DM_Sans'] text-[8px] font-medium uppercase tracking-[0.12em] text-background/[0.45] mb-2.5">
           {genOccasionSubmode || displayOccasion}
         </p>
         {outfit.explanation && (
-          <p className="font-['Playfair_Display'] italic text-[14px] text-background leading-[1.55] mb-2.5">
+          <p className="text-[13px] leading-6 text-background/86">
             {outfit.explanation}
           </p>
         )}
         {genWardrobeInsights && genWardrobeInsights.length > 0 && (
           <p className="font-['DM_Sans'] text-[12px] text-background/50 leading-[1.5]">
-            {genWardrobeInsights.join(' · ')}
+            {genWardrobeInsights.slice(0, 2).join(' / ')}
           </p>
         )}
       </div>
 
       {/* ── 3-Tab row ── */}
-      <div className="flex bg-card">
-        {(['wear', 'swap', 'why'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={cn(
-              "flex-1 h-11 border-none bg-transparent border-b-2 font-['DM_Sans'] text-[12px] font-medium cursor-pointer",
-              activeTab === tab
-                ? "border-foreground text-foreground"
-                : "border-transparent text-foreground/40"
-            )}
-          >
-            {tab === 'wear' ? 'Wear' : tab === 'swap' ? 'Swap' : 'Why'}
-          </button>
-        ))}
+      <div className="px-5 py-4">
+        <div className="surface-inset flex rounded-full border p-1">
+          {(['wear', 'swap', 'why'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={cn(
+                "flex-1 rounded-full px-3 py-2.5 font-['DM_Sans'] text-[12px] font-medium transition-colors",
+                activeTab === tab
+                  ? "bg-foreground text-background"
+                  : "text-foreground/45"
+              )}
+            >
+              {tab === 'wear' ? 'Wear' : tab === 'swap' ? 'Swap' : 'Why'}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── Tab content ── */}
-      <div className="p-5 pb-20">
+      <div className="px-5 pb-20">
         {activeTab === 'wear' && (
           <div className="flex flex-col gap-2.5">
-            {/* Wear today */}
             <Button
               onClick={handleMarkWorn}
               disabled={markWorn.isPending || !!outfit.worn_at}
               className={cn(
-                "w-full h-12 bg-foreground text-background font-['DM_Sans'] text-[14px] font-medium flex items-center justify-center gap-2",
+                "w-full h-12 rounded-full bg-foreground text-background font-['DM_Sans'] text-[14px] font-medium flex items-center justify-center gap-2",
                 outfit.worn_at && "opacity-50 cursor-default"
               )}
             >
               {markWorn.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
               {outfit.worn_at ? t('outfit.worn') : t('outfit.mark_worn')}
             </Button>
-            {/* Plan */}
-            <Button
-              variant="outline"
-              onClick={() => navigate('/plan', { state: { preselectedOutfitId: outfit.id } })}
-              className="w-full h-12 bg-transparent border border-foreground/20 text-foreground font-['DM_Sans'] text-[14px] font-medium"
-            >
-              {t('outfit.plan') || 'Plan'}
-            </Button>
-            {/* Save to outfits */}
-            <Button
-              variant="outline"
-              onClick={handleToggleSave}
-              className="w-full h-12 bg-transparent border border-foreground/20 text-foreground font-['DM_Sans'] text-[13px] font-medium flex items-center justify-center gap-2"
-            >
-              {outfit.saved
-                ? <><BookmarkCheck className="w-4 h-4" />{t('outfit.saved')}</>
-                : <><Bookmark className="w-4 h-4" />{t('outfit.save') || 'Save to outfits'}</>
-              }
-            </Button>
-            {/* Actions row */}
-            <div className="flex gap-2 mt-1">
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                onClick={() => navigate('/plan', { state: { preselectedOutfitId: outfit.id } })}
+                className="h-11 rounded-full border border-foreground/20 bg-transparent text-foreground font-['DM_Sans'] text-[13px] font-medium"
+              >
+                {t('outfit.plan') || 'Plan'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleToggleSave}
+                className="h-11 rounded-full border border-foreground/20 bg-transparent text-foreground font-['DM_Sans'] text-[13px] font-medium flex items-center justify-center gap-2"
+              >
+                {outfit.saved
+                  ? <><BookmarkCheck className="w-4 h-4" />{t('outfit.saved')}</>
+                  : <><Bookmark className="w-4 h-4" />{t('outfit.save') || 'Save'}</>
+                }
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 variant="ghost"
                 onClick={() => setShareSheetOpen(true)}
-                className="flex-1 h-11 bg-card text-foreground font-['DM_Sans'] text-[12px] flex items-center justify-center gap-1.5"
+                className="h-10 rounded-full bg-card text-foreground font-['DM_Sans'] text-[12px] flex items-center justify-center gap-1.5"
               >
                 <Share2 className="w-3.5 h-3.5" />
                 Share
@@ -694,7 +694,7 @@ export default function OutfitDetailPage() {
               <Button
                 variant="ghost"
                 onClick={handleCreateSimilar}
-                className="flex-1 h-11 bg-card text-foreground font-['DM_Sans'] text-[12px] flex items-center justify-center gap-1.5"
+                className="h-10 rounded-full bg-card text-foreground font-['DM_Sans'] text-[12px] flex items-center justify-center gap-1.5"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 Remake
@@ -731,7 +731,7 @@ export default function OutfitDetailPage() {
             )}
             {genWardrobeInsights && genWardrobeInsights.length > 0 && (
               <p className="font-['DM_Sans'] text-[13px] text-foreground/[0.55] leading-[1.6]">
-                {genWardrobeInsights.join(' · ')}
+                {genWardrobeInsights.join(' / ')}
               </p>
             )}
             {genOutfitReasoning && (

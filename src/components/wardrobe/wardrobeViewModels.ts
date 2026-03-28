@@ -1,6 +1,7 @@
 import type { WardrobeSmartFilter, WardrobeTab } from '@/hooks/useWardrobeView';
 import type {
   WardrobeCollectionTileModel,
+  WardrobeCommandActionModel,
   WardrobeCommandTopState,
   WardrobeInventoryState,
 } from '@/components/wardrobe/wardrobeTypes';
@@ -57,8 +58,8 @@ export function buildWardrobeCommandTopState({
   const trimmedSearch = search.trim();
 
   let caption = activeTab === 'garments'
-    ? 'Search, filter, and style what you already own.'
-    : 'Saved and planned looks stay in one place.';
+    ? 'Search, filter, and open what you own.'
+    : 'Saved and planned looks stay together.';
 
   if (isSelecting) {
     caption = selectedIdsCount > 0
@@ -69,10 +70,10 @@ export function buildWardrobeCommandTopState({
   } else if (activeTab === 'garments' && hasActiveFilters) {
     caption = `${displayCount} filtered piece${displayCount === 1 ? '' : 's'}`;
   } else if (activeTab === 'garments' && isLowWardrobe) {
-    caption = 'Add a top, bottom, and shoes to unlock full styling.';
+    caption = 'Add a top, bottom, and shoes to unlock styling.';
   }
 
-  const actions = activeTab === 'outfits'
+  const actions: WardrobeCommandActionModel[] = activeTab === 'outfits'
     ? [
         { key: 'style', label: t('outfits.create'), tone: 'primary' as const },
         { key: 'plan', label: t('plan.plan'), tone: 'secondary' as const },
@@ -98,7 +99,7 @@ export function buildWardrobeCommandTopState({
     caption,
     activeTab,
     resultsLabel: getResultsLabel({ activeTab, totalCount, displayCount, t }),
-    searchPlaceholder: `${t('wardrobe.search')} ${t('wardrobe.tab_garments').toLowerCase()}…`,
+    searchPlaceholder: 'Search garments...',
     actions,
   };
 }
@@ -112,11 +113,13 @@ export function buildWardrobeCollectionTiles({
   smartFilterCounts: Record<'rarely_worn' | 'most_worn' | 'new', number>;
   t: Translate;
 }): WardrobeCollectionTileModel[] {
-  return [
+  const tiles: WardrobeCollectionTileModel[] = [
     { key: 'rarely_worn', label: t('wardrobe.rarely_worn'), count: smartFilterCounts.rarely_worn, active: smartFilter === 'rarely_worn' },
     { key: 'most_worn', label: t('wardrobe.most_worn'), count: smartFilterCounts.most_worn, active: smartFilter === 'most_worn' },
     { key: 'new', label: t('wardrobe.recently_added'), count: smartFilterCounts.new, active: smartFilter === 'new' },
-  ].filter((tile) => tile.count > 0);
+  ];
+
+  return tiles.filter((tile) => tile.count > 0);
 }
 
 export function buildWardrobeInventoryState({
@@ -148,15 +151,15 @@ export function buildWardrobeInventoryState({
     return {
       kind: 'selecting',
       title: selectedIdsCount > 0 ? `${selectedIdsCount} selected` : 'Select pieces',
-      description: 'Batch actions stay available at the top.',
+      description: 'Batch actions stay above the list.',
     };
   }
 
   if (activeTab === 'outfits') {
     return {
       kind: 'results',
-      title: 'Your saved and planned looks',
-      description: 'Generate new outfits, then keep the best ones close.',
+      title: 'Look archive',
+      description: 'Saved and planned looks stay together here.',
     };
   }
 
@@ -179,6 +182,6 @@ export function buildWardrobeInventoryState({
   return {
     kind: 'results',
     title: `${displayCount} piece${displayCount === 1 ? '' : 's'} ready`,
-    description: 'Tap a piece to open it, or style around it directly.',
+    description: 'Tap a piece to open it.',
   };
 }

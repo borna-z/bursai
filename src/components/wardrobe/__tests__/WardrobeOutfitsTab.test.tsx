@@ -18,13 +18,12 @@ vi.mock('framer-motion', () => ({
   motion: {
     div: ({
       children,
-      whileTap,
-      transition,
       ...props
     }: Record<string, unknown> & { children?: ReactNode }) => <div {...props}>{children}</div>,
-    h3: ({ children, ...props }: Record<string, unknown> & { children?: ReactNode }) => <h3 {...props}>{children}</h3>,
-    p: ({ children, ...props }: Record<string, unknown> & { children?: ReactNode }) => <p {...props}>{children}</p>,
-    button: ({ children, ...props }: Record<string, unknown> & { children?: ReactNode }) => <button {...props}>{children}</button>,
+    button: ({
+      children,
+      ...props
+    }: Record<string, unknown> & { children?: ReactNode }) => <button {...props}>{children}</button>,
   },
 }));
 
@@ -81,6 +80,24 @@ vi.mock('@/components/ui/OutfitPreviewCard', () => ({
   ),
 }));
 
+vi.mock('@/components/layout/EmptyState', () => ({
+  EmptyState: ({
+    title,
+    action,
+    secondaryAction,
+  }: {
+    title: string;
+    action?: { label: string; onClick?: () => void };
+    secondaryAction?: { label: string; onClick?: () => void };
+  }) => (
+    <div data-testid="empty-state">
+      <p>{title}</p>
+      {action ? <button onClick={action.onClick}>{action.label}</button> : null}
+      {secondaryAction ? <button onClick={secondaryAction.onClick}>{secondaryAction.label}</button> : null}
+    </div>
+  ),
+}));
+
 import { WardrobeOutfitsTab } from '../WardrobeOutfitsTab';
 
 const baseOutfit = {
@@ -107,7 +124,7 @@ describe('WardrobeOutfitsTab', () => {
     vi.clearAllMocks();
   });
 
-  it('renders in-page actions, summary counts, and rich outfit metadata', () => {
+  it('renders the tighter archive intro and richer outfit metadata', () => {
     useOutfitsMock.mockReturnValue({
       data: [
         baseOutfit,
@@ -125,17 +142,15 @@ describe('WardrobeOutfitsTab', () => {
 
     render(<WardrobeOutfitsTab />);
 
-    expect(screen.getByText('Your outfit archive')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Style me' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open planner' })).toBeInTheDocument();
+    expect(screen.getByText('Look archive')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create outfit' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open plan' })).toBeInTheDocument();
     expect(screen.getAllByText('All looks').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Saved').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Planned').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Outfit').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Look').length).toBeGreaterThan(0);
     expect(screen.getByText('Work')).toBeInTheDocument();
     expect(screen.getByText('4/5')).toBeInTheDocument();
-    expect(screen.getAllByText('Date').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Status').length).toBeGreaterThan(0);
     expect(screen.getByText('Saved + planned')).toBeInTheDocument();
   });
 
@@ -169,7 +184,7 @@ describe('WardrobeOutfitsTab', () => {
     fireEvent.click(screen.getByRole('button', { name: /planned/i }));
 
     expect(screen.getByText('Nothing planned yet')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Open planner' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Open plan' }).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole('button', { name: 'Show all looks' }));
 
@@ -185,7 +200,7 @@ describe('WardrobeOutfitsTab', () => {
     render(<WardrobeOutfitsTab />);
 
     expect(screen.getByText('No wardrobe looks yet')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create outfit' })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Open planner' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Create outfit' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Open plan' }).length).toBeGreaterThan(0);
   });
 });
