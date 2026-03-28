@@ -445,14 +445,12 @@ describe('useLiveScan', () => {
       'garment',
       'ai-suggestions',
       'insights',
-      'insights-dashboard',
       'outfits|user-1',
       'planned-outfits',
       'planned-outfits-day',
       'garments-by-ids',
       'subscription|user-1',
       'garments-search|user-1',
-      'style-dna',
     ]));
   });
 });

@@ -3,22 +3,6 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-vi.mock('@/components/layout/AppLayout', () => ({
-  AppLayout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
-
-vi.mock('@/components/layout/PullToRefresh', () => ({
-  PullToRefresh: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
-
-vi.mock('@/components/ui/animated-page', () => ({
-  AnimatedPage: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
-
-vi.mock('@/components/ui/animated-tab', () => ({
-  AnimatedTab: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
-
 vi.mock('@/contexts/ThemeContext', () => ({
   useTheme: vi.fn(() => ({ theme: 'light', accentColor: 'blue', setTheme: vi.fn(), setAccentColor: vi.fn() })),
 }));
@@ -44,85 +28,33 @@ vi.mock('@/components/wardrobe/WardrobeOutfitsTab', () => ({
   WardrobeOutfitsTab: () => <div data-testid="wardrobe-outfits-tab">outfits</div>,
 }));
 
-vi.mock('@/components/wardrobe/WardrobeToolbar', () => ({
-  WardrobeToolbar: () => (
-    <div>
-      <h1>wardrobe.title</h1>
-      <button type="button" aria-label="wardrobe.tab_garments">wardrobe.tab_garments</button>
-      <button type="button" aria-label="wardrobe.tab_outfits">wardrobe.tab_outfits</button>
-      <button type="button" aria-label="wardrobe.live_scan">wardrobe.live_scan</button>
-      <button type="button" aria-label="wardrobe.add">wardrobe.add</button>
-    </div>
-  ),
-}));
-
-vi.mock('@/components/wardrobe/WardrobeSmartAccess', () => ({
-  WardrobeSmartAccess: () => (
-    <div aria-label="Smart access">
-      <button type="button" aria-label="wardrobe.rarely_worn">wardrobe.rarely_worn</button>
-      <button type="button" aria-label="wardrobe.most_worn">wardrobe.most_worn</button>
-      <button type="button" aria-label="wardrobe.recently_added">wardrobe.recently_added</button>
-    </div>
-  ),
-}));
-
-vi.mock('@/components/wardrobe/FilterSheet', () => ({
-  FilterSheet: () => null,
-}));
-
-vi.mock('@/components/PaywallModal', () => ({
-  PaywallModal: () => null,
-}));
-
-vi.mock('@/hooks/useWardrobeView', () => ({
-  useWardrobeView: vi.fn(() => ({
-    activeTab: 'garments',
-    setActiveTab: vi.fn(),
-    search: '',
-    setSearch: vi.fn(),
-    selectedCategory: 'all',
-    setSelectedCategory: vi.fn(),
-    selectedColor: '',
-    setSelectedColor: vi.fn(),
-    selectedSeason: '',
-    setSelectedSeason: vi.fn(),
-    isGridView: true,
-    setIsGridView: vi.fn(),
-    showPaywall: false,
-    setShowPaywall: vi.fn(),
-    isSelecting: false,
-    setIsSelecting: vi.fn(),
-    selectedIds: new Set(),
-    setSelectedIds: vi.fn(),
-    showFilterSheet: false,
-    setShowFilterSheet: vi.fn(),
-    sortBy: 'created_at',
-    setSortBy: vi.fn(),
-    showLaundry: false,
-    setShowLaundry: vi.fn(),
-    smartFilter: null,
-    setSmartFilter: vi.fn(),
+vi.mock('@/hooks/useGarments', () => ({
+  useGarments: vi.fn(() => ({
+    data: {
+      pages: [{
+        items: [
+          { id: 'g1', title: 'Blue shirt', category: 'top', wear_count: 0, last_worn_at: null, created_at: '2026-03-27T10:00:00Z' },
+          { id: 'g2', title: 'Grey tee', category: 'top', wear_count: 4, last_worn_at: '2026-03-24', created_at: '2026-03-20T10:00:00Z' },
+          { id: 'g3', title: 'Black trousers', category: 'bottom', wear_count: 1, last_worn_at: '2026-02-10', created_at: '2026-03-19T10:00:00Z' },
+          { id: 'g4', title: 'Derbies', category: 'shoes', wear_count: 5, last_worn_at: '2026-03-20', created_at: '2026-03-18T10:00:00Z' },
+          { id: 'g5', title: 'Coat', category: 'outerwear', wear_count: 0, last_worn_at: null, created_at: '2026-03-17T10:00:00Z' },
+          { id: 'g6', title: 'Scarf', category: 'accessory', wear_count: 0, last_worn_at: null, created_at: '2026-03-16T10:00:00Z' },
+        ],
+        nextPage: undefined,
+      }],
+    },
     isLoading: false,
-    totalCount: 6,
-    displayGarments: [{ id: 'g1', title: 'Blue shirt' }],
-    garmentsByCategory: [{ category: 'Tops', garments: [{ id: 'g1', title: 'Blue shirt' }] }],
-    smartFilterCounts: { rarely_worn: 2, most_worn: 2, recently_added: 2 },
-    hasActiveFilters: false,
-    activeFilterCount: 0,
-    showGrouped: false,
-    categories: ['all', 'top'],
+    fetchNextPage: vi.fn(),
     hasNextPage: false,
     isFetchingNextPage: false,
-    fetchNextPage: vi.fn(),
-    allGarments: [{ id: 'g1', title: 'Blue shirt' }],
-    updateGarment: { mutate: vi.fn(), mutateAsync: vi.fn() },
-    deleteGarment: { mutate: vi.fn(), mutateAsync: vi.fn() },
-    toggleSelect: vi.fn(),
-    handleBulkLaundry: vi.fn(),
-    handleBulkDelete: vi.fn(),
-    clearFilters: vi.fn(),
-    handleRefresh: vi.fn(),
   })),
+  useGarmentSearch: vi.fn(() => ({
+    data: [],
+    isLoading: false,
+  })),
+  useGarmentCount: vi.fn(() => ({ data: 6 })),
+  useUpdateGarment: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn() })),
+  useDeleteGarment: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn() })),
 }));
 
 vi.mock('@/hooks/useSubscription', () => ({

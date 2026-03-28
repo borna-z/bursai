@@ -1,5 +1,4 @@
 import { Badge } from '@/components/ui/badge';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { getGarmentProcessingMessage, type GarmentDisplaySource } from '@/lib/garmentImage';
 import { cn } from '@/lib/utils';
 
@@ -11,19 +10,9 @@ interface GarmentProcessingBadgeProps {
 }
 
 export function GarmentProcessingBadge({ status, renderStatus, className, displaySource = 'original' }: GarmentProcessingBadgeProps) {
-  const { t } = useLanguage();
   const message = getGarmentProcessingMessage(status, renderStatus, displaySource);
 
   if (!message) return null;
-
-  const translatedLabel = ({
-    'Rendering mannequin image in background': t('garment.processing.rendering_background'),
-    'Using cleaned cutout': t('garment.processing.using_cleaned_cutout'),
-    'Using original photo': t('garment.processing.using_original_photo'),
-    'Preparing image in background': t('garment.processing.preparing_image'),
-    'Background cleanup in progress': t('garment.processing.background_cleanup'),
-    'Using rendered mannequin image': t('garment.processing.using_rendered_image'),
-  } as const)[message.label] ?? message.label;
 
   return (
     <Badge
@@ -36,7 +25,7 @@ export function GarmentProcessingBadge({ status, renderStatus, className, displa
         className,
       )}
     >
-      {translatedLabel}
+      {message.label}
     </Badge>
   );
 }
