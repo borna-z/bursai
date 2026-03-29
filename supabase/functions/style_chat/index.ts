@@ -1428,9 +1428,6 @@ serve(async (req) => {
     });
     const refinementContract = buildRefinementContract(refinementIntent, activeLook);
     const modeContract = buildModeContract(stylistMode, lang);
-    const candidateOutfits = (stylistMode === "WARDROBE_GAP_ANALYSIS" || stylistMode === "PURCHASE_PRIORITIZATION" || stylistMode === "STYLE_IDENTITY_ANALYSIS")
-      ? ""
-      : buildCandidateOutfits(wardrobeCtx.rankedGarments, wardrobeCtx.anchor);
     const chatComplexity = chooseChatComplexity(messages as MessageInput[], wardrobeCtx.anchor);
     const refinementTurn = stylistMode === "ACTIVE_LOOK_REFINEMENT" && isRefinementTurn(refinementIntent, activeLook);
 
@@ -1454,6 +1451,9 @@ serve(async (req) => {
     const shouldCallUnifiedEngine = stylistMode === "OUTFIT_GENERATION"
       || stylistMode === "GARMENT_FIRST_STYLING"
       || stylistMode === "ACTIVE_LOOK_REFINEMENT";
+    const candidateOutfits = (!shouldCallUnifiedEngine && stylistMode !== "WARDROBE_GAP_ANALYSIS" && stylistMode !== "PURCHASE_PRIORITIZATION" && stylistMode !== "STYLE_IDENTITY_ANALYSIS")
+      ? buildCandidateOutfits(wardrobeCtx.rankedGarments, wardrobeCtx.anchor)
+      : "";
 
     const unifiedRequestMode = stylistMode === "ACTIVE_LOOK_REFINEMENT"
       ? (refinementIntent.mode === "swap_shoes" ? "swap" : "refine")

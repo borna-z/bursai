@@ -94,33 +94,17 @@ async function fetchGarmentsByIds(garmentIds: string[]): Promise<Map<string, Gar
   const uniqueIds = Array.from(new Set(garmentIds.filter(Boolean)));
   if (uniqueIds.length === 0) return new Map();
 
-  const garmentsQuery = supabase
+  const { data: garments, error } = await supabase
     .from('garments')
-    .select('*') as { in?: (column: string, values: string[]) => Promise<{ data: unknown[]; error: Error | null }>; eq?: (column: string, value: string) => Promise<{ data: unknown[]; error: Error | null }> };
-
-  const queryResult = typeof garmentsQuery.in === 'function'
-    ? await garmentsQuery.in('id', uniqueIds)
-    : typeof garmentsQuery.eq === 'function'
-      ? await garmentsQuery.eq('id', uniqueIds[0])
-      : { data: [], error: null };
-
-  const { data: garments, error } = queryResult;
+    .select('*')
+    .in('id', uniqueIds);
 
   if (error) throw error;
   return new Map((garments || []).map((garment) => [garment.id, garment as Garment]));
 }
 
 function assertCompleteGeneratedOutfit(items: { slot: string; garment: Garment }[], contextLabel: string): void {
-  const normalizedItems = items.map((item) => ({
-    slot: (item.slot || inferOutfitSlotFromGarment(item.garment)).toLowerCase(),
-    garment: item.garment,
-  }));
-  const hasSlot = (slot: string) => normalizedItems.some((item) => item.slot.includes(slot));
-  const hasDressPath = hasSlot('dress') && hasSlot('shoe');
-  const hasSeparatesPath = hasSlot('top') && hasSlot('bottom') && hasSlot('shoe');
-  const validation = hasDressPath || hasSeparatesPath
-    ? { isValid: true, missing: [] as string[] }
-    : validateCompleteOutfit(normalizedItems);
+  const validation = validateCompleteOutfit(items);
   if (!validation.isValid) {
     const detail = validation.missing.length > 0 ? ` Missing: ${validation.missing.join(', ')}.` : '';
     throw new Error(`Incomplete outfit returned${contextLabel}.${detail}`.trim());

@@ -127,4 +127,22 @@ describe("styleChatNormalizer", () => {
     expect(reply.outfitIds).toEqual([TOP.id, BOTTOM.id, SHOES.id]);
     expect(reply.outfitTag).toContain("Unified engine selected this look");
   });
+
+  it("emits exactly one authoritative outfit tag when raw text contains a conflicting tag", () => {
+    const reply = normalizeStyleChatAssistantReply({
+      rawText: `Try this [[outfit:${DRESS.id},${SHOES.id}|Model guessed dress look]].`,
+      validGarmentIds: new Set([TOP.id, BOTTOM.id, DRESS.id, SHOES.id]),
+      rankedGarments: [TOP, BOTTOM, DRESS, SHOES],
+      anchor: null,
+      activeLook: EMPTY_ACTIVE_LOOK,
+      includeOutfitTag: true,
+      authoritativeOutfitIds: [TOP.id, BOTTOM.id, SHOES.id],
+      authoritativeExplanation: "Unified look wins",
+    });
+
+    const tags = reply.text.match(/\[\[outfit:[^\]]+\]\]/g) || [];
+    expect(tags).toHaveLength(1);
+    expect(tags[0]).toContain(`${TOP.id},${BOTTOM.id},${SHOES.id}`);
+    expect(tags[0]).toContain("Unified look wins");
+  });
 });
