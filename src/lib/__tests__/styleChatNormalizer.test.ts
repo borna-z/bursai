@@ -111,4 +111,20 @@ describe("styleChatNormalizer", () => {
     expect(reply.outfitIds).toContain(SHOES.id);
     expect(isCompleteStyleChatOutfitIds(reply.outfitIds, [DRESS, SHOES, OUTERWEAR])).toBe(true);
   });
+
+  it("prefers authoritative outfit ids from unified stylist engine", () => {
+    const reply = normalizeStyleChatAssistantReply({
+      rawText: `Let's sharpen this with ${OUTERWEAR.title}.`,
+      validGarmentIds: new Set([TOP.id, BOTTOM.id, SHOES.id, OUTERWEAR.id]),
+      rankedGarments: [TOP, BOTTOM, SHOES, OUTERWEAR],
+      anchor: OUTERWEAR,
+      activeLook: EMPTY_ACTIVE_LOOK,
+      includeOutfitTag: true,
+      authoritativeOutfitIds: [TOP.id, BOTTOM.id, SHOES.id],
+      authoritativeExplanation: "Unified engine selected this look",
+    });
+
+    expect(reply.outfitIds).toEqual([TOP.id, BOTTOM.id, SHOES.id]);
+    expect(reply.outfitTag).toContain("Unified engine selected this look");
+  });
 });

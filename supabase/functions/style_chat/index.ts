@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 import { VOICE_STYLIST_CHAT } from "../_shared/burs-voice.ts";
+import { buildAuthoritativeOutfitTag, invokeUnifiedStylistEngine } from "../_shared/unified_stylist_engine.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { normalizeStyleChatAssistantReply } from "../../../src/lib/styleChatNormalizer.ts";
@@ -1450,6 +1451,44 @@ serve(async (req) => {
 - You may still use [[garment:ID]] tags sparingly where they improve clarity.
 - Prioritize mode-specific analysis structure over card markup in this mode.`;
 
+    const shouldCallUnifiedEngine = stylistMode === "OUTFIT_GENERATION"
+      || stylistMode === "GARMENT_FIRST_STYLING"
+      || stylistMode === "ACTIVE_LOOK_REFINEMENT";
+
+    const unifiedRequestMode = stylistMode === "ACTIVE_LOOK_REFINEMENT"
+      ? (refinementIntent.mode === "swap_shoes" ? "swap" : "refine")
+      : "generate";
+    const unified = shouldCallUnifiedEngine
+      ? await invokeUnifiedStylistEngine({
+        authToken: token,
+        request: {
+          mode: unifiedRequestMode,
+          generator_mode: "stylist",
+          occasion: "chat",
+          style: wardrobeCtx.dominantArchetype,
+          weather: undefined,
+          locale,
+          prefer_garment_ids: wardrobeCtx.anchor ? [wardrobeCtx.anchor.id] : [],
+          active_look_garment_ids: activeLook.garmentIds,
+          locked_garment_ids: refinementIntent.mode === "keep_jacket" && activeLook.garmentIds.length > 0
+            ? [activeLook.garmentIds[0]]
+            : [],
+          requested_edit_slots: refinementIntent.mode === "swap_shoes" ? ["shoes"] : [],
+          output_count: 1,
+          explanation_mode: "short",
+        },
+      })
+      : null;
+    const unifiedOutfit = unified?.outfits[0] || null;
+    const authoritativeOutfitIds = unifiedOutfit?.garment_ids || [];
+    const authoritativeOutfitTag = buildAuthoritativeOutfitTag(
+      authoritativeOutfitIds,
+      unifiedOutfit?.rationale || "",
+    );
+    const unifiedCandidateLine = authoritativeOutfitTag
+      ? `\nUNIFIED OUTFIT DECISION (authoritative): ${authoritativeOutfitTag}`
+      : "";
+
     const systemPrompt = `${VOICE_STYLIST_CHAT}
 
 LANGUAGE: Respond ONLY in ${lang.name}. Every word.
@@ -1463,7 +1502,7 @@ ${identityBlock}
 ${styleLines ? `\nSTYLE PROFILE:\n${styleLines}` : ""}
 
 ${threadBrief ? `${threadBrief}\n\n` : ""}${wardrobeCtx.text}
-${candidateOutfits ? `\n\n${candidateOutfits}` : ""}
+${candidateOutfits ? `\n\n${candidateOutfits}` : ""}${unifiedCandidateLine}
 ${recentOutfitsCtx.text}
 ${rejectionsCtx.text}
 ${tasteMemoryBlock ? `\nTASTE MEMORY (learned from behavior — reference this naturally in replies):\n${tasteMemoryBlock}` : ""}
@@ -1588,6 +1627,8 @@ ${refinementContract}`;
       activeLook,
       placeOutfitTagFirst: refinementTurn,
       includeOutfitTag: shouldForceOutfitTags,
+      authoritativeOutfitIds,
+      authoritativeExplanation: unifiedOutfit?.rationale || null,
     });
 
     const chips = buildSuggestionChips(

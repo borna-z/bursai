@@ -379,6 +379,8 @@ export function normalizeStyleChatAssistantReply<TGarment extends StyleChatGarme
   activeLook: StyleChatActiveLookContext;
   placeOutfitTagFirst?: boolean;
   includeOutfitTag?: boolean;
+  authoritativeOutfitIds?: string[];
+  authoritativeExplanation?: string | null;
 }): NormalizedStyleChatAssistantReply {
   const candidate = pickStyleChatOutfitIdsFromText(
     params.rawText,
@@ -390,12 +392,13 @@ export function normalizeStyleChatAssistantReply<TGarment extends StyleChatGarme
     params.anchor,
     params.activeLook,
   );
-  const rawIds = (candidate?.ids.length ? candidate.ids : fallbackIds).slice(0, 5);
+  const authoritativeIds = uniqueIds(params.authoritativeOutfitIds || []).slice(0, 5);
+  const rawIds = (authoritativeIds.length ? authoritativeIds : (candidate?.ids.length ? candidate.ids : fallbackIds)).slice(0, 5);
   const deduplicatedIds = deduplicateStyleChatOutfitBySlot(rawIds, params.rankedGarments, params.anchor).slice(0, 5);
   const outfitIds = isCompleteStyleChatOutfitIds(deduplicatedIds, params.rankedGarments)
     ? deduplicatedIds
     : [];
-  const explanation = (candidate?.explanation || buildOutfitExplanation(params.rawText, outfitIds))
+  const explanation = (params.authoritativeExplanation || candidate?.explanation || buildOutfitExplanation(params.rawText, outfitIds))
     .replace(/[[\]\n\r|]+/g, " ")
     .trim();
   const prose = stripRawIdReferences(stripUnknownTagMarkup(params.rawText.replace(VALID_OUTFIT_TAG_RE, "")));
