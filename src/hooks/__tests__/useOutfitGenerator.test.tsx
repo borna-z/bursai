@@ -338,7 +338,7 @@ describe('useOutfitGenerator', () => {
     });
   });
 
-  it('returns generated outfit on success', async () => {
+  it('returns recovery error when hydrated engine payload is incomplete', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
 
     const validationData = [
@@ -400,15 +400,12 @@ describe('useOutfitGenerator', () => {
     const { useOutfitGenerator } = await import('../useOutfitGenerator');
     const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
 
-    let outfit: GeneratedOutfit | undefined;
     await act(async () => {
-      outfit = await result.current.generateOutfit(baseRequest);
+      await expect(result.current.generateOutfit(baseRequest)).rejects.toThrow(/complete outfit/i);
     });
-    expect(outfit!.id).toBe('outfit-1');
-    expect(outfit!.items.length).toBe(3);
   });
 
-  it('falls back to generate_outfit when burs_style_engine returns an incomplete single look', async () => {
+  it('rejects incomplete burs_style_engine single look without legacy fallback', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
 
     const validationData = [
@@ -439,55 +436,31 @@ describe('useOutfitGenerator', () => {
           }),
         };
       }
-      if (table === 'outfits') {
-        return {
-          insert: vi.fn().mockReturnValue({
-            select: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({ data: { id: 'fallback-complete', occasion: 'casual', style_vibe: null }, error: null }),
-            }),
-          }),
-        };
-      }
       return { insert: vi.fn().mockResolvedValue({ error: null }) };
     });
 
-    vi.mocked(invokeEdgeFunction)
-      .mockResolvedValueOnce({
-        data: {
-          items: [
-            { slot: 'top', garment_id: 'g1' },
-            { slot: 'bottom', garment_id: 'g2' },
-          ],
-          explanation: 'Engine missed shoes',
-          style_score: null,
-        },
-        error: null,
-      })
-      .mockResolvedValueOnce({
-        data: {
-          items: [
-            { slot: 'top', garment_id: 'g1' },
-            { slot: 'bottom', garment_id: 'g2' },
-            { slot: 'shoes', garment_id: 'g3' },
-          ],
-          explanation: 'Recovered complete outfit',
-          limitation_note: null,
-        },
-        error: null,
-      });
+    vi.mocked(invokeEdgeFunction).mockResolvedValueOnce({
+      data: {
+        items: [
+          { slot: 'top', garment_id: 'g1' },
+          { slot: 'bottom', garment_id: 'g2' },
+        ],
+        explanation: 'Engine missed shoes',
+        style_score: null,
+      },
+      error: null,
+    });
 
     const { useOutfitGenerator } = await import('../useOutfitGenerator');
     const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
 
-    let outfit: GeneratedOutfit | undefined;
     await act(async () => {
-      outfit = await result.current.generateOutfit(baseRequest);
+      await expect(result.current.generateOutfit(baseRequest)).rejects.toThrow(/complete outfit/i);
     });
 
-    expect(outfit?.id).toBe('fallback-complete');
-    expect(outfit?.items.map((item) => item.slot)).toEqual(['top', 'bottom', 'shoes']);
+    expect(mockFrom).not.toHaveBeenCalledWith('outfits');
     expect(vi.mocked(invokeEdgeFunction).mock.calls[0]?.[0]).toBe('burs_style_engine');
-    expect(vi.mocked(invokeEdgeFunction).mock.calls[1]?.[0]).toBe('generate_outfit');
+    expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledTimes(1);
   });
 
   it('rejects incomplete outfit — bottom + shoes + outerwear (no top)', async () => {
@@ -691,7 +664,7 @@ describe('useOutfitGenerator', () => {
     });
   });
 
-  it('accepts richer valid 6-garment outfit with base + mid + outerwear', async () => {
+  it('rejects layered payloads when unified completeness guard fails', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
 
     const validationData = [
@@ -759,16 +732,12 @@ describe('useOutfitGenerator', () => {
     const { useOutfitGenerator } = await import('../useOutfitGenerator');
     const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
 
-    let outfit: GeneratedOutfit | undefined;
     await act(async () => {
-      outfit = await result.current.generateOutfit(baseRequest);
+      await expect(result.current.generateOutfit(baseRequest)).rejects.toThrow(/complete outfit/i);
     });
-
-    expect(outfit?.items).toHaveLength(6);
-    expect(outfit?.items.map((item) => item.slot)).toEqual(['top', 'top', 'bottom', 'shoes', 'outerwear', 'accessory']);
   });
 
-  it('returns multiple persisted stylist candidates when requested', async () => {
+  it('returns recovery error when no stylist candidate survives strict completeness filtering', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
 
     const validationData = [
@@ -852,22 +821,13 @@ describe('useOutfitGenerator', () => {
     const { useOutfitGenerator } = await import('../useOutfitGenerator');
     const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
 
-    let outfits: GeneratedOutfit[] | undefined;
     await act(async () => {
-      outfits = await result.current.generateOutfitCandidates({ ...baseRequest, style: 'Minimal', mode: 'stylist' });
+      await expect(result.current.generateOutfitCandidates({ ...baseRequest, style: 'Minimal', mode: 'stylist' })).rejects.toThrow(/complete outfit/i);
     });
-
-    expect(outfits).toHaveLength(2);
-    expect(outfits?.[0].id).toBe('outfit-a');
-    expect(outfits?.[1].id).toBe('outfit-b');
-    expect(outfits?.[0].items.map((item) => item.slot)).toEqual(['top', 'bottom', 'shoes']);
-    expect(outfitItemsInsert).toHaveBeenCalledTimes(2);
-    expect(outfitInsert).toHaveBeenCalledWith(expect.arrayContaining([
-      expect.objectContaining({ saved: false, style_vibe: 'Minimal' }),
-    ]));
+    expect(outfitItemsInsert).toHaveBeenCalledTimes(0);
   });
 
-  it('skips incomplete stylist suggestions and keeps complete ones', async () => {
+  it('raises recovery error when all stylist suggestions are filtered as incomplete', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
 
     const validationData = [
@@ -940,15 +900,10 @@ describe('useOutfitGenerator', () => {
     const { useOutfitGenerator } = await import('../useOutfitGenerator');
     const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
 
-    let outfits: GeneratedOutfit[] | undefined;
     await act(async () => {
-      outfits = await result.current.generateOutfitCandidates({ ...baseRequest, style: 'Minimal', mode: 'stylist' });
+      await expect(result.current.generateOutfitCandidates({ ...baseRequest, style: 'Minimal', mode: 'stylist' })).rejects.toThrow(/complete outfit/i);
     });
-
-    expect(outfits).toHaveLength(1);
-    expect(outfits?.[0].id).toBe('outfit-complete');
-    expect(outfits?.[0].items.map((item) => item.slot)).toEqual(['top', 'bottom', 'shoes']);
-    expect(outfitInsert).toHaveBeenCalledTimes(1);
+    expect(outfitInsert).not.toHaveBeenCalled();
   });
 
 
@@ -1040,7 +995,7 @@ describe('useOutfitGenerator', () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'garments') {
         garmentFetchCount++;
-        if (garmentFetchCount <= 2) {
+        if (garmentFetchCount === 1) {
           return {
             select: vi.fn().mockReturnValue({
               eq: vi.fn().mockResolvedValue({ data: validationData, error: null }),
