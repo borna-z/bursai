@@ -323,7 +323,7 @@ const fr: Record<string, string> = {
     'outfit.create_error': 'Could not create outfit',
     'outfit.created': 'Outfit created!',
     'outfit.save': 'Save outfit',
-    'outfit.no_alternatives': 'No alternatives',
+   
 
     // Chat keys
     'chat.stylist_fallback': 'Something went wrong on my end. Try asking again or rephrase your request.',

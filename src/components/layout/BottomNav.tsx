@@ -84,60 +84,58 @@ export function BottomNav() {
         className="fixed inset-x-0 bottom-0 z-50 pointer-events-none"
         aria-label={t('nav.main_navigation')}
       >
-        <div className="pointer-events-auto pb-[env(safe-area-inset-bottom,0px)]">
-          <div className="app-dock flex items-center gap-1">
-            <div className="app-dock-slot">
-              <RouteTab {...ROUTE_TABS[0]} />
-            </div>
+        <div className="app-dock pointer-events-auto flex items-center gap-1">
+          <div className="app-dock-slot">
+            <RouteTab {...ROUTE_TABS[0]} />
+          </div>
 
-            {showWardrobeCoach ? (
-              <CoachMark
-                step={0}
-                currentStep={coach.currentStep}
-                isCoachActive
-                title={t('coach.start_here_title')}
-                body={t('coach.start_here_body')}
-                ctaLabel={t('coach.start_here_cta')}
-                onCta={() => {
-                  navigate('/wardrobe');
-                  coach.advanceStep();
-                }}
-                onSkip={() => coach.completeTour()}
-                position="top"
-              >
-                {wardrobeTab}
-              </CoachMark>
-            ) : (
-              wardrobeTab
-            )}
+          {showWardrobeCoach ? (
+            <CoachMark
+              step={0}
+              currentStep={coach.currentStep}
+              isCoachActive
+              title={t('coach.start_here_title')}
+              body={t('coach.start_here_body')}
+              ctaLabel={t('coach.start_here_cta')}
+              onCta={() => {
+                navigate('/wardrobe');
+                coach.advanceStep();
+              }}
+              onSkip={() => coach.completeTour()}
+              position="top"
+            >
+              {wardrobeTab}
+            </CoachMark>
+          ) : (
+            wardrobeTab
+          )}
 
-            <div className="app-dock-slot">
-              <button
-                type="button"
-                aria-label={t('nav.add')}
-                aria-expanded={addSheetOpen}
-                aria-haspopup="dialog"
-                data-testid="bottom-nav-add"
-                onClick={() => {
-                  hapticLight();
-                  setAddSheetOpen(true);
-                }}
-                className={cn(
-                  'flex h-[3.75rem] w-[3.75rem] items-center justify-center rounded-full border border-foreground/10 bg-foreground text-background shadow-[0_18px_34px_rgba(28,25,23,0.22)] transition-transform active:scale-[0.97]',
-                  addSheetOpen && 'scale-[1.02]',
-                )}
-              >
-                <Plus className="h-5 w-5" strokeWidth={2.4} />
-              </button>
-            </div>
+          <div className="app-dock-slot">
+            <button
+              type="button"
+              aria-label={t('nav.add')}
+              aria-expanded={addSheetOpen}
+              aria-haspopup="dialog"
+              data-testid="bottom-nav-add"
+              onClick={() => {
+                hapticLight();
+                setAddSheetOpen(true);
+              }}
+              className={cn(
+                'flex h-[3.75rem] w-[3.75rem] items-center justify-center rounded-full border border-foreground/10 bg-foreground text-background shadow-[0_18px_34px_rgba(28,25,23,0.22)] transition-transform active:scale-[0.97]',
+                addSheetOpen && 'scale-[1.02]',
+              )}
+            >
+              <Plus className="h-5 w-5" strokeWidth={2.4} />
+            </button>
+          </div>
 
-            <div className="app-dock-slot">
-              <RouteTab {...ROUTE_TABS[2]} />
-            </div>
+          <div className="app-dock-slot">
+            <RouteTab {...ROUTE_TABS[2]} />
+          </div>
 
-            <div className="app-dock-slot">
-              <RouteTab {...ROUTE_TABS[3]} />
-            </div>
+          <div className="app-dock-slot">
+            <RouteTab {...ROUTE_TABS[3]} />
           </div>
         </div>
       </nav>

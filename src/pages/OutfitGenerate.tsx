@@ -785,7 +785,7 @@ export default function OutfitGeneratePage() {
       </div>
 
       {/* ── Sticky CTA ── */}
-      <div className="action-bar-floating fixed bottom-20 left-0 right-0 z-20">
+      <div className="action-bar-floating bottom-safe-nav fixed left-0 right-0 z-20">
         <div className="px-4 pt-3 pb-4">
           <div className="max-w-md mx-auto space-y-2">
             {contextSubtitle && (

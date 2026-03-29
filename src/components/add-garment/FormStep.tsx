@@ -340,7 +340,7 @@ export function FormStep(props: FormStepProps) {
         </Card>
       </div>
 
-      <div className="fixed inset-x-4 bottom-4 z-20" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+      <div className="bottom-safe-nav fixed inset-x-4 z-20">
         <div className="mx-auto max-w-md">
           <div className="action-bar-floating flex gap-2 rounded-[1.25rem] p-3">
             <Button variant="outline" className="flex-1" onClick={onCancel} disabled={isLoading}>
