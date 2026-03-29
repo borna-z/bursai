@@ -72,6 +72,7 @@ const en: Record<string, string> = {
     'onboarding.complete.cta': 'Start using the app',
     'onboarding.skip': 'Skip for now',
     'onboarding.skip_all': 'Skip introduction',
+    'onboarding.sessionExpired': 'Your session expired. Please sign in again to continue onboarding.',
     'onboarding.demo_success': '6 sample garments added!',
     'onboarding.demo_success_desc': 'Now you can try creating outfits',
     'onboarding.demo_error': 'Could not create sample garments',
@@ -682,7 +683,7 @@ const en: Record<string, string> = {
     'addgarment.review': 'Review garment',
     'addgarment.reanalyze': 'Analyze again',
     'addgarment.ai_analyzed': 'AI-analyzed',
-    'addgarment.form.title': 'Title',
+    'addgarment.form.title': 'Garment name',
     'addgarment.form.title_placeholder': 'E.g. White linen shirt',
     'addgarment.form.category': 'Category',
     'addgarment.form.subcategory': 'Subcategory',
@@ -1340,10 +1341,10 @@ const en: Record<string, string> = {
     // Paywall modal
     'paywall.title': 'Unlock Premium',
     'paywall.garment_limit': 'You have reached the 10 garment limit on the free plan.',
-    'paywall.outfit_limit': 'You have used all 10 outfit generations this month.',
+    'paywall.outfit_limit': 'Upgrade to unlock your personal AI stylist — deeper reasoning, unlimited outfits, and editorial-grade recommendations.',
     'paywall.unlimited_wardrobe_desc': 'Add as many garments as you want',
     'paywall.unlimited_outfits_desc': 'Generate outfits without limits',
-    'paywall.smarter_desc': 'AI-powered suggestions for your style',
+    'paywall.smarter_desc': 'Personalized to your style DNA, wardrobe, and habits',
     'paywall.not_now': 'Not now',
 
     // Pricing page
@@ -2686,11 +2687,9 @@ const en: Record<string, string> = {
     'common.skip_to_main': 'Skip to main content',
 
     // Paywall
-    'paywall.outfit_limit': 'Upgrade to unlock your personal AI stylist — deeper reasoning, unlimited outfits, and editorial-grade recommendations.',
     'paywall.stylist_mode': 'Stylist Mode',
     'paywall.stylist_mode_desc': 'Deeper reasoning, editorial explanations, stronger outfit logic',
     'paywall.unlimited_desc': 'No limits on garments or outfit generation',
-    'paywall.smarter_desc': 'Personalized to your style DNA, wardrobe, and habits',
 
     // Calendar sync
     'calsync.no_events_found': 'Google Calendar connected, but no events were found in the next {days} days.',
@@ -2762,10 +2761,6 @@ const en: Record<string, string> = {
     'chat.chip_new_ways_item': 'New ways to wear my {item}',
     'chat.chip_wardrobe_missing': "What's missing in my wardrobe?",
     'chat.chip_date_night': 'Find me a date night outfit',
-
-    // Week planning nudge
-    'home.week_unplanned': 'Your week is unplanned — let me fill it with outfits that work.',
-    'home.week_partial': 'Only {count} days planned this week. Want me to fill the rest?',
 
     // Batch upload
     'batch.all_resolved': 'All {count} items are resolved. Review is complete.',

@@ -722,12 +722,12 @@ export default function OutfitDetailPage() {
 
         {activeTab === 'why' && (
           <div className="flex flex-col gap-4">
-            {outfit.explanation && (
+            {!genOutfitReasoning && outfit.explanation && (
               <p className="font-['Playfair_Display'] italic text-[16px] text-foreground leading-[1.6]">
                 {outfit.explanation}
               </p>
             )}
-            {genWardrobeInsights && genWardrobeInsights.length > 0 && (
+            {!genOutfitReasoning && genWardrobeInsights && genWardrobeInsights.length > 0 && (
               <p className="font-['DM_Sans'] text-[13px] text-foreground/[0.55] leading-[1.6]">
                 {genWardrobeInsights.join(' / ')}
               </p>

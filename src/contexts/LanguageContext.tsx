@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { type Locale, SUPPORTED_LOCALES } from '@/i18n/types';
+import { loadLocale } from '@/i18n/translations';
 import { asPreferences } from '@/types/preferences';
 import { logger } from '@/lib/logger';
 
@@ -20,21 +21,6 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 /** Cache loaded locale dictionaries so we never re-import */
 const dictCache = new Map<string, Record<string, string>>();
-let translationsPromise: Promise<Record<Locale, Record<string, string>>> | null = null;
-
-function loadAllTranslations(): Promise<Record<Locale, Record<string, string>>> {
-  if (!translationsPromise) {
-    translationsPromise = import('@/i18n/translations').then(mod => {
-      const t = mod.translations;
-      // Pre-populate cache
-      for (const [loc, dict] of Object.entries(t)) {
-        dictCache.set(loc, dict as Record<string, string>);
-      }
-      return t;
-    });
-  }
-  return translationsPromise;
-}
 
 function getInitialLocale(): Locale {
   const stored = localStorage.getItem('burs-locale') as Locale | null;
@@ -51,10 +37,31 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   // Load translation dicts on mount and when locale changes
   useEffect(() => {
-    loadAllTranslations().then(translations => {
-      setDict(translations[locale] || {});
-      setEnDict(translations['en'] || {});
+    let isActive = true;
+
+    const loadDictionaries = async () => {
+      const [currentDict, englishDict] = await Promise.all([
+        dictCache.get(locale) ? Promise.resolve(dictCache.get(locale) as Record<string, string>) : loadLocale(locale),
+        dictCache.get('en') ? Promise.resolve(dictCache.get('en') as Record<string, string>) : loadLocale('en'),
+      ]);
+
+      dictCache.set(locale, currentDict);
+      dictCache.set('en', englishDict);
+
+      if (!isActive) return;
+      setDict(currentDict);
+      setEnDict(englishDict);
+    };
+
+    loadDictionaries().catch(() => {
+      if (!isActive) return;
+      setDict({});
+      setEnDict({});
     });
+
+    return () => {
+      isActive = false;
+    };
   }, [locale]);
 
   // Sync from profile preferences on load

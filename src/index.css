@@ -41,7 +41,8 @@
     --ring: 24 13% 10%;
 
     --radius: 1.125rem;
-    --app-dock-height: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+    --app-dock-height: 5rem;
+    --app-bottom-clearance: calc(var(--app-dock-height) + env(safe-area-inset-bottom, 0px));
     --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
     --safe-area-inset-top: env(safe-area-inset-top, 0px);
 
@@ -319,7 +320,7 @@
     padding-left: 1.25rem;
     padding-right: 1.25rem;
     padding-top: 1.25rem;
-    padding-bottom: calc(var(--app-dock-height, 7.5rem) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--app-bottom-clearance, calc(5rem + env(safe-area-inset-bottom, 0px)));
   }
 
   .page-shell {
@@ -434,8 +435,13 @@
     background-color: hsl(var(--background) / 0.88);
   }
 
+  .bottom-safe-nav {
+    bottom: calc(var(--app-bottom-clearance, calc(5rem + env(safe-area-inset-bottom, 0px))) + 0.75rem);
+  }
+
   .app-dock {
-    @apply w-full border-t border-border/30 px-4 py-2 backdrop-blur-xl;
+    @apply w-full border-t border-border/30 px-4 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] backdrop-blur-xl;
+    min-height: var(--app-bottom-clearance, calc(5rem + env(safe-area-inset-bottom, 0px)));
     background-color: hsl(var(--background) / 0.96);
   }
 

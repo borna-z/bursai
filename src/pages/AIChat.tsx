@@ -433,8 +433,8 @@ export default function AIChat() {
 
   return (
     <PageErrorBoundary fallback={<AIChatFallback />}>
-    <AppLayout>
-      <div className="absolute inset-0 flex flex-col overflow-hidden pb-24">
+    <AppLayout hideNav>
+      <div className="absolute inset-0 flex flex-col overflow-hidden pb-[max(env(safe-area-inset-bottom),0.75rem)]">
         <div className="topbar-frost sticky top-0 z-10 flex shrink-0 items-center justify-between px-4 py-3 min-h-[64px]">
           <div className="w-10" />
           <div className="flex flex-col items-center gap-0.5">
@@ -598,7 +598,7 @@ export default function AIChat() {
           isStreaming={isStreaming}
           isUploading={isUploading}
         />
-        <div className="pb-2 shrink-0" />
+        <div className="h-[max(env(safe-area-inset-bottom),0.5rem)] shrink-0" />
       </div>
     </AppLayout>
     </PageErrorBoundary>

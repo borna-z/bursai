@@ -34,7 +34,7 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
       <main
         id="main-content"
         className="relative z-[1] flex-1 overflow-x-clip overflow-y-auto scrollbar-hide"
-        style={{ ...(hideNav ? undefined : { paddingBottom: 'calc(4.5rem + env(safe-area-inset-bottom, 0px))' }), overscrollBehavior: 'none' }}
+        style={{ ...(hideNav ? undefined : { paddingBottom: 'var(--app-bottom-clearance, calc(5rem + env(safe-area-inset-bottom, 0px)))' }), overscrollBehavior: 'none' }}
       >
         {children}
       </main>

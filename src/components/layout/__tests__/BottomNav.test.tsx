@@ -94,13 +94,14 @@ describe('BottomNav smoke', () => {
     expect(screen.getByRole('navigation', { name: 'nav.main_navigation' })).toBeInTheDocument();
   });
 
-  it('keeps safe-area spacing inside the nav wrapper', () => {
+  it('keeps safe-area spacing inside the dock container', () => {
     renderNav();
     const nav = screen.getByRole('navigation', { name: 'nav.main_navigation' });
 
     expect(nav.className).not.toContain('safe-bottom');
-    const inner = nav.querySelector('.pointer-events-auto');
-    expect(inner?.className).toContain('pb-[env(safe-area-inset-bottom,0px)]');
+    const dock = nav.querySelector('.app-dock');
+    expect(dock?.className).toContain('pointer-events-auto');
+    expect(dock?.className).toContain('app-dock');
   });
 
   it('marks active tab with accent color class', () => {
