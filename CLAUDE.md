@@ -276,59 +276,67 @@ The accent is warm gold — NOT indigo. If you see `--accent: 229` anywhere, tha
 
 **V4 workflow — MUST follow this exact process for every page:**
 
-**IMPORTANT:** The Stitch project contains old V3 screens mixed with V4 screens. ONLY use the 5 confirmed V4 screens listed below. For ALL other pages, you MUST generate a NEW V4 screen — do NOT use any existing screen from the project that is not in the V4 list below.
+All 44 V4 screens are pre-designed in Stitch with the BURS V4 design system applied. **Do NOT generate new screens** — use the existing ones below.
 
 - **Stitch project ID:** `8117716384164426188`
 - **Design system asset ID:** `14594054922406120457`
 
-#### Step 1: Design in Stitch
+#### Step 1: Fetch the V4 design from Stitch
 
-**For the 5 already-implemented V4 pages** (reference only — already coded):
+Use `mcp__stitch__get_screen` with `name: "projects/8117716384164426188/screens/{screenId}"` to get the HTML/CSS reference.
 
-| Page | Screen ID | Title |
-|------|-----------|-------|
-| `Home.tsx` | `18c5ca56af814adca5c10966e4d2dfe3` | BURS V4 Home Screen |
-| `Wardrobe.tsx` | `92b02316946c4d61903789e010df96f8` | BURS V4 Wardrobe |
-| `AddGarment.tsx` (UploadStep) | `de6bdea980614e56b7425450fcf2843a` | Add Garment - BURS V4 |
-| `Plan.tsx` | `93ace4dc3c944847be9cf19bc82623cc` | BURS V4 Plan |
-| `Insights.tsx` | `aba5e577dc6446bdb8b423b76b51f9af` | BURS V4 Insights Screen |
+**Complete V4 Screen ID Map — All 44 Pages:**
 
-**For EVERY other page** — generate a fresh V4 screen:
-1. Use `mcp__stitch__generate_screen_from_text` with:
-   - `projectId: "8117716384164426188"`
-   - `deviceType: "MOBILE"`
-   - `prompt:` Use the template below — describe the page's content, sections, and hierarchy in detail
-2. After generation, apply the V4 design system:
-   - Use `mcp__stitch__apply_design_system` with `assetId: "14594054922406120457"`
-3. Fetch the final HTML:
-   - Use `mcp__stitch__get_screen` to get the generated HTML/CSS
-4. Use the HTML as the design reference for implementation
-
-**Stitch prompt template** (adapt for each page):
-```
-Design a [PAGE NAME] screen for BURS, an AI-powered wardrobe management app.
-
-Brand: Scandinavian editorial magazine aesthetic (Kinfolk/Cereal feel).
-- Background: Editorial Cream (#F5F0E8)
-- Foreground: Deep Charcoal (#1C1917)
-- Accent: Warm Gold (#B07D3A)
-- Headlines: Playfair Display italic serif
-- Body: DM Sans sans-serif
-- Radius: 18px rounded corners
-- iOS mobile viewport (390x844)
-- Light mode: flat surfaces, minimal shadows
-- Cards use warm cream/white surfaces with subtle borders
-
-Layout:
-- [DESCRIBE THE SPECIFIC SECTIONS, HIERARCHY, AND CONTENT FOR THIS PAGE]
-- Editorial feel: generous whitespace, clean typography hierarchy
-- Bottom tab bar with 5 tabs (Home, Wardrobe, +Add, Plan, Insights)
-
-Include: [SPECIFIC UI ELEMENTS FOR THIS PAGE]
-```
+| # | Page File | Screen ID | Stitch Title | Status |
+|---|-----------|-----------|-------------|--------|
+| 1 | `Home.tsx` | `18c5ca56af814adca5c10966e4d2dfe3` | BURS V4 Home Screen | DONE |
+| 2 | `Wardrobe.tsx` | `92b02316946c4d61903789e010df96f8` | BURS V4 Wardrobe | DONE |
+| 3 | `AddGarment.tsx` (UploadStep) | `de6bdea980614e56b7425450fcf2843a` | Add Garment - BURS V4 | DONE |
+| 4 | `Plan.tsx` | `93ace4dc3c944847be9cf19bc82623cc` | BURS V4 Plan | DONE |
+| 5 | `Insights.tsx` | `aba5e577dc6446bdb8b423b76b51f9af` | BURS V4 Insights Screen | DONE |
+| 6 | `OutfitGenerate.tsx` | `3e35a3c1a3774646be687a91aee734cd` | Generate Outfit | TODO |
+| 7 | `OutfitDetail.tsx` | `407ea8226ad7426b868d1b0e3fb05b6b` | Outfit Detail Screen | TODO |
+| 8 | `AIChat.tsx` | `9e3d789b9fd64103830087e3453027bd` | AI Chat - Your Stylist | TODO |
+| 9 | `GarmentDetail.tsx` | `19f733b7aa27460c8ee4ec9715152acc` | Garment Detail | TODO |
+| 10 | `EditGarment.tsx` | `9fbd221504514e5f8fee83c325acf14f` | Edit Garment | TODO |
+| 11 | `LiveScan.tsx` | `697b7ca5a3f142cdaff560d5e4e76df0` | Live Scan Screen | TODO |
+| 12 | `UnusedOutfits.tsx` | `b811704bf6eb46bb872f4f027d8ded5a` | Unused Outfits Screen | TODO |
+| 13 | `MoodOutfit.tsx` | `80c56a34538746a28c2002594f30f3e8` | Mood Outfit Selection | TODO |
+| 14 | `PickMustHaves.tsx` | `77e7645afd6f466999bcdbdc45254271` | Pick Must-Haves | TODO |
+| 15 | `Onboarding.tsx` | `2edd7811ab57455f850c51401279699e` | Onboarding - Style Quiz | TODO |
+| 16 | `Outfits.tsx` | `5692ed64c47a484a9c6d571fc8353865` | Outfits List | TODO |
+| 17 | `GarmentGaps.tsx` | `bd9d608070064c30bd8c92e1f92bad46` | Wardrobe Gaps | TODO |
+| 18 | `TravelCapsule.tsx` | `050212a70f184821aca97f413665b0ea` | Travel Capsule | TODO |
+| 19 | `UsedGarments.tsx` | `42a177a1229045aaa4c40c7506287d06` | Worn Items List | TODO |
+| 20 | `Discover.tsx` | `0f5963ae4af34b1a853fc32d23ff69a4` | BURS Discover Screen | TODO |
+| 21 | `Settings.tsx` | `3c450478f29e4767bf6720ea1b244832` | Settings Screen | TODO |
+| 22 | `SettingsStyle.tsx` | `5fab8f53ff384295986467425594fe47` | Style Preferences | TODO |
+| 23 | `ShareOutfit.tsx` | `fdae86e7a95d4b4eb9ff1cc99a63ccf4` | Share Outfit Screen | TODO |
+| 24 | `SettingsPrivacy.tsx` | `386a2d30df62445b97e9dfce476a1a7d` | Privacy Settings | TODO |
+| 25 | `Admin.tsx` | `183fc7451fb84824ad314f0c455225d7` | Admin Panel | TODO |
+| 26 | `Auth.tsx` | `bc3a4e2878e74ee68b8843de65cde9e3` | Auth / Login Screen | TODO |
+| 27 | `GenerateImages.tsx` | `6139190ded4544bea034f519800295c6` | Generate Images Settings | TODO |
+| 28 | `PublicProfile.tsx` | `81fc1818ee6e436e9fccbbe060cda78a` | Public Profile | TODO |
+| 29 | `ResetPassword.tsx` | `4b6d6680c46f4b37a918b873c9b507e6` | Reset Password Screen | TODO |
+| 30 | `Pricing.tsx` | `6718ce2ee57d40fb9508a977545422c6` | BURS Premium Upgrade | TODO |
+| 31 | `Contact.tsx` | `9fd8498f00a647638a7aaf4202f7d4a1` | Contact Page | TODO |
+| 32 | `SeedWardrobe.tsx` | `aaf9c89db75447c79aa988041dd468a2` | Seed Wardrobe Screen | TODO |
+| 33 | `SettingsAccount.tsx` | `2db035bf65ce46e7b63eb9c03ef5b29b` | Account Settings | TODO |
+| 34 | `SettingsNotifications.tsx` | `2444456977b442ef90d206aac59992ea` | Notifications Screen | TODO |
+| 35 | `SettingsAppearance.tsx` | `2fc276eab06942c1aadcdecbfb815c55` | Appearance Settings | TODO |
+| 36 | `BillingSuccess.tsx` | `230afb2652d946c48b942642e47e1644` | Billing Success | TODO |
+| 37 | `BillingCancel.tsx` | `1000ca23f3a0466ba505c364636e2765` | Billing Cancellation Screen | TODO |
+| 38 | `NotFound.tsx` | `93f6e74f0e224e41b65e862443dd6000` | 404 Not Found | TODO |
+| 39 | `PrivacyPolicy.tsx` | `b7fe093b87464ad58078cd96fff634a5` | Privacy Policy | TODO |
+| 40 | `Terms.tsx` | `8be2971f06ea4c72921259472688c2d0` | Terms of Service | TODO |
+| 41 | `Landing.tsx` | `fa5d016c8ef74627841a32128ee6d1a5` | BURS Landing Page | TODO |
+| 42 | `Index.tsx` | `2cb757577a3a4ced865d7e48823c3786` | BURS Splash Screen | TODO |
+| 43 | `GoogleCalendarCallback.tsx` | `52506428f0244e1d8b5af68f37bed8f6` | Calendar Connected | TODO |
+| 44 | `StyleMe.tsx` | `b837f5f6a73b4dbc874d24f3c87d9970` | Style Me - AI Quiz | TODO |
 
 #### Step 2: Implement the design
 - Read the current page code to understand existing hooks, data flow, and state
+- Fetch the V4 design: `mcp__stitch__get_screen` with `name: "projects/8117716384164426188/screens/{screenId}"`
 - Rewrite/refactor the JSX to match the Stitch V4 mockup
 - Adapt Stitch HTML/CSS to React + Tailwind (use existing surface classes, motion presets, haptics)
 - Keep all existing functionality — only change the visual presentation
@@ -337,9 +345,10 @@ Include: [SPECIFIC UI ELEMENTS FOR THIS PAGE]
 - If existing tests break due to V4 structural changes, update them to match new V4 UI
 - Run `npm test` to verify all pass
 
-#### Step 4: Verify
+#### Step 4: Verify & mark done
 - Run `npx tsc --noEmit --skipLibCheck` — must be 0 errors
 - Run `npm test` — all tests must pass
+- Update the screen's status in the table above from TODO to DONE
 
 **Design principles for V4:**
 - Headlines: `font-display italic text-[1.3rem+]` (Playfair Display)
