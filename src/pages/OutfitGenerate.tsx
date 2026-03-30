@@ -42,6 +42,7 @@ import {
   resolveStyleFlowGarmentIds,
 } from '@/lib/styleFlowState';
 import { buildDayIntelligence } from '@/lib/dayIntelligence';
+import { hapticLight } from '@/lib/haptics';
 
 /* ── Occasions ── */
 const OCCASION_ICONS: Record<string, React.ElementType> = {
@@ -102,7 +103,7 @@ function OutfitGenerateFallback() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="max-w-sm w-full text-center space-y-6">
-        <h1 className="font-['Playfair_Display'] italic text-[1.3rem] leading-tight text-foreground text-foreground">Outfit generation is unavailable right now</h1>
+        <h1 className="font-display italic text-[1.3rem] leading-tight text-foreground text-foreground">Outfit generation is unavailable right now</h1>
         <Button onClick={() => window.location.reload()}>Reload</Button>
       </div>
     </div>
@@ -267,7 +268,7 @@ export default function OutfitGeneratePage() {
       <AppLayout>
         <div className="page-shell !max-w-md !pt-16">
           <div className="surface-editorial space-y-6 p-5">
-            <h2 className="font-['Playfair_Display'] italic text-[1.2rem] leading-tight text-foreground tracking-tight text-foreground">{t('unlock.outfit_gen')}</h2>
+            <h2 className="font-display italic text-[1.2rem] leading-tight text-foreground tracking-tight text-foreground">{t('unlock.outfit_gen')}</h2>
             <WardrobeProgress message={t('unlock.outfit_gen_message')} />
           </div>
         </div>
@@ -420,7 +421,7 @@ export default function OutfitGeneratePage() {
 
                   {/* Card footer */}
                   <div className="px-3 pt-2.5 pb-3 space-y-1">
-                    <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/50">
+                    <p className="font-body text-[10px] uppercase tracking-[0.1em] text-foreground/50">
                       {OCCASIONS.find(o => o.key === selectedOccasion)?.label ?? selectedOccasion}
                     </p>
                     {calendarEvents?.[0]?.title && (
@@ -429,12 +430,12 @@ export default function OutfitGeneratePage() {
                       </span>
                     )}
                     {reasoningText && (
-                      <p className="font-['Playfair_Display'] italic text-[13px] text-foreground/70 leading-snug line-clamp-2">
+                      <p className="font-display italic text-[13px] text-foreground/70 leading-snug line-clamp-2">
                         {reasoningText}
                       </p>
                     )}
                     {weather && (
-                      <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.08em] mt-1 text-foreground/45">
+                      <p className="font-body text-[10px] uppercase tracking-[0.08em] mt-1 text-foreground/45">
                         Styled for {weather.temperature}°C{weather.precipitation && weather.precipitation !== 'none' ? ` · ${weather.precipitation}` : ''}
                       </p>
                     )}
@@ -446,7 +447,7 @@ export default function OutfitGeneratePage() {
                   <Button
                     onClick={handleWearToday}
                     disabled={markWorn.isPending}
-                    className="h-12 w-full text-[15px] font-medium font-['DM_Sans']"
+                    className="h-12 w-full text-[15px] font-medium font-body"
                     variant="editorial"
                     size="lg"
                   >
@@ -456,7 +457,7 @@ export default function OutfitGeneratePage() {
                   <Button
                     onClick={handleRefineInChat}
                     variant="quiet"
-                    className="h-12 w-full text-[15px] font-medium font-['DM_Sans']"
+                    className="h-12 w-full text-[15px] font-medium font-body"
                     size="lg"
                   >
                     Refine in chat
@@ -468,7 +469,7 @@ export default function OutfitGeneratePage() {
                   <Button
                     variant="ghost"
                     onClick={() => handleSaveOutfit(primary)}
-                    className="flex items-center gap-1.5 text-[13px] font-['DM_Sans'] text-muted-foreground/60"
+                    className="flex items-center gap-1.5 text-[13px] font-body text-muted-foreground/60"
                   >
                     <Bookmark className="w-4 h-4" />
                     Save
@@ -476,7 +477,7 @@ export default function OutfitGeneratePage() {
                   <Button
                     variant="ghost"
                     onClick={() => handlePlanOutfit(primary)}
-                    className="flex items-center gap-1.5 text-[13px] font-['DM_Sans'] text-muted-foreground/60"
+                    className="flex items-center gap-1.5 text-[13px] font-body text-muted-foreground/60"
                   >
                     <CalendarDays className="w-4 h-4" />
                     Plan
@@ -502,7 +503,7 @@ export default function OutfitGeneratePage() {
                   className="mt-6"
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-[10px] font-['DM_Sans'] tracking-widest text-muted-foreground/40 uppercase">
+                    <p className="text-[10px] font-body tracking-widest text-muted-foreground/40 uppercase">
                       STYLIST OPTIONS
                     </p>
                     <p className="text-[11px] text-muted-foreground/50">
@@ -539,7 +540,7 @@ export default function OutfitGeneratePage() {
                               <p className="text-[12px] font-medium text-foreground">
                                 Option {optionIndex + 1}
                               </p>
-                              <p className="text-[12px] font-['DM_Sans'] text-muted-foreground/50 mt-1">
+                              <p className="text-[12px] font-body text-muted-foreground/50 mt-1">
                                 {option.family_label ? `${option.family_label} · ` : ''}
                                 {OCCASIONS.find(o => o.key === option.occasion)?.label ?? option.occasion}
                               </p>
@@ -559,7 +560,7 @@ export default function OutfitGeneratePage() {
               <Button
                 variant="ghost"
                 onClick={() => setPhase('picking')}
-                className="text-[13px] font-['DM_Sans'] text-muted-foreground/50 underline underline-offset-2"
+                className="text-[13px] font-body text-muted-foreground/50 underline underline-offset-2"
               >
                 Generate another
               </Button>
@@ -579,7 +580,7 @@ export default function OutfitGeneratePage() {
           <Card surface="editorial" density="airy" className="max-w-sm w-full">
             <CardContent className="p-6 text-center">
               <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-              <h2 className="font-['Playfair_Display'] italic text-[1.2rem] leading-tight text-foreground mb-2">Something went wrong</h2>
+              <h2 className="font-display italic text-[1.2rem] leading-tight text-foreground mb-2">Something went wrong</h2>
               <p className="text-muted-foreground mb-4 text-sm">{lastError || 'Please try again.'}</p>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setPhase('picking')} className="flex-1">
@@ -735,7 +736,7 @@ export default function OutfitGeneratePage() {
                 <motion.button
                   key={key}
                   whileTap={prefersReduced ? undefined : { scale: 0.97 }}
-                  onClick={() => setSelectedOccasion(key)}
+                  onClick={() => { hapticLight(); setSelectedOccasion(key); }}
                   className={cn(
                     'flex min-h-[76px] w-full flex-col items-center justify-center gap-2 rounded-[1.25rem] px-2 py-3 text-center transition-all',
                     isSelected
@@ -744,7 +745,7 @@ export default function OutfitGeneratePage() {
                   )}
                 >
                   <OccIcon className="w-5 h-5" strokeWidth={1.8} />
-                  <span className="font-['DM_Sans'] text-[11px] leading-snug">{label}</span>
+                  <span className="font-body text-[11px] leading-snug">{label}</span>
                 </motion.button>
               );
             })}
@@ -767,6 +768,7 @@ export default function OutfitGeneratePage() {
                   key={style}
                   whileTap={prefersReduced ? undefined : { scale: 0.97 }}
                   onClick={() => {
+                    hapticLight();
                     if (isSelected) {
                       setSelectedStyles(selectedStyles.filter(s => s !== style));
                     } else if (selectedStyles.length >= 2) {
@@ -777,7 +779,7 @@ export default function OutfitGeneratePage() {
                   }}
                   className={cn(
                     "h-[44px] rounded-full px-4 transition-all",
-                    "text-[14px] font-['DM_Sans']",
+                    "text-[14px] font-body",
                     isSelected
                       ? 'bg-foreground text-background border-transparent'
                       : 'bg-transparent border border-foreground/20 text-foreground/60'
@@ -815,10 +817,10 @@ export default function OutfitGeneratePage() {
               position="top"
             >
               <Button
-                onClick={handleGenerate}
+                onClick={() => { hapticLight(); handleGenerate(); }}
                 disabled={isGenerating}
                 variant="editorial"
-                className="h-12 w-full text-[15px] font-medium font-['DM_Sans']"
+                className="h-12 w-full text-[15px] font-medium font-body"
                 size="lg"
               >
                 <Sparkles className="w-4 h-4 mr-2" />

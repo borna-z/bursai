@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { hapticLight } from '@/lib/haptics';
 import { SeedProvider, useSeed } from '@/contexts/SeedContext';
 import { SEED_GARMENTS } from '@/data/seedGarments';
 
@@ -74,7 +75,7 @@ function SeedWardrobeInner() {
 
         {/* Actions */}
         <div className="flex gap-3">
-          <Button onClick={run} disabled={isRunning} className="flex-1">
+          <Button onClick={() => { hapticLight(); run(); }} disabled={isRunning} className="flex-1">
             {isRunning ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> {step === 'deleting' ? 'Deleting...' : 'Generating...'}</>
             ) : (
@@ -83,20 +84,20 @@ function SeedWardrobeInner() {
           </Button>
 
           {failed > 0 && step === 'done' && (
-            <Button variant="outline" onClick={retryFailed}>
+            <Button variant="outline" onClick={() => { hapticLight(); retryFailed(); }}>
               <RotateCcw className="w-4 h-4" /> Retry {failed}
             </Button>
           )}
 
           {isRunning && (
-            <Button variant="outline" onClick={cancel}>
+            <Button variant="outline" onClick={() => { hapticLight(); cancel(); }}>
               Cancel
             </Button>
           )}
         </div>
 
         {step === 'done' && (
-          <Button variant="outline" className="w-full" onClick={() => navigate('/wardrobe')}>
+          <Button variant="outline" className="w-full" onClick={() => { hapticLight(); navigate('/wardrobe'); }}>
             View Wardrobe
           </Button>
         )}

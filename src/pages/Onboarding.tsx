@@ -14,6 +14,7 @@ import { LanguageStep } from '@/components/onboarding/LanguageStep';
 import { QuickStyleQuiz } from '@/components/onboarding/QuickStyleQuiz';
 import { QuickUploadStep } from '@/components/onboarding/QuickUploadStep';
 import { EASE_CURVE } from '@/lib/motion';
+import { hapticLight } from '@/lib/haptics';
 import { mannequinPresentationFromStyleProfileGender } from '@/lib/mannequinPresentation';
 import { asPreferences } from '@/types/preferences';
 
@@ -162,21 +163,21 @@ export default function OnboardingPage() {
           transition={{ duration: 0.28, ease: EASE_CURVE }}
           className="relative z-10"
         >
-          {stepKey === 'lang' ? <LanguageStep onComplete={() => setLanguageStepDone(true)} /> : null}
+          {stepKey === 'lang' ? <LanguageStep onComplete={() => { hapticLight(); setLanguageStepDone(true); }} /> : null}
           {stepKey === 'quiz' ? (
             <QuickStyleQuiz
-              onComplete={handleQuizComplete}
-              onSkip={async () => setQuizDone(true)}
+              onComplete={(profile) => { hapticLight(); handleQuizComplete(profile); }}
+              onSkip={async () => { hapticLight(); setQuizDone(true); }}
               isSaving={isSavingQuiz}
             />
           ) : null}
           {stepKey === 'upload' ? (
             <QuickUploadStep
-              onComplete={() => setUploadDone(true)}
-              onSkip={() => setUploadDone(true)}
+              onComplete={() => { hapticLight(); setUploadDone(true); }}
+              onSkip={() => { hapticLight(); setUploadDone(true); }}
             />
           ) : null}
-          {stepKey === 'getstarted' ? <GetStartedStep onAction={handleGetStartedAction} /> : null}
+          {stepKey === 'getstarted' ? <GetStartedStep onAction={(path) => { hapticLight(); handleGetStartedAction(path); }} /> : null}
         </motion.div>
       </AnimatePresence>
     </div>

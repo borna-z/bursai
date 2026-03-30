@@ -84,10 +84,10 @@ function SwapSheet({
                 type="button"
                 variant={mode === m ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => onModeChange(m)}
+                onClick={() => { hapticLight(); onModeChange(m); }}
                 className="rounded-[1.25rem]"
               >
-                {m === 'safe' ? '🔒' : m === 'bold' ? '⚡' : '🌿'}{' '}
+                {m === 'safe' ? 'Safe' : m === 'bold' ? 'Bold' : 'Eco'}{' '}
                 {t(`swap.mode_${m}`) || m.charAt(0).toUpperCase() + m.slice(1)}
               </Button>
             ))}
@@ -110,7 +110,7 @@ function SwapSheet({
               {candidates.map((candidate, idx) => (
                 <button
                   key={candidate.garment.id}
-                  onClick={() => onSelect(candidate.garment.id)}
+                  onClick={() => { hapticLight(); onSelect(candidate.garment.id); }}
                   disabled={isSwapping}
                   className={cn(
                     "w-full flex items-center gap-3 p-3 rounded-[1.25rem] transition-all hover:bg-secondary/80 bg-secondary/40 active:scale-[0.99]",
@@ -179,7 +179,7 @@ function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, rende
   return (
     <div className="flex items-center gap-4 py-4 border-b border-border/8 last:border-b-0 group">
       {/* Left-side category label */}
-      <p className="font-['DM_Sans'] text-[11px] uppercase tracking-widest text-foreground/30 w-12 shrink-0 text-right leading-tight">
+      <p className="font-body text-[11px] uppercase tracking-widest text-foreground/30 w-12 shrink-0 text-right leading-tight">
         {categorySlotLabel}
       </p>
       <div
@@ -202,7 +202,7 @@ function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, rende
         {garmentColor && <p className="text-[12px] text-muted-foreground/60 capitalize mt-0.5">{garmentColor}</p>}
       </div>
       <button
-        onClick={(e) => { e.stopPropagation(); onSwap(); }}
+        onClick={(e) => { e.stopPropagation(); hapticLight(); onSwap(); }}
         className="p-2.5 rounded-[1.25rem] bg-muted/20 hover:bg-muted/40 transition-all active:scale-95 flex-shrink-0 opacity-60 group-hover:opacity-100"
         aria-label={t('outfit.swap_out')}
       >
@@ -413,6 +413,7 @@ export default function OutfitDetailPage() {
 
   const handleFeedbackToggle = async (feedbackId: string) => {
     if (!outfit) return;
+    hapticLight();
     const isAdding = !selectedFeedback.includes(feedbackId);
     const newFeedback = isAdding
       ? [...selectedFeedback, feedbackId]
@@ -542,7 +543,7 @@ export default function OutfitDetailPage() {
             <Shirt className="w-7 h-7 text-muted-foreground" />
           </div>
           <div className="space-y-1.5">
-            <p className="font-['Playfair_Display'] italic text-[1.2rem] leading-tight text-foreground text-foreground">{t('outfit.not_found')}</p>
+            <p className="font-display italic text-[1.2rem] leading-tight text-foreground text-foreground">{t('outfit.not_found')}</p>
             <p className="text-sm text-muted-foreground">{t('common.something_wrong')}</p>
           </div>
           <Button variant="outline" onClick={() => navigate('/outfits')} className="w-full">
@@ -611,7 +612,7 @@ export default function OutfitDetailPage() {
 
       {/* ── Dark info block ── */}
       <div className="bg-foreground/[0.96] px-5 py-5">
-        <p className="font-['DM_Sans'] text-[11px] font-medium uppercase tracking-[0.12em] text-background/[0.45] mb-2.5">
+        <p className="font-body text-[11px] font-medium uppercase tracking-[0.12em] text-background/[0.45] mb-2.5">
           {genOccasionSubmode || displayOccasion}
         </p>
         {outfit.explanation && (
@@ -620,7 +621,7 @@ export default function OutfitDetailPage() {
           </p>
         )}
         {genWardrobeInsights && genWardrobeInsights.length > 0 && (
-          <p className="font-['DM_Sans'] text-[12px] text-background/50 leading-[1.5]">
+          <p className="font-body text-[12px] text-background/50 leading-[1.5]">
             {genWardrobeInsights.slice(0, 2).join(' / ')}
           </p>
         )}
@@ -632,9 +633,9 @@ export default function OutfitDetailPage() {
           {(['wear', 'swap', 'why'] as const).map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => { hapticLight(); setActiveTab(tab); }}
               className={cn(
-                "h-12 flex-1 rounded-full px-3 py-2.5 font-['DM_Sans'] text-[12px] font-medium transition-colors",
+                "h-12 flex-1 rounded-full px-3 py-2.5 font-body text-[12px] font-medium transition-colors",
                 activeTab === tab
                   ? "bg-foreground text-background"
                   : "text-foreground/45"
@@ -654,7 +655,7 @@ export default function OutfitDetailPage() {
               onClick={handleMarkWorn}
               disabled={markWorn.isPending || !!outfit.worn_at}
               className={cn(
-                "w-full h-14 rounded-full bg-foreground text-background font-['DM_Sans'] text-[15px] font-medium flex items-center justify-center gap-2",
+                "w-full h-14 rounded-full bg-foreground text-background font-body text-[15px] font-medium flex items-center justify-center gap-2",
                 outfit.worn_at && "opacity-50 cursor-default"
               )}
             >
@@ -665,14 +666,14 @@ export default function OutfitDetailPage() {
               <Button
                 variant="outline"
                 onClick={() => navigate('/plan', { state: { preselectedOutfitId: outfit.id } })}
-                className="h-11 min-h-[44px] rounded-full border border-foreground/20 bg-transparent text-foreground font-['DM_Sans'] text-[13px] font-medium"
+                className="h-11 min-h-[44px] rounded-full border border-foreground/20 bg-transparent text-foreground font-body text-[13px] font-medium"
               >
                 {t('outfit.plan') || 'Plan'}
               </Button>
               <Button
                 variant="outline"
                 onClick={handleToggleSave}
-                className="h-11 min-h-[44px] rounded-full border border-foreground/20 bg-transparent text-foreground font-['DM_Sans'] text-[13px] font-medium flex items-center justify-center gap-2"
+                className="h-11 min-h-[44px] rounded-full border border-foreground/20 bg-transparent text-foreground font-body text-[13px] font-medium flex items-center justify-center gap-2"
               >
                 {outfit.saved
                   ? <><BookmarkCheck className="w-4 h-4" />{t('outfit.saved')}</>
@@ -684,7 +685,7 @@ export default function OutfitDetailPage() {
               <Button
                 variant="ghost"
                 onClick={() => setShareSheetOpen(true)}
-                className="h-11 min-h-[44px] rounded-full bg-card text-foreground font-['DM_Sans'] text-[13px] flex items-center justify-center gap-1.5"
+                className="h-11 min-h-[44px] rounded-full bg-card text-foreground font-body text-[13px] flex items-center justify-center gap-1.5"
               >
                 <Share2 className="w-3.5 h-3.5" />
                 Share
@@ -692,7 +693,7 @@ export default function OutfitDetailPage() {
               <Button
                 variant="ghost"
                 onClick={handleCreateSimilar}
-                className="h-11 min-h-[44px] rounded-full bg-card text-foreground font-['DM_Sans'] text-[13px] flex items-center justify-center gap-1.5"
+                className="h-11 min-h-[44px] rounded-full bg-card text-foreground font-body text-[13px] flex items-center justify-center gap-1.5"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 Remake
@@ -723,12 +724,12 @@ export default function OutfitDetailPage() {
         {activeTab === 'why' && (
           <div className="flex flex-col gap-4">
             {!genOutfitReasoning && outfit.explanation && (
-              <p className="font-['Playfair_Display'] italic text-[16px] text-foreground leading-[1.6]">
+              <p className="font-display italic text-[16px] text-foreground leading-[1.6]">
                 {outfit.explanation}
               </p>
             )}
             {!genOutfitReasoning && genWardrobeInsights && genWardrobeInsights.length > 0 && (
-              <p className="font-['DM_Sans'] text-[13px] text-foreground/[0.55] leading-[1.6]">
+              <p className="font-body text-[13px] text-foreground/[0.55] leading-[1.6]">
                 {genWardrobeInsights.join(' / ')}
               </p>
             )}
@@ -736,26 +737,26 @@ export default function OutfitDetailPage() {
               <div className="flex flex-col gap-3">
                 {genOutfitReasoning.occasion_fit && (
                   <div>
-                    <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/[0.35] mb-1">OCCASION</p>
-                    <p className="font-['DM_Sans'] text-[13px] text-foreground/60">{genOutfitReasoning.occasion_fit}</p>
+                    <p className="font-body text-[10px] uppercase tracking-[0.1em] text-foreground/[0.35] mb-1">OCCASION</p>
+                    <p className="font-body text-[13px] text-foreground/60">{genOutfitReasoning.occasion_fit}</p>
                   </div>
                 )}
                 {genOutfitReasoning.weather_logic && (
                   <div>
-                    <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/[0.35] mb-1">WEATHER</p>
-                    <p className="font-['DM_Sans'] text-[13px] text-foreground/60">{genOutfitReasoning.weather_logic}</p>
+                    <p className="font-body text-[10px] uppercase tracking-[0.1em] text-foreground/[0.35] mb-1">WEATHER</p>
+                    <p className="font-body text-[13px] text-foreground/60">{genOutfitReasoning.weather_logic}</p>
                   </div>
                 )}
                 {genOutfitReasoning.color_note && (
                   <div>
-                    <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/[0.35] mb-1">COLOUR</p>
-                    <p className="font-['DM_Sans'] text-[13px] text-foreground/60">{genOutfitReasoning.color_note}</p>
+                    <p className="font-body text-[10px] uppercase tracking-[0.1em] text-foreground/[0.35] mb-1">COLOUR</p>
+                    <p className="font-body text-[13px] text-foreground/60">{genOutfitReasoning.color_note}</p>
                   </div>
                 )}
               </div>
             )}
             {genLimitationNote && (
-              <p className="font-['DM_Sans'] italic text-[12px] text-foreground/40">
+              <p className="font-body italic text-[12px] text-foreground/40">
                 Your stylist suggests: {genLimitationNote}
               </p>
             )}

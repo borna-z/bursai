@@ -102,7 +102,7 @@ export function WardrobeOnboardingEmpty() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="font-['Playfair_Display'] italic text-lg font-bold tracking-[-0.02em] mb-2"
+          className="font-display italic text-lg font-bold tracking-[-0.02em] mb-2"
         >
           Build your wardrobe
         </motion.h3>
@@ -211,7 +211,7 @@ export function OutfitsOnboardingEmpty() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className="font-['Playfair_Display'] italic text-lg font-bold tracking-[-0.02em] mb-2"
+        className="font-display italic text-lg font-bold tracking-[-0.02em] mb-2"
       >
         {hasEnoughGarments ? 'Ready for your first look' : 'No looks yet'}
       </motion.h3>
@@ -323,7 +323,7 @@ export function PlanOnboardingEmpty() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.15 }}
-          className="font-['Playfair_Display'] italic text-lg font-bold tracking-[-0.02em] mb-2"
+          className="font-display italic text-lg font-bold tracking-[-0.02em] mb-2"
         >
           Get ready to plan
         </motion.h3>
@@ -372,7 +372,7 @@ export function InsightsOnboardingEmpty() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className="font-['Playfair_Display'] italic text-lg font-bold tracking-[-0.02em] mb-2"
+        className="font-display italic text-lg font-bold tracking-[-0.02em] mb-2"
       >
         Insights unlock with wear data
       </motion.h3>

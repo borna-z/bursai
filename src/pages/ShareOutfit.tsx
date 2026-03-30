@@ -4,13 +4,14 @@ import { useParams, Link } from 'react-router-dom';
 import { Loader2, Copy, Download, Check, Crown, Sparkles, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-
+import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { OutfitReactions } from '@/components/social/OutfitReactions';
 import { getOccasionLabel } from '@/lib/occasionLabel';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { hapticLight } from '@/lib/haptics';
 import { logger } from '@/lib/logger';
 
 interface OutfitItem {
@@ -87,6 +88,7 @@ export default function ShareOutfitPage() {
   }, [id]);
 
   const handleCopyLink = async () => {
+    hapticLight();
     try {
       await navigator.clipboard.writeText(window.location.href);
       setCopied(true); toast.success(t('share.link_copied'));
@@ -96,6 +98,7 @@ export default function ShareOutfitPage() {
 
   const handleDownloadImage = async () => {
     if (!outfitRef.current || !outfit) return;
+    hapticLight();
     setIsDownloading(true);
     try {
       const { toPng } = await import('html-to-image');
@@ -117,7 +120,7 @@ export default function ShareOutfitPage() {
   if (notFound || !outfit) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-background">
-        <h1 className="font-['Playfair_Display'] italic text-2xl font-bold mb-2">{t('share.not_found')}</h1>
+        <h1 className="font-display italic text-2xl font-bold mb-2">{t('share.not_found')}</h1>
         <p className="text-muted-foreground text-center mb-6">{t('share.not_found_desc')}</p>
         <Link to="/auth"><Button>{t('share.create_own')}<ArrowRight className="w-4 h-4 ml-2" /></Button></Link>
       </div>
@@ -140,7 +143,7 @@ export default function ShareOutfitPage() {
     <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b">
         <div className="max-w-lg mx-auto p-4 flex items-center justify-between">
-          <h1 className="font-['Playfair_Display'] italic">{t('share.title')}</h1>
+          <h1 className="font-display italic">{t('share.title')}</h1>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleCopyLink}>
               {copied ? <Check className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
@@ -154,7 +157,12 @@ export default function ShareOutfitPage() {
         </div>
       </div>
 
-      <div className="max-w-lg mx-auto p-4">
+      <motion.div
+        className="max-w-lg mx-auto p-4"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
         {/* Branded share card — this element is screenshotted */}
         <div
           ref={outfitRef}
@@ -245,7 +253,7 @@ export default function ShareOutfitPage() {
           <Card surface="editorial" className="border-primary/20">
             <CardContent className="p-4 text-center space-y-3">
               <Sparkles className="w-8 h-8 mx-auto text-primary" />
-              <h3 className="font-['Playfair_Display'] italic text-lg">{t('share.cta_free_title')}</h3>
+              <h3 className="font-display italic text-lg">{t('share.cta_free_title')}</h3>
               <p className="text-sm text-muted-foreground">{t('share.cta_free_desc')}</p>
               <Link to="/auth"><Button className="w-full">{t('share.cta_free_button')}<ArrowRight className="w-4 h-4 ml-2" /></Button></Link>
             </CardContent>
@@ -253,7 +261,7 @@ export default function ShareOutfitPage() {
           <Card surface="editorial" className="border-accent/30">
             <CardContent className="p-4 text-center space-y-3">
               <Crown className="w-8 h-8 mx-auto text-accent" />
-              <h3 className="font-['Playfair_Display'] italic text-lg">{t('share.cta_premium_title')}</h3>
+              <h3 className="font-display italic text-lg">{t('share.cta_premium_title')}</h3>
               <ul className="text-sm text-muted-foreground space-y-1">
                 <li>✓ {t('share.cta_premium_wardrobe')}</li>
                 <li>✓ {t('share.cta_premium_outfits')}</li>
@@ -267,7 +275,7 @@ export default function ShareOutfitPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </motion.div>
     </div>
     </>
   );

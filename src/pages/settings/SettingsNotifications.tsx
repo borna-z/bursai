@@ -1,4 +1,6 @@
 import { Bell, BellRing, Smartphone } from 'lucide-react';
+import { AnimatedPage } from '@/components/ui/animated-page';
+import { hapticLight } from '@/lib/haptics';
 import type { Json } from '@/integrations/supabase/types';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
@@ -48,10 +50,10 @@ export default function SettingsNotifications() {
     <AppLayout>
       <PageHeader title={t('settings.row.notifications')} showBack />
 
-      <div className="px-4 pb-6 pt-4 space-y-6 max-w-lg mx-auto">
+      <AnimatedPage className="px-4 pb-6 pt-4 space-y-6 max-w-lg mx-auto">
         <SettingsGroup title={t('settings.notifications_title')}>
           <SettingsRow icon={<Bell />} label={t('settings.morning_reminder')}>
-            <Switch checked={preferences.morningReminder || false} onCheckedChange={(v) => updatePreference('morningReminder', v)} />
+            <Switch checked={preferences.morningReminder || false} onCheckedChange={(v) => { hapticLight(); updatePreference('morningReminder', v); }} />
           </SettingsRow>
           {push.supported && (
             <SettingsRow
@@ -66,7 +68,7 @@ export default function SettingsNotifications() {
             >
               <Switch
                 checked={push.isSubscribed}
-                onCheckedChange={handlePushToggle}
+                onCheckedChange={(v) => { hapticLight(); handlePushToggle(v); }}
                 disabled={push.loading || push.permission === 'denied'}
               />
             </SettingsRow>
@@ -79,7 +81,7 @@ export default function SettingsNotifications() {
         </SettingsGroup>
 
         <CalendarSection />
-      </div>
+      </AnimatedPage>
     </AppLayout>
   );
 }

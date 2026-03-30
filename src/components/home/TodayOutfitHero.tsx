@@ -64,7 +64,7 @@ export function TodayOutfitHero({ weather, garmentCount, recentOutfits, classNam
         transition={{ duration: 0.4, delay: 0.15, ease: EASE_CURVE }}
         className="flex items-start justify-between gap-3 mb-1.5"
       >
-        <h2 className="font-['Playfair_Display'] italic text-[17px] leading-snug text-background/90 flex-1">
+        <h2 className="font-display italic text-[17px] leading-snug text-background/90 flex-1">
           {headline}
         </h2>
 
@@ -89,7 +89,7 @@ export function TodayOutfitHero({ weather, garmentCount, recentOutfits, classNam
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.25, ease: EASE_CURVE }}
-        className="font-['DM_Sans'] text-[12px] text-background/40 leading-relaxed mb-5 max-w-[320px]"
+        className="font-body text-[12px] text-background/40 leading-relaxed mb-5 max-w-[320px]"
       >
         {subtitle}
       </motion.p>
@@ -119,12 +119,12 @@ export function TodayOutfitHero({ weather, garmentCount, recentOutfits, classNam
                 />
               </button>
             ))}
-            <p className="font-['DM_Sans'] text-[11px] text-background/30 ml-1 leading-tight">
+            <p className="font-body text-[11px] text-background/30 ml-1 leading-tight">
               {t('home.hero_recent_looks')}
             </p>
           </div>
         ) : (
-          <p className="font-['Playfair_Display'] italic text-[13px] text-background/25">
+          <p className="font-display italic text-[13px] text-background/25">
             {t('home.hero_first_outfit')}
           </p>
         )}
@@ -138,7 +138,7 @@ export function TodayOutfitHero({ weather, garmentCount, recentOutfits, classNam
         className="flex items-center justify-between gap-4"
       >
         {garmentCount != null && garmentCount > 0 && (
-          <p className="font-['DM_Sans'] text-[11px] text-background/30 tracking-wide">
+          <p className="font-body text-[11px] text-background/30 tracking-wide">
             {t('home.hero_items_in_wardrobe').replace('{count}', String(garmentCount))}
           </p>
         )}
@@ -148,7 +148,7 @@ export function TodayOutfitHero({ weather, garmentCount, recentOutfits, classNam
             hapticLight();
             navigate('/ai/generate');
           }}
-          className="bg-background text-foreground h-10 rounded-full px-6 text-[13px] font-medium font-['DM_Sans'] shrink-0 ml-auto hover:bg-background/90"
+          className="bg-background text-foreground h-10 rounded-full px-6 text-[13px] font-medium font-body shrink-0 ml-auto hover:bg-background/90"
         >
           <Sparkles className="w-3.5 h-3.5 mr-1.5" />
           {ctaLabel}

@@ -232,7 +232,7 @@ export default function PlanPage() {
           );
         }
         if (laundryWarning) {
-          toast(laundryWarning, { icon: '🧺' });
+          toast(laundryWarning);
         }
       }
     } catch (error) {
@@ -445,7 +445,7 @@ export default function PlanPage() {
               <button type="button" className="flex h-11 min-h-[44px] items-center gap-2.5 transition-opacity hover:opacity-75">
                 <div>
                   <p className="caption-upper mb-0.5">{t('plan.weekly_overview')}</p>
-                  <h1 className="font-['Playfair_Display'] italic text-[1.55rem] leading-tight text-foreground">
+                  <h1 className="font-display italic text-[1.55rem] leading-tight text-foreground">
                     {dateLabel}
                   </h1>
                 </div>

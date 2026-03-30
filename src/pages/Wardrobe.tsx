@@ -123,8 +123,8 @@ export default function WardrobePage() {
         eyebrow={allGarments.length > 0 ? t('wardrobe.pieces_count').replace('{count}', String(allGarments.length)) : undefined}
         actions={
           <button
-            onClick={() => navigate('/wardrobe/add')}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-background active:scale-95 transition-transform"
+            onClick={() => { hapticLight(); navigate('/wardrobe/add'); }}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-background active:scale-95 transition-transform cursor-pointer"
             aria-label={t('wardrobe.add_garment')}
           >
             <Plus className="h-4 w-4" strokeWidth={2.4} />

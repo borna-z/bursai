@@ -69,8 +69,8 @@ export function extractEnrichment(aiRaw: unknown): EnrichmentData | null {
 export function SpecRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between py-2 min-h-[48px]">
-      <span className="font-['DM_Sans'] text-[11px] text-muted-foreground">{label}</span>
-      <span className="font-['DM_Sans'] text-[11px] text-foreground capitalize">{value}</span>
+      <span className="font-body text-[11px] text-muted-foreground">{label}</span>
+      <span className="font-body text-[11px] text-foreground capitalize">{value}</span>
     </div>
   );
 }
@@ -100,7 +100,7 @@ export function GarmentEnrichmentPanel({
         <div className="p-4 surface-utility">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles className="w-4 h-4 text-foreground/60 animate-pulse" />
-            <p className="font-['DM_Sans'] text-xs text-foreground/70 font-medium m-0">{t('garment.enrichment.deep_analysis_progress')}</p>
+            <p className="font-body text-xs text-foreground/70 font-medium m-0">{t('garment.enrichment.deep_analysis_progress')}</p>
           </div>
           <div className="space-y-2">
             <Skeleton className="h-3 w-3/4" />
@@ -112,7 +112,7 @@ export function GarmentEnrichmentPanel({
       {/* Enrichment failed */}
       {enrichmentStatus === 'failed' && !enrichment && (
         <div className="p-4 surface-utility flex items-center justify-between">
-          <p className="font-['DM_Sans'] text-xs text-foreground/70 m-0">{t('garment.enrichment.analysis_incomplete')}</p>
+          <p className="font-body text-xs text-foreground/70 m-0">{t('garment.enrichment.analysis_incomplete')}</p>
           <Button variant="outline" size="sm" className="text-xs h-7 gap-1.5" onClick={onRetryEnrichment} disabled={isRetrying}>
             {isRetrying ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
             {t('garment.enrichment.retry')}
@@ -123,7 +123,7 @@ export function GarmentEnrichmentPanel({
       {/* Garment intelligence — enrichment details */}
       {enrichment && (enrichment.silhouette || enrichment.visual_weight || enrichment.texture_intensity || enrichment.drape) && (
         <div className="border-t border-foreground/[0.06]">
-          <p className="font-['DM_Sans'] text-[9px] uppercase tracking-[0.08em] text-foreground/[0.38] py-[10px] pb-1">
+          <p className="font-body text-[9px] uppercase tracking-[0.08em] text-foreground/[0.38] py-[10px] pb-1">
             {t('garment.enrichment.intelligence')}
           </p>
           {enrichment.silhouette && <SpecRow label={t('garment.enrichment.silhouette')} value={enrichment.silhouette} />}
@@ -138,7 +138,7 @@ export function GarmentEnrichmentPanel({
       {/* Construction specs */}
       {enrichment && (enrichment.neckline || enrichment.sleeve_length || enrichment.garment_length || enrichment.closure || enrichment.fabric_weight || enrichment.layering_role || enrichment.rise || enrichment.leg_shape) && (
         <div className="border-t border-foreground/[0.06]">
-          <p className="font-['DM_Sans'] text-[9px] uppercase tracking-[0.08em] text-foreground/[0.38] py-[10px] pb-1">
+          <p className="font-body text-[9px] uppercase tracking-[0.08em] text-foreground/[0.38] py-[10px] pb-1">
             {t('garment.enrichment.construction')}
           </p>
           {enrichment.neckline && <SpecRow label={t('garment.enrichment.neckline')} value={enrichment.neckline} />}
@@ -155,17 +155,17 @@ export function GarmentEnrichmentPanel({
       {/* Style archetype + tags */}
       {(enrichment?.style_archetype || (enrichment?.style_tags && enrichment.style_tags.length > 0)) && (
         <div>
-          <p className="font-['DM_Sans'] text-[9px] uppercase tracking-[0.08em] text-foreground/[0.38] mb-1.5">
+          <p className="font-body text-[9px] uppercase tracking-[0.08em] text-foreground/[0.38] mb-1.5">
             {t('garment.enrichment.style')}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {enrichment?.style_archetype && (
-              <span className="bg-foreground text-background px-2 py-[3px] font-['DM_Sans'] text-[10px] capitalize">
+              <span className="bg-foreground text-background px-2 py-[3px] font-body text-[10px] capitalize">
                 {enrichment.style_archetype}
               </span>
             )}
             {enrichment?.style_tags?.map((tag) => (
-              <span key={tag} className="bg-secondary/45 text-foreground px-2 py-[3px] font-['DM_Sans'] text-[10px] capitalize">
+              <span key={tag} className="bg-secondary/45 text-foreground px-2 py-[3px] font-body text-[10px] capitalize">
                 {tag}
               </span>
             ))}
@@ -176,12 +176,12 @@ export function GarmentEnrichmentPanel({
       {/* Occasion tags */}
       {enrichment?.occasion_tags && enrichment.occasion_tags.length > 0 && (
         <div>
-          <p className="font-['DM_Sans'] text-[9px] uppercase tracking-[0.08em] text-foreground/[0.38] mb-1.5">
+          <p className="font-body text-[9px] uppercase tracking-[0.08em] text-foreground/[0.38] mb-1.5">
             {t('garment.enrichment.occasions')}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {enrichment.occasion_tags.map((tag) => (
-              <span key={tag} className="bg-secondary/45 text-foreground/70 px-2 py-[3px] font-['DM_Sans'] text-[10px] capitalize">
+              <span key={tag} className="bg-secondary/45 text-foreground/70 px-2 py-[3px] font-body text-[10px] capitalize">
                 {tag}
               </span>
             ))}
@@ -193,11 +193,11 @@ export function GarmentEnrichmentPanel({
       {enrichment?.versatility_score != null && (
         <div className="flex items-center gap-2">
           <Layers className="w-3.5 h-3.5 text-foreground/40" />
-          <span className="font-['DM_Sans'] text-[11px] text-foreground">
+          <span className="font-body text-[11px] text-foreground">
             {t('garment.enrichment.versatility')}: {enrichment.versatility_score}/10
           </span>
           {enrichment.color_harmony_notes && (
-            <span className="font-['DM_Sans'] text-[10px] text-foreground/50">
+            <span className="font-body text-[10px] text-foreground/50">
               — {enrichment.color_harmony_notes}
             </span>
           )}
@@ -213,7 +213,7 @@ export function GarmentEnrichmentPanel({
               background: enrichment.confidence >= 0.85 ? '#10b981' : enrichment.confidence >= 0.6 ? '#f59e0b' : 'rgba(28,25,23,0.3)',
             }}
           />
-          <span className="font-['DM_Sans'] text-[10px] text-foreground/50">
+          <span className="font-body text-[10px] text-foreground/50">
             {confidenceLabel(enrichment.confidence).label} · {Math.round(enrichment.confidence * 100)}%
           </span>
         </div>
@@ -222,12 +222,12 @@ export function GarmentEnrichmentPanel({
       {/* Care instructions */}
       {enrichment?.care_instructions && enrichment.care_instructions.length > 0 && (
         <div>
-          <p className="font-['DM_Sans'] text-[9px] uppercase tracking-[0.08em] text-foreground/[0.38] mb-1.5">
+          <p className="font-body text-[9px] uppercase tracking-[0.08em] text-foreground/[0.38] mb-1.5">
             {t('garment.enrichment.care')}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {enrichment.care_instructions.map((item) => (
-              <span key={item} className="bg-secondary/45 text-foreground/70 px-2 py-[3px] font-['DM_Sans'] text-[10px] capitalize">
+              <span key={item} className="bg-secondary/45 text-foreground/70 px-2 py-[3px] font-body text-[10px] capitalize">
                 {item}
               </span>
             ))}

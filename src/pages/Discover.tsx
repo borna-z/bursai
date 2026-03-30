@@ -22,7 +22,7 @@ export default function DiscoverPage() {
           transition={PRESETS.HERO.transition}
           className="space-y-1"
         >
-          <h1 className="font-['Playfair_Display'] italic text-[1.4rem] text-foreground leading-tight">
+          <h1 className="font-display italic text-[1.4rem] text-foreground leading-tight">
             {t('discover.title')}
           </h1>
           <p className="text-[13px] text-muted-foreground/60">{t('discover.subtitle_new')}</p>

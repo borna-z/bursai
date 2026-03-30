@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { hapticLight } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useAddGarment } from '@/hooks/useAddGarment';
@@ -28,6 +29,7 @@ export default function AddGarmentPage() {
           garment.navigate('/wardrobe');
         }}
         onCancel={() => {
+          hapticLight();
           garment.setBatchFiles([]);
           garment.setStep('upload');
         }}

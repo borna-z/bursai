@@ -78,7 +78,7 @@ export function HomeDnaSnapshot({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="label-editorial text-muted-foreground/60">{t('home.dna_style_dna')}</p>
-            <h2 className="mt-1 font-['Playfair_Display'] italic text-[1.2rem] tracking-[-0.03em] text-foreground">
+            <h2 className="mt-1 font-display italic text-[1.2rem] tracking-[-0.03em] text-foreground">
               {t('home.dna_still_forming')}
             </h2>
             <p className="mt-2 text-[0.92rem] leading-6 text-muted-foreground">
@@ -111,7 +111,7 @@ export function HomeDnaSnapshot({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="label-editorial text-muted-foreground/60">{t('home.dna_style_dna')}</p>
-          <h2 className="mt-1 font-['Playfair_Display'] italic text-[1.35rem] tracking-[-0.04em] text-foreground">
+          <h2 className="mt-1 font-display italic text-[1.35rem] tracking-[-0.04em] text-foreground">
             {dna.archetype}
           </h2>
           <p className="mt-1 text-[0.86rem] text-muted-foreground">

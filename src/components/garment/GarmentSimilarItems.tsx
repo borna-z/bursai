@@ -43,7 +43,7 @@ export function GarmentSimilarItems({ similarGarments }: GarmentSimilarItemsProp
                   className="w-full h-full"
                 />
               </div>
-              <p className="m-0 line-clamp-2 font-['DM_Sans'] text-[11px] text-foreground/60">
+              <p className="m-0 line-clamp-2 font-body text-[11px] text-foreground/60">
                 {g.title}
               </p>
             </button>
@@ -51,10 +51,10 @@ export function GarmentSimilarItems({ similarGarments }: GarmentSimilarItemsProp
         </div>
       ) : (
         <div className="text-center py-10">
-          <p className="font-['Playfair_Display'] italic text-sm text-foreground/50 m-0">
+          <p className="font-display italic text-sm text-foreground/50 m-0">
             {t('garment.similar.no_items')}
           </p>
-          <p className="font-['DM_Sans'] text-[11px] text-foreground/[0.35] mt-1">
+          <p className="font-body text-[11px] text-foreground/[0.35] mt-1">
             {t('garment.similar.no_items_hint')}
           </p>
         </div>

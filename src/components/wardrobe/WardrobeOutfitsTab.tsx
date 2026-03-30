@@ -326,7 +326,7 @@ export function WardrobeOutfitsTab() {
           action={{ label: t('outfits.create'), onClick: () => navigate('/ai/generate'), icon: Sparkles }}
           secondaryAction={{ label: translateOrFallback(t, 'outfits.open_planner', 'Open planner'), onClick: () => navigate('/plan') }}
           variant="editorial"
-          titleClassName="font-['Playfair_Display'] text-[22px] font-medium tracking-[-0.03em]"
+          titleClassName="font-display text-[22px] font-medium tracking-[-0.03em]"
           className="border-border/15 bg-card/35"
         />
       ) : filtered.length > 0 ? (
@@ -358,7 +358,7 @@ export function WardrobeOutfitsTab() {
           secondaryAction={{ label: translateOrFallback(t, 'outfits.show_all', 'Show all looks'), onClick: () => setFilter('all') }}
           compact
           variant="editorial"
-          titleClassName="font-['Playfair_Display'] text-[20px] font-medium tracking-[-0.03em]"
+          titleClassName="font-display text-[20px] font-medium tracking-[-0.03em]"
           className="border-border/15 bg-card/35"
         />
       )}

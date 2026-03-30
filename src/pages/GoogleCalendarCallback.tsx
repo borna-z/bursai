@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { hapticLight } from '@/lib/haptics';
 import { logger } from '@/lib/logger';
 
 type CallbackStatus = 'loading' | 'success' | 'empty' | 'error';
@@ -115,8 +116,8 @@ export default function GoogleCalendarCallback() {
             <p className="text-lg font-medium">{t('gcal.something_wrong')}</p>
             <p className="text-sm text-muted-foreground">{message}</p>
             <button
-              onClick={() => navigate('/settings', { replace: true })}
-              className="text-primary underline text-sm mt-2"
+              onClick={() => { hapticLight(); navigate('/settings', { replace: true }); }}
+              className="text-primary underline text-sm mt-2 cursor-pointer"
             >
               {t('gcal.back_settings')}
             </button>

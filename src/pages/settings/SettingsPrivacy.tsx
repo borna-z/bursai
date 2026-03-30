@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Download, Trash2, ChevronRight, ChevronDown, Loader2, Shield, Database, ToggleLeft, Scale, Mail, User, Image, Calendar, MessageSquare, Ruler, ExternalLink } from 'lucide-react';
+import { AnimatedPage } from '@/components/ui/animated-page';
+import { hapticLight } from '@/lib/haptics';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -43,7 +45,7 @@ export default function SettingsPrivacy() {
   const preferences = asPreferences(profile?.preferences);
   const consent = (preferences.consent as ConsentPrefs) || { analytics: true, ai_conversations: true, body_data: true };
 
-  const toggle = (id: SectionId) => setOpenSection(prev => prev === id ? null : id);
+  const toggle = (id: SectionId) => { hapticLight(); setOpenSection(prev => prev === id ? null : id); };
 
   const updateConsent = async (key: keyof ConsentPrefs, value: boolean) => {
     const newConsent = { ...consent, [key]: value, updated_at: new Date().toISOString() } as Record<string, unknown>;
@@ -94,7 +96,7 @@ export default function SettingsPrivacy() {
   const SectionHeader = ({ id, title, icon: Icon }: { id: SectionId; title: string; icon: React.ElementType }) => (
     <CollapsibleTrigger
       onClick={() => toggle(id)}
-      className="flex items-center justify-between w-full px-4 py-3.5 text-left"
+      className="flex items-center justify-between w-full px-4 py-3.5 text-left cursor-pointer"
     >
       <div className="flex items-center gap-2.5">
         <Icon className="w-4 h-4 text-accent" />
@@ -130,7 +132,7 @@ export default function SettingsPrivacy() {
     <AppLayout>
       <PageHeader title="Data & Integritet" showBack />
 
-      <div className="px-4 pb-6 pt-4 space-y-3 max-w-lg mx-auto">
+      <AnimatedPage className="px-4 pb-6 pt-4 space-y-3 max-w-lg mx-auto">
 
         {/* About BURS */}
         <Collapsible open={openSection === 'about'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
@@ -198,16 +200,16 @@ export default function SettingsPrivacy() {
           <SectionHeader id="rights" title={t('settings.gdpr.rights_title')} icon={Scale} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div>
-              <SettingsRow icon={<Download />} label={t('settings.export')} onClick={isExporting ? undefined : handleExportData}>
+              <SettingsRow icon={<Download />} label={t('settings.export')} onClick={isExporting ? undefined : () => { hapticLight(); handleExportData(); }}>
                 {isExporting ? <Loader2 className="w-4 h-4 animate-spin text-accent" /> : <ChevronRight className="w-4 h-4 text-accent" />}
               </SettingsRow>
-              <SettingsRow icon={<Mail />} label={t('settings.gdpr.rights_edit')} onClick={() => navigate('/settings/account')}>
+              <SettingsRow icon={<Mail />} label={t('settings.gdpr.rights_edit')} onClick={() => { hapticLight(); navigate('/settings/account'); }}>
                 <ChevronRight className="w-4 h-4 text-accent" />
               </SettingsRow>
-              <SettingsRow icon={<ExternalLink />} label={t('settings.gdpr.rights_privacy_policy')} onClick={() => navigate('/privacy')}>
+              <SettingsRow icon={<ExternalLink />} label={t('settings.gdpr.rights_privacy_policy')} onClick={() => { hapticLight(); navigate('/privacy'); }}>
                 <ChevronRight className="w-4 h-4 text-accent" />
               </SettingsRow>
-              <SettingsRow icon={<ExternalLink />} label={t('settings.gdpr.rights_terms')} onClick={() => navigate('/terms')} last>
+              <SettingsRow icon={<ExternalLink />} label={t('settings.gdpr.rights_terms')} onClick={() => { hapticLight(); navigate('/terms'); }} last>
                 <ChevronRight className="w-4 h-4 text-accent" />
               </SettingsRow>
             </div>
@@ -245,7 +247,7 @@ export default function SettingsPrivacy() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground" disabled={isDeleting}>
+                  <AlertDialogAction onClick={() => { hapticLight(); handleDeleteAccount(); }} className="bg-destructive text-destructive-foreground" disabled={isDeleting}>
                     {isDeleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     {t('settings.delete_permanently')}
                   </AlertDialogAction>
@@ -255,7 +257,7 @@ export default function SettingsPrivacy() {
           </div>
         </div>
 
-      </div>
+      </AnimatedPage>
     </AppLayout>
   );
 }

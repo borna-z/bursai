@@ -51,7 +51,7 @@ export function GarmentAnalysisState({ imageUrl, className }: GarmentAnalysisSta
             animate={{ opacity: 1 }}
             exit={prefersReduced ? undefined : { opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="text-[12px] font-['DM_Sans'] text-white/60"
+            className="text-[12px] font-body text-white/60"
           >
             {PHASE_MESSAGES[msgIndex]}
           </motion.p>

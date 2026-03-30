@@ -40,7 +40,7 @@ export function PaywallModal({ isOpen, onClose, reason }: PaywallModalProps) {
           <div className="mx-auto w-16 h-16 rounded-full gradient-premium flex items-center justify-center mb-4">
             <Crown className="w-8 h-8 text-white" />
           </div>
-          <DialogTitle className="font-['Playfair_Display'] italic text-2xl">{t('paywall.title')}</DialogTitle>
+          <DialogTitle className="font-display italic text-2xl">{t('paywall.title')}</DialogTitle>
           <DialogDescription className="text-base leading-relaxed">
             {reason === 'garments'
               ? t('paywall.garment_limit')

@@ -26,7 +26,7 @@ export function CardEyebrow({
   className?: string;
 }) {
   return (
-    <p className={cn("font-['DM_Sans'] text-[10px] uppercase tracking-[0.18em] text-foreground/50", className)}>
+    <p className={cn("font-body text-[10px] uppercase tracking-[0.18em] text-foreground/50", className)}>
       {children}
     </p>
   );

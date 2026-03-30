@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PaywallModal } from '@/components/PaywallModal';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { hapticLight } from '@/lib/haptics';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -153,7 +154,7 @@ export default function MoodOutfitPage() {
             <Card surface="editorial" className="space-y-4 p-5">
               <div>
                 <p className="label-editorial">Next move</p>
-                <h2 className="mt-2 font-['Playfair_Display'] italic text-[1.3rem] text-foreground leading-tight">
+                <h2 className="mt-2 font-display italic text-[1.3rem] text-foreground leading-tight">
                   Keep the energy, adjust the details.
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -180,9 +181,9 @@ export default function MoodOutfitPage() {
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.06 }}
-                    onClick={() => !isGenerating && generate(mood.key)}
+                    onClick={() => { if (!isGenerating) { hapticLight(); generate(mood.key); } }}
                     disabled={isGenerating && !isSelected}
-                    className="text-left"
+                    className="text-left cursor-pointer"
                   >
                     <Card
                       surface="editorial"
@@ -207,7 +208,7 @@ export default function MoodOutfitPage() {
                           />
                           <div className="space-y-2">
                             <p className="label-editorial">Mood direction</p>
-                            <h2 className="font-['Playfair_Display'] italic text-[1.35rem] text-foreground leading-tight">
+                            <h2 className="font-display italic text-[1.35rem] text-foreground leading-tight">
                               {t(`ai.mood_${mood.key}`)}
                             </h2>
                             <p className="text-sm leading-6 text-muted-foreground">

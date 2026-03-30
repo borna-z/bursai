@@ -5,6 +5,8 @@ import { toast } from 'sonner';
 
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { AnimatedPage } from '@/components/ui/animated-page';
+import { hapticLight } from '@/lib/haptics';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -213,7 +215,7 @@ export default function EditGarmentPage() {
         showBack
       />
 
-      <div className="page-shell !px-5 !pb-36 !pt-6 page-cluster">
+      <AnimatedPage className="page-shell !px-5 !pb-36 !pt-6 page-cluster">
         <Card surface="editorial" className="overflow-hidden p-2">
           <div className="grid gap-5 p-3 sm:grid-cols-[180px,1fr] sm:items-center">
             <div className="relative overflow-hidden rounded-[1.1rem]">
@@ -298,7 +300,7 @@ export default function EditGarmentPage() {
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => setColorPrimary(item.id)}
+                    onClick={() => { hapticLight(); setColorPrimary(item.id); }}
                     className={cn(
                       'h-11 w-11 rounded-full border-2 transition-all',
                       colorPrimary === item.id
@@ -317,7 +319,7 @@ export default function EditGarmentPage() {
               <div className="flex flex-wrap gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setColorSecondary('')}
+                  onClick={() => { hapticLight(); setColorSecondary(''); }}
                   className={cn(
                     'flex h-11 w-11 items-center justify-center rounded-full border-2 transition-all',
                     !colorSecondary
@@ -332,7 +334,7 @@ export default function EditGarmentPage() {
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => setColorSecondary(item.id)}
+                    onClick={() => { hapticLight(); setColorSecondary(item.id); }}
                     className={cn(
                       'h-11 w-11 rounded-full border-2 transition-all',
                       colorSecondary === item.id
@@ -419,7 +421,7 @@ export default function EditGarmentPage() {
                   key={season}
                   variant={selectedSeasons.includes(season.toLowerCase()) ? 'default' : 'outline'}
                   className="cursor-pointer px-4 py-2"
-                  onClick={() => toggleSeason(season.toLowerCase())}
+                  onClick={() => { hapticLight(); toggleSeason(season.toLowerCase()); }}
                 >
                   {t(SEASON_I18N[season.toLowerCase()] || season)}
                 </Badge>
@@ -447,7 +449,7 @@ export default function EditGarmentPage() {
             <Switch checked={inLaundry} onCheckedChange={setInLaundry} />
           </div>
         </Card>
-      </div>
+      </AnimatedPage>
 
       <div className="bottom-safe-nav fixed inset-x-4 z-20">
         <div className="mx-auto max-w-md">
@@ -455,7 +457,7 @@ export default function EditGarmentPage() {
             <Button variant="outline" className="flex-1" onClick={() => navigate(-1)} disabled={isSaving}>
               {t('common.cancel')}
             </Button>
-            <Button className="flex-1" onClick={handleSave} disabled={isSaving || !title || !category || !colorPrimary}>
+            <Button className="flex-1" onClick={() => { hapticLight(); handleSave(); }} disabled={isSaving || !title || !category || !colorPrimary}>
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -32,10 +32,10 @@ const cardReveal = {
 function CategorySection({ category, count, t }: { category: string; count: number; t: (key: string) => string }) {
   return (
     <div className="flex items-center justify-between pb-2 pt-4">
-      <span className="font-['DM_Sans'] text-[9px] uppercase tracking-[0.12em] text-foreground/40">
+      <span className="font-body text-[9px] uppercase tracking-[0.12em] text-foreground/40">
         {categoryLabel(t, category)}
       </span>
-      <span className="font-['DM_Sans'] text-[9px] tracking-[0.12em] text-foreground/40">
+      <span className="font-body text-[9px] tracking-[0.12em] text-foreground/40">
         {count}
       </span>
     </div>

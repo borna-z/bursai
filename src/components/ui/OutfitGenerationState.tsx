@@ -70,7 +70,7 @@ export function OutfitGenerationState({
             animate={{ opacity: 1, y: 0 }}
             exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
             transition={{ duration: 0.2, ease: EASE_CURVE }}
-            className="text-[18px] font-['Playfair_Display'] italic text-foreground text-center absolute inset-x-0"
+            className="text-[18px] font-display italic text-foreground text-center absolute inset-x-0"
           >
             {phaseLabels[phaseIndex]}
           </motion.p>
@@ -117,7 +117,7 @@ export function OutfitGenerationState({
       {/* Subtitle */}
       <p
         data-testid="ai-loading-card"
-        className="text-center text-[12px] text-muted-foreground/70 font-['DM_Sans'] px-4"
+        className="text-center text-[12px] text-muted-foreground/70 font-body px-4"
       >
         {subtitle}
       </p>

@@ -80,7 +80,7 @@ export function DiscoverHero({ challengeTitle, challengeDescription, challengeId
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.22, ease: EASE_CURVE }}
-          className="font-['Playfair_Display'] italic text-[1.3rem] text-foreground leading-tight"
+          className="font-display italic text-[1.3rem] text-foreground leading-tight"
         >
           {title}
         </motion.h2>

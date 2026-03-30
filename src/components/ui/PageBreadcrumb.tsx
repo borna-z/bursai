@@ -22,13 +22,13 @@ export function PageBreadcrumb({ items }: PageBreadcrumbProps) {
                 <ChevronRight className="w-3 h-3 text-muted-foreground/30 shrink-0" />
               )}
               {isLast || !item.href ? (
-                <span className="text-[11px] font-medium font-['DM_Sans'] text-foreground truncate max-w-[200px]">
+                <span className="text-[11px] font-medium font-body text-foreground truncate max-w-[200px]">
                   {item.label}
                 </span>
               ) : (
                 <Link
                   to={item.href}
-                  className="text-[11px] font-['DM_Sans'] text-muted-foreground/50 hover:text-muted-foreground transition-colors whitespace-nowrap"
+                  className="text-[11px] font-body text-muted-foreground/50 hover:text-muted-foreground transition-colors whitespace-nowrap"
                 >
                   {item.label}
                 </Link>
