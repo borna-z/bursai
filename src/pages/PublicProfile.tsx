@@ -12,6 +12,8 @@ import { AnimatedPage } from '@/components/ui/animated-page';
 import { OutfitReactions } from '@/components/social/OutfitReactions';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { validateCompleteOutfit } from '@/lib/outfitValidation';
+import { motion, useReducedMotion } from 'framer-motion';
+import { EASE_CURVE } from '@/lib/motion';
 
 interface PublicProfile {
   id: string;
@@ -44,12 +46,16 @@ export default function PublicProfile() {
   const { username } = useParams<{ username: string }>();
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const prefersReduced = useReducedMotion();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [outfits, setOutfits] = useState<PublicOutfit[]>([]);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  const stagger = (i: number) =>
+    prefersReduced ? {} : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, transition: { delay: 0.08 * i, duration: 0.35, ease: EASE_CURVE } };
 
   useEffect(() => {
     const load = async () => {
@@ -110,16 +116,16 @@ export default function PublicProfile() {
   }, [username]);
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+    return <div className="flex items-center justify-center min-h-screen bg-background"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   }
 
   if (notFound || !profile) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4">
-        <Users className="w-12 h-12 text-muted-foreground/30 mb-4" />
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-background">
+        <Users className="w-12 h-12 text-muted-foreground/20 mb-4" />
         <h1 className="font-display italic text-xl font-bold mb-2">{t('profile.not_found')}</h1>
-        <p className="text-muted-foreground text-center mb-6">{t('profile.not_found_desc')}</p>
-        <Link to="/auth"><Button>{t('share.create_own')}<ArrowRight className="w-4 h-4 ml-2" /></Button></Link>
+        <p className="text-muted-foreground text-center mb-6 font-body">{t('profile.not_found_desc')}</p>
+        <Link to="/auth"><Button className="rounded-full" onClick={() => hapticLight()}>{t('share.create_own')}<ArrowRight className="w-4 h-4 ml-2" /></Button></Link>
       </div>
     );
   }
@@ -134,77 +140,85 @@ export default function PublicProfile() {
         <meta name="description" content={`Check out ${displayName}'s style on BURS`} />
       </Helmet>
       <div className="min-h-screen bg-background">
-        <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b">
-          <div className="max-w-lg mx-auto p-4 flex items-center gap-3">
-            <span className="font-semibold">BURS</span>
-            <span className="text-muted-foreground/40">·</span>
-            <span className="text-sm text-muted-foreground">@{profile.username}</span>
+        {/* Sticky topbar */}
+        <div className="sticky top-0 z-10 topbar-frost border-b border-border/40">
+          <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
+            <span className="font-display italic text-sm">BURS</span>
+            <span className="text-muted-foreground/30">·</span>
+            <span className="text-[11px] font-body text-muted-foreground">@{profile.username}</span>
           </div>
         </div>
 
-        <AnimatedPage className="max-w-lg mx-auto px-4 pb-8 pt-8">
+        <AnimatedPage className="max-w-lg mx-auto px-4 pb-24 pt-8">
           {/* Profile header */}
-          <div className="flex flex-col items-center gap-3 pb-8">
-            <Avatar className="w-20 h-20">
+          <motion.div className="flex flex-col items-center gap-4 pb-8" {...stagger(0)}>
+            <Avatar className="w-24 h-24 ring-2 ring-border/30 ring-offset-2 ring-offset-background">
               {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
-              <AvatarFallback className="bg-primary/8 text-primary font-semibold text-xl">{initials}</AvatarFallback>
+              <AvatarFallback className="bg-primary/8 text-primary font-semibold text-2xl">{initials}</AvatarFallback>
             </Avatar>
-            <div className="text-center">
-              <h1 className="font-display italic text-xl font-bold">{displayName}</h1>
-              <p className="text-sm text-muted-foreground">@{profile.username}</p>
+            <div className="text-center space-y-1">
+              <h1 className="font-display italic text-[1.4rem]">{displayName}</h1>
+              <p className="text-[11px] font-body uppercase tracking-[0.14em] text-muted-foreground/50">@{profile.username}</p>
             </div>
-            <div className="flex gap-6 mt-2">
+            <div className="flex gap-8 mt-1">
               <div className="text-center">
-                <span className="text-lg font-bold tabular-nums">{outfits.length}</span>
-                <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider">{t('profile.shared_outfits')}</p>
+                <span className="text-xl font-semibold tabular-nums">{outfits.length}</span>
+                <p className="text-[10px] font-body text-muted-foreground/50 uppercase tracking-[0.14em] mt-0.5">{t('profile.shared_outfits')}</p>
               </div>
             </div>
-          </div>
+          </motion.div>
+
+          {/* Section eyebrow */}
+          <motion.div className="mb-4" {...stagger(1)}>
+            <p className="label-editorial text-muted-foreground/50 text-[10px]">Shared Archive</p>
+          </motion.div>
 
           {/* Outfits grid */}
           {outfits.length === 0 ? (
-            <div className="text-center py-12">
-              <Shirt className="w-10 h-10 text-muted-foreground/20 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">{t('profile.no_outfits')}</p>
-            </div>
+            <motion.div className="text-center py-16" {...stagger(2)}>
+              <Shirt className="w-10 h-10 text-muted-foreground/15 mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground font-body">{t('profile.no_outfits')}</p>
+            </motion.div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
-              {outfits.map(outfit => (
-                <div
+              {outfits.map((outfit, i) => (
+                <motion.div
                   key={outfit.id}
-                  className="rounded-[1.25rem] overflow-hidden border bg-card cursor-pointer active:scale-[0.98] transition-transform"
+                  className="surface-secondary rounded-[1.25rem] overflow-hidden cursor-pointer active:scale-[0.98] transition-transform"
                   onClick={() => { hapticLight(); navigate(`/share/${outfit.id}`); }}
+                  {...stagger(2 + i)}
                 >
-                  <div className="aspect-square bg-muted overflow-hidden">
+                  <div className="aspect-square bg-muted/30 overflow-hidden">
                     {imageUrls[outfit.id] ? (
                       <img src={imageUrls[outfit.id]} alt={outfit.occasion} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <Shirt className="w-8 h-8 text-muted-foreground/20" />
+                        <Shirt className="w-8 h-8 text-muted-foreground/15" />
                       </div>
                     )}
                   </div>
-                  <div className="p-2.5 space-y-1.5">
-                    <Badge variant="secondary" className="text-[10px] capitalize">{outfit.occasion}</Badge>
+                  <div className="p-3 space-y-1.5">
+                    <p className="text-[10px] font-body uppercase tracking-[0.12em] text-muted-foreground/50">{outfit.occasion}</p>
                     {outfit.style_vibe && (
-                      <p className="text-[11px] text-muted-foreground truncate">{outfit.style_vibe}</p>
+                      <p className="text-[12px] font-body text-foreground/80 truncate">{outfit.style_vibe}</p>
                     )}
                     <OutfitReactions outfitId={outfit.id} compact />
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           )}
 
           {/* CTA */}
-          <div className="mt-10 text-center space-y-3">
-            <p className="text-sm text-muted-foreground">{t('profile.cta_desc')}</p>
+          <motion.div className="mt-12 surface-editorial rounded-[1.25rem] p-6 text-center space-y-3" {...stagger(3)}>
+            <Crown className="w-8 h-8 mx-auto text-accent" />
+            <h3 className="font-display italic text-lg">{t('profile.cta_desc')}</h3>
             <Link to="/auth">
-              <Button size="lg">
+              <Button size="lg" className="rounded-full" onClick={() => hapticLight()}>
                 <Crown className="w-4 h-4 mr-2" />{t('profile.cta_button')}
               </Button>
             </Link>
-          </div>
+          </motion.div>
         </AnimatedPage>
       </div>
     </>

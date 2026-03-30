@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Gem, RefreshCw, Sparkles } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
@@ -23,6 +23,7 @@ import { hapticLight } from '@/lib/haptics';
 import { getOccasionLabel } from '@/lib/occasionLabel';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { stripBrands } from '@/lib/stripBrands';
+import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM, DISTANCE } from '@/lib/motion';
 import type { Garment } from '@/hooks/useGarments';
 
 const OCCASIONS = ['vardag', 'jobb', 'dejt', 'fest', 'casual', 'smart_casual'];
@@ -41,6 +42,7 @@ export default function UnusedOutfits() {
   const { data: insights } = useInsights();
   const { weather } = useWeather();
   const queryClient = useQueryClient();
+  const prefersReduced = useReducedMotion();
 
   const [outfits, setOutfits] = useState<GeneratedOutfitCard[]>([]);
   const [generating, setGenerating] = useState(true);
@@ -148,16 +150,22 @@ export default function UnusedOutfits() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [insights, unusedIds.length]);
 
+  const motionProps = prefersReduced
+    ? { initial: { opacity: 0 }, animate: { opacity: 1 } }
+    : { initial: { opacity: 0, y: DISTANCE.md }, animate: { opacity: 1, y: 0 } };
+
   return (
     <AppLayout hideNav>
       <PageHeader
         title={t('insights.unused_title') || 'Sleeping Beauties'}
+        titleClassName="font-display italic"
         eyebrow="Insights"
         showBack
         actions={!generating && outfits.length > 0 ? (
           <Button
             variant="quiet"
             size="icon"
+            className="rounded-full"
             onClick={() => {
               hapticLight();
               startedRef.current = false;
@@ -171,10 +179,22 @@ export default function UnusedOutfits() {
       />
 
       <AnimatedPage className="page-shell !px-5 !pt-6 page-cluster">
-        <PageHeader title={t('insights.unused_title') || 'Sleeping Beauties'} eyebrow="Insights" showBack />
+        {/* Editorial intro */}
+        <motion.section
+          {...motionProps}
+          transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM }}
+          className="space-y-2"
+        >
+          <h1 className="font-display italic text-[1.5rem] leading-tight text-foreground">
+            Rediscover these looks
+          </h1>
+          <p className="font-body text-sm leading-6 text-muted-foreground">
+            {t('insights.unused_desc') || 'Outfits built from pieces you haven\'t worn in 30+ days. Give them a second life.'}
+          </p>
+        </motion.section>
 
         {generating && outfits.length === 0 ? (
-          <Card surface="editorial" className="space-y-4 p-5">
+          <Card surface="editorial" className="space-y-4 p-5 rounded-[1.25rem]">
             <AILoadingOverlay
               variant="inline"
               phases={[
@@ -206,57 +226,70 @@ export default function UnusedOutfits() {
         ) : null}
 
         {outfits.length > 0 ? (
-          <section className="grid gap-3 sm:grid-cols-2">
+          <section className="grid gap-4">
             {outfits.map((outfit, index) => (
               <motion.button
                 key={outfit.id}
                 type="button"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.08 }}
+                {...(prefersReduced
+                  ? { initial: { opacity: 0 }, animate: { opacity: 1 } }
+                  : { initial: { opacity: 0, y: DISTANCE.md }, animate: { opacity: 1, y: 0 } }
+                )}
+                transition={{
+                  delay: index * STAGGER_DELAY * 2,
+                  ease: EASE_CURVE,
+                  duration: DURATION_MEDIUM,
+                }}
+                whileTap={prefersReduced ? undefined : { scale: 0.98 }}
                 onClick={() => {
                   hapticLight();
                   navigate(`/outfits/${outfit.id}`);
                 }}
-                className="text-left"
+                className="text-left w-full"
               >
-                <Card surface="utility" className="h-full overflow-hidden p-2">
-                  <div className="grid aspect-square grid-cols-2 overflow-hidden rounded-[1.1rem]">
-                    {outfit.items.slice(0, 4).map((item) => {
-                      const isUnused = unusedSet.has(item.garment.id);
+                <Card surface="secondary" className="h-full overflow-hidden rounded-[1.25rem] p-3">
+                  <div className="flex gap-3">
+                    {/* 2x2 image grid */}
+                    <div className="grid w-[7.5rem] shrink-0 grid-cols-2 gap-1 overflow-hidden rounded-[1rem]">
+                      {outfit.items.slice(0, 4).map((item) => {
+                        const isUnused = unusedSet.has(item.garment.id);
 
-                      return (
-                        <div key={item.garment.id} className="relative overflow-hidden bg-muted/20">
-                          <LazyImageSimple
-                            imagePath={getPreferredGarmentImagePath(item.garment)}
-                            alt={stripBrands(item.garment.title)}
-                            className="h-full w-full object-cover"
-                          />
-                          {isUnused ? (
-                            <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-background/90 px-2 py-1 text-[0.58rem] font-medium uppercase tracking-[0.16em] text-foreground shadow-[0_8px_20px_rgba(28,25,23,0.08)]">
-                              <Gem className="h-2.5 w-2.5" />
-                              {t('unused_outfits.unused_badge')}
-                            </span>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                    {outfit.items.length < 4
-                      ? Array.from({ length: 4 - outfit.items.length }).map((_, index) => (
-                        <div key={`empty-${index}`} className="bg-muted/10" />
-                      ))
-                      : null}
-                  </div>
-
-                  <div className="space-y-2 px-1 pb-1 pt-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="eyebrow-chip !bg-secondary/70">
-                        {getOccasionLabel(outfit.occasion, t)}
-                      </span>
+                        return (
+                          <div key={item.garment.id} className="relative aspect-square overflow-hidden bg-muted/20">
+                            <LazyImageSimple
+                              imagePath={getPreferredGarmentImagePath(item.garment)}
+                              alt={stripBrands(item.garment.title)}
+                              className="h-full w-full object-cover"
+                            />
+                            {isUnused ? (
+                              <span className="absolute left-1 top-1 inline-flex items-center gap-0.5 rounded-full bg-background/90 px-1.5 py-0.5 text-[0.5rem] font-medium uppercase tracking-[0.12em] text-foreground">
+                                <Gem className="h-2 w-2" />
+                              </span>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                      {outfit.items.length < 4
+                        ? Array.from({ length: 4 - outfit.items.length }).map((_, emptyIndex) => (
+                          <div key={`empty-${emptyIndex}`} className="aspect-square bg-muted/10" />
+                        ))
+                        : null}
                     </div>
-                    <p className="text-sm font-medium leading-6 text-foreground">
-                      {outfit.explanation}
-                    </p>
+
+                    {/* Text content */}
+                    <div className="flex min-w-0 flex-1 flex-col justify-between py-1">
+                      <div className="space-y-2">
+                        <span className="label-editorial text-muted-foreground/50 text-[0.65rem] uppercase tracking-[0.16em]">
+                          {getOccasionLabel(outfit.occasion, t)}
+                        </span>
+                        <p className="font-body text-sm font-medium leading-snug text-foreground line-clamp-3">
+                          {outfit.explanation}
+                        </p>
+                      </div>
+                      <p className="label-editorial text-muted-foreground/40 text-[0.6rem] uppercase tracking-[0.14em] mt-2">
+                        {outfit.items.filter((item) => unusedSet.has(item.garment.id)).length} unused pieces
+                      </p>
+                    </div>
                   </div>
                 </Card>
               </motion.button>
@@ -264,12 +297,14 @@ export default function UnusedOutfits() {
 
             {generating
               ? Array.from({ length: Math.max(0, 6 - outfits.length) }).map((_, index) => (
-                <Card key={`skeleton-${index}`} surface="utility" className="overflow-hidden p-2">
-                  <Skeleton className="aspect-square rounded-[1.1rem]" />
-                  <div className="space-y-2 px-1 pb-1 pt-4">
-                    <Skeleton className="h-5 w-20 rounded-full" />
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-4/5" />
+                <Card key={`skeleton-${index}`} surface="secondary" className="overflow-hidden rounded-[1.25rem] p-3">
+                  <div className="flex gap-3">
+                    <Skeleton className="w-[7.5rem] shrink-0 aspect-square rounded-[1rem]" />
+                    <div className="flex-1 space-y-3 py-2">
+                      <Skeleton className="h-3 w-16 rounded-full" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-4/5" />
+                    </div>
                   </div>
                 </Card>
               ))
@@ -277,13 +312,24 @@ export default function UnusedOutfits() {
           </section>
         ) : null}
 
-        {!generating && outfits.length > 0 && outfits.length < 6 ? (
-          <Card surface="inset" className="p-4">
-            <p className="label-editorial">Partial set</p>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              BURS found {outfits.length} strong looks from the unused pieces. Regenerate if you want a fresh pass.
-            </p>
-          </Card>
+        {/* Inspirational footer card */}
+        {!generating && outfits.length > 0 ? (
+          <motion.div
+            {...motionProps}
+            transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: 0.2 }}
+          >
+            <Card surface="editorial" className="rounded-[1.25rem] p-5 space-y-3">
+              <Sparkles className="h-5 w-5 text-accent" />
+              <p className="font-display italic text-[1.1rem] leading-tight text-foreground">
+                Your closet is a living gallery.
+              </p>
+              <p className="font-body text-sm leading-6 text-muted-foreground">
+                {outfits.length < 6
+                  ? `BURS found ${outfits.length} strong looks from the unused pieces. Regenerate if you want a fresh pass.`
+                  : 'Rotate these into your weekly plan and watch your cost-per-wear drop.'}
+              </p>
+            </Card>
+          </motion.div>
         ) : null}
       </AnimatedPage>
     </AppLayout>

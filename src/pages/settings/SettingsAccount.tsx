@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Trash2, Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { User, Trash2, Loader2, Download, Mail } from 'lucide-react';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { hapticLight } from '@/lib/haptics';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { SettingsRow } from '@/components/settings/SettingsRow';
 import { SettingsGroup } from '@/components/settings/SettingsGroup';
+import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM } from '@/lib/motion';
 
 export default function SettingsAccount() {
   const navigate = useNavigate();
@@ -58,34 +60,75 @@ export default function SettingsAccount() {
 
   return (
     <AppLayout>
-      <PageHeader title={t('settings.row.account')} showBack />
+      <PageHeader title={t('settings.row.account')} showBack titleClassName="font-display italic" />
 
-      <AnimatedPage className="px-4 pb-6 pt-4 space-y-6 max-w-lg mx-auto">
-        <div>
-          <PremiumSection isPremium={isPremium} subscription={subscription} limits={limits} />
-        </div>
+      <AnimatedPage className="px-4 pb-8 pt-5 space-y-5 max-w-lg mx-auto">
 
-        <SettingsGroup title={t('settings.profile')}>
-          <div className="px-4 py-3 border-b border-border/50 space-y-2">
-            <Label className="text-xs font-medium">{t('settings.display_name')}</Label>
-            <div className="flex gap-2">
-              <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={t('settings.your_name')} className="h-9 text-sm" />
-              <Button onClick={() => { hapticLight(); handleSaveDisplayName(); }} disabled={updateProfile.isPending} size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 h-11 text-xs px-4">
-                {t('settings.save')}
-              </Button>
-            </div>
+        {/* V4 Avatar + Name */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE }}
+          className="flex flex-col items-center gap-3 pb-2"
+        >
+          <div className="w-20 h-20 rounded-full bg-accent/10 flex items-center justify-center">
+            <User className="w-8 h-8 text-accent" />
           </div>
-          <SettingsRow icon={<User />} label={t('settings.email')} last>
-            <span className="text-xs text-muted-foreground truncate max-w-[180px]">{user?.email}</span>
-          </SettingsRow>
-        </SettingsGroup>
+        </motion.div>
+
+        {/* Profile section */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY }}
+        >
+          <SettingsGroup title={t('settings.display_name') || 'DISPLAY NAME'}>
+            <div className="px-5 py-4 border-b border-border/35 space-y-2.5">
+              <div className="flex gap-2.5">
+                <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={t('settings.your_name')} className="h-11 text-sm font-body rounded-xl border-border/40" />
+                <Button onClick={() => { hapticLight(); handleSaveDisplayName(); }} disabled={updateProfile.isPending} size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 h-11 text-xs px-5 rounded-full font-body">
+                  {t('settings.save')}
+                </Button>
+              </div>
+            </div>
+            <div className="px-5 py-4">
+              <p className="label-editorial text-muted-foreground/50 mb-1">{t('settings.email_label') || 'EMAIL ADDRESS'}</p>
+              <p className="text-sm font-body text-foreground">{user?.email}</p>
+              <p className="text-[11px] text-muted-foreground/50 mt-1 font-body">{t('settings.email_change_note') || 'Email cannot be changed manually. Contact support.'}</p>
+            </div>
+          </SettingsGroup>
+        </motion.div>
+
+        {/* Membership */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY * 2 }}
+        >
+          <PremiumSection isPremium={isPremium} subscription={subscription} limits={limits} />
+        </motion.div>
+
+        {/* Data & Privacy */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY * 3 }}
+        >
+          <SettingsGroup title={t('settings.data_privacy_title') || 'DATA & PRIVACY'}>
+            <SettingsRow icon={<Download />} label={t('settings.export') || 'Export wardrobe data'} onClick={() => { hapticLight(); navigate('/settings/privacy'); }} last>
+              <Mail className="w-4 h-4 text-accent" />
+            </SettingsRow>
+          </SettingsGroup>
+        </motion.div>
 
         {/* Delete Account */}
-        <div className="pt-3">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1 mb-1.5">
-            {t('settings.gdpr.danger_zone')}
-          </p>
-          <div className="surface-editorial rounded-[1.25rem] overflow-hidden">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY * 4 }}
+          className="pt-2"
+        >
+          <div className="surface-secondary rounded-[1.25rem] overflow-hidden">
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <button type="button" className="w-full">
@@ -111,7 +154,7 @@ export default function SettingsAccount() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => { hapticLight(); handleDeleteAccount(); }} className="bg-destructive text-destructive-foreground" disabled={isDeleting}>
+                  <AlertDialogAction onClick={() => { hapticLight(); handleDeleteAccount(); }} className="bg-destructive text-destructive-foreground rounded-full" disabled={isDeleting}>
                     {isDeleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     {t('settings.delete_permanently')}
                   </AlertDialogAction>
@@ -119,7 +162,7 @@ export default function SettingsAccount() {
               </AlertDialogContent>
             </AlertDialog>
           </div>
-        </div>
+        </motion.div>
       </AnimatedPage>
     </AppLayout>
   );

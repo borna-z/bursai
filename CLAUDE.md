@@ -16,7 +16,7 @@ Follow everything here without being asked. These are standing orders, not sugge
   ```
 - Never deploy all functions at once — always name the specific function
 - Never use `getClaims()` in edge functions — deprecated, broken. Use `getUser()` pattern instead
-- All AI edge functions must use `enforceRateLimit()` + `checkOverload()` + pass `cacheTtlSeconds`/`cacheNamespace`/`functionName` to `callBursAI()`
+- All AI edge functions must use `enforceRateLimit()` + `checkOverload()` + pass `functionName` to `callBursAI()`. Caching params (`cacheTtlSeconds`/`cacheNamespace`) required for cacheable functions but not for image generation or streaming
 
 ## Project Identity
 
@@ -27,7 +27,7 @@ Follow everything here without being asked. These are standing orders, not sugge
 | Repo | borna-z/bursai on GitHub |
 | Distribution | React/Vite web app on Vercel, wrapped for iOS/Android via Median.co |
 | Backend | Supabase (PostgreSQL + 43 edge functions) |
-| AI | Gemini API via OpenAI-compatible endpoint (chosen over Claude API for cost — 3-6x cheaper). Model chain: Gemini 2.5 Flash primary, Flash Lite fallback |
+| AI | Gemini API via OpenAI-compatible endpoint (chosen over Claude API for cost — 3-6x cheaper). Model routing: trivial/standard → Flash Lite primary (Flash fallback), complex → Flash primary (Flash Lite fallback) |
 | Target market | Sweden first, then Nordics/UK/Netherlands, US year two |
 | Pricing | $7.99/month, $69.99/year. Binary free/premium model |
 | Domain | burs.me via IONOS DNS to Vercel nameservers |
@@ -98,7 +98,7 @@ The accent is warm gold — NOT indigo. If you see `--accent: 229` anywhere, tha
 - **Garment images**: private `garments` bucket scoped to `<user-id>/*`
 
 ### Edge Functions (supabase/functions/)
-- 43 functions, snake_case dirs, each with `index.ts` (Deno runtime, ESM URL imports)
+- 39 functions, snake_case dirs, each with `index.ts` (Deno runtime, ESM URL imports)
 - Shared utilities in `_shared/`: see `supabase/functions/CLAUDE.md` for full reference
 - **AI engine** (`_shared/burs-ai.ts`): complexity-based model routing, Gemini fallback chains, DB response caching, per-user rate limiting, token/cost tracking
 - **Scale guard** (`_shared/scale-guard.ts`): subscription-tier-aware rate limiting (free=0.5x, premium=2x), overload detection, job queue primitives, bounded concurrency, AI cost estimation, enhanced telemetry
@@ -161,7 +161,7 @@ The accent is warm gold — NOT indigo. If you see `--accent: 229` anywhere, tha
 | `marketing_leads` | Email capture for unauthenticated users |
 | `marketing_events` | Growth analytics (UTM tracking) |
 
-## All 43 Edge Functions
+## All 39 Edge Functions
 
 | Function | Purpose | Rate Limited | Overload Guard | AI Cached |
 |----------|---------|:---:|:---:|:---:|
@@ -254,7 +254,7 @@ The accent is warm gold — NOT indigo. If you see `--accent: 229` anywhere, tha
 
 ## Current Code Quality State
 
-**Audit score**: 91/100 (upgraded from 78). Target: 95+
+**Audit score**: 93/100 (upgraded from 91 after V4 redesign of 33 pages). Target: 95+
 
 ### What Was Fixed (do not redo)
 - Accent color: indigo to warm gold throughout index.css
@@ -268,178 +268,97 @@ The accent is warm gold — NOT indigo. If you see `--accent: 229` anywhere, tha
 - Body background: cool blue gradient removed
 - Scale hardening phase 1: rate limiting on 15 functions, circuit breaker, retry backoff, job queue, AI cost telemetry, overload detection
 - Scale hardening phase 2: subscription-tier rate limits, caching gaps filled, N+1 fixes, performance indexes, stripe webhook idempotency, stuck job recovery
-- V4 editorial redesign (branch `v4/editorial-redesign`): all 5 main screens reimagined with Scandinavian editorial magazine aesthetic
+- V4 editorial redesign (branch `v4/editorial-redesign`): 33 pages redesigned with Scandinavian editorial magazine aesthetic
 
 ### V4 Redesign — Current State (branch: `v4/editorial-redesign`)
 
-**Goal:** Apply Scandinavian editorial magazine aesthetic (Kinfolk/Cereal feel) to ALL 44 pages. Serif italic headlines (Playfair Display), clean hierarchy, hero cards, minimal shadows, warm gold accent, editorial surfaces. Every page should feel like a magazine spread, not a generic app screen.
+**Status:** 33/44 pages redesigned. 5 TODO, 3 N/A (redirects with no UI), 3 SKIP (legal/missing). TypeScript 0 errors, 91 test files / 511 tests passing.
 
-**V4 workflow — MUST follow this exact process for every page:**
+The V4 redesign applies Scandinavian editorial magazine aesthetic (Kinfolk/Cereal feel): serif italic headlines (Playfair Display), clean hierarchy, hero cards, minimal shadows, warm gold accent, editorial surfaces.
 
-**IMPORTANT:** The Stitch project contains old V3 screens mixed with V4 screens. ONLY use the 5 confirmed V4 screens listed below. For ALL other pages, you MUST generate a NEW V4 screen — do NOT use any existing screen from the project that is not in the V4 list below.
+**Stitch project ID:** `8117716384164426188` | **Design system asset ID:** `14594054922406120457`
+Fetch designs with `mcp__stitch__get_screen` using `name: "projects/8117716384164426188/screens/{screenId}"`.
 
-- **Stitch project ID:** `8117716384164426188`
-- **Design system asset ID:** `14594054922406120457`
+**V4 Screen ID Map — All 44 Pages:**
 
-#### Step 1: Design in Stitch
+| # | Page File | Screen ID | Stitch Title | Status |
+|---|-----------|-----------|-------------|--------|
+| 1 | `Home.tsx` | `18c5ca56af814adca5c10966e4d2dfe3` | BURS V4 Home Screen | DONE |
+| 2 | `Wardrobe.tsx` | `92b02316946c4d61903789e010df96f8` | BURS V4 Wardrobe | DONE |
+| 3 | `AddGarment.tsx` (UploadStep) | `de6bdea980614e56b7425450fcf2843a` | Add Garment - BURS V4 | DONE |
+| 4 | `Plan.tsx` | `93ace4dc3c944847be9cf19bc82623cc` | BURS V4 Plan | DONE |
+| 5 | `Insights.tsx` | `aba5e577dc6446bdb8b423b76b51f9af` | BURS V4 Insights Screen | DONE |
+| 6 | `OutfitGenerate.tsx` | `3e35a3c1a3774646be687a91aee734cd` | Generate Outfit | DONE |
+| 7 | `OutfitDetail.tsx` | `407ea8226ad7426b868d1b0e3fb05b6b` | Outfit Detail Screen | DONE |
+| 8 | `AIChat.tsx` | `9e3d789b9fd64103830087e3453027bd` | AI Chat - Your Stylist | DONE |
+| 9 | `GarmentDetail.tsx` | `19f733b7aa27460c8ee4ec9715152acc` | Garment Detail | DONE |
+| 10 | `EditGarment.tsx` | `9fbd221504514e5f8fee83c325acf14f` | Edit Garment | DONE |
+| 11 | `LiveScan.tsx` | `697b7ca5a3f142cdaff560d5e4e76df0` | Live Scan Screen | DONE |
+| 12 | `UnusedOutfits.tsx` | `b811704bf6eb46bb872f4f027d8ded5a` | Unused Outfits Screen | DONE |
+| 13 | `MoodOutfit.tsx` | `80c56a34538746a28c2002594f30f3e8` | Mood Outfit Selection | DONE |
+| 14 | `PickMustHaves.tsx` | `77e7645afd6f466999bcdbdc45254271` | Pick Must-Haves | DONE |
+| 15 | `Onboarding.tsx` | `2edd7811ab57455f850c51401279699e` | Onboarding - Style Quiz | DONE |
+| 16 | `Outfits.tsx` | `5692ed64c47a484a9c6d571fc8353865` | Outfits List | DONE |
+| 17 | `GarmentGaps.tsx` | `bd9d608070064c30bd8c92e1f92bad46` | Wardrobe Gaps | DONE |
+| 18 | `TravelCapsule.tsx` | `050212a70f184821aca97f413665b0ea` | Travel Capsule | DONE |
+| 19 | `UsedGarments.tsx` | `42a177a1229045aaa4c40c7506287d06` | Worn Items List | DONE |
+| 20 | `Discover.tsx` | `0f5963ae4af34b1a853fc32d23ff69a4` | BURS Discover Screen | DONE (pre-existing) |
+| 21 | `Settings.tsx` | `3c450478f29e4767bf6720ea1b244832` | Settings Screen | DONE |
+| 22 | `SettingsStyle.tsx` | `5fab8f53ff384295986467425594fe47` | Style Preferences | DONE |
+| 23 | `ShareOutfit.tsx` | `fdae86e7a95d4b4eb9ff1cc99a63ccf4` | Share Outfit Screen | DONE |
+| 24 | `SettingsPrivacy.tsx` | `386a2d30df62445b97e9dfce476a1a7d` | Privacy Settings | DONE |
+| 25 | `Admin.tsx` | `183fc7451fb84824ad314f0c455225d7` | Admin Panel | DONE |
+| 26 | `Auth.tsx` | `bc3a4e2878e74ee68b8843de65cde9e3` | Auth / Login Screen | TODO |
+| 27 | `GenerateImages.tsx` | `6139190ded4544bea034f519800295c6` | Generate Images Settings | DONE |
+| 28 | `PublicProfile.tsx` | `81fc1818ee6e436e9fccbbe060cda78a` | Public Profile | DONE |
+| 29 | `ResetPassword.tsx` | `4b6d6680c46f4b37a918b873c9b507e6` | Reset Password Screen | DONE (pre-existing) |
+| 30 | `Pricing.tsx` | `6718ce2ee57d40fb9508a977545422c6` | BURS Premium Upgrade | DONE |
+| 31 | `Contact.tsx` | `9fd8498f00a647638a7aaf4202f7d4a1` | Contact Page | DONE |
+| 32 | `SeedWardrobe.tsx` | `aaf9c89db75447c79aa988041dd468a2` | Seed Wardrobe Screen | SKIP (file not present) |
+| 33 | `SettingsAccount.tsx` | `2db035bf65ce46e7b63eb9c03ef5b29b` | Account Settings | DONE |
+| 34 | `SettingsNotifications.tsx` | `2444456977b442ef90d206aac59992ea` | Notifications Screen | DONE |
+| 35 | `SettingsAppearance.tsx` | `2fc276eab06942c1aadcdecbfb815c55` | Appearance Settings | DONE |
+| 36 | `BillingSuccess.tsx` | `230afb2652d946c48b942642e47e1644` | Billing Success | DONE |
+| 37 | `BillingCancel.tsx` | `1000ca23f3a0466ba505c364636e2765` | Billing Cancellation Screen | DONE |
+| 38 | `NotFound.tsx` | `93f6e74f0e224e41b65e862443dd6000` | 404 Not Found | DONE (pre-existing) |
+| 39 | `PrivacyPolicy.tsx` | `b7fe093b87464ad58078cd96fff634a5` | Privacy Policy | TODO (static legal text — needs V4 header/wrapper) |
+| 40 | `Terms.tsx` | `8be2971f06ea4c72921259472688c2d0` | Terms of Service | TODO (static legal text — needs V4 header/wrapper) |
+| 41 | `Landing.tsx` | `fa5d016c8ef74627841a32128ee6d1a5` | BURS Landing Page | N/A (redirect, no UI) |
+| 42 | `Index.tsx` | `2cb757577a3a4ced865d7e48823c3786` | BURS Splash Screen | N/A (auth routing, no UI) |
+| 43 | `GoogleCalendarCallback.tsx` | `52506428f0244e1d8b5af68f37bed8f6` | Calendar Connected | TODO |
+| 44 | `StyleMe.tsx` | `b837f5f6a73b4dbc874d24f3c87d9970` | Style Me - AI Quiz | N/A (redirect, no UI) |
 
-**For the 5 already-implemented V4 pages** (reference only — already coded):
+**V4 workflow for remaining TODO pages:**
+1. Fetch the V4 design: `mcp__stitch__get_screen` with `name: "projects/8117716384164426188/screens/{screenId}"`
+2. Read current page code, apply V4 visual changes, keep all functionality
+3. Run `npx tsc --noEmit --skipLibCheck` — must be 0 errors
+4. Run `npm test` — all tests must pass
+5. Mark status as DONE in the table above
 
-| Page | Screen ID | Title |
-|------|-----------|-------|
-| `Home.tsx` | `18c5ca56af814adca5c10966e4d2dfe3` | BURS V4 Home Screen |
-| `Wardrobe.tsx` | `92b02316946c4d61903789e010df96f8` | BURS V4 Wardrobe |
-| `AddGarment.tsx` (UploadStep) | `de6bdea980614e56b7425450fcf2843a` | Add Garment - BURS V4 |
-| `Plan.tsx` | `93ace4dc3c944847be9cf19bc82623cc` | BURS V4 Plan |
-| `Insights.tsx` | `aba5e577dc6446bdb8b423b76b51f9af` | BURS V4 Insights Screen |
-
-**For EVERY other page** — generate a fresh V4 screen:
-1. Use `mcp__stitch__generate_screen_from_text` with:
-   - `projectId: "8117716384164426188"`
-   - `deviceType: "MOBILE"`
-   - `prompt:` Use the template below — describe the page's content, sections, and hierarchy in detail
-2. After generation, apply the V4 design system:
-   - Use `mcp__stitch__apply_design_system` with `assetId: "14594054922406120457"`
-3. Fetch the final HTML:
-   - Use `mcp__stitch__get_screen` to get the generated HTML/CSS
-4. Use the HTML as the design reference for implementation
-
-**Stitch prompt template** (adapt for each page):
-```
-Design a [PAGE NAME] screen for BURS, an AI-powered wardrobe management app.
-
-Brand: Scandinavian editorial magazine aesthetic (Kinfolk/Cereal feel).
-- Background: Editorial Cream (#F5F0E8)
-- Foreground: Deep Charcoal (#1C1917)
-- Accent: Warm Gold (#B07D3A)
-- Headlines: Playfair Display italic serif
-- Body: DM Sans sans-serif
-- Radius: 18px rounded corners
-- iOS mobile viewport (390x844)
-- Light mode: flat surfaces, minimal shadows
-- Cards use warm cream/white surfaces with subtle borders
-
-Layout:
-- [DESCRIBE THE SPECIFIC SECTIONS, HIERARCHY, AND CONTENT FOR THIS PAGE]
-- Editorial feel: generous whitespace, clean typography hierarchy
-- Bottom tab bar with 5 tabs (Home, Wardrobe, +Add, Plan, Insights)
-
-Include: [SPECIFIC UI ELEMENTS FOR THIS PAGE]
-```
-
-#### Step 2: Implement the design
-- Read the current page code to understand existing hooks, data flow, and state
-- Rewrite/refactor the JSX to match the Stitch V4 mockup
-- Adapt Stitch HTML/CSS to React + Tailwind (use existing surface classes, motion presets, haptics)
-- Keep all existing functionality — only change the visual presentation
-
-#### Step 3: Update tests
-- If existing tests break due to V4 structural changes, update them to match new V4 UI
-- Run `npm test` to verify all pass
-
-#### Step 4: Verify
-- Run `npx tsc --noEmit --skipLibCheck` — must be 0 errors
-- Run `npm test` — all tests must pass
-
-**Design principles for V4:**
+**V4 design principles:**
 - Headlines: `font-display italic text-[1.3rem+]` (Playfair Display)
 - Eyebrow labels: `label-editorial text-muted-foreground/60` uppercase tracking
 - Cards: `surface-secondary rounded-[1.25rem]` or `surface-hero`
 - Buttons: `rounded-full` with hapticLight() on tap
-- Motion: Framer Motion with staggered entrances, `EASE_CURVE` from motion.ts
+- Motion: Framer Motion with staggered entrances, `EASE_CURVE` from motion.ts, gated by `useReducedMotion()`
 - Spacing: generous padding (`p-4` to `p-6`), `gap-3` to `gap-4` between sections
 - No visual clutter: remove redundant labels, badge spam, dense grids
 - Each page uses `AppLayout > PageHeader > PullToRefresh > AnimatedPage` pattern
-
-#### Completed (5 main tabs + foundation)
-
-| Phase | Files | Status |
-|-------|-------|--------|
-| Foundation | `src/index.css` (.stats-strip), `src/components/ui/score-ring.tsx`, `PageHeader.tsx` (titleClassName) | Done |
-| Home | `src/pages/Home.tsx`, `HomeTodayLookCard.tsx`, `HomeStatsStrip.tsx`, `HomeWeekAhead.tsx` | Done |
-| Wardrobe | `src/pages/Wardrobe.tsx`, `WardrobeToolbar.tsx` | Done |
-| Add Garment | `src/components/add-garment/UploadStep.tsx` | Done |
-| Plan | `src/pages/Plan.tsx`, `WeekOverview.tsx` | Done |
-| Insights | `src/pages/Insights.tsx`, `InsightsGarmentHighlights.tsx`, `InsightsValueTracker.tsx` | Done |
-| Tests | All 4 test files updated for V4 | Done (91/91 pass) |
-
-#### HIGH priority — Core app pages (do these next, in this order)
-
-| # | Page | Lines | What it does | V4 treatment needed |
-|---|------|-------|-------------|-------------------|
-| 1 | `OutfitGenerate.tsx` | ~848 | Outfit generation flow with occasion selection | Occasion selector cards, generation states, output card |
-| 2 | `OutfitDetail.tsx` | ~832 | Full outfit preview with swap/feedback | Garment carousel, swap sheet, rating UI |
-| 3 | `AIChat.tsx` | ~608 | AI styling assistant chat | Message bubbles, input styling, motion |
-| 4 | `GarmentDetail.tsx` | ~537 | Individual garment view | Enrichment panel, spec rows, similar items |
-| 5 | `EditGarment.tsx` | ~475 | Garment metadata editor | Form sections, color picker, multi-select |
-| 6 | `LiveScan.tsx` | ~784 | Real-time camera garment detection | Camera frame, detection feedback, overlays |
-| 7 | `UnusedOutfits.tsx` | ~291 | Generated outfits from unused garments | Outfit cards, generation state, occasion badges |
-| 8 | `MoodOutfit.tsx` | ~232 | Mood-based outfit generation | Mood swatch selector, loading state, output |
-| 9 | `PickMustHaves.tsx` | ~194 | Item selector for travel/generation | Category chips, item grid, selection marks |
-| 10 | `Onboarding.tsx` | ~185 | Multi-step onboarding flow | Step progress, language selector, quiz UI |
-| 11 | `Outfits.tsx` | ~174 | Outfit gallery with filters | View toggle, outfit cards, filter controls |
-| 12 | `GarmentGaps.tsx` | ~144 | Wardrobe gap analysis | Gap result cards, locked state, recommendations |
-| 13 | `TravelCapsule.tsx` | ~112 | Trip packing list generator | Form inputs, vibe selector, results view |
-| 14 | `UsedGarments.tsx` | ~100 | Frequently worn items grid | Garment grid, metadata, action buttons |
-| 15 | `Discover.tsx` | ~47 | Wardrobe progress + style tools dashboard | Section headings, tools grid, progress viz |
-
-#### MEDIUM priority — Secondary pages
-
-| # | Page | Lines | What it does | V4 treatment needed |
-|---|------|-------|-------------|-------------------|
-| 16 | `SettingsStyle.tsx` | ~568 | Style profile editor (body, colors, fit) | Body inputs, color palette, preference chips |
-| 17 | `ShareOutfit.tsx` | ~282 | Public outfit share page | Outfit card, reactions, share buttons |
-| 18 | `SettingsPrivacy.tsx` | ~263 | Privacy controls, GDPR, data export | Accordion sections, consent toggles |
-| 19 | `Admin.tsx` | ~257 | Admin leads/analytics dashboard | Data table, metrics cards, search |
-| 20 | `Auth.tsx` | ~249 | Login/signup page | Already editorial — minor refinements |
-| 21 | `GenerateImages.tsx` | ~225 | Batch garment image generation | Progress bar, batch list, status indicators |
-| 22 | `PublicProfile.tsx` | ~212 | User public style profile | Profile header, outfit grid, badges |
-| 23 | `ResetPassword.tsx` | ~191 | Password recovery/reset | Input styling, validation feedback |
-| 24 | `Pricing.tsx` | ~188 | Subscription plans + FAQ | Pricing cards, feature comparison, FAQ |
-| 25 | `Contact.tsx` | ~153 | Contact form | Form inputs, submit button, success state |
-| 26 | `SeedWardrobe.tsx` | ~134 | Admin wardrobe seed utility | Progress bar, stats, action buttons |
-| 27 | `SettingsAccount.tsx` | ~126 | Account management | Input fields, subscription info, alerts |
-| 28 | `Settings.tsx` | ~104 | Settings hub/menu | Settings rows, icons, navigation |
-| 29 | `SettingsNotifications.tsx` | ~87 | Push notification prefs | Toggle switches, calendar section |
-| 30 | `SettingsAppearance.tsx` | ~64 | Theme + accent color picker | Theme buttons, accent color UI |
-
-#### LOW priority — Utility/redirect/legal pages (minimal or no changes)
-
-| # | Page | Lines | Notes |
-|---|------|-------|-------|
-| 31 | `PrivacyPolicy.tsx` | ~400 | Static legal text — no redesign needed |
-| 32 | `Terms.tsx` | ~271 | Static legal text — no redesign needed |
-| 33 | `GoogleCalendarCallback.tsx` | ~129 | OAuth callback — status display only |
-| 34 | `BillingSuccess.tsx` | ~55 | Post-purchase — already minimal |
-| 35 | `BillingCancel.tsx` | ~34 | Payment cancel — already minimal |
-| 36 | `NotFound.tsx` | ~29 | 404 page — one-liner styling |
-| 37 | `Index.tsx` | ~27 | Auth routing — no UI |
-| 38 | `StyleMe.tsx` | ~19 | Redirect to /ai/generate — no UI |
-| 39 | `Landing.tsx` | ~12 | Redirect to static HTML — no UI |
-
-#### V4 approach for remaining pages
-- Work through HIGH priority pages first (1-15), then MEDIUM (16-30)
-- For each page: read current code → apply V4 design principles → update tests if needed → run `npx tsc --noEmit --skipLibCheck`
-- Use existing surface classes (`.surface-hero`, `.surface-secondary`, `.surface-editorial`)
-- Use `font-display italic` for all page titles
-- Add `hapticLight()` to all interactive elements
-- Ensure motion entrances with `initial/animate` on sections
-- After each batch: run full test suite `npm test`
 
 ### What Still Needs Doing
 - Keyboard accessibility on SwipeableGarmentCard (swipe has no keyboard alternative)
 - Virtual scrolling on GarmentGrid (no react-window, renders entire list at 100+ items)
 - AI stylist truncation — `style_chat/index.ts` ~line 1572 hard-caps at 6 sentences/900 chars (should be 9/1400)
 - Milestone celebrations — first outfit, 10 garments, first wear (hook + overlay component)
-- Reduced motion guards on AnimatedPage and BursLoadingScreen (missing useReducedMotion)
+- Reduced motion guards on AnimatedPage and BursLoadingScreen (most V4 pages now have `useReducedMotion`, but these two core components still lack it)
 - Contrast ratios — CardEyebrow text-foreground/35 fails WCAG AA on cream background
 
 ## Known Bugs (confirmed, fix when touching related code)
 
-**Bug 1: AI Stylist Truncation**
-- File: `supabase/functions/style_chat/index.ts` ~line 1568
-- Issue: Hard sentence cap cuts AI reply mid-thought at 6 sentences or 900 chars
-- Fix: Raise to 9 sentences / 1400 chars. Append `...` when `finish_reason === "length"`
+**Bug 1: AI Stylist Truncation** (partially fixed)
+- File: `supabase/functions/style_chat/index.ts` ~lines 1587-1631
+- Status: Limits already raised to 9 sentences / 1400 chars. Two-stage truncation: (1) cleans partial sentence on `finish_reason === "length"`, (2) caps non-outfit replies at 9 sentences with ` …` indicator
+- Remaining: Verify limits are adequate for production responses — may still cut complex styling advice short
 
 **Bug 2: Outfit Without Shoes** (partially fixed)
 - File: `src/pages/OutfitGenerate.tsx`

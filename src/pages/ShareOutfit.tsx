@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useParams, Link } from 'react-router-dom';
-import { Loader2, Copy, Download, Check, Crown, Sparkles, ArrowRight } from 'lucide-react';
+import { Loader2, Copy, Download, Check, Crown, Sparkles, ArrowRight, Share2, MessageCircle, Twitter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -13,6 +12,7 @@ import { getOccasionLabel } from '@/lib/occasionLabel';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { hapticLight } from '@/lib/haptics';
 import { logger } from '@/lib/logger';
+import { EASE_CURVE } from '@/lib/motion';
 
 interface OutfitItem {
   id: string;
@@ -48,6 +48,7 @@ async function trackEvent(eventType: string, metadata: object = {}) {
 export default function ShareOutfitPage() {
   const { id } = useParams<{ id: string }>();
   const { t } = useLanguage();
+  const prefersReduced = useReducedMotion();
   const [outfit, setOutfit] = useState<SharedOutfit | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -113,6 +114,13 @@ export default function ShareOutfitPage() {
 
   const handleUpgradeClick = () => { trackEvent('upgrade_clicked', { source: 'share_page', outfit_id: id }); };
 
+  const motionProps = prefersReduced
+    ? {}
+    : { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.4, ease: EASE_CURVE } };
+
+  const stagger = (i: number) =>
+    prefersReduced ? {} : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, transition: { delay: 0.1 * i, duration: 0.35, ease: EASE_CURVE } };
+
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-screen bg-background"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   }
@@ -121,8 +129,8 @@ export default function ShareOutfitPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-background">
         <h1 className="font-display italic text-2xl font-bold mb-2">{t('share.not_found')}</h1>
-        <p className="text-muted-foreground text-center mb-6">{t('share.not_found_desc')}</p>
-        <Link to="/auth"><Button>{t('share.create_own')}<ArrowRight className="w-4 h-4 ml-2" /></Button></Link>
+        <p className="text-muted-foreground text-center mb-6 font-body">{t('share.not_found_desc')}</p>
+        <Link to="/auth"><Button className="rounded-full" onClick={() => hapticLight()}>{t('share.create_own')}<ArrowRight className="w-4 h-4 ml-2" /></Button></Link>
       </div>
     );
   }
@@ -141,139 +149,125 @@ export default function ShareOutfitPage() {
         <meta name="twitter:description" content={outfit.explanation || 'Check out this outfit styled by BURS.'} />
       </Helmet>
     <div className="min-h-screen bg-background">
-      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b">
-        <div className="max-w-lg mx-auto p-4 flex items-center justify-between">
-          <h1 className="font-display italic">{t('share.title')}</h1>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleCopyLink}>
-              {copied ? <Check className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
-              {copied ? t('share.copied') : t('share.copy_link')}
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleDownloadImage} disabled={isDownloading}>
-              {isDownloading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Download className="w-4 h-4 mr-1" />}
-              {t('share.download')}
-            </Button>
-          </div>
+      {/* Sticky topbar */}
+      <div className="sticky top-0 z-10 topbar-frost border-b border-border/40">
+        <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
+          <h1 className="font-display italic text-lg">{t('share.title')}</h1>
+          <span className="text-[10px] font-body uppercase tracking-[0.16em] text-muted-foreground/50">BURS</span>
         </div>
       </div>
 
       <motion.div
-        className="max-w-lg mx-auto p-4"
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+        className="max-w-lg mx-auto px-4 pt-6 pb-24"
+        {...motionProps}
       >
-        {/* Branded share card — this element is screenshotted */}
-        <div
-          ref={outfitRef}
-          id="share-card"
-          style={{
-            width: 390, height: 560,
-            backgroundColor: '#F5F0E8',
-            overflow: 'hidden',
-            position: 'relative',
-            flexShrink: 0,
-          }}
-        >
-          {/* Top: 2×2 garment grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', height: 400 }}>
-            {[0, 1, 2, 3].map((i) => {
-              const item = outfit.outfit_items[i];
-              return (
-                <div
-                  key={i}
-                  style={{
-                    width: '100%', height: 200,
-                    backgroundColor: '#EDE8DF',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {item && imageUrls[item.id] ? (
-                    <img
-                      src={imageUrls[item.id]}
-                      alt={item.garment?.title || ''}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      crossOrigin="anonymous"
-                    />
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
+        {/* Branded share card -- this element is screenshotted */}
+        <motion.div {...stagger(0)}>
+          <div
+            ref={outfitRef}
+            id="share-card"
+            className="rounded-[1.25rem] overflow-hidden shadow-[0_12px_30px_rgba(28,25,23,0.08)]"
+            style={{ width: '100%', maxWidth: 390, marginInline: 'auto', backgroundColor: '#F5F0E8', position: 'relative', flexShrink: 0 }}
+          >
+            {/* Garment grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', height: 400 }}>
+              {[0, 1, 2, 3].map((i) => {
+                const item = outfit.outfit_items[i];
+                return (
+                  <div key={i} style={{ width: '100%', height: 200, backgroundColor: '#EDE8DF', overflow: 'hidden' }}>
+                    {item && imageUrls[item.id] ? (
+                      <img src={imageUrls[item.id]} alt={item.garment?.title || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} crossOrigin="anonymous" />
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
 
-          {/* Bottom: branded strip */}
-          <div style={{
-            height: 160,
-            backgroundColor: '#1C1917',
-            padding: '20px 24px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-          }}>
-            <div>
-              <p style={{
-                fontFamily: 'DM Sans, sans-serif',
-                fontSize: 10,
-                textTransform: 'uppercase',
-                letterSpacing: '0.15em',
-                color: 'rgba(255,255,255,0.5)',
-                marginBottom: 8,
-              }}>
-                {getOccasionLabel(outfit.occasion, t)}
-              </p>
-              <p style={{
-                fontFamily: '"Playfair Display", serif',
-                fontStyle: 'italic',
-                fontSize: 18,
-                color: 'white',
-                lineHeight: 1.3,
-                margin: 0,
-              }}>
-                {(outfit.explanation || "Today's look").slice(0, 50)}
+            {/* Branded strip */}
+            <div style={{ height: 160, backgroundColor: '#1C1917', padding: '20px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
+                  {getOccasionLabel(outfit.occasion, t)}
+                </p>
+                <p style={{ fontFamily: '"Playfair Display", serif', fontStyle: 'italic', fontSize: 18, color: 'white', lineHeight: 1.3, margin: 0 }}>
+                  {(outfit.explanation || "Today's look").slice(0, 50)}
+                </p>
+              </div>
+              <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', margin: 0 }}>
+                BURS · burs.me
               </p>
             </div>
-            <p style={{
-              fontFamily: 'DM Sans, sans-serif',
-              fontSize: 10,
-              color: 'rgba(255,255,255,0.35)',
-              letterSpacing: '0.1em',
-              margin: 0,
-            }}>
-              BURS · burs.me
-            </p>
           </div>
-        </div>
+        </motion.div>
 
-        {/* Reactions live outside the card so they don't appear in the screenshot */}
-        <div className="mt-4">
+        {/* Reactions -- outside the screenshot card */}
+        <motion.div className="mt-5" {...stagger(1)}>
           <OutfitReactions outfitId={outfit.id} />
-        </div>
+        </motion.div>
 
+        {/* Share actions */}
+        <motion.div className="mt-6 surface-secondary rounded-[1.25rem] divide-y divide-border/40" {...stagger(2)}>
+          <button
+            className="w-full flex items-center gap-3 px-5 py-4 text-left cursor-pointer"
+            onClick={handleCopyLink}
+          >
+            {copied ? <Check className="w-5 h-5 text-emerald-500 flex-shrink-0" /> : <Copy className="w-5 h-5 text-muted-foreground flex-shrink-0" />}
+            <span className="flex-1 text-sm font-body font-medium">{copied ? t('share.copied') : t('share.copy_link')}</span>
+            <ArrowRight className="w-4 h-4 text-muted-foreground/40" />
+          </button>
+          <button
+            className="w-full flex items-center gap-3 px-5 py-4 text-left cursor-pointer"
+            onClick={() => { hapticLight(); handleDownloadImage(); }}
+            disabled={isDownloading}
+          >
+            {isDownloading ? <Loader2 className="w-5 h-5 animate-spin text-muted-foreground flex-shrink-0" /> : <Download className="w-5 h-5 text-muted-foreground flex-shrink-0" />}
+            <span className="flex-1 text-sm font-body font-medium">{t('share.download')}</span>
+            <ArrowRight className="w-4 h-4 text-muted-foreground/40" />
+          </button>
+          <button
+            className="w-full flex items-center gap-3 px-5 py-4 text-left cursor-pointer"
+            onClick={() => {
+              hapticLight();
+              if (navigator.share) {
+                navigator.share({ title: `${outfit.occasion} Outfit | BURS`, url: window.location.href }).catch(() => {});
+              } else {
+                handleCopyLink();
+              }
+            }}
+          >
+            <Share2 className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+            <span className="flex-1 text-sm font-body font-medium">{t('share.more') || 'More options'}</span>
+            <ArrowRight className="w-4 h-4 text-muted-foreground/40" />
+          </button>
+        </motion.div>
+
+        {/* CTA cards */}
         <div className="mt-8 space-y-4">
-          <Card surface="editorial" className="border-primary/20">
-            <CardContent className="p-4 text-center space-y-3">
-              <Sparkles className="w-8 h-8 mx-auto text-primary" />
-              <h3 className="font-display italic text-lg">{t('share.cta_free_title')}</h3>
-              <p className="text-sm text-muted-foreground">{t('share.cta_free_desc')}</p>
-              <Link to="/auth"><Button className="w-full">{t('share.cta_free_button')}<ArrowRight className="w-4 h-4 ml-2" /></Button></Link>
-            </CardContent>
-          </Card>
-          <Card surface="editorial" className="border-accent/30">
-            <CardContent className="p-4 text-center space-y-3">
-              <Crown className="w-8 h-8 mx-auto text-accent" />
-              <h3 className="font-display italic text-lg">{t('share.cta_premium_title')}</h3>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>✓ {t('share.cta_premium_wardrobe')}</li>
-                <li>✓ {t('share.cta_premium_outfits')}</li>
-                <li>✓ {t('share.cta_premium_ai')}</li>
-              </ul>
-              <Link to="/pricing" onClick={handleUpgradeClick}>
-                <Button className="w-full">
-                  <Crown className="w-4 h-4 mr-2" />{t('share.cta_premium_button')}
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <motion.div className="surface-editorial rounded-[1.25rem] p-5 text-center space-y-3" {...stagger(3)}>
+            <Sparkles className="w-8 h-8 mx-auto text-primary" />
+            <h3 className="font-display italic text-lg">{t('share.cta_free_title')}</h3>
+            <p className="text-sm text-muted-foreground font-body">{t('share.cta_free_desc')}</p>
+            <Link to="/auth">
+              <Button className="w-full rounded-full" onClick={() => hapticLight()}>
+                {t('share.cta_free_button')}<ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </Link>
+          </motion.div>
+
+          <motion.div className="surface-editorial rounded-[1.25rem] p-5 text-center space-y-3 border border-accent/20" {...stagger(4)}>
+            <Crown className="w-8 h-8 mx-auto text-accent" />
+            <h3 className="font-display italic text-lg">{t('share.cta_premium_title')}</h3>
+            <ul className="text-sm text-muted-foreground font-body space-y-1.5">
+              <li className="flex items-center justify-center gap-2"><Check className="w-3.5 h-3.5 text-accent" /> {t('share.cta_premium_wardrobe')}</li>
+              <li className="flex items-center justify-center gap-2"><Check className="w-3.5 h-3.5 text-accent" /> {t('share.cta_premium_outfits')}</li>
+              <li className="flex items-center justify-center gap-2"><Check className="w-3.5 h-3.5 text-accent" /> {t('share.cta_premium_ai')}</li>
+            </ul>
+            <Link to="/pricing" onClick={handleUpgradeClick}>
+              <Button className="w-full rounded-full" onClick={() => hapticLight()}>
+                <Crown className="w-4 h-4 mr-2" />{t('share.cta_premium_button')}
+              </Button>
+            </Link>
+          </motion.div>
         </div>
       </motion.div>
     </div>

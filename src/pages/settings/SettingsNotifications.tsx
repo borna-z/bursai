@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import { Bell, BellRing, Smartphone } from 'lucide-react';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { hapticLight } from '@/lib/haptics';
@@ -12,6 +13,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { SettingsRow } from '@/components/settings/SettingsRow';
 import { SettingsGroup } from '@/components/settings/SettingsGroup';
+import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM } from '@/lib/motion';
 
 interface Preferences {
   morningReminder?: boolean;
@@ -48,39 +50,68 @@ export default function SettingsNotifications() {
 
   return (
     <AppLayout>
-      <PageHeader title={t('settings.row.notifications')} showBack />
+      <PageHeader title={t('settings.row.notifications')} showBack titleClassName="font-display italic" />
 
-      <AnimatedPage className="px-4 pb-6 pt-4 space-y-6 max-w-lg mx-auto">
-        <SettingsGroup title={t('settings.notifications_title')}>
-          <SettingsRow icon={<Bell />} label={t('settings.morning_reminder')}>
-            <Switch checked={preferences.morningReminder || false} onCheckedChange={(v) => { hapticLight(); updatePreference('morningReminder', v); }} />
-          </SettingsRow>
-          {push.supported && (
-            <SettingsRow
-              icon={<BellRing />}
-              label={t('settings.push_notifications') || 'Push notifications'}
-              sublabel={
-                push.permission === 'denied'
-                  ? (t('settings.push_blocked') || 'Blocked in browser settings')
-                  : (t('settings.push_sublabel') || 'Get outfit reminders on your device')
-              }
-              last
-            >
-              <Switch
-                checked={push.isSubscribed}
-                onCheckedChange={(v) => { hapticLight(); handlePushToggle(v); }}
-                disabled={push.loading || push.permission === 'denied'}
-              />
-            </SettingsRow>
-          )}
-          {!push.supported && (
-            <SettingsRow icon={<Smartphone />} label={t('settings.push_not_supported') || 'Push not supported'} sublabel={t('settings.push_not_supported_sub') || 'Your browser does not support push notifications'} last>
-              <span className="text-xs text-muted-foreground">—</span>
-            </SettingsRow>
-          )}
-        </SettingsGroup>
+      <AnimatedPage className="px-4 pb-8 pt-5 space-y-5 max-w-lg mx-auto">
 
-        <CalendarSection />
+        {/* V4 Allow Notifications */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE }}
+        >
+          <SettingsGroup title={t('settings.notifications_title') || 'ALLOW NOTIFICATIONS'}>
+            <SettingsRow icon={<Bell />} label={t('settings.morning_reminder')} sublabel={t('settings.morning_reminder_desc') || 'Manage all system alerts'}>
+              <Switch checked={preferences.morningReminder || false} onCheckedChange={(v) => { hapticLight(); updatePreference('morningReminder', v); }} />
+            </SettingsRow>
+            {push.supported && (
+              <SettingsRow
+                icon={<BellRing />}
+                label={t('settings.push_notifications') || 'Push notifications'}
+                sublabel={
+                  push.permission === 'denied'
+                    ? (t('settings.push_blocked') || 'Blocked in browser settings')
+                    : (t('settings.push_sublabel') || 'Get outfit reminders on your device')
+                }
+                last
+              >
+                <Switch
+                  checked={push.isSubscribed}
+                  onCheckedChange={(v) => { hapticLight(); handlePushToggle(v); }}
+                  disabled={push.loading || push.permission === 'denied'}
+                />
+              </SettingsRow>
+            )}
+            {!push.supported && (
+              <SettingsRow icon={<Smartphone />} label={t('settings.push_not_supported') || 'Push not supported'} sublabel={t('settings.push_not_supported_sub') || 'Your browser does not support push notifications'} last>
+                <span className="text-xs text-muted-foreground font-body">---</span>
+              </SettingsRow>
+            )}
+          </SettingsGroup>
+        </motion.div>
+
+        {/* Calendar */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY * 2 }}
+        >
+          <CalendarSection />
+        </motion.div>
+
+        {/* Editorial curation note */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY * 3 }}
+          className="surface-secondary rounded-[1.25rem] p-5 text-center space-y-2"
+        >
+          <p className="label-editorial text-muted-foreground/50">{t('settings.curation_note_label') || 'CURATION NOTE'}</p>
+          <p className="font-display italic text-[15px] text-foreground/80 leading-relaxed">
+            {t('settings.style_quote') || '"Style is a way to say who you are without having to speak."'}
+          </p>
+          <p className="text-[11px] text-muted-foreground/40 font-body">--- Rachel Zoe</p>
+        </motion.div>
       </AnimatedPage>
     </AppLayout>
   );

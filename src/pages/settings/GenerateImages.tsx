@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { hapticLight } from '@/lib/haptics';
+import { motion, useReducedMotion } from 'framer-motion';
+import { EASE_CURVE } from '@/lib/motion';
 
 const BATCH_SIZE = 6;
 
@@ -28,6 +30,7 @@ export default function GenerateImages() {
   const { user } = useAuth();
   const { data: garments } = useFlatGarments();
   const { t } = useLanguage();
+  const prefersReduced = useReducedMotion();
   const [items, setItems] = useState<BatchItem[]>([]);
   const [running, setRunning] = useState(false);
   const [completed, setCompleted] = useState(0);
@@ -35,6 +38,9 @@ export default function GenerateImages() {
 
   const total = items.length;
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  const stagger = (i: number) =>
+    prefersReduced ? {} : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, transition: { delay: 0.08 * i, duration: 0.35, ease: EASE_CURVE } };
 
   const startGeneration = useCallback(async (retryIds?: string[]) => {
     if (!user || !garments) return;
@@ -132,92 +138,109 @@ export default function GenerateImages() {
 
   return (
     <AppLayout hideNav>
-      <AnimatedPage className="px-6 pb-8 pt-12 max-w-lg mx-auto space-y-6">
-        {/* Header */}
-        <PageHeader title={t('genimg.title')} eyebrow="Admin" showBack />
+      <PageHeader
+        title={t('genimg.title')}
+        eyebrow="Admin"
+        showBack
+        titleClassName="font-display italic"
+      />
+      <AnimatedPage className="px-4 pb-24 pt-4 max-w-lg mx-auto space-y-5">
+        {/* Description */}
+        <motion.div {...stagger(0)}>
+          <p className="text-sm text-muted-foreground font-body leading-relaxed">
+            {t('genimg.desc')}
+          </p>
+        </motion.div>
 
-        <p className="text-sm text-muted-foreground">
-          {t('genimg.desc')}
-        </p>
-
-        {/* Stats */}
-        <div className="flex gap-4 text-sm">
-          <div className="bg-muted/50 rounded-xl px-4 py-3 flex-1 text-center">
-            <p className="text-2xl font-semibold">{garments?.length || 0}</p>
-            <p className="text-muted-foreground text-xs">{t('genimg.total')}</p>
+        {/* Stats strip */}
+        <motion.div className="flex gap-3" {...stagger(1)}>
+          <div className="surface-secondary rounded-[1.25rem] px-4 py-4 flex-1 text-center">
+            <p className="text-2xl font-semibold tracking-tight">{garments?.length || 0}</p>
+            <p className="text-[10px] font-body uppercase tracking-[0.14em] text-muted-foreground/50 mt-1">{t('genimg.total')}</p>
           </div>
           {total > 0 && (
             <>
-              <div className="bg-emerald-500/10 rounded-xl px-4 py-3 flex-1 text-center">
-                <p className="text-2xl font-semibold text-emerald-600">{completed}</p>
-                <p className="text-muted-foreground text-xs">{t('genimg.generated')}</p>
+              <div className="surface-secondary rounded-[1.25rem] px-4 py-4 flex-1 text-center border border-emerald-500/20">
+                <p className="text-2xl font-semibold tracking-tight text-emerald-600">{completed}</p>
+                <p className="text-[10px] font-body uppercase tracking-[0.14em] text-muted-foreground/50 mt-1">{t('genimg.generated')}</p>
               </div>
-              <div className="bg-destructive/10 rounded-xl px-4 py-3 flex-1 text-center">
-                <p className="text-2xl font-semibold text-destructive">{failed}</p>
-                <p className="text-muted-foreground text-xs">{t('genimg.failed')}</p>
+              <div className="surface-secondary rounded-[1.25rem] px-4 py-4 flex-1 text-center border border-destructive/20">
+                <p className="text-2xl font-semibold tracking-tight text-destructive">{failed}</p>
+                <p className="text-[10px] font-body uppercase tracking-[0.14em] text-muted-foreground/50 mt-1">{t('genimg.failed')}</p>
               </div>
             </>
           )}
-        </div>
+        </motion.div>
 
         {/* Progress bar */}
         {total > 0 && (
-          <div className="space-y-2">
-            <Progress value={progress} className="h-2" />
-            <p className="text-xs text-muted-foreground text-center">
-              {running ? `${t('genimg.processing')} ${completed + failed} / ${total}` : `${t('genimg.done')} — ${completed} / ${failed}`}
-            </p>
-          </div>
+          <motion.div className="space-y-2" {...stagger(2)}>
+            <div className="surface-secondary rounded-[1.25rem] p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="label-editorial text-muted-foreground/50 text-[10px]">Progress</p>
+                <span className="text-sm font-semibold tabular-nums">{progress}%</span>
+              </div>
+              <Progress value={progress} className="h-2" />
+              <p className="text-xs text-muted-foreground font-body text-center">
+                {running ? `${t('genimg.processing')} ${completed + failed} / ${total}` : `${t('genimg.done')} — ${completed} / ${failed}`}
+              </p>
+            </div>
+          </motion.div>
         )}
 
         {/* Action buttons */}
-        <div className="flex gap-3">
+        <motion.div className="flex gap-3" {...stagger(3)}>
           <Button
             onClick={() => { hapticLight(); startGeneration(); }}
             disabled={running || !garments?.length}
-            className="flex-1"
+            className="flex-1 rounded-full h-12"
           >
             {running ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> {t('genimg.generating')}</>
+              <><Loader2 className="w-4 h-4 animate-spin mr-2" /> {t('genimg.generating')}</>
             ) : (
-              <><ImagePlus className="w-4 h-4" /> {t('genimg.generate_all')}</>
+              <><ImagePlus className="w-4 h-4 mr-2" /> {t('genimg.generate_all')}</>
             )}
           </Button>
 
           {failedItems.length > 0 && !running && (
-            <Button variant="outline" onClick={() => { hapticLight(); retryFailed(); }}>
-              <RotateCcw className="w-4 h-4" /> {t('genimg.retry')} {failedItems.length}
+            <Button variant="outline" className="rounded-full" onClick={() => { hapticLight(); retryFailed(); }}>
+              <RotateCcw className="w-4 h-4 mr-2" /> {t('genimg.retry')} {failedItems.length}
             </Button>
           )}
-        </div>
+        </motion.div>
 
         {/* Item list */}
         {items.length > 0 && (
-          <div className="space-y-1 max-h-[50vh] overflow-y-auto">
-            {items.map(item => (
-              <div
-                key={item.id}
-                className="flex items-center gap-3 py-2 px-3 rounded-lg text-sm"
-              >
-                {item.status === 'pending' && (
-                  <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/20" />
-                )}
-                {item.status === 'generating' && (
-                  <Loader2 className="w-4 h-4 animate-spin text-accent" />
-                )}
-                {item.status === 'done' && (
-                  <CheckCircle className="w-4 h-4 text-emerald-500" />
-                )}
-                {item.status === 'error' && (
-                  <AlertCircle className="w-4 h-4 text-destructive" />
-                )}
-                <span className="truncate flex-1">{item.title}</span>
-                {item.error && (
-                  <span className="text-xs text-destructive truncate max-w-[120px]">{item.error}</span>
-                )}
-              </div>
-            ))}
-          </div>
+          <motion.div className="surface-secondary rounded-[1.25rem] overflow-hidden" {...stagger(4)}>
+            <div className="px-5 py-3 border-b border-border/40">
+              <p className="label-editorial text-muted-foreground/50 text-[10px]">Processing Queue</p>
+            </div>
+            <div className="max-h-[50vh] overflow-y-auto divide-y divide-border/30">
+              {items.map(item => (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3 py-3 px-5"
+                >
+                  {item.status === 'pending' && (
+                    <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/20 flex-shrink-0" />
+                  )}
+                  {item.status === 'generating' && (
+                    <Loader2 className="w-4 h-4 animate-spin text-accent flex-shrink-0" />
+                  )}
+                  {item.status === 'done' && (
+                    <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  )}
+                  {item.status === 'error' && (
+                    <AlertCircle className="w-4 h-4 text-destructive flex-shrink-0" />
+                  )}
+                  <span className="truncate flex-1 text-sm font-body">{item.title}</span>
+                  {item.error && (
+                    <span className="text-xs text-destructive truncate max-w-[120px] font-body">{item.error}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </motion.div>
         )}
       </AnimatedPage>
     </AppLayout>

@@ -25,7 +25,7 @@ export default function BillingSuccess() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <motion.div
-        className="max-w-md w-full border border-border bg-card p-8 space-y-6"
+        className="max-w-md w-full surface-secondary rounded-[1.25rem] p-8 space-y-6"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
@@ -39,15 +39,15 @@ export default function BillingSuccess() {
           <p className="text-sm text-muted-foreground">{t('billing.success_desc')}</p>
         </div>
 
-        <div className="bg-muted p-4 space-y-2">
+        <div className="surface-inset rounded-[1rem] p-4 space-y-2">
           <div className="flex items-center gap-2 text-sm"><CheckCircle className="w-4 h-4 text-foreground" /><span>{t('premium.unlimited_wardrobe')}</span></div>
           <div className="flex items-center gap-2 text-sm"><CheckCircle className="w-4 h-4 text-foreground" /><span>{t('pricing.unlimited_outfits')}</span></div>
           <div className="flex items-center gap-2 text-sm"><CheckCircle className="w-4 h-4 text-foreground" /><span>{t('premium.smarter_ai')}</span></div>
         </div>
 
         <div className="space-y-2">
-          <Button className="w-full" onClick={() => { hapticLight(); navigate('/'); }}>{t('billing.start_using')}</Button>
-          <Button variant="outline" className="w-full" onClick={() => { hapticLight(); navigate('/settings'); }}>{t('billing.manage')}</Button>
+          <Button variant="editorial" className="w-full rounded-full" onClick={() => { hapticLight(); navigate('/'); }}>{t('billing.start_using')}</Button>
+          <Button variant="outline" className="w-full rounded-full border-border/40" onClick={() => { hapticLight(); navigate('/settings'); }}>{t('billing.manage')}</Button>
         </div>
       </motion.div>
     </div>

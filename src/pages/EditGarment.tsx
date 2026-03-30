@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Loader2, X } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { toast } from 'sonner';
 
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { hapticLight } from '@/lib/haptics';
+import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM, DISTANCE } from '@/lib/motion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LazyImage } from '@/components/ui/lazy-image';
@@ -99,12 +100,20 @@ const materials = MATERIAL_IDS.map((id) => id);
 const fits = FIT_IDS.map((id) => id);
 const seasons = SEASON_IDS.map((id) => id);
 
+/* ── Motion helpers ── */
+const sectionTransition = (i: number) => ({
+  duration: DURATION_MEDIUM,
+  ease: EASE_CURVE,
+  delay: i * STAGGER_DELAY * 2,
+});
+
 export default function EditGarmentPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { t } = useLanguage();
   const { data: garment, isLoading } = useGarment(id);
   const updateGarment = useUpdateGarment();
+  const prefersReduced = useReducedMotion();
 
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
@@ -178,12 +187,23 @@ export default function EditGarmentPage() {
     }
   };
 
+  /* ── Shared motion props ── */
+  const reveal = (i: number) =>
+    prefersReduced
+      ? {}
+      : {
+          initial: { opacity: 0, y: DISTANCE.md },
+          animate: { opacity: 1, y: 0 },
+          transition: sectionTransition(i),
+        };
+
+  /* ── Loading skeleton ── */
   if (isLoading) {
     return (
       <AppLayout hideNav>
         <PageHeader title={t('garment.edit_title')} showBack />
         <div className="page-shell !px-5 !pt-6 page-cluster">
-          <Skeleton className="h-64 rounded-[1.25rem]" />
+          <Skeleton className="h-72 rounded-[1.25rem]" />
           <Skeleton className="h-64 rounded-[1.25rem]" />
           <Skeleton className="h-56 rounded-[1.25rem]" />
         </div>
@@ -191,17 +211,22 @@ export default function EditGarmentPage() {
     );
   }
 
+  /* ── Not found ── */
   if (!garment) {
     return (
       <AppLayout hideNav>
         <PageHeader title={t('garment.edit_title')} showBack />
         <div className="page-shell !px-5 !pt-6">
-          <Card surface="editorial" className="p-6 text-center">
-            <h2 className="text-lg font-semibold">{t('garment.not_found')}</h2>
-            <Button variant="outline" className="mt-4" onClick={() => navigate('/wardrobe')}>
+          <div className="surface-secondary rounded-[1.25rem] p-6 text-center">
+            <h2 className="font-display italic text-lg">{t('garment.not_found')}</h2>
+            <Button
+              variant="outline"
+              className="mt-4 rounded-full"
+              onClick={() => { hapticLight(); navigate('/wardrobe'); }}
+            >
               {t('common.back')}
             </Button>
-          </Card>
+          </div>
         </div>
       </AppLayout>
     );
@@ -211,48 +236,53 @@ export default function EditGarmentPage() {
     <AppLayout hideNav>
       <PageHeader
         title={t('garment.edit_title')}
-        subtitle="Refine the details so BURS can style this piece more precisely."
         showBack
+        titleClassName="font-display italic"
       />
 
-      <AnimatedPage className="page-shell !px-5 !pb-36 !pt-6 page-cluster">
-        <Card surface="editorial" className="overflow-hidden p-2">
-          <div className="grid gap-5 p-3 sm:grid-cols-[180px,1fr] sm:items-center">
-            <div className="relative overflow-hidden rounded-[1.1rem]">
-              <LazyImage
-                imagePath={getPreferredGarmentImagePath(garment)}
-                alt={garment.title}
-                aspectRatio="square"
-                className="w-full"
-              />
-              <RenderPendingOverlay renderStatus={garment.render_status} />
+      <AnimatedPage className="page-shell !px-5 !pb-36 !pt-4 page-cluster">
+        {/* ── Hero image card ── */}
+        <motion.div {...reveal(0)} className="surface-secondary rounded-[1.25rem] overflow-hidden">
+          <div className="relative aspect-[4/5] max-h-[380px] overflow-hidden">
+            <LazyImage
+              imagePath={getPreferredGarmentImagePath(garment)}
+              alt={garment.title}
+              aspectRatio="portrait"
+              className="w-full h-full object-cover"
+            />
+            <RenderPendingOverlay renderStatus={garment.render_status} />
+            {/* Gradient overlay for title */}
+            <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/50 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 p-5">
+              <h2 className="font-display italic text-[1.5rem] leading-tight text-white drop-shadow-sm">
+                {garment.title}
+              </h2>
             </div>
-
-            <PageHeader title={t('garment.edit') || 'Edit Garment'} showBack />
           </div>
-        </Card>
+        </motion.div>
 
-        <Card surface="utility" className="space-y-5 p-5">
-          <div className="space-y-2">
-            <p className="label-editorial">Identity</p>
-            <p className="text-sm leading-6 text-muted-foreground">Name the piece clearly and place it in the right category so it appears in the right outfit logic.</p>
+        {/* ── Item Identity ── */}
+        <motion.section {...reveal(1)} className="surface-secondary rounded-[1.25rem] p-5 space-y-5">
+          <div className="space-y-1">
+            <p className="label-editorial text-muted-foreground/50">Item Identity</p>
           </div>
 
           <div className="grid gap-4">
             <div className="space-y-2">
-              <Label>{t('addgarment.form.title')} *</Label>
+              <Label className="font-body text-sm">{t('addgarment.form.title')} *</Label>
               <Input
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder={t('addgarment.form.title_placeholder')}
+                className="rounded-[0.75rem]"
               />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>{t('addgarment.form.category')} *</Label>
-                <Select value={category} onValueChange={(value) => { setCategory(value); setSubcategory(''); }}>
-                  <SelectTrigger>
+                <Label className="font-body text-sm">{t('addgarment.form.category')} *</Label>
+                <Select value={category} onValueChange={(value) => { hapticLight(); setCategory(value); setSubcategory(''); }}>
+                  <SelectTrigger className="rounded-[0.75rem]">
                     <SelectValue placeholder={t('addgarment.form.select_category')} />
                   </SelectTrigger>
                   <SelectContent>
@@ -267,9 +297,9 @@ export default function EditGarmentPage() {
 
               {category && subcategories[category] ? (
                 <div className="space-y-2">
-                  <Label>{t('addgarment.form.subcategory')}</Label>
-                  <Select value={subcategory} onValueChange={setSubcategory}>
-                    <SelectTrigger>
+                  <Label className="font-body text-sm">{t('addgarment.form.subcategory')}</Label>
+                  <Select value={subcategory} onValueChange={(v) => { hapticLight(); setSubcategory(v); }}>
+                    <SelectTrigger className="rounded-[0.75rem]">
                       <SelectValue placeholder={t('addgarment.form.select_subcategory')} />
                     </SelectTrigger>
                     <SelectContent>
@@ -284,17 +314,17 @@ export default function EditGarmentPage() {
               ) : null}
             </div>
           </div>
-        </Card>
+        </motion.section>
 
-        <Card surface="utility" className="space-y-5 p-5">
-          <div className="space-y-2">
-            <p className="label-editorial">Color story</p>
-            <p className="text-sm leading-6 text-muted-foreground">Give BURS the core palette so matching and layering decisions feel more natural.</p>
+        {/* ── Color Story ── */}
+        <motion.section {...reveal(2)} className="surface-secondary rounded-[1.25rem] p-5 space-y-5">
+          <div className="space-y-1">
+            <p className="label-editorial text-muted-foreground/50">Dominant Color</p>
           </div>
 
           <div className="space-y-4">
             <div className="space-y-3">
-              <Label>{t('addgarment.form.primary_color')} *</Label>
+              <Label className="font-body text-sm">{t('addgarment.form.primary_color')} *</Label>
               <div className="flex flex-wrap gap-2.5">
                 {colors.map((item) => (
                   <button
@@ -302,10 +332,10 @@ export default function EditGarmentPage() {
                     type="button"
                     onClick={() => { hapticLight(); setColorPrimary(item.id); }}
                     className={cn(
-                      'h-11 w-11 rounded-full border-2 transition-all',
+                      'h-10 w-10 rounded-full border-2 transition-all',
                       colorPrimary === item.id
-                        ? 'border-foreground ring-2 ring-foreground/20 ring-offset-2 ring-offset-background'
-                        : 'border-border hover:scale-105',
+                        ? 'border-foreground ring-2 ring-foreground/20 ring-offset-2 ring-offset-background scale-110'
+                        : 'border-border/40 hover:scale-105',
                     )}
                     style={{ backgroundColor: item.color }}
                     title={t(COLOR_I18N[item.id] || item.id)}
@@ -315,16 +345,16 @@ export default function EditGarmentPage() {
             </div>
 
             <div className="space-y-3">
-              <Label>{t('addgarment.form.secondary_color')}</Label>
+              <Label className="font-body text-sm">{t('addgarment.form.secondary_color')}</Label>
               <div className="flex flex-wrap gap-2.5">
                 <button
                   type="button"
                   onClick={() => { hapticLight(); setColorSecondary(''); }}
                   className={cn(
-                    'flex h-11 w-11 items-center justify-center rounded-full border-2 transition-all',
+                    'flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all',
                     !colorSecondary
                       ? 'border-foreground ring-2 ring-foreground/20 ring-offset-2 ring-offset-background'
-                      : 'border-border',
+                      : 'border-border/40',
                   )}
                 >
                   <X className="h-4 w-4 text-muted-foreground" />
@@ -336,10 +366,10 @@ export default function EditGarmentPage() {
                     type="button"
                     onClick={() => { hapticLight(); setColorSecondary(item.id); }}
                     className={cn(
-                      'h-11 w-11 rounded-full border-2 transition-all',
+                      'h-10 w-10 rounded-full border-2 transition-all',
                       colorSecondary === item.id
-                        ? 'border-foreground ring-2 ring-foreground/20 ring-offset-2 ring-offset-background'
-                        : 'border-border hover:scale-105',
+                        ? 'border-foreground ring-2 ring-foreground/20 ring-offset-2 ring-offset-background scale-110'
+                        : 'border-border/40 hover:scale-105',
                     )}
                     style={{ backgroundColor: item.color }}
                     title={t(COLOR_I18N[item.id] || item.id)}
@@ -348,19 +378,19 @@ export default function EditGarmentPage() {
               </div>
             </div>
           </div>
-        </Card>
+        </motion.section>
 
-        <Card surface="utility" className="space-y-5 p-5">
-          <div className="space-y-2">
-            <p className="label-editorial">Construction</p>
-            <p className="text-sm leading-6 text-muted-foreground">Capture fit, fabric, and pattern so the AI reads the piece the same way you do.</p>
+        {/* ── Construction ── */}
+        <motion.section {...reveal(3)} className="surface-secondary rounded-[1.25rem] p-5 space-y-5">
+          <div className="space-y-1">
+            <p className="label-editorial text-muted-foreground/50">Material Composition</p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
-              <Label>{t('addgarment.form.pattern')}</Label>
-              <Select value={pattern} onValueChange={setPattern}>
-                <SelectTrigger>
+              <Label className="font-body text-sm">{t('addgarment.form.pattern')}</Label>
+              <Select value={pattern} onValueChange={(v) => { hapticLight(); setPattern(v); }}>
+                <SelectTrigger className="rounded-[0.75rem]">
                   <SelectValue placeholder={t('addgarment.form.select_pattern')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -374,9 +404,9 @@ export default function EditGarmentPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>{t('addgarment.form.material')}</Label>
-              <Select value={material} onValueChange={setMaterial}>
-                <SelectTrigger>
+              <Label className="font-body text-sm">{t('addgarment.form.material')}</Label>
+              <Select value={material} onValueChange={(v) => { hapticLight(); setMaterial(v); }}>
+                <SelectTrigger className="rounded-[0.75rem]">
                   <SelectValue placeholder={t('addgarment.form.select_material')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -390,9 +420,9 @@ export default function EditGarmentPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>{t('addgarment.form.fit')}</Label>
-              <Select value={fit} onValueChange={setFit}>
-                <SelectTrigger>
+              <Label className="font-body text-sm">{t('addgarment.form.fit')}</Label>
+              <Select value={fit} onValueChange={(v) => { hapticLight(); setFit(v); }}>
+                <SelectTrigger className="rounded-[0.75rem]">
                   <SelectValue placeholder={t('addgarment.form.select_fit')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -405,22 +435,22 @@ export default function EditGarmentPage() {
               </Select>
             </div>
           </div>
-        </Card>
+        </motion.section>
 
-        <Card surface="utility" className="space-y-5 p-5">
-          <div className="space-y-2">
-            <p className="label-editorial">Wear context</p>
-            <p className="text-sm leading-6 text-muted-foreground">Tell the system when this piece works best and whether it is ready to style right now.</p>
+        {/* ── Seasonal Utility ── */}
+        <motion.section {...reveal(4)} className="surface-secondary rounded-[1.25rem] p-5 space-y-5">
+          <div className="space-y-1">
+            <p className="label-editorial text-muted-foreground/50">Seasonal Utility</p>
           </div>
 
           <div className="space-y-3">
-            <Label>{t('addgarment.form.season')}</Label>
+            <Label className="font-body text-sm">{t('addgarment.form.season')}</Label>
             <div className="flex flex-wrap gap-2">
               {seasons.map((season) => (
                 <Badge
                   key={season}
                   variant={selectedSeasons.includes(season.toLowerCase()) ? 'default' : 'outline'}
-                  className="cursor-pointer px-4 py-2"
+                  className="cursor-pointer rounded-full px-4 py-2 font-body text-sm transition-all"
                   onClick={() => { hapticLight(); toggleSeason(season.toLowerCase()); }}
                 >
                   {t(SEASON_I18N[season.toLowerCase()] || season)}
@@ -431,33 +461,43 @@ export default function EditGarmentPage() {
 
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <Label>{t('addgarment.form.formality')}</Label>
-              <span className="text-sm text-muted-foreground">{formality[0]} / 5</span>
+              <Label className="font-body text-sm">{t('addgarment.form.formality')}</Label>
+              <span className="text-sm font-body text-muted-foreground">{formality[0]} / 5</span>
             </div>
             <Slider value={formality} onValueChange={setFormality} max={5} min={1} step={1} />
-            <div className="flex justify-between text-xs text-muted-foreground">
+            <div className="flex justify-between text-xs font-body text-muted-foreground">
               <span>{t('addgarment.form.casual')}</span>
               <span>{t('addgarment.form.formal')}</span>
             </div>
           </div>
 
-          <div className="flex items-center justify-between rounded-[1.25rem] border border-border/60 bg-background/80 px-4 py-4">
+          <div className="flex items-center justify-between rounded-[1rem] border border-border/40 bg-background/60 px-4 py-4">
             <div>
-              <p className="text-sm font-medium text-foreground">{t('addgarment.form.in_laundry')}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Hide the piece from outfit creation until it is ready again.</p>
+              <p className="text-sm font-medium font-body text-foreground">{t('addgarment.form.in_laundry')}</p>
+              <p className="mt-1 text-xs font-body text-muted-foreground/70">Hide from outfit creation until ready.</p>
             </div>
-            <Switch checked={inLaundry} onCheckedChange={setInLaundry} />
+            <Switch checked={inLaundry} onCheckedChange={(v) => { hapticLight(); setInLaundry(v); }} />
           </div>
-        </Card>
+        </motion.section>
       </AnimatedPage>
 
+      {/* ── Floating action bar ── */}
       <div className="bottom-safe-nav fixed inset-x-4 z-20">
         <div className="mx-auto max-w-md">
-          <div className="action-bar-floating flex gap-2 rounded-[1.25rem] p-3">
-            <Button variant="outline" className="flex-1" onClick={() => navigate(-1)} disabled={isSaving}>
+          <div className="action-bar-floating flex gap-3 rounded-[1.25rem] p-3">
+            <Button
+              variant="outline"
+              className="flex-1 rounded-full font-body"
+              onClick={() => { hapticLight(); navigate(-1); }}
+              disabled={isSaving}
+            >
               {t('common.cancel')}
             </Button>
-            <Button className="flex-1" onClick={() => { hapticLight(); handleSave(); }} disabled={isSaving || !title || !category || !colorPrimary}>
+            <Button
+              className="flex-1 rounded-full font-body"
+              onClick={() => { hapticLight(); handleSave(); }}
+              disabled={isSaving || !title || !category || !colorPrimary}
+            >
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

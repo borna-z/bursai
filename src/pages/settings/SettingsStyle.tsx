@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { Ruler, Weight, Lock, CheckCircle2, Loader2, ChevronDown, Palette, Shirt, Sparkles, Target, Heart, Compass, User, Briefcase } from 'lucide-react';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { hapticLight } from '@/lib/haptics';
@@ -15,6 +16,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
+import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM } from '@/lib/motion';
 import type { StyleProfile } from '@/types/preferences';
 import type { Json, TablesUpdate } from '@/integrations/supabase/types';
 import { mannequinPresentationFromStyleProfileGender } from '@/lib/mannequinPresentation';
@@ -114,18 +116,20 @@ export default function SettingsStyle() {
   const SectionHeader = ({ id, icon: Icon, title, summary }: { id: SectionId; icon: React.ElementType; title: string; summary?: string }) => (
     <CollapsibleTrigger
       onClick={() => toggle(id)}
-      className="flex items-center justify-between w-full px-4 py-3.5 text-left"
+      className="flex items-center justify-between w-full px-5 py-4 text-left"
     >
       <div className="flex items-center gap-3 min-w-0">
-        <Icon className="w-4 h-4 text-accent flex-shrink-0" />
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.85rem] bg-accent/10">
+          <Icon className="w-4 h-4 text-accent flex-shrink-0" />
+        </span>
         <div className="min-w-0">
-          <span className="text-sm font-semibold text-foreground block">{title}</span>
+          <span className="text-[15px] font-medium text-foreground block">{title}</span>
           {summary && openSection !== id && (
-            <span className="text-[11px] text-muted-foreground truncate block mt-0.5">{summary}</span>
+            <span className="text-[12px] text-muted-foreground/60 truncate block mt-0.5 font-body">{summary}</span>
           )}
         </div>
       </div>
-      <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform duration-200 flex-shrink-0', openSection === id && 'rotate-180')} />
+      <ChevronDown className={cn('w-4 h-4 text-muted-foreground/50 transition-transform duration-200 flex-shrink-0', openSection === id && 'rotate-180')} />
     </CollapsibleTrigger>
   );
 
@@ -134,10 +138,10 @@ export default function SettingsStyle() {
   const FieldSelect = ({ label, value, options, onChange }: {
     label: string; value: string | undefined; options: { value: string; label: string }[]; onChange: (v: string) => void;
   }) => (
-    <div className="space-y-1">
-      <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{label}</Label>
+    <div className="space-y-1.5">
+      <Label className="label-editorial text-muted-foreground/50">{label}</Label>
       <Select value={value || ''} onValueChange={onChange}>
-        <SelectTrigger className="h-11 text-[13px] border-border/50 bg-muted/30"><SelectValue placeholder="—" /></SelectTrigger>
+        <SelectTrigger className="h-11 text-[13px] font-body border-border/40 bg-background/60 rounded-xl"><SelectValue placeholder="---" /></SelectTrigger>
         <SelectContent>
           {options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
         </SelectContent>
@@ -150,9 +154,9 @@ export default function SettingsStyle() {
   const ChipMulti = ({ field, options, max = 5 }: {
     field: 'styleWords' | 'wardrobeFrustrations' | 'hardestOccasions'; options: string[]; max?: number;
   }) => (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-2">
       {options.map(v => (
-        <Chip key={v} selected={(sp[field] as string[] || []).includes(v)} onClick={() => toggleMulti(field, v, max)} className="text-xs capitalize">
+        <Chip key={v} selected={(sp[field] as string[] || []).includes(v)} onClick={() => { hapticLight(); toggleMulti(field, v, max); }} className="text-xs capitalize font-body rounded-full">
           {t(`q3.opt.${v}`) !== `q3.opt.${v}` ? t(`q3.opt.${v}`) : v.replace(/_/g, ' ')}
         </Chip>
       ))}
@@ -162,12 +166,12 @@ export default function SettingsStyle() {
   // ── Color grid ──
 
   const ColorGrid = ({ field }: { field: 'favoriteColors' | 'dislikedColors' }) => (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-2">
       {COLORS.map(color => {
         const selected = (sp[field] || []).includes(color);
         return (
-          <Chip key={color} selected={selected} onClick={() => toggleColor(field, color)} className="capitalize text-xs">
-            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-foreground/10" style={{ backgroundColor: COLOR_MAP[color] }} />
+          <Chip key={color} selected={selected} onClick={() => { hapticLight(); toggleColor(field, color); }} className="capitalize text-xs font-body rounded-full">
+            <span className="w-3 h-3 rounded-full flex-shrink-0 border border-foreground/10 shadow-sm" style={{ backgroundColor: COLOR_MAP[color] }} />
             {t(`color.${color}`) !== `color.${color}` ? t(`color.${color}`) : color}
           </Chip>
         );
@@ -177,23 +181,39 @@ export default function SettingsStyle() {
 
   return (
     <AppLayout>
-      <PageHeader title={t('settings.row.style')} showBack />
+      <PageHeader title={t('settings.row.style')} showBack titleClassName="font-display italic" />
 
-      <AnimatedPage className="px-4 pb-6 pt-4 space-y-3 max-w-lg mx-auto">
+      <AnimatedPage className="px-4 pb-8 pt-5 space-y-4 max-w-lg mx-auto">
+
+        {/* V4 Style DNA header */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE }}
+          className="text-center space-y-1 pb-1"
+        >
+          <h2 className="font-display italic text-[1.4rem] text-foreground">{t('settings.style_dna_title') || 'Your Style DNA'}</h2>
+          <p className="font-body text-sm text-muted-foreground/70">{t('settings.style_dna_desc') || 'Fine-tune how BURS understands your personal style'}</p>
+        </motion.div>
 
         {!hasProfile && (
-          <div className="bg-accent/8 border border-accent/20 rounded-[1.25rem] p-4 text-center space-y-2">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY }}
+            className="bg-accent/8 border border-accent/20 rounded-[1.25rem] p-5 text-center space-y-2"
+          >
             <Sparkles className="w-5 h-5 text-accent mx-auto" />
             <p className="text-sm text-foreground font-medium">{t('settings.no_profile_title') || 'No style profile yet'}</p>
             <p className="text-xs text-muted-foreground">{t('settings.no_profile_desc') || 'Complete the style quiz during onboarding to personalize your experience.'}</p>
-          </div>
+          </motion.div>
         )}
 
         {/* Body Data */}
-        <Collapsible open={openSection === 'body'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
+        <Collapsible open={openSection === 'body'} className="surface-secondary rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="body" icon={Ruler} title={t('settings.body_data')} summary={heightCm ? `${heightCm} cm${weightKg ? ` · ${weightKg} kg` : ''}` : undefined} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
-            <div className="px-4 pb-4 space-y-3">
+            <div className="px-5 pb-5 space-y-3">
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5 text-[13px] font-medium">
                   <Ruler className="w-3.5 h-3.5 text-accent" />{t('settings.height')}
@@ -223,7 +243,7 @@ export default function SettingsStyle() {
                 <Lock className="w-3 h-3 flex-shrink-0 mt-0.5" />
                 <p className="text-[11px] leading-relaxed">{t('settings.body_privacy')}</p>
               </div>
-              <Button onClick={() => { hapticLight(); handleSaveBodyData(); }} disabled={updateProfile.isPending} size="sm" className="w-full bg-accent text-accent-foreground hover:bg-accent/90 h-11 text-xs">
+              <Button onClick={() => { hapticLight(); handleSaveBodyData(); }} disabled={updateProfile.isPending} size="sm" className="w-full bg-accent text-accent-foreground hover:bg-accent/90 h-11 text-xs rounded-full font-body">
                 {updateProfile.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : bodySaved ? <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> : null}
                 {bodySaved ? t('settings.saved') : t('settings.save_measurements')}
               </Button>
@@ -232,10 +252,10 @@ export default function SettingsStyle() {
         </Collapsible>
 
         {/* Identity */}
-        <Collapsible open={openSection === 'identity'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
+        <Collapsible open={openSection === 'identity'} className="surface-secondary rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="identity" icon={User} title={t('q3.s1.title') || 'About you'} summary={[sp.gender, sp.ageRange, sp.climate].filter(Boolean).join(' · ')} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
-            <div className="px-4 pb-4 space-y-4">
+            <div className="px-5 pb-5 space-y-4">
               <FieldSelect label={t('q3.q1') || 'Gender'} value={sp.gender} onChange={v => updateStyleField('gender', v)} options={[
                 { value: 'male', label: t('q3.gender.male') || 'Male' },
                 { value: 'female', label: t('q3.gender.female') || 'Female' },
@@ -257,10 +277,10 @@ export default function SettingsStyle() {
         </Collapsible>
 
         {/* Daily life */}
-        <Collapsible open={openSection === 'daily'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
+        <Collapsible open={openSection === 'daily'} className="surface-secondary rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="daily" icon={Briefcase} title={t('q3.s2.title') || 'Daily life'} summary={[sp.weekdayLife, sp.workFormality].filter(Boolean).join(' · ')} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
-            <div className="px-4 pb-4 space-y-4">
+            <div className="px-5 pb-5 space-y-4">
               <FieldSelect label={t('q3.q5') || 'Weekday life'} value={sp.weekdayLife} onChange={v => updateStyleField('weekdayLife', v)} options={[
                 { value: 'office', label: t('q3.weekday.office') || 'Office' },
                 { value: 'remote', label: t('q3.weekday.remote') || 'Remote/WFH' },
@@ -286,16 +306,16 @@ export default function SettingsStyle() {
         </Collapsible>
 
         {/* Style direction */}
-        <Collapsible open={openSection === 'style'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
+        <Collapsible open={openSection === 'style'} className="surface-secondary rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="style" icon={Sparkles} title={t('q3.s3.title') || 'Style direction'} summary={sp.styleWords?.slice(0, 3).join(', ')} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
-            <div className="px-4 pb-4 space-y-4">
+            <div className="px-5 pb-5 space-y-4">
               <div className="space-y-1.5">
-                <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('q3.q9') || 'Style words'}</Label>
+                <Label className="label-editorial text-muted-foreground/50">{t('q3.q9') || 'Style words'}</Label>
                 <ChipMulti field="styleWords" options={['minimal', 'classic', 'streetwear', 'romantic', 'edgy', 'bohemian', 'preppy', 'sporty', 'elegant', 'scandinavian', 'vintage', 'artsy']} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">
+                <Label className="label-editorial text-muted-foreground/50">
                   {t('q3.q10') || 'Comfort vs. style'}: {sp.comfortVsStyle ?? 50}%
                 </Label>
                 <Slider value={[sp.comfortVsStyle ?? 50]} min={0} max={100} step={5}
@@ -321,10 +341,10 @@ export default function SettingsStyle() {
         </Collapsible>
 
         {/* Fit & silhouette */}
-        <Collapsible open={openSection === 'fit'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
+        <Collapsible open={openSection === 'fit'} className="surface-secondary rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="fit" icon={Shirt} title={t('q3.s4.title') || 'Fit & silhouette'} summary={[sp.fit, sp.layering].filter(Boolean).join(' · ')} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
-            <div className="px-4 pb-4 space-y-4">
+            <div className="px-5 pb-5 space-y-4">
               <FieldSelect label={t('q3.q14') || 'Overall fit'} value={sp.fit} onChange={v => updateStyleField('fit', v)} options={[
                 { value: 'slim', label: t('style.slim') || 'Slim' },
                 { value: 'regular', label: t('style.regular') || 'Regular' },
@@ -353,16 +373,16 @@ export default function SettingsStyle() {
         </Collapsible>
 
         {/* Colors & patterns */}
-        <Collapsible open={openSection === 'colors'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
+        <Collapsible open={openSection === 'colors'} className="surface-secondary rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="colors" icon={Palette} title={t('q3.s5.title') || 'Colors & patterns'} summary={sp.favoriteColors?.slice(0, 4).join(', ')} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
-            <div className="px-4 pb-4 space-y-4">
+            <div className="px-5 pb-5 space-y-4">
               <div className="space-y-1.5">
-                <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('settings.favorite_colors')}</Label>
+                <Label className="label-editorial text-muted-foreground/50">{t('settings.favorite_colors')}</Label>
                 <ColorGrid field="favoriteColors" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('settings.disliked_colors')}</Label>
+                <Label className="label-editorial text-muted-foreground/50">{t('settings.disliked_colors')}</Label>
                 <ColorGrid field="dislikedColors" />
               </div>
               <FieldSelect label={t('q3.q21') || 'Palette vibe'} value={sp.paletteVibe} onChange={v => updateStyleField('paletteVibe', v)} options={[
@@ -382,10 +402,10 @@ export default function SettingsStyle() {
         </Collapsible>
 
         {/* Philosophy */}
-        <Collapsible open={openSection === 'philosophy'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
+        <Collapsible open={openSection === 'philosophy'} className="surface-secondary rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="philosophy" icon={Target} title={t('q3.s6.title') || 'Philosophy'} summary={[sp.shoppingMindset, sp.sustainability].filter(Boolean).join(' · ')} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
-            <div className="px-4 pb-4 space-y-4">
+            <div className="px-5 pb-5 space-y-4">
               <FieldSelect label={t('q3.q23') || 'Shopping mindset'} value={sp.shoppingMindset} onChange={v => updateStyleField('shoppingMindset', v)} options={[
                 { value: 'minimal', label: t('q3.shop.minimal') || 'Buy less, buy better' },
                 { value: 'regular', label: t('q3.shop.regular') || 'Regular shopping' },
@@ -402,7 +422,7 @@ export default function SettingsStyle() {
                 { value: 'no', label: t('q3.capsule.no') || 'Not interested' },
               ]} />
               <div className="space-y-1.5">
-                <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('q3.q26') || 'Wardrobe frustrations'}</Label>
+                <Label className="label-editorial text-muted-foreground/50">{t('q3.q26') || 'Wardrobe frustrations'}</Label>
                 <ChipMulti field="wardrobeFrustrations" options={['nothing_to_wear', 'too_many_clothes', 'outfit_repeating', 'color_matching', 'occasion_dressing', 'fit_issues']} />
               </div>
             </div>
@@ -410,24 +430,24 @@ export default function SettingsStyle() {
         </Collapsible>
 
         {/* Inspiration */}
-        <Collapsible open={openSection === 'inspiration'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
+        <Collapsible open={openSection === 'inspiration'} className="surface-secondary rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="inspiration" icon={Compass} title={t('q3.s7.title') || 'Inspiration'} summary={sp.fabricFeel || sp.signaturePieces || undefined} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
-            <div className="px-4 pb-4 space-y-4">
+            <div className="px-5 pb-5 space-y-4">
               <div className="space-y-1.5">
-                <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('q3.q27') || 'Style icons'}</Label>
+                <Label className="label-editorial text-muted-foreground/50">{t('q3.q27') || 'Style icons'}</Label>
                 <Input value={sp.styleIcons || ''} onChange={e => updateStyleField('styleIcons', e.target.value)} placeholder={t('q3.q27_hint') || 'e.g. Scandinavian minimalism'} className="h-11 text-[13px]" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('q3.q28') || 'Hardest occasions'}</Label>
+                <Label className="label-editorial text-muted-foreground/50">{t('q3.q28') || 'Hardest occasions'}</Label>
                 <ChipMulti field="hardestOccasions" options={['work', 'date_night', 'wedding', 'travel', 'weekend_casual', 'formal_event']} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('q3.q29') || 'Favorite fabrics'}</Label>
+                <Label className="label-editorial text-muted-foreground/50">{t('q3.q29') || 'Favorite fabrics'}</Label>
                 <Input value={sp.fabricFeel || ''} onChange={e => updateStyleField('fabricFeel', e.target.value)} placeholder={t('q3.q29_hint') || 'e.g. linen, cashmere'} className="h-11 text-[13px]" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('q3.q30') || 'Signature pieces'}</Label>
+                <Label className="label-editorial text-muted-foreground/50">{t('q3.q30') || 'Signature pieces'}</Label>
                 <Input value={sp.signaturePieces || ''} onChange={e => updateStyleField('signaturePieces', e.target.value)} placeholder={t('q3.q30_hint') || 'e.g. oversized blazer, white sneakers'} className="h-11 text-[13px]" />
               </div>
             </div>
@@ -435,10 +455,10 @@ export default function SettingsStyle() {
         </Collapsible>
 
         {/* Goals */}
-        <Collapsible open={openSection === 'goals'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
+        <Collapsible open={openSection === 'goals'} className="surface-secondary rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="goals" icon={Heart} title={t('q3.s8.title') || 'Goals'} summary={sp.primaryGoal || undefined} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
-            <div className="px-4 pb-4 space-y-4">
+            <div className="px-5 pb-5 space-y-4">
               <FieldSelect label={t('q3.q31') || 'Primary goal with BURS'} value={sp.primaryGoal} onChange={v => updateStyleField('primaryGoal', v)} options={[
                 { value: 'save_time', label: t('q3.goal.save_time') || 'Save time getting dressed' },
                 { value: 'better_style', label: t('q3.goal.better_style') || 'Improve my style' },
@@ -453,7 +473,7 @@ export default function SettingsStyle() {
                 { value: 'enjoy', label: t('q3.morning.enjoy') || 'I enjoy taking my time' },
               ]} />
               <div className="space-y-1.5">
-                <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{t('q3.q33') || 'Anything else?'}</Label>
+                <Label className="label-editorial text-muted-foreground/50">{t('q3.q33') || 'Anything else?'}</Label>
                 <Input value={sp.freeNote || ''} onChange={e => updateStyleField('freeNote', e.target.value)} placeholder={t('q3.q33_hint') || 'Any personal style notes...'} className="h-11 text-[13px]" />
               </div>
             </div>
@@ -462,42 +482,40 @@ export default function SettingsStyle() {
 
         {/* Read-only style words summary */}
         {sp.styleWords && sp.styleWords.length > 0 && (
-          <div className="px-1 py-3 space-y-2">
-            <p style={{
-              fontFamily: 'DM Sans, sans-serif',
-              fontSize: 11,
-              textTransform: 'uppercase',
-              letterSpacing: '0.15em',
-              color: 'rgba(28,25,23,0.4)',
-            }}>
-              YOUR STYLE WORDS
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY * 8 }}
+            className="px-1 py-3 space-y-2.5"
+          >
+            <p className="label-editorial text-muted-foreground/50">
+              {t('settings.your_style_words') || 'YOUR STYLE WORDS'}
             </p>
             <div className="flex flex-wrap gap-2">
               {sp.styleWords.map(word => (
                 <span
                   key={word}
-                  style={{
-                    backgroundColor: '#EDE8DF',
-                    borderRadius: 0,
-                    padding: '6px 12px',
-                    fontFamily: 'DM Sans, sans-serif',
-                    fontSize: 12,
-                    color: '#1C1917',
-                  }}
+                  className="bg-secondary/80 px-3.5 py-1.5 font-body text-xs text-foreground capitalize tracking-wide"
                 >
                   {word}
                 </span>
               ))}
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* Mannequin preference */}
-        <div className="surface-editorial rounded-[1.25rem] overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3.5">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY * 9 }}
+        >
+          <p className="label-editorial text-muted-foreground/50 px-1 mb-2.5">{t('settings.presentation_title') || 'PRESENTATION'}</p>
+        <div className="surface-secondary rounded-[1.25rem] overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4">
             <div className="min-w-0">
-              <span className="text-sm font-semibold text-foreground block">Show garments on mannequin</span>
-              <span className="text-[11px] text-muted-foreground block mt-0.5">Displays a clean ghost mannequin view when available</span>
+              <span className="text-[15px] font-medium text-foreground block">Show garments on mannequin</span>
+              <span className="text-[12px] text-muted-foreground/60 block mt-0.5 font-body">Displays a clean ghost mannequin view when available</span>
             </div>
             <button
               type="button"
@@ -528,11 +546,11 @@ export default function SettingsStyle() {
         </div>
 
         {/* Studio render prompt */}
-        <div className="surface-editorial rounded-[1.25rem] overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3.5">
+        <div className="surface-secondary rounded-[1.25rem] overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4">
             <div className="min-w-0">
-              <span className="text-sm font-semibold text-foreground block">Offer studio renders</span>
-              <span className="text-[11px] text-muted-foreground block mt-0.5">Show the Studio Look prompt after adding a garment</span>
+              <span className="text-[15px] font-medium text-foreground block">Offer studio renders</span>
+              <span className="text-[12px] text-muted-foreground/60 block mt-0.5 font-body">Show the Studio Look prompt after adding a garment</span>
             </div>
             <button
               type="button"
@@ -561,6 +579,7 @@ export default function SettingsStyle() {
             </button>
           </div>
         </div>
+        </motion.div>
 
       </AnimatedPage>
     </AppLayout>

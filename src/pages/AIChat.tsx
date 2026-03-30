@@ -436,13 +436,13 @@ export default function AIChat() {
     <PageErrorBoundary fallback={<AIChatFallback />}>
     <AppLayout hideNav>
       <div className="absolute inset-0 flex flex-col overflow-hidden pb-[max(env(safe-area-inset-bottom),0.75rem)]">
-        <div className="topbar-frost sticky top-0 z-10 flex shrink-0 items-center justify-between px-4 py-3 min-h-[64px]">
+        <div className="topbar-frost sticky top-0 z-10 flex shrink-0 items-center justify-between px-4 py-3 min-h-[56px]">
           <div className="w-10" />
-          <div className="flex flex-col items-center gap-0.5">
-            <span className="font-display italic text-[1.1rem] text-foreground leading-tight">
+          <div className="flex flex-col items-center gap-0">
+            <span className="font-display italic text-[1.05rem] text-foreground leading-tight tracking-tight">
               {t('chat.mode_stylist')}
             </span>
-            <span className="caption-upper text-[11px]">AI Stylist</span>
+            <span className="text-[10px] font-body uppercase tracking-[0.12em] text-muted-foreground/40">AI Stylist</span>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -462,7 +462,7 @@ export default function AIChat() {
         {/* Wardrobe context badge */}
         {garmentCount != null && garmentCount > 0 && (
           <div className="px-4 pb-1">
-            <p className="text-[13px] text-muted-foreground/40 text-center">
+            <p className="text-[11px] font-body text-muted-foreground/35 text-center tracking-wide">
               {t('chat.based_on')} {garmentCount} {t('chat.garments_label')}
             </p>
           </div>
@@ -509,7 +509,7 @@ export default function AIChat() {
         ) : isWelcomeState ? (
           <ChatWelcome onSuggestion={sendMessage} garmentCount={garmentCount ?? undefined} />
         ) : (
-          <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-6 space-y-8">
+          <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-5 space-y-6">
             {messages.map((msg, idx) => {
               if (idx === 0 && msg.role === 'assistant' && !isStreaming) {
                 if (getTextContent(msg.content) === t('chat.welcome')) return null;
@@ -541,15 +541,15 @@ export default function AIChat() {
             })}
             {/* Plan action banner */}
             {planActionPayload && !isStreaming && (
-              <div className="mt-3 rounded-[1.25rem] bg-foreground px-4 py-4 text-background shadow-[0_18px_40px_rgba(22,18,15,0.18)]">
-                <p className="mb-3 font-display text-[0.95rem] italic text-background/75">
+              <div className="mt-3 surface-secondary rounded-[1.25rem] px-4 py-4">
+                <p className="mb-3 font-display italic text-[0.95rem] text-foreground/70">
                   Your week is planned. Add these looks to the planner?
                 </p>
                 <div className="flex gap-2">
                   <Button
-                    variant="secondary"
+                    variant="editorial"
                     size="sm"
-                    className="flex-1 cursor-pointer"
+                    className="flex-1 rounded-full cursor-pointer"
                     onClick={() => { hapticLight(); handleAddToPlan(planActionPayload); setPlanActionPayload(null); }}
                   >
                     Add to plan
@@ -557,7 +557,7 @@ export default function AIChat() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1 cursor-pointer border-background/12 bg-transparent text-background/60 hover:bg-background/5"
+                    className="flex-1 rounded-full cursor-pointer border-border/35"
                     onClick={() => { hapticLight(); setPlanActionPayload(null); }}
                   >
                     Dismiss
@@ -572,7 +572,7 @@ export default function AIChat() {
                     <Button
                       key={i}
                       variant="outline"
-                      className="min-h-[40px] rounded-full px-4 cursor-pointer"
+                      className="min-h-[40px] rounded-full px-4 cursor-pointer border-border/35 text-[13px] font-body"
                       onClick={() => {
                         hapticLight();
                         setSuggestionChips([]);

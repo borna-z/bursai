@@ -11,11 +11,11 @@ This is the `supabase/functions/` subdirectory of the BURS AI wardrobe app. See 
 - Never use `getClaims()` — deprecated, silently fails. Use `getUser()` pattern instead
 - TypeScript must pass after every task: `npx tsc --noEmit --skipLibCheck`
 - All functions use `verify_jwt = false` — JWT is validated manually in code
-- All AI functions must: import and call `enforceRateLimit()` + `checkOverload()` + pass `cacheTtlSeconds`/`cacheNamespace`/`functionName` to `callBursAI()`
+- All AI functions must: import and call `enforceRateLimit()` + `checkOverload()` + pass `functionName` to `callBursAI()`. Caching params (`cacheTtlSeconds`/`cacheNamespace`) required for cacheable functions but not for image generation or streaming functions
 
 ## Edge Function Structure
 
-43 functions, each a snake_case directory with a single `index.ts`. All use Deno with ESM URL imports:
+39 functions, each a snake_case directory with a single `index.ts`. All use Deno with ESM URL imports:
 
 ```typescript
 import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
@@ -86,8 +86,8 @@ const { data } = await callBursAI({
 | File | Purpose |
 |------|---------|
 | `cors.ts` | `CORS_HEADERS` constant — include on every response |
-| `burs-ai.ts` | AI abstraction: `callBursAI({ messages, complexity, cacheNamespace, functionName, ... })`. Complexity-based model routing (trivial/standard/complex), Gemini fallback chains, DB response caching via `ai_response_cache` table, token budget auto-set, cost tracking |
-| `scale-guard.ts` | Scale infrastructure: subscription-tier rate limiting (free=0.5x, premium=2x), overload detection (per-isolate circuit breaker), job queue primitives (submit/claim/complete/fail), bounded concurrency (`withConcurrencyLimit`), AI cost estimation (`estimateCost`), enhanced telemetry (`logTelemetry`) |
+| `burs-ai.ts` | AI abstraction: `callBursAI()`, `streamBursAI()` (streaming with keepalive pings), `bursAIErrorResponse()` (standard error formatter), `estimateMaxTokens()` (dynamic token budgets), `compressPrompt()` (text normalization), `compactGarment()` (garment→string), `checkRateLimit()`. Complexity-based model routing, Gemini fallback chains, DB response caching, token budget auto-set, cost tracking |
+| `scale-guard.ts` | Scale infrastructure: `enforceRateLimit()`, `rateLimitResponse()`, `checkOverload()`, `recordError()` (circuit breaker tracking), `overloadResponse()`, `estimateCost()`, `logTelemetry()`, job queue primitives (`submitJob`/`claimJob`/`completeJob`/`failJob`/`getJobStatus`), `withConcurrencyLimit()` |
 | `burs-voice.ts` | Voice identity fragments (`VOICE_STYLIST_CHAT`, `VOICE_SHOPPING`, etc.) for consistent premium tone in AI prompts |
 | `unified_stylist_engine.ts` | Middleware to `burs_style_engine` function. Modes: generate, suggest, swap, refine. Also contains slot normalization logic (`normalizeIds()`) |
 | `logger.ts` | Structured JSON logging: `const log = logger("fn_name"); log.info(...); log.error(...); log.exception(...)` |
@@ -104,14 +104,18 @@ const { data } = await callBursAI({
 Always use `callBursAI()` from `_shared/burs-ai.ts` — never call Gemini directly. Key parameters:
 
 - `complexity`: `"trivial"` (300 tokens, temp 0.1), `"standard"` (600 tokens, temp 0.3), `"complex"` (1200 tokens, temp 0.5)
-- `cacheNamespace`: identifies the cache partition — **always set this** (e.g., `"style_engine"`, `"mood_happy_userId"`)
-- `cacheTtlSeconds`: how long to cache the response — **always set this** (300-43200 depending on volatility)
+- `cacheNamespace`: identifies the cache partition (e.g., `"style_engine"`, `"mood_happy_userId"`) — set for cacheable functions
+- `cacheTtlSeconds`: how long to cache the response (300-43200 depending on volatility) — set for cacheable functions
 - `functionName`: identifies the caller for telemetry — **always set this**
+- `modelType`: override for special cases (e.g., `"image-gen"` for image generation functions) — use instead of `complexity` when needed
 - Pass `supabaseServiceClient` as second arg to enable DB caching: `callBursAI(opts, supabase)`
+- For streaming: use `streamBursAI()` which wraps `callBursAI` with keepalive pings
 - Analytics logging is fire-and-forget (never blocks response), includes token counts and estimated cost
 - `estimateMaxTokens({ inputItems, outputItems, perItemTokens, baseTokens })` helper for dynamic budgets
 
-The AI backend is Google Gemini via OpenAI-compatible endpoint. Model chain: Gemini 2.5 Flash primary, Flash Lite fallback.
+The AI backend is Google Gemini via OpenAI-compatible endpoint. Model routing by complexity:
+- **trivial/standard**: Gemini 2.5 Flash Lite primary → Flash fallback (cheaper model first)
+- **complex**: Gemini 2.5 Flash primary → Flash Lite fallback (stronger model first)
 
 ## Rate Limiting
 
@@ -237,4 +241,4 @@ User Request
 
 ## Known Bug in This Directory
 
-**AI Stylist Truncation** — `style_chat/index.ts` ~line 1568 hard-caps AI replies at 6 sentences / 900 chars. Should be 9 sentences / 1400 chars, with `...` appended when `finish_reason === "length"`.
+**AI Stylist Truncation** — `style_chat/index.ts` has two-stage truncation: (1) ~line 1587: if `finish_reason === "length"`, cleans up partial sentence by finding last punctuation mark past 60% of text; (2) ~line 1619: non-outfit replies over 1400 chars are capped at 9 sentences, with ` …` appended if token-truncated. Previously was 6 sentences / 900 chars — already fixed but verify the limits are adequate for production responses.

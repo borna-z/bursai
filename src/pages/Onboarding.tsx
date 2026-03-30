@@ -41,7 +41,7 @@ function StepProgress({ current }: { current: StepKey }) {
             </div>
           ))}
         </div>
-        <p className="mt-2 text-center text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground">
+        <p className="label-editorial mt-2 text-center tracking-[0.18em]">
           Step {String(index + 1).padStart(2, '0')} of {String(STEPS.length).padStart(2, '0')}
         </p>
       </div>
