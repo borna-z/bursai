@@ -72,28 +72,31 @@ serve(async (req) => {
 
     logStep("Event verified", { type: event.type, id: event.id });
 
-    // Idempotency check: avoid processing same event twice
-    const { data: existingEvent } = await serviceClient
+    // Idempotency: atomic insert-or-skip using ON CONFLICT.
+    // Prevents race condition where two concurrent requests both pass the
+    // select check and proceed to process the same event.
+    const { data: inserted, error: insertError } = await serviceClient
       .from('stripe_events')
+      .upsert(
+        {
+          id: event.id,
+          event_type: event.type,
+          stripe_mode: stripeConfig.mode,
+          processed_ok: false,
+        },
+        { onConflict: 'id', ignoreDuplicates: true }
+      )
       .select('id')
-      .eq('id', event.id)
       .single();
 
-    if (existingEvent) {
-      logStep("Event already processed", { eventId: event.id });
+    // If upsert returned no row, the event already existed — skip processing
+    if (insertError || !inserted) {
+      logStep("Event already processed (idempotency)", { eventId: event.id });
       return new Response(JSON.stringify({ received: true, duplicate: true }), {
         headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
         status: 200,
       });
     }
-
-    // Log event start
-    await serviceClient.from('stripe_events').insert({
-      id: event.id,
-      event_type: event.type,
-      stripe_mode: stripeConfig.mode,
-      processed_ok: false,
-    });
 
     let processingError: string | null = null;
 

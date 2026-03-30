@@ -3,9 +3,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
+
+  if (checkOverload("assess_garment_condition")) {
+    return overloadResponse(CORS_HEADERS);
+  }
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -21,12 +26,14 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await authClient.auth.getUser(token);
     if (userError || !user) throw new Error("Unauthorized");
 
+    await enforceRateLimit(supabase, user.id, "assess_garment_condition");
+
     const { garment_id } = await req.json();
     if (!garment_id) throw new Error("Missing garment_id");
 
     const { data: garment, error: gErr } = await supabase
       .from("garments")
-      .select("*")
+      .select("id, title, category, material, wear_count, image_path")
       .eq("id", garment_id)
       .eq("user_id", user.id)
       .single();
@@ -80,7 +87,9 @@ Consider that some materials age differently (leather improves, cotton pills, sy
       tool_choice: { type: "function", function: { name: "assess_condition" } },
       modelType: "vision",
       functionName: "assess_garment_condition",
-    });
+      cacheTtlSeconds: 86400, // 24 hours — condition doesn't change fast
+      cacheNamespace: `assess_condition_${garment_id}`,
+    }, supabase);
 
     await supabase
       .from("garments")
@@ -91,6 +100,9 @@ Consider that some materials age differently (leather improves, cotton pills, sy
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return rateLimitResponse(e, CORS_HEADERS);
+    }
     console.error("assess_garment_condition error:", e);
     return bursAIErrorResponse(e, CORS_HEADERS);
   }

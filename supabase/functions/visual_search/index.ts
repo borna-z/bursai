@@ -128,7 +128,9 @@ ${garmentList}`,
       complexity: "complex",
       max_tokens: estimateMaxTokens({ inputItems: garments.length, outputItems: 5, perItemTokens: 80, baseTokens: 200 }),
       functionName: "visual_search",
-    });
+      cacheTtlSeconds: 1800, // 30 minutes
+      cacheNamespace: `visual_search_${userId}`,
+    }, serviceClient);
 
     const garmentIdSet = new Set(garments.map(g => g.id));
     result.matches = (result.matches || []).filter((m: any) => garmentIdSet.has(m.garment_id));
