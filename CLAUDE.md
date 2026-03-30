@@ -274,6 +274,26 @@ The accent is warm gold — NOT indigo. If you see `--accent: 229` anywhere, tha
 
 **Goal:** Apply Scandinavian editorial magazine aesthetic (Kinfolk/Cereal feel) to ALL 44 pages. Serif italic headlines (Playfair Display), clean hierarchy, hero cards, minimal shadows, warm gold accent, editorial surfaces. Every page should feel like a magazine spread, not a generic app screen.
 
+**V4 workflow — MUST follow this for every page:**
+1. **Design in Stitch first** — use the Stitch MCP tools to generate a screen mockup before writing any code
+   - Stitch project ID: `8117716384164426188`
+   - Design system asset ID: `14594054922406120457`
+   - Use `mcp__stitch__generate_screen_from_text` to create the V4 screen design with a detailed prompt describing the editorial layout
+   - Use `mcp__stitch__get_screen` to fetch the generated HTML/CSS output
+   - The Stitch output is the design reference — adapt it to the project's React + Tailwind stack
+2. **Implement the design** — read the current page code, then rewrite/refactor to match the Stitch mockup
+3. **Update tests** — if existing tests break due to V4 structural changes, update them
+4. **TypeScript check** — run `npx tsc --noEmit --skipLibCheck` and fix all errors
+5. **Run tests** — run `npm test` and ensure all pass
+
+**Stitch design system context for prompts:**
+- Brand: BURS — AI wardrobe management app, Scandinavian editorial magazine aesthetic
+- Background: Editorial Cream (#F5F0E8), Foreground: Deep Charcoal (#1C1917), Accent: Warm Gold (#B07D3A)
+- Headlines: Playfair Display italic, Body: DM Sans
+- Radius: 18px, iOS-first mobile (390x844 viewport)
+- Surface classes: surface-hero, surface-secondary, surface-editorial
+- Always include haptic feedback, Framer Motion entrances, pull-to-refresh
+
 **Design principles for V4:**
 - Headlines: `font-display italic text-[1.3rem+]` (Playfair Display)
 - Eyebrow labels: `label-editorial text-muted-foreground/60` uppercase tracking
