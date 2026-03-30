@@ -4,7 +4,7 @@ import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { stripBrands } from '@/lib/stripBrands';
 import { nativeShare } from '@/lib/nativeShare';
 import { normalizeWeather } from '@/lib/outfitContext';
-import { EASE_CURVE } from '@/lib/motion';
+import { EASE_CURVE, STAGGER_DELAY, DURATIONS } from '@/lib/motion';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Star, Bookmark, BookmarkCheck, Check, RefreshCw, Share2, Loader2,
@@ -177,33 +177,29 @@ function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, rende
   const categorySlotLabel = t(`outfit.slot.${slot}`) || slot;
 
   return (
-    <div className="flex items-center gap-4 py-4 border-b border-border/8 last:border-b-0 group">
-      {/* Left-side category label */}
-      <p className="font-body text-[11px] uppercase tracking-widest text-foreground/30 w-12 shrink-0 text-right leading-tight">
-        {categorySlotLabel}
-      </p>
+    <div className="surface-secondary rounded-[1.25rem] p-3 flex items-center gap-4 mb-3 group">
       <div
-        className="relative w-[68px] h-[84px] rounded-[1.1rem] overflow-hidden flex-shrink-0 cursor-pointer bg-muted/20 ring-1 ring-border/10"
+        className="relative w-16 h-20 rounded-[1rem] overflow-hidden flex-shrink-0 cursor-pointer bg-muted/20"
         onClick={() => navigate(`/wardrobe/${garmentId}`)}
       >
         <LazyImageSimple
           imagePath={imagePath}
           alt={garmentTitle || slot}
-          className="w-[68px] h-[84px] object-cover"
-          fallbackIcon={<Shirt className="w-6 h-6 text-muted-foreground/20" />}
+          className="w-full h-full object-cover"
+          fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/20" />}
         />
         <RenderPendingOverlay renderStatus={renderStatus} variant="overlay" className="[&>span]:hidden" />
       </div>
       <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/wardrobe/${garmentId}`)}>
-        <p className="text-[10px] text-muted-foreground/40 uppercase tracking-[0.12em] font-medium">
+        <p className="text-[10px] text-muted-foreground/40 uppercase tracking-[0.12em] font-body mb-0.5">
           {roleLabel}
         </p>
-        <p className="font-semibold text-[15px] truncate mt-0.5 tracking-tight">{stripBrands(garmentTitle || '') || t('outfit.unknown')}</p>
-        {garmentColor && <p className="text-[12px] text-muted-foreground/60 capitalize mt-0.5">{garmentColor}</p>}
+        <p className="font-medium text-[14px] truncate tracking-tight">{stripBrands(garmentTitle || '') || t('outfit.unknown')}</p>
+        {garmentColor && <p className="text-[11px] text-muted-foreground/50 capitalize mt-0.5 font-body">{garmentColor}</p>}
       </div>
       <button
         onClick={(e) => { e.stopPropagation(); hapticLight(); onSwap(); }}
-        className="p-2.5 rounded-[1.25rem] bg-muted/20 hover:bg-muted/40 transition-all active:scale-95 flex-shrink-0 opacity-60 group-hover:opacity-100"
+        className="p-2.5 rounded-full bg-background/60 hover:bg-background transition-all active:scale-95 flex-shrink-0 opacity-50 group-hover:opacity-100"
         aria-label={t('outfit.swap_out')}
       >
         <RefreshCw className="w-4 h-4 text-muted-foreground" />
@@ -513,22 +509,25 @@ export default function OutfitDetailPage() {
     return (
       <div className="min-h-screen bg-background">
         <div className="sticky top-0 z-10 p-4 flex items-center justify-between">
-          <Skeleton className="w-10 h-10 rounded-full" />
+          <Skeleton className="w-11 h-11 rounded-full" />
           <div className="flex gap-2">
-            <Skeleton className="w-10 h-10 rounded-full" />
-            <Skeleton className="w-10 h-10 rounded-full" />
+            <Skeleton className="w-11 h-11 rounded-full" />
+            <Skeleton className="w-11 h-11 rounded-full" />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-1 px-1">
-          <Skeleton className="aspect-[3/4] rounded-[1.1rem]" />
-          <Skeleton className="aspect-[3/4] rounded-[1.1rem]" />
+        <div className="flex w-full">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="flex-1 aspect-square" />
+          ))}
         </div>
-        <div className="px-6 pt-8 space-y-4">
-          <Skeleton className="h-7 w-48" />
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-px w-full" />
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-16 w-full" />
+        <div className="px-5 pt-6 space-y-4">
+          <Skeleton className="h-8 w-56" />
+          <Skeleton className="h-4 w-36" />
+          <div className="space-y-3 pt-4">
+            <Skeleton className="h-20 w-full rounded-[1.25rem]" />
+            <Skeleton className="h-20 w-full rounded-[1.25rem]" />
+            <Skeleton className="h-20 w-full rounded-[1.25rem]" />
+          </div>
         </div>
       </div>
     );
@@ -543,7 +542,7 @@ export default function OutfitDetailPage() {
             <Shirt className="w-7 h-7 text-muted-foreground" />
           </div>
           <div className="space-y-1.5">
-            <p className="font-display italic text-[1.2rem] leading-tight text-foreground text-foreground">{t('outfit.not_found')}</p>
+            <p className="font-display italic text-[1.2rem] leading-tight text-foreground">{t('outfit.not_found')}</p>
             <p className="text-sm text-muted-foreground">{t('common.something_wrong')}</p>
           </div>
           <Button variant="outline" onClick={() => navigate('/outfits')} className="w-full">
@@ -597,7 +596,13 @@ export default function OutfitDetailPage() {
       </div>
 
       {/* ── Full-bleed image strip ── */}
-      <div ref={outfitRef} className="flex w-full">
+      <motion.div
+        ref={outfitRef}
+        initial={prefersReduced ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: DURATIONS.SLOW, ease: EASE_CURVE }}
+        className="flex w-full"
+      >
         {outfitItems.slice(0, 5).map((item) => (
           <div key={item.id} className="flex-1 aspect-square bg-card overflow-hidden">
             <LazyImageSimple
@@ -608,37 +613,45 @@ export default function OutfitDetailPage() {
             />
           </div>
         ))}
-      </div>
+      </motion.div>
 
-      {/* ── Dark info block ── */}
-      <div className="bg-foreground/[0.96] px-5 py-5">
-        <p className="font-body text-[11px] font-medium uppercase tracking-[0.12em] text-background/[0.45] mb-2.5">
+      {/* ── V4 Editorial Title Block ── */}
+      <motion.div
+        initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1, duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+        className="px-5 pt-5 pb-4"
+      >
+        <p className="label-editorial text-muted-foreground/45 mb-1">
           {genOccasionSubmode || displayOccasion}
         </p>
+        <h1 className="font-display italic text-[1.5rem] leading-tight text-foreground tracking-tight">
+          {genFamilyLabel || outfit.title || displayOccasion}
+        </h1>
         {outfit.explanation && (
-          <p className="text-[13px] leading-6 text-background/86">
+          <p className="font-display italic text-[13px] text-foreground/55 leading-relaxed mt-2 line-clamp-3">
             {outfit.explanation}
           </p>
         )}
-        {genWardrobeInsights && genWardrobeInsights.length > 0 && (
-          <p className="font-body text-[12px] text-background/50 leading-[1.5]">
-            {genWardrobeInsights.slice(0, 2).join(' / ')}
+        {metaParts.length > 0 && (
+          <p className="text-[11px] font-body text-muted-foreground/40 mt-2 tracking-wide">
+            {metaParts.join(' · ')}
           </p>
         )}
-      </div>
+      </motion.div>
 
       {/* ── 3-Tab row ── */}
-      <div className="px-5 py-4">
-        <div className="surface-inset flex rounded-full border p-1">
+      <div className="px-5 pb-4">
+        <div className="surface-inset flex rounded-full border border-border/30 p-1">
           {(['wear', 'swap', 'why'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => { hapticLight(); setActiveTab(tab); }}
               className={cn(
-                "h-12 flex-1 rounded-full px-3 py-2.5 font-body text-[12px] font-medium transition-colors",
+                "h-11 flex-1 rounded-full px-3 py-2 font-body text-[12px] font-medium transition-all",
                 activeTab === tab
                   ? "bg-foreground text-background"
-                  : "text-foreground/45"
+                  : "text-foreground/40"
               )}
             >
               {tab === 'wear' ? t('outfit.tab_wear') : tab === 'swap' ? t('outfit.tab_swap') : t('outfit.tab_why')}
@@ -650,12 +663,18 @@ export default function OutfitDetailPage() {
       {/* ── Tab content ── */}
       <div className="px-5 pb-20">
         {activeTab === 'wear' && (
-          <div className="flex flex-col gap-2.5">
+          <motion.div
+            initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+            className="flex flex-col gap-3"
+          >
             <Button
-              onClick={handleMarkWorn}
+              onClick={() => { hapticLight(); handleMarkWorn(); }}
               disabled={markWorn.isPending || !!outfit.worn_at}
+              variant="editorial"
               className={cn(
-                "w-full h-14 rounded-full bg-foreground text-background font-body text-[15px] font-medium flex items-center justify-center gap-2",
+                "w-full h-13 rounded-full font-body text-[15px] font-medium flex items-center justify-center gap-2",
                 outfit.worn_at && "opacity-50 cursor-default"
               )}
             >
@@ -665,45 +684,73 @@ export default function OutfitDetailPage() {
             <div className="grid grid-cols-2 gap-2">
               <Button
                 variant="outline"
-                onClick={() => navigate('/plan', { state: { preselectedOutfitId: outfit.id } })}
-                className="h-11 min-h-[44px] rounded-full border border-foreground/20 bg-transparent text-foreground font-body text-[13px] font-medium"
+                onClick={() => { hapticLight(); navigate('/plan', { state: { preselectedOutfitId: outfit.id } }); }}
+                className="h-11 rounded-full border-border/35 font-body text-[13px] font-medium"
               >
+                <Calendar className="w-4 h-4 mr-1.5" />
                 {t('outfit.plan') || 'Plan'}
               </Button>
               <Button
                 variant="outline"
-                onClick={handleToggleSave}
-                className="h-11 min-h-[44px] rounded-full border border-foreground/20 bg-transparent text-foreground font-body text-[13px] font-medium flex items-center justify-center gap-2"
+                onClick={() => { hapticLight(); handleToggleSave(); }}
+                className="h-11 rounded-full border-border/35 font-body text-[13px] font-medium"
               >
                 {outfit.saved
-                  ? <><BookmarkCheck className="w-4 h-4" />{t('outfit.saved')}</>
-                  : <><Bookmark className="w-4 h-4" />{t('outfit.save') || 'Save'}</>
+                  ? <><BookmarkCheck className="w-4 h-4 mr-1.5" />{t('outfit.saved')}</>
+                  : <><Bookmark className="w-4 h-4 mr-1.5" />{t('outfit.save') || 'Save'}</>
                 }
               </Button>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Button
                 variant="ghost"
-                onClick={() => setShareSheetOpen(true)}
-                className="h-11 min-h-[44px] rounded-full bg-card text-foreground font-body text-[13px] flex items-center justify-center gap-1.5"
+                onClick={() => { hapticLight(); setShareSheetOpen(true); }}
+                className="h-10 rounded-full text-foreground/50 font-body text-[13px]"
               >
-                <Share2 className="w-3.5 h-3.5" />
+                <Share2 className="w-3.5 h-3.5 mr-1.5" />
                 Share
               </Button>
               <Button
                 variant="ghost"
-                onClick={handleCreateSimilar}
-                className="h-11 min-h-[44px] rounded-full bg-card text-foreground font-body text-[13px] flex items-center justify-center gap-1.5"
+                onClick={() => { hapticLight(); handleCreateSimilar(); }}
+                className="h-10 rounded-full text-foreground/50 font-body text-[13px]"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
                 Remake
               </Button>
             </div>
-          </div>
+
+            {/* ── Star rating ── */}
+            <div className="pt-3">
+              <p className="label-editorial text-muted-foreground/40 mb-2">RATE THIS LOOK</p>
+              <div className="flex gap-1.5">
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <button
+                    key={value}
+                    onClick={() => handleRating(value)}
+                    className="p-1 transition-transform active:scale-90"
+                  >
+                    <Star
+                      className={cn(
+                        "w-7 h-7 transition-colors",
+                        rating !== null && value <= rating
+                          ? "text-primary fill-primary"
+                          : "text-foreground/15"
+                      )}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
         )}
 
         {activeTab === 'swap' && (
-          <div>
+          <motion.div
+            initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+          >
             {sortedOutfitItems.map((item) => (
               <SlotRow
                 key={item.id}
@@ -718,49 +765,59 @@ export default function OutfitDetailPage() {
                 layerRole={layerRoleMap.get(item.garment_id)}
               />
             ))}
-          </div>
+          </motion.div>
         )}
 
         {activeTab === 'why' && (
-          <div className="flex flex-col gap-4">
-            {!genOutfitReasoning && outfit.explanation && (
-              <p className="font-display italic text-[16px] text-foreground leading-[1.6]">
-                {outfit.explanation}
+          <motion.div
+            initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+            className="flex flex-col gap-4"
+          >
+            {genOutfitReasoning?.why_it_works && (
+              <p className="font-display italic text-[15px] text-foreground/70 leading-relaxed">
+                "{genOutfitReasoning.why_it_works}"
               </p>
             )}
-            {!genOutfitReasoning && genWardrobeInsights && genWardrobeInsights.length > 0 && (
-              <p className="font-body text-[13px] text-foreground/[0.55] leading-[1.6]">
-                {genWardrobeInsights.join(' / ')}
+            {!genOutfitReasoning && outfit.explanation && (
+              <p className="font-display italic text-[15px] text-foreground/70 leading-relaxed">
+                "{outfit.explanation}"
+              </p>
+            )}
+            {genWardrobeInsights && genWardrobeInsights.length > 0 && (
+              <p className="font-body text-[12px] text-foreground/45 leading-relaxed">
+                {genWardrobeInsights.join(' · ')}
               </p>
             )}
             {genOutfitReasoning && (
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-4 pt-2">
                 {genOutfitReasoning.occasion_fit && (
                   <div>
-                    <p className="font-body text-[10px] uppercase tracking-[0.1em] text-foreground/[0.35] mb-1">OCCASION</p>
-                    <p className="font-body text-[13px] text-foreground/60">{genOutfitReasoning.occasion_fit}</p>
+                    <p className="label-editorial text-muted-foreground/35 mb-1">OCCASION</p>
+                    <p className="font-body text-[13px] text-foreground/55 leading-relaxed">{genOutfitReasoning.occasion_fit}</p>
                   </div>
                 )}
                 {genOutfitReasoning.weather_logic && (
                   <div>
-                    <p className="font-body text-[10px] uppercase tracking-[0.1em] text-foreground/[0.35] mb-1">WEATHER</p>
-                    <p className="font-body text-[13px] text-foreground/60">{genOutfitReasoning.weather_logic}</p>
+                    <p className="label-editorial text-muted-foreground/35 mb-1">WEATHER</p>
+                    <p className="font-body text-[13px] text-foreground/55 leading-relaxed">{genOutfitReasoning.weather_logic}</p>
                   </div>
                 )}
                 {genOutfitReasoning.color_note && (
                   <div>
-                    <p className="font-body text-[10px] uppercase tracking-[0.1em] text-foreground/[0.35] mb-1">COLOUR</p>
-                    <p className="font-body text-[13px] text-foreground/60">{genOutfitReasoning.color_note}</p>
+                    <p className="label-editorial text-muted-foreground/35 mb-1">COLOUR</p>
+                    <p className="font-body text-[13px] text-foreground/55 leading-relaxed">{genOutfitReasoning.color_note}</p>
                   </div>
                 )}
               </div>
             )}
             {genLimitationNote && (
-              <p className="font-body italic text-[12px] text-foreground/40">
+              <p className="font-body italic text-[12px] text-foreground/35 pt-1">
                 Your stylist suggests: {genLimitationNote}
               </p>
             )}
-          </div>
+          </motion.div>
         )}
       </div>
 

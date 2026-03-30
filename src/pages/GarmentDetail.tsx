@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   Check,
   Edit,
@@ -49,7 +49,7 @@ import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { getGarmentProcessingMessage, getPreferredGarmentImagePath, getPreferredGarmentImageSource } from '@/lib/garmentImage';
 import { hapticHeavy, hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { categoryLabel, colorLabel, fitLabel, humanize, materialLabel, patternLabel, seasonLabel } from '@/lib/humanize';
-import { EASE_CURVE } from '@/lib/motion';
+import { EASE_CURVE, STAGGER_DELAY, DURATION_SLOW, DURATION_MEDIUM } from '@/lib/motion';
 import { buildStyleAroundState, buildStyleFlowSearch } from '@/lib/styleFlowState';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
@@ -60,6 +60,7 @@ export default function GarmentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { t, locale } = useLanguage();
   const queryClient = useQueryClient();
+  const prefersReduced = useReducedMotion();
 
   const [isEnrichmentPending, setIsEnrichmentPending] = useState(false);
   const [activeTab, setActiveTab] = useState<'info' | 'outfits' | 'similar'>('info');
@@ -149,6 +150,13 @@ export default function GarmentDetailPage() {
     { key: 'similar' as const, label: t('garment.tab_similar') },
   ];
 
+  /* ─── Motion helpers ─── */
+  const sectionInitial = prefersReduced ? { opacity: 0 } : { opacity: 0, y: 10 };
+  const sectionAnimate = prefersReduced ? { opacity: 1 } : { opacity: 1, y: 0 };
+  const sectionTransition = (delay = 0) => prefersReduced
+    ? { duration: 0.1 }
+    : { duration: DURATION_SLOW, ease: EASE_CURVE, delay };
+
   const handleToggleLaundry = async () => {
     if (!garment) return;
     try {
@@ -226,9 +234,14 @@ export default function GarmentDetailPage() {
         <PageHeader title={t('garment.garment_title')} showBack />
         <div className="page-shell !px-5 !pt-6 page-cluster">
           <Skeleton className="aspect-[4/5] rounded-[1.25rem]" />
+          <Skeleton className="h-8 w-3/4 rounded-full" />
+          <Skeleton className="h-5 w-1/2 rounded-full" />
+          <div className="flex gap-3">
+            <Skeleton className="h-10 flex-1 rounded-full" />
+            <Skeleton className="h-10 flex-1 rounded-full" />
+            <Skeleton className="h-10 flex-1 rounded-full" />
+          </div>
           <Skeleton className="h-32 rounded-[1.25rem]" />
-          <Skeleton className="h-12 rounded-full" />
-          <Skeleton className="h-56 rounded-[1.25rem]" />
         </div>
       </AppLayout>
     );
@@ -255,17 +268,16 @@ export default function GarmentDetailPage() {
   return (
     <AppLayout hideNav>
       <PageHeader
-        title={garment.title}
-        subtitle={displayCategorySummary}
+        title={t('garment.garment_title')}
         showBack
         actions={(
           <>
-            <Button variant="quiet" size="icon" onClick={() => navigate(`/wardrobe/${garment.id}/edit`)} aria-label={t('garment.edit_garment_aria')}>
+            <Button variant="quiet" size="icon" onClick={() => { hapticLight(); navigate(`/wardrobe/${garment.id}/edit`); }} aria-label={t('garment.edit_garment_aria')}>
               <Edit className="h-4 w-4" />
             </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="quiet" size="icon" aria-label={t('garment.delete_garment_aria')}>
+                <Button variant="quiet" size="icon" aria-label={t('garment.delete_garment_aria')} onClick={() => hapticLight()}>
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </AlertDialogTrigger>
@@ -286,68 +298,127 @@ export default function GarmentDetailPage() {
         )}
       />
 
-      <AnimatedPage className="page-shell !px-5 !pb-36 !pt-6 page-cluster">
+      <AnimatedPage className="page-shell !px-5 !pb-36 !pt-4 page-cluster">
+        {/* ─── Hero Image ─── */}
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: EASE_CURVE }}
+          initial={sectionInitial}
+          animate={sectionAnimate}
+          transition={sectionTransition(0)}
+          className="relative overflow-hidden rounded-[1.25rem]"
         >
-          <Card surface="utility" className="overflow-hidden p-2">
-            <div className="relative overflow-hidden rounded-[1.25rem]">
-              <LazyImage
-                imagePath={displayImagePath}
-                alt={garment.title}
-                aspectRatio="auto"
-                className="aspect-[4/5] w-full !rounded-none object-cover"
+          <LazyImage
+            imagePath={displayImagePath}
+            alt={garment.title}
+            aspectRatio="auto"
+            className="aspect-[4/5] w-full rounded-[1.25rem] object-cover"
+          />
+          <RenderPendingOverlay renderStatus={garment.render_status} variant="overlay" />
+
+          {/* Overlay badges */}
+          <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
+            <div className="flex flex-wrap gap-2">
+              {garment.in_laundry ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-background/85 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-foreground backdrop-blur-sm">
+                  <WashingMachine className="h-3 w-3" />
+                  {t('garment.in_laundry_badge')}
+                </span>
+              ) : null}
+            </div>
+
+            {processingMessage ? (
+              <GarmentProcessingBadge
+                status={garment.image_processing_status}
+                renderStatus={garment.render_status}
+                className="bg-background/85 backdrop-blur-sm"
+                displaySource={displayImageSource}
               />
-              <RenderPendingOverlay renderStatus={garment.render_status} variant="overlay" />
-
-              <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
-                <div className="flex flex-wrap gap-2">
-                  <span className="rounded-full bg-background/88 px-3 py-1 text-[13px] font-medium uppercase tracking-[0.18em] text-foreground">
-                    {t('garment.worn_badge').replace('{count}', String(garment.wear_count || 0))}
-                  </span>
-                  {garment.in_laundry ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-background/88 px-3 py-1 text-[13px] font-medium uppercase tracking-[0.18em] text-foreground">
-                      <WashingMachine className="h-3 w-3" />
-                      {t('garment.in_laundry_badge')}
-                    </span>
-                  ) : null}
-                </div>
-
-                {processingMessage ? (
-                  <GarmentProcessingBadge
-                    status={garment.image_processing_status}
-                    renderStatus={garment.render_status}
-                    className="bg-background/88"
-                    displaySource={displayImageSource}
-                  />
-                ) : null}
-              </div>
-            </div>
-
-            <div className="space-y-4 px-3 pb-4 pt-5">
-              <PageHeader title={garment?.title || t('common.garment')} showBack />
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="surface-utility rounded-[1.25rem] border p-3.5">
-                  <p className="label-editorial">{t('garment.cost_per_wear')}</p>
-                  <p className="mt-1.5 text-[1.25rem] font-semibold tracking-[-0.05em] text-foreground">{costPerWearDisplay}</p>
-                </div>
-                <div className="surface-utility rounded-[1.25rem] border p-3.5">
-                  <p className="label-editorial">{t('garment.last_worn_label')}</p>
-                  <p className="mt-1.5 text-[1.25rem] font-semibold tracking-[-0.05em] text-foreground">{lastWornDisplay}</p>
-                </div>
-                <div className="surface-utility rounded-[1.25rem] border p-3.5">
-                  <p className="label-editorial">{t('garment.monthly_rhythm')}</p>
-                  <p className="mt-1.5 text-[1.25rem] font-semibold tracking-[-0.05em] text-foreground">{usageInsights?.wearFrequency || '0'}</p>
-                </div>
-              </div>
-            </div>
-          </Card>
+            ) : null}
+          </div>
         </motion.div>
 
-        <div className="surface-inset flex rounded-full border p-1.5">
+        {/* ─── Title + Category ─── */}
+        <motion.div
+          initial={sectionInitial}
+          animate={sectionAnimate}
+          transition={sectionTransition(STAGGER_DELAY)}
+          className="space-y-2 px-1"
+        >
+          <h1 className="font-display italic text-[1.65rem] leading-[1.15] tracking-[-0.01em] text-foreground">
+            {garment.title}
+          </h1>
+          <p className="label-editorial text-muted-foreground/60 text-[11px] uppercase tracking-[0.16em]">
+            {displayCategorySummary}
+          </p>
+        </motion.div>
+
+        {/* ─── Stats Chips Row ─── */}
+        <motion.div
+          initial={sectionInitial}
+          animate={sectionAnimate}
+          transition={sectionTransition(STAGGER_DELAY * 2)}
+          className="flex flex-wrap items-center gap-2 px-1"
+        >
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-3.5 py-1.5 text-[12px] font-body text-foreground/80">
+            {t('garment.worn_badge').replace('{count}', String(garment.wear_count || 0))}
+          </span>
+          <span className="inline-flex items-center rounded-full border border-border/60 px-3.5 py-1.5 text-[12px] font-body text-foreground/80">
+            {costPerWearDisplay}
+          </span>
+          <span className="inline-flex items-center rounded-full border border-border/60 px-3.5 py-1.5 text-[12px] font-body text-foreground/80">
+            {lastWornDisplay}
+          </span>
+        </motion.div>
+
+        {/* ─── Season Tags ─── */}
+        {seasonParts.length > 0 && (
+          <motion.div
+            initial={sectionInitial}
+            animate={sectionAnimate}
+            transition={sectionTransition(STAGGER_DELAY * 3)}
+            className="flex flex-wrap gap-2 px-1"
+          >
+            {seasonParts.map((season) => (
+              <span
+                key={season}
+                className="rounded-full bg-foreground/[0.06] px-3 py-1 text-[11px] font-body font-medium text-foreground/70"
+              >
+                {season}
+              </span>
+            ))}
+          </motion.div>
+        )}
+
+        {/* ─── Provenance / Description ─── */}
+        {cleanHeroDescription && (
+          <motion.div
+            initial={sectionInitial}
+            animate={sectionAnimate}
+            transition={sectionTransition(STAGGER_DELAY * 4)}
+            className="surface-secondary rounded-[1.25rem] p-5 space-y-3"
+          >
+            <p className="label-editorial text-muted-foreground/50 text-[10px] uppercase tracking-[0.16em]">
+              {t('garment.details')}
+            </p>
+            {detailMeta && (
+              <p className="font-body text-[13px] leading-relaxed text-foreground/70">
+                {detailMeta}
+              </p>
+            )}
+            {enrichment?.stylist_note && (
+              <p className="font-body text-[13.5px] leading-[1.65] text-foreground/80 first-letter:font-display first-letter:italic first-letter:text-[1.6em] first-letter:leading-[1] first-letter:mr-[2px] first-letter:float-left first-letter:text-foreground">
+                {enrichment.stylist_note}
+              </p>
+            )}
+          </motion.div>
+        )}
+
+        {/* ─── Tab Switcher ─── */}
+        <motion.div
+          initial={sectionInitial}
+          animate={sectionAnimate}
+          transition={sectionTransition(STAGGER_DELAY * 5)}
+          className="surface-inset flex rounded-full border p-1.5"
+        >
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -365,13 +436,23 @@ export default function GarmentDetailPage() {
               {tab.label}
             </button>
           ))}
-        </div>
+        </motion.div>
 
+        {/* ─── Tab: Info ─── */}
         {activeTab === 'info' ? (
-          <>
-            <Card surface="utility" className="space-y-4 p-5">
-              <div className="space-y-2">
-                <p className="label-editorial">{t('garment.details')}</p>
+          <motion.div
+            key="tab-info"
+            initial={sectionInitial}
+            animate={sectionAnimate}
+            transition={sectionTransition(0)}
+            className="space-y-4"
+          >
+            {/* Spec Details Card */}
+            <Card surface="utility" className="space-y-0 overflow-hidden rounded-[1.25rem] p-5">
+              <p className="label-editorial text-muted-foreground/50 text-[10px] uppercase tracking-[0.16em] mb-2">
+                {t('garment.details')}
+              </p>
+              <div className="divide-y divide-border/40">
                 {garment.material ? <SpecRow label={t('garment.material')} value={materialLabel(t, garment.material)} /> : null}
                 {garment.fit ? <SpecRow label={t('garment.fit')} value={fitLabel(t, garment.fit)} /> : null}
                 {garment.pattern && garment.pattern !== 'solid' ? <SpecRow label={t('garment.pattern')} value={patternLabel(t, garment.pattern)} /> : null}
@@ -379,11 +460,12 @@ export default function GarmentDetailPage() {
                 {garment.color_secondary ? <SpecRow label={t('garment.secondary_color')} value={colorLabel(t, garment.color_secondary)} /> : null}
               </div>
 
-              <div className="space-y-3 border-t border-border/55 pt-4">
+              {/* Purchase price section */}
+              <div className="space-y-3 border-t border-border/40 pt-4 mt-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-medium text-foreground">{t('garment.purchase_price')}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="text-[13px] font-body font-medium text-foreground">{t('garment.purchase_price')}</p>
+                    <p className="mt-0.5 text-[11px] font-body text-muted-foreground/60">
                       {t('garment.purchase_price_hint')}
                     </p>
                   </div>
@@ -391,7 +473,9 @@ export default function GarmentDetailPage() {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="rounded-full text-[11px]"
                       onClick={() => {
+                        hapticLight();
                         setPriceInput(garment.purchase_price ? String(garment.purchase_price) : '');
                         setEditingPrice(true);
                       }}
@@ -408,10 +492,11 @@ export default function GarmentDetailPage() {
                       value={priceInput}
                       onChange={(event) => setPriceInput(event.target.value)}
                       placeholder="0"
-                      className="max-w-[140px]"
+                      className="max-w-[140px] rounded-full"
                     />
                     <Button
                       size="sm"
+                      className="rounded-full"
                       onClick={async () => {
                         hapticLight();
                         const price = parseFloat(priceInput);
@@ -427,7 +512,7 @@ export default function GarmentDetailPage() {
                     >
                       <Check className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="quiet" size="sm" onClick={() => setEditingPrice(false)}>
+                    <Button variant="quiet" size="sm" className="rounded-full" onClick={() => { hapticLight(); setEditingPrice(false); }}>
                       {t('garment.cancel')}
                     </Button>
                   </div>
@@ -439,58 +524,64 @@ export default function GarmentDetailPage() {
                   href={garment.source_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  className="inline-flex items-center gap-2 pt-3 text-[12px] font-body text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  <ExternalLink className="h-4 w-4" />
+                  <ExternalLink className="h-3.5 w-3.5" />
                   <span>{t('garment.imported')}</span>
                 </a>
               ) : null}
 
               {garment.ai_analyzed_at ? (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[11px] font-body text-muted-foreground/50 pt-2">
                   {t('garment.analyzed').replace('{date}', new Date(garment.ai_analyzed_at).toLocaleDateString(getBCP47(locale)))}
                 </p>
               ) : null}
             </Card>
 
-            <GarmentEnrichmentPanel
-              enrichment={enrichment}
-              enrichmentStatus={enrichmentStatus}
-              isEnrichmentPending={isEnrichmentPending}
-              isRetrying={isRetrying}
-              onRetryEnrichment={handleRetryEnrichment}
-            />
+            {/* Enrichment Panel */}
+            <Card surface="utility" className="overflow-hidden rounded-[1.25rem] p-5 space-y-4">
+              <GarmentEnrichmentPanel
+                enrichment={enrichment}
+                enrichmentStatus={enrichmentStatus}
+                isEnrichmentPending={isEnrichmentPending}
+                isRetrying={isRetrying}
+                onRetryEnrichment={handleRetryEnrichment}
+              />
+            </Card>
 
-            <Card surface="utility" className="space-y-4 p-5">
+            {/* Quick Actions Card */}
+            <Card surface="utility" className="space-y-0 overflow-hidden rounded-[1.25rem] p-5">
               <div className="flex items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
-                    <WashingMachine className="h-4 w-4 text-muted-foreground" />
+                <div className="space-y-0.5">
+                  <div className="inline-flex items-center gap-2 text-[13px] font-body font-medium text-foreground">
+                    <WashingMachine className="h-4 w-4 text-muted-foreground/60" />
                     {t('garment.in_laundry')}
                   </div>
-                  <p className="text-xs text-muted-foreground">{t('garment.laundry_hint')}</p>
+                  <p className="text-[11px] font-body text-muted-foreground/60">{t('garment.laundry_hint')}</p>
                 </div>
                 <Switch checked={garment.in_laundry || false} onCheckedChange={handleToggleLaundry} disabled={updateGarment.isPending} />
               </div>
 
-              <div className="flex items-center justify-between gap-3 border-t border-border/55 pt-4">
-                <div className="space-y-1">
-                  <div className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
-                    <Shield className="h-4 w-4 text-muted-foreground" />
+              <div className="flex items-center justify-between gap-3 border-t border-border/40 pt-4 mt-4">
+                <div className="space-y-0.5">
+                  <div className="inline-flex items-center gap-2 text-[13px] font-body font-medium text-foreground">
+                    <Shield className="h-4 w-4 text-muted-foreground/60" />
                     {t('insights.condition')}
                   </div>
                   {garment.condition_score ? (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[11px] font-body text-muted-foreground/60">
                       {Number(garment.condition_score).toFixed(1)}/10 • {garment.condition_notes}
                     </p>
                   ) : (
-                    <p className="text-xs text-muted-foreground">{t('garment.condition_hint')}</p>
+                    <p className="text-[11px] font-body text-muted-foreground/60">{t('garment.condition_hint')}</p>
                   )}
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
+                  className="rounded-full text-[11px]"
                   onClick={async () => {
+                    hapticLight();
                     try {
                       await assessCondition.mutateAsync(garment.id);
                       toast.success(t('insights.condition'));
@@ -504,26 +595,63 @@ export default function GarmentDetailPage() {
                 </Button>
               </div>
             </Card>
-          </>
+
+            {/* Usage Stats Card */}
+            <div className="grid gap-3 grid-cols-3">
+              <div className="surface-secondary rounded-[1.25rem] p-3.5 text-center">
+                <p className="label-editorial text-muted-foreground/50 text-[9px] uppercase tracking-[0.14em]">{t('garment.cost_per_wear')}</p>
+                <p className="mt-1.5 text-[1.1rem] font-semibold tracking-[-0.03em] text-foreground">{costPerWearDisplay}</p>
+              </div>
+              <div className="surface-secondary rounded-[1.25rem] p-3.5 text-center">
+                <p className="label-editorial text-muted-foreground/50 text-[9px] uppercase tracking-[0.14em]">{t('garment.last_worn_label')}</p>
+                <p className="mt-1.5 text-[1.1rem] font-semibold tracking-[-0.03em] text-foreground">{lastWornDisplay}</p>
+              </div>
+              <div className="surface-secondary rounded-[1.25rem] p-3.5 text-center">
+                <p className="label-editorial text-muted-foreground/50 text-[9px] uppercase tracking-[0.14em]">{t('garment.monthly_rhythm')}</p>
+                <p className="mt-1.5 text-[1.1rem] font-semibold tracking-[-0.03em] text-foreground">{usageInsights?.wearFrequency || '0'}</p>
+              </div>
+            </div>
+          </motion.div>
         ) : null}
 
+        {/* ─── Tab: Outfits ─── */}
         {activeTab === 'outfits' ? (
-          <GarmentOutfitHistory outfitHistory={outfitHistory} usageInsights={usageInsights} />
+          <motion.div
+            key="tab-outfits"
+            initial={sectionInitial}
+            animate={sectionAnimate}
+            transition={sectionTransition(0)}
+          >
+            <GarmentOutfitHistory outfitHistory={outfitHistory} usageInsights={usageInsights} />
+          </motion.div>
         ) : null}
 
+        {/* ─── Tab: Similar ─── */}
         {activeTab === 'similar' ? (
-          <GarmentSimilarItems similarGarments={similarGarments} />
+          <motion.div
+            key="tab-similar"
+            initial={sectionInitial}
+            animate={sectionAnimate}
+            transition={sectionTransition(0)}
+          >
+            <GarmentSimilarItems similarGarments={similarGarments} />
+          </motion.div>
         ) : null}
       </AnimatedPage>
 
+      {/* ─── Floating Bottom Action Bar ─── */}
       <div className="bottom-safe-nav fixed inset-x-4 z-20">
         <div className="mx-auto max-w-xl">
           <div className="action-bar-floating flex gap-2 rounded-[1.25rem] p-2.5">
-            <Button variant="outline" onClick={handleMarkWorn} className="h-12 flex-1 rounded-full border-border/35 bg-background/72">
+            <Button
+              variant="outline"
+              onClick={() => { hapticLight(); handleMarkWorn(); }}
+              className="h-12 flex-1 rounded-full border-border/35 bg-background/72"
+            >
               {t('garment.mark_worn_button')}
             </Button>
             <Button
-              onClick={() => navigate(`/ai/chat${buildStyleFlowSearch(garment.id)}`, { state: buildStyleAroundState(garment.id) })}
+              onClick={() => { hapticLight(); navigate(`/ai/chat${buildStyleFlowSearch(garment.id)}`, { state: buildStyleAroundState(garment.id) }); }}
               className="h-12 flex-1 rounded-full"
             >
               <Sparkles className="mr-2 h-4 w-4" />

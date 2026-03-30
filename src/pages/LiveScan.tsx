@@ -626,31 +626,27 @@ export default function LiveScan() {
                 className="w-full max-w-sm space-y-5"
               >
                 {/* Image with editorial overlay */}
-                <div className="relative bg-[hsl(36_33%_93%)]">
+                <div className="relative rounded-[1.25rem] overflow-hidden bg-[hsl(36_33%_93%)]">
                   <img
                     src={lastResult.thumbnailUrl}
                     alt="Scanned garment"
                     className="w-full aspect-[3/4] object-contain"
                   />
                   {/* Gradient overlay at bottom for text */}
-                  <div className="absolute bottom-0 inset-x-0 h-1/3 bg-gradient-to-t from-background/80 to-transparent" />
-                  <div className="absolute bottom-4 left-4 right-4 space-y-1.5">
-                    <p className="text-foreground text-lg font-semibold leading-tight drop-shadow-sm">{lastResult.analysis.title}</p>
+                  <div className="absolute bottom-0 inset-x-0 h-2/5 bg-gradient-to-t from-background/90 via-background/40 to-transparent" />
+                  <div className="absolute bottom-4 left-4 right-4 space-y-2">
+                    <p className="font-display italic text-[1.2rem] text-foreground leading-tight drop-shadow-sm">{lastResult.analysis.title}</p>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-foreground/70 text-sm capitalize">
+                      <span className="rounded-full border border-border/40 bg-background/60 px-2.5 py-1 text-[11px] font-body text-foreground/70 capitalize backdrop-blur-sm">
                         {categoryLabel(t, lastResult.analysis.category)}
                       </span>
-                      <span className="text-foreground/30 text-sm">·</span>
-                      <span className="text-foreground/70 text-sm capitalize">
+                      <span className="rounded-full border border-border/40 bg-background/60 px-2.5 py-1 text-[11px] font-body text-foreground/70 capitalize backdrop-blur-sm">
                         {colorLabel(t, lastResult.analysis.color_primary)}
                       </span>
                       {lastResult.analysis.material && (
-                        <>
-                          <span className="text-foreground/30 text-sm">·</span>
-                          <span className="text-foreground/70 text-sm capitalize">
-                            {materialLabel(t, lastResult.analysis.material)}
-                          </span>
-                        </>
+                        <span className="rounded-full border border-border/40 bg-background/60 px-2.5 py-1 text-[11px] font-body text-foreground/70 capitalize backdrop-blur-sm">
+                          {materialLabel(t, lastResult.analysis.material)}
+                        </span>
                       )}
                     </div>
                     <ConfidenceBadge confidence={lastResult.confidence} />
@@ -659,10 +655,10 @@ export default function LiveScan() {
 
                 {/* Actions */}
                 <div className="flex gap-3">
-                  <Button variant="outline" className="flex-1 h-12" onClick={retake}>
+                  <Button variant="outline" className="flex-1 h-12 rounded-full border-border/40" onClick={() => { hapticLight(); retake(); }}>
                     <RotateCcw className="w-4 h-4 mr-2" />{t('scan.retake')}
                   </Button>
-                  <Button className="flex-1 h-12 bg-accent hover:bg-accent/90 text-accent-foreground" onClick={handleAccept}>
+                  <Button variant="editorial" className="flex-1 h-12 rounded-full" onClick={() => { hapticLight(); handleAccept(); }}>
                     <Check className="w-4 h-4 mr-2" />{t('scan.accept')}
                   </Button>
                 </div>
@@ -693,9 +689,9 @@ export default function LiveScan() {
           <div className="mx-auto flex w-full max-w-md items-center justify-center px-4 py-4">
             <Card surface="utility" className="w-full max-w-sm p-4">
               <div className="mb-4 text-center">
-                <p className="text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground">Live scan</p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Hold still for a clean read, or tap the shutter manually whenever you are ready.
+                <p className="label-editorial text-muted-foreground/40">SCANNING</p>
+                <p className="mt-1.5 font-display italic text-[0.95rem] text-foreground/60 leading-snug">
+                  Point camera at your clothing item
                 </p>
               </div>
               <div className="flex items-center justify-center">

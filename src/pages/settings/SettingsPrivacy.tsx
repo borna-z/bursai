@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Download, Trash2, ChevronRight, ChevronDown, Loader2, Shield, Database, ToggleLeft, Scale, Mail, User, Image, Calendar, MessageSquare, Ruler, ExternalLink } from 'lucide-react';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { hapticLight } from '@/lib/haptics';
@@ -22,6 +23,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { SettingsRow } from '@/components/settings/SettingsRow';
 import { cn } from '@/lib/utils';
+import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM } from '@/lib/motion';
 
 type SectionId = 'about' | 'data' | 'consent' | 'rights';
 
@@ -96,15 +98,17 @@ export default function SettingsPrivacy() {
   const SectionHeader = ({ id, title, icon: Icon }: { id: SectionId; title: string; icon: React.ElementType }) => (
     <CollapsibleTrigger
       onClick={() => toggle(id)}
-      className="flex items-center justify-between w-full px-4 py-3.5 text-left cursor-pointer"
+      className="flex items-center justify-between w-full px-5 py-4 text-left cursor-pointer"
     >
-      <div className="flex items-center gap-2.5">
-        <Icon className="w-4 h-4 text-accent" />
-        <span className="text-sm font-semibold text-foreground">{title}</span>
+      <div className="flex items-center gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.85rem] bg-accent/10">
+          <Icon className="w-4 h-4 text-accent" />
+        </span>
+        <span className="text-[15px] font-medium text-foreground">{title}</span>
       </div>
       <ChevronDown
         className={cn(
-          'w-4 h-4 text-muted-foreground transition-transform duration-200',
+          'w-4 h-4 text-muted-foreground/50 transition-transform duration-200',
           openSection === id && 'rotate-180'
         )}
       />
@@ -112,30 +116,41 @@ export default function SettingsPrivacy() {
   );
 
   const DataRow = ({ icon: Icon, label }: { icon: React.ElementType; label: string }) => (
-    <div className="flex items-center gap-2.5 px-4 py-2">
-      <Icon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-      <span className="text-sm text-foreground">{label}</span>
+    <div className="flex items-center gap-3 px-5 py-2.5">
+      <Icon className="w-3.5 h-3.5 text-muted-foreground/60 flex-shrink-0" />
+      <span className="text-sm font-body text-foreground">{label}</span>
     </div>
   );
 
   const ConsentRow = ({ label, description, checked, onChange, last }: { label: string; description: string; checked: boolean; onChange: (v: boolean) => void; last?: boolean }) => (
-    <div className={cn('flex items-center justify-between px-4 py-3', !last && 'border-b border-border/50')}>
+    <div className={cn('flex items-center justify-between px-5 py-4', !last && 'border-b border-border/35')}>
       <div className="flex-1 mr-3">
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+        <p className="text-[15px] font-medium text-foreground">{label}</p>
+        <p className="text-[12px] text-muted-foreground/60 mt-0.5 font-body">{description}</p>
       </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
+      <Switch checked={checked} onCheckedChange={(v) => { hapticLight(); onChange(v); }} />
     </div>
   );
 
   return (
     <AppLayout>
-      <PageHeader title="Data & Integritet" showBack />
+      <PageHeader title={t('settings.row.privacy') || 'Privacy'} showBack titleClassName="font-display italic" />
 
-      <AnimatedPage className="px-4 pb-6 pt-4 space-y-3 max-w-lg mx-auto">
+      <AnimatedPage className="px-4 pb-8 pt-5 space-y-4 max-w-lg mx-auto">
+
+        {/* V4 editorial header */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE }}
+          className="text-center space-y-1.5 pb-2"
+        >
+          <h2 className="font-display italic text-[1.5rem] text-foreground">{t('settings.data_sovereignty_title') || 'Data Sovereignty'}</h2>
+          <p className="font-body text-sm text-muted-foreground/70 max-w-[280px] mx-auto">{t('settings.data_sovereignty_desc') || 'Manage how your digital archive is curated and shared across the BURS ecosystem.'}</p>
+        </motion.div>
 
         {/* About BURS */}
-        <Collapsible open={openSection === 'about'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
+        <Collapsible open={openSection === 'about'} className="surface-secondary rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="about" title={t('settings.gdpr.about_title')} icon={Shield} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="px-4 pb-4 space-y-3">
@@ -155,7 +170,7 @@ export default function SettingsPrivacy() {
         </Collapsible>
 
         {/* Your Data */}
-        <Collapsible open={openSection === 'data'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
+        <Collapsible open={openSection === 'data'} className="surface-secondary rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="data" title={t('settings.gdpr.your_data_title')} icon={Database} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="pb-3">
@@ -170,7 +185,7 @@ export default function SettingsPrivacy() {
         </Collapsible>
 
         {/* Consent */}
-        <Collapsible open={openSection === 'consent'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
+        <Collapsible open={openSection === 'consent'} className="surface-secondary rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="consent" title={t('settings.gdpr.consent_title')} icon={ToggleLeft} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <ConsentRow
@@ -196,7 +211,7 @@ export default function SettingsPrivacy() {
         </Collapsible>
 
         {/* Your Rights */}
-        <Collapsible open={openSection === 'rights'} className="surface-editorial rounded-[1.25rem] overflow-hidden">
+        <Collapsible open={openSection === 'rights'} className="surface-secondary rounded-[1.25rem] overflow-hidden">
           <SectionHeader id="rights" title={t('settings.gdpr.rights_title')} icon={Scale} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div>
@@ -216,12 +231,24 @@ export default function SettingsPrivacy() {
           </CollapsibleContent>
         </Collapsible>
 
+        {/* Editorial quote */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY * 5 }}
+          className="surface-secondary rounded-[1.25rem] p-5 text-center space-y-2"
+        >
+          <p className="font-display italic text-[15px] text-foreground/80 leading-relaxed">
+            {t('settings.privacy_quote') || '"Your style is your signature. Your data is your property."'}
+          </p>
+        </motion.div>
+
         {/* Delete Account - standalone destructive */}
         <div className="pt-3">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1 mb-1.5">
+          <p className="label-editorial text-muted-foreground/50 px-1 mb-2.5">
             {t('settings.gdpr.danger_zone')}
           </p>
-          <div className="surface-editorial rounded-[1.25rem] overflow-hidden">
+          <div className="surface-secondary rounded-[1.25rem] overflow-hidden">
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <div>

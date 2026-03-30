@@ -4,11 +4,13 @@
  import { Download, Search, BarChart3, Users, Eye } from 'lucide-react';
  import { Button } from '@/components/ui/button';
  import { Input } from '@/components/ui/input';
- import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
  import { supabase } from '@/integrations/supabase/client';
  import { useAuth } from '@/contexts/AuthContext';
  import { useLanguage } from '@/contexts/LanguageContext';
- 
+ import { motion, useReducedMotion } from 'framer-motion';
+ import { hapticLight } from '@/lib/haptics';
+ import { EASE_CURVE } from '@/lib/motion';
+
  interface Lead {
    id: string;
    email: string;
@@ -19,27 +21,28 @@
    utm_campaign: string | null;
    created_at: string;
  }
- 
+
  interface EventCount {
    event_name: string;
    count: number;
  }
- 
+
  export default function Admin() {
    const navigate = useNavigate();
    const { user } = useAuth();
    const { t } = useLanguage();
+   const prefersReduced = useReducedMotion();
    const [isAuthorized, setIsAuthorized] = useState(false);
    const [leads, setLeads] = useState<Lead[]>([]);
    const [eventCounts, setEventCounts] = useState<EventCount[]>([]);
    const [searchQuery, setSearchQuery] = useState('');
    const [isLoading, setIsLoading] = useState(true);
- 
+
    useEffect(() => {
      checkAdminAccess();
    // eslint-disable-next-line react-hooks/exhaustive-deps
    }, [user]);
- 
+
    const checkAdminAccess = async () => {
      if (!user) {
        navigate('/auth');
@@ -68,7 +71,7 @@
       .from('marketing_leads')
       .select('*')
       .order('created_at', { ascending: false });
-     
+
      if (data) setLeads(data);
    };
 
@@ -76,13 +79,13 @@
     const { data } = await supabase
       .from('marketing_events')
       .select('event_name');
-     
+
      if (data) {
        const counts: Record<string, number> = {};
        data.forEach((event: { event_name: string }) => {
          counts[event.event_name] = (counts[event.event_name] || 0) + 1;
        });
-       
+
        setEventCounts(
          Object.entries(counts).map(([event_name, count]) => ({
            event_name,
@@ -97,6 +100,7 @@
    );
 
    const exportCSV = () => {
+     hapticLight();
      const headers = ['Email', 'Source', 'UTM Source', 'UTM Campaign', 'Created At'];
      const rows = filteredLeads.map(lead => [
        lead.email,
@@ -105,11 +109,11 @@
        lead.utm_campaign || '',
        lead.created_at,
      ]);
-     
+
      const csv = [headers, ...rows]
        .map(row => row.map(cell => `"${cell}"`).join(','))
        .join('\n');
-     
+
      const blob = new Blob([csv], { type: 'text/csv' });
      const url = URL.createObjectURL(blob);
      const a = document.createElement('a');
@@ -118,10 +122,13 @@
      a.click();
    };
 
+   const motionProps = (i: number) =>
+     prefersReduced ? {} : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, transition: { delay: 0.08 * i, duration: 0.35, ease: EASE_CURVE } };
+
    if (!isAuthorized || isLoading) {
      return (
        <div className="min-h-screen flex items-center justify-center bg-background">
-          <div className="animate-pulse text-muted-foreground">Loading...</div>
+          <div className="animate-pulse text-muted-foreground font-body">Loading...</div>
        </div>
      );
    }
@@ -133,124 +140,110 @@
    return (
      <>
        <Helmet>
-         <title>Admin | DRAPE</title>
+         <title>Admin | BURS</title>
          <meta name="robots" content="noindex, nofollow" />
        </Helmet>
-       
-       <div className="min-h-screen bg-background p-4 md:p-8">
-         <div className="max-w-6xl mx-auto">
-           <h1 className="text-2xl font-bold mb-8">Marketing Admin</h1>
-           
-           <div className="grid sm:grid-cols-3 gap-4 mb-8">
-             <Card>
-               <CardHeader className="pb-2">
-                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                   <Eye className="w-4 h-4" />
-                   {t('admin.page_views')}
-                 </CardTitle>
-               </CardHeader>
-               <CardContent>
-                 <p className="text-3xl font-bold">{totalPageViews}</p>
-               </CardContent>
-             </Card>
-             
-             <Card>
-               <CardHeader className="pb-2">
-                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                   <Users className="w-4 h-4" />
-                   {t('admin.leads')}
-                 </CardTitle>
-               </CardHeader>
-               <CardContent>
-                 <p className="text-3xl font-bold">{totalLeads}</p>
-               </CardContent>
-             </Card>
-             
-             <Card>
-               <CardHeader className="pb-2">
-                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                   <BarChart3 className="w-4 h-4" />
-                   {t('admin.app_clicks')}
-                 </CardTitle>
-               </CardHeader>
-               <CardContent>
-                 <p className="text-3xl font-bold">{totalClicks}</p>
-               </CardContent>
-             </Card>
+
+       <div className="min-h-screen bg-background">
+         {/* Header */}
+         <div className="sticky top-0 z-10 topbar-frost border-b border-border/40">
+           <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+             <button className="p-1 cursor-pointer" onClick={() => { hapticLight(); navigate(-1); }}>
+               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
+             </button>
+             <div>
+               <p className="label-editorial text-muted-foreground/50 text-[10px]">System Overview</p>
+               <h1 className="font-display italic text-xl">Admin</h1>
+             </div>
            </div>
-           
-           <Card className="mb-8">
-             <CardHeader>
-               <CardTitle className="text-base">{t('admin.events')}</CardTitle>
-             </CardHeader>
-             <CardContent>
-               <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
-                 {eventCounts.map(event => (
-                   <div key={event.event_name} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
-                     <span className="text-sm font-medium">{event.event_name}</span>
-                     <span className="text-sm text-muted-foreground">{event.count}</span>
-                   </div>
-                 ))}
-               </div>
-             </CardContent>
-           </Card>
-           
-           <Card>
-             <CardHeader>
-               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                 <CardTitle className="text-base">{t('admin.leads')} ({filteredLeads.length})</CardTitle>
-                 <div className="flex gap-2">
-                   <div className="relative flex-1 sm:w-64">
-                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                     <Input
-                       placeholder={t('admin.search_email')}
-                       value={searchQuery}
-                       onChange={(e) => setSearchQuery(e.target.value)}
-                       className="pl-9"
-                     />
-                   </div>
-                   <Button variant="outline" onClick={exportCSV}>
-                     <Download className="w-4 h-4 mr-2" />
-                     CSV
-                   </Button>
+         </div>
+
+         <div className="max-w-6xl mx-auto px-4 pt-6 pb-24 space-y-6">
+           {/* KPI metrics strip */}
+           <motion.div className="grid grid-cols-3 gap-3" {...motionProps(0)}>
+             <div className="surface-secondary rounded-[1.25rem] p-4 text-center space-y-1">
+               <Eye className="w-4 h-4 mx-auto text-muted-foreground/50" />
+               <p className="text-2xl font-semibold tracking-tight">{totalPageViews}</p>
+               <p className="text-[10px] font-body uppercase tracking-[0.14em] text-muted-foreground/50">{t('admin.page_views')}</p>
+             </div>
+             <div className="surface-secondary rounded-[1.25rem] p-4 text-center space-y-1">
+               <Users className="w-4 h-4 mx-auto text-muted-foreground/50" />
+               <p className="text-2xl font-semibold tracking-tight">{totalLeads}</p>
+               <p className="text-[10px] font-body uppercase tracking-[0.14em] text-muted-foreground/50">{t('admin.leads')}</p>
+             </div>
+             <div className="surface-secondary rounded-[1.25rem] p-4 text-center space-y-1">
+               <BarChart3 className="w-4 h-4 mx-auto text-muted-foreground/50" />
+               <p className="text-2xl font-semibold tracking-tight">{totalClicks}</p>
+               <p className="text-[10px] font-body uppercase tracking-[0.14em] text-muted-foreground/50">{t('admin.app_clicks')}</p>
+             </div>
+           </motion.div>
+
+           {/* Events breakdown */}
+           <motion.div className="surface-secondary rounded-[1.25rem] p-5 space-y-4" {...motionProps(1)}>
+             <h2 className="font-display italic text-[1.15rem]">{t('admin.events')}</h2>
+             <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2">
+               {eventCounts.map(event => (
+                 <div key={event.event_name} className="flex justify-between items-center px-4 py-3 rounded-[1rem] bg-background/60">
+                   <span className="text-sm font-body font-medium">{event.event_name}</span>
+                   <span className="text-sm text-muted-foreground tabular-nums">{event.count}</span>
                  </div>
+               ))}
+             </div>
+           </motion.div>
+
+           {/* Leads table */}
+           <motion.div className="surface-secondary rounded-[1.25rem] p-5 space-y-4" {...motionProps(2)}>
+             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+               <h2 className="font-display italic text-[1.15rem]">{t('admin.leads')} ({filteredLeads.length})</h2>
+               <div className="flex gap-2">
+                 <div className="relative flex-1 sm:w-64">
+                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                   <Input
+                     placeholder={t('admin.search_email')}
+                     value={searchQuery}
+                     onChange={(e) => setSearchQuery(e.target.value)}
+                     className="pl-9 rounded-full"
+                   />
+                 </div>
+                 <Button variant="outline" className="rounded-full" onClick={exportCSV}>
+                   <Download className="w-4 h-4 mr-2" />
+                   CSV
+                 </Button>
                </div>
-             </CardHeader>
-             <CardContent>
-               <div className="overflow-x-auto">
-                 <table className="w-full text-sm">
-                   <thead>
-                     <tr className="border-b">
-                       <th className="text-left py-3 px-2 font-medium">{t('admin.email')}</th>
-                       <th className="text-left py-3 px-2 font-medium">{t('admin.source')}</th>
-                       <th className="text-left py-3 px-2 font-medium">{t('admin.utm')}</th>
-                       <th className="text-left py-3 px-2 font-medium">{t('admin.date')}</th>
+             </div>
+             <div className="overflow-x-auto -mx-5">
+               <table className="w-full text-sm font-body">
+                 <thead>
+                   <tr className="border-b border-border/60">
+                     <th className="text-left py-3 px-5 font-medium text-[10px] uppercase tracking-[0.14em] text-muted-foreground/60">{t('admin.email')}</th>
+                     <th className="text-left py-3 px-5 font-medium text-[10px] uppercase tracking-[0.14em] text-muted-foreground/60">{t('admin.source')}</th>
+                     <th className="text-left py-3 px-5 font-medium text-[10px] uppercase tracking-[0.14em] text-muted-foreground/60">{t('admin.utm')}</th>
+                     <th className="text-left py-3 px-5 font-medium text-[10px] uppercase tracking-[0.14em] text-muted-foreground/60">{t('admin.date')}</th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                   {filteredLeads.map(lead => (
+                     <tr key={lead.id} className="border-b border-border/30">
+                       <td className="py-3 px-5 font-medium">{lead.email}</td>
+                       <td className="py-3 px-5 text-muted-foreground">{lead.source}</td>
+                       <td className="py-3 px-5 text-muted-foreground">
+                         {lead.utm_source || '-'}
+                       </td>
+                       <td className="py-3 px-5 text-muted-foreground tabular-nums">
+                         {new Date(lead.created_at).toLocaleDateString(undefined)}
+                       </td>
                      </tr>
-                   </thead>
-                   <tbody>
-                     {filteredLeads.map(lead => (
-                       <tr key={lead.id} className="border-b border-border/50">
-                         <td className="py-3 px-2">{lead.email}</td>
-                         <td className="py-3 px-2 text-muted-foreground">{lead.source}</td>
-                         <td className="py-3 px-2 text-muted-foreground">
-                           {lead.utm_source || '-'}
-                         </td>
-                         <td className="py-3 px-2 text-muted-foreground">
-                           {new Date(lead.created_at).toLocaleDateString(undefined)}
-                         </td>
-                       </tr>
-                     ))}
-                   </tbody>
-                 </table>
-                 
-                 {filteredLeads.length === 0 && (
-                   <p className="text-center py-8 text-muted-foreground">
-                     {t('admin.no_leads')}
-                   </p>
-                 )}
-               </div>
-             </CardContent>
-           </Card>
+                   ))}
+                 </tbody>
+               </table>
+
+               {filteredLeads.length === 0 && (
+                 <p className="text-center py-12 text-muted-foreground font-body">
+                   {t('admin.no_leads')}
+                 </p>
+               )}
+             </div>
+           </motion.div>
          </div>
        </div>
      </>

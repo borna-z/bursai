@@ -40,6 +40,7 @@ export default function SettingsPage() {
     <AppLayout>
       <PageHeader
         title={t('settings.page_title')}
+        titleClassName="font-display italic"
         eyebrow={t('settings.eyebrow')}
         actions={
           <span className="eyebrow-chip border-transparent bg-secondary/85 text-foreground/62 text-[10px]">v{APP_VERSION}</span>

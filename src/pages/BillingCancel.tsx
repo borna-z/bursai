@@ -12,7 +12,7 @@ export default function BillingCancel() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <motion.div
-        className="max-w-md w-full border border-border bg-card p-8 space-y-6"
+        className="max-w-md w-full surface-secondary rounded-[1.25rem] p-8 space-y-6"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
@@ -24,7 +24,7 @@ export default function BillingCancel() {
         </div>
 
         <p className="text-sm text-muted-foreground text-center">{t('billing.cancel_contact')}</p>
-        <Button className="w-full" onClick={() => { hapticLight(); navigate('/'); }}>
+        <Button variant="editorial" className="w-full rounded-full" onClick={() => { hapticLight(); navigate('/'); }}>
           <ArrowLeft className="w-4 h-4 mr-2" />
           {t('billing.back_to_app')}
         </Button>

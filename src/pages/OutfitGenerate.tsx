@@ -4,6 +4,7 @@ import {
   Sparkles, AlertCircle, Crown, Zap,
   Check, Bookmark, CalendarDays, Shirt,
   Coffee, Briefcase, Wine, Heart, Dumbbell, Plane, X,
+  ChevronRight,
 } from 'lucide-react';
 import { motion, LayoutGroup, useReducedMotion, type Transition } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,7 @@ import {
 } from '@/lib/styleFlowState';
 import { buildDayIntelligence } from '@/lib/dayIntelligence';
 import { hapticLight } from '@/lib/haptics';
+import { EASE_CURVE, STAGGER_DELAY, DURATIONS } from '@/lib/motion';
 
 /* ── Occasions ── */
 const OCCASION_ICONS: Record<string, React.ElementType> = {
@@ -103,7 +105,7 @@ function OutfitGenerateFallback() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="max-w-sm w-full text-center space-y-6">
-        <h1 className="font-display italic text-[1.3rem] leading-tight text-foreground text-foreground">Outfit generation is unavailable right now</h1>
+        <h1 className="font-display italic text-[1.3rem] leading-tight text-foreground">Outfit generation is unavailable right now</h1>
         <Button onClick={() => window.location.reload()}>Reload</Button>
       </div>
     </div>
@@ -268,7 +270,7 @@ export default function OutfitGeneratePage() {
       <AppLayout>
         <div className="page-shell !max-w-md !pt-16">
           <div className="surface-editorial space-y-6 p-5">
-            <h2 className="font-display italic text-[1.2rem] leading-tight text-foreground tracking-tight text-foreground">{t('unlock.outfit_gen')}</h2>
+            <h2 className="font-display italic text-[1.2rem] leading-tight text-foreground tracking-tight">{t('unlock.outfit_gen')}</h2>
             <WardrobeProgress message={t('unlock.outfit_gen_message')} />
           </div>
         </div>
@@ -321,7 +323,7 @@ export default function OutfitGeneratePage() {
     );
   }
 
-  // ── DONE PHASE — Primary recommendation ──
+  // ── DONE PHASE — V4 Editorial Result ──
   if (phase === 'done' && generatedResults.length > 0) {
     const primary = generatedResults[primaryIndex];
     const alternateResults = generatedResults.filter((_, index) => index !== primaryIndex);
@@ -375,138 +377,175 @@ export default function OutfitGeneratePage() {
         <AppLayout>
           <div className="page-shell !pt-6 pb-36">
             <LayoutGroup>
-              {/* ── Primary Card ── */}
+              {/* ── V4 Editorial Result Header ── */}
+              <motion.div
+                initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: DURATIONS.SLOW, ease: EASE_CURVE }}
+                className="mb-6"
+              >
+                <p className="label-editorial text-muted-foreground/50 mb-1">YOUR LOOK</p>
+                <h1 className="font-display italic text-[1.6rem] leading-tight text-foreground tracking-tight">
+                  The Daily Edit
+                </h1>
+                {contextSubtitle && (
+                  <p className="text-[12px] font-body text-muted-foreground/50 mt-1.5">{contextSubtitle}</p>
+                )}
+              </motion.div>
+
+              {/* ── Primary Outfit — Vertical garment list ── */}
               <motion.div
                 key={`primary-${primary.id}`}
                 layout={!prefersReduced}
                 transition={prefersReduced ? { duration: 0 } : SPRING_LAYOUT}
-                className="w-full"
+                className="w-full space-y-3"
               >
-                {/* Outfit card — brand-matched design */}
-                <div className="surface-editorial overflow-hidden">
-                  <div className="grid grid-cols-2 gap-[1px]">
-                    {primary.items.slice(0, 4).map((item, i) => (
-                      <motion.div
-                        key={item.garment.id}
-                        initial={prefersReduced ? false : { opacity: 0, scale: 1.02 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: i * 0.08, duration: 0.45 }}
-                        onClick={() => navigate(`/wardrobe/${item.garment.id}`)}
-                        className="relative cursor-pointer overflow-hidden bg-secondary/70"
-                      >
-                        <LazyImageSimple
-                          imagePath={getPreferredGarmentImagePath(item.garment)}
-                          alt={item.garment.title || item.slot}
-                          className="w-full aspect-square object-cover"
-                          fallbackIcon={<Shirt className="w-8 h-8 text-muted-foreground/15" />}
-                        />
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent p-2 pt-6">
-                          <p className="text-[9px] text-white/70 uppercase tracking-[0.15em] font-medium">
-                            {item.slot}
-                          </p>
-                        </div>
-                      </motion.div>
-                    ))}
-                    {effectiveMissing.slice(0, Math.max(0, 4 - primary.items.length)).map((slot, i) => (
-                      <div key={`placeholder-${i}`} className="flex aspect-square items-center justify-center border border-dashed border-foreground/15 bg-secondary/70 p-2">
-                        <span className="text-center text-[13px] leading-[1.4] text-foreground/42">
-                          Add {slot}<br/>to complete
-                        </span>
-                      </div>
-                    ))}
-                    {Array.from({ length: Math.max(0, 4 - primary.items.length - effectiveMissing.length) }).map((_, i) => (
-                      <div key={`empty-extra-${i}`} className="aspect-square bg-secondary/70" />
-                    ))}
-                  </div>
-
-                  {/* Card footer */}
-                  <div className="px-3 pt-2.5 pb-3 space-y-1">
-                    <p className="font-body text-[10px] uppercase tracking-[0.1em] text-foreground/50">
-                      {OCCASIONS.find(o => o.key === selectedOccasion)?.label ?? selectedOccasion}
-                    </p>
-                    {calendarEvents?.[0]?.title && (
-                      <span className="mt-1 inline-flex rounded-full bg-foreground/[0.06] px-2 py-1 text-[10px] text-foreground">
-                        {calendarEvents[0].title}
-                      </span>
-                    )}
-                    {reasoningText && (
-                      <p className="font-display italic text-[13px] text-foreground/70 leading-snug line-clamp-2">
-                        {reasoningText}
+                {primary.items.map((item, i) => (
+                  <motion.div
+                    key={item.garment.id}
+                    initial={prefersReduced ? false : { opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * STAGGER_DELAY * 2, duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+                    onClick={() => { hapticLight(); navigate(`/wardrobe/${item.garment.id}`); }}
+                    className="surface-secondary rounded-[1.25rem] p-3 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform"
+                  >
+                    <div className="w-16 h-20 rounded-[1rem] overflow-hidden flex-shrink-0 bg-muted/20">
+                      <LazyImageSimple
+                        imagePath={getPreferredGarmentImagePath(item.garment)}
+                        alt={item.garment.title || item.slot}
+                        className="w-full h-full object-cover"
+                        fallbackIcon={<Shirt className="w-5 h-5 text-muted-foreground/15" />}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-body uppercase tracking-[0.12em] text-muted-foreground/45 mb-0.5">
+                        {item.slot}
                       </p>
-                    )}
-                    {weather && (
-                      <p className="font-body text-[10px] uppercase tracking-[0.08em] mt-1 text-foreground/45">
-                        Styled for {weather.temperature}°C{weather.precipitation && weather.precipitation !== 'none' ? ` · ${weather.precipitation}` : ''}
+                      <p className="text-[14px] font-medium text-foreground truncate">
+                        {item.garment.title || item.slot}
                       </p>
-                    )}
+                      {item.garment.colors?.[0] && (
+                        <p className="text-[11px] font-body text-muted-foreground/50 mt-0.5 truncate">
+                          {item.garment.colors[0]}{item.garment.material ? ` · ${item.garment.material}` : ''}
+                        </p>
+                      )}
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground/25 flex-shrink-0" />
+                  </motion.div>
+                ))}
+
+                {/* Missing slot placeholders */}
+                {effectiveMissing.map((slot) => (
+                  <div
+                    key={`missing-${slot}`}
+                    onClick={() => { hapticLight(); navigate(`/wardrobe?category=${slot === 'bottom' ? 'bottoms' : slot}`); }}
+                    className="surface-secondary rounded-[1.25rem] p-3 flex items-center gap-4 cursor-pointer border border-dashed border-foreground/10"
+                  >
+                    <div className="w-16 h-20 rounded-[1rem] flex items-center justify-center bg-muted/10">
+                      <Shirt className="w-5 h-5 text-muted-foreground/20" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[13px] text-foreground/40">Add {slot} to complete</p>
+                    </div>
                   </div>
+                ))}
+              </motion.div>
+
+              {/* ── Reasoning ── */}
+              {reasoningText && (
+                <motion.div
+                  initial={prefersReduced ? false : { opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.25, duration: DURATIONS.SLOW, ease: EASE_CURVE }}
+                  className="mt-5 px-1"
+                >
+                  <p className="font-display italic text-[13px] text-foreground/60 leading-relaxed">
+                    "{reasoningText}"
+                  </p>
+                </motion.div>
+              )}
+
+              {/* ── Weather context ── */}
+              {weather && (
+                <div className="mt-3 px-1">
+                  <p className="text-[10px] font-body uppercase tracking-[0.1em] text-muted-foreground/40">
+                    Styled for {weather.temperature}°C{weather.precipitation && weather.precipitation !== 'none' ? ` · ${weather.precipitation}` : ''}
+                  </p>
                 </div>
+              )}
 
-                {/* ── CTAs ── */}
-                <div className="mt-5 space-y-3">
-                  <Button
-                    onClick={handleWearToday}
-                    disabled={markWorn.isPending}
-                    className="h-12 w-full text-[15px] font-medium font-body"
-                    variant="editorial"
-                    size="lg"
-                  >
-                    {markWorn.isPending ? 'Logging…' : 'Wear today'}
-                  </Button>
+              {/* ── V4 CTA row ── */}
+              <motion.div
+                initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+                className="mt-8 space-y-3"
+              >
+                <Button
+                  onClick={() => { hapticLight(); handleWearToday(); }}
+                  disabled={markWorn.isPending}
+                  variant="editorial"
+                  className="h-12 w-full rounded-full text-[15px] font-medium font-body"
+                  size="lg"
+                >
+                  {markWorn.isPending ? 'Logging…' : 'Wear today'}
+                </Button>
 
+                <div className="flex gap-2">
                   <Button
-                    onClick={handleRefineInChat}
-                    variant="quiet"
-                    className="h-12 w-full text-[15px] font-medium font-body"
-                    size="lg"
+                    onClick={() => { hapticLight(); handleSaveOutfit(primary); }}
+                    variant="outline"
+                    className="flex-1 h-11 rounded-full text-[13px] font-body border-border/40"
                   >
-                    Refine in chat
-                  </Button>
-                </div>
-
-                {/* Secondary action row */}
-                <div className="flex items-center justify-between mt-3 px-4">
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleSaveOutfit(primary)}
-                    className="flex items-center gap-1.5 text-[13px] font-body text-muted-foreground/60"
-                  >
-                    <Bookmark className="w-4 h-4" />
+                    <Bookmark className="w-4 h-4 mr-1.5" />
                     Save
                   </Button>
                   <Button
-                    variant="ghost"
-                    onClick={() => handlePlanOutfit(primary)}
-                    className="flex items-center gap-1.5 text-[13px] font-body text-muted-foreground/60"
+                    onClick={() => { hapticLight(); handlePlanOutfit(primary); }}
+                    variant="outline"
+                    className="flex-1 h-11 rounded-full text-[13px] font-body border-border/40"
                   >
-                    <CalendarDays className="w-4 h-4" />
+                    <CalendarDays className="w-4 h-4 mr-1.5" />
                     Plan
                   </Button>
                 </div>
 
-                {/* Try another look */}
                 <Button
-                  onClick={handleGenerate}
-                  disabled={isGenerating}
-                  variant="outline"
-                  className="mt-2 h-11 w-full rounded-full border border-border/45 bg-background/80 text-[13px] font-medium text-foreground"
+                  onClick={() => { hapticLight(); handleRefineInChat(); }}
+                  variant="ghost"
+                  className="h-10 w-full text-[13px] font-body text-muted-foreground/50"
                 >
-                  Try another look
+                  Refine in chat
                 </Button>
               </motion.div>
 
-              {/* ── Alternate builder options ── */}
+              {/* ── Try another ── */}
+              <div className="mt-4">
+                <Button
+                  onClick={() => { hapticLight(); handleGenerate(); }}
+                  disabled={isGenerating}
+                  variant="outline"
+                  className="h-11 w-full rounded-full border-border/40 bg-background/80 text-[13px] font-medium text-foreground"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Try another look
+                </Button>
+              </div>
+
+              {/* ── Alternate stylist options ── */}
               {alternateResults.length > 0 && (
                 <motion.div
+                  initial={prefersReduced ? false : { opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.35, duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
                   layout={!prefersReduced}
-                  transition={prefersReduced ? { duration: 0 } : SPRING_LAYOUT}
-                  className="mt-6"
+                  className="mt-8"
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-[10px] font-body tracking-widest text-muted-foreground/40 uppercase">
+                    <p className="label-editorial text-muted-foreground/40">
                       STYLIST OPTIONS
                     </p>
-                    <p className="text-[11px] text-muted-foreground/50">
+                    <p className="text-[11px] text-muted-foreground/40 font-body">
                       {primaryIndex + 1} of {generatedResults.length}
                     </p>
                   </div>
@@ -515,16 +554,17 @@ export default function OutfitGeneratePage() {
                     {alternateResults.map((option) => {
                       const optionIndex = generatedResults.findIndex((result) => result.id === option.id);
                       return (
-                        <button
+                        <motion.button
                           key={option.id}
-                          onClick={() => setPrimaryIndex(optionIndex)}
-                          className="w-full surface-secondary rounded-[1.25rem] p-3 text-left active:opacity-80 transition-opacity"
+                          whileTap={prefersReduced ? undefined : { scale: 0.98 }}
+                          onClick={() => { hapticLight(); setPrimaryIndex(optionIndex); }}
+                          className="w-full surface-secondary rounded-[1.25rem] p-3 text-left"
                         >
                           <div className="flex gap-2">
                             {option.items.slice(0, 4).map((item) => (
                               <div
                                 key={item.garment.id}
-                                className="w-16 h-20 rounded-[1.1rem] overflow-hidden flex-shrink-0 bg-muted/20"
+                                className="w-14 h-[4.5rem] rounded-[1rem] overflow-hidden flex-shrink-0 bg-muted/20"
                               >
                                 <LazyImageSimple
                                   imagePath={getPreferredGarmentImagePath(item.garment)}
@@ -535,19 +575,19 @@ export default function OutfitGeneratePage() {
                               </div>
                             ))}
                           </div>
-                          <div className="mt-3 flex items-center justify-between gap-3">
+                          <div className="mt-2.5 flex items-center justify-between gap-3">
                             <div>
                               <p className="text-[12px] font-medium text-foreground">
                                 Option {optionIndex + 1}
                               </p>
-                              <p className="text-[12px] font-body text-muted-foreground/50 mt-1">
+                              <p className="text-[11px] font-body text-muted-foreground/45 mt-0.5">
                                 {option.family_label ? `${option.family_label} · ` : ''}
                                 {OCCASIONS.find(o => o.key === option.occasion)?.label ?? option.occasion}
                               </p>
                             </div>
-                            <span className="text-[11px] text-muted-foreground/50">Tap to compare</span>
+                            <ChevronRight className="w-4 h-4 text-muted-foreground/25" />
                           </div>
-                        </button>
+                        </motion.button>
                       );
                     })}
                   </div>
@@ -555,14 +595,14 @@ export default function OutfitGeneratePage() {
               )}
             </LayoutGroup>
 
-            {/* Generate another */}
+            {/* Start over */}
             <div className="mt-8 text-center">
               <Button
                 variant="ghost"
-                onClick={() => setPhase('picking')}
-                className="text-[13px] font-body text-muted-foreground/50 underline underline-offset-2"
+                onClick={() => { hapticLight(); setPhase('picking'); }}
+                className="text-[13px] font-body text-muted-foreground/40"
               >
-                Generate another
+                Start over
               </Button>
             </div>
           </div>
@@ -576,131 +616,221 @@ export default function OutfitGeneratePage() {
     return (
       <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
       <AppLayout>
-        <div className="page-shell flex min-h-[60vh] flex-col items-center justify-center animate-fade-in">
-          <Card surface="editorial" density="airy" className="max-w-sm w-full">
-            <CardContent className="p-6 text-center">
-              <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-              <h2 className="font-display italic text-[1.2rem] leading-tight text-foreground mb-2">Something went wrong</h2>
-              <p className="text-muted-foreground mb-4 text-sm">{lastError || 'Please try again.'}</p>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setPhase('picking')} className="flex-1">
-                  Back
-                </Button>
-                <Button onClick={handleGenerate} disabled={isGenerating} className="flex-1">
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Retry
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="page-shell flex min-h-[60vh] flex-col items-center justify-center">
+          <motion.div
+            initial={prefersReduced ? false : { opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+            className="surface-editorial rounded-[1.25rem] max-w-sm w-full p-6 text-center"
+          >
+            <AlertCircle className="w-10 h-10 text-destructive mx-auto mb-4 opacity-70" />
+            <h2 className="font-display italic text-[1.2rem] leading-tight text-foreground mb-2">Something went wrong</h2>
+            <p className="text-muted-foreground/60 mb-5 text-[13px] font-body leading-relaxed">{lastError || 'Please try again.'}</p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => { hapticLight(); setPhase('picking'); }}
+                className="flex-1 rounded-full"
+              >
+                Back
+              </Button>
+              <Button
+                onClick={() => { hapticLight(); handleGenerate(); }}
+                disabled={isGenerating}
+                variant="editorial"
+                className="flex-1 rounded-full"
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                Retry
+              </Button>
+            </div>
+          </motion.div>
         </div>
       </AppLayout>
       </PageErrorBoundary>
     );
   }
 
-  // ── PICKING PHASE ──
+  // ── PICKING PHASE — V4 Editorial ──
   return (
     <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
     <AppLayout>
-      <div className="page-shell pb-36 animate-fade-in">
+      <div className="page-shell pb-36">
 
-        {/* ── Header + Weather ── */}
+        {/* ── Header ── */}
         <PageHeader
-          title={t('outfit.generate_title') || 'New Look'}
+          title={t('outfit.generate_title') || 'Generate Outfit'}
           showBack
+          titleClassName="font-display italic"
         />
-        <section className="space-y-2 pb-6">
+
+        {/* ── Weather pill + style anchor ── */}
+        <motion.section
+          initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+          className="space-y-2.5 pb-6"
+        >
           {weather && (
-            <div className="pt-1.5">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-border/45 bg-background/80 px-3 py-1.5 text-[11px] text-foreground/62">
+            <div className="pt-1">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 px-3 py-1.5 text-[11px] font-body text-foreground/55">
                 {weather.temperature}°C · {t(weather.condition) || weather.location}
               </span>
               {weatherAdvice && (
-                <p className="pt-2 text-[11px] text-muted-foreground/55">
+                <p className="pt-1.5 text-[11px] text-muted-foreground/45 font-body">
                   {weatherAdvice}
                 </p>
               )}
             </div>
           )}
           {preferredGarmentSummary && (
-            <div className="pt-2">
-              <div className="surface-utility inline-flex max-w-full items-center gap-2 px-3 py-2 text-left">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[1.1rem] bg-background text-primary">
+            <div className="pt-1.5">
+              <div className="surface-secondary inline-flex max-w-full items-center gap-3 rounded-[1.25rem] px-3 py-2.5 text-left">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-background text-primary">
                   <Shirt className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-primary/70">Style anchor</p>
-                  <p className="truncate text-sm font-medium text-foreground">{preferredGarmentSummary}</p>
+                  <p className="text-[9px] font-body font-medium uppercase tracking-[0.18em] text-primary/60">Style anchor</p>
+                  <p className="truncate text-[13px] font-medium text-foreground">{preferredGarmentSummary}</p>
                 </div>
                 <button
                   type="button"
-                  onClick={clearPreferredGarments}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[1.1rem] text-muted-foreground transition-colors hover:bg-background"
+                  onClick={() => { hapticLight(); clearPreferredGarments(); }}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground/40 transition-colors hover:bg-background"
                   aria-label="Clear style anchor"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
             </div>
           )}
-        </section>
+        </motion.section>
 
-        {/* ── Step 1: Mode ── */}
-        <section className="space-y-3 pb-10">
-          <p className="label-editorial">How should I style you?</p>
+        {/* ── Occasion selector — horizontal pills ── */}
+        <motion.section
+          initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05, duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+          className="space-y-3 pb-8"
+        >
+          <p className="label-editorial text-muted-foreground/50">SELECT OCCASION</p>
+          <div className="flex flex-wrap gap-2">
+            {OCCASIONS.map(({ key, label }) => {
+              const isSelected = selectedOccasion === key;
+              const OccIcon = OCCASION_ICONS[key] || Sparkles;
+              return (
+                <motion.button
+                  key={key}
+                  whileTap={prefersReduced ? undefined : { scale: 0.96 }}
+                  onClick={() => { hapticLight(); setSelectedOccasion(key); }}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-[13px] font-body transition-all',
+                    isSelected
+                      ? 'bg-foreground text-background'
+                      : 'border border-border/40 text-foreground/55 hover:border-foreground/20'
+                  )}
+                >
+                  <OccIcon className="w-4 h-4" strokeWidth={1.8} />
+                  {label}
+                </motion.button>
+              );
+            })}
+          </div>
+        </motion.section>
+
+        {/* ── Mood & Aesthetic — pill chips ── */}
+        <motion.section
+          initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1, duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+          className="pb-8 space-y-3"
+        >
+          <p className="label-editorial text-muted-foreground/50">MOOD & AESTHETIC</p>
+          <div className="flex flex-wrap gap-2">
+            {STYLES.map((style) => {
+              const isSelected = selectedStyles.includes(style);
+              return (
+                <motion.button
+                  key={style}
+                  whileTap={prefersReduced ? undefined : { scale: 0.96 }}
+                  onClick={() => {
+                    hapticLight();
+                    if (isSelected) {
+                      setSelectedStyles(selectedStyles.filter(s => s !== style));
+                    } else if (selectedStyles.length >= 2) {
+                      toast.error('Pick up to 2 styles');
+                    } else {
+                      setSelectedStyles([...selectedStyles, style]);
+                    }
+                  }}
+                  className={cn(
+                    'rounded-full px-4 py-2.5 text-[13px] font-body transition-all',
+                    isSelected
+                      ? 'bg-foreground text-background'
+                      : 'border border-border/40 text-foreground/55 hover:border-foreground/20'
+                  )}
+                >
+                  {style}
+                </motion.button>
+              );
+            })}
+          </div>
+        </motion.section>
+
+        {/* ── Mode toggle — editorial cards ── */}
+        <motion.section
+          initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15, duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+          className="pb-6 space-y-3"
+        >
           <div className="grid grid-cols-2 gap-3">
-            {/* Quick Look */}
             <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={() => setGenerationMode('standard')}
+              whileTap={prefersReduced ? undefined : { scale: 0.97 }}
+              onClick={() => { hapticLight(); setGenerationMode('standard'); }}
               className={cn(
-                'surface-editorial relative p-4 text-left transition-all',
-                generationMode === 'standard'
-                  ? 'ring-1 ring-primary/12'
-                  : 'hover:border-border/60'
+                'surface-secondary rounded-[1.25rem] relative p-4 text-left transition-all',
+                generationMode === 'standard' && 'ring-1 ring-foreground/10'
               )}
             >
               <Sparkles className={cn(
                 'w-5 h-5 mb-3',
-                generationMode === 'standard' ? 'text-foreground' : 'text-muted-foreground/40'
+                generationMode === 'standard' ? 'text-foreground' : 'text-muted-foreground/30'
               )} />
-              <p className="text-sm font-semibold text-foreground">Quick Look</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+              <p className="text-[13px] font-semibold text-foreground">Quick Look</p>
+              <p className="text-[11px] text-muted-foreground/45 mt-0.5 leading-snug font-body">
                 Fast, balanced, everyday
               </p>
               {generationMode === 'standard' && (
                 <motion.div
                   layoutId="mode-check"
-                  className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary flex items-center justify-center"
+                  className="absolute top-3 right-3 w-5 h-5 rounded-full bg-foreground flex items-center justify-center"
                   transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                 >
-                  <Check className="w-3 h-3 text-primary-foreground" />
+                  <Check className="w-3 h-3 text-background" />
                 </motion.div>
               )}
             </motion.button>
 
-            {/* Stylist Mode */}
             <motion.button
-              whileTap={{ scale: 0.97 }}
+              whileTap={prefersReduced ? undefined : { scale: 0.97 }}
               onClick={() => {
+                hapticLight();
                 if (!isPremium) { setShowPaywall(true); return; }
                 setGenerationMode('stylist');
               }}
               className={cn(
-                'surface-editorial relative p-4 text-left transition-all',
-                generationMode === 'stylist'
-                  ? 'ring-1 ring-premium/14'
-                  : 'hover:border-border/60'
+                'surface-secondary rounded-[1.25rem] relative p-4 text-left transition-all',
+                generationMode === 'stylist' && 'ring-1 ring-premium/14'
               )}
             >
               <Crown className={cn(
                 'w-5 h-5 mb-3',
-                generationMode === 'stylist' ? 'text-premium' : 'text-muted-foreground/40'
+                generationMode === 'stylist' ? 'text-premium' : 'text-muted-foreground/30'
               )} />
-              <p className="text-sm font-semibold text-foreground">Stylist Mode</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-                Deeper curation, editorial picks
+              <p className="text-[13px] font-semibold text-foreground">Stylist Mode</p>
+              <p className="text-[11px] text-muted-foreground/45 mt-0.5 leading-snug font-body">
+                Deeper curation, editorial
               </p>
               {!isPremium && (
                 <span className="absolute top-3 right-3 text-[9px] font-semibold text-premium uppercase tracking-wider">
@@ -718,78 +848,6 @@ export default function OutfitGeneratePage() {
               )}
             </motion.button>
           </div>
-        </section>
-
-        {/* ── Step 2: Occasion — visual cards ── */}
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.35 }}
-          className="space-y-3 pb-10"
-        >
-          <p className="label-editorial">What's the occasion?</p>
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-            {OCCASIONS.map(({ key, label }) => {
-              const isSelected = selectedOccasion === key;
-              const OccIcon = OCCASION_ICONS[key] || Sparkles;
-              return (
-                <motion.button
-                  key={key}
-                  whileTap={prefersReduced ? undefined : { scale: 0.97 }}
-                  onClick={() => { hapticLight(); setSelectedOccasion(key); }}
-                  className={cn(
-                    'flex min-h-[76px] w-full flex-col items-center justify-center gap-2 rounded-[1.25rem] px-2 py-3 text-center transition-all',
-                    isSelected
-                      ? 'bg-foreground text-background'
-                      : 'surface-utility text-foreground hover:bg-background'
-                  )}
-                >
-                  <OccIcon className="w-5 h-5" strokeWidth={1.8} />
-                  <span className="font-body text-[11px] leading-snug">{label}</span>
-                </motion.button>
-              );
-            })}
-          </div>
-        </motion.section>
-
-        {/* ── Step 3: Style — decisive chip redesign ── */}
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.35 }}
-          className="pb-8 space-y-3"
-        >
-          <p className="text-[11px] tracking-widest text-muted-foreground/50 uppercase">STYLE</p>
-          <div className="flex flex-wrap gap-2">
-            {STYLES.map((style) => {
-              const isSelected = selectedStyles.includes(style);
-              return (
-                <motion.button
-                  key={style}
-                  whileTap={prefersReduced ? undefined : { scale: 0.97 }}
-                  onClick={() => {
-                    hapticLight();
-                    if (isSelected) {
-                      setSelectedStyles(selectedStyles.filter(s => s !== style));
-                    } else if (selectedStyles.length >= 2) {
-                      toast.error('Pick up to 2 styles');
-                    } else {
-                      setSelectedStyles([...selectedStyles, style]);
-                    }
-                  }}
-                  className={cn(
-                    "h-[44px] rounded-full px-4 transition-all",
-                    "text-[14px] font-body",
-                    isSelected
-                      ? 'bg-foreground text-background border-transparent'
-                      : 'bg-transparent border border-foreground/20 text-foreground/60'
-                  )}
-                >
-                  {style}
-                </motion.button>
-              );
-            })}
-          </div>
         </motion.section>
       </div>
 
@@ -798,7 +856,7 @@ export default function OutfitGeneratePage() {
         <div className="px-4 pt-3 pb-4">
           <div className="max-w-md mx-auto space-y-2">
             {contextSubtitle && (
-              <p className="text-[11px] text-muted-foreground/60 text-center tracking-wide">
+              <p className="text-[11px] text-muted-foreground/50 text-center tracking-wide font-body">
                 {contextSubtitle}
               </p>
             )}
@@ -820,15 +878,15 @@ export default function OutfitGeneratePage() {
                 onClick={() => { hapticLight(); handleGenerate(); }}
                 disabled={isGenerating}
                 variant="editorial"
-                className="h-12 w-full text-[15px] font-medium font-body"
+                className="h-12 w-full rounded-full text-[15px] font-medium font-body"
                 size="lg"
               >
                 <Sparkles className="w-4 h-4 mr-2" />
-                Style outfit
+                Generate
               </Button>
             </CoachMark>
             {!isPremium && remainingOutfits() < Infinity && (
-              <p className="text-[11px] text-muted-foreground/50 text-center">
+              <p className="text-[11px] text-muted-foreground/40 text-center font-body">
                 <Zap className="w-3 h-3 inline mr-0.5 -mt-0.5" />
                 {remainingOutfits()} outfits remaining
               </p>

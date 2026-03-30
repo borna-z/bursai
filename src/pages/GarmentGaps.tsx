@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { GapResultsPanel } from '@/components/gaps/GapResultsPanel';
 import {
@@ -21,6 +22,7 @@ import { useWardrobeGapAnalysis } from '@/hooks/useAdvancedFeatures';
 import { useGarmentCount } from '@/hooks/useGarments';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
 import { hapticSuccess } from '@/lib/haptics';
+import { EASE_CURVE } from '@/lib/motion';
 
 function deriveViewState({
   hasError,
@@ -49,7 +51,7 @@ function deriveViewState({
 export default function GarmentGapsPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { locale } = useLanguage();
+  const { locale, t } = useLanguage();
   const { user } = useAuth();
   const { data: garmentCount } = useGarmentCount();
   const { isUnlocked } = useWardrobeUnlocks();
@@ -116,8 +118,19 @@ export default function GarmentGapsPage() {
 
   return (
     <AppLayout>
-      <AnimatedPage className="mx-auto flex max-w-5xl flex-col gap-6 px-4 pb-24 pt-6 sm:px-6">
-        <GapHero currentCount={count} isUnlocked={unlocked} hasSnapshot={hasResults} />
+      <PageHeader
+        title={t('gaps.garment_gaps') || 'Wardrobe Gaps'}
+        eyebrow={t('gaps.wardrobe_intelligence') || 'Wardrobe Intelligence'}
+        showBack
+      />
+      <AnimatedPage className="mx-auto flex max-w-5xl flex-col gap-5 px-5 pb-24 pt-4 sm:px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: EASE_CURVE }}
+        >
+          <GapHero currentCount={count} isUnlocked={unlocked} hasSnapshot={hasResults} />
+        </motion.div>
 
         <AnimatePresence initial={false} mode="wait">
           {viewState === 'locked' ? <GapLockedState key="locked" /> : null}
