@@ -87,16 +87,18 @@ Supabase
 
 Client singleton: src/integrations/supabase/client.ts
 Types: src/integrations/supabase/types.ts — use Tables<'table_name'>, TablesInsert<>, TablesUpdate<>
-Edge invocation: src/lib/edgeFunctionClient.ts — invokeEdgeFunction<T>(name, opts) with 25s timeout + exponential backoff
+Edge invocation: src/lib/edgeFunctionClient.ts — invokeEdgeFunction<T>(name, opts) with 25s timeout + exponential backoff + client-side circuit breaker (5 failures → 30s cooldown)
 Garment images: private garments bucket scoped to <user-id>/*
 
 Edge Functions (supabase/functions/)
 
 43 functions, snake_case dirs, each with index.ts
-Shared utilities in _shared/: CORS, AI engine, voice, logging, idempotency, Stripe config, image processing, email
-AI engine (_shared/burs-ai.ts): complexity-based model routing, Gemini fallback chains, DB response caching, per-user rate limiting
+Shared utilities in _shared/: CORS, AI engine, voice, logging, idempotency, Stripe config, image processing, email, scale-guard
+AI engine (_shared/burs-ai.ts): complexity-based model routing, Gemini fallback chains, DB response caching, per-user rate limiting, token/cost tracking
+Scale guard (_shared/scale-guard.ts): subscription-tier-aware rate limiting (free=0.5x, premium=2x), overload detection, job queue primitives, bounded concurrency, AI cost estimation, enhanced telemetry
 All functions: verify_jwt = false in config.toml, validate JWT manually with getUser() (NOT getClaims())
-Shared slot normalizer: _shared/burs-slots.ts — use this for all outfit slot logic
+All AI functions must: import and call enforceRateLimit() + checkOverload() + pass cacheTtlSeconds/cacheNamespace to callBursAI()
+Job queue: process_job_queue function processes async jobs (image_processing, garment_enrichment, batch_analysis) with stuck job recovery
 
 i18n
 
@@ -175,10 +177,12 @@ Fix: Replace with const { data: { user } } = await supabase.auth.getUser(token)
 Infrastructure Facts
 
 SMTP: Resend (migrated from IONOS — do not use IONOS SMTP config)
-Payments: StoreKit for iOS in-app purchases (Stripe CANNOT be used for digital goods on iOS — App Store rejection risk)
+Payments: StoreKit for iOS in-app purchases (Stripe CANNOT be used for digital goods on iOS — App Store rejection risk). Stripe for web checkout (webhook idempotency via atomic upsert on stripe_events)
 Deployment: Vercel (frontend) + Supabase (backend)
 DNS: burs.me via IONOS → Vercel nameservers
 Camera: Median.co native camera bridge (useMedianCamera hook) — do not use browser fetch(dataUrl) pattern
+Subscriptions: Binary free/premium model. subscriptions table is source of truth (plan, status). Rate limits scale by tier automatically.
+Job queue: job_queue table with pessimistic locking. Worker: process_job_queue (cron every 1 min). Stuck jobs auto-recovered on each invocation.
 
 
 Testing Conventions
