@@ -1,46 +1,69 @@
 import { Helmet } from 'react-helmet-async';
-import { Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Shield } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { hapticLight } from '@/lib/haptics';
+import { EASE_CURVE, DURATION_MEDIUM } from '@/lib/motion';
 import bursLogo from '@/assets/burs-monogram.png';
 
 export default function PrivacyPolicy() {
+  const navigate = useNavigate();
+  const prefersReduced = useReducedMotion();
+
+  const fadeUp = (delay = 0) =>
+    prefersReduced
+      ? {}
+      : {
+          initial: { opacity: 0, y: 10 },
+          animate: { opacity: 1, y: 0 },
+          transition: { delay, duration: DURATION_MEDIUM, ease: EASE_CURVE },
+        };
+
   return (
-    <div className="bg-background text-foreground">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Helmet>
         <title>Privacy Policy for BURS</title>
         <meta name="description" content="Privacy Policy for BURS — how we collect, use, store, share, and protect your personal data." />
         <meta name="robots" content="index, follow" />
         <link rel="canonical" href="https://burs.me/privacy" />
-        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
       </Helmet>
 
-      <div className="min-h-screen flex flex-col font-body">
-        {/* Header */}
-        <header className="w-full border-b border-border">
-          <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-2 cursor-pointer">
-              <img src={bursLogo} alt="BURS" className="h-7 object-contain opacity-80" />
-              <span className="font-bold tracking-[0.12em] text-sm text-foreground">BURS</span>
-            </Link>
-            <Link to="/" className="inline-flex items-center gap-1.5 text-sm transition-colors text-muted-foreground hover:text-foreground cursor-pointer">
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </Link>
+      {/* Sticky header */}
+      <header className="sticky top-0 z-10 topbar-frost border-b border-border/40">
+        <div className="max-w-xl mx-auto px-4 py-3 flex items-center gap-3">
+          <button
+            className="p-2 -ml-2 rounded-full hover:bg-secondary/60 transition-colors"
+            onClick={() => { hapticLight(); navigate(-1); }}
+            aria-label="Go back"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <Link to="/" className="cursor-pointer" onClick={() => hapticLight()}>
+            <img src={bursLogo} alt="BURS" className="h-5 object-contain opacity-70" />
+          </Link>
+        </div>
+      </header>
+
+      {/* Content */}
+      <main className="flex-1 max-w-xl mx-auto px-4 py-10 w-full">
+        {/* Hero */}
+        <motion.div className="text-center mb-10" {...fadeUp(0)}>
+          <div className="w-14 h-14 flex items-center justify-center mx-auto mb-6 surface-secondary rounded-[1.25rem]">
+            <Shield className="w-7 h-7 text-muted-foreground/50" />
           </div>
-        </header>
+          <p className="label-editorial text-muted-foreground/60 mb-2">Legal</p>
+          <h1 className="font-display italic text-[1.8rem] leading-tight mb-3">
+            Privacy Policy
+          </h1>
+          <p className="text-sm text-muted-foreground">Effective 25 February 2026</p>
+          <p className="text-xs text-muted-foreground/60 mt-1">Last updated: 25 February 2026</p>
+        </motion.div>
 
-        {/* Content */}
-        <motion.main
-          className="flex-1 max-w-3xl mx-auto px-4 py-12 md:py-20 w-full"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
+        {/* Legal content card */}
+        <motion.div
+          className="surface-secondary rounded-[1.25rem] p-5 md:p-8"
+          {...fadeUp(0.08)}
         >
-          <h1 className="text-3xl md:text-4xl font-bold mb-2 font-display text-foreground">Privacy Policy for BURS</h1>
-          <p className="mb-2 text-muted-foreground">Effective date: 25 February 2026</p>
-          <p className="mb-10 text-muted-foreground">Last updated: 25 February 2026</p>
-
           <div className="space-y-10 text-[15px] leading-relaxed text-muted-foreground">
 
             <section>
@@ -381,20 +404,20 @@ export default function PrivacyPolicy() {
             </section>
 
           </div>
-        </motion.main>
+        </motion.div>
+      </main>
 
-        {/* Footer */}
-        <footer className="border-t border-border">
-          <div className="max-w-3xl mx-auto px-4 py-8 flex flex-col items-center gap-4 text-xs text-muted-foreground">
-            <div className="flex gap-6">
-              <span className="font-medium text-foreground">Privacy Policy</span>
-              <Link to="/terms" className="hover:text-foreground transition-colors cursor-pointer">Terms of Service</Link>
-              <Link to="/contact" className="hover:text-foreground transition-colors cursor-pointer">Contact</Link>
-            </div>
-            <p>© {new Date().getFullYear()} BURS. All rights reserved.</p>
+      {/* Footer */}
+      <footer className="border-t border-border/40 mt-6">
+        <div className="max-w-xl mx-auto px-4 py-8 flex flex-col items-center gap-4 text-xs text-muted-foreground">
+          <div className="flex gap-6">
+            <span className="font-medium text-foreground">Privacy Policy</span>
+            <Link to="/terms" className="hover:text-foreground transition-colors cursor-pointer">Terms of Service</Link>
+            <Link to="/contact" className="hover:text-foreground transition-colors cursor-pointer">Contact</Link>
           </div>
-        </footer>
-      </div>
+          <p>&copy; {new Date().getFullYear()} BURS. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
 
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -15,6 +16,7 @@ import { GarmentGrid } from '@/components/wardrobe/GarmentGrid';
 import { WardrobeToolbar } from '@/components/wardrobe/WardrobeToolbar';
 import { WardrobeOutfitsTab } from '@/components/wardrobe/WardrobeOutfitsTab';
 import { hapticLight } from '@/lib/haptics';
+import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM } from '@/lib/motion';
 import {
   buildWardrobeCollectionTiles,
   buildWardrobeCommandTopState,
@@ -80,6 +82,8 @@ export default function WardrobePage() {
     t,
   });
 
+  const reducedMotion = !!useReducedMotion();
+
   const hasHardFilters = selectedCategory !== 'all'
     || Boolean(selectedColor)
     || Boolean(selectedSeason)
@@ -122,17 +126,23 @@ export default function WardrobePage() {
         title={t('wardrobe.title') || 'Your Wardrobe'}
         titleClassName="text-[1.65rem]"
         actions={
-          <button
+          <motion.button
+            whileTap={reducedMotion ? undefined : { scale: 0.93 }}
             onClick={() => { hapticLight(); navigate('/wardrobe/add'); }}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-background active:scale-95 transition-transform cursor-pointer"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-white transition-transform cursor-pointer"
             aria-label={t('wardrobe.add_garment')}
           >
             <Plus className="h-4 w-4" strokeWidth={2.4} />
-          </button>
+          </motion.button>
         }
       />
       <PullToRefresh onRefresh={handleRefresh}>
         <AnimatedPage className="page-shell space-y-5">
+          <motion.div
+            initial={reducedMotion ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE }}
+          >
           <WardrobeToolbar
             t={t}
             commandState={commandState}
@@ -174,7 +184,13 @@ export default function WardrobePage() {
             totalCount={totalCount}
             sortBy={sortBy}
           />
+          </motion.div>
 
+          <motion.div
+            initial={reducedMotion ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY * 3 }}
+          >
           {activeTab === 'garments' ? (
             <>
               {allGarments.length > 0 && !hasHardFilters ? (
@@ -214,6 +230,7 @@ export default function WardrobePage() {
           ) : (
             <WardrobeOutfitsTab />
           )}
+          </motion.div>
         </AnimatedPage>
       </PullToRefresh>
 

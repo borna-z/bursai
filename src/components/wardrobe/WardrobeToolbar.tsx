@@ -83,7 +83,7 @@ export function WardrobeToolbar({
               className={cn(
                 'rounded-full px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer',
                 activeTab === tab
-                  ? 'bg-foreground text-background'
+                  ? 'bg-accent text-white'
                   : 'text-muted-foreground',
               )}
             >
@@ -161,7 +161,7 @@ export function WardrobeToolbar({
                 className={cn(
                   'shrink-0 rounded-full px-4 py-2 text-[12px] font-medium transition-colors cursor-pointer',
                   isActive
-                    ? 'bg-foreground text-background'
+                    ? 'bg-accent text-white'
                     : 'border border-border/45 bg-card/60 text-foreground',
                 )}
               >
@@ -175,7 +175,7 @@ export function WardrobeToolbar({
       {/* Count + Sort row */}
       {showGarmentControls && !isSelecting && (
         <div className="flex items-center justify-between px-0.5">
-          <span className="text-[14px] font-medium text-muted-foreground">
+          <span className="label-editorial text-muted-foreground/60">
             {totalCount !== undefined
               ? t('wardrobe.pieces_count')?.replace('{count}', String(totalCount)) || `${totalCount} pieces`
               : commandState.resultsLabel}

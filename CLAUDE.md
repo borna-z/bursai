@@ -272,7 +272,7 @@ The accent is warm gold — NOT indigo. If you see `--accent: 229` anywhere, tha
 
 ### V4 Redesign — Current State (branch: `v4/editorial-redesign`)
 
-**Status:** 33/44 pages redesigned. 5 TODO, 3 N/A (redirects with no UI), 3 SKIP (legal/missing). TypeScript 0 errors, 91 test files / 511 tests passing.
+**Status:** 37/44 pages redesigned. 0 TODO, 1 SKIP (SeedWardrobe — not in repo), 3 N/A (redirects). TypeScript 0 errors, 91 test files / 511 tests passing.
 
 The V4 redesign applies Scandinavian editorial magazine aesthetic (Kinfolk/Cereal feel): serif italic headlines (Playfair Display), clean hierarchy, hero cards, minimal shadows, warm gold accent, editorial surfaces.
 
@@ -308,24 +308,24 @@ Fetch designs with `mcp__stitch__get_screen` using `name: "projects/811771638416
 | 23 | `ShareOutfit.tsx` | `fdae86e7a95d4b4eb9ff1cc99a63ccf4` | Share Outfit Screen | DONE |
 | 24 | `SettingsPrivacy.tsx` | `386a2d30df62445b97e9dfce476a1a7d` | Privacy Settings | DONE |
 | 25 | `Admin.tsx` | `183fc7451fb84824ad314f0c455225d7` | Admin Panel | DONE |
-| 26 | `Auth.tsx` | `bc3a4e2878e74ee68b8843de65cde9e3` | Auth / Login Screen | TODO |
+| 26 | `Auth.tsx` | `bc3a4e2878e74ee68b8843de65cde9e3` | Auth / Login Screen | DONE |
 | 27 | `GenerateImages.tsx` | `6139190ded4544bea034f519800295c6` | Generate Images Settings | DONE |
 | 28 | `PublicProfile.tsx` | `81fc1818ee6e436e9fccbbe060cda78a` | Public Profile | DONE |
 | 29 | `ResetPassword.tsx` | `4b6d6680c46f4b37a918b873c9b507e6` | Reset Password Screen | DONE (pre-existing) |
 | 30 | `Pricing.tsx` | `6718ce2ee57d40fb9508a977545422c6` | BURS Premium Upgrade | DONE |
 | 31 | `Contact.tsx` | `9fd8498f00a647638a7aaf4202f7d4a1` | Contact Page | DONE |
-| 32 | `SeedWardrobe.tsx` | `aaf9c89db75447c79aa988041dd468a2` | Seed Wardrobe Screen | SKIP (file not present) |
+| 32 | `SeedWardrobe.tsx` | `aaf9c89db75447c79aa988041dd468a2` | Seed Wardrobe Screen | SKIP (file not in repo) |
 | 33 | `SettingsAccount.tsx` | `2db035bf65ce46e7b63eb9c03ef5b29b` | Account Settings | DONE |
 | 34 | `SettingsNotifications.tsx` | `2444456977b442ef90d206aac59992ea` | Notifications Screen | DONE |
 | 35 | `SettingsAppearance.tsx` | `2fc276eab06942c1aadcdecbfb815c55` | Appearance Settings | DONE |
 | 36 | `BillingSuccess.tsx` | `230afb2652d946c48b942642e47e1644` | Billing Success | DONE |
 | 37 | `BillingCancel.tsx` | `1000ca23f3a0466ba505c364636e2765` | Billing Cancellation Screen | DONE |
 | 38 | `NotFound.tsx` | `93f6e74f0e224e41b65e862443dd6000` | 404 Not Found | DONE (pre-existing) |
-| 39 | `PrivacyPolicy.tsx` | `b7fe093b87464ad58078cd96fff634a5` | Privacy Policy | TODO (static legal text — needs V4 header/wrapper) |
-| 40 | `Terms.tsx` | `8be2971f06ea4c72921259472688c2d0` | Terms of Service | TODO (static legal text — needs V4 header/wrapper) |
+| 39 | `PrivacyPolicy.tsx` | `b7fe093b87464ad58078cd96fff634a5` | Privacy Policy | DONE |
+| 40 | `Terms.tsx` | `8be2971f06ea4c72921259472688c2d0` | Terms of Service | DONE |
 | 41 | `Landing.tsx` | `fa5d016c8ef74627841a32128ee6d1a5` | BURS Landing Page | N/A (redirect, no UI) |
 | 42 | `Index.tsx` | `2cb757577a3a4ced865d7e48823c3786` | BURS Splash Screen | N/A (auth routing, no UI) |
-| 43 | `GoogleCalendarCallback.tsx` | `52506428f0244e1d8b5af68f37bed8f6` | Calendar Connected | TODO |
+| 43 | `GoogleCalendarCallback.tsx` | `52506428f0244e1d8b5af68f37bed8f6` | Calendar Connected | DONE |
 | 44 | `StyleMe.tsx` | `b837f5f6a73b4dbc874d24f3c87d9970` | Style Me - AI Quiz | N/A (redirect, no UI) |
 
 **V4 workflow for remaining TODO pages:**

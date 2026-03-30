@@ -113,9 +113,6 @@ vi.mock('@/components/home/HomeStatsStrip', () => ({
   ),
 }));
 
-vi.mock('@/components/home/HomeWeekAhead', () => ({
-  HomeWeekAhead: () => <div data-testid="week-ahead">Week Ahead</div>,
-}));
 
 import HomePage from '../Home';
 
@@ -147,7 +144,7 @@ describe('Home page V4', () => {
     });
   });
 
-  it('renders editorial greeting with user name, stats strip, and week ahead', () => {
+  it('renders editorial greeting with user name, stats strip, and shortcuts', () => {
     renderHome();
 
     const heading = screen.getByRole('heading', { level: 1 });
@@ -155,7 +152,8 @@ describe('Home page V4', () => {
     expect(heading.textContent).toContain('Test');
 
     expect(screen.getByTestId('stats-strip')).toBeInTheDocument();
-    expect(screen.getByTestId('week-ahead')).toBeInTheDocument();
+    expect(screen.getByText('AI Chat')).toBeInTheDocument();
+    expect(screen.getByText('Discover')).toBeInTheDocument();
   });
 
   it('shows style outfit as primary action with enough garments', () => {
