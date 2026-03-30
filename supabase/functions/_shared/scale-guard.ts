@@ -57,10 +57,56 @@ export function getRateLimitTier(functionName: string): RateLimitTier {
   return RATE_LIMIT_TIERS[functionName] || RATE_LIMIT_TIERS.__default;
 }
 
+// ── Subscription-tier multipliers ───────────────────────────────
+// Premium users get 2x the base limits; free users get 50%.
+// Cache subscription lookups per-isolate to avoid repeated DB hits.
+type SubscriptionPlan = "free" | "premium";
+
+const TIER_MULTIPLIERS: Record<SubscriptionPlan, number> = {
+  free: 0.5,
+  premium: 2.0,
+};
+
+const subscriptionCache = new Map<string, { plan: SubscriptionPlan; fetchedAt: number }>();
+const SUBSCRIPTION_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+async function resolveUserPlan(supabaseAdmin: any, userId: string): Promise<SubscriptionPlan> {
+  const cached = subscriptionCache.get(userId);
+  if (cached && Date.now() - cached.fetchedAt < SUBSCRIPTION_CACHE_TTL_MS) {
+    return cached.plan;
+  }
+
+  try {
+    const { data } = await supabaseAdmin
+      .from("subscriptions")
+      .select("plan, status")
+      .eq("user_id", userId)
+      .single();
+
+    const isPremium =
+      data && data.plan === "premium" && ["active", "trialing"].includes(data.status);
+    const plan: SubscriptionPlan = isPremium ? "premium" : "free";
+    subscriptionCache.set(userId, { plan, fetchedAt: Date.now() });
+    return plan;
+  } catch {
+    // Fail open — treat as free (tighter limits are safer default)
+    return "free";
+  }
+}
+
+function applyTierMultiplier(tier: RateLimitTier, plan: SubscriptionPlan): RateLimitTier {
+  const m = TIER_MULTIPLIERS[plan];
+  return {
+    maxPerHour: Math.max(1, Math.round(tier.maxPerHour * m)),
+    maxPerMinute: Math.max(1, Math.round(tier.maxPerMinute * m)),
+  };
+}
+
 /**
  * Enforce both hourly and burst (per-minute) rate limits.
- * Uses the ai_rate_limits table. Throws BursAIError(429) when exceeded.
+ * Uses the ai_rate_limits table. Throws RateLimitError(429) when exceeded.
  *
+ * Limits scale by subscription tier: premium=2x, free=0.5x of base.
  * Returns { allowed: true, remaining: { hour, minute } } on success.
  */
 export async function enforceRateLimit(
@@ -69,7 +115,11 @@ export async function enforceRateLimit(
   functionName: string,
   overrides?: Partial<RateLimitTier>,
 ): Promise<{ allowed: true; remaining: { hour: number; minute: number } }> {
-  const tier = { ...getRateLimitTier(functionName), ...overrides };
+  const baseTier = { ...getRateLimitTier(functionName), ...overrides };
+
+  // Resolve subscription plan and apply multiplier
+  const plan = await resolveUserPlan(supabaseAdmin, userId);
+  const tier = applyTierMultiplier(baseTier, plan);
 
   const now = Date.now();
   const oneHourAgo = new Date(now - 60 * 60 * 1000).toISOString();

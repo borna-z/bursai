@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callBursAI } from "../_shared/burs-ai.ts";
+import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 interface DuplicateRequest {
   image_path?: string;
@@ -26,6 +27,10 @@ interface DuplicateMatch {
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: CORS_HEADERS });
+  }
+
+  if (checkOverload("detect_duplicate_garment")) {
+    return overloadResponse(CORS_HEADERS);
   }
 
   try {
@@ -55,10 +60,11 @@ serve(async (req) => {
     }
     const userId = user.id;
 
+    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+    await enforceRateLimit(serviceClient, userId, "detect_duplicate_garment");
+
     const body = await req.json() as DuplicateRequest;
     const { image_path, category, color_primary, title, subcategory, material, exclude_garment_id } = body;
-
-    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // Step 1: Attribute matching — fetch user's existing garments
     let query = serviceClient
@@ -137,21 +143,21 @@ serve(async (req) => {
           .from('garments')
           .createSignedUrl(image_path, 600);
 
-        // Get signed URLs for candidate images
-        const candidateUrls: { id: string; url: string; title: string; imagePath: string }[] = [];
-        for (const match of topAttributeMatches) {
-          const { data: url } = await serviceClient.storage
-            .from('garments')
-            .createSignedUrl(match.garment.image_path, 600);
-          if (url?.signedUrl) {
-            candidateUrls.push({
-              id: match.garment.id,
-              url: url.signedUrl,
-              title: match.garment.title,
-              imagePath: match.garment.image_path,
-            });
-          }
-        }
+        // Get signed URLs for candidate images (parallel)
+        const candidateUrlResults = await Promise.all(
+          topAttributeMatches.map((match) =>
+            serviceClient.storage
+              .from('garments')
+              .createSignedUrl(match.garment.image_path, 600)
+              .then((r: any) => ({
+                id: match.garment.id,
+                url: r.data?.signedUrl,
+                title: match.garment.title,
+                imagePath: match.garment.image_path,
+              }))
+          )
+        );
+        const candidateUrls = candidateUrlResults.filter((c) => c.url) as { id: string; url: string; title: string; imagePath: string }[];
 
         if (newImageUrl?.signedUrl && candidateUrls.length > 0) {
           const candidateList = candidateUrls.map((c, i) => `Candidate ${i + 1} (ID: ${c.id}): "${c.title}"`).join('\n');
@@ -181,7 +187,9 @@ Consider: same garment photographed differently = 0.8+, very similar style/color
             extraBody: { temperature: 0.1 },
             timeout: 20000,
             functionName: "detect_duplicate_garment",
-          });
+            cacheTtlSeconds: 3600, // 1 hour
+            cacheNamespace: `dupcheck_${userId}`,
+          }, serviceClient);
 
           try {
             const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
@@ -258,11 +266,11 @@ Consider: same garment photographed differently = 0.8+, very similar style/color
     );
 
   } catch (error) {
+    if (error instanceof RateLimitError) {
+      return rateLimitResponse(error, CORS_HEADERS);
+    }
     console.error('Unexpected error:', error);
-    return new Response(
-      JSON.stringify({ duplicates: [] }),
-      { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
-    );
+    return bursAIErrorResponse(error, CORS_HEADERS);
   }
 });
 

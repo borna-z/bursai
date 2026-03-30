@@ -128,6 +128,19 @@ serve(async (req) => {
       });
     }
 
+    // Recover stuck jobs — reset "processing" jobs with expired locks back to "pending"
+    // This handles cases where a worker crashed mid-processing.
+    const now = new Date().toISOString();
+    await supabase
+      .from("job_queue")
+      .update({ status: "pending", locked_until: null, updated_at: now })
+      .eq("status", "processing")
+      .lt("locked_until", now)
+      .then(({ error: stuckErr }) => {
+        if (!stuckErr) return;
+        log.warn("Stuck job recovery failed", { error: stuckErr.message });
+      });
+
     // Periodic cleanup (10% chance per invocation)
     if (Math.random() < 0.1) {
       supabase.rpc("cleanup_old_jobs").catch(() => {});

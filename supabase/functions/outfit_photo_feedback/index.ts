@@ -3,10 +3,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
+  }
+
+  if (checkOverload("outfit_photo_feedback")) {
+    return overloadResponse(CORS_HEADERS);
   }
 
   try {
@@ -22,6 +27,8 @@ serve(async (req) => {
     });
     const { data: { user }, error: userError } = await authClient.auth.getUser(token);
     if (userError || !user) throw new Error("Unauthorized");
+
+    await enforceRateLimit(supabase, user.id, "outfit_photo_feedback");
 
     const { outfit_id, selfie_path } = await req.json();
     if (!outfit_id || !selfie_path) throw new Error("Missing outfit_id or selfie_path");
@@ -40,9 +47,11 @@ serve(async (req) => {
     ];
 
     const signedUrls: Record<string, string> = {};
-    for (const path of imagePaths) {
-      const { data } = await supabase.storage.from("garments").createSignedUrl(path, 600);
-      if (data?.signedUrl) signedUrls[path] = data.signedUrl;
+    const urlResults = await Promise.all(
+      imagePaths.map((path: string) => supabase.storage.from("garments").createSignedUrl(path, 600).then((r: any) => ({ path, url: r.data?.signedUrl })))
+    );
+    for (const r of urlResults) {
+      if (r.url) signedUrls[r.path] = r.url;
     }
 
     const selfieUrl = signedUrls[selfie_path];
@@ -112,7 +121,9 @@ Also provide a short, helpful commentary (2-3 sentences) with actionable styling
       complexity: "complex",
       max_tokens: 300,
       functionName: "outfit_photo_feedback",
-    });
+      cacheTtlSeconds: 7200, // 2 hours
+      cacheNamespace: `feedback_${outfit_id}`,
+    }, supabase);
 
     if (!feedback) throw new Error("AI did not return structured feedback");
 
@@ -137,6 +148,9 @@ Also provide a short, helpful commentary (2-3 sentences) with actionable styling
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return rateLimitResponse(e, CORS_HEADERS);
+    }
     console.error("outfit_photo_feedback error:", e);
     return bursAIErrorResponse(e, CORS_HEADERS);
   }
