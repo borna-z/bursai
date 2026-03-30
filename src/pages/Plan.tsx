@@ -7,6 +7,7 @@ import { getDateFnsLocale } from '@/lib/dateLocale';
 import { CalendarDays, Plus, Sparkles, Wand2 } from 'lucide-react';
 
 import { useLanguage } from '@/contexts/LanguageContext';
+import { hapticLight } from '@/lib/haptics';
 import { PlanPageSkeleton } from '@/components/ui/skeletons';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
@@ -436,20 +437,29 @@ export default function PlanPage() {
     );
   };
 
+  const monthYearLabel = format(selectedDate, 'MMMM yyyy', { locale: getDateFnsLocale(locale) });
+
+  const comingUpOutfits = useMemo(() => {
+    const todayDateStr = format(new Date(), 'yyyy-MM-dd');
+    return plannedOutfits
+      .filter((p) => p.date > todayDateStr && p.outfit_id && p.outfit)
+      .slice(0, 3);
+  }, [plannedOutfits]);
+
   return (
     <AppLayout>
       <motion.header className="topbar-frost sticky top-0 z-20 -mx-5 px-5 pb-3 pt-3">
         <div className="mx-auto flex max-w-md items-start justify-between gap-3">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
-              <button type="button" className="flex h-11 min-h-[44px] items-center gap-2.5 transition-opacity hover:opacity-75">
+              <button type="button" className="flex h-11 min-h-[44px] items-center gap-2.5 transition-opacity hover:opacity-75 cursor-pointer">
                 <div>
-                  <p className="caption-upper mb-0.5">{t('plan.weekly_overview')}</p>
+                  <p className="caption-upper mb-0.5 text-muted-foreground/50">{monthYearLabel}</p>
                   <h1 className="font-display italic text-[1.55rem] leading-tight text-foreground">
-                    {dateLabel}
+                    {t('plan.your_week') || 'Your Week'}
                   </h1>
                 </div>
-                <CalendarDays className="h-4 w-4 text-primary/50" />
+                <CalendarDays className="h-4 w-4 text-muted-foreground/40" />
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -488,6 +498,11 @@ export default function PlanPage() {
             <LaundryAlertBanner />
           </div>
 
+          {/* Today / selected day label */}
+          <p className="label-editorial text-accent">
+            {dateLabel.toUpperCase()}
+          </p>
+
           <motion.div
             key={selectedDateStr}
             initial={{ opacity: 0, y: 8 }}
@@ -517,6 +532,69 @@ export default function PlanPage() {
               {t('plan.add_outfit')}
             </Button>
           ) : null}
+
+          {/* Coming Up section */}
+          {comingUpOutfits.length > 0 && (
+            <section className="space-y-3">
+              <p className="label-editorial text-muted-foreground/60">
+                {t('plan.coming_up') || 'Coming Up'}
+              </p>
+              <div className="space-y-2">
+                {comingUpOutfits.map((planned) => {
+                  const planDate = new Date(planned.date + 'T00:00:00');
+                  const dayLabel = format(planDate, 'EEE d', { locale: getDateFnsLocale(locale) }).toUpperCase();
+                  const firstItem = planned.outfit?.outfit_items?.[0];
+                  const imgPath = firstItem?.garment ? getPreferredGarmentImagePath(firstItem.garment) : undefined;
+
+                  return (
+                    <button
+                      key={planned.id}
+                      type="button"
+                      onClick={() => {
+                        hapticLight();
+                        setSelectedDate(planDate);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-[1.1rem] surface-secondary p-3 text-left transition-colors cursor-pointer"
+                    >
+                      {imgPath && (
+                        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-[0.75rem] bg-secondary/40">
+                          <LazyImageSimple imagePath={imgPath} alt="" className="h-full w-full" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/55">{dayLabel}</p>
+                        <p className="truncate text-[14px] font-semibold text-foreground">
+                          {planned.outfit?.occasion ? getOccasionLabel(planned.outfit.occasion, t) : t('plan.planned_outfit')}
+                        </p>
+                      </div>
+                      <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground/40" />
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* AI plan banner */}
+          {hasGarments && weekPlannedCount < 5 && (
+            <button
+              type="button"
+              onClick={() => { hapticLight(); setQuickPlanSheetOpen(true); }}
+              className="flex w-full items-center gap-3 rounded-[1.25rem] surface-editorial p-4 text-left transition-colors cursor-pointer"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.85rem] bg-accent/15">
+                <Sparkles className="h-5 w-5 text-accent" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[14px] font-semibold text-foreground">
+                  {t('plan.ai_plan_week') || 'Let AI plan your whole week'}
+                </p>
+                <p className="text-[12px] text-muted-foreground/60">
+                  {t('plan.ai_plan_week_desc') || 'Smart outfits for each day based on weather & events'}
+                </p>
+              </div>
+            </button>
+          )}
         </AnimatedPage>
       </PullToRefresh>
 

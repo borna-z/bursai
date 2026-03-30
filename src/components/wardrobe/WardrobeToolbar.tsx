@@ -1,15 +1,18 @@
 import type { ElementType } from 'react';
-import { CalendarDays, Grid3X3, List, Search, SlidersHorizontal, Sparkles, Trash2, WashingMachine, X } from 'lucide-react';
+import { CalendarDays, ChevronDown, Search, SlidersHorizontal, Sparkles, Trash2, WashingMachine, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import type { WardrobeCommandActionKey, WardrobeCommandTopState, WardrobeInventoryState } from '@/components/wardrobe/wardrobeTypes';
 import type { WardrobeTab } from '@/hooks/useWardrobeView';
+import { hapticLight } from '@/lib/haptics';
 
 const ACTION_ICONS = {
   style: Sparkles,
   plan: CalendarDays,
 } satisfies Record<WardrobeCommandActionKey, ElementType>;
+
+const CATEGORY_CHIPS = ['all', 'tops', 'bottoms', 'shoes', 'outerwear', 'accessories'] as const;
 
 interface WardrobeToolbarProps {
   t: (key: string) => string;
@@ -33,6 +36,10 @@ interface WardrobeToolbarProps {
   onBulkDelete: () => void;
   onAction: (action: WardrobeCommandActionKey) => void;
   onClearFilters: () => void;
+  selectedCategory?: string;
+  onCategoryChange?: (category: string) => void;
+  totalCount?: number;
+  sortBy?: string;
 }
 
 export function WardrobeToolbar({
@@ -57,77 +64,56 @@ export function WardrobeToolbar({
   onBulkDelete,
   onAction,
   onClearFilters,
+  selectedCategory,
+  onCategoryChange,
+  totalCount,
+  sortBy,
 }: WardrobeToolbarProps) {
   const showGarmentControls = activeTab === 'garments';
-  const showInventoryMessage = isSelecting
-    || activeTab === 'outfits'
-    || hasActiveFilters
-    || Boolean(search)
-    || inventoryState.kind !== 'results';
 
   return (
-    <section className="space-y-3.5" aria-label="Wardrobe command top">
+    <section className="space-y-3" aria-label="Wardrobe controls">
+      {/* Tab switcher */}
       <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="eyebrow-chip bg-background/80 text-muted-foreground/72">
-            {activeTab === 'garments' ? t('nav.wardrobe') : t('nav.outfits')}
-          </span>
-          {commandState.resultsLabel ? (
-            <span className="eyebrow-chip border-transparent bg-secondary/75 text-foreground/58">
-              {commandState.resultsLabel}
-            </span>
-          ) : null}
+        <div className="inline-flex rounded-full border border-border/45 bg-card/80 p-1">
+          {(['garments', 'outfits'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => onTabChange(tab)}
+              className={cn(
+                'rounded-full px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer',
+                activeTab === tab
+                  ? 'bg-foreground text-background'
+                  : 'text-muted-foreground',
+              )}
+            >
+              {t(`wardrobe.tab_${tab}`)}
+            </button>
+          ))}
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5">
-          {showGarmentControls && (
-            <>
-              <button
-                onClick={onToggleView}
-                className="flex h-11 w-11 items-center justify-center rounded-[1.1rem] border border-border/45 bg-background/80 text-muted-foreground transition-colors hover:bg-background"
-                aria-label={isGridView ? t('wardrobe.view_list') : t('wardrobe.view_grid')}
-              >
-                {isGridView ? <List className="h-[18px] w-[18px]" /> : <Grid3X3 className="h-[18px] w-[18px]" />}
-              </button>
-              <button
-                onClick={isSelecting ? onCancelSelecting : onStartSelecting}
-                className={cn(
-                  'rounded-full px-3.5 py-2 text-sm font-medium transition-colors',
-                  isSelecting
-                    ? 'bg-foreground text-background'
-                    : 'border border-border/45 bg-background/80 text-muted-foreground hover:bg-background',
-                )}
-              >
-                {isSelecting ? t('common.cancel') : t('wardrobe.select')}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="inline-flex rounded-full border border-border/45 bg-card/80 p-1 shadow-[0_8px_20px_rgba(22,18,15,0.04)]">
-        {(['garments', 'outfits'] as const).map((tab) => (
+        {showGarmentControls && (
           <button
-            key={tab}
-            onClick={() => onTabChange(tab)}
+            onClick={isSelecting ? onCancelSelecting : onStartSelecting}
             className={cn(
-              'rounded-full px-4 py-2 text-[13px] font-medium transition-colors',
-              activeTab === tab
+              'rounded-full px-3.5 py-2 text-[13px] font-medium transition-colors cursor-pointer',
+              isSelecting
                 ? 'bg-foreground text-background'
                 : 'text-muted-foreground',
             )}
           >
-            {t(`wardrobe.tab_${tab}`)}
+            {isSelecting ? t('common.cancel') : t('wardrobe.select')}
           </button>
-        ))}
+        )}
       </div>
 
-      {showGarmentControls ? (
+      {/* Search + Filter row */}
+      {showGarmentControls && (
         <div className="flex gap-2.5">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground/50" />
             <Input
-              placeholder={commandState.searchPlaceholder}
+              placeholder={commandState.searchPlaceholder || t('wardrobe.search_placeholder') || 'Search'}
               value={search}
               onChange={(event) => onSearchChange(event.target.value)}
               className="h-11 rounded-[1.1rem] border-border/45 bg-background/78 pl-10 pr-10 text-[14px] shadow-none placeholder:text-muted-foreground/40"
@@ -135,18 +121,17 @@ export function WardrobeToolbar({
             {search && (
               <button
                 onClick={onClearSearch}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 transition-transform active:scale-90"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 transition-transform active:scale-90 cursor-pointer"
                 aria-label={t('wardrobe.clear_search')}
               >
                 <X className="h-4 w-4" />
               </button>
             )}
           </div>
-
           <button
             onClick={onOpenFilterSheet}
             className={cn(
-              'relative flex h-11 w-11 items-center justify-center rounded-[1.1rem] border transition-colors',
+              'relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[1.1rem] border transition-colors cursor-pointer',
               hasActiveFilters
                 ? 'border-foreground bg-foreground text-background'
                 : 'border-border/45 bg-background/80 text-muted-foreground hover:bg-background',
@@ -161,7 +146,52 @@ export function WardrobeToolbar({
             )}
           </button>
         </div>
-      ) : (
+      )}
+
+      {/* Category chips */}
+      {showGarmentControls && onCategoryChange && (
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {CATEGORY_CHIPS.map((chip) => {
+            const isActive = (selectedCategory || 'all') === chip;
+            const label = chip === 'all' ? t('wardrobe.filter_all') || 'All' : t(`wardrobe.category_${chip}`) || chip.charAt(0).toUpperCase() + chip.slice(1);
+            return (
+              <button
+                key={chip}
+                onClick={() => { hapticLight(); onCategoryChange(chip === 'all' ? 'all' : chip); }}
+                className={cn(
+                  'shrink-0 rounded-full px-4 py-2 text-[12px] font-medium transition-colors cursor-pointer',
+                  isActive
+                    ? 'bg-foreground text-background'
+                    : 'border border-border/45 bg-card/60 text-foreground',
+                )}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Count + Sort row */}
+      {showGarmentControls && !isSelecting && (
+        <div className="flex items-center justify-between px-0.5">
+          <span className="text-[14px] font-medium text-muted-foreground">
+            {totalCount !== undefined
+              ? t('wardrobe.pieces_count')?.replace('{count}', String(totalCount)) || `${totalCount} pieces`
+              : commandState.resultsLabel}
+          </span>
+          <button
+            onClick={onOpenFilterSheet}
+            className="flex items-center gap-1 text-[12px] font-medium text-accent cursor-pointer"
+          >
+            {t('wardrobe.sort_recent') || 'Recently Added'}
+            <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Outfits tab caption */}
+      {activeTab === 'outfits' && (
         <div className="surface-utility px-4 py-3">
           <p className="text-sm text-muted-foreground">
             {t('wardrobe.outfits_caption')}
@@ -169,47 +199,7 @@ export function WardrobeToolbar({
         </div>
       )}
 
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-        {commandState.actions.map((action) => {
-          const Icon = ACTION_ICONS[action.key];
-          return (
-            <button
-              key={action.key}
-              onClick={() => onAction(action.key)}
-              className={cn(
-                'flex h-11 shrink-0 items-center gap-2 rounded-full px-3.5 text-[13px] font-medium transition-colors',
-                action.tone === 'primary' && 'bg-foreground text-background',
-                action.tone === 'secondary' && 'border border-border/45 bg-background/80 text-foreground',
-                action.tone === 'muted' && 'border border-border/35 bg-card/65 text-muted-foreground',
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {action.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {showInventoryMessage ? (
-        <div className="surface-utility flex items-center justify-between gap-3 px-4 py-3">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">{inventoryState.title}</p>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{inventoryState.description}</p>
-          </div>
-          {showGarmentControls && (hasActiveFilters || search) && !isSelecting && (
-            <button
-              onClick={() => {
-                onClearSearch();
-                onClearFilters();
-              }}
-              className="shrink-0 text-xs font-medium text-muted-foreground underline underline-offset-4"
-            >
-              {t('wardrobe.clear')}
-            </button>
-          )}
-        </div>
-      ) : null}
-
+      {/* Bulk selection bar */}
       {isSelecting && selectedIdsCount > 0 && (
         <div className="surface-utility flex flex-wrap items-center justify-between gap-3 px-4 py-3">
           <span className="text-sm font-medium text-foreground">

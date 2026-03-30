@@ -12,11 +12,12 @@ interface PageHeaderProps {
   showBack?: boolean;
   actions?: ReactNode;
   className?: string;
+  titleClassName?: string;
   sticky?: boolean;
 }
 
 export function PageHeader({
-  title, subtitle, eyebrow, showBack = false, actions, className, sticky = true,
+  title, subtitle, eyebrow, showBack = false, actions, className, titleClassName, sticky = true,
 }: PageHeaderProps) {
   const navigate = useNavigate();
   return (
@@ -45,7 +46,7 @@ export function PageHeader({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -5 }}
                 transition={{ duration: 0.18 }}
-                className="truncate font-display italic text-[1.3rem] font-medium leading-tight text-foreground"
+                className={cn("truncate font-display italic text-[1.3rem] font-medium leading-tight text-foreground", titleClassName)}
               >
                 {title}
               </motion.h1>

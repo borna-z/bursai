@@ -84,22 +84,13 @@ function renderWardrobe() {
 describe('Wardrobe page', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders the compact wardrobe command top with tabs and a primary action rail', () => {
+  it('renders the V4 wardrobe with tabs and garment grid', () => {
     renderWardrobe();
 
     expect(screen.getAllByText('wardrobe.title').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole('button', { name: 'wardrobe.tab_garments' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'wardrobe.tab_outfits' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'outfits.create' })).toBeInTheDocument();
-  }, 10000);
-
-  it('does not show redundant add/scan buttons in the action rail', () => {
-    renderWardrobe();
-
-    expect(screen.queryByRole('button', { name: 'wardrobe.add' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'wardrobe.live_scan' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'outfits.create' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'plan.plan' })).toBeInTheDocument();
+    expect(screen.getByTestId('garment-grid')).toBeInTheDocument();
   }, 10000);
 
   it('shows smart access when garments are available', () => {

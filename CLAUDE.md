@@ -6,7 +6,7 @@ Follow everything here without being asked. These are standing orders, not sugge
 ## Hard Rules — Never Break These
 
 - Never push directly to main — all changes via PR or explicit instruction
-- Never touch `src/pages/Insights.tsx` — frozen, do not modify under any circumstances
+- `src/pages/Insights.tsx` — freeze lifted for V4 redesign. Was previously frozen, now editable.
 - Never use localStorage or sessionStorage in artifacts — use React state
 - Never use form HTML elements in React — use onClick/onChange handlers
 - TypeScript must pass after every task — run `npx tsc --noEmit --skipLibCheck` and fix all errors before finishing
@@ -268,6 +268,163 @@ The accent is warm gold — NOT indigo. If you see `--accent: 229` anywhere, tha
 - Body background: cool blue gradient removed
 - Scale hardening phase 1: rate limiting on 15 functions, circuit breaker, retry backoff, job queue, AI cost telemetry, overload detection
 - Scale hardening phase 2: subscription-tier rate limits, caching gaps filled, N+1 fixes, performance indexes, stripe webhook idempotency, stuck job recovery
+- V4 editorial redesign (branch `v4/editorial-redesign`): all 5 main screens reimagined with Scandinavian editorial magazine aesthetic
+
+### V4 Redesign — Current State (branch: `v4/editorial-redesign`)
+
+**Goal:** Apply Scandinavian editorial magazine aesthetic (Kinfolk/Cereal feel) to ALL 44 pages. Serif italic headlines (Playfair Display), clean hierarchy, hero cards, minimal shadows, warm gold accent, editorial surfaces. Every page should feel like a magazine spread, not a generic app screen.
+
+**V4 workflow — MUST follow this exact process for every page:**
+
+**IMPORTANT:** The Stitch project contains old V3 screens mixed with V4 screens. ONLY use the 5 confirmed V4 screens listed below. For ALL other pages, you MUST generate a NEW V4 screen — do NOT use any existing screen from the project that is not in the V4 list below.
+
+- **Stitch project ID:** `8117716384164426188`
+- **Design system asset ID:** `14594054922406120457`
+
+#### Step 1: Design in Stitch
+
+**For the 5 already-implemented V4 pages** (reference only — already coded):
+
+| Page | Screen ID | Title |
+|------|-----------|-------|
+| `Home.tsx` | `18c5ca56af814adca5c10966e4d2dfe3` | BURS V4 Home Screen |
+| `Wardrobe.tsx` | `92b02316946c4d61903789e010df96f8` | BURS V4 Wardrobe |
+| `AddGarment.tsx` (UploadStep) | `de6bdea980614e56b7425450fcf2843a` | Add Garment - BURS V4 |
+| `Plan.tsx` | `93ace4dc3c944847be9cf19bc82623cc` | BURS V4 Plan |
+| `Insights.tsx` | `aba5e577dc6446bdb8b423b76b51f9af` | BURS V4 Insights Screen |
+
+**For EVERY other page** — generate a fresh V4 screen:
+1. Use `mcp__stitch__generate_screen_from_text` with:
+   - `projectId: "8117716384164426188"`
+   - `deviceType: "MOBILE"`
+   - `prompt:` Use the template below — describe the page's content, sections, and hierarchy in detail
+2. After generation, apply the V4 design system:
+   - Use `mcp__stitch__apply_design_system` with `assetId: "14594054922406120457"`
+3. Fetch the final HTML:
+   - Use `mcp__stitch__get_screen` to get the generated HTML/CSS
+4. Use the HTML as the design reference for implementation
+
+**Stitch prompt template** (adapt for each page):
+```
+Design a [PAGE NAME] screen for BURS, an AI-powered wardrobe management app.
+
+Brand: Scandinavian editorial magazine aesthetic (Kinfolk/Cereal feel).
+- Background: Editorial Cream (#F5F0E8)
+- Foreground: Deep Charcoal (#1C1917)
+- Accent: Warm Gold (#B07D3A)
+- Headlines: Playfair Display italic serif
+- Body: DM Sans sans-serif
+- Radius: 18px rounded corners
+- iOS mobile viewport (390x844)
+- Light mode: flat surfaces, minimal shadows
+- Cards use warm cream/white surfaces with subtle borders
+
+Layout:
+- [DESCRIBE THE SPECIFIC SECTIONS, HIERARCHY, AND CONTENT FOR THIS PAGE]
+- Editorial feel: generous whitespace, clean typography hierarchy
+- Bottom tab bar with 5 tabs (Home, Wardrobe, +Add, Plan, Insights)
+
+Include: [SPECIFIC UI ELEMENTS FOR THIS PAGE]
+```
+
+#### Step 2: Implement the design
+- Read the current page code to understand existing hooks, data flow, and state
+- Rewrite/refactor the JSX to match the Stitch V4 mockup
+- Adapt Stitch HTML/CSS to React + Tailwind (use existing surface classes, motion presets, haptics)
+- Keep all existing functionality — only change the visual presentation
+
+#### Step 3: Update tests
+- If existing tests break due to V4 structural changes, update them to match new V4 UI
+- Run `npm test` to verify all pass
+
+#### Step 4: Verify
+- Run `npx tsc --noEmit --skipLibCheck` — must be 0 errors
+- Run `npm test` — all tests must pass
+
+**Design principles for V4:**
+- Headlines: `font-display italic text-[1.3rem+]` (Playfair Display)
+- Eyebrow labels: `label-editorial text-muted-foreground/60` uppercase tracking
+- Cards: `surface-secondary rounded-[1.25rem]` or `surface-hero`
+- Buttons: `rounded-full` with hapticLight() on tap
+- Motion: Framer Motion with staggered entrances, `EASE_CURVE` from motion.ts
+- Spacing: generous padding (`p-4` to `p-6`), `gap-3` to `gap-4` between sections
+- No visual clutter: remove redundant labels, badge spam, dense grids
+- Each page uses `AppLayout > PageHeader > PullToRefresh > AnimatedPage` pattern
+
+#### Completed (5 main tabs + foundation)
+
+| Phase | Files | Status |
+|-------|-------|--------|
+| Foundation | `src/index.css` (.stats-strip), `src/components/ui/score-ring.tsx`, `PageHeader.tsx` (titleClassName) | Done |
+| Home | `src/pages/Home.tsx`, `HomeTodayLookCard.tsx`, `HomeStatsStrip.tsx`, `HomeWeekAhead.tsx` | Done |
+| Wardrobe | `src/pages/Wardrobe.tsx`, `WardrobeToolbar.tsx` | Done |
+| Add Garment | `src/components/add-garment/UploadStep.tsx` | Done |
+| Plan | `src/pages/Plan.tsx`, `WeekOverview.tsx` | Done |
+| Insights | `src/pages/Insights.tsx`, `InsightsGarmentHighlights.tsx`, `InsightsValueTracker.tsx` | Done |
+| Tests | All 4 test files updated for V4 | Done (91/91 pass) |
+
+#### HIGH priority — Core app pages (do these next, in this order)
+
+| # | Page | Lines | What it does | V4 treatment needed |
+|---|------|-------|-------------|-------------------|
+| 1 | `OutfitGenerate.tsx` | ~848 | Outfit generation flow with occasion selection | Occasion selector cards, generation states, output card |
+| 2 | `OutfitDetail.tsx` | ~832 | Full outfit preview with swap/feedback | Garment carousel, swap sheet, rating UI |
+| 3 | `AIChat.tsx` | ~608 | AI styling assistant chat | Message bubbles, input styling, motion |
+| 4 | `GarmentDetail.tsx` | ~537 | Individual garment view | Enrichment panel, spec rows, similar items |
+| 5 | `EditGarment.tsx` | ~475 | Garment metadata editor | Form sections, color picker, multi-select |
+| 6 | `LiveScan.tsx` | ~784 | Real-time camera garment detection | Camera frame, detection feedback, overlays |
+| 7 | `UnusedOutfits.tsx` | ~291 | Generated outfits from unused garments | Outfit cards, generation state, occasion badges |
+| 8 | `MoodOutfit.tsx` | ~232 | Mood-based outfit generation | Mood swatch selector, loading state, output |
+| 9 | `PickMustHaves.tsx` | ~194 | Item selector for travel/generation | Category chips, item grid, selection marks |
+| 10 | `Onboarding.tsx` | ~185 | Multi-step onboarding flow | Step progress, language selector, quiz UI |
+| 11 | `Outfits.tsx` | ~174 | Outfit gallery with filters | View toggle, outfit cards, filter controls |
+| 12 | `GarmentGaps.tsx` | ~144 | Wardrobe gap analysis | Gap result cards, locked state, recommendations |
+| 13 | `TravelCapsule.tsx` | ~112 | Trip packing list generator | Form inputs, vibe selector, results view |
+| 14 | `UsedGarments.tsx` | ~100 | Frequently worn items grid | Garment grid, metadata, action buttons |
+| 15 | `Discover.tsx` | ~47 | Wardrobe progress + style tools dashboard | Section headings, tools grid, progress viz |
+
+#### MEDIUM priority — Secondary pages
+
+| # | Page | Lines | What it does | V4 treatment needed |
+|---|------|-------|-------------|-------------------|
+| 16 | `SettingsStyle.tsx` | ~568 | Style profile editor (body, colors, fit) | Body inputs, color palette, preference chips |
+| 17 | `ShareOutfit.tsx` | ~282 | Public outfit share page | Outfit card, reactions, share buttons |
+| 18 | `SettingsPrivacy.tsx` | ~263 | Privacy controls, GDPR, data export | Accordion sections, consent toggles |
+| 19 | `Admin.tsx` | ~257 | Admin leads/analytics dashboard | Data table, metrics cards, search |
+| 20 | `Auth.tsx` | ~249 | Login/signup page | Already editorial — minor refinements |
+| 21 | `GenerateImages.tsx` | ~225 | Batch garment image generation | Progress bar, batch list, status indicators |
+| 22 | `PublicProfile.tsx` | ~212 | User public style profile | Profile header, outfit grid, badges |
+| 23 | `ResetPassword.tsx` | ~191 | Password recovery/reset | Input styling, validation feedback |
+| 24 | `Pricing.tsx` | ~188 | Subscription plans + FAQ | Pricing cards, feature comparison, FAQ |
+| 25 | `Contact.tsx` | ~153 | Contact form | Form inputs, submit button, success state |
+| 26 | `SeedWardrobe.tsx` | ~134 | Admin wardrobe seed utility | Progress bar, stats, action buttons |
+| 27 | `SettingsAccount.tsx` | ~126 | Account management | Input fields, subscription info, alerts |
+| 28 | `Settings.tsx` | ~104 | Settings hub/menu | Settings rows, icons, navigation |
+| 29 | `SettingsNotifications.tsx` | ~87 | Push notification prefs | Toggle switches, calendar section |
+| 30 | `SettingsAppearance.tsx` | ~64 | Theme + accent color picker | Theme buttons, accent color UI |
+
+#### LOW priority — Utility/redirect/legal pages (minimal or no changes)
+
+| # | Page | Lines | Notes |
+|---|------|-------|-------|
+| 31 | `PrivacyPolicy.tsx` | ~400 | Static legal text — no redesign needed |
+| 32 | `Terms.tsx` | ~271 | Static legal text — no redesign needed |
+| 33 | `GoogleCalendarCallback.tsx` | ~129 | OAuth callback — status display only |
+| 34 | `BillingSuccess.tsx` | ~55 | Post-purchase — already minimal |
+| 35 | `BillingCancel.tsx` | ~34 | Payment cancel — already minimal |
+| 36 | `NotFound.tsx` | ~29 | 404 page — one-liner styling |
+| 37 | `Index.tsx` | ~27 | Auth routing — no UI |
+| 38 | `StyleMe.tsx` | ~19 | Redirect to /ai/generate — no UI |
+| 39 | `Landing.tsx` | ~12 | Redirect to static HTML — no UI |
+
+#### V4 approach for remaining pages
+- Work through HIGH priority pages first (1-15), then MEDIUM (16-30)
+- For each page: read current code → apply V4 design principles → update tests if needed → run `npx tsc --noEmit --skipLibCheck`
+- Use existing surface classes (`.surface-hero`, `.surface-secondary`, `.surface-editorial`)
+- Use `font-display italic` for all page titles
+- Add `hapticLight()` to all interactive elements
+- Ensure motion entrances with `initial/animate` on sections
+- After each batch: run full test suite `npm test`
 
 ### What Still Needs Doing
 - Keyboard accessibility on SwipeableGarmentCard (swipe has no keyboard alternative)

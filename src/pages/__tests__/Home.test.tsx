@@ -6,13 +6,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const navigateMock = vi.fn();
 const useGarmentCountMock = vi.fn();
-const useFlatGarmentsMock = vi.fn();
 const useOutfitsMock = vi.fn();
 const usePlannedOutfitsForDateMock = vi.fn();
-const useInsightsMock = vi.fn();
-const useStyleDnaMock = vi.fn();
 const useWeatherMock = vi.fn();
-const useCalendarEventsRangeMock = vi.fn();
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -57,7 +53,6 @@ vi.mock('@/hooks/useGarments', async () => {
   return {
     ...actual,
     useGarmentCount: () => useGarmentCountMock(),
-    useFlatGarments: () => useFlatGarmentsMock(),
   };
 });
 
@@ -69,20 +64,8 @@ vi.mock('@/hooks/usePlannedOutfits', () => ({
   usePlannedOutfitsForDate: () => usePlannedOutfitsForDateMock(),
 }));
 
-vi.mock('@/hooks/useInsights', () => ({
-  useInsights: () => useInsightsMock(),
-}));
-
-vi.mock('@/hooks/useStyleDNA', () => ({
-  useStyleDNA: () => useStyleDnaMock(),
-}));
-
 vi.mock('@/hooks/useWeather', () => ({
   useWeather: () => useWeatherMock(),
-}));
-
-vi.mock('@/hooks/useCalendarSync', () => ({
-  useCalendarEventsRange: () => useCalendarEventsRangeMock(),
 }));
 
 vi.mock('@/hooks/useFirstRunCoach', () => ({
@@ -107,12 +90,31 @@ vi.mock('@/components/weather/WeatherPill', () => ({
   WeatherPill: () => <div>Weather</div>,
 }));
 
-vi.mock('@/components/ui/OutfitComposition', () => ({
-  OutfitComposition: () => <div data-testid="outfit-composition" />,
+vi.mock('@/components/home/HomeTodayLookCard', () => ({
+  HomeTodayLookCard: ({ primaryLabel, secondaryLabel, onPrimaryAction, onSecondaryAction }: {
+    primaryLabel: string; secondaryLabel: string;
+    onPrimaryAction: () => void; onSecondaryAction: () => void;
+    state: string; todayOutfit: unknown; garmentCount: number; weatherSummary: string | null;
+  }) => (
+    <div>
+      <button onClick={onPrimaryAction}>{primaryLabel}</button>
+      <button onClick={onSecondaryAction}>{secondaryLabel}</button>
+    </div>
+  ),
 }));
 
-vi.mock('@/components/ui/lazy-image', () => ({
-  LazyImageSimple: ({ alt }: { alt: string }) => <div aria-label={alt}>image</div>,
+vi.mock('@/components/home/HomeStatsStrip', () => ({
+  HomeStatsStrip: ({ garmentCount, outfitCount, streakDays }: { garmentCount: number; outfitCount: number; streakDays: number }) => (
+    <div data-testid="stats-strip">
+      <span>{garmentCount} pieces</span>
+      <span>{outfitCount} outfits</span>
+      <span>{streakDays} streak</span>
+    </div>
+  ),
+}));
+
+vi.mock('@/components/home/HomeWeekAhead', () => ({
+  HomeWeekAhead: () => <div data-testid="week-ahead">Week Ahead</div>,
 }));
 
 import HomePage from '../Home';
@@ -131,92 +133,40 @@ function renderHome() {
   );
 }
 
-function buildUnusedGarment() {
-  return {
-    id: 'garment-1',
-    title: 'Cream shirt',
-    category: 'top',
-    color_primary: 'cream',
-    created_at: '2026-01-01T00:00:00.000Z',
-    wear_count: 0,
-    image_path: '/shirt.png',
-    original_image_path: '/shirt.png',
-    processed_image_path: null,
-    rendered_image_path: null,
-    image_processing_status: null,
-    render_status: null,
-  };
-}
-
-describe('Home page command center', () => {
+describe('Home page V4', () => {
   beforeEach(() => {
     navigateMock.mockReset();
 
     useGarmentCountMock.mockReturnValue({ data: 12, isLoading: false });
-    useFlatGarmentsMock.mockReturnValue({ data: [], isLoading: false });
     useOutfitsMock.mockReturnValue({ data: [{ id: 'recent-1', outfit_items: [] }], isLoading: false });
     usePlannedOutfitsForDateMock.mockReturnValue({ data: [], isLoading: false });
-    useInsightsMock.mockReturnValue({
-      data: {
-        unusedGarments: [buildUnusedGarment()],
-      },
-    });
-    useStyleDnaMock.mockReturnValue({
-      data: {
-        archetype: 'Minimalist',
-        outfitsAnalyzed: 8,
-        signatureColors: [{ color: 'black', percentage: 40 }],
-        uniformCombos: [{ combo: ['tee', 'trousers', 'sneakers'], count: 4 }],
-        patterns: [{ label: 'Neutral palette', strength: 75, detail: 'Mostly neutral' }],
-        formalityCenter: 2.8,
-        formalitySpread: 'moderate',
-      },
-      isLoading: false,
-    });
     useWeatherMock.mockReturnValue({
       weather: { temperature: 18, precipitation: 'none', condition: 'weather.condition.clear', location: 'Stockholm' },
       isLoading: false,
       error: null,
     });
-    useCalendarEventsRangeMock.mockReturnValue({
-      data: [{ id: 'event-1', title: 'Client review', date: new Date().toISOString().slice(0, 10), start_time: '09:00:00' }],
-    });
   });
 
-  it('surfaces the focused today flow, utility cards, and insights preview', () => {
+  it('renders editorial greeting with user name, stats strip, and week ahead', () => {
     renderHome();
 
     const heading = screen.getByRole('heading', { level: 1 });
     expect(heading).toBeInTheDocument();
     expect(heading.textContent).toContain('Test');
-    expect(screen.getByText('home.action_style_outfit')).toBeInTheDocument();
-    expect(screen.getAllByText('home.ask_burs_title').length).toBeGreaterThan(0);
-    expect(screen.getByText('home.travel_capsule_title')).toBeInTheDocument();
-    expect(screen.getAllByText('home.dna_open_insights').length).toBeGreaterThan(0);
-    expect(screen.getByText('home.wear_open_rotation')).toBeInTheDocument();
+
+    expect(screen.getByTestId('stats-strip')).toBeInTheDocument();
+    expect(screen.getByTestId('week-ahead')).toBeInTheDocument();
   });
 
-  it('navigates to the promoted actions from home', () => {
+  it('shows style outfit as primary action with enough garments', () => {
     renderHome();
 
+    expect(screen.getByText('home.action_style_outfit')).toBeInTheDocument();
     fireEvent.click(screen.getByText('home.action_style_outfit'));
-    fireEvent.click(screen.getByRole('button', { name: /home\.ask_burs_title/i }));
-    fireEvent.click(screen.getByText('home.travel_capsule_title'));
-    fireEvent.click(screen.getAllByText('home.dna_open_insights')[0]);
-    fireEvent.click(screen.getByText('home.wear_open_rotation'));
-
     expect(navigateMock).toHaveBeenCalledWith('/ai/generate');
-    expect(
-      navigateMock.mock.calls.some(([path]) =>
-        path === '/ai/chat' || (typeof path === 'string' && path.startsWith('/ai/generate')),
-      ),
-    ).toBe(true);
-    expect(navigateMock).toHaveBeenCalledWith('/ai/travel');
-    expect(navigateMock).toHaveBeenCalledWith('/insights');
-    expect(navigateMock).toHaveBeenCalledWith('/outfits/unused');
   });
 
-  it('keeps wardrobe as the secondary path while the wardrobe is still small', () => {
+  it('shows add garment action when wardrobe is small', () => {
     useGarmentCountMock.mockReturnValue({ data: 2, isLoading: false });
 
     renderHome();
