@@ -44,7 +44,7 @@ import {
 } from '@/lib/styleFlowState';
 import { buildDayIntelligence } from '@/lib/dayIntelligence';
 import { hapticLight } from '@/lib/haptics';
-import { EASE_CURVE, STAGGER_DELAY, DURATIONS } from '@/lib/motion';
+import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM, DURATION_SLOW } from '@/lib/motion';
 
 /* ── Occasions ── */
 const OCCASION_ICONS: Record<string, React.ElementType> = {
@@ -381,7 +381,7 @@ export default function OutfitGeneratePage() {
               <motion.div
                 initial={prefersReduced ? false : { opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: DURATIONS.SLOW, ease: EASE_CURVE }}
+                transition={{ duration: DURATION_SLOW, ease: EASE_CURVE }}
                 className="mb-6"
               >
                 <p className="label-editorial text-muted-foreground/50 mb-1">YOUR LOOK</p>
@@ -405,7 +405,7 @@ export default function OutfitGeneratePage() {
                     key={item.garment.id}
                     initial={prefersReduced ? false : { opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * STAGGER_DELAY * 2, duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+                    transition={{ delay: i * STAGGER_DELAY * 2, duration: DURATION_MEDIUM, ease: EASE_CURVE }}
                     onClick={() => { hapticLight(); navigate(`/wardrobe/${item.garment.id}`); }}
                     className="surface-secondary rounded-[1.25rem] p-3 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform"
                   >
@@ -456,7 +456,7 @@ export default function OutfitGeneratePage() {
                 <motion.div
                   initial={prefersReduced ? false : { opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ delay: 0.25, duration: DURATIONS.SLOW, ease: EASE_CURVE }}
+                  transition={{ delay: 0.25, duration: DURATION_SLOW, ease: EASE_CURVE }}
                   className="mt-5 px-1"
                 >
                   <p className="font-display italic text-[13px] text-foreground/60 leading-relaxed">
@@ -478,7 +478,7 @@ export default function OutfitGeneratePage() {
               <motion.div
                 initial={prefersReduced ? false : { opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3, duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+                transition={{ delay: 0.3, duration: DURATION_MEDIUM, ease: EASE_CURVE }}
                 className="mt-8 space-y-3"
               >
                 <Button
@@ -537,7 +537,7 @@ export default function OutfitGeneratePage() {
                 <motion.div
                   initial={prefersReduced ? false : { opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.35, duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+                  transition={{ delay: 0.35, duration: DURATION_MEDIUM, ease: EASE_CURVE }}
                   layout={!prefersReduced}
                   className="mt-8"
                 >
@@ -620,7 +620,7 @@ export default function OutfitGeneratePage() {
           <motion.div
             initial={prefersReduced ? false : { opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+            transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE }}
             className="surface-editorial rounded-[1.25rem] max-w-sm w-full p-6 text-center"
           >
             <AlertCircle className="w-10 h-10 text-destructive mx-auto mb-4 opacity-70" />
@@ -668,7 +668,7 @@ export default function OutfitGeneratePage() {
         <motion.section
           initial={prefersReduced ? false : { opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+          transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE }}
           className="space-y-2.5 pb-6"
         >
           {weather && (
@@ -710,7 +710,7 @@ export default function OutfitGeneratePage() {
         <motion.section
           initial={prefersReduced ? false : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05, duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+          transition={{ delay: 0.05, duration: DURATION_MEDIUM, ease: EASE_CURVE }}
           className="space-y-3 pb-8"
         >
           <p className="label-editorial text-muted-foreground/50">SELECT OCCASION</p>
@@ -742,7 +742,7 @@ export default function OutfitGeneratePage() {
         <motion.section
           initial={prefersReduced ? false : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+          transition={{ delay: 0.1, duration: DURATION_MEDIUM, ease: EASE_CURVE }}
           className="pb-8 space-y-3"
         >
           <p className="label-editorial text-muted-foreground/50">MOOD & AESTHETIC</p>
@@ -781,7 +781,7 @@ export default function OutfitGeneratePage() {
         <motion.section
           initial={prefersReduced ? false : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+          transition={{ delay: 0.15, duration: DURATION_MEDIUM, ease: EASE_CURVE }}
           className="pb-6 space-y-3"
         >
           <div className="grid grid-cols-2 gap-3">

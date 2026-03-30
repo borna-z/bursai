@@ -4,7 +4,7 @@ import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { stripBrands } from '@/lib/stripBrands';
 import { nativeShare } from '@/lib/nativeShare';
 import { normalizeWeather } from '@/lib/outfitContext';
-import { EASE_CURVE, STAGGER_DELAY, DURATIONS } from '@/lib/motion';
+import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM, DURATION_SLOW } from '@/lib/motion';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Star, Bookmark, BookmarkCheck, Check, RefreshCw, Share2, Loader2,
@@ -600,7 +600,7 @@ export default function OutfitDetailPage() {
         ref={outfitRef}
         initial={prefersReduced ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: DURATIONS.SLOW, ease: EASE_CURVE }}
+        transition={{ duration: DURATION_SLOW, ease: EASE_CURVE }}
         className="flex w-full"
       >
         {outfitItems.slice(0, 5).map((item) => (
@@ -619,7 +619,7 @@ export default function OutfitDetailPage() {
       <motion.div
         initial={prefersReduced ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1, duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+        transition={{ delay: 0.1, duration: DURATION_MEDIUM, ease: EASE_CURVE }}
         className="px-5 pt-5 pb-4"
       >
         <p className="label-editorial text-muted-foreground/45 mb-1">
@@ -666,7 +666,7 @@ export default function OutfitDetailPage() {
           <motion.div
             initial={prefersReduced ? false : { opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+            transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE }}
             className="flex flex-col gap-3"
           >
             <Button
@@ -749,7 +749,7 @@ export default function OutfitDetailPage() {
           <motion.div
             initial={prefersReduced ? false : { opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+            transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE }}
           >
             {sortedOutfitItems.map((item) => (
               <SlotRow
@@ -772,7 +772,7 @@ export default function OutfitDetailPage() {
           <motion.div
             initial={prefersReduced ? false : { opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: DURATIONS.MEDIUM, ease: EASE_CURVE }}
+            transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE }}
             className="flex flex-col gap-4"
           >
             {genOutfitReasoning?.why_it_works && (
