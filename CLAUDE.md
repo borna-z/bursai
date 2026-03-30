@@ -254,7 +254,7 @@ The accent is warm gold — NOT indigo. If you see `--accent: 229` anywhere, tha
 
 ## Current Code Quality State
 
-**Audit score**: 93/100 (upgraded from 91 after V4 redesign of 33 pages). Target: 95+
+**Audit score**: 94/100 (upgraded from 93 after completing all V4 pages). Target: 95+
 
 ### What Was Fixed (do not redo)
 - Accent color: indigo to warm gold throughout index.css
@@ -268,7 +268,9 @@ The accent is warm gold — NOT indigo. If you see `--accent: 229` anywhere, tha
 - Body background: cool blue gradient removed
 - Scale hardening phase 1: rate limiting on 15 functions, circuit breaker, retry backoff, job queue, AI cost telemetry, overload detection
 - Scale hardening phase 2: subscription-tier rate limits, caching gaps filled, N+1 fixes, performance indexes, stripe webhook idempotency, stuck job recovery
-- V4 editorial redesign (branch `v4/editorial-redesign`): 33 pages redesigned with Scandinavian editorial magazine aesthetic
+- V4 editorial redesign (branch `v4/editorial-redesign`): 37/44 pages redesigned with Scandinavian editorial magazine aesthetic (all actionable pages done)
+- Home shortcuts: replaced week planner with 5 quick-access cards (AI Chat, Style Me, Travel Capsule, Wardrobe Gaps, Discover)
+- Wardrobe: warm gold accent on category chips, tab switcher, "+" button; editorial count label; staggered motion
 
 ### V4 Redesign — Current State (branch: `v4/editorial-redesign`)
 
@@ -328,12 +330,7 @@ Fetch designs with `mcp__stitch__get_screen` using `name: "projects/811771638416
 | 43 | `GoogleCalendarCallback.tsx` | `52506428f0244e1d8b5af68f37bed8f6` | Calendar Connected | DONE |
 | 44 | `StyleMe.tsx` | `b837f5f6a73b4dbc874d24f3c87d9970` | Style Me - AI Quiz | N/A (redirect, no UI) |
 
-**V4 workflow for remaining TODO pages:**
-1. Fetch the V4 design: `mcp__stitch__get_screen` with `name: "projects/8117716384164426188/screens/{screenId}"`
-2. Read current page code, apply V4 visual changes, keep all functionality
-3. Run `npx tsc --noEmit --skipLibCheck` — must be 0 errors
-4. Run `npm test` — all tests must pass
-5. Mark status as DONE in the table above
+**V4 completion:** All actionable pages are DONE. Only SeedWardrobe.tsx is SKIP (file not in repo). 3 pages are N/A (redirects with no UI). Next step: verify each DONE page actually matches its Stitch screenshot (some were V4-principled but not pixel-matched to Stitch). Use `mcp__stitch__get_screen` to fetch designs for comparison.
 
 **V4 design principles:**
 - Headlines: `font-display italic text-[1.3rem+]` (Playfair Display)
