@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
 import { VOICE_DAY_SUMMARY } from "../_shared/burs-voice.ts";
+import { buildDayIntelligence } from "../../../src/lib/dayIntelligence.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 
@@ -15,7 +16,7 @@ serve(async (req) => {
 
     if (!events || events.length === 0) {
       return new Response(
-        JSON.stringify({ summary: null, priorities: [], outfit_hints: [], transitions: null }),
+        JSON.stringify({ summary: null, priorities: [], outfit_hints: [], transitions: null, intelligence: null }),
         { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
       );
     }
@@ -24,6 +25,8 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
+    const intelligence = buildDayIntelligence(events, weather || undefined);
 
     const weatherContext = weather
       ? `${weather.temperature}°C, ${weather.precipitation === "none" ? "clear" : weather.precipitation}`
@@ -65,7 +68,18 @@ serve(async (req) => {
         cacheNamespace: `summarize_day_${eventsCacheKey}`,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Events:\n${eventsText}${weatherContext ? `\nWeather: ${weatherContext}` : ""}${isMultiEvent ? `\nNote: ${events.length} events — analyze if outfit changes needed.` : ""}` },
+          {
+            role: "user",
+            content: `Events:\n${eventsText}${weatherContext ? `\nWeather: ${weatherContext}` : ""}${isMultiEvent ? `\nNote: ${events.length} events — analyze if outfit changes needed.` : ""}
+Structured day intelligence:
+- Dominant occasion: ${intelligence.dominant_occasion}
+- Dominant formality: ${intelligence.dominant_formality}/5
+- Strategy: ${intelligence.strategy}
+- Transition complexity: ${intelligence.transition_complexity}
+- Anchor event: ${intelligence.anchor_event?.title || "none"}
+- Weather sensitivity: ${intelligence.weather_sensitivity}
+- Wardrobe priorities: ${intelligence.wardrobe_priorities.join(", ") || "none"}`,
+          },
         ],
         tools: [{
           type: "function",
@@ -113,8 +127,33 @@ serve(async (req) => {
                   required: ["needs_change", "blocks", "versatile_pieces"],
                   additionalProperties: false,
                 } : { type: "null" },
+                intelligence: {
+                  type: "object",
+                  properties: {
+                    dominant_occasion: { type: "string" },
+                    dominant_formality: { type: "number" },
+                    strategy: { type: "string" },
+                    transition_summary: { type: "string" },
+                    weather_constraints: { type: "array", items: { type: "string" } },
+                    wardrobe_priorities: { type: "array", items: { type: "string" } },
+                    emphasis: {
+                      type: "object",
+                      properties: {
+                        comfort: { type: "number" },
+                        polish: { type: "number" },
+                        versatility: { type: "number" },
+                        weather_protection: { type: "number" },
+                        travel_practicality: { type: "number" },
+                      },
+                      required: ["comfort", "polish", "versatility", "weather_protection", "travel_practicality"],
+                      additionalProperties: false,
+                    },
+                  },
+                  required: ["dominant_occasion", "dominant_formality", "strategy", "transition_summary", "weather_constraints", "wardrobe_priorities", "emphasis"],
+                  additionalProperties: false,
+                },
               },
-              required: ["summary", "priorities", "outfit_hints"],
+              required: ["summary", "priorities", "outfit_hints", "intelligence"],
               additionalProperties: false,
             },
           },
@@ -123,6 +162,7 @@ serve(async (req) => {
       }, serviceClient);
 
       if (!result.transitions) result.transitions = null;
+      if (!result.intelligence) result.intelligence = intelligence;
 
       return new Response(JSON.stringify(result), {
         headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
@@ -130,7 +170,7 @@ serve(async (req) => {
     } catch (aiErr) {
       console.error("AI failed for summarize_day:", aiErr);
       return new Response(
-        JSON.stringify({ summary: null, priorities: [], outfit_hints: [], transitions: null }),
+        JSON.stringify({ summary: null, priorities: [], outfit_hints: [], transitions: null, intelligence }),
         { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
       );
     }

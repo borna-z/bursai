@@ -43,6 +43,7 @@ serve(async (req) => {
         weather: body.weather,
         locale: body.locale,
         event_title: body.event_title,
+        day_context: body.day_context,
         prefer_garment_ids: body.prefer_garment_ids,
         exclude_garment_ids: body.exclude_garment_ids,
         explanation_mode: "short",

@@ -11,6 +11,7 @@ import {
 import { hasPreferredGarmentMatch, normalizePreferredGarmentIds } from '@/lib/outfitAnchoring';
 import { inferOutfitSlotFromGarment, validateCompleteOutfit } from '@/lib/outfitValidation';
 import type { Garment } from './useGarments';
+import type { DayIntelligence } from '@/lib/dayIntelligence';
 
 export interface OutfitRequest {
   occasion: string;
@@ -18,6 +19,7 @@ export interface OutfitRequest {
   locale?: string;
   eventTitle?: string | null;
   mode?: 'standard' | 'stylist';
+  dayContext?: DayIntelligence | null;
   exclude_garment_ids?: string[];
   prefer_garment_ids?: string[];
   weather: {
@@ -270,6 +272,7 @@ async function generateOutfitViaEngine(
       weather: normalizedWeather,
       locale: request.locale || 'en',
       event_title: request.eventTitle || null,
+      day_context: request.dayContext || null,
       exclude_garment_ids: request.exclude_garment_ids ?? [],
       prefer_garment_ids: request.prefer_garment_ids ?? [],
     },

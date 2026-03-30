@@ -65,6 +65,27 @@ interface WeatherInput {
   wind?: string;
 }
 
+interface DayContextInput {
+  dominant_occasion?: string;
+  dominant_formality?: number;
+  strategy?: string;
+  transition_complexity?: string;
+  transition_summary?: string;
+  weather_sensitivity?: string;
+  weather_constraints?: string[];
+  wardrobe_priorities?: string[];
+  anchor_event?: { title?: string; occasion?: string } | null;
+  first_important_event?: { title?: string } | null;
+  final_event?: { title?: string; occasion?: string } | null;
+  emphasis?: {
+    comfort?: number;
+    polish?: number;
+    versatility?: number;
+    weather_protection?: number;
+    travel_practicality?: number;
+  };
+}
+
 // ─────────────────────────────────────────────
 // COLOR HARMONY ENGINE (HSL-based)
 // ─────────────────────────────────────────────
@@ -625,6 +646,19 @@ function getOccasionStyleHints(occasion: string): string[] {
     }
   }
   return Array.from(hints);
+}
+
+function mapDayOccasionToEngine(occasion: string | undefined | null): string | null {
+  const value = normalizeSignalText(occasion || "");
+  if (!value) return null;
+  if (["formal", "ceremony", "wedding"].includes(value)) return "formal";
+  if (["party", "celebration"].includes(value)) return "party";
+  if (["dinner", "date", "drinks"].includes(value)) return "date";
+  if (["travel", "commute"].includes(value)) return "travel";
+  if (["workout", "training", "gym"].includes(value)) return "workout";
+  if (["work", "office", "meeting", "remote"].includes(value)) return "work";
+  if (["social", "casual", "brunch"].includes(value)) return "casual";
+  return null;
 }
 
 function formalityScore(garment: GarmentRow, occasion: string): number {
@@ -3616,7 +3650,8 @@ async function aiRefine(
   locale: string,
   isStylistMode = false,
   occasionSubmode: string | null = null,
-  layeringContext: { needs_base_layer: boolean } | null = null
+  layeringContext: { needs_base_layer: boolean } | null = null,
+  dayContext: DayContextInput | null = null
 ): Promise<any> {
   const localeName = LOCALE_NAMES[locale] || "English";
 
@@ -3634,6 +3669,9 @@ async function aiRefine(
   const hintsStr = styleHints.length > 0 ? `\nSTYLE DIRECTION: ${styleHints.join(", ")}` : "";
   const seasonStr = `\nSEASON: ${season}`;
   const submodeStr = occasionSubmode ? `\nOCCASION SUB-MODE: ${occasionSubmode}` : "";
+  const dayContextStr = dayContext
+    ? `\nDAY INTELLIGENCE: strategy=${dayContext.strategy || "unknown"}, transition=${dayContext.transition_complexity || "unknown"}, weather_sensitivity=${dayContext.weather_sensitivity || "unknown"}${dayContext.transition_summary ? `\nDAY TRANSITIONS: ${dayContext.transition_summary}` : ""}${dayContext.wardrobe_priorities?.length ? `\nWARDROBE PRIORITIES: ${dayContext.wardrobe_priorities.join(", ")}` : ""}`
+    : "";
 
   let layeringStr = "";
   if (layeringContext?.needs_base_layer) {
@@ -3661,7 +3699,7 @@ EXPLANATION RULES:
   const systemPrompt = mode === "generate"
     ? `You are a world-class stylist. Pick the SINGLE best outfit from the pre-scored candidates below. Consider overall aesthetic, color harmony, seasonal appropriateness, and suitability for the occasion.
 
-OCCASION: ${occasion}${submodeStr}${style ? `\nSTYLE: ${style}` : ""}${hintsStr}${seasonStr}${layeringStr}
+OCCASION: ${occasion}${submodeStr}${style ? `\nSTYLE: ${style}` : ""}${hintsStr}${seasonStr}${layeringStr}${dayContextStr}
 WEATHER: ${weather.temperature !== undefined ? weather.temperature + "°C" : "unknown"}${weather.precipitation ? ", " + weather.precipitation : ""}${weather.wind ? ", wind: " + weather.wind : ""}
 ${styleContext ? `\nUSER PROFILE: ${styleContext}` : ""}${stylistEnhancement}${explanationGuidance}
 OUTFIT VALIDITY: Every chosen look must remain a complete outfit. Valid structures are top + bottom + shoes, or dress + shoes. Never strip a core piece just to make the explanation read better.
@@ -4161,7 +4199,12 @@ serve(async (req) => {
       });
     }
 
-    const occasion: string = body.occasion || "vardag";
+    const dayContext: DayContextInput | null = body.day_context && typeof body.day_context === "object"
+      ? body.day_context as DayContextInput
+      : null;
+    const mappedDominantOccasion = mapDayOccasionToEngine(dayContext?.dominant_occasion);
+    const isGenericOccasion = ["vardag", "everyday", "casual"].includes(normalizeSignalText(body.occasion || ""));
+    const occasion: string = (isGenericOccasion && mappedDominantOccasion) ? mappedDominantOccasion : (body.occasion || "vardag");
     const style: string | null = body.style || null;
 
     // Normalize weather — accept both `temp` and `temperature`
@@ -4178,6 +4221,8 @@ serve(async (req) => {
 
     const locale: string = body.locale || "sv";
     const eventTitle: string | null = body.event_title || null; // Social context
+    const eventTitleFromDayContext = dayContext?.anchor_event?.title || dayContext?.first_important_event?.title || null;
+    const effectiveEventTitle: string | null = eventTitle || eventTitleFromDayContext;
     const preferGarmentIds: Set<string> = new Set(body.prefer_garment_ids || []);
 
     // For swap mode
@@ -4478,7 +4523,7 @@ serve(async (req) => {
           wind: day.weather?.wind || 'low',
         };
         const dayOccasion = day.occasion || "vardag";
-        const dayEventTitle = day.event_title || eventTitle;
+        const dayEventTitle = day.event_title || effectiveEventTitle;
 
         // Score all garments for this day
         const daySlotCandidates: Record<string, ScoredGarment[]> = {};
@@ -4600,7 +4645,7 @@ serve(async (req) => {
       const slot = categorizeSlot(garment.category, garment.subcategory);
       if (!slot) continue;
       if (!slotCandidates[slot]) slotCandidates[slot] = [];
-      const scored = scoreGarment(garment, occasion, weather, penalties, preferences, wearPatterns, styleVector, comfortProfile, socialMap, eventTitle, transInfo, personalUniform);
+      const scored = scoreGarment(garment, occasion, weather, penalties, preferences, wearPatterns, styleVector, comfortProfile, socialMap, effectiveEventTitle, transInfo, personalUniform);
       // Boost preferred (unused) garments
       if (preferGarmentIds.size > 0 && preferGarmentIds.has(garment.id)) {
         scored.score += 2.5;
@@ -4691,7 +4736,7 @@ serve(async (req) => {
     const aiMode = mode === "suggest" ? "suggest" : "generate";
     const aiResult = await aiRefine(
       activeCombos, aiMode, occasion, style, weather, styleContext, locale, isStylistMode,
-      occasionSubmode, { needs_base_layer: bestLayering.needs_base_layer }
+      occasionSubmode, { needs_base_layer: bestLayering.needs_base_layer }, dayContext
     );
 
     if (aiResult.error) {

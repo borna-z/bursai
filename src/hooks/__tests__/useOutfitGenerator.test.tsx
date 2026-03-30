@@ -211,6 +211,67 @@ describe('useOutfitGenerator', () => {
     expect(outfit!.items.length).toBe(2);
   });
 
+  it('forwards structured day context to the stylist engine payload', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+
+    let fromCallCount = 0;
+    mockFrom.mockImplementation(() => {
+      fromCallCount++;
+      if (fromCallCount === 1) {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
+              data: [{ category: 'top', subcategory: null }, { category: 'bottom', subcategory: null }, { category: 'shoes', subcategory: null }],
+              error: null,
+            }),
+          }),
+        };
+      }
+      if (fromCallCount === 2) {
+        return {
+          select: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({ data: [{ id: 'g1', category: 'top' }, { id: 'g2', category: 'bottom' }, { id: 'g3', category: 'shoes' }], error: null }),
+          }),
+        };
+      }
+      return {
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: { id: 'o-3', occasion: 'work', style_vibe: null }, error: null }),
+          }),
+        }),
+      };
+    });
+
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: { items: [{ slot: 'top', garment_id: 'g1' }, { slot: 'bottom', garment_id: 'g2' }, { slot: 'shoes', garment_id: 'g3' }], explanation: 'Ready', style_score: null },
+      error: null,
+    });
+
+    const { useOutfitGenerator } = await import('../useOutfitGenerator');
+    const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
+    await act(async () => {
+      await result.current.generateOutfit({
+        occasion: 'work',
+        weather: { precipitation: 'rain', wind: 'low' },
+        dayContext: {
+          dominant_occasion: 'work',
+          dominant_formality: 4,
+          strategy: 'office_to_evening',
+        } as any,
+      });
+    });
+
+    expect(invokeEdgeFunction).toHaveBeenCalledWith('burs_style_engine', expect.objectContaining({
+      body: expect.objectContaining({
+        day_context: expect.objectContaining({
+          dominant_occasion: 'work',
+          strategy: 'office_to_evening',
+        }),
+      }),
+    }));
+  });
+
 
   it('rejects top + shoes without bottom before persistence', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);

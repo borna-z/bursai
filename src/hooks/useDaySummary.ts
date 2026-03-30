@@ -6,6 +6,7 @@ import { asPreferences } from '@/types/preferences';
 import { useProfile } from '@/hooks/useProfile';
 import { useLocation } from '@/contexts/LocationContext';
 import { logger } from '@/lib/logger';
+import type { DayIntelligence } from '@/lib/dayIntelligence';
 
 export interface DayPriority {
   title: string;
@@ -40,6 +41,7 @@ export interface DaySummary {
   priorities: DayPriority[];
   outfit_hints: OutfitHint[];
   transitions: DayTransitions | null;
+  intelligence: DayIntelligence | null;
 }
 
 export function useDaySummary(date: string) {
@@ -58,6 +60,8 @@ export function useDaySummary(date: string) {
 
       const events = calendarEvents.map(e => ({
         title: e.title,
+        description: e.description,
+        location: (e as { location?: string | null }).location ?? null,
         start_time: e.start_time,
         end_time: e.end_time,
       }));
