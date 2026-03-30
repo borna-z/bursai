@@ -461,6 +461,14 @@
     @apply flex flex-wrap gap-2;
   }
 
+  .stats-strip {
+    @apply flex w-full divide-x divide-border/30;
+  }
+
+  .stats-strip > * {
+    @apply flex flex-1 flex-col items-center justify-center py-3 text-center;
+  }
+
   .app-card-grid {
     @apply grid gap-3 sm:grid-cols-2;
   }

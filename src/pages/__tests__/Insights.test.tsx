@@ -9,12 +9,12 @@ type Locale = 'en' | 'sv';
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
-    'insights.title': 'Insights',
-    'insights.subtitle': 'Rotation, DNA, gaps, and value at a glance.',
+    'insights.title': 'Style Intelligence',
+    'insights.subtitle': 'Your wardrobe, decoded',
   },
   sv: {
-    'insights.title': 'Insikter',
-    'insights.subtitle': 'Rotation, DNA, luckor och värde i en vy.',
+    'insights.title': 'Stilintelligens',
+    'insights.subtitle': 'Din garderob, avkodad',
   },
 };
 
@@ -68,6 +68,10 @@ vi.mock('@/components/ui/skeletons', () => ({
   InsightsPageSkeleton: () => <div data-testid="insights-loading">loading</div>,
 }));
 
+vi.mock('@/components/ui/score-ring', () => ({
+  ScoreRing: ({ value }: { value: number }) => <div data-testid="score-ring">{value}</div>,
+}));
+
 vi.mock('@/components/onboarding/OnboardingEmptyState', () => ({
   InsightsOnboardingEmpty: () => <div data-testid="insights-empty">empty</div>,
 }));
@@ -76,100 +80,22 @@ vi.mock('@/components/insights/useInsightsDashboardAdapter', () => ({
   useInsightsDashboardAdapter: () => dashboardAdapterMock(),
 }));
 
-vi.mock('@/components/insights/InsightsOverviewHero', () => ({
-  InsightsOverviewHero: ({
-    dnaArchetype,
-    savedLooks,
-    plannedThisWeek,
-  }: {
-    dnaArchetype: string | null;
-    savedLooks: number;
-    plannedThisWeek: number;
-  }) => (
-    <section>
-      <h2>See what is active, what is missing, and what is worth repeating.</h2>
-      {dnaArchetype ? <p>{dnaArchetype}</p> : null}
-      <p>Saved looks: {savedLooks}</p>
-      <p>Planned this week: {plannedThisWeek}</p>
-    </section>
-  ),
-}));
-
-vi.mock('@/components/insights/InsightsGapPreview', () => ({
-  InsightsGapPreview: () => <section>Black loafers</section>,
-}));
-
-vi.mock('@/components/insights/InsightsGarmentRail', () => ({
-  InsightsGarmentRail: ({
-    title,
-    garments,
-  }: {
-    title: string;
-    garments: Array<{ title: string }>;
-  }) => (
-    <section>
-      <h3>{title}</h3>
-      {garments[0] ? <p>{garments[0].title}</p> : null}
-    </section>
-  ),
-}));
-
 vi.mock('@/components/insights/InsightsPalettePanel', () => ({
-  InsightsPalettePanel: () => <section>Palette panel</section>,
+  InsightsPalettePanel: () => <section data-testid="palette-panel">Palette</section>,
 }));
 
-vi.mock('@/components/insights/InsightsRelatedTools', () => ({
-  InsightsRelatedTools: ({
-    tools,
-  }: {
-    tools: Array<{ title: string }>;
-  }) => (
-    <section>
-      {tools.map((tool) => <p key={tool.title}>{tool.title}</p>)}
-    </section>
-  ),
+vi.mock('@/components/insights/InsightsGarmentHighlights', () => ({
+  InsightsGarmentHighlights: () => <section data-testid="garment-highlights">Highlights</section>,
 }));
 
-vi.mock('@/components/insights/InsightsSection', () => ({
-  InsightsSection: ({
-    title,
-    children,
-  }: PropsWithChildren<{ title: string; id: string }>) => (
-    <section>
-      <h2>{title}</h2>
-      {children}
-    </section>
-  ),
-}));
-
-vi.mock('@/components/insights/WardrobeHealthCard', () => ({
-  WardrobeHealthCard: () => <section data-testid="wardrobe-health-card">Wardrobe health</section>,
+vi.mock('@/components/insights/InsightsValueTracker', () => ({
+  InsightsValueTracker: () => <section data-testid="value-tracker">Value</section>,
 }));
 
 vi.mock('@/components/insights/StyleDNACard', () => ({
   StyleDNACard: ({ dna }: { dna?: { archetype?: string } | null }) => (
-    <section>{dna?.archetype ?? 'No DNA'}</section>
+    <section data-testid="style-dna">{dna?.archetype ?? 'No DNA'}</section>
   ),
-}));
-
-vi.mock('@/components/insights/StyleReportCard', () => ({
-  StyleReportCard: () => <section>Style report</section>,
-}));
-
-vi.mock('@/components/insights/CategoryRadar', () => ({
-  CategoryRadar: () => <section>Category radar</section>,
-}));
-
-vi.mock('@/components/insights/OutfitRepeatTracker', () => ({
-  OutfitRepeatTracker: () => <section>Repeat tracker</section>,
-}));
-
-vi.mock('@/components/insights/WearHeatmap', () => ({
-  WearHeatmap: () => <section>Wear heatmap</section>,
-}));
-
-vi.mock('@/components/insights/SpendingDashboard', () => ({
-  SpendingDashboard: () => <section>Sustainability spend</section>,
 }));
 
 import InsightsPage from '../Insights';
@@ -201,6 +127,7 @@ describe('Insights page', () => {
         topFiveWorn: [{ id: 'top-1', title: 'Black Tee', color_primary: 'black', wearCountLast30: 6 }],
         unusedGarments: [{ id: 'unused-1', title: 'Blue Shirt', color_primary: 'blue' }],
         usedGarments: [{ id: 'used-1', title: 'Grey Trousers', color_primary: 'black', wearCountLast30: 4 }],
+        colorTemperature: 'neutral',
       },
       dna: {
         archetype: 'Minimalist',
@@ -220,13 +147,6 @@ describe('Insights page', () => {
         avgWearCount: 7,
         underusedCount: 2,
       },
-      allGarments: [
-        { id: 'used-1', title: 'Grey Trousers', color_primary: 'black' },
-        { id: 'unused-1', title: 'Blue Shirt', color_primary: 'blue' },
-        { id: 'g-3', title: 'Loafers', color_primary: 'black' },
-        { id: 'g-4', title: 'Camel Coat', color_primary: 'brown' },
-        { id: 'g-5', title: 'White Tee', color_primary: 'white' },
-      ],
       colorBreakdown: {
         total: 2,
         entries: [['black', 1], ['blue', 1]],
@@ -241,26 +161,17 @@ describe('Insights page', () => {
     });
   });
 
-  it('renders the insights dashboard sections with populated data', () => {
+  it('renders the V4 insights layout with score ring, palette, highlights, value tracker, and DNA', () => {
     renderPage();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Insights' })).toBeInTheDocument();
-    expect(screen.getByText('Rotation, DNA, gaps, and value at a glance.')).toBeInTheDocument();
-    expect(screen.getByText('See what is active, what is missing, and what is worth repeating.')).toBeInTheDocument();
-    expect(screen.getAllByText('Minimalist').length).toBeGreaterThan(0);
-    expect(screen.getByText('Saved looks: 9')).toBeInTheDocument();
-    expect(screen.getByText('Planned this week: 4')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('href', '#overview');
-    expect(screen.getByRole('link', { name: 'Gaps' })).toHaveAttribute('href', '#value');
-    expect(screen.getByRole('link', { name: 'DNA' })).toHaveAttribute('href', '#dna');
-    expect(screen.getByRole('link', { name: 'Patterns' })).toHaveAttribute('href', '#patterns');
-    expect(screen.getByRole('link', { name: 'Tools' })).toHaveAttribute('href', '#tools');
-    expect(screen.getByText('What would unlock more outfits')).toBeInTheDocument();
-    expect(screen.getByText('Move into the next workflow')).toBeInTheDocument();
-    expect(screen.getByText('Gap analysis')).toBeInTheDocument();
-    expect(screen.getByText('Style me')).toBeInTheDocument();
-    expect(screen.getByText('Black loafers')).toBeInTheDocument();
-    expect(screen.getByTestId('wardrobe-health-card')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Style Intelligence' })).toBeInTheDocument();
+    expect(screen.getByText('Your wardrobe, decoded')).toBeInTheDocument();
+    expect(screen.getByTestId('score-ring')).toBeInTheDocument();
+    expect(screen.getByTestId('palette-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('garment-highlights')).toBeInTheDocument();
+    expect(screen.getByTestId('value-tracker')).toBeInTheDocument();
+    expect(screen.getByTestId('style-dna')).toBeInTheDocument();
+    expect(screen.getByText('Minimalist')).toBeInTheDocument();
   }, 10000);
 
   it('shows the loading shell while the dashboard is still resolving', () => {
@@ -269,7 +180,6 @@ describe('Insights page', () => {
       insights: null,
       dna: null,
       sustainability: null,
-      allGarments: [],
       colorBreakdown: { total: 0, entries: [], bars: [] },
       isPremium: true,
       isLoading: true,
@@ -278,7 +188,7 @@ describe('Insights page', () => {
 
     renderPage();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Insights' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Style Intelligence' })).toBeInTheDocument();
     expect(screen.getByTestId('insights-loading')).toBeInTheDocument();
   }, 10000);
 
@@ -298,7 +208,6 @@ describe('Insights page', () => {
       },
       dna: null,
       sustainability: null,
-      allGarments: [],
       colorBreakdown: { total: 0, entries: [], bars: [] },
       isPremium: false,
       isLoading: false,
@@ -307,15 +216,15 @@ describe('Insights page', () => {
 
     renderPage();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Insights' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Style Intelligence' })).toBeInTheDocument();
     expect(screen.getByTestId('insights-empty')).toBeInTheDocument();
   }, 10000);
 
   it('switches key page copy between English and Swedish', () => {
     const { rerender } = renderPage();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Insights' })).toBeInTheDocument();
-    expect(screen.getByText('Rotation, DNA, gaps, and value at a glance.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Style Intelligence' })).toBeInTheDocument();
+    expect(screen.getByText('Your wardrobe, decoded')).toBeInTheDocument();
 
     currentLocale = 'sv';
     rerender(
@@ -326,9 +235,7 @@ describe('Insights page', () => {
       </QueryClientProvider>,
     );
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Insikter' })).toBeInTheDocument();
-    expect(screen.getByText('Rotation, DNA, luckor och värde i en vy.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Patterns' })).toHaveAttribute('href', '#patterns');
-    expect(screen.getByRole('link', { name: 'Gaps' })).toHaveAttribute('href', '#value');
+    expect(screen.getByRole('heading', { level: 1, name: 'Stilintelligens' })).toBeInTheDocument();
+    expect(screen.getByText('Din garderob, avkodad')).toBeInTheDocument();
   }, 10000);
 });

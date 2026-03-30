@@ -119,8 +119,8 @@ export default function WardrobePage() {
   return (
     <AppLayout>
       <PageHeader
-        title={t('wardrobe.title') || 'Wardrobe'}
-        eyebrow={allGarments.length > 0 ? t('wardrobe.pieces_count').replace('{count}', String(allGarments.length)) : undefined}
+        title={t('wardrobe.title') || 'Your Wardrobe'}
+        titleClassName="text-[1.65rem]"
         actions={
           <button
             onClick={() => { hapticLight(); navigate('/wardrobe/add'); }}
@@ -169,6 +169,10 @@ export default function WardrobePage() {
               if (action === 'plan') navigate('/plan');
             }}
             onClearFilters={clearFilters}
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
+            totalCount={totalCount}
+            sortBy={sortBy}
           />
 
           {activeTab === 'garments' ? (
