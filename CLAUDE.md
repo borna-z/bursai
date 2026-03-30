@@ -272,7 +272,19 @@ The accent is warm gold — NOT indigo. If you see `--accent: 229` anywhere, tha
 
 ### V4 Redesign — Current State (branch: `v4/editorial-redesign`)
 
-All 5 main screens structurally complete. New/modified files:
+**Goal:** Apply Scandinavian editorial magazine aesthetic (Kinfolk/Cereal feel) to ALL 44 pages. Serif italic headlines (Playfair Display), clean hierarchy, hero cards, minimal shadows, warm gold accent, editorial surfaces. Every page should feel like a magazine spread, not a generic app screen.
+
+**Design principles for V4:**
+- Headlines: `font-display italic text-[1.3rem+]` (Playfair Display)
+- Eyebrow labels: `label-editorial text-muted-foreground/60` uppercase tracking
+- Cards: `surface-secondary rounded-[1.25rem]` or `surface-hero`
+- Buttons: `rounded-full` with hapticLight() on tap
+- Motion: Framer Motion with staggered entrances, `EASE_CURVE` from motion.ts
+- Spacing: generous padding (`p-4` to `p-6`), `gap-3` to `gap-4` between sections
+- No visual clutter: remove redundant labels, badge spam, dense grids
+- Each page uses `AppLayout > PageHeader > PullToRefresh > AnimatedPage` pattern
+
+#### Completed (5 main tabs + foundation)
 
 | Phase | Files | Status |
 |-------|-------|--------|
@@ -284,13 +296,68 @@ All 5 main screens structurally complete. New/modified files:
 | Insights | `src/pages/Insights.tsx`, `InsightsGarmentHighlights.tsx`, `InsightsValueTracker.tsx` | Done |
 | Tests | All 4 test files updated for V4 | Done (91/91 pass) |
 
-**V4 polish still needed:**
-- Visual QA at 390x844 viewport in light + dark mode
-- i18n: add missing translation keys to `src/i18n/locales/` files
-- HomeWeekAhead: verify forecast data renders with real API
-- UploadStep: verify Median.co camera bridge with new layout
-- Category chips on Wardrobe: confirm filtering wired up
-- Insights ValueTracker: verify premium blur gate
+#### HIGH priority — Core app pages (do these next, in this order)
+
+| # | Page | Lines | What it does | V4 treatment needed |
+|---|------|-------|-------------|-------------------|
+| 1 | `OutfitGenerate.tsx` | ~848 | Outfit generation flow with occasion selection | Occasion selector cards, generation states, output card |
+| 2 | `OutfitDetail.tsx` | ~832 | Full outfit preview with swap/feedback | Garment carousel, swap sheet, rating UI |
+| 3 | `AIChat.tsx` | ~608 | AI styling assistant chat | Message bubbles, input styling, motion |
+| 4 | `GarmentDetail.tsx` | ~537 | Individual garment view | Enrichment panel, spec rows, similar items |
+| 5 | `EditGarment.tsx` | ~475 | Garment metadata editor | Form sections, color picker, multi-select |
+| 6 | `LiveScan.tsx` | ~784 | Real-time camera garment detection | Camera frame, detection feedback, overlays |
+| 7 | `UnusedOutfits.tsx` | ~291 | Generated outfits from unused garments | Outfit cards, generation state, occasion badges |
+| 8 | `MoodOutfit.tsx` | ~232 | Mood-based outfit generation | Mood swatch selector, loading state, output |
+| 9 | `PickMustHaves.tsx` | ~194 | Item selector for travel/generation | Category chips, item grid, selection marks |
+| 10 | `Onboarding.tsx` | ~185 | Multi-step onboarding flow | Step progress, language selector, quiz UI |
+| 11 | `Outfits.tsx` | ~174 | Outfit gallery with filters | View toggle, outfit cards, filter controls |
+| 12 | `GarmentGaps.tsx` | ~144 | Wardrobe gap analysis | Gap result cards, locked state, recommendations |
+| 13 | `TravelCapsule.tsx` | ~112 | Trip packing list generator | Form inputs, vibe selector, results view |
+| 14 | `UsedGarments.tsx` | ~100 | Frequently worn items grid | Garment grid, metadata, action buttons |
+| 15 | `Discover.tsx` | ~47 | Wardrobe progress + style tools dashboard | Section headings, tools grid, progress viz |
+
+#### MEDIUM priority — Secondary pages
+
+| # | Page | Lines | What it does | V4 treatment needed |
+|---|------|-------|-------------|-------------------|
+| 16 | `SettingsStyle.tsx` | ~568 | Style profile editor (body, colors, fit) | Body inputs, color palette, preference chips |
+| 17 | `ShareOutfit.tsx` | ~282 | Public outfit share page | Outfit card, reactions, share buttons |
+| 18 | `SettingsPrivacy.tsx` | ~263 | Privacy controls, GDPR, data export | Accordion sections, consent toggles |
+| 19 | `Admin.tsx` | ~257 | Admin leads/analytics dashboard | Data table, metrics cards, search |
+| 20 | `Auth.tsx` | ~249 | Login/signup page | Already editorial — minor refinements |
+| 21 | `GenerateImages.tsx` | ~225 | Batch garment image generation | Progress bar, batch list, status indicators |
+| 22 | `PublicProfile.tsx` | ~212 | User public style profile | Profile header, outfit grid, badges |
+| 23 | `ResetPassword.tsx` | ~191 | Password recovery/reset | Input styling, validation feedback |
+| 24 | `Pricing.tsx` | ~188 | Subscription plans + FAQ | Pricing cards, feature comparison, FAQ |
+| 25 | `Contact.tsx` | ~153 | Contact form | Form inputs, submit button, success state |
+| 26 | `SeedWardrobe.tsx` | ~134 | Admin wardrobe seed utility | Progress bar, stats, action buttons |
+| 27 | `SettingsAccount.tsx` | ~126 | Account management | Input fields, subscription info, alerts |
+| 28 | `Settings.tsx` | ~104 | Settings hub/menu | Settings rows, icons, navigation |
+| 29 | `SettingsNotifications.tsx` | ~87 | Push notification prefs | Toggle switches, calendar section |
+| 30 | `SettingsAppearance.tsx` | ~64 | Theme + accent color picker | Theme buttons, accent color UI |
+
+#### LOW priority — Utility/redirect/legal pages (minimal or no changes)
+
+| # | Page | Lines | Notes |
+|---|------|-------|-------|
+| 31 | `PrivacyPolicy.tsx` | ~400 | Static legal text — no redesign needed |
+| 32 | `Terms.tsx` | ~271 | Static legal text — no redesign needed |
+| 33 | `GoogleCalendarCallback.tsx` | ~129 | OAuth callback — status display only |
+| 34 | `BillingSuccess.tsx` | ~55 | Post-purchase — already minimal |
+| 35 | `BillingCancel.tsx` | ~34 | Payment cancel — already minimal |
+| 36 | `NotFound.tsx` | ~29 | 404 page — one-liner styling |
+| 37 | `Index.tsx` | ~27 | Auth routing — no UI |
+| 38 | `StyleMe.tsx` | ~19 | Redirect to /ai/generate — no UI |
+| 39 | `Landing.tsx` | ~12 | Redirect to static HTML — no UI |
+
+#### V4 approach for remaining pages
+- Work through HIGH priority pages first (1-15), then MEDIUM (16-30)
+- For each page: read current code → apply V4 design principles → update tests if needed → run `npx tsc --noEmit --skipLibCheck`
+- Use existing surface classes (`.surface-hero`, `.surface-secondary`, `.surface-editorial`)
+- Use `font-display italic` for all page titles
+- Add `hapticLight()` to all interactive elements
+- Ensure motion entrances with `initial/animate` on sections
+- After each batch: run full test suite `npm test`
 
 ### What Still Needs Doing
 - Keyboard accessibility on SwipeableGarmentCard (swipe has no keyboard alternative)
