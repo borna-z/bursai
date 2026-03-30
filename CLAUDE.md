@@ -16,7 +16,7 @@ Follow everything here without being asked. These are standing orders, not sugge
   ```
 - Never deploy all functions at once — always name the specific function
 - Never use `getClaims()` in edge functions — deprecated, broken. Use `getUser()` pattern instead
-- All AI edge functions must use `enforceRateLimit()` + `checkOverload()` + pass `cacheTtlSeconds`/`cacheNamespace`/`functionName` to `callBursAI()`
+- All AI edge functions must use `enforceRateLimit()` + `checkOverload()` + pass `functionName` to `callBursAI()`. Caching params (`cacheTtlSeconds`/`cacheNamespace`) required for cacheable functions but not for image generation or streaming
 
 ## Project Identity
 
@@ -27,7 +27,7 @@ Follow everything here without being asked. These are standing orders, not sugge
 | Repo | borna-z/bursai on GitHub |
 | Distribution | React/Vite web app on Vercel, wrapped for iOS/Android via Median.co |
 | Backend | Supabase (PostgreSQL + 43 edge functions) |
-| AI | Gemini API via OpenAI-compatible endpoint (chosen over Claude API for cost — 3-6x cheaper). Model chain: Gemini 2.5 Flash primary, Flash Lite fallback |
+| AI | Gemini API via OpenAI-compatible endpoint (chosen over Claude API for cost — 3-6x cheaper). Model routing: trivial/standard → Flash Lite primary (Flash fallback), complex → Flash primary (Flash Lite fallback) |
 | Target market | Sweden first, then Nordics/UK/Netherlands, US year two |
 | Pricing | $7.99/month, $69.99/year. Binary free/premium model |
 | Domain | burs.me via IONOS DNS to Vercel nameservers |
@@ -98,7 +98,7 @@ The accent is warm gold — NOT indigo. If you see `--accent: 229` anywhere, tha
 - **Garment images**: private `garments` bucket scoped to `<user-id>/*`
 
 ### Edge Functions (supabase/functions/)
-- 43 functions, snake_case dirs, each with `index.ts` (Deno runtime, ESM URL imports)
+- 39 functions, snake_case dirs, each with `index.ts` (Deno runtime, ESM URL imports)
 - Shared utilities in `_shared/`: see `supabase/functions/CLAUDE.md` for full reference
 - **AI engine** (`_shared/burs-ai.ts`): complexity-based model routing, Gemini fallback chains, DB response caching, per-user rate limiting, token/cost tracking
 - **Scale guard** (`_shared/scale-guard.ts`): subscription-tier-aware rate limiting (free=0.5x, premium=2x), overload detection, job queue primitives, bounded concurrency, AI cost estimation, enhanced telemetry
@@ -161,7 +161,7 @@ The accent is warm gold — NOT indigo. If you see `--accent: 229` anywhere, tha
 | `marketing_leads` | Email capture for unauthenticated users |
 | `marketing_events` | Growth analytics (UTM tracking) |
 
-## All 43 Edge Functions
+## All 39 Edge Functions
 
 | Function | Purpose | Rate Limited | Overload Guard | AI Cached |
 |----------|---------|:---:|:---:|:---:|
@@ -445,10 +445,10 @@ Use `mcp__stitch__get_screen` with `name: "projects/8117716384164426188/screens/
 
 ## Known Bugs (confirmed, fix when touching related code)
 
-**Bug 1: AI Stylist Truncation**
-- File: `supabase/functions/style_chat/index.ts` ~line 1568
-- Issue: Hard sentence cap cuts AI reply mid-thought at 6 sentences or 900 chars
-- Fix: Raise to 9 sentences / 1400 chars. Append `...` when `finish_reason === "length"`
+**Bug 1: AI Stylist Truncation** (partially fixed)
+- File: `supabase/functions/style_chat/index.ts` ~lines 1587-1631
+- Status: Limits already raised to 9 sentences / 1400 chars. Two-stage truncation: (1) cleans partial sentence on `finish_reason === "length"`, (2) caps non-outfit replies at 9 sentences with ` …` indicator
+- Remaining: Verify limits are adequate for production responses — may still cut complex styling advice short
 
 **Bug 2: Outfit Without Shoes** (partially fixed)
 - File: `src/pages/OutfitGenerate.tsx`
