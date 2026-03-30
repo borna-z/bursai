@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { format } from 'date-fns';
 import { enUS, nb, sv, da, fi, de, fr, es, it, pt, nl, pl, ar } from 'date-fns/locale';
 
@@ -22,8 +22,17 @@ import { HomePageSkeleton } from '@/components/ui/skeletons';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { HomeTodayLookCard } from '@/components/home/HomeTodayLookCard';
 import { HomeStatsStrip } from '@/components/home/HomeStatsStrip';
-import { HomeWeekAhead } from '@/components/home/HomeWeekAhead';
+import { MessageCircle, Sparkles, Plane, Search, Compass } from 'lucide-react';
+import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM } from '@/lib/motion';
 import type { HomeState } from '@/components/home/homeTypes';
+
+const SHORTCUTS = [
+  { label: 'AI Chat', icon: MessageCircle, path: '/ai/chat' },
+  { label: 'Style Me', icon: Sparkles, path: '/ai/generate' },
+  { label: 'Travel Capsule', icon: Plane, path: '/plan/travel-capsule' },
+  { label: 'Wardrobe Gaps', icon: Search, path: '/gaps' },
+  { label: 'Discover', icon: Compass, path: '/discover' },
+] as const;
 
 const DATE_FNS_LOCALE_MAP: Record<string, typeof enUS> = { sv, no: nb, da, fi, de, fr, es, it, pt, nl, pl, ar };
 
@@ -55,6 +64,7 @@ export default function HomePage() {
   const { data: todayOutfits, isLoading: isOutfitsLoading } = usePlannedOutfitsForDate(todayStr);
   const { effectiveCity } = useLocation();
   const { weather } = useWeather({ city: effectiveCity });
+  const reducedMotion = !!useReducedMotion();
 
   const homeState = deriveHomeState(
     garmentCount,
@@ -201,10 +211,53 @@ export default function HomePage() {
             streakDays={todayOutfits?.filter(o => o.status === 'worn').length ? 1 : 0}
           />
 
-          {/* Week Ahead */}
-          <HomeWeekAhead />
+          {/* Quick Shortcuts */}
+          <QuickShortcuts navigate={navigate} t={t} reducedMotion={reducedMotion} />
         </AnimatedPage>
       </PullToRefresh>
     </AppLayout>
+  );
+}
+
+/* ── Quick Shortcuts Grid ─────────────────────────────────── */
+
+function QuickShortcuts({
+  navigate,
+  t,
+  reducedMotion,
+}: {
+  navigate: ReturnType<typeof useNavigate>;
+  t: (key: string) => string;
+  reducedMotion: boolean;
+}) {
+  return (
+    <motion.section
+      initial={reducedMotion ? false : { opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY * 6 }}
+    >
+      <p className="label-editorial text-muted-foreground/60 mb-3">
+        {t('home.quick_actions') || 'EXPLORE'}
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        {SHORTCUTS.map((s, i) => (
+          <motion.button
+            key={s.path}
+            initial={reducedMotion ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              duration: DURATION_MEDIUM,
+              ease: EASE_CURVE,
+              delay: STAGGER_DELAY * (7 + i),
+            }}
+            onClick={() => { hapticLight(); navigate(s.path); }}
+            className="surface-secondary flex items-center gap-3 rounded-[1.25rem] px-4 py-4 text-left transition-transform active:scale-[0.97] cursor-pointer"
+          >
+            <s.icon className="h-5 w-5 shrink-0 text-accent" strokeWidth={1.6} />
+            <span className="text-[0.9rem] font-medium text-foreground">{s.label}</span>
+          </motion.button>
+        ))}
+      </div>
+    </motion.section>
   );
 }

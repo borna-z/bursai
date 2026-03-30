@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Calendar, ArrowLeft } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { hapticLight } from '@/lib/haptics';
 import { logger } from '@/lib/logger';
+import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { EASE_CURVE, DURATION_MEDIUM, DURATION_SLOW, STAGGER_DELAY } from '@/lib/motion';
 
 type CallbackStatus = 'loading' | 'success' | 'empty' | 'error';
 
@@ -23,6 +26,28 @@ export default function GoogleCalendarCallback() {
   const { t } = useLanguage();
   const [status, setStatus] = useState<CallbackStatus>('loading');
   const [message, setMessage] = useState('');
+  const prefersReduced = useReducedMotion();
+
+  const motionProps = prefersReduced
+    ? { initial: { opacity: 0 }, animate: { opacity: 1 } }
+    : {
+        initial: { opacity: 0, y: 12 },
+        animate: { opacity: 1, y: 0 },
+        transition: { duration: 0.4, ease: EASE_CURVE },
+      };
+
+  const staggerChild = (i: number) =>
+    prefersReduced
+      ? {}
+      : {
+          initial: { opacity: 0, y: 8 },
+          animate: { opacity: 1, y: 0 },
+          transition: {
+            duration: DURATION_MEDIUM,
+            ease: EASE_CURVE,
+            delay: i * STAGGER_DELAY + 0.15,
+          },
+        };
 
   useEffect(() => {
     const code = searchParams.get('code');
@@ -87,43 +112,129 @@ export default function GoogleCalendarCallback() {
   }, [searchParams, navigate, t]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="text-center space-y-4 max-w-sm">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <AnimatePresence mode="wait">
         {status === 'loading' && (
-          <>
-            <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-            <p className="text-lg font-medium">{t('gcal.connecting')}</p>
-            <p className="text-sm text-muted-foreground">{t('gcal.syncing')}</p>
-          </>
+          <motion.div
+            key="loading"
+            className="max-w-md w-full surface-secondary rounded-[1.25rem] p-8 space-y-6"
+            {...motionProps}
+          >
+            <div className="text-center space-y-5">
+              <motion.div {...staggerChild(0)}>
+                <div className="w-14 h-14 rounded-full surface-inset flex items-center justify-center mx-auto">
+                  <Loader2 className="w-7 h-7 animate-spin text-foreground" />
+                </div>
+              </motion.div>
+              <motion.div {...staggerChild(1)} className="space-y-2">
+                <p className="label-editorial text-muted-foreground/60 uppercase tracking-wider text-xs">
+                  {t('gcal.syncing')}
+                </p>
+                <h1 className="font-display italic text-2xl font-bold">
+                  {t('gcal.connecting')}
+                </h1>
+              </motion.div>
+              <motion.div {...staggerChild(2)}>
+                <div className="w-full h-1.5 rounded-full surface-inset overflow-hidden">
+                  <motion.div
+                    className="h-full rounded-full bg-foreground/20"
+                    initial={{ width: '0%' }}
+                    animate={{ width: '70%' }}
+                    transition={{ duration: DURATION_SLOW * 6, ease: EASE_CURVE }}
+                  />
+                </div>
+              </motion.div>
+            </div>
+          </motion.div>
         )}
+
         {status === 'success' && (
-          <>
-            <CheckCircle2 className="w-10 h-10 text-green-500 mx-auto" />
-            <p className="text-lg font-medium">{t('gcal.connected')}</p>
-            <p className="text-sm text-muted-foreground">{message}</p>
-          </>
+          <motion.div
+            key="success"
+            className="max-w-md w-full surface-secondary rounded-[1.25rem] p-8 space-y-6"
+            {...motionProps}
+          >
+            <div className="text-center space-y-5">
+              <motion.div {...staggerChild(0)}>
+                <div className="w-14 h-14 rounded-full surface-inset flex items-center justify-center mx-auto">
+                  <CheckCircle2 className="w-7 h-7 text-foreground" />
+                </div>
+              </motion.div>
+              <motion.div {...staggerChild(1)} className="space-y-2">
+                <p className="label-editorial text-muted-foreground/60 uppercase tracking-wider text-xs">
+                  Calendar
+                </p>
+                <h1 className="font-display italic text-2xl font-bold flex items-center justify-center gap-2">
+                  <Calendar className="w-5 h-5" />
+                  {t('gcal.connected')}
+                </h1>
+                <p className="text-sm text-muted-foreground">{message}</p>
+              </motion.div>
+            </div>
+          </motion.div>
         )}
+
         {status === 'empty' && (
-          <>
-            <CheckCircle2 className="w-10 h-10 text-green-500 mx-auto" />
-            <p className="text-lg font-medium">{t('gcal.connected')}</p>
-            <p className="text-sm text-muted-foreground">{message}</p>
-          </>
+          <motion.div
+            key="empty"
+            className="max-w-md w-full surface-secondary rounded-[1.25rem] p-8 space-y-6"
+            {...motionProps}
+          >
+            <div className="text-center space-y-5">
+              <motion.div {...staggerChild(0)}>
+                <div className="w-14 h-14 rounded-full surface-inset flex items-center justify-center mx-auto">
+                  <Calendar className="w-7 h-7 text-foreground" />
+                </div>
+              </motion.div>
+              <motion.div {...staggerChild(1)} className="space-y-2">
+                <p className="label-editorial text-muted-foreground/60 uppercase tracking-wider text-xs">
+                  Calendar
+                </p>
+                <h1 className="font-display italic text-2xl font-bold">
+                  {t('gcal.connected')}
+                </h1>
+                <p className="text-sm text-muted-foreground">{message}</p>
+              </motion.div>
+            </div>
+          </motion.div>
         )}
+
         {status === 'error' && (
-          <>
-            <XCircle className="w-10 h-10 text-destructive mx-auto" />
-            <p className="text-lg font-medium">{t('gcal.something_wrong')}</p>
-            <p className="text-sm text-muted-foreground">{message}</p>
-            <button
-              onClick={() => { hapticLight(); navigate('/settings', { replace: true }); }}
-              className="text-primary underline text-sm mt-2 cursor-pointer"
-            >
-              {t('gcal.back_settings')}
-            </button>
-          </>
+          <motion.div
+            key="error"
+            className="max-w-md w-full surface-secondary rounded-[1.25rem] p-8 space-y-6"
+            {...motionProps}
+          >
+            <div className="text-center space-y-5">
+              <motion.div {...staggerChild(0)}>
+                <div className="w-14 h-14 rounded-full surface-inset flex items-center justify-center mx-auto">
+                  <XCircle className="w-7 h-7 text-muted-foreground" />
+                </div>
+              </motion.div>
+              <motion.div {...staggerChild(1)} className="space-y-2">
+                <p className="label-editorial text-muted-foreground/60 uppercase tracking-wider text-xs">
+                  Calendar
+                </p>
+                <h1 className="font-display italic text-2xl font-bold">
+                  {t('gcal.something_wrong')}
+                </h1>
+                <p className="text-sm text-muted-foreground">{message}</p>
+              </motion.div>
+            </div>
+
+            <motion.div {...staggerChild(2)}>
+              <Button
+                variant="editorial"
+                className="w-full rounded-full"
+                onClick={() => { hapticLight(); navigate('/settings', { replace: true }); }}
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                {t('gcal.back_settings')}
+              </Button>
+            </motion.div>
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
     </div>
   );
 }
