@@ -106,6 +106,7 @@ Create 4-6 prioritized shopping suggestions.`;
       tool_choice: { type: "function", function: { name: "shopping_list" } },
       cacheTtlSeconds: 3600,
       cacheNamespace: "smart_shopping",
+      functionName: "smart_shopping_list",
     });
 
     return new Response(JSON.stringify(result), {

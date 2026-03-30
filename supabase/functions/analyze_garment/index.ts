@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, BursAIError } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 interface AnalyzeRequest {
   storagePath?: string;
@@ -277,7 +278,14 @@ serve(async (req) => {
       );
     }
 
+    // ── Scale guard ──
+    if (checkOverload("analyze_garment")) {
+      return overloadResponse(CORS_HEADERS);
+    }
+
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    await enforceRateLimit(serviceClient, userId, "analyze_garment");
 
     // Resolve image URL
     let resolvedImageUrl: string;
@@ -453,6 +461,9 @@ serve(async (req) => {
       { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
+    if (error instanceof RateLimitError) {
+      return rateLimitResponse(error, CORS_HEADERS);
+    }
     console.error('Unexpected error:', error);
     return new Response(
       JSON.stringify({ error: "An unexpected error occurred" }),

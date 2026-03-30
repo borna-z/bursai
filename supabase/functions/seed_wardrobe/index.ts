@@ -100,6 +100,7 @@ serve(async (req) => {
           messages: [{ role: "user", content: prompt }],
           modelType: "image-gen",
           extraBody: { modalities: ["image", "text"] },
+          functionName: "seed_wardrobe",
         });
 
         const imageData = aiResult?.images?.[0]?.image_url?.url

@@ -4,6 +4,7 @@ import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/b
 import { VOICE_MOOD_OUTFIT } from "../_shared/burs-voice.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 function hasCompleteOutfit(items: Array<{ slot: string }>): boolean {
   const slots = new Set(items.map(i => i.slot.toLowerCase()));
   return slots.has('dress') || (slots.has('top') && slots.has('bottom'));
@@ -175,6 +176,12 @@ serve(async (req) => {
     }
     const userId = user.id;
 
+    // ── Scale guard ──
+    if (checkOverload("mood_outfit")) {
+      return overloadResponse(CORS_HEADERS);
+    }
+    await enforceRateLimit(serviceClient, userId, "mood_outfit");
+
     const { mood, weather, locale = "sv" } = await req.json();
     if (!mood) throw new Error("Missing mood");
     const moodParams = MOOD_MAP[mood] || MOOD_MAP.confident;
@@ -283,6 +290,9 @@ WARDROBE:\n${garmentList}` },
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return rateLimitResponse(e, CORS_HEADERS);
+    }
     console.error("mood_outfit error:", e);
     return bursAIErrorResponse(e, CORS_HEADERS);
   }
