@@ -25,13 +25,18 @@ BURS is a premium fashion-tech platform that helps users digitize their wardrobe
 │                  Supabase (Backend)                      │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐ │
 │  │   Auth   │  │    DB    │  │ Storage  │  │   Edge  │ │
-│  │ (Email)  │  │ (25 tbl) │  │ (Images) │  │Functions│ │
+│  │ (Email)  │  │ (28 tbl) │  │ (Images) │  │Functions│ │
 │  └──────────┘  └──────────┘  └──────────┘  └─────────┘ │
 │                                                 ↓       │
 │  ┌──────────────────────────────────────────────────┐   │
 │  │     BURS AI Engine (burs-ai.ts)                  │   │
 │  │  Complexity routing · Model chains · DB caching  │   │
-│  │  Retry/backoff · Token budgets · Rate limits     │   │
+│  │  Retry/backoff · Token budgets · Cost tracking   │   │
+│  └──────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │     Scale Guard (scale-guard.ts)                 │   │
+│  │  Tier-aware rate limits · Overload detection     │   │
+│  │  Job queue · Concurrency control · Telemetry     │   │
 │  └──────────────────────────────────────────────────┘   │
 │                          ↓                              │
 │  ┌──────────────────────────────────────────────────┐   │
@@ -55,14 +60,14 @@ BURS is a premium fashion-tech platform that helps users digitize their wardrobe
 | Styling | Tailwind CSS + shadcn/ui |
 | State | TanStack React Query (offline-first) |
 | Auth | Supabase Auth (email + password) |
-| Database | PostgreSQL via Supabase (25 tables, 80+ RLS policies) |
+| Database | PostgreSQL via Supabase (28 tables, 80+ RLS policies) |
 | Storage | Supabase Storage (private buckets) |
-| Backend | 36 Supabase Edge Functions (Deno) |
-| AI | Custom abstraction layer with complexity-based model routing |
-| Billing | Stripe (subscriptions, webhooks, customer portal) |
+| Backend | 43 Supabase Edge Functions (Deno) |
+| AI | Custom abstraction layer with complexity-based model routing, DB caching, cost tracking |
+| Billing | Stripe (subscriptions, webhooks, customer portal) + StoreKit (iOS) |
 | Animations | Framer Motion |
 | PWA | Service worker, manifest, push notifications |
-| i18n | Custom translation system (EN, SV, NO, DA, FI, DE, FR, ES) |
+| i18n | Custom translation system (14 locales, RTL support) |
 
 ## Key Features
 
@@ -122,7 +127,7 @@ The wardrobe/photo flows expect a private Supabase Storage bucket named `garment
 | `npm run dev` | Start dev server with HMR |
 | `npm run build` | Production build |
 | `npm run lint` | ESLint check |
-| `npm run test` | Run test suite |
+| `npm run test` | Run test suite (512 tests) |
 | `npm run preview` | Preview production build |
 
 ## Project Structure
@@ -144,32 +149,42 @@ src/
 ├── contexts/         # React contexts (Auth, Theme, Language, Location, Seed)
 ├── integrations/     # Supabase client & types
 ├── lib/              # Utilities, haptics, motion, offline queue
-├── i18n/             # Translation strings
+├── i18n/             # Translation strings (14 locales)
 └── assets/           # Static assets
 
 supabase/
-├── functions/        # 36 Edge Functions
-│   ├── _shared/      # Shared utilities (burs-ai.ts, cors.ts, stripe-config.ts)
-│   ├── generate_outfit/
-│   ├── style_chat/
-│   ├── stripe_webhook/
+├── functions/        # 43 Edge Functions
+│   ├── _shared/      # Shared utilities (burs-ai.ts, scale-guard.ts, cors.ts, stripe-config.ts)
+│   ├── process_job_queue/  # Async job worker (image processing, garment enrichment)
+│   ├── style_chat/         # Interactive AI stylist (~3700 LOC)
+│   ├── stripe_webhook/     # Payment processing with atomic idempotency
 │   └── ...
+├── migrations/       # Database migrations (indexes, job_queue, RLS, etc.)
 └── config.toml       # Edge function configuration
 ```
 
-## Security
+## Security & Scale
 
-- **Row Level Security (RLS)** on all tables (80+ policies)
+- **Row Level Security (RLS)** on all 28 tables (80+ policies)
 - **RBAC** via `user_roles` table with security-definer functions
 - **JWT validation** in all sensitive edge functions
 - **SSRF protection** on external URL fetching
-- **Rate limiting** on AI and billing endpoints
-- **Stripe webhook signature** verification
+- **Subscription-tier rate limiting** — per-user, per-function limits that scale by plan (free=0.5x, premium=2x)
+- **Client-side circuit breaker** — prevents hammering failing functions (5 failures → 30s cooldown)
+- **Server-side overload detection** — per-isolate error tracking, auto-503 when error rate is high
+- **Exponential backoff with jitter** — prevents thundering herd on retries
+- **AI response caching** — DB-backed with TTL, hit counting, and automatic cleanup
+- **Job queue** — PostgreSQL-backed async processing with pessimistic locking and stuck job recovery
+- **AI cost tracking** — per-request token counts and estimated cost in telemetry
+- **Stripe webhook idempotency** — atomic upsert prevents duplicate event processing
 - **Private storage buckets** for user images
 
 ## Deployment
 
-The frontend is built with Vite and can be deployed to any static host. Supabase handles backend services, and Edge Functions / database changes are deployed through the Supabase toolchain you use for your environment.
+The frontend is built with Vite and deployed to Vercel. Supabase handles backend services. Edge Functions are deployed individually via:
+```bash
+npx supabase functions deploy [function-name] --project-ref khvkwojtlkcvxjxztduj --no-verify-jwt
+```
 
 ## License
 
