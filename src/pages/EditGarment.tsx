@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
-import AnimatedPage from '@/components/ui/animated-page';
+import { AnimatedPage } from '@/components/ui/animated-page';
 import { hapticLight } from '@/lib/haptics';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

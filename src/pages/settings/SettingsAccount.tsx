@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Trash2, Loader2 } from 'lucide-react';
-import AnimatedPage from '@/components/ui/animated-page';
+import { AnimatedPage } from '@/components/ui/animated-page';
 import { hapticLight } from '@/lib/haptics';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

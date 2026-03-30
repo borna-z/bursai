@@ -51,7 +51,7 @@ import { hapticHeavy, hapticLight, hapticMedium, hapticSuccess } from '@/lib/hap
 import { categoryLabel, colorLabel, fitLabel, humanize, materialLabel, patternLabel, seasonLabel } from '@/lib/humanize';
 import { EASE_CURVE } from '@/lib/motion';
 import { buildStyleAroundState, buildStyleFlowSearch } from '@/lib/styleFlowState';
-import AnimatedPage from '@/components/ui/animated-page';
+import { AnimatedPage } from '@/components/ui/animated-page';
 import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
 import { RenderPendingOverlay } from '@/components/wardrobe/RenderPendingOverlay';
 

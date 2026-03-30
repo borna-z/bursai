@@ -1,5 +1,5 @@
 import { Sun, Moon, Monitor, Globe } from 'lucide-react';
-import AnimatedPage from '@/components/ui/animated-page';
+import { AnimatedPage } from '@/components/ui/animated-page';
 import { hapticLight } from '@/lib/haptics';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';

@@ -1,5 +1,5 @@
 import { Bell, BellRing, Smartphone } from 'lucide-react';
-import AnimatedPage from '@/components/ui/animated-page';
+import { AnimatedPage } from '@/components/ui/animated-page';
 import { hapticLight } from '@/lib/haptics';
 import type { Json } from '@/integrations/supabase/types';
 import { Switch } from '@/components/ui/switch';

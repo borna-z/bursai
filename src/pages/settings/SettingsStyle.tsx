@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Ruler, Weight, Lock, CheckCircle2, Loader2, ChevronDown, Palette, Shirt, Sparkles, Target, Heart, Compass, User, Briefcase } from 'lucide-react';
-import AnimatedPage from '@/components/ui/animated-page';
+import { AnimatedPage } from '@/components/ui/animated-page';
 import { hapticLight } from '@/lib/haptics';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
