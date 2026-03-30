@@ -7,9 +7,11 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { BursLoadingScreen } from '@/components/layout/BursLoadingScreen';
 import { OutfitsOnboardingEmpty } from '@/components/onboarding/OnboardingEmptyState';
 import { OutfitPreviewCard } from '@/components/ui/OutfitPreviewCard';
+import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOutfits, type OutfitWithItems } from '@/hooks/useOutfits';
+import { hapticLight } from '@/lib/haptics';
 import { TAP_TRANSITION } from '@/lib/motion';
 
 type FilterMode = 'all' | 'recent' | 'with_notes';
@@ -45,7 +47,7 @@ function OutfitCard({
         density={listView ? 'comfortable' : 'comfortable'}
         mediaLayout={listView ? 'portrait' : 'square'}
         meta={occasionLabel ? (
-          <p className="font-['DM_Sans'] text-[10px] uppercase tracking-[0.1em] text-foreground/50">
+          <p className="font-body text-[10px] uppercase tracking-[0.1em] text-foreground/50">
             {occasionLabel}
           </p>
         ) : undefined}
@@ -83,12 +85,12 @@ export default function OutfitsPage() {
 
   return (
     <AppLayout>
-      <div className="page-shell space-y-5">
+      <AnimatedPage className="page-shell space-y-5">
         <motion.header className="topbar-frost sticky top-0 z-10 -mx-5 px-5 pb-3 pt-3">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="caption-upper mb-0.5">{t('outfits.saved_looks')}</p>
-              <h1 className="font-['Playfair_Display'] italic text-[1.55rem] leading-tight">
+              <h1 className="font-display italic text-[1.55rem] leading-tight">
                 {t('outfits.title')}
               </h1>
             </div>
@@ -119,10 +121,10 @@ export default function OutfitsPage() {
                     <button
                       key={key}
                       type="button"
-                      onClick={() => setFilterMode(key)}
+                      onClick={() => { hapticLight(); setFilterMode(key); }}
                       className={filterMode === key
-                        ? 'rounded-full bg-foreground px-3 py-2 text-[0.72rem] font-medium uppercase tracking-[0.14em] text-background'
-                        : 'rounded-full border border-border/55 bg-background/85 px-3 py-2 text-[0.72rem] font-medium uppercase tracking-[0.14em] text-muted-foreground'}
+                        ? 'cursor-pointer rounded-full bg-foreground px-3 py-2 text-[0.72rem] font-medium uppercase tracking-[0.14em] text-background'
+                        : 'cursor-pointer rounded-full border border-border/55 bg-background/85 px-3 py-2 text-[0.72rem] font-medium uppercase tracking-[0.14em] text-muted-foreground'}
                     >
                       {label}
                     </button>
@@ -132,16 +134,16 @@ export default function OutfitsPage() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setListView(false)}
-                    className={listView ? 'flex h-10 w-10 items-center justify-center rounded-full border border-border/55 bg-background/85 text-muted-foreground' : 'flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-background'}
+                    onClick={() => { hapticLight(); setListView(false); }}
+                    className={listView ? 'cursor-pointer flex h-10 w-10 items-center justify-center rounded-full border border-border/55 bg-background/85 text-muted-foreground' : 'cursor-pointer flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-background'}
                     aria-label={t('outfits.grid_view')}
                   >
                     <Grid3X3 className="size-4" />
                   </button>
                   <button
                     type="button"
-                    onClick={() => setListView(true)}
-                    className={listView ? 'flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-background' : 'flex h-10 w-10 items-center justify-center rounded-full border border-border/55 bg-background/85 text-muted-foreground'}
+                    onClick={() => { hapticLight(); setListView(true); }}
+                    className={listView ? 'cursor-pointer flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-background' : 'cursor-pointer flex h-10 w-10 items-center justify-center rounded-full border border-border/55 bg-background/85 text-muted-foreground'}
                     aria-label={t('outfits.list_view')}
                   >
                     <List className="size-4" />
@@ -166,7 +168,7 @@ export default function OutfitsPage() {
             </div>
           </>
         )}
-      </div>
+      </AnimatedPage>
     </AppLayout>
   );
 }

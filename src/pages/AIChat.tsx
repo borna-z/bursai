@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useGarmentsByIds, type GarmentBasic } from '@/hooks/useGarmentsByIds';
 import { useGarmentCount } from '@/hooks/useGarments';
+import { hapticLight } from '@/lib/haptics';
 import { logger } from '@/lib/logger';
 import { useStyleDNA } from '@/hooks/useStyleDNA';
 import { useCreateOutfit } from '@/hooks/useOutfits';
@@ -113,7 +114,7 @@ function AIChatFallback() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="max-w-sm w-full text-center space-y-6">
-        <h1 className="font-['Playfair_Display'] italic text-[1.3rem] text-foreground leading-tight">Your stylist is temporarily unavailable</h1>
+        <h1 className="font-display italic text-[1.3rem] text-foreground leading-tight">Your stylist is temporarily unavailable</h1>
         <Button onClick={() => navigate(-1)}>Go Back</Button>
       </div>
     </div>
@@ -438,7 +439,7 @@ export default function AIChat() {
         <div className="topbar-frost sticky top-0 z-10 flex shrink-0 items-center justify-between px-4 py-3 min-h-[64px]">
           <div className="w-10" />
           <div className="flex flex-col items-center gap-0.5">
-            <span className="font-['Playfair_Display'] italic text-[1.1rem] text-foreground leading-tight">
+            <span className="font-display italic text-[1.1rem] text-foreground leading-tight">
               {t('chat.mode_stylist')}
             </span>
             <span className="caption-upper text-[11px]">AI Stylist</span>
@@ -541,23 +542,23 @@ export default function AIChat() {
             {/* Plan action banner */}
             {planActionPayload && !isStreaming && (
               <div className="mt-3 rounded-[1.25rem] bg-foreground px-4 py-4 text-background shadow-[0_18px_40px_rgba(22,18,15,0.18)]">
-                <p className="mb-3 font-['Playfair_Display'] text-[0.95rem] italic text-background/75">
+                <p className="mb-3 font-display text-[0.95rem] italic text-background/75">
                   Your week is planned. Add these looks to the planner?
                 </p>
                 <div className="flex gap-2">
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="flex-1"
-                    onClick={() => { handleAddToPlan(planActionPayload); setPlanActionPayload(null); }}
+                    className="flex-1 cursor-pointer"
+                    onClick={() => { hapticLight(); handleAddToPlan(planActionPayload); setPlanActionPayload(null); }}
                   >
                     Add to plan
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1 border-background/12 bg-transparent text-background/60 hover:bg-background/5"
-                    onClick={() => setPlanActionPayload(null)}
+                    className="flex-1 cursor-pointer border-background/12 bg-transparent text-background/60 hover:bg-background/5"
+                    onClick={() => { hapticLight(); setPlanActionPayload(null); }}
                   >
                     Dismiss
                   </Button>
@@ -571,8 +572,9 @@ export default function AIChat() {
                     <Button
                       key={i}
                       variant="outline"
-                      className="min-h-[40px] rounded-full px-4"
+                      className="min-h-[40px] rounded-full px-4 cursor-pointer"
                       onClick={() => {
+                        hapticLight();
                         setSuggestionChips([]);
                         sendMessage(chip);
                       }}
@@ -591,7 +593,7 @@ export default function AIChat() {
         <ChatInput
           input={input}
           onInputChange={setInput}
-          onSend={() => sendMessage()}
+          onSend={() => { hapticLight(); sendMessage(); }}
           onImageSelect={handleImageSelect}
           pendingImage={pendingImage}
           onClearImage={() => setPendingImage(null)}

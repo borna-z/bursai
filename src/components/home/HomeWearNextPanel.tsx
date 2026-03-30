@@ -37,7 +37,7 @@ export function HomeWearNextPanel({
           <p className="label-editorial text-muted-foreground/60">
             {sleepingBeautiesCount >= 3 ? t('home.wear_sleeping_beauties') : t('home.wear_next_label')}
           </p>
-          <h2 className="mt-1 font-['Playfair_Display'] italic text-[1.25rem] tracking-[-0.03em] text-foreground">
+          <h2 className="mt-1 font-display italic text-[1.25rem] tracking-[-0.03em] text-foreground">
             {t('home.wear_bring_back')}
           </h2>
         </div>

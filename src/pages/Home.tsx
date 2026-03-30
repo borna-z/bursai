@@ -240,7 +240,7 @@ export default function HomePage() {
                   <p className="caption-upper mb-0.5 text-muted-foreground/50">
                     {formattedDate}
                   </p>
-                  <h1 className="font-['Playfair_Display'] italic text-[1.55rem] leading-tight tracking-[-0.01em] text-foreground">
+                  <h1 className="font-display italic text-[1.55rem] leading-tight tracking-[-0.01em] text-foreground">
                     {getGreeting()}
                   </h1>
                 </div>

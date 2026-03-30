@@ -124,13 +124,13 @@ export function MilestoneCelebration() {
             />
 
             <h2
-              className="font-['Playfair_Display'] italic text-[2rem] leading-tight text-background"
+              className="font-display italic text-[2rem] leading-tight text-background"
             >
               {MILESTONES[active].title}
             </h2>
 
             <p
-              className="font-['DM_Sans'] text-[13px] mt-2 tracking-[0.06em]"
+              className="font-body text-[13px] mt-2 tracking-[0.06em]"
               style={{ color: 'hsl(var(--background) / 0.5)' }}
             >
               {MILESTONES[active].sub}

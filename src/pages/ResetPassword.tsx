@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Loader2, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
+import { hapticLight } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import bursLogoWhite from '@/assets/burs-logo-white.png';
@@ -108,7 +109,7 @@ export default function ResetPassword() {
         transition={{ duration: 0.5, delay: 0.15, ease: EASE_CURVE }}
       >
         <div className="p-6 pb-2">
-          <h2 className="font-['Playfair_Display'] italic text-lg">{t('auth.set_new_password')}</h2>
+          <h2 className="font-display italic text-lg">{t('auth.set_new_password')}</h2>
           <p className="text-sm text-muted-foreground mt-1">{t('auth.set_new_password_desc')}</p>
         </div>
         <div className="p-6 pt-4 space-y-4">
@@ -125,8 +126,8 @@ export default function ResetPassword() {
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => { hapticLight(); setShowPassword(!showPassword); }}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -143,7 +144,7 @@ export default function ResetPassword() {
               className={inputClass}
             />
           </div>
-          <Button className="w-full mt-2" disabled={isLoading} onClick={handleReset}>
+          <Button className="w-full mt-2" disabled={isLoading} onClick={() => { hapticLight(); handleReset(); }}>
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

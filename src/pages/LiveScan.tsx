@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { cn } from '@/lib/utils';
+import { hapticLight } from '@/lib/haptics';
 import { useLiveScan } from '@/hooks/useLiveScan';
 import { useAutoDetect, type FramingHint } from '@/hooks/useAutoDetect';
 import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
@@ -351,7 +352,7 @@ export default function LiveScan() {
   const handleAutoCapture = useCallback(() => {
     if (!videoRef.current || !canCapture || !hasSlots) return;
     capture(videoRef.current);
-    if (navigator.vibrate) navigator.vibrate(30);
+    hapticLight();
   }, [capture, canCapture, hasSlots]);
 
   const { progress: autoProgress, framingHint, lockConfidence } = useAutoDetect({
@@ -502,7 +503,7 @@ export default function LiveScan() {
                 type="button"
                 variant={autoMode ? 'editorial' : 'outline'}
                 size="icon"
-                onClick={() => setAutoMode((value) => !value)}
+                onClick={() => { hapticLight(); setAutoMode((value) => !value); }}
                 className={cn(autoMode ? 'text-accent' : 'text-muted-foreground')}
               >
                 {autoMode ? <Zap className="w-4 h-4" /> : <ZapOff className="w-4 h-4" />}

@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Ruler, Weight, Lock, CheckCircle2, Loader2, ChevronDown, Palette, Shirt, Sparkles, Target, Heart, Compass, User, Briefcase } from 'lucide-react';
+import AnimatedPage from '@/components/ui/animated-page';
+import { hapticLight } from '@/lib/haptics';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -103,7 +105,7 @@ export default function SettingsStyle() {
     } catch { toast.error(t('settings.body_save_error')); }
   };
 
-  const toggle = (id: SectionId) => setOpenSection(prev => prev === id ? null : id);
+  const toggle = (id: SectionId) => { hapticLight(); setOpenSection(prev => prev === id ? null : id); };
 
   const hasProfile = !!sp.gender || !!sp.styleWords?.length;
 
@@ -177,7 +179,7 @@ export default function SettingsStyle() {
     <AppLayout>
       <PageHeader title={t('settings.row.style')} showBack />
 
-      <div className="px-4 pb-6 pt-4 space-y-3 max-w-lg mx-auto">
+      <AnimatedPage className="px-4 pb-6 pt-4 space-y-3 max-w-lg mx-auto">
 
         {!hasProfile && (
           <div className="bg-accent/8 border border-accent/20 rounded-[1.25rem] p-4 text-center space-y-2">
@@ -221,7 +223,7 @@ export default function SettingsStyle() {
                 <Lock className="w-3 h-3 flex-shrink-0 mt-0.5" />
                 <p className="text-[11px] leading-relaxed">{t('settings.body_privacy')}</p>
               </div>
-              <Button onClick={handleSaveBodyData} disabled={updateProfile.isPending} size="sm" className="w-full bg-accent text-accent-foreground hover:bg-accent/90 h-11 text-xs">
+              <Button onClick={() => { hapticLight(); handleSaveBodyData(); }} disabled={updateProfile.isPending} size="sm" className="w-full bg-accent text-accent-foreground hover:bg-accent/90 h-11 text-xs">
                 {updateProfile.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : bodySaved ? <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> : null}
                 {bodySaved ? t('settings.saved') : t('settings.save_measurements')}
               </Button>
@@ -502,6 +504,7 @@ export default function SettingsStyle() {
               role="switch"
               aria-checked={!!prefs.show_mannequin}
               onClick={async () => {
+                hapticLight();
                 const next = !prefs.show_mannequin;
                 try {
                   await updateProfile.mutateAsync({
@@ -536,6 +539,7 @@ export default function SettingsStyle() {
               role="switch"
               aria-checked={prefs.showRenderPrompt !== false}
               onClick={async () => {
+                hapticLight();
                 const next = prefs.showRenderPrompt === false;
                 try {
                   await updateProfile.mutateAsync({
@@ -558,7 +562,7 @@ export default function SettingsStyle() {
           </div>
         </div>
 
-      </div>
+      </AnimatedPage>
     </AppLayout>
   );
 }

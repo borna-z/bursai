@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { hapticLight } from '@/lib/haptics';
 
 const BATCH_SIZE = 6;
 
@@ -172,7 +173,7 @@ export default function GenerateImages() {
         {/* Action buttons */}
         <div className="flex gap-3">
           <Button
-            onClick={() => startGeneration()}
+            onClick={() => { hapticLight(); startGeneration(); }}
             disabled={running || !garments?.length}
             className="flex-1"
           >
@@ -184,7 +185,7 @@ export default function GenerateImages() {
           </Button>
 
           {failedItems.length > 0 && !running && (
-            <Button variant="outline" onClick={retryFailed}>
+            <Button variant="outline" onClick={() => { hapticLight(); retryFailed(); }}>
               <RotateCcw className="w-4 h-4" /> {t('genimg.retry')} {failedItems.length}
             </Button>
           )}

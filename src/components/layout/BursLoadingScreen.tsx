@@ -47,7 +47,7 @@ export function BursLoadingScreen() {
             <BursMonogram size={52} />
           </motion.div>
         </motion.div>
-        <motion.h1 className="font-['Playfair_Display'] italic text-[2.2rem] tracking-[-0.01em] text-foreground leading-none"
+        <motion.h1 className="font-display italic text-[2.2rem] tracking-[-0.01em] text-foreground leading-none"
           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}>
           BURS
         </motion.h1>
@@ -58,7 +58,7 @@ export function BursLoadingScreen() {
         <motion.div className="h-5 overflow-hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4, delay: 1.1 }}>
           <AnimatePresence mode="wait">
             <motion.p key={msgIndex} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28 }}
-              className="text-[11px] font-['DM_Sans'] tracking-[0.12em] text-muted-foreground/45 text-center">
+              className="text-[11px] font-body tracking-[0.12em] text-muted-foreground/45 text-center">
               {MESSAGES[msgIndex]}<span className="inline-block w-5 text-left">{'.'.repeat(dotCount)}</span>
             </motion.p>
           </AnimatePresence>

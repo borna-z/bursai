@@ -241,7 +241,7 @@
     font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
   }
 
-  /* Typography – Sora headings, Inter body */
+  /* Typography – Playfair Display headings, DM Sans body */
   h1 {
     @apply text-[1.625rem] font-bold tracking-[-0.025em] leading-[1.15];
     font-family: 'DM Sans', sans-serif;
@@ -274,7 +274,7 @@
   /* Editorial label — uppercase tracked, used for section overlines */
   .label-editorial {
     @apply text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-muted-foreground/60;
-    font-family: 'DM Sans', 'Inter', sans-serif;
+    font-family: 'DM Sans', sans-serif;
   }
 
   /* Metadata — secondary info like colors, dates, counts */

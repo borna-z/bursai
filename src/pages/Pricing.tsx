@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { hapticLight } from '@/lib/haptics';
 import { prepareExternalNavigation } from '@/lib/externalNavigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -68,23 +69,23 @@ export default function PricingPage() {
         {/* Trial banner */}
         <div className="surface-editorial rounded-[1.25rem] p-5 text-center space-y-3">
           <Badge className="bg-primary text-primary-foreground">{t('trial.badge')}</Badge>
-          <h2 className="font-['Playfair_Display'] italic text-[1.4rem]">{t('trial.banner_title')}</h2>
+          <h2 className="font-display italic text-[1.4rem]">{t('trial.banner_title')}</h2>
           <p className="text-sm text-muted-foreground">{t('trial.banner_desc')}</p>
         </div>
 
         {/* Hero */}
         <div className="text-center space-y-4 pt-4">
           <Crown className="w-10 h-10 mx-auto text-foreground" />
-          <h2 className="font-['Playfair_Display'] italic text-[1.6rem]">{t('pricing.hero')}</h2>
+          <h2 className="font-display italic text-[1.6rem]">{t('pricing.hero')}</h2>
           <p className="text-muted-foreground">{t('pricing.hero_desc')}</p>
         </div>
 
         {/* Billing toggle */}
         <div className="flex items-center justify-center gap-2 p-1 bg-muted">
-          <button className={cn('flex-1 min-h-[44px] py-2 px-4 text-sm font-medium transition-all', billingCycle === 'monthly' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')} onClick={() => setBillingCycle('monthly')}>
+          <button className={cn('flex-1 min-h-[44px] py-2 px-4 text-sm font-medium transition-all', billingCycle === 'monthly' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')} onClick={() => { hapticLight(); setBillingCycle('monthly'); }}>
             {t('pricing.monthly_label')}
           </button>
-          <button className={cn('flex-1 min-h-[44px] py-2 px-4 text-sm font-medium transition-all relative', billingCycle === 'yearly' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')} onClick={() => setBillingCycle('yearly')}>
+          <button className={cn('flex-1 min-h-[44px] py-2 px-4 text-sm font-medium transition-all relative', billingCycle === 'yearly' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')} onClick={() => { hapticLight(); setBillingCycle('yearly'); }}>
             {t('pricing.yearly_label')}
             <Badge className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs px-1.5">-{pricing.savingsPercent}%</Badge>
           </button>
@@ -110,7 +111,7 @@ export default function PricingPage() {
           </div>
           <p className="text-center text-sm font-medium text-muted-foreground">{t('trial.first_free')}</p>
           <p className="text-center text-xs text-muted-foreground">{t('trial.then_prefix')} {pricing.monthly}{t('pricing.per_month')} {t('common.or')} {pricing.yearly}{t('pricing.per_year')}</p>
-          <Button className="h-14 w-full rounded-full text-[15px] font-medium" onClick={handleCheckout} disabled={isLoading}>
+          <Button className="h-14 w-full rounded-full text-[15px] font-medium" onClick={() => { hapticLight(); handleCheckout(); }} disabled={isLoading}>
             {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Crown className="w-5 h-5 mr-2" />}
             {t('trial.start_button')}
           </Button>
@@ -127,10 +128,10 @@ export default function PricingPage() {
 
         {/* FAQ */}
         <div className="space-y-0">
-          <h3 className="font-['Playfair_Display'] italic text-lg mb-4">{t('pricing.faq_title')}</h3>
+          <h3 className="font-display italic text-lg mb-4">{t('pricing.faq_title')}</h3>
           {faqs.map((faq, index) => (
             <div key={index} className="border-b border-border">
-              <button className="w-full min-h-[44px] py-4 text-left flex items-center justify-between" onClick={() => setOpenFaq(openFaq === index ? null : index)}>
+              <button className="w-full min-h-[44px] py-4 text-left flex items-center justify-between cursor-pointer" onClick={() => setOpenFaq(openFaq === index ? null : index)}>
                 <span className="font-medium text-sm">{faq.question}</span>
                 {openFaq === index ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
               </button>
@@ -141,7 +142,7 @@ export default function PricingPage() {
 
         {/* Feature comparison */}
         <div className="space-y-3">
-          <h3 className="font-['Playfair_Display'] italic text-lg">{t('pricing.compare_title') || 'Free vs Premium'}</h3>
+          <h3 className="font-display italic text-lg">{t('pricing.compare_title') || 'Free vs Premium'}</h3>
           <div className="border border-border overflow-hidden">
             <table className="w-full text-sm">
               <thead>

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Trash2, Loader2 } from 'lucide-react';
+import AnimatedPage from '@/components/ui/animated-page';
+import { hapticLight } from '@/lib/haptics';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -58,7 +60,7 @@ export default function SettingsAccount() {
     <AppLayout>
       <PageHeader title={t('settings.row.account')} showBack />
 
-      <div className="px-4 pb-6 pt-4 space-y-6 max-w-lg mx-auto">
+      <AnimatedPage className="px-4 pb-6 pt-4 space-y-6 max-w-lg mx-auto">
         <div>
           <PremiumSection isPremium={isPremium} subscription={subscription} limits={limits} />
         </div>
@@ -68,7 +70,7 @@ export default function SettingsAccount() {
             <Label className="text-xs font-medium">{t('settings.display_name')}</Label>
             <div className="flex gap-2">
               <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={t('settings.your_name')} className="h-9 text-sm" />
-              <Button onClick={handleSaveDisplayName} disabled={updateProfile.isPending} size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 h-11 text-xs px-4">
+              <Button onClick={() => { hapticLight(); handleSaveDisplayName(); }} disabled={updateProfile.isPending} size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 h-11 text-xs px-4">
                 {t('settings.save')}
               </Button>
             </div>
@@ -109,7 +111,7 @@ export default function SettingsAccount() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground" disabled={isDeleting}>
+                  <AlertDialogAction onClick={() => { hapticLight(); handleDeleteAccount(); }} className="bg-destructive text-destructive-foreground" disabled={isDeleting}>
                     {isDeleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     {t('settings.delete_permanently')}
                   </AlertDialogAction>
@@ -118,7 +120,7 @@ export default function SettingsAccount() {
             </AlertDialog>
           </div>
         </div>
-      </div>
+      </AnimatedPage>
     </AppLayout>
   );
 }

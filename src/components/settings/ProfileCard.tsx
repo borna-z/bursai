@@ -107,7 +107,7 @@ export function ProfileCard() {
         <p className="text-[17px] font-medium truncate">{displayName}</p>
         {/* Plan tier badge */}
         <div className={`mt-1 mb-0.5 inline-flex items-center px-2 py-0.5 ${isPremium ? 'bg-foreground' : 'bg-secondary'}`}>
-          <span className={`font-['DM_Sans'] text-[11px] ${isPremium ? 'text-background' : 'text-foreground/50'}`}>
+          <span className={`font-body text-[11px] ${isPremium ? 'text-background' : 'text-foreground/50'}`}>
             {plan === 'premium' ? 'Plus' : 'Free plan'}
           </span>
         </div>

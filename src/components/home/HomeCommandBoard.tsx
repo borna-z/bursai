@@ -118,7 +118,7 @@ export function HomeCommandBoard({
             <p className="text-[0.7rem] uppercase tracking-[0.22em] text-muted-foreground/58">
               {t('home.command_workspace')}
             </p>
-            <h2 className="max-w-[15ch] font-['Playfair_Display'] italic text-[1.32rem] tracking-[-0.05em] text-foreground">
+            <h2 className="max-w-[15ch] font-display italic text-[1.32rem] tracking-[-0.05em] text-foreground">
               {title}
             </h2>
             <p className="max-w-[32ch] text-[0.84rem] leading-5 text-muted-foreground">

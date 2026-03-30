@@ -15,9 +15,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        heading: ["Sora", "Inter", "sans-serif"],
-        space: ["'Space Grotesk'", "sans-serif"],
+        sans: ["'DM Sans'", "system-ui", "sans-serif"],
         display: ["'Playfair Display'", "serif"],
         body: ["'DM Sans'", "sans-serif"],
       },

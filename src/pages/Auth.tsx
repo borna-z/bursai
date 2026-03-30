@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Loader2, Eye, EyeOff, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
+import { hapticLight } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 import bursLogo from '@/assets/burs-logo-256-2.png';
 
@@ -21,7 +22,7 @@ function PasswordRequirements({ password, t }: { password: string; t: (k: string
       {rules.map(r => (
         <div key={r.key} className="flex items-center gap-1.5 transition-colors duration-200">
           {r.met ? <Check className="w-3 h-3 text-foreground shrink-0" /> : <div className="w-3 h-3 rounded-full border border-border/50 shrink-0" />}
-          <span className={`text-[11px] font-['DM_Sans'] transition-colors duration-200 ${r.met ? 'text-foreground' : 'text-muted-foreground/40'}`}>{t(r.key)}</span>
+          <span className={`text-[11px] font-body transition-colors duration-200 ${r.met ? 'text-foreground' : 'text-muted-foreground/40'}`}>{t(r.key)}</span>
         </div>
       ))}
     </div>
@@ -68,7 +69,7 @@ export default function AuthPage() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <motion.img src={bursLogo} alt="BURS" className="h-8 w-auto"
-          animate={{ opacity: [0.2, 0.7, 0.2] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }} />
+          animate={{ opacity: [0.2, 0.7, 0.2] }} transition={{ duration: 2.4, repeat: Infinity, ease: EASE_CURVE }} />
       </div>
     );
   }
@@ -137,10 +138,10 @@ export default function AuthPage() {
   };
 
   const isLogin = tab === 'login';
-  const inputBase = "w-full h-12 border-b border-border/50 bg-transparent px-0 text-[15px] font-['DM_Sans'] text-foreground placeholder:text-muted-foreground/25 focus:outline-none focus:border-foreground/50 transition-colors duration-200 disabled:opacity-40 rounded-none";
+  const inputBase = "w-full h-12 border-b border-border/50 bg-transparent px-0 text-[15px] font-body text-foreground placeholder:text-muted-foreground/25 focus:outline-none focus:border-foreground/50 transition-colors duration-200 disabled:opacity-40 rounded-none";
 
   return (
-    <div className="relative min-h-screen flex flex-col bg-background overflow-hidden font-['DM_Sans']">
+    <div className="relative min-h-screen flex flex-col bg-background overflow-hidden font-body">
       <EditorialGrid />
       <div className="relative z-10 flex items-center justify-between px-6 pt-[max(env(safe-area-inset-top,0px),24px)] pb-4 border-b border-border/20">
         <p className="text-[9px] uppercase tracking-[0.26em] text-muted-foreground/40">{t('auth.header_tagline')}</p>
@@ -195,8 +196,8 @@ export default function AuthPage() {
                   <div className="relative">
                     <input type={showPassword ? 'text' : 'password'} placeholder={isLogin ? '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022' : t('auth.min_password')}
                       value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading} className={`${inputBase} pr-8`} autoComplete={isLogin ? 'current-password' : 'new-password'} />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 text-muted-foreground/30 hover:text-foreground/60 transition-colors"
+                    <button type="button" onClick={() => { hapticLight(); setShowPassword(!showPassword); }}
+                      className="absolute right-0 top-1/2 -translate-y-1/2 text-muted-foreground/30 hover:text-foreground/60 transition-colors cursor-pointer"
                       aria-label={showPassword ? t('auth.hide_password') : t('auth.show_password')}>
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -224,14 +225,14 @@ export default function AuthPage() {
                 {isLogin && emailNotConfirmed && (
                   <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between bg-muted/40 border border-border/40 px-3 py-2.5">
                     <span className="text-[11px] text-foreground/65">{t('auth.email_not_confirmed_notice')}</span>
-                    <button type="button" onClick={handleResendConfirmation} disabled={resendingEmail}
+                    <button type="button" onClick={() => { hapticLight(); handleResendConfirmation(); }} disabled={resendingEmail}
                       className="text-[11px] text-foreground font-medium underline underline-offset-2 hover:opacity-70 transition-opacity disabled:opacity-40 flex items-center gap-1.5">
                       {resendingEmail && <Loader2 className="w-3 h-3 animate-spin" />}
                       {t('auth.resend')}
                     </button>
                   </motion.div>
                 )}
-                <button type="submit" disabled={isLoading}
+                <button type="submit" disabled={isLoading} onClick={() => hapticLight()}
                   className="w-full h-[50px] bg-foreground text-background text-[10px] uppercase tracking-[0.22em] font-semibold hover:bg-foreground/88 active:scale-[0.98] transition-all duration-200 disabled:opacity-40 flex items-center justify-center gap-2">
                   {isLoading ? (<><Loader2 className="h-3.5 w-3.5 animate-spin" /><span>{isLogin ? t('auth.logging_in') : t('auth.creating')}</span></>) : (isLogin ? t('auth.login') : t('auth.signup'))}
                 </button>

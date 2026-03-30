@@ -141,7 +141,7 @@ export function ChatWelcome({ onSuggestion, displayName }: ChatWelcomeProps) {
       
       <motion.h2
         variants={itemVariants}
-        className="font-['Playfair_Display'] italic text-[1.4rem] text-foreground mb-0.5 leading-tight"
+        className="font-display italic text-[1.4rem] text-foreground mb-0.5 leading-tight"
       >
         {t('chat.welcome_title')}
       </motion.h2>

@@ -51,6 +51,7 @@ import { hapticHeavy, hapticLight, hapticMedium, hapticSuccess } from '@/lib/hap
 import { categoryLabel, colorLabel, fitLabel, humanize, materialLabel, patternLabel, seasonLabel } from '@/lib/humanize';
 import { EASE_CURVE } from '@/lib/motion';
 import { buildStyleAroundState, buildStyleFlowSearch } from '@/lib/styleFlowState';
+import AnimatedPage from '@/components/ui/animated-page';
 import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
 import { RenderPendingOverlay } from '@/components/wardrobe/RenderPendingOverlay';
 
@@ -285,7 +286,7 @@ export default function GarmentDetailPage() {
         )}
       />
 
-      <div className="page-shell !px-5 !pb-36 !pt-6 page-cluster">
+      <AnimatedPage className="page-shell !px-5 !pb-36 !pt-6 page-cluster">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -412,6 +413,7 @@ export default function GarmentDetailPage() {
                     <Button
                       size="sm"
                       onClick={async () => {
+                        hapticLight();
                         const price = parseFloat(priceInput);
                         if (Number.isNaN(price) || price < 0) return;
 
@@ -512,7 +514,7 @@ export default function GarmentDetailPage() {
         {activeTab === 'similar' ? (
           <GarmentSimilarItems similarGarments={similarGarments} />
         ) : null}
-      </div>
+      </AnimatedPage>
 
       <div className="bottom-safe-nav fixed inset-x-4 z-20">
         <div className="mx-auto max-w-xl">

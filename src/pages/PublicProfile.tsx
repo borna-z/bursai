@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { hapticLight } from '@/lib/haptics';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { OutfitReactions } from '@/components/social/OutfitReactions';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
@@ -116,7 +117,7 @@ export default function PublicProfile() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <Users className="w-12 h-12 text-muted-foreground/30 mb-4" />
-        <h1 className="font-['Playfair_Display'] italic text-xl font-bold mb-2">{t('profile.not_found')}</h1>
+        <h1 className="font-display italic text-xl font-bold mb-2">{t('profile.not_found')}</h1>
         <p className="text-muted-foreground text-center mb-6">{t('profile.not_found_desc')}</p>
         <Link to="/auth"><Button>{t('share.create_own')}<ArrowRight className="w-4 h-4 ml-2" /></Button></Link>
       </div>
@@ -149,7 +150,7 @@ export default function PublicProfile() {
               <AvatarFallback className="bg-primary/8 text-primary font-semibold text-xl">{initials}</AvatarFallback>
             </Avatar>
             <div className="text-center">
-              <h1 className="font-['Playfair_Display'] italic text-xl font-bold">{displayName}</h1>
+              <h1 className="font-display italic text-xl font-bold">{displayName}</h1>
               <p className="text-sm text-muted-foreground">@{profile.username}</p>
             </div>
             <div className="flex gap-6 mt-2">
@@ -172,7 +173,7 @@ export default function PublicProfile() {
                 <div
                   key={outfit.id}
                   className="rounded-[1.25rem] overflow-hidden border bg-card cursor-pointer active:scale-[0.98] transition-transform"
-                  onClick={() => navigate(`/share/${outfit.id}`)}
+                  onClick={() => { hapticLight(); navigate(`/share/${outfit.id}`); }}
                 >
                   <div className="aspect-square bg-muted overflow-hidden">
                     {imageUrls[outfit.id] ? (
