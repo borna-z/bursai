@@ -311,8 +311,12 @@ export function useBackgroundSyncNotification() {
   }, [profile?.last_calendar_sync, t]);
 }
 
-export function inferOccasionFromEvent(title: string): { occasion: string; formality: number; confidence: number } | null {
+export function inferOccasionFromEvent(
+  title: string,
+  metadata?: { description?: string | null; location?: string | null; start_time?: string | null; end_time?: string | null },
+): { occasion: string; formality: number; confidence: number } | null {
   const t = title.toLowerCase();
+  const combined = `${t} ${(metadata?.description || '').toLowerCase()} ${(metadata?.location || '').toLowerCase()}`;
 
   const rules: { occasion: string; formality: number; keywords: string[]; confidence: number }[] = [
     { occasion: 'fest', formality: 5, confidence: 0.95, keywords: [
@@ -351,7 +355,7 @@ export function inferOccasionFromEvent(title: string): { occasion: string; forma
   ];
 
   for (const rule of rules) {
-    if (rule.keywords.some(kw => t.includes(kw.toLowerCase()))) {
+    if (rule.keywords.some(kw => combined.includes(kw.toLowerCase()))) {
       return { occasion: rule.occasion, formality: rule.formality, confidence: rule.confidence };
     }
   }

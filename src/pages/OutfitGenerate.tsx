@@ -41,6 +41,7 @@ import {
   extractStyleFlowStyles,
   resolveStyleFlowGarmentIds,
 } from '@/lib/styleFlowState';
+import { buildDayIntelligence } from '@/lib/dayIntelligence';
 
 /* ── Occasions ── */
 const OCCASION_ICONS: Record<string, React.ElementType> = {
@@ -178,6 +179,10 @@ export default function OutfitGeneratePage() {
     return parts.join(' · ');
   }, [preferredGarmentIds.length, selectedOccasion, selectedStyles, weather?.precipitation, weather?.temperature]);
   const weatherAdvice = getWeatherAdvice(weather?.temperature, weather?.precipitation);
+  const dayContext = useMemo(() => {
+    if (!calendarEvents?.length) return null;
+    return buildDayIntelligence(calendarEvents, weather ?? undefined);
+  }, [calendarEvents, weather]);
   const clearPreferredGarments = useCallback(() => {
     navigate(location.pathname, { replace: true });
   }, [location.pathname, navigate]);
@@ -199,6 +204,7 @@ export default function OutfitGeneratePage() {
         style: selectedStyles.length > 0 ? selectedStyles.join(', ') : null,
         locale,
         eventTitle: calendarEvents?.[0]?.title ?? null,
+        dayContext,
         mode: generationMode,
         exclude_garment_ids: excludeIds.filter((garmentId) => !preferredGarmentIdSet.has(garmentId)),
         prefer_garment_ids: preferredGarmentIds,
@@ -244,6 +250,7 @@ export default function OutfitGeneratePage() {
     generateOutfitCandidates,
     generationMode,
     locale,
+    dayContext,
     preferredGarmentIdSet,
     preferredGarmentIds,
     selectedOccasion,

@@ -13,21 +13,22 @@ import {
 import { useWeather } from '@/hooks/useWeather';
 import { useForecast, type ForecastDay } from '@/hooks/useForecast';
 import { Label } from '@/components/ui/label';
-import { useCalendarEvents, inferOccasionFromEvent } from '@/hooks/useCalendarSync';
+import { useCalendarEvents } from '@/hooks/useCalendarSync';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useLocation } from '@/contexts/LocationContext';
 import { getBCP47 } from '@/lib/dateLocale';
-
-function getSuggestedOccasion(events: { title: string }[]): { occasion: string; source: string } | null {
-  let bestMatch: { occasion: string; formality: number; source: string } | null = null;
-  for (const event of events) {
-    const inferred = inferOccasionFromEvent(event.title);
-    if (inferred && (!bestMatch || inferred.formality > bestMatch.formality)) {
-      bestMatch = { occasion: inferred.occasion, formality: inferred.formality, source: event.title };
-    }
-  }
-  return bestMatch ? { occasion: bestMatch.occasion, source: bestMatch.source } : null;
-}
+import { buildDayIntelligence } from '@/lib/dayIntelligence';
+const OCCASION_ALIAS: Record<string, string> = {
+  formal: 'party',
+  party: 'party',
+  dinner: 'date',
+  travel: 'travel',
+  workout: 'workout',
+  work: 'work',
+  remote: 'work',
+  social: 'casual',
+  casual: 'casual',
+};
 
 interface QuickGenerateSheetProps {
   open: boolean;
@@ -103,7 +104,12 @@ export function QuickGenerateSheet({ open, onOpenChange, date, onGenerate, isGen
 
   useEffect(() => {
     if (calendarEvents && calendarEvents.length > 0) {
-      const suggestion = getSuggestedOccasion(calendarEvents);
+      const intelligence = buildDayIntelligence(calendarEvents);
+      const mappedOccasion = OCCASION_ALIAS[intelligence.dominant_occasion] || 'casual';
+      const suggestion = {
+        occasion: mappedOccasion,
+        source: intelligence.anchor_event?.title || intelligence.transition_summary,
+      };
       if (suggestion) { setCalendarSuggestion(suggestion); setOccasion(suggestion.occasion); }
       else { setCalendarSuggestion(null); }
     } else { setCalendarSuggestion(null); }

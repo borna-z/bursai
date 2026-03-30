@@ -134,6 +134,7 @@ export default function PlanPage() {
         style: request.style,
         locale,
         eventTitle: topEventTitle,
+        dayContext: daySummary?.intelligence ?? null,
         weather: { temperature: request.temperature, precipitation: 'none', wind: 'low' },
       });
       await upsertPlanned.mutateAsync({ date: dateStr, outfitId: outfit.id });

@@ -14,6 +14,7 @@ export interface UnifiedStylistRequest {
   };
   locale?: string;
   event_title?: string | null;
+  day_context?: Record<string, unknown> | null;
   prefer_garment_ids?: string[];
   exclude_garment_ids?: string[];
   active_look_garment_ids?: string[];
@@ -97,6 +98,7 @@ export async function invokeUnifiedStylistEngine(params: {
     weather: normalizeWeather(request.weather),
     locale: request.locale || "en",
     event_title: request.event_title || null,
+    day_context: request.day_context || null,
     prefer_garment_ids: normalizeIds(request.prefer_garment_ids),
     exclude_garment_ids: normalizeIds(request.exclude_garment_ids),
     output_count: typeof request.output_count === "number" ? request.output_count : undefined,
