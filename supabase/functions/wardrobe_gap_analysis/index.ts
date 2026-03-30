@@ -130,6 +130,7 @@ CRITICAL RULES:
       tool_choice: { type: "function", function: { name: "identify_gaps" } },
       cacheTtlSeconds: 3600,
       cacheNamespace: "wardrobe_gap",
+      functionName: "wardrobe_gap_analysis",
     }, supabase);
 
     // Post-process: strip any brand names the AI may have included

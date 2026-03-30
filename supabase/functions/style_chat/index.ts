@@ -5,6 +5,7 @@ import { VOICE_STYLIST_CHAT } from "../_shared/burs-voice.ts";
 import { buildAuthoritativeOutfitTag, invokeUnifiedStylistEngine } from "../_shared/unified_stylist_engine.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from "../_shared/scale-guard.ts";
 import { normalizeStyleChatAssistantReply } from "../../../src/lib/styleChatNormalizer.ts";
 import { resolveCompleteOutfitIds } from "../../../src/lib/completeOutfitIds.ts";
 
@@ -1314,6 +1315,16 @@ serve(async (req) => {
     const lang = getLang(locale);
     const selectedGarmentIds = Array.isArray(selected_garment_ids) ? selected_garment_ids.filter((id) => typeof id === "string") : [];
 
+    // ── Scale guard: rate limit + overload protection ──
+    if (checkOverload("style_chat")) {
+      return overloadResponse(CORS_HEADERS);
+    }
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    await enforceRateLimit(serviceClient, user.id, "style_chat");
+
     const [profileRes, calendarCtx, recentOutfitsCtx, rejectionsCtx, wardrobeCtx] = await Promise.all([
       supabase.from("profiles").select("display_name, preferences, home_city, height_cm, weight_kg").eq("id", user.id).single(),
       getCalendarContext(supabase, user.id, lang),
@@ -1644,6 +1655,9 @@ ${refinementContract}`;
       truncatedByTokenLimit,
     );
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return rateLimitResponse(e, CORS_HEADERS);
+    }
     console.error("style_chat error:", e);
     return bursAIErrorResponse(e, CORS_HEADERS);
   }

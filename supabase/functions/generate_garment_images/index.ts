@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -10,6 +11,11 @@ serve(async (req) => {
   }
 
   try {
+    // ── Scale guard ──
+    if (checkOverload("generate_garment_images")) {
+      return overloadResponse(CORS_HEADERS);
+    }
+
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -22,6 +28,9 @@ serve(async (req) => {
     });
     const { data: { user }, error: userError } = await authClient.auth.getUser(token);
     if (userError || !user) throw new Error("Unauthorized");
+
+    // Rate limit — image generation is very expensive
+    await enforceRateLimit(supabase, user.id, "generate_garment_images");
 
     const { garment_ids } = await req.json();
     if (!Array.isArray(garment_ids) || garment_ids.length === 0) {
@@ -64,6 +73,7 @@ serve(async (req) => {
           modelType: "image-gen",
           extraBody: { modalities: ["image", "text"] },
           models: ["google/gemini-2.5-flash-image"],
+          functionName: "generate_garment_images",
         });
 
         const imageData = aiResult?.images?.[0]?.image_url?.url
@@ -114,6 +124,9 @@ serve(async (req) => {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return rateLimitResponse(e, CORS_HEADERS);
+    }
     console.error("generate_garment_images error:", e);
     return bursAIErrorResponse(e, CORS_HEADERS);
   }

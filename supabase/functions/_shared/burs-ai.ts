@@ -224,6 +224,11 @@ function logUsage(
     from_cache: boolean;
     status: "ok" | "error";
     error_message?: string;
+    input_tokens?: number;
+    output_tokens?: number;
+    estimated_cost_usd?: number;
+    complexity?: string;
+    retry_count?: number;
   }
 ): void {
   if (!supabase) return;
@@ -239,12 +244,32 @@ function logUsage(
           cached: opts.from_cache,
           status: opts.status,
           ...(opts.error_message ? { error: opts.error_message } : {}),
+          ...(opts.input_tokens != null ? { input_tokens: opts.input_tokens } : {}),
+          ...(opts.output_tokens != null ? { output_tokens: opts.output_tokens } : {}),
+          ...(opts.estimated_cost_usd != null ? { cost_usd: opts.estimated_cost_usd } : {}),
+          ...(opts.complexity ? { complexity: opts.complexity } : {}),
+          ...(opts.retry_count != null ? { retries: opts.retry_count } : {}),
         },
       })
       .then(() => {});
   } catch {
     // Never block on observability
   }
+}
+
+// ─── Cost Estimation ─────────────────────────────────────────
+const COST_PER_MILLION: Record<string, { input: number; output: number }> = {
+  "gemini-2.5-flash":      { input: 0.15, output: 0.60 },
+  "gemini-2.5-flash-lite": { input: 0.075, output: 0.30 },
+};
+
+function extractUsageAndCost(aiData: any, model: string) {
+  const usage = aiData?.usage;
+  const inputTokens = usage?.prompt_tokens ?? 0;
+  const outputTokens = usage?.completion_tokens ?? 0;
+  const rates = COST_PER_MILLION[model] || COST_PER_MILLION["gemini-2.5-flash"];
+  const estimatedCostUsd = (inputTokens * rates.input + outputTokens * rates.output) / 1_000_000;
+  return { inputTokens, outputTokens, estimatedCostUsd };
 }
 
 // ─── Core AI Call ─────────────────────────────────────────────
@@ -429,9 +454,15 @@ export async function callBursAI(
         if (cacheTtlSeconds > 0 && cacheKey) {
           if (supabaseServiceClient) storeCache(supabaseServiceClient, cacheKey, result, model, cacheTtlSeconds);
         }
+        const costInfo = extractUsageAndCost(aiData, model);
         logUsage(supabaseServiceClient, {
           functionName: options.functionName, model_used: model,
           latency_ms: Date.now() - startTime, from_cache: false, status: "ok",
+          input_tokens: costInfo.inputTokens,
+          output_tokens: costInfo.outputTokens,
+          estimated_cost_usd: costInfo.estimatedCostUsd,
+          complexity: options.complexity,
+          retry_count: attempt,
         });
         return { data: result, model_used: model, from_cache: false, finish_reason: finishReason };
       }

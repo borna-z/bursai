@@ -3,9 +3,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
+
+  if (checkOverload("visual_search")) {
+    return overloadResponse(CORS_HEADERS);
+  }
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -29,6 +34,12 @@ serve(async (req) => {
       });
     }
     const userId = user.id;
+
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    await enforceRateLimit(serviceClient, userId, "visual_search");
 
     const { image_base64, locale = "sv" } = await req.json();
     if (!image_base64) throw new Error("Missing image_base64");
@@ -116,6 +127,7 @@ ${garmentList}`,
       tool_choice: { type: "function", function: { name: "visual_match" } },
       complexity: "complex",
       max_tokens: estimateMaxTokens({ inputItems: garments.length, outputItems: 5, perItemTokens: 80, baseTokens: 200 }),
+      functionName: "visual_search",
     });
 
     const garmentIdSet = new Set(garments.map(g => g.id));
@@ -125,6 +137,9 @@ ${garmentList}`,
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return rateLimitResponse(e, CORS_HEADERS);
+    }
     console.error("visual_search error:", e);
     return bursAIErrorResponse(e, CORS_HEADERS);
   }

@@ -79,6 +79,7 @@ Consider that some materials age differently (leather improves, cotton pills, sy
       }],
       tool_choice: { type: "function", function: { name: "assess_condition" } },
       modelType: "vision",
+      functionName: "assess_garment_condition",
     });
 
     await supabase

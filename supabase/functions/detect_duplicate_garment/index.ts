@@ -180,6 +180,7 @@ Consider: same garment photographed differently = 0.8+, very similar style/color
             max_tokens: 200,
             extraBody: { temperature: 0.1 },
             timeout: 20000,
+            functionName: "detect_duplicate_garment",
           });
 
           try {

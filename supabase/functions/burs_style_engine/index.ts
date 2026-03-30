@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, estimateMaxTokens } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from "../_shared/scale-guard.ts";
 import { validateCompleteOutfit } from "../../../src/lib/outfitValidation.ts";
 import { collectOccasionSignals, collectStyleSignals, hasOccasionSignal, hasStyleSignal, normalizeSignalText } from "../../../src/lib/styleSignals.ts";
 
@@ -3731,6 +3732,9 @@ ${comboDescriptions}`;
       tool_choice: { type: "function", function: { name: toolName } },
       complexity: isStylistMode ? "standard" : "standard",
       max_tokens: mode === "generate" ? (isStylistMode ? 400 : 250) : estimateMaxTokens({ outputItems: 3, perItemTokens: 100, baseTokens: 150 }),
+      functionName: "burs_style_engine",
+      cacheTtlSeconds: 300,
+      cacheNamespace: "style_engine",
     });
     return { data };
   } catch (e: any) {
@@ -4198,6 +4202,16 @@ serve(async (req) => {
         headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
+
+    // ── Scale guard: rate limit expensive AI operations ──
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    if (checkOverload("burs_style_engine")) {
+      return overloadResponse(CORS_HEADERS);
+    }
+    await enforceRateLimit(serviceClient, userId, "burs_style_engine");
 
     const dayContext: DayContextInput | null = body.day_context && typeof body.day_context === "object"
       ? body.day_context as DayContextInput
@@ -4885,6 +4899,9 @@ serve(async (req) => {
     });
 
   } catch (error) {
+    if (error instanceof RateLimitError) {
+      return rateLimitResponse(error, CORS_HEADERS);
+    }
     console.error("BURS Style Engine error:", error);
     return new Response(JSON.stringify({
       error: error instanceof Error ? error.message : "Unknown error",

@@ -4,6 +4,7 @@ import { streamBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 import { VOICE_SHOPPING } from "../_shared/burs-voice.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 // ---------- i18n ----------
 
@@ -88,6 +89,10 @@ serve(async (req) => {
     return new Response(null, { headers: CORS_HEADERS });
   }
 
+  if (checkOverload("shopping_chat")) {
+    return overloadResponse(CORS_HEADERS);
+  }
+
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
@@ -101,6 +106,10 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
 
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
@@ -109,6 +118,8 @@ serve(async (req) => {
         status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
+
+    await enforceRateLimit(serviceClient, user.id, "shopping_chat");
 
     const { messages, locale: rawLocale } = await req.json();
     if (!messages || !Array.isArray(messages)) {
@@ -215,6 +226,9 @@ Rules:
       },
     });
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return rateLimitResponse(e, CORS_HEADERS);
+    }
     console.error("shopping_chat error:", e);
     return bursAIErrorResponse(e, CORS_HEADERS);
   }

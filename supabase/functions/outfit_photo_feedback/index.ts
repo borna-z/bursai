@@ -111,6 +111,7 @@ Also provide a short, helpful commentary (2-3 sentences) with actionable styling
       tool_choice: { type: "function", function: { name: "outfit_photo_feedback" } },
       complexity: "complex",
       max_tokens: 300,
+      functionName: "outfit_photo_feedback",
     });
 
     if (!feedback) throw new Error("AI did not return structured feedback");

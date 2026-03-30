@@ -5,6 +5,7 @@ import { VOICE_DAY_SUMMARY } from "../_shared/burs-voice.ts";
 import { buildDayIntelligence } from "../../../src/lib/dayIntelligence.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -12,6 +13,11 @@ serve(async (req) => {
   }
 
   try {
+    // ── Scale guard ──
+    if (checkOverload("summarize_day")) {
+      return overloadResponse(CORS_HEADERS);
+    }
+
     const { events, weather } = await req.json();
 
     if (!events || events.length === 0) {
@@ -175,6 +181,9 @@ Structured day intelligence:
       );
     }
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return rateLimitResponse(e, CORS_HEADERS);
+    }
     console.error("summarize_day error:", e);
     return bursAIErrorResponse(e, CORS_HEADERS);
   }

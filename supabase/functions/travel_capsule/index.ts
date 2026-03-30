@@ -14,6 +14,7 @@ import {
 } from "../../../src/lib/travelCapsulePlanner.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 interface GarmentRow {
   id: string;
@@ -326,6 +327,10 @@ serve(async (req) => {
     return new Response(null, { headers: CORS_HEADERS });
   }
 
+  if (checkOverload("travel_capsule")) {
+    return overloadResponse(CORS_HEADERS);
+  }
+
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -341,6 +346,8 @@ serve(async (req) => {
     if (userError || !userData?.user) throw new Error("Unauthorized");
     const userId = userData.user.id;
     const user = { id: userId };
+
+    await enforceRateLimit(supabase, userId, "travel_capsule");
 
     // ─────────────────────────────────────────────
     // FIX 4 — GET HANDLER (list saved capsules)
@@ -1027,6 +1034,9 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return rateLimitResponse(e, CORS_HEADERS);
+    }
     console.error("travel_capsule error:", e);
     return bursAIErrorResponse(e, CORS_HEADERS);
   }
