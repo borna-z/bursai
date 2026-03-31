@@ -77,57 +77,57 @@
   }
 
   .dark {
-    --background: 24 11% 7%;
-    --foreground: 35 18% 94%;
+    --background: 32 12% 6%;
+    --foreground: 36 18% 94%;
 
-    --card: 24 10% 11%;
-    --card-foreground: 35 18% 94%;
+    --card: 28 10% 10%;
+    --card-foreground: 36 18% 94%;
 
-    --popover: 24 10% 11%;
-    --popover-foreground: 35 18% 94%;
+    --popover: 28 10% 10%;
+    --popover-foreground: 36 18% 94%;
 
-    --primary: 35 18% 94%;
-    --primary-foreground: 24 11% 7%;
+    --primary: 37 46% 63%;
+    --primary-foreground: 24 14% 8%;
 
-    --secondary: 24 8% 16%;
-    --secondary-foreground: 35 18% 94%;
+    --secondary: 28 9% 14%;
+    --secondary-foreground: 36 18% 94%;
 
-    --muted: 24 7% 16%;
-    --muted-foreground: 29 10% 69%;
+    --muted: 28 8% 15%;
+    --muted-foreground: 31 10% 70%;
 
-    --accent: 37 55% 62%;
-    --accent-foreground: 24 11% 7%;
+    --accent: 37 46% 63%;
+    --accent-foreground: 24 14% 8%;
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 36 20% 93%;
 
-    --border: 24 7% 21%;
-    --input: 24 7% 21%;
-    --ring: 35 18% 94%;
+    --border: 28 8% 20%;
+    --input: 28 8% 20%;
+    --ring: 37 46% 63%;
 
     --success: 146 28% 50%;
     --success-foreground: 0 0% 5%;
     --warning: 37 58% 56%;
     --warning-foreground: 0 0% 5%;
-    --premium: 34 42% 66%;
+    --premium: 37 34% 64%;
     --premium-foreground: 0 0% 5%;
 
-    --accent-indigo: 228 32% 68%;
+    --accent-indigo: 224 20% 62%;
     --accent-indigo-foreground: 0 0% 5%;
-    --accent-indigo-muted: 229 16% 22%;
+    --accent-indigo-muted: 226 13% 20%;
 
-    --sidebar-background: 24 11% 7%;
+    --sidebar-background: 32 12% 6%;
     --sidebar-foreground: 0 0% 75%;
-    --sidebar-primary: 35 18% 94%;
-    --sidebar-primary-foreground: 24 11% 7%;
-    --sidebar-accent: 24 8% 16%;
-    --sidebar-accent-foreground: 35 18% 94%;
-    --sidebar-border: 24 7% 21%;
-    --sidebar-ring: 35 18% 94%;
+    --sidebar-primary: 36 18% 94%;
+    --sidebar-primary-foreground: 32 12% 6%;
+    --sidebar-accent: 28 9% 14%;
+    --sidebar-accent-foreground: 36 18% 94%;
+    --sidebar-border: 28 8% 20%;
+    --sidebar-ring: 37 46% 63%;
 
-    --chart-1: 35 18% 94%;
-    --chart-2: 228 32% 68%;
-    --chart-3: 34 42% 66%;
+    --chart-1: 36 18% 94%;
+    --chart-2: 224 20% 62%;
+    --chart-3: 37 34% 64%;
     --chart-4: 11 45% 60%;
     --chart-5: 146 28% 50%;
   }
@@ -225,8 +225,9 @@
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: contain;
     background-image:
-      radial-gradient(circle at top left, rgba(157, 126, 86, 0.07), transparent 36%),
-      radial-gradient(circle at bottom right, rgba(175, 140, 95, 0.05), transparent 30%);
+      radial-gradient(circle at top left, rgba(157, 126, 86, 0.08), transparent 32%),
+      radial-gradient(circle at top right, rgba(110, 103, 95, 0.08), transparent 28%),
+      radial-gradient(circle at bottom center, rgba(123, 96, 63, 0.06), transparent 26%);
     background-attachment: fixed;
   }
 
@@ -316,11 +317,11 @@
 
   /* Page container — standard padding for all app pages */
   .page-container {
-    @apply mx-auto w-full max-w-md;
-    padding-left: 1.25rem;
-    padding-right: 1.25rem;
-    padding-top: 1.25rem;
-    padding-bottom: var(--app-bottom-clearance, calc(5rem + env(safe-area-inset-bottom, 0px)));
+    @apply mx-auto w-full max-w-lg;
+    padding-left: clamp(1rem, 4vw, 1.25rem);
+    padding-right: clamp(1rem, 4vw, 1.25rem);
+    padding-top: clamp(1rem, 3vw, 1.25rem);
+    padding-bottom: calc(var(--app-bottom-clearance, calc(5rem + env(safe-area-inset-bottom, 0px))) + 0.65rem);
   }
 
   .page-shell {
@@ -328,7 +329,8 @@
   }
 
   .page-cluster {
-    @apply flex flex-col gap-5;
+    @apply flex flex-col;
+    gap: clamp(1.125rem, 3vw, 1.5rem);
   }
 
   .page-intro-block {
@@ -347,9 +349,9 @@
 
   .eyebrow-chip {
     @apply inline-flex items-center rounded-full border px-3 py-1.5 text-[0.66rem] uppercase tracking-[0.18em];
-    border-color: hsl(var(--border) / 0.55);
-    background-color: hsl(var(--background) / 0.72);
-    color: hsl(var(--muted-foreground) / 0.72);
+    border-color: hsl(var(--border) / 0.65);
+    background-color: hsl(var(--background) / 0.78);
+    color: hsl(var(--muted-foreground) / 0.78);
   }
 
   /* Premium gradient */
@@ -365,36 +367,41 @@
 
   /* Clean borderless elevated card */
   .card-clean {
-    @apply bg-card rounded-[1.5rem] shadow-[0_10px_22px_rgba(28,25,23,0.03)];
+    @apply bg-card rounded-[1.5rem] shadow-[0_12px_26px_rgba(0,0,0,0.24)];
   }
 
   /* Primary surface – hero cards, today's outfit, AI suggestions */
   .surface-hero {
     @apply border;
-    background-color: hsl(var(--card) / 0.88);
-    border-color: hsl(var(--border) / 0.55);
-    box-shadow: 0 12px 28px rgba(28, 25, 23, 0.04);
+    background:
+      linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(var(--card) / 0.88)),
+      radial-gradient(circle at top right, hsl(var(--accent) / 0.09), transparent 42%);
+    border-color: hsl(var(--border) / 0.8);
+    box-shadow:
+      0 18px 44px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.03);
   }
 
   /* Secondary surface – supporting cards, stat modules */
   .surface-secondary {
     @apply border;
-    background-color: hsl(var(--card) / 0.78);
-    border-color: hsl(var(--border) / 0.5);
+    background-color: hsl(var(--card) / 0.8);
+    border-color: hsl(var(--border) / 0.72);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.16);
   }
 
   /* Inset surface – search bars, segmented controls, input areas */
   .surface-inset {
     @apply border;
-    background-color: hsl(var(--secondary) / 0.42);
-    border-color: hsl(var(--border) / 0.45);
+    background-color: hsl(var(--secondary) / 0.72);
+    border-color: hsl(var(--border) / 0.72);
   }
 
   /* Interactive surface – buttons, action cards */
   .surface-interactive {
     @apply border transition-colors;
-    background-color: hsl(var(--background) / 0.84);
-    border-color: hsl(var(--border) / 0.5);
+    background-color: hsl(var(--background) / 0.88);
+    border-color: hsl(var(--border) / 0.72);
   }
 
   .surface-interactive:hover {
@@ -406,33 +413,37 @@
   }
 
   .surface-editorial {
-    @apply border shadow-[0_12px_28px_rgba(28,25,23,0.04)];
-    border-color: hsl(var(--border) / 0.55);
-    background-color: hsl(var(--card) / 0.86);
+    @apply border shadow-[0_18px_44px_rgba(0,0,0,0.28)];
+    border-color: hsl(var(--border) / 0.78);
+    background:
+      linear-gradient(180deg, hsl(var(--card) / 0.96), hsl(var(--card) / 0.88)),
+      radial-gradient(circle at top right, hsl(var(--accent) / 0.08), transparent 40%);
   }
 
   .surface-utility {
     @apply border;
-    border-color: hsl(var(--border) / 0.5);
-    background-color: hsl(var(--background) / 0.72);
+    border-color: hsl(var(--border) / 0.72);
+    background-color: hsl(var(--background) / 0.82);
   }
 
   .surface-media {
     @apply overflow-hidden rounded-[1.5rem] border;
-    border-color: hsl(var(--border) / 0.6);
-    background-color: hsl(var(--background) / 0.9);
+    border-color: hsl(var(--border) / 0.78);
+    background-color: hsl(var(--background) / 0.94);
   }
 
   .topbar-frost {
     @apply sticky top-0 z-20 border-b backdrop-blur-xl;
-    border-color: hsl(var(--border) / 0.45);
-    background-color: hsl(var(--background) / 0.76);
+    border-color: hsl(var(--border) / 0.75);
+    background:
+      linear-gradient(180deg, hsl(var(--background) / 0.92), hsl(var(--background) / 0.82));
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12);
   }
 
   .action-bar-floating {
     @apply border shadow-[0_16px_30px_rgba(28,25,23,0.06)] backdrop-blur-xl;
-    border-color: hsl(var(--border) / 0.5);
-    background-color: hsl(var(--background) / 0.88);
+    border-color: hsl(var(--border) / 0.72);
+    background-color: hsl(var(--background) / 0.92);
   }
 
   .bottom-safe-nav {
@@ -440,17 +451,19 @@
   }
 
   .app-dock {
-    @apply w-full border-t border-border/30 px-4 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] backdrop-blur-xl;
+    @apply w-full border-t border-border/50 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] backdrop-blur-xl;
     min-height: var(--app-bottom-clearance, calc(5rem + env(safe-area-inset-bottom, 0px)));
-    background-color: hsl(var(--background) / 0.96);
+    background:
+      linear-gradient(180deg, hsl(var(--background) / 0.78), hsl(var(--background) / 0.94));
+    box-shadow: 0 -14px 38px rgba(0, 0, 0, 0.34);
   }
 
   .app-dock-slot {
-    @apply flex min-h-[64px] flex-1 items-center justify-center;
+    @apply flex min-h-[62px] flex-1 items-center justify-center;
   }
 
   .app-dock-tab {
-    @apply relative flex min-h-[56px] w-full flex-col items-center justify-center gap-1 rounded-[1.25rem] px-1.5 py-2 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground transition-colors;
+    @apply relative flex min-h-[54px] w-full flex-col items-center justify-center gap-1 rounded-[1.2rem] px-1.5 py-2 text-center text-[11px] font-medium tracking-[0.04em] text-muted-foreground transition-colors;
   }
 
   .app-dock-tab-active {
@@ -478,8 +491,29 @@
   }
 
   .app-sheet-card {
-    @apply rounded-[1.6rem] border border-border/55 px-4 py-4 shadow-[0_14px_26px_rgba(28,25,23,0.06)];
-    background-color: hsl(var(--card) / 0.94);
+    @apply rounded-[1.6rem] border border-border/75 px-4 py-4 shadow-[0_18px_34px_rgba(0,0,0,0.24)];
+    background-color: hsl(var(--card) / 0.95);
+  }
+
+  .premium-highlight {
+    background:
+      radial-gradient(circle at top right, hsl(var(--accent) / 0.16), transparent 34%),
+      linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(var(--card) / 0.84));
+  }
+
+  .premium-divider {
+    border-color: hsl(var(--border) / 0.72);
+  }
+
+  .premium-inline-stat {
+    @apply rounded-[1rem] border px-3 py-3;
+    border-color: hsl(var(--border) / 0.72);
+    background-color: hsl(var(--background) / 0.72);
+  }
+
+  .premium-action-row {
+    @apply flex flex-wrap items-center gap-3;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
   }
 
   /* Ultra-light section divider */

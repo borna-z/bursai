@@ -143,7 +143,7 @@ describe('BottomNav smoke', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'nav.add' }));
 
-    expect(screen.getByText('Add to your wardrobe')).toBeInTheDocument();
+    expect(screen.getByText('nav.add_sheet_title')).toBeInTheDocument();
     expect(screen.getByText('wardrobe.add')).toBeInTheDocument();
     expect(screen.getByText('wardrobe.live_scan')).toBeInTheDocument();
   });

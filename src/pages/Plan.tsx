@@ -267,7 +267,7 @@ export default function PlanPage() {
     const tagLine = [occasionText, styleText].filter(Boolean).join(' · ');
 
     return (
-      <section className="surface-editorial rounded-[1.25rem] p-5">
+      <section className="surface-editorial premium-highlight rounded-[1.45rem] p-5">
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-2">
@@ -293,7 +293,7 @@ export default function PlanPage() {
           </div>
 
           {calendarEvents.length > 0 ? (
-            <div className="rounded-[1.1rem] border border-border/55 bg-background/72 px-4 py-3 text-[0.84rem] text-muted-foreground">
+            <div className="premium-inline-stat text-[0.84rem] text-muted-foreground">
               {formatEventLine(calendarEvents.length, t)}
             </div>
           ) : null}
@@ -390,7 +390,7 @@ export default function PlanPage() {
     const emptyWeek = weekPlannedCount === 0;
 
     return (
-      <section className="surface-editorial rounded-[1.25rem] p-5">
+      <section className="surface-editorial premium-highlight rounded-[1.45rem] p-5">
         <div className="space-y-4">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
@@ -409,7 +409,7 @@ export default function PlanPage() {
           </div>
 
           {calendarEvents.length > 0 ? (
-            <div className="rounded-[1.1rem] border border-border/55 bg-background/72 px-4 py-3 text-[0.84rem] text-muted-foreground">
+            <div className="premium-inline-stat text-[0.84rem] text-muted-foreground">
               {formatEventLine(calendarEvents.length, t)}
             </div>
           ) : null}
@@ -449,7 +449,7 @@ export default function PlanPage() {
   return (
     <AppLayout>
       <motion.header className="topbar-frost sticky top-0 z-20 -mx-5 px-5 pb-3 pt-3">
-        <div className="mx-auto flex max-w-md items-start justify-between gap-3">
+        <div className="mx-auto flex max-w-lg items-start justify-between gap-3">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
               <button type="button" className="flex h-11 min-h-[44px] items-center gap-2.5 transition-opacity hover:opacity-75 cursor-pointer">
@@ -486,22 +486,47 @@ export default function PlanPage() {
       </motion.header>
 
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="page-shell space-y-5">
+        <AnimatedPage className="page-shell page-cluster">
           <WeekOverview
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
             plannedOutfits={plannedOutfits}
           />
 
+          <section className="surface-secondary rounded-[1.35rem] p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="space-y-1.5">
+                <p className="label-editorial text-muted-foreground/60">
+                  {dateLabel.toUpperCase()}
+                </p>
+                <h2 className="text-[1.2rem] font-semibold tracking-[-0.04em] text-foreground">
+                  {hasOutfits
+                    ? (t('plan.planned_day') || 'Planned day')
+                    : (t('plan.open_day') || 'Open day')}
+                </h2>
+                <p className="max-w-[32ch] text-[0.88rem] leading-6 text-muted-foreground">
+                  {daySummary?.summary
+                    || (hasOutfits
+                      ? t('plan.day_context_planned_desc')
+                      : t('plan.day_context_open_desc'))}
+                </p>
+              </div>
+              <div className="premium-inline-stat min-w-[10rem]">
+                <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/55">
+                  {t('plan.context_label')}
+                </p>
+                <div className="mt-2 flex items-center justify-between gap-3 text-[0.82rem] text-foreground/82">
+                  <span>{calendarEvents.length > 0 ? formatEventLine(calendarEvents.length, t) : t('plan.no_events')}</span>
+                  <WeatherForecastBadge date={selectedDateStr} compact />
+                </div>
+              </div>
+            </div>
+          </section>
+
           <div className="app-notice-stack">
             <CalendarConnectBanner />
             <LaundryAlertBanner />
           </div>
-
-          {/* Today / selected day label */}
-          <p className="label-editorial text-accent">
-            {dateLabel.toUpperCase()}
-          </p>
 
           <motion.div
             key={selectedDateStr}

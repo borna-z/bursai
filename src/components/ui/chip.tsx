@@ -8,10 +8,10 @@ const chipVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-secondary/50 backdrop-blur-sm text-secondary-foreground hover:bg-secondary/80 border border-border/20',
-        selected: 'bg-accent text-accent-foreground shadow-[0_1px_3px_rgba(0,0,0,0.08)]',
-        outline: 'border border-border/40 bg-background/40 backdrop-blur-sm hover:bg-secondary/50',
-        filter: 'bg-muted/50 backdrop-blur-sm text-muted-foreground hover:bg-muted/80 border border-border/20',
+        default: 'bg-secondary/72 backdrop-blur-sm text-secondary-foreground hover:bg-secondary border border-border/65',
+        selected: 'bg-accent text-accent-foreground shadow-[0_10px_22px_rgba(0,0,0,0.22)]',
+        outline: 'border border-border/65 bg-background/56 backdrop-blur-sm hover:bg-secondary/60',
+        filter: 'bg-muted/72 backdrop-blur-sm text-muted-foreground hover:bg-muted border border-border/65',
       },
       size: {
         sm: 'px-2.5 py-1 text-xs',

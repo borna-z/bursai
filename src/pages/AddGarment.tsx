@@ -46,12 +46,13 @@ export default function AddGarmentPage() {
         onBack={() => garment.navigate(-1)}
         title={t('addgarment.title')}
         prompt={t('addgarment.photo_prompt')}
-        helperText="Your item appears as soon as you save it. Any cleanup finishes quietly in the background."
+        helperText={t('addgarment.helper_text')}
         photoLabel={t('addgarment.photo')}
         linkLabel={t('addgarment.link')}
         cameraLabel={t('addgarment.camera')}
         galleryLabel={t('addgarment.gallery')}
         batchLabel={t('batch.upload_multiple')}
+        onOpenLiveScan={() => garment.navigate('/wardrobe/scan')}
         fileInputRef={garment.fileInputRef}
         batchInputRef={garment.batchInputRef}
         onImageSelect={garment.handleImageSelect}

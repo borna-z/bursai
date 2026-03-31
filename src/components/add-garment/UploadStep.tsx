@@ -1,8 +1,10 @@
 import type { ChangeEvent, RefObject } from 'react';
-import { Camera, Image as ImageIcon, Link2, ScanBarcode, Layers, Palette, Sun, Tag, X, Zap } from 'lucide-react';
+import { Camera, Image as ImageIcon, ScanBarcode, Sparkles, Upload, Wand2, X, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { Button } from '@/components/ui/button';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { hapticLight } from '@/lib/haptics';
 
 interface UploadStepProps {
@@ -10,6 +12,7 @@ interface UploadStepProps {
   slotsLeft: number;
   slotsLeftLabel: string;
   onBack: () => void;
+  onOpenLiveScan: () => void;
   title: string;
   prompt: string;
   helperText: string;
@@ -26,23 +29,17 @@ interface UploadStepProps {
   onPickFromGallery: () => void;
 }
 
-const AI_DETECTIONS = [
-  { icon: Tag, label: 'Category' },
-  { icon: Palette, label: 'Color' },
-  { icon: Layers, label: 'Material' },
-  { icon: Sun, label: 'Season' },
-] as const;
-
 export function UploadStep({
   isPremium,
   slotsLeft,
   slotsLeftLabel,
   onBack,
+  onOpenLiveScan,
   title,
   prompt,
-  helperText: _helperText,
-  photoLabel: _photoLabel,
-  linkLabel,
+  helperText,
+  photoLabel,
+  linkLabel: _linkLabel,
   cameraLabel,
   galleryLabel,
   batchLabel,
@@ -53,114 +50,155 @@ export function UploadStep({
   onTakePhoto,
   onPickFromGallery,
 }: UploadStepProps) {
+  const { t } = useLanguage();
+  const trustPoints = [
+    { icon: Sparkles, label: t('addgarment.trust_detect') },
+    { icon: Wand2, label: t('addgarment.trust_cleanup') },
+    { icon: ScanBarcode, label: t('addgarment.trust_review') },
+  ] as const;
+
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-foreground text-background">
-      {/* Hidden file inputs */}
+    <div className="flex min-h-[100dvh] flex-col bg-background text-foreground">
       <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={onImageSelect} className="hidden" />
       <input ref={batchInputRef} type="file" accept="image/*" multiple onChange={onBatchSelect} className="hidden" />
 
-      {/* Header */}
       <header className="flex items-center justify-between px-5 pb-2" style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)' }}>
         <button
           onClick={() => { hapticLight(); onBack(); }}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-background/15 transition-colors active:bg-background/25 cursor-pointer"
-          aria-label="Close"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card/90 transition-colors active:bg-card cursor-pointer"
+          aria-label={t('common.close')}
         >
           <X className="h-5 w-5" />
         </button>
-        <h1 className="font-display italic text-[1.25rem] font-medium">{title || 'Add Piece'}</h1>
+        <h1 className="font-display italic text-[1.25rem] font-medium">{title || t('addgarment.title')}</h1>
         {!isPremium ? (
-          <span className="rounded-full bg-background/15 px-3 py-1 text-[11px] font-medium tracking-wide">
-            {slotsLeft} {slotsLeftLabel || 'left'}
+          <span className="rounded-full border border-border/70 bg-card/90 px-3 py-1 text-[11px] font-medium tracking-wide text-muted-foreground">
+            {slotsLeft} {slotsLeftLabel}
           </span>
         ) : (
           <div className="w-10" />
         )}
       </header>
 
-      {/* Camera viewport */}
-      <AnimatedPage className="flex flex-1 flex-col">
-        <div className="relative mx-5 flex-1 overflow-hidden rounded-[1.25rem] bg-background/8">
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-background/12">
-              <Camera className="h-8 w-8 text-background/70" />
-            </div>
-            <p className="text-[0.92rem] font-medium text-background/60">{prompt || 'Point at your piece'}</p>
+      <AnimatedPage className="page-shell !max-w-xl flex flex-1 flex-col gap-5 !pt-4">
+        <section className="surface-editorial rounded-[1.5rem] p-5">
+          <div className="space-y-3">
+            <p className="label-editorial text-muted-foreground/60">
+              {prompt}
+            </p>
+            <h2 className="text-[1.6rem] font-semibold tracking-[-0.05em] text-foreground">
+              {t('addgarment.hero_title')}
+            </h2>
+            <p className="max-w-[34ch] text-[0.95rem] leading-7 text-muted-foreground">
+              {helperText}
+            </p>
           </div>
-        </div>
+        </section>
 
-        {/* Camera controls */}
-        <div className="flex items-center justify-center gap-8 py-6">
-          <button
-            onClick={() => { hapticLight(); onPickFromGallery(); }}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-background/15 transition-colors active:bg-background/25 cursor-pointer"
-            aria-label={galleryLabel}
+        <section className="grid gap-3">
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            type="button"
+            onClick={() => { hapticLight(); onOpenLiveScan(); }}
+            className="surface-hero premium-highlight flex w-full items-center justify-between gap-4 rounded-[1.45rem] p-5 text-left cursor-pointer"
           >
-            <ImageIcon className="h-5 w-5" />
-          </button>
+            <div className="space-y-2">
+              <p className="label-editorial text-muted-foreground/60">
+                {t('addgarment.live_scan_label')}
+              </p>
+              <h3 className="text-[1.15rem] font-semibold tracking-[-0.04em] text-foreground">
+                {t('addgarment.live_scan_title')}
+              </h3>
+              <p className="max-w-[28ch] text-[0.9rem] leading-6 text-muted-foreground">
+                {t('addgarment.live_scan_desc')}
+              </p>
+            </div>
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.1rem] bg-accent/18 text-accent">
+              <Camera className="h-6 w-6" />
+            </div>
+          </motion.button>
 
-          <button
-            onClick={() => { hapticLight(); onTakePhoto(); }}
-            className="flex h-[72px] w-[72px] items-center justify-center rounded-full border-[3px] border-background/40 transition-transform active:scale-95 cursor-pointer"
-            aria-label={cameraLabel}
-          >
-            <div className="h-[58px] w-[58px] rounded-full bg-background" />
-          </button>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <motion.button
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, delay: 0.05 }}
+              type="button"
+              onClick={() => { hapticLight(); onPickFromGallery(); }}
+              className="surface-secondary flex items-start gap-4 rounded-[1.35rem] p-4 text-left cursor-pointer"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[1rem] bg-secondary text-foreground">
+                <ImageIcon className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[0.98rem] font-medium tracking-[-0.02em] text-foreground">
+                  {photoLabel}
+                </p>
+                <p className="text-[0.84rem] leading-6 text-muted-foreground">
+                  {t('addgarment.upload_desc')}
+                </p>
+              </div>
+            </motion.button>
 
-          <button
-            onClick={() => { hapticLight(); batchInputRef.current?.click(); }}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-background/15 transition-colors active:bg-background/25 cursor-pointer"
-            aria-label={batchLabel}
-          >
-            <Zap className="h-5 w-5" />
-          </button>
-        </div>
+            <motion.button
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, delay: 0.1 }}
+              type="button"
+              onClick={() => { hapticLight(); batchInputRef.current?.click(); }}
+              className="surface-secondary flex items-start gap-4 rounded-[1.35rem] p-4 text-left cursor-pointer"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[1rem] bg-secondary text-foreground">
+                <Upload className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[0.98rem] font-medium tracking-[-0.02em] text-foreground">
+                  {batchLabel}
+                </p>
+                <p className="text-[0.84rem] leading-6 text-muted-foreground">
+                  {t('addgarment.batch_desc')}
+                </p>
+              </div>
+            </motion.button>
+          </div>
+        </section>
 
-        {/* AI detection strip */}
-        <div className="px-5 pb-4">
-          <p className="mb-3 text-center text-[10px] font-medium uppercase tracking-[0.18em] text-background/40">
-            AI will detect
-          </p>
-          <div className="flex justify-center gap-3">
-            {AI_DETECTIONS.map((item, i) => (
-              <motion.div
-                key={item.label}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 + i * 0.06, duration: 0.3 }}
-                className="flex flex-col items-center gap-1.5"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-[0.75rem] bg-background/10">
-                  <item.icon className="h-4 w-4 text-background/60" />
+        <section className="surface-secondary rounded-[1.35rem] p-4">
+          <div className="space-y-3">
+            <p className="label-editorial text-muted-foreground/60">
+              {t('addgarment.trusted_workflow')}
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {trustPoints.map((item) => (
+                <div key={item.label} className="premium-inline-stat flex items-start gap-3">
+                  <item.icon className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                  <p className="text-[0.84rem] leading-6 text-foreground/82">
+                    {item.label}
+                  </p>
                 </div>
-                <span className="text-[10px] font-medium text-background/50">{item.label}</span>
-              </motion.div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        </section>
 
-        {/* Alternative methods */}
-        <div className="flex gap-3 px-5 pb-5" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 20px)' }}>
-          <button
-            onClick={() => hapticLight()}
-            className="flex flex-1 items-center gap-3 rounded-[1rem] bg-background/10 px-4 py-3.5 transition-colors active:bg-background/15 cursor-pointer"
+        <div className="premium-action-row mt-auto pt-2">
+          <Button
+            onClick={() => { hapticLight(); onTakePhoto(); }}
+            className="h-12 flex-1 rounded-full"
           >
-            <Link2 className="h-4 w-4 text-background/60" />
-            <div className="text-left">
-              <p className="text-[13px] font-medium text-background/80">{linkLabel || 'Import from Link'}</p>
-              <p className="text-[11px] text-background/40">Paste a product URL</p>
-            </div>
-          </button>
-          <button
-            onClick={() => hapticLight()}
-            className="flex flex-1 items-center gap-3 rounded-[1rem] bg-background/10 px-4 py-3.5 transition-colors active:bg-background/15 cursor-pointer"
+            <Camera className="mr-2 h-4 w-4" />
+            {cameraLabel}
+          </Button>
+          <Button
+            onClick={() => { hapticLight(); onPickFromGallery(); }}
+            variant="outline"
+            className="h-12 rounded-full px-5"
           >
-            <ScanBarcode className="h-4 w-4 text-background/60" />
-            <div className="text-left">
-              <p className="text-[13px] font-medium text-background/80">Scan Barcode</p>
-              <p className="text-[11px] text-background/40">Quick tag lookup</p>
-            </div>
-          </button>
+            <Zap className="mr-2 h-4 w-4" />
+            {galleryLabel}
+          </Button>
         </div>
       </AnimatedPage>
     </div>

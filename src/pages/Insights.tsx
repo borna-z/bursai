@@ -63,6 +63,28 @@ export default function InsightsPage() {
   const wardrobeScore = sustainability?.score ?? Math.round(insights.usageRate);
   const mostWorn = insights.topFiveWorn?.[0] ?? null;
   const forgotten = insights.unusedGarments?.[0] ?? null;
+  const recommendations: Array<{ title: string; body: string }> = [];
+
+  if (forgotten) {
+    recommendations.push({
+      title: t('insights.recommendation_forgotten_title'),
+      body: t('insights.recommendation_forgotten_body').replace('{item}', forgotten.title || t('common.garment')),
+    });
+  }
+
+  if (insights.usageRate < 60) {
+    recommendations.push({
+      title: t('insights.recommendation_usage_title'),
+      body: t('insights.recommendation_usage_body'),
+    });
+  }
+
+  if (dna?.archetype) {
+    recommendations.push({
+      title: t('insights.recommendation_dna_title').replace('{archetype}', dna.archetype),
+      body: t('insights.recommendation_dna_body'),
+    });
+  }
 
   return (
     <AppLayout>
@@ -72,15 +94,19 @@ export default function InsightsPage() {
         titleClassName="text-[1.65rem]"
       />
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="page-container space-y-4 pb-28">
-          {/* Wardrobe Score Ring */}
+        <AnimatedPage className="page-shell page-cluster pb-28">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="surface-secondary flex flex-col items-center gap-4 p-6"
+            className="surface-editorial premium-highlight flex flex-col items-center gap-4 p-6"
           >
-            <p className="label-editorial text-muted-foreground/60">Wardrobe Score</p>
+            <div className="space-y-2 text-center">
+              <p className="label-editorial text-muted-foreground/60">{t('insights.hero_label')}</p>
+              <h2 className="text-[1.35rem] font-semibold tracking-[-0.05em] text-foreground">
+                {t('insights.hero_title')}
+              </h2>
+            </div>
             <div className="relative">
               <ScoreRing value={wardrobeScore} size={132} strokeWidth={8} />
               <div className="absolute inset-0 flex rotate-0 flex-col items-center justify-center">
@@ -93,25 +119,25 @@ export default function InsightsPage() {
               </div>
             </div>
             <div className="grid w-full grid-cols-3 gap-2">
-              <div className="rounded-[1rem] bg-background/55 p-3 text-center">
+              <div className="premium-inline-stat text-center">
                 <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/60">
-                  Versatility
+                  {t('insights.metric_versatility')}
                 </p>
                 <p className="mt-1 text-[1.1rem] font-semibold tracking-[-0.04em] text-foreground">
                   {sustainability?.utilizationRate ?? Math.round(insights.usageRate)}%
                 </p>
               </div>
-              <div className="rounded-[1rem] bg-background/55 p-3 text-center">
+              <div className="premium-inline-stat text-center">
                 <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/60">
-                  Balance
+                  {t('insights.metric_balance')}
                 </p>
                 <p className="mt-1 text-[1.1rem] font-semibold tracking-[-0.04em] text-foreground">
                   {overview?.savedLooks ?? 0}
                 </p>
               </div>
-              <div className="rounded-[1rem] bg-background/55 p-3 text-center">
+              <div className="premium-inline-stat text-center">
                 <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/60">
-                  Usage
+                  {t('insights.metric_usage')}
                 </p>
                 <p className="mt-1 text-[1.1rem] font-semibold tracking-[-0.04em] text-foreground">
                   {insights.garmentsUsedLast30Days}/{insights.totalGarments}
@@ -120,7 +146,28 @@ export default function InsightsPage() {
             </div>
           </motion.div>
 
-          {/* Palette */}
+          {recommendations.length > 0 ? (
+            <section className="surface-secondary rounded-[1.35rem] p-4">
+              <div className="space-y-3">
+                <p className="label-editorial text-muted-foreground/60">
+                  {t('insights.recommended_next')}
+                </p>
+                <div className="grid gap-3">
+                  {recommendations.map((recommendation) => (
+                    <div key={recommendation.title} className="premium-inline-stat space-y-1.5">
+                      <p className="text-[0.98rem] font-medium tracking-[-0.02em] text-foreground">
+                        {recommendation.title}
+                      </p>
+                      <p className="text-[0.84rem] leading-6 text-muted-foreground">
+                        {recommendation.body}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          ) : null}
+
           <InsightsPalettePanel
             bars={colorBreakdown.bars}
             entries={colorBreakdown.entries}
@@ -129,14 +176,12 @@ export default function InsightsPage() {
             isPremium={isPremium}
           />
 
-          {/* Most Loved & Forgotten */}
           <InsightsGarmentHighlights
             mostWorn={mostWorn}
             forgotten={forgotten}
             onSelectGarment={(id) => navigate(`/wardrobe/${id}`)}
           />
 
-          {/* Value Tracker */}
           <InsightsValueTracker
             costPerWear={sustainability?.avgWearCount ? Number((100 / sustainability.avgWearCount).toFixed(2)) : undefined}
             sustainabilityScore={sustainability?.score}
@@ -144,7 +189,6 @@ export default function InsightsPage() {
             isPremium={isPremium}
           />
 
-          {/* Style DNA */}
           <StyleDNACard dna={dna} />
         </AnimatedPage>
       </PullToRefresh>

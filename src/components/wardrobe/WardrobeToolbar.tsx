@@ -12,7 +12,14 @@ const ACTION_ICONS = {
   plan: CalendarDays,
 } satisfies Record<WardrobeCommandActionKey, ElementType>;
 
-const CATEGORY_CHIPS = ['all', 'tops', 'bottoms', 'shoes', 'outerwear', 'accessories'] as const;
+const CATEGORY_CHIPS = [
+  { id: 'all', labelKey: 'wardrobe.filter_all', fallback: 'All' },
+  { id: 'top', labelKey: 'wardrobe.category_tops', fallback: 'Tops' },
+  { id: 'bottom', labelKey: 'wardrobe.category_bottoms', fallback: 'Bottoms' },
+  { id: 'shoes', labelKey: 'wardrobe.category_shoes', fallback: 'Shoes' },
+  { id: 'outerwear', labelKey: 'wardrobe.category_outerwear', fallback: 'Outerwear' },
+  { id: 'accessory', labelKey: 'wardrobe.category_accessories', fallback: 'Accessories' },
+] as const;
 
 interface WardrobeToolbarProps {
   t: (key: string) => string;
@@ -152,12 +159,12 @@ export function WardrobeToolbar({
       {showGarmentControls && onCategoryChange && (
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {CATEGORY_CHIPS.map((chip) => {
-            const isActive = (selectedCategory || 'all') === chip;
-            const label = chip === 'all' ? t('wardrobe.filter_all') || 'All' : t(`wardrobe.category_${chip}`) || chip.charAt(0).toUpperCase() + chip.slice(1);
+            const isActive = (selectedCategory || 'all') === chip.id;
+            const label = t(chip.labelKey) || chip.fallback;
             return (
               <button
-                key={chip}
-                onClick={() => { hapticLight(); onCategoryChange(chip === 'all' ? 'all' : chip); }}
+                key={chip.id}
+                onClick={() => { hapticLight(); onCategoryChange(chip.id); }}
                 className={cn(
                   'shrink-0 rounded-full px-4 py-2 text-[12px] font-medium transition-colors cursor-pointer',
                   isActive

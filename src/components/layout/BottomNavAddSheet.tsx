@@ -21,14 +21,14 @@ const ACTIONS = [
   {
     id: 'add-garment',
     labelKey: 'wardrobe.add',
-    description: 'Capture or upload a new piece into your wardrobe.',
+    descriptionKey: 'nav.add_sheet_add_desc',
     icon: Shirt,
     to: '/wardrobe/add',
   },
   {
     id: 'live-scan',
     labelKey: 'wardrobe.live_scan',
-    description: 'Use the live scanner for the fastest add flow.',
+    descriptionKey: 'nav.add_sheet_scan_desc',
     icon: Camera,
     to: '/wardrobe/scan',
   },
@@ -51,19 +51,19 @@ export function BottomNavAddSheet({ open, onOpenChange }: BottomNavAddSheetProps
         className="rounded-t-[2rem] border-border/60 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] pt-6"
       >
         <SheetHeader className="space-y-2 text-left">
-          <div className="flex items-center gap-2 text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/65">
+          <div className="label-editorial flex items-center gap-2 text-muted-foreground/65">
             <Plus className="size-4" />
             {t('nav.add')}
           </div>
           <SheetTitle className="text-[1.35rem] font-semibold tracking-[-0.04em]">
-            Add to your wardrobe
+            {t('nav.add_sheet_title')}
           </SheetTitle>
           <SheetDescription className="max-w-[32ch] text-[0.92rem] leading-6">
-            Keep the workspace clean: add one garment or open the live scanner.
+            {t('nav.add_sheet_subtitle')}
           </SheetDescription>
         </SheetHeader>
 
-        <div className="mt-5 grid gap-3" aria-label="Quick add actions">
+        <div className="mt-5 grid gap-3" aria-label={t('nav.quick_add_actions')}>
           {ACTIONS.map((action) => {
             const Icon = action.icon;
 
@@ -82,7 +82,7 @@ export function BottomNavAddSheet({ open, onOpenChange }: BottomNavAddSheetProps
                     {t(action.labelKey)}
                   </p>
                   <p className="mt-1 text-[0.84rem] leading-5 text-muted-foreground">
-                    {action.description}
+                    {t(action.descriptionKey)}
                   </p>
                 </div>
               </button>
@@ -95,7 +95,7 @@ export function BottomNavAddSheet({ open, onOpenChange }: BottomNavAddSheetProps
           className="mt-4 h-11 w-full rounded-full text-[0.85rem] uppercase tracking-[0.12em]"
           onClick={() => onOpenChange(false)}
         >
-          Close
+          {t('common.close')}
         </Button>
       </SheetContent>
     </Sheet>

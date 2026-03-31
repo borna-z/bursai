@@ -137,12 +137,55 @@ export default function WardrobePage() {
         }
       />
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="page-shell space-y-5">
+        <AnimatedPage className="page-shell page-cluster">
           <motion.div
             initial={reducedMotion ? false : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE }}
           >
+            <section className="surface-editorial mb-4 rounded-[1.4rem] p-5">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="space-y-2">
+                  <p className="label-editorial text-muted-foreground/60">
+                    {activeTab === 'garments'
+                      ? (t('wardrobe.inventory_label') || 'Wardrobe inventory')
+                      : (t('wardrobe.tab_outfits') || 'Outfits')}
+                  </p>
+                  <h2 className="text-[1.35rem] font-semibold tracking-[-0.05em] text-foreground">
+                    {activeTab === 'garments'
+                      ? (t('wardrobe.title') || 'Your Wardrobe')
+                      : (t('wardrobe.outfits_caption') || 'Saved looks and stylable combinations')}
+                  </h2>
+                  <p className="max-w-[34ch] text-[0.92rem] leading-6 text-muted-foreground">
+                    {activeTab === 'garments'
+                      ? (hasHardFilters
+                        ? (t('wardrobe.try_other') || 'Refine what you see with filters, search, and collection shortcuts.')
+                        : (t('wardrobe.smart_access_desc') || 'Browse your wardrobe with calm, fast access to what matters most.'))
+                      : (t('wardrobe.outfits_caption') || 'Open saved looks, style around what you own, and jump back into planning.')}
+                  </p>
+                </div>
+
+                <div className="grid min-w-[10.5rem] grid-cols-2 gap-2 sm:min-w-[12rem]">
+                  <div className="premium-inline-stat">
+                    <p className="text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground/55">
+                      {t('wardrobe.pieces_count')?.replace('{count}', '') || 'Pieces'}
+                    </p>
+                    <p className="mt-1 text-[1.35rem] font-semibold tracking-[-0.05em] text-foreground">
+                      {totalCount ?? 0}
+                    </p>
+                  </div>
+                  <div className="premium-inline-stat">
+                    <p className="text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground/55">
+                      {t('wardrobe.filter') || 'Visible'}
+                    </p>
+                    <p className="mt-1 text-[1.35rem] font-semibold tracking-[-0.05em] text-foreground">
+                      {displayCount}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
           <WardrobeToolbar
             t={t}
             commandState={commandState}
