@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format, addDays, isToday, isTomorrow } from 'date-fns';
-import { getDateFnsLocale } from '@/lib/dateLocale';
+import { formatLocalizedDate } from '@/lib/dateLocale';
 import { CalendarDays, Plus, Sparkles, Wand2 } from 'lucide-react';
 
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -118,7 +118,11 @@ export default function PlanPage() {
     }).length;
   }, [plannedOutfits, weekDays]);
 
-  let dateLabel = format(selectedDate, 'EEEE d MMMM', { locale: getDateFnsLocale(locale) });
+  let dateLabel = formatLocalizedDate(selectedDate, locale, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
   if (isToday(selectedDate)) dateLabel = t('plan.today');
   else if (isTomorrow(selectedDate)) dateLabel = t('plan.tomorrow');
 
@@ -437,7 +441,10 @@ export default function PlanPage() {
     );
   };
 
-  const monthYearLabel = format(selectedDate, 'MMMM yyyy', { locale: getDateFnsLocale(locale) });
+  const monthYearLabel = formatLocalizedDate(selectedDate, locale, {
+    month: 'long',
+    year: 'numeric',
+  });
 
   const comingUpOutfits = useMemo(() => {
     const todayDateStr = format(new Date(), 'yyyy-MM-dd');
@@ -567,7 +574,10 @@ export default function PlanPage() {
               <div className="space-y-2">
                 {comingUpOutfits.map((planned) => {
                   const planDate = new Date(planned.date + 'T00:00:00');
-                  const dayLabel = format(planDate, 'EEE d', { locale: getDateFnsLocale(locale) }).toUpperCase();
+                  const dayLabel = formatLocalizedDate(planDate, locale, {
+                    weekday: 'short',
+                    day: 'numeric',
+                  }).toUpperCase();
                   const firstItem = planned.outfit?.outfit_items?.[0];
                   const imgPath = firstItem?.garment ? getPreferredGarmentImagePath(firstItem.garment) : undefined;
 

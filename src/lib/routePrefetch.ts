@@ -6,11 +6,11 @@
 const prefetched = new Set<string>();
 
 const routeImports: Record<string, () => Promise<unknown>> = {
-  '/': () => import('@/pages/Home'),
+  '/': () => import('@/pages/Index'),
   '/wardrobe': () => import('@/pages/Wardrobe'),
   '/plan': () => import('@/pages/Plan'),
-  '/ai': () => import('@/pages/AIChat'),
-  '/discover': () => import('@/pages/Discover'),
+  '/ai': () => import('@/pages/StyleMe'),
+  '/insights': () => import('@/pages/Insights'),
 };
 
 /**

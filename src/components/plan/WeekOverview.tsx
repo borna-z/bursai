@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { PlannedOutfit } from '@/hooks/usePlannedOutfits';
 import { hapticLight } from '@/lib/haptics';
-import { getDateFnsLocale } from '@/lib/dateLocale';
+import { formatLocalizedDate } from '@/lib/dateLocale';
 import { EASE_CURVE, STAGGER_DELAY } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
@@ -19,7 +19,6 @@ interface WeekOverviewProps {
 export function WeekOverview({ selectedDate, onSelectDate, plannedOutfits, className }: WeekOverviewProps) {
   const { locale } = useLanguage();
   const prefersReduced = useReducedMotion();
-  const dateLocale = getDateFnsLocale(locale);
 
   const days = useMemo(() => {
     const today = new Date();
@@ -58,7 +57,7 @@ export function WeekOverview({ selectedDate, onSelectDate, plannedOutfits, class
               'text-[8px] font-semibold uppercase tracking-[0.16em]',
               isSelected ? 'text-background/65' : 'text-muted-foreground/55',
             )}>
-              {format(date, 'EEE', { locale: dateLocale }).charAt(0)}
+              {formatLocalizedDate(date, locale, { weekday: 'short' }).charAt(0)}
             </span>
             <span className="text-[1rem] font-semibold tracking-[-0.03em]">
               {format(date, 'd')}

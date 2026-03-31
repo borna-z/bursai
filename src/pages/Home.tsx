@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion, useReducedMotion } from 'framer-motion';
 import { format } from 'date-fns';
-import { enUS, nb, sv, da, fi, de, fr, es, it, pt, nl, pl, ar } from 'date-fns/locale';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
@@ -23,10 +22,8 @@ import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { HomeTodayLookCard } from '@/components/home/HomeTodayLookCard';
 import { HomeStatsStrip } from '@/components/home/HomeStatsStrip';
 import { CalendarDays, Compass, MessageCircle, Sparkles, type LucideIcon } from 'lucide-react';
-import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM } from '@/lib/motion';
+import { formatLocalizedDate } from '@/lib/dateLocale';
 import type { HomeState } from '@/components/home/homeTypes';
-
-const DATE_FNS_LOCALE_MAP: Record<string, typeof enUS> = { sv, no: nb, da, fi, de, fr, es, it, pt, nl, pl, ar };
 
 function deriveHomeState(
   garmentCount: number | undefined,
@@ -86,13 +83,13 @@ export default function HomePage() {
     return t('home.greeting_evening') + suffix;
   }
 
-  const dateLocale = useMemo(
-    () => DATE_FNS_LOCALE_MAP[locale as string] ?? enUS,
-    [locale],
-  );
   const formattedDate = useMemo(
-    () => format(new Date(), 'EEEE, MMMM d', { locale: dateLocale }).toUpperCase(),
-    [dateLocale],
+    () => formatLocalizedDate(new Date(), locale, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    }).toUpperCase(),
+    [locale],
   );
 
   const todayOutfit = todayOutfits?.[0]?.outfit ?? null;

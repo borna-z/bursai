@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { type Locale, SUPPORTED_LOCALES } from '@/i18n/types';
 import { loadLocale } from '@/i18n/translations';
 import { asPreferences } from '@/types/preferences';
@@ -108,8 +108,14 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     return humanized.charAt(0).toUpperCase() + humanized.slice(1);
   }, [dict, enDict]);
 
+  const value = useMemo(() => ({
+    locale,
+    setLocale,
+    t,
+  }), [locale, setLocale, t]);
+
   return (
-    <LanguageContext.Provider value={{ locale, setLocale, t }}>
+    <LanguageContext.Provider value={value}>
       {children}
     </LanguageContext.Provider>
   );

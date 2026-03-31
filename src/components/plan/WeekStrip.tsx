@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { SPRING_SUBTLE } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { getDateFnsLocale } from '@/lib/dateLocale';
+import { formatLocalizedDate } from '@/lib/dateLocale';
 import type { PlannedOutfit } from '@/hooks/usePlannedOutfits';
 
 interface WeekStripProps {
@@ -15,7 +15,6 @@ interface WeekStripProps {
 
 export function WeekStrip({ selectedDate, onSelectDate, plannedOutfits }: WeekStripProps) {
   const { locale } = useLanguage();
-  const dfLocale = getDateFnsLocale(locale);
   const days = useMemo(() => {
     const today = new Date();
     return Array.from({ length: 7 }, (_, i) => addDays(today, i));
@@ -55,7 +54,7 @@ export function WeekStrip({ selectedDate, onSelectDate, plannedOutfits }: WeekSt
               'text-[10px] uppercase font-medium tracking-[0.08em]',
               isSelected ? 'text-background/70' : 'text-muted-foreground/60'
             )}>
-              {format(date, 'EEE', { locale: dfLocale }).slice(0, 2)}
+              {formatLocalizedDate(date, locale, { weekday: 'short' }).slice(0, 2)}
             </span>
             <span className={cn(
               'text-[1rem] font-semibold tabular-nums leading-tight mt-0.5',

@@ -10,7 +10,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
 import { getCoordinatesFromCity, fetchForecast, fetchHistoricalWeather, type ForecastDay } from '@/hooks/useForecast';
 import { toast } from 'sonner';
-import { getDateFnsLocale } from '@/lib/dateLocale';
+import { formatLocalizedDate, getDateFnsLocale } from '@/lib/dateLocale';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { logger } from '@/lib/logger';
@@ -189,11 +189,11 @@ export function useTravelCapsule() {
 
   const dateLabel = useMemo(() => {
     if (!dateRange?.from) return null;
-    const from = format(dateRange.from, 'MMM d', { locale: dateLocale });
+    const from = formatLocalizedDate(dateRange.from, locale, { month: 'short', day: 'numeric' });
     if (!dateRange.to) return from;
-    const to = format(dateRange.to, 'MMM d', { locale: dateLocale });
+    const to = formatLocalizedDate(dateRange.to, locale, { month: 'short', day: 'numeric' });
     return `${from} – ${to}`;
-  }, [dateRange, dateLocale]);
+  }, [dateRange, locale]);
 
   const dateSublabel = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to) return null;

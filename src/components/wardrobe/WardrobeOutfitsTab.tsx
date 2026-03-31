@@ -13,8 +13,7 @@ import { useOutfits, useDeleteOutfit, type OutfitWithItems } from '@/hooks/useOu
 import { EmptyState } from '@/components/layout/EmptyState';
 import { OutfitPreviewCard } from '@/components/ui/OutfitPreviewCard';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { format } from 'date-fns';
-import { getDateFnsLocale } from '@/lib/dateLocale';
+import { formatLocalizedDate } from '@/lib/dateLocale';
 import type { Locale as AppLocale } from '@/i18n/types';
 import { toast } from 'sonner';
 import { TAP_TRANSITION } from '@/lib/motion';
@@ -39,9 +38,9 @@ function resolveOccasionLabel(outfit: OutfitWithItems, t: (key: string) => strin
     .join(' ');
 }
 
-function formatOutfitDate(dateValue: string | null | undefined, locale: string, pattern: string) {
+function formatOutfitDate(dateValue: string | null | undefined, locale: string, options: Intl.DateTimeFormatOptions) {
   if (!dateValue) return null;
-  return format(new Date(dateValue), pattern, { locale: getDateFnsLocale(locale as AppLocale) });
+  return formatLocalizedDate(dateValue, locale as AppLocale, options);
 }
 
 function OutfitCard({
@@ -82,8 +81,16 @@ function OutfitCard({
   };
 
   const plannedFor = outfit.planned_for;
-  const plannedDate = formatOutfitDate(plannedFor, locale, 'EEE, d MMM');
-  const generatedDate = formatOutfitDate(outfit.generated_at, locale, 'EEE, d MMM');
+  const plannedDate = formatOutfitDate(plannedFor, locale, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+  const generatedDate = formatOutfitDate(outfit.generated_at, locale, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
   const dateLabel = plannedDate || generatedDate;
   const occasionLabel = resolveOccasionLabel(outfit, t);
   const excerpt = outfit.explanation

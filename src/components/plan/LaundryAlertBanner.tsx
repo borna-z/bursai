@@ -1,7 +1,7 @@
 import { WashingMachine, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { format, parseISO, isToday, isTomorrow } from 'date-fns';
-import { getDateFnsLocale } from '@/lib/dateLocale';
+import { parseISO, isToday, isTomorrow } from 'date-fns';
+import { formatLocalizedDate } from '@/lib/dateLocale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useLaundryCycle } from '@/hooks/useLaundryCycle';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,7 +19,7 @@ export function LaundryAlertBanner() {
     ? t('plan.today')
     : isTomorrow(dateObj)
       ? t('plan.tomorrow')
-      : format(dateObj, 'EEEE', { locale: getDateFnsLocale(locale) });
+      : formatLocalizedDate(dateObj, locale, { weekday: 'long' });
 
   return (
     <AnimatePresence>

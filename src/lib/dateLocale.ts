@@ -19,3 +19,24 @@ export function getDateFnsLocale(locale: AppLocale) {
 export function getBCP47(locale: AppLocale): string {
   return bcp47Map[locale] || 'sv-SE';
 }
+
+const formatterCache = new Map<string, Intl.DateTimeFormat>();
+
+function getFormatter(locale: AppLocale, options: Intl.DateTimeFormatOptions) {
+  const cacheKey = `${getBCP47(locale)}:${JSON.stringify(options)}`;
+  const cached = formatterCache.get(cacheKey);
+  if (cached) return cached;
+
+  const formatter = new Intl.DateTimeFormat(getBCP47(locale), options);
+  formatterCache.set(cacheKey, formatter);
+  return formatter;
+}
+
+export function formatLocalizedDate(
+  date: Date | string | number,
+  locale: AppLocale,
+  options: Intl.DateTimeFormatOptions,
+): string {
+  const normalizedDate = date instanceof Date ? date : new Date(date);
+  return getFormatter(locale, options).format(normalizedDate);
+}
