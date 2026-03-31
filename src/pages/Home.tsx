@@ -7,7 +7,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { useGarmentCount } from '@/hooks/useGarments';
-import { useOutfits } from '@/hooks/useOutfits';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { WeatherPill } from '@/components/weather/WeatherPill';
@@ -19,7 +18,6 @@ import { hapticLight } from '@/lib/haptics';
 import { HomePageSkeleton } from '@/components/ui/skeletons';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { HomeTodayLookCard } from '@/components/home/HomeTodayLookCard';
-import { HomeStatsStrip } from '@/components/home/HomeStatsStrip';
 import { CalendarDays, Compass, MessageCircle, Sparkles, type LucideIcon } from 'lucide-react';
 import { formatLocalizedDate } from '@/lib/dateLocale';
 import type { HomeState } from '@/components/home/homeTypes';
@@ -45,7 +43,6 @@ export default function HomePage() {
 
   const { data: garmentCount, isLoading: isCountLoading } = useGarmentCount();
   const { data: profile } = useProfile();
-  const { data: allOutfits } = useOutfits();
   useFirstRunCoach();
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -140,20 +137,6 @@ export default function HomePage() {
     };
   }, [homeState, navigate, todayOutfit, t]);
 
-  const tertiaryAction = useMemo(() => {
-    if (homeState === 'empty_wardrobe') return undefined;
-    if (homeState === 'outfit_planned') {
-      return {
-        label: t('home.action_open_plan'),
-        onClick: () => navigate('/plan'),
-      };
-    }
-
-    return {
-      label: t('home.action_open_wardrobe'),
-      onClick: () => navigate('/wardrobe'),
-    };
-  }, [homeState, navigate, t]);
 
   if (homeState === 'loading') {
     return (
@@ -203,15 +186,8 @@ export default function HomePage() {
             weatherSummary={weatherSummary}
             primaryLabel={primaryAction.label}
             secondaryLabel={secondaryAction.label}
-            tertiaryLabel={tertiaryAction?.label}
             onPrimaryAction={() => { hapticLight(); primaryAction.onClick(); }}
             onSecondaryAction={() => { hapticLight(); secondaryAction.onClick(); }}
-            onTertiaryAction={tertiaryAction ? () => { hapticLight(); tertiaryAction.onClick(); } : undefined}
-          />
-
-          <HomeStatsStrip
-            garmentCount={garmentCount ?? 0}
-            outfitCount={allOutfits?.length ?? 0}
           />
 
           {/* Quick Shortcuts */}
@@ -235,9 +211,6 @@ function QuickShortcuts({
 }) {
   return (
     <section>
-      <p className="label-editorial mb-2.5 text-muted-foreground/60">
-        {t('home.quick_actions')}
-      </p>
       <div className="grid grid-cols-2 gap-2.5">
         {shortcuts.map((s) => (
           <button

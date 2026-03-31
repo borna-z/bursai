@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -43,34 +43,6 @@ export default function InsightsPage() {
   const wardrobeScore = sustainability?.score ?? (insights ? Math.round(insights.usageRate) : 0);
   const mostWorn = insights?.topFiveWorn?.[0] ?? null;
   const forgotten = insights?.unusedGarments?.[0] ?? null;
-  const recommendations = useMemo(() => {
-    if (!insights) return [];
-
-    const items: Array<{ title: string; body: string }> = [];
-
-    if (forgotten) {
-      items.push({
-        title: t('insights.recommendation_forgotten_title'),
-        body: t('insights.recommendation_forgotten_body').replace('{item}', forgotten.title || t('common.garment')),
-      });
-    }
-
-    if (insights.usageRate < 60) {
-      items.push({
-        title: t('insights.recommendation_usage_title'),
-        body: t('insights.recommendation_usage_body'),
-      });
-    }
-
-    if (dna?.archetype) {
-      items.push({
-        title: t('insights.recommendation_dna_title').replace('{archetype}', dna.archetype),
-        body: t('insights.recommendation_dna_body'),
-      });
-    }
-
-    return items.slice(0, 3);
-  }, [dna?.archetype, forgotten, insights, t]);
 
   if (isLoading) {
     return (
@@ -121,8 +93,8 @@ export default function InsightsPage() {
                 </p>
               </div>
             </div>
-            <div className="mt-2.5 grid w-full grid-cols-3 gap-2">
-              <div className="premium-inline-stat p-2.5 text-center">
+            <div className="mt-2.5 grid w-full grid-cols-3 gap-2 text-center">
+              <div>
                 <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/60">
                   {t('insights.metric_versatility')}
                 </p>
@@ -130,7 +102,7 @@ export default function InsightsPage() {
                   {sustainability?.utilizationRate ?? Math.round(insights.usageRate)}%
                 </p>
               </div>
-              <div className="premium-inline-stat p-2.5 text-center">
+              <div>
                 <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/60">
                   {t('insights.metric_balance')}
                 </p>
@@ -138,7 +110,7 @@ export default function InsightsPage() {
                   {overview?.savedLooks ?? 0}
                 </p>
               </div>
-              <div className="premium-inline-stat p-2.5 text-center">
+              <div>
                 <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/60">
                   {t('insights.metric_active_30d') || '30d Active'}
                 </p>
@@ -148,28 +120,6 @@ export default function InsightsPage() {
               </div>
             </div>
           </section>
-
-          {recommendations.length > 0 ? (
-            <section className="surface-secondary rounded-[1.25rem] p-3.5">
-              <div className="space-y-2.5">
-                <p className="label-editorial text-muted-foreground/60">
-                  {t('insights.recommended_next')}
-                </p>
-                <div className="grid gap-2.5">
-                  {recommendations.map((recommendation) => (
-                    <div key={recommendation.title} className="space-y-0.5">
-                      <p className="text-[0.92rem] font-medium tracking-[-0.02em] text-foreground">
-                        {recommendation.title}
-                      </p>
-                      <p className="line-clamp-2 text-[0.82rem] leading-5 text-muted-foreground">
-                        {recommendation.body}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-          ) : null}
 
           <InsightsPalettePanel
             bars={colorBreakdown.bars}

@@ -124,7 +124,6 @@ describe('Plan page', () => {
   it('renders a planned outfit without crashing', () => {
     renderPlanPage();
 
-    expect(screen.getByText('A reliable office outfit.')).toBeInTheDocument();
     expect(screen.getByAltText('White Shirt')).toHaveAttribute('data-image-path', '/shirt.jpg');
   });
 

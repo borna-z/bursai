@@ -15,18 +15,14 @@ interface HomeTodayLookCardProps {
   onSecondaryAction: () => void;
   primaryLabel: string;
   secondaryLabel: string;
-  tertiaryLabel?: string;
-  onTertiaryAction?: () => void;
 }
 
 function ActionRow({
   primaryLabel,
   secondaryLabel,
-  tertiaryLabel,
   onPrimaryAction,
   onSecondaryAction,
-  onTertiaryAction,
-}: Pick<HomeTodayLookCardProps, 'primaryLabel' | 'secondaryLabel' | 'tertiaryLabel' | 'onPrimaryAction' | 'onSecondaryAction' | 'onTertiaryAction'>) {
+}: Pick<HomeTodayLookCardProps, 'primaryLabel' | 'secondaryLabel' | 'onPrimaryAction' | 'onSecondaryAction'>) {
   return (
     <div className="premium-action-row pt-1">
       <Button
@@ -42,15 +38,6 @@ function ActionRow({
       >
         {secondaryLabel}
       </Button>
-      {tertiaryLabel && onTertiaryAction ? (
-        <Button
-          onClick={onTertiaryAction}
-          variant="quiet"
-          className="h-11 rounded-full px-4 text-[13px]"
-        >
-          {tertiaryLabel}
-        </Button>
-      ) : null}
     </div>
   );
 }
@@ -64,8 +51,6 @@ export function HomeTodayLookCard({
   onSecondaryAction,
   primaryLabel,
   secondaryLabel,
-  tertiaryLabel,
-  onTertiaryAction,
 }: HomeTodayLookCardProps) {
   const { t } = useLanguage();
 
@@ -100,10 +85,8 @@ export function HomeTodayLookCard({
           <ActionRow
             primaryLabel={primaryLabel}
             secondaryLabel={secondaryLabel}
-            tertiaryLabel={tertiaryLabel}
             onPrimaryAction={onPrimaryAction}
             onSecondaryAction={onSecondaryAction}
-            onTertiaryAction={onTertiaryAction}
           />
         </div>
       </div>
@@ -142,10 +125,8 @@ export function HomeTodayLookCard({
           <ActionRow
             primaryLabel={primaryLabel}
             secondaryLabel={secondaryLabel}
-            tertiaryLabel={tertiaryLabel}
             onPrimaryAction={onPrimaryAction}
             onSecondaryAction={onSecondaryAction}
-            onTertiaryAction={onTertiaryAction}
           />
         </div>
       </div>
@@ -185,15 +166,13 @@ export function HomeTodayLookCard({
             <Sparkles className="mr-2 h-4 w-4" />
             {primaryLabel}
           </Button>
-          {tertiaryLabel && onTertiaryAction ? (
-            <Button
-              onClick={onTertiaryAction}
-              variant="outline"
-              className="h-11 rounded-full px-4.5 text-[13px]"
-            >
-              {tertiaryLabel}
-            </Button>
-          ) : null}
+          <Button
+            onClick={onSecondaryAction}
+            variant="outline"
+            className="h-11 rounded-full px-4.5 text-[13px]"
+          >
+            {secondaryLabel}
+          </Button>
         </div>
       </div>
     </div>

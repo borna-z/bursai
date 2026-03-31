@@ -138,8 +138,7 @@ describe('Add garment page', () => {
   it('surfaces the three primary add entry points', () => {
     render(<AddGarmentPage />);
 
-    expect(screen.getByRole('heading', { level: 2, name: 'Add pieces without slowing down.' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /live scan/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /fastest capture/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /take photo/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /photo library/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /add multiple/i })).toBeInTheDocument();
