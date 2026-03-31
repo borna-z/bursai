@@ -159,7 +159,7 @@ export default function InsightsPage() {
                 variant="outline"
                 size="sm"
                 className="rounded-full"
-                onClick={() => { hapticLight(); navigate('/wardrobe/gaps'); }}
+                onClick={() => { hapticLight(); navigate('/gaps'); }}
               >
                 {t('insights.fill_gaps') || 'Fill wardrobe gaps'}
               </Button>

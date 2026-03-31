@@ -419,6 +419,7 @@ const en: Record<string, string> = {
     'home.shortcut_style': 'Style me',
     'home.shortcut_plan': 'Plan week',
     'home.shortcut_discover': 'Discover',
+    'home.shortcut_gaps': 'Wardrobe gaps',
 
     // HomeAskBursRail
     'home.ask_burs_label': 'Ask BURS',
@@ -891,6 +892,8 @@ const en: Record<string, string> = {
     'insights.evolution': 'Style Evolution',
     'insights.casual': 'Casual',
     'insights.formal': 'Formal',
+    'insights.style_forgotten': 'Style forgotten piece',
+    'insights.fill_gaps': 'Fill wardrobe gaps',
     'insights.condition': 'Condition',
     'insights.condition_check': 'Check condition',
     'insights.condition_checking': 'Checking...',

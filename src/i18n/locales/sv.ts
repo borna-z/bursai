@@ -754,6 +754,8 @@ const sv: Record<string, string> = {
     'insights.evolution': 'Stilutveckling',
     'insights.casual': 'Avslappnad',
     'insights.formal': 'Formell',
+    'insights.style_forgotten': 'Styla bortglömt plagg',
+    'insights.fill_gaps': 'Fyll garderoben',
     'insights.condition': 'Skick',
     'insights.condition_check': 'Kontrollera skick',
     'insights.condition_checking': 'Kontrollerar...',

@@ -97,7 +97,7 @@ export default function HomePage() {
     { label: t('home.shortcut_style'), icon: Sparkles, path: '/ai/generate' },
     { label: t('home.shortcut_plan'), icon: CalendarDays, path: '/plan' },
     { label: t('home.shortcut_discover'), icon: Compass, path: '/discover' },
-    { label: t('home.shortcut_gaps') || 'Wardrobe gaps', icon: Search, path: '/wardrobe/gaps' },
+    { label: t('home.shortcut_gaps') || 'Wardrobe gaps', icon: Search, path: '/gaps' },
   ]), [t]);
 
   const primaryAction = useMemo(() => {
