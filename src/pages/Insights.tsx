@@ -40,28 +40,12 @@ export default function InsightsPage() {
     ]);
   }, [queryClient]);
 
-  if (isLoading) {
-    return (
-      <AppLayout>
-        <PageHeader title={t('insights.title') || 'Style Intelligence'} subtitle={t('insights.subtitle') || 'Your wardrobe, decoded'} />
-        <InsightsPageSkeleton />
-      </AppLayout>
-    );
-  }
-
-  if (!insights || insights.totalGarments === 0) {
-    return (
-      <AppLayout>
-        <PageHeader title={t('insights.title') || 'Style Intelligence'} subtitle={t('insights.subtitle') || 'Your wardrobe, decoded'} />
-        <InsightsOnboardingEmpty />
-      </AppLayout>
-    );
-  }
-
-  const wardrobeScore = sustainability?.score ?? Math.round(insights.usageRate);
-  const mostWorn = insights.topFiveWorn?.[0] ?? null;
-  const forgotten = insights.unusedGarments?.[0] ?? null;
+  const wardrobeScore = sustainability?.score ?? (insights ? Math.round(insights.usageRate) : 0);
+  const mostWorn = insights?.topFiveWorn?.[0] ?? null;
+  const forgotten = insights?.unusedGarments?.[0] ?? null;
   const recommendations = useMemo(() => {
+    if (!insights) return [];
+
     const items: Array<{ title: string; body: string }> = [];
 
     if (forgotten) {
@@ -86,7 +70,25 @@ export default function InsightsPage() {
     }
 
     return items.slice(0, 3);
-  }, [dna?.archetype, forgotten, insights.usageRate, t]);
+  }, [dna?.archetype, forgotten, insights, t]);
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <PageHeader title={t('insights.title') || 'Style Intelligence'} subtitle={t('insights.subtitle') || 'Your wardrobe, decoded'} />
+        <InsightsPageSkeleton />
+      </AppLayout>
+    );
+  }
+
+  if (!insights || insights.totalGarments === 0) {
+    return (
+      <AppLayout>
+        <PageHeader title={t('insights.title') || 'Style Intelligence'} subtitle={t('insights.subtitle') || 'Your wardrobe, decoded'} />
+        <InsightsOnboardingEmpty />
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
