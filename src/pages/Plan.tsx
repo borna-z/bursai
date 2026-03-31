@@ -288,7 +288,7 @@ export default function PlanPage() {
             <WeatherForecastBadge date={selectedDateStr} compact={false} />
           </div>
 
-          <div className="surface-media space-y-3.5 p-3.5">
+          <div className="space-y-3.5 pt-1">
             <div className="grid grid-cols-4 gap-1.5">
               {outfit.outfit_items.slice(0, 4).map((item) => (
                 <div key={item.id} className="aspect-square overflow-hidden rounded-[1.1rem] bg-background/75">
@@ -549,7 +549,7 @@ export default function PlanPage() {
             <button
               type="button"
               onClick={() => { hapticLight(); setQuickPlanSheetOpen(true); }}
-              className="flex w-full items-center gap-3 rounded-[1.1rem] surface-editorial p-3.5 text-left transition-colors cursor-pointer"
+              className="flex w-full items-center gap-3 rounded-[1.1rem] surface-secondary p-3.5 text-left transition-colors cursor-pointer"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.85rem] bg-accent/15">
                 <Sparkles className="h-5 w-5 text-accent" />

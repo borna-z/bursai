@@ -82,7 +82,7 @@ export function StyleDNACard({
   }
 
   return (
-    <div className={cn('overflow-hidden rounded-[1.2rem] border border-border/10 bg-card/60', className)}>
+    <div className={cn('overflow-hidden rounded-[1.2rem]', className)}>
       <div className="space-y-3 px-4 pb-4 pt-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -97,11 +97,11 @@ export function StyleDNACard({
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/8">
-            <Fingerprint className="w-5 h-5 text-primary" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/8">
+            <Fingerprint className="w-4 h-4 text-primary" />
           </div>
           <div>
-            <p className="text-[18px] font-bold tracking-tight text-foreground">{dna.archetype}</p>
+            <p className="text-[15px] font-semibold tracking-tight text-foreground">{dna.archetype}</p>
             <p className="text-[11px] text-muted-foreground/50">
               {dna.formalitySpread === 'narrow'
                 ? 'Consistent'
@@ -115,7 +115,7 @@ export function StyleDNACard({
       </div>
 
       <div className="px-4 pb-4">
-        <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground/30">
+        <p className="mb-2 text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground/30">
           Palette
         </p>
         <div className="flex items-center gap-1.5">
@@ -137,7 +137,7 @@ export function StyleDNACard({
 
       {dna.uniformCombos.length > 0 ? (
         <div className="px-4 pb-4">
-          <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground/30">
+          <p className="mb-2 text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground/30">
             Formulas
           </p>
           <div className="space-y-1.5">
@@ -157,7 +157,7 @@ export function StyleDNACard({
 
       {dna.patterns.length > 0 ? (
         <div className="space-y-2.5 px-4 pb-4">
-          <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground/30">
+          <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground/30">
             Patterns
           </p>
           {dna.patterns.slice(0, 2).map((pattern, index) => (

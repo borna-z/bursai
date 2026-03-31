@@ -71,7 +71,7 @@ export default function InsightsPage() {
       />
       <PullToRefresh onRefresh={handleRefresh}>
         <AnimatedPage className="page-shell page-cluster pb-24">
-          <section className="surface-secondary rounded-[1.25rem] p-3.5">
+          <section className="surface-editorial rounded-[1.25rem] p-3.5">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
                 <p className="label-editorial text-muted-foreground/60">{t('insights.hero_label')}</p>
@@ -79,7 +79,7 @@ export default function InsightsPage() {
                   {t('insights.hero_title')}
                 </h2>
               </div>
-              <div className="rounded-[0.95rem] bg-background/70 px-3.5 py-2.5 text-right">
+              <div className="text-right">
                 <div className="flex items-baseline gap-1">
                   <span className="text-[1.55rem] font-semibold tracking-[-0.06em] text-foreground">
                     {wardrobeScore}
