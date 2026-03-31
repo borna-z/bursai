@@ -394,9 +394,9 @@ export default function GarmentDetailPage() {
             initial={sectionInitial}
             animate={sectionAnimate}
             transition={sectionTransition(STAGGER_DELAY * 4)}
-            className="surface-secondary rounded-[1.25rem] p-5 space-y-3"
+            className="rounded-[1.25rem] p-5 space-y-3"
           >
-            <p className="label-editorial text-muted-foreground/50 text-[10px] uppercase tracking-[0.16em]">
+            <p className="label-editorial text-muted-foreground/60 text-[10px] uppercase tracking-[0.16em]">
               {t('garment.details')}
             </p>
             {detailMeta && (
@@ -417,7 +417,7 @@ export default function GarmentDetailPage() {
           initial={sectionInitial}
           animate={sectionAnimate}
           transition={sectionTransition(STAGGER_DELAY * 5)}
-          className="surface-inset flex rounded-full border p-1.5"
+          className="flex rounded-full border border-border/40 p-1.5"
         >
           {tabs.map((tab) => (
             <button
@@ -448,8 +448,8 @@ export default function GarmentDetailPage() {
             className="space-y-4"
           >
             {/* Spec Details Card */}
-            <Card surface="utility" className="space-y-0 overflow-hidden rounded-[1.25rem] p-5">
-              <p className="label-editorial text-muted-foreground/50 text-[10px] uppercase tracking-[0.16em] mb-2">
+            <Card className="space-y-0 overflow-hidden rounded-[1.25rem] p-5">
+              <p className="label-editorial text-muted-foreground/60 text-[10px] uppercase tracking-[0.16em] mb-2">
                 {t('garment.details')}
               </p>
               <div className="divide-y divide-border/40">
@@ -532,7 +532,7 @@ export default function GarmentDetailPage() {
               ) : null}
 
               {garment.ai_analyzed_at ? (
-                <p className="text-[11px] font-body text-muted-foreground/50 pt-2">
+                <p className="text-[11px] font-body text-muted-foreground/60 pt-2">
                   {t('garment.analyzed').replace('{date}', new Date(garment.ai_analyzed_at).toLocaleDateString(getBCP47(locale)))}
                 </p>
               ) : null}
@@ -550,7 +550,7 @@ export default function GarmentDetailPage() {
             </div>
 
             {/* Quick Actions */}
-            <div className="space-y-0 border-t border-border/30 pt-4">
+            <div className="space-y-0 border-t border-border/40 pt-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-0.5">
                   <div className="inline-flex items-center gap-2 text-[13px] font-body font-medium text-foreground">
@@ -599,15 +599,15 @@ export default function GarmentDetailPage() {
             {/* Usage Stats */}
             <div className="grid gap-3 grid-cols-3">
               <div className="p-3.5 text-center">
-                <p className="label-editorial text-muted-foreground/50 text-[9px] uppercase tracking-[0.14em]">{t('garment.cost_per_wear')}</p>
+                <p className="label-editorial text-muted-foreground/60 text-[9px] uppercase tracking-[0.14em]">{t('garment.cost_per_wear')}</p>
                 <p className="mt-1.5 text-[1.1rem] font-semibold tracking-[-0.03em] text-foreground">{costPerWearDisplay}</p>
               </div>
               <div className="p-3.5 text-center">
-                <p className="label-editorial text-muted-foreground/50 text-[9px] uppercase tracking-[0.14em]">{t('garment.last_worn_label')}</p>
+                <p className="label-editorial text-muted-foreground/60 text-[9px] uppercase tracking-[0.14em]">{t('garment.last_worn_label')}</p>
                 <p className="mt-1.5 text-[1.1rem] font-semibold tracking-[-0.03em] text-foreground">{lastWornDisplay}</p>
               </div>
               <div className="p-3.5 text-center">
-                <p className="label-editorial text-muted-foreground/50 text-[9px] uppercase tracking-[0.14em]">{t('garment.monthly_rhythm')}</p>
+                <p className="label-editorial text-muted-foreground/60 text-[9px] uppercase tracking-[0.14em]">{t('garment.monthly_rhythm')}</p>
                 <p className="mt-1.5 text-[1.1rem] font-semibold tracking-[-0.03em] text-foreground">{usageInsights?.wearFrequency || '0'}</p>
               </div>
             </div>

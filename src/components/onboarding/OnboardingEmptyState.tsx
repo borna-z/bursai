@@ -61,7 +61,7 @@ function ProgressStep({ step, index, isLast }: { step: StepItem; index: number; 
         )}>
           {step.label}
         </p>
-        <p className="text-[11px] text-muted-foreground/50 mt-0.5 leading-relaxed">
+        <p className="text-[11px] text-muted-foreground/60 mt-0.5 leading-relaxed">
           {step.description}
         </p>
       </div>
@@ -120,7 +120,7 @@ export function WardrobeOnboardingEmpty() {
         className="mx-auto mb-6 max-w-[280px]"
       >
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider font-medium">
+          <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium">
             {t('wardrobe.onboarding_progress')}
           </span>
           <span className="text-[10px] text-muted-foreground/60 tabular-nums font-medium">
@@ -227,7 +227,7 @@ export function OutfitsOnboardingEmpty() {
           className="mx-auto mb-5 w-full max-w-[180px]"
         >
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider font-medium">
+            <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium">
               {t('outfits.progress_label')}
             </span>
             <span className="text-[10px] text-muted-foreground/60 tabular-nums font-medium">
@@ -382,7 +382,7 @@ export function InsightsOnboardingEmpty() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.35 }}
-        className="mb-6 max-w-[220px] text-[11px] leading-5 text-muted-foreground/40"
+        className="mb-6 max-w-[220px] text-[11px] leading-5 text-muted-foreground/60"
       >
         {t('insights.empty_meta')}
       </motion.p>

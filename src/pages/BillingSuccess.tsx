@@ -25,7 +25,7 @@ export default function BillingSuccess() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <motion.div
-        className="max-w-md w-full surface-secondary rounded-[1.25rem] p-8 space-y-6"
+        className="max-w-md w-full rounded-[1.25rem] p-8 space-y-6 border border-border/40"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
@@ -39,7 +39,7 @@ export default function BillingSuccess() {
           <p className="text-sm text-muted-foreground">{t('billing.success_desc')}</p>
         </div>
 
-        <div className="surface-inset rounded-[1rem] p-4 space-y-2">
+        <div className="rounded-[1rem] p-4 space-y-2 border border-border/40">
           <div className="flex items-center gap-2 text-sm"><CheckCircle className="w-4 h-4 text-foreground" /><span>{t('premium.unlimited_wardrobe')}</span></div>
           <div className="flex items-center gap-2 text-sm"><CheckCircle className="w-4 h-4 text-foreground" /><span>{t('pricing.unlimited_outfits')}</span></div>
           <div className="flex items-center gap-2 text-sm"><CheckCircle className="w-4 h-4 text-foreground" /><span>{t('premium.smarter_ai')}</span></div>

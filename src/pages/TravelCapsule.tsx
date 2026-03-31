@@ -31,7 +31,7 @@ export default function TravelCapsule() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: EASE_CURVE }}
-            className="surface-secondary rounded-[1.25rem] p-5"
+            className="rounded-[1.25rem] p-5"
           >
             <div className="flex items-start gap-4">
               <div className="flex size-11 shrink-0 items-center justify-center rounded-[1rem] bg-secondary/65 text-foreground/70">
@@ -49,7 +49,7 @@ export default function TravelCapsule() {
                 </p>
               </div>
             </div>
-            <div className="mt-5 rounded-[1.25rem] border border-foreground/[0.06] bg-background/70 p-4">
+            <div className="mt-5 rounded-[1.25rem] p-4">
               <WardrobeProgress message={t('unlock.travel_capsule_message')} compact />
             </div>
           </motion.section>

@@ -104,13 +104,13 @@ export default function SettingsNotifications() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY * 3 }}
-          className="surface-secondary rounded-[1.25rem] p-5 text-center space-y-2"
+          className="rounded-[1.25rem] p-5 text-center space-y-2"
         >
-          <p className="label-editorial text-muted-foreground/50">{t('settings.curation_note_label') || 'CURATION NOTE'}</p>
+          <p className="label-editorial text-muted-foreground/60">{t('settings.curation_note_label') || 'CURATION NOTE'}</p>
           <p className="font-display italic text-[15px] text-foreground/80 leading-relaxed">
             {t('settings.style_quote') || '"Style is a way to say who you are without having to speak."'}
           </p>
-          <p className="text-[11px] text-muted-foreground/40 font-body">--- Rachel Zoe</p>
+          <p className="text-[11px] text-muted-foreground/60 font-body">--- Rachel Zoe</p>
         </motion.div>
       </AnimatedPage>
     </AppLayout>

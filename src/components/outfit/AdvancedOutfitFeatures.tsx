@@ -72,7 +72,7 @@ export function OutfitDNASection({ outfitId }: { outfitId: string }) {
       {!variations && !cloneDNA.isPending && (
         <div className="rounded-[1.25rem] border border-dashed border-border/40 bg-muted/10 p-6 flex flex-col items-center justify-center gap-2">
           <RefreshCw className="w-6 h-6 text-muted-foreground/20" />
-          <p className="text-xs text-muted-foreground/40">{t('outfit.dna_hint')}</p>
+          <p className="text-xs text-muted-foreground/60">{t('outfit.dna_hint')}</p>
         </div>
       )}
     </div>
@@ -149,7 +149,7 @@ export function AccessoryPairingSection({ outfitId }: { outfitId: string }) {
       {!suggestions && !suggestAccessories.isPending && (
         <div className="rounded-[1.25rem] border border-dashed border-border/40 bg-muted/10 p-6 flex flex-col items-center justify-center gap-2">
           <Gem className="w-6 h-6 text-muted-foreground/20" />
-          <p className="text-xs text-muted-foreground/40">{t('outfit.accessory_hint')}</p>
+          <p className="text-xs text-muted-foreground/60">{t('outfit.accessory_hint')}</p>
         </div>
       )}
     </div>

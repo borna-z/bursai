@@ -12,7 +12,7 @@ export default function BillingCancel() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <motion.div
-        className="max-w-md w-full surface-secondary rounded-[1.25rem] p-8 space-y-6"
+        className="max-w-md w-full rounded-[1.25rem] p-8 space-y-6 border border-border/40"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}

@@ -117,12 +117,12 @@ export default function GoogleCalendarCallback() {
         {status === 'loading' && (
           <motion.div
             key="loading"
-            className="max-w-md w-full surface-secondary rounded-[1.25rem] p-8 space-y-6"
+            className="max-w-md w-full rounded-[1.25rem] p-8 space-y-6 border border-border/40"
             {...motionProps}
           >
             <div className="text-center space-y-5">
               <motion.div {...staggerChild(0)}>
-                <div className="w-14 h-14 rounded-full surface-inset flex items-center justify-center mx-auto">
+                <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto border border-border/40">
                   <Loader2 className="w-7 h-7 animate-spin text-foreground" />
                 </div>
               </motion.div>
@@ -135,7 +135,7 @@ export default function GoogleCalendarCallback() {
                 </h1>
               </motion.div>
               <motion.div {...staggerChild(2)}>
-                <div className="w-full h-1.5 rounded-full surface-inset overflow-hidden">
+                <div className="w-full h-1.5 rounded-full overflow-hidden border border-border/40">
                   <motion.div
                     className="h-full rounded-full bg-foreground/20"
                     initial={{ width: '0%' }}
@@ -151,12 +151,12 @@ export default function GoogleCalendarCallback() {
         {status === 'success' && (
           <motion.div
             key="success"
-            className="max-w-md w-full surface-secondary rounded-[1.25rem] p-8 space-y-6"
+            className="max-w-md w-full rounded-[1.25rem] p-8 space-y-6 border border-border/40"
             {...motionProps}
           >
             <div className="text-center space-y-5">
               <motion.div {...staggerChild(0)}>
-                <div className="w-14 h-14 rounded-full surface-inset flex items-center justify-center mx-auto">
+                <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto border border-border/40">
                   <CheckCircle2 className="w-7 h-7 text-foreground" />
                 </div>
               </motion.div>
@@ -177,12 +177,12 @@ export default function GoogleCalendarCallback() {
         {status === 'empty' && (
           <motion.div
             key="empty"
-            className="max-w-md w-full surface-secondary rounded-[1.25rem] p-8 space-y-6"
+            className="max-w-md w-full rounded-[1.25rem] p-8 space-y-6 border border-border/40"
             {...motionProps}
           >
             <div className="text-center space-y-5">
               <motion.div {...staggerChild(0)}>
-                <div className="w-14 h-14 rounded-full surface-inset flex items-center justify-center mx-auto">
+                <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto border border-border/40">
                   <Calendar className="w-7 h-7 text-foreground" />
                 </div>
               </motion.div>
@@ -202,12 +202,12 @@ export default function GoogleCalendarCallback() {
         {status === 'error' && (
           <motion.div
             key="error"
-            className="max-w-md w-full surface-secondary rounded-[1.25rem] p-8 space-y-6"
+            className="max-w-md w-full rounded-[1.25rem] p-8 space-y-6 border border-border/40"
             {...motionProps}
           >
             <div className="text-center space-y-5">
               <motion.div {...staggerChild(0)}>
-                <div className="w-14 h-14 rounded-full surface-inset flex items-center justify-center mx-auto">
+                <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto border border-border/40">
                   <XCircle className="w-7 h-7 text-muted-foreground" />
                 </div>
               </motion.div>

@@ -101,8 +101,8 @@
     --destructive: 0 62% 50%;
     --destructive-foreground: 36 20% 93%;
 
-    --border: 28 8% 20%;
-    --input: 28 8% 20%;
+    --border: 28 10% 24%;
+    --input: 28 10% 24%;
     --ring: 37 46% 63%;
 
     --success: 146 28% 50%;
@@ -171,8 +171,15 @@
   box-shadow: none;
 }
 
+/* Flatten Card default shadow in light mode */
+:root:not(.dark) .text-card-foreground:not(.surface-hero):not(.surface-secondary):not(.surface-editorial):not(.surface-utility):not(.surface-inset) {
+  box-shadow: none;
+}
+
 /* Flat surfaces in light mode — no shadows, square edges */
-:root:not(.dark) .surface-hero {
+:root:not(.dark) .surface-hero,
+:root:not(.dark) .surface-secondary,
+:root:not(.dark) .surface-editorial {
   box-shadow: none;
 }
 
@@ -231,6 +238,13 @@
     background-attachment: fixed;
   }
 
+  .dark body {
+    background-image:
+      radial-gradient(circle at top left, rgba(157, 126, 86, 0.03), transparent 32%),
+      radial-gradient(circle at top right, rgba(110, 103, 95, 0.03), transparent 28%),
+      radial-gradient(circle at bottom center, rgba(123, 96, 63, 0.02), transparent 26%);
+  }
+
   /* Prevent iOS auto-zoom on input focus */
   @media screen and (max-width: 768px) {
     input, select, textarea {
@@ -264,7 +278,7 @@
   }
 
   .caption {
-    @apply text-[0.6875rem] text-muted-foreground/70 leading-relaxed tracking-wide;
+    @apply text-[0.6875rem] text-muted-foreground/80 leading-relaxed tracking-wide;
   }
 
   /* Caption uppercase — small uppercase labels for eyebrows */
@@ -274,7 +288,7 @@
 
   /* Editorial label — uppercase tracked, used for section overlines */
   .label-editorial {
-    @apply text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-muted-foreground/60;
+    @apply text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-muted-foreground/75;
     font-family: 'DM Sans', sans-serif;
   }
 
@@ -378,7 +392,7 @@
       radial-gradient(circle at top right, hsl(var(--accent) / 0.09), transparent 42%);
     border-color: hsl(var(--border) / 0.8);
     box-shadow:
-      0 18px 44px rgba(0, 0, 0, 0.3),
+      0 18px 44px rgba(0, 0, 0, 0.18),
       inset 0 1px 0 rgba(255, 255, 255, 0.03);
   }
 
@@ -387,7 +401,7 @@
     @apply border;
     background-color: hsl(var(--card) / 0.8);
     border-color: hsl(var(--border) / 0.72);
-    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.16);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.1);
   }
 
   /* Inset surface – search bars, segmented controls, input areas */
@@ -413,7 +427,7 @@
   }
 
   .surface-editorial {
-    @apply border shadow-[0_18px_44px_rgba(0,0,0,0.28)];
+    @apply border shadow-[0_18px_44px_rgba(0,0,0,0.14)];
     border-color: hsl(var(--border) / 0.78);
     background:
       linear-gradient(180deg, hsl(var(--card) / 0.96), hsl(var(--card) / 0.88)),
@@ -455,7 +469,7 @@
     min-height: var(--app-bottom-clearance, calc(4.75rem + env(safe-area-inset-bottom, 0px)));
     background:
       linear-gradient(180deg, hsl(var(--background) / 0.78), hsl(var(--background) / 0.94));
-    box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.28);
+    box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.18);
   }
 
   .app-dock-slot {
@@ -604,10 +618,10 @@
 
   /* Accessibility-safe muted text — passes 4.5:1 on Editorial Cream */
   .text-a11y-muted {
-    color: hsl(var(--foreground) / 0.52);
+    color: hsl(var(--foreground) / 0.65);
   }
   .text-a11y-eyebrow {
-    color: hsl(var(--foreground) / 0.50);
+    color: hsl(var(--foreground) / 0.65);
   }
 }
 

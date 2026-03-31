@@ -442,7 +442,7 @@ export default function AIChat() {
             <span className="font-display italic text-[1.05rem] text-foreground leading-tight tracking-tight">
               {t('chat.mode_stylist')}
             </span>
-            <span className="text-[10px] font-body uppercase tracking-[0.12em] text-muted-foreground/40">AI Stylist</span>
+            <span className="text-[10px] font-body uppercase tracking-[0.12em] text-muted-foreground/60">AI Stylist</span>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -470,7 +470,7 @@ export default function AIChat() {
 
         {anchoredGarment && (
           <div className="px-4 pb-2">
-            <div className="surface-utility mx-auto flex max-w-md items-center justify-between gap-3 rounded-[1.25rem] px-3 py-2 text-left min-h-[52px]">
+            <div className="mx-auto flex max-w-md items-center justify-between gap-3 rounded-[1.25rem] border border-border/40 px-3 py-2 text-left min-h-[52px]">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1.25rem] bg-background text-primary">
                   <Shirt className="h-4 w-4" />
@@ -541,7 +541,7 @@ export default function AIChat() {
             })}
             {/* Plan action banner */}
             {planActionPayload && !isStreaming && (
-              <div className="mt-3 surface-secondary rounded-[1.25rem] px-4 py-4">
+              <div className="mt-3 rounded-[1.25rem] border border-border/40 px-4 py-4">
                 <p className="mb-3 font-display italic text-[0.95rem] text-foreground/70">
                   Your week is planned. Add these looks to the planner?
                 </p>

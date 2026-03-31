@@ -116,7 +116,7 @@ export function FormStep(props: FormStepProps) {
 
       <div className="page-shell !px-5 !pb-36 !pt-6 page-cluster">
         {imagePreview ? (
-          <Card surface="editorial" className="overflow-hidden p-2">
+          <Card className="overflow-hidden p-2">
             <div className="grid gap-5 p-3 sm:grid-cols-[180px,1fr] sm:items-center">
               <div className="relative overflow-hidden rounded-[1.1rem] bg-secondary/60">
                 <img src={imagePreview} alt="Preview" className="aspect-square w-full object-contain" />
@@ -139,7 +139,7 @@ export function FormStep(props: FormStepProps) {
           </Card>
         ) : null}
 
-        <div className="surface-secondary divide-y divide-border/30 rounded-[1.25rem]">
+        <div className="border border-border/40 divide-y divide-border/30 rounded-[1.25rem]">
           {/* Identity */}
           <div className="space-y-4 px-5 py-6">
             <div className="space-y-2">

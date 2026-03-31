@@ -39,7 +39,7 @@ export function WardrobeSmartAccess({ tiles, onSelect }: WardrobeSmartAccessProp
                 'min-h-[40px] rounded-[1.35rem] border px-4 py-4 text-left transition-colors',
                 tile.active
                   ? 'border-accent bg-accent text-accent-foreground shadow-[0_18px_34px_rgba(0,0,0,0.24)]'
-                  : 'surface-secondary text-foreground',
+                  : 'border border-border/40 text-foreground',
               )}
             >
               <div className="flex items-center justify-between gap-3">

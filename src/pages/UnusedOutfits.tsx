@@ -194,7 +194,7 @@ export default function UnusedOutfits() {
         </motion.section>
 
         {generating && outfits.length === 0 ? (
-          <Card surface="editorial" className="space-y-4 p-5 rounded-[1.25rem]">
+          <Card className="space-y-4 p-5 rounded-[1.25rem]">
             <AILoadingOverlay
               variant="inline"
               phases={[
@@ -247,7 +247,7 @@ export default function UnusedOutfits() {
                 }}
                 className="text-left w-full"
               >
-                <Card surface="secondary" className="h-full overflow-hidden rounded-[1.25rem] p-3">
+                <Card className="h-full overflow-hidden rounded-[1.25rem] p-3">
                   <div className="flex gap-3">
                     {/* 2x2 image grid */}
                     <div className="grid w-[7.5rem] shrink-0 grid-cols-2 gap-1 overflow-hidden rounded-[1rem]">
@@ -279,14 +279,14 @@ export default function UnusedOutfits() {
                     {/* Text content */}
                     <div className="flex min-w-0 flex-1 flex-col justify-between py-1">
                       <div className="space-y-2">
-                        <span className="label-editorial text-muted-foreground/50 text-[0.65rem] uppercase tracking-[0.16em]">
+                        <span className="label-editorial text-muted-foreground/60 text-[0.65rem] uppercase tracking-[0.16em]">
                           {getOccasionLabel(outfit.occasion, t)}
                         </span>
                         <p className="font-body text-sm font-medium leading-snug text-foreground line-clamp-3">
                           {outfit.explanation}
                         </p>
                       </div>
-                      <p className="label-editorial text-muted-foreground/40 text-[0.6rem] uppercase tracking-[0.14em] mt-2">
+                      <p className="label-editorial text-muted-foreground/60 text-[0.6rem] uppercase tracking-[0.14em] mt-2">
                         {outfit.items.filter((item) => unusedSet.has(item.garment.id)).length} unused pieces
                       </p>
                     </div>
@@ -297,7 +297,7 @@ export default function UnusedOutfits() {
 
             {generating
               ? Array.from({ length: Math.max(0, 6 - outfits.length) }).map((_, index) => (
-                <Card key={`skeleton-${index}`} surface="secondary" className="overflow-hidden rounded-[1.25rem] p-3">
+                <Card key={`skeleton-${index}`} className="overflow-hidden rounded-[1.25rem] p-3">
                   <div className="flex gap-3">
                     <Skeleton className="w-[7.5rem] shrink-0 aspect-square rounded-[1rem]" />
                     <div className="flex-1 space-y-3 py-2">
@@ -318,7 +318,7 @@ export default function UnusedOutfits() {
             {...motionProps}
             transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: 0.2 }}
           >
-            <Card surface="editorial" className="rounded-[1.25rem] p-5 space-y-3">
+            <Card className="rounded-[1.25rem] p-5 space-y-3">
               <Sparkles className="h-5 w-5 text-accent" />
               <p className="font-display italic text-[1.1rem] leading-tight text-foreground">
                 Your closet is a living gallery.

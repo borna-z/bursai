@@ -139,14 +139,14 @@ export function PricingSection() {
             </button>
 
             {/* Reassurance */}
-            <p className="text-center text-muted-foreground/40 text-[11px] mt-3 tracking-wide">
+            <p className="text-center text-muted-foreground/60 text-[11px] mt-3 tracking-wide">
               {t('trial.banner_desc')}
             </p>
           </div>
         </div>
 
         {/* Free footnote */}
-        <p className="text-center text-muted-foreground/50 text-xs mt-6 reveal-up" style={{ '--reveal-delay': '300ms' } as React.CSSProperties}>
+        <p className="text-center text-muted-foreground/60 text-xs mt-6 reveal-up" style={{ '--reveal-delay': '300ms' } as React.CSSProperties}>
           {t('landing.free_f1')} · {t('landing.free_f2')} · {t('landing.free_f3')}.{' '}
           <button onClick={() => navigate('/auth')} className="underline underline-offset-2 hover:text-foreground transition-colors">
             {t('landing.get_started')}

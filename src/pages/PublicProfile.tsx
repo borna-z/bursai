@@ -158,19 +158,19 @@ export default function PublicProfile() {
             </Avatar>
             <div className="text-center space-y-1">
               <h1 className="font-display italic text-[1.4rem]">{displayName}</h1>
-              <p className="text-[11px] font-body uppercase tracking-[0.14em] text-muted-foreground/50">@{profile.username}</p>
+              <p className="text-[11px] font-body uppercase tracking-[0.14em] text-muted-foreground/60">@{profile.username}</p>
             </div>
             <div className="flex gap-8 mt-1">
               <div className="text-center">
                 <span className="text-xl font-semibold tabular-nums">{outfits.length}</span>
-                <p className="text-[10px] font-body text-muted-foreground/50 uppercase tracking-[0.14em] mt-0.5">{t('profile.shared_outfits')}</p>
+                <p className="text-[10px] font-body text-muted-foreground/60 uppercase tracking-[0.14em] mt-0.5">{t('profile.shared_outfits')}</p>
               </div>
             </div>
           </motion.div>
 
           {/* Section eyebrow */}
           <motion.div className="mb-4" {...stagger(1)}>
-            <p className="label-editorial text-muted-foreground/50 text-[10px]">Shared Archive</p>
+            <p className="label-editorial text-muted-foreground/60 text-[10px]">Shared Archive</p>
           </motion.div>
 
           {/* Outfits grid */}
@@ -184,7 +184,7 @@ export default function PublicProfile() {
               {outfits.map((outfit, i) => (
                 <motion.div
                   key={outfit.id}
-                  className="surface-secondary rounded-[1.25rem] overflow-hidden cursor-pointer active:scale-[0.98] transition-transform"
+                  className="rounded-[1.25rem] overflow-hidden cursor-pointer active:scale-[0.98] transition-transform border border-border/40"
                   onClick={() => { hapticLight(); navigate(`/share/${outfit.id}`); }}
                   {...stagger(2 + i)}
                 >
@@ -198,7 +198,7 @@ export default function PublicProfile() {
                     )}
                   </div>
                   <div className="p-3 space-y-1.5">
-                    <p className="text-[10px] font-body uppercase tracking-[0.12em] text-muted-foreground/50">{outfit.occasion}</p>
+                    <p className="text-[10px] font-body uppercase tracking-[0.12em] text-muted-foreground/60">{outfit.occasion}</p>
                     {outfit.style_vibe && (
                       <p className="text-[12px] font-body text-foreground/80 truncate">{outfit.style_vibe}</p>
                     )}
@@ -210,7 +210,7 @@ export default function PublicProfile() {
           )}
 
           {/* CTA */}
-          <motion.div className="mt-12 surface-editorial rounded-[1.25rem] p-6 text-center space-y-3" {...stagger(3)}>
+          <motion.div className="mt-12 rounded-[1.25rem] p-6 text-center space-y-3" {...stagger(3)}>
             <Crown className="w-8 h-8 mx-auto text-accent" />
             <h3 className="font-display italic text-lg">{t('profile.cta_desc')}</h3>
             <Link to="/auth">

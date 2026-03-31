@@ -52,7 +52,7 @@ export default function Contact() {
       {/* Content */}
       <main className="flex-1 max-w-xl mx-auto px-4 py-10 w-full">
         <motion.div className="text-center mb-10" {...stagger(0)}>
-          <div className="w-14 h-14 flex items-center justify-center mx-auto mb-6 surface-secondary rounded-[1.25rem]">
+          <div className="w-14 h-14 flex items-center justify-center mx-auto mb-6 rounded-[1.25rem] border border-border/40">
             <Mail className="w-7 h-7 text-muted-foreground/50" />
           </div>
           <h1 className="font-display italic text-[1.8rem] leading-tight mb-3">
@@ -74,7 +74,7 @@ export default function Contact() {
 
         {status === 'success' ? (
           <motion.div
-            className="surface-secondary rounded-[1.25rem] flex items-center justify-center gap-3 p-8"
+            className="rounded-[1.25rem] flex items-center justify-center gap-3 p-8 border border-border/40"
             initial={prefersReduced ? undefined : { opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3, ease: EASE_CURVE }}
@@ -88,7 +88,7 @@ export default function Contact() {
           <motion.div {...stagger(2)}>
             <form onSubmit={handleSubmit} className="space-y-4 font-body">
               <div className="space-y-1">
-                <label className="label-editorial text-muted-foreground/50 text-[10px]">{t('contact.name')}</label>
+                <label className="label-editorial text-muted-foreground/60 text-[10px]">{t('contact.name')}</label>
                 <input
                   type="text"
                   placeholder={t('contact.name')}
@@ -99,7 +99,7 @@ export default function Contact() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="label-editorial text-muted-foreground/50 text-[10px]">{t('contact.email')}</label>
+                <label className="label-editorial text-muted-foreground/60 text-[10px]">{t('contact.email')}</label>
                 <input
                   type="email"
                   placeholder={t('contact.email')}
@@ -110,7 +110,7 @@ export default function Contact() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="label-editorial text-muted-foreground/50 text-[10px]">{t('contact.subject') || 'Subject'}</label>
+                <label className="label-editorial text-muted-foreground/60 text-[10px]">{t('contact.subject') || 'Subject'}</label>
                 <select
                   value={formData.subject}
                   onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
@@ -122,7 +122,7 @@ export default function Contact() {
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="label-editorial text-muted-foreground/50 text-[10px]">{t('contact.message')}</label>
+                <label className="label-editorial text-muted-foreground/60 text-[10px]">{t('contact.message')}</label>
                 <textarea
                   placeholder={t('contact.message')}
                   value={formData.message}

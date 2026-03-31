@@ -161,7 +161,7 @@ export function WardrobeToolbar({
       )}
 
       {isSelecting && selectedIdsCount > 0 && (
-        <div className="surface-utility flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
+        <div className="border border-border/40 flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
           <span className="text-sm font-medium text-foreground">
             {selectedIdsCount} {t('wardrobe.selected')}
           </span>

@@ -217,7 +217,7 @@ export default function EditGarmentPage() {
       <AppLayout hideNav>
         <PageHeader title={t('garment.edit_title')} showBack />
         <div className="page-shell !px-5 !pt-6">
-          <div className="surface-secondary rounded-[1.25rem] p-6 text-center">
+          <div className="rounded-[1.25rem] p-6 text-center">
             <h2 className="font-display italic text-lg">{t('garment.not_found')}</h2>
             <Button
               variant="outline"
@@ -242,7 +242,7 @@ export default function EditGarmentPage() {
 
       <AnimatedPage className="page-shell !px-5 !pb-36 !pt-4 page-cluster">
         {/* ── Hero image card ── */}
-        <motion.div {...reveal(0)} className="surface-secondary rounded-[1.25rem] overflow-hidden">
+        <motion.div {...reveal(0)} className="rounded-[1.25rem] overflow-hidden">
           <div className="relative aspect-[4/5] max-h-[380px] overflow-hidden">
             <LazyImage
               imagePath={getPreferredGarmentImagePath(garment)}
@@ -262,9 +262,9 @@ export default function EditGarmentPage() {
         </motion.div>
 
         {/* ── Item Identity ── */}
-        <motion.section {...reveal(1)} className="surface-secondary rounded-[1.25rem] p-5 space-y-5">
+        <motion.section {...reveal(1)} className="rounded-[1.25rem] p-5 space-y-5">
           <div className="space-y-1">
-            <p className="label-editorial text-muted-foreground/50">Item Identity</p>
+            <p className="label-editorial text-muted-foreground/60">Item Identity</p>
           </div>
 
           <div className="grid gap-4">
@@ -317,9 +317,9 @@ export default function EditGarmentPage() {
         </motion.section>
 
         {/* ── Color Story ── */}
-        <motion.section {...reveal(2)} className="surface-secondary rounded-[1.25rem] p-5 space-y-5">
+        <motion.section {...reveal(2)} className="rounded-[1.25rem] p-5 space-y-5">
           <div className="space-y-1">
-            <p className="label-editorial text-muted-foreground/50">Dominant Color</p>
+            <p className="label-editorial text-muted-foreground/60">Dominant Color</p>
           </div>
 
           <div className="space-y-4">
@@ -381,9 +381,9 @@ export default function EditGarmentPage() {
         </motion.section>
 
         {/* ── Construction ── */}
-        <motion.section {...reveal(3)} className="surface-secondary rounded-[1.25rem] p-5 space-y-5">
+        <motion.section {...reveal(3)} className="rounded-[1.25rem] p-5 space-y-5">
           <div className="space-y-1">
-            <p className="label-editorial text-muted-foreground/50">Material Composition</p>
+            <p className="label-editorial text-muted-foreground/60">Material Composition</p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
@@ -438,9 +438,9 @@ export default function EditGarmentPage() {
         </motion.section>
 
         {/* ── Seasonal Utility ── */}
-        <motion.section {...reveal(4)} className="surface-secondary rounded-[1.25rem] p-5 space-y-5">
+        <motion.section {...reveal(4)} className="rounded-[1.25rem] p-5 space-y-5">
           <div className="space-y-1">
-            <p className="label-editorial text-muted-foreground/50">Seasonal Utility</p>
+            <p className="label-editorial text-muted-foreground/60">Seasonal Utility</p>
           </div>
 
           <div className="space-y-3">
@@ -471,7 +471,7 @@ export default function EditGarmentPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between rounded-[1rem] border border-border/40 bg-background/60 px-4 py-4">
+          <div className="flex items-center justify-between rounded-[1rem] px-4 py-4">
             <div>
               <p className="text-sm font-medium font-body text-foreground">{t('addgarment.form.in_laundry')}</p>
               <p className="mt-1 text-xs font-body text-muted-foreground/70">Hide from outfit creation until ready.</p>

@@ -58,7 +58,7 @@ export function FilterSheet({
                     'px-3.5 py-3 min-h-[52px] rounded-full text-xs font-medium transition-colors border',
                     category === cat.id
                       ? 'bg-accent text-accent-foreground border-accent/30'
-                      : 'surface-inset text-muted-foreground'
+                      : 'border border-border/40 text-muted-foreground'
                   )}
                 >
                   {cat.label}
@@ -85,7 +85,7 @@ export function FilterSheet({
                     'px-3.5 py-3 min-h-[52px] rounded-full text-xs font-medium transition-colors border',
                     sortBy === s.key
                       ? 'bg-accent/10 text-accent border-accent/20'
-                      : 'surface-inset text-muted-foreground'
+                      : 'border border-border/40 text-muted-foreground'
                   )}
                 >
                   {s.label}
@@ -108,7 +108,7 @@ export function FilterSheet({
                     'px-3.5 py-3 min-h-[52px] rounded-full text-xs transition-colors border',
                     color === c
                       ? 'bg-accent/10 text-accent font-medium border-accent/20'
-                      : 'surface-inset text-muted-foreground'
+                      : 'border border-border/40 text-muted-foreground'
                   )}
                 >
                   {t(`color.${c}`)}
@@ -131,7 +131,7 @@ export function FilterSheet({
                     'flex-1 py-3 min-h-[52px] rounded-full text-xs transition-colors capitalize border',
                     season === s
                       ? 'bg-accent/10 text-accent font-medium border-accent/20'
-                      : 'surface-inset text-muted-foreground'
+                      : 'border border-border/40 text-muted-foreground'
                   )}
                 >
                   {t(`garment.season.${s}`)}
@@ -147,7 +147,7 @@ export function FilterSheet({
               'flex items-center gap-2 px-4 py-3 rounded-[1.25rem] text-sm font-medium transition-colors w-full border',
               showLaundry
                 ? 'bg-accent/10 text-accent border-accent/20'
-                : 'surface-inset text-muted-foreground'
+                : 'border border-border/40 text-muted-foreground'
             )}
           >
             <WashingMachine className="w-4 h-4" />

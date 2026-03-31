@@ -103,7 +103,7 @@ export function WeatherForecastBadge({
           {isEstimate ? '~' : ''}{forecast.temperature_avg}°C · {t(forecast.condition)}
         </span>
         {isEstimate && (
-          <span className="text-[10px] text-muted-foreground/50 italic">{t('weather.estimate')}</span>
+          <span className="text-[10px] text-muted-foreground/60 italic">{t('weather.estimate')}</span>
         )}
         {forecast.precipitation_probability > 30 && (
           <span className="text-xs text-muted-foreground flex items-center gap-0.5">
