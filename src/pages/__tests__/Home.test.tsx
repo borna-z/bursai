@@ -36,7 +36,27 @@ vi.mock('@/contexts/AuthContext', () => ({
 }));
 
 vi.mock('@/contexts/LanguageContext', () => ({
-  useLanguage: vi.fn(() => ({ t: (k: string) => k, locale: 'en' })),
+  useLanguage: vi.fn(() => ({
+    t: (k: string) => ({
+      'home.shortcut_chat': 'Ask stylist',
+      'home.shortcut_style': 'Style me',
+      'home.shortcut_plan': 'Plan week',
+      'home.shortcut_discover': 'Discover',
+      'home.quick_actions': 'Continue',
+      'home.action_style_outfit': 'Style outfit',
+      'home.action_add_garment': 'Add garment',
+      'home.action_open_wardrobe': 'Open wardrobe',
+      'home.action_open_plan': 'Open plan',
+      'home.ai_review': 'Why this works',
+      'home.weather_desc': 'Built around today\'s conditions.',
+      'home.greeting_morning': 'Good morning',
+      'home.greeting_afternoon': 'Good afternoon',
+      'home.greeting_evening': 'Good evening',
+      'home.settings_aria': 'Settings',
+      'weather.condition.clear': 'Clear',
+    }[k] ?? k),
+    locale: 'en',
+  })),
 }));
 
 vi.mock('@/contexts/LocationContext', () => ({
@@ -152,15 +172,15 @@ describe('Home page V4', () => {
     expect(heading.textContent).toContain('Test');
 
     expect(screen.getByTestId('stats-strip')).toBeInTheDocument();
-    expect(screen.getByText('AI Chat')).toBeInTheDocument();
+    expect(screen.getByText('Ask stylist')).toBeInTheDocument();
     expect(screen.getByText('Discover')).toBeInTheDocument();
   });
 
   it('shows style outfit as primary action with enough garments', () => {
     renderHome();
 
-    expect(screen.getByText('home.action_style_outfit')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('home.action_style_outfit'));
+    expect(screen.getByText('Style outfit')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Style outfit'));
     expect(navigateMock).toHaveBeenCalledWith('/ai/generate');
   });
 
@@ -169,8 +189,8 @@ describe('Home page V4', () => {
 
     renderHome();
 
-    expect(screen.getByText('home.action_add_garment')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('home.action_open_wardrobe'));
+    expect(screen.getByText('Add garment')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Open wardrobe'));
     expect(navigateMock).toHaveBeenCalledWith('/wardrobe');
   });
 });

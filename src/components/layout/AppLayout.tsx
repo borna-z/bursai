@@ -25,7 +25,7 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
     <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-40 bg-[radial-gradient(circle_at_top_right,rgba(154,137,113,0.09),transparent_48%),linear-gradient(180deg,rgba(255,255,255,0.22),transparent_72%)]"
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-56 bg-[radial-gradient(circle_at_top_right,rgba(177,141,94,0.18),transparent_38%),radial-gradient(circle_at_top_left,rgba(112,102,93,0.18),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_78%)]"
       />
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-foreground focus:text-background focus:rounded-md">
         {t('common.skip_to_main')}
@@ -34,7 +34,7 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
       <main
         id="main-content"
         className="relative z-[1] flex-1 overflow-x-clip overflow-y-auto scrollbar-hide"
-        style={{ ...(hideNav ? undefined : { paddingBottom: 'var(--app-bottom-clearance, calc(5rem + env(safe-area-inset-bottom, 0px)))' }), overscrollBehavior: 'none' }}
+        style={{ ...(hideNav ? undefined : { paddingBottom: 'env(safe-area-inset-bottom, 0px)' }), overscrollBehavior: 'none' }}
       >
         {children}
       </main>

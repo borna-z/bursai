@@ -22,17 +22,9 @@ import { HomePageSkeleton } from '@/components/ui/skeletons';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { HomeTodayLookCard } from '@/components/home/HomeTodayLookCard';
 import { HomeStatsStrip } from '@/components/home/HomeStatsStrip';
-import { MessageCircle, Sparkles, Plane, Search, Compass } from 'lucide-react';
+import { CalendarDays, Compass, MessageCircle, Sparkles, type LucideIcon } from 'lucide-react';
 import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM } from '@/lib/motion';
 import type { HomeState } from '@/components/home/homeTypes';
-
-const SHORTCUTS = [
-  { label: 'AI Chat', icon: MessageCircle, path: '/ai/chat' },
-  { label: 'Style Me', icon: Sparkles, path: '/ai/generate' },
-  { label: 'Travel Capsule', icon: Plane, path: '/plan/travel-capsule' },
-  { label: 'Wardrobe Gaps', icon: Search, path: '/gaps' },
-  { label: 'Discover', icon: Compass, path: '/discover' },
-] as const;
 
 const DATE_FNS_LOCALE_MAP: Record<string, typeof enUS> = { sv, no: nb, da, fi, de, fr, es, it, pt, nl, pl, ar };
 
@@ -108,6 +100,12 @@ export default function HomePage() {
   const weatherSummary = weather
     ? `${Math.round(weather.temperature)}\u00B0 ${t(weather.condition)}`
     : null;
+  const shortcuts = useMemo(() => ([
+    { label: t('home.shortcut_chat'), icon: MessageCircle, path: '/ai/chat' },
+    { label: t('home.shortcut_style'), icon: Sparkles, path: '/ai/generate' },
+    { label: t('home.shortcut_plan'), icon: CalendarDays, path: '/plan' },
+    { label: t('home.shortcut_discover'), icon: Compass, path: '/discover' },
+  ]), [t]);
 
   const primaryAction = useMemo(() => {
     if (homeState === 'empty_wardrobe') {
@@ -118,15 +116,15 @@ export default function HomePage() {
     }
     if (homeState === 'outfit_planned') {
       return {
-        label: t('home.action_restyle'),
-        onClick: () => navigate('/ai/generate'),
+        label: t('plan.wear_today') || 'Wear this',
+        onClick: () => navigate(todayOutfit ? `/outfits/${todayOutfit.id}` : '/outfits'),
       };
     }
     return {
       label: t('home.action_style_outfit'),
       onClick: () => navigate('/ai/generate'),
     };
-  }, [homeState, navigate, t]);
+  }, [homeState, navigate, t, todayOutfit?.id]);
 
   const secondaryAction = useMemo(() => {
     if (homeState === 'empty_wardrobe') {
@@ -137,8 +135,8 @@ export default function HomePage() {
     }
     if (homeState === 'outfit_planned' && todayOutfit) {
       return {
-        label: t('home.action_open_outfit'),
-        onClick: () => navigate(`/outfits/${todayOutfit.id}`),
+        label: t('home.action_restyle'),
+        onClick: () => navigate('/ai/generate'),
       };
     }
     return {
@@ -146,6 +144,21 @@ export default function HomePage() {
       onClick: () => navigate('/plan'),
     };
   }, [homeState, navigate, todayOutfit, t]);
+
+  const tertiaryAction = useMemo(() => {
+    if (homeState === 'empty_wardrobe') return undefined;
+    if (homeState === 'outfit_planned') {
+      return {
+        label: t('home.action_open_plan'),
+        onClick: () => navigate('/plan'),
+      };
+    }
+
+    return {
+      label: t('home.action_open_wardrobe'),
+      onClick: () => navigate('/wardrobe'),
+    };
+  }, [homeState, navigate, t]);
 
   if (homeState === 'loading') {
     return (
@@ -200,11 +213,31 @@ export default function HomePage() {
             weatherSummary={weatherSummary}
             primaryLabel={primaryAction.label}
             secondaryLabel={secondaryAction.label}
+            tertiaryLabel={tertiaryAction?.label}
             onPrimaryAction={() => { hapticLight(); primaryAction.onClick(); }}
             onSecondaryAction={() => { hapticLight(); secondaryAction.onClick(); }}
+            onTertiaryAction={tertiaryAction ? () => { hapticLight(); tertiaryAction.onClick(); } : undefined}
           />
 
-          {/* Stats strip */}
+          {(todayOutfit?.explanation || weatherSummary || homeState === 'weather_alert') ? (
+            <motion.section
+              initial={reducedMotion ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY * 4 }}
+              className="surface-secondary rounded-[1.35rem] p-4"
+            >
+              <p className="label-editorial mb-2 text-muted-foreground/60">
+                {t('home.ai_review') || 'WHY THIS WORKS'}
+              </p>
+              <p className="text-[0.95rem] leading-7 text-foreground/82">
+                {todayOutfit?.explanation
+                  || (weatherSummary
+                    ? `${t('home.weather_desc') || 'Built around the conditions for today.'} ${weatherSummary}`
+                    : t('home.no_outfit_desc') || 'BURS keeps the recommendation focused, calm, and ready to wear.')}
+              </p>
+            </motion.section>
+          ) : null}
+
           <HomeStatsStrip
             garmentCount={garmentCount ?? 0}
             outfitCount={allOutfits?.length ?? 0}
@@ -212,7 +245,7 @@ export default function HomePage() {
           />
 
           {/* Quick Shortcuts */}
-          <QuickShortcuts navigate={navigate} t={t} reducedMotion={reducedMotion} />
+          <QuickShortcuts shortcuts={shortcuts} navigate={navigate} t={t} reducedMotion={reducedMotion} />
         </AnimatedPage>
       </PullToRefresh>
     </AppLayout>
@@ -222,10 +255,12 @@ export default function HomePage() {
 /* ── Quick Shortcuts Grid ─────────────────────────────────── */
 
 function QuickShortcuts({
+  shortcuts,
   navigate,
   t,
   reducedMotion,
 }: {
+  shortcuts: Array<{ label: string; icon: LucideIcon; path: string }>;
   navigate: ReturnType<typeof useNavigate>;
   t: (key: string) => string;
   reducedMotion: boolean;
@@ -237,10 +272,10 @@ function QuickShortcuts({
       transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY * 6 }}
     >
       <p className="label-editorial text-muted-foreground/60 mb-3">
-        {t('home.quick_actions') || 'EXPLORE'}
+        {t('home.quick_actions')}
       </p>
       <div className="grid grid-cols-2 gap-3">
-        {SHORTCUTS.map((s, i) => (
+        {shortcuts.map((s, i) => (
           <motion.button
             key={s.path}
             initial={reducedMotion ? false : { opacity: 0, y: 10 }}

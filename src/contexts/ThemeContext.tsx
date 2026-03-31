@@ -41,6 +41,8 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'burs-theme';
 const ACCENT_KEY = 'burs-accent';
+const DEFAULT_THEME: Theme = 'dark';
+const DEFAULT_ACCENT_ID = 'amber';
 
 function getSystemTheme(): 'light' | 'dark' {
   if (typeof window === 'undefined') return 'light';
@@ -102,8 +104,8 @@ function persistPrefs(prefs: Record<string, string>) {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === 'undefined') return 'system';
-    return (localStorage.getItem(STORAGE_KEY) as Theme) || 'light';
+    if (typeof window === 'undefined') return DEFAULT_THEME;
+    return (localStorage.getItem(STORAGE_KEY) as Theme) || DEFAULT_THEME;
   });
 
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() => {
@@ -113,7 +115,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [accentColor, setAccentColorState] = useState<AccentColor>(() => {
     if (typeof window === 'undefined') return ACCENT_COLORS[0];
     const stored = localStorage.getItem(ACCENT_KEY);
-    return ACCENT_COLORS.find((c) => c.id === stored) || ACCENT_COLORS[0];
+    return ACCENT_COLORS.find((c) => c.id === stored)
+      || ACCENT_COLORS.find((c) => c.id === DEFAULT_ACCENT_ID)
+      || ACCENT_COLORS[0];
   });
 
   const hasSyncedRef = useRef(false);

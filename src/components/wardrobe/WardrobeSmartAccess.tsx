@@ -22,13 +22,13 @@ export function WardrobeSmartAccess({ tiles, onSelect }: WardrobeSmartAccessProp
   if (tiles.length === 0) return null;
 
   return (
-    <section className="space-y-2" aria-label="Smart access">
+    <section className="space-y-3" aria-label="Smart access">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-foreground/40">
             {t('wardrobe.smart_access')}
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 max-w-[34ch] text-sm leading-6 text-muted-foreground">
             {t('wardrobe.smart_access_desc')}
           </p>
         </div>
@@ -47,9 +47,9 @@ export function WardrobeSmartAccess({ tiles, onSelect }: WardrobeSmartAccessProp
               whileTap={{ scale: 0.98 }}
               onClick={() => onSelect(tile.active ? null : tile.key)}
               className={cn(
-                'min-h-[40px] rounded-[1.25rem] border px-4 py-3.5 text-left transition-colors',
+                'min-h-[40px] rounded-[1.35rem] border px-4 py-4 text-left transition-colors',
                 tile.active
-                  ? 'border-foreground bg-foreground text-background'
+                  ? 'border-accent bg-accent text-accent-foreground shadow-[0_18px_34px_rgba(0,0,0,0.24)]'
                   : 'surface-secondary text-foreground',
               )}
             >
