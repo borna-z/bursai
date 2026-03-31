@@ -82,8 +82,8 @@ export function StyleDNACard({
   }
 
   return (
-    <div className={cn('overflow-hidden rounded-[1.2rem]', className)}>
-      <div className="space-y-3 px-4 pb-4 pt-4">
+    <div className={cn('overflow-hidden', className)}>
+      <div className="space-y-3 pb-4 pt-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Dna className="w-4 h-4 text-primary" />
@@ -114,7 +114,7 @@ export function StyleDNACard({
         </div>
       </div>
 
-      <div className="px-4 pb-4">
+      <div className="pb-4">
         <p className="mb-2 text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground/30">
           Palette
         </p>
@@ -136,7 +136,7 @@ export function StyleDNACard({
       </div>
 
       {dna.uniformCombos.length > 0 ? (
-        <div className="px-4 pb-4">
+        <div className="pb-4">
           <p className="mb-2 text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground/30">
             Formulas
           </p>
@@ -156,7 +156,7 @@ export function StyleDNACard({
       ) : null}
 
       {dna.patterns.length > 0 ? (
-        <div className="space-y-2.5 px-4 pb-4">
+        <div className="space-y-2.5 pb-4">
           <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground/30">
             Patterns
           </p>

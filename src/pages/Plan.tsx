@@ -509,7 +509,7 @@ export default function PlanPage() {
               <p className="label-editorial text-muted-foreground/60">
                 {t('plan.coming_up') || 'Coming Up'}
               </p>
-              <div className="space-y-2">
+              <div className="divide-y divide-border/20">
                 {comingUpOutfits.map((planned) => {
                   const planDate = new Date(planned.date + 'T00:00:00');
                   const dayLabel = formatLocalizedDate(planDate, locale, {
@@ -527,7 +527,7 @@ export default function PlanPage() {
                         hapticLight();
                         setSelectedDate(planDate);
                       }}
-                      className="flex w-full items-center gap-3 rounded-[1.05rem] surface-secondary p-2.5 text-left transition-colors cursor-pointer"
+                      className="flex w-full items-center gap-3 rounded-[0.75rem] py-2.5 px-1 text-left transition-colors active:bg-secondary/40 cursor-pointer"
                     >
                       {imgPath && (
                         <div className="h-14 w-14 shrink-0 overflow-hidden rounded-[0.75rem] bg-secondary/40">
@@ -553,7 +553,7 @@ export default function PlanPage() {
             <button
               type="button"
               onClick={() => { hapticLight(); setQuickPlanSheetOpen(true); }}
-              className="flex w-full items-center gap-3 rounded-[1.1rem] surface-secondary p-3.5 text-left transition-colors cursor-pointer"
+              className="flex w-full items-center gap-3 rounded-[0.85rem] py-3 px-1 text-left transition-colors active:bg-secondary/40 cursor-pointer"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.85rem] bg-accent/15">
                 <Sparkles className="h-5 w-5 text-accent" />
