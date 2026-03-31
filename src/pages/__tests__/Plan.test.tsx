@@ -18,7 +18,10 @@ vi.mock('@/lib/motion', () => ({
   PRESETS: { TAB: { variants: { initial: {}, animate: {} }, transition: {} } },
 }));
 
-vi.mock('@/lib/dateLocale', () => ({ getDateFnsLocale: vi.fn(() => undefined) }));
+vi.mock('@/lib/dateLocale', () => ({
+  getDateFnsLocale: vi.fn(() => undefined),
+  formatLocalizedDate: vi.fn(() => 'formatted'),
+}));
 vi.mock('@/lib/occasionLabel', () => ({ getOccasionLabel: vi.fn(() => 'Work') }));
 vi.mock('@/lib/humanize', () => ({ humanize: vi.fn((value: string) => value) }));
 vi.mock('@/contexts/LanguageContext', () => ({ useLanguage: vi.fn(() => ({ t: (k: string) => k, locale: 'en' })) }));

@@ -140,7 +140,8 @@ describe('Add garment page', () => {
 
     expect(screen.getByRole('heading', { level: 2, name: 'Add pieces without slowing down.' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /live scan/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /upload photo/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /take photo/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /photo library/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /add multiple/i })).toBeInTheDocument();
   });
 });

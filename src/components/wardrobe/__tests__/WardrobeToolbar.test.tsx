@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { WardrobeToolbar } from '../WardrobeToolbar';
-import type { WardrobeCommandTopState, WardrobeInventoryState } from '../wardrobeTypes';
+import type { WardrobeCommandTopState } from '../wardrobeTypes';
 
 const baseCommandState: WardrobeCommandTopState = {
   title: 'Wardrobe',
@@ -15,15 +15,8 @@ const baseCommandState: WardrobeCommandTopState = {
   ],
 };
 
-const baseInventoryState: WardrobeInventoryState = {
-  kind: 'results',
-  title: '12 pieces ready',
-  description: 'Tap a piece to open it.',
-};
-
 function renderToolbar({
   commandState = baseCommandState,
-  inventoryState = baseInventoryState,
   isSelecting = false,
   selectedIdsCount = 0,
   hasActiveFilters = false,
@@ -34,7 +27,6 @@ function renderToolbar({
     <WardrobeToolbar
       t={(key) => key}
       commandState={{ ...commandState, activeTab }}
-      inventoryState={inventoryState}
       isGridView
       onToggleView={vi.fn()}
       isSelecting={isSelecting}
@@ -99,6 +91,5 @@ describe('WardrobeToolbar', () => {
     expect(screen.queryByPlaceholderText('Search garments...')).not.toBeInTheDocument();
     expect(screen.getByText('wardrobe.tab_garments')).toBeInTheDocument();
     expect(screen.getByText('wardrobe.tab_outfits')).toBeInTheDocument();
-    expect(screen.getByText('wardrobe.outfits_caption')).toBeInTheDocument();
   });
 });

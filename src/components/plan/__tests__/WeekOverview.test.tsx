@@ -7,6 +7,7 @@ vi.mock('@/contexts/LanguageContext', () => ({
 
 vi.mock('@/lib/dateLocale', () => ({
   getDateFnsLocale: vi.fn(() => undefined),
+  formatLocalizedDate: vi.fn(() => 'Wed'),
 }));
 
 vi.mock('@/lib/motion', () => ({

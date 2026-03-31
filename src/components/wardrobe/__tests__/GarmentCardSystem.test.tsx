@@ -38,7 +38,7 @@ function t(key: string) {
 }
 
 describe('GarmentCardSystem', () => {
-  it('shares the core content model and style action between grid and list layouts', () => {
+  it('keeps the grid card focused while preserving richer actions in list view', () => {
     const onStyleAround = vi.fn();
     const { rerender } = render(
       <WardrobeGarmentGridLayout
@@ -50,13 +50,11 @@ describe('GarmentCardSystem', () => {
 
     expect(screen.getByText('Stone trench coat')).toBeInTheDocument();
     expect(screen.getByText('Outerwear')).toBeInTheDocument();
-    expect(screen.getByText('Beige')).toBeInTheDocument();
-    expect(screen.getByText('2 wears')).toBeInTheDocument();
-    expect(screen.getByText('Work')).toBeInTheDocument();
-    expect(screen.getByText('Travel')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Style this/i })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Style this/i }));
-    expect(onStyleAround).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/Beige/)).toBeInTheDocument();
+    expect(screen.getByText(/2 wears/)).toBeInTheDocument();
+    expect(screen.queryByText('Work')).not.toBeInTheDocument();
+    expect(screen.queryByText('Travel')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Style this/i })).not.toBeInTheDocument();
 
     rerender(
       <WardrobeGarmentListLayout
@@ -68,13 +66,13 @@ describe('GarmentCardSystem', () => {
 
     expect(screen.getByText('Stone trench coat')).toBeInTheDocument();
     expect(screen.getByText('Outerwear')).toBeInTheDocument();
-    expect(screen.getByText('Beige')).toBeInTheDocument();
-    expect(screen.getByText('2 wears')).toBeInTheDocument();
-    expect(screen.getByText('Work')).toBeInTheDocument();
-    expect(screen.getByText('Travel')).toBeInTheDocument();
+    expect(screen.getByText(/Beige/)).toBeInTheDocument();
+    expect(screen.getByText(/2 wears/)).toBeInTheDocument();
+    expect(screen.getByText(/Work/)).toBeInTheDocument();
+    expect(screen.getByText(/Travel/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Style this/i })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Style this/i }));
-    expect(onStyleAround).toHaveBeenCalledTimes(2);
+    expect(onStyleAround).toHaveBeenCalledTimes(1);
   });
 
   it('keeps laundry state language consistent across grid and list layouts', () => {
@@ -87,7 +85,7 @@ describe('GarmentCardSystem', () => {
     );
 
     expect(screen.getByText('Laundry')).toBeInTheDocument();
-    expect(screen.getByText('Never worn')).toBeInTheDocument();
+    expect(screen.getByText(/Never worn/)).toBeInTheDocument();
 
     rerender(
       <WardrobeGarmentListLayout
@@ -98,12 +96,12 @@ describe('GarmentCardSystem', () => {
     );
 
     expect(screen.getByText('Laundry')).toBeInTheDocument();
-    expect(screen.getByText('Never worn')).toBeInTheDocument();
+    expect(screen.getByText(/Never worn/)).toBeInTheDocument();
   });
 
   it('suppresses the style action while selecting', () => {
     render(
-      <WardrobeGarmentGridLayout
+      <WardrobeGarmentListLayout
         garment={garment}
         t={t}
         isSelecting

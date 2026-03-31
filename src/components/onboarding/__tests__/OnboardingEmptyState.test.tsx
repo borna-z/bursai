@@ -24,6 +24,10 @@ vi.mock('@/hooks/useOutfits', () => ({
   useOutfits: (...args: unknown[]) => mockUseOutfits(...args),
 }));
 
+vi.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: () => ({ t: (key: string) => key, locale: 'en' }),
+}));
+
 function renderWithRouter(element: React.ReactElement) {
   return render(
     <MemoryRouter>
@@ -42,7 +46,7 @@ describe('OnboardingEmptyState', () => {
   it('routes outfits empty-state CTA to the canonical Style Me screen', () => {
     renderWithRouter(<OutfitsOnboardingEmpty />);
 
-    fireEvent.click(screen.getByRole('button', { name: /create a look/i }));
+    fireEvent.click(screen.getByRole('button', { name: /outfits\.empty_cta_ready/i }));
 
     expect(mockNavigate).toHaveBeenCalledWith('/ai/generate');
   });
@@ -50,7 +54,7 @@ describe('OnboardingEmptyState', () => {
   it('routes the plan onboarding generate step to Style Me', () => {
     renderWithRouter(<PlanOnboardingEmpty />);
 
-    fireEvent.click(screen.getByRole('button', { name: /generate an outfit/i }));
+    fireEvent.click(screen.getByRole('button', { name: /plan\.empty_step_generate_title/i }));
 
     expect(mockNavigate).toHaveBeenCalledWith('/ai/generate');
   });
@@ -60,7 +64,7 @@ describe('OnboardingEmptyState', () => {
 
     renderWithRouter(<PlanOnboardingEmpty />);
 
-    fireEvent.click(screen.getByRole('button', { name: /plan your week/i }));
+    fireEvent.click(screen.getByRole('button', { name: /plan\.empty_step_plan_title/i }));
 
     expect(mockNavigate).toHaveBeenCalledWith('/plan');
   });
@@ -68,7 +72,7 @@ describe('OnboardingEmptyState', () => {
   it('routes insights empty-state CTA to Style Me', () => {
     renderWithRouter(<InsightsOnboardingEmpty />);
 
-    fireEvent.click(screen.getByRole('button', { name: /generate & wear an outfit/i }));
+    fireEvent.click(screen.getByRole('button', { name: /insights\.empty_cta_ready/i }));
 
     expect(mockNavigate).toHaveBeenCalledWith('/ai/generate');
   });
