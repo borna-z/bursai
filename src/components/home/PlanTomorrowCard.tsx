@@ -1,17 +1,17 @@
 import { useNavigate } from 'react-router-dom';
 import { CalendarDays, ChevronRight } from 'lucide-react';
-import { format, addDays } from 'date-fns';
+import { addDays } from 'date-fns';
 import { motion } from 'framer-motion';
 import { TAP_TRANSITION } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { getDateFnsLocale } from '@/lib/dateLocale';
+import { formatLocalizedDate } from '@/lib/dateLocale';
 
 export function PlanTomorrowCard() {
   const navigate = useNavigate();
   const { t, locale } = useLanguage();
   const tomorrow = addDays(new Date(), 1);
-  const label = format(tomorrow, 'EEEE', { locale: getDateFnsLocale(locale) });
+  const label = formatLocalizedDate(tomorrow, locale, { weekday: 'long' });
 
   return (
     <motion.button

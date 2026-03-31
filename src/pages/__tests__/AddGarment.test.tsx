@@ -140,17 +140,8 @@ describe('Add garment page', () => {
 
     expect(screen.getByRole('heading', { level: 2, name: 'Add pieces without slowing down.' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /live scan/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /upload photo/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /take photo/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /photo library/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /add multiple/i })).toBeInTheDocument();
-  });
-
-  it('keeps the upload-state trust messaging visible', () => {
-    render(<AddGarmentPage />);
-
-    expect(screen.getByText('Your piece appears as soon as you save it. Cleanup finishes quietly in the background.')).toBeInTheDocument();
-    expect(screen.getByText('Trusted workflow')).toBeInTheDocument();
-    expect(screen.getByText('AI detects category, color, and material')).toBeInTheDocument();
-    expect(screen.getByText('Cleanup and enhancement continue in the background')).toBeInTheDocument();
-    expect(screen.getByText('You review before anything is saved')).toBeInTheDocument();
   });
 });

@@ -84,16 +84,16 @@ describe('SwipeableGarmentCard', () => {
 
     expect(screen.getByText('Blue Oxford Shirt')).toBeInTheDocument();
     expect(screen.getByText('Top')).toBeInTheDocument();
-    expect(screen.getByText('Blue')).toBeInTheDocument();
-    expect(screen.getByText('Never worn')).toBeInTheDocument();
+    expect(screen.getByText(/Blue .* Never worn/)).toBeInTheDocument();
+    expect(screen.getByText(/Never worn/)).toBeInTheDocument();
     expect(screen.getByText(/Style this/i)).toBeInTheDocument();
   });
 
-  it('renders formality dots when formality is provided', () => {
+  it('keeps the list card minimal when formality is provided', () => {
     const { container } = renderCard({ formality: 3 });
 
-    expect(container.querySelectorAll('.bg-foreground\\/65')).toHaveLength(3);
-    expect(container.querySelectorAll('.bg-foreground\\/12')).toHaveLength(2);
+    expect(container.querySelectorAll('.bg-foreground\\/65')).toHaveLength(0);
+    expect(screen.getByText('Blue Oxford Shirt')).toBeInTheDocument();
   });
 
   it('does not render occasion pills when no occasion data is present', () => {

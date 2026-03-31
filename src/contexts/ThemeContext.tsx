@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, ReactNode, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { isMedianApp } from '@/lib/median';
 import type { Json } from '@/integrations/supabase/types';
@@ -193,8 +193,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     persistPrefs({ accentColor: color.id });
   }, []);
 
+  const value = useMemo(() => ({
+    theme,
+    resolvedTheme,
+    setTheme,
+    accentColor,
+    setAccentColor,
+  }), [accentColor, resolvedTheme, setAccentColor, setTheme, theme]);
+
   return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme, accentColor, setAccentColor }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

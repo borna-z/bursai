@@ -23,10 +23,12 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
 
   return (
     <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-56 bg-[radial-gradient(circle_at_top_right,rgba(177,141,94,0.18),transparent_38%),radial-gradient(circle_at_top_left,rgba(112,102,93,0.18),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_78%)]"
-      />
+      {!hideNav ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 z-0 h-24 bg-gradient-to-b from-secondary/42 via-background/78 to-transparent"
+        />
+      ) : null}
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-foreground focus:text-background focus:rounded-md">
         {t('common.skip_to_main')}
       </a>

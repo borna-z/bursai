@@ -1,9 +1,8 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { format, addDays, isToday, isTomorrow } from 'date-fns';
-import { getDateFnsLocale } from '@/lib/dateLocale';
+import { formatLocalizedDate } from '@/lib/dateLocale';
 import { CalendarDays, Plus, Sparkles, Wand2 } from 'lucide-react';
 
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -118,7 +117,11 @@ export default function PlanPage() {
     }).length;
   }, [plannedOutfits, weekDays]);
 
-  let dateLabel = format(selectedDate, 'EEEE d MMMM', { locale: getDateFnsLocale(locale) });
+  let dateLabel = formatLocalizedDate(selectedDate, locale, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
   if (isToday(selectedDate)) dateLabel = t('plan.today');
   else if (isTomorrow(selectedDate)) dateLabel = t('plan.tomorrow');
 
@@ -267,10 +270,10 @@ export default function PlanPage() {
     const tagLine = [occasionText, styleText].filter(Boolean).join(' · ');
 
     return (
-      <section className="surface-editorial premium-highlight rounded-[1.45rem] p-5">
-        <div className="space-y-4">
+      <section className="surface-editorial premium-highlight rounded-[1.35rem] p-4.5">
+        <div className="space-y-3.5">
           <div className="flex items-start justify-between gap-3">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="eyebrow-chip">{t('plan.planned_day')}</span>
                 {tagLine ? (
@@ -279,11 +282,11 @@ export default function PlanPage() {
                   </span>
                 ) : null}
               </div>
-              <h2 className="text-[1.35rem] font-semibold tracking-[-0.04em] text-foreground">
+              <h2 className="text-[1.22rem] font-semibold tracking-[-0.04em] text-foreground">
                 {isToday(selectedDate) ? t('plan.today_styled') : t('plan.date_planned').replace('{date}', dateLabel)}
               </h2>
               {daySummary?.summary ? (
-                <p className="max-w-[34ch] text-[0.92rem] leading-6 text-muted-foreground">
+                <p className="line-clamp-2 max-w-[34ch] text-[0.88rem] leading-5 text-muted-foreground">
                   {daySummary.summary}
                 </p>
               ) : null}
@@ -292,14 +295,8 @@ export default function PlanPage() {
             <WeatherForecastBadge date={selectedDateStr} compact={false} />
           </div>
 
-          {calendarEvents.length > 0 ? (
-            <div className="premium-inline-stat text-[0.84rem] text-muted-foreground">
-              {formatEventLine(calendarEvents.length, t)}
-            </div>
-          ) : null}
-
-          <div className="surface-media space-y-4 p-4">
-            <div className="grid grid-cols-4 gap-2">
+          <div className="surface-media space-y-3.5 p-3.5">
+            <div className="grid grid-cols-4 gap-1.5">
               {outfit.outfit_items.slice(0, 4).map((item) => (
                 <div key={item.id} className="aspect-square overflow-hidden rounded-[1.1rem] bg-background/75">
                   <LazyImageSimple
@@ -312,15 +309,15 @@ export default function PlanPage() {
             </div>
 
             {outfit.explanation ? (
-              <p className="text-[0.92rem] leading-6 text-foreground/80">
+              <p className="line-clamp-3 text-[0.86rem] leading-5 text-foreground/80">
                 {outfit.explanation}
               </p>
             ) : null}
           </div>
 
           {additionalPlanned.length > 0 ? (
-            <div className="space-y-2">
-              <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/65">
+            <div className="space-y-1.5">
+              <p className="text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground/65">
                 {t('plan.also_planned')}
               </p>
               <div className="app-chip-row">
@@ -329,7 +326,7 @@ export default function PlanPage() {
                     key={planned.id}
                     type="button"
                     onClick={() => planned.outfit && navigate(`/outfits/${planned.outfit.id}`)}
-                    className="rounded-full border border-border/55 bg-background/82 px-3 py-2 text-[0.78rem] text-foreground"
+                    className="rounded-full border border-border/55 bg-background/82 px-3 py-1.5 text-[0.78rem] text-foreground"
                   >
                     {planned.outfit?.occasion ? getOccasionLabel(planned.outfit.occasion, t) : t('plan.open_outfit')}
                   </button>
@@ -338,9 +335,9 @@ export default function PlanPage() {
             </div>
           ) : null}
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <Button
-              className="h-12 w-full rounded-full"
+              className="h-11 w-full rounded-full"
               onClick={() => {
                 if (isToday(selectedDate)) {
                   void handleMarkWorn(primaryPlanned);
@@ -352,7 +349,7 @@ export default function PlanPage() {
               {isToday(selectedDate) ? t('plan.wear_today') : t('plan.open_outfit')}
             </Button>
 
-            <div className="flex flex-wrap items-center gap-4 text-[0.82rem] font-medium text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-3.5 text-[0.82rem] font-medium text-muted-foreground">
               <button
                 type="button"
                 onClick={() => {
@@ -390,17 +387,17 @@ export default function PlanPage() {
     const emptyWeek = weekPlannedCount === 0;
 
     return (
-      <section className="surface-editorial premium-highlight rounded-[1.45rem] p-5">
-        <div className="space-y-4">
-          <div className="space-y-2">
+      <section className="surface-editorial premium-highlight rounded-[1.35rem] p-4.5">
+        <div className="space-y-3.5">
+          <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
               <span className="eyebrow-chip">{emptyWeek ? t('plan.week_reset') : t('plan.open_day')}</span>
               <WeatherForecastBadge date={selectedDateStr} compact={false} />
             </div>
-            <h2 className="text-[1.35rem] font-semibold tracking-[-0.04em] text-foreground">
+            <h2 className="text-[1.22rem] font-semibold tracking-[-0.04em] text-foreground">
               {emptyWeek ? t('plan.nothing_planned') : t('plan.nothing_planned_for').replace('{date}', dateLabel)}
             </h2>
-            <p className="max-w-[34ch] text-[0.92rem] leading-6 text-muted-foreground">
+            <p className="line-clamp-2 max-w-[34ch] text-[0.88rem] leading-5 text-muted-foreground">
               {daySummary?.summary
                 ?? (emptyWeek
                   ? t('plan.empty_week_hint')
@@ -408,21 +405,15 @@ export default function PlanPage() {
             </p>
           </div>
 
-          {calendarEvents.length > 0 ? (
-            <div className="premium-inline-stat text-[0.84rem] text-muted-foreground">
-              {formatEventLine(calendarEvents.length, t)}
-            </div>
-          ) : null}
-
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <Button
-              className="h-12 w-full rounded-full"
+              className="h-11 w-full rounded-full"
               onClick={() => emptyWeek ? setQuickPlanSheetOpen(true) : setQuickGenerateSheetOpen(true)}
             >
               {emptyWeek ? t('plan.plan_the_week') : t('plan.plan_this_day')}
             </Button>
 
-            <div className="flex flex-wrap items-center gap-4 text-[0.82rem] font-medium text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-3.5 text-[0.82rem] font-medium text-muted-foreground">
               <button
                 type="button"
                 onClick={() => emptyWeek ? setQuickGenerateSheetOpen(true) : setQuickPlanSheetOpen(true)}
@@ -437,7 +428,10 @@ export default function PlanPage() {
     );
   };
 
-  const monthYearLabel = format(selectedDate, 'MMMM yyyy', { locale: getDateFnsLocale(locale) });
+  const monthYearLabel = formatLocalizedDate(selectedDate, locale, {
+    month: 'long',
+    year: 'numeric',
+  });
 
   const comingUpOutfits = useMemo(() => {
     const todayDateStr = format(new Date(), 'yyyy-MM-dd');
@@ -448,14 +442,14 @@ export default function PlanPage() {
 
   return (
     <AppLayout>
-      <motion.header className="topbar-frost sticky top-0 z-20 -mx-5 px-5 pb-3 pt-3">
+      <header className="topbar-frost sticky top-0 z-20 -mx-4 px-4 pb-2.5 pt-2.5 sm:-mx-5 sm:px-5 sm:pb-3 sm:pt-3">
         <div className="mx-auto flex max-w-lg items-start justify-between gap-3">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
-              <button type="button" className="flex h-11 min-h-[44px] items-center gap-2.5 transition-opacity hover:opacity-75 cursor-pointer">
+              <button type="button" className="flex h-10.5 min-h-[44px] items-center gap-2 transition-opacity hover:opacity-75 cursor-pointer">
                 <div>
                   <p className="caption-upper mb-0.5 text-muted-foreground/50">{monthYearLabel}</p>
-                  <h1 className="font-display italic text-[1.55rem] leading-tight text-foreground">
+                  <h1 className="font-display italic text-[1.42rem] leading-tight text-foreground sm:text-[1.55rem]">
                     {t('plan.your_week') || 'Your Week'}
                   </h1>
                 </div>
@@ -477,13 +471,13 @@ export default function PlanPage() {
             </PopoverContent>
           </Popover>
           {isAutoGenerating ? (
-            <Badge variant="secondary" className="h-11 min-h-[44px] text-[10px] uppercase tracking-[0.14em]">
+            <Badge variant="secondary" className="h-10.5 min-h-[44px] text-[10px] uppercase tracking-[0.14em]">
               <Wand2 className="mr-1 h-3 w-3" />
               {generatingDayIndex}/7
             </Badge>
           ) : null}
         </div>
-      </motion.header>
+      </header>
 
       <PullToRefresh onRefresh={handleRefresh}>
         <AnimatedPage className="page-shell page-cluster">
@@ -493,32 +487,23 @@ export default function PlanPage() {
             plannedOutfits={plannedOutfits}
           />
 
-          <section className="surface-secondary rounded-[1.35rem] p-4">
+          <section className="surface-secondary rounded-[1.2rem] p-3.5">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <p className="label-editorial text-muted-foreground/60">
                   {dateLabel.toUpperCase()}
                 </p>
-                <h2 className="text-[1.2rem] font-semibold tracking-[-0.04em] text-foreground">
+                <h2 className="text-[1.02rem] font-semibold tracking-[-0.04em] text-foreground">
                   {hasOutfits
                     ? (t('plan.planned_day') || 'Planned day')
                     : (t('plan.open_day') || 'Open day')}
                 </h2>
-                <p className="max-w-[32ch] text-[0.88rem] leading-6 text-muted-foreground">
-                  {daySummary?.summary
-                    || (hasOutfits
-                      ? t('plan.day_context_planned_desc')
-                      : t('plan.day_context_open_desc'))}
-                </p>
               </div>
-              <div className="premium-inline-stat min-w-[10rem]">
-                <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/55">
-                  {t('plan.context_label')}
-                </p>
-                <div className="mt-2 flex items-center justify-between gap-3 text-[0.82rem] text-foreground/82">
-                  <span>{calendarEvents.length > 0 ? formatEventLine(calendarEvents.length, t) : t('plan.no_events')}</span>
-                  <WeatherForecastBadge date={selectedDateStr} compact />
-                </div>
+              <div className="flex min-w-[10rem] flex-wrap items-center justify-end gap-2 text-[0.78rem] text-muted-foreground">
+                <span className="rounded-full bg-background/70 px-3 py-1.5">
+                  {calendarEvents.length > 0 ? formatEventLine(calendarEvents.length, t) : t('plan.no_events')}
+                </span>
+                <WeatherForecastBadge date={selectedDateStr} compact />
               </div>
             </div>
           </section>
@@ -528,12 +513,7 @@ export default function PlanPage() {
             <LaundryAlertBanner />
           </div>
 
-          <motion.div
-            key={selectedDateStr}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.22 }}
-          >
+          <div key={selectedDateStr}>
             {isLoading || isDayLoading || isGarmentsLoading ? (
               <PlanPageSkeleton />
             ) : !hasGarments ? (
@@ -543,7 +523,7 @@ export default function PlanPage() {
             ) : (
               renderEmptyDayPanel()
             )}
-          </motion.div>
+          </div>
 
           {hasGarments && !hasOutfits && canAddMore ? (
             <Button
@@ -551,7 +531,7 @@ export default function PlanPage() {
               size="sm"
               onClick={() => setQuickGenerateSheetOpen(true)}
               disabled={isGenerating || upsertPlanned.isPending}
-              className="h-11 rounded-full"
+              className="h-10.5 rounded-full"
             >
               <Plus className="mr-2 h-4 w-4" />
               {t('plan.add_outfit')}
@@ -567,7 +547,10 @@ export default function PlanPage() {
               <div className="space-y-2">
                 {comingUpOutfits.map((planned) => {
                   const planDate = new Date(planned.date + 'T00:00:00');
-                  const dayLabel = format(planDate, 'EEE d', { locale: getDateFnsLocale(locale) }).toUpperCase();
+                  const dayLabel = formatLocalizedDate(planDate, locale, {
+                    weekday: 'short',
+                    day: 'numeric',
+                  }).toUpperCase();
                   const firstItem = planned.outfit?.outfit_items?.[0];
                   const imgPath = firstItem?.garment ? getPreferredGarmentImagePath(firstItem.garment) : undefined;
 
@@ -579,7 +562,7 @@ export default function PlanPage() {
                         hapticLight();
                         setSelectedDate(planDate);
                       }}
-                      className="flex w-full items-center gap-3 rounded-[1.1rem] surface-secondary p-3 text-left transition-colors cursor-pointer"
+                      className="flex w-full items-center gap-3 rounded-[1.05rem] surface-secondary p-2.5 text-left transition-colors cursor-pointer"
                     >
                       {imgPath && (
                         <div className="h-14 w-14 shrink-0 overflow-hidden rounded-[0.75rem] bg-secondary/40">
@@ -605,7 +588,7 @@ export default function PlanPage() {
             <button
               type="button"
               onClick={() => { hapticLight(); setQuickPlanSheetOpen(true); }}
-              className="flex w-full items-center gap-3 rounded-[1.25rem] surface-editorial p-4 text-left transition-colors cursor-pointer"
+              className="flex w-full items-center gap-3 rounded-[1.1rem] surface-editorial p-3.5 text-left transition-colors cursor-pointer"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.85rem] bg-accent/15">
                 <Sparkles className="h-5 w-5 text-accent" />
@@ -613,9 +596,6 @@ export default function PlanPage() {
               <div className="min-w-0 flex-1">
                 <p className="text-[14px] font-semibold text-foreground">
                   {t('plan.ai_plan_week') || 'Let AI plan your whole week'}
-                </p>
-                <p className="text-[12px] text-muted-foreground/60">
-                  {t('plan.ai_plan_week_desc') || 'Smart outfits for each day based on weather & events'}
                 </p>
               </div>
             </button>

@@ -7,8 +7,7 @@ import { toast } from 'sonner';
 
 import type { OutfitWithItems } from '@/hooks/useOutfits';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { format } from 'date-fns';
-import { getDateFnsLocale } from '@/lib/dateLocale';
+import { formatLocalizedDate } from '@/lib/dateLocale';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 
 interface OutfitReelProps {
@@ -218,7 +217,11 @@ export function OutfitReel({ outfits, onClose }: OutfitReelProps) {
             )}
             {outfit.generated_at && (
               <p className="text-white/40 text-xs mt-2">
-                {format(new Date(outfit.generated_at), 'd MMM yyyy', { locale: getDateFnsLocale(locale) })}
+                {formatLocalizedDate(outfit.generated_at, locale, {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                })}
               </p>
             )}
           </div>

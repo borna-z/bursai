@@ -1,5 +1,5 @@
 import type { MouseEvent, ReactNode } from 'react';
-import { Clock3, Palette, Sparkles, Shirt, WashingMachine } from 'lucide-react';
+import { Sparkles, Shirt, WashingMachine } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { type Garment } from '@/hooks/useGarments';
@@ -8,12 +8,12 @@ import { categoryLabel, colorLabel, humanize } from '@/lib/humanize';
 import { cn } from '@/lib/utils';
 import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
 import { RenderPendingOverlay } from '@/components/wardrobe/RenderPendingOverlay';
-import { CardEyebrow, CardMetaRail, CardPill } from '@/components/ui/card-language';
+import { CardEyebrow, CardPill } from '@/components/ui/card-language';
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-export const WARDROBE_GRID_ROW_HEIGHT = 286;
-export const WARDROBE_LIST_ROW_HEIGHT = 188;
+export const WARDROBE_GRID_ROW_HEIGHT = 248;
+export const WARDROBE_LIST_ROW_HEIGHT = 160;
 
 type GarmentStateTone = 'default' | 'laundry';
 
@@ -23,7 +23,6 @@ interface WardrobeGarmentCardModel {
   colorText: string | null;
   wearText: string;
   wearBadgeText: string;
-  occasionLabels: string[];
   stateLabel: string | null;
   stateTone: GarmentStateTone;
 }
@@ -77,7 +76,6 @@ function buildGarmentCardModel(garment: Garment, t: (key: string) => string): Wa
       ? translateOrFallback(t, 'wardrobe.wears_count', `${garment.wear_count} wears`).replace('{count}', String(garment.wear_count))
       : translateOrFallback(t, 'garment.never_worn', 'Never worn'),
     wearBadgeText: garment.wear_count && garment.wear_count > 0 ? `${garment.wear_count}x` : '0x',
-    occasionLabels: readOccasionLabels(garment, t),
     stateLabel,
     stateTone,
   };
@@ -101,36 +99,6 @@ function WardrobeImageStateBadge({ label, tone }: { label: string; tone: Garment
 
 function WardrobeWearBadge({ label }: { label: string }) {
   return <CardPill label={label} tone="muted" className="shadow-none bg-background/86 text-foreground/56" />;
-}
-
-export function WardrobeFormalityDots({ formality }: { formality?: number | null }) {
-  if (formality == null) return null;
-
-  return (
-    <div className="flex items-center gap-1.5">
-      {Array.from({ length: 5 }, (_, index) => (
-        <span
-          key={index}
-          className={cn(
-            'h-[5px] w-[14px] rounded-full transition-colors',
-            index < formality ? 'bg-foreground/65' : 'bg-foreground/12',
-          )}
-        />
-      ))}
-    </div>
-  );
-}
-
-export function WardrobeOccasionPills({ occasions, className }: { occasions: string[]; className?: string }) {
-  if (occasions.length === 0) return null;
-
-  return (
-    <CardMetaRail className={className}>
-      {occasions.map((occasion) => (
-        <CardPill key={occasion} label={occasion} tone="default" />
-      ))}
-    </CardMetaRail>
-  );
 }
 
 export function WardrobeStyleAroundButton({
@@ -162,6 +130,10 @@ export function WardrobeStyleAroundButton({
 
 function WardrobeActionSlot({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn('mt-auto flex flex-wrap gap-2', className)}>{children}</div>;
+}
+
+function buildSupportLine(model: WardrobeGarmentCardModel) {
+  return [model.colorText, model.wearText].filter(Boolean).join(' • ');
 }
 
 function WardrobeGarmentImage({
@@ -226,20 +198,19 @@ export function WardrobeGarmentGridLayout({
   t,
   isSelecting = false,
   isSelected = false,
-  onStyleAround,
 }: {
   garment: Garment;
   t: (key: string) => string;
   isSelecting?: boolean;
   isSelected?: boolean;
-  onStyleAround?: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
   const model = buildGarmentCardModel(garment, t);
+  const supportLine = buildSupportLine(model);
 
   return (
     <div
       className={cn(
-        'group flex h-full flex-col overflow-hidden rounded-[26px] border border-border/35 bg-card/92 p-2 shadow-[0_14px_32px_rgba(28,25,23,0.04)] transition-shadow duration-200 hover:shadow-[0_18px_36px_rgba(28,25,23,0.07)]',
+        'group flex h-full flex-col overflow-hidden rounded-[22px] border border-border/35 bg-card/92 p-1.5',
         garment.in_laundry && 'opacity-72',
         isSelected && 'ring-2 ring-foreground/25 ring-offset-2 ring-offset-background',
       )}
@@ -252,30 +223,14 @@ export function WardrobeGarmentGridLayout({
         className="aspect-[3/4] w-full"
       />
 
-      <div className="flex flex-1 flex-col gap-3 px-2.5 pb-2.5 pt-3">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <CardEyebrow>{model.categoryText}</CardEyebrow>
-            <WardrobeFormalityDots formality={garment.formality} />
-          </div>
-
-          <p className="line-clamp-2 text-[14px] font-medium leading-tight tracking-[-0.02em] text-foreground">
-            {model.titleText}
-          </p>
-        </div>
-
-        <CardMetaRail>
-          {model.colorText ? <CardPill icon={Palette} label={model.colorText} tone="default" /> : null}
-          <CardPill icon={Clock3} label={model.wearText} tone="muted" />
-        </CardMetaRail>
-
-        <WardrobeOccasionPills occasions={model.occasionLabels} />
-
-        {!isSelecting && onStyleAround && (
-          <WardrobeActionSlot>
-            <WardrobeStyleAroundButton onClick={onStyleAround} className="flex-1" t={t} />
-          </WardrobeActionSlot>
-        )}
+      <div className="flex flex-1 flex-col gap-1.5 px-2 pb-2 pt-2.5">
+        <CardEyebrow>{model.categoryText}</CardEyebrow>
+        <p className="line-clamp-2 text-[13px] font-medium leading-tight tracking-[-0.02em] text-foreground">
+          {model.titleText}
+        </p>
+        <p className="truncate text-[11px] text-muted-foreground/70">
+          {supportLine}
+        </p>
       </div>
     </div>
   );
@@ -297,49 +252,48 @@ export function WardrobeGarmentListLayout({
   secondaryAction?: ReactNode;
 }) {
   const model = buildGarmentCardModel(garment, t);
+  const supportLine = buildSupportLine(model);
+  const occasionLabels = readOccasionLabels(garment, t);
 
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-[28px] border border-border/35 bg-card/92 p-2.5 shadow-[0_14px_32px_rgba(28,25,23,0.04)]',
+        'overflow-hidden rounded-[22px] border border-border/35 bg-card/92 p-2',
         garment.in_laundry && 'opacity-72',
         isSelected && 'ring-2 ring-foreground/25 ring-offset-2 ring-offset-background',
       )}
     >
-      <div className="flex gap-3.5">
+      <div className="flex gap-3">
         <WardrobeGarmentImage
           garment={garment}
           isSelecting={isSelecting}
           isSelected={isSelected}
           model={model}
-          className="h-[120px] w-[96px] shrink-0"
+          className="h-[104px] w-[84px] shrink-0"
         />
 
-        <div className="flex min-w-0 flex-1 flex-col gap-3 py-1">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <CardEyebrow>{model.categoryText}</CardEyebrow>
-              <WardrobeFormalityDots formality={garment.formality} />
-            </div>
-
-            <p className="line-clamp-2 text-[16px] font-medium leading-tight tracking-[-0.025em] text-foreground">
+        <div className="flex min-w-0 flex-1 flex-col justify-between gap-2 py-1">
+          <div className="space-y-1.5">
+            <CardEyebrow>{model.categoryText}</CardEyebrow>
+            <p className="line-clamp-2 text-[15px] font-medium leading-tight tracking-[-0.025em] text-foreground">
               {model.titleText}
             </p>
-
-            <CardMetaRail>
-              {model.colorText ? <CardPill icon={Palette} label={model.colorText} tone="default" /> : null}
-              <CardPill icon={Clock3} label={model.wearText} tone="muted" />
-            </CardMetaRail>
+            <p className="text-[12px] text-muted-foreground/70">
+              {supportLine}
+            </p>
+            {occasionLabels.length > 0 ? (
+              <p className="truncate text-[11px] text-muted-foreground/55">
+                {occasionLabels.join(' • ')}
+              </p>
+            ) : null}
           </div>
-
-          <WardrobeOccasionPills occasions={model.occasionLabels} />
 
           {!isSelecting && (onStyleAround || secondaryAction) && (
             <WardrobeActionSlot className="mt-auto">
               {onStyleAround && (
                 <WardrobeStyleAroundButton
                   onClick={onStyleAround}
-                  className={secondaryAction ? 'min-w-[132px] flex-1' : 'w-full'}
+                  className={secondaryAction ? 'min-w-[108px] flex-1' : 'w-full'}
                   fullWidth={!secondaryAction}
                   t={t}
                 />

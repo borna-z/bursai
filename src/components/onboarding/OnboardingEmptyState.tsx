@@ -83,14 +83,14 @@ export function WardrobeOnboardingEmpty() {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE_CURVE }}
-      className="px-2 pt-2"
+      className="px-1 pt-1"
     >
-      <div className="text-center mb-7">
+      <div className="mb-6 text-center">
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-          className="w-16 h-16 rounded-[1.25rem] bg-primary/[0.08] flex items-center justify-center mx-auto mb-5 relative"
+          className="relative mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[1.1rem] bg-primary/[0.08]"
         >
           <Shirt className="w-7 h-7 text-primary/60" />
           <div className="absolute -inset-3 rounded-[1.25rem] bg-primary/5 blur-xl pointer-events-none" />
@@ -99,7 +99,7 @@ export function WardrobeOnboardingEmpty() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="font-display italic text-lg font-bold tracking-[-0.02em] mb-2"
+          className="mb-1.5 font-display italic text-lg font-bold tracking-[-0.02em]"
         >
           {t('wardrobe.empty_title')}
         </motion.h3>
@@ -107,7 +107,7 @@ export function WardrobeOnboardingEmpty() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
-          className="text-[13px] text-muted-foreground/70 max-w-[280px] mx-auto leading-relaxed"
+          className="mx-auto max-w-[270px] text-[13px] leading-5 text-muted-foreground/70"
         >
           {t('wardrobe.empty_desc')}
         </motion.p>
@@ -117,7 +117,7 @@ export function WardrobeOnboardingEmpty() {
         initial={{ opacity: 0, scaleX: 0.8 }}
         animate={{ opacity: 1, scaleX: 1 }}
         transition={{ delay: 0.35, duration: 0.4, ease: EASE_CURVE }}
-        className="max-w-[280px] mx-auto mb-7"
+        className="mx-auto mb-6 max-w-[280px]"
       >
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider font-medium">
@@ -137,21 +137,21 @@ export function WardrobeOnboardingEmpty() {
         </div>
       </motion.div>
 
-      <div className="space-y-2.5 max-w-[320px] mx-auto">
+      <div className="mx-auto max-w-[320px] space-y-2.5">
         <motion.button
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.4 }}
           whileTap={{ scale: 0.97 }}
           onClick={() => navigate('/wardrobe/scan')}
-          className="w-full rounded-[1.25rem] bg-foreground text-background p-4 flex items-center gap-3.5 text-left"
+          className="flex w-full items-center gap-3 rounded-[1.15rem] bg-foreground p-3.5 text-left text-background"
         >
-          <div className="w-10 h-10 rounded-[1.1rem] bg-background/15 flex items-center justify-center shrink-0">
+          <div className="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-[1rem] bg-background/15">
             <Camera className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[14px] font-medium">{t('wardrobe.onboarding_scan_title')}</p>
-            <p className="text-[11px] opacity-60 mt-0.5">{t('wardrobe.onboarding_scan_desc')}</p>
+            <p className="mt-0.5 text-[11px] opacity-60">{t('wardrobe.onboarding_scan_desc')}</p>
           </div>
           <ChevronRight className="w-4 h-4 opacity-40 shrink-0" />
         </motion.button>
@@ -162,9 +162,9 @@ export function WardrobeOnboardingEmpty() {
           transition={{ delay: 0.5, duration: 0.4 }}
           whileTap={{ scale: 0.97 }}
           onClick={() => navigate('/wardrobe/add')}
-          className="w-full rounded-[1.25rem] bg-card border border-border/20 p-4 flex items-center gap-3.5 text-left"
+          className="flex w-full items-center gap-3 rounded-[1.15rem] border border-border/20 bg-card p-3.5 text-left"
         >
-          <div className="w-10 h-10 rounded-[1.1rem] bg-muted/40 flex items-center justify-center shrink-0">
+          <div className="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-[1rem] bg-muted/40">
             <Upload className="w-5 h-5 text-foreground/60" />
           </div>
           <div className="flex-1 min-w-0">
@@ -189,13 +189,13 @@ export function OutfitsOnboardingEmpty() {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE_CURVE }}
-      className="rounded-[1.25rem] bg-gradient-to-b from-primary/[0.04] to-transparent border border-border/10 py-14 px-6 text-center"
+      className="rounded-[1.2rem] border border-border/10 bg-gradient-to-b from-primary/[0.04] to-transparent px-5 py-10 text-center"
     >
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-        className="w-16 h-16 rounded-[1.25rem] bg-primary/[0.08] flex items-center justify-center mx-auto mb-5 relative"
+        className="relative mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[1.1rem] bg-primary/[0.08]"
       >
         <Sparkles className="w-7 h-7 text-primary/60" />
         <div className="absolute -inset-3 rounded-[1.25rem] bg-primary/5 blur-xl pointer-events-none" />
@@ -205,7 +205,7 @@ export function OutfitsOnboardingEmpty() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className="font-display italic text-lg font-bold tracking-[-0.02em] mb-2"
+        className="mb-1.5 font-display italic text-lg font-bold tracking-[-0.02em]"
       >
         {hasEnoughGarments ? t('outfits.empty_ready_title') : t('outfits.empty_locked_title')}
       </motion.h3>
@@ -214,7 +214,7 @@ export function OutfitsOnboardingEmpty() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
-        className="text-[13px] text-muted-foreground/70 max-w-[260px] mx-auto leading-relaxed mb-6"
+        className="mx-auto mb-5 max-w-[248px] text-[13px] leading-5 text-muted-foreground/70"
       >
         {hasEnoughGarments ? t('outfits.empty_ready_desc') : t('outfits.empty_locked_desc')}
       </motion.p>
@@ -224,7 +224,7 @@ export function OutfitsOnboardingEmpty() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.35 }}
-          className="w-full max-w-[180px] mx-auto mb-6"
+          className="mx-auto mb-5 w-full max-w-[180px]"
         >
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider font-medium">
@@ -308,14 +308,14 @@ export function PlanOnboardingEmpty() {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE_CURVE }}
-      className="rounded-[1.25rem] bg-gradient-to-b from-primary/[0.04] to-transparent border border-border/10 py-9 px-6"
+      className="rounded-[1.2rem] border border-border/10 bg-gradient-to-b from-primary/[0.04] to-transparent px-5 py-7"
     >
-      <div className="text-center mb-7">
+      <div className="mb-6 text-center">
         <motion.h3
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.15 }}
-          className="font-display italic text-lg font-bold tracking-[-0.02em] mb-2"
+          className="mb-1.5 font-display italic text-lg font-bold tracking-[-0.02em]"
         >
           {t('plan.empty_title')}
         </motion.h3>
@@ -323,7 +323,7 @@ export function PlanOnboardingEmpty() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.25 }}
-          className="text-[13px] text-muted-foreground/70 max-w-[260px] mx-auto leading-relaxed"
+          className="mx-auto max-w-[248px] text-[13px] leading-5 text-muted-foreground/70"
         >
           {t('plan.empty_desc')}
         </motion.p>
@@ -349,13 +349,13 @@ export function InsightsOnboardingEmpty() {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE_CURVE }}
-      className="flex flex-col items-center justify-center py-16 px-6 text-center"
+      className="flex flex-col items-center justify-center px-5 py-12 text-center"
     >
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-        className="w-16 h-16 rounded-[1.25rem] bg-muted/30 flex items-center justify-center mb-5"
+        className="mb-4 flex h-14 w-14 items-center justify-center rounded-[1.1rem] bg-muted/30"
       >
         <BarChart3 className="w-7 h-7 text-muted-foreground/50" />
       </motion.div>
@@ -364,7 +364,7 @@ export function InsightsOnboardingEmpty() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className="font-display italic text-lg font-bold tracking-[-0.02em] mb-2"
+        className="mb-1.5 font-display italic text-lg font-bold tracking-[-0.02em]"
       >
         {t('insights.empty_title')}
       </motion.h3>
@@ -373,7 +373,7 @@ export function InsightsOnboardingEmpty() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
-        className="text-[13px] text-muted-foreground/70 max-w-[280px] leading-relaxed mb-2"
+        className="mb-2 max-w-[270px] text-[13px] leading-5 text-muted-foreground/70"
       >
         {hasEnoughGarments ? t('insights.empty_desc_ready') : t('insights.empty_desc_locked')}
       </motion.p>
@@ -382,7 +382,7 @@ export function InsightsOnboardingEmpty() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.35 }}
-        className="text-[11px] text-muted-foreground/40 max-w-[240px] leading-relaxed mb-8"
+        className="mb-6 max-w-[220px] text-[11px] leading-5 text-muted-foreground/40"
       >
         {t('insights.empty_meta')}
       </motion.p>

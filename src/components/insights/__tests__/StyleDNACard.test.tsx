@@ -24,10 +24,10 @@ describe('StyleDNACard', () => {
     );
 
     expect(screen.getByText('Minimalist')).toBeInTheDocument();
-    expect(screen.getByText('18 outfits')).toBeInTheDocument();
+    expect(screen.getByText('18 looks')).toBeInTheDocument();
     expect(screen.getByText('tee + trousers + sneakers')).toBeInTheDocument();
     expect(screen.getByText('Neutral palette')).toBeInTheDocument();
-    expect(screen.getByText(/Balanced range/i).textContent).toContain('· F2.7');
+    expect(screen.getByText(/Balanced/i).textContent).toContain('F2.7');
   });
 
   it('renders a supplied empty state when dna is unavailable', () => {

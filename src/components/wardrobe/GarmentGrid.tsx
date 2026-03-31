@@ -1,6 +1,4 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { motion } from 'framer-motion';
-import { EASE_CURVE, STAGGER_DELAY, DISTANCE, DURATION_MEDIUM, PRESETS } from '@/lib/motion';
 import { useEffect, useRef, Fragment, type MouseEvent, type RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
@@ -24,11 +22,6 @@ const CATEGORY_ORDER = ['dress', 'top', 'bottom', 'outerwear', 'shoes', 'accesso
 const VIRTUALIZE_THRESHOLD = 30;
 const GAP = 6;
 
-const cardReveal = {
-  hidden: { opacity: 0, y: DISTANCE.md },
-  visible: { opacity: 1, y: 0 },
-};
-
 function CategorySection({ category, count, t }: { category: string; count: number; t: (key: string) => string }) {
   return (
     <div className="flex items-center justify-between pb-2 pt-4">
@@ -49,10 +42,9 @@ interface GarmentCardProps {
   isSelecting: boolean;
   isSelected: boolean;
   onSelect: () => void;
-  index?: number;
 }
 
-function GarmentCard({ garment, t, isGridView, isSelecting, isSelected, onSelect, index = 0 }: GarmentCardProps) {
+function GarmentCard({ garment, t, isGridView, isSelecting, isSelected, onSelect }: GarmentCardProps) {
   const navigate = useNavigate();
 
   const handleClick = () => {
@@ -70,23 +62,10 @@ function GarmentCard({ garment, t, isGridView, isSelecting, isSelected, onSelect
   };
 
   return (
-    <motion.div
-      role="button"
-      tabIndex={0}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          handleClick();
-        }
-      }}
-      variants={cardReveal}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, margin: '-20px' }}
-      transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: (index % 6) * STAGGER_DELAY }}
-      whileTap={isGridView ? PRESETS.PRESS.whileTap : { scale: 0.985 }}
+    <button
+      type="button"
       onClick={handleClick}
-      className="w-full text-left will-change-transform"
+      className="w-full text-left"
     >
       {isGridView ? (
         <WardrobeGarmentGridLayout
@@ -94,7 +73,6 @@ function GarmentCard({ garment, t, isGridView, isSelecting, isSelected, onSelect
           t={t}
           isSelecting={isSelecting}
           isSelected={isSelected}
-          onStyleAround={!isSelecting ? handleStyleAround : undefined}
         />
       ) : (
         <WardrobeGarmentListLayout
@@ -105,7 +83,7 @@ function GarmentCard({ garment, t, isGridView, isSelecting, isSelected, onSelect
           onStyleAround={!isSelecting ? handleStyleAround : undefined}
         />
       )}
-    </motion.div>
+    </button>
   );
 }
 
@@ -202,7 +180,6 @@ function VirtualGarmentGrid({
                         isSelecting={isSelecting}
                         isSelected={selectedIds.has(garment.id)}
                         onSelect={() => onSelect(garment.id)}
-                        index={startIdx + colIdx}
                       />
                     )}
                   </Fragment>
@@ -275,12 +252,8 @@ function GarmentListContent({
   return (
     <>
       <div className={cn(isGridView ? 'grid grid-cols-3 gap-[5px]' : 'flex flex-col gap-2')}>
-        {garments.map((garment, index) => (
-          <div
-            key={garment.id}
-            className="animate-drape-in"
-            style={{ animationDelay: `${Math.min(index, 12) * 40}ms`, animationFillMode: 'both' }}
-          >
+        {garments.map((garment) => (
+          <div key={garment.id}>
             {!isGridView && !isSelecting ? (
               <SwipeableGarmentCard
                 garment={garment}
@@ -296,7 +269,6 @@ function GarmentListContent({
                 isSelecting={isSelecting}
                 isSelected={selectedIds.has(garment.id)}
                 onSelect={() => onSelect(garment.id)}
-                index={index}
               />
             )}
           </div>
@@ -362,12 +334,8 @@ export function GarmentGrid({
             <div key={category}>
               <CategorySection category={category} count={garmentsByCategory[category].length} t={t} />
               <div className={cn(isGridView ? 'grid grid-cols-3 gap-[5px]' : 'flex flex-col gap-2')}>
-                {garmentsByCategory[category].map((garment, index) => (
-                  <div
-                    key={garment.id}
-                    className="animate-drape-in"
-                    style={{ animationDelay: `${Math.min(index, 12) * 40}ms`, animationFillMode: 'both' }}
-                  >
+                {garmentsByCategory[category].map((garment) => (
+                  <div key={garment.id}>
                     <GarmentCard
                       garment={garment}
                       t={t}
@@ -375,7 +343,6 @@ export function GarmentGrid({
                       isSelecting={isSelecting}
                       isSelected={selectedIds.has(garment.id)}
                       onSelect={() => onSelect(garment.id)}
-                      index={index}
                     />
                   </div>
                 ))}

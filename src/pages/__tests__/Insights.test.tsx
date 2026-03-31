@@ -68,10 +68,6 @@ vi.mock('@/components/ui/skeletons', () => ({
   InsightsPageSkeleton: () => <div data-testid="insights-loading">loading</div>,
 }));
 
-vi.mock('@/components/ui/score-ring', () => ({
-  ScoreRing: ({ value }: { value: number }) => <div data-testid="score-ring">{value}</div>,
-}));
-
 vi.mock('@/components/onboarding/OnboardingEmptyState', () => ({
   InsightsOnboardingEmpty: () => <div data-testid="insights-empty">empty</div>,
 }));
@@ -161,12 +157,12 @@ describe('Insights page', () => {
     });
   });
 
-  it('renders the V4 insights layout with score ring, palette, highlights, value tracker, and DNA', () => {
+  it('renders the V4 insights layout with the summary card, palette, highlights, value tracker, and DNA', () => {
     renderPage();
 
     expect(screen.getByRole('heading', { level: 1, name: 'Style Intelligence' })).toBeInTheDocument();
     expect(screen.getByText('Your wardrobe, decoded')).toBeInTheDocument();
-    expect(screen.getByTestId('score-ring')).toBeInTheDocument();
+    expect(screen.getByText('82')).toBeInTheDocument();
     expect(screen.getByTestId('palette-panel')).toBeInTheDocument();
     expect(screen.getByTestId('garment-highlights')).toBeInTheDocument();
     expect(screen.getByTestId('value-tracker')).toBeInTheDocument();

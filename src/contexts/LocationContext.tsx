@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 
 interface LocationContextValue {
@@ -57,16 +57,16 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     updateProfile.mutate({ home_city: null });
   }, [updateProfile]);
 
+  const value = useMemo(() => ({
+    effectiveCity: localCity,
+    locationSource: source,
+    setManualCity,
+    clearManualCity,
+    isLoading: profileLoading,
+  }), [clearManualCity, localCity, profileLoading, setManualCity, source]);
+
   return (
-    <LocationContext.Provider
-      value={{
-        effectiveCity: localCity,
-        locationSource: source,
-        setManualCity,
-        clearManualCity,
-        isLoading: profileLoading,
-      }}
-    >
+    <LocationContext.Provider value={value}>
       {children}
     </LocationContext.Provider>
   );

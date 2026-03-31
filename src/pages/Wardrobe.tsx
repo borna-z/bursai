@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, useReducedMotion } from 'framer-motion';
 
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -16,11 +15,9 @@ import { GarmentGrid } from '@/components/wardrobe/GarmentGrid';
 import { WardrobeToolbar } from '@/components/wardrobe/WardrobeToolbar';
 import { WardrobeOutfitsTab } from '@/components/wardrobe/WardrobeOutfitsTab';
 import { hapticLight } from '@/lib/haptics';
-import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM } from '@/lib/motion';
 import {
   buildWardrobeCollectionTiles,
   buildWardrobeCommandTopState,
-  buildWardrobeInventoryState,
 } from '@/components/wardrobe/wardrobeViewModels';
 import { useWardrobeView } from '@/hooks/useWardrobeView';
 
@@ -82,8 +79,6 @@ export default function WardrobePage() {
     t,
   });
 
-  const reducedMotion = !!useReducedMotion();
-
   const hasHardFilters = selectedCategory !== 'all'
     || Boolean(selectedColor)
     || Boolean(selectedSeason)
@@ -103,17 +98,6 @@ export default function WardrobePage() {
     t,
   }), [activeTab, displayCount, hasActiveFilters, isSelecting, search, selectedIds.size, t, totalCount]);
 
-  const inventoryState = useMemo(() => buildWardrobeInventoryState({
-    activeTab,
-    isLoading,
-    isSelecting,
-    selectedIdsCount: selectedIds.size,
-    displayCount,
-    hasActiveFilters,
-    search,
-    t,
-  }), [activeTab, displayCount, hasActiveFilters, isLoading, isSelecting, search, selectedIds.size, t]);
-
   const smartCollectionTiles = useMemo(() => buildWardrobeCollectionTiles({
     smartFilter,
     smartFilterCounts,
@@ -124,72 +108,58 @@ export default function WardrobePage() {
     <AppLayout>
       <PageHeader
         title={t('wardrobe.title') || 'Your Wardrobe'}
-        titleClassName="text-[1.65rem]"
+        titleClassName="text-[1.5rem] sm:text-[1.65rem]"
         actions={
-          <motion.button
-            whileTap={reducedMotion ? undefined : { scale: 0.93 }}
+          <button
             onClick={() => { hapticLight(); navigate('/wardrobe/add'); }}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-white transition-transform cursor-pointer"
+            className="flex h-10.5 w-10.5 items-center justify-center rounded-full bg-accent text-white transition-transform cursor-pointer"
             aria-label={t('wardrobe.add_garment')}
           >
             <Plus className="h-4 w-4" strokeWidth={2.4} />
-          </motion.button>
+          </button>
         }
       />
       <PullToRefresh onRefresh={handleRefresh}>
         <AnimatedPage className="page-shell page-cluster">
-          <motion.div
-            initial={reducedMotion ? false : { opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE }}
-          >
-            <section className="surface-editorial mb-4 rounded-[1.4rem] p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="space-y-2">
+          <section className="surface-secondary mb-2.5 rounded-[1.2rem] p-3.5">
+            <div className="flex flex-wrap items-start justify-between gap-2.5">
+              <div className="space-y-1">
+                <p className="label-editorial text-muted-foreground/60">
+                  {activeTab === 'garments'
+                    ? (t('wardrobe.inventory_label') || 'Wardrobe inventory')
+                    : (t('wardrobe.tab_outfits') || 'Outfits')}
+                </p>
+                <h2 className="text-[1.05rem] font-semibold tracking-[-0.04em] text-foreground">
+                  {activeTab === 'garments'
+                    ? (t('wardrobe.title') || 'Your Wardrobe')
+                    : (t('wardrobe.outfits_caption') || 'Saved looks and stylable combinations')}
+                </h2>
+              </div>
+
+              <div className="flex gap-2">
+                <div className="premium-inline-stat min-w-[4.8rem] px-3 py-2 text-center">
                   <p className="label-editorial text-muted-foreground/60">
-                    {activeTab === 'garments'
-                      ? (t('wardrobe.inventory_label') || 'Wardrobe inventory')
-                      : (t('wardrobe.tab_outfits') || 'Outfits')}
+                    {t('wardrobe.pieces_count')?.replace('{count}', '') || 'Pieces'}
                   </p>
-                  <h2 className="text-[1.35rem] font-semibold tracking-[-0.05em] text-foreground">
-                    {activeTab === 'garments'
-                      ? (t('wardrobe.title') || 'Your Wardrobe')
-                      : (t('wardrobe.outfits_caption') || 'Saved looks and stylable combinations')}
-                  </h2>
-                  <p className="max-w-[34ch] text-[0.92rem] leading-6 text-muted-foreground">
-                    {activeTab === 'garments'
-                      ? (hasHardFilters
-                        ? (t('wardrobe.try_other') || 'Refine what you see with filters, search, and collection shortcuts.')
-                        : (t('wardrobe.smart_access_desc') || 'Browse your wardrobe with calm, fast access to what matters most.'))
-                      : (t('wardrobe.outfits_caption') || 'Open saved looks, style around what you own, and jump back into planning.')}
+                  <p className="mt-0.5 text-[1rem] font-semibold tracking-[-0.04em] text-foreground">
+                    {totalCount ?? 0}
                   </p>
                 </div>
-
-                <div className="grid min-w-[10.5rem] grid-cols-2 gap-2 sm:min-w-[12rem]">
-                  <div className="premium-inline-stat">
-                    <p className="text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground/55">
-                      {t('wardrobe.pieces_count')?.replace('{count}', '') || 'Pieces'}
-                    </p>
-                    <p className="mt-1 text-[1.35rem] font-semibold tracking-[-0.05em] text-foreground">
-                      {totalCount ?? 0}
-                    </p>
-                  </div>
-                  <div className="premium-inline-stat">
-                    <p className="text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground/55">
-                      {t('wardrobe.filter') || 'Visible'}
-                    </p>
-                    <p className="mt-1 text-[1.35rem] font-semibold tracking-[-0.05em] text-foreground">
-                      {displayCount}
-                    </p>
-                  </div>
+                <div className="premium-inline-stat min-w-[4.8rem] px-3 py-2 text-center">
+                  <p className="label-editorial text-muted-foreground/60">
+                    {t('wardrobe.filter') || 'Visible'}
+                  </p>
+                  <p className="mt-0.5 text-[1rem] font-semibold tracking-[-0.04em] text-foreground">
+                    {displayCount}
+                  </p>
                 </div>
               </div>
-            </section>
+            </div>
+          </section>
 
           <WardrobeToolbar
             t={t}
             commandState={commandState}
-            inventoryState={inventoryState}
             isGridView={isGridView}
             onToggleView={() => setIsGridView(!isGridView)}
             isSelecting={isSelecting}
@@ -216,24 +186,10 @@ export default function WardrobePage() {
             selectedIdsCount={selectedIds.size}
             onBulkLaundry={handleBulkLaundry}
             onBulkDelete={handleBulkDelete}
-            onAction={(action) => {
-              hapticLight();
-              if (action === 'style') navigate('/ai/generate');
-              if (action === 'plan') navigate('/plan');
-            }}
-            onClearFilters={clearFilters}
             selectedCategory={selectedCategory}
             onCategoryChange={setSelectedCategory}
-            totalCount={totalCount}
-            sortBy={sortBy}
           />
-          </motion.div>
 
-          <motion.div
-            initial={reducedMotion ? false : { opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY * 3 }}
-          >
           {activeTab === 'garments' ? (
             <>
               {allGarments.length > 0 && !hasHardFilters ? (
@@ -273,7 +229,6 @@ export default function WardrobePage() {
           ) : (
             <WardrobeOutfitsTab />
           )}
-          </motion.div>
         </AnimatedPage>
       </PullToRefresh>
 
