@@ -64,7 +64,7 @@ export function InsightsPalettePanel({
     <div className={cn('surface-secondary relative space-y-3 p-4', !isPremium && 'overflow-hidden')}>
       <div className={cn('space-y-3', !isPremium && 'blur-sm select-none')}>
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-[1rem] font-semibold tracking-[-0.03em] text-foreground">
+          <h3 className="text-[0.88rem] font-semibold tracking-[-0.03em] text-foreground">
             Palette
           </h3>
           <p className="text-[0.78rem] text-muted-foreground">

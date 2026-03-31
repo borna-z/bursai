@@ -539,7 +539,7 @@ export default function GarmentDetailPage() {
             </Card>
 
             {/* Enrichment Panel */}
-            <Card surface="utility" className="overflow-hidden rounded-[1.25rem] p-5 space-y-4">
+            <div className="space-y-4">
               <GarmentEnrichmentPanel
                 enrichment={enrichment}
                 enrichmentStatus={enrichmentStatus}
@@ -547,10 +547,10 @@ export default function GarmentDetailPage() {
                 isRetrying={isRetrying}
                 onRetryEnrichment={handleRetryEnrichment}
               />
-            </Card>
+            </div>
 
-            {/* Quick Actions Card */}
-            <Card surface="utility" className="space-y-0 overflow-hidden rounded-[1.25rem] p-5">
+            {/* Quick Actions */}
+            <div className="space-y-0 border-t border-border/30 pt-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-0.5">
                   <div className="inline-flex items-center gap-2 text-[13px] font-body font-medium text-foreground">
@@ -594,19 +594,19 @@ export default function GarmentDetailPage() {
                   {assessCondition.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t('insights.condition_check')}
                 </Button>
               </div>
-            </Card>
+            </div>
 
-            {/* Usage Stats Card */}
+            {/* Usage Stats */}
             <div className="grid gap-3 grid-cols-3">
-              <div className="surface-secondary rounded-[1.25rem] p-3.5 text-center">
+              <div className="p-3.5 text-center">
                 <p className="label-editorial text-muted-foreground/50 text-[9px] uppercase tracking-[0.14em]">{t('garment.cost_per_wear')}</p>
                 <p className="mt-1.5 text-[1.1rem] font-semibold tracking-[-0.03em] text-foreground">{costPerWearDisplay}</p>
               </div>
-              <div className="surface-secondary rounded-[1.25rem] p-3.5 text-center">
+              <div className="p-3.5 text-center">
                 <p className="label-editorial text-muted-foreground/50 text-[9px] uppercase tracking-[0.14em]">{t('garment.last_worn_label')}</p>
                 <p className="mt-1.5 text-[1.1rem] font-semibold tracking-[-0.03em] text-foreground">{lastWornDisplay}</p>
               </div>
-              <div className="surface-secondary rounded-[1.25rem] p-3.5 text-center">
+              <div className="p-3.5 text-center">
                 <p className="label-editorial text-muted-foreground/50 text-[9px] uppercase tracking-[0.14em]">{t('garment.monthly_rhythm')}</p>
                 <p className="mt-1.5 text-[1.1rem] font-semibold tracking-[-0.03em] text-foreground">{usageInsights?.wearFrequency || '0'}</p>
               </div>
@@ -646,7 +646,7 @@ export default function GarmentDetailPage() {
             <Button
               variant="outline"
               onClick={() => { hapticLight(); handleMarkWorn(); }}
-              className="h-12 flex-1 rounded-full border-border/35 bg-background/72"
+              className="h-12 shrink-0 rounded-full border-border/35 bg-background/72 px-5"
             >
               {t('garment.mark_worn_button')}
             </Button>
