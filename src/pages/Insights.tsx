@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -63,32 +63,28 @@ export default function InsightsPage() {
   const wardrobeScore = sustainability?.score ?? Math.round(insights.usageRate);
   const mostWorn = insights.topFiveWorn?.[0] ?? null;
   const forgotten = insights.unusedGarments?.[0] ?? null;
-  const recommendations = useMemo(() => {
-    const items: Array<{ title: string; body: string }> = [];
+  const recommendations: Array<{ title: string; body: string }> = [];
 
-    if (forgotten) {
-      items.push({
-        title: t('insights.recommendation_forgotten_title'),
-        body: t('insights.recommendation_forgotten_body').replace('{item}', forgotten.title || t('common.garment')),
-      });
-    }
+  if (forgotten) {
+    recommendations.push({
+      title: t('insights.recommendation_forgotten_title'),
+      body: t('insights.recommendation_forgotten_body').replace('{item}', forgotten.title || t('common.garment')),
+    });
+  }
 
-    if (insights.usageRate < 60) {
-      items.push({
-        title: t('insights.recommendation_usage_title'),
-        body: t('insights.recommendation_usage_body'),
-      });
-    }
+  if (insights.usageRate < 60) {
+    recommendations.push({
+      title: t('insights.recommendation_usage_title'),
+      body: t('insights.recommendation_usage_body'),
+    });
+  }
 
-    if (dna?.archetype) {
-      items.push({
-        title: t('insights.recommendation_dna_title').replace('{archetype}', dna.archetype),
-        body: t('insights.recommendation_dna_body'),
-      });
-    }
-
-    return items.slice(0, 3);
-  }, [dna?.archetype, forgotten, insights.usageRate, t]);
+  if (dna?.archetype) {
+    recommendations.push({
+      title: t('insights.recommendation_dna_title').replace('{archetype}', dna.archetype),
+      body: t('insights.recommendation_dna_body'),
+    });
+  }
 
   return (
     <AppLayout>
