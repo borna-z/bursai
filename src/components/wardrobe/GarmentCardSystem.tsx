@@ -91,14 +91,14 @@ function WardrobeImageStateBadge({ label, tone }: { label: string; tone: Garment
       tone={tone === 'laundry' ? 'warning' : 'muted'}
       className={cn(
         'max-w-[120px] shadow-none',
-        tone !== 'laundry' && 'bg-background/86',
+        tone !== 'laundry' && 'bg-background/85',
       )}
     />
   );
 }
 
 function WardrobeWearBadge({ label }: { label: string }) {
-  return <CardPill label={label} tone="muted" className="shadow-none bg-background/86 text-foreground/56" />;
+  return <CardPill label={label} tone="muted" className="shadow-none bg-background/85 text-foreground/56" />;
 }
 
 export function WardrobeStyleAroundButton({
@@ -180,12 +180,12 @@ function WardrobeGarmentImage({
         <WardrobeWearBadge label={model.wearBadgeText} />
       </div>
 
-      {!showRenderOverlay && (
+      {!showRenderOverlay && !model.stateLabel && !isSelecting && (
         <div className="absolute bottom-2.5 left-2.5 z-[3]">
           <GarmentProcessingBadge
             status={garment.image_processing_status}
             renderStatus={garment.render_status}
-            className="bg-background/78"
+            className="bg-background/85"
           />
         </div>
       )}

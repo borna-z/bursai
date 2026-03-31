@@ -3,16 +3,14 @@ import { useLanguage } from '@/contexts/LanguageContext';
 interface HomeStatsStripProps {
   garmentCount: number;
   outfitCount: number;
-  streakDays: number;
 }
 
-export function HomeStatsStrip({ garmentCount, outfitCount, streakDays }: HomeStatsStripProps) {
+export function HomeStatsStrip({ garmentCount, outfitCount }: HomeStatsStripProps) {
   const { t } = useLanguage();
 
   const stats = [
     { value: garmentCount, label: t('home.stat_pieces') || 'Pieces' },
     { value: outfitCount, label: t('home.stat_outfits') || 'Outfits' },
-    { value: streakDays, label: t('home.stat_streak') || 'Day Streak' },
   ];
 
   return (

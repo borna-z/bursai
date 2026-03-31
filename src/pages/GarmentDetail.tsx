@@ -298,7 +298,7 @@ export default function GarmentDetailPage() {
         )}
       />
 
-      <AnimatedPage className="page-shell !px-5 !pb-36 !pt-4 page-cluster">
+      <AnimatedPage className="page-shell !px-5 !pb-4 !pt-4 page-cluster">
         {/* ─── Hero Image ─── */}
         <motion.div
           initial={sectionInitial}
@@ -639,8 +639,8 @@ export default function GarmentDetailPage() {
         ) : null}
       </AnimatedPage>
 
-      {/* ─── Floating Bottom Action Bar ─── */}
-      <div className="bottom-safe-nav fixed inset-x-4 z-20">
+      {/* ─── Sticky Bottom Action Bar ─── */}
+      <div className="sticky bottom-0 z-20 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] pt-3">
         <div className="mx-auto max-w-xl">
           <div className="action-bar-floating flex gap-2 rounded-[1.25rem] p-2.5">
             <Button

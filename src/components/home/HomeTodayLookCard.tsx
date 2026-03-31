@@ -3,7 +3,6 @@ import { Sparkles } from 'lucide-react';
 import type { OutfitWithItems } from '@/hooks/useOutfits';
 import type { HomeState } from '@/components/home/homeTypes';
 import { OutfitComposition } from '@/components/ui/OutfitComposition';
-import { CardPill } from '@/components/ui/card-language';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -117,7 +116,6 @@ export function HomeTodayLookCard({
         <div className="space-y-3.5 p-3.5">
           <div className="flex flex-wrap items-center gap-2 px-1 pt-1">
             <span className="eyebrow-chip">{t('plan.today')}</span>
-            {weatherSummary ? <CardPill label={weatherSummary} tone="muted" size="sm" /> : null}
           </div>
 
           <OutfitComposition items={todayOutfit.outfit_items} className="rounded-[1rem]" />

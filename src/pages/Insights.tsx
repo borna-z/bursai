@@ -140,7 +140,7 @@ export default function InsightsPage() {
               </div>
               <div className="premium-inline-stat p-2.5 text-center">
                 <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/60">
-                  {t('insights.metric_usage')}
+                  {t('insights.metric_active_30d') || '30d Active'}
                 </p>
                 <p className="mt-1 text-[1rem] font-semibold tracking-[-0.04em] text-foreground">
                   {insights.garmentsUsedLast30Days}/{insights.totalGarments}
@@ -150,7 +150,7 @@ export default function InsightsPage() {
           </section>
 
           {recommendations.length > 0 ? (
-            <section className="surface-utility rounded-[1.2rem] p-3.5">
+            <section className="surface-secondary rounded-[1.25rem] p-3.5">
               <div className="space-y-2.5">
                 <p className="label-editorial text-muted-foreground/60">
                   {t('insights.recommended_next')}

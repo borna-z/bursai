@@ -253,7 +253,13 @@ function GarmentListContent({
     <>
       <div className={cn(isGridView ? 'grid grid-cols-3 gap-[5px]' : 'flex flex-col gap-2')}>
         {garments.map((garment) => (
-          <div key={garment.id}>
+          <div
+            key={garment.id}
+            style={{
+              contentVisibility: 'auto',
+              containIntrinsicSize: isGridView ? `auto ${WARDROBE_GRID_ROW_HEIGHT}px` : `auto ${WARDROBE_LIST_ROW_HEIGHT}px`,
+            }}
+          >
             {!isGridView && !isSelecting ? (
               <SwipeableGarmentCard
                 garment={garment}
@@ -335,7 +341,13 @@ export function GarmentGrid({
               <CategorySection category={category} count={garmentsByCategory[category].length} t={t} />
               <div className={cn(isGridView ? 'grid grid-cols-3 gap-[5px]' : 'flex flex-col gap-2')}>
                 {garmentsByCategory[category].map((garment) => (
-                  <div key={garment.id}>
+                  <div
+                    key={garment.id}
+                    style={{
+                      contentVisibility: 'auto',
+                      containIntrinsicSize: isGridView ? `auto ${WARDROBE_GRID_ROW_HEIGHT}px` : `auto ${WARDROBE_LIST_ROW_HEIGHT}px`,
+                    }}
+                  >
                     <GarmentCard
                       garment={garment}
                       t={t}
